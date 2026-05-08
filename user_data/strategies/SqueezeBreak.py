@@ -42,12 +42,14 @@ class SqueezeBreak(IStrategy):
     ]
 
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        upper, middle, lower = ta.BBANDS(dataframe, timeperiod=20, nbdevup=2.0, nbdevdn=2.0)
-        dataframe["bb_upper"] = upper
-        dataframe["bb_middle"] = middle
-        dataframe["bb_lower"] = lower
-        bb_width = (upper - lower) / np.where(middle != 0, middle, np.nan)
-        dataframe["bb_width"] = bb_width
+        bb = ta.BBANDS(dataframe, timeperiod=20, nbdevup=2.0, nbdevdn=2.0)
+        dataframe["bb_upper"] = bb["upperband"]
+        dataframe["bb_middle"] = bb["middleband"]
+        dataframe["bb_lower"] = bb["lowerband"]
+        dataframe["bb_width"] = (
+            (dataframe["bb_upper"] - dataframe["bb_lower"])
+            / dataframe["bb_middle"].replace(0, np.nan)
+        )
         dataframe["bb_width_med50"] = dataframe["bb_width"].rolling(50).median()
         dataframe["vol_ma20"] = dataframe["volume"].rolling(20).mean()
         dataframe["squeeze"] = (
