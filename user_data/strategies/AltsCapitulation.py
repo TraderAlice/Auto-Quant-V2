@@ -54,7 +54,7 @@ class AltsCapitulation(IStrategy):
 
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         dataframe.loc[
-            (dataframe["rsi"] < 22)
+            (dataframe["rsi"] < 25)
             & (dataframe["ema50_4h"] > dataframe["ema200_4h"]),
             "enter_long",
         ] = 1
@@ -86,7 +86,7 @@ class AltsCapitulation(IStrategy):
         rsi = df["rsi"].iloc[-1]
         if rsi != rsi:
             return proposed_stake
-        scale = min(2.0, max(0.5, 22.0 / max(rsi, 1.0)))
+        scale = min(2.0, max(0.5, 25.0 / max(rsi, 1.0)))
         scaled = proposed_stake * scale
         if min_stake is not None:
             scaled = max(min_stake, scaled)

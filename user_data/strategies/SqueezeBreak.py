@@ -13,7 +13,7 @@ from pandas import DataFrame
 import numpy as np
 import talib.abstract as ta
 
-from freqtrade.strategy import IStrategy
+from freqtrade.strategy import IStrategy, informative
 
 
 class SqueezeBreak(IStrategy):
@@ -32,7 +32,7 @@ class SqueezeBreak(IStrategy):
     exit_profit_only = False
     ignore_roi_if_entry_signal = False
 
-    startup_candle_count: int = 100
+    startup_candle_count: int = 250
 
     test_timeranges = [
         ("bull_2021",      "20210101-20211231"),
@@ -40,6 +40,11 @@ class SqueezeBreak(IStrategy):
         ("recovery_23_25", "20230101-20251231"),
         ("full_5y",        "20210101-20251231"),
     ]
+
+    @informative("1d")
+    def populate_indicators_1d(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+        dataframe["sma200"] = ta.SMA(dataframe, timeperiod=200)
+        return dataframe
 
     def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         bb = ta.BBANDS(dataframe, timeperiod=20, nbdevup=2.0, nbdevdn=2.0)
@@ -62,7 +67,8 @@ class SqueezeBreak(IStrategy):
             dataframe["squeeze"]
             & (dataframe["close"] > dataframe["bb_upper"])
             & (dataframe["close"].shift(1) <= dataframe["bb_upper"].shift(1))
-            & (dataframe["volume"] > dataframe["vol_ma20"] * 1.3),
+            & (dataframe["volume"] > dataframe["vol_ma20"] * 1.3)
+            & (dataframe["close"] > dataframe["sma200_1d"]),
             "enter_long",
         ] = 1
         return dataframe

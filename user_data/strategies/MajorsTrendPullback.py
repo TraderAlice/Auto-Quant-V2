@@ -22,7 +22,7 @@ class MajorsTrendPullback(IStrategy):
     can_short = False
 
     minimal_roi = {"0": 100}
-    stoploss = -0.99
+    stoploss = -0.08
 
     trailing_stop = False
     process_only_new_candles = True
@@ -59,7 +59,7 @@ class MajorsTrendPullback(IStrategy):
 
     def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         dataframe.loc[
-            (dataframe["close"] > dataframe["sma200_1d"])
+            (dataframe["close"] > dataframe["sma200_1d"] * 1.03)
             & (dataframe["ema50_4h"] > dataframe["ema200_4h"])
             & (dataframe["ema21"] > dataframe["ema50"])
             & (dataframe["close"] <= dataframe["ema21"] * 1.005)
