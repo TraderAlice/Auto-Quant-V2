@@ -24,9 +24,11 @@ Multi-objective oracle (new in v0.4.1):
 
 - `profit_floor`: each timerange backtest's profit must clear a configurable
   floor (default 20% absolute) — flagged in summary.
-- `min_position_size`: average stake fraction must be ≥ a configurable
-  floor (default 5%). Catches the v0.4.0 "Sharpe-via-tiny-stakes" Pareto
-  degeneracy.
+- `avg_position_pct`: capital utilization, reported per-timerange as CONTEXT
+  (not pass/fail). An advisory `NOTE tiny-stakes watch` is printed only when a
+  keepable Sharpe coincides with thin participation AND thin profit — the actual
+  v0.4.0 "Sharpe-via-tiny-stakes" degeneracy signature. Small positions alone
+  never trigger it; there is no universal "correct" position size to gate on.
 - `pareto_dominated_by`: cross-checks the strategy's robust metrics against
   prior commits' KEEP / EVOLVE rows in `results.tsv` for Pareto dominance.
 
@@ -72,7 +74,17 @@ PAIRS_STR = ",".join(PAIRS)
 
 # Multi-objective gates (v0.4.1)
 PROFIT_FLOOR_PCT = 20.0   # each timerange must show at least +20% portfolio profit
-MIN_POSITION_SIZE_PCT = 5.0  # avg trade stake / wallet must be ≥ 5%
+
+# Tiny-stakes reminder (advisory — NOT a hard gate). v0.4.0 surfaced a
+# degeneracy where shrinking per-trade stake monotonically inflates Sharpe while
+# profit collapses (the portfolio stops participating). There is no universal
+# "correct" position size, so we do NOT pass/fail on it. Instead we print an
+# advisory NOTE only when the actual degeneracy signature is present: a Sharpe
+# that looks keepable, coinciding with thin participation AND thin profit. Small
+# positions alone never trigger it (a selective strategy with healthy profit is
+# fine). These thresholds gate the *message*, not the strategy — tune freely.
+TINY_STAKES_POS_PCT = 10.0     # min avg position notably below the ~20% equal-weight baseline
+TINY_STAKES_SHARPE = 0.3       # robust_sharpe the agent might keep on (matches program.md soft bar)
 
 # Annualization factor for daily Sharpe of crypto portfolios
 DAILY_SHARPE_FACTOR = math.sqrt(365)
@@ -301,20 +313,29 @@ def compute_bah_benchmark(
 # ---------------------------------------------------------------------------
 # Position-size estimation (avg stake fraction across trades)
 # ---------------------------------------------------------------------------
-def estimate_avg_position_size_pct(results: dict[str, Any], strategy_name: str) -> float:
-    """Best-effort estimate of the average stake / wallet fraction.
+def estimate_avg_position_size_pct(results: dict[str, Any], strategy_name: str) -> float | None:
+    """Best-effort estimate of one backtest's average stake / wallet fraction.
 
     Reads the trade list from FreqTrade's results, computes mean
     stake_amount / starting_balance.
+
+    Returns ``None`` (not ``0.0``) when stakes can't be read — no trade list, no
+    parseable stakes, or a bad wallet. This is deliberate: a *measurement gap*
+    must never masquerade as a genuine "this strategy trades microscopic
+    positions" finding (which 0.0 would imply). Callers report None as "n/a".
     """
     strat = results.get("strategy", {}).get(strategy_name, {}) or {}
     starting_balance = float(strat.get("starting_balance") or strat.get("dry_run_wallet") or 10000.0)
-    trades = strat.get("trades") or strat.get("results") or []
-    if not trades or starting_balance <= 0:
-        return 0.0
+    if starting_balance <= 0:
+        return None
+    trades = strat.get("trades")
+    if trades is None:
+        trades = strat.get("results")
+    if trades is None:
+        return None
     stakes = []
     for t in trades:
-        s = t.get("stake_amount")
+        s = t.get("stake_amount") if isinstance(t, dict) else None
         if s is None:
             continue
         try:
@@ -322,7 +343,7 @@ def estimate_avg_position_size_pct(results: dict[str, Any], strategy_name: str) 
         except (TypeError, ValueError):
             continue
     if not stakes:
-        return 0.0
+        return None
     return float(np.mean(stakes)) / starting_balance * 100.0
 
 
@@ -444,11 +465,14 @@ def print_block(
 def print_strategy_summary(
     strategy_name: str,
     commit: str,
+    labels: list[str],
     per_timerange_metrics: list[dict[str, Any]],
-    avg_position_pct: float,
+    positions: list[float | None],
 ) -> None:
     """Final per-strategy summary block. Headline = robust_sharpe = min over all
-    declared timeranges. Includes multi-objective gate flags."""
+    declared timeranges. Reports the profit_floor gate, the pareto check, and
+    capital utilization as context (per-timerange), plus an advisory tiny-stakes
+    NOTE when the v0.4.0 Sharpe-via-de-risking signature is present."""
     if not per_timerange_metrics:
         return
     sharpes = [m["aggregate"]["sharpe"] for m in per_timerange_metrics]
@@ -460,8 +484,14 @@ def print_strategy_summary(
     worst_dd = min(dds) if dds else 0.0  # most negative
 
     profit_floor_pass = all(p >= PROFIT_FLOOR_PCT for p in profits)
-    min_pos_pass = avg_position_pct >= MIN_POSITION_SIZE_PCT
     pareto_dom = check_pareto_dominance(robust_sharpe, worst_dd)
+
+    # Capital utilization — reported as CONTEXT, never pass/fail. Aggregate over
+    # the timeranges actually measured; keep the per-timerange spread visible so
+    # regime-conditional sizing-down (fine in bull, ~0 in winter) isn't hidden.
+    measured = [p for p in positions if p is not None]
+    avg_pos = float(np.mean(measured)) if measured else None
+    min_pos = min(measured) if measured else None
 
     print("---")
     print(f"strategy:         {strategy_name}")
@@ -470,15 +500,36 @@ def print_strategy_summary(
     print(f"robust_sharpe:    {robust_sharpe:.4f}   # min across declared timeranges")
     print(f"worst_profit_pct: {worst_profit:.4f}")
     print(f"worst_dd_pct:     {worst_dd:.4f}")
-    print(f"avg_position_pct: {avg_position_pct:.4f}")
+    if avg_pos is None:
+        print(f"avg_position_pct: n/a   (could not read trade stakes)")
+    else:
+        per_tr = " ".join(
+            f"{lbl}={('%.1f' % p) if p is not None else 'n/a'}"
+            for lbl, p in zip(labels, positions)
+        )
+        print(f"avg_position_pct: {avg_pos:.1f}   (per-tr: {per_tr})")
     print(f"profit_floor:     {'PASS' if profit_floor_pass else 'FAIL'}   "
           f"(threshold ≥ {PROFIT_FLOOR_PCT}% per timerange)")
-    print(f"min_position_size: {'PASS' if min_pos_pass else 'FAIL'}   "
-          f"(threshold ≥ {MIN_POSITION_SIZE_PCT}%)")
     if pareto_dom:
         print(f"pareto_dominated_by: {pareto_dom}")
     else:
         print(f"pareto_dominated_by: none (non-dominated)")
+
+    # Advisory tiny-stakes reminder — fires ONLY on the actual degeneracy
+    # signature (keepable Sharpe + thin participation + thin profit, all at
+    # once). Small positions with healthy profit, or a weak Sharpe that will be
+    # killed anyway, stay silent. Not a gate: the agent decides.
+    if (
+        min_pos is not None
+        and min_pos < TINY_STAKES_POS_PCT
+        and robust_sharpe > TINY_STAKES_SHARPE
+        and worst_profit < PROFIT_FLOOR_PCT
+    ):
+        print(
+            f"NOTE tiny-stakes watch: robust_sharpe {robust_sharpe:.2f} looks keepable "
+            f"but min avg position is {min_pos:.1f}% and worst-tr profit {worst_profit:.1f}% "
+            f"— confirm this is edge, not Sharpe-via-de-risking (cf. v0.4.0 Pareto-walk)."
+        )
 
 
 def print_error(
@@ -534,7 +585,8 @@ def main() -> int:
 
         active_pairs = list(pair_basket) if pair_basket else list(PAIRS)
         per_timerange_metrics: list[dict[str, Any]] = []
-        per_timerange_results: list[dict[str, Any]] = []
+        per_timerange_labels: list[str] = []
+        per_timerange_positions: list[float | None] = []
 
         for label, timerange in test_timeranges:
             try:
@@ -543,7 +595,10 @@ def main() -> int:
                 bah = compute_bah_benchmark(timerange, active_pairs)
                 print_block(name, commit, label, timerange, active_pairs, bundle, bah)
                 per_timerange_metrics.append(bundle)
-                per_timerange_results.append(results)
+                per_timerange_labels.append(label)
+                # Measure stake fraction per timerange so regime-conditional
+                # sizing-down is visible, not just the first range's number.
+                per_timerange_positions.append(estimate_avg_position_size_pct(results, name))
                 n_ok_total += 1
             except BaseException as err:
                 print_error(name, commit, label, timerange, err)
@@ -552,14 +607,10 @@ def main() -> int:
 
         # Summary block: aggregate across timeranges
         if per_timerange_metrics:
-            # Average position size estimate from the first successful backtest
-            avg_pos = 0.0
-            for r in per_timerange_results:
-                est = estimate_avg_position_size_pct(r, name)
-                if est > 0:
-                    avg_pos = est
-                    break
-            print_strategy_summary(name, commit, per_timerange_metrics, avg_pos)
+            print_strategy_summary(
+                name, commit, per_timerange_labels,
+                per_timerange_metrics, per_timerange_positions,
+            )
             print()
 
     print(f"Done: {n_ok_total} backtests succeeded, {n_err_total} failed.")

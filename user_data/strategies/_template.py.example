@@ -86,21 +86,25 @@ Multi-timerange testing (v0.4.1): declare `test_timeranges = [...]` as
 a list of `(label, "YYYYMMDD-YYYYMMDD")` tuples. The backtest runs once
 per timerange and run.py reports each result block. The strategy then
 gets a SUMMARY block with `robust_sharpe = min(sharpes_across_timeranges)`,
-plus multi-objective gate flags (profit_floor PASS/FAIL, min_position_size
-PASS/FAIL, pareto_dominated_by). Use this for cross-regime robustness
+plus the multi-objective signals (profit_floor PASS/FAIL, pareto_dominated_by,
+and per-timerange avg_position_pct). Use this for cross-regime robustness
 testing (e.g., 2021_bull / 2022_winter / recovery / full) or for OOS
 splits (e.g., train_21_24 / test_25). If unset, defaults to single
 backtest over the full timerange.
 
-Multi-objective oracle (v0.4.1): the SUMMARY block reports three gate
-flags alongside `robust_sharpe`:
+Multi-objective oracle (v0.4.1): the SUMMARY block reports alongside
+`robust_sharpe`:
   - profit_floor:    each timerange must show ≥ 20% portfolio profit
-  - min_position_size: avg trade stake ≥ 5% of wallet (catches the v0.4.0
-                       "Sharpe-via-tiny-stakes" Pareto degeneracy)
+  - avg_position_pct: avg trade stake / wallet, per-timerange — CONTEXT, not a
+                      gate (no universal "correct" size). An advisory
+                      "NOTE tiny-stakes watch" fires only when a keepable Sharpe
+                      coincides with thin participation AND thin profit — the
+                      v0.4.0 "Sharpe-via-tiny-stakes" degeneracy. Small positions
+                      with healthy profit stay silent.
   - pareto_dominated_by: any prior commit's row that beats this on
                          (sharpe, max_dd) jointly
-A FAIL flag isn't an automatic kill — agent decides — but it's a strong
-signal that the headline number is misleading.
+A FAIL gate or tiny-stakes NOTE isn't an automatic kill — agent decides — but
+it's a strong signal that the headline number is misleading.
 
 Buy-and-hold benchmark (v0.4.1): each timerange's `---` block now reports
 `bah_sharpe`, `bah_profit_pct`, `bah_dd_pct` for an equal-weight buy-
