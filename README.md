@@ -82,8 +82,9 @@ Plus:
 - **v0.4.1** ([archive](versions/0.4.1/)): four affordances bundled —
   `pair_basket` (strategy-declared portfolio), `test_timeranges` (multi-regime
   backtest with `robust_sharpe = min` as headline), per-timerange buy-and-hold
-  benchmark, and multi-objective gates (`profit_floor`, `min_position_size`,
-  `pareto_dominated_by`) flanking the headline metric. Direct response to
+  benchmark, and multi-objective signals (`profit_floor`, `pareto_dominated_by`,
+  plus an advisory tiny-stakes watch on capital utilization) flanking the
+  headline metric. Direct response to
   v0.4.0's Sharpe-degeneracy finding. **First multi-strategy lineup with
   `robust_sharpe > 0` across all four declared regimes (bull/winter/recovery/
   full-5y) simultaneously**, but the run also surfaced an "early Pareto lock"

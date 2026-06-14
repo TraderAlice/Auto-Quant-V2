@@ -10,7 +10,8 @@ This is an experiment to have the LLM do its own quantitative research across
 - compare against a **buy-and-hold benchmark** computed for the same period
 
 Decision metric (v0.4.1): `robust_sharpe = min(sharpe across declared timeranges)`,
-flanked by `profit_floor`, `min_position_size`, and `pareto_dominated_by` gates.
+flanked by the `profit_floor` and `pareto_dominated_by` gates, plus an advisory
+`tiny-stakes watch` on capital utilization.
 
 The progression so far:
 - v0.2.0 added multi-strategy → resisted single-paradigm anchoring
@@ -32,8 +33,9 @@ The progression so far:
 
 The v0.4.1 honesty bar (more demanding than v0.4.0):
 - A strategy is "real" only if `robust_sharpe` is good across ALL its declared
-  timeranges, AND `profit_floor` PASS, AND `min_position_size` PASS, AND it
-  isn't `pareto_dominated_by` a prior keep
+  timeranges, AND `profit_floor` PASS, AND it isn't `pareto_dominated_by` a
+  prior keep, AND it doesn't trip the `tiny-stakes watch` (good Sharpe bought
+  by not participating)
 - Headline Sharpe by itself is no longer enough — the gates must clear
 
 ## Setup
@@ -391,30 +393,40 @@ beats BaH 0.93 on full timerange; profit 232% beats BaH 187%". Without
 the BaH reference, the agent can over-celebrate strategies that just track
 the market.
 
-### Multi-objective gates (new in v0.4.1)
+### Multi-objective signals (new in v0.4.1)
 
-In addition to `robust_sharpe`, the per-strategy SUMMARY block reports
-three pass/fail gates:
+In addition to `robust_sharpe`, the per-strategy SUMMARY block reports a
+profit gate, a Pareto check, and capital-utilization context:
 
 ```
+avg_position_pct:    24.7  (per-tr: bull_2021=26.3 winter_2022=21.6 recovery_23_25=22.5 full_5y=28.4)
 profit_floor:        PASS  (threshold ≥ 20% per timerange)
-min_position_size:   PASS  (threshold ≥ 5%)
 pareto_dominated_by: none (non-dominated)
 ```
 
 - **profit_floor**: each declared timerange must clear ≥20% portfolio profit.
   Catches "Sharpe-via-tightening-stake" Pareto degeneracy from v0.4.0.
-- **min_position_size**: average trade stake / wallet must be ≥5%. Same
-  defense — prevents sizing → 0 from inflating Sharpe.
+- **avg_position_pct**: average trade stake / wallet, reported per-timerange as
+  **context, not a gate**. There is no universal "correct" position size, so
+  this is never pass/fail — a selective strategy with small positions and
+  healthy profit is fine. The per-timerange spread also reveals
+  regime-conditional sizing-down (e.g. normal in bull, ~0 in winter).
+- **`NOTE tiny-stakes watch`** (advisory): printed *only* when the real v0.4.0
+  degeneracy signature is present — a keepable `robust_sharpe` (> 0.3)
+  coinciding with thin participation (min avg position < ~10%) **and** thin
+  profit (worst timerange below the floor). It means "this Sharpe may be
+  de-risking, not edge — go check", not "this failed". If you can't read stakes
+  the line shows `avg_position_pct: n/a` and no NOTE fires (a measurement gap
+  never masquerades as a finding).
 - **pareto_dominated_by**: the SUMMARY's robust_sharpe + worst-DD pair
   is checked against all prior commits' rows in `results.tsv`. If any
   prior strategy has `sharpe ≥ yours` AND `dd ≥ yours` (less negative),
   this row is marked dominated. A dominated current strategy is a kill
   candidate — there's no reason to keep it when a prior is strictly better.
 
-**A FAIL gate isn't an automatic kill** — agent decides. But it's a strong
-signal that the headline number is misleading. When deciding keep/kill,
-weigh gates as inputs alongside the metrics.
+**None of these is an automatic kill** — agent decides. But a FAIL gate or a
+tiny-stakes NOTE is a strong signal that the headline number is misleading.
+When deciding keep/kill, weigh them as inputs alongside the metrics.
 
 ### Hard rules on strategy lifecycle
 
@@ -489,11 +501,14 @@ commit:           abc1234
 robust_sharpe:    0.6500   # min across declared timeranges
 worst_profit_pct: 22.4
 worst_dd_pct:     -28.1
-avg_position_pct: 18.7
+avg_position_pct: 18.7   (per-tr: bull_2021=19.2 winter_2022=17.1 recovery_23_25=18.9 full_5y=19.6)
 profit_floor:     PASS    (threshold ≥ 20% per timerange)
-min_position_size: PASS   (threshold ≥ 5%)
 pareto_dominated_by: none (non-dominated)
 ```
+
+(If the tiny-stakes signature is present, a `NOTE tiny-stakes watch: ...` line
+follows `pareto_dominated_by`. If stakes can't be read, `avg_position_pct` shows
+`n/a`.)
 
 **`robust_sharpe`** is the headline metric for v0.4.1 keep/kill decisions —
 it's the worst-timerange Sharpe. Single-timerange Sharpe is no longer
@@ -605,8 +620,8 @@ LOOP FOREVER:
 A strategy deserves to stay if (in priority order):
 1. **`robust_sharpe` is meaningfully positive** (> 0.3 as a soft bar) AND
    the worst-timerange numbers aren't catastrophic
-2. **All multi-objective gates PASS**: profit_floor, min_position_size,
-   pareto_dominated_by = none
+2. **The multi-objective signals are clean**: profit_floor PASS,
+   pareto_dominated_by = none, and no tiny-stakes NOTE
 3. **Beats BaH** at least on Sharpe across the declared timeranges (or has
    a clear non-Sharpe edge: e.g., much lower DD with comparable profit)
 4. Its paradigm/basket is distinct from other active strategies
