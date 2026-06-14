@@ -221,17 +221,30 @@ def compute_bah_benchmark(
     timerange: str,
     pairs: list[str],
 ) -> dict[str, Any]:
-    """Compute equal-weight buy-and-hold portfolio metrics over the timerange.
+    """Compute equal-weight BUY-AND-HOLD portfolio metrics over the timerange.
 
-    Reads 1d feathers, slices to timerange, computes per-pair daily returns,
-    averages across pairs (equal-weight portfolio), then derives Sharpe /
-    profit / max-DD. Returns NaN-safe defaults on missing data.
+    True buy-and-hold semantics: allocate 1/N of the wallet to each pair at the
+    start of the window and then DO NOTHING — weights are allowed to drift as
+    prices move (winners grow their share). This is the honest "doing nothing"
+    baseline that program.md asks the agent to compare against.
+
+    Implementation: each pair's equity multiple is `close / close[0]` (starts at
+    1.0). The portfolio equity curve is the mean of those multiples — i.e. the
+    drifting-weight 1/N portfolio. Sharpe / profit / max-DD are derived from that
+    portfolio equity curve. Returns NaN-safe defaults on missing data.
+
+    NOTE: a previous version averaged *daily returns* across pairs, which is a
+    daily-REBALANCED equal-weight portfolio, NOT buy-and-hold. In divergent-trend
+    regimes that understated true BaH by ~1000pp (e.g. bull_2021: +1742% reported
+    vs +2748% actual) and was inconsistent with the per-pair `profit_pct` below
+    (which has always been true BaH `last/first`). Fixed to be internally
+    consistent and to match the "doing nothing" semantic.
     """
     start_str, end_str = timerange.split("-", 1)
     start = pd.Timestamp(start_str, tz="UTC")
     end = pd.Timestamp(end_str, tz="UTC")
 
-    pair_returns: dict[str, pd.Series] = {}
+    pair_gross: dict[str, pd.Series] = {}  # equity multiple per pair, starts at 1.0
     pair_summary: dict[str, dict[str, float]] = {}
     for pair in pairs:
         path = DATA_DIR / f"{pair.replace('/', '_')}-1d.feather"
@@ -244,17 +257,18 @@ def compute_bah_benchmark(
         df = df[(df["date"] >= start) & (df["date"] <= end)].reset_index(drop=True)
         if len(df) < 2:
             continue
-        df["ret"] = df["close"].pct_change()
-        pair_returns[pair] = df.set_index("date")["ret"]
-        first, last = df["close"].iloc[0], df["close"].iloc[-1]
-        cum = (1.0 + df["ret"].fillna(0.0)).cumprod()
+        gross = (df["close"] / df["close"].iloc[0])
+        gross.index = df["date"]
+        pair_gross[pair] = gross
+        ret = df["close"].pct_change().fillna(0.0)
+        cum = (1.0 + ret).cumprod()
         dd = float((cum / cum.cummax() - 1.0).min() * 100)
         pair_summary[pair] = {
-            "profit_pct": float((last / first - 1.0) * 100),
+            "profit_pct": float((gross.iloc[-1] - 1.0) * 100),
             "dd_pct": dd,
         }
 
-    if not pair_returns:
+    if not pair_gross:
         return {
             "sharpe": 0.0,
             "profit_total_pct": 0.0,
@@ -262,16 +276,19 @@ def compute_bah_benchmark(
             "per_pair": {},
         }
 
-    # Equal-weight portfolio: average daily returns across pairs
-    rets_df = pd.concat(pair_returns.values(), axis=1).fillna(0.0)
-    portfolio_daily = rets_df.mean(axis=1)
+    # True BaH portfolio: equal initial weight, drifting thereafter.
+    # Portfolio equity = mean of per-pair equity multiples (each starts at 1.0).
+    # A pair that lists after the window start sits as cash (gross=1.0) until it
+    # has data — consistent with "allocate the basket at t0 and do nothing".
+    gross_df = pd.concat(pair_gross.values(), axis=1).sort_index().ffill().fillna(1.0)
+    portfolio_equity = gross_df.mean(axis=1)
+    portfolio_daily = portfolio_equity.pct_change().dropna()
     if portfolio_daily.std() > 0:
         sharpe = float(portfolio_daily.mean() / portfolio_daily.std() * DAILY_SHARPE_FACTOR)
     else:
         sharpe = 0.0
-    total_profit = float(((1.0 + portfolio_daily).prod() - 1.0) * 100)
-    cum = (1.0 + portfolio_daily).cumprod()
-    max_dd = float((cum / cum.cummax() - 1.0).min() * 100)
+    total_profit = float((portfolio_equity.iloc[-1] - 1.0) * 100)
+    max_dd = float((portfolio_equity / portfolio_equity.cummax() - 1.0).min() * 100)
 
     return {
         "sharpe": sharpe,
