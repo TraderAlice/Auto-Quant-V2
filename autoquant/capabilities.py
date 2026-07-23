@@ -48,6 +48,27 @@ PROJECT_ARGUMENT = argument(
     "Project id inside a Workspace.",
     default="Workspace default",
 )
+PATH_ARGUMENT = argument(
+    "path",
+    "positional",
+    "string",
+    True,
+    "Direct Project or Workspace directory.",
+)
+STUDY_ARGUMENT = argument(
+    "study",
+    "option",
+    "string",
+    True,
+    "Project-local Study id.",
+)
+RUN_ARGUMENT = argument(
+    "run",
+    "option",
+    "string",
+    True,
+    "Immutable Run id.",
+)
 
 
 def descriptor(
@@ -79,8 +100,8 @@ CLI_COMMANDS = [
     ),
     descriptor(
         "schema",
-        "aq schema [workspace|project] [--json]",
-        "List or emit canonical Workspace and Project JSON Schemas.",
+        "aq schema [workspace|project|study|judge-output|run-result] [--json]",
+        "List or emit canonical AutoQuant JSON Schemas.",
         "read-only",
         [
             argument(
@@ -89,7 +110,13 @@ CLI_COMMANDS = [
                 "string",
                 False,
                 "Schema kind; omit to list kinds.",
-                choices=["workspace", "project"],
+                choices=[
+                    "workspace",
+                    "project",
+                    "study",
+                    "judge-output",
+                    "run-result",
+                ],
             ),
             JSON_ARGUMENT,
         ],
@@ -229,5 +256,97 @@ CLI_COMMANDS = [
             PROJECT_ARGUMENT,
             JSON_ARGUMENT,
         ],
+    ),
+    descriptor(
+        "study.create",
+        "aq study create <path> <study-id> [contract options] [--json]",
+        "Create and validate one fixed Project-local quantitative Study.",
+        "creates-artifact",
+        [
+            PATH_ARGUMENT,
+            argument(
+                "study-id",
+                "positional",
+                "string",
+                True,
+                "Lowercase kebab-case Study id.",
+            ),
+            PROJECT_ARGUMENT,
+            argument("name", "option", "string", False, "Study display name.", default="Study id"),
+            argument("description", "option", "string", False, "Bounded research question.", default="Empty"),
+            argument(
+                "subject-kind",
+                "option",
+                "string",
+                True,
+                "Research subject kind.",
+                choices=["strategy", "factor", "model", "research"],
+            ),
+            argument("subject-name", "option", "string", False, "Research subject name.", default="Study id"),
+            argument("subject-version", "option", "string", False, "Mutable subject version label.", default="working"),
+            argument("judge", "option", "string", True, "Project-relative Python Judge entrypoint."),
+            argument("judge-path", "option", "string", False, "Repeatable fixed Judge file or trailing /** closure.", default="Judge entrypoint"),
+            argument("judge-arg", "option", "string", False, "Repeatable fixed Judge argument.", default="None"),
+            argument("editable", "option", "string", True, "Repeatable Agent-editable file or trailing /** closure."),
+            argument("metric", "option", "string", False, "Primary metric name.", default="score"),
+            argument(
+                "direction",
+                "option",
+                "string",
+                False,
+                "Primary metric direction.",
+                default="maximize",
+                choices=["maximize", "minimize"],
+            ),
+            argument("minimum-improvement", "option", "number", False, "Minimum comparable improvement.", default=0),
+            argument("dataset-id", "option", "string", True, "Dataset identity."),
+            argument("dataset-version", "option", "string", False, "Dataset version.", default="working"),
+            argument("asset-class", "option", "string", True, "Dataset asset class."),
+            argument("asset", "option", "string", True, "Repeatable asset universe member."),
+            argument("start", "option", "string", True, "Dataset start date YYYY-MM-DD."),
+            argument("end", "option", "string", True, "Dataset end date YYYY-MM-DD."),
+            argument("timeout", "option", "integer", False, "Judge timeout in seconds.", default=60),
+            JSON_ARGUMENT,
+        ],
+    ),
+    descriptor(
+        "study.list",
+        "aq study list <path> [--project ID] [--json]",
+        "List strict Project-local Studies.",
+        "read-only",
+        [PATH_ARGUMENT, PROJECT_ARGUMENT, JSON_ARGUMENT],
+    ),
+    descriptor(
+        "study.inspect",
+        "aq study inspect <path> --study ID [--project ID] [--json]",
+        "Inspect one fixed Study, source closure, Judge, dataset, and input identity.",
+        "read-only",
+        [PATH_ARGUMENT, PROJECT_ARGUMENT, STUDY_ARGUMENT, JSON_ARGUMENT],
+    ),
+    descriptor(
+        "run.execute",
+        "aq run execute <path> --study ID [--project ID] [--json]",
+        "Execute one bounded Python Judge and publish an immutable RunResult.",
+        "creates-artifact",
+        [PATH_ARGUMENT, PROJECT_ARGUMENT, STUDY_ARGUMENT, JSON_ARGUMENT],
+    ),
+    descriptor(
+        "run.list",
+        "aq run list <path> [--study ID] [--project ID] [--json]",
+        "List verified immutable Runs, optionally filtered by Study.",
+        "read-only",
+        [
+            PATH_ARGUMENT,
+            PROJECT_ARGUMENT,
+            argument("study", "option", "string", False, "Optional Study id filter."),
+            JSON_ARGUMENT,
+        ],
+    ),
+    descriptor(
+        "run.show",
+        "aq run show <path> --run ID [--project ID] [--json]",
+        "Verify and inspect one immutable RunResult.",
+        "read-only",
+        [PATH_ARGUMENT, PROJECT_ARGUMENT, RUN_ARGUMENT, JSON_ARGUMENT],
     ),
 ]

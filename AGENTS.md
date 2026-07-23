@@ -50,6 +50,8 @@ Read the relevant linked document before changing a subsystem:
   confinement: [[docs/design/workspace-project-boundaries]]
 - Versioned CLI envelopes, capability discovery, operation effects, artifacts,
   and next actions: [[docs/design/agent-cli-contract]]
+- Fixed Study authority, editable/Judge source closures, bounded execution, and
+  immutable RunResult evidence: [[docs/design/study-run-evidence]]
 - Canonical Workspace and Project file schemas: [[docs/PROJECT_FORMAT]]
 - Human and machine-readable command behavior: [[docs/CLI]]
 - Current Freqtrade/OHLCV Harness manifest and profile contract:

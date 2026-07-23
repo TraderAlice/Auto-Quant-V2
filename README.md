@@ -38,6 +38,22 @@ The repository-root strategy arena described below remains the V0.5
 compatibility Harness while its execution and evidence contracts are migrated
 into Projects.
 
+V2 Projects can also define strict Studies and publish immutable RunResults
+through one bounded Python Judge lane. This is the common evidence contract for
+future Freqtrade, factor, and ML research:
+
+```bash
+uv run aq study list ./quant-workspace
+uv run aq study inspect ./quant-workspace --study factor-quality --json
+uv run aq run execute ./quant-workspace --study factor-quality --json
+uv run aq run list ./quant-workspace --study factor-quality
+```
+
+Study, Judge output, and RunResult formats are documented in
+[`docs/PROJECT_FORMAT.md`](docs/PROJECT_FORMAT.md). The autonomous
+KEEP/REVERT/CRASH mutation loop will build on these immutable Runs rather than
+parsing free-form backtest output.
+
 The v0.5 development Harness still uses **Freqtrade as its one core engine**,
 but assets are no longer hardwired into that engine:
 

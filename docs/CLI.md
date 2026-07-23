@@ -1,6 +1,6 @@
 # AutoQuant V2 CLI
 
-Status: Workspace/Project foundation implemented.
+Status: Workspace/Project plus Study/Run evidence implemented.
 
 `aq` is the public human- and Agent-facing command line interface. Humans
 receive compact text by default. `--json` emits exactly one versioned envelope.
@@ -41,6 +41,37 @@ aq inspect <project-or-workspace-dir> [--project ID] [--json]
 `validate` and `inspect` resolve exactly one Project before reading its
 manifest. A direct Project path rejects `--project`; a Workspace path selects
 the explicit id or its default.
+
+## Study and Run commands
+
+```bash
+aq study create <path> <study-id> \
+  --subject-kind factor \
+  --judge judges/evaluate.py \
+  --judge-path 'judges/**' \
+  --editable 'factors/**' \
+  --metric score \
+  --dataset-id synthetic-bars \
+  --asset-class equity \
+  --asset AAA/USD \
+  --start 2026-01-01 \
+  --end 2026-01-31
+
+aq study list <path> [--project ID] [--json]
+aq study inspect <path> --study ID [--project ID] [--json]
+aq run execute <path> --study ID [--project ID] [--json]
+aq run list <path> [--study ID] [--project ID] [--json]
+aq run show <path> --run ID [--project ID] [--json]
+```
+
+`study create` validates the complete fixed contract immediately. `run execute`
+freezes inputs, runs the Python Judge under its timeout, and atomically
+publishes one immutable Run whether the Judge succeeds or fails. `run list`
+and `run show` verify terminal file hashes before returning evidence.
+
+A failed Run is a successful artifact-creation operation whose RunResult has
+`status: failed`; it retains errors and logs. A CLI error means trustworthy Run
+evidence could not be created or verified.
 
 ## Success envelope
 
@@ -144,14 +175,15 @@ uv run aq capabilities --json
 
 ## Current boundary
 
-This CLI currently owns Workspace and Project lifecycle only. The legacy
-`prepare.py` and `run.py` commands remain the V0.5 compatibility Harness.
-Study, Run, Research, Candidate, comparison, and Studio commands will join
-`aq capabilities` only after their Core contracts exist.
+This CLI currently owns Workspace/Project lifecycle plus fixed Study and
+immutable Run evidence. The legacy `prepare.py` and `run.py` commands remain
+the V0.5 compatibility Harness. Research Sessions, Experiments, Candidate
+comparison/promotion, and Studio commands will join `aq capabilities` only
+after their Core contracts exist.
 
 ## Verification
 
 ```bash
 uv run aq capabilities --json
-uv run python -m unittest tests.test_cli -v
+uv run python -m unittest tests.test_cli tests.test_studies tests.test_runs -v
 ```

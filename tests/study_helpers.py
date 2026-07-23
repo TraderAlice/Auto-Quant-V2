@@ -1,0 +1,110 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+from autoquant.studies import (
+    StudyDataset,
+    StudyDefinition,
+    StudyJudge,
+    StudyObjective,
+    StudySubject,
+    StudyTimeRange,
+)
+from autoquant.workspace import create_project, initialize_workspace
+
+
+SUCCESS_JUDGE = """\
+import json
+import os
+from pathlib import Path
+
+from factors.candidate import SCORE
+
+artifacts = Path(os.environ["AUTOQUANT_ARTIFACTS_DIR"])
+report = artifacts / "report.json"
+report.write_text(json.dumps({"score": SCORE, "input": os.environ["AUTOQUANT_INPUT_HASH"]}))
+output = {
+    "schema_version": 1,
+    "status": "succeeded",
+    "summary": f"candidate score {SCORE}",
+    "metrics": {
+        "score": SCORE,
+        "per_asset": {"AAA/USD": {"score": SCORE}},
+    },
+    "artifacts": [
+        {
+            "kind": "report",
+            "path": "report.json",
+            "description": "Synthetic factor report",
+        }
+    ],
+    "errors": [],
+}
+Path(os.environ["AUTOQUANT_RUN_OUTPUT"]).write_text(json.dumps(output))
+print(f"evaluated {SCORE}")
+"""
+
+
+FAILURE_JUDGE = """\
+import sys
+
+print("judge failed before producing output", file=sys.stderr)
+raise SystemExit(7)
+"""
+
+
+MALFORMED_JUDGE = """\
+import os
+from pathlib import Path
+
+Path(os.environ["AUTOQUANT_RUN_OUTPUT"]).write_text("{not json")
+"""
+
+
+TIMEOUT_JUDGE = """\
+import time
+
+time.sleep(2)
+"""
+
+
+def make_project(directory: str | Path):
+    root = Path(directory) / "workspace"
+    workspace = initialize_workspace(root, name="Test Quant Desk")
+    project = create_project(workspace.root_dir, "factor-project", name="Factor Project")
+    (project.root_dir / "factors" / "candidate.py").write_text(
+        "SCORE = 1.25\n",
+        encoding="utf-8",
+    )
+    (project.root_dir / "judges" / "evaluate.py").write_text(
+        SUCCESS_JUDGE,
+        encoding="utf-8",
+    )
+    return workspace, project
+
+
+def study_definition(
+    *,
+    study_id: str = "factor-quality",
+    judge: str = "judges/evaluate.py",
+    timeout: int = 10,
+    editable: list[str] | None = None,
+) -> StudyDefinition:
+    return StudyDefinition(
+        schema_version=1,
+        id=study_id,
+        name="Factor Quality",
+        description="Measure one synthetic factor without market data",
+        program="program.md",
+        subject=StudySubject("factor", "candidate-factor", "working"),
+        editable={"paths": editable or ["factors/**"]},
+        judge=StudyJudge("python", judge, ["judges/**"], [], timeout),
+        objective=StudyObjective("score", "maximize", 0.01),
+        dataset=StudyDataset(
+            "synthetic-bars",
+            "v1",
+            "equity",
+            ["AAA/USD"],
+            StudyTimeRange("2026-01-01", "2026-01-31"),
+        ),
+    )

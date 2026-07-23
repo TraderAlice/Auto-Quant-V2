@@ -7,6 +7,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from tests.study_helpers import SUCCESS_JUDGE
+
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 
@@ -45,6 +47,12 @@ class AgentCliTests(unittest.TestCase):
                 "project.default",
                 "validate",
                 "inspect",
+                "study.create",
+                "study.list",
+                "study.inspect",
+                "run.execute",
+                "run.list",
+                "run.show",
             ],
         )
         for command in commands:
@@ -59,6 +67,11 @@ class AgentCliTests(unittest.TestCase):
             )
             self.assertEqual(command["exitCodes"]["success"], 0)
             self.assertEqual(command["exitCodes"]["usage"], 2)
+        schema = next(command for command in commands if command["id"] == "schema")
+        self.assertEqual(
+            schema["arguments"][0]["choices"],
+            ["workspace", "project", "study", "judge-output", "run-result"],
+        )
 
     def test_json_cli_completes_a_two_project_workspace_flow(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -151,6 +164,7 @@ class AgentCliTests(unittest.TestCase):
                     "cache",
                     "data",
                     "factors",
+                    "judges",
                     "models",
                     "runs",
                     "strategies",
@@ -195,6 +209,129 @@ class AgentCliTests(unittest.TestCase):
             self.assertFalse(usage_json["ok"])
             self.assertEqual(usage_json["command"], "project.create")
             self.assertEqual(usage_json["error"]["code"], "cli.usage")
+
+    def test_json_cli_creates_study_and_publishes_immutable_run(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Path(directory) / "workspace"
+            self.assertEqual(
+                run_cli("workspace", "init", str(workspace), "--json").returncode,
+                0,
+            )
+            created = run_cli(
+                "project",
+                "create",
+                str(workspace),
+                "factor-project",
+                "--json",
+            )
+            self.assertEqual(created.returncode, 0, created.stderr)
+            project = Path(json_output(created)["data"]["projectDir"])
+            (project / "factors" / "candidate.py").write_text("SCORE = 3.5\n")
+            (project / "judges" / "evaluate.py").write_text(SUCCESS_JUDGE)
+
+            study_created = run_cli(
+                "study",
+                "create",
+                str(workspace),
+                "factor-quality",
+                "--subject-kind",
+                "factor",
+                "--subject-name",
+                "candidate-factor",
+                "--judge",
+                "judges/evaluate.py",
+                "--judge-path",
+                "judges/**",
+                "--editable",
+                "factors/**",
+                "--metric",
+                "score",
+                "--dataset-id",
+                "synthetic-bars",
+                "--dataset-version",
+                "v1",
+                "--asset-class",
+                "equity",
+                "--asset",
+                "AAA/USD",
+                "--start",
+                "2026-01-01",
+                "--end",
+                "2026-01-31",
+                "--json",
+            )
+            self.assertEqual(study_created.returncode, 0, study_created.stderr)
+            study_json = json_output(study_created)
+            self.assertEqual(study_json["command"], "study.create")
+            self.assertEqual(study_json["artifacts"][0]["kind"], "study")
+            self.assertEqual(
+                study_json["nextActions"][0]["id"],
+                "run.execute",
+            )
+
+            studies = run_cli("study", "list", str(workspace), "--json")
+            self.assertEqual(studies.returncode, 0, studies.stderr)
+            self.assertEqual(
+                json_output(studies)["data"]["studies"][0]["id"],
+                "factor-quality",
+            )
+            inspected = run_cli(
+                "study",
+                "inspect",
+                str(workspace),
+                "--study",
+                "factor-quality",
+                "--json",
+            )
+            self.assertEqual(inspected.returncode, 0, inspected.stderr)
+            study_input_hash = json_output(inspected)["data"]["identity"]["inputHash"]
+
+            executed = run_cli(
+                "run",
+                "execute",
+                str(workspace),
+                "--study",
+                "factor-quality",
+                "--json",
+            )
+            self.assertEqual(executed.returncode, 0, executed.stderr)
+            executed_json = json_output(executed)
+            self.assertEqual(executed_json["data"]["status"], "succeeded")
+            self.assertEqual(executed_json["data"]["metrics"]["score"], 3.5)
+            self.assertEqual(
+                executed_json["data"]["studyInputHash"],
+                study_input_hash,
+            )
+            self.assertNotEqual(
+                executed_json["data"]["inputHash"],
+                study_input_hash,
+            )
+            self.assertTrue(executed_json["artifacts"][0]["immutable"])
+            run_id = executed_json["data"]["id"]
+
+            listed = run_cli(
+                "run",
+                "list",
+                str(workspace),
+                "--study",
+                "factor-quality",
+                "--json",
+            )
+            self.assertEqual(listed.returncode, 0, listed.stderr)
+            self.assertEqual(json_output(listed)["data"]["runs"][0]["id"], run_id)
+
+            shown = run_cli(
+                "run",
+                "show",
+                str(workspace),
+                "--run",
+                run_id,
+                "--json",
+            )
+            self.assertEqual(shown.returncode, 0, shown.stderr)
+            shown_json = json_output(shown)
+            self.assertEqual(shown_json["data"]["manifest"]["id"], run_id)
+            self.assertEqual(shown_json["data"]["result"]["metrics"]["score"], 3.5)
 
 
 if __name__ == "__main__":

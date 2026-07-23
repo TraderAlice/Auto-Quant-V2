@@ -18,6 +18,25 @@ from .cli_contract import (
     success_envelope,
     workspace_context,
 )
+from .runs import (
+    JUDGE_OUTPUT_JSON_SCHEMA,
+    RUN_RESULT_JSON_SCHEMA,
+    execute_study,
+    list_runs,
+    load_run,
+)
+from .studies import (
+    STUDY_JSON_SCHEMA,
+    StudyDataset,
+    StudyDefinition,
+    StudyJudge,
+    StudyObjective,
+    StudySubject,
+    StudyTimeRange,
+    create_study,
+    list_studies,
+    load_study,
+)
 from .workspace import (
     PROJECT_MANIFEST,
     WORKSPACE_MANIFEST,
@@ -28,7 +47,7 @@ from .workspace import (
     load_project,
     load_workspace,
     resolve_project_directory,
-    schema_for,
+    schema_for as workspace_schema_for,
     set_default_project,
 )
 
@@ -82,7 +101,11 @@ def build_parser() -> RaisingArgumentParser:
         "schema",
         help="list or emit canonical manifest JSON Schemas",
     )
-    schema.add_argument("kind", nargs="?", choices=["workspace", "project"])
+    schema.add_argument(
+        "kind",
+        nargs="?",
+        choices=["workspace", "project", "study", "judge-output", "run-result"],
+    )
     schema.set_defaults(command_id="schema")
     _json_argument(schema)
 
@@ -130,6 +153,84 @@ def build_parser() -> RaisingArgumentParser:
         command_parser.add_argument("--project")
         command_parser.set_defaults(command_id=command)
         _json_argument(command_parser)
+
+    study = subcommands.add_parser("study", help="manage fixed quantitative Studies")
+    study_actions = study.add_subparsers(dest="study_action", required=True)
+    study_create = study_actions.add_parser(
+        "create",
+        help="create one fixed Project-local Study",
+    )
+    study_create.add_argument("path")
+    study_create.add_argument("study_id")
+    study_create.add_argument("--project")
+    study_create.add_argument("--name")
+    study_create.add_argument("--description", default="")
+    study_create.add_argument(
+        "--subject-kind",
+        choices=["strategy", "factor", "model", "research"],
+        required=True,
+    )
+    study_create.add_argument("--subject-name")
+    study_create.add_argument("--subject-version", default="working")
+    study_create.add_argument("--judge", required=True)
+    study_create.add_argument("--judge-path", action="append")
+    study_create.add_argument("--judge-arg", action="append", default=[])
+    study_create.add_argument("--editable", action="append", required=True)
+    study_create.add_argument("--metric", default="score")
+    study_create.add_argument(
+        "--direction",
+        choices=["maximize", "minimize"],
+        default="maximize",
+    )
+    study_create.add_argument("--minimum-improvement", type=float, default=0.0)
+    study_create.add_argument("--dataset-id", required=True)
+    study_create.add_argument("--dataset-version", default="working")
+    study_create.add_argument("--asset-class", required=True)
+    study_create.add_argument("--asset", action="append", required=True)
+    study_create.add_argument("--start", required=True)
+    study_create.add_argument("--end", required=True)
+    study_create.add_argument("--timeout", type=int, default=60)
+    study_create.set_defaults(command_id="study.create")
+    _json_argument(study_create)
+
+    study_list = study_actions.add_parser("list", help="list Project Studies")
+    study_list.add_argument("path")
+    study_list.add_argument("--project")
+    study_list.set_defaults(command_id="study.list")
+    _json_argument(study_list)
+
+    study_inspect = study_actions.add_parser("inspect", help="inspect one Study")
+    study_inspect.add_argument("path")
+    study_inspect.add_argument("--project")
+    study_inspect.add_argument("--study", required=True)
+    study_inspect.set_defaults(command_id="study.inspect")
+    _json_argument(study_inspect)
+
+    run = subcommands.add_parser("run", help="execute and inspect immutable Runs")
+    run_actions = run.add_subparsers(dest="run_action", required=True)
+    run_execute = run_actions.add_parser(
+        "execute",
+        help="execute one Study through its fixed Judge",
+    )
+    run_execute.add_argument("path")
+    run_execute.add_argument("--project")
+    run_execute.add_argument("--study", required=True)
+    run_execute.set_defaults(command_id="run.execute")
+    _json_argument(run_execute)
+
+    run_list = run_actions.add_parser("list", help="list immutable Runs")
+    run_list.add_argument("path")
+    run_list.add_argument("--project")
+    run_list.add_argument("--study")
+    run_list.set_defaults(command_id="run.list")
+    _json_argument(run_list)
+
+    run_show = run_actions.add_parser("show", help="verify and show one Run")
+    run_show.add_argument("path")
+    run_show.add_argument("--project")
+    run_show.add_argument("--run", required=True)
+    run_show.set_defaults(command_id="run.show")
+    _json_argument(run_show)
     return parser
 
 
@@ -271,6 +372,282 @@ def _selected_project(args: argparse.Namespace):
     return load_project(directory)
 
 
+def _study_create(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    definition = StudyDefinition(
+        schema_version=1,
+        id=args.study_id,
+        name=(args.name or args.study_id),
+        description=args.description,
+        program="program.md",
+        subject=StudySubject(
+            args.subject_kind,
+            args.subject_name or args.study_id,
+            args.subject_version,
+        ),
+        editable={"paths": args.editable},
+        judge=StudyJudge(
+            "python",
+            args.judge,
+            args.judge_path or [args.judge],
+            args.judge_arg,
+            args.timeout,
+        ),
+        objective=StudyObjective(
+            args.metric,
+            args.direction,
+            args.minimum_improvement,
+        ),
+        dataset=StudyDataset(
+            args.dataset_id,
+            args.dataset_version,
+            args.asset_class,
+            args.asset,
+            StudyTimeRange(args.start, args.end),
+        ),
+    )
+    study = create_study(project, definition)
+    return CommandResult(
+        "study.create",
+        _study_data(study),
+        f"Created AutoQuant Study '{study.definition.id}' at {study.root_dir}\n",
+        project_context(project),
+        [
+            artifact(
+                "study",
+                study.definition.id,
+                study.manifest_path,
+                immutable=False,
+            )
+        ],
+        [
+            next_action(
+                "run.execute",
+                "Execute the fixed Study through its bounded Python Judge.",
+                [
+                    "aq",
+                    "run",
+                    "execute",
+                    str(project.root_dir),
+                    "--study",
+                    study.definition.id,
+                    "--json",
+                ],
+                "creates-artifact",
+            )
+        ],
+    )
+
+
+def _study_data(study) -> dict[str, Any]:
+    return {
+        "definition": study.definition.to_dict(),
+        "path": str(study.root_dir),
+        "programPath": str(study.program_path),
+        "identity": {
+            "studyHash": study.study_hash,
+            "programHash": study.program_hash,
+            "judgeHash": study.judge_hash,
+            "judgeSourceHashes": study.judge_hashes,
+            "sourceHash": study.source_hash,
+            "sourceHashes": study.editable_hashes,
+            "datasetHash": study.dataset_hash,
+            "inputHash": study.input_hash,
+        },
+    }
+
+
+def _study_list(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    studies = list_studies(project)
+    lines = [f"AutoQuant Studies in {project.manifest.name}:"]
+    lines.extend(
+        f"  {item.id}  {item.subject_kind}  "
+        f"{item.primary_metric}:{item.direction}  {item.name}"
+        for item in studies
+    )
+    if not studies:
+        lines.append("  No Studies")
+    return CommandResult(
+        "study.list",
+        {"studies": [item.to_dict() for item in studies]},
+        "\n".join(lines) + "\n",
+        project_context(project),
+    )
+
+
+def _study_inspect(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    study = load_study(project, args.study)
+    data = _study_data(study)
+    return CommandResult(
+        "study.inspect",
+        data,
+        (
+            f"AutoQuant Study: {study.definition.name} ({study.definition.id})\n"
+            f"Subject: {study.definition.subject.kind} "
+            f"{study.definition.subject.name}@{study.definition.subject.version}\n"
+            f"Primary: {study.definition.objective.metric} "
+            f"({study.definition.objective.direction})\n"
+            f"Dataset: {study.definition.dataset.id}@"
+            f"{study.definition.dataset.version} · "
+            f"{len(study.definition.dataset.universe)} assets · "
+            f"{study.definition.dataset.time_range.start}.."
+            f"{study.definition.dataset.time_range.end}\n"
+            f"Input hash: {study.input_hash}\n"
+        ),
+        project_context(project),
+        [
+            artifact(
+                "study",
+                study.definition.id,
+                study.manifest_path,
+                immutable=False,
+            )
+        ],
+        [
+            next_action(
+                "run.execute",
+                "Execute the Study through its fixed Judge.",
+                [
+                    "aq",
+                    "run",
+                    "execute",
+                    str(project.root_dir),
+                    "--study",
+                    study.definition.id,
+                    "--json",
+                ],
+                "creates-artifact",
+            )
+        ],
+    )
+
+
+def _run_artifacts(run) -> list[dict[str, Any]]:
+    items = [artifact("run", run.result["id"], run.root_dir, immutable=True)]
+    items.extend(
+        artifact(
+            item["kind"],
+            f"{run.result['id']}:{item['path']}",
+            run.root_dir / item["path"],
+            immutable=True,
+        )
+        for item in run.result["artifacts"]
+    )
+    return items
+
+
+def _run_execute(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    run = execute_study(project, args.study)
+    metric = run.result["objective"]["metric"]
+    value = run.result["metrics"].get(metric)
+    return CommandResult(
+        "run.execute",
+        run.result,
+        (
+            f"Run {run.result['id']}: {run.result['status']}\n"
+            f"Study: {run.result['study']['id']}\n"
+            f"{metric}: {value if value is not None else 'unavailable'}\n"
+            f"{run.result['summary']}\n"
+        ),
+        project_context(project),
+        _run_artifacts(run),
+        [
+            next_action(
+                "run.show",
+                "Verify and inspect the immutable RunResult.",
+                [
+                    "aq",
+                    "run",
+                    "show",
+                    str(project.root_dir),
+                    "--run",
+                    run.result["id"],
+                    "--json",
+                ],
+                "read-only",
+            ),
+            next_action(
+                "run.list",
+                "List immutable Runs for this Study.",
+                [
+                    "aq",
+                    "run",
+                    "list",
+                    str(project.root_dir),
+                    "--study",
+                    run.result["study"]["id"],
+                    "--json",
+                ],
+                "read-only",
+            ),
+        ],
+    )
+
+
+def _run_list(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    if args.study:
+        load_study(project, args.study)
+    runs = list_runs(project, args.study)
+    lines = [f"AutoQuant Runs in {project.manifest.name}:"]
+    lines.extend(
+        f"  {item.id}  {item.status}  {item.study_id}  "
+        f"{item.primary_metric}="
+        f"{item.primary_value if item.primary_value is not None else 'unavailable'}"
+        for item in runs
+    )
+    if not runs:
+        lines.append("  No Runs")
+    actions = []
+    if runs:
+        actions.append(
+            next_action(
+                "run.show",
+                "Inspect the latest listed immutable Run.",
+                [
+                    "aq",
+                    "run",
+                    "show",
+                    str(project.root_dir),
+                    "--run",
+                    runs[-1].id,
+                    "--json",
+                ],
+                "read-only",
+            )
+        )
+    return CommandResult(
+        "run.list",
+        {"runs": [item.to_dict() for item in runs]},
+        "\n".join(lines) + "\n",
+        project_context(project),
+        next_actions=actions,
+    )
+
+
+def _run_show(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    run = load_run(project, args.run)
+    metric = run.result["objective"]["metric"]
+    value = run.result["metrics"].get(metric)
+    return CommandResult(
+        "run.show",
+        {"manifest": run.manifest, "result": run.result},
+        (
+            f"Immutable Run: {run.result['id']}\n"
+            f"Status: {run.result['status']}\n"
+            f"Study: {run.result['study']['id']}\n"
+            f"{metric}: {value if value is not None else 'unavailable'}\n"
+            f"Input hash: {run.result['inputHash']}\n"
+        ),
+        project_context(project),
+        _run_artifacts(run),
+    )
+
+
 def _validate(args: argparse.Namespace) -> CommandResult:
     project = _selected_project(args)
     return CommandResult(
@@ -359,14 +736,20 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             human + "\n",
         )
     if args.command_id == "schema":
-        kinds = ["project", "workspace"]
+        kinds = ["judge-output", "project", "run-result", "study", "workspace"]
         if args.kind is None:
             return CommandResult(
                 "schema",
                 {"kinds": kinds},
-                "AutoQuant schema kinds:\n  project\n  workspace\n",
+                "AutoQuant schema kinds:\n"
+                + "".join(f"  {kind}\n" for kind in kinds),
             )
-        schema = schema_for(args.kind)
+        schemas = {
+            "study": STUDY_JSON_SCHEMA,
+            "judge-output": JUDGE_OUTPUT_JSON_SCHEMA,
+            "run-result": RUN_RESULT_JSON_SCHEMA,
+        }
+        schema = schemas.get(args.kind) or workspace_schema_for(args.kind)
         return CommandResult(
             "schema",
             {"kind": args.kind, "schema": schema},
@@ -384,13 +767,25 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
         return _validate(args)
     if args.command_id == "inspect":
         return _inspect(args)
+    if args.command_id == "study.create":
+        return _study_create(args)
+    if args.command_id == "study.list":
+        return _study_list(args)
+    if args.command_id == "study.inspect":
+        return _study_inspect(args)
+    if args.command_id == "run.execute":
+        return _run_execute(args)
+    if args.command_id == "run.list":
+        return _run_list(args)
+    if args.command_id == "run.show":
+        return _run_show(args)
     raise CliUsageError(f"Unknown command: {args.command_id}")
 
 
 def _command_id(argv: Sequence[str]) -> str:
     if not argv:
         return "help"
-    if argv[0] in {"workspace", "project"} and len(argv) > 1:
+    if argv[0] in {"workspace", "project", "study", "run"} and len(argv) > 1:
         return f"{argv[0]}.{argv[1]}"
     return argv[0]
 

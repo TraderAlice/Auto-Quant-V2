@@ -37,10 +37,16 @@ The V2 foundation now implements:
   rejection;
 - a packaged `aq` CLI with versioned JSON envelopes, capability discovery,
   artifacts, next actions, validation, and inspection.
+- strict Project-local Study contracts with separate human program, fixed
+  Python Judge closure, Agent-editable strategy/factor/model closure, objective,
+  and dataset identity;
+- bounded isolated Judge execution and atomically published immutable
+  RunResults with full-file tamper verification.
 
 The canonical contracts are [[docs/PROJECT_FORMAT]] and [[docs/CLI]]. The
 boundary designs are [[docs/design/workspace-project-boundaries]] and
-[[docs/design/agent-cli-contract]].
+[[docs/design/agent-cli-contract]]. Study/Run authority and evidence are defined
+in [[docs/design/study-run-evidence]].
 
 The repository also contains the V0.5 development Harness inherited from
 Auto-Quant Classic:
@@ -137,10 +143,13 @@ behind the Harness contract, not the owner of Workspace or Project semantics.
 - Workspace/Project implementation: `autoquant/workspace.py`
 - Agent CLI implementation: `autoquant/cli.py`, `autoquant/cli_contract.py`,
   and `autoquant/capabilities.py`
+- Study identity and source closures: `autoquant/studies.py`
+- Bounded execution and immutable evidence: `autoquant/runs.py`
 - Canonical Workspace/Project format: [[docs/PROJECT_FORMAT]]
 - Canonical CLI contract: [[docs/CLI]]
 - Workspace/Project design: [[docs/design/workspace-project-boundaries]]
 - Agent CLI design: [[docs/design/agent-cli-contract]]
+- Study/Run evidence design: [[docs/design/study-run-evidence]]
 - Current public Harness contract: [[docs/harness]]
 - Planning and documentation governance:
   [[docs/design/documentation-system]]
@@ -178,8 +187,9 @@ These commands must not start autonomous research or a long backtest.
 
 ## Known gaps
 
-- Structured immutable RunResult publication is not implemented.
-- Study, Session, Candidate review, and promotion lifecycles are not
-  implemented.
+- Research Sessions, Experiments, Candidate review, and promotion lifecycles
+  are not implemented.
+- Dataset V1 identity is declarative and does not hash dataset bytes.
+- The V0.5 Freqtrade runner is not adapted into the Study/Run contract.
 - The cross-project Studio does not exist.
 - ML is a supported architectural direction but has no execution contract yet.

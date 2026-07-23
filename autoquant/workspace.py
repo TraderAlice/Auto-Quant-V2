@@ -20,6 +20,7 @@ PROJECT_DIRECTORY_KEYS = (
     "strategies",
     "factors",
     "models",
+    "judges",
     "studies",
     "data",
     "runs",
@@ -29,6 +30,7 @@ DEFAULT_PROJECT_DIRECTORIES = {
     "strategies": "strategies",
     "factors": "factors",
     "models": "models",
+    "judges": "judges",
     "studies": "studies",
     "data": "data",
     "runs": "runs",
@@ -316,6 +318,15 @@ def _confined_path(root: Path, relative: str, issue_path: str) -> Path:
             [_issue(issue_path, "path.escape", f"Path escapes its owner root: {relative}")]
         ) from None
     return target
+
+
+def confined_path(root: Path, relative: str, issue_path: str) -> Path:
+    """Resolve one owned relative path without following symlink components."""
+
+    issues = _valid_relative_path(relative, issue_path)
+    if issues:
+        raise AutoQuantValidationError(issues)
+    return _confined_path(root.resolve(), relative, issue_path)
 
 
 def load_workspace(directory: str | Path) -> WorkspaceContext:

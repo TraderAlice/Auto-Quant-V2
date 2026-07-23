@@ -16,7 +16,8 @@ own Study, Run, evaluation, research-loop, dataset-format, or Studio semantics.
 - An AutoQuant Workspace is a directory containing
   `autoquant-workspace.json` and one configured immediate Projects directory.
 - A Project is a directory containing `autoquant.json`, its human research
-  program, and every mutable research surface it owns.
+  program, and every research surface it owns, including fixed Judges and
+  immutable Run evidence.
 - The Workspace has no dataset, factor, strategy, model, Study, or Run catalog.
 - Reuse is explicit copying or a future content-addressed dependency. Mutable
   inherited research assets are forbidden.
@@ -76,7 +77,8 @@ Workspace update.
 - Shared mutable Workspace datasets, strategies, models, or templates.
 - Recursive Project discovery.
 - Git repositories as Project identity.
-- Defining Study or Run formats before their lifecycle and evidence contracts.
+- Owning Study or Run semantics, which are defined in
+  [[docs/design/study-run-evidence]].
 - Migrating the repository-root V0.5 compatibility arena in this subsystem.
 
 ## Change checklist
@@ -101,7 +103,8 @@ uv run aq validate /tmp/quant-workspace --json
 
 ## Known gaps
 
-- Project manifests do not yet select Studies, datasets, or execution defaults.
+- Project manifests expose semantic directory slots but do not select a
+  default Study, dataset, or execution profile.
 - Project identity is strict path identity but not yet a content hash.
 - Project creation has no domain-specific starter variants.
 - Studio does not yet consume Workspace and Project contexts.

@@ -1,16 +1,17 @@
 # Agent CLI contract
 
-Status: implemented for Workspace and Project operations.
+Status: implemented for Workspace, Project, Study, and Run operations.
 
-Related: [[docs/CLI]], [[docs/PROJECT_FORMAT]], and
-[[docs/design/workspace-project-boundaries]].
+Related: [[docs/CLI]], [[docs/PROJECT_FORMAT]],
+[[docs/design/workspace-project-boundaries]], and
+[[docs/design/study-run-evidence]].
 
 ## Scope
 
 This document owns versioned command envelopes, machine capability discovery,
 contexts, artifact references, next actions, operation effects, and exit
-behavior. It does not own the underlying Workspace/Project semantics or future
-research evaluation rules.
+behavior. It does not own the underlying Workspace/Project semantics or
+Study/Run evaluation rules.
 
 ## Principles
 
@@ -52,13 +53,15 @@ research evaluation rules.
 
 ## Operation effects
 
-The foundation supports:
+The current CLI supports:
 
 - `read-only`;
 - `creates-artifact`;
 - `mutates-workspace`.
 
-Future operations may add `mutates-project`, `mode-dependent`, or
+Study creation and Run execution use `creates-artifact`; neither silently
+promotes candidate source. Future operations may add `mutates-project`,
+`mode-dependent`, or
 `long-running-server` only when their confirmation, progress, and evidence
 contracts are defined.
 

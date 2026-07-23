@@ -43,6 +43,7 @@ factor-lab/
 ├── strategies/
 ├── factors/
 ├── models/
+├── judges/
 ├── studies/
 ├── data/
 │   └── .gitignore
@@ -64,6 +65,7 @@ factor-lab/
     "strategies": "strategies",
     "factors": "factors",
     "models": "models",
+    "judges": "judges",
     "studies": "studies",
     "data": "data",
     "runs": "runs",
@@ -72,9 +74,8 @@ factor-lab/
 }
 ```
 
-The declared directory names are semantic ownership slots, not complete Study
-or Run contracts. Those schemas will be added only with their execution,
-identity, and immutability rules.
+The declared directory names are semantic ownership slots. Study, Judge output,
+and RunResult contracts appear below.
 
 ## Identity and confinement
 
@@ -122,6 +123,136 @@ The current file is guidance only. A later Research Lab contract will bind the
 editable source closure, budgets, benchmarks, Sessions, Experiments, and
 promotion policy.
 
+## Study
+
+Each fixed evaluation contract lives beneath its Project:
+
+```text
+studies/
+└── factor-quality/
+    ├── study.json
+    └── program.md
+```
+
+`study.json` V1:
+
+```json
+{
+  "schema_version": 1,
+  "id": "factor-quality",
+  "name": "Factor Quality",
+  "description": "Measure one cross-asset factor",
+  "program": "program.md",
+  "subject": {
+    "kind": "factor",
+    "name": "candidate-factor",
+    "version": "working"
+  },
+  "editable": {
+    "paths": ["factors/**"]
+  },
+  "judge": {
+    "kind": "python",
+    "entrypoint": "judges/evaluate.py",
+    "paths": ["judges/**"],
+    "arguments": [],
+    "timeout_seconds": 60
+  },
+  "objective": {
+    "metric": "robust_sharpe",
+    "direction": "maximize",
+    "minimum_improvement": 0.01
+  },
+  "dataset": {
+    "id": "us-equities-bars",
+    "version": "2026-07-24",
+    "asset_class": "equity",
+    "universe": ["SPY/USD", "QQQ/USD"],
+    "time_range": {
+      "start": "2021-01-01",
+      "end": "2025-12-31"
+    }
+  }
+}
+```
+
+Subject kinds are `strategy`, `factor`, `model`, or `research`. Editable paths
+must be exact files or trailing-`/**` closures beneath the Project's declared
+strategy, factor, or model directories. Judge paths use the same closure syntax
+but stay beneath the declared Judge directory and are fixed and disjoint from
+editable source.
+
+The Study's `program.md` is human-owned operating intent. The Study, program,
+Judge closure, objective, and dataset identity are never candidate-editable.
+
+## Python Judge output
+
+The fixed Judge receives paths through environment variables documented in
+[[docs/design/study-run-evidence]] and must write:
+
+```json
+{
+  "schema_version": 1,
+  "status": "succeeded",
+  "summary": "The factor remains positive across the declared universe.",
+  "metrics": {
+    "robust_sharpe": 0.82,
+    "per_asset": {
+      "SPY/USD": {"sharpe": 0.91},
+      "QQQ/USD": {"sharpe": 0.82}
+    }
+  },
+  "artifacts": [
+    {
+      "kind": "report",
+      "path": "factor-report.json",
+      "description": "Per-asset factor evidence"
+    }
+  ],
+  "errors": []
+}
+```
+
+Metrics may contain nested finite JSON values. A successful result must provide
+the Study's primary metric as a finite top-level number. Every file written to
+the artifact directory must appear exactly once in `artifacts`.
+
+## Immutable Run
+
+Completed Runs live at:
+
+```text
+runs/
+└── run-<UTC timestamp>-<identity>/
+    ├── inputs/
+    │   ├── study.json
+    │   ├── program.md
+    │   ├── identity.json
+    │   └── judge-sources/<project-relative files>
+    ├── sources/<editable project-relative files>
+    ├── artifacts/<declared Judge files>
+    ├── judge-output.json
+    ├── stdout.txt
+    ├── stderr.txt
+    ├── result.json
+    └── manifest.json
+```
+
+`result.json` is the structured RunResult. It records:
+
+- terminal status, summary, timestamps, and duration;
+- complete input and Study-input hashes;
+- Harness id/version/commit/dirty/source/Python identity;
+- Project, Study, subject/version, and editable source identity;
+- dataset id/version, asset class, universe, date range, and dataset hash;
+- Judge entrypoint and fixed source hashes;
+- objective and execution details;
+- nested metrics, immutable artifact references, and structured errors.
+
+`manifest.json` is written last and pins every other Run file hash. Run listing
+ignores incomplete directories; opening a completed Run rejects changed,
+deleted, or added files.
+
 ## Canonical schemas
 
 Machine-readable JSON Schemas are available without loading a Project:
@@ -130,10 +261,13 @@ Machine-readable JSON Schemas are available without loading a Project:
 aq schema
 aq schema workspace --json
 aq schema project --json
+aq schema study --json
+aq schema judge-output --json
+aq schema run-result --json
 ```
 
-The Python validators are authoritative executable behavior:
-`autoquant/workspace.py`.
+The Python validators are authoritative executable behavior in
+`autoquant/workspace.py`, `autoquant/studies.py`, and `autoquant/runs.py`.
 
 ## Compatibility surface
 
