@@ -72,6 +72,27 @@ REVERT and CRASH restore the exact Session leader. Promotion is separate,
 requires an unchanged Project base, and rolls back if its receipt cannot be
 committed.
 
+The same loop can be driven by any explicit external coding-Agent command.
+AutoQuant sends a complete versioned brief on stdin, accepts only a strict
+proposal or stop response, and preserves every bounded turn as immutable
+Campaign evidence:
+
+```bash
+uv run aq research run ./quant-workspace \
+  --session session-... \
+  --agent-command 'my-coding-agent --autoquant-research' \
+  --max-turns 5 \
+  --max-wall-seconds 900 \
+  --turn-timeout-seconds 300 \
+  --json
+uv run aq research list ./quant-workspace --session session-...
+```
+
+The supplied command is authorized host-code execution, not an AutoQuant
+sandbox. It may propose candidate code, but the locked Judge still owns
+metrics and verdicts, and Project promotion remains a separate explicit
+operation.
+
 The v0.5 development Harness still uses **Freqtrade as its one core engine**,
 but assets are no longer hardwired into that engine:
 

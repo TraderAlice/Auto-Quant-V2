@@ -54,6 +54,11 @@ sessions/
     │       ├── changes.json
     │       ├── diff.patch
     │       └── manifest.json
+    ├── campaigns/
+    │   └── campaign-<UTC timestamp>-<identity>/
+    │       ├── turns/
+    │       ├── result.json
+    │       └── manifest.json
     └── promotion.json
 ```
 
@@ -156,8 +161,9 @@ aq session start <path> --study <id> --json
 ```
 
 An external Codex, another coding Agent, or a human can drive these same
-operations. Provider invocation and automatic stopping are layered above this
-contract rather than embedded in the Judge.
+operations. The implemented provider-neutral bounded layer is
+[[docs/design/external-researcher-driver]]; it composes this contract rather
+than entering the Judge or promotion authority.
 
 ## Invariants
 
@@ -176,7 +182,6 @@ contract rather than embedded in the Judge.
 
 ## Known gaps
 
-- No external Researcher invocation or stopping policy exists.
 - One Session has one linear leader; there are no branches or Pareto fronts.
 - Comparison uses one primary metric without per-asset guardrails.
 - Session recovery after process termination between Experiment publication

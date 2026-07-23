@@ -45,12 +45,16 @@ The V2 foundation now implements:
 - resumable Project-local Research Sessions with disposable candidate
   worktrees, fixed authority locks, immutable KEEP/REVERT/CRASH Experiments,
   exact leader restoration, and stale-safe rollback-capable promotion.
+- provider-neutral external Researcher Campaigns with strict briefs/responses,
+  aggregate and per-turn budgets, failure recovery, and immutable turn
+  evidence.
 
 The canonical contracts are [[docs/PROJECT_FORMAT]] and [[docs/CLI]]. The
 boundary designs are [[docs/design/workspace-project-boundaries]] and
 [[docs/design/agent-cli-contract]]. Study/Run authority and evidence are defined
 in [[docs/design/study-run-evidence]]; governed source research is defined in
-[[docs/design/research-session-loop]].
+[[docs/design/research-session-loop]]; external orchestration is defined in
+[[docs/design/external-researcher-driver]].
 
 The repository also contains the V0.5 development Harness inherited from
 Auto-Quant Classic:
@@ -83,6 +87,7 @@ through explicit plans while preserving historical evidence.
 - universe and dataset selection or pinned dataset identity;
 - factors, features, strategies, models, and project-local research code;
 - Study and Session history;
+- immutable Researcher Campaign evidence;
 - immutable Run evidence and reviewed candidates;
 - project-specific notebooks, reports, and presentation assets.
 
@@ -151,12 +156,16 @@ behind the Harness contract, not the owner of Workspace or Project semantics.
 - Bounded execution and immutable evidence: `autoquant/runs.py`
 - Governed Session/Experiment research and promotion:
   `autoquant/sessions.py`
+- Bounded external Researcher orchestration and Campaign evidence:
+  `autoquant/research.py`
 - Canonical Workspace/Project format: [[docs/PROJECT_FORMAT]]
 - Canonical CLI contract: [[docs/CLI]]
 - Workspace/Project design: [[docs/design/workspace-project-boundaries]]
 - Agent CLI design: [[docs/design/agent-cli-contract]]
 - Study/Run evidence design: [[docs/design/study-run-evidence]]
 - Research Session loop design: [[docs/design/research-session-loop]]
+- External Researcher driver design:
+  [[docs/design/external-researcher-driver]]
 - Current public Harness contract: [[docs/harness]]
 - Planning and documentation governance:
   [[docs/design/documentation-system]]
@@ -194,8 +203,8 @@ These commands must not start autonomous research or a long backtest.
 
 ## Known gaps
 
-- External Researcher invocation, automatic stopping, branching/Pareto search,
-  and robust multi-metric promotion gates are not implemented.
+- Branching/Pareto search and robust multi-metric promotion gates are not
+  implemented.
 - Dataset V1 identity is declarative and does not hash dataset bytes.
 - The V0.5 Freqtrade runner is not adapted into the Study/Run contract.
 - The cross-project Studio does not exist.

@@ -1,11 +1,12 @@
 # Agent CLI contract
 
-Status: implemented for Workspace, Project, Study, Run, Session, and Experiment
-operations.
+Status: implemented for Workspace, Project, Study, Run, Session, Experiment,
+and bounded Research Campaign operations.
 
 Related: [[docs/CLI]], [[docs/PROJECT_FORMAT]],
 [[docs/design/workspace-project-boundaries]], and
-[[docs/design/study-run-evidence]].
+[[docs/design/study-run-evidence]], and
+[[docs/design/external-researcher-driver]].
 
 ## Scope
 
@@ -62,7 +63,9 @@ The current CLI supports:
 - `mutates-project`.
 
 Study/Session creation, Run execution, and Experiment evaluation use
-`creates-artifact`; none silently promotes candidate source. Only
+`creates-artifact`. Bounded `research.run` also uses `creates-artifact`: it may
+advance the Session leader through ordinary KEEP Experiments but never copies
+source into the owning Project. Only
 `session.promote` uses `mutates-project`, after stale-base validation and
 rollback-safe receipt publication. Future operations may add `mode-dependent`
 or `long-running-server` only when their confirmation, progress, and evidence

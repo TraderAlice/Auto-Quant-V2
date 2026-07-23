@@ -25,6 +25,13 @@ from .runs import (
     list_runs,
     load_run,
 )
+from .research import (
+    CAMPAIGN_RESULT_JSON_SCHEMA,
+    RESEARCHER_RESPONSE_JSON_SCHEMA,
+    list_campaigns,
+    load_campaign,
+    run_campaign,
+)
 from .sessions import (
     EXPERIMENT_JSON_SCHEMA,
     SESSION_JSON_SCHEMA,
@@ -124,6 +131,8 @@ def build_parser() -> RaisingArgumentParser:
             "run-result",
             "session",
             "experiment",
+            "researcher-response",
+            "campaign-result",
         ],
     )
     schema.set_defaults(command_id="schema")
@@ -329,6 +338,49 @@ def build_parser() -> RaisingArgumentParser:
     experiment_show.add_argument("--experiment", required=True)
     experiment_show.set_defaults(command_id="experiment.show")
     _json_argument(experiment_show)
+
+    research = subcommands.add_parser(
+        "research",
+        help="drive and inspect bounded external Researcher Campaigns",
+    )
+    research_actions = research.add_subparsers(
+        dest="research_action",
+        required=True,
+    )
+    research_run = research_actions.add_parser(
+        "run",
+        help="run one bounded provider-neutral Researcher Campaign",
+    )
+    research_run.add_argument("path")
+    research_run.add_argument("--project")
+    research_run.add_argument("--session", required=True)
+    research_run.add_argument("--agent-command", required=True)
+    research_run.add_argument("--max-turns", type=int, default=5)
+    research_run.add_argument("--max-wall-seconds", type=int, default=900)
+    research_run.add_argument("--turn-timeout-seconds", type=int, default=300)
+    research_run.set_defaults(command_id="research.run")
+    _json_argument(research_run)
+
+    research_list = research_actions.add_parser(
+        "list",
+        help="list immutable Campaigns in one Session",
+    )
+    research_list.add_argument("path")
+    research_list.add_argument("--project")
+    research_list.add_argument("--session", required=True)
+    research_list.set_defaults(command_id="research.list")
+    _json_argument(research_list)
+
+    research_show = research_actions.add_parser(
+        "show",
+        help="verify and inspect one immutable Campaign",
+    )
+    research_show.add_argument("path")
+    research_show.add_argument("--project")
+    research_show.add_argument("--session", required=True)
+    research_show.add_argument("--campaign", required=True)
+    research_show.set_defaults(command_id="research.show")
+    _json_argument(research_show)
     return parser
 
 
@@ -1053,6 +1105,137 @@ def _experiment_show(args: argparse.Namespace) -> CommandResult:
     )
 
 
+def _campaign_artifact(campaign) -> dict[str, Any]:
+    return artifact(
+        "campaign",
+        campaign.result["id"],
+        campaign.root_dir,
+        immutable=True,
+    )
+
+
+def _research_run(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    campaign = run_campaign(
+        project,
+        args.session,
+        args.agent_command,
+        max_turns=args.max_turns,
+        max_wall_seconds=args.max_wall_seconds,
+        turn_timeout_seconds=args.turn_timeout_seconds,
+    )
+    session = load_session(project, args.session)
+    return CommandResult(
+        "research.run",
+        {
+            "manifest": campaign.manifest,
+            "result": campaign.result,
+            "session": session_snapshot(project, session),
+        },
+        (
+            f"Research Campaign: {campaign.result['id']}\n"
+            f"Status: {campaign.result['status']}\n"
+            f"Reason: {campaign.result['reason']}\n"
+            f"Turns: {campaign.result['turnsCompleted']}/"
+            f"{campaign.result['budget']['maxTurns']}\n"
+            f"Experiments: {len(campaign.result['experiments'])}\n"
+            f"Verdicts: "
+            f"KEEP={campaign.result['verdicts']['KEEP']} "
+            f"REVERT={campaign.result['verdicts']['REVERT']} "
+            f"CRASH={campaign.result['verdicts']['CRASH']}\n"
+        ),
+        project_context(project),
+        [_campaign_artifact(campaign)],
+        [
+            next_action(
+                "research.show",
+                "Verify and inspect this immutable Campaign.",
+                [
+                    "aq",
+                    "research",
+                    "show",
+                    str(project.root_dir),
+                    "--session",
+                    session.manifest["id"],
+                    "--campaign",
+                    campaign.result["id"],
+                    "--json",
+                ],
+                "read-only",
+            )
+        ],
+    )
+
+
+def _research_list(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    session = load_session(project, args.session)
+    campaigns = list_campaigns(project, session)
+    lines = [f"Research Campaigns in {session.manifest['id']}:"]
+    lines.extend(
+        f"  {item.id}  {item.status}  turns={item.turns_completed}  "
+        f"experiments={item.experiments}"
+        for item in campaigns
+    )
+    if not campaigns:
+        lines.append("  No Campaigns")
+    actions = []
+    if campaigns:
+        actions.append(
+            next_action(
+                "research.show",
+                "Verify and inspect the latest immutable Campaign.",
+                [
+                    "aq",
+                    "research",
+                    "show",
+                    str(project.root_dir),
+                    "--session",
+                    session.manifest["id"],
+                    "--campaign",
+                    campaigns[-1].id,
+                    "--json",
+                ],
+                "read-only",
+            )
+        )
+    return CommandResult(
+        "research.list",
+        {"campaigns": [item.to_dict() for item in campaigns]},
+        "\n".join(lines) + "\n",
+        project_context(project),
+        next_actions=actions,
+    )
+
+
+def _research_show(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    session = load_session(project, args.session)
+    campaign = load_campaign(project, session, args.campaign)
+    turns = sorted(
+        str(path)
+        for path in (campaign.root_dir / "turns").iterdir()
+        if path.is_dir() and not path.name.startswith(".")
+    )
+    return CommandResult(
+        "research.show",
+        {
+            "manifest": campaign.manifest,
+            "result": campaign.result,
+            "turnPaths": turns,
+        },
+        (
+            f"Immutable Research Campaign: {campaign.result['id']}\n"
+            f"Status: {campaign.result['status']}\n"
+            f"Reason: {campaign.result['reason']}\n"
+            f"Turns: {campaign.result['turnsCompleted']}\n"
+            f"Experiments: {len(campaign.result['experiments'])}\n"
+        ),
+        project_context(project),
+        [_campaign_artifact(campaign)],
+    )
+
+
 def _validate(args: argparse.Namespace) -> CommandResult:
     project = _selected_project(args)
     return CommandResult(
@@ -1142,9 +1325,11 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
         )
     if args.command_id == "schema":
         kinds = [
+            "campaign-result",
             "experiment",
             "judge-output",
             "project",
+            "researcher-response",
             "run-result",
             "session",
             "study",
@@ -1163,6 +1348,8 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "run-result": RUN_RESULT_JSON_SCHEMA,
             "session": SESSION_JSON_SCHEMA,
             "experiment": EXPERIMENT_JSON_SCHEMA,
+            "researcher-response": RESEARCHER_RESPONSE_JSON_SCHEMA,
+            "campaign-result": CAMPAIGN_RESULT_JSON_SCHEMA,
         }
         schema = schemas.get(args.kind) or workspace_schema_for(args.kind)
         return CommandResult(
@@ -1208,6 +1395,12 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
         return _experiment_list(args)
     if args.command_id == "experiment.show":
         return _experiment_show(args)
+    if args.command_id == "research.run":
+        return _research_run(args)
+    if args.command_id == "research.list":
+        return _research_list(args)
+    if args.command_id == "research.show":
+        return _research_show(args)
     raise CliUsageError(f"Unknown command: {args.command_id}")
 
 
@@ -1221,6 +1414,7 @@ def _command_id(argv: Sequence[str]) -> str:
         "run",
         "session",
         "experiment",
+        "research",
     } and len(argv) > 1:
         return f"{argv[0]}.{argv[1]}"
     return argv[0]

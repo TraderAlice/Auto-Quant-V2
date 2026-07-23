@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import json
+import shlex
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-from tests.study_helpers import SUCCESS_JUDGE
+from autoquant.sessions import start_session
+from autoquant.studies import create_study
+from tests.study_helpers import SUCCESS_JUDGE, make_project, study_definition
 
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
@@ -60,6 +63,9 @@ class AgentCliTests(unittest.TestCase):
                 "experiment.evaluate",
                 "experiment.list",
                 "experiment.show",
+                "research.run",
+                "research.list",
+                "research.show",
             ],
         )
         for command in commands:
@@ -86,7 +92,23 @@ class AgentCliTests(unittest.TestCase):
                 "run-result",
                 "session",
                 "experiment",
+                "researcher-response",
+                "campaign-result",
             ],
+        )
+        response_schema = run_cli("schema", "researcher-response", "--json")
+        self.assertEqual(response_schema.returncode, 0, response_schema.stderr)
+        self.assertEqual(
+            json_output(response_schema)["data"]["schema"]["oneOf"][0][
+                "properties"
+            ]["action"]["const"],
+            "propose",
+        )
+        campaign_schema = run_cli("schema", "campaign-result", "--json")
+        self.assertEqual(campaign_schema.returncode, 0, campaign_schema.stderr)
+        self.assertIn(
+            "budget",
+            json_output(campaign_schema)["data"]["schema"]["properties"],
         )
 
     def test_json_cli_completes_a_two_project_workspace_flow(self) -> None:
@@ -480,6 +502,93 @@ class AgentCliTests(unittest.TestCase):
             self.assertEqual(
                 (project / "factors/candidate.py").read_text(),
                 "SCORE = 2.0\n",
+            )
+
+    def test_json_cli_runs_and_inspects_a_bounded_external_campaign(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, project = make_project(directory)
+            create_study(project, study_definition())
+            session = start_session(project, "factor-quality")
+            researcher = Path(directory) / "researcher.py"
+            researcher.write_text(
+                """\
+import json
+import os
+from pathlib import Path
+
+Path(os.environ["AUTOQUANT_WORKTREE"], "factors/candidate.py").write_text("SCORE = 2.0\\n")
+print(json.dumps({
+    "schema_version": 1,
+    "action": "propose",
+    "strategy": "bounded-cli-smoke",
+    "hypothesis": "Raise the synthetic score once.",
+    "expected_effect": "Beat the baseline.",
+}))
+""",
+                encoding="utf-8",
+            )
+            command = (
+                f"{shlex.quote(sys.executable)} {shlex.quote(str(researcher))}"
+            )
+
+            executed = run_cli(
+                "research",
+                "run",
+                str(project.root_dir),
+                "--session",
+                session.manifest["id"],
+                "--agent-command",
+                command,
+                "--max-turns",
+                "1",
+                "--max-wall-seconds",
+                "30",
+                "--turn-timeout-seconds",
+                "5",
+                "--json",
+            )
+            self.assertEqual(executed.returncode, 0, executed.stderr)
+            envelope = json_output(executed)
+            self.assertEqual(envelope["command"], "research.run")
+            self.assertEqual(
+                envelope["data"]["result"]["status"],
+                "budget_exhausted",
+            )
+            self.assertEqual(
+                envelope["data"]["result"]["verdicts"]["KEEP"],
+                1,
+            )
+            self.assertEqual(envelope["artifacts"][0]["kind"], "campaign")
+            campaign_id = envelope["data"]["result"]["id"]
+
+            listed = run_cli(
+                "research",
+                "list",
+                str(project.root_dir),
+                "--session",
+                session.manifest["id"],
+                "--json",
+            )
+            self.assertEqual(listed.returncode, 0, listed.stderr)
+            self.assertEqual(
+                json_output(listed)["data"]["campaigns"][0]["id"],
+                campaign_id,
+            )
+
+            shown = run_cli(
+                "research",
+                "show",
+                str(project.root_dir),
+                "--session",
+                session.manifest["id"],
+                "--campaign",
+                campaign_id,
+                "--json",
+            )
+            self.assertEqual(shown.returncode, 0, shown.stderr)
+            self.assertEqual(
+                json_output(shown)["data"]["result"]["id"],
+                campaign_id,
             )
 
 

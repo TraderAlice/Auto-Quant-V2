@@ -398,6 +398,7 @@ def start_session(project: ProjectContext, study_id: str) -> SessionContext:
             "nextExperiment": 1,
         }
         (temporary / "experiments").mkdir()
+        (temporary / "campaigns").mkdir()
         _write_json(temporary / SESSION_MANIFEST, manifest)
         os.replace(temporary, target)
     except Exception:
@@ -991,6 +992,88 @@ def _restore_leader(session: SessionContext, candidate: StudyContext) -> None:
         raise AutoQuantValidationError(
             [_issue(session.root_dir, "session.restore", "Leader source restoration failed")]
         )
+
+
+def _remove_path(path: Path) -> None:
+    if path.is_symlink() or path.is_file():
+        path.unlink()
+    elif path.is_dir():
+        shutil.rmtree(path)
+
+
+def restore_session_worktree(
+    project: ProjectContext,
+    session: SessionContext,
+) -> SessionContext:
+    """Rebuild a damaged candidate worktree from fixed inputs and leader evidence."""
+
+    canonical = load_study(project, session.manifest["studyId"])
+    locks = session.manifest["locks"]
+    fixed_identity = {
+        "studyHash": canonical.study_hash,
+        "programHash": canonical.program_hash,
+        "judgeHash": canonical.judge_hash,
+        "datasetHash": canonical.dataset_hash,
+    }
+    issues = [
+        _issue(
+            canonical.root_dir,
+            "session.lock-stale",
+            f"Project {key} differs from the Session lock",
+        )
+        for key, value in fixed_identity.items()
+        if value != locks[key]
+    ]
+    if harness_identity() != locks["harness"]:
+        issues.append(
+            _issue(
+                session.manifest_path,
+                "session.harness-stale",
+                "Installed Harness differs from the Session baseline",
+            )
+        )
+    issues.extend(_history_issues(project, session))
+    if issues:
+        raise AutoQuantValidationError(issues)
+
+    staging = session.root_dir / f".worktree-repair-{uuid.uuid4().hex}"
+    worktree_container = session.root_dir / "worktree"
+    backup = session.root_dir / f".worktree-backup-{uuid.uuid4().hex}"
+    try:
+        staging.mkdir()
+        staged_project = _materialize_worktree(project, canonical, staging)
+        staged_study = load_study(staged_project, session.manifest["studyId"])
+        _clear_editable(staged_project, staged_study)
+        _copy_run_sources(session.leader_run, staged_project, staged_study)
+        restored = load_study(staged_project, session.manifest["studyId"])
+        if restored.source_hash != session.manifest["leader"]["sourceHash"]:
+            raise AutoQuantValidationError(
+                [_issue(staging, "session.restore", "Rebuilt leader source hash mismatch")]
+            )
+        fixed = _fixed_inventory(
+            staged_project,
+            session.manifest["editablePaths"],
+        )
+        if fixed != locks["fixedHashes"]:
+            raise AutoQuantValidationError(
+                [_issue(staging, "session.restore", "Rebuilt fixed inventory mismatch")]
+            )
+
+        had_worktree = worktree_container.exists() or worktree_container.is_symlink()
+        if had_worktree:
+            os.replace(worktree_container, backup)
+        try:
+            os.replace(staging / "worktree", worktree_container)
+        except Exception:
+            if had_worktree and (backup.exists() or backup.is_symlink()):
+                os.replace(backup, worktree_container)
+            raise
+        if backup.exists() or backup.is_symlink():
+            _remove_path(backup)
+    finally:
+        if staging.exists() or staging.is_symlink():
+            _remove_path(staging)
+    return load_session(project, session.manifest["id"])
 
 
 def _experiment_hashes(root: Path) -> dict[str, str]:

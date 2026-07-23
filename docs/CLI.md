@@ -1,7 +1,7 @@
 # AutoQuant V2 CLI
 
-Status: Workspace/Project, Study/Run evidence, and governed
-Session/Experiment research implemented.
+Status: Workspace/Project, Study/Run evidence, governed Session/Experiment
+research, and bounded external Researcher Campaigns implemented.
 
 `aq` is the public human- and Agent-facing command line interface. Humans
 receive compact text by default. `--json` emits exactly one versioned envelope.
@@ -103,6 +103,40 @@ evidence, and returns `KEEP`, `REVERT`, or `CRASH`. REVERT and CRASH restore the
 leader bytes in the worktree. `session promote` is the only operation that
 copies a KEEP into Project source; it rejects a stale Project base and rolls
 back if the source, receipt, and Session pointer cannot all be committed.
+
+## Research Campaign commands
+
+```bash
+aq research run <path> \
+  --session ID \
+  --agent-command SHELL \
+  [--max-turns 5] \
+  [--max-wall-seconds 900] \
+  [--turn-timeout-seconds 300] \
+  [--project ID] [--json]
+aq research list <path> --session ID [--project ID] [--json]
+aq research show <path> \
+  --session ID \
+  --campaign ID \
+  [--project ID] [--json]
+```
+
+`research run` invokes the explicit shell command in the Session worktree. A
+fresh structured brief is provided on stdin every turn. The command edits the
+declared candidate closure and returns exactly one strict JSON `propose` or
+`stop` response. Valid proposals are evaluated through the existing fixed
+Judge and Experiment path; they cannot supply metrics, verdicts, or promotion.
+
+The aggregate and per-turn budgets are mandatory and bounded. Command exit,
+timeout, malformed response, illegal fixed-source changes, unchanged
+proposals, and changed-source STOP responses terminate the Campaign as
+`failed` and reconstruct the worktree from verified fixed inputs and leader
+Run evidence. `research list` and `research show` verify every Campaign file
+hash and referenced Experiment.
+
+The external command is explicit host-code execution, not an OS sandbox.
+Callers that require stronger isolation can wrap the same stdin/stdout
+protocol in their own sandbox.
 
 ## Success envelope
 
@@ -208,15 +242,16 @@ uv run aq capabilities --json
 ## Current boundary
 
 This CLI owns Workspace/Project lifecycle, fixed Study and immutable Run
-evidence, and the governed Session/Experiment edit/evaluate/promotion loop. The
-legacy `prepare.py` and `run.py` commands remain the V0.5 compatibility
-Harness. External Researcher invocation, automatic stopping, richer robust
-comparison, and Studio remain separate future surfaces.
+evidence, the governed Session/Experiment edit/evaluate/promotion loop, and
+bounded provider-neutral Researcher Campaigns. The legacy `prepare.py` and
+`run.py` commands remain the V0.5 compatibility Harness. Richer robust
+comparison and Studio remain separate future surfaces.
 
 ## Verification
 
 ```bash
 uv run aq capabilities --json
 uv run python -m unittest \
-  tests.test_cli tests.test_studies tests.test_runs tests.test_sessions -v
+  tests.test_cli tests.test_studies tests.test_runs tests.test_sessions \
+  tests.test_research -v
 ```

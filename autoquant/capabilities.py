@@ -83,6 +83,13 @@ EXPERIMENT_ARGUMENT = argument(
     True,
     "Immutable Experiment id inside a Session.",
 )
+CAMPAIGN_ARGUMENT = argument(
+    "campaign",
+    "option",
+    "string",
+    True,
+    "Immutable Campaign id inside a Session.",
+)
 
 
 def descriptor(
@@ -114,7 +121,7 @@ CLI_COMMANDS = [
     ),
     descriptor(
         "schema",
-        "aq schema [workspace|project|study|judge-output|run-result|session|experiment] [--json]",
+        "aq schema [workspace|project|study|judge-output|run-result|session|experiment|researcher-response|campaign-result] [--json]",
         "List or emit canonical AutoQuant JSON Schemas.",
         "read-only",
         [
@@ -132,6 +139,8 @@ CLI_COMMANDS = [
                     "run-result",
                     "session",
                     "experiment",
+                    "researcher-response",
+                    "campaign-result",
                 ],
             ),
             JSON_ARGUMENT,
@@ -429,6 +438,69 @@ CLI_COMMANDS = [
             PROJECT_ARGUMENT,
             SESSION_ARGUMENT,
             EXPERIMENT_ARGUMENT,
+            JSON_ARGUMENT,
+        ],
+    ),
+    descriptor(
+        "research.run",
+        "aq research run <path> --session ID --agent-command SHELL [budgets] [--project ID] [--json]",
+        "Run a user-authorized external shell Researcher against one governed Session and publish immutable Campaign evidence.",
+        "creates-artifact",
+        [
+            PATH_ARGUMENT,
+            PROJECT_ARGUMENT,
+            SESSION_ARGUMENT,
+            argument(
+                "agent-command",
+                "option",
+                "string",
+                True,
+                "Explicit host shell command receiving a turn brief on stdin.",
+            ),
+            argument(
+                "max-turns",
+                "option",
+                "integer",
+                False,
+                "Maximum Researcher turns.",
+                default=5,
+            ),
+            argument(
+                "max-wall-seconds",
+                "option",
+                "integer",
+                False,
+                "Aggregate Campaign wall-clock budget.",
+                default=900,
+            ),
+            argument(
+                "turn-timeout-seconds",
+                "option",
+                "integer",
+                False,
+                "Maximum duration of one Researcher command.",
+                default=300,
+            ),
+            JSON_ARGUMENT,
+        ],
+    ),
+    descriptor(
+        "research.list",
+        "aq research list <path> --session ID [--project ID] [--json]",
+        "List verified immutable Researcher Campaigns in one Session.",
+        "read-only",
+        [PATH_ARGUMENT, PROJECT_ARGUMENT, SESSION_ARGUMENT, JSON_ARGUMENT],
+    ),
+    descriptor(
+        "research.show",
+        "aq research show <path> --session ID --campaign ID [--project ID] [--json]",
+        "Verify and inspect one immutable Campaign and its turn evidence.",
+        "read-only",
+        [
+            PATH_ARGUMENT,
+            PROJECT_ARGUMENT,
+            SESSION_ARGUMENT,
+            CAMPAIGN_ARGUMENT,
             JSON_ARGUMENT,
         ],
     ),

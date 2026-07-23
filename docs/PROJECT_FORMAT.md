@@ -270,6 +270,11 @@ sessions/
     │       ├── changes.json
     │       ├── diff.patch
     │       └── manifest.json
+    ├── campaigns/
+    │   └── campaign-<UTC timestamp>-<identity>/
+    │       ├── turns/turn-0001/
+    │       ├── result.json
+    │       └── manifest.json
     └── promotion.json
 ```
 
@@ -304,6 +309,15 @@ source from its verified Run. `promotion.json` is written once only after the
 current KEEP replaces an unchanged Project base and the applied source hash is
 verified. Any failure rolls Project source and Session state back.
 
+An immutable Campaign groups a bounded sequence of external Researcher turns.
+Each turn preserves its complete input brief, stdout, stderr, parsed response
+when valid, timing, terminal result, and optional Experiment reference.
+Campaign `result.json` records the hashed command identity, budgets, stopping
+reason, Experiment ids, verdict counts, and initial/final leader. Its terminal
+manifest pins every Campaign file; opening a Campaign also verifies every
+referenced Experiment. The full connector and recovery contract is
+[[docs/design/external-researcher-driver]].
+
 The complete operating and authority contract is
 [[docs/design/research-session-loop]].
 
@@ -320,6 +334,8 @@ aq schema judge-output --json
 aq schema run-result --json
 aq schema session --json
 aq schema experiment --json
+aq schema researcher-response --json
+aq schema campaign-result --json
 ```
 
 The Python validators are authoritative executable behavior in

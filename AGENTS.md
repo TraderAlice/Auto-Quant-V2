@@ -54,6 +54,8 @@ Read the relevant linked document before changing a subsystem:
   immutable RunResult evidence: [[docs/design/study-run-evidence]]
 - Resumable Agent worktrees, KEEP/REVERT/CRASH Experiments, and guarded source
   promotion: [[docs/design/research-session-loop]]
+- Provider-neutral external Researcher turns, budgets, restoration, and
+  immutable Campaign evidence: [[docs/design/external-researcher-driver]]
 - Canonical Workspace and Project file schemas: [[docs/PROJECT_FORMAT]]
 - Human and machine-readable command behavior: [[docs/CLI]]
 - Current Freqtrade/OHLCV Harness manifest and profile contract:
