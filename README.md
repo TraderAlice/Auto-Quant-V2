@@ -158,6 +158,13 @@ prompt something like:
 The agent reads `program.md`, goes through setup, then enters the experiment
 loop. It keeps iterating until you interrupt it or it runs out of context.
 
+Framework development uses a separate, repository-native coordination loop.
+Read [`AGENTS.md`](AGENTS.md) before non-trivial changes, find live work in
+[`PLANS.md`](PLANS.md), and keep lasting subsystem truth under
+[`docs/design/`](docs/design/). This lets humans and Coding Agents continue
+long-running V2 development without treating chat history as the system of
+record.
+
 ### Permissions
 
 The loop only works if the agent can run commands without a human approving
