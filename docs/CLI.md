@@ -138,6 +138,28 @@ The external command is explicit host-code execution, not an OS sandbox.
 Callers that require stronger isolation can wrap the same stdin/stdout
 protocol in their own sandbox.
 
+## Studio commands
+
+```bash
+aq studio snapshot <path> [--project ID] [--json]
+aq studio serve <path> \
+  [--project ID] \
+  [--host 127.0.0.1] \
+  [--port 8765] \
+  [--no-open]
+```
+
+`studio snapshot` builds one Workspace or direct-Project observation through
+the same verified Core loaders used by other commands. It includes fixed
+Studies, immutable Runs, Session/Experiment history, terminal Campaigns, and
+explicitly mutable in-progress Campaign telemetry.
+
+`studio serve` is a foreground `long-running-server` operation. It serves the
+packaged read-only browser presentation and the same snapshot contract. It
+does not support `--json` because its stdout announces a live URL rather than
+one terminal envelope. Loopback is the default; non-loopback binding is an
+explicit operator choice and V1 has no authentication. See [[docs/STUDIO]].
+
 ## Success envelope
 
 ```json
@@ -188,11 +210,12 @@ Current operation effects are:
 - `read-only`;
 - `creates-artifact`;
 - `mutates-workspace`;
-- `mutates-project`.
+- `mutates-project`;
+- `long-running-server`.
 
 Only `session.promote` currently uses `mutates-project`, after locked-history,
-stale-base, source-hash, and rollback checks. A future Studio must project
-these same Core operations and effects rather than write files independently.
+stale-base, source-hash, and rollback checks. `studio.serve` is the only
+`long-running-server`; its routes are fixed and read-only.
 
 ## Error envelope
 
@@ -244,8 +267,9 @@ uv run aq capabilities --json
 This CLI owns Workspace/Project lifecycle, fixed Study and immutable Run
 evidence, the governed Session/Experiment edit/evaluate/promotion loop, and
 bounded provider-neutral Researcher Campaigns. The legacy `prepare.py` and
-`run.py` commands remain the V0.5 compatibility Harness. Richer robust
-comparison and Studio remain separate future surfaces.
+`run.py` commands remain the V0.5 compatibility Harness. The local Studio
+projects the current read model. Richer robust comparison and Studio mutation
+operations remain separate future surfaces.
 
 ## Verification
 

@@ -48,13 +48,17 @@ The V2 foundation now implements:
 - provider-neutral external Researcher Campaigns with strict briefs/responses,
   aggregate and per-turn budgets, failure recovery, and immutable turn
   evidence.
+- one packaged local read-only Studio with a shared versioned snapshot,
+  Workspace/Project overview, explicit mutable Campaign progress, defensive
+  HTTP boundary, and responsive research-first presentation.
 
 The canonical contracts are [[docs/PROJECT_FORMAT]] and [[docs/CLI]]. The
 boundary designs are [[docs/design/workspace-project-boundaries]] and
 [[docs/design/agent-cli-contract]]. Study/Run authority and evidence are defined
 in [[docs/design/study-run-evidence]]; governed source research is defined in
 [[docs/design/research-session-loop]]; external orchestration is defined in
-[[docs/design/external-researcher-driver]].
+[[docs/design/external-researcher-driver]]; Studio observation is defined in
+[[docs/design/studio-observation-surface]].
 
 The repository also contains the V0.5 development Harness inherited from
 Auto-Quant Classic:
@@ -158,6 +162,8 @@ behind the Harness contract, not the owner of Workspace or Project semantics.
   `autoquant/sessions.py`
 - Bounded external Researcher orchestration and Campaign evidence:
   `autoquant/research.py`
+- Verified Studio snapshot and local HTTP server: `autoquant/studio.py`
+- Packaged browser presentation: `autoquant/studio_assets/`
 - Canonical Workspace/Project format: [[docs/PROJECT_FORMAT]]
 - Canonical CLI contract: [[docs/CLI]]
 - Workspace/Project design: [[docs/design/workspace-project-boundaries]]
@@ -166,6 +172,8 @@ behind the Harness contract, not the owner of Workspace or Project semantics.
 - Research Session loop design: [[docs/design/research-session-loop]]
 - External Researcher driver design:
   [[docs/design/external-researcher-driver]]
+- Studio observation design: [[docs/design/studio-observation-surface]]
+- Studio operator guide: [[docs/STUDIO]]
 - Current public Harness contract: [[docs/harness]]
 - Planning and documentation governance:
   [[docs/design/documentation-system]]
@@ -207,5 +215,5 @@ These commands must not start autonomous research or a long backtest.
   implemented.
 - Dataset V1 identity is declarative and does not hash dataset bytes.
 - The V0.5 Freqtrade runner is not adapted into the Study/Run contract.
-- The cross-project Studio does not exist.
+- Studio is read-only and does not yet provide confirmed Core operations.
 - ML is a supported architectural direction but has no execution contract yet.

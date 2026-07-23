@@ -91,6 +91,7 @@ campaigns/
     │       ├── stderr.txt
     │       ├── response.json
     │       └── result.json
+    ├── progress.json
     ├── result.json
     └── manifest.json
 ```
@@ -100,12 +101,18 @@ status, stopping reason, completed turns, Experiment ids, verdict counts,
 initial/final leader, and structured errors. The manifest is written last and
 pins every other file. Hidden staging Campaigns are ignored.
 
+During execution, the hidden staging Campaign has a strict mutable
+`progress.json`. It exposes current phase/turn/budget and completed Experiment
+references for [[docs/design/studio-observation-surface]] without claiming
+terminal evidence. Publication changes it to the terminal status and includes
+its hash in the Campaign manifest.
+
 Campaign terminal statuses are:
 
 - `stopped`: the Researcher returned a valid STOP;
 - `budget_exhausted`: every allowed proposal turn completed;
 - `failed`: command exit/timeout, malformed response, illegal or unchanged
-  source, or Campaign publication failure.
+  source.
 
 Completed Experiments remain independently valid when their Campaign later
 fails.
@@ -150,4 +157,4 @@ Campaign wall time. Judge time consumes the aggregate wall budget. Reaching
 - There is no streaming progress envelope while a command is running.
 - Token/cost budgets are not standardized.
 - Campaigns are linear and single-process.
-- Studio does not yet expose Campaigns.
+- Progress polling does not prove the Campaign process remains alive.

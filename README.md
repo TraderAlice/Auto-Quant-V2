@@ -93,6 +93,18 @@ sandbox. It may propose candidate code, but the locked Judge still owns
 metrics and verdicts, and Project promotion remains a separate explicit
 operation.
 
+Humans can watch the same Workspace through the lightweight local Studio:
+
+```bash
+uv run aq studio snapshot ./quant-workspace --json
+uv run aq studio serve ./quant-workspace
+```
+
+Studio shows Projects, active Session leaders, running Researcher turns,
+verdict trajectories, recent evidence, and fixed Studies. It is read-only and
+uses the same verified Core loaders as the CLI. See
+[`docs/STUDIO.md`](docs/STUDIO.md).
+
 The v0.5 development Harness still uses **Freqtrade as its one core engine**,
 but assets are no longer hardwired into that engine:
 

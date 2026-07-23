@@ -272,6 +272,7 @@ sessions/
     │       └── manifest.json
     ├── campaigns/
     │   └── campaign-<UTC timestamp>-<identity>/
+    │       ├── progress.json
     │       ├── turns/turn-0001/
     │       ├── result.json
     │       └── manifest.json
@@ -318,6 +319,13 @@ manifest pins every Campaign file; opening a Campaign also verifies every
 referenced Experiment. The full connector and recovery contract is
 [[docs/design/external-researcher-driver]].
 
+While a Campaign is executing, its hidden staging directory contains a strict
+mutable `progress.json` with phase, turn, budget, command hash, completed
+Experiment ids, and verdict counts. It is operational telemetry, never a
+verdict. Terminal publication updates it to the final status and pins it in the
+Campaign manifest. Studio may observe hidden progress only through the
+Research module validator.
+
 The complete operating and authority contract is
 [[docs/design/research-session-loop]].
 
@@ -336,11 +344,13 @@ aq schema session --json
 aq schema experiment --json
 aq schema researcher-response --json
 aq schema campaign-result --json
+aq schema campaign-progress --json
+aq schema studio-snapshot --json
 ```
 
 The Python validators are authoritative executable behavior in
-`autoquant/workspace.py`, `autoquant/studies.py`, `autoquant/runs.py`, and
-`autoquant/sessions.py`.
+`autoquant/workspace.py`, `autoquant/studies.py`, `autoquant/runs.py`,
+`autoquant/sessions.py`, `autoquant/research.py`, and `autoquant/studio.py`.
 
 ## Compatibility surface
 

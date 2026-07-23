@@ -1,0 +1,725 @@
+"""Verified read-only snapshots and local HTTP presentation for AutoQuant."""
+
+from __future__ import annotations
+
+import json
+import threading
+import webbrowser
+from datetime import datetime, timezone
+from http import HTTPStatus
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from importlib.resources import files
+from pathlib import Path
+from typing import Any, Callable
+from urllib.parse import urlsplit
+
+from .research import list_campaign_progress, list_campaigns
+from .runs import list_runs
+from .sessions import list_sessions, load_session, session_snapshot
+from .studies import list_studies
+from .workspace import (
+    PROJECT_MANIFEST,
+    SCHEMA_VERSION,
+    WORKSPACE_MANIFEST,
+    AutoQuantValidationError,
+    ProjectContext,
+    ValidationIssue,
+    confined_path,
+    load_project,
+    load_workspace,
+)
+
+
+STUDIO_KIND = "autoquant-studio-snapshot"
+STUDIO_ASSETS = {
+    "/": ("index.html", "text/html; charset=utf-8"),
+    "/index.html": ("index.html", "text/html; charset=utf-8"),
+    "/assets/studio.css": ("studio.css", "text/css; charset=utf-8"),
+    "/assets/studio.js": ("studio.js", "text/javascript; charset=utf-8"),
+}
+SECURITY_HEADERS = {
+    "Content-Security-Policy": (
+        "default-src 'none'; script-src 'self'; style-src 'self'; "
+        "img-src 'self' data:; connect-src 'self'; font-src 'self'; "
+        "base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+    ),
+    "Cross-Origin-Resource-Policy": "same-origin",
+    "Permissions-Policy": (
+        "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+    ),
+    "Referrer-Policy": "no-referrer",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+}
+
+
+def _issue(path: Path | str, code: str, message: str) -> ValidationIssue:
+    return ValidationIssue(str(path), code, message)
+
+
+def _diagnostics(
+    category: str,
+    error: AutoQuantValidationError,
+) -> list[dict[str, str]]:
+    return [
+        {
+            "category": category,
+            **issue.to_dict(),
+        }
+        for issue in error.issues
+    ]
+
+
+def _read_category(
+    category: str,
+    operation: Callable[[], Any],
+) -> tuple[Any, list[dict[str, str]]]:
+    try:
+        return operation(), []
+    except AutoQuantValidationError as error:
+        return [], _diagnostics(category, error)
+
+
+def _workspace_projects(
+    root: Path,
+    selected_project: str | None,
+) -> tuple[dict[str, Any], list[ProjectContext], list[dict[str, str]]]:
+    workspace = load_workspace(root)
+    projects: list[ProjectContext] = []
+    discovered_ids: set[str] = set()
+    diagnostics: list[dict[str, str]] = []
+    for entry in sorted(workspace.projects_dir.iterdir(), key=lambda item: item.name):
+        if entry.name.startswith("."):
+            continue
+        if entry.is_symlink() or not entry.is_dir():
+            diagnostics.append(
+                {
+                    "category": "workspace",
+                    **_issue(
+                        entry,
+                        "workspace.project-entry",
+                        "Workspace Project entries must be real directories",
+                    ).to_dict(),
+                }
+            )
+            continue
+        try:
+            project = load_project(entry, expected_id=entry.name)
+        except AutoQuantValidationError as error:
+            diagnostics.extend(_diagnostics("workspace", error))
+            continue
+        discovered_ids.add(project.manifest.id)
+        if selected_project is None or project.manifest.id == selected_project:
+            projects.append(project)
+    default_project = workspace.manifest.default_project
+    if default_project is not None and default_project not in discovered_ids:
+        diagnostics.append(
+            {
+                "category": "workspace",
+                **_issue(
+                    root / WORKSPACE_MANIFEST,
+                    "workspace.default-project",
+                    f"Default Project '{default_project}' does not exist",
+                ).to_dict(),
+            }
+        )
+    if selected_project is not None and not any(
+        project.manifest.id == selected_project for project in projects
+    ):
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    selected_project,
+                    "workspace.project-missing",
+                    f"Unknown Workspace Project: {selected_project}",
+                )
+            ]
+        )
+    return (
+        {
+            "name": workspace.manifest.name,
+            "rootDir": str(workspace.root_dir),
+            "defaultProject": workspace.manifest.default_project,
+        },
+        projects,
+        diagnostics,
+    )
+
+
+def _resolve_source(
+    directory: str | Path,
+    selected_project: str | None,
+) -> tuple[str, Path, dict[str, Any] | None, list[ProjectContext], list[dict[str, str]]]:
+    raw = Path(directory).expanduser().absolute()
+    if raw.is_symlink():
+        raise AutoQuantValidationError(
+            [_issue(raw, "path.symlink", "Studio input root cannot be a symlink")]
+        )
+    root = raw.resolve()
+    is_project = (root / PROJECT_MANIFEST).is_file()
+    is_workspace = (root / WORKSPACE_MANIFEST).is_file()
+    if is_project and is_workspace:
+        raise AutoQuantValidationError(
+            [_issue(root, "path.ambiguous", "Studio root cannot be both types")]
+        )
+    if is_project:
+        if selected_project is not None:
+            raise AutoQuantValidationError(
+                [
+                    _issue(
+                        selected_project,
+                        "project.unexpected-selection",
+                        "--project cannot select inside a direct Project",
+                    )
+                ]
+            )
+        return "project", root, None, [load_project(root)], []
+    if is_workspace:
+        workspace, projects, diagnostics = _workspace_projects(
+            root,
+            selected_project,
+        )
+        return "workspace", root, workspace, projects, diagnostics
+    raise AutoQuantValidationError(
+        [
+            _issue(
+                root,
+                "path.not-autoquant",
+                f"Not an AutoQuant Project or Workspace: {root}",
+            )
+        ]
+    )
+
+
+def _timeline(
+    runs: list[dict[str, Any]],
+    sessions: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    events: list[dict[str, Any]] = []
+    for run in runs:
+        events.append(
+            {
+                "kind": "run",
+                "id": run["id"],
+                "at": run["startedAt"],
+                "status": run["status"],
+                "title": f"{run['studyId']} · {run['primaryMetric']}",
+                "value": run["primaryValue"],
+            }
+        )
+    for item in sessions:
+        session = item["session"]
+        events.append(
+            {
+                "kind": "session",
+                "id": session["id"],
+                "at": session["updatedAt"],
+                "status": session["status"],
+                "title": session["studyId"],
+                "value": session["leader"]["value"],
+            }
+        )
+        for experiment in item["experiments"]:
+            events.append(
+                {
+                    "kind": "experiment",
+                    "id": experiment["id"],
+                    "at": experiment["completedAt"],
+                    "status": experiment["verdict"],
+                    "title": experiment["hypothesis"],
+                    "value": experiment["candidateValue"],
+                }
+            )
+        for campaign in item["campaigns"]:
+            events.append(
+                {
+                    "kind": "campaign",
+                    "id": campaign["id"],
+                    "at": campaign["completedAt"],
+                    "status": campaign["status"],
+                    "title": campaign["reason"],
+                    "value": campaign["experiments"],
+                }
+            )
+        for progress in item["progress"]:
+            events.append(
+                {
+                    "kind": "progress",
+                    "id": progress["campaignId"],
+                    "at": progress["updatedAt"],
+                    "status": progress["phase"],
+                    "title": progress["message"],
+                    "value": progress["turn"],
+                    "mutable": True,
+                }
+            )
+    return sorted(
+        events,
+        key=lambda event: (event["at"], event["id"]),
+        reverse=True,
+    )[:100]
+
+
+def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
+    diagnostics: list[dict[str, str]] = []
+    program_path = confined_path(
+        project.root_dir,
+        project.manifest.research_program,
+        "project/research_program",
+    )
+    studies_raw, issues = _read_category("studies", lambda: list_studies(project))
+    diagnostics.extend(issues)
+    runs_raw, issues = _read_category("runs", lambda: list_runs(project))
+    diagnostics.extend(issues)
+    sessions_raw, issues = _read_category("sessions", lambda: list_sessions(project))
+    diagnostics.extend(issues)
+    studies = [item.to_dict() for item in studies_raw]
+    runs = [item.to_dict() for item in runs_raw]
+    sessions: list[dict[str, Any]] = []
+    for summary in sessions_raw:
+        try:
+            session = load_session(project, summary.id)
+            snapshot = session_snapshot(project, session)
+            campaigns = [
+                item.to_dict() for item in list_campaigns(project, session)
+            ]
+            progress = list_campaign_progress(session)
+            authority = snapshot["authority"]
+            if not authority["valid"]:
+                diagnostics.extend(
+                    {
+                        "category": "session-authority",
+                        **issue,
+                    }
+                    for issue in authority["issues"]
+                )
+            sessions.append(
+                {
+                    "session": snapshot["session"],
+                    "worktree": snapshot["worktree"],
+                    "candidate": snapshot["candidate"],
+                    "authority": authority,
+                    "experiments": snapshot["experiments"],
+                    "campaigns": campaigns,
+                    "progress": progress,
+                }
+            )
+        except AutoQuantValidationError as error:
+            diagnostics.extend(_diagnostics(f"session:{summary.id}", error))
+    verdicts = {"KEEP": 0, "REVERT": 0, "CRASH": 0}
+    for item in sessions:
+        for experiment in item["experiments"]:
+            verdict = experiment["verdict"]
+            verdicts[verdict] += 1
+    return {
+        "id": project.manifest.id,
+        "name": project.manifest.name,
+        "description": project.manifest.description,
+        "rootDir": str(project.root_dir),
+        "researchProgram": {
+            "path": str(program_path),
+            "text": program_path.read_text(encoding="utf-8"),
+        },
+        "valid": not diagnostics,
+        "diagnostics": diagnostics,
+        "counts": {
+            "studies": len(studies),
+            "runs": len(runs),
+            "sessions": len(sessions),
+            "activeSessions": sum(
+                item["session"]["status"] == "active" for item in sessions
+            ),
+            "campaigns": sum(len(item["campaigns"]) for item in sessions),
+            "runningCampaigns": sum(len(item["progress"]) for item in sessions),
+            "verdicts": verdicts,
+        },
+        "studies": studies,
+        "runs": runs,
+        "sessions": sessions,
+        "timeline": _timeline(runs, sessions),
+    }
+
+
+def build_studio_snapshot(
+    directory: str | Path,
+    *,
+    project_id: str | None = None,
+) -> dict[str, Any]:
+    scope, root, workspace, projects, diagnostics = _resolve_source(
+        directory,
+        project_id,
+    )
+    observations = [_project_snapshot(project) for project in projects]
+    return {
+        "schemaVersion": SCHEMA_VERSION,
+        "kind": STUDIO_KIND,
+        "generatedAt": datetime.now(timezone.utc).isoformat(),
+        "source": {
+            "scope": scope,
+            "rootDir": str(root),
+            "workspace": workspace,
+        },
+        "valid": not diagnostics and all(
+            project["valid"] for project in observations
+        ),
+        "diagnostics": diagnostics,
+        "projects": observations,
+    }
+
+
+def _asset_bytes(name: str) -> bytes:
+    return files("autoquant").joinpath("studio_assets", name).read_bytes()
+
+
+def _error_payload(error: Exception) -> tuple[int, dict[str, Any]]:
+    if isinstance(error, AutoQuantValidationError):
+        return (
+            HTTPStatus.UNPROCESSABLE_ENTITY,
+            {
+                "schemaVersion": SCHEMA_VERSION,
+                "ok": False,
+                "error": {
+                    "code": "validation.failed",
+                    "message": str(error),
+                    "issues": [issue.to_dict() for issue in error.issues],
+                },
+            },
+        )
+    return (
+        HTTPStatus.INTERNAL_SERVER_ERROR,
+        {
+            "schemaVersion": SCHEMA_VERSION,
+            "ok": False,
+            "error": {
+                "code": "studio.failed",
+                "message": str(error),
+                "issues": [],
+            },
+        },
+    )
+
+
+def _handler(
+    directory: Path,
+    project_id: str | None,
+) -> type[BaseHTTPRequestHandler]:
+    class StudioHandler(BaseHTTPRequestHandler):
+        server_version = "AutoQuantStudio/0.1"
+
+        def _headers(
+            self,
+            status: int,
+            content_type: str,
+            length: int,
+            *,
+            cache_control: str = "no-store",
+        ) -> None:
+            self.send_response(status)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(length))
+            self.send_header("Cache-Control", cache_control)
+            for key, value in SECURITY_HEADERS.items():
+                self.send_header(key, value)
+            self.end_headers()
+
+        def _send(
+            self,
+            status: int,
+            content_type: str,
+            body: bytes,
+            *,
+            cache_control: str = "no-store",
+            head_only: bool = False,
+        ) -> None:
+            self._headers(
+                status,
+                content_type,
+                len(body),
+                cache_control=cache_control,
+            )
+            if not head_only:
+                self.wfile.write(body)
+
+        def _route(self, *, head_only: bool = False) -> None:
+            path = urlsplit(self.path).path
+            try:
+                if path == "/api/v1/health":
+                    body = json.dumps(
+                        {
+                            "schemaVersion": SCHEMA_VERSION,
+                            "ok": True,
+                            "service": "autoquant-studio",
+                            "mode": "read-only",
+                        },
+                        separators=(",", ":"),
+                    ).encode()
+                    self._send(
+                        HTTPStatus.OK,
+                        "application/json; charset=utf-8",
+                        body,
+                        head_only=head_only,
+                    )
+                    return
+                if path == "/api/v1/snapshot":
+                    body = json.dumps(
+                        build_studio_snapshot(
+                            directory,
+                            project_id=project_id,
+                        ),
+                        ensure_ascii=False,
+                        separators=(",", ":"),
+                    ).encode()
+                    self._send(
+                        HTTPStatus.OK,
+                        "application/json; charset=utf-8",
+                        body,
+                        head_only=head_only,
+                    )
+                    return
+                asset = STUDIO_ASSETS.get(path)
+                if asset is not None:
+                    name, content_type = asset
+                    body = _asset_bytes(name)
+                    self._send(
+                        HTTPStatus.OK,
+                        content_type,
+                        body,
+                        cache_control="no-cache",
+                        head_only=head_only,
+                    )
+                    return
+                self._send(
+                    HTTPStatus.NOT_FOUND,
+                    "text/plain; charset=utf-8",
+                    b"Not found\n",
+                    head_only=head_only,
+                )
+            except Exception as error:
+                status, payload = _error_payload(error)
+                body = json.dumps(
+                    payload,
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                ).encode()
+                self._send(
+                    status,
+                    "application/json; charset=utf-8",
+                    body,
+                    head_only=head_only,
+                )
+
+        def do_GET(self) -> None:
+            self._route()
+
+        def do_HEAD(self) -> None:
+            self._route(head_only=True)
+
+        def _read_only(self) -> None:
+            self._send(
+                HTTPStatus.METHOD_NOT_ALLOWED,
+                "application/json; charset=utf-8",
+                b'{"schemaVersion":1,"ok":false,"error":{"code":"studio.read-only","message":"Studio routes are read-only","issues":[]}}',
+            )
+
+        def do_POST(self) -> None:
+            self._read_only()
+
+        def do_PUT(self) -> None:
+            self._read_only()
+
+        def do_PATCH(self) -> None:
+            self._read_only()
+
+        def do_DELETE(self) -> None:
+            self._read_only()
+
+        def do_OPTIONS(self) -> None:
+            self._read_only()
+
+        def log_message(self, format: str, *args: Any) -> None:
+            return
+
+    return StudioHandler
+
+
+class AutoQuantStudioServer(ThreadingHTTPServer):
+    daemon_threads = True
+    allow_reuse_address = True
+
+
+def create_studio_server(
+    directory: str | Path,
+    *,
+    project_id: str | None = None,
+    host: str = "127.0.0.1",
+    port: int = 8765,
+) -> AutoQuantStudioServer:
+    if not isinstance(port, int) or isinstance(port, bool) or not 0 <= port <= 65535:
+        raise AutoQuantValidationError(
+            [_issue(port, "studio.port", "Studio port must be from 0 to 65535")]
+        )
+    root = Path(directory).expanduser().absolute()
+    build_studio_snapshot(root, project_id=project_id)
+    return AutoQuantStudioServer(
+        (host, port),
+        _handler(root, project_id),
+    )
+
+
+def serve_studio(
+    directory: str | Path,
+    *,
+    project_id: str | None = None,
+    host: str = "127.0.0.1",
+    port: int = 8765,
+    open_browser: bool = True,
+) -> None:
+    server = create_studio_server(
+        directory,
+        project_id=project_id,
+        host=host,
+        port=port,
+    )
+    display_host = "127.0.0.1" if host in {"0.0.0.0", "::"} else host
+    url = f"http://{display_host}:{server.server_port}"
+    print(f"AutoQuant Studio: {url}", flush=True)
+    print("Mode: local read-only observation", flush=True)
+    if open_browser:
+        threading.Thread(
+            target=webbrowser.open,
+            args=(url,),
+            daemon=True,
+        ).start()
+    try:
+        server.serve_forever(poll_interval=0.25)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.server_close()
+
+
+STUDIO_SNAPSHOT_JSON_SCHEMA: dict[str, Any] = {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "AutoQuant Studio snapshot",
+    "type": "object",
+    "additionalProperties": False,
+    "required": [
+        "schemaVersion",
+        "kind",
+        "generatedAt",
+        "source",
+        "valid",
+        "diagnostics",
+        "projects",
+    ],
+    "properties": {
+        "schemaVersion": {"const": SCHEMA_VERSION},
+        "kind": {"const": STUDIO_KIND},
+        "generatedAt": {"type": "string", "minLength": 1},
+        "source": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["scope", "rootDir", "workspace"],
+            "properties": {
+                "scope": {"enum": ["workspace", "project"]},
+                "rootDir": {"type": "string", "minLength": 1},
+                "workspace": {"type": ["object", "null"]},
+            },
+        },
+        "valid": {"type": "boolean"},
+        "diagnostics": {
+            "type": "array",
+            "items": {"$ref": "#/$defs/diagnostic"},
+        },
+        "projects": {
+            "type": "array",
+            "items": {"$ref": "#/$defs/project"},
+        },
+    },
+    "$defs": {
+        "diagnostic": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["category", "path", "code", "message"],
+            "properties": {
+                "category": {"type": "string", "minLength": 1},
+                "path": {"type": "string", "minLength": 1},
+                "code": {"type": "string", "minLength": 1},
+                "message": {"type": "string", "minLength": 1},
+            },
+        },
+        "project": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "id",
+                "name",
+                "description",
+                "rootDir",
+                "researchProgram",
+                "valid",
+                "diagnostics",
+                "counts",
+                "studies",
+                "runs",
+                "sessions",
+                "timeline",
+            ],
+            "properties": {
+                "id": {"type": "string", "minLength": 1},
+                "name": {"type": "string", "minLength": 1},
+                "description": {"type": "string"},
+                "rootDir": {"type": "string", "minLength": 1},
+                "researchProgram": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["path", "text"],
+                    "properties": {
+                        "path": {"type": "string", "minLength": 1},
+                        "text": {"type": "string"},
+                    },
+                },
+                "valid": {"type": "boolean"},
+                "diagnostics": {
+                    "type": "array",
+                    "items": {"$ref": "#/$defs/diagnostic"},
+                },
+                "counts": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": [
+                        "studies",
+                        "runs",
+                        "sessions",
+                        "activeSessions",
+                        "campaigns",
+                        "runningCampaigns",
+                        "verdicts",
+                    ],
+                    "properties": {
+                        "studies": {"type": "integer", "minimum": 0},
+                        "runs": {"type": "integer", "minimum": 0},
+                        "sessions": {"type": "integer", "minimum": 0},
+                        "activeSessions": {"type": "integer", "minimum": 0},
+                        "campaigns": {"type": "integer", "minimum": 0},
+                        "runningCampaigns": {"type": "integer", "minimum": 0},
+                        "verdicts": {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "required": ["KEEP", "REVERT", "CRASH"],
+                            "properties": {
+                                "KEEP": {"type": "integer", "minimum": 0},
+                                "REVERT": {"type": "integer", "minimum": 0},
+                                "CRASH": {"type": "integer", "minimum": 0},
+                            },
+                        },
+                    },
+                },
+                "studies": {"type": "array"},
+                "runs": {"type": "array"},
+                "sessions": {"type": "array"},
+                "timeline": {"type": "array"},
+            },
+        },
+    },
+}

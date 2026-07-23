@@ -187,4 +187,4 @@ than entering the Judge or promotion authority.
 - Session recovery after process termination between Experiment publication
   and pointer update is not yet automated.
 - Dataset bytes are not content-locked.
-- Studio does not yet expose Sessions or Experiments.
+- Studio observation is read-only; Session operations remain CLI/Core-owned.

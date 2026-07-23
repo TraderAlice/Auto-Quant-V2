@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <meta
+      name="description"
+      content="AutoQuant Studio — a local read-only observatory for quantitative research evidence."
+    >
+    <title>AutoQuant Studio</title>
+    <link rel="stylesheet" href="/assets/studio.css">
+    <script src="/assets/studio.js" defer></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#research-main">Skip to research</a>
+    <div class="studio-shell" id="studio" aria-busy="true">
+      <header class="topbar">
+        <div class="brand-lockup">
+          <span class="brand-mark" aria-hidden="true">AQ</span>
+          <span>
+            <b>AutoQuant</b>
+            <small>Research observatory</small>
+          </span>
+        </div>
+        <div class="source-lockup">
+          <span class="source-kicker" id="source-scope">LOCAL / READ ONLY</span>
+          <strong id="source-name">Loading research workspace…</strong>
+        </div>
+        <div class="sync-controls">
+          <span class="sync-state" id="sync-state" role="status" aria-live="polite">
+            <i aria-hidden="true"></i>
+            <span>Connecting</span>
+          </span>
+          <button class="quiet-button" id="auto-refresh" type="button" aria-pressed="true">
+            Auto
+          </button>
+          <button class="refresh-button" id="refresh" type="button">
+            Refresh
+          </button>
+        </div>
+      </header>
+
+      <aside class="project-rail" aria-label="Research Projects">
+        <div class="rail-heading">
+          <span>Projects</span>
+          <b id="project-count">0</b>
+        </div>
+        <nav id="project-list"></nav>
+        <div class="rail-note">
+          <span>Authority</span>
+          <p>Verified Core evidence. Mutable progress is marked live.</p>
+        </div>
+      </aside>
+
+      <main id="research-main" tabindex="-1">
+        <section class="research-hero" aria-labelledby="project-title">
+          <div class="hero-copy">
+            <span class="eyebrow" id="project-state">RESEARCH PROJECT</span>
+            <h1 id="project-title">Waiting for evidence</h1>
+            <p id="project-description">
+              AutoQuant is assembling a verified research snapshot.
+            </p>
+          </div>
+          <div class="hero-scoreboard" id="scoreboard" aria-label="Research totals"></div>
+        </section>
+
+        <section class="diagnostic-banner" id="diagnostics" role="alert" hidden></section>
+
+        <section class="pulse-section" aria-labelledby="pulse-title">
+          <header class="section-header">
+            <span>
+              <small>LIVE RESEARCH STATE</small>
+              <h2 id="pulse-title">Research pulse</h2>
+            </span>
+            <span class="section-meta" id="pulse-meta">No active Sessions</span>
+          </header>
+          <div class="session-lanes" id="session-lanes"></div>
+        </section>
+
+        <div class="workbench-grid">
+          <section class="trajectory-panel" aria-labelledby="trajectory-title">
+            <header class="section-header compact">
+              <span>
+                <small>EDIT → JUDGE → VERDICT</small>
+                <h2 id="trajectory-title">Optimization trace</h2>
+              </span>
+              <span class="section-meta" id="trajectory-meta">No Experiments</span>
+            </header>
+            <div class="trajectory-chart" id="trajectory-chart"></div>
+            <div class="verdict-legend" aria-label="Verdict legend">
+              <span><i class="keep"></i>KEEP</span>
+              <span><i class="revert"></i>REVERT</span>
+              <span><i class="crash"></i>CRASH</span>
+            </div>
+          </section>
+
+          <section class="evidence-panel" aria-labelledby="evidence-title">
+            <header class="section-header compact">
+              <span>
+                <small>VERIFIED CHRONOLOGY</small>
+                <h2 id="evidence-title">Evidence stream</h2>
+              </span>
+              <a href="/api/v1/snapshot" target="_blank" rel="noreferrer">JSON ↗</a>
+            </header>
+            <ol class="evidence-stream" id="evidence-stream"></ol>
+          </section>
+        </div>
+
+        <section class="catalog-section" aria-labelledby="catalog-title">
+          <header class="section-header">
+            <span>
+              <small>FIXED QUESTIONS &amp; EXECUTIONS</small>
+              <h2 id="catalog-title">Research catalog</h2>
+            </span>
+            <div class="segmented-control" role="tablist" aria-label="Catalog view">
+              <button type="button" role="tab" aria-selected="true" data-catalog="studies">
+                Studies
+              </button>
+              <button type="button" role="tab" aria-selected="false" data-catalog="runs">
+                Runs
+              </button>
+            </div>
+          </header>
+          <div id="catalog"></div>
+        </section>
+      </main>
+
+      <aside class="inspector" aria-label="Selected research detail">
+        <header>
+          <span>Inspector</span>
+          <b id="inspector-kind">PROJECT</b>
+        </header>
+        <div id="inspector-content">
+          <p class="empty-copy">Select a Session to inspect its leader and evidence.</p>
+        </div>
+      </aside>
+    </div>
+
+    <template id="loading-template">
+      <div class="loading-state" role="status">
+        <span></span><span></span><span></span>
+        <p>Verifying research evidence…</p>
+      </div>
+    </template>
+  </body>
+</html>

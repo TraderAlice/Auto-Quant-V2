@@ -56,6 +56,10 @@ Read the relevant linked document before changing a subsystem:
   promotion: [[docs/design/research-session-loop]]
 - Provider-neutral external Researcher turns, budgets, restoration, and
   immutable Campaign evidence: [[docs/design/external-researcher-driver]]
+- Read-only Workspace observation, local HTTP, browser presentation, and
+  mutable-versus-immutable research state:
+  [[docs/design/studio-observation-surface]]
+- Studio operator and public read-model guide: [[docs/STUDIO]]
 - Canonical Workspace and Project file schemas: [[docs/PROJECT_FORMAT]]
 - Human and machine-readable command behavior: [[docs/CLI]]
 - Current Freqtrade/OHLCV Harness manifest and profile contract:

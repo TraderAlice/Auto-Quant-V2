@@ -26,12 +26,14 @@ from .runs import (
     load_run,
 )
 from .research import (
+    CAMPAIGN_PROGRESS_JSON_SCHEMA,
     CAMPAIGN_RESULT_JSON_SCHEMA,
     RESEARCHER_RESPONSE_JSON_SCHEMA,
     list_campaigns,
     load_campaign,
     run_campaign,
 )
+from .studio import STUDIO_SNAPSHOT_JSON_SCHEMA, build_studio_snapshot, serve_studio
 from .sessions import (
     EXPERIMENT_JSON_SCHEMA,
     SESSION_JSON_SCHEMA,
@@ -133,6 +135,8 @@ def build_parser() -> RaisingArgumentParser:
             "experiment",
             "researcher-response",
             "campaign-result",
+            "campaign-progress",
+            "studio-snapshot",
         ],
     )
     schema.set_defaults(command_id="schema")
@@ -381,6 +385,31 @@ def build_parser() -> RaisingArgumentParser:
     research_show.add_argument("--campaign", required=True)
     research_show.set_defaults(command_id="research.show")
     _json_argument(research_show)
+
+    studio = subcommands.add_parser(
+        "studio",
+        help="observe verified Workspace research in CLI JSON or a local web UI",
+    )
+    studio_actions = studio.add_subparsers(dest="studio_action", required=True)
+    studio_snapshot = studio_actions.add_parser(
+        "snapshot",
+        help="emit one verified read-only Studio snapshot",
+    )
+    studio_snapshot.add_argument("path")
+    studio_snapshot.add_argument("--project")
+    studio_snapshot.set_defaults(command_id="studio.snapshot")
+    _json_argument(studio_snapshot)
+
+    studio_serve = studio_actions.add_parser(
+        "serve",
+        help="serve the local read-only AutoQuant Studio",
+    )
+    studio_serve.add_argument("path")
+    studio_serve.add_argument("--project")
+    studio_serve.add_argument("--host", default="127.0.0.1")
+    studio_serve.add_argument("--port", type=int, default=8765)
+    studio_serve.add_argument("--no-open", action="store_true")
+    studio_serve.set_defaults(command_id="studio.serve")
     return parser
 
 
@@ -1236,6 +1265,67 @@ def _research_show(args: argparse.Namespace) -> CommandResult:
     )
 
 
+def _studio_snapshot(args: argparse.Namespace) -> CommandResult:
+    snapshot = build_studio_snapshot(args.path, project_id=args.project)
+    source = snapshot["source"]
+    context = (
+        workspace_context(load_workspace(source["rootDir"]))
+        if source["scope"] == "workspace"
+        else project_context(load_project(source["rootDir"]))
+    )
+    lines = [
+        f"AutoQuant Studio snapshot: {source['scope']}",
+        f"Projects: {len(snapshot['projects'])}",
+        f"Evidence: {'valid' if snapshot['valid'] else 'attention required'}",
+    ]
+    lines.extend(
+        f"  {project['id']}  studies={project['counts']['studies']}  "
+        f"runs={project['counts']['runs']}  "
+        f"active={project['counts']['activeSessions']}  "
+        f"running={project['counts']['runningCampaigns']}"
+        for project in snapshot["projects"]
+    )
+    return CommandResult(
+        "studio.snapshot",
+        snapshot,
+        "\n".join(lines) + "\n",
+        context,
+        next_actions=[
+            next_action(
+                "studio.serve",
+                "Open the same verified snapshot in the local read-only Studio.",
+                [
+                    "aq",
+                    "studio",
+                    "serve",
+                    source["rootDir"],
+                    *(
+                        ["--project", args.project]
+                        if args.project is not None
+                        else []
+                    ),
+                ],
+                "long-running-server",
+            )
+        ],
+    )
+
+
+def _studio_serve(args: argparse.Namespace) -> CommandResult:
+    serve_studio(
+        args.path,
+        project_id=args.project,
+        host=args.host,
+        port=args.port,
+        open_browser=not args.no_open,
+    )
+    return CommandResult(
+        "studio.serve",
+        {"stopped": True},
+        "AutoQuant Studio stopped.\n",
+    )
+
+
 def _validate(args: argparse.Namespace) -> CommandResult:
     project = _selected_project(args)
     return CommandResult(
@@ -1325,6 +1415,7 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
         )
     if args.command_id == "schema":
         kinds = [
+            "campaign-progress",
             "campaign-result",
             "experiment",
             "judge-output",
@@ -1333,6 +1424,7 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "run-result",
             "session",
             "study",
+            "studio-snapshot",
             "workspace",
         ]
         if args.kind is None:
@@ -1350,6 +1442,8 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "experiment": EXPERIMENT_JSON_SCHEMA,
             "researcher-response": RESEARCHER_RESPONSE_JSON_SCHEMA,
             "campaign-result": CAMPAIGN_RESULT_JSON_SCHEMA,
+            "campaign-progress": CAMPAIGN_PROGRESS_JSON_SCHEMA,
+            "studio-snapshot": STUDIO_SNAPSHOT_JSON_SCHEMA,
         }
         schema = schemas.get(args.kind) or workspace_schema_for(args.kind)
         return CommandResult(
@@ -1401,6 +1495,10 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
         return _research_list(args)
     if args.command_id == "research.show":
         return _research_show(args)
+    if args.command_id == "studio.snapshot":
+        return _studio_snapshot(args)
+    if args.command_id == "studio.serve":
+        return _studio_serve(args)
     raise CliUsageError(f"Unknown command: {args.command_id}")
 
 
@@ -1415,6 +1513,7 @@ def _command_id(argv: Sequence[str]) -> str:
         "session",
         "experiment",
         "research",
+        "studio",
     } and len(argv) > 1:
         return f"{argv[0]}.{argv[1]}"
     return argv[0]
@@ -1428,7 +1527,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         parsed = build_parser().parse_args(arguments)
         command = parsed.command_id
         result = dispatch(parsed)
-        if parsed.json:
+        if getattr(parsed, "json", False):
             print(
                 json.dumps(
                     success_envelope(

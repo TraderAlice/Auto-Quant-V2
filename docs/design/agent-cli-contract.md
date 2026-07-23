@@ -60,7 +60,8 @@ The current CLI supports:
 - `read-only`;
 - `creates-artifact`;
 - `mutates-workspace`;
-- `mutates-project`.
+- `mutates-project`;
+- `long-running-server`.
 
 Study/Session creation, Run execution, and Experiment evaluation use
 `creates-artifact`. Bounded `research.run` also uses `creates-artifact`: it may
@@ -68,8 +69,9 @@ advance the Session leader through ordinary KEEP Experiments but never copies
 source into the owning Project. Only
 `session.promote` uses `mutates-project`, after stale-base validation and
 rollback-safe receipt publication. Future operations may add `mode-dependent`
-or `long-running-server` only when their confirmation, progress, and evidence
-contracts are defined.
+only when their confirmation, progress, and evidence contracts are defined.
+`studio.serve` uses `long-running-server`, does not support terminal JSON, and
+exposes only fixed read-only HTTP routes.
 
 ## CLI-to-Studio flow
 
@@ -77,7 +79,7 @@ contracts are defined.
 Core operation
 ├── aq human projection
 ├── aq JSON envelope
-└── future Studio route and read model
+└── Studio read-only snapshot and browser projection
 ```
 
 Core operation data is authoritative. The Studio must not reimplement manifest
@@ -117,4 +119,4 @@ uv run python -m unittest tests.test_cli -v
 - No progress-event envelope exists.
 - No output section selection exists.
 - No confirmation receipt exists for future Project mutations.
-- No Studio routes are advertised in next actions.
+- Studio has no confirmed mutation routes.

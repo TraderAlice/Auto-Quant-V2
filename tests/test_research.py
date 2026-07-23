@@ -81,6 +81,12 @@ class ExternalResearchCampaignTests(unittest.TestCase):
             self.assertEqual(campaign.result["verdicts"]["KEEP"], 1)
             self.assertEqual(campaign.result["verdicts"]["REVERT"], 1)
             self.assertEqual(len(campaign.result["experiments"]), 2)
+            progress = json.loads(
+                (campaign.root_dir / "progress.json").read_text()
+            )
+            self.assertEqual(progress["status"], "stopped")
+            self.assertEqual(progress["phase"], "terminal")
+            self.assertEqual(progress["experiments"], campaign.result["experiments"])
             current = load_session(project, session.manifest["id"])
             self.assertEqual(current.manifest["leader"]["value"], 2.0)
             self.assertEqual(

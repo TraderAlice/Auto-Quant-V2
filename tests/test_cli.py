@@ -66,10 +66,15 @@ class AgentCliTests(unittest.TestCase):
                 "research.run",
                 "research.list",
                 "research.show",
+                "studio.snapshot",
+                "studio.serve",
             ],
         )
         for command in commands:
-            self.assertTrue(command["supportsJson"])
+            self.assertEqual(
+                command["supportsJson"],
+                command["id"] != "studio.serve",
+            )
             self.assertIn(
                 command["effect"],
                 {
@@ -77,6 +82,7 @@ class AgentCliTests(unittest.TestCase):
                     "creates-artifact",
                     "mutates-workspace",
                     "mutates-project",
+                    "long-running-server",
                 },
             )
             self.assertEqual(command["exitCodes"]["success"], 0)
@@ -94,6 +100,8 @@ class AgentCliTests(unittest.TestCase):
                 "experiment",
                 "researcher-response",
                 "campaign-result",
+                "campaign-progress",
+                "studio-snapshot",
             ],
         )
         response_schema = run_cli("schema", "researcher-response", "--json")
@@ -109,6 +117,22 @@ class AgentCliTests(unittest.TestCase):
         self.assertIn(
             "budget",
             json_output(campaign_schema)["data"]["schema"]["properties"],
+        )
+        progress_schema = run_cli("schema", "campaign-progress", "--json")
+        self.assertEqual(progress_schema.returncode, 0, progress_schema.stderr)
+        self.assertEqual(
+            json_output(progress_schema)["data"]["schema"]["properties"]["kind"][
+                "const"
+            ],
+            "campaign-progress",
+        )
+        studio_schema = run_cli("schema", "studio-snapshot", "--json")
+        self.assertEqual(studio_schema.returncode, 0, studio_schema.stderr)
+        self.assertEqual(
+            json_output(studio_schema)["data"]["schema"]["properties"]["kind"][
+                "const"
+            ],
+            "autoquant-studio-snapshot",
         )
 
     def test_json_cli_completes_a_two_project_workspace_flow(self) -> None:
@@ -589,6 +613,24 @@ print(json.dumps({
             self.assertEqual(
                 json_output(shown)["data"]["result"]["id"],
                 campaign_id,
+            )
+
+            studio = run_cli(
+                "studio",
+                "snapshot",
+                str(project.root_dir),
+                "--json",
+            )
+            self.assertEqual(studio.returncode, 0, studio.stderr)
+            studio_json = json_output(studio)
+            self.assertEqual(studio_json["command"], "studio.snapshot")
+            self.assertEqual(
+                studio_json["data"]["projects"][0]["counts"]["campaigns"],
+                1,
+            )
+            self.assertEqual(
+                studio_json["nextActions"][0]["id"],
+                "studio.serve",
             )
 
 

@@ -9,6 +9,7 @@ import re
 import shutil
 import subprocess
 import time
+import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -35,12 +36,21 @@ from .workspace import (
 
 CAMPAIGN_RESULT = "result.json"
 CAMPAIGN_MANIFEST = "manifest.json"
+CAMPAIGN_PROGRESS = "progress.json"
 CAMPAIGN_ID = re.compile(
     r"^campaign-[0-9]{8}T[0-9]{12}Z-[0-9a-f]{12}$"
 )
 CAMPAIGN_STATUSES = {"stopped", "budget_exhausted", "failed"}
 RESPONSE_VERSION = 1
 MAX_OUTPUT_BYTES = 1_000_000
+PROGRESS_PHASES = {
+    "starting",
+    "researcher",
+    "judge",
+    "restoring",
+    "ready",
+    "terminal",
+}
 
 
 @dataclass(frozen=True)
@@ -92,6 +102,16 @@ def _write_json(path: Path, value: Any) -> None:
         json.dumps(value, indent=2, ensure_ascii=False, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+
+
+def _atomic_write_json(path: Path, value: Any) -> None:
+    temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        _write_json(temporary, value)
+        os.replace(temporary, path)
+    finally:
+        if temporary.exists():
+            temporary.unlink()
 
 
 def _read_json(path: Path, label: str) -> dict[str, Any]:
@@ -229,6 +249,70 @@ def _campaign_file_hashes(root: Path) -> dict[str, str]:
         if path.is_file() and path != root / CAMPAIGN_MANIFEST:
             hashes[path.relative_to(root).as_posix()] = hash_file(path)
     return hashes
+
+
+def _progress_value(
+    *,
+    campaign_id: str,
+    session_id: str,
+    command_hash: str,
+    started_at: str,
+    phase: str,
+    status: str,
+    message: str,
+    turn: int,
+    budget: dict[str, int],
+    experiment_ids: list[str],
+    verdicts: dict[str, int],
+) -> dict[str, Any]:
+    return {
+        "schemaVersion": SCHEMA_VERSION,
+        "kind": "campaign-progress",
+        "campaignId": campaign_id,
+        "sessionId": session_id,
+        "status": status,
+        "phase": phase,
+        "message": message,
+        "startedAt": started_at,
+        "updatedAt": datetime.now(timezone.utc).isoformat(),
+        "turn": turn,
+        "commandHash": command_hash,
+        "budget": budget,
+        "experiments": list(experiment_ids),
+        "verdicts": dict(verdicts),
+    }
+
+
+def _write_progress(
+    root: Path,
+    *,
+    campaign_id: str,
+    session_id: str,
+    command_hash: str,
+    started_at: str,
+    phase: str,
+    status: str,
+    message: str,
+    turn: int,
+    budget: dict[str, int],
+    experiment_ids: list[str],
+    verdicts: dict[str, int],
+) -> dict[str, Any]:
+    value = _progress_value(
+        campaign_id=campaign_id,
+        session_id=session_id,
+        command_hash=command_hash,
+        started_at=started_at,
+        phase=phase,
+        status=status,
+        message=message,
+        turn=turn,
+        budget=budget,
+        experiment_ids=experiment_ids,
+        verdicts=verdicts,
+    )
+    _atomic_write_json(root / CAMPAIGN_PROGRESS, value)
+    return value
 
 
 def _text(value: str | bytes | None) -> str:
@@ -464,12 +548,31 @@ def run_campaign(
     initial_leader = dict(session.manifest["leader"])
     experiment_ids: list[str] = []
     verdicts = {"KEEP": 0, "REVERT": 0, "CRASH": 0}
+    budget = {
+        "maxTurns": max_turns,
+        "maxWallSeconds": max_wall_seconds,
+        "turnTimeoutSeconds": turn_timeout_seconds,
+    }
     campaign_history: list[dict[str, Any]] = []
     errors: list[dict[str, str]] = []
     turns_completed = 0
     status = "budget_exhausted"
     reason = "Maximum turn budget reached"
     try:
+        _write_progress(
+            staging,
+            campaign_id=campaign_id,
+            session_id=session_id,
+            command_hash=command_hash,
+            started_at=started.isoformat(),
+            phase="starting",
+            status="running",
+            message="Preparing the first bounded Researcher turn",
+            turn=0,
+            budget=budget,
+            experiment_ids=experiment_ids,
+            verdicts=verdicts,
+        )
         for turn in range(1, max_turns + 1):
             session = load_session(project, session_id)
             study = validate_session_authority(project, session)
@@ -494,6 +597,20 @@ def run_campaign(
             )
             input_path = turn_root / "input.json"
             _write_json(input_path, brief)
+            _write_progress(
+                staging,
+                campaign_id=campaign_id,
+                session_id=session_id,
+                command_hash=command_hash,
+                started_at=started.isoformat(),
+                phase="researcher",
+                status="running",
+                message=f"External Researcher is working on turn {turn}",
+                turn=turn,
+                budget=budget,
+                experiment_ids=experiment_ids,
+                verdicts=verdicts,
+            )
             command_timeout = min(
                 float(turn_timeout_seconds),
                 max(0.001, remaining - judge_reserve),
@@ -595,6 +712,20 @@ def run_campaign(
                     status = "budget_exhausted"
                     reason = "Researcher consumed the remaining fixed Judge budget"
                     break
+                _write_progress(
+                    staging,
+                    campaign_id=campaign_id,
+                    session_id=session_id,
+                    command_hash=command_hash,
+                    started_at=started.isoformat(),
+                    phase="judge",
+                    status="running",
+                    message=f"Fixed Judge is evaluating turn {turn}",
+                    turn=turn,
+                    budget=budget,
+                    experiment_ids=experiment_ids,
+                    verdicts=verdicts,
+                )
                 experiment = evaluate_experiment(
                     project,
                     session_id,
@@ -624,6 +755,20 @@ def run_campaign(
                         "error": None,
                     },
                 )
+                _write_progress(
+                    staging,
+                    campaign_id=campaign_id,
+                    session_id=session_id,
+                    command_hash=command_hash,
+                    started_at=started.isoformat(),
+                    phase="ready",
+                    status="running",
+                    message=f"Turn {turn} completed with {verdict}",
+                    turn=turn,
+                    budget=budget,
+                    experiment_ids=experiment_ids,
+                    verdicts=verdicts,
+                )
             except Exception as error:
                 validation_error = (
                     error
@@ -639,6 +784,20 @@ def run_campaign(
                     )
                 )
                 try:
+                    _write_progress(
+                        staging,
+                        campaign_id=campaign_id,
+                        session_id=session_id,
+                        command_hash=command_hash,
+                        started_at=started.isoformat(),
+                        phase="restoring",
+                        status="running",
+                        message="Restoring the verified Session leader",
+                        turn=turn,
+                        budget=budget,
+                        experiment_ids=experiment_ids,
+                        verdicts=verdicts,
+                    )
                     restore_session_worktree(project, session)
                 except AutoQuantValidationError as restore_error:
                     validation_error = AutoQuantValidationError(
@@ -663,6 +822,20 @@ def run_campaign(
 
         completed = datetime.now(timezone.utc)
         final_session = load_session(project, session_id)
+        _write_progress(
+            staging,
+            campaign_id=campaign_id,
+            session_id=session_id,
+            command_hash=command_hash,
+            started_at=started.isoformat(),
+            phase="terminal",
+            status=status,
+            message=reason,
+            turn=turns_completed,
+            budget=budget,
+            experiment_ids=experiment_ids,
+            verdicts=verdicts,
+        )
         result = {
             "schemaVersion": SCHEMA_VERSION,
             "id": campaign_id,
@@ -676,11 +849,7 @@ def run_campaign(
                 "kind": "external-shell-command",
                 "commandHash": command_hash,
             },
-            "budget": {
-                "maxTurns": max_turns,
-                "maxWallSeconds": max_wall_seconds,
-                "turnTimeoutSeconds": turn_timeout_seconds,
-            },
+            "budget": budget,
             "turnsCompleted": turns_completed,
             "experiments": experiment_ids,
             "verdicts": verdicts,
@@ -862,6 +1031,164 @@ def _validate_campaign_result(
         raise AutoQuantValidationError(issues)
 
 
+def _validate_campaign_progress(
+    value: dict[str, Any],
+    path: Path,
+    *,
+    campaign_id: str,
+    session_id: str,
+) -> None:
+    required = {
+        "schemaVersion",
+        "kind",
+        "campaignId",
+        "sessionId",
+        "status",
+        "phase",
+        "message",
+        "startedAt",
+        "updatedAt",
+        "turn",
+        "commandHash",
+        "budget",
+        "experiments",
+        "verdicts",
+    }
+    issues = _strict_keys(value, required, path)
+    if value.get("schemaVersion") != SCHEMA_VERSION:
+        issues.append(_issue(path, "schema.version", "Expected Campaign progress V1"))
+    if value.get("kind") != "campaign-progress":
+        issues.append(_issue(path, "progress.kind", "Invalid Campaign progress kind"))
+    if (
+        value.get("campaignId") != campaign_id
+        or value.get("sessionId") != session_id
+    ):
+        issues.append(_issue(path, "progress.identity", "Progress identity mismatch"))
+    status = value.get("status")
+    if status not in {"running", *CAMPAIGN_STATUSES}:
+        issues.append(_issue(path, "progress.status", "Invalid progress status"))
+    phase = value.get("phase")
+    if phase not in PROGRESS_PHASES:
+        issues.append(_issue(path, "progress.phase", "Invalid progress phase"))
+    if status == "running" and phase == "terminal":
+        issues.append(_issue(path, "progress.phase", "Running progress cannot be terminal"))
+    if status in CAMPAIGN_STATUSES and phase != "terminal":
+        issues.append(_issue(path, "progress.phase", "Terminal progress must use terminal phase"))
+    for key in ("message", "startedAt", "updatedAt"):
+        if not isinstance(value.get(key), str) or not value[key]:
+            issues.append(_issue(f"{path}/{key}", "schema.string", f"{key} must be non-empty"))
+    if not isinstance(value.get("commandHash"), str) or not re.fullmatch(
+        r"[0-9a-f]{64}", value.get("commandHash", "")
+    ):
+        issues.append(_issue(path, "schema.hash", "Invalid Researcher command hash"))
+    budget = value.get("budget")
+    if not isinstance(budget, dict):
+        issues.append(_issue(path, "schema.type", "Progress budget must be an object"))
+        budget = {}
+    else:
+        issues.extend(
+            _strict_keys(
+                budget,
+                {"maxTurns", "maxWallSeconds", "turnTimeoutSeconds"},
+                f"{path}/budget",
+            )
+        )
+    limits = {
+        "maxTurns": 100,
+        "maxWallSeconds": 86400,
+        "turnTimeoutSeconds": 3600,
+    }
+    for key, maximum in limits.items():
+        item = budget.get(key)
+        if (
+            not isinstance(item, int)
+            or isinstance(item, bool)
+            or not 1 <= item <= maximum
+        ):
+            issues.append(_issue(path, "schema.range", f"Invalid progress budget {key}"))
+    turn = value.get("turn")
+    if (
+        not isinstance(turn, int)
+        or isinstance(turn, bool)
+        or turn < 0
+        or (
+            isinstance(budget.get("maxTurns"), int)
+            and turn > budget["maxTurns"]
+        )
+    ):
+        issues.append(_issue(path, "progress.turn", "Invalid progress turn"))
+    experiments = value.get("experiments")
+    if not isinstance(experiments, list) or not all(
+        isinstance(item, str) and EXPERIMENT_ID.fullmatch(item)
+        for item in (experiments if isinstance(experiments, list) else [])
+    ):
+        issues.append(_issue(path, "progress.experiments", "Invalid progress Experiments"))
+    verdicts = value.get("verdicts")
+    if not isinstance(verdicts, dict):
+        issues.append(_issue(path, "schema.type", "Progress verdicts must be an object"))
+    else:
+        issues.extend(
+            _strict_keys(verdicts, {"KEEP", "REVERT", "CRASH"}, f"{path}/verdicts")
+        )
+        counts_valid = all(
+            isinstance(verdicts.get(key), int)
+            and not isinstance(verdicts.get(key), bool)
+            and verdicts[key] >= 0
+            for key in ("KEEP", "REVERT", "CRASH")
+        )
+        if not counts_valid:
+            issues.append(_issue(path, "progress.verdicts", "Invalid progress verdicts"))
+        elif isinstance(experiments, list) and sum(verdicts.values()) != len(experiments):
+            issues.append(
+                _issue(path, "progress.verdicts", "Progress verdicts differ from Experiments")
+            )
+    if issues:
+        raise AutoQuantValidationError(issues)
+
+
+def list_campaign_progress(session: SessionContext) -> list[dict[str, Any]]:
+    root = _campaigns_root(session)
+    if not root.exists():
+        return []
+    values: list[dict[str, Any]] = []
+    for entry in sorted(root.iterdir(), key=lambda item: item.name):
+        if not entry.name.startswith(".campaign-") or not entry.name.endswith(
+            ".creating"
+        ):
+            continue
+        if entry.is_symlink() or not entry.is_dir():
+            raise AutoQuantValidationError(
+                [_issue(entry, "progress.entry", "Campaign progress must be a directory")]
+            )
+        campaign_id = entry.name[1 : -len(".creating")]
+        if not CAMPAIGN_ID.fullmatch(campaign_id):
+            raise AutoQuantValidationError(
+                [_issue(entry, "campaign.id", "Invalid staged Campaign id")]
+            )
+        progress_path = entry / CAMPAIGN_PROGRESS
+        if progress_path.is_symlink():
+            raise AutoQuantValidationError(
+                [_issue(progress_path, "path.symlink", "Campaign progress cannot be a symlink")]
+            )
+        if not progress_path.is_file():
+            continue
+        value = _read_json(progress_path, "campaign-progress")
+        _validate_campaign_progress(
+            value,
+            progress_path,
+            campaign_id=campaign_id,
+            session_id=session.manifest["id"],
+        )
+        values.append(
+            {
+                **value,
+                "mutable": True,
+                "path": str(entry),
+            }
+        )
+    return values
+
+
 def load_campaign(
     project: ProjectContext,
     session: SessionContext,
@@ -910,6 +1237,19 @@ def load_campaign(
         raise AutoQuantValidationError(
             [_issue(root, "campaign.status", "Campaign status differs from manifest")]
         )
+    progress_path = root / CAMPAIGN_PROGRESS
+    if progress_path.exists() or progress_path.is_symlink():
+        progress = _read_json(progress_path, "campaign-progress")
+        _validate_campaign_progress(
+            progress,
+            progress_path,
+            campaign_id=campaign_id,
+            session_id=session.manifest["id"],
+        )
+        if progress["status"] != result["status"]:
+            raise AutoQuantValidationError(
+                [_issue(root, "campaign.status", "Campaign progress differs from result")]
+            )
     for experiment_id in result["experiments"]:
         load_experiment(project, session, experiment_id)
     return CampaignContext(root, manifest, result)
@@ -1103,5 +1443,45 @@ CAMPAIGN_RESULT_JSON_SCHEMA: dict[str, Any] = {
                 "value": {"type": "number"},
             },
         }
+    },
+}
+
+
+CAMPAIGN_PROGRESS_JSON_SCHEMA: dict[str, Any] = {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "AutoQuant mutable Research Campaign progress",
+    "type": "object",
+    "additionalProperties": False,
+    "required": [
+        "schemaVersion",
+        "kind",
+        "campaignId",
+        "sessionId",
+        "status",
+        "phase",
+        "message",
+        "startedAt",
+        "updatedAt",
+        "turn",
+        "commandHash",
+        "budget",
+        "experiments",
+        "verdicts",
+    ],
+    "properties": {
+        "schemaVersion": {"const": SCHEMA_VERSION},
+        "kind": {"const": "campaign-progress"},
+        "campaignId": {"type": "string", "pattern": CAMPAIGN_ID.pattern},
+        "sessionId": {"type": "string", "minLength": 1},
+        "status": {"enum": ["running", *sorted(CAMPAIGN_STATUSES)]},
+        "phase": {"enum": sorted(PROGRESS_PHASES)},
+        "message": {"type": "string", "minLength": 1},
+        "startedAt": {"type": "string", "minLength": 1},
+        "updatedAt": {"type": "string", "minLength": 1},
+        "turn": {"type": "integer", "minimum": 0},
+        "commandHash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "budget": CAMPAIGN_RESULT_JSON_SCHEMA["properties"]["budget"],
+        "experiments": CAMPAIGN_RESULT_JSON_SCHEMA["properties"]["experiments"],
+        "verdicts": CAMPAIGN_RESULT_JSON_SCHEMA["properties"]["verdicts"],
     },
 }
