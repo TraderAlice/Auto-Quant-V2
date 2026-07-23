@@ -339,6 +339,14 @@ def _run_pointer(run: RunContext) -> dict[str, Any]:
     }
 
 
+def _canonical_data_root(project: ProjectContext) -> Path:
+    return confined_path(
+        project.root_dir,
+        project.manifest.directories["data"],
+        "project/directories/data",
+    )
+
+
 def start_session(project: ProjectContext, study_id: str) -> SessionContext:
     study = load_study(project, study_id)
     baseline = execute_study(project, study_id)
@@ -373,7 +381,11 @@ def start_session(project: ProjectContext, study_id: str) -> SessionContext:
     try:
         temporary.mkdir()
         worktree = _materialize_worktree(project, study, temporary)
-        worktree_study = load_study(worktree, study_id)
+        worktree_study = load_study(
+            worktree,
+            study_id,
+            data_root=_canonical_data_root(project),
+        )
         fixed_hashes = _fixed_inventory(
             worktree,
             worktree_study.definition.editable["paths"],
@@ -757,7 +769,11 @@ def _authority_issues(
     locks = manifest["locks"]
     try:
         canonical = load_study(project, manifest["studyId"])
-        worktree = load_study(session.worktree_project, manifest["studyId"])
+        worktree = load_study(
+            session.worktree_project,
+            manifest["studyId"],
+            data_root=_canonical_data_root(project),
+        )
     except AutoQuantValidationError as error:
         return list(error.issues)
     for label, study in (("Project", canonical), ("worktree", worktree)):
@@ -821,7 +837,11 @@ def validate_session_authority(
     issues = _authority_issues(project, session)
     if issues:
         raise AutoQuantValidationError(issues)
-    return load_study(session.worktree_project, session.manifest["studyId"])
+    return load_study(
+        session.worktree_project,
+        session.manifest["studyId"],
+        data_root=_canonical_data_root(project),
+    )
 
 
 def session_snapshot(
@@ -832,7 +852,11 @@ def session_snapshot(
     candidate: dict[str, Any] | None = None
     program_relative = "program.md"
     try:
-        study = load_study(session.worktree_project, session.manifest["studyId"])
+        study = load_study(
+            session.worktree_project,
+            session.manifest["studyId"],
+            data_root=_canonical_data_root(project),
+        )
         program_relative = study.definition.program
         candidate = {
             "sourceHash": study.source_hash,
@@ -980,14 +1004,22 @@ def _copy_run_sources(
         shutil.copy2(source, target)
 
 
-def _restore_leader(session: SessionContext, candidate: StudyContext) -> None:
+def _restore_leader(
+    project: ProjectContext,
+    session: SessionContext,
+    candidate: StudyContext,
+) -> None:
     _clear_editable(session.worktree_project, candidate)
     _copy_run_sources(
         session.leader_run,
         session.worktree_project,
         candidate,
     )
-    restored = load_study(session.worktree_project, session.manifest["studyId"])
+    restored = load_study(
+        session.worktree_project,
+        session.manifest["studyId"],
+        data_root=_canonical_data_root(project),
+    )
     if restored.source_hash != session.manifest["leader"]["sourceHash"]:
         raise AutoQuantValidationError(
             [_issue(session.root_dir, "session.restore", "Leader source restoration failed")]
@@ -1042,10 +1074,18 @@ def restore_session_worktree(
     try:
         staging.mkdir()
         staged_project = _materialize_worktree(project, canonical, staging)
-        staged_study = load_study(staged_project, session.manifest["studyId"])
+        staged_study = load_study(
+            staged_project,
+            session.manifest["studyId"],
+            data_root=_canonical_data_root(project),
+        )
         _clear_editable(staged_project, staged_study)
         _copy_run_sources(session.leader_run, staged_project, staged_study)
-        restored = load_study(staged_project, session.manifest["studyId"])
+        restored = load_study(
+            staged_project,
+            session.manifest["studyId"],
+            data_root=_canonical_data_root(project),
+        )
         if restored.source_hash != session.manifest["leader"]["sourceHash"]:
             raise AutoQuantValidationError(
                 [_issue(staging, "session.restore", "Rebuilt leader source hash mismatch")]
@@ -1217,7 +1257,7 @@ def evaluate_experiment(
     }
     experiment = _publish_experiment(project, session, result, changes, patch)
     if verdict in {"REVERT", "CRASH"}:
-        _restore_leader(session, candidate)
+        _restore_leader(project, session, candidate)
         leader_pointer = session.manifest["leader"]
     else:
         leader_pointer = _run_pointer(run)

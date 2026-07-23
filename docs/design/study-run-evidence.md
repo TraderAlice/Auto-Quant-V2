@@ -1,6 +1,6 @@
 # Study contracts and immutable Run evidence
 
-Status: V1 Python Judge lane implemented.
+Status: V1 Python Judge lane and optional dataset content locks implemented.
 
 Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]], [[docs/CLI]],
 [[docs/design/workspace-project-boundaries]], and
@@ -14,7 +14,7 @@ bounded Python Judge execution, structured Judge output, immutable RunResult
 publication, and Run verification.
 
 It does not own autonomous Researcher invocation, KEEP/REVERT/CRASH
-Experiments, source promotion, Freqtrade adaptation, dataset byte manifests,
+Experiments, source promotion, Freqtrade adaptation, market-data ingestion,
 or Studio presentation.
 
 ## Authority model
@@ -58,7 +58,8 @@ A Study contains:
 - one Python Judge entrypoint, its complete fixed source closure, arguments,
   and wall-clock timeout;
 - primary metric, maximize/minimize direction, and minimum improvement;
-- dataset id/version, asset class, universe, and date range.
+- dataset id/version, asset class, universe, date range, and optional
+  Project-data-relative exact files or trailing-`/**` closures.
 
 The Core derives:
 
@@ -66,7 +67,9 @@ The Core derives:
 - `programHash` from program bytes;
 - `judgeHash` from every fixed Judge source path and content hash;
 - `sourceHash` from every editable source path and content hash;
-- `datasetHash` from the declared dataset identity;
+- `datasetHash` from the declared dataset identity alone for legacy Studies, or
+  from that definition plus the complete matched file-hash inventory when
+  optional `dataset.paths` is present;
 - `studyInputHash` from those five identities.
 
 The complete Run `inputHash` additionally binds the installed AutoQuant
@@ -88,6 +91,9 @@ executions still receive unique immutable Run ids.
 7. The Judge entrypoint is included in the declared Judge closure.
 8. Program, Judge, editable source, and artifact paths are Project- or
    artifact-root-confined POSIX relative paths.
+9. Dataset paths are confined beneath the canonical Project data root. Exact
+   paths are files; closures are non-empty real directories; neither may
+   contain symlinks.
 
 ## Execution model
 
@@ -107,8 +113,13 @@ strict Study load
 The isolated execution workspace contains only the Project manifest, Study,
 program, fixed Judge sources, and editable sources. It does not inherit
 undeclared Project code. Dataset access is explicit through
-`AUTOQUANT_DATA_ROOT`; the V1 dataset identity is declarative and does not yet
-prove byte content.
+`AUTOQUANT_DATA_ROOT`. Content-locked Studies hash that same canonical root
+before execution and freeze its relative file-hash inventory into Run inputs;
+they do not copy potentially large dataset bytes into the isolated workspace.
+
+Session worktrees intentionally keep an empty `data/` directory. When their
+Study identity is loaded, Core supplies the owning Project's canonical data
+root, so baseline and candidate evaluations bind and read identical bytes.
 
 Judge environment:
 
@@ -147,12 +158,14 @@ collision.
 5. RunResult records status, metrics, subject/version, asset universe,
    dataset/time range, artifacts, errors, Study/Judge/source identity,
    execution timing, and Harness version/source identity.
-6. Completed Run directories are read-only protocol artifacts. New analysis
+6. A content-locked RunResult records dataset paths and `sourceHashes`; its
+   frozen `inputs/dataset-files.json` preserves the same inventory.
+7. Completed Run directories are read-only protocol artifacts. New analysis
    produces a derived artifact or new Run rather than changing them.
 
 ## Non-goals
 
-- Claiming dataset reproducibility from a name and date range alone.
+- Claiming that a declarative-only legacy dataset is byte-reproducible.
 - Letting the Judge train, repair, or promote a candidate.
 - Treating a failed Judge process as absent evidence.
 - Selecting different framework libraries per asset class.
@@ -167,8 +180,8 @@ collision.
 - Preserve manifest-last atomic publication and full-file tamper verification.
 - Add Studio as a projection of verified RunResult rather than a second
   evaluator.
-- When dataset byte identity is added, migrate active Study examples explicitly
-  and retain historical Runs under their recorded V1 contract.
+- Keep optional content locks backward compatible: absence of `dataset.paths`
+  must preserve the historical definition and dataset hash exactly.
 
 ## Verification
 
@@ -181,10 +194,9 @@ uv run python -m unittest tests.test_studies tests.test_runs tests.test_cli -v
 
 ## Known gaps
 
-- Dataset content manifests and corporate-action/session metadata are not
-  content-hashed.
+- Corporate-action, exchange-calendar, adjustment, symbol-master, and external
+  object-store metadata have no standard content contract yet.
 - There is no Freqtrade Study adapter.
 - V1 baseline/candidate comparison uses only one primary metric; richer robust
   gates remain future work.
 - There are no streamed progress events.
-- Studio does not yet list Studies or Runs.

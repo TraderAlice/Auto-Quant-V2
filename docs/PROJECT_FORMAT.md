@@ -34,7 +34,10 @@ or Runs. It owns only discovery and an optional default Project.
 
 ## Project
 
-`aq project create` produces a complete Project:
+`aq project create` produces a complete blank Project. The optional
+`--template ohlcv-factor-lab` construction input additionally creates an
+independently owned factor, Judge, Study, and deterministic local dataset; it
+is not recorded as a runtime parent in `autoquant.json`.
 
 ```text
 factor-lab/
@@ -102,9 +105,10 @@ Project through Workspace inheritance or path traversal.
 
 The generated `data/` directory ignores its contents by default so OHLCV and
 later ML datasets do not enter the Harness source repository accidentally.
-Project-locality does not imply that every large byte must be copied: a future
-dataset manifest may bind content-addressed external storage, but the Project
-must retain the exact dataset identity needed for reproduction.
+Study `dataset.paths` may bind exact Project-local bytes without adding them to
+Git. Project-locality does not imply that every large byte must be copied into
+Sessions or Runs: their SHA-256 inventories are frozen while Judges receive the
+canonical data root.
 
 `.autoquant/` is disposable Project-local cache state. It cannot be the source
 of durable research truth.
@@ -173,7 +177,8 @@ studies/
     "time_range": {
       "start": "2021-01-01",
       "end": "2025-12-31"
-    }
+    },
+    "paths": ["ohlcv/**"]
   }
 }
 ```
@@ -183,6 +188,12 @@ must be exact files or trailing-`/**` closures beneath the Project's declared
 strategy, factor, or model directories. Judge paths use the same closure syntax
 but stay beneath the declared Judge directory and are fixed and disjoint from
 editable source.
+
+`dataset.paths` is optional and relative to the Project's declared `data/`
+directory. When absent, the historical declarative dataset hash is preserved.
+When present, exact files or non-empty trailing-`/**` closures are content
+hashed; a byte change changes Study input identity and stales existing
+Sessions.
 
 The Study's `program.md` is human-owned operating intent. The Study, program,
 Judge closure, objective, and dataset identity are never candidate-editable.
@@ -230,6 +241,7 @@ runs/
     │   ├── study.json
     │   ├── program.md
     │   ├── identity.json
+    │   ├── dataset-files.json  # content-locked Studies only
     │   └── judge-sources/<project-relative files>
     ├── sources/<editable project-relative files>
     ├── artifacts/<declared Judge files>
@@ -246,7 +258,8 @@ runs/
 - complete input and Study-input hashes;
 - Harness id/version/commit/dirty/source/Python identity;
 - Project, Study, subject/version, and editable source identity;
-- dataset id/version, asset class, universe, date range, and dataset hash;
+- dataset id/version, asset class, universe, date range, dataset hash, and
+  optional content-locked source hashes;
 - Judge entrypoint and fixed source hashes;
 - objective and execution details;
 - nested metrics, immutable artifact references, and structured errors.
@@ -366,9 +379,11 @@ snapshots.
 uv run aq schema workspace --json
 uv run aq workspace init /tmp/quant-workspace
 uv run aq project create /tmp/quant-workspace factor-lab
+uv run aq project create /tmp/quant-workspace ohlcv-lab \
+  --template ohlcv-factor-lab
 uv run aq validate /tmp/quant-workspace
 uv run aq inspect /tmp/quant-workspace --project factor-lab --json
 uv run python -m unittest \
   tests.test_workspace tests.test_cli tests.test_studies \
-  tests.test_runs tests.test_sessions -v
+  tests.test_runs tests.test_sessions tests.test_factor_lab -v
 ```

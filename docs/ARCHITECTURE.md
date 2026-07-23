@@ -32,14 +32,15 @@ immutable execution under pinned Project and Harness inputs.
 The V2 foundation now implements:
 
 - strict `autoquant-workspace.json` and `autoquant.json` manifests;
-- self-contained Project creation and one-level Workspace discovery;
+- self-contained blank or reference-template Project creation and one-level
+  Workspace discovery;
 - default or explicit Project resolution with root confinement and symlink
   rejection;
 - a packaged `aq` CLI with versioned JSON envelopes, capability discovery,
   artifacts, next actions, validation, and inspection.
 - strict Project-local Study contracts with separate human program, fixed
   Python Judge closure, Agent-editable strategy/factor/model closure, objective,
-  and dataset identity;
+  and declarative or content-locked dataset identity;
 - bounded isolated Judge execution and atomically published immutable
   RunResults with full-file tamper verification.
 - resumable Project-local Research Sessions with disposable candidate
@@ -51,6 +52,9 @@ The V2 foundation now implements:
 - one packaged local read-only Studio with a shared versioned snapshot,
   Workspace/Project overview, explicit mutable Campaign progress, defensive
   HTTP boundary, and responsive research-first presentation.
+- one self-contained OHLCV Factor Lab reference Project with ordinary pandas
+  factor code, deterministic local data, chronological held-out metrics, and a
+  fixed no-lookahead audit.
 
 The canonical contracts are [[docs/PROJECT_FORMAT]] and [[docs/CLI]]. The
 boundary designs are [[docs/design/workspace-project-boundaries]] and
@@ -58,7 +62,8 @@ boundary designs are [[docs/design/workspace-project-boundaries]] and
 in [[docs/design/study-run-evidence]]; governed source research is defined in
 [[docs/design/research-session-loop]]; external orchestration is defined in
 [[docs/design/external-researcher-driver]]; Studio observation is defined in
-[[docs/design/studio-observation-surface]].
+[[docs/design/studio-observation-surface]]; the first quantitative reference
+Project is defined in [[docs/design/ohlcv-factor-lab]].
 
 The repository also contains the V0.5 development Harness inherited from
 Auto-Quant Classic:
@@ -164,11 +169,14 @@ behind the Harness contract, not the owner of Workspace or Project semantics.
   `autoquant/research.py`
 - Verified Studio snapshot and local HTTP server: `autoquant/studio.py`
 - Packaged browser presentation: `autoquant/studio_assets/`
+- Project template construction: `autoquant/templates.py` and
+  `autoquant/project_templates/`
 - Canonical Workspace/Project format: [[docs/PROJECT_FORMAT]]
 - Canonical CLI contract: [[docs/CLI]]
 - Workspace/Project design: [[docs/design/workspace-project-boundaries]]
 - Agent CLI design: [[docs/design/agent-cli-contract]]
 - Study/Run evidence design: [[docs/design/study-run-evidence]]
+- OHLCV Factor Lab design: [[docs/design/ohlcv-factor-lab]]
 - Research Session loop design: [[docs/design/research-session-loop]]
 - External Researcher driver design:
   [[docs/design/external-researcher-driver]]
@@ -213,7 +221,8 @@ These commands must not start autonomous research or a long backtest.
 
 - Branching/Pareto search and robust multi-metric promotion gates are not
   implemented.
-- Dataset V1 identity is declarative and does not hash dataset bytes.
+- Production ingestion, corporate-action, exchange-calendar, and external
+  dataset metadata contracts are not implemented.
 - The V0.5 Freqtrade runner is not adapted into the Study/Run contract.
 - Studio is read-only and does not yet provide confirmed Core operations.
 - ML is a supported architectural direction but has no execution contract yet.

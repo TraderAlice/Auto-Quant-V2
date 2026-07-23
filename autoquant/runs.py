@@ -468,12 +468,15 @@ def _freeze_inputs(
             "judgeHash": study.judge_hash,
             "sourceHashes": study.editable_hashes,
             "sourceHash": study.source_hash,
+            "datasetSourceHashes": study.dataset_hashes,
             "datasetHash": study.dataset_hash,
             "studyInputHash": study.input_hash,
             "harness": harness,
             "inputHash": run_input_hash,
         },
     )
+    if study.dataset_hashes:
+        _write_json(inputs / "dataset-files.json", study.dataset_hashes)
 
 
 def _text(value: str | bytes | None) -> str:
@@ -642,36 +645,10 @@ def execute_study(
                 )
             ]
         )
-    study = load_study(source_project, study_id)
-    if execution_project is not None:
-        owning_study = load_study(project, study_id)
-        fixed_identity = {
-            "studyHash": (study.study_hash, owning_study.study_hash),
-            "programHash": (study.program_hash, owning_study.program_hash),
-            "judgeHash": (study.judge_hash, owning_study.judge_hash),
-            "datasetHash": (study.dataset_hash, owning_study.dataset_hash),
-        }
-        changed = [
-            key
-            for key, (execution_value, owning_value) in fixed_identity.items()
-            if execution_value != owning_value
-        ]
-        if changed:
-            raise AutoQuantValidationError(
-                [
-                    _issue(
-                        source_project.root_dir,
-                        "run.fixed-input-stale",
-                        "Execution Project fixed Study inputs differ from the owning "
-                        f"Project: {', '.join(changed)}",
-                    )
-                ]
-            )
     resolved_data_root = (
         data_root
         if data_root is not None
-        else source_project.root_dir
-        / source_project.manifest.directories["data"]
+        else project.root_dir / project.manifest.directories["data"]
     )
     if data_root is not None:
         owning_data_root = confined_path(
@@ -699,6 +676,31 @@ def execute_study(
                 )
             ]
         )
+    study = load_study(source_project, study_id, data_root=resolved_data_root)
+    if execution_project is not None:
+        owning_study = load_study(project, study_id, data_root=resolved_data_root)
+        fixed_identity = {
+            "studyHash": (study.study_hash, owning_study.study_hash),
+            "programHash": (study.program_hash, owning_study.program_hash),
+            "judgeHash": (study.judge_hash, owning_study.judge_hash),
+            "datasetHash": (study.dataset_hash, owning_study.dataset_hash),
+        }
+        changed = [
+            key
+            for key, (execution_value, owning_value) in fixed_identity.items()
+            if execution_value != owning_value
+        ]
+        if changed:
+            raise AutoQuantValidationError(
+                [
+                    _issue(
+                        source_project.root_dir,
+                        "run.fixed-input-stale",
+                        "Execution Project fixed Study inputs differ from the owning "
+                        f"Project: {', '.join(changed)}",
+                    )
+                ]
+            )
     harness = harness_identity()
     run_input_hash = hash_json(
         {"studyInputHash": study.input_hash, "harness": harness}
@@ -782,6 +784,11 @@ def execute_study(
             "dataset": {
                 **study.definition.to_dict()["dataset"],
                 "hash": study.dataset_hash,
+                **(
+                    {"sourceHashes": study.dataset_hashes}
+                    if study.definition.dataset.paths is not None
+                    else {}
+                ),
             },
             "judge": {
                 "kind": study.definition.judge.kind,
@@ -937,14 +944,6 @@ def _validate_run_result(
             "sourceHash",
             "sourcePaths",
         },
-        "dataset": {
-            "id",
-            "version",
-            "asset_class",
-            "universe",
-            "time_range",
-            "hash",
-        },
         "judge": {"kind", "entrypoint", "hash", "sourceHashes"},
         "objective": {"metric", "direction", "minimumImprovement"},
         "execution": {
@@ -964,6 +963,78 @@ def _validate_run_result(
             )
             continue
         issues.extend(_strict_keys(value, nested_required, f"{path}/{key}"))
+
+    dataset = result.get("dataset")
+    if not isinstance(dataset, dict):
+        issues.append(
+            _issue(f"{path}/dataset", "schema.type", "dataset must be an object")
+        )
+    else:
+        dataset_required = {
+            "id",
+            "version",
+            "asset_class",
+            "universe",
+            "time_range",
+            "hash",
+        }
+        issues.extend(
+            _strict_keys(
+                dataset,
+                dataset_required | (dataset.keys() & {"paths", "sourceHashes"}),
+                f"{path}/dataset",
+            )
+        )
+        if not isinstance(dataset.get("hash"), str) or not SHA256.fullmatch(
+            dataset.get("hash", "")
+        ):
+            issues.append(
+                _issue(
+                    f"{path}/dataset/hash",
+                    "run.hash",
+                    "Dataset hash must be a SHA-256 hash",
+                )
+            )
+        paths = dataset.get("paths")
+        if paths is not None and (
+            not isinstance(paths, list)
+            or not paths
+            or not all(isinstance(pattern, str) and pattern for pattern in paths)
+        ):
+            issues.append(
+                _issue(
+                    f"{path}/dataset/paths",
+                    "run.dataset-paths",
+                    "Dataset paths must be a non-empty array of strings",
+                )
+            )
+        source_hashes = dataset.get("sourceHashes")
+        if ("paths" in dataset) != ("sourceHashes" in dataset):
+            issues.append(
+                _issue(
+                    f"{path}/dataset",
+                    "run.dataset-lock",
+                    "Dataset paths and sourceHashes must appear together",
+                )
+            )
+        if source_hashes is not None:
+            if not isinstance(source_hashes, dict) or not all(
+                isinstance(relative, str)
+                and relative
+                and "\\" not in relative
+                and not PurePosixPath(relative).is_absolute()
+                and ".." not in PurePosixPath(relative).parts
+                and isinstance(content_hash, str)
+                and SHA256.fullmatch(content_hash)
+                for relative, content_hash in source_hashes.items()
+            ) or not source_hashes:
+                issues.append(
+                    _issue(
+                        f"{path}/dataset/sourceHashes",
+                        "run.dataset-hashes",
+                        "Dataset sourceHashes must map relative paths to SHA-256 hashes",
+                    )
+                )
 
     metrics = result.get("metrics")
     if not isinstance(metrics, dict):
@@ -1235,7 +1306,46 @@ RUN_RESULT_JSON_SCHEMA: dict[str, Any] = {
         "project": {"type": "object"},
         "study": {"type": "object"},
         "subject": {"type": "object"},
-        "dataset": {"type": "object"},
+        "dataset": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "id",
+                "version",
+                "asset_class",
+                "universe",
+                "time_range",
+                "hash",
+            ],
+            "properties": {
+                "id": {"type": "string", "minLength": 1},
+                "version": {"type": "string", "minLength": 1},
+                "asset_class": {"type": "string", "minLength": 1},
+                "universe": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {"type": "string", "minLength": 1},
+                },
+                "time_range": {"type": "object"},
+                "paths": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {"type": "string", "minLength": 1},
+                },
+                "sourceHashes": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{64}$",
+                    },
+                },
+                "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            },
+            "dependentRequired": {
+                "paths": ["sourceHashes"],
+                "sourceHashes": ["paths"],
+            },
+        },
         "judge": {"type": "object"},
         "objective": {"type": "object"},
         "execution": {"type": "object"},

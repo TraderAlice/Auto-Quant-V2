@@ -32,6 +32,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/content-locked-ohlcv-factor-lab]] | Gave Agents a self-contained, content-locked OHLCV reference Project for bounded factor research through the complete V2 evidence loop. | 2026-07-24 |
 | [[plans/live-research-studio-foundation]] | Give humans one local read-only Workspace observatory for verified research evidence and explicitly mutable in-progress Campaign state. | 2026-07-24 |
 | [[plans/bounded-external-researcher-driver]] | Let a replaceable external coding Agent autonomously drive a bounded Session while preserving strict proposal, evidence, verdict, and stopping authority. | 2026-07-24 |
 | [[plans/governed-research-session-loop]] | Gave Agents a resumable edit/evaluate loop with locked Study authority, immutable KEEP/REVERT/CRASH evidence, and guarded promotion. | 2026-07-24 |

@@ -610,7 +610,21 @@ def create_project(
     *,
     name: str | None = None,
     description: str = "",
+    template: str = "blank",
 ) -> ProjectContext:
+    from .templates import PROJECT_TEMPLATE_IDS
+
+    if template not in PROJECT_TEMPLATE_IDS:
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    template,
+                    "project.template",
+                    "Unknown Project template. Expected one of: "
+                    + ", ".join(PROJECT_TEMPLATE_IDS),
+                )
+            ]
+        )
     id_issues = _valid_id(project_id, "project_id")
     if id_issues:
         raise AutoQuantValidationError(id_issues)
@@ -654,6 +668,11 @@ def create_project(
             "*\n!.gitignore\n",
             encoding="utf-8",
         )
+        if template != "blank":
+            from .templates import apply_project_template
+
+            staged = load_project(temporary, expected_id=project_id)
+            apply_project_template(staged, template)
         os.replace(temporary, target)
     except Exception:
         if temporary.exists():

@@ -89,6 +89,7 @@ def study_definition(
     judge: str = "judges/evaluate.py",
     timeout: int = 10,
     editable: list[str] | None = None,
+    dataset_paths: list[str] | None = None,
 ) -> StudyDefinition:
     return StudyDefinition(
         schema_version=1,
@@ -106,5 +107,6 @@ def study_definition(
             "equity",
             ["AAA/USD"],
             StudyTimeRange("2026-01-01", "2026-01-31"),
+            dataset_paths,
         ),
     )

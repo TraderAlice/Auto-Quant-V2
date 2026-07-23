@@ -32,7 +32,8 @@ Agents should discover the contract rather than scrape `--help`.
 ```bash
 aq workspace init <workspace-dir> [--name NAME] [--json]
 aq project create <workspace-dir> <project-id> \
-  [--name NAME] [--description TEXT] [--json]
+  [--name NAME] [--description TEXT] \
+  [--template blank|ohlcv-factor-lab] [--json]
 aq project list <workspace-dir> [--json]
 aq project default <workspace-dir> <project-id> [--json]
 aq validate <project-or-workspace-dir> [--project ID] [--json]
@@ -42,6 +43,11 @@ aq inspect <project-or-workspace-dir> [--project ID] [--json]
 `validate` and `inspect` resolve exactly one Project before reading its
 manifest. A direct Project path rejects `--project`; a Workspace path selects
 the explicit id or its default.
+
+`blank` is the default construction. `ohlcv-factor-lab` transactionally
+creates a complete, self-contained pandas factor research Project with local
+synthetic OHLCV, content-locked Study, fixed no-lookahead Judge, and executable
+next actions.
 
 ## Study and Run commands
 
@@ -53,6 +59,7 @@ aq study create <path> <study-id> \
   --editable 'factors/**' \
   --metric score \
   --dataset-id synthetic-bars \
+  --dataset-path 'ohlcv/**' \
   --asset-class equity \
   --asset AAA/USD \
   --start 2026-01-01 \
@@ -64,6 +71,10 @@ aq run execute <path> --study ID [--project ID] [--json]
 aq run list <path> [--study ID] [--project ID] [--json]
 aq run show <path> --run ID [--project ID] [--json]
 ```
+
+`--dataset-path` is optional and repeatable. When provided it is relative to
+the selected Project's `data/` directory and binds matching file bytes into
+Study and Run identity.
 
 `study create` validates the complete fixed contract immediately. `run execute`
 freezes inputs, runs the Python Judge under its timeout, and atomically

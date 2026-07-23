@@ -92,8 +92,9 @@ Evaluation rejects stale or modified authority before running:
    Experiment history;
 6. the candidate source differs from the current leader.
 
-Dataset V1 remains declarative as documented by
-[[docs/design/study-run-evidence]].
+For a content-locked Study, canonical and worktree identity checks hash the
+same owning Project data root. Dataset bytes are not copied into the worktree;
+changing them stales the Session before another candidate can run.
 
 ## Experiment execution
 
@@ -186,5 +187,4 @@ than entering the Judge or promotion authority.
 - Comparison uses one primary metric without per-asset guardrails.
 - Session recovery after process termination between Experiment publication
   and pointer update is not yet automated.
-- Dataset bytes are not content-locked.
 - Studio observation is read-only; Session operations remain CLI/Core-owned.

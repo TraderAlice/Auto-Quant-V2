@@ -52,6 +52,9 @@ Read the relevant linked document before changing a subsystem:
   and next actions: [[docs/design/agent-cli-contract]]
 - Fixed Study authority, editable/Judge source closures, bounded execution, and
   immutable RunResult evidence: [[docs/design/study-run-evidence]]
+- Transactional reference-Project construction, ordinary pandas factor API,
+  deterministic OHLCV fixture, and fixed no-lookahead factor Judge:
+  [[docs/design/ohlcv-factor-lab]]
 - Resumable Agent worktrees, KEEP/REVERT/CRASH Experiments, and guarded source
   promotion: [[docs/design/research-session-loop]]
 - Provider-neutral external Researcher turns, budgets, restoration, and

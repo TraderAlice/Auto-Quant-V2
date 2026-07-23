@@ -66,6 +66,7 @@ class StudyDataset:
     asset_class: str
     universe: list[str]
     time_range: StudyTimeRange
+    paths: list[str] | None = None
 
 
 @dataclass(frozen=True)
@@ -82,7 +83,10 @@ class StudyDefinition:
     dataset: StudyDataset
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        value = asdict(self)
+        if self.dataset.paths is None:
+            value["dataset"].pop("paths")
+        return value
 
 
 @dataclass(frozen=True)
@@ -97,6 +101,7 @@ class StudyContext:
     judge_hash: str
     editable_hashes: dict[str, str]
     source_hash: str
+    dataset_hashes: dict[str, str]
     dataset_hash: str
     input_hash: str
 
@@ -432,10 +437,11 @@ def parse_study_definition(raw: dict[str, Any], path: Path) -> StudyDefinition:
         minimum_improvement = 0.0
 
     dataset_raw = _object(raw.get("dataset"), f"{path}/dataset", issues)
+    dataset_required = {"id", "version", "asset_class", "universe", "time_range"}
     issues.extend(
         _strict_keys(
             dataset_raw,
-            required={"id", "version", "asset_class", "universe", "time_range"},
+            required=dataset_required | ({"paths"} if "paths" in dataset_raw else set()),
             path=f"{path}/dataset",
         )
     )
@@ -474,6 +480,31 @@ def parse_study_definition(raw: dict[str, Any], path: Path) -> StudyDefinition:
                     "Dataset universe assets must be unique",
                 )
             )
+    dataset_paths_raw = dataset_raw.get("paths")
+    dataset_paths: list[str] | None = None
+    if "paths" in dataset_raw:
+        if not isinstance(dataset_paths_raw, list) or not dataset_paths_raw:
+            issues.append(
+                _issue(
+                    f"{path}/dataset/paths",
+                    "schema.array",
+                    "Dataset paths must contain at least one data-relative file or closure",
+                )
+            )
+            dataset_paths = []
+        else:
+            dataset_paths = [
+                _path_pattern(value, f"{path}/dataset/paths/{index}", issues)
+                for index, value in enumerate(dataset_paths_raw)
+            ]
+            if len(dataset_paths) != len(set(dataset_paths)):
+                issues.append(
+                    _issue(
+                        f"{path}/dataset/paths",
+                        "dataset.duplicate-path",
+                        "Dataset paths must be unique",
+                    )
+                )
     time_range_raw = _object(
         dataset_raw.get("time_range"),
         f"{path}/dataset/time_range",
@@ -545,6 +576,7 @@ def parse_study_definition(raw: dict[str, Any], path: Path) -> StudyDefinition:
             asset_class,
             universe,
             StudyTimeRange(start, end),
+            dataset_paths,
         ),
     )
 
@@ -619,6 +651,83 @@ def snapshot_patterns(
     return dict(sorted(files.items()))
 
 
+def _snapshot_data_pattern(data_root: Path, pattern: str) -> dict[str, str]:
+    closure = pattern.endswith("/**")
+    relative = pattern[:-3] if closure else pattern
+    root = confined_path(data_root, relative, f"dataset/{pattern}")
+    if closure:
+        if not root.is_dir():
+            raise AutoQuantValidationError(
+                [
+                    _issue(
+                        root,
+                        "dataset.directory",
+                        f"Dataset closure root is not a directory: {relative}",
+                    )
+                ]
+            )
+        files: dict[str, str] = {}
+        for path in sorted(root.rglob("*")):
+            if path.is_symlink():
+                raise AutoQuantValidationError(
+                    [
+                        _issue(
+                            path,
+                            "path.symlink",
+                            f"Dataset closure contains a symlink: {path}",
+                        )
+                    ]
+                )
+            if path.is_file():
+                data_relative = path.relative_to(data_root).as_posix()
+                files[data_relative] = hash_file(path)
+        if not files:
+            raise AutoQuantValidationError(
+                [
+                    _issue(
+                        root,
+                        "dataset.empty",
+                        f"Dataset closure contains no files: {relative}",
+                    )
+                ]
+            )
+        return files
+    if not root.is_file():
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    root,
+                    "dataset.file",
+                    f"Exact dataset path is not a file: {relative}",
+                )
+            ]
+        )
+    return {relative: hash_file(root)}
+
+
+def snapshot_dataset(
+    data_root: Path,
+    patterns: list[str],
+) -> dict[str, str]:
+    raw_root = data_root.expanduser().absolute()
+    if raw_root.is_symlink() or not raw_root.is_dir():
+        raise AutoQuantValidationError(
+            [_issue(raw_root, "dataset.root", "Dataset root must be a real directory")]
+        )
+    resolved_root = raw_root.resolve()
+    files: dict[str, str] = {}
+    for pattern in patterns:
+        for relative, content_hash in _snapshot_data_pattern(
+            resolved_root,
+            pattern,
+        ).items():
+            previous = files.get(relative)
+            if previous is not None and previous != content_hash:
+                raise RuntimeError(f"Conflicting dataset identity for {relative}")
+            files[relative] = content_hash
+    return dict(sorted(files.items()))
+
+
 def _read_json(path: Path) -> dict[str, Any]:
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
@@ -657,6 +766,7 @@ def _load_study_root(
     root: Path,
     *,
     expected_id: str,
+    data_root: Path | None = None,
 ) -> StudyContext:
     if root.is_symlink() or not root.is_dir():
         raise AutoQuantValidationError(
@@ -792,7 +902,27 @@ def _load_study_root(
     program_hash = hash_file(program_path)
     judge_hash = hash_json(judge_hashes)
     source_hash = hash_json(editable_hashes)
-    dataset_hash = hash_json(definition_dict["dataset"])
+    dataset_hashes = (
+        snapshot_dataset(
+            data_root
+            or confined_path(
+                project.root_dir,
+                project.manifest.directories["data"],
+                "project/directories/data",
+            ),
+            definition.dataset.paths,
+        )
+        if definition.dataset.paths is not None
+        else {}
+    )
+    dataset_hash = hash_json(
+        {
+            "definition": definition_dict["dataset"],
+            "sourceHashes": dataset_hashes,
+        }
+        if definition.dataset.paths is not None
+        else definition_dict["dataset"]
+    )
     input_hash = hash_json(
         {
             "studyHash": study_hash,
@@ -813,12 +943,18 @@ def _load_study_root(
         judge_hash,
         editable_hashes,
         source_hash,
+        dataset_hashes,
         dataset_hash,
         input_hash,
     )
 
 
-def load_study(project: ProjectContext, study_id: str) -> StudyContext:
+def load_study(
+    project: ProjectContext,
+    study_id: str,
+    *,
+    data_root: Path | None = None,
+) -> StudyContext:
     if not STUDY_ID.fullmatch(study_id):
         raise AutoQuantValidationError(
             [_issue(study_id, "schema.id", "Study id must use lowercase kebab-case")]
@@ -827,6 +963,7 @@ def load_study(project: ProjectContext, study_id: str) -> StudyContext:
         project,
         _study_root(project, study_id),
         expected_id=study_id,
+        data_root=data_root,
     )
 
 
@@ -1051,6 +1188,12 @@ STUDY_JSON_SCHEMA: dict[str, Any] = {
                         "start": {"type": "string", "format": "date"},
                         "end": {"type": "string", "format": "date"},
                     },
+                },
+                "paths": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": True,
+                    "items": {"type": "string", "minLength": 1},
                 },
             },
         },

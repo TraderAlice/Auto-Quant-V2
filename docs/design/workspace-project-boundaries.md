@@ -1,6 +1,7 @@
 # Workspace and Project boundaries
 
-Status: implemented for V1 discovery and construction.
+Status: implemented for V1 discovery, blank construction, and self-contained
+reference templates.
 
 Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]], and
 [[docs/design/agent-cli-contract]].
@@ -49,8 +50,9 @@ own Study, Run, evaluation, research-loop, dataset-format, or Studio semantics.
 6. A directory cannot be both a Workspace and Project.
 7. A direct Project path cannot receive a redundant Workspace `--project`
    selection.
-8. Project creation stages a complete starter in a hidden temporary directory
-   and atomically renames it into discovery.
+8. Project creation stages a complete blank or explicitly selected reference
+   template in a hidden temporary directory, validates it, and atomically
+   renames it into discovery.
 9. Project data and cache contents are ignored by their own `.gitignore`
    files. Neither location is durable system truth.
 10. Changing one Project does not change another Project's files or identity.
@@ -68,13 +70,16 @@ autoquant-workspace.json
 → CLI validate/inspect projection
 ```
 
-Project creation travels the reverse direction: strict id and Workspace
-validation → hidden staged starter → atomic rename → optional first-default
+Project creation travels the reverse direction: strict id, Workspace, and
+template validation → hidden staged starter → optional self-contained template
+population and Study validation → atomic rename → optional first-default
 Workspace update.
 
 ## Non-goals
 
-- Shared mutable Workspace datasets, strategies, models, or templates.
+- Shared mutable Workspace datasets, strategies, models, or inherited
+  templates. Construction templates are copied/generated into Project
+  ownership.
 - Recursive Project discovery.
 - Git repositories as Project identity.
 - Owning Study or Run semantics, which are defined in
@@ -106,5 +111,5 @@ uv run aq validate /tmp/quant-workspace --json
 - Project manifests expose semantic directory slots, including `sessions`, but
   do not select a default Study, dataset, Session, or execution profile.
 - Project identity is strict path identity but not yet a content hash.
-- Project creation has no domain-specific starter variants.
-- Studio does not yet consume Workspace and Project contexts.
+- There is one quantitative reference template; ML and Broker/backtest
+  templates remain future work.

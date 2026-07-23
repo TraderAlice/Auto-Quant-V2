@@ -31,6 +31,53 @@ def json_output(result: subprocess.CompletedProcess[str]) -> dict:
 
 
 class AgentCliTests(unittest.TestCase):
+    def test_cli_constructs_and_runs_ohlcv_factor_lab_template(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Path(directory) / "workspace"
+            self.assertEqual(
+                run_cli("workspace", "init", str(workspace), "--json").returncode,
+                0,
+            )
+            created = run_cli(
+                "project",
+                "create",
+                str(workspace),
+                "ohlcv-lab",
+                "--template",
+                "ohlcv-factor-lab",
+                "--json",
+            )
+            self.assertEqual(created.returncode, 0, created.stderr)
+            envelope = json_output(created)
+            self.assertEqual(envelope["data"]["template"], "ohlcv-factor-lab")
+            self.assertEqual(
+                [action["id"] for action in envelope["nextActions"]],
+                ["study.inspect", "run.execute"],
+            )
+            project = Path(envelope["data"]["projectDir"])
+            study = json.loads(
+                (
+                    project
+                    / "studies"
+                    / "ohlcv-factor-quality"
+                    / "study.json"
+                ).read_text()
+            )
+            self.assertEqual(study["dataset"]["paths"], ["ohlcv/**"])
+
+            executed = run_cli(
+                "run",
+                "execute",
+                str(project),
+                "--study",
+                "ohlcv-factor-quality",
+                "--json",
+            )
+            self.assertEqual(executed.returncode, 0, executed.stderr)
+            result = json_output(executed)["data"]
+            self.assertEqual(result["status"], "succeeded")
+            self.assertIn("sourceHashes", result["dataset"])
+
     def test_capabilities_describe_every_public_command(self) -> None:
         result = run_cli("capabilities", "--json")
         self.assertEqual(result.returncode, 0, result.stderr)

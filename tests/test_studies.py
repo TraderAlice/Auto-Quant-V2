@@ -4,12 +4,42 @@ import json
 import tempfile
 import unittest
 
-from autoquant.studies import create_study, list_studies, load_study
+from autoquant.studies import create_study, hash_json, list_studies, load_study
 from autoquant.workspace import AutoQuantValidationError
 from tests.study_helpers import make_project, study_definition
 
 
 class StudyContractTests(unittest.TestCase):
+    def test_legacy_dataset_preserves_v1_serialization_and_hash(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, project = make_project(directory)
+            definition = study_definition()
+            self.assertNotIn("paths", definition.to_dict()["dataset"])
+            study = create_study(project, definition)
+            self.assertEqual(
+                study.dataset_hash,
+                hash_json(definition.to_dict()["dataset"]),
+            )
+            self.assertEqual(study.dataset_hashes, {})
+
+    def test_content_locked_dataset_hash_tracks_file_bytes(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, project = make_project(directory)
+            data = project.root_dir / "data" / "bars"
+            data.mkdir()
+            source = data / "AAA.csv"
+            source.write_text("timestamp,close\n2026-01-01,1\n", encoding="utf-8")
+            create_study(
+                project,
+                study_definition(dataset_paths=["bars/**"]),
+            )
+            before = load_study(project, "factor-quality")
+            self.assertEqual(list(before.dataset_hashes), ["bars/AAA.csv"])
+            source.write_text("timestamp,close\n2026-01-01,2\n", encoding="utf-8")
+            after = load_study(project, "factor-quality")
+            self.assertNotEqual(before.dataset_hash, after.dataset_hash)
+            self.assertNotEqual(before.input_hash, after.input_hash)
+
     def test_study_pins_program_judge_sources_editable_sources_and_dataset(
         self,
     ) -> None:

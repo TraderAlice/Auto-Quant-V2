@@ -34,6 +34,7 @@ from .research import (
     run_campaign,
 )
 from .studio import STUDIO_SNAPSHOT_JSON_SCHEMA, build_studio_snapshot, serve_studio
+from .templates import OHLCV_STUDY_ID, PROJECT_TEMPLATE_IDS
 from .sessions import (
     EXPERIMENT_JSON_SCHEMA,
     SESSION_JSON_SCHEMA,
@@ -160,6 +161,11 @@ def build_parser() -> RaisingArgumentParser:
     project_create.add_argument("project_id")
     project_create.add_argument("--name")
     project_create.add_argument("--description", default="")
+    project_create.add_argument(
+        "--template",
+        choices=PROJECT_TEMPLATE_IDS,
+        default="blank",
+    )
     project_create.set_defaults(command_id="project.create")
     _json_argument(project_create)
 
@@ -218,6 +224,11 @@ def build_parser() -> RaisingArgumentParser:
     study_create.add_argument("--minimum-improvement", type=float, default=0.0)
     study_create.add_argument("--dataset-id", required=True)
     study_create.add_argument("--dataset-version", default="working")
+    study_create.add_argument(
+        "--dataset-path",
+        action="append",
+        help="repeatable Project-data-relative file or trailing /** closure",
+    )
     study_create.add_argument("--asset-class", required=True)
     study_create.add_argument("--asset", action="append", required=True)
     study_create.add_argument("--start", required=True)
@@ -449,12 +460,14 @@ def _project_create(args: argparse.Namespace) -> CommandResult:
         args.project_id,
         name=args.name,
         description=args.description,
+        template=args.template,
     )
     return CommandResult(
         "project.create",
         {
             "projectDir": str(project.root_dir),
             "manifest": project.manifest.to_dict(),
+            "template": args.template,
         },
         f"Created AutoQuant Project '{project.manifest.id}' at {project.root_dir}\n",
         project_context(project),
@@ -466,20 +479,53 @@ def _project_create(args: argparse.Namespace) -> CommandResult:
                 immutable=False,
             )
         ],
-        [
-            next_action(
-                "validate",
-                "Validate the newly created Project.",
-                ["aq", "validate", str(project.root_dir), "--json"],
-                "read-only",
-            ),
-            next_action(
-                "inspect",
-                "Inspect the Project construction surfaces.",
-                ["aq", "inspect", str(project.root_dir), "--json"],
-                "read-only",
-            ),
-        ],
+        (
+            [
+                next_action(
+                    "study.inspect",
+                    "Inspect the fixed OHLCV factor Study and content identity.",
+                    [
+                        "aq",
+                        "study",
+                        "inspect",
+                        str(project.root_dir),
+                        "--study",
+                        OHLCV_STUDY_ID,
+                        "--json",
+                    ],
+                    "read-only",
+                ),
+                next_action(
+                    "run.execute",
+                    "Execute the bounded factor baseline.",
+                    [
+                        "aq",
+                        "run",
+                        "execute",
+                        str(project.root_dir),
+                        "--study",
+                        OHLCV_STUDY_ID,
+                        "--json",
+                    ],
+                    "creates-artifact",
+                ),
+            ]
+            if args.template == "ohlcv-factor-lab"
+            else [
+                next_action(
+                    "validate",
+                    "Validate the newly created Project.",
+                    ["aq", "validate", str(project.root_dir), "--json"],
+                    "read-only",
+                ),
+                next_action(
+                    "inspect",
+                    "Inspect the Project construction surfaces.",
+                    ["aq", "inspect", str(project.root_dir), "--json"],
+                    "read-only",
+                ),
+            ]
+        ),
     )
 
 
@@ -583,6 +629,7 @@ def _study_create(args: argparse.Namespace) -> CommandResult:
             args.asset_class,
             args.asset,
             StudyTimeRange(args.start, args.end),
+            args.dataset_path,
         ),
     )
     study = create_study(project, definition)
@@ -631,6 +678,7 @@ def _study_data(study) -> dict[str, Any]:
             "sourceHash": study.source_hash,
             "sourceHashes": study.editable_hashes,
             "datasetHash": study.dataset_hash,
+            "datasetSourceHashes": study.dataset_hashes,
             "inputHash": study.input_hash,
         },
     }

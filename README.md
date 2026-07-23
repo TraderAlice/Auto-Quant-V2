@@ -22,7 +22,8 @@ uv run aq capabilities --json
 uv run aq workspace init ./quant-workspace --name "Quant Research Desk"
 uv run aq project create ./quant-workspace factor-lab \
   --name "Factor Lab" \
-  --description "Mine robust cross-asset factors"
+  --description "Mine robust cross-asset factors" \
+  --template ohlcv-factor-lab
 uv run aq project create ./quant-workspace ml-lab --name "ML Lab"
 uv run aq project list ./quant-workspace
 uv run aq validate ./quant-workspace
@@ -33,6 +34,12 @@ uv run aq inspect ./quant-workspace --project factor-lab --json
 contexts, artifacts, operation effects, and executable next actions under
 `--json`. See [`docs/PROJECT_FORMAT.md`](docs/PROJECT_FORMAT.md) and
 [`docs/CLI.md`](docs/CLI.md).
+
+The `ohlcv-factor-lab` starter is the first runnable V2 research Project. It
+uses ordinary pandas/NumPy factor code, a deterministic six-asset synthetic
+OHLCV fixture, chronological held-out evaluation, dataset byte locks, and a
+fixed causality audit. Its baseline is intentionally fast and the fixture is a
+Harness benchmark—not a market alpha claim.
 
 The repository-root strategy arena described below remains the V0.5
 compatibility Harness while its execution and evidence contracts are migrated
