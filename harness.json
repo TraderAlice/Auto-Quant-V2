@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "harness": {
+    "id": "autoquant.freqtrade-ohlcv",
+    "version": "0.5.0-dev",
+    "engine": {
+      "name": "freqtrade",
+      "version": "2026.3"
+    }
+  },
+  "interfaces": {
+    "prepare": "uv run prepare.py --profile {profile}",
+    "validate": "uv run prepare.py --profile {profile} --validate-only",
+    "run": "uv run run.py --profile {profile}",
+    "output": {
+      "schema_version": 1,
+      "format": "autoquant-result-blocks",
+      "identity_fields": [
+        "asset_profile",
+        "asset_class",
+        "harness_version",
+        "commit",
+        "timerange",
+        "basket"
+      ]
+    }
+  },
+  "default_profile": "crypto-majors",
+  "profiles": {
+    "crypto-majors": {
+      "asset_class": "crypto",
+      "venue": "binance",
+      "trading_mode": "spot",
+      "market": {
+        "clock": "continuous",
+        "calendar": "24/7",
+        "timezone": "UTC",
+        "session": "all"
+      },
+      "pairs": [
+        "BTC/USDT",
+        "ETH/USDT",
+        "SOL/USDT",
+        "BNB/USDT",
+        "AVAX/USDT"
+      ],
+      "base_timeframe": "1h",
+      "timeframes": ["1h", "4h", "1d"],
+      "timerange": "20210101-20251231",
+      "stake_currency": "USDT",
+      "fee": 0.001,
+      "max_open_trades": 5,
+      "annualization_days": 365,
+      "offline_exchange": false,
+      "data": {
+        "provider": "freqtrade",
+        "directory": "data/crypto-majors",
+        "format": "feather",
+        "fill_missing": true
+      }
+    },
+    "us-equities": {
+      "asset_class": "equity",
+      "venue": "us-composite",
+      "trading_mode": "spot",
+      "market": {
+        "clock": "session",
+        "calendar": "XNYS",
+        "timezone": "America/New_York",
+        "session": "regular"
+      },
+      "pairs": [
+        "SPY/USD",
+        "QQQ/USD",
+        "AAPL/USD",
+        "MSFT/USD",
+        "NVDA/USD"
+      ],
+      "base_timeframe": "1h",
+      "timeframes": ["1h", "1d"],
+      "timerange": "20210101-20251231",
+      "stake_currency": "USD",
+      "fee": 0.0005,
+      "max_open_trades": 5,
+      "annualization_days": 252,
+      "offline_exchange": true,
+      "price_tick": 0.01,
+      "amount_step": 1.0,
+      "data": {
+        "provider": "local",
+        "directory": "data/us-equities",
+        "format": "feather",
+        "fill_missing": false
+      }
+    }
+  }
+}

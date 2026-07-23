@@ -1,4 +1,4 @@
-# Auto-Quant v0.4.1 — strategy-declared portfolio + cross-regime testing
+# Auto-Quant crypto-majors Study — v0.5 Harness / v0.4.1 research protocol
 
 This is an experiment to have the LLM do its own quantitative research across
 **multiple parallel strategies** that can:
@@ -12,6 +12,11 @@ This is an experiment to have the LLM do its own quantitative research across
 Decision metric (v0.4.1): `robust_sharpe = min(sharpe across declared timeranges)`,
 flanked by the `profit_floor` and `pareto_dominated_by` gates, plus an advisory
 `tiny-stakes watch` on capital utilization.
+
+This protocol is intentionally locked to the `crypto-majors` asset profile.
+The v0.5 Harness can host other asset profiles, but a research agent must not
+switch profiles during a Study. Framework/profile development happens in the
+Auto-Quant source repository, outside this autonomous loop.
 
 The progression so far:
 - v0.2.0 added multi-strategy → resisted single-paradigm anchoring
@@ -47,7 +52,8 @@ To set up a new experiment, work with the user to:
 2. **Create the branch**: `git checkout -b autoresearch/<tag>` from current `master`.
 3. **Read the in-scope files**. The repo is small. Read these files for full context:
    - `README.md` — repository context
-   - `config.json` — fixed FreqTrade config (pairs, timeframe, fees). Do not modify.
+   - `harness.json` — fixed Harness/profile contract. Do not modify.
+   - `config.json` — fixed FreqTrade compatibility config. Do not modify.
    - `prepare.py` — data download. Do not modify.
    - `run.py` — the batch backtest oracle. Do not modify.
    - `user_data/strategies/_template.py.example` — skeleton for new strategies.
@@ -62,14 +68,15 @@ To set up a new experiment, work with the user to:
        blocking** several findings (cross-pair macro gates, bear robustness)
        — exactly what v0.4.0 addresses.
 4. **Verify data exists**: Check that all fifteen data files exist under
-   `user_data/data/` — 5 pairs × 3 timeframes:
+   `data/crypto-majors/` — 5 pairs × 3 timeframes:
    - `BTC_USDT-{1h,4h,1d}.feather`
    - `ETH_USDT-{1h,4h,1d}.feather`
    - `SOL_USDT-{1h,4h,1d}.feather`
    - `BNB_USDT-{1h,4h,1d}.feather`
    - `AVAX_USDT-{1h,4h,1d}.feather`
 
-   If any are missing, tell the user to run `uv run prepare.py`.
+   If any are missing, tell the user to run
+   `uv run prepare.py --profile crypto-majors`.
 5. **Initialize results.tsv**: Create `results.tsv` with just the header row:
    ```
    commit	event	strategy_name	sharpe	max_dd	note
@@ -116,11 +123,11 @@ Plan iterations accordingly — about 8-12 rounds per hour.
 
 ### What you CANNOT do
 
-- Modify `prepare.py`, `run.py`, or `config.json`. These are the evaluation
-  contract.
+- Modify `prepare.py`, `run.py`, `config.json`, `harness.json`, or anything
+  under `autoquant/`. These are the evaluation contract.
 - `uv add` new dependencies. Use what's already in `pyproject.toml`.
 - Call the `freqtrade` CLI directly. The only way to run backtests is via
-  `uv run run.py`.
+  `uv run run.py --profile crypto-majors`.
 - Modify the timerange, pair list, or `_template.py.example`.
 - Have more than 3 active strategies at any time (see hard cap below).
 - Request timeframes other than `1h`, `4h`, `1d` OR pairs other than the

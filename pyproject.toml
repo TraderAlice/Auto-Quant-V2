@@ -5,7 +5,7 @@ description = "LLM-native autonomous quant research loop — Karpathy's autorese
 readme = "README.md"
 requires-python = ">=3.11,<3.13"
 dependencies = [
-    "freqtrade>=2025.1",
+    "freqtrade==2026.3",
     "pandas>=2.2",
     "numpy>=1.26",
     "matplotlib>=3.8",

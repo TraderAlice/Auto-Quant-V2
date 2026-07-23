@@ -2,15 +2,24 @@
 
 > LLM-native autonomous quant research loop. Karpathy's
 > [autoresearch](https://github.com/karpathy/autoresearch) pattern applied to
-> FreqTrade strategies on a 5-pair crypto universe (BTC, ETH, SOL, BNB, AVAX)
-> across 1h / 4h / 1d timeframes.
+> OHLCV strategy research.
 
-The idea: give an LLM agent a FreqTrade backtest harness and a single strategy
-file. The agent modifies the strategy, runs a backtest, checks if the result
-improved, keeps or discards, and repeats. Over many iterations the hope is to
-observe which patterns the LLM actually finds useful on this asset pair. The
-**loop lives in `program.md`** — not in any orchestrator — and is executed by
-whatever LLM agent you point at the repo.
+The idea: give an LLM agent a fixed backtest Harness and a small strategy
+workspace. The agent modifies strategies, runs bounded studies, checks the
+results, and keeps or discards hypotheses. The **loop lives in `program.md`**,
+not in an orchestrator.
+
+The v0.5 development Harness still uses **Freqtrade as its one core engine**,
+but assets are no longer hardwired into that engine:
+
+- `crypto-majors` preserves the existing Binance, 24/7, five-pair study.
+- `us-equities` is the first session-market profile. It consumes local OHLCV,
+  uses a static US-composite market facade (no Broker account), preserves overnight
+  and weekend gaps, and fills stops at the opening price when a session gaps
+  through the stop.
+
+Both profiles and their data contracts are versioned in `harness.json`. Candle
+files live under the repository-local, gitignored `data/<profile>/` tree.
 
 This is a prototype to validate whether Karpathy's autoresearch pattern
 transfers to quant research. The success metric is "did the loop run and
@@ -32,23 +41,24 @@ them. Full write-up in
 
 ## How it works
 
-Four things that matter:
+Five things that matter:
 
-- **`config.json`** — FreqTrade config, fixed. Pairs, timeframe, fees, dry-run
-  wallet, timerange. The agent does not touch this.
-- **`prepare.py`** — one-time data download from Binance via FreqTrade's Python
-  API. Downloads 1h, 4h, and 1d OHLCV for both pairs (v0.3.0+ uses the extra
-  timeframes via the `@informative` decorator). The agent does not touch this.
+- **`harness.json`** — versioned Harness and asset-profile manifest: universe,
+  venue metadata, market clock, timeframes, fees, local data path, and engine
+  version. The agent does not touch this.
+- **`config.json`** — compatibility base config for Freqtrade. Profile values
+  are applied by the Harness at runtime. The agent does not touch this.
+- **`prepare.py`** — prepares one selected profile. Crypto can download through
+  Freqtrade; other profiles import conventional CSV, Parquet, or Feather OHLCV.
+  The agent does not touch this.
 - **`run.py`** — in-process **batch backtest**. Discovers every `.py` under
   `user_data/strategies/` (skipping files prefixed `_`), runs FreqTrade's
-  `Backtesting` for each, and prints one `---` summary block per strategy.
-  The agent does not touch this.
+  `Backtesting` for each compatible strategy, and prints profile and Harness
+  identity in every result block. The agent does not touch this.
 - **`user_data/strategies/`** — **the directory the agent owns**. Each `.py`
   is one strategy; up to 3 active at a time. Agent creates / evolves / forks
-  / kills strategies here. Strategies evaluate on 1h base across the 5-pair
-  portfolio, and can opt into 4h/1d context AND/or cross-pair signals via
-  FreqTrade's `@informative` decorator (see `_template.py.example` for the
-  pattern). `run.py` reports per-pair metrics alongside the aggregate.
+  / kills strategies here. A strategy can declare `asset_classes` or the
+  narrower `asset_profiles`; incompatible strategies are explicitly skipped.
 
 Plus:
 
@@ -114,18 +124,26 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 # 3. Install Python deps
 uv sync
 
-# 4. One-time data download (~a few minutes)
+# 4. Prepare the default crypto profile
 uv run prepare.py
 
-# 5. Sanity check — with no strategies yet, run.py should report
-#    "no strategies found" and exit. That's expected — the agent creates
-#    1-3 starting strategies during setup before the first real backtest.
+# 5. List profiles and run the selected research arena
+uv run prepare.py --list-profiles
 uv run run.py > run.log 2>&1; echo "exit=$?"
 ```
 
-If step 5 prints `no strategies found...` and `exit=2`, you're ready. (An
-actual backtest run only starts once the agent has created at least one
-strategy file.)
+To import US-equity data, provide one file per pair and timeframe using names
+such as `AAPL_USD-1h.csv` and `AAPL_USD-1d.parquet`:
+
+```bash
+uv run prepare.py --profile us-equities --source-dir /path/to/ohlcv
+uv run run.py --profile us-equities > run.log 2>&1
+```
+
+Required columns are `date` (or `datetime`, `timestamp`, `time`), `open`,
+`high`, `low`, `close`, and `volume`. Timestamps are normalized to UTC.
+Equity data must omit weekend candles. The importer writes normalized Feather
+files to `data/us-equities/`.
 
 ## Running the agent
 
@@ -166,17 +184,23 @@ Auto-Quant/
 ├── README.md
 ├── pyproject.toml                     # uv-managed deps
 ├── .python-version                    # 3.11
-├── config.json                        # FreqTrade config (read-only for agent)
-├── prepare.py                         # data download (read-only for agent)
+├── harness.json                       # Harness + asset profiles
+├── autoquant/                         # profile/data/engine adaptations
+├── config.json                        # FreqTrade compatibility base
+├── prepare.py                         # download/import/validate profile data
 ├── run.py                             # backtest + summary (read-only for agent)
 ├── program.md                         # agent instructions
 ├── analysis.ipynb                     # post-hoc analysis
+├── data/                              # gitignored, project-local OHLCV
+│   ├── crypto-majors/
+│   └── us-equities/
 ├── user_data/
 │   ├── strategies/
 │   │   ├── _template.py.example       # skeleton the agent copies from
+│   │   ├── _equity_template.py.example
 │   │   └── <agent-created files>.py   # up to 3 active at a time
-│   ├── data/                          # gitignored — downloaded OHLCV
 │   └── backtest_results/              # gitignored — FreqTrade outputs
+├── tests/                             # deterministic, no long backtest
 ├── versions/                          # frozen snapshots of past runs
 └── results.tsv                        # gitignored — agent's event log
 ```
@@ -190,6 +214,17 @@ Auto-Quant/
 - **No CLI indirection.** The agent only runs `uv run prepare.py` and
   `uv run run.py`. `run.py` uses FreqTrade's `Backtesting` class in-process,
   so startup is fast and errors surface as real Python stack traces.
+- **One engine, explicit market clocks.** Asset profiles do not choose random
+  backtest libraries. The session adapter is deliberately narrow: it disables
+  Freqtrade's crypto-style missing-candle fill, expands indicator warmup by
+  real bars, handles stop gaps, and uses a 252-session risk clock.
+- **No Broker abstraction in the Harness.** `us-equities` uses venue metadata
+  only to satisfy the backtest engine's precision and market contracts. It
+  cannot place or download live orders. OpenAlice's Unified Trading Account
+  remains a separate forward-execution concern.
+- **Bar-model limits remain visible.** This is OHLCV simulation, not L2 replay.
+  Weekend validation is deterministic, but v0.5-dev does not yet validate
+  exchange holidays, early closes, or vendor-specific corporate-action rules.
 - **`results.tsv` is a gitignored event log.** Each round, the agent appends
   rows (one per strategy touched, with event type: create/evolve/stable/fork/kill).
   It survives `git reset --hard` so past lessons stay available even when

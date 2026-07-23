@@ -1,12 +1,22 @@
 """
-run.py — READ-ONLY. The oracle. Do not modify.
+run.py — READ-ONLY to research agents. The Harness oracle.
 
-For each strategy in `user_data/strategies/`, runs FreqTrade's Backtesting
+For each compatible strategy in `user_data/strategies/`, runs FreqTrade's Backtesting
 in-process across one or more timeranges and pair baskets, computes per-pair
 metrics + portfolio aggregate + buy-and-hold benchmark + multi-objective
 flags, and prints the result blocks to stdout.
 
-v0.4.1 affordances exposed via per-strategy class attributes:
+The asset universe and local data directory come from ``harness.json``.  The
+default ``crypto-majors`` profile preserves the v0.4.1 contract; alternate
+profiles can use an offline, session-aware market facade without turning a
+Broker account into part of the research Harness.
+
+Per-strategy class attributes:
+
+- `asset_classes`: optional list of compatible asset classes. A strategy with
+  `["crypto"]` is skipped, rather than misapplied, under an equity profile.
+
+- `asset_profiles`: optional tighter allow-list of profile ids.
 
 - `pair_basket`: list of pairs the strategy wants to trade. If unset, defaults
   to the full whitelist (BTC/ETH/SOL/BNB/AVAX). Strategy is only evaluated
@@ -38,12 +48,15 @@ equal-weight buy-and-hold portfolio return + Sharpe + DD computed from
 
 Usage:
     uv run run.py > run.log 2>&1
+    uv run run.py --profile us-equities > run.log 2>&1
+    uv run run.py --list-profiles
     grep "^---\\|^strategy:\\|^sharpe:\\|^trade_count:" run.log  # compact scan
     awk '/^---$/,/^$/' run.log                                   # full blocks
 """
 
 from __future__ import annotations
 
+import argparse
 import importlib.util
 import math
 import subprocess
@@ -56,21 +69,26 @@ import numpy as np
 import pandas as pd
 
 from freqtrade.configuration import Configuration
-from freqtrade.enums import RunMode
-from freqtrade.optimize.backtesting import Backtesting
+from freqtrade.enums import RunMode, TradingMode
+
+from autoquant.data import (
+    DataValidationError,
+    candle_filename,
+    inspect_profile_data,
+    normalize_ohlcv,
+)
+from autoquant.freqtrade_adapter import build_backtester
+from autoquant.metrics import normalize_session_risk_metrics
+from autoquant.profiles import AssetProfile, ManifestError, load_manifest
 
 # ---------------------------------------------------------------------------
-# Fixed constants. Do not modify.
+# Fixed Harness paths and research gates. Do not modify from a Study.
 # ---------------------------------------------------------------------------
 PROJECT_DIR = Path(__file__).parent.resolve()
 USER_DATA = PROJECT_DIR / "user_data"
-DATA_DIR = USER_DATA / "data"
 STRATEGIES_DIR = USER_DATA / "strategies"
 CONFIG = PROJECT_DIR / "config.json"
-
-DEFAULT_TIMERANGE = "20210101-20251231"
-PAIRS = ["BTC/USDT", "ETH/USDT", "SOL/USDT", "BNB/USDT", "AVAX/USDT"]
-PAIRS_STR = ",".join(PAIRS)
+MANIFEST = PROJECT_DIR / "harness.json"
 
 # Multi-objective gates (v0.4.1)
 PROFIT_FLOOR_PCT = 20.0   # each timerange must show at least +20% portfolio profit
@@ -86,13 +104,13 @@ PROFIT_FLOOR_PCT = 20.0   # each timerange must show at least +20% portfolio pro
 TINY_STAKES_POS_PCT = 10.0     # min avg position notably below the ~20% equal-weight baseline
 TINY_STAKES_SHARPE = 0.3       # robust_sharpe the agent might keep on (matches program.md soft bar)
 
-# Annualization factor for daily Sharpe of crypto portfolios
-DAILY_SHARPE_FACTOR = math.sqrt(365)
-
-
 # ---------------------------------------------------------------------------
 # Strategy module loading + class-attr introspection
 # ---------------------------------------------------------------------------
+class IncompatibleStrategy(ValueError):
+    """A strategy explicitly excludes the selected asset profile."""
+
+
 def discover_strategies() -> list[str]:
     if not STRATEGIES_DIR.exists():
         return []
@@ -127,20 +145,37 @@ def load_strategy_class(name: str):
     return cls
 
 
-def get_strategy_overrides(name: str) -> tuple[list[str] | None, list[tuple[str, str]]]:
+def get_strategy_overrides(
+    name: str,
+    profile: AssetProfile,
+) -> tuple[list[str] | None, list[tuple[str, str]]]:
     """Return (pair_basket, test_timeranges) declared by the strategy class.
 
     Defaults: full whitelist + single full-timerange.
     """
     cls = load_strategy_class(name)
+    asset_classes = getattr(cls, "asset_classes", None)
+    asset_profiles = getattr(cls, "asset_profiles", None)
+    if asset_classes is not None and profile.asset_class not in asset_classes:
+        raise IncompatibleStrategy(
+            f"{name} supports asset_classes={list(asset_classes)!r}, "
+            f"not {profile.asset_class!r}"
+        )
+    if asset_profiles is not None and profile.id not in asset_profiles:
+        raise IncompatibleStrategy(
+            f"{name} supports asset_profiles={list(asset_profiles)!r}, "
+            f"not {profile.id!r}"
+        )
+
     pair_basket = getattr(cls, "pair_basket", None)
-    test_timeranges = getattr(cls, "test_timeranges", None) or [("full", DEFAULT_TIMERANGE)]
+    test_timeranges = getattr(cls, "test_timeranges", None) or [("full", profile.timerange)]
     # Validate basket
     if pair_basket is not None:
         for p in pair_basket:
-            if p not in PAIRS:
+            if p not in profile.pairs:
                 raise ValueError(
-                    f"{name}: pair_basket entry {p!r} not in whitelist {PAIRS}"
+                    f"{name}: pair_basket entry {p!r} not in profile "
+                    f"{profile.id!r} universe {list(profile.pairs)}"
                 )
     # Validate timeranges
     for label, tr in test_timeranges:
@@ -159,11 +194,13 @@ def run_backtest(
     strategy_name: str,
     timerange: str,
     pair_basket: list[str] | None,
+    profile: AssetProfile,
 ) -> dict[str, Any]:
+    data_dir = profile.data_dir(PROJECT_DIR)
     args = {
         "config": [str(CONFIG)],
         "user_data_dir": str(USER_DATA),
-        "datadir": str(DATA_DIR),
+        "datadir": str(data_dir),
         "strategy": strategy_name,
         "strategy_path": str(STRATEGIES_DIR),
         "timerange": timerange,
@@ -172,11 +209,31 @@ def run_backtest(
         "cache": "none",
     }
     config = Configuration(args, RunMode.BACKTEST).get_config()
-    if pair_basket:
-        config["exchange"]["pair_whitelist"] = list(pair_basket)
-    bt = Backtesting(config)
-    bt.start()
-    return bt.results
+    config["datadir"] = data_dir
+    config["timeframe"] = profile.base_timeframe
+    config["timerange"] = timerange
+    config["stake_currency"] = profile.stake_currency
+    config["fee"] = profile.fee
+    config["max_open_trades"] = profile.max_open_trades
+    config["trading_mode"] = TradingMode(profile.trading_mode)
+    config["exchange"]["name"] = profile.venue
+    config["exchange"]["pair_whitelist"] = list(pair_basket or profile.pairs)
+    config["exchange"]["pair_blacklist"] = []
+
+    backtester = build_backtester(config, profile)
+    try:
+        backtester.start()
+        results = backtester.results
+        normalize_session_risk_metrics(
+            results,
+            strategy_name,
+            profile,
+            PROJECT_DIR,
+        )
+        return results
+    finally:
+        backtester.exchange.close()
+        backtester.cleanup()
 
 
 # ---------------------------------------------------------------------------
@@ -232,6 +289,7 @@ def extract_metrics(
 def compute_bah_benchmark(
     timerange: str,
     pairs: list[str],
+    profile: AssetProfile,
 ) -> dict[str, Any]:
     """Compute equal-weight BUY-AND-HOLD portfolio metrics over the timerange.
 
@@ -258,14 +316,18 @@ def compute_bah_benchmark(
 
     pair_gross: dict[str, pd.Series] = {}  # equity multiple per pair, starts at 1.0
     pair_summary: dict[str, dict[str, float]] = {}
+    data_dir = profile.data_dir(PROJECT_DIR)
     for pair in pairs:
-        path = DATA_DIR / f"{pair.replace('/', '_')}-1d.feather"
+        path = data_dir / candle_filename(pair, "1d", profile.data_format)
         if not path.exists():
             continue
-        df = pd.read_feather(path)
-        # Normalise tz so comparisons work
-        if df["date"].dt.tz is None:
-            df["date"] = df["date"].dt.tz_localize("UTC")
+        if profile.data_format == "feather":
+            df = pd.read_feather(path)
+        elif profile.data_format == "parquet":
+            df = pd.read_parquet(path)
+        else:
+            df = pd.read_csv(path)
+        df = normalize_ohlcv(df, source=str(path))
         df = df[(df["date"] >= start) & (df["date"] <= end)].reset_index(drop=True)
         if len(df) < 2:
             continue
@@ -296,7 +358,11 @@ def compute_bah_benchmark(
     portfolio_equity = gross_df.mean(axis=1)
     portfolio_daily = portfolio_equity.pct_change().dropna()
     if portfolio_daily.std() > 0:
-        sharpe = float(portfolio_daily.mean() / portfolio_daily.std() * DAILY_SHARPE_FACTOR)
+        sharpe = float(
+            portfolio_daily.mean()
+            / portfolio_daily.std()
+            * math.sqrt(profile.annualization_days)
+        )
     else:
         sharpe = 0.0
     total_profit = float((portfolio_equity.iloc[-1] - 1.0) * 100)
@@ -416,6 +482,8 @@ def get_commit() -> str:
 def print_block(
     strategy_name: str,
     commit: str,
+    profile: AssetProfile,
+    harness_version: str,
     timerange_label: str,
     timerange: str,
     pairs: list[str],
@@ -426,6 +494,9 @@ def print_block(
     per_pair = bundle["per_pair"]
     print("---")
     print(f"strategy:         {strategy_name}")
+    print(f"asset_profile:    {profile.id}")
+    print(f"asset_class:      {profile.asset_class}")
+    print(f"harness_version:  {harness_version}")
     print(f"timerange_label:  {timerange_label}")
     print(f"timerange:        {timerange}")
     print(f"commit:           {commit}")
@@ -465,6 +536,8 @@ def print_block(
 def print_strategy_summary(
     strategy_name: str,
     commit: str,
+    profile: AssetProfile,
+    harness_version: str,
     labels: list[str],
     per_timerange_metrics: list[dict[str, Any]],
     positions: list[float | None],
@@ -495,6 +568,9 @@ def print_strategy_summary(
 
     print("---")
     print(f"strategy:         {strategy_name}")
+    print(f"asset_profile:    {profile.id}")
+    print(f"asset_class:      {profile.asset_class}")
+    print(f"harness_version:  {harness_version}")
     print(f"timerange_label:  SUMMARY")
     print(f"commit:           {commit}")
     print(f"robust_sharpe:    {robust_sharpe:.4f}   # min across declared timeranges")
@@ -535,12 +611,17 @@ def print_strategy_summary(
 def print_error(
     strategy_name: str,
     commit: str,
+    profile: AssetProfile,
+    harness_version: str,
     timerange_label: str,
     timerange: str,
     err: BaseException,
 ) -> None:
     print("---")
     print(f"strategy:         {strategy_name}")
+    print(f"asset_profile:    {profile.id}")
+    print(f"asset_class:      {profile.asset_class}")
+    print(f"harness_version:  {harness_version}")
     print(f"timerange_label:  {timerange_label}")
     print(f"timerange:        {timerange}")
     print(f"commit:           {commit}")
@@ -551,10 +632,60 @@ def print_error(
     print(traceback.format_exc())
 
 
+def print_skipped(
+    strategy_name: str,
+    commit: str,
+    profile: AssetProfile,
+    harness_version: str,
+    reason: str,
+) -> None:
+    print("---")
+    print(f"strategy:         {strategy_name}")
+    print(f"asset_profile:    {profile.id}")
+    print(f"asset_class:      {profile.asset_class}")
+    print(f"harness_version:  {harness_version}")
+    print("timerange_label:  SETUP")
+    print("timerange:        n/a")
+    print(f"commit:           {commit}")
+    print("status:           SKIPPED")
+    print(f"reason:           {reason}")
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
-def main() -> int:
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--profile",
+        help="asset profile id (default: manifest default or AUTOQUANT_PROFILE)",
+    )
+    parser.add_argument(
+        "--list-profiles",
+        action="store_true",
+        help="list configured asset profiles and exit",
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(argv)
+    try:
+        manifest = load_manifest(MANIFEST)
+        profile = manifest.profile(args.profile)
+    except ManifestError as err:
+        print(f"ERROR: {err}", file=sys.stderr)
+        return 2
+
+    if args.list_profiles:
+        for profile_id, candidate in manifest.profiles.items():
+            marker = "*" if profile_id == manifest.default_profile else " "
+            print(
+                f"{marker} {profile_id}: {candidate.asset_class} @ {candidate.venue}, "
+                f"{len(candidate.pairs)} pairs, {candidate.market_clock}"
+            )
+        return 0
+
     strategies = discover_strategies()
     if not strategies:
         print(
@@ -565,35 +696,81 @@ def main() -> int:
         )
         return 2
 
+    try:
+        coverage = inspect_profile_data(PROJECT_DIR, profile)
+    except (DataValidationError, OSError) as err:
+        print(
+            f"ERROR: profile {profile.id!r} data is not ready: {err}\n"
+            f"Run `uv run prepare.py --profile {profile.id}` first.",
+            file=sys.stderr,
+        )
+        return 2
+
     commit = get_commit()
     print(f"Discovered {len(strategies)} strategies: {', '.join(strategies)}")
-    print(f"Whitelist:   {PAIRS_STR}")
-    print(f"Default TR:  {DEFAULT_TIMERANGE}")
+    print(
+        f"Harness:     {manifest.harness_id} @ {manifest.harness_version} "
+        f"({manifest.engine_name} {manifest.engine_version})"
+    )
+    print(f"Profile:     {profile.id} ({profile.asset_class}, {profile.market_clock})")
+    print(f"Whitelist:   {','.join(profile.pairs)}")
+    print(f"Default TR:  {profile.timerange}")
+    print(f"Data:        {profile.data_dir(PROJECT_DIR)} ({len(coverage)} files)")
     print()
 
     n_ok_total = 0
     n_err_total = 0
+    n_skipped_total = 0
 
     for name in strategies:
         try:
-            pair_basket, test_timeranges = get_strategy_overrides(name)
+            pair_basket, test_timeranges = get_strategy_overrides(name, profile)
+        except IncompatibleStrategy as err:
+            print_skipped(
+                name,
+                commit,
+                profile,
+                manifest.harness_version,
+                str(err),
+            )
+            n_skipped_total += 1
+            print()
+            continue
         except Exception as err:
-            print_error(name, commit, "SETUP", "n/a", err)
+            print_error(
+                name,
+                commit,
+                profile,
+                manifest.harness_version,
+                "SETUP",
+                "n/a",
+                err,
+            )
             n_err_total += 1
             print()
             continue
 
-        active_pairs = list(pair_basket) if pair_basket else list(PAIRS)
+        active_pairs = list(pair_basket) if pair_basket else list(profile.pairs)
         per_timerange_metrics: list[dict[str, Any]] = []
         per_timerange_labels: list[str] = []
         per_timerange_positions: list[float | None] = []
 
         for label, timerange in test_timeranges:
             try:
-                results = run_backtest(name, timerange, pair_basket)
+                results = run_backtest(name, timerange, pair_basket, profile)
                 bundle = extract_metrics(results, name, active_pairs)
-                bah = compute_bah_benchmark(timerange, active_pairs)
-                print_block(name, commit, label, timerange, active_pairs, bundle, bah)
+                bah = compute_bah_benchmark(timerange, active_pairs, profile)
+                print_block(
+                    name,
+                    commit,
+                    profile,
+                    manifest.harness_version,
+                    label,
+                    timerange,
+                    active_pairs,
+                    bundle,
+                    bah,
+                )
                 per_timerange_metrics.append(bundle)
                 per_timerange_labels.append(label)
                 # Measure stake fraction per timerange so regime-conditional
@@ -601,19 +778,34 @@ def main() -> int:
                 per_timerange_positions.append(estimate_avg_position_size_pct(results, name))
                 n_ok_total += 1
             except BaseException as err:
-                print_error(name, commit, label, timerange, err)
+                print_error(
+                    name,
+                    commit,
+                    profile,
+                    manifest.harness_version,
+                    label,
+                    timerange,
+                    err,
+                )
                 n_err_total += 1
             print()
 
         # Summary block: aggregate across timeranges
         if per_timerange_metrics:
             print_strategy_summary(
-                name, commit, per_timerange_labels,
+                name,
+                commit,
+                profile,
+                manifest.harness_version,
+                per_timerange_labels,
                 per_timerange_metrics, per_timerange_positions,
             )
             print()
 
-    print(f"Done: {n_ok_total} backtests succeeded, {n_err_total} failed.")
+    print(
+        f"Done: {n_ok_total} backtests succeeded, {n_err_total} failed, "
+        f"{n_skipped_total} skipped."
+    )
     return 0 if n_err_total == 0 else 1
 
 

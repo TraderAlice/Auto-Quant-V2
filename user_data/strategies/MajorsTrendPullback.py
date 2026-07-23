@@ -16,6 +16,9 @@ from freqtrade.strategy import IStrategy, informative
 
 
 class MajorsTrendPullback(IStrategy):
+    # This research snapshot was designed for the crypto-majors arena.
+    asset_classes = ["crypto"]
+
     INTERFACE_VERSION = 3
 
     timeframe = "1h"

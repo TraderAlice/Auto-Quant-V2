@@ -236,7 +236,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "freqtrade", specifier = ">=2025.1" },
+    { name = "freqtrade", specifier = "==2026.3" },
     { name = "jupyter", specifier = ">=1.0" },
     { name = "matplotlib", specifier = ">=3.8" },
     { name = "numpy", specifier = ">=1.26" },

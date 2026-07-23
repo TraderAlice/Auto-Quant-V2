@@ -25,10 +25,10 @@ MULTI-TIMEFRAME + CROSS-ASSET + DYNAMIC SIZING + BASKET + TIMERANGES
                           (v0.3.0 → v0.4.1)
 ========================================================================
 
-Data is pre-downloaded for three timeframes: 1h (base), 4h, and 1d.
-Five pairs are in the whitelist: BTC/USDT, ETH/USDT, SOL/USDT, BNB/USDT,
-AVAX/USDT. Each strategy is evaluated on ALL five pairs per backtest run;
-run.py reports aggregate + per-pair metrics.
+This is the default ``crypto-majors`` profile template. Its data contains
+three timeframes: 1h (base), 4h, and 1d. Five pairs are in the universe:
+BTC/USDT, ETH/USDT, SOL/USDT, BNB/USDT, AVAX/USDT. See
+``_equity_template.py.example`` for the session-equity profile.
 
 Two affordances are available to enrich strategy signals:
 
@@ -124,6 +124,7 @@ class _Template(IStrategy):
     INTERFACE_VERSION = 3
 
     # ---- attributes every strategy must declare ----
+    asset_classes = ["crypto"]
     timeframe = "1h"
     can_short = False
 

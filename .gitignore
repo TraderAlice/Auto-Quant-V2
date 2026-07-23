@@ -11,6 +11,7 @@ run.log
 !versions/**/*.log
 
 # FreqTrade-generated output
+/data/
 user_data/data/
 user_data/backtest_results/
 user_data/logs/
