@@ -1,6 +1,7 @@
 # Agent CLI contract
 
-Status: implemented for Workspace, Project, Study, and Run operations.
+Status: implemented for Workspace, Project, Study, Run, Session, and Experiment
+operations.
 
 Related: [[docs/CLI]], [[docs/PROJECT_FORMAT]],
 [[docs/design/workspace-project-boundaries]], and
@@ -57,12 +58,14 @@ The current CLI supports:
 
 - `read-only`;
 - `creates-artifact`;
-- `mutates-workspace`.
+- `mutates-workspace`;
+- `mutates-project`.
 
-Study creation and Run execution use `creates-artifact`; neither silently
-promotes candidate source. Future operations may add `mutates-project`,
-`mode-dependent`, or
-`long-running-server` only when their confirmation, progress, and evidence
+Study/Session creation, Run execution, and Experiment evaluation use
+`creates-artifact`; none silently promotes candidate source. Only
+`session.promote` uses `mutates-project`, after stale-base validation and
+rollback-safe receipt publication. Future operations may add `mode-dependent`
+or `long-running-server` only when their confirmation, progress, and evidence
 contracts are defined.
 
 ## CLI-to-Studio flow

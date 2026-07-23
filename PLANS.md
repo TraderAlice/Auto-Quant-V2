@@ -32,6 +32,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/governed-research-session-loop]] | Gave Agents a resumable edit/evaluate loop with locked Study authority, immutable KEEP/REVERT/CRASH evidence, and guarded promotion. | 2026-07-24 |
 | [[plans/study-run-evidence-foundation]] | Made one locked quantitative Study executable through a bounded Python Judge that publishes complete immutable RunResult evidence for later Agent experiments and Studio inspection. | 2026-07-24 |
 | [[plans/workspace-project-cli-foundation]] | Gave humans and Agents one strict multi-project Workspace boundary and a versioned machine-discoverable CLI before research execution moves into Projects. | 2026-07-24 |
 | [[plans/planning-and-documentation-foundation]] | Established the live planning, durable design-documentation, and executable link-validation rules needed for long-running Agent development. | 2026-07-24 |

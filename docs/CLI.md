@@ -1,6 +1,7 @@
 # AutoQuant V2 CLI
 
-Status: Workspace/Project plus Study/Run evidence implemented.
+Status: Workspace/Project, Study/Run evidence, and governed
+Session/Experiment research implemented.
 
 `aq` is the public human- and Agent-facing command line interface. Humans
 receive compact text by default. `--json` emits exactly one versioned envelope.
@@ -73,6 +74,36 @@ A failed Run is a successful artifact-creation operation whose RunResult has
 `status: failed`; it retains errors and logs. A CLI error means trustworthy Run
 evidence could not be created or verified.
 
+## Session and Experiment commands
+
+```bash
+aq session start <path> --study ID [--project ID] [--json]
+aq session list <path> [--project ID] [--json]
+aq session show <path> --session ID [--project ID] [--json]
+aq session promote <path> --session ID [--project ID] [--json]
+
+aq experiment evaluate <path> \
+  --session ID \
+  --hypothesis TEXT \
+  [--project ID] [--json]
+aq experiment list <path> --session ID [--project ID] [--json]
+aq experiment show <path> \
+  --session ID \
+  --experiment ID \
+  [--project ID] [--json]
+```
+
+`session start` runs a fresh successful baseline and returns an Agent brief
+containing the disposable worktree, fixed program, editable closure, leader,
+authority status, and exact next commands. The caller edits only that worktree.
+
+`experiment evaluate` freezes the candidate into a canonical Run, compares the
+primary metric with the current leader, publishes immutable Experiment
+evidence, and returns `KEEP`, `REVERT`, or `CRASH`. REVERT and CRASH restore the
+leader bytes in the worktree. `session promote` is the only operation that
+copies a KEEP into Project source; it rejects a stale Project base and rolls
+back if the source, receipt, and Session pointer cannot all be committed.
+
 ## Success envelope
 
 ```json
@@ -122,11 +153,12 @@ Current operation effects are:
 
 - `read-only`;
 - `creates-artifact`;
-- `mutates-workspace`.
+- `mutates-workspace`;
+- `mutates-project`.
 
-`mutates-project` will be introduced only when a reviewed Project operation
-exists. A future Studio must project these same Core operations and effects
-rather than write files independently.
+Only `session.promote` currently uses `mutates-project`, after locked-history,
+stale-base, source-hash, and rollback checks. A future Studio must project
+these same Core operations and effects rather than write files independently.
 
 ## Error envelope
 
@@ -175,15 +207,16 @@ uv run aq capabilities --json
 
 ## Current boundary
 
-This CLI currently owns Workspace/Project lifecycle plus fixed Study and
-immutable Run evidence. The legacy `prepare.py` and `run.py` commands remain
-the V0.5 compatibility Harness. Research Sessions, Experiments, Candidate
-comparison/promotion, and Studio commands will join `aq capabilities` only
-after their Core contracts exist.
+This CLI owns Workspace/Project lifecycle, fixed Study and immutable Run
+evidence, and the governed Session/Experiment edit/evaluate/promotion loop. The
+legacy `prepare.py` and `run.py` commands remain the V0.5 compatibility
+Harness. External Researcher invocation, automatic stopping, richer robust
+comparison, and Studio remain separate future surfaces.
 
 ## Verification
 
 ```bash
 uv run aq capabilities --json
-uv run python -m unittest tests.test_cli tests.test_studies tests.test_runs -v
+uv run python -m unittest \
+  tests.test_cli tests.test_studies tests.test_runs tests.test_sessions -v
 ```

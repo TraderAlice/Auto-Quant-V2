@@ -17,7 +17,7 @@ own Study, Run, evaluation, research-loop, dataset-format, or Studio semantics.
   `autoquant-workspace.json` and one configured immediate Projects directory.
 - A Project is a directory containing `autoquant.json`, its human research
   program, and every research surface it owns, including fixed Judges and
-  immutable Run evidence.
+  immutable Run/Experiment evidence and durable research Sessions.
 - The Workspace has no dataset, factor, strategy, model, Study, or Run catalog.
 - Reuse is explicit copying or a future content-addressed dependency. Mutable
   inherited research assets are forbidden.
@@ -103,8 +103,8 @@ uv run aq validate /tmp/quant-workspace --json
 
 ## Known gaps
 
-- Project manifests expose semantic directory slots but do not select a
-  default Study, dataset, or execution profile.
+- Project manifests expose semantic directory slots, including `sessions`, but
+  do not select a default Study, dataset, Session, or execution profile.
 - Project identity is strict path identity but not yet a content hash.
 - Project creation has no domain-specific starter variants.
 - Studio does not yet consume Workspace and Project contexts.

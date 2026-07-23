@@ -45,6 +45,7 @@ factor-lab/
 ├── models/
 ├── judges/
 ├── studies/
+├── sessions/
 ├── data/
 │   └── .gitignore
 ├── runs/
@@ -67,6 +68,7 @@ factor-lab/
     "models": "models",
     "judges": "judges",
     "studies": "studies",
+    "sessions": "sessions",
     "data": "data",
     "runs": "runs",
     "cache": ".autoquant"
@@ -253,6 +255,58 @@ runs/
 ignores incomplete directories; opening a completed Run rejects changed,
 deleted, or added files.
 
+## Research Session and Experiment
+
+Sessions provide the governed candidate-editing layer above Studies and Runs:
+
+```text
+sessions/
+└── session-<UTC timestamp>-<identity>/
+    ├── session.json
+    ├── worktree/<project-id>/
+    ├── experiments/
+    │   └── exp-0001-<candidate identity>/
+    │       ├── result.json
+    │       ├── changes.json
+    │       ├── diff.patch
+    │       └── manifest.json
+    └── promotion.json
+```
+
+`session.json` V1 is a strict mutable coordination pointer. It records:
+
+- Session status, Project, Study, worktree, timestamps, and next sequence;
+- exact editable paths and Project source hash at Session start;
+- successful baseline and current leader Run/source/metric/value pointers;
+- Study/program/Judge/dataset/Harness locks;
+- a complete hash inventory of every non-editable worktree file.
+
+The worktree is a complete structural Project containing only the selected
+fixed Study/Judge inputs and candidate-editable source bytes. It has empty
+data, run, cache, and nested Session directories. Candidate Runs read the
+owning Project data directory and publish to the owning Project Run catalog.
+
+Each immutable Experiment `result.json` records its hypothesis, sequence,
+verdict, objective, leader and candidate Run/source/metric/value, normalized
+improvement, source-change hash, errors, and timestamps. `changes.json`
+contains exact added/modified/deleted file hashes; `diff.patch` contains
+available UTF-8 unified diffs. Its terminal manifest pins all three.
+
+Verdicts are:
+
+- `KEEP` when direction-normalized improvement is strictly positive and meets
+  `minimum_improvement`;
+- `REVERT` when a successful candidate does not meet that threshold;
+- `CRASH` when the candidate Run failed.
+
+KEEP advances the Session leader. REVERT and CRASH restore the exact leader
+source from its verified Run. `promotion.json` is written once only after the
+current KEEP replaces an unchanged Project base and the applied source hash is
+verified. Any failure rolls Project source and Session state back.
+
+The complete operating and authority contract is
+[[docs/design/research-session-loop]].
+
 ## Canonical schemas
 
 Machine-readable JSON Schemas are available without loading a Project:
@@ -264,10 +318,13 @@ aq schema project --json
 aq schema study --json
 aq schema judge-output --json
 aq schema run-result --json
+aq schema session --json
+aq schema experiment --json
 ```
 
 The Python validators are authoritative executable behavior in
-`autoquant/workspace.py`, `autoquant/studies.py`, and `autoquant/runs.py`.
+`autoquant/workspace.py`, `autoquant/studies.py`, `autoquant/runs.py`, and
+`autoquant/sessions.py`.
 
 ## Compatibility surface
 
@@ -285,5 +342,7 @@ uv run aq workspace init /tmp/quant-workspace
 uv run aq project create /tmp/quant-workspace factor-lab
 uv run aq validate /tmp/quant-workspace
 uv run aq inspect /tmp/quant-workspace --project factor-lab --json
-uv run python -m unittest tests.test_workspace tests.test_cli -v
+uv run python -m unittest \
+  tests.test_workspace tests.test_cli tests.test_studies \
+  tests.test_runs tests.test_sessions -v
 ```

@@ -489,6 +489,7 @@ def _run_judge(
     study: StudyContext,
     run_staging: Path,
     run_input_hash: str,
+    data_root: Path,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     artifacts_root = run_staging / "artifacts"
     artifacts_root.mkdir()
@@ -505,9 +506,7 @@ def _run_judge(
         environment.update(
             {
                 "AUTOQUANT_PROJECT_ROOT": str(execution_root),
-                "AUTOQUANT_DATA_ROOT": str(
-                    project.root_dir / project.manifest.directories["data"]
-                ),
+                "AUTOQUANT_DATA_ROOT": str(data_root),
                 "AUTOQUANT_STUDY_PATH": str(
                     execution_root
                     / project.manifest.directories["studies"]
@@ -625,8 +624,81 @@ def _all_file_hashes(root: Path) -> dict[str, str]:
     return hashes
 
 
-def execute_study(project: ProjectContext, study_id: str) -> RunContext:
-    study = load_study(project, study_id)
+def execute_study(
+    project: ProjectContext,
+    study_id: str,
+    *,
+    execution_project: ProjectContext | None = None,
+    data_root: Path | None = None,
+) -> RunContext:
+    source_project = execution_project or project
+    if source_project.manifest.id != project.manifest.id:
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    source_project.root_dir,
+                    "run.project-identity",
+                    "Execution Project id must match the owning Project",
+                )
+            ]
+        )
+    study = load_study(source_project, study_id)
+    if execution_project is not None:
+        owning_study = load_study(project, study_id)
+        fixed_identity = {
+            "studyHash": (study.study_hash, owning_study.study_hash),
+            "programHash": (study.program_hash, owning_study.program_hash),
+            "judgeHash": (study.judge_hash, owning_study.judge_hash),
+            "datasetHash": (study.dataset_hash, owning_study.dataset_hash),
+        }
+        changed = [
+            key
+            for key, (execution_value, owning_value) in fixed_identity.items()
+            if execution_value != owning_value
+        ]
+        if changed:
+            raise AutoQuantValidationError(
+                [
+                    _issue(
+                        source_project.root_dir,
+                        "run.fixed-input-stale",
+                        "Execution Project fixed Study inputs differ from the owning "
+                        f"Project: {', '.join(changed)}",
+                    )
+                ]
+            )
+    resolved_data_root = (
+        data_root
+        if data_root is not None
+        else source_project.root_dir
+        / source_project.manifest.directories["data"]
+    )
+    if data_root is not None:
+        owning_data_root = confined_path(
+            project.root_dir,
+            project.manifest.directories["data"],
+            "project/directories/data",
+        )
+        if resolved_data_root.absolute() != owning_data_root:
+            raise AutoQuantValidationError(
+                [
+                    _issue(
+                        resolved_data_root,
+                        "run.data-root",
+                        "Explicit Run data root must be the owning Project data directory",
+                    )
+                ]
+            )
+    if resolved_data_root.is_symlink() or not resolved_data_root.is_dir():
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    resolved_data_root,
+                    "run.data-root",
+                    "Run data root must be a real directory",
+                )
+            ]
+        )
     harness = harness_identity()
     run_input_hash = hash_json(
         {"studyInputHash": study.input_hash, "harness": harness}
@@ -641,12 +713,13 @@ def execute_study(project: ProjectContext, study_id: str) -> RunContext:
     temporary = runs_root / f".run-{uuid.uuid4().hex}"
     temporary.mkdir()
     try:
-        _freeze_inputs(project, study, temporary, harness, run_input_hash)
+        _freeze_inputs(source_project, study, temporary, harness, run_input_hash)
         normalized, execution = _run_judge(
-            project,
+            source_project,
             study,
             temporary,
             run_input_hash,
+            resolved_data_root,
         )
         completed = datetime.now(timezone.utc)
         completed_at = completed.isoformat()

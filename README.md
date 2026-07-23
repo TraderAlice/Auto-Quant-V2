@@ -51,8 +51,26 @@ uv run aq run list ./quant-workspace --study factor-quality
 
 Study, Judge output, and RunResult formats are documented in
 [`docs/PROJECT_FORMAT.md`](docs/PROJECT_FORMAT.md). The autonomous
-KEEP/REVERT/CRASH mutation loop will build on these immutable Runs rather than
-parsing free-form backtest output.
+mutation loop now builds on these immutable Runs rather than parsing free-form
+backtest output:
+
+```bash
+# Establish a fresh successful baseline and a disposable candidate worktree.
+uv run aq session start ./quant-workspace --study factor-quality --json
+
+# Edit only the returned worktree/editablePaths, then judge one hypothesis.
+uv run aq experiment evaluate ./quant-workspace \
+  --session session-... \
+  --hypothesis "Add volatility normalization" \
+  --json
+
+# Repeat after KEEP/REVERT/CRASH, or explicitly publish the current KEEP.
+uv run aq session promote ./quant-workspace --session session-... --json
+```
+
+REVERT and CRASH restore the exact Session leader. Promotion is separate,
+requires an unchanged Project base, and rolls back if its receipt cannot be
+committed.
 
 The v0.5 development Harness still uses **Freqtrade as its one core engine**,
 but assets are no longer hardwired into that engine:

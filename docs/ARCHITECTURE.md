@@ -42,11 +42,15 @@ The V2 foundation now implements:
   and dataset identity;
 - bounded isolated Judge execution and atomically published immutable
   RunResults with full-file tamper verification.
+- resumable Project-local Research Sessions with disposable candidate
+  worktrees, fixed authority locks, immutable KEEP/REVERT/CRASH Experiments,
+  exact leader restoration, and stale-safe rollback-capable promotion.
 
 The canonical contracts are [[docs/PROJECT_FORMAT]] and [[docs/CLI]]. The
 boundary designs are [[docs/design/workspace-project-boundaries]] and
 [[docs/design/agent-cli-contract]]. Study/Run authority and evidence are defined
-in [[docs/design/study-run-evidence]].
+in [[docs/design/study-run-evidence]]; governed source research is defined in
+[[docs/design/research-session-loop]].
 
 The repository also contains the V0.5 development Harness inherited from
 Auto-Quant Classic:
@@ -145,11 +149,14 @@ behind the Harness contract, not the owner of Workspace or Project semantics.
   and `autoquant/capabilities.py`
 - Study identity and source closures: `autoquant/studies.py`
 - Bounded execution and immutable evidence: `autoquant/runs.py`
+- Governed Session/Experiment research and promotion:
+  `autoquant/sessions.py`
 - Canonical Workspace/Project format: [[docs/PROJECT_FORMAT]]
 - Canonical CLI contract: [[docs/CLI]]
 - Workspace/Project design: [[docs/design/workspace-project-boundaries]]
 - Agent CLI design: [[docs/design/agent-cli-contract]]
 - Study/Run evidence design: [[docs/design/study-run-evidence]]
+- Research Session loop design: [[docs/design/research-session-loop]]
 - Current public Harness contract: [[docs/harness]]
 - Planning and documentation governance:
   [[docs/design/documentation-system]]
@@ -187,8 +194,8 @@ These commands must not start autonomous research or a long backtest.
 
 ## Known gaps
 
-- Research Sessions, Experiments, Candidate review, and promotion lifecycles
-  are not implemented.
+- External Researcher invocation, automatic stopping, branching/Pareto search,
+  and robust multi-metric promotion gates are not implemented.
 - Dataset V1 identity is declarative and does not hash dataset bytes.
 - The V0.5 Freqtrade runner is not adapted into the Study/Run contract.
 - The cross-project Studio does not exist.

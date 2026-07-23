@@ -52,6 +52,8 @@ Read the relevant linked document before changing a subsystem:
   and next actions: [[docs/design/agent-cli-contract]]
 - Fixed Study authority, editable/Judge source closures, bounded execution, and
   immutable RunResult evidence: [[docs/design/study-run-evidence]]
+- Resumable Agent worktrees, KEEP/REVERT/CRASH Experiments, and guarded source
+  promotion: [[docs/design/research-session-loop]]
 - Canonical Workspace and Project file schemas: [[docs/PROJECT_FORMAT]]
 - Human and machine-readable command behavior: [[docs/CLI]]
 - Current Freqtrade/OHLCV Harness manifest and profile contract:

@@ -69,6 +69,20 @@ RUN_ARGUMENT = argument(
     True,
     "Immutable Run id.",
 )
+SESSION_ARGUMENT = argument(
+    "session",
+    "option",
+    "string",
+    True,
+    "Project-local research Session id.",
+)
+EXPERIMENT_ARGUMENT = argument(
+    "experiment",
+    "option",
+    "string",
+    True,
+    "Immutable Experiment id inside a Session.",
+)
 
 
 def descriptor(
@@ -100,7 +114,7 @@ CLI_COMMANDS = [
     ),
     descriptor(
         "schema",
-        "aq schema [workspace|project|study|judge-output|run-result] [--json]",
+        "aq schema [workspace|project|study|judge-output|run-result|session|experiment] [--json]",
         "List or emit canonical AutoQuant JSON Schemas.",
         "read-only",
         [
@@ -116,6 +130,8 @@ CLI_COMMANDS = [
                     "study",
                     "judge-output",
                     "run-result",
+                    "session",
+                    "experiment",
                 ],
             ),
             JSON_ARGUMENT,
@@ -348,5 +364,72 @@ CLI_COMMANDS = [
         "Verify and inspect one immutable RunResult.",
         "read-only",
         [PATH_ARGUMENT, PROJECT_ARGUMENT, RUN_ARGUMENT, JSON_ARGUMENT],
+    ),
+    descriptor(
+        "session.start",
+        "aq session start <path> --study ID [--project ID] [--json]",
+        "Create a resumable candidate worktree from a fresh successful Study baseline.",
+        "creates-artifact",
+        [PATH_ARGUMENT, PROJECT_ARGUMENT, STUDY_ARGUMENT, JSON_ARGUMENT],
+    ),
+    descriptor(
+        "session.list",
+        "aq session list <path> [--project ID] [--json]",
+        "List Project-local governed research Sessions.",
+        "read-only",
+        [PATH_ARGUMENT, PROJECT_ARGUMENT, JSON_ARGUMENT],
+    ),
+    descriptor(
+        "session.show",
+        "aq session show <path> --session ID [--project ID] [--json]",
+        "Inspect a Session Agent brief, authority, candidate, leader, and history.",
+        "read-only",
+        [PATH_ARGUMENT, PROJECT_ARGUMENT, SESSION_ARGUMENT, JSON_ARGUMENT],
+    ),
+    descriptor(
+        "session.promote",
+        "aq session promote <path> --session ID [--project ID] [--json]",
+        "Hash-check and promote the exact current KEEP into an unchanged Project base.",
+        "mutates-project",
+        [PATH_ARGUMENT, PROJECT_ARGUMENT, SESSION_ARGUMENT, JSON_ARGUMENT],
+    ),
+    descriptor(
+        "experiment.evaluate",
+        "aq experiment evaluate <path> --session ID --hypothesis TEXT [--project ID] [--json]",
+        "Evaluate the current worktree candidate and publish KEEP, REVERT, or CRASH evidence.",
+        "creates-artifact",
+        [
+            PATH_ARGUMENT,
+            PROJECT_ARGUMENT,
+            SESSION_ARGUMENT,
+            argument(
+                "hypothesis",
+                "option",
+                "string",
+                True,
+                "Falsifiable description of the candidate change.",
+            ),
+            JSON_ARGUMENT,
+        ],
+    ),
+    descriptor(
+        "experiment.list",
+        "aq experiment list <path> --session ID [--project ID] [--json]",
+        "List immutable Experiment history for one Session.",
+        "read-only",
+        [PATH_ARGUMENT, PROJECT_ARGUMENT, SESSION_ARGUMENT, JSON_ARGUMENT],
+    ),
+    descriptor(
+        "experiment.show",
+        "aq experiment show <path> --session ID --experiment ID [--project ID] [--json]",
+        "Verify and inspect one immutable Experiment, source change set, and candidate Run.",
+        "read-only",
+        [
+            PATH_ARGUMENT,
+            PROJECT_ARGUMENT,
+            SESSION_ARGUMENT,
+            EXPERIMENT_ARGUMENT,
+            JSON_ARGUMENT,
+        ],
     ),
 ]

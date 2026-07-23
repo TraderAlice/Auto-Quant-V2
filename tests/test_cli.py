@@ -53,6 +53,13 @@ class AgentCliTests(unittest.TestCase):
                 "run.execute",
                 "run.list",
                 "run.show",
+                "session.start",
+                "session.list",
+                "session.show",
+                "session.promote",
+                "experiment.evaluate",
+                "experiment.list",
+                "experiment.show",
             ],
         )
         for command in commands:
@@ -63,6 +70,7 @@ class AgentCliTests(unittest.TestCase):
                     "read-only",
                     "creates-artifact",
                     "mutates-workspace",
+                    "mutates-project",
                 },
             )
             self.assertEqual(command["exitCodes"]["success"], 0)
@@ -70,7 +78,15 @@ class AgentCliTests(unittest.TestCase):
         schema = next(command for command in commands if command["id"] == "schema")
         self.assertEqual(
             schema["arguments"][0]["choices"],
-            ["workspace", "project", "study", "judge-output", "run-result"],
+            [
+                "workspace",
+                "project",
+                "study",
+                "judge-output",
+                "run-result",
+                "session",
+                "experiment",
+            ],
         )
 
     def test_json_cli_completes_a_two_project_workspace_flow(self) -> None:
@@ -167,6 +183,7 @@ class AgentCliTests(unittest.TestCase):
                     "judges",
                     "models",
                     "runs",
+                    "sessions",
                     "strategies",
                     "studies",
                 ],
@@ -332,6 +349,138 @@ class AgentCliTests(unittest.TestCase):
             shown_json = json_output(shown)
             self.assertEqual(shown_json["data"]["manifest"]["id"], run_id)
             self.assertEqual(shown_json["data"]["result"]["metrics"]["score"], 3.5)
+
+    def test_json_cli_drives_keep_history_and_guarded_promotion(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Path(directory) / "workspace"
+            self.assertEqual(
+                run_cli("workspace", "init", str(workspace), "--json").returncode,
+                0,
+            )
+            created = run_cli(
+                "project",
+                "create",
+                str(workspace),
+                "factor-project",
+                "--json",
+            )
+            self.assertEqual(created.returncode, 0, created.stderr)
+            project = Path(json_output(created)["data"]["projectDir"])
+            (project / "factors/candidate.py").write_text("SCORE = 1.0\n")
+            (project / "judges/evaluate.py").write_text(SUCCESS_JUDGE)
+            study = run_cli(
+                "study",
+                "create",
+                str(workspace),
+                "factor-quality",
+                "--subject-kind",
+                "factor",
+                "--judge",
+                "judges/evaluate.py",
+                "--editable",
+                "factors/**",
+                "--dataset-id",
+                "synthetic-bars",
+                "--asset-class",
+                "equity",
+                "--asset",
+                "AAA/USD",
+                "--start",
+                "2026-01-01",
+                "--end",
+                "2026-01-31",
+                "--json",
+            )
+            self.assertEqual(study.returncode, 0, study.stderr)
+
+            started = run_cli(
+                "session",
+                "start",
+                str(workspace),
+                "--study",
+                "factor-quality",
+                "--json",
+            )
+            self.assertEqual(started.returncode, 0, started.stderr)
+            started_json = json_output(started)
+            session_id = started_json["data"]["session"]["id"]
+            worktree = Path(started_json["data"]["worktree"])
+            self.assertEqual(started_json["data"]["session"]["leader"]["value"], 1.0)
+            self.assertEqual(
+                [action["id"] for action in started_json["nextActions"]],
+                ["session.show", "experiment.evaluate"],
+            )
+            (worktree / "factors/candidate.py").write_text("SCORE = 2.0\n")
+
+            evaluated = run_cli(
+                "experiment",
+                "evaluate",
+                str(workspace),
+                "--session",
+                session_id,
+                "--hypothesis",
+                "Raise the bounded synthetic score.",
+                "--json",
+            )
+            self.assertEqual(evaluated.returncode, 0, evaluated.stderr)
+            evaluated_json = json_output(evaluated)
+            self.assertEqual(
+                evaluated_json["data"]["experiment"]["verdict"],
+                "KEEP",
+            )
+            experiment_id = evaluated_json["data"]["experiment"]["id"]
+            self.assertIn(
+                "session.promote",
+                [action["id"] for action in evaluated_json["nextActions"]],
+            )
+
+            history = run_cli(
+                "experiment",
+                "list",
+                str(workspace),
+                "--session",
+                session_id,
+                "--json",
+            )
+            self.assertEqual(history.returncode, 0, history.stderr)
+            self.assertEqual(
+                json_output(history)["data"]["experiments"][0]["id"],
+                experiment_id,
+            )
+            shown = run_cli(
+                "experiment",
+                "show",
+                str(workspace),
+                "--session",
+                session_id,
+                "--experiment",
+                experiment_id,
+                "--json",
+            )
+            self.assertEqual(shown.returncode, 0, shown.stderr)
+            self.assertEqual(
+                json_output(shown)["data"]["result"]["verdict"],
+                "KEEP",
+            )
+
+            promoted = run_cli(
+                "session",
+                "promote",
+                str(workspace),
+                "--session",
+                session_id,
+                "--json",
+            )
+            self.assertEqual(promoted.returncode, 0, promoted.stderr)
+            promoted_json = json_output(promoted)
+            self.assertEqual(
+                promoted_json["data"]["session"]["status"],
+                "promoted",
+            )
+            self.assertEqual(
+                (project / "factors/candidate.py").read_text(),
+                "SCORE = 2.0\n",
+            )
 
 
 if __name__ == "__main__":

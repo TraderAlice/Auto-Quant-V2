@@ -30,10 +30,11 @@ V1 establishes three authority surfaces:
    strict result. Its files, Study, program, dataset identity, objective, and
    Harness are outside candidate authority.
 
-`aq run execute` does not yet mutate candidate source. A future Research
-Session will stage a disposable Project, invoke an external Researcher, prove
-that its diff stays inside the same editable closure, run this Judge, and
-promote only a reviewed KEEP.
+`aq run execute` does not mutate candidate source. The governed Research
+Session defined in [[docs/design/research-session-loop]] stages a disposable
+Project, proves that its diff stays inside the same editable closure, runs this
+Judge, and promotes only a hash-checked KEEP. External Researcher invocation
+remains layered above that protocol.
 
 ## Source of truth
 
@@ -183,7 +184,7 @@ uv run python -m unittest tests.test_studies tests.test_runs tests.test_cli -v
 - Dataset content manifests and corporate-action/session metadata are not
   content-hashed.
 - There is no Freqtrade Study adapter.
-- There is no baseline/candidate comparison or Experiment verdict.
-- There is no source promotion transaction.
+- V1 baseline/candidate comparison uses only one primary metric; richer robust
+  gates remain future work.
 - There are no streamed progress events.
 - Studio does not yet list Studies or Runs.
