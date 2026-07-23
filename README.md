@@ -9,6 +9,35 @@ workspace. The agent modifies strategies, runs bounded studies, checks the
 results, and keeps or discards hypotheses. The **loop lives in `program.md`**,
 not in an orchestrator.
 
+AutoQuant V2 is growing this proven loop into one long-lived quantitative
+Workspace with many self-contained research Projects. The Workspace supplies
+the standardized Harness and Agent CLI; Projects own the concrete strategy,
+factor, model, dataset, Study, and Run work.
+
+## V2 Workspace quick start
+
+```bash
+uv sync
+uv run aq capabilities --json
+uv run aq workspace init ./quant-workspace --name "Quant Research Desk"
+uv run aq project create ./quant-workspace factor-lab \
+  --name "Factor Lab" \
+  --description "Mine robust cross-asset factors"
+uv run aq project create ./quant-workspace ml-lab --name "ML Lab"
+uv run aq project list ./quant-workspace
+uv run aq validate ./quant-workspace
+uv run aq inspect ./quant-workspace --project factor-lab --json
+```
+
+`aq` emits compact human output by default and one versioned JSON envelope with
+contexts, artifacts, operation effects, and executable next actions under
+`--json`. See [`docs/PROJECT_FORMAT.md`](docs/PROJECT_FORMAT.md) and
+[`docs/CLI.md`](docs/CLI.md).
+
+The repository-root strategy arena described below remains the V0.5
+compatibility Harness while its execution and evidence contracts are migrated
+into Projects.
+
 The v0.5 development Harness still uses **Freqtrade as its one core engine**,
 but assets are no longer hardwired into that engine:
 

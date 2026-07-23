@@ -29,7 +29,20 @@ immutable execution under pinned Project and Harness inputs.
 
 ## Current implementation state
 
-The repository currently contains the V0.5 development Harness inherited from
+The V2 foundation now implements:
+
+- strict `autoquant-workspace.json` and `autoquant.json` manifests;
+- self-contained Project creation and one-level Workspace discovery;
+- default or explicit Project resolution with root confinement and symlink
+  rejection;
+- a packaged `aq` CLI with versioned JSON envelopes, capability discovery,
+  artifacts, next actions, validation, and inspection.
+
+The canonical contracts are [[docs/PROJECT_FORMAT]] and [[docs/CLI]]. The
+boundary designs are [[docs/design/workspace-project-boundaries]] and
+[[docs/design/agent-cli-contract]].
+
+The repository also contains the V0.5 development Harness inherited from
 Auto-Quant Classic:
 
 - `harness.json` declares Freqtrade 2026.3 and two OHLCV asset profiles;
@@ -38,10 +51,9 @@ Auto-Quant Classic:
 - `versions/` preserves completed historical experiments;
 - repository-local `data/`, `results.tsv`, and `run.log` are ignored state.
 
-This is a compatibility implementation, not yet the target Workspace/Project
-layout. Its active contract is documented in [[docs/harness]]. Structural V2
-work must migrate it through explicit plans rather than pretending the target
-layout already exists.
+This flat arena is a compatibility implementation, not a V2 Project. Its active
+contract is documented in [[docs/harness]]. Structural V2 work must migrate it
+through explicit plans while preserving historical evidence.
 
 ## Ownership boundaries
 
@@ -122,6 +134,13 @@ behind the Harness contract, not the owner of Workspace or Project semantics.
 
 - Current executable Harness manifest: `harness.json`
 - Current Harness code: `autoquant/`, `prepare.py`, and `run.py`
+- Workspace/Project implementation: `autoquant/workspace.py`
+- Agent CLI implementation: `autoquant/cli.py`, `autoquant/cli_contract.py`,
+  and `autoquant/capabilities.py`
+- Canonical Workspace/Project format: [[docs/PROJECT_FORMAT]]
+- Canonical CLI contract: [[docs/CLI]]
+- Workspace/Project design: [[docs/design/workspace-project-boundaries]]
+- Agent CLI design: [[docs/design/agent-cli-contract]]
 - Current public Harness contract: [[docs/harness]]
 - Planning and documentation governance:
   [[docs/design/documentation-system]]
@@ -137,6 +156,7 @@ Use the bounded repository checks:
 ```bash
 uv run python scripts/check_doc_links.py
 uv run python -m unittest discover -s tests -v
+uv run aq capabilities --json
 uv run prepare.py --list-profiles
 uv run run.py --list-profiles
 ```
@@ -158,7 +178,6 @@ These commands must not start autonomous research or a long backtest.
 
 ## Known gaps
 
-- Workspace and Project manifests are not implemented.
 - Structured immutable RunResult publication is not implemented.
 - Study, Session, Candidate review, and promotion lifecycles are not
   implemented.

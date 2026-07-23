@@ -46,6 +46,12 @@ Read the relevant linked document before changing a subsystem:
   [[docs/design/documentation-system]]
 - System direction, Workspace/Project ownership, and runtime boundaries:
   [[docs/ARCHITECTURE]]
+- Workspace discovery, Project identity, self-contained construction, and path
+  confinement: [[docs/design/workspace-project-boundaries]]
+- Versioned CLI envelopes, capability discovery, operation effects, artifacts,
+  and next actions: [[docs/design/agent-cli-contract]]
+- Canonical Workspace and Project file schemas: [[docs/PROJECT_FORMAT]]
+- Human and machine-readable command behavior: [[docs/CLI]]
 - Current Freqtrade/OHLCV Harness manifest and profile contract:
   [[docs/harness]]
 - Historical research snapshots: [[versions/README]]

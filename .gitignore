@@ -23,6 +23,8 @@ __pycache__/
 *.pyc
 .venv/
 .python-version.lock
+/dist/
+*.egg-info/
 
 # Editor / OS
 .DS_Store
