@@ -277,6 +277,7 @@ class AgentCliTests(unittest.TestCase):
                 "session.show",
                 "session.compare",
                 "session.promote",
+                "session.complete",
                 "experiment.evaluate",
                 "experiment.list",
                 "experiment.show",
@@ -361,6 +362,7 @@ class AgentCliTests(unittest.TestCase):
                 "rl-policy-diagnostics",
                 "session-decision-matrix",
                 "session",
+                "session-completion",
                 "experiment",
                 "researcher-response",
                 "campaign-result",
@@ -479,6 +481,22 @@ class AgentCliTests(unittest.TestCase):
                 "kind"
             ]["const"],
             "autoquant-session-decision-matrix",
+        )
+        completion_schema = run_cli(
+            "schema",
+            "session-completion",
+            "--json",
+        )
+        self.assertEqual(
+            completion_schema.returncode,
+            0,
+            completion_schema.stderr,
+        )
+        self.assertEqual(
+            json_output(completion_schema)["data"]["schema"]["properties"][
+                "kind"
+            ]["const"],
+            "autoquant-session-completion",
         )
 
     def test_cli_intakes_request_and_dataset_into_ready_project(self) -> None:
@@ -1199,6 +1217,10 @@ print(json.dumps({
                 [item["kind"] for item in published_json["artifacts"]],
                 ["research-report", "research-report-markdown"],
             )
+            self.assertEqual(
+                [item["id"] for item in published_json["nextActions"]],
+                ["report.show", "session.complete"],
+            )
 
             listed = run_cli(
                 "report",
@@ -1227,6 +1249,38 @@ print(json.dumps({
             self.assertEqual(
                 json_output(shown)["data"]["report"]["analysisHash"],
                 published_json["data"]["report"]["analysisHash"],
+            )
+
+            completed = run_cli(
+                "session",
+                "complete",
+                str(project.root_dir),
+                "--session",
+                session_id,
+                "--report",
+                report_id,
+                "--json",
+            )
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            completed_json = json_output(completed)
+            self.assertEqual(
+                completed_json["data"]["session"]["status"],
+                "completed",
+            )
+            self.assertEqual(
+                completed_json["data"]["receipt"]["report"]["id"],
+                report_id,
+            )
+            self.assertEqual(
+                [item["kind"] for item in completed_json["artifacts"]],
+                ["session-completion", "research-report"],
+            )
+            self.assertNotIn(
+                "experiment.evaluate",
+                {
+                    action["id"]
+                    for action in completed_json["nextActions"]
+                },
             )
 
 

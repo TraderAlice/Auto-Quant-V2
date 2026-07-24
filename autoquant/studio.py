@@ -907,7 +907,10 @@ def _session_commands(
             "read-only",
         ),
     ]
-    if session.delegation is not None:
+    if (
+        session.delegation is not None
+        and session.manifest["status"] == "active"
+    ):
         commands.append(
             _command(
                 "report.publish",
@@ -943,6 +946,29 @@ def _session_commands(
                 "read-only",
             )
         )
+        if (
+            session.manifest["status"] == "active"
+            and session.manifest["leader"] == session.manifest["baseline"]
+            and reports[-1]["leaderRunId"]
+            == session.manifest["leader"]["runId"]
+        ):
+            commands.append(
+                _command(
+                    "session.complete",
+                    [
+                        "aq",
+                        "session",
+                        "complete",
+                        str(project.root_dir),
+                        "--session",
+                        session.manifest["id"],
+                        "--report",
+                        reports[-1]["id"],
+                        "--json",
+                    ],
+                    "creates-artifact",
+                )
+            )
     return commands
 
 

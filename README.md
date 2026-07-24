@@ -183,6 +183,19 @@ quantitative decision support only and have no live-trading authority.
 OpenAlice should publish the exact Markdown through its own Inbox so OpenAlice
 can stamp authoritative Workspace, Session, and document-revision provenance.
 
+After a lane Report is current, an Agent either promotes an improved KEEP or
+finishes a baseline-retaining lane without changing Project source:
+
+```bash
+uv run aq session complete ./quant-workspace \
+  --session session-... \
+  --report report-... \
+  --json
+```
+
+The immutable completion receipt removes the Session from active Program
+conflicts while preserving its Report as point-in-time evidence.
+
 For the canonical Factor → Portfolio → optional RL Research Program, lane
 Reports are composed into one immutable Project Research Dossier:
 

@@ -102,7 +102,9 @@ from .templates import (
 )
 from .sessions import (
     EXPERIMENT_JSON_SCHEMA,
+    SESSION_COMPLETION_JSON_SCHEMA,
     SESSION_JSON_SCHEMA,
+    complete_session,
     evaluate_experiment,
     list_experiments,
     list_sessions,
@@ -203,6 +205,7 @@ def build_parser() -> RaisingArgumentParser:
             "rl-policy-diagnostics",
             "session-decision-matrix",
             "session",
+            "session-completion",
             "experiment",
             "researcher-response",
             "campaign-result",
@@ -498,6 +501,17 @@ def build_parser() -> RaisingArgumentParser:
     session_promote.add_argument("--session", required=True)
     session_promote.set_defaults(command_id="session.promote")
     _json_argument(session_promote)
+
+    session_complete = session_actions.add_parser(
+        "complete",
+        help="finish a baseline-retaining delegated Session with an exact Report",
+    )
+    session_complete.add_argument("path")
+    session_complete.add_argument("--project")
+    session_complete.add_argument("--session", required=True)
+    session_complete.add_argument("--report", required=True)
+    session_complete.set_defaults(command_id="session.complete")
+    _json_argument(session_complete)
 
     experiment = subcommands.add_parser(
         "experiment",
@@ -1588,6 +1602,19 @@ def _session_next_actions(project, session) -> list[dict[str, Any]]:
             "read-only",
         ),
     ]
+    reports = (
+        list_reports(project, session)
+        if session.delegation is not None
+        else []
+    )
+    current_report = next(
+        (
+            report
+            for report in reversed(reports)
+            if report.leader_run_id == session.manifest["leader"]["runId"]
+        ),
+        None,
+    )
     if session.manifest["status"] == "active":
         actions.append(
             next_action(
@@ -1627,7 +1654,32 @@ def _session_next_actions(project, session) -> list[dict[str, Any]]:
                     "mutates-project",
                 )
             )
-    if session.delegation is not None:
+        if (
+            current_report is not None
+            and session.manifest["leader"] == session.manifest["baseline"]
+        ):
+            actions.append(
+                next_action(
+                    "session.complete",
+                    "Finish this baseline-retaining lane with the exact current Report.",
+                    [
+                        "aq",
+                        "session",
+                        "complete",
+                        str(project.root_dir),
+                        "--session",
+                        session.manifest["id"],
+                        "--report",
+                        current_report.id,
+                        "--json",
+                    ],
+                    "creates-artifact",
+                )
+            )
+    if (
+        session.delegation is not None
+        and session.manifest["status"] == "active"
+    ):
         actions.append(
             next_action(
                 "report.publish",
@@ -1644,6 +1696,25 @@ def _session_next_actions(project, session) -> list[dict[str, Any]]:
                     "--json",
                 ],
                 "creates-artifact",
+            )
+        )
+    if current_report is not None:
+        actions.append(
+            next_action(
+                "report.show",
+                "Verify the latest Report for the current Session leader.",
+                [
+                    "aq",
+                    "report",
+                    "show",
+                    str(project.root_dir),
+                    "--session",
+                    session.manifest["id"],
+                    "--report",
+                    current_report.id,
+                    "--json",
+                ],
+                "read-only",
             )
         )
     return actions
@@ -1841,6 +1912,43 @@ def _session_promote(args: argparse.Namespace) -> CommandResult:
                 "creates-artifact",
             )
         ],
+    )
+
+
+def _session_complete(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    receipt = complete_session(project, args.session, args.report)
+    session = load_session(project, args.session)
+    receipt_path = session.root_dir / "completion.json"
+    return CommandResult(
+        "session.complete",
+        {"receipt": receipt, "session": session.manifest},
+        (
+            f"Completed Session {session.manifest['id']}\n"
+            f"Study: {session.manifest['studyId']}\n"
+            f"Disposition: {receipt['disposition']}\n"
+            f"Report: {receipt['report']['id']}\n"
+            "Project source unchanged.\n"
+        ),
+        project_context(project),
+        [
+            artifact(
+                "session-completion",
+                receipt["id"],
+                receipt_path,
+                immutable=True,
+            ),
+            artifact(
+                "research-report",
+                receipt["report"]["id"],
+                session.root_dir
+                / "reports"
+                / receipt["report"]["id"]
+                / "report.json",
+                immutable=True,
+            ),
+        ],
+        _session_next_actions(project, session),
     )
 
 
@@ -2102,6 +2210,61 @@ def _report_publish(args: argparse.Namespace) -> CommandResult:
     project = _selected_project(args)
     analysis = load_report_analysis(args.analysis)
     report = publish_report(project, args.session, analysis)
+    session = load_session(project, args.session)
+    actions = [
+        next_action(
+            "report.show",
+            "Verify the immutable report before OpenAlice Inbox publication.",
+            [
+                "aq",
+                "report",
+                "show",
+                str(project.root_dir),
+                "--session",
+                report.report["sessionId"],
+                "--report",
+                report.report["id"],
+                "--json",
+            ],
+            "read-only",
+        )
+    ]
+    if session.manifest["leader"] == session.manifest["baseline"]:
+        actions.append(
+            next_action(
+                "session.complete",
+                "Finish this baseline-retaining lane with the exact published Report.",
+                [
+                    "aq",
+                    "session",
+                    "complete",
+                    str(project.root_dir),
+                    "--session",
+                    session.manifest["id"],
+                    "--report",
+                    report.report["id"],
+                    "--json",
+                ],
+                "creates-artifact",
+            )
+        )
+    else:
+        actions.append(
+            next_action(
+                "session.promote",
+                "Promote the improved KEEP before downstream research uses it.",
+                [
+                    "aq",
+                    "session",
+                    "promote",
+                    str(project.root_dir),
+                    "--session",
+                    session.manifest["id"],
+                    "--json",
+                ],
+                "mutates-project",
+            )
+        )
     return CommandResult(
         "report.publish",
         {
@@ -2119,24 +2282,7 @@ def _report_publish(args: argparse.Namespace) -> CommandResult:
         ),
         project_context(project),
         _report_artifacts(report),
-        [
-            next_action(
-                "report.show",
-                "Verify the immutable report before OpenAlice Inbox publication.",
-                [
-                    "aq",
-                    "report",
-                    "show",
-                    str(project.root_dir),
-                    "--session",
-                    report.report["sessionId"],
-                    "--report",
-                    report.report["id"],
-                    "--json",
-                ],
-                "read-only",
-            )
-        ],
+        actions,
     )
 
 
@@ -2548,6 +2694,7 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "research-program-status",
             "rl-policy-diagnostics",
             "session-decision-matrix",
+            "session-completion",
             "project",
             "report-analysis",
             "research-request",
@@ -2575,6 +2722,7 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "rl-policy-diagnostics": RL_DIAGNOSTICS_JSON_SCHEMA,
             "session-decision-matrix": SESSION_DECISION_MATRIX_JSON_SCHEMA,
             "session": SESSION_JSON_SCHEMA,
+            "session-completion": SESSION_COMPLETION_JSON_SCHEMA,
             "experiment": EXPERIMENT_JSON_SCHEMA,
             "researcher-response": RESEARCHER_RESPONSE_JSON_SCHEMA,
             "campaign-result": CAMPAIGN_RESULT_JSON_SCHEMA,
@@ -2637,6 +2785,8 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
         return _session_compare(args)
     if args.command_id == "session.promote":
         return _session_promote(args)
+    if args.command_id == "session.complete":
+        return _session_complete(args)
     if args.command_id == "experiment.evaluate":
         return _experiment_evaluate(args)
     if args.command_id == "experiment.list":

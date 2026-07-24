@@ -5,8 +5,10 @@ import tempfile
 import unittest
 from datetime import datetime
 from pathlib import Path
+from unittest import mock
 
 import autoquant.reports as report_module
+import jsonschema
 from autoquant.reports import (
     list_reports,
     load_report,
@@ -14,6 +16,8 @@ from autoquant.reports import (
 )
 from autoquant.research import run_campaign
 from autoquant.sessions import (
+    SESSION_COMPLETION_JSON_SCHEMA,
+    complete_session,
     evaluate_experiment,
     load_session,
     session_snapshot,
@@ -274,6 +278,7 @@ class ResearchHandoffTests(unittest.TestCase):
                     "session.compare",
                     "report.publish",
                     "report.show",
+                    "session.complete",
                 ],
             )
             self.assertEqual(observation["timeline"][0]["kind"], "report")
@@ -317,6 +322,197 @@ class ResearchHandoffTests(unittest.TestCase):
                 "files changed",
             ):
                 load_report(project, later, report.report["id"])
+
+    def test_baseline_report_completes_session_without_project_mutation(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = self._project(directory)
+            source_path = project.root_dir / "factors" / "candidate.py"
+            original_source = source_path.read_bytes()
+            session = start_session(
+                project,
+                "factor-quality",
+                request=research_request(),
+            )
+            report = publish_report(
+                project,
+                session.manifest["id"],
+                report_analysis(session.manifest["baseline"]["runId"]),
+            )
+
+            with mock.patch(
+                "autoquant.research.list_campaign_progress",
+                return_value=[{"phase": "researcher"}],
+            ), self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "Campaign is running",
+            ):
+                complete_session(
+                    project,
+                    session.manifest["id"],
+                    report.report["id"],
+                )
+            receipt = complete_session(
+                project,
+                session.manifest["id"],
+                report.report["id"],
+            )
+            jsonschema.validate(receipt, SESSION_COMPLETION_JSON_SCHEMA)
+            completed = load_session(project, session.manifest["id"])
+            self.assertEqual(completed.manifest["status"], "completed")
+            self.assertEqual(receipt["disposition"], "baseline-reported")
+            self.assertEqual(receipt["report"]["id"], report.report["id"])
+            self.assertEqual(source_path.read_bytes(), original_source)
+            self.assertTrue((completed.root_dir / "completion.json").is_file())
+
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "Session is not active",
+            ):
+                evaluate_experiment(
+                    project,
+                    session.manifest["id"],
+                    "Cannot continue terminal research.",
+                )
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "Session is not active",
+            ):
+                complete_session(
+                    project,
+                    session.manifest["id"],
+                    report.report["id"],
+                )
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "only while the Session is active",
+            ):
+                report_module.publish_report(
+                    project,
+                    session.manifest["id"],
+                    report_analysis(session.manifest["baseline"]["runId"]),
+                )
+
+    def test_completion_rejects_unpromoted_or_incomplete_evidence_and_tampering(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = self._project(directory)
+            session = start_session(
+                project,
+                "factor-quality",
+                request=research_request(),
+            )
+            old_report = publish_report(
+                project,
+                session.manifest["id"],
+                report_analysis(session.manifest["baseline"]["runId"]),
+            )
+            candidate = (
+                session.worktree_project.root_dir
+                / "factors"
+                / "candidate.py"
+            )
+            candidate.write_text("SCORE = 1.0\n", encoding="utf-8")
+            evaluate_experiment(
+                project,
+                session.manifest["id"],
+                "Record a reverted candidate after the old Report.",
+            )
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "complete current Session evidence",
+            ):
+                complete_session(
+                    project,
+                    session.manifest["id"],
+                    old_report.report["id"],
+                )
+            session = load_session(project, session.manifest["id"])
+            current_report = publish_report(
+                project,
+                session.manifest["id"],
+                report_analysis(session.manifest["leader"]["runId"]),
+            )
+            receipt = complete_session(
+                project,
+                session.manifest["id"],
+                current_report.report["id"],
+            )
+            completion_path = session.root_dir / "completion.json"
+            changed = json.loads(completion_path.read_text(encoding="utf-8"))
+            changed["disposition"] = "invented"
+            completion_path.write_text(
+                json.dumps(changed),
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "Completion receipt differs",
+            ):
+                load_session(project, session.manifest["id"])
+
+        with tempfile.TemporaryDirectory() as directory:
+            project = self._project(directory)
+            session = start_session(
+                project,
+                "factor-quality",
+                request=research_request(),
+            )
+            candidate = (
+                session.worktree_project.root_dir
+                / "factors"
+                / "candidate.py"
+            )
+            candidate.write_text("SCORE = 2.0\n", encoding="utf-8")
+            evaluate_experiment(
+                project,
+                session.manifest["id"],
+                "Create an improved unpromoted leader.",
+            )
+            session = load_session(project, session.manifest["id"])
+            report = publish_report(
+                project,
+                session.manifest["id"],
+                report_analysis(session.manifest["leader"]["runId"]),
+            )
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "improved KEEP leader",
+            ):
+                complete_session(
+                    project,
+                    session.manifest["id"],
+                    report.report["id"],
+                )
+
+        with tempfile.TemporaryDirectory() as directory:
+            project = self._project(directory)
+            session = start_session(
+                project,
+                "factor-quality",
+                request=research_request(),
+            )
+            report = publish_report(
+                project,
+                session.manifest["id"],
+                report_analysis(session.manifest["baseline"]["runId"]),
+            )
+            complete_session(
+                project,
+                session.manifest["id"],
+                report.report["id"],
+            )
+            (report.root_dir / "report.md").write_text(
+                "tampered\n",
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "Completion Report files changed",
+            ):
+                load_session(project, session.manifest["id"])
 
     def test_report_rejects_unknown_evidence_and_legacy_session(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

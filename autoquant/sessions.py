@@ -48,11 +48,15 @@ EXPERIMENT_CHANGES = "changes.json"
 EXPERIMENT_DIFF = "diff.patch"
 EXPERIMENT_MANIFEST = "manifest.json"
 PROMOTION_RECEIPT = "promotion.json"
+COMPLETION_RECEIPT = "completion.json"
 SESSION_ID = re.compile(
     r"^session-[0-9]{8}T[0-9]{12}Z-[0-9a-f]{12}$"
 )
+COMPLETION_ID = re.compile(
+    r"^completion-[0-9]{8}T[0-9]{12}Z-[0-9a-f]{12}$"
+)
 EXPERIMENT_ID = re.compile(r"^exp-[0-9]{4}-[0-9a-f]{12}$")
-SESSION_STATUSES = {"active", "promoted"}
+SESSION_STATUSES = {"active", "completed", "promoted"}
 VERDICTS = {"KEEP", "REVERT", "CRASH"}
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
 REFERENCE_INTEGRITY_KEYS = {
@@ -672,6 +676,207 @@ def _validate_session_manifest(
         raise AutoQuantValidationError(issues)
 
 
+def _validate_completion_receipt(
+    project: ProjectContext,
+    root: Path,
+    manifest: dict[str, Any],
+) -> dict[str, Any]:
+    path = root / COMPLETION_RECEIPT
+    receipt = _read_json(path, "completion")
+    required = {
+        "schemaVersion",
+        "kind",
+        "id",
+        "sessionId",
+        "projectId",
+        "studyId",
+        "disposition",
+        "leader",
+        "brief",
+        "report",
+        "completedAt",
+        "authority",
+        "tradingAuthority",
+    }
+    issues = _strict_keys(receipt, required, path)
+    report = receipt.get("report")
+    report_required = {
+        "id",
+        "manifestHash",
+        "reportHash",
+        "evidenceHash",
+        "publishedAt",
+    }
+    if not isinstance(report, dict):
+        issues.append(
+            _issue(f"{path}/report", "completion.report", "Invalid Report receipt")
+        )
+        report = {}
+    else:
+        issues.extend(_strict_keys(report, report_required, f"{path}/report"))
+    if (
+        receipt.get("schemaVersion") != SCHEMA_VERSION
+        or receipt.get("kind") != "autoquant-session-completion"
+        or receipt.get("sessionId") != manifest["id"]
+        or receipt.get("projectId") != project.manifest.id
+        or receipt.get("studyId") != manifest["studyId"]
+        or receipt.get("disposition") != "baseline-reported"
+        or receipt.get("leader") != manifest["leader"]
+        or receipt.get("brief") != manifest.get("brief")
+        or receipt.get("completedAt") != manifest["updatedAt"]
+        or receipt.get("authority") != "quantitative-decision-support"
+        or receipt.get("tradingAuthority") != "none"
+    ):
+        issues.append(
+            _issue(
+                path,
+                "completion.receipt",
+                "Completion receipt differs from the terminal Session",
+            )
+        )
+    completed_at = receipt.get("completedAt")
+    if not isinstance(completed_at, str):
+        issues.append(
+            _issue(
+                f"{path}/completedAt",
+                "schema.datetime",
+                "Invalid completion timestamp",
+            )
+        )
+    else:
+        try:
+            completed = datetime.fromisoformat(completed_at)
+            stamp = completed.strftime("%Y%m%dT%H%M%S%fZ")
+            identity = hash_json(
+                {
+                    "sessionId": manifest["id"],
+                    "projectId": project.manifest.id,
+                    "studyId": manifest["studyId"],
+                    "disposition": "baseline-reported",
+                    "leader": manifest["leader"],
+                    "brief": manifest.get("brief"),
+                    "report": report,
+                    "completedAt": completed_at,
+                }
+            )
+            if receipt.get("id") != f"completion-{stamp}-{identity[:12]}":
+                issues.append(
+                    _issue(
+                        f"{path}/id",
+                        "completion.derived-id",
+                        "Completion id is not content-derived",
+                    )
+                )
+        except ValueError:
+            issues.append(
+                _issue(
+                    f"{path}/completedAt",
+                    "schema.datetime",
+                    "Invalid completion timestamp",
+                )
+            )
+    report_id = report.get("id")
+    if not isinstance(report_id, str) or not report_id.startswith("report-"):
+        issues.append(
+            _issue(
+                f"{path}/report/id",
+                "completion.report-id",
+                "Invalid completion Report id",
+            )
+        )
+    else:
+        report_root = confined_path(
+            root,
+            f"reports/{report_id}",
+            "completion/report",
+        )
+        if report_root.is_symlink() or not report_root.is_dir():
+            issues.append(
+                _issue(
+                    report_root,
+                    "completion.report-missing",
+                    "Completion Report is missing",
+                )
+            )
+        else:
+            report_manifest_path = report_root / "manifest.json"
+            try:
+                report_manifest = _read_json(
+                    report_manifest_path,
+                    "report manifest",
+                )
+                if (
+                    hash_file(report_manifest_path) != report.get("manifestHash")
+                    or report_manifest.get("id") != report_id
+                    or report_manifest.get("sessionId") != manifest["id"]
+                    or report_manifest.get("completed") is not True
+                    or report_manifest.get("reportHash") != report.get("reportHash")
+                ):
+                    issues.append(
+                        _issue(
+                            report_manifest_path,
+                            "completion.report-manifest",
+                            "Completion Report manifest differs from the receipt",
+                        )
+                    )
+                actual_files: dict[str, str] = {}
+                for entry in sorted(
+                    report_root.iterdir(),
+                    key=lambda item: item.name,
+                ):
+                    if entry.name == "manifest.json":
+                        continue
+                    if entry.is_symlink() or not entry.is_file():
+                        issues.append(
+                            _issue(
+                                entry,
+                                "completion.report-entry",
+                                "Completion Report entries must be real files",
+                            )
+                        )
+                        continue
+                    actual_files[entry.name] = hash_file(entry)
+                if report_manifest.get("files") != actual_files:
+                    issues.append(
+                        _issue(
+                            report_root,
+                            "completion.report-tampered",
+                            "Completion Report files changed",
+                        )
+                    )
+                report_result = _read_json(
+                    report_root / "report.json",
+                    "research report",
+                )
+                frozen_session = (
+                    report_result.get("evidence", {}).get("session")
+                    if isinstance(report_result.get("evidence"), dict)
+                    else None
+                )
+                if (
+                    report_result.get("id") != report_id
+                    or report_result.get("sessionId") != manifest["id"]
+                    or report_result.get("evidenceHash")
+                    != report.get("evidenceHash")
+                    or report_result.get("publishedAt")
+                    != report.get("publishedAt")
+                    or not isinstance(frozen_session, dict)
+                    or frozen_session.get("leader") != manifest["leader"]
+                ):
+                    issues.append(
+                        _issue(
+                            report_root / "report.json",
+                            "completion.report-evidence",
+                            "Completion Report does not freeze the terminal leader",
+                        )
+                    )
+            except AutoQuantValidationError as error:
+                issues.extend(error.issues)
+    if issues:
+        raise AutoQuantValidationError(issues)
+    return receipt
+
+
 def load_session(project: ProjectContext, session_id: str) -> SessionContext:
     root = _session_root(project, session_id)
     if root.is_symlink() or not root.is_dir():
@@ -712,11 +917,33 @@ def load_session(project: ProjectContext, session_id: str) -> SessionContext:
                 [_issue(manifest_path, "session.run-pointer", f"Invalid {key} Run pointer")]
             )
     receipt_path = root / PROMOTION_RECEIPT
-    if manifest["status"] == "active" and (receipt_path.exists() or receipt_path.is_symlink()):
+    completion_path = root / COMPLETION_RECEIPT
+    if manifest["status"] == "active" and (
+        receipt_path.exists()
+        or receipt_path.is_symlink()
+        or completion_path.exists()
+        or completion_path.is_symlink()
+    ):
         raise AutoQuantValidationError(
-            [_issue(receipt_path, "promotion.uncommitted", "Active Session has a promotion receipt")]
+            [
+                _issue(
+                    root,
+                    "session.uncommitted-receipt",
+                    "Active Session has a terminal receipt",
+                )
+            ]
         )
     if manifest["status"] == "promoted":
+        if completion_path.exists() or completion_path.is_symlink():
+            raise AutoQuantValidationError(
+                [
+                    _issue(
+                        completion_path,
+                        "completion.unexpected",
+                        "Promoted Session cannot have a completion receipt",
+                    )
+                ]
+            )
         receipt = _read_json(receipt_path, "promotion")
         receipt_required = {
             "schemaVersion",
@@ -746,6 +973,18 @@ def load_session(project: ProjectContext, session_id: str) -> SessionContext:
             )
         if receipt_issues:
             raise AutoQuantValidationError(receipt_issues)
+    if manifest["status"] == "completed":
+        if receipt_path.exists() or receipt_path.is_symlink():
+            raise AutoQuantValidationError(
+                [
+                    _issue(
+                        receipt_path,
+                        "promotion.unexpected",
+                        "Completed Session cannot have a promotion receipt",
+                    )
+                ]
+            )
+        _validate_completion_receipt(project, root, manifest)
     return SessionContext(
         root,
         manifest_path,
@@ -1748,6 +1987,174 @@ def promote_session(project: ProjectContext, session_id: str) -> dict[str, Any]:
     return receipt
 
 
+def complete_session(
+    project: ProjectContext,
+    session_id: str,
+    report_id: str,
+) -> dict[str, Any]:
+    """Finish one delegated baseline-retaining Session with an exact Report."""
+
+    session = load_session(project, session_id)
+    if session.manifest["status"] != "active":
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    session.manifest_path,
+                    "session.closed",
+                    "Session is not active",
+                )
+            ]
+        )
+    if session.delegation is None:
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    session.manifest_path,
+                    "completion.request-required",
+                    "Only a delegated Session with a Research Report can complete",
+                )
+            ]
+        )
+    if session.manifest["leader"] != session.manifest["baseline"]:
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    session.manifest_path,
+                    "completion.unpromoted-leader",
+                    "Session has an improved KEEP leader; promote it before "
+                    "closing this research lane",
+                )
+            ]
+        )
+    candidate = validate_session_authority(project, session)
+    if candidate.source_hash != session.manifest["leader"]["sourceHash"]:
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    candidate.root_dir,
+                    "completion.candidate-changed",
+                    "Session worktree differs from the verified leader",
+                )
+            ]
+        )
+    from .reports import REPORT_MANIFEST, load_report
+    from .research import list_campaign_progress, list_campaigns
+
+    progress = list_campaign_progress(session)
+    if progress:
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    session.root_dir,
+                    "completion.campaign-running",
+                    "Cannot complete while a Researcher Campaign is running",
+                )
+            ]
+        )
+    report = load_report(project, session, report_id)
+    frozen_session = report.report["evidence"]["session"]
+    frozen_experiments = [
+        item["id"] for item in report.report["evidence"]["experiments"]
+    ]
+    current_experiments = [
+        item.id for item in list_experiments(project, session)
+    ]
+    frozen_campaigns = [
+        item["id"] for item in report.report["evidence"]["campaigns"]
+    ]
+    current_campaigns = [
+        item.id for item in list_campaigns(project, session)
+    ]
+    if (
+        frozen_session["leader"] != session.manifest["leader"]
+        or report.report["request"] != session.delegation["request"]
+        or frozen_experiments != current_experiments
+        or frozen_campaigns != current_campaigns
+    ):
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    report.root_dir,
+                    "completion.report-current",
+                    "Selected Report does not freeze the complete current "
+                    "Session evidence and delegated request",
+                )
+            ]
+        )
+    receipt_path = session.root_dir / COMPLETION_RECEIPT
+    promotion_path = session.root_dir / PROMOTION_RECEIPT
+    if (
+        receipt_path.exists()
+        or receipt_path.is_symlink()
+        or promotion_path.exists()
+        or promotion_path.is_symlink()
+    ):
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    session.root_dir,
+                    "completion.exists",
+                    "Session already has a terminal receipt",
+                )
+            ]
+        )
+    completed = datetime.now(timezone.utc)
+    report_projection = {
+        "id": report.report["id"],
+        "manifestHash": hash_file(report.root_dir / REPORT_MANIFEST),
+        "reportHash": report.manifest["reportHash"],
+        "evidenceHash": report.report["evidenceHash"],
+        "publishedAt": report.report["publishedAt"],
+    }
+    identity = hash_json(
+        {
+            "sessionId": session_id,
+            "projectId": project.manifest.id,
+            "studyId": session.manifest["studyId"],
+            "disposition": "baseline-reported",
+            "leader": session.manifest["leader"],
+            "brief": session.manifest["brief"],
+            "report": report_projection,
+            "completedAt": completed.isoformat(),
+        }
+    )
+    receipt = {
+        "schemaVersion": SCHEMA_VERSION,
+        "kind": "autoquant-session-completion",
+        "id": (
+            f"completion-{completed.strftime('%Y%m%dT%H%M%S%fZ')}-"
+            f"{identity[:12]}"
+        ),
+        "sessionId": session_id,
+        "projectId": project.manifest.id,
+        "studyId": session.manifest["studyId"],
+        "disposition": "baseline-reported",
+        "leader": session.manifest["leader"],
+        "brief": session.manifest["brief"],
+        "report": report_projection,
+        "completedAt": completed.isoformat(),
+        "authority": "quantitative-decision-support",
+        "tradingAuthority": "none",
+    }
+    try:
+        _atomic_write_json(receipt_path, receipt)
+        _atomic_write_json(
+            session.manifest_path,
+            {
+                **session.manifest,
+                "status": "completed",
+                "updatedAt": completed.isoformat(),
+            },
+        )
+    except Exception:
+        if receipt_path.is_file():
+            receipt_path.unlink()
+        _atomic_write_json(session.manifest_path, session.manifest)
+        raise
+    load_session(project, session_id)
+    return receipt
+
+
 SESSION_JSON_SCHEMA: dict[str, Any] = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "title": "AutoQuant Research Session",
@@ -1843,6 +2250,92 @@ SESSION_JSON_SCHEMA: dict[str, Any] = {
                 "value": {"type": "number"},
             },
         }
+    },
+}
+
+
+SESSION_COMPLETION_JSON_SCHEMA: dict[str, Any] = {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "AutoQuant immutable Session completion receipt",
+    "type": "object",
+    "additionalProperties": False,
+    "required": [
+        "schemaVersion",
+        "kind",
+        "id",
+        "sessionId",
+        "projectId",
+        "studyId",
+        "disposition",
+        "leader",
+        "brief",
+        "report",
+        "completedAt",
+        "authority",
+        "tradingAuthority",
+    ],
+    "properties": {
+        "schemaVersion": {"const": SCHEMA_VERSION},
+        "kind": {"const": "autoquant-session-completion"},
+        "id": {"type": "string", "pattern": COMPLETION_ID.pattern},
+        "sessionId": {"type": "string", "pattern": SESSION_ID.pattern},
+        "projectId": {"type": "string", "minLength": 1},
+        "studyId": {"type": "string", "minLength": 1},
+        "disposition": {"const": "baseline-reported"},
+        "leader": {"$ref": "#/$defs/runPointer"},
+        "brief": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["id", "requestHash", "briefHash"],
+            "properties": {
+                "id": {"type": "string", "pattern": "^brief-[0-9a-f]{16}$"},
+                "requestHash": {"type": "string", "pattern": SHA256.pattern},
+                "briefHash": {"type": "string", "pattern": SHA256.pattern},
+            },
+        },
+        "report": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "id",
+                "manifestHash",
+                "reportHash",
+                "evidenceHash",
+                "publishedAt",
+            ],
+            "properties": {
+                "id": {"type": "string", "pattern": "^report-"},
+                "manifestHash": {
+                    "type": "string",
+                    "pattern": SHA256.pattern,
+                },
+                "reportHash": {
+                    "type": "string",
+                    "pattern": SHA256.pattern,
+                },
+                "evidenceHash": {
+                    "type": "string",
+                    "pattern": SHA256.pattern,
+                },
+                "publishedAt": {"type": "string", "format": "date-time"},
+            },
+        },
+        "completedAt": {"type": "string", "format": "date-time"},
+        "authority": {"const": "quantitative-decision-support"},
+        "tradingAuthority": {"const": "none"},
+    },
+    "$defs": {
+        "runPointer": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["runId", "sourceHash", "metric", "value"],
+            "properties": {
+                "runId": {"type": "string", "pattern": "^run-"},
+                "sourceHash": {"type": "string", "pattern": SHA256.pattern},
+                "metric": {"type": "string", "minLength": 1},
+                "value": {"type": "number"},
+            },
+        },
     },
 }
 

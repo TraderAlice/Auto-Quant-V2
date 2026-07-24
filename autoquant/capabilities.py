@@ -139,7 +139,7 @@ CLI_COMMANDS = [
     ),
     descriptor(
         "schema",
-        "aq schema [workspace|project|study|judge-output|run-result|factor-diagnostics|portfolio-diagnostics|research-program-status|rl-policy-diagnostics|session-decision-matrix|session|experiment|research-request|ohlcv-dataset-package|report-analysis|dossier-analysis|dossier-result|dossier-status|researcher-response|campaign-result|campaign-progress|studio-snapshot] [--json]",
+        "aq schema [workspace|project|study|judge-output|run-result|factor-diagnostics|portfolio-diagnostics|research-program-status|rl-policy-diagnostics|session-decision-matrix|session|session-completion|experiment|research-request|ohlcv-dataset-package|report-analysis|dossier-analysis|dossier-result|dossier-status|researcher-response|campaign-result|campaign-progress|studio-snapshot] [--json]",
         "List or emit canonical AutoQuant JSON Schemas.",
         "read-only",
         [
@@ -161,6 +161,7 @@ CLI_COMMANDS = [
                     "rl-policy-diagnostics",
                     "session-decision-matrix",
                     "session",
+                    "session-completion",
                     "experiment",
                     "researcher-response",
                     "campaign-result",
@@ -610,6 +611,19 @@ CLI_COMMANDS = [
         "Hash-check and promote the exact current KEEP into an unchanged Project base.",
         "mutates-project",
         [PATH_ARGUMENT, PROJECT_ARGUMENT, SESSION_ARGUMENT, JSON_ARGUMENT],
+    ),
+    descriptor(
+        "session.complete",
+        "aq session complete <path> --session ID --report ID [--project ID] [--json]",
+        "Finish one active delegated baseline-retaining Session with an exact verified current Report and no Project source mutation.",
+        "creates-artifact",
+        [
+            PATH_ARGUMENT,
+            PROJECT_ARGUMENT,
+            SESSION_ARGUMENT,
+            REPORT_ARGUMENT,
+            JSON_ARGUMENT,
+        ],
     ),
     descriptor(
         "experiment.evaluate",

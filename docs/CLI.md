@@ -182,6 +182,10 @@ aq session show <path> --session ID [--project ID] [--json]
 aq session compare <path> --session ID \
   [--trials 24] [--project ID] [--json]
 aq session promote <path> --session ID [--project ID] [--json]
+aq session complete <path> \
+  --session ID \
+  --report ID \
+  [--project ID] [--json]
 
 aq experiment evaluate <path> \
   --session ID \
@@ -213,6 +217,14 @@ evidence, and returns `KEEP`, `REVERT`, or `CRASH`. REVERT and CRASH restore the
 leader bytes in the worktree. `session promote` is the only operation that
 copies a KEEP into Project source; it rejects a stale Project base and rolls
 back if the source, receipt, and Session pointer cannot all be committed.
+
+`session complete` is the no-promotion terminal path for a delegated lane whose
+leader remains its baseline. The caller selects the exact current Report.
+Core rejects a changed worktree, incomplete Report prefix, running Campaign,
+unpromoted KEEP, stale authority, or terminal Session. It writes immutable
+`completion.json`, marks the Session `completed`, and leaves Project source
+unchanged. A completed Session cannot run Experiments/Campaigns, publish later
+Reports, promote, or complete again.
 
 For the Factor Lab, `run execute/show --json` and Experiment output preserve
 the full purge-aware factor tear sheet: 1/5/10-bar horizon quality, HAC

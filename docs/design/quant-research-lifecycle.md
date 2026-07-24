@@ -46,7 +46,8 @@ OpenAlice or local caller
 
 A Project is the construction site for one evolving research problem. A Study
 is one fixed evaluation question inside it. A Session is one active line of
-candidate research against that fixed authority. A Run is one immutable
+candidate research against that fixed authority and ends by either promoting
+an improved KEEP or completing against an exact baseline-retaining Report. A Run is one immutable
 execution. A Report is one lane's content-hashed decision-support handoff over
 an exact evidence snapshot. A Dossier composes verified current lane Reports
 into the Project-level answer without re-evaluating raw Runs.

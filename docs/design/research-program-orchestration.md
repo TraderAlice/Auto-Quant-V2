@@ -116,6 +116,7 @@ Core generates exact copy-only commands. It may recommend:
 - start a delegated Session using the preserved request;
 - inspect an active Session;
 - inspect an immutable Report;
+- complete an active reported lane when its verified leader remains baseline;
 - advance to the next lane after upstream evidence is reported.
 
 The browser renders these commands but cannot execute them. AI callers receive
@@ -134,3 +135,6 @@ the identical object through CLI JSON.
 7. RL consumes only the exact content-locked candidate source declared by its
    Study; no mutable implicit cross-Study reads are allowed.
 8. AutoQuant has no OpenAlice provenance or live-trading authority.
+9. Only `active` Sessions participate in writer/writer and writer/reader
+   conflicts; a verified completed or promoted lane is terminal coordination
+   history.

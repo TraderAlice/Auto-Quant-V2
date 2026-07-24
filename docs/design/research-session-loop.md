@@ -67,12 +67,14 @@ sessions/
     │       └── manifest.json
     ├── reports/
     │   └── report-<UTC timestamp>-<identity>/
-    └── promotion.json
+    ├── promotion.json      # improved KEEP accepted into Project
+    └── completion.json     # baseline retained with exact current Report
 ```
 
 `session.json` is a mutable, strict coordination pointer. Immutable Runs and
 Experiment directories are the evidence. `promotion.json` is written once when
-the accepted leader is copied back to the Project.
+the accepted leader is copied back to the Project. `completion.json` is the
+alternative terminal receipt when a delegated lane retains its baseline.
 
 ## Session identity and locks
 
@@ -168,6 +170,14 @@ V1 promotion is process-atomic with verified rollback, not a cross-filesystem
 transaction. Concurrent writers outside AutoQuant remain prohibited during
 the short promotion critical section.
 
+Completion never copies source. It requires an active delegated Session whose
+leader still equals its baseline, a worktree equal to that leader, no running
+Campaign, and one explicitly selected Report that freezes the complete current
+Experiment/Campaign prefix. The content-derived receipt binds that Report
+manifest/result/evidence identity, Brief, leader, Study, Project, and timestamp.
+An unpromoted KEEP cannot complete because downstream Studies would otherwise
+interpret candidate-only source as current Project input.
+
 ## Agent loop
 
 The CLI is the shared protocol:
@@ -178,7 +188,9 @@ aq session start <path> --study <id> --request request.json --json
 → edit data.worktree under data.editablePaths
 → aq experiment evaluate <path> --session <id> --hypothesis "..." --json
 → inspect verdict/history/nextActions
-→ repeat or aq session promote <path> --session <id> --json
+→ repeat; or publish a Report and either:
+  - aq session promote <path> --session <id> --json
+  - aq session complete <path> --session <id> --report <id> --json
 ```
 
 An external Codex, another coding Agent, or a human can drive these same
@@ -208,6 +220,9 @@ Later Experiments do not mutate an earlier Report.
     Session/Study authority; caller context cannot alter the Judge.
 12. Reports freeze chronological evidence prefixes and have no trading
     authority.
+13. `promoted` and `completed` are mutually exclusive terminal states.
+14. Completion is baseline-only, Report-bound, and never mutates Project
+    source.
 
 ## Known gaps
 

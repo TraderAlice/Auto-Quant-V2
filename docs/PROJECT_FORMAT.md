@@ -369,7 +369,8 @@ sessions/
     │       ├── report.json
     │       ├── report.md
     │       └── manifest.json
-    └── promotion.json
+    ├── promotion.json                # promoted terminal state only
+    └── completion.json               # completed terminal state only
 ```
 
 `session.json` V1 is a strict mutable coordination pointer. It records:
@@ -440,6 +441,14 @@ KEEP advances the Session leader. REVERT and CRASH restore the exact leader
 source from its verified Run. `promotion.json` is written once only after the
 current KEEP replaces an unchanged Project base and the applied source hash is
 verified. Any failure rolls Project source and Session state back.
+
+For a delegated Session whose leader still equals baseline, `completion.json`
+can instead bind one explicitly selected current Report and mark the Session
+`completed` without changing Project source. Its content-derived identity
+freezes the Brief, baseline leader, Report manifest/result/evidence hashes,
+Study, Project, and completion time. Completion requires the Report to cover
+the complete current Experiment/Campaign prefix and no Campaign may be
+running. `promoted` and `completed` receipts are mutually exclusive.
 
 An immutable Campaign groups a bounded sequence of external Researcher turns.
 Each turn preserves its complete input brief, stdout, stderr, parsed response
@@ -541,6 +550,7 @@ aq schema study --json
 aq schema judge-output --json
 aq schema run-result --json
 aq schema session --json
+aq schema session-completion --json
 aq schema experiment --json
 aq schema researcher-response --json
 aq schema campaign-result --json

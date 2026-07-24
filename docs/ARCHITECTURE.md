@@ -51,7 +51,8 @@ The V2 foundation now implements:
   RunResults with full-file tamper verification.
 - resumable Project-local Research Sessions with disposable candidate
   worktrees, fixed authority locks, immutable KEEP/REVERT/CRASH Experiments,
-  exact leader restoration, and stale-safe rollback-capable promotion.
+  exact leader restoration, stale-safe rollback-capable promotion, and
+  Report-bound baseline-retaining completion.
 - provider-neutral external Researcher Campaigns with strict briefs/responses,
   aggregate and per-turn budgets, failure recovery, and immutable turn
   evidence.

@@ -120,6 +120,13 @@ from authenticated provenance. Copy buttons only write an exact Core-generated
 CLI string to the local clipboard. They do not invoke the command or mutate the
 Project.
 
+When a delegated lane has a current Report and retains its baseline, Studio
+shows Core's exact `session complete --report ...` command. The browser only
+copies it. After CLI completion, the Session is terminal, active-writer counts
+and Program conflicts fall away, and its Report/Dossier evidence remains
+immutable and visible. A KEEP lane exposes promotion instead; Studio never
+chooses between source adoption and baseline retention.
+
 For a canonical request-driven Research Program, the handoff board is
 Project-level even when a Session is selected. It shows current lane Report
 coverage, required blockers, optional RL omission, and whether the immutable
@@ -159,6 +166,7 @@ aq schema portfolio-diagnostics --json
 aq schema rl-policy-diagnostics --json
 aq schema research-program-status --json
 aq schema dossier-status --json
+aq schema session-completion --json
 aq schema session-decision-matrix --json
 ```
 

@@ -3214,6 +3214,7 @@ main {
 .status-chip.active,
 .status-chip.running,
 .status-chip.stopped,
+.status-chip.completed,
 .status-chip.published {
   color: var(--acid);
   border-color: #43582b;

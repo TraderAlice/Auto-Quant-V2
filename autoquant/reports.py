@@ -743,6 +743,16 @@ def publish_report(
 ) -> ReportContext:
     normalized = validate_report_analysis(analysis)
     session = load_session(project, session_id)
+    if session.manifest["status"] != "active":
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    session.manifest_path,
+                    "report.session-closed",
+                    "Research Reports can be published only while the Session is active",
+                )
+            ]
+        )
     if session.delegation is None:
         raise AutoQuantValidationError(
             [

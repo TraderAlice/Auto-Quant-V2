@@ -20,8 +20,9 @@ from autoquant.dossiers import (
 )
 from autoquant.intake import prepare_project_intake
 from autoquant.reports import publish_report
+from autoquant.research_program import load_research_program
 from autoquant.runs import execute_study
-from autoquant.sessions import start_session
+from autoquant.sessions import complete_session, start_session
 from autoquant.studio import build_studio_snapshot
 from autoquant.templates import (
     OHLCV_STUDY_ID,
@@ -200,13 +201,13 @@ class ProgramResearchDossierTests(unittest.TestCase):
                 {"dossier.session-missing"},
             )
 
-            _, factor_report = self._publish_lane(
+            factor_session, factor_report = self._publish_lane(
                 project,
                 request,
                 "factor",
                 OHLCV_STUDY_ID,
             )
-            _, portfolio_report = self._publish_lane(
+            portfolio_session, portfolio_report = self._publish_lane(
                 project,
                 request,
                 "portfolio",
@@ -216,6 +217,33 @@ class ProgramResearchDossierTests(unittest.TestCase):
                 "factor": factor_report.report["id"],
                 "portfolio": portfolio_report.report["id"],
             }
+            active_program = load_research_program(project)
+            assert active_program is not None
+            self.assertEqual(
+                active_program["recommendedLaneId"],
+                "factor",
+            )
+            self.assertEqual(
+                active_program["recommendedAction"]["id"],
+                "session.complete",
+            )
+            complete_session(
+                project,
+                factor_session.manifest["id"],
+                factor_report.report["id"],
+            )
+            complete_session(
+                project,
+                portfolio_session.manifest["id"],
+                portfolio_report.report["id"],
+            )
+            completed_program = load_research_program(project)
+            assert completed_program is not None
+            self.assertEqual(
+                completed_program["summary"]["activeSessions"],
+                0,
+            )
+            self.assertEqual(completed_program["summary"]["conflicts"], 0)
             ready = load_dossier_status(project)
             assert ready is not None
             self.assertTrue(ready["ready"])
@@ -306,6 +334,10 @@ class ProgramResearchDossierTests(unittest.TestCase):
             assert after is not None
             self.assertTrue(after["latestDossier"]["current"])
             self.assertEqual(after["nextAction"]["id"], "dossier.show")
+
+            completed_status = load_dossier_status(project)
+            assert completed_status is not None
+            self.assertTrue(completed_status["latestDossier"]["current"])
 
             studio = build_studio_snapshot(project.root_dir)["projects"][0]
             self.assertEqual(studio["counts"]["dossiers"], 1)

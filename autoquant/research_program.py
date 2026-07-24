@@ -380,6 +380,31 @@ def _lane_state(
                     "read-only",
                 )
             )
+            if (
+                latest_session.status == "active"
+                and latest_session.baseline_run_id
+                == latest_session.leader_run_id
+                and reports[-1]["leaderRunId"]
+                == latest_session.leader_run_id
+            ):
+                commands.append(
+                    _command(
+                        "session.complete",
+                        f"Complete baseline-retaining research for {lane['name']}.",
+                        [
+                            "aq",
+                            "session",
+                            "complete",
+                            str(project.root_dir),
+                            "--session",
+                            latest_session.id,
+                            "--report",
+                            reports[-1]["id"],
+                            "--json",
+                        ],
+                        "creates-artifact",
+                    )
+                )
     return {
         **lane,
         "phase": phase,
@@ -540,7 +565,18 @@ def load_research_program(
         for relative, sessions in sorted(reader_conflicts.items())
     )
 
-    recommended_lane = next(
+    completion_lane = next(
+        (
+            lane
+            for lane in lanes
+            if any(
+                command["id"] == "session.complete"
+                for command in lane["commands"]
+            )
+        ),
+        None,
+    )
+    recommended_lane = completion_lane or next(
         (
             lane
             for lane in lanes
@@ -560,9 +596,18 @@ def load_research_program(
     recommended_action = None
     if recommended_lane is not None:
         preferred_ids = (
-            ("run.execute", "session.start", "session.show", "study.inspect")
-            if recommended_lane["phase"] in {"not-started", "stale"}
-            else ("session.start", "session.show", "run.execute", "study.inspect")
+            ("session.complete", "report.show", "session.show")
+            if completion_lane is not None
+            else (
+                ("run.execute", "session.start", "session.show", "study.inspect")
+                if recommended_lane["phase"] in {"not-started", "stale"}
+                else (
+                    "session.start",
+                    "session.show",
+                    "run.execute",
+                    "study.inspect",
+                )
+            )
         )
         for command_id in preferred_ids:
             recommended_action = next(

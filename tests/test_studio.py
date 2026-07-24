@@ -278,6 +278,7 @@ class StudioObservationTests(unittest.TestCase):
                     self.assertIn("dossierState", javascript)
                     self.assertIn("PROJECT DOSSIER", javascript)
                     self.assertIn("OpenAlice return artifact", javascript)
+                    self.assertIn("Copy completion CLI", javascript)
                     self.assertIn("no trading authority", javascript)
                     self.assertIn("browser-authored verdict", javascript)
                     self.assertNotIn("RESEARCH CHAIN PASSES", javascript)

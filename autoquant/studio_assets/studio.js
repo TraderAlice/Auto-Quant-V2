@@ -862,7 +862,7 @@ function renderResearchProgram(project) {
           <p>${escapeHtml(readout.detail)}</p>
           <dl>
             <dt>Session</dt>
-            <dd>${session ? `${session.experiments} experiments` : "not started"}</dd>
+            <dd>${session ? `${escapeHtml(session.status)} · ${session.experiments} experiments` : "not started"}</dd>
             <dt>Source</dt>
             <dd>${escapeHtml(lane.editablePaths.join(", "))}</dd>
             ${lane.dependencyPaths?.length ? `
@@ -2497,6 +2497,7 @@ function renderInspector(project) {
     ${dossierInspectorSection(project)}
     <section class="inspector-section">
       <small>Agent control surface</small>
+      ${copyCommandButton(commandFor(session, "session.complete"), "Copy completion CLI")}
       ${copyCommandButton(commandFor(session, "session.show"))}
     </section>
     <section class="inspector-section">
