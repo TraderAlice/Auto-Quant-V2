@@ -160,6 +160,11 @@ class AgentCliTests(unittest.TestCase):
                 "autoquant-portfolio-diagnostics",
             )
             self.assertEqual(projected["data"]["path"]["sampledRows"], 48)
+            self.assertTrue(projected["data"]["riskGovernor"]["available"])
+            self.assertEqual(
+                projected["data"]["mandate"]["riskPolicy"]["method"],
+                "trailing-covariance-volatility-ceiling-v1",
+            )
             self.assertEqual(
                 {item["kind"] for item in projected["artifacts"]},
                 {

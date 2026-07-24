@@ -1612,11 +1612,16 @@ function mandateMarkup(mandate) {
   const lock = mandate.available
     ? `LOCKED · ${String(mandate.id).slice(-8)}`
     : "LEGACY · implicit";
+  const risk = mandate.riskPolicy;
+  const riskLabel = risk
+    ? `${percent(risk.annualizedVolatilityCeiling)} · scale-down only`
+    : "legacy · none";
   return `
     <span class="mandate-direction">${escapeHtml(mandate.direction.toUpperCase())}</span>
     <span><small>Construction</small><b>${escapeHtml(mandate.family)}</b></span>
     <span class="mandate-assets"><small>Authorized positions</small><b>${escapeHtml(tradable)}</b><i>${escapeHtml(context)}</i></span>
     <span><small>Gross / cap</small><b>${metric(mandate.grossLimit)} / ${percent(mandate.maxAbsWeight)}</b></span>
+    <span><small>Risk ceiling</small><b>${escapeHtml(riskLabel)}</b></span>
     <span><small>Benchmark</small><b>${escapeHtml(mandate.benchmark)}</b></span>
     <code>${escapeHtml(lock)}</code>`;
 }
@@ -1627,9 +1632,9 @@ function renderPortfolioBook(explorer) {
     explorer.signalPolicy?.parameters?.max_abs_weight ?? 0.3,
   );
   element("portfolio-book-note").textContent =
-    `${book.timestamp} · gross ${metric(book.grossExposure)} · net ${metric(book.netExposure)} · cash ${percent(book.cashWeight)}`;
+    `${book.timestamp} · gross ${metric(book.grossExposure)} · net ${metric(book.netExposure)} · cash ${percent(book.cashWeight)} · risk ${book.riskGovernorStatus} · scale ${metric(book.riskGovernorScale)}`;
   element("portfolio-book").innerHTML = `
-    <div class="book-disclosure">Historical target/executed weights · no Broker or account state</div>
+    <div class="book-disclosure">Historical target/executed weights · covariance forecast ${percent(book.riskForecastPreAnnualized)} → ${percent(book.riskForecastPostAnnualized)} · ceiling ${percent(book.riskVolatilityCeilingAnnualized)} · no Broker or account state</div>
     <div class="position-table" role="table" aria-label="Latest mechanical research book">
       <div class="position-row heading" role="row">
         <span>Asset / state</span><span>Target</span><span>Executed</span><span>Action</span>
@@ -1657,7 +1662,9 @@ function renderPortfolioBook(explorer) {
                 <i class="${side}">${stateLabel}</i>
                 <small>${escapeHtml(position.allocationStatus)} · ${escapeHtml(position.executionAction)}</small>
               </span>
-              <span>${signedPercent(position.targetWeight)}</span>
+              <span title="Pre-governor ${signedPercent(position.preGovernorTargetWeight)} → governed ${signedPercent(position.targetWeight)}">
+                ${signedPercent(position.targetWeight)}
+              </span>
               <span class="position-weight ${side}">
                 <b>${signedPercent(position.executedWeight)}</b>
                 <i style="--position-size:${magnitude.toFixed(2)}%"></i>
@@ -1743,6 +1750,11 @@ function renderPortfolioExplorer(project) {
     ["Total cost drag", percent(summary.totalCost), summary.totalCost > 0 ? "bad" : ""],
     ["One-way turnover", metric(summary.totalOneWayTurnover), "neutral"],
     ["Rebalance days", summary.rebalanceDays, "neutral"],
+    [
+      "Validation risk-limited",
+      percent(explorer.signalPolicy.validation.riskLimitedRate),
+      explorer.signalPolicy.validation.riskLimitedRate > 0 ? "warning" : "neutral",
+    ],
   ]
     .map(
       ([label, value, tone]) => `

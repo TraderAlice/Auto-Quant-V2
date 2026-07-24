@@ -1123,9 +1123,22 @@ def _render_markdown(dossier: dict[str, Any]) -> str:
                     f"`{construction['maxAbsWeight']}` / "
                     f"`{construction['cashAllowed']}`",
                     f"- Benchmark: `{construction['benchmark']}`",
-                    "",
                 ]
             )
+            risk_policy = construction.get("riskPolicy")
+            if isinstance(risk_policy, dict):
+                lines.extend(
+                    [
+                        f"- Risk governor: `{risk_policy['method']}`",
+                        f"- Annualized volatility ceiling / covariance "
+                        f"history: "
+                        f"`{risk_policy['annualizedVolatilityCeiling']}` / "
+                        f"`{risk_policy['covarianceWindow']}` bars "
+                        f"(`{risk_policy['minimumObservations']}` required)",
+                        f"- Scale-up permitted: `{risk_policy['scaleUp']}`",
+                    ]
+                )
+            lines.append("")
     lines.extend(["", "## Lane summaries", ""])
     for lane in evidence["lanes"]:
         integrity = lane["report"]["selectionIntegrity"]

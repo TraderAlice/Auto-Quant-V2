@@ -87,10 +87,12 @@ panel or equal blend enters the fixed percentile/hysteresis state machine and
 is converted by the portfolio Core into request-permitted
 inverse-volatility-conviction targets. Each sleeve maintains its own causal
 intent history and shares the exact tradable/context assets, direction, cash,
-gross/net, cap, and benchmark contract. RL selects among those governed
-sleeves; it cannot alter entry/exit thresholds, sizing, constraints, or costs.
+gross/net, cap, benchmark, and one-sided covariance volatility ceiling. RL
+selects among those governed sleeves; it cannot alter entry/exit thresholds,
+sizing, risk scale, constraints, or costs.
 See
-[[docs/design/signal-policy-and-attribution]].
+[[docs/design/signal-policy-and-attribution]] and
+[[docs/design/portfolio-risk-governor]].
 
 ## State, transition, and reward
 

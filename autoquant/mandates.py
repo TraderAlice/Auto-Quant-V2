@@ -45,6 +45,14 @@ PORTFOLIO_BENCHMARKS = {
     "relative-value": "cash",
     "research-only": "equal-weight-long-research-universe",
 }
+PORTFOLIO_RISK_POLICY = {
+    "method": "trailing-covariance-volatility-ceiling-v1",
+    "annualizedVolatilityCeiling": 0.15,
+    "covarianceWindow": 60,
+    "minimumObservations": 20,
+    "annualizationPeriods": 252,
+    "scaleUp": False,
+}
 SHA256 = "^[0-9a-f]{64}$"
 
 
@@ -134,6 +142,7 @@ def _canonical_payload(
             "shortAllowed": direction
             in {"short", "long-short", "relative-value", "research-only"},
             "benchmark": PORTFOLIO_BENCHMARKS[direction],
+            "riskPolicy": dict(PORTFOLIO_RISK_POLICY),
         },
         "authority": PORTFOLIO_MANDATE_AUTHORITY,
         "tradingAuthority": "none",
@@ -333,6 +342,7 @@ def validate_portfolio_mandate(
                     "cashAllowed",
                     "shortAllowed",
                     "benchmark",
+                    "riskPolicy",
                 },
                 f"{path}/construction",
             )
@@ -494,6 +504,7 @@ PORTFOLIO_MANDATE_JSON_SCHEMA: dict[str, Any] = {
                 "cashAllowed",
                 "shortAllowed",
                 "benchmark",
+                "riskPolicy",
             ],
             "properties": {
                 "family": {
@@ -511,6 +522,28 @@ PORTFOLIO_MANDATE_JSON_SCHEMA: dict[str, Any] = {
                         "equal-weight-long-tradable",
                         "equal-weight-short-tradable",
                     ]
+                },
+                "riskPolicy": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": [
+                        "method",
+                        "annualizedVolatilityCeiling",
+                        "covarianceWindow",
+                        "minimumObservations",
+                        "annualizationPeriods",
+                        "scaleUp",
+                    ],
+                    "properties": {
+                        "method": {
+                            "const": "trailing-covariance-volatility-ceiling-v1"
+                        },
+                        "annualizedVolatilityCeiling": {"const": 0.15},
+                        "covarianceWindow": {"const": 60},
+                        "minimumObservations": {"const": 20},
+                        "annualizationPeriods": {"const": 252},
+                        "scaleUp": {"const": False},
+                    },
                 },
             },
         },

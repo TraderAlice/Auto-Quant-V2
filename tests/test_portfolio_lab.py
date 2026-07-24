@@ -22,6 +22,7 @@ from autoquant.project_templates.ohlcv_portfolio_lab.portfolio_core import (
     signal_policy_metrics,
     simulate_targets,
 )
+from autoquant.mandates import build_portfolio_mandate
 from autoquant.research import run_campaign
 from autoquant.runs import execute_study
 from autoquant.sessions import (
@@ -291,6 +292,89 @@ class PortfolioAccountingTests(unittest.TestCase):
                 1.0,
             )
         )
+        self.assertEqual(
+            set(governed.ledger["risk_governor_status"]),
+            {"flat", "legacy_none"},
+        )
+
+    def test_request_bound_risk_governor_only_scales_down_high_risk_targets(
+        self,
+    ) -> None:
+        index = pd.bdate_range("2026-01-01", periods=100)
+        assets = list("ABCDE")
+        factors = pd.DataFrame(
+            np.tile(np.arange(len(assets), dtype=float), (len(index), 1)),
+            index=index,
+            columns=assets,
+        )
+        time = np.arange(len(index), dtype=float)
+        closes = pd.DataFrame(
+            {
+                asset: 100.0
+                * np.exp(
+                    np.cumsum(
+                        0.001
+                        + 0.06
+                        * np.sin(
+                            time / (2.0 + number * 0.35) + number
+                        )
+                    )
+                )
+                for number, asset in enumerate(assets)
+            },
+            index=index,
+        )
+        mandate = build_portfolio_mandate(None, assets)
+
+        governed = construct_signal_policy(
+            factors,
+            closes,
+            mandate=mandate,
+        )
+        ungoverned = construct_signal_policy(
+            factors,
+            closes,
+            mandate=mandate,
+            apply_risk_governor=False,
+        )
+        daily = (
+            governed.ledger.groupby("timestamp", sort=True)
+            .agg(
+                status=("risk_governor_status", "first"),
+                scale=("risk_governor_scale", "first"),
+                before=("risk_forecast_pre_annualized", "first"),
+                after=("risk_forecast_post_annualized", "first"),
+                ceiling=(
+                    "risk_volatility_ceiling_annualized",
+                    "first",
+                ),
+            )
+        )
+        limited = daily[daily["status"].eq("volatility_limited")]
+
+        self.assertFalse(limited.empty)
+        self.assertTrue((limited["scale"] > 0.0).all())
+        self.assertTrue((limited["scale"] < 1.0).all())
+        self.assertTrue((limited["after"] <= limited["ceiling"] + 1e-12).all())
+        self.assertTrue(
+            (
+                governed.targets.abs().sum(axis=1)
+                <= ungoverned.targets.abs().sum(axis=1) + 1e-12
+            ).all()
+        )
+        self.assertTrue(
+            constraint_audit(governed.targets, mandate=mandate)["passed"]
+        )
+        governed_metrics = signal_policy_metrics(governed, index)
+        self.assertGreater(governed_metrics["risk_limited_dates"], 0)
+        self.assertLess(
+            governed_metrics[
+                "maximum_post_governor_annualized_volatility"
+            ],
+            governed_metrics[
+                "maximum_pre_governor_annualized_volatility"
+            ],
+        )
 
     def test_decision_ledger_reconciles_execution_and_attribution(self) -> None:
         index = pd.bdate_range("2026-01-01", periods=80)
@@ -399,7 +483,12 @@ class PortfolioAccountingTests(unittest.TestCase):
             index=index,
             columns=assets,
         )
-        full_construction = construct_signal_policy(factors, closes)
+        mandate = build_portfolio_mandate(None, assets)
+        full_construction = construct_signal_policy(
+            factors,
+            closes,
+            mandate=mandate,
+        )
         full_simulation = simulate_targets(
             full_construction.targets,
             closes,
@@ -415,6 +504,7 @@ class PortfolioAccountingTests(unittest.TestCase):
         prefix_construction = construct_signal_policy(
             factors.iloc[:cut],
             closes.iloc[:cut],
+            mandate=mandate,
         )
         prefix_simulation = simulate_targets(
             prefix_construction.targets,
@@ -432,6 +522,12 @@ class PortfolioAccountingTests(unittest.TestCase):
             "asset",
             "signal_state",
             "signal_event",
+            "pre_governor_target_weight",
+            "risk_governor_status",
+            "risk_estimation_observations",
+            "risk_forecast_pre_annualized",
+            "risk_forecast_post_annualized",
+            "risk_governor_scale",
             "proposed_target_weight",
             "pretrade_weight",
             "executed_weight",
@@ -476,6 +572,18 @@ class OhlcvPortfolioLabTests(unittest.TestCase):
             self.assertIn("signal_policy", metrics)
             self.assertIn("attribution", metrics)
             self.assertIn("robustness", metrics)
+            self.assertIn("risk_governor", metrics["robustness"])
+            self.assertEqual(
+                metrics["robustness"]["risk_governor"][
+                    "selectionAuthority"
+                ],
+                "diagnostic-only",
+            )
+            self.assertFalse(
+                metrics["portfolio_mandate"]["construction"]["riskPolicy"][
+                    "scaleUp"
+                ]
+            )
             self.assertEqual(
                 metrics["portfolio_mandate"]["construction"]["family"],
                 "dollar-neutral",
@@ -509,6 +617,13 @@ class OhlcvPortfolioLabTests(unittest.TestCase):
                     "portfolio-decisions",
                 },
             )
+            decision_path = run.root_dir / "artifacts" / "portfolio-decisions.csv"
+            decision_columns = pd.read_csv(
+                decision_path,
+                nrows=1,
+            ).columns
+            self.assertIn("pre_governor_target_weight", decision_columns)
+            self.assertIn("risk_governor_scale", decision_columns)
             snapshot = build_studio_snapshot(workspace.root_dir)
             self.assertEqual(snapshot["projects"][0]["counts"]["runs"], 1)
             layers = snapshot["projects"][0]["runs"][0]["metricLayers"]

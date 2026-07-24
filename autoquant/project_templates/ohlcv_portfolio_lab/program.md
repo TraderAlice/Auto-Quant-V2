@@ -30,6 +30,10 @@ numeric aligned Series and may use only the current and prior rows.
 - long-short/relative-value require exact gross 1.0, long +0.5, short -0.5;
 - context-only assets remain flat with zero target;
 - maximum absolute target weight 0.30;
+- forecast portfolio volatility from up to 60 complete trailing return rows
+  through decision close `t`, with at least 20 observations;
+- uniformly scale raw targets down to a 15% annualized volatility ceiling and
+  never scale exposure up;
 - retain the drifted book below 0.05 one-way turnover;
 - cost every bought/sold dollar at 10 basis points;
 - signal at close `t` earns only close `t` to close `t+1`;
@@ -49,10 +53,14 @@ new external period or dataset before a production-grade claim.
 
 Inspect factor, signal-state, portfolio/risk, implementation, attribution,
 constraint, and robustness layers. Read `portfolio-decisions.csv` when a
-conclusion depends on one asset or date. A higher primary score is not enough
-when coverage collapses, hysteresis adds no value, concentration rises,
-turnover/costs dominate, delayed performance reverses, attribution fails to
-reconcile, or one asset explains the result. Also inspect the complete
+conclusion depends on one asset or date. Reconcile raw and governed targets,
+forecast volatility, scale, and status; inspect how often the ceiling binds
+and whether cash exposure is signal-driven or risk-driven. The ungoverned
+comparison is diagnostic only and cannot select a candidate. A higher primary
+score is not enough when coverage collapses, hysteresis adds no value,
+concentration rises, the risk governor constantly suppresses an unstable raw
+book, turnover/costs dominate, delayed performance reverses, attribution fails
+to reconcile, or one asset explains the result. Also inspect the complete
 Project-family trial count, probabilistic/deflated Sharpe, expected maximum
 Sharpe from strategy search, and minimum track record. Those diagnostics do
 not rewrite KEEP/REVERT and cannot be reset by starting another Session.

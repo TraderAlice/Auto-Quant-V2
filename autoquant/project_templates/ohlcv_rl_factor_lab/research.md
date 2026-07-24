@@ -21,8 +21,13 @@ baseline, implementation, and model artifacts before accepting a KEEP.
 `factors/**` is a fixed content-locked input to this Study; start a fresh RL
 Session after promoting different factor bytes.
 `strategies/portfolio-mandate.json` is the shared fixed position contract for
-every RL action sleeve and is also not editable.
+every RL action sleeve and is also not editable. Every sleeve receives the
+same causal covariance forecast and one-sided volatility ceiling before the
+policy may select it; editable state encoding cannot bypass position or risk
+authority.
 
 The fixed Judge owns all learning and evaluation authority. Test results are
 audit evidence, not the promotion metric, and repeated inspection must be
-reported as a limitation. AutoQuant has no trading-account authority.
+reported as a limitation. Inspect the locked risk policy alongside action
+constraints, baseline advantage, seed/fold dispersion, action frequency,
+turnover, and costs. AutoQuant has no trading-account authority.

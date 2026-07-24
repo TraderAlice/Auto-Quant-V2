@@ -79,6 +79,17 @@ class PortfolioMandateTests(unittest.TestCase):
             mandate["construction"]["benchmark"],
             "equal-weight-long-tradable",
         )
+        self.assertEqual(
+            mandate["construction"]["riskPolicy"],
+            {
+                "method": "trailing-covariance-volatility-ceiling-v1",
+                "annualizedVolatilityCeiling": 0.15,
+                "covarianceWindow": 60,
+                "minimumObservations": 20,
+                "annualizationPeriods": 252,
+                "scaleUp": False,
+            },
+        )
         self.assertEqual(validate_portfolio_mandate(mandate), mandate)
         jsonschema.Draft202012Validator(
             PORTFOLIO_MANDATE_JSON_SCHEMA,
@@ -92,6 +103,16 @@ class PortfolioMandateTests(unittest.TestCase):
             "Context assets|derived",
         ):
             validate_portfolio_mandate(tampered)
+
+        risk_tampered = copy.deepcopy(mandate)
+        risk_tampered["construction"]["riskPolicy"][
+            "annualizedVolatilityCeiling"
+        ] = 0.20
+        with self.assertRaisesRegex(
+            AutoQuantValidationError,
+            "fixed direction contract|derived",
+        ):
+            validate_portfolio_mandate(risk_tampered)
 
     def test_directional_policy_trades_only_requested_sign_and_retains_cash(self) -> None:
         factors, closes = panels()

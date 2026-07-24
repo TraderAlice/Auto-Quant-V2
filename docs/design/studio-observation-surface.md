@@ -6,7 +6,8 @@ Related: [[docs/ARCHITECTURE]], [[docs/CLI]], [[docs/PROJECT_FORMAT]],
 [[docs/design/agent-cli-contract]], [[docs/design/research-session-loop]],
 [[docs/design/external-researcher-driver]],
 [[docs/design/research-intake-and-dataset-snapshots]],
-[[docs/design/request-bound-portfolio-mandates]], and
+[[docs/design/request-bound-portfolio-mandates]],
+[[docs/design/portfolio-risk-governor]], and
 [[docs/design/quant-research-lifecycle]].
 
 ## Scope
@@ -162,7 +163,11 @@ request → evidence → report surface.
 Selecting an evidence lane also selects that lane's latest Session in the
 Inspector so the visible Run, Report, and Session remain semantically aligned.
 The Portfolio and RL explorers disclose the same fixed mandate. Context-only
-assets are visibly distinct and may never appear as current positions.
+assets are visibly distinct and may never appear as current positions. The
+Portfolio explorer also shows the annualized ceiling, validation activation
+rate, current governor status/scale, pre/post forecast, and raw-to-governed
+target transition. These are historical research weights and diagnostics, not
+live account risk.
 
 For a request-driven canonical Program, the collaboration surface composes no
 evidence in the browser. Core supplies Dossier readiness, lane Report

@@ -120,6 +120,16 @@ DECISION_FLOATS = {
     "portfolio_net_return",
     "portfolio_traded_notional",
 }
+RISK_DECISION_COLUMNS = {
+    "pre_governor_target_weight",
+    "risk_governor_status",
+    "risk_estimation_observations",
+    "risk_forecast_pre_annualized",
+    "risk_forecast_post_annualized",
+    "risk_volatility_ceiling_annualized",
+    "risk_governor_scale",
+}
+RISK_DECISION_FLOATS = RISK_DECISION_COLUMNS - {"risk_governor_status"}
 
 
 def _issue(path: Path | str, code: str, message: str) -> ValidationIssue:
@@ -435,6 +445,13 @@ def _parse_decisions(
             "portfolio.mandate-columns",
             "Decision ledger must contain the complete mandate column set",
         )
+    has_risk_columns = RISK_DECISION_COLUMNS.issubset(fields)
+    if RISK_DECISION_COLUMNS & set(fields) and not has_risk_columns:
+        _fail(
+            path,
+            "portfolio.risk-governor-columns",
+            "Decision ledger must contain the complete risk-governor column set",
+        )
     for row_number, raw in enumerate(raw_rows, start=2):
         row_path = f"{path}:{row_number}"
         timestamp = _session_date(raw["timestamp"], f"{row_path}/timestamp")
@@ -477,6 +494,23 @@ def _parse_decisions(
             field: _finite(raw[field], f"{row_path}/{field}")
             for field in DECISION_FLOATS
         }
+        risk_numeric = (
+            {
+                field: _finite(raw[field], f"{row_path}/{field}")
+                for field in RISK_DECISION_FLOATS
+            }
+            if has_risk_columns
+            else {
+                "pre_governor_target_weight": numeric[
+                    "proposed_target_weight"
+                ],
+                "risk_estimation_observations": 0.0,
+                "risk_forecast_pre_annualized": 0.0,
+                "risk_forecast_post_annualized": 0.0,
+                "risk_volatility_ceiling_annualized": 0.0,
+                "risk_governor_scale": 1.0,
+            }
+        )
         for field in (
             "signal_event",
             "allocation_status",
@@ -491,6 +525,53 @@ def _parse_decisions(
                     "portfolio.decision-string",
                     f"{field} must be non-empty",
                 )
+        if has_risk_columns and not raw["risk_governor_status"]:
+            _fail(
+                f"{row_path}/risk_governor_status",
+                "portfolio.risk-governor-status",
+                "Risk-governor status must be non-empty",
+            )
+        if (
+            not 0.0 <= risk_numeric["risk_governor_scale"] <= 1.0
+            or risk_numeric["risk_estimation_observations"] < 0
+            or not math.isclose(
+                risk_numeric["risk_estimation_observations"],
+                round(risk_numeric["risk_estimation_observations"]),
+                rel_tol=0.0,
+                abs_tol=1e-12,
+            )
+        ):
+            _fail(
+                row_path,
+                "portfolio.risk-governor-value",
+                "Risk scale and estimation observations are invalid",
+            )
+        if has_risk_columns and (
+            not math.isclose(
+                numeric["proposed_target_weight"],
+                risk_numeric["pre_governor_target_weight"]
+                * risk_numeric["risk_governor_scale"],
+                rel_tol=0.0,
+                abs_tol=1e-10,
+            )
+            or not math.isclose(
+                risk_numeric["risk_forecast_post_annualized"],
+                risk_numeric["risk_forecast_pre_annualized"]
+                * risk_numeric["risk_governor_scale"],
+                rel_tol=0.0,
+                abs_tol=1e-10,
+            )
+            or (
+                risk_numeric["risk_volatility_ceiling_annualized"] > 0
+                and risk_numeric["risk_forecast_post_annualized"]
+                > risk_numeric["risk_volatility_ceiling_annualized"] + 1e-10
+            )
+        ):
+            _fail(
+                row_path,
+                "portfolio.risk-governor-reconciliation",
+                "Risk-governor weights or volatility forecasts do not reconcile",
+            )
         if has_mandate_columns:
             if raw["tradable"] not in {"True", "False"}:
                 _fail(
@@ -532,12 +613,18 @@ def _parse_decisions(
             **states,
             **optional,
             **numeric,
+            **risk_numeric,
             "signal_event": raw["signal_event"],
             "allocation_status": raw["allocation_status"],
             "target_action": raw["target_action"],
             "regime": raw["regime"],
             "execution_action": raw["execution_action"],
             "execution_reason": raw["execution_reason"],
+            "risk_governor_status": (
+                raw["risk_governor_status"]
+                if has_risk_columns
+                else "legacy_none"
+            ),
             "tradable": (
                 raw["tradable"] == "True"
                 if has_mandate_columns
@@ -575,6 +662,23 @@ def _parse_decisions(
     for timestamp in daily.dates:
         rows = [decisions[(timestamp, asset)] for asset in universe]
         expected_daily = daily_by_date[timestamp]
+        risk_signatures = {
+            (
+                item["risk_governor_status"],
+                item["risk_estimation_observations"],
+                item["risk_forecast_pre_annualized"],
+                item["risk_forecast_post_annualized"],
+                item["risk_volatility_ceiling_annualized"],
+                item["risk_governor_scale"],
+            )
+            for item in rows
+        }
+        if len(risk_signatures) != 1:
+            _fail(
+                f"{path}/{timestamp}",
+                "portfolio.risk-governor-panel",
+                "Risk-governor evidence must be identical across one decision date",
+            )
         reconciliations = (
             (
                 sum(item["gross_return_contribution"] for item in rows),
@@ -889,6 +993,9 @@ def _current_book(
                 "allocationStatus": item["allocation_status"],
                 "conviction": item["conviction"],
                 "riskStrength": item["risk_strength"],
+                "preGovernorTargetWeight": item[
+                    "pre_governor_target_weight"
+                ],
                 "targetWeight": item["proposed_target_weight"],
                 "pretradeWeight": item["pretrade_weight"],
                 "executedWeight": item["executed_weight"],
@@ -913,6 +1020,26 @@ def _current_book(
         "oneWayTurnover": daily_row["one_way_turnover"],
         "cost": daily_row["cost"],
         "rebalanced": daily_row["rebalanced"],
+        "riskGovernorStatus": decisions[
+            (timestamp, universe[0])
+        ]["risk_governor_status"],
+        "riskGovernorScale": decisions[
+            (timestamp, universe[0])
+        ]["risk_governor_scale"],
+        "riskForecastPreAnnualized": decisions[
+            (timestamp, universe[0])
+        ]["risk_forecast_pre_annualized"],
+        "riskForecastPostAnnualized": decisions[
+            (timestamp, universe[0])
+        ]["risk_forecast_post_annualized"],
+        "riskVolatilityCeilingAnnualized": decisions[
+            (timestamp, universe[0])
+        ]["risk_volatility_ceiling_annualized"],
+        "riskEstimationObservations": int(
+            decisions[(timestamp, universe[0])][
+                "risk_estimation_observations"
+            ]
+        ),
         "positions": positions,
     }
 
@@ -954,6 +1081,11 @@ def _recent_transitions(
             "tradable": item["tradable"],
             "permittedDirection": item["permitted_direction"],
             "allocationStatus": item["allocation_status"],
+            "riskGovernorStatus": item["risk_governor_status"],
+            "riskGovernorScale": item["risk_governor_scale"],
+            "preGovernorTargetWeight": item[
+                "pre_governor_target_weight"
+            ],
             "priorSignalState": item["prior_signal_state"],
             "signalState": item["signal_state"],
             "targetWeight": item["proposed_target_weight"],
@@ -1001,6 +1133,21 @@ def _signal_policy_projection(result: dict[str, Any]) -> dict[str, Any]:
             ),
             "signalEventCounts": split.get("signal_event_counts"),
             "targetActionCounts": split.get("target_action_counts"),
+            "riskGovernorStatusCounts": split.get(
+                "risk_governor_status_counts"
+            ),
+            "riskLimitedDates": split.get("risk_limited_dates"),
+            "riskLimitedRate": split.get("risk_limited_rate"),
+            "riskUnavailableDates": split.get("risk_unavailable_dates"),
+            "averageActiveRiskScale": split.get(
+                "average_active_risk_scale"
+            ),
+            "maximumPreGovernorAnnualizedVolatility": split.get(
+                "maximum_pre_governor_annualized_volatility"
+            ),
+            "maximumPostGovernorAnnualizedVolatility": split.get(
+                "maximum_post_governor_annualized_volatility"
+            ),
         }
     return output
 
@@ -1029,6 +1176,7 @@ def _mandate_projection(
             "cashAllowed": True,
             "shortAllowed": True,
             "benchmark": "equal-weight-long-research-universe",
+            "riskPolicy": None,
         }
     if not isinstance(raw, dict) or not isinstance(report_raw, dict):
         _fail(
@@ -1090,7 +1238,100 @@ def _mandate_projection(
         "cashAllowed": construction["cashAllowed"],
         "shortAllowed": construction["shortAllowed"],
         "benchmark": construction["benchmark"],
+        "riskPolicy": construction["riskPolicy"],
     }
+
+
+def _risk_governor_projection(
+    result: dict[str, Any],
+    mandate: dict[str, Any],
+) -> dict[str, Any]:
+    raw = result["metrics"].get("robustness", {}).get("risk_governor")
+    if raw is None and mandate["riskPolicy"] is None:
+        return {
+            "available": False,
+            "policy": None,
+            "selectionAuthority": "diagnostic-only",
+            "validation": None,
+            "test": None,
+        }
+    if (
+        not isinstance(raw, dict)
+        or raw.get("policy") != mandate["riskPolicy"]
+        or raw.get("selectionAuthority") != "diagnostic-only"
+    ):
+        _fail(
+            "RunResult/metrics/robustness/risk_governor",
+            "portfolio.risk-governor",
+            "Risk-governor robustness evidence differs from the fixed Mandate",
+        )
+    projected: dict[str, Any] = {
+        "available": True,
+        "policy": raw["policy"],
+        "selectionAuthority": "diagnostic-only",
+    }
+    for split_name in ("validation", "test"):
+        split = raw.get(split_name)
+        governed = split.get("governed") if isinstance(split, dict) else None
+        ungoverned = (
+            split.get("ungoverned_diagnostic")
+            if isinstance(split, dict)
+            else None
+        )
+        if not isinstance(governed, dict) or not isinstance(ungoverned, dict):
+            _fail(
+                f"RunResult/metrics/robustness/risk_governor/{split_name}",
+                "portfolio.risk-governor",
+                "Risk-governor split must contain governed and diagnostic evidence",
+            )
+        projected[split_name] = {
+            "governed": {
+                key: _finite(
+                    governed.get(source),
+                    "RunResult/metrics/robustness/risk_governor/"
+                    f"{split_name}/governed/{source}",
+                )
+                for key, source in {
+                    "netSharpe": "net_sharpe",
+                    "annualVolatility": "annual_volatility",
+                    "maximumDrawdown": "maximum_drawdown",
+                    "averageGrossExposure": "average_gross_exposure",
+                    "riskLimitedDates": "risk_limited_dates",
+                    "riskLimitedRate": "risk_limited_rate",
+                    "averageActiveRiskScale": "average_active_risk_scale",
+                    "maximumPreGovernorAnnualizedVolatility": (
+                        "maximum_pre_governor_annualized_volatility"
+                    ),
+                    "maximumPostGovernorAnnualizedVolatility": (
+                        "maximum_post_governor_annualized_volatility"
+                    ),
+                }.items()
+            },
+            "ungovernedDiagnostic": {
+                key: _finite(
+                    ungoverned.get(source),
+                    "RunResult/metrics/robustness/risk_governor/"
+                    f"{split_name}/ungoverned_diagnostic/{source}",
+                )
+                for key, source in {
+                    "netSharpe": "net_sharpe",
+                    "annualVolatility": "annual_volatility",
+                    "maximumDrawdown": "maximum_drawdown",
+                    "averageGrossExposure": "average_gross_exposure",
+                }.items()
+            },
+            "netSharpeDelta": _finite(
+                split.get("net_sharpe_delta"),
+                "RunResult/metrics/robustness/risk_governor/"
+                f"{split_name}/net_sharpe_delta",
+            ),
+            "annualVolatilityDelta": _finite(
+                split.get("annual_volatility_delta"),
+                "RunResult/metrics/robustness/risk_governor/"
+                f"{split_name}/annual_volatility_delta",
+            ),
+        }
+    return projected
 
 
 def load_portfolio_diagnostics(
@@ -1186,6 +1427,7 @@ def load_portfolio_diagnostics(
             "portfolio.selection",
             "Portfolio Run must disclose selection integrity",
         )
+    mandate = _mandate_projection(run, report, universe)
     return {
         "schemaVersion": SCHEMA_VERSION,
         "kind": PORTFOLIO_DIAGNOSTICS_KIND,
@@ -1202,7 +1444,7 @@ def load_portfolio_diagnostics(
             ],
         },
         "universe": universe,
-        "mandate": _mandate_projection(run, report, universe),
+        "mandate": mandate,
         "selection": {
             "selectionSplit": research_integrity.get("selection_split"),
             "testRole": research_integrity.get("test_role"),
@@ -1232,6 +1474,7 @@ def load_portfolio_diagnostics(
             universe,
         ),
         "signalPolicy": _signal_policy_projection(run.result),
+        "riskGovernor": _risk_governor_projection(run.result, mandate),
         "attribution": _attribution_projection(run.result, universe),
     }
 
@@ -1311,6 +1554,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 "permittedDirection",
                 "allocationStatus",
                 "conviction",
+                "preGovernorTargetWeight",
                 "targetWeight",
                 "targetAction",
                 "pretradeWeight",
@@ -1337,6 +1581,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 },
                 "allocationStatus": {"type": "string", "minLength": 1},
                 "conviction": {"type": "number"},
+                "preGovernorTargetWeight": {"type": "number"},
                 "targetWeight": {"type": "number"},
                 "targetAction": {"type": "string", "minLength": 1},
                 "pretradeWeight": {"type": "number"},
@@ -1362,6 +1607,9 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 "tradable",
                 "permittedDirection",
                 "allocationStatus",
+                "riskGovernorStatus",
+                "riskGovernorScale",
+                "preGovernorTargetWeight",
                 "targetWeight",
                 "executedWeight",
                 "tradeWeight",
@@ -1384,6 +1632,13 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                     ]
                 },
                 "allocationStatus": {"type": "string", "minLength": 1},
+                "riskGovernorStatus": {"type": "string", "minLength": 1},
+                "riskGovernorScale": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                },
+                "preGovernorTargetWeight": {"type": "number"},
                 "targetWeight": {"type": "number"},
                 "executedWeight": {"type": "number"},
                 "tradeWeight": {"type": "number"},
@@ -1430,6 +1685,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "currentBook",
         "recentTransitions",
         "signalPolicy",
+        "riskGovernor",
         "attribution",
     ],
     "properties": {
@@ -1491,6 +1747,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 "cashAllowed",
                 "shortAllowed",
                 "benchmark",
+                "riskPolicy",
             ],
             "properties": {
                 "available": {"type": "boolean"},
@@ -1569,6 +1826,43 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 "cashAllowed": {"type": "boolean"},
                 "shortAllowed": {"type": "boolean"},
                 "benchmark": {"type": "string", "minLength": 1},
+                "riskPolicy": {
+                    "anyOf": [
+                        {"type": "null"},
+                        {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "required": [
+                                "method",
+                                "annualizedVolatilityCeiling",
+                                "covarianceWindow",
+                                "minimumObservations",
+                                "annualizationPeriods",
+                                "scaleUp",
+                            ],
+                            "properties": {
+                                "method": {"type": "string", "minLength": 1},
+                                "annualizedVolatilityCeiling": {
+                                    "type": "number",
+                                    "exclusiveMinimum": 0,
+                                },
+                                "covarianceWindow": {
+                                    "type": "integer",
+                                    "minimum": 2,
+                                },
+                                "minimumObservations": {
+                                    "type": "integer",
+                                    "minimum": 2,
+                                },
+                                "annualizationPeriods": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                },
+                                "scaleUp": {"const": False},
+                            },
+                        },
+                    ]
+                },
             },
         },
         "selection": {
@@ -1693,6 +1987,12 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 "oneWayTurnover",
                 "cost",
                 "rebalanced",
+                "riskGovernorStatus",
+                "riskGovernorScale",
+                "riskForecastPreAnnualized",
+                "riskForecastPostAnnualized",
+                "riskVolatilityCeilingAnnualized",
+                "riskEstimationObservations",
                 "positions",
             ],
             "properties": {
@@ -1704,6 +2004,31 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 "oneWayTurnover": {"type": "number", "minimum": 0},
                 "cost": {"type": "number", "minimum": 0},
                 "rebalanced": {"type": "boolean"},
+                "riskGovernorStatus": {
+                    "type": "string",
+                    "minLength": 1,
+                },
+                "riskGovernorScale": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                },
+                "riskForecastPreAnnualized": {
+                    "type": "number",
+                    "minimum": 0,
+                },
+                "riskForecastPostAnnualized": {
+                    "type": "number",
+                    "minimum": 0,
+                },
+                "riskVolatilityCeilingAnnualized": {
+                    "type": "number",
+                    "minimum": 0,
+                },
+                "riskEstimationObservations": {
+                    "type": "integer",
+                    "minimum": 0,
+                },
                 "positions": {
                     "type": "array",
                     "minItems": 1,
@@ -1726,6 +2051,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 "test": {"type": "object"},
             },
         },
+        "riskGovernor": {"type": "object"},
         "attribution": {
             "type": "object",
             "additionalProperties": False,

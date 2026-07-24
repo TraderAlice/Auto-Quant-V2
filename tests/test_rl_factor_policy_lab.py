@@ -7,11 +7,18 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
+from autoquant.mandates import build_portfolio_mandate
+from autoquant.project_templates.ohlcv_portfolio_lab.portfolio_core import (
+    construct_signal_policy,
+)
 from autoquant.project_templates.ohlcv_rl_factor_lab.rl_core import (
     ACTIONS,
     BASE_STATE_COLUMNS,
+    EXPERTS,
+    build_action_targets,
     fixed_selector,
     rollout_policy,
 )
@@ -97,6 +104,77 @@ def make_rl_lab(directory: str | Path):
 
 
 class RlEnvironmentTests(unittest.TestCase):
+    def test_every_rl_action_inherits_the_fixed_portfolio_risk_governor(
+        self,
+    ) -> None:
+        dates = pd.bdate_range("2026-01-01", periods=100)
+        columns = list("ABCDE")
+        time = np.arange(len(dates), dtype=float)
+        closes = pd.DataFrame(
+            {
+                asset: 100.0
+                * np.exp(
+                    np.cumsum(
+                        0.001
+                        + 0.06
+                        * np.sin(
+                            time / (2.0 + number * 0.35) + number
+                        )
+                    )
+                )
+                for number, asset in enumerate(columns)
+            },
+            index=dates,
+        )
+        base = np.tile(
+            np.arange(len(columns), dtype=float),
+            (len(dates), 1),
+        )
+        factor_panels = {
+            expert: pd.DataFrame(
+                np.roll(base, shift=number, axis=1),
+                index=dates,
+                columns=columns,
+            )
+            for number, expert in enumerate(EXPERTS)
+        }
+        mandate = build_portfolio_mandate(None, columns)
+
+        action_targets = build_action_targets(
+            factor_panels,
+            closes,
+            mandate=mandate,
+        )
+        expected_candidate = construct_signal_policy(
+            factor_panels["candidate"],
+            closes,
+            mandate=mandate,
+        ).targets
+        ungoverned_candidate = construct_signal_policy(
+            factor_panels["candidate"],
+            closes,
+            mandate=mandate,
+            apply_risk_governor=False,
+        ).targets
+
+        self.assertEqual(set(action_targets), set(ACTIONS))
+        pd.testing.assert_frame_equal(
+            action_targets["candidate"],
+            expected_candidate,
+        )
+        self.assertTrue(
+            (
+                action_targets["candidate"].abs().sum(axis=1)
+                <= ungoverned_candidate.abs().sum(axis=1) + 1e-12
+            ).all()
+        )
+        self.assertTrue(
+            (
+                action_targets["candidate"].abs().sum(axis=1)
+                < ungoverned_candidate.abs().sum(axis=1) - 1e-12
+            ).any()
+        )
+
     def test_action_reward_begins_after_the_decision_close(self) -> None:
         dates = pd.bdate_range("2026-01-01", periods=26)
         columns = ["A", "B"]

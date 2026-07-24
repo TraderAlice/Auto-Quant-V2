@@ -5,6 +5,7 @@ Status: active design.
 Related: [[docs/design/study-run-evidence]],
 [[docs/design/research-program-orchestration]],
 [[docs/design/request-bound-portfolio-mandates]],
+[[docs/design/portfolio-risk-governor]],
 [[docs/design/rl-factor-policy-lab]], and
 [[docs/design/research-selection-integrity]].
 
@@ -99,8 +100,9 @@ separate facts.
 
 The canonical desk verifies that the `factors/**` subset of the RL dependency
 closure equals the current Factor Study source identity. It separately
-verifies that Portfolio and RL bind the same request-derived mandate. A changed
-factor or mandate makes prior RL Runs stale.
+verifies that Portfolio and RL bind the same request-derived position and risk
+mandate, including the exact covariance window, volatility ceiling, and
+scale-up prohibition. A changed factor or mandate makes prior RL Runs stale.
 
 Factor/Portfolio Sessions write `factors/**`; an RL Session reads the same
 surface as fixed dependency. Simultaneous activity is a coordination conflict
@@ -118,3 +120,5 @@ Session.
 5. Validation selects; test remains visible audit evidence.
 6. Factor and RL evidence remain distinct and never collapse into one score.
 7. Targets and actions remain research evidence with no trading authority.
+8. Every RL action sleeve inherits the mandate risk governor before selection;
+   editable encoder code cannot alter or bypass it.

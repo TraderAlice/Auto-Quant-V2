@@ -77,8 +77,13 @@ The V2 foundation now implements:
   capped target weights, drift-aware execution, reconciled contribution/risk
   attribution, and policy/cost/delay stresses without trading authority.
 - one request-bound Portfolio Mandate that derives tradable/context assets,
-  permitted direction, cash, gross/net, cap, and benchmark from caller intent
-  and is shared exactly by Portfolio and governed RL.
+  permitted direction, cash, gross/net, cap, benchmark, and one-sided
+  covariance risk policy from caller intent and is shared exactly by Portfolio
+  and governed RL.
+- one causal portfolio risk governor that forecasts annualized volatility from
+  trailing returns through the decision close, scales exposure down above the
+  fixed ceiling, and publishes pre/post sizing evidence without adding
+  leverage or trading authority.
 - one governed RL Factor-Policy Lab that confines Agent changes to a causal
   state encoder while the Judge fixes factor-mixture actions, Q-learning,
   rewards, portfolio accounting, folds, seeds, baselines, and model evidence.
@@ -104,6 +109,8 @@ Bounded immutable Factor artifact projection is defined in
 [[docs/design/factor-evidence-explorer]].
 Mechanical signal state and attribution are defined in
 [[docs/design/signal-policy-and-attribution]].
+Portfolio-level covariance forecasting and scale-down semantics are defined in
+[[docs/design/portfolio-risk-governor]].
 Request-bound position authority is defined in
 [[docs/design/request-bound-portfolio-mandates]].
 Bounded immutable Portfolio artifact projection is defined in

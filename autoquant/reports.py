@@ -680,9 +680,21 @@ def _render_markdown(report: dict[str, Any]) -> str:
                 f"- Shorting allowed / benchmark: "
                 f"`{construction['shortAllowed']}` / "
                 f"`{construction['benchmark']}`",
-                "",
             ]
         )
+        risk_policy = construction.get("riskPolicy")
+        if isinstance(risk_policy, dict):
+            lines.extend(
+                [
+                    f"- Risk governor: `{risk_policy['method']}`",
+                    f"- Annualized volatility ceiling / covariance history: "
+                    f"`{risk_policy['annualizedVolatilityCeiling']}` / "
+                    f"`{risk_policy['covarianceWindow']}` bars "
+                    f"(`{risk_policy['minimumObservations']}` required)",
+                    f"- Scale-up permitted: `{risk_policy['scaleUp']}`",
+                ]
+            )
+        lines.append("")
     lines.extend(
         [
             "## Research selection integrity",

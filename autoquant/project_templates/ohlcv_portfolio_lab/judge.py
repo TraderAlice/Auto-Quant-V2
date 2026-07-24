@@ -496,6 +496,71 @@ def _evaluate() -> tuple[
                 - governed_implementation["annualized_one_way_turnover"]
             ),
         }
+    ungoverned = construct_signal_policy(
+        factor_panel,
+        close_panel,
+        mandate=mandate,
+        apply_risk_governor=False,
+    )
+    ungoverned_simulation = simulate_targets(
+        ungoverned.targets,
+        close_panel,
+        volume_panel,
+        mandate=mandate,
+    )
+    risk_governor_comparison: dict[str, Any] = {}
+    for split in ("validation", "test"):
+        index = splits[split]
+        governed_net = portfolio_metrics[split]["net"]
+        ungoverned_net = performance_metrics(
+            ungoverned_simulation.daily.loc[index, "net_return"],
+            ungoverned_simulation.daily.loc[index, "benchmark_return"],
+        )
+        governed_implementation = implementation[split]
+        ungoverned_implementation = implementation_metrics(
+            ungoverned_simulation,
+            index,
+        )
+        risk_governor_comparison[split] = {
+            "governed": {
+                "net_sharpe": governed_net["sharpe"],
+                "annual_volatility": governed_net["annual_volatility"],
+                "maximum_drawdown": governed_net["maximum_drawdown"],
+                "average_gross_exposure": governed_implementation[
+                    "average_gross_exposure"
+                ],
+                "risk_limited_dates": policy_metrics[split][
+                    "risk_limited_dates"
+                ],
+                "risk_limited_rate": policy_metrics[split][
+                    "risk_limited_rate"
+                ],
+                "average_active_risk_scale": policy_metrics[split][
+                    "average_active_risk_scale"
+                ],
+                "maximum_pre_governor_annualized_volatility": policy_metrics[
+                    split
+                ]["maximum_pre_governor_annualized_volatility"],
+                "maximum_post_governor_annualized_volatility": policy_metrics[
+                    split
+                ]["maximum_post_governor_annualized_volatility"],
+            },
+            "ungoverned_diagnostic": {
+                "net_sharpe": ungoverned_net["sharpe"],
+                "annual_volatility": ungoverned_net["annual_volatility"],
+                "maximum_drawdown": ungoverned_net["maximum_drawdown"],
+                "average_gross_exposure": ungoverned_implementation[
+                    "average_gross_exposure"
+                ],
+            },
+            "net_sharpe_delta": (
+                governed_net["sharpe"] - ungoverned_net["sharpe"]
+            ),
+            "annual_volatility_delta": (
+                governed_net["annual_volatility"]
+                - ungoverned_net["annual_volatility"]
+            ),
+        }
     test_index = splits["test"]
     contribution = (
         base.weights.loc[test_index]
@@ -532,6 +597,12 @@ def _evaluate() -> tuple[
         "robustness": {
             "cost_stress": cost_stress,
             "extra_delay": delay_stress,
+            "risk_governor": {
+                "policy": mandate["construction"]["riskPolicy"],
+                "selectionAuthority": "diagnostic-only",
+                "validation": risk_governor_comparison["validation"],
+                "test": risk_governor_comparison["test"],
+            },
             "test_annualized_gross_contribution": per_asset_contribution,
         },
         "constraint_audit": audit,
@@ -562,7 +633,8 @@ def _evaluate() -> tuple[
             "return": "close t to close t+1",
             "factorTransform": (
                 "cross-sectional percentile state machine with inverse-volatility "
-                "conviction sizing"
+                "conviction sizing followed by a causal one-sided portfolio "
+                "volatility ceiling"
             ),
             "signalState": (
                 "long entry/exit 0.75/0.55; short entry/exit 0.25/0.45; "
@@ -571,7 +643,12 @@ def _evaluate() -> tuple[
             "portfolio": (
                 f"{mandate['construction']['family']} over authorized tradable "
                 "assets; gross limit 1.0; max abs weight 0.30; unused "
-                "directional budget remains cash"
+                "directional budget and risk-governor reductions remain cash"
+            ),
+            "riskGovernor": (
+                "60-bar trailing covariance through close t; minimum 20 "
+                "observations; annualized volatility ceiling 0.15; scale-down "
+                "only"
             ),
             "noTrade": "retain drifted book below 0.05 one-way turnover",
             "turnover": "0.5 * sum(abs(trade weight))",
@@ -600,6 +677,7 @@ def _evaluate() -> tuple[
             "shortEntryPercentile": SHORT_ENTRY_PERCENTILE,
             "riskCovarianceWindow": RISK_COVARIANCE_WINDOW,
             "riskCovarianceMinimum": RISK_COVARIANCE_MINIMUM,
+            "riskPolicy": mandate["construction"]["riskPolicy"],
         },
         "causalityAuditCuts": causality_cuts,
         "splitProtocol": split_protocol,

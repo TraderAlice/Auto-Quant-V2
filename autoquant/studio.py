@@ -324,6 +324,9 @@ def _portfolio_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
                     "contextAssets": metrics["portfolio_mandate"][
                         "contextAssets"
                     ],
+                    "riskPolicy": metrics["portfolio_mandate"][
+                        "construction"
+                    ]["riskPolicy"],
                 }
                 if isinstance(metrics.get("portfolio_mandate"), dict)
                 else None
@@ -555,6 +558,9 @@ def _rl_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
                     "contextAssets": metrics["portfolio_mandate"][
                         "contextAssets"
                     ],
+                    "riskPolicy": metrics["portfolio_mandate"][
+                        "construction"
+                    ]["riskPolicy"],
                 }
                 if isinstance(metrics.get("portfolio_mandate"), dict)
                 else None

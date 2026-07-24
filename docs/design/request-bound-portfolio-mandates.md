@@ -36,6 +36,8 @@ The strict `autoquant-portfolio-mandate` records:
 - research, tradable, and context-only asset sets;
 - construction family, gross limit, net rule, per-asset cap, cash permission,
   short permission, and benchmark;
+- fixed trailing-covariance method, annualized volatility ceiling, lookback,
+  minimum history, annualization, and no-scale-up rule;
 - `quantitative-decision-support` authority and `tradingAuthority: none`.
 
 The file is a fixed Study dependency, not candidate-editable source and not
@@ -69,8 +71,8 @@ cannot become positions or implicit hedges without caller intent.
 ## Mechanical construction
 
 All families share the same causal percentile, hysteresis, conviction,
-inverse-volatility strength, per-asset cap, drift, no-trade band, and
-next-bar accounting.
+inverse-volatility strength, per-asset cap, one-sided covariance risk
+governor, drift, no-trade band, and next-bar accounting.
 
 Directional families modify only permitted position state and budget:
 
@@ -152,7 +154,8 @@ inventory.
 
 - V1 fixes gross limit `1.0`, per-asset cap `0.30`, and cash permission.
 - The request does not yet express named hedge assets, sector bounds,
-  covariance budgets, borrow availability, futures margin, or leverage.
+  caller-specific risk budgets, borrow availability, futures margin, or
+  leverage.
 - Cash is an unused-gross-budget field, not financing or collateral
   accounting.
 - Position permissions are Project-local and do not represent OpenAlice

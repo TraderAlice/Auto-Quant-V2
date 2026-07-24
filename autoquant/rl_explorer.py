@@ -1098,6 +1098,7 @@ def load_rl_diagnostics(
             "cashAllowed": True,
             "shortAllowed": True,
             "benchmark": "equal-weight-long-research-universe",
+            "riskPolicy": None,
         }
     else:
         if not isinstance(raw_mandate, dict) or not isinstance(
@@ -1158,6 +1159,7 @@ def load_rl_diagnostics(
             "cashAllowed": construction["cashAllowed"],
             "shortAllowed": construction["shortAllowed"],
             "benchmark": construction["benchmark"],
+            "riskPolicy": construction["riskPolicy"],
         }
     mean_validation_turnover = sum(
         item["validation"]["meanOneWayTurnover"] for item in trials
@@ -1261,7 +1263,8 @@ def load_rl_diagnostics(
                 "evidence only; repeated inspection consumes holdout value. "
                 "The candidate sleeve is an exact content-locked Study "
                 "dependency. Every action sleeve shares the exact fixed "
-                "Portfolio Mandate; all actions carry no trading authority."
+                "Portfolio Mandate and causal one-sided risk governor; all "
+                "actions carry no trading authority."
             )
             if has_candidate_fusion
             else (

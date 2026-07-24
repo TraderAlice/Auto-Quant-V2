@@ -85,9 +85,11 @@ side under the same cap. Unused capacity remains cash; it never creates the
 opposite side. Context-only assets receive zero strength and target.
 
 This is inverse-volatility conviction sizing under diagonal risk assumptions,
-not covariance optimization or equal risk contribution. The ledger discloses
-each asset's conviction, volatility, raw strength, target weight, and
-diagonal-risk-budget share.
+not covariance optimization or equal risk contribution. The raw allocation is
+then passed through the fixed one-sided covariance governor defined in
+[[docs/design/portfolio-risk-governor]]. The ledger discloses each asset's
+conviction, volatility, raw strength, pre-governor target, governed target,
+and diagonal-risk-budget share.
 
 ## Execution and decision ledger
 
@@ -104,7 +106,9 @@ Each asset/date ledger row contains:
 - mandate id, tradability, permitted construction family, and allocation
   status;
 - conviction, volatility, risk strength, allocation status, and proposed
-  target;
+  target before/after the governor;
+- covariance observations, pre/post annualized forecast, fixed ceiling,
+  scale, and governor status;
 - drifted pre-trade weight, executed weight, trade, target action, execution
   action, and execution reason;
 - next-bar asset return, gross contribution, allocated linear cost, and net

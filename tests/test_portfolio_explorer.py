@@ -62,6 +62,15 @@ class PortfolioDecisionExplorerTests(unittest.TestCase):
                 "autoquant-portfolio-diagnostics",
             )
             self.assertEqual(diagnostics["run"]["inputHash"], run.result["inputHash"])
+            self.assertTrue(diagnostics["mandate"]["available"])
+            self.assertFalse(
+                diagnostics["mandate"]["riskPolicy"]["scaleUp"]
+            )
+            self.assertTrue(diagnostics["riskGovernor"]["available"])
+            self.assertEqual(
+                diagnostics["riskGovernor"]["selectionAuthority"],
+                "diagnostic-only",
+            )
             self.assertEqual(diagnostics["path"]["sampledRows"], 64)
             self.assertGreater(diagnostics["path"]["totalRows"], 64)
             sampled_dates = {
@@ -95,6 +104,11 @@ class PortfolioDecisionExplorerTests(unittest.TestCase):
             )
             latest = diagnostics["currentBook"]
             self.assertEqual(latest["timestamp"], daily[-1]["timestamp"])
+            self.assertLessEqual(latest["riskGovernorScale"], 1.0)
+            self.assertLessEqual(
+                latest["riskForecastPostAnnualized"],
+                latest["riskVolatilityCeilingAnnualized"] + 1e-12,
+            )
             self.assertEqual(len(latest["positions"]), 6)
             self.assertAlmostEqual(
                 sum(abs(item["executedWeight"]) for item in latest["positions"]),
@@ -118,6 +132,31 @@ class PortfolioDecisionExplorerTests(unittest.TestCase):
                 for item in diagnostics["recentTransitions"]
             ]
             self.assertEqual(transition_order, sorted(transition_order))
+
+    def test_rehashed_risk_governor_mismatch_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, project, run = make_lab(Path(directory))
+            path = run.root_dir / "artifacts" / "portfolio-decisions.csv"
+            with path.open(encoding="utf-8", newline="") as handle:
+                rows = list(csv.DictReader(handle))
+                fields = list(rows[0])
+            active = next(
+                row
+                for row in rows
+                if abs(float(row["pre_governor_target_weight"])) > 1e-12
+            )
+            active["risk_governor_scale"] = "0.5"
+            with path.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=fields)
+                writer.writeheader()
+                writer.writerows(rows)
+            rehash_run(run.root_dir)
+
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "Risk-governor weights or volatility forecasts do not reconcile",
+            ):
+                load_portfolio_diagnostics(project, run.result["id"])
 
     def test_point_and_artifact_size_limits_are_structured(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

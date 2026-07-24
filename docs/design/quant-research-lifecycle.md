@@ -159,6 +159,7 @@ causal factor values at bar t
 → causal conviction and inverse-volatility sizing
 → long-only or long/short budget
 → per-asset, gross, net, leverage, and concentration constraints
+→ causal portfolio covariance forecast and one-sided volatility ceiling
 → target weights
 → optional tolerance/no-trade bands
 → rebalance after a declared lag
@@ -184,11 +185,13 @@ the caller's direction to requested-assets-only long/cash, short/cash, or
 dollar-neutral construction; wider peer data remains context-only. Synthetic
 fixtures explicitly retain the historical all-universe research-neutral
 contract. The exact ledger connects mandate, tradability, signal intent,
-proposed target, pre-trade drift, executed weight, trade, return, cost,
-regime, and component variance contribution. The executable details are
+pre-governor/governed target, covariance forecast/scale, pre-trade drift,
+executed weight, trade, return, cost, regime, and component variance
+contribution. The executable details are
 [[docs/design/request-bound-portfolio-mandates]],
 [[docs/design/portfolio-construction-lab]], and
-[[docs/design/signal-policy-and-attribution]].
+[[docs/design/signal-policy-and-attribution]], and
+[[docs/design/portfolio-risk-governor]].
 
 Tolerance bands are a first-class implementation choice: research on
 rebalancing frames the problem as tracking-error versus transaction-cost

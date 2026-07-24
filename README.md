@@ -52,8 +52,10 @@ source path, preserves provider/calendar/adjustment claims, hashes source and
 Project-local bytes, and transactionally creates one coordinated Project with
 Factor, Portfolio, and governed RL Studies. It also derives one fixed
 Portfolio Mandate: requested assets and direction define position authority,
-while other panel assets remain research context. It does not download data or
-silently start research. `aq project program` returns verified lane status,
+while other panel assets remain research context. The Mandate also fixes a
+causal one-sided covariance volatility ceiling shared by Portfolio and RL. It
+does not download data or silently start research. `aq project program`
+returns verified lane status,
 shared-source conflicts, evidence currentness, and the exact recommended
 headless command. The narrow single-lane templates remain available when a
 caller intentionally selects one method.
@@ -71,8 +73,10 @@ The `ohlcv-portfolio-lab` starter keeps the same ordinary pandas candidate API
 but fixes the downstream research contract: causal percentile
 entry/hold/exit/reversal state, inverse-volatility conviction sizing,
 request-mapped long/cash, short/cash, or dollar-neutral capped targets,
-drift-aware rebalance, turnover, costs, volume participation, and
-dataset-fixed purged splits. Context-only assets participate in research
+then a trailing-covariance portfolio forecast that only scales exposure down
+above a fixed 15% annualized ceiling. It also fixes drift-aware rebalance,
+turnover, costs, volume participation, and dataset-fixed purged splits.
+Context-only assets participate in research
 ranking but never become positions. Its decision ledger reconciles each
 asset's mandate, proposed/executed weight, trade, return, cost, regime, and
 component risk contribution; a no-hysteresis baseline shows whether intent
@@ -97,7 +101,8 @@ a pure state encoder. The Judge audits the factor dependency and fixes
 Q-learning, actions, next-bar reward, portfolio accounting, two expanding
 folds, three seeds, and fixed-factor/contextual-ridge baselines. Each action is
 a governed stateful factor sleeve using the same request-bound Portfolio
-Mandate and mechanical signal policy. Evidence reports both
+Mandate, mechanical signal policy, and one-sided risk governor. Evidence
+reports both
 RL-minus-best-baseline and RL-minus-candidate-factor.
 Validation is the promotion metric; test evidence is reported separately with
 an explicit repeated-inspection warning. A higher RL score does not count as
@@ -240,7 +245,8 @@ Researcher turns, verdict trajectories, lane Report/Dossier readiness, recent
 evidence, and fixed Studies. For the latest successful Portfolio Run it also
 shows the request-bound mandate, authorized/context-only assets, bounded
 verified growth/drawdown, exposure/cash/turnover, the historical mechanical
-book, signal transitions, and split attribution. It is read-only, exposes
+book, raw/governed targets, portfolio-volatility forecast/scale, signal
+transitions, and split attribution. It is read-only, exposes
 copy-only exact CLI commands, and uses the same verified Core loaders as the
 CLI. A specific historical Run is available through `aq run factor <path>
 --run ID --json`, `aq run portfolio <path> --run ID --json`, or

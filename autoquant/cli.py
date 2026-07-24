@@ -1516,6 +1516,11 @@ def _run_portfolio(args: argparse.Namespace) -> CommandResult:
             f"{summary['maximumDrawdownAt']}\n"
             f"Latest historical book: {book['timestamp']} · "
             f"gross {book['grossExposure']} · net {book['netExposure']}\n"
+            f"Risk governor: {book['riskGovernorStatus']} · scale "
+            f"{book['riskGovernorScale']} · annualized forecast "
+            f"{book['riskForecastPreAnnualized']} → "
+            f"{book['riskForecastPostAnnualized']} · ceiling "
+            f"{book['riskVolatilityCeilingAnnualized']}\n"
         ),
         project_context(project),
         [

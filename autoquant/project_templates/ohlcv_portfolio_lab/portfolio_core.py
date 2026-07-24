@@ -119,6 +119,7 @@ def _resolve_mandate(
             "tradable_assets": universe,
             "context_assets": [],
             "benchmark": "equal-weight-long-research-universe",
+            "risk_policy": None,
         }
     source = mandate.get("source")
     construction = mandate.get("construction")
@@ -153,6 +154,7 @@ def _resolve_mandate(
     gross_limit = construction.get("grossLimit")
     max_abs_weight = construction.get("maxAbsWeight")
     benchmark = construction.get("benchmark")
+    risk_policy = construction.get("riskPolicy")
     if (
         direction
         not in {"long", "short", "long-short", "relative-value", "research-only"}
@@ -170,6 +172,41 @@ def _resolve_mandate(
             "equal-weight-long-tradable",
             "equal-weight-short-tradable",
         }
+        or not isinstance(risk_policy, dict)
+        or set(risk_policy)
+        != {
+            "method",
+            "annualizedVolatilityCeiling",
+            "covarianceWindow",
+            "minimumObservations",
+            "annualizationPeriods",
+            "scaleUp",
+        }
+        or risk_policy.get("method")
+        != "trailing-covariance-volatility-ceiling-v1"
+        or not isinstance(
+            risk_policy.get("annualizedVolatilityCeiling"),
+            (int, float),
+        )
+        or isinstance(
+            risk_policy.get("annualizedVolatilityCeiling"),
+            bool,
+        )
+        or not 0
+        < float(risk_policy["annualizedVolatilityCeiling"])
+        <= 1
+        or not isinstance(risk_policy.get("covarianceWindow"), int)
+        or isinstance(risk_policy.get("covarianceWindow"), bool)
+        or risk_policy["covarianceWindow"] < 2
+        or not isinstance(risk_policy.get("minimumObservations"), int)
+        or isinstance(risk_policy.get("minimumObservations"), bool)
+        or not 2
+        <= risk_policy["minimumObservations"]
+        <= risk_policy["covarianceWindow"]
+        or not isinstance(risk_policy.get("annualizationPeriods"), int)
+        or isinstance(risk_policy.get("annualizationPeriods"), bool)
+        or risk_policy["annualizationPeriods"] < 1
+        or risk_policy.get("scaleUp") is not False
     ):
         raise PortfolioFailure(
             "mandate.construction",
@@ -184,6 +221,121 @@ def _resolve_mandate(
         "tradable_assets": list(tradable),
         "context_assets": list(context),
         "benchmark": str(benchmark),
+        "risk_policy": {
+            "method": str(risk_policy["method"]),
+            "annualized_volatility_ceiling": float(
+                risk_policy["annualizedVolatilityCeiling"]
+            ),
+            "covariance_window": int(risk_policy["covarianceWindow"]),
+            "minimum_observations": int(
+                risk_policy["minimumObservations"]
+            ),
+            "annualization_periods": int(
+                risk_policy["annualizationPeriods"]
+            ),
+            "scale_up": False,
+        },
+    }
+
+
+def _govern_portfolio_risk(
+    raw_targets: pd.Series,
+    close_returns: pd.DataFrame,
+    timestamp: object,
+    resolved: dict[str, object],
+    *,
+    enabled: bool,
+) -> tuple[pd.Series, dict[str, float | int | str]]:
+    """Apply one causal, one-sided portfolio-volatility ceiling."""
+
+    gross = float(raw_targets.abs().sum())
+    policy = resolved["risk_policy"]
+    if gross <= 1e-12:
+        return raw_targets.copy(), {
+            "status": "flat",
+            "observations": 0,
+            "pre_annualized_volatility": 0.0,
+            "post_annualized_volatility": 0.0,
+            "annualized_volatility_ceiling": (
+                float(policy["annualized_volatility_ceiling"])
+                if isinstance(policy, dict)
+                else 0.0
+            ),
+            "scale": 1.0,
+        }
+    if policy is None:
+        return raw_targets.copy(), {
+            "status": "legacy_none",
+            "observations": 0,
+            "pre_annualized_volatility": 0.0,
+            "post_annualized_volatility": 0.0,
+            "annualized_volatility_ceiling": 0.0,
+            "scale": 1.0,
+        }
+    assert isinstance(policy, dict)
+    history = (
+        close_returns.loc[:timestamp]
+        .tail(int(policy["covariance_window"]))
+        .dropna(how="any")
+    )
+    observations = int(len(history))
+    minimum = int(policy["minimum_observations"])
+    ceiling = float(policy["annualized_volatility_ceiling"])
+    if observations < minimum:
+        return raw_targets * 0.0, {
+            "status": "insufficient_history",
+            "observations": observations,
+            "pre_annualized_volatility": 0.0,
+            "post_annualized_volatility": 0.0,
+            "annualized_volatility_ceiling": ceiling,
+            "scale": 0.0,
+        }
+    covariance = history.cov(ddof=0).reindex(
+        index=raw_targets.index,
+        columns=raw_targets.index,
+    )
+    if covariance.isna().any().any():
+        return raw_targets * 0.0, {
+            "status": "invalid_covariance",
+            "observations": observations,
+            "pre_annualized_volatility": 0.0,
+            "post_annualized_volatility": 0.0,
+            "annualized_volatility_ceiling": ceiling,
+            "scale": 0.0,
+        }
+    vector = raw_targets.to_numpy(dtype=float)
+    variance = float(vector @ covariance.to_numpy(dtype=float) @ vector)
+    if not math.isfinite(variance) or variance < -1e-12:
+        return raw_targets * 0.0, {
+            "status": "invalid_covariance",
+            "observations": observations,
+            "pre_annualized_volatility": 0.0,
+            "post_annualized_volatility": 0.0,
+            "annualized_volatility_ceiling": ceiling,
+            "scale": 0.0,
+        }
+    forecast = math.sqrt(
+        max(variance, 0.0) * int(policy["annualization_periods"])
+    )
+    scale = (
+        min(1.0, ceiling / forecast)
+        if enabled and forecast > 1e-12
+        else 1.0
+    )
+    governed = raw_targets * scale
+    return governed, {
+        "status": (
+            "diagnostic_disabled"
+            if not enabled
+            else "volatility_limited"
+            if scale < 1.0 - 1e-12
+            else "within_ceiling"
+        ),
+        "observations": observations,
+        "pre_annualized_volatility": forecast,
+        "post_annualized_volatility": forecast * scale,
+        "annualized_volatility_ceiling": ceiling,
+        "scale": scale,
     }
 
 
@@ -368,6 +520,7 @@ def construct_signal_policy(
     short_exit: float = SHORT_EXIT_PERCENTILE,
     short_entry: float = SHORT_ENTRY_PERCENTILE,
     mandate: dict[str, object] | None = None,
+    apply_risk_governor: bool = True,
 ) -> SignalConstruction:
     """Turn causal factor ranks into persistent intent and target weights."""
 
@@ -546,6 +699,14 @@ def construct_signal_policy(
                 dtype=float,
             )
             allocation_status = "invalid_mandate"
+        pre_governor_targets = current_targets.copy()
+        current_targets, risk_governor = _govern_portfolio_risk(
+            pre_governor_targets,
+            returns,
+            timestamp,
+            resolved,
+            enabled=apply_risk_governor,
+        )
         diagonal_risk = current_targets.abs() * row_volatility.fillna(0.0)
         diagonal_total = float(diagonal_risk.sum())
         diagonal_share = (
@@ -591,6 +752,23 @@ def construct_signal_policy(
                         if str(asset) in tradable_assets
                         else "context_only"
                     ),
+                    "pre_governor_target_weight": float(
+                        pre_governor_targets.loc[asset]
+                    ),
+                    "risk_governor_status": str(risk_governor["status"]),
+                    "risk_estimation_observations": int(
+                        risk_governor["observations"]
+                    ),
+                    "risk_forecast_pre_annualized": float(
+                        risk_governor["pre_annualized_volatility"]
+                    ),
+                    "risk_forecast_post_annualized": float(
+                        risk_governor["post_annualized_volatility"]
+                    ),
+                    "risk_volatility_ceiling_annualized": float(
+                        risk_governor["annualized_volatility_ceiling"]
+                    ),
+                    "risk_governor_scale": float(risk_governor["scale"]),
                     "prior_target_weight": previous_target,
                     "proposed_target_weight": target,
                     "target_delta": target - previous_target,
@@ -920,6 +1098,12 @@ def build_decision_ledger(
         [
             "conviction",
             "risk_strength",
+            "pre_governor_target_weight",
+            "risk_estimation_observations",
+            "risk_forecast_pre_annualized",
+            "risk_forecast_post_annualized",
+            "risk_volatility_ceiling_annualized",
+            "risk_governor_scale",
             "prior_target_weight",
             "proposed_target_weight",
             "target_delta",
@@ -974,6 +1158,20 @@ def signal_policy_metrics(
         str(key): int(value)
         for key, value in selected["allocation_status"].value_counts().items()
     }
+    risk_by_timestamp = (
+        selected.groupby("timestamp", sort=True)
+        .agg(
+            status=("risk_governor_status", "first"),
+            scale=("risk_governor_scale", "first"),
+            observations=("risk_estimation_observations", "first"),
+            pre=("risk_forecast_pre_annualized", "first"),
+            post=("risk_forecast_post_annualized", "first"),
+            ceiling=("risk_volatility_ceiling_annualized", "first"),
+        )
+    )
+    active_risk = risk_by_timestamp[
+        ~risk_by_timestamp["status"].isin({"flat", "legacy_none"})
+    ]
     state_counts = (
         selected.groupby("timestamp")["signal_state"]
         .value_counts()
@@ -1009,6 +1207,32 @@ def signal_policy_metrics(
         "signal_event_counts": events,
         "target_action_counts": actions,
         "allocation_status_counts": allocation,
+        "risk_governor_status_counts": {
+            str(key): int(value)
+            for key, value in risk_by_timestamp["status"].value_counts().items()
+        },
+        "risk_limited_dates": int(
+            risk_by_timestamp["status"].eq("volatility_limited").sum()
+        ),
+        "risk_limited_rate": float(
+            risk_by_timestamp["status"].eq("volatility_limited").mean()
+        ),
+        "risk_unavailable_dates": int(
+            risk_by_timestamp["status"]
+            .isin({"insufficient_history", "invalid_covariance"})
+            .sum()
+        ),
+        "average_active_risk_scale": (
+            float(active_risk["scale"].mean())
+            if not active_risk.empty
+            else 1.0
+        ),
+        "maximum_pre_governor_annualized_volatility": float(
+            risk_by_timestamp["pre"].max()
+        ),
+        "maximum_post_governor_annualized_volatility": float(
+            risk_by_timestamp["post"].max()
+        ),
         "average_long_intents": (
             float(state_counts[1].mean()) if 1 in state_counts else 0.0
         ),
@@ -1387,7 +1611,11 @@ def constraint_audit(
     gross = active.abs().sum(axis=1)
     net = active.sum(axis=1)
     if family == "dollar-neutral":
-        gross_error = float((gross - gross_target).abs().max())
+        gross_error = (
+            float((gross - gross_target).clip(lower=0.0).max())
+            if resolved["risk_policy"] is not None
+            else float((gross - gross_target).abs().max())
+        )
         net_rule_error = float(net.abs().max())
         opposite_exposure = 0.0
     elif family == "long-cash":

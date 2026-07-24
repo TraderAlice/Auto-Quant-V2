@@ -66,10 +66,12 @@ creates a complete, self-contained pandas factor research Project with local
 synthetic OHLCV, content-locked Study, fixed no-lookahead Judge, and executable
 next actions. `ohlcv-portfolio-lab` uses the same causal candidate API and
 adds fixed constrained target construction, drift-aware accounting,
-transaction costs, layered professional metrics, and cost/delay stresses. New
-Portfolio and RL Projects bind a strict `portfolio-mandate`: delegated intake
-authorizes requested assets and direction while retaining other panel assets
-as research context only.
+transaction costs, layered professional metrics, and cost/delay/risk-governor
+stresses. New Portfolio and RL Projects bind a strict `portfolio-mandate`:
+delegated intake authorizes requested assets and direction while retaining
+other panel assets as research context only. The same Mandate fixes a causal
+60-bar covariance forecast and a 15% annualized volatility ceiling that may
+scale targets down but never up.
 `ohlcv-rl-factor-lab` adds a deterministic causal state encoder surface over
 a content-locked candidate-factor sleeve plus fixed reference actions,
 Q-learning, folds, seeds, rewards, portfolio accounting, and simple baselines.
@@ -150,7 +152,9 @@ Portfolio Lab Run. Core verifies the immutable Run and its report, daily path,
 target weights, executed weights, and per-asset decision ledger before
 returning compounded gross/net/benchmark paths, drawdown, exposure, unused
 cash budget, turnover/cost, the latest historical mechanical book, recent
-signal transitions, validation/test attribution, and exact mandate.
+signal transitions, validation/test attribution, exact mandate, current
+pre/post volatility forecast and scale, plus governed-versus-ungoverned
+diagnostic evidence.
 `--points` defaults to 180 and is bounded to 40–400; full history is
 reconciled before deterministic sampling. The operation has no live account
 or trading authority.
@@ -172,7 +176,8 @@ a bounded action path with exact trial, training, and model evidence.
 Validation advantage versus each fold's fixed validation-selected baseline is
 the value-add test. Test remains visible audit only, failed seeds cannot be
 hidden, every action must pass the shared Portfolio Mandate audit, and
-factor-mixture actions carry no trading authority.
+the shared causal risk governor cannot be bypassed by the editable encoder.
+Factor-mixture actions carry no trading authority.
 
 A failed Run is a successful artifact-creation operation whose RunResult has
 `status: failed`; it retains errors and logs. A CLI error means trustworthy Run

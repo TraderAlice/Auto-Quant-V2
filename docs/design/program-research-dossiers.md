@@ -5,6 +5,7 @@ Status: implemented.
 Related: [[docs/design/quant-research-lifecycle]],
 [[docs/design/research-program-orchestration]],
 [[docs/design/request-bound-portfolio-mandates]],
+[[docs/design/portfolio-risk-governor]],
 [[docs/design/research-selection-integrity]],
 [[docs/design/studio-observation-surface]], [[docs/PROJECT_FORMAT]], and
 [[docs/CLI]].
@@ -116,8 +117,9 @@ non-file entries are rejected.
   findings, selection integrity, and Harness;
 - leader Run id/hash, subject/source/dependency identity, objective, metrics,
   artifacts, and dataset;
-- request-derived Portfolio Mandate identity and complete frozen metrics for
-  every applicable lane;
+- request-derived Portfolio Mandate identity, including its fixed
+  covariance/volatility policy, and complete frozen metrics for every
+  applicable lane;
 - omitted optional lanes;
 - normalized cross-lane analysis and its hash;
 - OpenAlice handoff boundary.
@@ -133,7 +135,8 @@ and exact frozen projections.
 
 - caller question, decision context, assets, direction, and horizon;
 - authorized positions, context-only research assets, construction family,
-  cash/cap, and benchmark from the frozen Portfolio Mandate;
+  cash/cap, benchmark, and portfolio-risk ceiling from the frozen Portfolio
+  Mandate;
 - executive synthesis;
 - a lane evidence table;
 - lane Report summaries and selection-integrity warnings;

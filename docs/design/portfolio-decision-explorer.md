@@ -97,7 +97,10 @@ The latest realized decision date exposes, per asset:
 
 - signal state/event and conviction/risk strength;
 - mandate tradability, permitted direction, and allocation status;
-- proposed target, pre-trade, executed, and trade weights;
+- pre-governor target, governed proposed target, pre-trade, executed, and
+  trade weights;
+- covariance observations, pre/post annualized forecast, fixed ceiling,
+  scale, and governor status;
 - target/execution actions and execution reason;
 - next-bar gross/cost/net return contribution;
 - causal regime and component-variance contribution share.
@@ -130,7 +133,7 @@ portfolio-explorer claims; other verified Project categories remain visible.
 The first explorer version provides:
 
 - verified Portfolio Mandate identity, construction, authorized/context-only
-  assets, cash/cap, and benchmark;
+  assets, cash/cap, benchmark, and risk policy;
 - net/gross/benchmark growth and net drawdown;
 - exposure, unused cash budget, turnover, cost, and split context;
 - current target/executed mechanical book;

@@ -51,8 +51,9 @@ dataset-fixed purged 1/5/10-bar rank/Pearson IC, HAC inference, fixed-tertile
 behavior, OHLCV-style overlap, and asset/fold/causal-regime stability. The
 portfolio template fixes the next layer: factor normalization, target weights,
 explicit entry/hold/exit/reversal intent, gross/net and per-asset constraints,
-drift, no-trade behavior, turnover, costs, benchmark, risk/implementation
-metrics, decision attribution, and cost/delay/no-hysteresis stresses.
+drift, no-trade behavior, turnover, costs, benchmark, a causal covariance
+volatility ceiling, risk/implementation metrics, decision attribution, and
+cost/delay/no-hysteresis/risk-governor stresses.
 Candidate code remains confined to `factors/**`; `judges/**` owns every
 comparison rule. See [[docs/design/ohlcv-factor-lab]],
 [[docs/design/factor-diagnostics]], and
@@ -62,9 +63,11 @@ comparison rule. See [[docs/design/ohlcv-factor-lab]],
 New Portfolio and governed-RL Projects also contain the fixed
 `strategies/portfolio-mandate.json`. For request intake it derives the
 tradable/context asset partition, direction, cash, gross/net, cap, and
-benchmark from the canonical request; synthetic templates explicitly declare
-the legacy all-universe research-neutral contract. It is a Study dependency,
-not candidate code. See
+benchmark from the canonical request. It also fixes a 60-bar/20-observation
+covariance policy, 15% annualized volatility ceiling, 252-period
+annualization, and `scaleUp: false`; synthetic templates explicitly declare
+the all-universe research-neutral position contract with the same V2 risk
+policy. It is a Study dependency, not candidate code. See
 [[docs/design/request-bound-portfolio-mandates]].
 
 The RL template confines candidates to a pure row-level state encoder under
@@ -357,7 +360,10 @@ runs/
 
 Portfolio and RL Run metrics include the complete normalized
 `portfolio_mandate`; their artifact ledgers record the mandate id and
-per-asset tradability.
+per-asset tradability. New Portfolio decision ledgers also record the
+pre-governor target, covariance observations, pre/post annualized forecast,
+ceiling, scale, and status on every asset/date. Governed RL action sleeves bind
+the same complete Mandate before training or rollout.
 
 `manifest.json` is written last and pins every other Run file hash. Run listing
 ignores incomplete directories; opening a completed Run rejects changed,

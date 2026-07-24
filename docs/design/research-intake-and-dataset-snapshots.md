@@ -5,7 +5,8 @@ Status: V1 implemented.
 Related: [[docs/ARCHITECTURE]], [[docs/CLI]], [[docs/PROJECT_FORMAT]],
 [[docs/STUDIO]], [[docs/design/workspace-project-boundaries]],
 [[docs/design/study-run-evidence]],
-[[docs/design/request-bound-portfolio-mandates]], and
+[[docs/design/request-bound-portfolio-mandates]],
+[[docs/design/portfolio-risk-governor]], and
 [[docs/design/quant-research-lifecycle]].
 
 ## Scope
@@ -125,9 +126,12 @@ Portfolio and governed-RL intake also writes the strict fixed
 `strategies/portfolio-mandate.json`. Core derives it from the exact normalized
 request and dataset universe: requested assets are tradable, remaining assets
 are context-only, and direction determines long/cash, short/cash, or
-dollar-neutral construction and benchmark. Portfolio and RL Studies bind the
-same file as a dependency. Intake reconstructs it on every load, so request or
-mandate tampering fails rather than changing the position question silently.
+dollar-neutral construction and benchmark. The same derivation fixes a
+trailing-covariance volatility policy: 60-row window, 20-row minimum, 252
+annualization periods, 15% annualized ceiling, and no scale-up. Portfolio and
+RL Studies bind the same file as a dependency. Intake reconstructs it on every
+load, so request or mandate tampering fails rather than changing the position
+or risk question silently.
 
 Project-root `request.json` preserves the exact canonical caller request.
 Project-root `intake.json` points to and hashes the request, snapshot, and

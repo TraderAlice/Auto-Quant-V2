@@ -224,6 +224,11 @@ class ProgramResearchDossierTests(unittest.TestCase):
             self.assertIn("`long` / `long-cash`", portfolio_markdown)
             self.assertIn("`AAPL`, `MSFT`", portfolio_markdown)
             self.assertIn("`NVDA`, `QQQ`, `SPY`", portfolio_markdown)
+            self.assertIn(
+                "`trailing-covariance-volatility-ceiling-v1`",
+                portfolio_markdown,
+            )
+            self.assertIn("Scale-up permitted: `False`", portfolio_markdown)
             active_program = load_research_program(project)
             assert active_program is not None
             self.assertEqual(
@@ -308,6 +313,10 @@ class ProgramResearchDossierTests(unittest.TestCase):
             self.assertIn("Program evidence", markdown)
             self.assertIn("## Portfolio mandate", markdown)
             self.assertIn("`long` / `long-cash`", markdown)
+            self.assertIn(
+                "`trailing-covariance-volatility-ceiling-v1`",
+                markdown,
+            )
             self.assertIn("`AAPL`, `MSFT`", markdown)
             self.assertIn("`NVDA`, `QQQ`, `SPY`", markdown)
             self.assertIn("Omitted optional lanes", markdown)

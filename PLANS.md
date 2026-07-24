@@ -32,6 +32,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/portfolio-risk-governor]] | Made every request-bound Portfolio and governed-RL sleeve obey one causal covariance-based volatility ceiling with auditable sizing evidence. | 2026-07-25 |
 | [[plans/selection-adjusted-research-evidence]] | Quantified Project-wide strategy-search selection risk instead of treating a chosen backtest as one isolated trial. | 2026-07-24 |
 | [[plans/request-bound-portfolio-mandates]] | Bound Portfolio and governed-RL positions to one request-derived, content-locked direction and tradable-asset mandate. | 2026-07-24 |
 | [[plans/reported-session-completion]] | Let a delegated baseline-retaining lane finish without promotion and leave no false active conflict. | 2026-07-24 |

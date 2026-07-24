@@ -51,6 +51,9 @@ The Judge owns:
 - fixed percentile entry/exit hysteresis, inverse-volatility conviction,
   request-permitted long/cash, short/cash, or dollar-neutral target
   construction, context-only exclusions, and 0.30 asset caps;
+- the shared trailing 60-row covariance forecast, 20-observation minimum,
+  15% annualized volatility ceiling, and scale-down-only governance on every
+  action sleeve before RL selection and reward;
 - drift, 0.05 no-trade threshold, full-notional 10bps costs, and benchmark;
 - next-bar reward and fixed quadratic risk penalty;
 - linear Q-learning, 4 episodes, learning rate, discount, and exploration;
@@ -63,7 +66,7 @@ The Judge owns:
 Candidate code cannot improve by changing any evaluation rule above.
 Each action's sleeve maintains its own causal intent history; RL chooses a
 sleeve but never controls its signal triggers, position permissions, or
-position sizing.
+position/risk sizing.
 
 ## Evidence discipline
 

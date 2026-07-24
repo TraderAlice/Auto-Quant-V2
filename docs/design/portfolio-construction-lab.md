@@ -37,6 +37,7 @@ The fixed Judge owns:
 - next-bar close-to-close targets and returns;
 - cross-sectional percentile entry/hold/exit/reversal state;
 - conviction and trailing inverse-volatility risk sizing;
+- causal trailing-covariance portfolio-volatility scale-down;
 - the fixed request-derived tradable/context universe, permitted direction,
   cash, gross/net rules, benchmark, and per-asset cap;
 - no-trade tolerance, drift, turnover, costs, and volume participation;
@@ -56,6 +57,8 @@ OHLCV known through close t
 → conviction divided by trailing 20-bar realized volatility known at t
 → allocate long/cash, short/cash, or +0.5/-0.5 dollar-neutral budget
 → cap each absolute target weight at 0.30; unused directional budget is cash
+→ forecast annualized portfolio volatility from at most 60 return rows through t
+→ scale the complete target down to a 0.15 ceiling; never scale up
 → context-only assets remain flat with zero target
 → compare with the prior book drifted through return t
 → retain the drifted book when one-way turnover is below 0.05
@@ -159,8 +162,8 @@ Every successful Run declares:
 - `proposed-target-weights.csv`: exact state-policy targets;
 - `executed-weights.csv`: exact post-band per-date asset weights;
 - `portfolio-decisions.csv`: exact mandate id, tradability, permitted
-  direction, signal intent, sizing, execution, return, cost, regime, and
-  component-risk ledger.
+  direction, signal intent, raw/governed sizing, covariance forecast and
+  scale, execution, return, cost, regime, and component-risk ledger.
 
 RunResult remains the immutable authority for artifact identities.
 
@@ -210,3 +213,6 @@ reconciled before display sampling; the browser never reads artifact paths.
 - Parameter-neighborhood surfaces are not automated. Project-wide unique
   strategy search is disclosed through PSR/DSR, but correlated parameter-grid
   effective trial count and PBO require richer predeclared evidence.
+- The V1 risk governor uses sample covariance and a fixed ceiling. Shrinkage,
+  stress covariance, risk-parity solving, and caller-approved risk budgets are
+  separate work.

@@ -47,8 +47,9 @@ The first viewport prioritizes:
   attribution reconciliation, turnover, and cost stress;
 - the latest successful Portfolio Run's verified full-history growth,
   drawdown, exposure, turnover/cost path, current historical target/executed
-  book, recent mechanical transitions, validation/test attribution, and exact
-  request-derived position mandate;
+  book, pre/post risk-governor targets and covariance forecast, recent
+  mechanical transitions, validation/test attribution, and exact
+  request-derived position/risk mandate;
 - RL Run summaries for validation/test audit Sharpe, seed/fold dispersion,
   simple-baseline advantage, failure rate, and fold × seed coverage;
 - a bounded Session decision matrix comparing baseline, recent candidates, and
@@ -76,7 +77,8 @@ mutable; completed evidence is loaded and hash-verified by Core.
 Run cards are diagnostic projections, not replacements for full evidence.
 Factor cards show strength, decay, monotonic spread, stability, style overlap,
 and test audit evidence beside the headline score. Portfolio cards show signal
-churn, hysteresis effect, contribution concentration, and reconciliation.
+churn, hysteresis effect, contribution concentration, risk-governor
+activation, and reconciliation.
 RL cards show implementation, dispersion, failure, and baseline comparison.
 Exact nested metrics, decision ledgers, daily slices, models, training
 histories, actions, and artifacts remain in the verified Run.
@@ -94,9 +96,13 @@ Run or a different bounded point count.
 For request-driven Portfolio evidence, the mandate strip distinguishes the
 research universe from assets authorized as positions. It shows direction,
 long/cash, short/cash, or dollar-neutral family, gross/cap, benchmark, and
-locked identity. Context-only assets remain in factor/risk evidence but are
-dimmed in the book and always have zero target. The reported cash field is
-unused research gross budget, not Broker account balance.
+locked identity. It also shows the fixed annualized volatility ceiling. The
+current book discloses raw target → governed target, forecast volatility →
+governed volatility, scale, and status; the validation summary shows how often
+the ceiling bound. Context-only assets remain in factor/risk evidence but are
+dimmed in the book and always have zero target. These values are verified by
+Core; Studio does not estimate covariance or choose risk. The reported cash
+field is unused research gross budget, not Broker account balance.
 
 The Session Decision Matrix is also a Core projection. It verifies the
 immutable Session/Experiment/Run chain, then compares a bounded set of
