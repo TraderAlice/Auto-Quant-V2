@@ -22,7 +22,9 @@ There are no active plans.
 
 ## Proposed plans
 
-There are no proposed plans.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/mechanical-signal-policy-and-attribution]] | Make signal-state triggers, target sizing, and portfolio contribution attribution explicit. | 2026-07-24 |
 
 ## Paused plans
 
@@ -32,6 +34,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/professional-factor-diagnostics]] | Added purge-aware rank/Pearson IC, decay, significance, quantiles, style overlap, stability, and exact daily evidence. | 2026-07-24 |
 | [[plans/research-selection-integrity]] | Made reference promotion validation-only and disclosed trial/test reuse across Session, Report, and Studio. | 2026-07-24 |
 | [[plans/rl-factor-policy-lab]] | Added a governed causal state encoder and fixed factor-mixture Q-policy with folds, seeds, portfolio rewards, simple baselines, and exact model evidence. | 2026-07-24 |
 | [[plans/portfolio-construction-lab]] | Added a fixed causal factor-to-target-weight Judge with drift, costs, professional evidence layers, stresses, artifacts, and a complete reference Project. | 2026-07-24 |

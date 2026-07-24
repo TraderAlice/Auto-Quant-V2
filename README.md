@@ -43,9 +43,12 @@ contexts, artifacts, operation effects, and executable next actions under
 
 The `ohlcv-factor-lab` starter is the first runnable V2 research Project. It
 uses ordinary pandas/NumPy factor code, a deterministic six-asset synthetic
-OHLCV fixture, chronological held-out evaluation, dataset byte locks, and a
-fixed causality audit. Its baseline is intentionally fast and the fixture is a
-Harness benchmark—not a market alpha claim.
+OHLCV fixture, dataset-fixed purge-aware chronological evaluation, dataset
+byte locks, and a fixed causality audit. Its professional tear sheet adds
+1/5/10-bar rank/Pearson IC and decay, HAC strength, fixed-tertile behavior,
+OHLCV-style overlap, and asset/fold/causal-regime stability with exact daily
+artifacts. Its baseline is intentionally fast and the fixture is a Harness
+benchmark—not a market alpha claim.
 
 The `ohlcv-portfolio-lab` starter keeps the same ordinary pandas candidate API
 but fixes the downstream research contract: causal cross-sectional ranking,

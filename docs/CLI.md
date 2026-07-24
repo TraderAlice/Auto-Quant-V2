@@ -136,6 +136,12 @@ leader bytes in the worktree. `session promote` is the only operation that
 copies a KEEP into Project source; it rejects a stale Project base and rolls
 back if the source, receipt, and Session pointer cannot all be committed.
 
+For the Factor Lab, `run execute/show --json` and Experiment output preserve
+the full purge-aware factor tear sheet: 1/5/10-bar horizon quality, HAC
+inference, fixed-tertile behavior, style overlap, and asset/fold/causal-regime
+stability. Studio is a concise projection; exact daily IC/regime and quantile
+rows remain Run artifacts.
+
 `session show --json` also projects selection integrity from verified evidence:
 selection metric/split, exact candidate and evaluated-Run counts, verdict
 counts, test visibility/use, and whether a new external holdout is required.

@@ -404,11 +404,14 @@ function runMetricLayers(item) {
   if (layers.kind === "factor") {
     return `
       <div class="catalog-evidence" aria-label="Factor evidence">
-        <span><b>${metric(layers.validationMeanIc)}</b><i>validation IC</i></span>
-        <span><b>${metric(layers.validationIcir)}</b><i>validation ICIR</i></span>
+        <span><b>${metric(layers.validationMeanIc)}</b><i>validation 1b IC</i></span>
+        <span><b>${metric(layers.validationPearsonIc)}</b><i>Pearson IC</i></span>
+        <span><b>${metric(layers.validationHacTStatistic)}</b><i>HAC t-stat</i></span>
+        <span><b>${metric(layers.validationHorizon5MeanIc)}</b><i>validation 5b IC</i></span>
+        <span><b>${metric(layers.validationQuantileSpread)}</b><i>tertile spread</i></span>
+        <span><b>${metric(layers.validationWorstFoldMeanIc)}</b><i>worst fold IC</i></span>
+        <span><b>${metric(layers.validationMaximumAbsoluteStyleCorrelation)}</b><i>max style |ρ|</i></span>
         <span><b>${metric(layers.testMeanIc)}</b><i>test audit IC</i></span>
-        <span><b>${metric(layers.testIcir)}</b><i>test audit ICIR</i></span>
-        <span><b>${metric(layers.meanCoverage)}</b><i>coverage</i></span>
         <span><b>${metric(layers.meanRankTurnover)}</b><i>rank turn</i></span>
       </div>`;
   }

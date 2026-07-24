@@ -40,12 +40,15 @@ or Runs. It owns only discovery and an optional default Project.
 independently owned candidate, Judge, Study, and deterministic local dataset;
 it is not recorded as a runtime parent in `autoquant.json`.
 
-The factor template evaluates causal cross-sectional predictive evidence. The
+The factor template evaluates causal cross-sectional predictive evidence with
+dataset-fixed purged 1/5/10-bar rank/Pearson IC, HAC inference, fixed-tertile
+behavior, OHLCV-style overlap, and asset/fold/causal-regime stability. The
 portfolio template fixes the next layer: factor normalization, target weights,
 gross/net and per-asset constraints, drift, no-trade behavior, turnover,
 costs, benchmark, risk/implementation metrics, and cost/delay stresses.
 Candidate code remains confined to `factors/**`; `judges/**` owns every
-comparison rule. See [[docs/design/ohlcv-factor-lab]] and
+comparison rule. See [[docs/design/ohlcv-factor-lab]],
+[[docs/design/factor-diagnostics]], and
 [[docs/design/portfolio-construction-lab]].
 
 The RL template confines candidates to a pure row-level state encoder under

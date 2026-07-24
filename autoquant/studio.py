@@ -331,9 +331,12 @@ def _factor_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
     ):
         return None
     try:
-        return {
+        layers = {
             "kind": "factor",
             "validationMeanIc": metrics["validation"]["mean_ic"],
+            "validationPearsonIc": (
+                metrics["validation"].get("pearson_ic", {}).get("mean_ic")
+            ),
             "validationIcir": metrics["validation"]["icir"],
             "testMeanIc": metrics["test"]["mean_ic"],
             "testIcir": metrics["test"]["icir"],
@@ -341,6 +344,81 @@ def _factor_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
             "meanRankTurnover": metrics["mean_rank_turnover"],
             "selection": metrics.get("research_integrity"),
         }
+        horizon_quality = metrics.get("horizon_quality")
+        quantiles = metrics.get("quantile_analysis")
+        stability = metrics.get("stability")
+        styles = metrics.get("style_correlations")
+        layers.update(
+            {
+                "validationHacTStatistic": None,
+                "validationHorizon5MeanIc": None,
+                "validationQuantileSpread": None,
+                "validationQuantileMonotonicity": None,
+                "validationWorstFoldMeanIc": None,
+                "validationMaximumAbsoluteStyleCorrelation": None,
+                "validationRegimesObserved": None,
+            }
+        )
+        hac = metrics["validation"].get("hac")
+        if isinstance(hac, dict):
+            layers["validationHacTStatistic"] = hac.get("t_statistic")
+        if isinstance(horizon_quality, dict):
+            layers["validationHorizon5MeanIc"] = (
+                horizon_quality.get("5", {})
+                .get("validation", {})
+                .get("mean_ic")
+            )
+        if isinstance(quantiles, dict):
+            validation_quantiles = (
+                quantiles.get("1", {}).get("validation", {})
+            )
+            layers["validationQuantileSpread"] = validation_quantiles.get(
+                "high_minus_low"
+            )
+            layers["validationQuantileMonotonicity"] = (
+                validation_quantiles.get("monotonicity")
+            )
+        if isinstance(stability, dict):
+            folds = stability.get("chronological_folds", {})
+            fold_values = [
+                item.get("mean_ic")
+                for name, item in folds.items()
+                if name.startswith("validation_") and isinstance(item, dict)
+            ]
+            finite_folds = [
+                float(value)
+                for value in fold_values
+                if isinstance(value, (int, float))
+            ]
+            if finite_folds:
+                layers["validationWorstFoldMeanIc"] = min(finite_folds)
+            regimes = (
+                stability.get("causal_regimes", {}).get("validation", {})
+            )
+            if isinstance(regimes, dict):
+                layers["validationRegimesObserved"] = sum(
+                    1
+                    for item in regimes.values()
+                    if isinstance(item, dict)
+                    and isinstance(item.get("mean_ic"), (int, float))
+                )
+        if isinstance(styles, dict):
+            validation_styles = styles.get("validation", {})
+            style_values = [
+                item.get("mean_rank_correlation")
+                for item in validation_styles.values()
+                if isinstance(item, dict)
+            ]
+            finite_styles = [
+                abs(float(value))
+                for value in style_values
+                if isinstance(value, (int, float))
+            ]
+            if finite_styles:
+                layers["validationMaximumAbsoluteStyleCorrelation"] = max(
+                    finite_styles
+                )
+        return layers
     except (KeyError, TypeError):
         return None
 

@@ -56,8 +56,8 @@ The V2 foundation now implements:
   copyable CLI commands, explicit mutable Campaign progress, defensive HTTP
   boundary, and responsive research-first presentation.
 - one self-contained OHLCV Factor Lab reference Project with ordinary pandas
-  factor code, deterministic local data, chronological held-out metrics, and a
-  fixed no-lookahead audit.
+  factor code, deterministic local data, dataset-fixed purged horizons, a
+  professional factor tear sheet, and a fixed no-lookahead audit.
 - one self-contained OHLCV Portfolio Lab reference Project that mechanically
   translates the same causal factor API into capped target weights, drift-aware
   turnover and costs, layered risk/implementation evidence, and cost/delay
@@ -79,8 +79,9 @@ in [[docs/design/study-run-evidence]]; governed source research is defined in
 Project is defined in [[docs/design/ohlcv-factor-lab]]; causal target-weight
 construction is defined in [[docs/design/portfolio-construction-lab]]. The
 governed RL lane is defined in [[docs/design/rl-factor-policy-lab]]. The
-end-to-end OpenAlice handoff, professional evidence stack, and HCI boundary are
-defined in [[docs/design/quant-research-lifecycle]].
+factor tear-sheet protocol is defined in [[docs/design/factor-diagnostics]].
+The end-to-end OpenAlice handoff, professional evidence stack, and HCI
+boundary are defined in [[docs/design/quant-research-lifecycle]].
 
 The repository also contains the V0.5 development Harness inherited from
 Auto-Quant Classic:

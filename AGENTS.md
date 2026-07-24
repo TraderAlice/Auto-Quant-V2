@@ -64,6 +64,9 @@ Read the relevant linked document before changing a subsystem:
 - Validation-only candidate selection, visible-test limitations, trial counts,
   and shared Session/Report/Studio integrity evidence:
   [[docs/design/research-selection-integrity]]
+- Purged forward horizons, factor significance/decay/quantiles, fixed style
+  overlap, and asset/fold/causal-regime stability:
+  [[docs/design/factor-diagnostics]]
 - Resumable Agent worktrees, KEEP/REVERT/CRASH Experiments, and guarded source
   promotion: [[docs/design/research-session-loop]]
 - Provider-neutral external Researcher turns, budgets, restoration, and

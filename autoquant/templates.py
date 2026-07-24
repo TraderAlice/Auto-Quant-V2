@@ -256,6 +256,11 @@ def _apply_ohlcv_factor_lab(project: ProjectContext) -> None:
     end = _write_demo_ohlcv(project)
     _write_template_source(project, "factors/candidate.py", "candidate.py")
     _write_template_source(project, "judges/ohlcv_factor.py", "judge.py")
+    _write_template_source(
+        project,
+        "judges/factor_diagnostics.py",
+        "factor_diagnostics.py",
+    )
     (project.root_dir / project.manifest.research_program).write_text(
         _template_text("research.md"),
         encoding="utf-8",
@@ -275,7 +280,7 @@ def _apply_ohlcv_factor_lab(project: ProjectContext) -> None:
             "judges/ohlcv_factor.py",
             ["judges/**"],
             [],
-            10,
+            60,
         ),
         objective=StudyObjective("validation_mean_ic", "maximize", 0.01),
         dataset=StudyDataset(

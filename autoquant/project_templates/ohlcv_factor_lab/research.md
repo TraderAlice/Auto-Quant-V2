@@ -9,13 +9,19 @@ not evidence about real markets.
 
 - The Agent edits only `factors/candidate.py`.
 - The fixed Study is `ohlcv-factor-quality`.
-- The fixed Judge computes forward returns, chronological splits, metrics, and
-  the causality audit.
+- The fixed Judge computes purge-aware 1/5/10-bar returns, chronological
+  splits, HAC/decay/tertile/style/stability diagnostics, and the causality
+  audit.
 - Dataset bytes under `data/ohlcv/**` participate in Study and Run identity.
 - Every candidate is evaluated through `aq experiment evaluate`; never call the
   Judge directly or optimize against the test target outside that contract.
 - Quantitative evidence describes historical behavior. It is not an order,
   Broker integration, or live-trading instruction.
+
+Successful Runs include a complete JSON tear sheet plus exact daily IC/regime
+and quantile-return CSV artifacts. Use `aq run show --json` and Studio for the
+verified summary; read artifacts when a conclusion depends on a specific date
+or slice.
 
 ## First commands
 

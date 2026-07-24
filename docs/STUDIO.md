@@ -32,6 +32,9 @@ The first viewport prioritizes:
 - running external Researcher phase and turn budget;
 - KEEP, REVERT, and CRASH optimization trajectories;
 - recent immutable Runs, Experiments, Campaigns, and Research Reports;
+- factor Run summaries for validation one/five-bar IC, HAC strength, tertile
+  spread, weakest chronological fold, maximum fixed-style overlap, test audit
+  IC, and rank turnover;
 - portfolio Run summaries for held-out IC, net Sharpe, turnover, drawdown,
   cost stress, and delay stress;
 - RL Run summaries for validation/test audit Sharpe, seed/fold dispersion,
@@ -47,10 +50,11 @@ refresh remains available. Running Campaign progress is visibly labelled
 mutable; completed evidence is loaded and hash-verified by Core.
 
 Run cards are diagnostic projections, not replacements for full evidence.
-Portfolio and RL cards deliberately show implementation, stress, dispersion,
-failure, and baseline comparison beside the headline score. Exact nested
-metrics, models, training histories, actions, and artifacts remain in the
-verified Run.
+Factor cards show strength, decay, monotonic spread, stability, style overlap,
+and test audit evidence beside the headline score. Portfolio and RL cards
+likewise show implementation, stress, dispersion, failure, and baseline
+comparison. Exact nested metrics, daily slices, models, training histories,
+actions, and artifacts remain in the verified Run.
 
 The handoff cards and Inspector distinguish caller-supplied OpenAlice context
 from authenticated provenance. Copy buttons only write an exact Core-generated

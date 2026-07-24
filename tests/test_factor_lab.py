@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import shlex
 import sys
 import tempfile
@@ -9,6 +10,13 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from autoquant.project_templates.ohlcv_factor_lab.factor_diagnostics import (
+    HORIZONS,
+    causal_regime_labels,
+    descriptive_ic,
+    hac_inference,
+    purged_split_masks,
+)
 from autoquant.research import run_campaign
 from autoquant.runs import execute_study, load_run
 from autoquant.sessions import (
@@ -48,6 +56,16 @@ def compute_factor(frame: pd.DataFrame) -> pd.Series:
     return frame["close"].shift(-1) / frame["close"] - 1.0
 """
 
+EMPTY_FACTOR = """\
+from __future__ import annotations
+
+import pandas as pd
+
+
+def compute_factor(frame: pd.DataFrame) -> pd.Series:
+    return pd.Series(float("nan"), index=frame.index)
+"""
+
 
 def make_factor_lab(directory: str | Path):
     workspace = initialize_workspace(Path(directory) / "workspace", name="Factor Desk")
@@ -67,10 +85,21 @@ class OhlcvFactorLabTests(unittest.TestCase):
             study = load_study(project, OHLCV_STUDY_ID)
 
             self.assertEqual(study.definition.dataset.paths, ["ohlcv/**"])
+            self.assertEqual(study.definition.judge.timeout_seconds, 60)
             self.assertEqual(len(study.dataset_hashes), 7)
             self.assertIn("ohlcv/ALPHA.csv", study.dataset_hashes)
             self.assertTrue((project.root_dir / "factors" / "candidate.py").is_file())
             self.assertTrue((project.root_dir / "judges" / "ohlcv_factor.py").is_file())
+            self.assertTrue(
+                (project.root_dir / "judges" / "factor_diagnostics.py").is_file()
+            )
+            self.assertEqual(
+                set(study.judge_hashes),
+                {
+                    "judges/factor_diagnostics.py",
+                    "judges/ohlcv_factor.py",
+                },
+            )
 
             run = execute_study(project, OHLCV_STUDY_ID)
             self.assertEqual(run.result["status"], "succeeded")
@@ -92,6 +121,42 @@ class OhlcvFactorLabTests(unittest.TestCase):
                     "test_enters_selection"
                 ]
             )
+            metrics = run.result["metrics"]
+            self.assertEqual(set(metrics["horizon_quality"]), {"1", "5", "10"})
+            self.assertFalse(
+                metrics["split_protocol"]["candidateDependent"]
+            )
+            self.assertFalse(
+                metrics["split_protocol"]["targetCrossesBoundary"]
+            )
+            self.assertEqual(
+                metrics["validation"]["hac"]["method"],
+                "newey-west-bartlett",
+            )
+            self.assertTrue(
+                math.isfinite(
+                    metrics["validation"]["pearson_ic"]["mean_ic"]
+                )
+            )
+            self.assertEqual(
+                set(metrics["quantile_analysis"]["1"]["validation"][
+                    "mean_return_by_quantile"
+                ]),
+                {"low", "middle", "high"},
+            )
+            self.assertEqual(
+                set(metrics["style_correlations"]["validation"]),
+                {
+                    "momentum_20",
+                    "reversal_5",
+                    "realized_volatility_20",
+                    "relative_volume_20",
+                },
+            )
+            self.assertEqual(
+                set(metrics["stability"]["per_asset"]["validation"]),
+                set(study.definition.dataset.universe),
+            )
             self.assertEqual(
                 run.result["dataset"]["sourceHashes"],
                 study.dataset_hashes,
@@ -109,6 +174,56 @@ class OhlcvFactorLabTests(unittest.TestCase):
                 snapshot["projects"][0]["runs"][0]["metricLayers"]["kind"],
                 "factor",
             )
+            layers = snapshot["projects"][0]["runs"][0]["metricLayers"]
+            self.assertTrue(
+                math.isfinite(layers["validationHacTStatistic"])
+            )
+            self.assertTrue(
+                math.isfinite(layers["validationHorizon5MeanIc"])
+            )
+            self.assertTrue(
+                math.isfinite(layers["validationPearsonIc"])
+            )
+            self.assertEqual(
+                {item["kind"] for item in run.result["artifacts"]},
+                {"factor-report", "factor-daily", "factor-quantiles"},
+            )
+            artifacts = {
+                item["kind"]: run.root_dir / item["path"]
+                for item in run.result["artifacts"]
+            }
+            daily = pd.read_csv(artifacts["factor-daily"])
+            validation_daily = daily.loc[
+                daily["split"].eq("validation"),
+                "rank_ic_h1",
+            ].dropna()
+            self.assertAlmostEqual(
+                float(validation_daily.mean()),
+                metrics["validation_mean_ic"],
+                places=10,
+            )
+            self.assertAlmostEqual(
+                float(
+                    daily.loc[
+                        daily["split"].eq("validation"),
+                        "pearson_ic_h1",
+                    ].dropna().mean()
+                ),
+                metrics["validation"]["pearson_ic"]["mean_ic"],
+                places=10,
+            )
+            quantiles = pd.read_csv(artifacts["factor-quantiles"])
+            validation_quantiles = quantiles[
+                quantiles["split"].eq("validation")
+                & quantiles["horizon"].eq(1)
+            ]
+            self.assertAlmostEqual(
+                float(validation_quantiles["high_minus_low"].mean()),
+                metrics["quantile_analysis"]["1"]["validation"][
+                    "high_minus_low"
+                ],
+                places=10,
+            )
 
     def test_known_factor_is_keep_and_future_leak_is_crash(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -125,6 +240,51 @@ class OhlcvFactorLabTests(unittest.TestCase):
             )
             self.assertEqual(kept.result["verdict"], "KEEP")
             self.assertGreater(kept.result["improvement"], 0.5)
+            kept_metrics = load_run(
+                project,
+                kept.result["candidate"]["runId"],
+            ).result["metrics"]
+            self.assertGreater(
+                kept_metrics["validation"]["hac"]["t_statistic"],
+                10.0,
+            )
+            self.assertEqual(
+                kept_metrics["quantile_analysis"]["1"]["validation"][
+                    "monotonicity"
+                ],
+                1.0,
+            )
+            self.assertGreater(
+                kept_metrics["quantile_analysis"]["1"]["validation"][
+                    "high_minus_low"
+                ],
+                0.01,
+            )
+            self.assertGreater(
+                kept_metrics["style_correlations"]["validation"][
+                    "relative_volume_20"
+                ]["mean_rank_correlation"],
+                0.95,
+            )
+            self.assertGreater(
+                min(
+                    item["mean_ic"]
+                    for name, item in kept_metrics["stability"][
+                        "chronological_folds"
+                    ].items()
+                    if name.startswith("validation_")
+                ),
+                0.5,
+            )
+            self.assertGreater(
+                min(
+                    item["rank_correlation"]
+                    for item in kept_metrics["stability"]["per_asset"][
+                        "validation"
+                    ].values()
+                ),
+                0.5,
+            )
             integrity = session_snapshot(
                 project,
                 load_session(project, session.manifest["id"]),
@@ -168,10 +328,135 @@ class OhlcvFactorLabTests(unittest.TestCase):
                 before.result["metrics"]["validation_mean_ic"],
                 after.result["metrics"]["validation_mean_ic"],
             )
+            for horizon in ("1", "5", "10"):
+                self.assertEqual(
+                    before.result["metrics"]["horizon_quality"][horizon][
+                        "validation"
+                    ],
+                    after.result["metrics"]["horizon_quality"][horizon][
+                        "validation"
+                    ],
+                )
+                self.assertEqual(
+                    before.result["metrics"]["quantile_analysis"][horizon][
+                        "validation"
+                    ],
+                    after.result["metrics"]["quantile_analysis"][horizon][
+                        "validation"
+                    ],
+                )
+            self.assertEqual(
+                before.result["metrics"]["style_correlations"]["validation"],
+                after.result["metrics"]["style_correlations"]["validation"],
+            )
+            self.assertEqual(
+                before.result["metrics"]["stability"]["causal_regimes"][
+                    "validation"
+                ],
+                after.result["metrics"]["stability"]["causal_regimes"][
+                    "validation"
+                ],
+            )
+            self.assertEqual(
+                before.result["metrics"]["stability"]["per_asset"][
+                    "validation"
+                ],
+                after.result["metrics"]["stability"]["per_asset"][
+                    "validation"
+                ],
+            )
             self.assertNotEqual(
                 before.result["metrics"]["test"]["mean_ic"],
                 after.result["metrics"]["test"]["mean_ic"],
             )
+
+    def test_missing_factor_population_is_structured_failed_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, project = make_factor_lab(directory)
+            (project.root_dir / "factors" / "candidate.py").write_text(
+                EMPTY_FACTOR,
+                encoding="utf-8",
+            )
+
+            run = execute_study(project, OHLCV_STUDY_ID)
+
+            self.assertEqual(run.result["status"], "failed")
+            self.assertEqual(run.result["metrics"], {})
+            self.assertEqual(
+                run.result["errors"][0]["code"],
+                "judge.population",
+            )
+
+    def test_purged_horizons_never_cross_fixed_split_boundaries(self) -> None:
+        index = pd.bdate_range("2024-01-01", periods=150)
+        masks, protocol, labels = purged_split_masks(index)
+
+        self.assertEqual(set(masks), set(HORIZONS))
+        self.assertFalse(protocol["candidateDependent"])
+        self.assertFalse(protocol["targetCrossesBoundary"])
+        for horizon, split_masks in masks.items():
+            for split, mask in split_masks.items():
+                positions = np.flatnonzero(mask.to_numpy())
+                self.assertGreater(len(positions), 0)
+                self.assertTrue((labels.iloc[positions] == split).all())
+                self.assertTrue(
+                    (labels.iloc[positions + horizon] == split).all()
+                )
+                self.assertEqual(
+                    protocol["horizons"][str(horizon)][split][
+                        "purgedBoundaryRows"
+                    ],
+                    horizon,
+                )
+
+    def test_causal_regime_labels_do_not_change_with_future_prices(self) -> None:
+        index = pd.bdate_range("2024-01-01", periods=180)
+        time = np.arange(len(index), dtype=float)
+        closes = pd.DataFrame(
+            {
+                asset: 100.0
+                * np.exp(
+                    np.cumsum(
+                        0.0005
+                        + 0.01
+                        * np.sin(time / (5.0 + number))
+                    )
+                )
+                for number, asset in enumerate(("A", "B", "C", "D"))
+            },
+            index=index,
+        )
+        full = causal_regime_labels(closes)
+        cut = 130
+        prefix = causal_regime_labels(closes.iloc[:cut])
+        pd.testing.assert_series_equal(full.iloc[:cut], prefix)
+
+    def test_hac_inference_uses_fixed_bartlett_covariance(self) -> None:
+        result = hac_inference(
+            pd.Series([1.0, 2.0, 3.0, 4.0]),
+            maximum_lag=1,
+        )
+
+        self.assertEqual(result["method"], "newey-west-bartlett")
+        self.assertEqual(result["maximum_lag"], 1)
+        self.assertAlmostEqual(result["standard_error"], 0.625)
+        self.assertAlmostEqual(result["t_statistic"], 4.0)
+        self.assertAlmostEqual(
+            result["normal_approximation_p_value"],
+            math.erfc(4.0 / math.sqrt(2.0)),
+        )
+
+    def test_sparse_diagnostic_cells_disclose_counts_without_statistics(self) -> None:
+        result = descriptive_ic(
+            pd.Series([0.2, -0.1]),
+            minimum_observations=3,
+        )
+
+        self.assertEqual(result["observations"], 2)
+        self.assertEqual(result["minimum_observations"], 3)
+        self.assertFalse(result["sufficient"])
+        self.assertIsNone(result["mean_ic"])
+        self.assertIsNone(result["hac"]["t_statistic"])
 
     def test_dataset_change_stales_session_and_changes_identity(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -270,7 +555,7 @@ print(json.dumps({
                 session.manifest["id"],
                 f"{shlex.quote(sys.executable)} {shlex.quote(str(researcher))}",
                 max_turns=1,
-                max_wall_seconds=30,
+                max_wall_seconds=90,
                 turn_timeout_seconds=5,
             )
             self.assertEqual(campaign.result["verdicts"]["KEEP"], 1)

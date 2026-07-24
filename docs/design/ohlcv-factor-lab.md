@@ -4,7 +4,8 @@ Status: V1 reference Project implemented.
 
 Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]], [[docs/CLI]],
 [[docs/design/workspace-project-boundaries]],
-[[docs/design/study-run-evidence]], and
+[[docs/design/study-run-evidence]],
+[[docs/design/factor-diagnostics]], and
 [[docs/design/research-session-loop]].
 
 ## Scope
@@ -93,18 +94,23 @@ The Judge owns target construction and evaluation:
 2. Compute the candidate factor independently per asset.
 3. Audit causality by recomputing selected historical prefixes and comparing
    values already emitted by the full-history computation.
-4. Compute next-bar close-to-close returns inside the Judge.
-5. Align factors at time `t` only with returns from `t` to `t + 1`.
+4. Fix 60/20/20 boundaries from the dataset timeline, independently of
+   candidate warm-up and coverage.
+5. Compute 1/5/10-bar close-to-close returns and purge signal rows whose target
+   would cross a split boundary.
 6. Measure per-timestamp cross-sectional Spearman information coefficient.
-7. Aggregate chronological train, validation, and test metrics.
+7. Aggregate chronological train, validation, test, HAC, decay, fixed-tertile,
+   fixed-style, per-asset, fold, and causal-regime diagnostics.
 8. Publish finite primary `validation_mean_ic`, diagnostic test metrics, a
-   research-integrity declaration, and a JSON report artifact.
+   research-integrity declaration, a JSON tear sheet, and exact daily CSV
+   evidence.
 
 The primary score is validation mean IC only. Test IC is visible diagnostic
 evidence and never enters candidate selection. Exact aggregation, minimum
 population, and integrity rules live in the fixed Judge source and are
 content-hashed with every Run. See
-[[docs/design/research-selection-integrity]].
+[[docs/design/research-selection-integrity]]. Diagnostic definitions and
+artifact reconciliation are fixed by [[docs/design/factor-diagnostics]].
 
 The causality audit is a misuse detector, not a proof against arbitrary hostile
 Python. It reliably rejects common future leaks such as negative shifts,
@@ -133,7 +139,8 @@ receive a new dataset identity.
    files.
 3. Candidate authority excludes Judge, Study, program, and data bytes.
 4. Forward returns and split boundaries are computed only by the fixed Judge.
-5. Validation and test periods are chronological, never random row splits.
+5. Validation and test periods are chronological and purge-aware, never random
+   row splits or candidate-dependent dates.
 6. Candidate selection uses validation only; visible test evidence requires a
    new external holdout after test-guided iteration.
 7. Data file hashes are preserved in new immutable Run evidence.
@@ -145,6 +152,8 @@ receive a new dataset identity.
 - The CSV format is a reference fixture contract, not a production ingestion
   standard.
 - Cross-sectional factor quality is not a tradable portfolio return.
+- HAC, quantile, style, asset, fold, and regime slices are diagnostics; they do
+  not remove multiple-testing risk or become extra promotion objectives.
 - The Judge does not model fees, fills, position limits, corporate actions, or
   exchange calendars.
 - One factor function is evaluated at a time; ensembles and model fitting are

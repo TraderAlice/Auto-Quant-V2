@@ -12,6 +12,23 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from judges.factor_diagnostics import (
+    HORIZONS,
+    REGIME_NAMES,
+    STYLE_NAMES,
+    causal_regime_labels,
+    chronological_fold_masks,
+    daily_pearson_correlation,
+    daily_quantile_returns,
+    daily_rank_correlation,
+    descriptive_ic,
+    forward_return_panels,
+    per_asset_rank_correlation,
+    purged_split_masks,
+    quantile_summary,
+    style_proxy_panels,
+)
+
 
 REQUIRED_COLUMNS = ("timestamp", "open", "high", "low", "close", "volume")
 MIN_ASSETS_PER_DATE = 4
@@ -133,44 +150,70 @@ def _audit_causality(
     return cuts
 
 
-def _daily_ic(factors: pd.DataFrame, returns: pd.DataFrame) -> pd.Series:
-    values: dict[pd.Timestamp, float] = {}
-    for timestamp in factors.index.intersection(returns.index):
-        pair = pd.DataFrame(
-            {
-                "factor": factors.loc[timestamp],
-                "forward_return": returns.loc[timestamp],
-            }
-        ).dropna()
-        if len(pair) < MIN_ASSETS_PER_DATE:
-            continue
-        if pair["factor"].nunique() < 2 or pair["forward_return"].nunique() < 2:
-            continue
-        value = pair["factor"].rank(method="average").corr(
-            pair["forward_return"].rank(method="average")
-        )
-        if value is not None and math.isfinite(float(value)):
-            values[timestamp] = float(value)
-    return pd.Series(values, dtype=float).sort_index()
-
-
-def _split_metrics(values: pd.Series) -> dict[str, float | int]:
+def _split_metrics(values: pd.Series) -> dict[str, Any]:
     if len(values) < MIN_IC_DATES_PER_SPLIT:
         raise JudgeFailure(
             "judge.population",
             f"Chronological split has only {len(values)} valid IC dates",
         )
-    mean = float(values.mean())
-    std = float(values.std(ddof=0))
+    return descriptive_ic(
+        values,
+        minimum_observations=MIN_IC_DATES_PER_SPLIT,
+    )
+
+
+def _masked(values: pd.Series, mask: pd.Series) -> pd.Series:
+    return values.reindex(mask.index[mask]).dropna()
+
+
+def _style_summary(values: pd.Series) -> dict[str, float | int | None]:
+    clean = values.dropna().astype(float)
+    if len(clean) < 3:
+        return {
+            "mean_rank_correlation": None,
+            "mean_absolute_rank_correlation": None,
+            "observations": int(len(clean)),
+        }
     return {
-        "mean_ic": mean,
-        "icir": mean / std if std > 1e-12 else 0.0,
-        "hit_rate": float((values > 0).mean()),
-        "observations": int(len(values)),
+        "mean_rank_correlation": float(clean.mean()),
+        "mean_absolute_rank_correlation": float(clean.abs().mean()),
+        "observations": int(len(clean)),
     }
 
 
-def _evaluate() -> tuple[dict[str, Any], dict[str, Any]]:
+def _decay_summary(
+    horizon_metrics: dict[str, dict[str, dict[str, Any]]],
+) -> dict[str, dict[str, Any]]:
+    result: dict[str, dict[str, Any]] = {}
+    for split in ("train", "validation", "test"):
+        means = {
+            horizon: horizon_metrics[horizon][split]["mean_ic"]
+            for horizon in (str(item) for item in HORIZONS)
+        }
+        one_bar = means["1"]
+        ratios: dict[str, float | None] = {}
+        for horizon in ("5", "10"):
+            value = means[horizon]
+            ratios[f"horizon_{horizon}_to_1"] = (
+                float(value) / float(one_bar)
+                if value is not None
+                and one_bar is not None
+                and abs(float(one_bar)) > 1e-12
+                else None
+            )
+        result[split] = {
+            "mean_ic_by_horizon": means,
+            **ratios,
+        }
+    return result
+
+
+def _evaluate() -> tuple[
+    dict[str, Any],
+    dict[str, Any],
+    pd.DataFrame,
+    pd.DataFrame,
+]:
     study, data_root = _load_contract()
     dataset = study["dataset"]
     universe = dataset["universe"]
@@ -183,7 +226,8 @@ def _evaluate() -> tuple[dict[str, Any], dict[str, Any]]:
         )
 
     factor_by_asset: dict[str, pd.Series] = {}
-    forward_by_asset: dict[str, pd.Series] = {}
+    close_by_asset: dict[str, pd.Series] = {}
+    volume_by_asset: dict[str, pd.Series] = {}
     audited: dict[str, list[int]] = {}
     coverage: dict[str, float] = {}
     for asset in universe:
@@ -197,28 +241,126 @@ def _evaluate() -> tuple[dict[str, Any], dict[str, Any]]:
         audited[asset] = _audit_causality(module, frame, factor, asset)
         timestamp = pd.DatetimeIndex(frame["timestamp"])
         factor.index = timestamp
-        forward = frame["close"].shift(-1) / frame["close"] - 1.0
-        forward.index = timestamp
+        close = frame["close"].copy()
+        close.index = timestamp
+        volume = frame["volume"].copy()
+        volume.index = timestamp
         factor_by_asset[asset] = factor
-        forward_by_asset[asset] = forward
+        close_by_asset[asset] = close
+        volume_by_asset[asset] = volume
         coverage[asset] = float(factor.notna().mean())
 
-    factor_panel = pd.DataFrame(factor_by_asset)
-    forward_panel = pd.DataFrame(forward_by_asset)
-    daily_ic = _daily_ic(factor_panel, forward_panel)
-    if len(daily_ic) < 3 * MIN_IC_DATES_PER_SPLIT:
-        raise JudgeFailure(
-            "judge.population",
-            "Too few valid cross-sectional dates for chronological evaluation",
+    factor_panel = pd.DataFrame(factor_by_asset).sort_index()
+    close_panel = pd.DataFrame(close_by_asset).reindex(factor_panel.index)
+    volume_panel = pd.DataFrame(volume_by_asset).reindex(factor_panel.index)
+    timeline = pd.DatetimeIndex(factor_panel.index)
+    split_masks, split_protocol, base_split_labels = purged_split_masks(timeline)
+    fold_masks, fold_protocol = chronological_fold_masks(timeline)
+    forward_panels = forward_return_panels(close_panel)
+    daily_ic_by_horizon = {
+        horizon: daily_rank_correlation(
+            factor_panel,
+            forward_panels[horizon],
+            minimum_assets=MIN_ASSETS_PER_DATE,
         )
-    train_end = int(len(daily_ic) * 0.60)
-    validation_end = int(len(daily_ic) * 0.80)
-    splits = {
-        "train": _split_metrics(daily_ic.iloc[:train_end]),
-        "validation": _split_metrics(daily_ic.iloc[train_end:validation_end]),
-        "test": _split_metrics(daily_ic.iloc[validation_end:]),
+        for horizon in HORIZONS
     }
+    daily_pearson_by_horizon = {
+        horizon: daily_pearson_correlation(
+            factor_panel,
+            forward_panels[horizon],
+            minimum_assets=MIN_ASSETS_PER_DATE,
+        )
+        for horizon in HORIZONS
+    }
+    horizon_metrics = {
+        str(horizon): {
+            split: {
+                **_split_metrics(
+                    _masked(
+                        daily_ic_by_horizon[horizon],
+                        split_masks[horizon][split],
+                    )
+                ),
+                "pearson_ic": _split_metrics(
+                    _masked(
+                        daily_pearson_by_horizon[horizon],
+                        split_masks[horizon][split],
+                    )
+                ),
+            }
+            for split in ("train", "validation", "test")
+        }
+        for horizon in HORIZONS
+    }
+    splits = horizon_metrics["1"]
     validation_mean_ic = float(splits["validation"]["mean_ic"])
+
+    quantile_daily = {
+        horizon: daily_quantile_returns(
+            factor_panel,
+            forward_panels[horizon],
+            minimum_assets=MIN_ASSETS_PER_DATE,
+        )
+        for horizon in HORIZONS
+    }
+    quantile_analysis = {
+        str(horizon): {
+            split: quantile_summary(
+                quantile_daily[horizon].reindex(
+                    split_masks[horizon][split].index[
+                        split_masks[horizon][split]
+                    ]
+                )
+            )
+            for split in ("train", "validation", "test")
+        }
+        for horizon in HORIZONS
+    }
+
+    one_bar_ic = daily_ic_by_horizon[1]
+    chronological_folds = {
+        name: descriptive_ic(_masked(one_bar_ic, mask))
+        for name, mask in fold_masks.items()
+    }
+    regimes = causal_regime_labels(close_panel)
+    regime_stability = {
+        split: {
+            regime: descriptive_ic(
+                _masked(
+                    one_bar_ic,
+                    split_masks[1][split]
+                    & regimes.eq(regime).fillna(False),
+                )
+            )
+            for regime in REGIME_NAMES
+        }
+        for split in ("train", "validation", "test")
+    }
+    styles = style_proxy_panels(close_panel, volume_panel)
+    style_correlations: dict[str, dict[str, Any]] = {
+        split: {}
+        for split in ("train", "validation", "test")
+    }
+    for style in STYLE_NAMES:
+        daily_style = daily_rank_correlation(
+            factor_panel,
+            styles[style],
+            minimum_assets=MIN_ASSETS_PER_DATE,
+        )
+        for split in style_correlations:
+            style_correlations[split][style] = _style_summary(
+                _masked(daily_style, split_masks[1][split])
+            )
+    per_asset_stability = {
+        split: per_asset_rank_correlation(
+            factor_panel,
+            forward_panels[1],
+            split_masks[1][split],
+        )
+        for split in ("train", "validation", "test")
+    }
+
     ranked = factor_panel.rank(axis=1, pct=True)
     turnover = float(ranked.diff().abs().mean(axis=1).dropna().mean())
     metrics = {
@@ -226,10 +368,23 @@ def _evaluate() -> tuple[dict[str, Any], dict[str, Any]]:
         "train": splits["train"],
         "validation": splits["validation"],
         "test": splits["test"],
+        "horizon_quality": horizon_metrics,
+        "factor_decay": _decay_summary(horizon_metrics),
+        "quantile_analysis": quantile_analysis,
+        "stability": {
+            "chronological_folds": chronological_folds,
+            "causal_regimes": regime_stability,
+            "per_asset": per_asset_stability,
+        },
+        "style_correlations": style_correlations,
+        "split_protocol": {
+            **split_protocol,
+            "folds": fold_protocol,
+        },
         "mean_coverage": float(sum(coverage.values()) / len(coverage)),
         "mean_rank_turnover": turnover,
         "assets": int(len(universe)),
-        "ic_dates": int(len(daily_ic)),
+        "ic_dates": int(len(one_bar_ic)),
         "research_integrity": {
             "selection_split": "validation",
             "test_role": "visible-diagnostic",
@@ -259,36 +414,107 @@ def _evaluate() -> tuple[dict[str, Any], dict[str, Any]]:
         },
         "semantics": {
             "target": "next-bar close-to-close return",
-            "measure": "per-date cross-sectional Spearman IC",
-            "split": "chronological 60/20/20",
-            "score": "validation mean IC only",
+            "measure": (
+                "per-date cross-sectional Spearman rank IC and Pearson IC"
+            ),
+            "horizons": list(HORIZONS),
+            "split": (
+                "dataset-fixed chronological 60/20/20 with horizon-specific "
+                "boundary purge"
+            ),
+            "score": "validation one-bar mean rank IC only",
+            "inference": (
+                "Newey-West/Bartlett HAC mean t-statistic with maximum lag 5 "
+                "and two-sided normal-approximation p-value"
+            ),
+            "quantiles": "fixed low/middle/high cross-sectional groups",
+            "regimes": (
+                "causal trailing market direction and volatility versus "
+                "lagged rolling threshold"
+            ),
+            "styles": list(STYLE_NAMES),
             "testRole": (
                 "visible diagnostic evidence; never enters candidate selection"
             ),
         },
         "causalityAuditCuts": audited,
         "coverageByAsset": coverage,
+        "splitProtocol": split_protocol,
+        "foldProtocol": fold_protocol,
         "metrics": metrics,
     }
-    return metrics, report
+    daily_evidence = pd.DataFrame(
+        {
+            "split": base_split_labels,
+            "regime": regimes.fillna("unavailable"),
+        },
+        index=timeline,
+    )
+    for horizon in HORIZONS:
+        eligible = (
+            split_masks[horizon]["train"]
+            | split_masks[horizon]["validation"]
+            | split_masks[horizon]["test"]
+        )
+        daily_evidence[f"rank_ic_h{horizon}"] = (
+            daily_ic_by_horizon[horizon].reindex(timeline).where(eligible)
+        )
+        daily_evidence[f"pearson_ic_h{horizon}"] = (
+            daily_pearson_by_horizon[horizon].reindex(timeline).where(eligible)
+        )
+    daily_evidence.index.name = "timestamp"
+
+    quantile_rows: list[dict[str, Any]] = []
+    for horizon in HORIZONS:
+        for split in ("train", "validation", "test"):
+            selected = quantile_daily[horizon].reindex(
+                split_masks[horizon][split].index[
+                    split_masks[horizon][split]
+                ]
+            ).dropna()
+            for timestamp, row in selected.iterrows():
+                quantile_rows.append(
+                    {
+                        "timestamp": timestamp,
+                        "split": split,
+                        "horizon": horizon,
+                        "low": float(row["low"]),
+                        "middle": float(row["middle"]),
+                        "high": float(row["high"]),
+                        "high_minus_low": float(row["high_minus_low"]),
+                    }
+                )
+    quantile_evidence = pd.DataFrame(quantile_rows)
+    return metrics, report, daily_evidence, quantile_evidence
 
 
 def main() -> None:
     try:
-        metrics, report = _evaluate()
+        metrics, report, daily_evidence, quantile_evidence = _evaluate()
         artifacts = Path(os.environ["AUTOQUANT_ARTIFACTS_DIR"])
         report_path = artifacts / "factor-report.json"
         report_path.write_text(
             json.dumps(report, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
         )
+        daily_evidence.to_csv(
+            artifacts / "daily-factor-evidence.csv",
+            date_format="%Y-%m-%d",
+            float_format="%.12g",
+        )
+        quantile_evidence.to_csv(
+            artifacts / "factor-quantiles.csv",
+            index=False,
+            date_format="%Y-%m-%d",
+            float_format="%.12g",
+        )
         _write_output(
             {
                 "schema_version": 1,
                 "status": "succeeded",
                 "summary": (
-                    "Causal factor evaluated on chronological "
-                    "validation/test splits; validation mean IC="
+                    "Causal purge-aware factor tear sheet completed; "
+                    "validation one-bar mean rank IC="
                     f"{metrics['validation_mean_ic']:.6f}"
                 ),
                 "metrics": metrics,
@@ -297,7 +523,24 @@ def main() -> None:
                         "kind": "factor-report",
                         "path": "factor-report.json",
                         "description": (
-                            "Factor semantics, split metrics, coverage, and causality audit"
+                            "Factor semantics, purged split protocol, complete "
+                            "tear sheet, coverage, and causality audit"
+                        ),
+                    },
+                    {
+                        "kind": "factor-daily",
+                        "path": "daily-factor-evidence.csv",
+                        "description": (
+                            "Timestamped split, causal regime, and purge-aware "
+                            "1/5/10-bar rank and Pearson IC"
+                        ),
+                    },
+                    {
+                        "kind": "factor-quantiles",
+                        "path": "factor-quantiles.csv",
+                        "description": (
+                            "Timestamped fixed-tertile forward returns and "
+                            "high-minus-low spread by split and horizon"
                         ),
                     }
                 ],
