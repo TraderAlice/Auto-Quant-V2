@@ -53,6 +53,8 @@ identity when present, and ordered Project observations. Each Project contains:
   Session-start command when present;
 - latest verified baseline decision metrics, with selection versus visible
   audit/stress roles preserved rather than collapsed into one score;
+- latest verified governed RL baseline, fold/seed, training, action, and
+  implementation projection when available;
 - verified Study and Run summaries;
 - verified Session snapshots and Experiment histories;
 - verified delegated requests and derived Research Briefs;
@@ -146,7 +148,7 @@ successful unless Core exposes an explicit verified pass decision.
 
 - There is no progress event stream; the browser polls the bounded snapshot.
 - Progress does not prove the originating process is still alive.
-- Portfolio and Factor Runs have artifact-specific bounded explorers; an RL
-  artifact-specific explorer is not implemented.
+- Portfolio, Factor, and governed RL Runs have artifact-specific bounded
+  explorers.
 - Studio operations remain read-only.
 - Remote and multi-user serving are not supported.

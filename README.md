@@ -190,6 +190,7 @@ Humans can watch the same Workspace through the lightweight local Studio:
 uv run aq studio snapshot ./quant-workspace --json
 uv run aq studio serve ./quant-workspace
 uv run aq run factor ./quant-workspace --run RUN_ID --json
+uv run aq run rl ./quant-workspace --run RUN_ID --json
 uv run aq session compare ./quant-workspace --session SESSION_ID --json
 ```
 
@@ -200,7 +201,11 @@ verified growth/drawdown, exposure/turnover, the historical mechanical book,
 signal transitions, and split attribution. It is read-only, exposes copy-only
 exact CLI commands, and uses the same verified Core loaders as the CLI. A
 specific historical Run is available through `aq run factor <path> --run ID
---json` or `aq run portfolio <path> --run ID --json`. See
+--json`, `aq run portfolio <path> --run ID --json`, or
+`aq run rl <path> --run ID --json`. The RL explorer leads with value-add
+versus the fixed validation-selected baseline, then preserves every fold/seed,
+training episode, action allocation, turnover, cost, and test-audit warning.
+See
 [`docs/STUDIO.md`](docs/STUDIO.md).
 
 The v0.5 development Harness still uses **Freqtrade as its one core engine**,

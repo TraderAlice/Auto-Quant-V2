@@ -132,7 +132,7 @@ CLI_COMMANDS = [
     ),
     descriptor(
         "schema",
-        "aq schema [workspace|project|study|judge-output|run-result|factor-diagnostics|portfolio-diagnostics|session-decision-matrix|session|experiment|research-request|ohlcv-dataset-package|report-analysis|researcher-response|campaign-result|campaign-progress|studio-snapshot] [--json]",
+        "aq schema [workspace|project|study|judge-output|run-result|factor-diagnostics|portfolio-diagnostics|rl-policy-diagnostics|session-decision-matrix|session|experiment|research-request|ohlcv-dataset-package|report-analysis|researcher-response|campaign-result|campaign-progress|studio-snapshot] [--json]",
         "List or emit canonical AutoQuant JSON Schemas.",
         "read-only",
         [
@@ -150,6 +150,7 @@ CLI_COMMANDS = [
                     "run-result",
                     "factor-diagnostics",
                     "portfolio-diagnostics",
+                    "rl-policy-diagnostics",
                     "session-decision-matrix",
                     "session",
                     "experiment",
@@ -499,6 +500,26 @@ CLI_COMMANDS = [
                 "integer",
                 False,
                 "Maximum sampled full-history path points.",
+                default=180,
+            ),
+            JSON_ARGUMENT,
+        ],
+    ),
+    descriptor(
+        "run.rl",
+        "aq run rl <path> --run ID [--points 40..400] [--project ID] [--json]",
+        "Project one verified governed RL Run into bounded baseline, fold/seed, training, action, and implementation evidence.",
+        "read-only",
+        [
+            PATH_ARGUMENT,
+            PROJECT_ARGUMENT,
+            RUN_ARGUMENT,
+            argument(
+                "points",
+                "option",
+                "integer",
+                False,
+                "Maximum sampled immutable action-ledger points.",
                 default=180,
             ),
             JSON_ARGUMENT,

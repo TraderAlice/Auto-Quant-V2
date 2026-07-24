@@ -19,6 +19,7 @@ aq schema ohlcv-dataset-package --json
 aq schema report-analysis --json
 aq schema factor-diagnostics --json
 aq schema portfolio-diagnostics --json
+aq schema rl-policy-diagnostics --json
 aq schema session-decision-matrix --json
 ```
 
@@ -108,6 +109,8 @@ aq run factor <path> --run ID \
   [--points 180] [--project ID] [--json]
 aq run portfolio <path> --run ID \
   [--points 180] [--project ID] [--json]
+aq run rl <path> --run ID \
+  [--points 180] [--project ID] [--json]
 ```
 
 `--dataset-path` is optional and repeatable. When provided it is relative to
@@ -136,6 +139,15 @@ anchors. The response keeps horizon decay, quantiles, folds, causal regimes,
 assets, styles, coverage, and rank turnover machine-readable. Validation
 one-bar rank IC remains the only selection objective; test and all other
 layers are explicitly diagnostic.
+
+`run rl` projects one successful governed RL Factor-Policy Run. Core verifies
+the immutable report, learned models, complete fixed-budget training histories,
+and timestamped action ledger; reconciles every declared fold/seed, baseline,
+reward, action frequency, observation count, turnover, and cost; then returns
+a bounded action path with exact trial, training, and model evidence.
+Validation advantage versus each fold's fixed validation-selected baseline is
+the value-add test. Test remains visible audit only, failed seeds cannot be
+hidden, and factor-mixture actions carry no trading authority.
 
 A failed Run is a successful artifact-creation operation whose RunResult has
 `status: failed`; it retains errors and logs. A CLI error means trustworthy Run

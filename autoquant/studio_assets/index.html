@@ -239,6 +239,84 @@
           </div>
         </section>
 
+        <section
+          class="rl-section"
+          id="rl-explorer"
+          aria-labelledby="rl-title"
+          hidden
+        >
+          <header class="section-header">
+            <span>
+              <small>BASELINES → FOLDS / SEEDS → POLICY BEHAVIOR</small>
+              <h2 id="rl-title">RL policy evidence explorer</h2>
+            </span>
+            <span class="section-meta" id="rl-meta">No governed RL Run</span>
+          </header>
+          <div class="rl-summary" id="rl-summary"></div>
+          <div class="rl-primary-grid">
+            <article class="rl-chart-panel">
+              <header class="panel-toolbar">
+                <span>
+                  <b id="rl-chart-title">RL versus selected baseline</b>
+                  <small id="rl-chart-note">Every declared fold and seed</small>
+                </span>
+                <div class="rl-toolbar-controls">
+                  <div class="segmented-control compact" role="tablist" aria-label="RL evidence view">
+                    <button type="button" role="tab" aria-selected="true" data-rl-view="performance">
+                      Performance
+                    </button>
+                    <button type="button" role="tab" aria-selected="false" data-rl-view="training">
+                      Training
+                    </button>
+                    <button type="button" role="tab" aria-selected="false" data-rl-view="actions">
+                      Actions
+                    </button>
+                  </div>
+                  <div class="segmented-control compact" role="tablist" aria-label="RL evidence split">
+                    <button type="button" role="tab" aria-selected="true" data-rl-split="validation">
+                      Validation
+                    </button>
+                    <button type="button" role="tab" aria-selected="false" data-rl-split="test">
+                      Test audit
+                    </button>
+                  </div>
+                </div>
+              </header>
+              <div class="rl-chart" id="rl-chart"></div>
+            </article>
+            <article class="rl-trials-panel">
+              <header class="panel-toolbar">
+                <span>
+                  <b>Fold × seed audit</b>
+                  <small>No lucky-seed selection</small>
+                </span>
+              </header>
+              <div id="rl-trials"></div>
+            </article>
+          </div>
+          <div class="rl-secondary-grid">
+            <article class="rl-baselines-panel">
+              <header class="panel-toolbar">
+                <span>
+                  <b>Declared baseline ladder</b>
+                  <small>Judge-owned comparison set</small>
+                </span>
+              </header>
+              <div id="rl-baselines"></div>
+            </article>
+            <article class="rl-detail-panel">
+              <header class="panel-toolbar">
+                <span>
+                  <b id="rl-detail-title">Policy implementation</b>
+                  <small>Fixed factor sleeves · historical research evidence</small>
+                </span>
+              </header>
+              <div id="rl-detail"></div>
+            </article>
+          </div>
+          <div class="rl-warning" id="rl-warning"></div>
+        </section>
+
         <section class="pulse-section" aria-labelledby="pulse-title">
           <header class="section-header">
             <span>

@@ -9,6 +9,8 @@ const state = {
   factorStability: "regimes",
   portfolioView: "performance",
   attributionSplit: "validation",
+  rlView: "performance",
+  rlSplit: "validation",
   matrixView: "selection",
   autoRefresh: true,
   loading: false,
@@ -1028,6 +1030,392 @@ function renderPortfolioExplorer(project) {
   renderPortfolioTransitions(explorer);
 }
 
+function rlBaselineLabel(value) {
+  return String(value ?? "")
+    .replace("fixed:", "")
+    .replace("best-training-expert", "training expert")
+    .replace("contextual-ridge", "contextual ridge")
+    .replaceAll("_", " ");
+}
+
+function rlTrialLabel(trial) {
+  return `${trial.fold.replace("fold-", "F")} · s${trial.seed}`;
+}
+
+function rlSplitEvidence(trial) {
+  return state.rlSplit === "test" ? trial.test : trial.validation;
+}
+
+function rlAdvantage(trial) {
+  return state.rlSplit === "test"
+    ? trial.testAdvantage
+    : trial.validationAdvantage;
+}
+
+function renderRlPerformance(explorer) {
+  const trials = explorer.trials;
+  const split = state.rlSplit;
+  const selected = explorer.baselines.filter((row) => row.selectedOnValidation);
+  const values = [
+    ...trials.map((trial) => rlSplitEvidence(trial).netSharpe),
+    ...selected.map((row) => row[split].netSharpe),
+  ];
+  const width = 760;
+  const left = 48;
+  const right = 16;
+  const top = 22;
+  const height = 210;
+  const minimum = Math.min(...values);
+  const maximum = Math.max(...values);
+  const padding = Math.max(0.5, (maximum - minimum) * 0.08);
+  const low = minimum - padding;
+  const high = maximum + padding;
+  const spread = Math.max(1e-9, high - low);
+  const y = (value) => top + ((high - value) / spread) * height;
+  const step = (width - left - right) / Math.max(1, trials.length);
+  const x = (index) => left + step * (index + 0.5);
+  const baselineLines = explorer.protocol.folds
+    .map((fold) => {
+      const foldIndices = trials
+        .map((trial, index) => [trial, index])
+        .filter(([trial]) => trial.fold === fold)
+        .map(([, index]) => index);
+      const baseline = selected.find((row) => row.fold === fold);
+      if (!baseline || !foldIndices.length) return "";
+      const value = baseline[split].netSharpe;
+      return `
+        <line class="rl-baseline-line"
+          x1="${(x(foldIndices[0]) - step * 0.38).toFixed(2)}"
+          x2="${(x(foldIndices.at(-1)) + step * 0.38).toFixed(2)}"
+          y1="${y(value).toFixed(2)}" y2="${y(value).toFixed(2)}">
+          <title>${escapeHtml(fold)} · ${escapeHtml(rlBaselineLabel(baseline.name))} · ${metric(value)}</title>
+        </line>`;
+    })
+    .join("");
+  const points = trials
+    .map((trial, index) => {
+      const value = rlSplitEvidence(trial).netSharpe;
+      const advantage = rlAdvantage(trial);
+      return `
+        <g class="rl-trial-point ${advantage >= 0 ? "positive" : "negative"}">
+          <circle cx="${x(index).toFixed(2)}" cy="${y(value).toFixed(2)}" r="5">
+            <title>${escapeHtml(rlTrialLabel(trial))} · Sharpe ${metric(value)} · advantage ${metric(advantage)}</title>
+          </circle>
+          <text x="${x(index).toFixed(2)}" y="${(y(value) - 10).toFixed(2)}"
+            text-anchor="middle">${metric(value)}</text>
+          <text class="rl-axis-label" x="${x(index).toFixed(2)}" y="258"
+            text-anchor="middle">${escapeHtml(rlTrialLabel(trial))}</text>
+        </g>`;
+    })
+    .join("");
+  const zero = low <= 0 && high >= 0
+    ? `<line class="rl-zero-line" x1="${left}" x2="${width - right}" y1="${y(0)}" y2="${y(0)}"></line>`
+    : "";
+  return `
+    <svg viewBox="0 0 ${width} 270" role="img"
+      aria-label="Every RL fold and seed compared with the validation-selected baseline">
+      ${zero}
+      <text class="rl-axis-label" x="5" y="${top + 5}">${metric(high)}</text>
+      <text class="rl-axis-label" x="5" y="${top + height}">${metric(low)}</text>
+      ${baselineLines}
+      ${points}
+    </svg>
+    <div class="rl-legend">
+      <span><i class="rl-positive"></i>RL beats selected baseline</span>
+      <span><i class="rl-negative"></i>RL trails selected baseline</span>
+      <span><i class="rl-baseline"></i>Validation-selected baseline</span>
+      <b>${split === "validation" ? "SELECTION" : "TEST · VISIBLE AUDIT ONLY"}</b>
+    </div>`;
+}
+
+function renderRlTraining(explorer) {
+  const rows = explorer.training;
+  const trials = explorer.trials;
+  const values = rows.map((row) => row.totalReward);
+  const width = 760;
+  const left = 48;
+  const right = 16;
+  const top = 22;
+  const height = 210;
+  const low = Math.min(...values);
+  const high = Math.max(...values);
+  const spread = Math.max(1e-9, high - low);
+  const x = (episode) =>
+    left + ((episode - 1) / Math.max(1, explorer.protocol.episodes - 1)) *
+      (width - left - right);
+  const y = (value) => top + ((high - value) / spread) * height;
+  const colors = ["c0", "c1", "c2", "c3", "c4", "c5"];
+  const lines = trials
+    .map((trial, index) => {
+      const history = rows.filter(
+        (row) => row.fold === trial.fold && row.seed === trial.seed,
+      );
+      const path = history
+        .map(
+          (row, pointIndex) =>
+            `${pointIndex ? "L" : "M"}${x(row.episode).toFixed(2)},${y(row.totalReward).toFixed(2)}`,
+        )
+        .join(" ");
+      const final = history.at(-1);
+      return `
+        <path class="rl-training-line ${colors[index % colors.length]}" d="${path}">
+          <title>${escapeHtml(rlTrialLabel(trial))} · final reward ${metric(final?.totalReward)}</title>
+        </path>
+        <text class="rl-training-label ${colors[index % colors.length]}"
+          x="${(x(final.episode) - 4).toFixed(2)}"
+          y="${(y(final.totalReward) - 4 + index * 2).toFixed(2)}"
+          text-anchor="end">${escapeHtml(rlTrialLabel(trial))}</text>`;
+    })
+    .join("");
+  const episodeLabels = Array.from(
+    { length: explorer.protocol.episodes },
+    (_, index) => index + 1,
+  )
+    .map(
+      (episode) => `
+        <text class="rl-axis-label" x="${x(episode).toFixed(2)}" y="258"
+          text-anchor="middle">E${episode}</text>`,
+    )
+    .join("");
+  return `
+    <svg viewBox="0 0 ${width} 270" role="img"
+      aria-label="Training total reward for every fold and seed">
+      <line class="rl-zero-line" x1="${left}" x2="${width - right}"
+        y1="${y(Math.max(low, Math.min(high, 0))).toFixed(2)}"
+        y2="${y(Math.max(low, Math.min(high, 0))).toFixed(2)}"></line>
+      <text class="rl-axis-label" x="5" y="${top + 5}">${metric(high)}</text>
+      <text class="rl-axis-label" x="5" y="${top + height}">${metric(low)}</text>
+      ${lines}
+      ${episodeLabels}
+    </svg>
+    <div class="rl-legend">
+      <span>Exact fixed-budget training history · all ${trials.length} trials</span>
+      <b>DESCRIPTIVE · NOT A PROMOTION METRIC</b>
+    </div>`;
+}
+
+function renderRlActions(explorer) {
+  const rows = explorer.actionSummaries.filter(
+    (row) => row.split === state.rlSplit,
+  );
+  const actions = explorer.protocol.actions;
+  const width = 760;
+  const left = 48;
+  const right = 16;
+  const top = 22;
+  const height = 210;
+  const step = (width - left - right) / Math.max(1, rows.length);
+  const barWidth = step * 0.58;
+  const bars = rows
+    .map((row, index) => {
+      let cumulative = 0;
+      const segments = actions
+        .map((action) => {
+          const value = row.actionFrequency[action];
+          const y = top + height * (1 - cumulative - value);
+          cumulative += value;
+          return `
+            <rect class="rl-action-${escapeHtml(action)}"
+              x="${(left + index * step + (step - barWidth) / 2).toFixed(2)}"
+              y="${y.toFixed(2)}" width="${barWidth.toFixed(2)}"
+              height="${(height * value).toFixed(2)}">
+              <title>${escapeHtml(action)} · ${percent(value)}</title>
+            </rect>`;
+        })
+        .join("");
+      return `${segments}
+        <text class="rl-axis-label" x="${(left + step * (index + 0.5)).toFixed(2)}"
+          y="258" text-anchor="middle">${escapeHtml(row.fold.replace("fold-", "F"))} · s${row.seed}</text>`;
+    })
+    .join("");
+  return `
+    <svg viewBox="0 0 ${width} 270" role="img"
+      aria-label="Fixed factor-mixture action allocation for every fold and seed">
+      <text class="rl-axis-label" x="5" y="${top + 5}">100%</text>
+      <text class="rl-axis-label" x="20" y="${top + height}">0</text>
+      ${bars}
+    </svg>
+    <div class="rl-legend">
+      ${actions
+        .map(
+          (action) =>
+            `<span><i class="rl-action-${escapeHtml(action)}"></i>${escapeHtml(action)}</span>`,
+        )
+        .join("")}
+      <b>${state.rlSplit === "validation" ? "SELECTION" : "TEST · VISIBLE AUDIT ONLY"}</b>
+    </div>`;
+}
+
+function renderRlChart(explorer) {
+  const title = {
+    performance: "RL versus selected baseline",
+    training: "Fixed-budget training behavior",
+    actions: "Fixed factor-sleeve allocation",
+  }[state.rlView];
+  const note = {
+    performance: "Every declared fold and seed · baseline chosen by fixed Judge",
+    training: "Every episode · no lucky-seed selection",
+    actions: "Allocation, transitions, turnover, and cost",
+  }[state.rlView];
+  element("rl-chart-title").textContent = title;
+  element("rl-chart-note").textContent = note;
+  element("rl-chart").innerHTML =
+    state.rlView === "training"
+      ? renderRlTraining(explorer)
+      : state.rlView === "actions"
+        ? renderRlActions(explorer)
+        : renderRlPerformance(explorer);
+  document.querySelectorAll("[data-rl-view]").forEach((button) => {
+    button.setAttribute("aria-selected", String(button.dataset.rlView === state.rlView));
+  });
+  document.querySelectorAll("[data-rl-split]").forEach((button) => {
+    button.setAttribute("aria-selected", String(button.dataset.rlSplit === state.rlSplit));
+  });
+}
+
+function renderRlTrials(explorer) {
+  const split = state.rlSplit;
+  element("rl-trials").innerHTML = `
+    <div class="rl-trial-table" role="table" aria-label="RL fold and seed audit">
+      <div class="rl-trial-row heading" role="row">
+        <span>Trial</span><span>Sharpe</span><span>vs baseline</span>
+      </div>
+      ${explorer.trials
+        .map((trial) => {
+          const evidence = trial[split];
+          const advantage = split === "validation"
+            ? trial.validationAdvantage
+            : trial.testAdvantage;
+          return `
+            <div class="rl-trial-row ${advantage >= 0 ? "positive" : "negative"}" role="row">
+              <span>
+                <b>${escapeHtml(rlTrialLabel(trial))}</b>
+                <small>${escapeHtml(rlBaselineLabel(trial.selectedBaseline))}</small>
+              </span>
+              <strong>${metric(evidence.netSharpe)}</strong>
+              <i>${advantage > 0 ? "+" : ""}${metric(advantage)}</i>
+            </div>`;
+        })
+        .join("")}
+    </div>`;
+}
+
+function renderRlBaselines(explorer) {
+  const split = state.rlSplit;
+  const byName = new Map();
+  for (const row of explorer.baselines) {
+    const values = byName.get(row.name) ?? [];
+    values.push(row[split].netSharpe);
+    byName.set(row.name, values);
+  }
+  const rows = [...byName.entries()]
+    .map(([name, values]) => ({
+      name,
+      mean: values.reduce((sum, value) => sum + value, 0) / values.length,
+      selected: explorer.baselines.some(
+        (row) => row.name === name && row.selectedOnValidation,
+      ),
+    }))
+    .sort((left, right) => right.mean - left.mean);
+  const maximum = Math.max(...rows.map((row) => row.mean));
+  const minimum = Math.min(0, ...rows.map((row) => row.mean));
+  const spread = Math.max(1e-9, maximum - minimum);
+  element("rl-baselines").innerHTML = `
+    <div class="rl-baseline-list">
+      ${rows
+        .map(
+          (row) => `
+            <div class="rl-baseline-row ${row.selected ? "selected" : ""}">
+              <span>
+                <b>${escapeHtml(rlBaselineLabel(row.name))}</b>
+                <small>${row.selected ? "selected in ≥1 fold" : "declared comparator"}</small>
+              </span>
+              <i><u style="width:${Math.max(0, (row.mean - minimum) / spread * 100).toFixed(2)}%"></u></i>
+              <strong>${metric(row.mean)}</strong>
+            </div>`,
+        )
+        .join("")}
+    </div>`;
+}
+
+function renderRlDetail(explorer) {
+  const rows = explorer.actionSummaries.filter(
+    (row) => row.split === state.rlSplit,
+  );
+  const actions = explorer.protocol.actions;
+  const meanFrequency = Object.fromEntries(
+    actions.map((action) => [
+      action,
+      rows.reduce((sum, row) => sum + row.actionFrequency[action], 0) /
+        Math.max(1, rows.length),
+    ]),
+  );
+  const transitions = rows.reduce((sum, row) => sum + row.actionTransitions, 0);
+  const turnover = rows.reduce((sum, row) => sum + row.meanOneWayTurnover, 0) /
+    Math.max(1, rows.length);
+  const cost = rows.reduce((sum, row) => sum + row.totalCostDrag, 0) /
+    Math.max(1, rows.length);
+  element("rl-detail").innerHTML = `
+    <div class="rl-action-mix">
+      ${actions
+        .map(
+          (action) => `
+            <div>
+              <span><i class="rl-action-${escapeHtml(action)}"></i>${escapeHtml(action)}</span>
+              <b>${percent(meanFrequency[action])}</b>
+            </div>`,
+        )
+        .join("")}
+    </div>
+    <div class="rl-implementation-grid">
+      <span><small>Mean one-way turnover</small><b>${metric(turnover)}</b></span>
+      <span><small>Mean total cost drag</small><b>${percent(cost)}</b></span>
+      <span><small>Action transitions</small><b>${metric(transitions)}</b></span>
+      <span><small>Cost assumption</small><b>${metric(explorer.protocol.configuration.costBps)} bps</b></span>
+    </div>
+    <p class="book-disclosure">Actions select fixed governed factor-mixture sleeves. They are historical research evidence, not orders or account positions.</p>`;
+}
+
+function renderRlExplorer(project) {
+  const section = element("rl-explorer");
+  const explorer = project.rlExplorer;
+  if (!explorer) {
+    section.hidden = true;
+    return;
+  }
+  section.hidden = false;
+  const summary = explorer.summary;
+  const advantage = summary.meanValidationAdvantageVsBestBaseline;
+  element("rl-meta").textContent =
+    `${explorer.run.id} · ${summary.trialCount} fold/seed trials · validation selection`;
+  element("rl-summary").innerHTML = [
+    ["RL value-add", `${advantage > 0 ? "+" : ""}${metric(advantage)}`, "vs best validation baseline", advantage >= 0 ? "positive" : "negative"],
+    ["Validation Sharpe", metric(summary.validation.mean), `minimum ${metric(summary.validation.minimum)}`, ""],
+    ["Seed / fold dispersion", metric(summary.validation.standardDeviation), `${summary.validation.observations} trials`, ""],
+    ["Failure rate", percent(summary.failureRate), "all declared trials", summary.failureRate ? "negative" : ""],
+    ["Mean turnover", metric(summary.meanValidationOneWayTurnover), "one-way · validation", ""],
+    ["Mean cost drag", percent(summary.meanValidationCostDrag), "validation", ""],
+    ["Test Sharpe", metric(summary.testAudit.mean), "VISIBLE AUDIT ONLY", "audit"],
+  ]
+    .map(
+      ([label, value, note, tone]) => `
+        <span class="${tone}">
+          <small>${escapeHtml(label)}</small>
+          <b>${escapeHtml(value)}</b>
+          <i>${escapeHtml(note)}</i>
+        </span>`,
+    )
+    .join("");
+  renderRlChart(explorer);
+  renderRlTrials(explorer);
+  renderRlBaselines(explorer);
+  renderRlDetail(explorer);
+  const command = project.commands?.find((item) => item.id === "run.rl");
+  element("rl-warning").innerHTML = `
+    <span>${escapeHtml(explorer.warning)}</span>
+    ${copyCommandButton(command, "Copy RL JSON command")}`;
+}
+
 function matrixValue(value, unit) {
   if (unit === "percent") return percent(value);
   if (unit === "count") {
@@ -1565,6 +1953,7 @@ function renderEmptyWorkspace(message = "Create a Project with aq project create
     '<div class="empty-panel handoff-empty">Delegated research requests will appear here.</div>';
   element("factor-explorer").hidden = true;
   element("portfolio-explorer").hidden = true;
+  element("rl-explorer").hidden = true;
   element("decision-matrix").hidden = true;
   element("trajectory-meta").textContent = "No Experiments";
   element("trajectory-chart").innerHTML =
@@ -1631,6 +2020,7 @@ function render() {
   renderHandoff(project);
   renderFactorExplorer(project);
   renderPortfolioExplorer(project);
+  renderRlExplorer(project);
   renderSessions(project);
   renderDecisionMatrix(project);
   renderTrajectory(project);
@@ -1737,6 +2127,25 @@ document.querySelectorAll("[data-attribution-split]").forEach((button) => {
     state.attributionSplit = button.dataset.attributionSplit;
     const explorer = selectedProject()?.portfolioExplorer;
     if (explorer) renderPortfolioAttribution(explorer);
+  });
+});
+document.querySelectorAll("[data-rl-view]").forEach((button) => {
+  button.addEventListener("click", () => {
+    state.rlView = button.dataset.rlView;
+    const explorer = selectedProject()?.rlExplorer;
+    if (explorer) renderRlChart(explorer);
+  });
+});
+document.querySelectorAll("[data-rl-split]").forEach((button) => {
+  button.addEventListener("click", () => {
+    state.rlSplit = button.dataset.rlSplit;
+    const explorer = selectedProject()?.rlExplorer;
+    if (explorer) {
+      renderRlChart(explorer);
+      renderRlTrials(explorer);
+      renderRlBaselines(explorer);
+      renderRlDetail(explorer);
+    }
   });
 });
 document.querySelectorAll("[data-matrix-view]").forEach((button) => {

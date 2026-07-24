@@ -27,6 +27,7 @@ from .portfolio_explorer import (
     DEFAULT_PORTFOLIO_POINTS,
     load_portfolio_diagnostics,
 )
+from .rl_explorer import DEFAULT_RL_POINTS, load_rl_diagnostics
 from .research import list_campaign_progress, list_campaigns
 from .reports import list_reports
 from .runs import list_runs, load_run
@@ -632,6 +633,30 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
                     error,
                 )
             )
+    rl_explorer = None
+    rl_candidate = next(
+        (
+            item
+            for item in reversed(runs_raw)
+            if item.status == "succeeded"
+            and item.primary_metric == "validation_mean_net_sharpe"
+        ),
+        None,
+    )
+    if rl_candidate is not None:
+        try:
+            rl_explorer = load_rl_diagnostics(
+                project,
+                rl_candidate.id,
+                point_limit=DEFAULT_RL_POINTS,
+            )
+        except AutoQuantValidationError as error:
+            diagnostics.extend(
+                _diagnostics(
+                    f"rl-explorer:{rl_candidate.id}",
+                    error,
+                )
+            )
     sessions: list[dict[str, Any]] = []
     for summary in sessions_raw:
         try:
@@ -723,6 +748,22 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
                 "read-only",
             )
         )
+    if rl_explorer is not None:
+        commands.append(
+            _command(
+                "run.rl",
+                [
+                    "aq",
+                    "run",
+                    "rl",
+                    str(project.root_dir),
+                    "--run",
+                    rl_explorer["run"]["id"],
+                    "--json",
+                ],
+                "read-only",
+            )
+        )
     return {
         "id": project.manifest.id,
         "name": project.manifest.name,
@@ -735,6 +776,7 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
         "intake": intake,
         "factorExplorer": factor_explorer,
         "portfolioExplorer": portfolio_explorer,
+        "rlExplorer": rl_explorer,
         "commands": commands,
         "valid": not diagnostics,
         "diagnostics": diagnostics,
@@ -1161,6 +1203,7 @@ STUDIO_SNAPSHOT_JSON_SCHEMA: dict[str, Any] = {
                 "intake",
                 "factorExplorer",
                 "portfolioExplorer",
+                "rlExplorer",
                 "commands",
                 "valid",
                 "diagnostics",
@@ -1187,6 +1230,7 @@ STUDIO_SNAPSHOT_JSON_SCHEMA: dict[str, Any] = {
                 "intake": {"type": ["object", "null"]},
                 "factorExplorer": {"type": ["object", "null"]},
                 "portfolioExplorer": {"type": ["object", "null"]},
+                "rlExplorer": {"type": ["object", "null"]},
                 "commands": {
                     "type": "array",
                     "items": {"type": "object"},

@@ -96,6 +96,8 @@ Mechanical signal state and attribution are defined in
 [[docs/design/signal-policy-and-attribution]].
 Bounded immutable Portfolio artifact projection is defined in
 [[docs/design/portfolio-decision-explorer]].
+Bounded governed RL artifact projection is defined in
+[[docs/design/rl-policy-evidence-explorer]].
 Session-level professional evidence comparison is defined in
 [[docs/design/session-decision-matrix]].
 Request-driven construction and external dataset snapshots are defined in

@@ -61,6 +61,9 @@ Read the relevant linked document before changing a subsystem:
 - Governed causal state encoding, fixed factor-mixture actions, RL reward,
   seeds/folds/baselines, and policy evidence:
   [[docs/design/rl-factor-policy-lab]]
+- Verified governed RL artifacts, bounded fold/seed, training, baseline, and
+  fixed-action Studio projection:
+  [[docs/design/rl-policy-evidence-explorer]]
 - Validation-only candidate selection, visible-test limitations, trial counts,
   and shared Session/Report/Studio integrity evidence:
   [[docs/design/research-selection-integrity]]

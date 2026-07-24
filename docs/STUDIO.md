@@ -97,6 +97,15 @@ Core object; JavaScript never parses CSV, re-bins assets, selects a horizon, or
 turns diagnostic evidence into an acceptance gate. The exact headless
 `aq run factor` command is copyable from the disclosure footer.
 
+The RL Policy Evidence Explorer verifies and reconciles all four governed RL
+artifacts before showing a claim. It leads with validation value-add versus the
+fixed Judge's selected baseline rather than raw Sharpe. Humans may switch among
+fold/seed performance, complete training histories, and fixed-sleeve action
+allocation, and may reveal test as visibly audit-only evidence. All declared
+seeds remain present; JavaScript never selects a seed, substitutes a baseline,
+trains a model, or interprets absent state. The exact headless `aq run rl`
+command is copyable from the disclosure footer.
+
 The handoff cards and Inspector distinguish caller-supplied OpenAlice context
 from authenticated provenance. Copy buttons only write an exact Core-generated
 CLI string to the local clipboard. They do not invoke the command or mutate the
@@ -123,6 +132,7 @@ aq schema studio-snapshot --json
 aq schema campaign-progress --json
 aq schema factor-diagnostics --json
 aq schema portfolio-diagnostics --json
+aq schema rl-policy-diagnostics --json
 aq schema session-decision-matrix --json
 ```
 

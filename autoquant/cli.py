@@ -71,6 +71,13 @@ from .portfolio_explorer import (
     PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA,
     load_portfolio_diagnostics,
 )
+from .rl_explorer import (
+    DEFAULT_RL_POINTS,
+    MAX_RL_POINTS,
+    MIN_RL_POINTS,
+    RL_DIAGNOSTICS_JSON_SCHEMA,
+    load_rl_diagnostics,
+)
 from .studio import STUDIO_SNAPSHOT_JSON_SCHEMA, build_studio_snapshot, serve_studio
 from .templates import PROJECT_TEMPLATE_IDS, TEMPLATE_STUDY_IDS
 from .sessions import (
@@ -172,6 +179,7 @@ def build_parser() -> RaisingArgumentParser:
             "run-result",
             "factor-diagnostics",
             "portfolio-diagnostics",
+            "rl-policy-diagnostics",
             "session-decision-matrix",
             "session",
             "experiment",
@@ -370,6 +378,23 @@ def build_parser() -> RaisingArgumentParser:
     )
     run_portfolio.set_defaults(command_id="run.portfolio")
     _json_argument(run_portfolio)
+
+    run_rl = run_actions.add_parser(
+        "rl",
+        help="inspect bounded governed RL policy evidence",
+    )
+    run_rl.add_argument("path")
+    run_rl.add_argument("--project")
+    run_rl.add_argument("--run", required=True)
+    run_rl.add_argument(
+        "--points",
+        type=int,
+        choices=range(MIN_RL_POINTS, MAX_RL_POINTS + 1),
+        default=DEFAULT_RL_POINTS,
+        metavar=f"{MIN_RL_POINTS}..{MAX_RL_POINTS}",
+    )
+    run_rl.set_defaults(command_id="run.rl")
+    _json_argument(run_rl)
 
     session = subcommands.add_parser(
         "session",
@@ -1070,6 +1095,26 @@ def _run_execute(args: argparse.Namespace) -> CommandResult:
                 "read-only",
             )
         )
+    if (
+        run.result["status"] == "succeeded"
+        and metric == "validation_mean_net_sharpe"
+    ):
+        actions.append(
+            next_action(
+                "run.rl",
+                "Inspect the verified governed RL policy evidence.",
+                [
+                    "aq",
+                    "run",
+                    "rl",
+                    str(project.root_dir),
+                    "--run",
+                    run.result["id"],
+                    "--json",
+                ],
+                "read-only",
+            )
+        )
     actions.append(
         next_action(
             "run.list",
@@ -1224,6 +1269,46 @@ def _run_portfolio(args: argparse.Namespace) -> CommandResult:
             f"{summary['maximumDrawdownAt']}\n"
             f"Latest historical book: {book['timestamp']} · "
             f"gross {book['grossExposure']} · net {book['netExposure']}\n"
+        ),
+        project_context(project),
+        [
+            artifact(
+                kind,
+                f"{diagnostics['run']['id']}:{kind}",
+                project.root_dir
+                / project.manifest.directories["runs"]
+                / diagnostics["run"]["id"]
+                / item["path"],
+                immutable=True,
+            )
+            for kind, item in diagnostics["artifacts"].items()
+        ],
+    )
+
+
+def _run_rl(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    diagnostics = load_rl_diagnostics(
+        project,
+        args.run,
+        point_limit=args.points,
+    )
+    summary = diagnostics["summary"]
+    return CommandResult(
+        "run.rl",
+        diagnostics,
+        (
+            f"RL policy Run: {diagnostics['run']['id']}\n"
+            f"Validation mean / minimum net Sharpe: "
+            f"{summary['validation']['mean']} / "
+            f"{summary['validation']['minimum']}\n"
+            f"Validation advantage versus best baseline: "
+            f"{summary['meanValidationAdvantageVsBestBaseline']}\n"
+            f"Trials / failure rate: {summary['trialCount']} / "
+            f"{summary['failureRate']}\n"
+            f"Action path: {diagnostics['actionPath']['totalRows']} rows → "
+            f"{diagnostics['actionPath']['sampledRows']} points\n"
+            "Test evidence is visible audit only; actions have no trading authority.\n"
         ),
         project_context(project),
         [
@@ -2048,6 +2133,7 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "judge-output",
             "ohlcv-dataset-package",
             "portfolio-diagnostics",
+            "rl-policy-diagnostics",
             "session-decision-matrix",
             "project",
             "report-analysis",
@@ -2072,6 +2158,7 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "run-result": RUN_RESULT_JSON_SCHEMA,
             "factor-diagnostics": FACTOR_DIAGNOSTICS_JSON_SCHEMA,
             "portfolio-diagnostics": PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA,
+            "rl-policy-diagnostics": RL_DIAGNOSTICS_JSON_SCHEMA,
             "session-decision-matrix": SESSION_DECISION_MATRIX_JSON_SCHEMA,
             "session": SESSION_JSON_SCHEMA,
             "experiment": EXPERIMENT_JSON_SCHEMA,
@@ -2119,6 +2206,8 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
         return _run_factor(args)
     if args.command_id == "run.portfolio":
         return _run_portfolio(args)
+    if args.command_id == "run.rl":
+        return _run_rl(args)
     if args.command_id == "session.start":
         return _session_start(args)
     if args.command_id == "session.list":

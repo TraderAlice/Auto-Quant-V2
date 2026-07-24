@@ -225,6 +225,7 @@ class AgentCliTests(unittest.TestCase):
                 "run.show",
                 "run.factor",
                 "run.portfolio",
+                "run.rl",
                 "session.start",
                 "session.list",
                 "session.show",
@@ -304,6 +305,7 @@ class AgentCliTests(unittest.TestCase):
                 "run-result",
                 "factor-diagnostics",
                 "portfolio-diagnostics",
+                "rl-policy-diagnostics",
                 "session-decision-matrix",
                 "session",
                 "experiment",
@@ -391,6 +393,12 @@ class AgentCliTests(unittest.TestCase):
                 "kind"
             ]["const"],
             "autoquant-portfolio-diagnostics",
+        )
+        self.assertEqual(
+            json_output(
+                run_cli("schema", "rl-policy-diagnostics", "--json")
+            )["data"]["schema"]["properties"]["kind"]["const"],
+            "autoquant-rl-policy-diagnostics",
         )
         comparison_schema = run_cli(
             "schema",
