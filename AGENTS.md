@@ -61,6 +61,9 @@ Read the relevant linked document before changing a subsystem:
 - Governed causal state encoding, fixed factor-mixture actions, RL reward,
   seeds/folds/baselines, and policy evidence:
   [[docs/design/rl-factor-policy-lab]]
+- Governed RL action persistence and exact chosen-versus-runner-up linear
+  decision rationale:
+  [[docs/design/rl-policy-behavior-rationale]]
 - Verified governed RL artifacts, bounded fold/seed, training, baseline, and
   fixed-action Studio projection:
   [[docs/design/rl-policy-evidence-explorer]]

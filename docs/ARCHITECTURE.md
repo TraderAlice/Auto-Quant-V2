@@ -132,6 +132,9 @@ Bounded immutable Portfolio artifact projection is defined in
 [[docs/design/portfolio-decision-explorer]].
 Bounded governed RL artifact projection is defined in
 [[docs/design/rl-policy-evidence-explorer]].
+Exact governed-RL action persistence and chosen-versus-runner-up linear
+decision rationale are defined in
+[[docs/design/rl-policy-behavior-rationale]].
 Session-level professional evidence comparison is defined in
 [[docs/design/session-decision-matrix]].
 Project-wide strategy-search history and selection-adjusted Factor/Portfolio

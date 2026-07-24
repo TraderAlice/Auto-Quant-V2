@@ -315,7 +315,29 @@ class GovernedRlFactorPolicyLabTests(unittest.TestCase):
                     "policy-models",
                     "training-history",
                     "policy-actions",
+                    "policy-rationales",
                 },
+            )
+            rationale = metrics["policy_rationale"]
+            self.assertEqual(
+                rationale["policy"]["selection_authority"],
+                "context-only",
+            )
+            self.assertEqual(
+                rationale["validation"]["decisions"],
+                360,
+            )
+            self.assertEqual(
+                rationale["validation"]["reconciliation"]["action_rows"],
+                360,
+            )
+            self.assertEqual(
+                set(rationale["validation"]["by_action"]),
+                set(metrics["configuration"]["actions"]),
+            )
+            self.assertEqual(
+                set(rationale["validation"]["by_feature"]),
+                set(metrics["configuration"]["featureNames"]),
             )
             first_models = next(
                 item
@@ -340,6 +362,10 @@ class GovernedRlFactorPolicyLabTests(unittest.TestCase):
             self.assertEqual(layers["kind"], "rl-policy")
             self.assertEqual(layers["folds"], 2)
             self.assertEqual(layers["seeds"], 3)
+            self.assertEqual(
+                layers["policyBehavior"]["selectionAuthority"],
+                "context-only",
+            )
 
     def test_campaign_keeps_regime_encoder_and_rejects_nondeterminism(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

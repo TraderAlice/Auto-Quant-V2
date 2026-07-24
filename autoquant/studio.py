@@ -680,6 +680,30 @@ def _rl_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
             "failureRate": aggregate["failure_rate"],
             "folds": len(metrics["configuration"]["folds"]),
             "seeds": len(metrics["configuration"]["seeds"]),
+            "policyBehavior": (
+                {
+                    "validationMeanActionRunLength": metrics[
+                        "policy_rationale"
+                    ]["validation"]["mean_action_run_length"],
+                    "validationTransitionRate": metrics[
+                        "policy_rationale"
+                    ]["validation"]["transition_rate"],
+                    "validationRetentionRate": metrics[
+                        "policy_rationale"
+                    ]["validation"]["retention_rate"],
+                    "validationMedianActionMargin": metrics[
+                        "policy_rationale"
+                    ]["validation"]["median_action_margin"],
+                    "validationTieRate": metrics["policy_rationale"][
+                        "validation"
+                    ]["tie_rate"],
+                    "selectionAuthority": metrics["policy_rationale"][
+                        "policy"
+                    ]["selection_authority"],
+                }
+                if isinstance(metrics.get("policy_rationale"), dict)
+                else None
+            ),
             "executedBookRisk": (
                 {
                     "validationForecastCoverage": metrics[

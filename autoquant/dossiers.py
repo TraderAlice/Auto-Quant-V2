@@ -1196,6 +1196,51 @@ def _render_markdown(dossier: dict[str, Any]) -> str:
                 ]
             )
         lines.append("")
+    policy_behavior_lanes = [
+        lane
+        for lane in evidence["lanes"]
+        if isinstance(
+            lane["leaderRun"]["metrics"].get("policy_rationale"),
+            dict,
+        )
+    ]
+    if policy_behavior_lanes:
+        lines.extend(["## RL policy behavior and rationale", ""])
+        for lane in policy_behavior_lanes:
+            rationale = lane["leaderRun"]["metrics"]["policy_rationale"]
+            validation = rationale["validation"]
+            dominant = sorted(
+                validation["by_feature"].items(),
+                key=lambda item: (
+                    -item[1]["dominant_rate"],
+                    item[0],
+                ),
+            )[:3]
+            lines.extend(
+                [
+                    f"- {lane['name']}: validation decisions / action runs / "
+                    f"transition rate / mean run length = "
+                    f"`{validation['decisions']}` / "
+                    f"`{validation['action_runs']}` / "
+                    f"`{validation['transition_rate']}` / "
+                    f"`{validation['mean_action_run_length']}` bars",
+                    f"- {lane['name']}: median uncalibrated Q margin / tie "
+                    f"rate / single-bar-run rate = "
+                    f"`{validation['median_action_margin']}` / "
+                    f"`{validation['tie_rate']}` / "
+                    f"`{validation['single_bar_run_rate']}`",
+                    f"- {lane['name']}: dominant margin features = "
+                    + ", ".join(
+                        f"`{name}` ({values['dominant_rate']})"
+                        for name, values in dominant
+                    ),
+                    f"- {lane['name']}: chosen-versus-runner-up feature "
+                    "contributions exactly decompose an uncalibrated linear "
+                    "Q margin; they are not confidence, probability, causal "
+                    "importance, or trading authority.",
+                ]
+            )
+        lines.append("")
     lifecycle_lanes = [
         lane
         for lane in evidence["lanes"]

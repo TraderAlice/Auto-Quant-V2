@@ -148,7 +148,7 @@ Core object; JavaScript never parses CSV, re-bins assets, selects a horizon, or
 turns diagnostic evidence into an acceptance gate. The exact headless
 `aq run factor` command is copyable from the disclosure footer.
 
-The RL Policy Evidence Explorer verifies and reconciles all four governed RL
+The RL Policy Evidence Explorer verifies and reconciles the governed RL
 artifacts before showing a claim. It leads with validation value-add versus the
 fixed Judge's selected baseline rather than raw Sharpe. Humans may switch among
 fold/seed performance, complete training histories, and fixed-sleeve action
@@ -157,6 +157,15 @@ seeds and their executed-book compliance remain present; JavaScript never
 selects a seed, substitutes a baseline,
 trains a model, or interprets absent state. The exact headless `aq run rl`
 command is copyable from the disclosure footer.
+
+New rationale evidence adds a Policy Behavior & Decision Rationale panel. It
+shows split-bounded action-run persistence, transitions/retention, one-bar
+churn, uncalibrated Q-margin/tie evidence, action-conditioned outcomes,
+dominant linear margin drivers, and representative low/high-margin choices.
+Every chosen-versus-runner-up contribution is rechecked against frozen model
+weights and the immutable action ledger. It is not probability, confidence,
+causal importance, or promotion/trading authority; legacy Runs state that the
+evidence is unavailable.
 
 The handoff cards and Inspector distinguish caller-supplied OpenAlice context
 from authenticated provenance. Copy buttons only write an exact Core-generated

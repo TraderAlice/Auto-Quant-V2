@@ -76,6 +76,12 @@ Inspect every seed and fold, seed dispersion, failures, action frequencies,
 turnover/cost/risk, RL-minus-best-baseline, RL-minus-candidate-factor, and
 candidate-action-frequency evidence. A positive RL Sharpe does not prove RL
 added value.
+Inspect action-run length, transition/retention, single-bar churn, Q-margin
+ties, and the chosen-versus-runner-up rationale ledger. Q margins are
+uncalibrated linear-model scores. Their exact feature decomposition explains
+one frozen comparison only; it is not probability, confidence, causal
+importance, or a selection metric. Realized outcomes conditioned on the chosen
+action are descriptive and endogenous.
 Reconcile final-book risk coverage, pretrade breaches, risk-only overrides,
 executed breaches, and execution reasons across every declared policy path;
 these are implementation context and cannot select the editable encoder.

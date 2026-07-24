@@ -191,6 +191,13 @@ the immutable report, learned models, complete fixed-budget training histories,
 and timestamped action ledger; reconciles every declared fold/seed, baseline,
 reward, action frequency, observation count, turnover, and cost; then returns
 a bounded action path with exact trial, training, and model evidence.
+For new Runs it also verifies the policy-rationale ledger against frozen model
+weights and action chronology, then reconstructs action persistence,
+transitions, uncalibrated chosen-versus-runner-up Q margins, exact linear
+feature contributions, and descriptive action-conditioned outcomes. The human
+view prints a compact validation behavior line; JSON exposes
+`policyBehavior`. Legacy Runs without both rationale metric and artifact remain
+readable with `available=false`.
 Validation advantage versus each fold's fixed validation-selected baseline is
 the value-add test. Test remains visible audit only, failed seeds cannot be
 hidden, every action must pass the shared Portfolio Mandate audit, and

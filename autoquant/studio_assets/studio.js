@@ -2231,6 +2231,121 @@ function renderRlDetail(explorer) {
     <p class="book-disclosure">Actions select the content-locked candidate factor, fixed reference factors, or their governed blend. Final post-drift books are risk-checked before reward; all values remain historical research evidence, not orders or account positions.</p>`;
 }
 
+function renderRlBehavior(explorer) {
+  const root = element("rl-behavior");
+  const behavior = explorer.policyBehavior;
+  if (!behavior?.available) {
+    root.innerHTML = `
+      <div class="rl-behavior-empty">
+        Legacy Run: exact policy-rationale evidence was not recorded.
+      </div>`;
+    return;
+  }
+  const split = behavior[state.rlSplit];
+  const actions = [...split.byAction].sort(
+    (left, right) => right.frequency - left.frequency ||
+      left.action.localeCompare(right.action),
+  );
+  const features = [...split.byFeature]
+    .sort(
+      (left, right) => right.dominantRate - left.dominantRate ||
+        right.meanAbsoluteMarginContribution -
+          left.meanAbsoluteMarginContribution ||
+        left.feature.localeCompare(right.feature),
+    )
+    .slice(0, 8);
+  const decisions = behavior.representativeDecisions
+    .filter((row) => row.split === state.rlSplit)
+    .sort(
+      (left, right) => left.actionMargin - right.actionMargin ||
+        left.timestamp.localeCompare(right.timestamp),
+    );
+  const representatives = [
+    ...decisions.slice(0, 3),
+    ...decisions.slice(-3),
+  ];
+  root.innerHTML = `
+    <div class="rl-behavior-stats">
+      <span><small>Mean action run</small><b>${metric(split.meanActionRunLength)} bars</b></span>
+      <span><small>Transition / retention</small><b>${percent(split.transitionRate)} / ${percent(split.retentionRate)}</b></span>
+      <span><small>Single-bar runs</small><b>${percent(split.singleBarRunRate)}</b></span>
+      <span><small>Median Q margin</small><b>${metric(split.medianActionMargin)}</b></span>
+      <span><small>Q ties</small><b>${percent(split.tieRate)}</b></span>
+      <span><small>Evidence coverage</small><b>${metric(split.decisions)} decisions · ${metric(split.trialPaths)} paths</b></span>
+    </div>
+    <div class="rl-behavior-grid">
+      <section>
+        <h3>Action sleeves</h3>
+        <div class="rl-behavior-table action-table" role="table" aria-label="Action sleeve behavior">
+          <div class="heading" role="row">
+            <span>Action</span><span>Use</span><span>Run</span><span>Q margin</span><span>Reward</span><span>Turnover</span>
+          </div>
+          ${actions
+            .map(
+              (row) => `
+                <div role="row">
+                  <span><i class="rl-action-${escapeHtml(row.action)}"></i><b>${escapeHtml(row.action)}</b></span>
+                  <span>${percent(row.frequency)}</span>
+                  <span>${metric(row.meanActionRunLength)}</span>
+                  <span>${metric(row.meanActionMargin)}</span>
+                  <span class="${row.meanReward >= 0 ? "positive" : "negative"}">${metric(row.meanReward)}</span>
+                  <span>${metric(row.meanOneWayTurnover)}</span>
+                </div>`,
+            )
+            .join("")}
+        </div>
+      </section>
+      <section>
+        <h3>Dominant margin drivers</h3>
+        <div class="rl-behavior-table feature-table" role="table" aria-label="Dominant linear margin features">
+          <div class="heading" role="row">
+            <span>Feature</span><span>Dominant</span><span>Mean |contrib|</span><span>Mean signed</span>
+          </div>
+          ${features
+            .map(
+              (row) => `
+                <div role="row">
+                  <span><b>${escapeHtml(row.feature)}</b></span>
+                  <span>${percent(row.dominantRate)}</span>
+                  <span>${metric(row.meanAbsoluteMarginContribution)}</span>
+                  <span class="${row.meanSignedMarginContribution >= 0 ? "positive" : "negative"}">${metric(row.meanSignedMarginContribution)}</span>
+                </div>`,
+            )
+            .join("")}
+        </div>
+      </section>
+    </div>
+    <section class="rl-rationale-decisions">
+      <h3>Representative low / high-margin decisions</h3>
+      <div class="rl-rationale-list">
+        ${representatives
+          .map(
+            (row, index) => `
+              <div>
+                <span>
+                  <small>${index < 3 ? "LOW MARGIN" : "HIGH MARGIN"} · ${escapeHtml(row.fold)} / s${metric(row.seed)} · ${escapeHtml(row.timestamp)}</small>
+                  <b>${escapeHtml(row.selectedAction)} <i>over</i> ${escapeHtml(row.runnerUpAction)}</b>
+                </span>
+                <span>
+                  <small>Q margin</small>
+                  <b>${metric(row.actionMargin)}</b>
+                </span>
+                <span>
+                  <small>Dominant contribution</small>
+                  <b>${escapeHtml(row.dominantMarginFeature)} · ${metric(row.dominantMarginContribution)}</b>
+                </span>
+                <span>
+                  <small>Realized reward</small>
+                  <b class="${row.reward >= 0 ? "positive" : "negative"}">${metric(row.reward)}</b>
+                </span>
+              </div>`,
+          )
+          .join("")}
+      </div>
+    </section>
+    <p class="book-disclosure">Q margins are uncalibrated linear-model scores—not probability or confidence. Feature contributions exactly decompose the chosen-minus-runner-up margin, but are not causal importance. Realized action outcomes are descriptive and endogenous. No Broker, account, capital, or order authority.</p>`;
+}
+
 function renderRlExplorer(project) {
   const section = element("rl-explorer");
   const explorer = project.rlExplorer;
@@ -2277,6 +2392,7 @@ function renderRlExplorer(project) {
   renderRlTrials(explorer);
   renderRlBaselines(explorer);
   renderRlDetail(explorer);
+  renderRlBehavior(explorer);
   const command = project.commands?.find((item) => item.id === "run.rl");
   element("rl-warning").innerHTML = `
     <span>${escapeHtml(explorer.warning)}</span>
@@ -3088,6 +3204,7 @@ document.querySelectorAll("[data-rl-split]").forEach((button) => {
       renderRlTrials(explorer);
       renderRlBaselines(explorer);
       renderRlDetail(explorer);
+      renderRlBehavior(explorer);
     }
   });
 });

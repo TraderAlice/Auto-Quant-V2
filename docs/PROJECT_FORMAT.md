@@ -372,6 +372,14 @@ the same complete Mandate before training or rollout. New Portfolio ledgers
 and daily artifacts also record pretrade/proposed/executed forecasts,
 forecast coverage, proportional repair scale, risk-only override, and exact
 execution reason. RL action artifacts publish the same final-book fields.
+New governed RL Runs additionally declare `policy-rationales.json`: one exact
+row per validation/test action with raw causal state, encoded features, all
+frozen linear-Q values, deterministic runner-up, chosen margin, and the exact
+per-feature chosen-minus-runner contribution. `policy_rationale` Run metrics
+summarize split-bounded action runs, transitions, margins, and descriptive
+action/feature conditionals. Q scale is uncalibrated and the evidence remains
+context-only with no trading authority. Older Runs may omit both the metric
+and artifact and remain readable as legacy evidence.
 New Portfolio ledgers
 also record causal trailing dollar volume, reference-NAV participation,
 1%/5% asset and portfolio capacity, availability, and one deterministic

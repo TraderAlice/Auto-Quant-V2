@@ -1617,6 +1617,25 @@ def _run_rl(args: argparse.Namespace) -> CommandResult:
             "risk overrides · contextual only\n"
         )
     )
+    policy_behavior = diagnostics["policyBehavior"]
+    validation_behavior = (
+        policy_behavior["validation"]
+        if policy_behavior["available"]
+        else None
+    )
+    policy_behavior_line = (
+        "Policy behavior: legacy rationale evidence unavailable\n"
+        if validation_behavior is None
+        else (
+            "Validation policy behavior: "
+            f"{validation_behavior['meanActionRunLength']:.3f} mean "
+            "action-run bars · "
+            f"{validation_behavior['transitionRate']:.3%} transitions · "
+            f"{validation_behavior['medianActionMargin']:.6g} median "
+            "uncalibrated Q margin · "
+            f"{validation_behavior['tieRate']:.3%} ties · contextual only\n"
+        )
+    )
     return CommandResult(
         "run.rl",
         diagnostics,
@@ -1631,6 +1650,7 @@ def _run_rl(args: argparse.Namespace) -> CommandResult:
             f"{summary['failureRate']}\n"
             f"Action path: {diagnostics['actionPath']['totalRows']} rows → "
             f"{diagnostics['actionPath']['sampledRows']} points\n"
+            f"{policy_behavior_line}"
             f"{execution_risk_line}"
             "Test evidence is visible audit only; actions have no trading authority.\n"
         ),

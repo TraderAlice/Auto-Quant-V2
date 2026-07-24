@@ -52,3 +52,9 @@ writers and active RL readers are surfaced as a concurrency conflict.
 AutoQuant produces quantitative decision support only. Target weights,
 historical actions, and Reports are not Broker orders, account state, or
 OpenAlice trading approval.
+
+When the RL lane is present, inspect whether action sleeves persist coherently
+or churn one bar at a time, then inspect exact chosen-versus-runner-up linear-Q
+rationales. Q margins are uncalibrated and feature contributions are not causal
+importance. This behavior evidence is contextual only and cannot override the
+validation objective or promote an encoder.

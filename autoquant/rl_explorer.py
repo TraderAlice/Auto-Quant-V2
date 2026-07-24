@@ -30,11 +30,15 @@ MIN_RL_POINTS = 40
 MAX_RL_POINTS = 400
 MAX_ARTIFACT_BYTES = 32 * 1024 * 1024
 MAX_ACTION_ROWS = 1_000_000
-EXPECTED_ARTIFACT_KINDS = {
+BASE_ARTIFACT_KINDS = {
     "rl-report",
     "policy-models",
     "training-history",
     "policy-actions",
+}
+POLICY_RATIONALE_ARTIFACT_KIND = "policy-rationales"
+EXPECTED_ARTIFACT_KINDS = BASE_ARTIFACT_KINDS | {
+    POLICY_RATIONALE_ARTIFACT_KIND
 }
 ACTION_COLUMNS = [
     "fold",
@@ -177,7 +181,7 @@ def _artifact_paths(
             )
         paths[kind] = path
         identities[kind] = {"path": relative, "sha256": content_hash}
-    missing = EXPECTED_ARTIFACT_KINDS - paths.keys()
+    missing = BASE_ARTIFACT_KINDS - paths.keys()
     if missing:
         _fail(
             run.root_dir,
@@ -1026,6 +1030,744 @@ def _action_projection(
     }
 
 
+POLICY_RATIONALE_METHOD = (
+    "linear-q-chosen-vs-runner-up-decomposition-v1"
+)
+POLICY_RATIONALE_POLICY = {
+    "method": POLICY_RATIONALE_METHOD,
+    "action_runs": "contiguous-actions-clipped-to-fold-seed-split",
+    "q_scale": "uncalibrated-linear-model-score",
+    "feature_contribution": (
+        "exact-linear-chosen-minus-runner-decomposition"
+    ),
+    "realized_outcomes": (
+        "descriptive-endogenous-action-conditioning"
+    ),
+    "selection_authority": "context-only",
+    "trading_authority": "none",
+}
+
+
+def _median(values: list[float | int]) -> float:
+    ordered = sorted(float(value) for value in values)
+    midpoint = len(ordered) // 2
+    if len(ordered) % 2:
+        return ordered[midpoint]
+    return (ordered[midpoint - 1] + ordered[midpoint]) / 2.0
+
+
+def _behavior_metrics(
+    rows: list[dict[str, Any]],
+    split: str,
+    actions: list[str],
+    feature_names: list[str],
+) -> dict[str, Any]:
+    selected = [row for row in rows if row["split"] == split]
+    if not selected:
+        _fail(
+            f"policy-rationales/{split}",
+            "rl.policy-rationale-coverage",
+            "Policy rationale split has no decisions",
+        )
+    groups: dict[tuple[str, int], list[dict[str, Any]]] = defaultdict(list)
+    for row in selected:
+        groups[(row["fold"], row["seed"])].append(row)
+    run_lengths: list[int] = []
+    runs_by_action = {action: [] for action in actions}
+    transitions = 0
+    comparable = 0
+    trials: list[dict[str, Any]] = []
+    for (fold, seed), group in groups.items():
+        lengths: list[int] = []
+        current_action = group[0]["selectedAction"]
+        current_length = 0
+        trial_transitions = 0
+        for row in group:
+            if row["selectedAction"] != current_action:
+                lengths.append(current_length)
+                runs_by_action[current_action].append(current_length)
+                current_action = row["selectedAction"]
+                current_length = 0
+                trial_transitions += 1
+            current_length += 1
+        lengths.append(current_length)
+        runs_by_action[current_action].append(current_length)
+        run_lengths.extend(lengths)
+        transitions += trial_transitions
+        comparable += max(0, len(group) - 1)
+        margins = [row["actionMargin"] for row in group]
+        trials.append(
+            {
+                "fold": fold,
+                "seed": seed,
+                "decisions": len(group),
+                "action_runs": len(lengths),
+                "transitions": trial_transitions,
+                "transition_rate": (
+                    trial_transitions / (len(group) - 1)
+                    if len(group) > 1
+                    else 0.0
+                ),
+                "mean_action_run_length": sum(lengths) / len(lengths),
+                "mean_action_margin": sum(margins) / len(margins),
+                "tie_rate": (
+                    sum(row["tieForBest"] for row in group) / len(group)
+                ),
+            }
+        )
+    decisions = len(selected)
+    margins = [row["actionMargin"] for row in selected]
+    by_action: dict[str, dict[str, Any]] = {}
+    for action in actions:
+        group = [row for row in selected if row["selectedAction"] == action]
+        action_runs = runs_by_action[action]
+        by_action[action] = {
+            "decisions": len(group),
+            "frequency": len(group) / decisions,
+            "action_runs": len(action_runs),
+            "mean_action_run_length": (
+                sum(action_runs) / len(action_runs)
+                if action_runs
+                else 0.0
+            ),
+            "mean_action_margin": (
+                sum(row["actionMargin"] for row in group) / len(group)
+                if group
+                else 0.0
+            ),
+            "mean_reward": (
+                sum(row["reward"] for row in group) / len(group)
+                if group
+                else 0.0
+            ),
+            "mean_net_return": (
+                sum(row["netReturn"] for row in group) / len(group)
+                if group
+                else 0.0
+            ),
+            "mean_one_way_turnover": (
+                sum(row["oneWayTurnover"] for row in group) / len(group)
+                if group
+                else 0.0
+            ),
+            "total_cost": sum(row["cost"] for row in group),
+        }
+    by_feature: dict[str, dict[str, Any]] = {}
+    for feature in feature_names:
+        contributions = [
+            row["marginContributions"][feature] for row in selected
+        ]
+        dominant = sum(
+            row["dominantMarginFeature"] == feature for row in selected
+        )
+        by_feature[feature] = {
+            "dominant_decisions": dominant,
+            "dominant_rate": dominant / decisions,
+            "mean_signed_margin_contribution": (
+                sum(contributions) / len(contributions)
+            ),
+            "mean_absolute_margin_contribution": (
+                sum(abs(value) for value in contributions)
+                / len(contributions)
+            ),
+        }
+    total_reward = sum(row["reward"] for row in selected)
+    total_net_return = sum(row["netReturn"] for row in selected)
+    mean_turnover = (
+        sum(row["oneWayTurnover"] for row in selected) / decisions
+    )
+    total_cost = sum(row["cost"] for row in selected)
+    reconciliation = {
+        "rationale_rows": decisions,
+        "action_rows": decisions,
+        "decision_count_error": abs(
+            sum(item["decisions"] for item in by_action.values())
+            - decisions
+        ),
+        "frequency_error": abs(
+            sum(item["frequency"] for item in by_action.values()) - 1.0
+        ),
+        "reward_error": abs(
+            sum(
+                item["mean_reward"] * item["decisions"]
+                for item in by_action.values()
+            )
+            - total_reward
+        ),
+        "net_return_error": abs(
+            sum(
+                item["mean_net_return"] * item["decisions"]
+                for item in by_action.values()
+            )
+            - total_net_return
+        ),
+        "turnover_error": abs(
+            sum(
+                item["mean_one_way_turnover"] * item["frequency"]
+                for item in by_action.values()
+            )
+            - mean_turnover
+        ),
+        "cost_error": abs(
+            sum(item["total_cost"] for item in by_action.values())
+            - total_cost
+        ),
+        "transition_run_error": abs(
+            len(run_lengths) - transitions - len(groups)
+        ),
+        "dominant_feature_rate_error": abs(
+            sum(item["dominant_rate"] for item in by_feature.values())
+            - 1.0
+        ),
+    }
+    reconciliation["passed"] = (
+        reconciliation["rationale_rows"]
+        == reconciliation["action_rows"]
+        == decisions
+        and max(
+            float(value)
+            for key, value in reconciliation.items()
+            if key not in {"rationale_rows", "action_rows"}
+        )
+        <= 1e-10
+    )
+    return {
+        "status": "available",
+        "decisions": decisions,
+        "trial_paths": len(groups),
+        "transitions": transitions,
+        "transition_rate": transitions / comparable if comparable else 0.0,
+        "retention_rate": (
+            1.0 - transitions / comparable if comparable else 1.0
+        ),
+        "action_runs": len(run_lengths),
+        "mean_action_run_length": sum(run_lengths) / len(run_lengths),
+        "median_action_run_length": _median(run_lengths),
+        "maximum_action_run_length": max(run_lengths),
+        "single_bar_run_rate": (
+            sum(length == 1 for length in run_lengths) / len(run_lengths)
+        ),
+        "mean_action_margin": sum(margins) / len(margins),
+        "median_action_margin": _median(margins),
+        "minimum_action_margin": min(margins),
+        "maximum_action_margin": max(margins),
+        "tie_decisions": sum(row["tieForBest"] for row in selected),
+        "tie_rate": sum(row["tieForBest"] for row in selected) / decisions,
+        "total_reward": total_reward,
+        "total_net_return": total_net_return,
+        "mean_one_way_turnover": mean_turnover,
+        "total_cost": total_cost,
+        "by_action": by_action,
+        "by_feature": by_feature,
+        "trials": trials,
+        "reconciliation": reconciliation,
+    }
+
+
+def _compare_policy_metrics(actual: Any, expected: Any, path: str) -> None:
+    if isinstance(expected, dict):
+        if not isinstance(actual, dict) or set(actual) != set(expected):
+            _fail(
+                path,
+                "rl.policy-rationale-metrics",
+                "Policy-rationale metric shape differs from reconstructed evidence",
+            )
+        for key, value in expected.items():
+            _compare_policy_metrics(actual[key], value, f"{path}/{key}")
+    elif isinstance(expected, list):
+        if not isinstance(actual, list) or len(actual) != len(expected):
+            _fail(
+                path,
+                "rl.policy-rationale-metrics",
+                "Policy-rationale metric list differs from reconstructed evidence",
+            )
+        for index, value in enumerate(expected):
+            _compare_policy_metrics(
+                actual[index],
+                value,
+                f"{path}/{index}",
+            )
+    elif isinstance(expected, bool):
+        if actual is not expected:
+            _fail(
+                path,
+                "rl.policy-rationale-metrics",
+                "Policy-rationale metric differs from reconstructed evidence",
+            )
+    elif isinstance(expected, float):
+        _close(
+            actual,
+            expected,
+            path,
+            "policy-rationale metric",
+            tolerance=1e-9,
+        )
+    elif actual != expected:
+        _fail(
+            path,
+            "rl.policy-rationale-metrics",
+            "Policy-rationale metric differs from reconstructed evidence",
+        )
+
+
+def _behavior_split_projection(value: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "status": value["status"],
+        "decisions": value["decisions"],
+        "trialPaths": value["trial_paths"],
+        "transitions": value["transitions"],
+        "transitionRate": value["transition_rate"],
+        "retentionRate": value["retention_rate"],
+        "actionRuns": value["action_runs"],
+        "meanActionRunLength": value["mean_action_run_length"],
+        "medianActionRunLength": value["median_action_run_length"],
+        "maximumActionRunLength": value["maximum_action_run_length"],
+        "singleBarRunRate": value["single_bar_run_rate"],
+        "meanActionMargin": value["mean_action_margin"],
+        "medianActionMargin": value["median_action_margin"],
+        "minimumActionMargin": value["minimum_action_margin"],
+        "maximumActionMargin": value["maximum_action_margin"],
+        "tieDecisions": value["tie_decisions"],
+        "tieRate": value["tie_rate"],
+        "totalReward": value["total_reward"],
+        "totalNetReturn": value["total_net_return"],
+        "meanOneWayTurnover": value["mean_one_way_turnover"],
+        "totalCost": value["total_cost"],
+        "byAction": [
+            {
+                "action": action,
+                "decisions": metrics["decisions"],
+                "frequency": metrics["frequency"],
+                "actionRuns": metrics["action_runs"],
+                "meanActionRunLength": metrics[
+                    "mean_action_run_length"
+                ],
+                "meanActionMargin": metrics["mean_action_margin"],
+                "meanReward": metrics["mean_reward"],
+                "meanNetReturn": metrics["mean_net_return"],
+                "meanOneWayTurnover": metrics[
+                    "mean_one_way_turnover"
+                ],
+                "totalCost": metrics["total_cost"],
+            }
+            for action, metrics in value["by_action"].items()
+        ],
+        "byFeature": [
+            {
+                "feature": feature,
+                "dominantDecisions": metrics["dominant_decisions"],
+                "dominantRate": metrics["dominant_rate"],
+                "meanSignedMarginContribution": metrics[
+                    "mean_signed_margin_contribution"
+                ],
+                "meanAbsoluteMarginContribution": metrics[
+                    "mean_absolute_margin_contribution"
+                ],
+            }
+            for feature, metrics in value["by_feature"].items()
+        ],
+        "trials": [
+            {
+                "fold": trial["fold"],
+                "seed": trial["seed"],
+                "decisions": trial["decisions"],
+                "actionRuns": trial["action_runs"],
+                "transitions": trial["transitions"],
+                "transitionRate": trial["transition_rate"],
+                "meanActionRunLength": trial[
+                    "mean_action_run_length"
+                ],
+                "meanActionMargin": trial["mean_action_margin"],
+                "tieRate": trial["tie_rate"],
+            }
+            for trial in value["trials"]
+        ],
+        "reconciliation": value["reconciliation"],
+    }
+
+
+def _policy_behavior_projection(
+    value: dict[str, Any] | None,
+    raw_metrics: Any,
+    models: list[dict[str, Any]],
+    action_rows: list[dict[str, Any]],
+    configuration: dict[str, Any],
+    input_hash: str,
+) -> dict[str, Any]:
+    if value is None and raw_metrics is None:
+        return {
+            "available": False,
+            "policy": None,
+            "selectionAuthority": "context-only",
+            "validation": None,
+            "test": None,
+            "representativeDecisions": [],
+        }
+    if value is None or not isinstance(raw_metrics, dict):
+        _fail(
+            "RunResult/metrics/policy_rationale",
+            "rl.policy-rationale",
+            "Policy-rationale metrics and artifact must exist together",
+        )
+    expected_root = {
+        "schemaVersion",
+        "inputHash",
+        "method",
+        "actions",
+        "rawStateFields",
+        "featureNames",
+        "rows",
+    }
+    if (
+        set(value) != expected_root
+        or value["schemaVersion"] != SCHEMA_VERSION
+        or value["inputHash"] != input_hash
+        or value["method"] != POLICY_RATIONALE_METHOD
+        or value["actions"] != configuration["actions"]
+        or value["rawStateFields"] != configuration["rawStateFields"]
+        or value["featureNames"] != configuration["featureNames"]
+        or not isinstance(value["rows"], list)
+    ):
+        _fail(
+            "policy-rationales",
+            "rl.policy-rationale-identity",
+            "Policy-rationale identity differs from the fixed Run",
+        )
+    if raw_metrics.get("policy") != POLICY_RATIONALE_POLICY or set(
+        raw_metrics
+    ) != {"policy", "validation", "test"}:
+        _fail(
+            "RunResult/metrics/policy_rationale/policy",
+            "rl.policy-rationale-policy",
+            "Policy-rationale policy differs from the fixed contract",
+        )
+    model_by_key = {
+        (model["fold"], model["seed"]): model for model in models
+    }
+    expected_action_keys = [
+        (
+            row["fold"],
+            row["seed"],
+            row["split"],
+            row["timestamp"],
+        )
+        for row in action_rows
+    ]
+    if len(expected_action_keys) != len(set(expected_action_keys)):
+        _fail(
+            "policy-actions",
+            "rl.policy-rationale-action-keys",
+            "Action rows must have unique rationale keys",
+        )
+    normalized: list[dict[str, Any]] = []
+    previous_by_group: dict[tuple[str, int, str], str] = {}
+    row_fields = {
+        "fold",
+        "seed",
+        "split",
+        "timestamp",
+        "previousAction",
+        "selectedAction",
+        "runnerUpAction",
+        "rawState",
+        "encodedFeatures",
+        "qValues",
+        "actionMargin",
+        "tieForBest",
+        "marginContributions",
+        "dominantMarginFeature",
+        "dominantMarginContribution",
+    }
+    if len(value["rows"]) != len(action_rows):
+        _fail(
+            "policy-rationales/rows",
+            "rl.policy-rationale-coverage",
+            "Policy rationale and action row counts differ",
+        )
+    for index, (raw, action_row) in enumerate(
+        zip(value["rows"], action_rows)
+    ):
+        path = f"policy-rationales/rows/{index}"
+        if not isinstance(raw, dict) or set(raw) != row_fields:
+            _fail(
+                path,
+                "rl.policy-rationale-row",
+                "Policy-rationale row shape differs from the fixed contract",
+            )
+        key = (
+            raw.get("fold"),
+            raw.get("seed"),
+            raw.get("split"),
+            raw.get("timestamp"),
+        )
+        if key != expected_action_keys[index]:
+            _fail(
+                path,
+                "rl.policy-rationale-order",
+                "Policy-rationale rows differ from action chronology",
+            )
+        group = key[:3]
+        expected_previous = previous_by_group.get(group, "balanced")
+        if (
+            raw.get("previousAction") != expected_previous
+            or raw.get("selectedAction") != action_row["action"]
+            or raw.get("selectedAction") not in configuration["actions"]
+            or raw.get("runnerUpAction") not in configuration["actions"]
+            or raw.get("selectedAction") == raw.get("runnerUpAction")
+        ):
+            _fail(
+                path,
+                "rl.policy-rationale-action",
+                "Policy-rationale action differs from rollout continuity",
+            )
+        previous_by_group[group] = raw["selectedAction"]
+        raw_state = raw.get("rawState")
+        features = raw.get("encodedFeatures")
+        q_values = raw.get("qValues")
+        contributions = raw.get("marginContributions")
+        if (
+            not isinstance(raw_state, dict)
+            or set(raw_state) != set(configuration["rawStateFields"])
+            or not isinstance(features, dict)
+            or set(features) != set(configuration["featureNames"])
+            or not isinstance(q_values, dict)
+            or set(q_values) != set(configuration["actions"])
+            or not isinstance(contributions, dict)
+            or set(contributions) != set(configuration["featureNames"])
+        ):
+            _fail(
+                path,
+                "rl.policy-rationale-shape",
+                "Policy-rationale vectors differ from configuration order",
+            )
+        normalized_state = {
+            name: _finite(raw_state[name], f"{path}/rawState/{name}")
+            for name in configuration["rawStateFields"]
+        }
+        for action in configuration["actions"]:
+            expected_flag = float(action == expected_previous)
+            _close(
+                normalized_state[f"previous_{action}"],
+                expected_flag,
+                f"{path}/rawState/previous_{action}",
+                "previous-action state",
+            )
+        encoded = [
+            _finite(features[name], f"{path}/encodedFeatures/{name}")
+            for name in configuration["featureNames"]
+        ]
+        model = model_by_key.get((raw["fold"], raw["seed"]))
+        if model is None:
+            _fail(
+                path,
+                "rl.policy-rationale-model",
+                "Policy-rationale row has no frozen model",
+            )
+        expected_q = [
+            sum(weight * feature for weight, feature in zip(row, encoded))
+            for row in model["weights"]
+        ]
+        for action_index, action in enumerate(configuration["actions"]):
+            _close(
+                q_values[action],
+                expected_q[action_index],
+                f"{path}/qValues/{action}",
+                "action Q value",
+                tolerance=1e-10,
+            )
+        ranked = sorted(
+            range(len(configuration["actions"])),
+            key=lambda action_index: (
+                -expected_q[action_index],
+                action_index,
+            ),
+        )
+        selected_index, runner_index = ranked[:2]
+        if (
+            raw["selectedAction"]
+            != configuration["actions"][selected_index]
+            or raw["runnerUpAction"]
+            != configuration["actions"][runner_index]
+        ):
+            _fail(
+                path,
+                "rl.policy-rationale-ranking",
+                "Selected or runner-up action differs from frozen Q ranking",
+            )
+        expected_margin = (
+            expected_q[selected_index] - expected_q[runner_index]
+        )
+        margin = _finite(raw["actionMargin"], f"{path}/actionMargin")
+        _close(
+            margin,
+            expected_margin,
+            f"{path}/actionMargin",
+            "action Q margin",
+            tolerance=1e-10,
+        )
+        expected_contributions = [
+            (
+                model["weights"][selected_index][feature_index]
+                - model["weights"][runner_index][feature_index]
+            )
+            * encoded[feature_index]
+            for feature_index in range(len(encoded))
+        ]
+        normalized_contributions: dict[str, float] = {}
+        for feature_index, feature in enumerate(
+            configuration["featureNames"]
+        ):
+            value_number = _finite(
+                contributions[feature],
+                f"{path}/marginContributions/{feature}",
+            )
+            _close(
+                value_number,
+                expected_contributions[feature_index],
+                f"{path}/marginContributions/{feature}",
+                "feature margin contribution",
+                tolerance=1e-10,
+            )
+            normalized_contributions[feature] = value_number
+        _close(
+            sum(normalized_contributions.values()),
+            margin,
+            f"{path}/marginContributions",
+            "feature contribution identity",
+            tolerance=1e-10,
+        )
+        dominant_index = max(
+            range(len(configuration["featureNames"])),
+            key=lambda feature_index: (
+                abs(expected_contributions[feature_index]),
+                -feature_index,
+            ),
+        )
+        dominant_feature = configuration["featureNames"][dominant_index]
+        if (
+            raw.get("dominantMarginFeature") != dominant_feature
+            or not isinstance(raw.get("tieForBest"), bool)
+            or raw.get("tieForBest") != (margin <= 1e-12)
+        ):
+            _fail(
+                path,
+                "rl.policy-rationale-dominant",
+                "Tie or dominant feature differs from reconstructed rationale",
+            )
+        _close(
+            raw.get("dominantMarginContribution"),
+            normalized_contributions[dominant_feature],
+            f"{path}/dominantMarginContribution",
+            "dominant margin contribution",
+            tolerance=1e-10,
+        )
+        normalized.append(
+            {
+                **raw,
+                "seed": int(raw["seed"]),
+                "rawState": normalized_state,
+                "encodedFeatures": dict(
+                    zip(configuration["featureNames"], encoded)
+                ),
+                "qValues": dict(
+                    zip(configuration["actions"], expected_q)
+                ),
+                "actionMargin": margin,
+                "marginContributions": normalized_contributions,
+                "reward": action_row["reward"],
+                "netReturn": action_row["netReturn"],
+                "oneWayTurnover": action_row["oneWayTurnover"],
+                "cost": action_row["cost"],
+            }
+        )
+    reconstructed = {
+        split: _behavior_metrics(
+            normalized,
+            split,
+            configuration["actions"],
+            configuration["featureNames"],
+        )
+        for split in SPLITS
+    }
+    for split in SPLITS:
+        _compare_policy_metrics(
+            raw_metrics[split],
+            reconstructed[split],
+            f"RunResult/metrics/policy_rationale/{split}",
+        )
+    representative: list[dict[str, Any]] = []
+    for split in SPLITS:
+        split_rows = [row for row in normalized if row["split"] == split]
+        ordered = sorted(
+            split_rows,
+            key=lambda row: (
+                row["actionMargin"],
+                row["fold"],
+                row["seed"],
+                row["timestamp"],
+            ),
+        )
+        selected_rows = [*ordered[:6], *ordered[-6:]]
+        seen: set[tuple[str, int, str, str]] = set()
+        for row in selected_rows:
+            key = (
+                row["fold"],
+                row["seed"],
+                row["split"],
+                row["timestamp"],
+            )
+            if key in seen:
+                continue
+            seen.add(key)
+            representative.append(
+                {
+                    "fold": row["fold"],
+                    "seed": row["seed"],
+                    "split": row["split"],
+                    "role": (
+                        "selection"
+                        if split == "validation"
+                        else "visible-audit"
+                    ),
+                    "timestamp": row["timestamp"],
+                    "previousAction": row["previousAction"],
+                    "selectedAction": row["selectedAction"],
+                    "runnerUpAction": row["runnerUpAction"],
+                    "actionMargin": row["actionMargin"],
+                    "tieForBest": row["tieForBest"],
+                    "dominantMarginFeature": row[
+                        "dominantMarginFeature"
+                    ],
+                    "dominantMarginContribution": row[
+                        "dominantMarginContribution"
+                    ],
+                    "reward": row["reward"],
+                    "netReturn": row["netReturn"],
+                    "oneWayTurnover": row["oneWayTurnover"],
+                    "cost": row["cost"],
+                }
+            )
+    policy = raw_metrics["policy"]
+    return {
+        "available": True,
+        "policy": {
+            "method": policy["method"],
+            "actionRuns": policy["action_runs"],
+            "qScale": policy["q_scale"],
+            "featureContribution": policy["feature_contribution"],
+            "realizedOutcomes": policy["realized_outcomes"],
+            "selectionAuthority": policy["selection_authority"],
+            "tradingAuthority": policy["trading_authority"],
+        },
+        "selectionAuthority": "context-only",
+        "validation": _behavior_split_projection(
+            reconstructed["validation"]
+        ),
+        "test": _behavior_split_projection(reconstructed["test"]),
+        "representativeDecisions": representative,
+    }
+
+
 def _execution_risk_projection(
     metrics: dict[str, Any],
     action_summaries: list[dict[str, Any]],
@@ -1222,6 +1964,14 @@ def load_rl_diagnostics(
         ],
     )
     models = _models(models_value, configuration, run.result["inputHash"])
+    rationale_value = (
+        _read_object(
+            paths[POLICY_RATIONALE_ARTIFACT_KIND],
+            "Policy rationales",
+        )
+        if POLICY_RATIONALE_ARTIFACT_KIND in paths
+        else None
+    )
     fold_metrics = metrics.get("rl", {}).get("folds")
     baseline_metrics = metrics.get("baselines")
     if (
@@ -1519,6 +2269,14 @@ def load_rl_diagnostics(
         ranges,
         point_limit,
     )
+    policy_behavior = _policy_behavior_projection(
+        rationale_value,
+        metrics.get("policy_rationale"),
+        models,
+        action_rows,
+        configuration,
+        run.result["inputHash"],
+    )
     validation_candidate_action_frequency = None
     if has_candidate_fusion:
         validation_candidate_action_frequency = sum(
@@ -1665,6 +2423,7 @@ def load_rl_diagnostics(
         "harness": run.result["harness"],
         "artifacts": artifacts,
         "portfolioMandate": mandate_projection,
+        "policyBehavior": policy_behavior,
         "executedBookRisk": _execution_risk_projection(
             metrics,
             action_summaries,
@@ -1761,6 +2520,7 @@ RL_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "harness",
         "artifacts",
         "portfolioMandate",
+        "policyBehavior",
         "executedBookRisk",
         "protocol",
         "summary",
@@ -1781,6 +2541,7 @@ RL_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "harness": {"type": "object"},
         "artifacts": {"type": "object"},
         "portfolioMandate": {"type": "object"},
+        "policyBehavior": {"type": "object"},
         "executedBookRisk": {"type": "object"},
         "protocol": {"type": "object"},
         "summary": {"type": "object"},

@@ -32,6 +32,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/rl-policy-behavior-rationale]] | Explained governed-RL action persistence and every frozen linear chosen-versus-runner-up Q decision with exact reconciled evidence. | 2026-07-25 |
 | [[plans/mechanical-position-lifecycle-evidence]] | Reconstructed every split-bounded executed position episode with holding, contribution, cost, excursion, and signal/execution mismatch evidence. | 2026-07-25 |
 | [[plans/executed-book-risk-compliance]] | Made the final post-drift, post-no-trade Portfolio and governed-RL book obey the causal request-bound volatility ceiling. | 2026-07-25 |
 | [[plans/ohlcv-liquidity-capacity-envelope]] | Turned exact mechanical trade paths and causal trailing OHLCV dollar volume into a reconciled capital-capacity envelope. | 2026-07-25 |

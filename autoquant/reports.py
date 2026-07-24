@@ -771,6 +771,50 @@ def _render_markdown(report: dict[str, Any]) -> str:
                 ]
             )
         lines.append("")
+    policy_rationale = leader_run["metrics"].get("policy_rationale")
+    validation_policy = (
+        policy_rationale.get("validation")
+        if isinstance(policy_rationale, dict)
+        else None
+    )
+    if isinstance(validation_policy, dict):
+        dominant_features = sorted(
+            validation_policy["by_feature"].items(),
+            key=lambda item: (
+                -item[1]["dominant_rate"],
+                item[0],
+            ),
+        )[:3]
+        lines.extend(
+            [
+                "## RL policy behavior and rationale",
+                "",
+                "- Validation decisions / action runs / transition rate / "
+                "mean run length: "
+                f"`{validation_policy['decisions']}` / "
+                f"`{validation_policy['action_runs']}` / "
+                f"`{validation_policy['transition_rate']}` / "
+                f"`{validation_policy['mean_action_run_length']}` bars",
+                "- Validation median uncalibrated Q margin / tie rate / "
+                "single-bar-run rate: "
+                f"`{validation_policy['median_action_margin']}` / "
+                f"`{validation_policy['tie_rate']}` / "
+                f"`{validation_policy['single_bar_run_rate']}`",
+                "- Most frequent dominant margin features: "
+                + ", ".join(
+                    f"`{name}` ({values['dominant_rate']})"
+                    for name, values in dominant_features
+                ),
+                "- Q margins are uncalibrated linear-model scores, not "
+                "probabilities or confidence. Chosen-versus-runner-up "
+                "contributions are exact linear decompositions, not causal "
+                "feature importance.",
+                "- Action-conditioned returns are descriptive and endogenous; "
+                "the policy remains contextual research evidence with no "
+                "Broker, account, capital, or order authority.",
+                "",
+            ]
+        )
     lines.extend(
         [
             "## Research selection integrity",

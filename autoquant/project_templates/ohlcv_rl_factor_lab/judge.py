@@ -501,6 +501,392 @@ def _rollout_action_rows(
     return rows
 
 
+def _rollout_rationale_rows(
+    fold: str,
+    seed: int,
+    split: str,
+    rollout,
+    raw_states: pd.DataFrame,
+    encoder: Callable[[dict[str, float]], np.ndarray],
+    feature_names: list[str],
+    weights: np.ndarray,
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    previous_action = "balanced"
+    for timestamp in rollout.actions.index:
+        state = state_with_previous_action(
+            raw_states.loc[timestamp],
+            previous_action,
+        )
+        encoded = encoder(state)
+        q_values = weights @ encoded
+        ranked = sorted(
+            range(len(ACTIONS)),
+            key=lambda index: (-float(q_values[index]), index),
+        )
+        selected_index, runner_up_index = ranked[:2]
+        selected_action = ACTIONS[selected_index]
+        runner_up_action = ACTIONS[runner_up_index]
+        if selected_action != rollout.actions.loc[timestamp]:
+            raise JudgeFailure(
+                "policy.rationale-action",
+                "Rationale argmax differs from the policy rollout",
+            )
+        contributions = (
+            weights[selected_index] - weights[runner_up_index]
+        ) * encoded
+        margin = float(
+            q_values[selected_index] - q_values[runner_up_index]
+        )
+        if not math.isclose(
+            float(contributions.sum()),
+            margin,
+            rel_tol=0.0,
+            abs_tol=1e-10,
+        ):
+            raise JudgeFailure(
+                "policy.rationale-contribution",
+                "Feature contributions do not reproduce the Q margin",
+            )
+        dominant_index = max(
+            range(len(feature_names)),
+            key=lambda index: (abs(float(contributions[index])), -index),
+        )
+        row = {
+            "fold": fold,
+            "seed": seed,
+            "split": split,
+            "timestamp": timestamp.date().isoformat(),
+            "previousAction": previous_action,
+            "selectedAction": selected_action,
+            "runnerUpAction": runner_up_action,
+            "rawState": {
+                field: float(state[field])
+                for field in (
+                    list(BASE_STATE_COLUMNS)
+                    + [f"previous_{action}" for action in ACTIONS]
+                )
+            },
+            "encodedFeatures": {
+                name: float(encoded[index])
+                for index, name in enumerate(feature_names)
+            },
+            "qValues": {
+                action: float(q_values[index])
+                for index, action in enumerate(ACTIONS)
+            },
+            "actionMargin": margin,
+            "tieForBest": margin <= 1e-12,
+            "marginContributions": {
+                name: float(contributions[index])
+                for index, name in enumerate(feature_names)
+            },
+            "dominantMarginFeature": feature_names[dominant_index],
+            "dominantMarginContribution": float(
+                contributions[dominant_index]
+            ),
+        }
+        numeric = [
+            *row["rawState"].values(),
+            *row["encodedFeatures"].values(),
+            *row["qValues"].values(),
+            row["actionMargin"],
+            *row["marginContributions"].values(),
+            row["dominantMarginContribution"],
+        ]
+        if not all(math.isfinite(float(value)) for value in numeric):
+            raise JudgeFailure(
+                "policy.rationale-non-finite",
+                "Policy rationale contains non-finite evidence",
+            )
+        rows.append(row)
+        previous_action = selected_action
+    return rows
+
+
+def _policy_behavior_metrics(
+    rationale_rows: list[dict[str, Any]],
+    action_rows: list[dict[str, Any]],
+    split: str,
+    feature_names: list[str],
+) -> dict[str, Any]:
+    selected_rationales = [
+        row for row in rationale_rows if row["split"] == split
+    ]
+    selected_actions = [
+        row for row in action_rows if row["split"] == split
+    ]
+    action_by_key = {
+        (
+            row["fold"],
+            int(row["seed"]),
+            row["split"],
+            row["timestamp"],
+        ): row
+        for row in selected_actions
+    }
+    if (
+        not selected_rationales
+        or len(action_by_key) != len(selected_actions)
+        or len(selected_rationales) != len(selected_actions)
+    ):
+        raise JudgeFailure(
+            "policy.rationale-coverage",
+            "Policy rationale and action coverage differ",
+        )
+    groups: dict[tuple[str, int], list[dict[str, Any]]] = {}
+    for row in selected_rationales:
+        key = (row["fold"], int(row["seed"]))
+        groups.setdefault(key, []).append(row)
+        action = action_by_key.get(
+            (
+                row["fold"],
+                int(row["seed"]),
+                row["split"],
+                row["timestamp"],
+            )
+        )
+        if action is None or action["action"] != row["selectedAction"]:
+            raise JudgeFailure(
+                "policy.rationale-action",
+                "Policy rationale differs from the action ledger",
+            )
+
+    run_lengths: list[int] = []
+    runs_by_action = {action: [] for action in ACTIONS}
+    transitions = 0
+    comparable_decisions = 0
+    trial_metrics: list[dict[str, Any]] = []
+    for (fold, seed), rows in groups.items():
+        lengths: list[int] = []
+        current_action = rows[0]["selectedAction"]
+        current_length = 0
+        trial_transitions = 0
+        for row in rows:
+            if row["selectedAction"] != current_action:
+                lengths.append(current_length)
+                runs_by_action[current_action].append(current_length)
+                current_action = row["selectedAction"]
+                current_length = 0
+                trial_transitions += 1
+            current_length += 1
+        lengths.append(current_length)
+        runs_by_action[current_action].append(current_length)
+        run_lengths.extend(lengths)
+        transitions += trial_transitions
+        comparable_decisions += max(0, len(rows) - 1)
+        margins = [float(row["actionMargin"]) for row in rows]
+        trial_metrics.append(
+            {
+                "fold": fold,
+                "seed": seed,
+                "decisions": len(rows),
+                "action_runs": len(lengths),
+                "transitions": trial_transitions,
+                "transition_rate": (
+                    trial_transitions / (len(rows) - 1)
+                    if len(rows) > 1
+                    else 0.0
+                ),
+                "mean_action_run_length": float(np.mean(lengths)),
+                "mean_action_margin": float(np.mean(margins)),
+                "tie_rate": float(
+                    np.mean([row["tieForBest"] for row in rows])
+                ),
+            }
+        )
+
+    decisions = len(selected_rationales)
+    margins = [
+        float(row["actionMargin"]) for row in selected_rationales
+    ]
+    by_action: dict[str, dict[str, Any]] = {}
+    for action_name in ACTIONS:
+        rationale_group = [
+            row
+            for row in selected_rationales
+            if row["selectedAction"] == action_name
+        ]
+        action_group = [
+            action_by_key[
+                (
+                    row["fold"],
+                    int(row["seed"]),
+                    row["split"],
+                    row["timestamp"],
+                )
+            ]
+            for row in rationale_group
+        ]
+        action_runs = runs_by_action[action_name]
+        by_action[action_name] = {
+            "decisions": len(rationale_group),
+            "frequency": len(rationale_group) / decisions,
+            "action_runs": len(action_runs),
+            "mean_action_run_length": (
+                float(np.mean(action_runs)) if action_runs else 0.0
+            ),
+            "mean_action_margin": (
+                float(
+                    np.mean(
+                        [row["actionMargin"] for row in rationale_group]
+                    )
+                )
+                if rationale_group
+                else 0.0
+            ),
+            "mean_reward": (
+                float(np.mean([row["reward"] for row in action_group]))
+                if action_group
+                else 0.0
+            ),
+            "mean_net_return": (
+                float(
+                    np.mean([row["net_return"] for row in action_group])
+                )
+                if action_group
+                else 0.0
+            ),
+            "mean_one_way_turnover": (
+                float(
+                    np.mean(
+                        [row["one_way_turnover"] for row in action_group]
+                    )
+                )
+                if action_group
+                else 0.0
+            ),
+            "total_cost": float(
+                sum(row["cost"] for row in action_group)
+            ),
+        }
+    by_feature: dict[str, dict[str, Any]] = {}
+    for feature_name in feature_names:
+        contributions = [
+            float(row["marginContributions"][feature_name])
+            for row in selected_rationales
+        ]
+        dominant = sum(
+            row["dominantMarginFeature"] == feature_name
+            for row in selected_rationales
+        )
+        by_feature[feature_name] = {
+            "dominant_decisions": dominant,
+            "dominant_rate": dominant / decisions,
+            "mean_signed_margin_contribution": float(
+                np.mean(contributions)
+            ),
+            "mean_absolute_margin_contribution": float(
+                np.mean(np.abs(contributions))
+            ),
+        }
+    total_reward = float(sum(row["reward"] for row in selected_actions))
+    total_net_return = float(
+        sum(row["net_return"] for row in selected_actions)
+    )
+    total_cost = float(sum(row["cost"] for row in selected_actions))
+    mean_turnover = float(
+        np.mean([row["one_way_turnover"] for row in selected_actions])
+    )
+    reconciliation = {
+        "rationale_rows": len(selected_rationales),
+        "action_rows": len(selected_actions),
+        "decision_count_error": abs(
+            sum(item["decisions"] for item in by_action.values())
+            - decisions
+        ),
+        "frequency_error": abs(
+            sum(item["frequency"] for item in by_action.values()) - 1.0
+        ),
+        "reward_error": abs(
+            sum(
+                item["mean_reward"] * item["decisions"]
+                for item in by_action.values()
+            )
+            - total_reward
+        ),
+        "net_return_error": abs(
+            sum(
+                item["mean_net_return"] * item["decisions"]
+                for item in by_action.values()
+            )
+            - total_net_return
+        ),
+        "turnover_error": abs(
+            sum(
+                item["mean_one_way_turnover"] * item["frequency"]
+                for item in by_action.values()
+            )
+            - mean_turnover
+        ),
+        "cost_error": abs(
+            sum(item["total_cost"] for item in by_action.values())
+            - total_cost
+        ),
+        "transition_run_error": abs(
+            len(run_lengths) - transitions - len(groups)
+        ),
+        "dominant_feature_rate_error": abs(
+            sum(item["dominant_rate"] for item in by_feature.values())
+            - 1.0
+        ),
+    }
+    reconciliation["passed"] = (
+        reconciliation["rationale_rows"]
+        == reconciliation["action_rows"]
+        == decisions
+        and max(
+            float(value)
+            for key, value in reconciliation.items()
+            if key not in {"rationale_rows", "action_rows"}
+        )
+        <= 1e-10
+    )
+    return {
+        "status": "available",
+        "decisions": decisions,
+        "trial_paths": len(groups),
+        "transitions": transitions,
+        "transition_rate": (
+            transitions / comparable_decisions
+            if comparable_decisions
+            else 0.0
+        ),
+        "retention_rate": (
+            1.0 - transitions / comparable_decisions
+            if comparable_decisions
+            else 1.0
+        ),
+        "action_runs": len(run_lengths),
+        "mean_action_run_length": float(np.mean(run_lengths)),
+        "median_action_run_length": float(np.median(run_lengths)),
+        "maximum_action_run_length": int(max(run_lengths)),
+        "single_bar_run_rate": float(
+            np.mean([length == 1 for length in run_lengths])
+        ),
+        "mean_action_margin": float(np.mean(margins)),
+        "median_action_margin": float(np.median(margins)),
+        "minimum_action_margin": float(min(margins)),
+        "maximum_action_margin": float(max(margins)),
+        "tie_decisions": int(
+            sum(row["tieForBest"] for row in selected_rationales)
+        ),
+        "tie_rate": float(
+            np.mean(
+                [row["tieForBest"] for row in selected_rationales]
+            )
+        ),
+        "total_reward": total_reward,
+        "total_net_return": total_net_return,
+        "mean_one_way_turnover": mean_turnover,
+        "total_cost": total_cost,
+        "by_action": by_action,
+        "by_feature": by_feature,
+        "trials": trial_metrics,
+        "reconciliation": reconciliation,
+    }
+
+
 def _aggregate(values: list[float]) -> dict[str, float | int]:
     array = np.asarray(values, dtype=float)
     if not len(array) or not np.isfinite(array).all():
@@ -573,6 +959,7 @@ def _evaluate() -> tuple[
     dict[str, Any],
     dict[str, Any],
     list[dict[str, Any]],
+    dict[str, Any],
 ]:
     study, data_root = _load_contract()
     mandate = _load_mandate()
@@ -643,6 +1030,7 @@ def _evaluate() -> tuple[
     policy_models: dict[str, Any] = {}
     training_history: dict[str, Any] = {}
     action_rows: list[dict[str, Any]] = []
+    rationale_rows: list[dict[str, Any]] = []
     failures: list[dict[str, Any]] = []
     validation_sharpes: list[float] = []
     test_sharpes: list[float] = []
@@ -761,12 +1149,36 @@ def _evaluate() -> tuple[
                         validation_rollout,
                     )
                 )
+                rationale_rows.extend(
+                    _rollout_rationale_rows(
+                        fold_name,
+                        seed,
+                        "validation",
+                        validation_rollout,
+                        raw_states,
+                        encoder,
+                        feature_names,
+                        trained.weights,
+                    )
+                )
                 action_rows.extend(
                     _rollout_action_rows(
                         fold_name,
                         seed,
                         "test",
                         test_rollout,
+                    )
+                )
+                rationale_rows.extend(
+                    _rollout_rationale_rows(
+                        fold_name,
+                        seed,
+                        "test",
+                        test_rollout,
+                        raw_states,
+                        encoder,
+                        feature_names,
+                        trained.weights,
                     )
                 )
             except Exception as error:
@@ -837,6 +1249,37 @@ def _evaluate() -> tuple[
     total_trials = len(folds) * len(SEEDS)
     if failures:
         raise TrialFailures(failures)
+    policy_rationale = {
+        "policy": {
+            "method": (
+                "linear-q-chosen-vs-runner-up-decomposition-v1"
+            ),
+            "action_runs": (
+                "contiguous-actions-clipped-to-fold-seed-split"
+            ),
+            "q_scale": "uncalibrated-linear-model-score",
+            "feature_contribution": (
+                "exact-linear-chosen-minus-runner-decomposition"
+            ),
+            "realized_outcomes": (
+                "descriptive-endogenous-action-conditioning"
+            ),
+            "selection_authority": "context-only",
+            "trading_authority": "none",
+        },
+        "validation": _policy_behavior_metrics(
+            rationale_rows,
+            action_rows,
+            "validation",
+            feature_names,
+        ),
+        "test": _policy_behavior_metrics(
+            rationale_rows,
+            action_rows,
+            "test",
+            feature_names,
+        ),
+    }
     execution_risk = {
         "policy": {
             "method": (
@@ -893,6 +1336,7 @@ def _evaluate() -> tuple[
                 np.mean(validation_candidate_action_frequencies)
             ),
         },
+        "policy_rationale": policy_rationale,
         "execution_risk": execution_risk,
         "constraint_audit": audits,
         "configuration": {
@@ -952,6 +1396,10 @@ def _evaluate() -> tuple[
             ),
             "return": "close t to close t+1",
             "reward": "net return after 10bps cost minus 0.10 * gross_return^2",
+            "policyRationale": (
+                "exact linear chosen-versus-runner-up Q-margin "
+                "decomposition; Q scores are uncalibrated and contextual"
+            ),
             "executionRisk": (
                 "every selected sleeve is rechecked after drift; risk "
                 "compliance bypasses the no-trade band with minimum "
@@ -983,12 +1431,31 @@ def _evaluate() -> tuple[
         "inputHash": os.environ["AUTOQUANT_INPUT_HASH"],
         "histories": training_history,
     }
-    return metrics, report, models, histories, action_rows
+    rationales = {
+        "schemaVersion": 1,
+        "inputHash": os.environ["AUTOQUANT_INPUT_HASH"],
+        "method": (
+            "linear-q-chosen-vs-runner-up-decomposition-v1"
+        ),
+        "actions": list(ACTIONS),
+        "rawStateFields": list(BASE_STATE_COLUMNS)
+        + [f"previous_{action}" for action in ACTIONS],
+        "featureNames": feature_names,
+        "rows": rationale_rows,
+    }
+    return metrics, report, models, histories, action_rows, rationales
 
 
 def main() -> None:
     try:
-        metrics, report, models, histories, action_rows = _evaluate()
+        (
+            metrics,
+            report,
+            models,
+            histories,
+            action_rows,
+            rationales,
+        ) = _evaluate()
         artifacts = Path(os.environ["AUTOQUANT_ARTIFACTS_DIR"])
         (artifacts / "rl-report.json").write_text(
             json.dumps(report, indent=2, sort_keys=True) + "\n",
@@ -1006,6 +1473,10 @@ def main() -> None:
             artifacts / "policy-actions.csv",
             index=False,
             float_format="%.12g",
+        )
+        (artifacts / "policy-rationales.json").write_text(
+            json.dumps(rationales, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
         )
         _write_output(
             {
@@ -1045,6 +1516,14 @@ def main() -> None:
                         "description": (
                             "Timestamped validation/test actions, rewards, returns, "
                             "turnover, costs, and executed-book risk compliance"
+                        ),
+                    },
+                    {
+                        "kind": "policy-rationales",
+                        "path": "policy-rationales.json",
+                        "description": (
+                            "Exact raw state, encoded features, action Q values, "
+                            "runner-up margins, and linear feature contributions"
                         ),
                     },
                 ],

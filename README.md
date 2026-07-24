@@ -116,6 +116,10 @@ a governed stateful factor sleeve using the same request-bound Portfolio
 Mandate, mechanical signal policy, and one-sided risk governor. Evidence
 reports both
 RL-minus-best-baseline and RL-minus-candidate-factor.
+New Runs also preserve exact chosen-versus-runner-up linear-Q rationales and
+split/fold/seed-bounded action runs. This exposes one-bar churn, persistence,
+uncalibrated Q margins, and dominant margin contributions without calling
+them probability, confidence, causal importance, or trading authority.
 Validation is the promotion metric; test evidence is reported separately with
 an explicit repeated-inspection warning. A higher RL score does not count as
 value added when a simple baseline still wins.
@@ -269,7 +273,9 @@ CLI. A specific historical Run is available through `aq run factor <path>
 versus the fixed validation-selected baseline, then preserves every fold/seed,
 training episode, action allocation, turnover, cost, and test-audit warning.
 Its action ledger also proves post-drift risk compliance for every fold and
-seed.
+seed. Its policy-behavior panel reconciles action-run persistence and exact
+linear chosen-versus-runner-up rationale against the frozen model and action
+ledger; legacy Runs remain readable with rationale evidence marked unavailable.
 See
 [`docs/STUDIO.md`](docs/STUDIO.md).
 

@@ -124,6 +124,36 @@ class RlPolicyEvidenceExplorerTests(unittest.TestCase):
                     "mean_validation_advantage_vs_best_baseline"
                 ],
             )
+            behavior = diagnostics["policyBehavior"]
+            self.assertTrue(behavior["available"])
+            self.assertEqual(
+                behavior["policy"]["qScale"],
+                "uncalibrated-linear-model-score",
+            )
+            self.assertEqual(
+                behavior["policy"]["selectionAuthority"],
+                "context-only",
+            )
+            self.assertEqual(behavior["validation"]["decisions"], 360)
+            self.assertEqual(behavior["validation"]["trialPaths"], 6)
+            self.assertEqual(len(behavior["validation"]["byAction"]), 5)
+            self.assertEqual(
+                {
+                    item["feature"]
+                    for item in behavior["validation"]["byFeature"]
+                },
+                set(diagnostics["protocol"]["featureNames"]),
+            )
+            self.assertTrue(
+                behavior["validation"]["reconciliation"]["passed"]
+            )
+            self.assertEqual(
+                {
+                    item["split"]
+                    for item in behavior["representativeDecisions"]
+                },
+                {"validation", "test"},
+            )
             self.assertTrue(
                 all(
                     item["selectedBaseline"] == "contextual-ridge"
@@ -152,6 +182,33 @@ class RlPolicyEvidenceExplorerTests(unittest.TestCase):
                 [item["id"] for item in observed["commands"]],
             )
 
+            result_path = run.root_dir / "result.json"
+            report_path = run.root_dir / "artifacts" / "rl-report.json"
+            rationale_path = (
+                run.root_dir / "artifacts" / "policy-rationales.json"
+            )
+            legacy_result = json.loads(result_path.read_text(encoding="utf-8"))
+            legacy_report = json.loads(report_path.read_text(encoding="utf-8"))
+            legacy_result["metrics"].pop("policy_rationale")
+            legacy_result["artifacts"] = [
+                item
+                for item in legacy_result["artifacts"]
+                if item["kind"] != "policy-rationales"
+            ]
+            legacy_report["metrics"].pop("policy_rationale")
+            result_path.write_text(
+                json.dumps(legacy_result, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            report_path.write_text(
+                json.dumps(legacy_report, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            rationale_path.unlink()
+            rehash_run(run.root_dir)
+            legacy = load_rl_diagnostics(project, run.result["id"])
+            self.assertFalse(legacy["policyBehavior"]["available"])
+
     def test_limits_and_rehashed_action_corruption_fail_structurally(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             workspace, project, run = make_lab(Path(directory))
@@ -170,6 +227,27 @@ class RlPolicyEvidenceExplorerTests(unittest.TestCase):
                 load_rl_diagnostics(project, run.result["id"])
 
             actions_path = run.root_dir / "artifacts" / "policy-actions.csv"
+            rationale_path = (
+                run.root_dir / "artifacts" / "policy-rationales.json"
+            )
+            original_rationale = rationale_path.read_text(encoding="utf-8")
+            rationale = json.loads(original_rationale)
+            rationale["rows"][0]["qValues"][
+                rationale["actions"][0]
+            ] += 0.125
+            rationale_path.write_text(
+                json.dumps(rationale, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            rehash_run(run.root_dir)
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "does not reconcile action Q value",
+            ):
+                load_rl_diagnostics(project, run.result["id"])
+            rationale_path.write_text(original_rationale, encoding="utf-8")
+            rehash_run(run.root_dir)
+
             original_actions = actions_path.read_text(encoding="utf-8")
             with actions_path.open(
                 encoding="utf-8",

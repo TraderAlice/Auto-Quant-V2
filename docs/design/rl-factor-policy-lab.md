@@ -191,6 +191,9 @@ Successful Runs declare:
 - `policy-actions.csv`: timestamped validation/test actions and accounting.
   Each row also records pretrade/final risk forecasts, ceiling, coverage,
   risk-only override, and execution reason.
+- `policy-rationales.json`: exact validation/test causal state, encoded
+  features, all frozen Q scores, deterministic runner-up, chosen margin, and
+  exact per-feature chosen-minus-runner linear contribution.
 
 NumPy and pandas versions are recorded. Artifacts are immutable Run evidence.
 
@@ -221,9 +224,13 @@ failed seed.
 9. Every final post-drift book is checked by the shared execution-risk
    primitive; a risk-only repair may override the no-trade band but may never
    scale exposure up.
-9. The complete fixture and training campaign remain deterministic and bounded.
-10. Every training, baseline, validation, and test action path enforces risk on
+10. The complete fixture and training campaign remain deterministic and bounded.
+11. Every training, baseline, validation, and test action path enforces risk on
     the post-drift final book through the shared Portfolio Core primitive.
+12. Action runs are bounded by fold, seed, and split; rationale rows exactly
+    reconcile action chronology and frozen model weights.
+13. Q margin is uncalibrated, linear contribution is not causal importance,
+    action-conditioned outcomes are endogenous, and none has trading authority.
 
 ## Change checklist
 

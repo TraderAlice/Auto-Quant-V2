@@ -417,6 +417,18 @@ class ProgramResearchDossierTests(unittest.TestCase):
                     study_id,
                 )
                 reports[lane_id] = report.report["id"]
+                if lane_id == "rl":
+                    rl_markdown = (
+                        report.root_dir / "report.md"
+                    ).read_text(encoding="utf-8")
+                    self.assertIn(
+                        "## RL policy behavior and rationale",
+                        rl_markdown,
+                    )
+                    self.assertIn(
+                        "uncalibrated linear-model scores",
+                        rl_markdown,
+                    )
             status = load_dossier_status(project)
             assert status is not None
             self.assertTrue(status["ready"])
@@ -466,6 +478,11 @@ class ProgramResearchDossierTests(unittest.TestCase):
                 "## Executed-book risk compliance",
                 markdown,
             )
+            self.assertIn(
+                "## RL policy behavior and rationale",
+                markdown,
+            )
+            self.assertIn("uncalibrated Q margin", markdown)
             self.assertIn("Portfolio implementation", markdown)
             self.assertIn("Governed RL value-add", markdown)
 
