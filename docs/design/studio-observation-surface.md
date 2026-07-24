@@ -7,7 +7,8 @@ Related: [[docs/ARCHITECTURE]], [[docs/CLI]], [[docs/PROJECT_FORMAT]],
 [[docs/design/external-researcher-driver]],
 [[docs/design/research-intake-and-dataset-snapshots]],
 [[docs/design/request-bound-portfolio-mandates]],
-[[docs/design/portfolio-risk-governor]], and
+[[docs/design/portfolio-risk-governor]],
+[[docs/design/portfolio-liquidity-capacity]], and
 [[docs/design/quant-research-lifecycle]].
 
 ## Scope
@@ -166,8 +167,10 @@ The Portfolio and RL explorers disclose the same fixed mandate. Context-only
 assets are visibly distinct and may never appear as current positions. The
 Portfolio explorer also shows the annualized ceiling, validation activation
 rate, current governor status/scale, pre/post forecast, and raw-to-governed
-target transition. These are historical research weights and diagnostics, not
-live account risk.
+target transition. It also shows the validation 1% capacity p10, trade-date
+coverage, and latest rebalance binding asset from the verified causal
+dollar-volume ledger. These are historical research weights and diagnostics,
+not live account risk, impact, or fill evidence.
 
 For a request-driven canonical Program, the collaboration surface composes no
 evidence in the browser. Core supplies Dossier readiness, lane Report

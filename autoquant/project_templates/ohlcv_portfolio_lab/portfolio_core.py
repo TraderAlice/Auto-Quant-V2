@@ -23,6 +23,8 @@ SHORT_EXIT_PERCENTILE = 0.45
 SHORT_ENTRY_PERCENTILE = 0.25
 RISK_COVARIANCE_WINDOW = 60
 RISK_COVARIANCE_MINIMUM = 20
+LIQUIDITY_ADV_WINDOW = 20
+LIQUIDITY_PARTICIPATION_LIMITS = (0.01, 0.05)
 
 
 class PortfolioFailure(ValueError):
@@ -973,20 +975,30 @@ def build_decision_ledger(
     construction: SignalConstruction,
     simulation: Simulation,
     closes: pd.DataFrame,
+    volumes: pd.DataFrame,
     *,
     cost_bps: float = BASE_COST_BPS,
+    reference_nav: float = REFERENCE_NAV,
+    liquidity_adv_window: int = LIQUIDITY_ADV_WINDOW,
 ) -> pd.DataFrame:
     """Join signal intent, target sizing, execution, and attribution evidence."""
 
     if (
         not construction.targets.index.equals(closes.index)
+        or not closes.index.equals(volumes.index)
         or list(construction.targets.columns) != list(closes.columns)
+        or list(closes.columns) != list(volumes.columns)
         or not simulation.weights.index.equals(simulation.daily.index)
         or list(simulation.weights.columns) != list(closes.columns)
     ):
         raise PortfolioFailure(
             "portfolio.alignment",
             "Construction, simulation, and closes are not aligned",
+        )
+    if reference_nav <= 0 or liquidity_adv_window < 2:
+        raise PortfolioFailure(
+            "portfolio.parameters",
+            "Invalid liquidity-capacity parameters",
         )
     policy = construction.ledger.set_index(["timestamp", "asset"])
     if not policy.index.is_unique:
@@ -996,6 +1008,11 @@ def build_decision_ledger(
         )
     close_returns = closes.pct_change(fill_method=None)
     forward_returns = closes.shift(-1) / closes - 1.0
+    dollar_volume = closes.astype(float) * volumes.astype(float)
+    causal_adv = dollar_volume.rolling(
+        liquidity_adv_window,
+        min_periods=liquidity_adv_window,
+    ).mean()
     regimes = causal_market_regimes(closes)
     prior = pd.Series(0.0, index=closes.columns, dtype=float)
     rows: list[dict[str, object]] = []
@@ -1007,6 +1024,43 @@ def build_decision_ledger(
         )
         executed = simulation.weights.loc[timestamp].astype(float)
         trade = simulation.trades.loc[timestamp].astype(float)
+        active_trade = trade.abs() > 1e-12
+        adv_row = causal_adv.loc[timestamp].astype(float)
+        if not bool(active_trade.any()):
+            capacity_status = "no_trade"
+            portfolio_capacity = {
+                limit: 0.0
+                for limit in LIQUIDITY_PARTICIPATION_LIMITS
+            }
+            binding_asset: str | None = None
+        elif (
+            adv_row.loc[active_trade].isna().any()
+            or (adv_row.loc[active_trade] <= 0).any()
+        ):
+            capacity_status = "insufficient_adv_history"
+            portfolio_capacity = {
+                limit: 0.0
+                for limit in LIQUIDITY_PARTICIPATION_LIMITS
+            }
+            binding_asset = None
+        else:
+            capacity_status = "available"
+            conservative_asset_capacity = (
+                LIQUIDITY_PARTICIPATION_LIMITS[0]
+                * adv_row.loc[active_trade]
+                / trade.loc[active_trade].abs()
+            )
+            binding_asset = str(conservative_asset_capacity.idxmin())
+            portfolio_capacity = {
+                limit: float(
+                    (
+                        limit
+                        * adv_row.loc[active_trade]
+                        / trade.loc[active_trade].abs()
+                    ).min()
+                )
+                for limit in LIQUIDITY_PARTICIPATION_LIMITS
+            }
         next_return = forward_returns.loc[timestamp].fillna(0.0).astype(float)
         history = close_returns.loc[:timestamp].tail(RISK_COVARIANCE_WINDOW)
         history = history.dropna(how="all")
@@ -1033,6 +1087,32 @@ def build_decision_ledger(
         for asset in closes.columns:
             policy_row = policy.loc[(timestamp, str(asset))]
             asset_trade = float(trade.loc[asset])
+            asset_adv = (
+                float(adv_row.loc[asset])
+                if math.isfinite(float(adv_row.loc[asset]))
+                else 0.0
+            )
+            reference_participation = (
+                abs(asset_trade) * reference_nav / asset_adv
+                if (
+                    capacity_status == "available"
+                    and abs(asset_trade) > 1e-12
+                    and asset_adv > 0
+                )
+                else 0.0
+            )
+            asset_capacity = {
+                limit: (
+                    limit * asset_adv / abs(asset_trade)
+                    if (
+                        capacity_status == "available"
+                        and abs(asset_trade) > 1e-12
+                        and asset_adv > 0
+                    )
+                    else 0.0
+                )
+                for limit in LIQUIDITY_PARTICIPATION_LIMITS
+            }
             gross_contribution = float(
                 executed.loc[asset] * next_return.loc[asset]
             )
@@ -1064,6 +1144,24 @@ def build_decision_ledger(
                         "rebalance_threshold_met"
                         if bool(portfolio_row["rebalanced"])
                         else "portfolio_no_trade_band"
+                    ),
+                    "liquidity_capacity_status": capacity_status,
+                    "liquidity_adv_observations": (
+                        liquidity_adv_window
+                        if math.isfinite(float(adv_row.loc[asset]))
+                        else 0
+                    ),
+                    "causal_adv_dollar_volume": asset_adv,
+                    "reference_nav_adv_participation": (
+                        reference_participation
+                    ),
+                    "asset_capacity_nav_1pct": asset_capacity[0.01],
+                    "asset_capacity_nav_5pct": asset_capacity[0.05],
+                    "portfolio_capacity_nav_1pct": portfolio_capacity[0.01],
+                    "portfolio_capacity_nav_5pct": portfolio_capacity[0.05],
+                    "capacity_binding_asset": (
+                        binding_asset is not None
+                        and str(asset) == binding_asset
                     ),
                     "asset_forward_return": float(next_return.loc[asset]),
                     "gross_return_contribution": gross_contribution,
@@ -1111,6 +1209,13 @@ def build_decision_ledger(
             "pretrade_weight",
             "executed_weight",
             "trade_weight",
+            "liquidity_adv_observations",
+            "causal_adv_dollar_volume",
+            "reference_nav_adv_participation",
+            "asset_capacity_nav_1pct",
+            "asset_capacity_nav_5pct",
+            "portfolio_capacity_nav_1pct",
+            "portfolio_capacity_nav_5pct",
             "asset_forward_return",
             "gross_return_contribution",
             "cost_contribution",
@@ -1129,6 +1234,102 @@ def build_decision_ledger(
         raise PortfolioFailure(
             "portfolio.non-finite",
             "Decision ledger contains non-finite numeric evidence",
+        )
+    return result
+
+
+def liquidity_capacity_metrics(
+    ledger: pd.DataFrame,
+    index: pd.Index,
+    *,
+    reference_nav: float = REFERENCE_NAV,
+) -> dict[str, object]:
+    """Aggregate the exact per-date OHLCV participation-capacity envelope."""
+
+    selected = ledger[ledger["timestamp"].isin(index)].copy()
+    if selected.empty:
+        raise PortfolioFailure(
+            "portfolio.population",
+            "Liquidity-capacity split has no decision rows",
+        )
+    dates = (
+        selected.groupby("timestamp", sort=True)
+        .agg(
+            status=("liquidity_capacity_status", "first"),
+            capacity_1pct=("portfolio_capacity_nav_1pct", "first"),
+            capacity_5pct=("portfolio_capacity_nav_5pct", "first"),
+        )
+    )
+    trade_dates = dates[dates["status"].ne("no_trade")]
+    available = trade_dates[trade_dates["status"].eq("available")]
+    unavailable = trade_dates[
+        trade_dates["status"].eq("insufficient_adv_history")
+    ]
+    if len(trade_dates):
+        coverage = float(len(available) / len(trade_dates))
+    else:
+        coverage = 0.0
+
+    def summarize(column: str) -> dict[str, float | int | str]:
+        values = available[column].astype(float)
+        if values.empty:
+            return {
+                "status": "unavailable",
+                "observations": 0,
+                "minimum_nav": 0.0,
+                "tenth_percentile_nav": 0.0,
+                "median_nav": 0.0,
+                "reference_nav_breach_rate": 0.0,
+            }
+        return {
+            "status": "available",
+            "observations": int(len(values)),
+            "minimum_nav": float(values.min()),
+            "tenth_percentile_nav": float(values.quantile(0.10)),
+            "median_nav": float(values.median()),
+            "reference_nav_breach_rate": float(
+                (values + 1e-12 < reference_nav).mean()
+            ),
+        }
+
+    binding = selected[
+        selected["capacity_binding_asset"].astype(bool)
+        & selected["timestamp"].isin(available.index)
+    ]
+    result: dict[str, object] = {
+        "status": (
+            "available"
+            if not available.empty
+            else "no_trades"
+            if trade_dates.empty
+            else "insufficient_adv_history"
+        ),
+        "trade_dates": int(len(trade_dates)),
+        "available_trade_dates": int(len(available)),
+        "unavailable_trade_dates": int(len(unavailable)),
+        "trade_date_coverage": coverage,
+        "binding_asset_counts_1pct": {
+            str(asset): int(count)
+            for asset, count in binding["asset"].value_counts().items()
+        },
+        "capacity_1pct": summarize("capacity_1pct"),
+        "capacity_5pct": summarize("capacity_5pct"),
+    }
+    numeric: list[float] = [
+        float(value)
+        for value in result.values()
+        if isinstance(value, (int, float)) and not isinstance(value, bool)
+    ]
+    for key in ("capacity_1pct", "capacity_5pct"):
+        numeric.extend(
+            float(value)
+            for value in result[key].values()
+            if isinstance(value, (int, float)) and not isinstance(value, bool)
+        )
+    if not all(math.isfinite(value) and value >= 0 for value in numeric):
+        raise PortfolioFailure(
+            "portfolio.non-finite",
+            "Liquidity-capacity metrics contain invalid values",
         )
     return result
 

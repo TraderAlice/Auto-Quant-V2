@@ -363,7 +363,11 @@ Portfolio and RL Run metrics include the complete normalized
 per-asset tradability. New Portfolio decision ledgers also record the
 pre-governor target, covariance observations, pre/post annualized forecast,
 ceiling, scale, and status on every asset/date. Governed RL action sleeves bind
-the same complete Mandate before training or rollout.
+the same complete Mandate before training or rollout. New Portfolio ledgers
+also record causal trailing dollar volume, reference-NAV participation,
+1%/5% asset and portfolio capacity, availability, and one deterministic
+binding asset per trade date. Aggregate capacity remains contextual and cannot
+enter candidate selection.
 
 `manifest.json` is written last and pins every other Run file hash. Run listing
 ignores incomplete directories; opening a completed Run rejects changed,

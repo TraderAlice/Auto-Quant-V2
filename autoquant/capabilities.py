@@ -516,7 +516,7 @@ CLI_COMMANDS = [
     descriptor(
         "run.portfolio",
         "aq run portfolio <path> --run ID [--points 40..400] [--project ID] [--json]",
-        "Project one verified Portfolio Run into bounded performance, position, signal, and attribution diagnostics.",
+        "Project one verified Portfolio Run into bounded performance, position, signal, attribution, risk-governor, and OHLCV liquidity-capacity diagnostics.",
         "read-only",
         [
             PATH_ARGUMENT,

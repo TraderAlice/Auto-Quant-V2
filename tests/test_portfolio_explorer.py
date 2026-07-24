@@ -8,7 +8,12 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from autoquant.portfolio_explorer import load_portfolio_diagnostics
+import jsonschema
+
+from autoquant.portfolio_explorer import (
+    PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA,
+    load_portfolio_diagnostics,
+)
 from autoquant.runs import execute_study
 from autoquant.studio import build_studio_snapshot
 from autoquant.studies import hash_file
@@ -71,6 +76,27 @@ class PortfolioDecisionExplorerTests(unittest.TestCase):
                 diagnostics["riskGovernor"]["selectionAuthority"],
                 "diagnostic-only",
             )
+            self.assertTrue(diagnostics["liquidityCapacity"]["available"])
+            self.assertEqual(
+                diagnostics["liquidityCapacity"]["selectionAuthority"],
+                "context-only",
+            )
+            self.assertEqual(
+                diagnostics["liquidityCapacity"]["policy"]["advWindow"],
+                20,
+            )
+            self.assertAlmostEqual(
+                diagnostics["liquidityCapacity"]["validation"][
+                    "capacity1Pct"
+                ]["tenthPercentileNav"],
+                run.result["metrics"]["liquidity_capacity"]["validation"][
+                    "capacity_1pct"
+                ]["tenth_percentile_nav"],
+                places=5,
+            )
+            self.assertIsNotNone(
+                diagnostics["liquidityCapacity"]["latestTrade"]
+            )
             self.assertEqual(diagnostics["path"]["sampledRows"], 64)
             self.assertGreater(diagnostics["path"]["totalRows"], 64)
             sampled_dates = {
@@ -132,6 +158,10 @@ class PortfolioDecisionExplorerTests(unittest.TestCase):
                 for item in diagnostics["recentTransitions"]
             ]
             self.assertEqual(transition_order, sorted(transition_order))
+            jsonschema.validate(
+                diagnostics,
+                PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA,
+            )
 
     def test_rehashed_risk_governor_mismatch_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -157,6 +187,103 @@ class PortfolioDecisionExplorerTests(unittest.TestCase):
                 "Risk-governor weights or volatility forecasts do not reconcile",
             ):
                 load_portfolio_diagnostics(project, run.result["id"])
+
+    def test_rehashed_liquidity_capacity_mismatch_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, project, run = make_lab(Path(directory))
+            path = run.root_dir / "artifacts" / "portfolio-decisions.csv"
+            with path.open(encoding="utf-8", newline="") as handle:
+                rows = list(csv.DictReader(handle))
+                fields = list(rows[0])
+            active = next(
+                row
+                for row in rows
+                if (
+                    row["liquidity_capacity_status"] == "available"
+                    and abs(float(row["trade_weight"])) > 1e-12
+                )
+            )
+            active["asset_capacity_nav_1pct"] = str(
+                float(active["asset_capacity_nav_1pct"]) + 10_000.0
+            )
+            with path.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=fields)
+                writer.writeheader()
+                writer.writerows(rows)
+            rehash_run(run.root_dir)
+
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "Asset liquidity-capacity evidence does not reconcile",
+            ):
+                load_portfolio_diagnostics(project, run.result["id"])
+
+    def test_legacy_run_without_capacity_evidence_remains_readable(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, project, run = make_lab(Path(directory))
+            decisions_path = (
+                run.root_dir / "artifacts" / "portfolio-decisions.csv"
+            )
+            with decisions_path.open(
+                encoding="utf-8",
+                newline="",
+            ) as handle:
+                rows = list(csv.DictReader(handle))
+                fields = [
+                    field
+                    for field in rows[0]
+                    if field
+                    not in {
+                        "liquidity_capacity_status",
+                        "liquidity_adv_observations",
+                        "causal_adv_dollar_volume",
+                        "reference_nav_adv_participation",
+                        "asset_capacity_nav_1pct",
+                        "asset_capacity_nav_5pct",
+                        "portfolio_capacity_nav_1pct",
+                        "portfolio_capacity_nav_5pct",
+                        "capacity_binding_asset",
+                    }
+                ]
+            with decisions_path.open(
+                "w",
+                encoding="utf-8",
+                newline="",
+            ) as handle:
+                writer = csv.DictWriter(
+                    handle,
+                    fieldnames=fields,
+                    extrasaction="ignore",
+                )
+                writer.writeheader()
+                writer.writerows(rows)
+            result_path = run.root_dir / "result.json"
+            result = json.loads(result_path.read_text(encoding="utf-8"))
+            result["metrics"].pop("liquidity_capacity")
+            result_path.write_text(
+                json.dumps(result, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            report_path = run.root_dir / "artifacts" / "portfolio-report.json"
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+            report["metrics"].pop("liquidity_capacity")
+            report_path.write_text(
+                json.dumps(report, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            rehash_run(run.root_dir)
+
+            diagnostics = load_portfolio_diagnostics(
+                project,
+                run.result["id"],
+            )
+
+            self.assertFalse(
+                diagnostics["liquidityCapacity"]["available"]
+            )
+            self.assertIsNone(
+                diagnostics["liquidityCapacity"]["validation"]
+            )
 
     def test_point_and_artifact_size_limits_are_structured(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

@@ -27,10 +27,18 @@ signal allocation and before drift-aware execution; it can only move exposure
 into cash, never lever a weak signal up. The fixed
 `strategies/portfolio-mandate.json` is not candidate-editable.
 
+The Judge also measures the exact executed trade path against a causal
+20-observation trailing average of `close × volume`. It reports 1% and 5%
+participation capacity, missing-history trade dates, reference-$1m breaches,
+and binding assets. This is a contextual OHLCV envelope, not an impact or fill
+model, and it cannot affect KEEP/REVERT.
+
 Successful Runs include proposed and executed weights plus a long-form
 per-asset decision ledger. Use it to trace factor → intent → raw target →
 covariance forecast/scale → governed target → trade → return/risk/cost
 contribution. Inspect activation rate, average active scale, maximum
 pre/post-governor forecast, and the diagnostic ungoverned comparison before
-claiming that a factor survives implementation. AutoQuant produces
+claiming that a factor survives implementation. Inspect validation capacity
+coverage, the conservative 1% minimum/p10/median, and binding assets before
+claiming the path can scale. AutoQuant produces
 target-weight research only; it has no Broker or trading-account authority.

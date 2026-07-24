@@ -131,6 +131,18 @@ class SessionDecisionMatrixTests(unittest.TestCase):
                 descriptors["validationRiskLimitedRate"]["preference"],
                 "context",
             )
+            for key in (
+                "validationCapacity1PctTenthPercentile",
+                "validationCapacityTradeDateCoverage",
+                "validationCapacityReferenceNavBreachRate",
+            ):
+                self.assertEqual(
+                    descriptors[key]["preference"],
+                    "context",
+                )
+                self.assertFalse(
+                    descriptors[key]["selectionEligible"]
+                )
             baseline_metrics = complete["trials"][0]["metrics"]
             self.assertIsNotNone(
                 baseline_metrics["validationRiskLimitedRate"]
@@ -143,6 +155,14 @@ class SessionDecisionMatrixTests(unittest.TestCase):
             )
             self.assertIsNotNone(
                 baseline_metrics["validationPostGovernorForecastMaximum"]
+            )
+            self.assertIsNotNone(
+                baseline_metrics[
+                    "validationCapacity1PctTenthPercentile"
+                ]
+            )
+            self.assertIsNotNone(
+                baseline_metrics["validationCapacityTradeDateCoverage"]
             )
             self.assertTrue(complete["tradeoffs"]["testExcluded"])
             self.assertNotIn(

@@ -130,6 +130,22 @@ RISK_DECISION_COLUMNS = {
     "risk_governor_scale",
 }
 RISK_DECISION_FLOATS = RISK_DECISION_COLUMNS - {"risk_governor_status"}
+LIQUIDITY_REFERENCE_NAV = 1_000_000.0
+LIQUIDITY_DECISION_COLUMNS = {
+    "liquidity_capacity_status",
+    "liquidity_adv_observations",
+    "causal_adv_dollar_volume",
+    "reference_nav_adv_participation",
+    "asset_capacity_nav_1pct",
+    "asset_capacity_nav_5pct",
+    "portfolio_capacity_nav_1pct",
+    "portfolio_capacity_nav_5pct",
+    "capacity_binding_asset",
+}
+LIQUIDITY_DECISION_FLOATS = LIQUIDITY_DECISION_COLUMNS - {
+    "liquidity_capacity_status",
+    "capacity_binding_asset",
+}
 
 
 def _issue(path: Path | str, code: str, message: str) -> ValidationIssue:
@@ -452,6 +468,13 @@ def _parse_decisions(
             "portfolio.risk-governor-columns",
             "Decision ledger must contain the complete risk-governor column set",
         )
+    has_liquidity_columns = LIQUIDITY_DECISION_COLUMNS.issubset(fields)
+    if LIQUIDITY_DECISION_COLUMNS & set(fields) and not has_liquidity_columns:
+        _fail(
+            path,
+            "portfolio.liquidity-columns",
+            "Decision ledger must contain the complete liquidity-capacity column set",
+        )
     for row_number, raw in enumerate(raw_rows, start=2):
         row_path = f"{path}:{row_number}"
         timestamp = _session_date(raw["timestamp"], f"{row_path}/timestamp")
@@ -511,6 +534,22 @@ def _parse_decisions(
                 "risk_governor_scale": 1.0,
             }
         )
+        liquidity_numeric = (
+            {
+                field: _finite(raw[field], f"{row_path}/{field}")
+                for field in LIQUIDITY_DECISION_FLOATS
+            }
+            if has_liquidity_columns
+            else {
+                "liquidity_adv_observations": 0.0,
+                "causal_adv_dollar_volume": 0.0,
+                "reference_nav_adv_participation": 0.0,
+                "asset_capacity_nav_1pct": 0.0,
+                "asset_capacity_nav_5pct": 0.0,
+                "portfolio_capacity_nav_1pct": 0.0,
+                "portfolio_capacity_nav_5pct": 0.0,
+            }
+        )
         for field in (
             "signal_event",
             "allocation_status",
@@ -530,6 +569,20 @@ def _parse_decisions(
                 f"{row_path}/risk_governor_status",
                 "portfolio.risk-governor-status",
                 "Risk-governor status must be non-empty",
+            )
+        if has_liquidity_columns and (
+            raw["liquidity_capacity_status"]
+            not in {
+                "available",
+                "no_trade",
+                "insufficient_adv_history",
+            }
+            or raw["capacity_binding_asset"] not in {"True", "False"}
+        ):
+            _fail(
+                row_path,
+                "portfolio.liquidity-status",
+                "Liquidity status or binding flag is invalid",
             )
         if (
             not 0.0 <= risk_numeric["risk_governor_scale"] <= 1.0
@@ -572,6 +625,72 @@ def _parse_decisions(
                 "portfolio.risk-governor-reconciliation",
                 "Risk-governor weights or volatility forecasts do not reconcile",
             )
+        if (
+            any(value < 0 for value in liquidity_numeric.values())
+            or not math.isclose(
+                liquidity_numeric["liquidity_adv_observations"],
+                round(liquidity_numeric["liquidity_adv_observations"]),
+                rel_tol=0.0,
+                abs_tol=1e-12,
+            )
+        ):
+            _fail(
+                row_path,
+                "portfolio.liquidity-value",
+                "Liquidity-capacity numeric evidence is invalid",
+            )
+        if has_liquidity_columns:
+            status = raw["liquidity_capacity_status"]
+            trade = abs(numeric["trade_weight"])
+            adv = liquidity_numeric["causal_adv_dollar_volume"]
+            if status == "available" and trade > 1e-12:
+                expected_participation = (
+                    trade * LIQUIDITY_REFERENCE_NAV / adv
+                    if adv > 0
+                    else math.inf
+                )
+                expected_1pct = 0.01 * adv / trade
+                if (
+                    adv <= 0
+                    or not math.isclose(
+                        liquidity_numeric[
+                            "reference_nav_adv_participation"
+                        ],
+                        expected_participation,
+                        rel_tol=1e-10,
+                        abs_tol=1e-8,
+                    )
+                    or not math.isclose(
+                        liquidity_numeric["asset_capacity_nav_1pct"],
+                        expected_1pct,
+                        rel_tol=1e-10,
+                        abs_tol=1e-6,
+                    )
+                    or not math.isclose(
+                        liquidity_numeric["asset_capacity_nav_5pct"],
+                        expected_1pct * 5.0,
+                        rel_tol=1e-10,
+                        abs_tol=1e-6,
+                    )
+                ):
+                    _fail(
+                        row_path,
+                        "portfolio.liquidity-reconciliation",
+                        "Asset liquidity-capacity evidence does not reconcile",
+                    )
+            elif any(
+                liquidity_numeric[field] > 1e-12
+                for field in (
+                    "reference_nav_adv_participation",
+                    "asset_capacity_nav_1pct",
+                    "asset_capacity_nav_5pct",
+                )
+            ):
+                _fail(
+                    row_path,
+                    "portfolio.liquidity-inactive",
+                    "Unavailable or inactive asset capacity must be zero",
+                )
         if has_mandate_columns:
             if raw["tradable"] not in {"True", "False"}:
                 _fail(
@@ -614,6 +733,7 @@ def _parse_decisions(
             **optional,
             **numeric,
             **risk_numeric,
+            **liquidity_numeric,
             "signal_event": raw["signal_event"],
             "allocation_status": raw["allocation_status"],
             "target_action": raw["target_action"],
@@ -624,6 +744,16 @@ def _parse_decisions(
                 raw["risk_governor_status"]
                 if has_risk_columns
                 else "legacy_none"
+            ),
+            "liquidity_capacity_status": (
+                raw["liquidity_capacity_status"]
+                if has_liquidity_columns
+                else "legacy_unavailable"
+            ),
+            "capacity_binding_asset": (
+                raw["capacity_binding_asset"] == "True"
+                if has_liquidity_columns
+                else False
             ),
             "tradable": (
                 raw["tradable"] == "True"
@@ -679,6 +809,75 @@ def _parse_decisions(
                 "portfolio.risk-governor-panel",
                 "Risk-governor evidence must be identical across one decision date",
             )
+        liquidity_signatures = {
+            (
+                item["liquidity_capacity_status"],
+                item["portfolio_capacity_nav_1pct"],
+                item["portfolio_capacity_nav_5pct"],
+            )
+            for item in rows
+        }
+        if len(liquidity_signatures) != 1:
+            _fail(
+                f"{path}/{timestamp}",
+                "portfolio.liquidity-panel",
+                "Liquidity-capacity evidence must be identical across one date",
+            )
+        status, capacity_1pct, capacity_5pct = next(
+            iter(liquidity_signatures)
+        )
+        active_rows = [
+            item for item in rows if abs(item["trade_weight"]) > 1e-12
+        ]
+        binding_rows = [
+            item for item in rows if item["capacity_binding_asset"]
+        ]
+        if status == "available":
+            if (
+                not active_rows
+                or len(binding_rows) != 1
+                or capacity_1pct <= 0
+                or not math.isclose(
+                    capacity_5pct,
+                    capacity_1pct * 5.0,
+                    rel_tol=1e-10,
+                    abs_tol=1e-6,
+                )
+                or not math.isclose(
+                    binding_rows[0]["asset_capacity_nav_1pct"],
+                    capacity_1pct,
+                    rel_tol=1e-10,
+                    abs_tol=1e-6,
+                )
+            ):
+                _fail(
+                    f"{path}/{timestamp}",
+                    "portfolio.liquidity-binding",
+                    "Available capacity must reconcile one binding active asset",
+                )
+        elif status == "no_trade":
+            if active_rows or binding_rows or capacity_1pct or capacity_5pct:
+                _fail(
+                    f"{path}/{timestamp}",
+                    "portfolio.liquidity-no-trade",
+                    "No-trade capacity evidence is inconsistent",
+                )
+        elif status == "insufficient_adv_history":
+            if (
+                not active_rows
+                or binding_rows
+                or capacity_1pct
+                or capacity_5pct
+                or all(
+                    item["causal_adv_dollar_volume"] > 0
+                    for item in active_rows
+                )
+            ):
+                _fail(
+                    f"{path}/{timestamp}",
+                    "portfolio.liquidity-unavailable",
+                    "Incomplete active ADV must not publish capacity",
+                )
         reconciliations = (
             (
                 sum(item["gross_return_contribution"] for item in rows),
@@ -1334,6 +1533,275 @@ def _risk_governor_projection(
     return projected
 
 
+def _quantile(values: list[float], probability: float) -> float:
+    ordered = sorted(values)
+    if not ordered:
+        return 0.0
+    position = (len(ordered) - 1) * probability
+    lower = math.floor(position)
+    upper = math.ceil(position)
+    if lower == upper:
+        return ordered[lower]
+    fraction = position - lower
+    return ordered[lower] * (1.0 - fraction) + ordered[upper] * fraction
+
+
+def _liquidity_capacity_projection(
+    result: dict[str, Any],
+    ordered_decisions: list[dict[str, Any]],
+    splits: dict[str, Any],
+) -> dict[str, Any]:
+    raw = result["metrics"].get("liquidity_capacity")
+    has_ledger = any(
+        item["liquidity_capacity_status"] != "legacy_unavailable"
+        for item in ordered_decisions
+    )
+    if raw is None and not has_ledger:
+        return {
+            "available": False,
+            "policy": None,
+            "selectionAuthority": "context-only",
+            "validation": None,
+            "test": None,
+            "latestTrade": None,
+        }
+    if not isinstance(raw, dict) or not has_ledger:
+        _fail(
+            "RunResult/metrics/liquidity_capacity",
+            "portfolio.liquidity-capacity",
+            "Capacity metrics and ledger evidence must exist together",
+        )
+    policy = raw.get("policy")
+    expected_policy = {
+        "method": "trailing-average-dollar-volume-capacity-v1",
+        "adv_window": 20,
+        "participation_limits": [0.01, 0.05],
+        "reference_nav": LIQUIDITY_REFERENCE_NAV,
+        "selection_authority": "context-only",
+        "trading_authority": "none",
+    }
+    if policy != expected_policy:
+        _fail(
+            "RunResult/metrics/liquidity_capacity/policy",
+            "portfolio.liquidity-policy",
+            "Liquidity-capacity policy differs from the fixed contract",
+        )
+
+    by_date: dict[str, list[dict[str, Any]]] = {}
+    for item in ordered_decisions:
+        by_date.setdefault(item["timestamp"], []).append(item)
+
+    def derive(split_name: str) -> dict[str, Any]:
+        split = splits[split_name]
+        dated = [
+            (timestamp, rows)
+            for timestamp, rows in sorted(by_date.items())
+            if split["start"] <= timestamp <= split["end"]
+        ]
+        trade_dates = [
+            (timestamp, rows)
+            for timestamp, rows in dated
+            if rows[0]["liquidity_capacity_status"] != "no_trade"
+        ]
+        available = [
+            (timestamp, rows)
+            for timestamp, rows in trade_dates
+            if rows[0]["liquidity_capacity_status"] == "available"
+        ]
+        unavailable = [
+            (timestamp, rows)
+            for timestamp, rows in trade_dates
+            if rows[0]["liquidity_capacity_status"]
+            == "insufficient_adv_history"
+        ]
+        capacities = {
+            "capacity_1pct": [
+                rows[0]["portfolio_capacity_nav_1pct"]
+                for _, rows in available
+            ],
+            "capacity_5pct": [
+                rows[0]["portfolio_capacity_nav_5pct"]
+                for _, rows in available
+            ],
+        }
+        binding_counts: dict[str, int] = {}
+        for _, rows in available:
+            binding = next(
+                row["asset"]
+                for row in rows
+                if row["capacity_binding_asset"]
+            )
+            binding_counts[binding] = binding_counts.get(binding, 0) + 1
+
+        def summary(key: str) -> dict[str, Any]:
+            values = capacities[key]
+            return {
+                "status": "available" if values else "unavailable",
+                "observations": len(values),
+                "minimum_nav": min(values) if values else 0.0,
+                "tenth_percentile_nav": _quantile(values, 0.10),
+                "median_nav": _quantile(values, 0.50),
+                "reference_nav_breach_rate": (
+                    sum(
+                        value + 1e-12 < LIQUIDITY_REFERENCE_NAV
+                        for value in values
+                    )
+                    / len(values)
+                    if values
+                    else 0.0
+                ),
+            }
+
+        return {
+            "status": (
+                "available"
+                if available
+                else "no_trades"
+                if not trade_dates
+                else "insufficient_adv_history"
+            ),
+            "trade_dates": len(trade_dates),
+            "available_trade_dates": len(available),
+            "unavailable_trade_dates": len(unavailable),
+            "trade_date_coverage": (
+                len(available) / len(trade_dates)
+                if trade_dates
+                else 0.0
+            ),
+            "binding_asset_counts_1pct": binding_counts,
+            "capacity_1pct": summary("capacity_1pct"),
+            "capacity_5pct": summary("capacity_5pct"),
+        }
+
+    def compare(expected: Any, actual: Any, path: str) -> None:
+        if isinstance(actual, dict):
+            if not isinstance(expected, dict) or set(expected) != set(actual):
+                _fail(
+                    path,
+                    "portfolio.liquidity-metrics",
+                    "Capacity metric shape differs from the ledger",
+                )
+            for key, value in actual.items():
+                compare(expected[key], value, f"{path}/{key}")
+        elif isinstance(actual, float):
+            if not math.isclose(
+                _finite(expected, path),
+                actual,
+                rel_tol=1e-10,
+                abs_tol=1e-6,
+            ):
+                _fail(
+                    path,
+                    "portfolio.liquidity-metrics",
+                    "Capacity metric differs from the ledger",
+                )
+        elif expected != actual:
+            _fail(
+                path,
+                "portfolio.liquidity-metrics",
+                "Capacity metric differs from the ledger",
+            )
+
+    projection: dict[str, Any] = {
+        "available": True,
+        "policy": {
+            "method": policy["method"],
+            "advWindow": policy["adv_window"],
+            "participationLimits": policy["participation_limits"],
+            "referenceNav": policy["reference_nav"],
+            "selectionAuthority": policy["selection_authority"],
+            "tradingAuthority": policy["trading_authority"],
+        },
+        "selectionAuthority": "context-only",
+    }
+    for split_name in ("validation", "test"):
+        derived = derive(split_name)
+        compare(
+            raw.get(split_name),
+            derived,
+            f"RunResult/metrics/liquidity_capacity/{split_name}",
+        )
+        projection[split_name] = {
+            "status": derived["status"],
+            "tradeDates": derived["trade_dates"],
+            "availableTradeDates": derived["available_trade_dates"],
+            "unavailableTradeDates": derived[
+                "unavailable_trade_dates"
+            ],
+            "tradeDateCoverage": derived["trade_date_coverage"],
+            "bindingAssetCounts1Pct": derived[
+                "binding_asset_counts_1pct"
+            ],
+            "capacity1Pct": {
+                "status": derived["capacity_1pct"]["status"],
+                "observations": derived["capacity_1pct"]["observations"],
+                "minimumNav": derived["capacity_1pct"]["minimum_nav"],
+                "tenthPercentileNav": derived["capacity_1pct"][
+                    "tenth_percentile_nav"
+                ],
+                "medianNav": derived["capacity_1pct"]["median_nav"],
+                "referenceNavBreachRate": derived["capacity_1pct"][
+                    "reference_nav_breach_rate"
+                ],
+            },
+            "capacity5Pct": {
+                "status": derived["capacity_5pct"]["status"],
+                "observations": derived["capacity_5pct"]["observations"],
+                "minimumNav": derived["capacity_5pct"]["minimum_nav"],
+                "tenthPercentileNav": derived["capacity_5pct"][
+                    "tenth_percentile_nav"
+                ],
+                "medianNav": derived["capacity_5pct"]["median_nav"],
+                "referenceNavBreachRate": derived["capacity_5pct"][
+                    "reference_nav_breach_rate"
+                ],
+            },
+        }
+    trades = [
+        (timestamp, rows)
+        for timestamp, rows in sorted(by_date.items())
+        if rows[0]["liquidity_capacity_status"]
+        in {"available", "insufficient_adv_history"}
+    ]
+    if not trades:
+        projection["latestTrade"] = None
+    else:
+        timestamp, rows = trades[-1]
+        available = rows[0]["liquidity_capacity_status"] == "available"
+        binding = next(
+            (
+                row["asset"]
+                for row in rows
+                if row["capacity_binding_asset"]
+            ),
+            None,
+        )
+        projection["latestTrade"] = {
+            "timestamp": timestamp,
+            "status": rows[0]["liquidity_capacity_status"],
+            "capacity1Pct": (
+                rows[0]["portfolio_capacity_nav_1pct"]
+                if available
+                else None
+            ),
+            "capacity5Pct": (
+                rows[0]["portfolio_capacity_nav_5pct"]
+                if available
+                else None
+            ),
+            "bindingAsset": binding,
+            "maximumReferenceNavParticipation": (
+                max(
+                    row["reference_nav_adv_participation"]
+                    for row in rows
+                )
+                if available
+                else None
+            ),
+        }
+    return projection
+
+
 def load_portfolio_diagnostics(
     project: ProjectContext,
     run_id: str,
@@ -1475,6 +1943,11 @@ def load_portfolio_diagnostics(
         ),
         "signalPolicy": _signal_policy_projection(run.result),
         "riskGovernor": _risk_governor_projection(run.result, mandate),
+        "liquidityCapacity": _liquidity_capacity_projection(
+            run.result,
+            ordered_decisions,
+            splits,
+        ),
         "attribution": _attribution_projection(run.result, universe),
     }
 
@@ -1686,6 +2159,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "recentTransitions",
         "signalPolicy",
         "riskGovernor",
+        "liquidityCapacity",
         "attribution",
     ],
     "properties": {
@@ -2052,6 +2526,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
             },
         },
         "riskGovernor": {"type": "object"},
+        "liquidityCapacity": {"type": "object"},
         "attribution": {
             "type": "object",
             "additionalProperties": False,

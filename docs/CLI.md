@@ -154,7 +154,11 @@ returning compounded gross/net/benchmark paths, drawdown, exposure, unused
 cash budget, turnover/cost, the latest historical mechanical book, recent
 signal transitions, validation/test attribution, exact mandate, current
 pre/post volatility forecast and scale, plus governed-versus-ungoverned
-diagnostic evidence.
+diagnostic evidence. It also verifies the causal 20-observation
+close-times-volume ledger and returns validation/test 1%/5% participation
+capacity distributions, coverage, reference-$1m breach rates, binding assets,
+and the latest rebalance envelope. These are contextual OHLCV estimates, not
+impact or fill claims.
 `--points` defaults to 180 and is bounded to 40–400; full history is
 reconciled before deterministic sampling. The operation has no live account
 or trading authority.

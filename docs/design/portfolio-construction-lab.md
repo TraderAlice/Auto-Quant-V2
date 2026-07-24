@@ -5,7 +5,8 @@ Status: V2 implemented.
 Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]],
 [[docs/design/study-run-evidence]], [[docs/design/ohlcv-factor-lab]],
 [[docs/design/request-bound-portfolio-mandates]],
-[[docs/design/signal-policy-and-attribution]], and
+[[docs/design/signal-policy-and-attribution]],
+[[docs/design/portfolio-liquidity-capacity]], and
 [[docs/design/quant-research-lifecycle]].
 
 ## Scope
@@ -119,6 +120,8 @@ or capacity guarantee.
 - average/max gross and net exposure;
 - average/max absolute asset weight and concentration HHI;
 - mean/max volume participation at the fixed reference NAV.
+- causal 20-observation dollar-volume capacity at 1%/5% participation,
+  trade-date coverage, reference-NAV breach rate, and binding assets.
 
 ### Robustness
 
@@ -163,7 +166,8 @@ Every successful Run declares:
 - `executed-weights.csv`: exact post-band per-date asset weights;
 - `portfolio-decisions.csv`: exact mandate id, tradability, permitted
   direction, signal intent, raw/governed sizing, covariance forecast and
-  scale, execution, return, cost, regime, and component-risk ledger.
+  scale, execution, return, cost, regime, component-risk, causal ADV,
+  participation-capacity, and binding-asset ledger.
 
 RunResult remains the immutable authority for artifact identities.
 
@@ -189,7 +193,9 @@ reconciled before display sampling; the browser never reads artifact paths.
 9. Validation alone owns candidate selection; test is visible diagnostic
    evidence.
 10. The simulation emits target weights only and has no trading authority.
-11. Routine tests use a small deterministic OHLCV fixture.
+11. OHLCV capacity is a contextual participation envelope, not an impact or
+    fill guarantee, and never enters selection.
+12. Routine tests use a small deterministic OHLCV fixture.
 
 ## Change checklist
 
@@ -206,8 +212,9 @@ reconciled before display sampling; the browser never reads artifact paths.
 
 - V2 has fixed request-mapped long/cash, short/cash, and dollar-neutral
   families, not arbitrary optimizer constraints or a strategy DSL.
-- Costs are linear and participation is a proxy; spread, impact, borrow,
-  funding, and futures margin are absent.
+- Costs are linear and the capacity envelope is a trailing-dollar-volume
+  participation proxy; spread, impact, borrow, funding, and futures margin are
+  absent.
 - Corporate actions, calendar metadata, and production price adjustments
   remain outside the synthetic fixture.
 - Parameter-neighborhood surfaces are not automated. Project-wide unique

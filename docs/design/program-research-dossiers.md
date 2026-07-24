@@ -6,6 +6,7 @@ Related: [[docs/design/quant-research-lifecycle]],
 [[docs/design/research-program-orchestration]],
 [[docs/design/request-bound-portfolio-mandates]],
 [[docs/design/portfolio-risk-governor]],
+[[docs/design/portfolio-liquidity-capacity]],
 [[docs/design/research-selection-integrity]],
 [[docs/design/studio-observation-surface]], [[docs/PROJECT_FORMAT]], and
 [[docs/CLI]].
@@ -120,6 +121,8 @@ non-file entries are rejected.
 - request-derived Portfolio Mandate identity, including its fixed
   covariance/volatility policy, and complete frozen metrics for every
   applicable lane;
+- Portfolio liquidity-capacity policy, validation envelope, coverage, and
+  reference-NAV breach evidence when present;
 - omitted optional lanes;
 - normalized cross-lane analysis and its hash;
 - OpenAlice handoff boundary.
@@ -137,6 +140,8 @@ and exact frozen projections.
 - authorized positions, context-only research assets, construction family,
   cash/cap, benchmark, and portfolio-risk ceiling from the frozen Portfolio
   Mandate;
+- conservative OHLCV participation capacity, coverage, and explicit
+  no-impact/no-fill interpretation from the frozen Portfolio evidence;
 - executive synthesis;
 - a lane evidence table;
 - lane Report summaries and selection-integrity warnings;

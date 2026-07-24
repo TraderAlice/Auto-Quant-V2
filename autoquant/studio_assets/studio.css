@@ -1973,7 +1973,7 @@ main {
 
 .portfolio-summary {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   border: 1px solid var(--line);
   background: var(--panel-soft);
 }
@@ -1985,6 +1985,14 @@ main {
 }
 
 .portfolio-summary > span:first-child {
+  border-left: 0;
+}
+
+.portfolio-summary > span:nth-child(n + 5) {
+  border-top: 1px solid var(--line);
+}
+
+.portfolio-summary > span:nth-child(5) {
   border-left: 0;
 }
 

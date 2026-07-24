@@ -13,12 +13,14 @@ import pandas as pd
 from autoquant.project_templates.ohlcv_portfolio_lab.portfolio_core import (
     LONG_ENTRY_PERCENTILE,
     SHORT_ENTRY_PERCENTILE,
+    SignalConstruction,
     attribution_metrics,
     build_decision_ledger,
     constraint_audit,
     construct_signal_policy,
     construct_targets,
     drift_weights,
+    liquidity_capacity_metrics,
     signal_policy_metrics,
     simulate_targets,
 )
@@ -411,6 +413,7 @@ class PortfolioAccountingTests(unittest.TestCase):
             construction,
             simulation,
             closes,
+            volumes,
         )
         attribution = attribution_metrics(
             ledger,
@@ -452,6 +455,139 @@ class PortfolioAccountingTests(unittest.TestCase):
         self.assertAlmostEqual(
             float(rows["net_return_contribution"].sum()),
             float(simulation.daily.loc[timestamp, "net_return"]),
+        )
+
+    def test_liquidity_capacity_uses_causal_adv_and_exact_trade_weights(self) -> None:
+        index = pd.bdate_range("2026-01-01", periods=32)
+        targets = pd.DataFrame(
+            0.0,
+            index=index,
+            columns=["A", "B"],
+        )
+        targets.loc[index[10:19], ["A", "B"]] = [0.25, -0.25]
+        targets.loc[index[21:26], ["A", "B"]] = [0.5, -0.5]
+        closes = pd.DataFrame(
+            100.0,
+            index=index,
+            columns=targets.columns,
+        )
+        volumes = pd.DataFrame(
+            {"A": 1_000_000.0, "B": 2_000_000.0},
+            index=index,
+        )
+        construction = SignalConstruction(
+            targets=targets,
+            states=pd.DataFrame(
+                0,
+                index=index,
+                columns=targets.columns,
+            ),
+            ledger=pd.DataFrame(
+                [
+                    {
+                        "timestamp": timestamp,
+                        "asset": asset,
+                        "factor": 0.0,
+                        "percentile_score": 0.5,
+                        "prior_signal_state": 0,
+                        "signal_state": 0,
+                        "signal_event": "stay_flat",
+                        "tradable": True,
+                        "permitted_direction": "dollar-neutral",
+                        "mandate_id": "legacy-dollar-neutral",
+                        "conviction": 0.0,
+                        "trailing_volatility": 0.0,
+                        "risk_strength": 0.0,
+                        "allocation_status": "allocated",
+                        "pre_governor_target_weight": float(
+                            targets.loc[timestamp, asset]
+                        ),
+                        "risk_governor_status": "legacy_none",
+                        "risk_estimation_observations": 0,
+                        "risk_forecast_pre_annualized": 0.0,
+                        "risk_forecast_post_annualized": 0.0,
+                        "risk_volatility_ceiling_annualized": 0.0,
+                        "risk_governor_scale": 1.0,
+                        "prior_target_weight": 0.0,
+                        "proposed_target_weight": float(
+                            targets.loc[timestamp, asset]
+                        ),
+                        "target_delta": float(
+                            targets.loc[timestamp, asset]
+                        ),
+                        "target_action": "hold_flat",
+                        "diagonal_risk_budget_share": 0.0,
+                    }
+                    for timestamp in index
+                    for asset in targets.columns
+                ]
+            ),
+        )
+        simulation = simulate_targets(
+            targets,
+            closes,
+            volumes,
+            cost_bps=0.0,
+            no_trade_one_way=0.0,
+        )
+        ledger = build_decision_ledger(
+            construction,
+            simulation,
+            closes,
+            volumes,
+            cost_bps=0.0,
+        )
+
+        early = ledger[ledger["timestamp"].eq(index[10])]
+        self.assertEqual(
+            set(early["liquidity_capacity_status"]),
+            {"insufficient_adv_history"},
+        )
+        self.assertEqual(
+            float(early["portfolio_capacity_nav_1pct"].max()),
+            0.0,
+        )
+
+        available = ledger[ledger["timestamp"].eq(index[21])]
+        self.assertEqual(
+            set(available["liquidity_capacity_status"]),
+            {"available"},
+        )
+        self.assertAlmostEqual(
+            float(available["portfolio_capacity_nav_1pct"].iloc[0]),
+            2_000_000.0,
+        )
+        self.assertAlmostEqual(
+            float(available["portfolio_capacity_nav_5pct"].iloc[0]),
+            10_000_000.0,
+        )
+        binding = available[available["capacity_binding_asset"]]
+        self.assertEqual(binding["asset"].tolist(), ["A"])
+        self.assertAlmostEqual(
+            float(
+                available.loc[
+                    available["asset"].eq("A"),
+                    "reference_nav_adv_participation",
+                ].iloc[0]
+            ),
+            0.005,
+        )
+
+        metrics = liquidity_capacity_metrics(
+            ledger,
+            simulation.daily.index,
+        )
+        self.assertEqual(metrics["status"], "available")
+        self.assertGreater(metrics["trade_dates"], 2)
+        self.assertGreater(metrics["available_trade_dates"], 0)
+        self.assertGreater(metrics["unavailable_trade_dates"], 0)
+        self.assertEqual(
+            metrics["capacity_1pct"]["reference_nav_breach_rate"],
+            0.0,
+        )
+        self.assertEqual(
+            metrics["capacity_5pct"]["tenth_percentile_nav"],
+            metrics["capacity_1pct"]["tenth_percentile_nav"] * 5.0,
         )
 
     def test_signal_and_risk_ledger_do_not_change_with_future_bars(self) -> None:
@@ -498,6 +634,7 @@ class PortfolioAccountingTests(unittest.TestCase):
             full_construction,
             full_simulation,
             closes,
+            volumes,
         )
 
         cut = 100
@@ -515,6 +652,7 @@ class PortfolioAccountingTests(unittest.TestCase):
             prefix_construction,
             prefix_simulation,
             closes.iloc[:cut],
+            volumes.iloc[:cut],
         )
         shared_end = prefix_simulation.daily.index[-1]
         columns = [
@@ -532,6 +670,15 @@ class PortfolioAccountingTests(unittest.TestCase):
             "pretrade_weight",
             "executed_weight",
             "trade_weight",
+            "liquidity_capacity_status",
+            "liquidity_adv_observations",
+            "causal_adv_dollar_volume",
+            "reference_nav_adv_participation",
+            "asset_capacity_nav_1pct",
+            "asset_capacity_nav_5pct",
+            "portfolio_capacity_nav_1pct",
+            "portfolio_capacity_nav_5pct",
+            "capacity_binding_asset",
             "regime",
             "component_variance",
             "variance_contribution_share",
@@ -572,6 +719,23 @@ class OhlcvPortfolioLabTests(unittest.TestCase):
             self.assertIn("signal_policy", metrics)
             self.assertIn("attribution", metrics)
             self.assertIn("robustness", metrics)
+            self.assertIn("liquidity_capacity", metrics)
+            self.assertEqual(
+                metrics["liquidity_capacity"]["policy"][
+                    "selection_authority"
+                ],
+                "context-only",
+            )
+            self.assertEqual(
+                metrics["liquidity_capacity"]["policy"]["adv_window"],
+                20,
+            )
+            self.assertGreater(
+                metrics["liquidity_capacity"]["validation"][
+                    "available_trade_dates"
+                ],
+                0,
+            )
             self.assertIn("risk_governor", metrics["robustness"])
             self.assertEqual(
                 metrics["robustness"]["risk_governor"][
@@ -624,6 +788,9 @@ class OhlcvPortfolioLabTests(unittest.TestCase):
             ).columns
             self.assertIn("pre_governor_target_weight", decision_columns)
             self.assertIn("risk_governor_scale", decision_columns)
+            self.assertIn("causal_adv_dollar_volume", decision_columns)
+            self.assertIn("portfolio_capacity_nav_1pct", decision_columns)
+            self.assertIn("capacity_binding_asset", decision_columns)
             snapshot = build_studio_snapshot(workspace.root_dir)
             self.assertEqual(snapshot["projects"][0]["counts"]["runs"], 1)
             layers = snapshot["projects"][0]["runs"][0]["metricLayers"]
@@ -644,6 +811,16 @@ class OhlcvPortfolioLabTests(unittest.TestCase):
             self.assertGreater(
                 layers["signalPolicy"][
                     "validationTransitionReductionRate"
+                ],
+                0.0,
+            )
+            self.assertEqual(
+                layers["liquidityCapacity"]["selectionAuthority"],
+                "context-only",
+            )
+            self.assertGreater(
+                layers["liquidityCapacity"][
+                    "validationTenthPercentileNav1Pct"
                 ],
                 0.0,
             )

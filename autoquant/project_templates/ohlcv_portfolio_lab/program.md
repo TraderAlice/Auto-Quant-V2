@@ -36,6 +36,8 @@ numeric aligned Series and may use only the current and prior rows.
   never scale exposure up;
 - retain the drifted book below 0.05 one-way turnover;
 - cost every bought/sold dollar at 10 basis points;
+- estimate causal ADV from 20 `close × volume` observations through decision
+  close and invert exact trade weights at 1%/5% participation;
 - signal at close `t` earns only close `t` to close `t+1`;
 - dataset-fixed purged 60/20/20 train/validation/test;
 - primary score is validation net Sharpe only;
@@ -55,12 +57,16 @@ Inspect factor, signal-state, portfolio/risk, implementation, attribution,
 constraint, and robustness layers. Read `portfolio-decisions.csv` when a
 conclusion depends on one asset or date. Reconcile raw and governed targets,
 forecast volatility, scale, and status; inspect how often the ceiling binds
-and whether cash exposure is signal-driven or risk-driven. The ungoverned
+and whether cash exposure is signal-driven or risk-driven. Reconcile capacity
+to the exact trade weight, causal ADV, and binding asset; treat missing-history
+dates as unavailable, not liquid. The 1% p10 envelope is contextual and cannot
+select a candidate. The ungoverned
 comparison is diagnostic only and cannot select a candidate. A higher primary
 score is not enough when coverage collapses, hysteresis adds no value,
 concentration rises, the risk governor constantly suppresses an unstable raw
-book, turnover/costs dominate, delayed performance reverses, attribution fails
-to reconcile, or one asset explains the result. Also inspect the complete
+book, turnover/costs dominate, the capacity envelope is too small or poorly
+covered, delayed performance reverses, attribution fails to reconcile, or one
+asset explains the result. Also inspect the complete
 Project-family trial count, probabilistic/deflated Sharpe, expected maximum
 Sharpe from strategy search, and minimum track record. Those diagnostics do
 not rewrite KEEP/REVERT and cannot be reset by starting another Session.

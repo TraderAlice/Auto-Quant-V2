@@ -10,7 +10,8 @@ changing Project, request, universe, or dataset:
 2. **Portfolio quality** — test whether the same `factors/candidate.py`
    survives the request-bound tradable/context universe, direction, cash,
    mechanical signal state, sizing, causal covariance ceiling, constraints,
-   drift, costs, risk, and attribution.
+   drift, costs, risk, attribution, and a causal OHLCV liquidity-capacity
+   envelope over the exact trade path.
 3. **Governed RL policy** — bind the current candidate factor as a read-only
    sleeve and test whether a bounded adaptive state encoder adds value beyond
    that factor and fixed/contextual policies across every declared fold and

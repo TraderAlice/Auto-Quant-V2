@@ -54,6 +54,18 @@ const percent = (value) => {
   return `${metric(Number(value) * 100)}%`;
 };
 
+const capital = (value) => {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return "—";
+  }
+  const number = Number(value);
+  const magnitude = Math.abs(number);
+  if (magnitude >= 1e9) return `$${metric(number / 1e9)}B`;
+  if (magnitude >= 1e6) return `$${metric(number / 1e6)}M`;
+  if (magnitude >= 1e3) return `$${metric(number / 1e3)}K`;
+  return `$${metric(number)}`;
+};
+
 const probabilityMetric = (value) => {
   if (value === null || value === undefined || Number.isNaN(Number(value))) {
     return "—";
@@ -1628,13 +1640,19 @@ function mandateMarkup(mandate) {
 
 function renderPortfolioBook(explorer) {
   const book = explorer.currentBook;
+  const latestCapacity = explorer.liquidityCapacity?.latestTrade;
+  const capacityDisclosure = latestCapacity
+    ? latestCapacity.status === "available"
+      ? ` · latest rebalance ${latestCapacity.timestamp}: 1% capacity ${capital(latestCapacity.capacity1Pct)} · binding ${latestCapacity.bindingAsset}`
+      : ` · latest rebalance ${latestCapacity.timestamp}: capacity unavailable`
+    : "";
   const maximumWeight = Number(
     explorer.signalPolicy?.parameters?.max_abs_weight ?? 0.3,
   );
   element("portfolio-book-note").textContent =
     `${book.timestamp} · gross ${metric(book.grossExposure)} · net ${metric(book.netExposure)} · cash ${percent(book.cashWeight)} · risk ${book.riskGovernorStatus} · scale ${metric(book.riskGovernorScale)}`;
   element("portfolio-book").innerHTML = `
-    <div class="book-disclosure">Historical target/executed weights · covariance forecast ${percent(book.riskForecastPreAnnualized)} → ${percent(book.riskForecastPostAnnualized)} · ceiling ${percent(book.riskVolatilityCeilingAnnualized)} · no Broker or account state</div>
+    <div class="book-disclosure">Historical target/executed weights · covariance forecast ${percent(book.riskForecastPreAnnualized)} → ${percent(book.riskForecastPostAnnualized)} · ceiling ${percent(book.riskVolatilityCeilingAnnualized)}${escapeHtml(capacityDisclosure)} · no Broker or account state</div>
     <div class="position-table" role="table" aria-label="Latest mechanical research book">
       <div class="position-row heading" role="row">
         <span>Asset / state</span><span>Target</span><span>Executed</span><span>Action</span>
@@ -1741,6 +1759,7 @@ function renderPortfolioExplorer(project) {
   }
   section.hidden = false;
   const summary = explorer.path.summary;
+  const validationCapacity = explorer.liquidityCapacity?.validation;
   element("portfolio-meta").textContent =
     `${explorer.run.id} · ${explorer.selection.selectionSplit} selection · ${explorer.selection.testRole} test`;
   element("portfolio-mandate").innerHTML = mandateMarkup(explorer.mandate);
@@ -1754,6 +1773,18 @@ function renderPortfolioExplorer(project) {
       "Validation risk-limited",
       percent(explorer.signalPolicy.validation.riskLimitedRate),
       explorer.signalPolicy.validation.riskLimitedRate > 0 ? "warning" : "neutral",
+    ],
+    [
+      "1% capacity · p10",
+      validationCapacity?.capacity1Pct?.status === "available"
+        ? capital(validationCapacity.capacity1Pct.tenthPercentileNav)
+        : "UNAVAILABLE",
+      validationCapacity?.capacity1Pct?.status === "available" ? "neutral" : "warning",
+    ],
+    [
+      "Capacity coverage",
+      validationCapacity ? percent(validationCapacity.tradeDateCoverage) : "LEGACY",
+      validationCapacity?.tradeDateCoverage === 1 ? "neutral" : "warning",
     ],
   ]
     .map(

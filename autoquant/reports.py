@@ -694,6 +694,33 @@ def _render_markdown(report: dict[str, Any]) -> str:
                     f"- Scale-up permitted: `{risk_policy['scaleUp']}`",
                 ]
             )
+        capacity = leader_run["metrics"].get("liquidity_capacity")
+        validation_capacity = (
+            capacity.get("validation")
+            if isinstance(capacity, dict)
+            else None
+        )
+        conservative = (
+            validation_capacity.get("capacity_1pct")
+            if isinstance(validation_capacity, dict)
+            else None
+        )
+        if isinstance(conservative, dict):
+            lines.extend(
+                [
+                    "- Liquidity capacity: "
+                    "`trailing-average-dollar-volume-capacity-v1` "
+                    "(OHLCV participation envelope; contextual only)",
+                    "- Validation 1% participation capacity "
+                    f"minimum / p10 / median: "
+                    f"`{conservative['minimum_nav']}` / "
+                    f"`{conservative['tenth_percentile_nav']}` / "
+                    f"`{conservative['median_nav']}`",
+                    "- Capacity trade-date coverage / $1m breach rate: "
+                    f"`{validation_capacity['trade_date_coverage']}` / "
+                    f"`{conservative['reference_nav_breach_rate']}`",
+                ]
+            )
         lines.append("")
     lines.extend(
         [

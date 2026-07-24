@@ -7,6 +7,7 @@ Related: [[docs/ARCHITECTURE]], [[docs/CLI]], [[docs/STUDIO]],
 [[docs/design/portfolio-construction-lab]],
 [[docs/design/request-bound-portfolio-mandates]],
 [[docs/design/signal-policy-and-attribution]],
+[[docs/design/portfolio-liquidity-capacity]],
 [[docs/design/research-selection-integrity]], and
 [[docs/design/studio-observation-surface]].
 
@@ -101,6 +102,8 @@ The latest realized decision date exposes, per asset:
   trade weights;
 - covariance observations, pre/post annualized forecast, fixed ceiling,
   scale, and governor status;
+- causal ADV, reference-NAV participation, 1%/5% asset and portfolio capacity,
+  capacity status, and binding-asset identity;
 - target/execution actions and execution reason;
 - next-bar gross/cost/net return contribution;
 - causal regime and component-variance contribution share.
@@ -137,6 +140,8 @@ The first explorer version provides:
 - net/gross/benchmark growth and net drawdown;
 - exposure, unused cash budget, turnover, cost, and split context;
 - current target/executed mechanical book;
+- validation/test capacity distributions, coverage, reference-NAV breaches,
+  and latest rebalance binding asset;
 - validation/test contribution and risk views;
 - recent signal/execution transitions;
 - exact Run identity and audit/selection labels.
@@ -155,6 +160,7 @@ The first explorer version provides:
    files.
 9. Context-only assets remain visible research context but have zero target
    and executed weight.
+10. Capacity values reconcile the complete ledger and remain contextual only.
 
 ## Verification and change checklist
 
@@ -173,5 +179,5 @@ The first explorer version provides:
 - V1 projects fixed long/cash, short/cash, and dollar-neutral mandate families.
 - Studio embeds only the latest successful Portfolio Run per Project.
 - The chart is a bounded read model, not a tick/order replay.
-- Cross-Run comparison, parameter surfaces, covariance matrices, and
+- Cross-Run comparison, parameter surfaces, covariance matrices, impact, and
   downloadable artifact routes remain future work.

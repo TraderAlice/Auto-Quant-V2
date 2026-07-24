@@ -161,6 +161,15 @@ class AgentCliTests(unittest.TestCase):
             )
             self.assertEqual(projected["data"]["path"]["sampledRows"], 48)
             self.assertTrue(projected["data"]["riskGovernor"]["available"])
+            self.assertTrue(
+                projected["data"]["liquidityCapacity"]["available"]
+            )
+            self.assertEqual(
+                projected["data"]["liquidityCapacity"][
+                    "selectionAuthority"
+                ],
+                "context-only",
+            )
             self.assertEqual(
                 projected["data"]["mandate"]["riskPolicy"]["method"],
                 "trailing-covariance-volatility-ceiling-v1",
@@ -175,6 +184,21 @@ class AgentCliTests(unittest.TestCase):
                     "portfolio-decisions",
                 },
             )
+            human = run_cli(
+                "run",
+                "portfolio",
+                str(project),
+                "--run",
+                run_id,
+                "--points",
+                "48",
+            )
+            self.assertEqual(human.returncode, 0, human.stderr)
+            self.assertIn(
+                "Validation 1% participation capacity p10",
+                human.stdout,
+            )
+            self.assertIn("contextual only", human.stdout)
 
     def test_cli_constructs_rl_factor_lab_with_correct_next_actions(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

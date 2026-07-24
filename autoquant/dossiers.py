@@ -1139,6 +1139,35 @@ def _render_markdown(dossier: dict[str, Any]) -> str:
                     ]
                 )
             lines.append("")
+    capacity_lanes = [
+        lane
+        for lane in evidence["lanes"]
+        if isinstance(
+            lane["leaderRun"]["metrics"].get("liquidity_capacity"),
+            dict,
+        )
+    ]
+    if capacity_lanes:
+        lines.extend(["## Liquidity capacity", ""])
+        for lane in capacity_lanes:
+            capacity = lane["leaderRun"]["metrics"]["liquidity_capacity"]
+            validation = capacity["validation"]
+            conservative = validation["capacity_1pct"]
+            lines.extend(
+                [
+                    f"- {lane['name']}: validation 1% participation capacity "
+                    f"minimum / p10 / median = "
+                    f"`{conservative['minimum_nav']}` / "
+                    f"`{conservative['tenth_percentile_nav']}` / "
+                    f"`{conservative['median_nav']}`",
+                    f"- {lane['name']}: trade-date coverage / $1m breach "
+                    f"rate = `{validation['trade_date_coverage']}` / "
+                    f"`{conservative['reference_nav_breach_rate']}`",
+                    f"- {lane['name']}: OHLCV participation envelope only; "
+                    "contextual, not impact, fill, or capital authority.",
+                ]
+            )
+        lines.append("")
     lines.extend(["", "## Lane summaries", ""])
     for lane in evidence["lanes"]:
         integrity = lane["report"]["selectionIntegrity"]

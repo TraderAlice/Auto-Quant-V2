@@ -373,6 +373,7 @@ def _portfolio_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
         attribution = metrics.get("attribution")
         layers["signalPolicy"] = None
         layers["attribution"] = None
+        layers["liquidityCapacity"] = None
         if isinstance(signal_policy, dict):
             validation_policy = signal_policy.get("validation", {})
             comparison = signal_policy.get(
@@ -424,6 +425,29 @@ def _portfolio_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
                         concentration.get(
                             "maximum_absolute_variance_contribution_share"
                         )
+                    ),
+                }
+        capacity = metrics.get("liquidity_capacity")
+        if isinstance(capacity, dict):
+            validation_capacity = capacity.get("validation", {})
+            conservative = (
+                validation_capacity.get("capacity_1pct", {})
+                if isinstance(validation_capacity, dict)
+                else {}
+            )
+            if isinstance(conservative, dict):
+                layers["liquidityCapacity"] = {
+                    "validationTradeDateCoverage": validation_capacity.get(
+                        "trade_date_coverage"
+                    ),
+                    "validationTenthPercentileNav1Pct": conservative.get(
+                        "tenth_percentile_nav"
+                    ),
+                    "validationReferenceNavBreachRate1Pct": conservative.get(
+                        "reference_nav_breach_rate"
+                    ),
+                    "selectionAuthority": capacity.get("policy", {}).get(
+                        "selection_authority"
                     ),
                 }
         return layers

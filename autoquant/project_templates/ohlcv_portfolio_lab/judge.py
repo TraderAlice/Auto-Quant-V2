@@ -20,6 +20,8 @@ from judges.portfolio_core import (
     BASE_COST_BPS,
     LONG_ENTRY_PERCENTILE,
     LONG_EXIT_PERCENTILE,
+    LIQUIDITY_ADV_WINDOW,
+    LIQUIDITY_PARTICIPATION_LIMITS,
     NO_TRADE_ONE_WAY,
     REFERENCE_NAV,
     RISK_COVARIANCE_MINIMUM,
@@ -33,6 +35,7 @@ from judges.portfolio_core import (
     constraint_audit,
     construct_signal_policy,
     implementation_metrics,
+    liquidity_capacity_metrics,
     performance_metrics,
     signal_policy_metrics,
     simulate_targets,
@@ -354,6 +357,7 @@ def _evaluate() -> tuple[
         construction,
         base,
         close_panel,
+        volume_panel,
     )
     splits, split_protocol = _split_indices(
         pd.DatetimeIndex(factor_panel.index)
@@ -387,6 +391,25 @@ def _evaluate() -> tuple[
     attribution = {
         name: attribution_metrics(decision_ledger, base, index)
         for name, index in splits.items()
+    }
+    liquidity_capacity = {
+        "policy": {
+            "method": "trailing-average-dollar-volume-capacity-v1",
+            "adv_window": LIQUIDITY_ADV_WINDOW,
+            "participation_limits": list(
+                LIQUIDITY_PARTICIPATION_LIMITS
+            ),
+            "reference_nav": REFERENCE_NAV,
+            "selection_authority": "context-only",
+            "trading_authority": "none",
+        },
+        **{
+            name: liquidity_capacity_metrics(
+                decision_ledger,
+                index,
+            )
+            for name, index in splits.items()
+        },
     }
 
     validation_net_sharpe = float(
@@ -593,6 +616,7 @@ def _evaluate() -> tuple[
             "hysteresis_comparison": hysteresis_comparison,
         },
         "attribution": attribution,
+        "liquidity_capacity": liquidity_capacity,
         "split_protocol": split_protocol,
         "robustness": {
             "cost_stress": cost_stress,
@@ -653,6 +677,11 @@ def _evaluate() -> tuple[
             "noTrade": "retain drifted book below 0.05 one-way turnover",
             "turnover": "0.5 * sum(abs(trade weight))",
             "cost": "sum(abs(trade weight)) * 10bps",
+            "liquidityCapacity": (
+                "20-observation trailing average close-times-volume through "
+                "decision close; exact executed trade weights inverted at "
+                "1% and 5% participation; contextual only"
+            ),
             "benchmark": mandate["construction"]["benchmark"],
             "split": (
                 "dataset-fixed chronological 60/20/20 with one-bar "
@@ -678,6 +707,10 @@ def _evaluate() -> tuple[
             "riskCovarianceWindow": RISK_COVARIANCE_WINDOW,
             "riskCovarianceMinimum": RISK_COVARIANCE_MINIMUM,
             "riskPolicy": mandate["construction"]["riskPolicy"],
+            "liquidityAdvWindow": LIQUIDITY_ADV_WINDOW,
+            "liquidityParticipationLimits": list(
+                LIQUIDITY_PARTICIPATION_LIMITS
+            ),
         },
         "causalityAuditCuts": causality_cuts,
         "splitProtocol": split_protocol,
@@ -769,7 +802,7 @@ def main() -> None:
                         "description": (
                             "Per-asset signal state, sizing, execution reason, "
                             "trade, contribution, cost, regime, and variance "
-                            "attribution ledger"
+                            "attribution plus causal liquidity-capacity ledger"
                         ),
                     },
                 ],

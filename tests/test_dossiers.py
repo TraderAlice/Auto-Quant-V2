@@ -229,6 +229,14 @@ class ProgramResearchDossierTests(unittest.TestCase):
                 portfolio_markdown,
             )
             self.assertIn("Scale-up permitted: `False`", portfolio_markdown)
+            self.assertIn(
+                "`trailing-average-dollar-volume-capacity-v1`",
+                portfolio_markdown,
+            )
+            self.assertIn(
+                "Validation 1% participation capacity",
+                portfolio_markdown,
+            )
             active_program = load_research_program(project)
             assert active_program is not None
             self.assertEqual(
@@ -315,6 +323,11 @@ class ProgramResearchDossierTests(unittest.TestCase):
             self.assertIn("`long` / `long-cash`", markdown)
             self.assertIn(
                 "`trailing-covariance-volatility-ceiling-v1`",
+                markdown,
+            )
+            self.assertIn("## Liquidity capacity", markdown)
+            self.assertIn(
+                "OHLCV participation envelope only",
                 markdown,
             )
             self.assertIn("`AAPL`, `MSFT`", markdown)

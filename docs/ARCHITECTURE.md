@@ -75,7 +75,8 @@ The V2 foundation now implements:
 - one self-contained OHLCV Portfolio Lab reference Project that mechanically
   translates the same causal factor API through explicit signal state into
   capped target weights, drift-aware execution, reconciled contribution/risk
-  attribution, and policy/cost/delay stresses without trading authority.
+  attribution, causal OHLCV liquidity-capacity envelopes, and
+  policy/cost/delay stresses without trading authority.
 - one request-bound Portfolio Mandate that derives tradable/context assets,
   permitted direction, cash, gross/net, cap, benchmark, and one-sided
   covariance risk policy from caller intent and is shared exactly by Portfolio
@@ -84,6 +85,9 @@ The V2 foundation now implements:
   trailing returns through the decision close, scales exposure down above the
   fixed ceiling, and publishes pre/post sizing evidence without adding
   leverage or trading authority.
+- one causal liquidity-capacity layer that inverts exact executed trade
+  weights against trailing close-times-volume at fixed participation ceilings,
+  publishes missing history and binding assets, and makes no impact/fill claim.
 - one governed RL Factor-Policy Lab that confines Agent changes to a causal
   state encoder while the Judge fixes factor-mixture actions, Q-learning,
   rewards, portfolio accounting, folds, seeds, baselines, and model evidence.
@@ -111,6 +115,8 @@ Mechanical signal state and attribution are defined in
 [[docs/design/signal-policy-and-attribution]].
 Portfolio-level covariance forecasting and scale-down semantics are defined in
 [[docs/design/portfolio-risk-governor]].
+OHLCV participation-capacity semantics are defined in
+[[docs/design/portfolio-liquidity-capacity]].
 Request-bound position authority is defined in
 [[docs/design/request-bound-portfolio-mandates]].
 Bounded immutable Portfolio artifact projection is defined in

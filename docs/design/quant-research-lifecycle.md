@@ -186,12 +186,15 @@ dollar-neutral construction; wider peer data remains context-only. Synthetic
 fixtures explicitly retain the historical all-universe research-neutral
 contract. The exact ledger connects mandate, tradability, signal intent,
 pre-governor/governed target, covariance forecast/scale, pre-trade drift,
-executed weight, trade, return, cost, regime, and component variance
-contribution. The executable details are
+executed weight, trade, return, cost, regime, component variance contribution,
+causal trailing dollar volume, and participation-capacity binding asset. The
+capacity layer reports exact 1%/5% OHLCV envelopes and missing-history dates;
+it does not claim spread, impact, or fills. The executable details are
 [[docs/design/request-bound-portfolio-mandates]],
 [[docs/design/portfolio-construction-lab]], and
-[[docs/design/signal-policy-and-attribution]], and
-[[docs/design/portfolio-risk-governor]].
+[[docs/design/signal-policy-and-attribution]],
+[[docs/design/portfolio-risk-governor]], and
+[[docs/design/portfolio-liquidity-capacity]].
 
 Tolerance bands are a first-class implementation choice: research on
 rebalancing frames the problem as tracking-error versus transaction-cost
@@ -322,7 +325,9 @@ surface under this rule. Core verifies and normalizes a bounded immutable trial
 chain; CLI and Studio present the same metric descriptors, preference
 directions, validation-only non-dominance, leader trade-offs, and explicitly
 separate test-audit evidence. The browser neither chooses metrics nor changes
-the fixed primary-objective verdict.
+the fixed primary-objective verdict. Portfolio capacity, coverage, and
+reference-NAV breach fields remain contextual until the caller supplies a
+capital mandate.
 
 The implemented Factor Evidence Explorer applies the same rule inside one
 Run. Core reconciles full daily IC and quantile artifacts before sampling;

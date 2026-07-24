@@ -76,6 +76,10 @@ request-mapped long/cash, short/cash, or dollar-neutral capped targets,
 then a trailing-covariance portfolio forecast that only scales exposure down
 above a fixed 15% annualized ceiling. It also fixes drift-aware rebalance,
 turnover, costs, volume participation, and dataset-fixed purged splits.
+It inverts the exact executed trade path against causal trailing
+close-times-volume at fixed 1%/5% participation ceilings, producing a
+reconciled capital-capacity envelope rather than pretending OHLCV can model
+spread, impact, or fills.
 Context-only assets participate in research
 ranking but never become positions. Its decision ledger reconciles each
 asset's mandate, proposed/executed weight, trade, return, cost, regime, and
@@ -246,7 +250,8 @@ evidence, and fixed Studies. For the latest successful Portfolio Run it also
 shows the request-bound mandate, authorized/context-only assets, bounded
 verified growth/drawdown, exposure/cash/turnover, the historical mechanical
 book, raw/governed targets, portfolio-volatility forecast/scale, signal
-transitions, and split attribution. It is read-only, exposes
+transitions, split attribution, and validation/test liquidity-capacity
+envelopes with binding assets. It is read-only, exposes
 copy-only exact CLI commands, and uses the same verified Core loaders as the
 CLI. A specific historical Run is available through `aq run factor <path>
 --run ID --json`, `aq run portfolio <path> --run ID --json`, or

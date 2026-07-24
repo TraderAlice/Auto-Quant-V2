@@ -1502,6 +1502,18 @@ def _run_portfolio(args: argparse.Namespace) -> CommandResult:
     )
     summary = diagnostics["path"]["summary"]
     book = diagnostics["currentBook"]
+    capacity = diagnostics["liquidityCapacity"]
+    validation_capacity = capacity["validation"] if capacity["available"] else None
+    capacity_summary = (
+        "Liquidity capacity: legacy evidence unavailable\n"
+        if validation_capacity is None
+        else (
+            "Validation 1% participation capacity p10: "
+            f"{validation_capacity['capacity1Pct']['tenthPercentileNav']} · "
+            "trade-date coverage "
+            f"{validation_capacity['tradeDateCoverage']} · contextual only\n"
+        )
+    )
     return CommandResult(
         "run.portfolio",
         diagnostics,
@@ -1521,6 +1533,7 @@ def _run_portfolio(args: argparse.Namespace) -> CommandResult:
             f"{book['riskForecastPreAnnualized']} → "
             f"{book['riskForecastPostAnnualized']} · ceiling "
             f"{book['riskVolatilityCeilingAnnualized']}\n"
+            f"{capacity_summary}"
         ),
         project_context(project),
         [
