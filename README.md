@@ -193,8 +193,12 @@ uv run aq studio serve ./quant-workspace
 
 Studio shows Projects, delegated requests, active Session leaders, running
 Researcher turns, verdict trajectories, report readiness, recent evidence, and
-fixed Studies. It is read-only, exposes copy-only exact CLI commands, and uses
-the same verified Core loaders as the CLI. See
+fixed Studies. For the latest successful Portfolio Run it also shows bounded
+verified growth/drawdown, exposure/turnover, the historical mechanical book,
+signal transitions, and split attribution. It is read-only, exposes copy-only
+exact CLI commands, and uses the same verified Core loaders as the CLI. A
+specific historical Run is available through
+`aq run portfolio <path> --run ID --json`. See
 [`docs/STUDIO.md`](docs/STUDIO.md).
 
 The v0.5 development Harness still uses **Freqtrade as its one core engine**,

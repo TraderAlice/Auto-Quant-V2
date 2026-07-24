@@ -41,6 +41,9 @@ The first viewport prioritizes:
 - portfolio Run summaries for held-out IC, net Sharpe, signal-state change,
   hysteresis transition reduction, maximum asset return/risk contribution,
   attribution reconciliation, turnover, and cost stress;
+- the latest successful Portfolio Run's verified full-history growth,
+  drawdown, exposure, turnover/cost path, current historical target/executed
+  book, recent mechanical transitions, and validation/test attribution;
 - RL Run summaries for validation/test audit Sharpe, seed/fold dispersion,
   simple-baseline advantage, failure rate, and fold × seed coverage;
 - Session selection split, candidate trial count, visible-test role, and
@@ -60,6 +63,16 @@ churn, hysteresis effect, contribution concentration, and reconciliation.
 RL cards show implementation, dispersion, failure, and baseline comparison.
 Exact nested metrics, decision ledgers, daily slices, models, training
 histories, actions, and artifacts remain in the verified Run.
+
+The Portfolio Decision Explorer is a bounded projection, not a browser-side
+CSV reader. Core first verifies all five immutable Portfolio artifacts,
+reconciles the complete chronology, and then deterministically samples 180
+display points. Performance and exposure are alternate views of the same
+verified path. Validation is the selection split; Test audit is visibly
+diagnostic and does not enter selection. The latest book is historical
+research state, not account holdings or an instruction to trade. Use
+`aq run portfolio <path> --run ID --points N --json` for a specific historical
+Run or a different bounded point count.
 
 The handoff cards and Inspector distinguish caller-supplied OpenAlice context
 from authenticated provenance. Copy buttons only write an exact Core-generated
@@ -85,6 +98,7 @@ starting a server:
 aq studio snapshot ./quant-workspace --json
 aq schema studio-snapshot --json
 aq schema campaign-progress --json
+aq schema portfolio-diagnostics --json
 ```
 
 The HTTP projection exposes only:

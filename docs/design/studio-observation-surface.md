@@ -146,6 +146,7 @@ successful unless Core exposes an explicit verified pass decision.
 
 - There is no progress event stream; the browser polls the bounded snapshot.
 - Progress does not prove the originating process is still alive.
-- Artifact-specific charts and large time-series sampling are not implemented.
+- Portfolio Runs have one artifact-specific bounded explorer; Factor and RL
+  artifact-specific charts are not implemented.
 - Studio operations remain read-only.
 - Remote and multi-user serving are not supported.

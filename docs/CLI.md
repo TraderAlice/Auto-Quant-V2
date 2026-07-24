@@ -17,6 +17,7 @@ aq schema project --json
 aq schema research-request --json
 aq schema ohlcv-dataset-package --json
 aq schema report-analysis --json
+aq schema portfolio-diagnostics --json
 ```
 
 `capabilities --json` is the authoritative machine discovery surface. Each
@@ -101,6 +102,8 @@ aq study inspect <path> --study ID [--project ID] [--json]
 aq run execute <path> --study ID [--project ID] [--json]
 aq run list <path> [--study ID] [--project ID] [--json]
 aq run show <path> --run ID [--project ID] [--json]
+aq run portfolio <path> --run ID \
+  [--points 180] [--project ID] [--json]
 ```
 
 `--dataset-path` is optional and repeatable. When provided it is relative to
@@ -111,6 +114,15 @@ Study and Run identity.
 freezes inputs, runs the Python Judge under its timeout, and atomically
 publishes one immutable Run whether the Judge succeeds or fails. `run list`
 and `run show` verify terminal file hashes before returning evidence.
+
+`run portfolio` is the bounded decision-explorer projection for a successful
+Portfolio Lab Run. Core verifies the immutable Run and its report, daily path,
+target weights, executed weights, and per-asset decision ledger before
+returning compounded gross/net/benchmark paths, drawdown, exposure,
+turnover/cost, the latest historical mechanical book, recent signal
+transitions, and validation/test attribution. `--points` defaults to 180 and
+is bounded to 40–400; full history is reconciled before deterministic
+sampling. The operation has no live account or trading authority.
 
 A failed Run is a successful artifact-creation operation whose RunResult has
 `status: failed`; it retains errors and logs. A CLI error means trustworthy Run

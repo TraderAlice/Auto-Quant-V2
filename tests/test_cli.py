@@ -104,6 +104,45 @@ class AgentCliTests(unittest.TestCase):
                     for action in envelope["nextActions"]
                 )
             )
+            project = Path(envelope["data"]["projectDir"])
+            executed = run_cli(
+                "run",
+                "execute",
+                str(project),
+                "--study",
+                "ohlcv-portfolio-quality",
+                "--json",
+            )
+            self.assertEqual(executed.returncode, 0, executed.stderr)
+            run_id = json_output(executed)["data"]["id"]
+            diagnostics = run_cli(
+                "run",
+                "portfolio",
+                str(project),
+                "--run",
+                run_id,
+                "--points",
+                "48",
+                "--json",
+            )
+            self.assertEqual(diagnostics.returncode, 0, diagnostics.stderr)
+            projected = json_output(diagnostics)
+            self.assertEqual(projected["command"], "run.portfolio")
+            self.assertEqual(
+                projected["data"]["kind"],
+                "autoquant-portfolio-diagnostics",
+            )
+            self.assertEqual(projected["data"]["path"]["sampledRows"], 48)
+            self.assertEqual(
+                {item["kind"] for item in projected["artifacts"]},
+                {
+                    "portfolio-report",
+                    "portfolio-daily",
+                    "portfolio-targets",
+                    "portfolio-weights",
+                    "portfolio-decisions",
+                },
+            )
 
     def test_cli_constructs_rl_factor_lab_with_correct_next_actions(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -157,6 +196,7 @@ class AgentCliTests(unittest.TestCase):
                 "run.execute",
                 "run.list",
                 "run.show",
+                "run.portfolio",
                 "session.start",
                 "session.list",
                 "session.show",
@@ -233,6 +273,7 @@ class AgentCliTests(unittest.TestCase):
                 "study",
                 "judge-output",
                 "run-result",
+                "portfolio-diagnostics",
                 "session",
                 "experiment",
                 "researcher-response",
@@ -297,6 +338,22 @@ class AgentCliTests(unittest.TestCase):
                 "frequency"
             ]["const"],
             "1d",
+        )
+        portfolio_schema = run_cli(
+            "schema",
+            "portfolio-diagnostics",
+            "--json",
+        )
+        self.assertEqual(
+            portfolio_schema.returncode,
+            0,
+            portfolio_schema.stderr,
+        )
+        self.assertEqual(
+            json_output(portfolio_schema)["data"]["schema"]["properties"][
+                "kind"
+            ]["const"],
+            "autoquant-portfolio-diagnostics",
         )
 
     def test_cli_intakes_request_and_dataset_into_ready_project(self) -> None:

@@ -70,6 +70,9 @@ Read the relevant linked document before changing a subsystem:
 - Mechanical signal state, hysteresis, conviction/risk sizing, execution
   reasons, and portfolio contribution reconciliation:
   [[docs/design/signal-policy-and-attribution]]
+- Bounded verified Portfolio Run projection, sampled performance/exposure
+  series, current mechanical book, transitions, and contribution explorer:
+  [[docs/design/portfolio-decision-explorer]]
 - Request-driven Project construction, external OHLCV package validation,
   normalized dataset snapshots, and pre-Session intake state:
   [[docs/design/research-intake-and-dataset-snapshots]]

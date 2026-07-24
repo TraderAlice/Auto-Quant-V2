@@ -153,6 +153,11 @@ Every successful Run declares:
 
 RunResult remains the immutable authority for artifact identities.
 
+`aq run portfolio` and Studio's latest-Run Portfolio Decision Explorer consume
+these five artifacts through the strict bounded projection defined in
+[[docs/design/portfolio-decision-explorer]]. Full chronology is verified and
+reconciled before display sampling; the browser never reads artifact paths.
+
 ## Invariants
 
 1. Factor and portfolio values at date `t` use no data after close `t`.

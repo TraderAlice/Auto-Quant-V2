@@ -15,6 +15,10 @@ from typing import Any, Callable
 from urllib.parse import urlsplit
 
 from .intake import load_project_intake
+from .portfolio_explorer import (
+    DEFAULT_PORTFOLIO_POINTS,
+    load_portfolio_diagnostics,
+)
 from .research import list_campaign_progress, list_campaigns
 from .reports import list_reports
 from .runs import list_runs, load_run
@@ -572,6 +576,30 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
         if metric_layers is not None:
             summary["metricLayers"] = metric_layers
         runs.append(summary)
+    portfolio_explorer = None
+    portfolio_candidate = next(
+        (
+            item
+            for item in reversed(runs_raw)
+            if item.status == "succeeded"
+            and item.primary_metric == "validation_net_sharpe"
+        ),
+        None,
+    )
+    if portfolio_candidate is not None:
+        try:
+            portfolio_explorer = load_portfolio_diagnostics(
+                project,
+                portfolio_candidate.id,
+                point_limit=DEFAULT_PORTFOLIO_POINTS,
+            )
+        except AutoQuantValidationError as error:
+            diagnostics.extend(
+                _diagnostics(
+                    f"portfolio-explorer:{portfolio_candidate.id}",
+                    error,
+                )
+            )
     sessions: list[dict[str, Any]] = []
     for summary in sessions_raw:
         try:
@@ -625,6 +653,7 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
             "text": program_path.read_text(encoding="utf-8"),
         },
         "intake": intake,
+        "portfolioExplorer": portfolio_explorer,
         "valid": not diagnostics,
         "diagnostics": diagnostics,
         "counts": {
@@ -1035,6 +1064,7 @@ STUDIO_SNAPSHOT_JSON_SCHEMA: dict[str, Any] = {
                 "rootDir",
                 "researchProgram",
                 "intake",
+                "portfolioExplorer",
                 "valid",
                 "diagnostics",
                 "counts",
@@ -1058,6 +1088,7 @@ STUDIO_SNAPSHOT_JSON_SCHEMA: dict[str, Any] = {
                     },
                 },
                 "intake": {"type": ["object", "null"]},
+                "portfolioExplorer": {"type": ["object", "null"]},
                 "valid": {"type": "boolean"},
                 "diagnostics": {
                     "type": "array",

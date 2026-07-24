@@ -57,7 +57,8 @@ The V2 foundation now implements:
 - one packaged local read-only Studio with a shared versioned snapshot,
   Workspace/Project overview, request → evidence → report handoff, exact
   copyable CLI commands, explicit mutable Campaign progress, defensive HTTP
-  boundary, and responsive research-first presentation.
+  boundary, bounded verified Portfolio decision exploration, and responsive
+  research-first presentation.
 - one self-contained OHLCV Factor Lab reference Project with ordinary pandas
   factor code, deterministic local data, dataset-fixed purged horizons, a
   professional factor tear sheet, and a fixed no-lookahead audit.
@@ -85,6 +86,8 @@ governed RL lane is defined in [[docs/design/rl-factor-policy-lab]]. The
 factor tear-sheet protocol is defined in [[docs/design/factor-diagnostics]].
 Mechanical signal state and attribution are defined in
 [[docs/design/signal-policy-and-attribution]].
+Bounded immutable Portfolio artifact projection is defined in
+[[docs/design/portfolio-decision-explorer]].
 Request-driven construction and external dataset snapshots are defined in
 [[docs/design/research-intake-and-dataset-snapshots]].
 The end-to-end OpenAlice handoff, professional evidence stack, and HCI
@@ -198,6 +201,8 @@ behind the Harness contract, not the owner of Workspace or Project semantics.
 - Immutable Research Report publication and verification:
   `autoquant/reports.py`
 - Verified Studio snapshot and local HTTP server: `autoquant/studio.py`
+- Verified Portfolio Run diagnostic projection:
+  `autoquant/portfolio_explorer.py`
 - Packaged browser presentation: `autoquant/studio_assets/`
 - Project template construction: `autoquant/templates.py` and
   `autoquant/project_templates/`
@@ -210,6 +215,8 @@ behind the Harness contract, not the owner of Workspace or Project semantics.
 - Study/Run evidence design: [[docs/design/study-run-evidence]]
 - OHLCV Factor Lab design: [[docs/design/ohlcv-factor-lab]]
 - OHLCV Portfolio Lab design: [[docs/design/portfolio-construction-lab]]
+- Portfolio decision explorer design:
+  [[docs/design/portfolio-decision-explorer]]
 - Research intake and dataset snapshot design:
   [[docs/design/research-intake-and-dataset-snapshots]]
 - Governed RL Factor-Policy Lab design:

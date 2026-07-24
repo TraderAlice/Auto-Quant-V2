@@ -50,6 +50,13 @@ from .intake import (
     load_project_intake,
     prepare_project_intake,
 )
+from .portfolio_explorer import (
+    DEFAULT_PORTFOLIO_POINTS,
+    MAX_PORTFOLIO_POINTS,
+    MIN_PORTFOLIO_POINTS,
+    PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA,
+    load_portfolio_diagnostics,
+)
 from .studio import STUDIO_SNAPSHOT_JSON_SCHEMA, build_studio_snapshot, serve_studio
 from .templates import PROJECT_TEMPLATE_IDS, TEMPLATE_STUDY_IDS
 from .sessions import (
@@ -149,6 +156,7 @@ def build_parser() -> RaisingArgumentParser:
             "study",
             "judge-output",
             "run-result",
+            "portfolio-diagnostics",
             "session",
             "experiment",
             "researcher-response",
@@ -312,6 +320,23 @@ def build_parser() -> RaisingArgumentParser:
     run_show.add_argument("--run", required=True)
     run_show.set_defaults(command_id="run.show")
     _json_argument(run_show)
+
+    run_portfolio = run_actions.add_parser(
+        "portfolio",
+        help="inspect bounded Portfolio Run decision diagnostics",
+    )
+    run_portfolio.add_argument("path")
+    run_portfolio.add_argument("--project")
+    run_portfolio.add_argument("--run", required=True)
+    run_portfolio.add_argument(
+        "--points",
+        type=int,
+        choices=range(MIN_PORTFOLIO_POINTS, MAX_PORTFOLIO_POINTS + 1),
+        default=DEFAULT_PORTFOLIO_POINTS,
+        metavar=f"{MIN_PORTFOLIO_POINTS}..{MAX_PORTFOLIO_POINTS}",
+    )
+    run_portfolio.set_defaults(command_id="run.portfolio")
+    _json_argument(run_portfolio)
 
     session = subcommands.add_parser(
         "session",
@@ -1058,6 +1083,46 @@ def _run_show(args: argparse.Namespace) -> CommandResult:
         ),
         project_context(project),
         _run_artifacts(run),
+    )
+
+
+def _run_portfolio(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    diagnostics = load_portfolio_diagnostics(
+        project,
+        args.run,
+        point_limit=args.points,
+    )
+    summary = diagnostics["path"]["summary"]
+    book = diagnostics["currentBook"]
+    return CommandResult(
+        "run.portfolio",
+        diagnostics,
+        (
+            f"Portfolio Run: {diagnostics['run']['id']}\n"
+            f"Selection: {diagnostics['run']['primaryMetric']}="
+            f"{diagnostics['run']['primaryValue']}\n"
+            f"Path: {diagnostics['path']['totalRows']} rows → "
+            f"{diagnostics['path']['sampledRows']} points\n"
+            f"Net total return: {summary['netTotalReturn']}\n"
+            f"Maximum drawdown: {summary['maximumDrawdown']} at "
+            f"{summary['maximumDrawdownAt']}\n"
+            f"Latest historical book: {book['timestamp']} · "
+            f"gross {book['grossExposure']} · net {book['netExposure']}\n"
+        ),
+        project_context(project),
+        [
+            artifact(
+                kind,
+                f"{diagnostics['run']['id']}:{kind}",
+                project.root_dir
+                / project.manifest.directories["runs"]
+                / diagnostics["run"]["id"]
+                / item["path"],
+                immutable=True,
+            )
+            for kind, item in diagnostics["artifacts"].items()
+        ],
     )
 
 
@@ -1824,6 +1889,7 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "experiment",
             "judge-output",
             "ohlcv-dataset-package",
+            "portfolio-diagnostics",
             "project",
             "report-analysis",
             "research-request",
@@ -1845,6 +1911,7 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "study": STUDY_JSON_SCHEMA,
             "judge-output": JUDGE_OUTPUT_JSON_SCHEMA,
             "run-result": RUN_RESULT_JSON_SCHEMA,
+            "portfolio-diagnostics": PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA,
             "session": SESSION_JSON_SCHEMA,
             "experiment": EXPERIMENT_JSON_SCHEMA,
             "researcher-response": RESEARCHER_RESPONSE_JSON_SCHEMA,
@@ -1887,6 +1954,8 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
         return _run_list(args)
     if args.command_id == "run.show":
         return _run_show(args)
+    if args.command_id == "run.portfolio":
+        return _run_portfolio(args)
     if args.command_id == "session.start":
         return _session_start(args)
     if args.command_id == "session.list":

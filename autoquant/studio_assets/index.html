@@ -78,6 +78,78 @@
           <div class="handoff-board" id="handoff-board"></div>
         </section>
 
+        <section
+          class="portfolio-section"
+          id="portfolio-explorer"
+          aria-labelledby="portfolio-title"
+          hidden
+        >
+          <header class="section-header">
+            <span>
+              <small>PATH → BOOK → ATTRIBUTION</small>
+              <h2 id="portfolio-title">Portfolio decision explorer</h2>
+            </span>
+            <span class="section-meta" id="portfolio-meta">No Portfolio Run</span>
+          </header>
+          <div class="portfolio-summary" id="portfolio-summary"></div>
+          <div class="portfolio-primary-grid">
+            <article class="portfolio-chart-panel">
+              <header class="panel-toolbar">
+                <span>
+                  <b id="portfolio-chart-title">Growth &amp; drawdown</b>
+                  <small id="portfolio-chart-note">Full history · bounded verified sample</small>
+                </span>
+                <div class="segmented-control compact" role="tablist" aria-label="Portfolio chart">
+                  <button type="button" role="tab" aria-selected="true" data-portfolio-view="performance">
+                    Performance
+                  </button>
+                  <button type="button" role="tab" aria-selected="false" data-portfolio-view="exposure">
+                    Exposure
+                  </button>
+                </div>
+              </header>
+              <div class="portfolio-chart" id="portfolio-chart"></div>
+            </article>
+            <article class="portfolio-book-panel">
+              <header class="panel-toolbar">
+                <span>
+                  <b>Latest mechanical book</b>
+                  <small id="portfolio-book-note">Historical research weights</small>
+                </span>
+              </header>
+              <div id="portfolio-book"></div>
+            </article>
+          </div>
+          <div class="portfolio-secondary-grid">
+            <article class="portfolio-attribution-panel">
+              <header class="panel-toolbar">
+                <span>
+                  <b>Asset contribution &amp; risk</b>
+                  <small>Exact immutable Run attribution</small>
+                </span>
+                <div class="segmented-control compact" role="tablist" aria-label="Attribution split">
+                  <button type="button" role="tab" aria-selected="true" data-attribution-split="validation">
+                    Validation
+                  </button>
+                  <button type="button" role="tab" aria-selected="false" data-attribution-split="test">
+                    Test audit
+                  </button>
+                </div>
+              </header>
+              <div id="portfolio-attribution"></div>
+            </article>
+            <article class="portfolio-transitions-panel">
+              <header class="panel-toolbar">
+                <span>
+                  <b>Recent mechanical transitions</b>
+                  <small>Signal state versus executed action</small>
+                </span>
+              </header>
+              <div id="portfolio-transitions"></div>
+            </article>
+          </div>
+        </section>
+
         <section class="pulse-section" aria-labelledby="pulse-title">
           <header class="section-header">
             <span>

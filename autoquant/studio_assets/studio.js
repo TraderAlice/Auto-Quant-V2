@@ -3,6 +3,8 @@ const state = {
   projectId: null,
   sessionId: null,
   catalog: "studies",
+  portfolioView: "performance",
+  attributionSplit: "validation",
   autoRefresh: true,
   loading: false,
   timer: null,
@@ -42,6 +44,14 @@ const percent = (value) => {
     return "—";
   }
   return `${metric(Number(value) * 100)}%`;
+};
+
+const signedPercent = (value) => {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return "—";
+  }
+  const number = Number(value) * 100;
+  return `${number > 0 ? "+" : ""}${metric(number)}%`;
 };
 
 const valueTone = (value) => {
@@ -406,6 +416,332 @@ function renderHandoff(project) {
       <span class="status-chip ${latestReport ? "published" : "active"}">${latestReport ? "verified" : "pending"}</span>
       ${copyCommandButton(latestReport ? show : publish)}
     </article>`;
+}
+
+function chartTime(timestamp) {
+  return Date.parse(`${timestamp}T00:00:00Z`);
+}
+
+function chartPath(points, value, xScale, yScale) {
+  return points
+    .map((point, index) => {
+      const x = xScale(chartTime(point.timestamp));
+      const y = yScale(Number(value(point)));
+      return `${index ? "L" : "M"}${x.toFixed(2)},${y.toFixed(2)}`;
+    })
+    .join(" ");
+}
+
+function splitBands(explorer, xScale, top, height) {
+  const splits = explorer.selection.splits;
+  return ["train", "validation", "test"]
+    .map((name) => {
+      const split = splits[name];
+      const left = xScale(chartTime(split.start));
+      const right = xScale(chartTime(split.end));
+      return `
+        <rect class="split-band ${name}" x="${left.toFixed(2)}" y="${top}"
+          width="${Math.max(0, right - left).toFixed(2)}" height="${height}">
+          <title>${escapeHtml(name)} · ${escapeHtml(split.role)}</title>
+        </rect>`;
+    })
+    .join("");
+}
+
+function chartDateLabels(explorer, xScale, y) {
+  const first = explorer.path.points[0].timestamp;
+  const last = explorer.path.points.at(-1).timestamp;
+  const validation = explorer.selection.splits.validation.start;
+  const test = explorer.selection.splits.test.start;
+  return [first, validation, test, last]
+    .map(
+      (timestamp, index, values) => `
+        <text class="chart-axis-label" x="${xScale(chartTime(timestamp)).toFixed(2)}"
+          y="${y}" text-anchor="${index === 0 ? "start" : index === values.length - 1 ? "end" : "middle"}">
+          ${escapeHtml(timestamp)}
+        </text>`,
+    )
+    .join("");
+}
+
+function renderPerformanceChart(explorer) {
+  const points = explorer.path.points;
+  const width = 760;
+  const left = 42;
+  const right = 12;
+  const firstTime = chartTime(points[0].timestamp);
+  const lastTime = chartTime(points.at(-1).timestamp);
+  const timeSpread = Math.max(1, lastTime - firstTime);
+  const xScale = (value) => {
+    const ratio = Math.max(0, Math.min(1, (value - firstTime) / timeSpread));
+    return left + ratio * (width - left - right);
+  };
+  const growthValues = points.flatMap((point) => [
+    point.netGrowth,
+    point.grossGrowth,
+    point.benchmarkGrowth,
+  ]);
+  const growthMin = Math.min(...growthValues);
+  const growthMax = Math.max(...growthValues);
+  const growthSpread = Math.max(1e-9, growthMax - growthMin);
+  const growthTop = 18;
+  const growthHeight = 164;
+  const growthY = (value) =>
+    growthTop + ((growthMax - value) / growthSpread) * growthHeight;
+  const drawdownTop = 207;
+  const drawdownHeight = 52;
+  const drawdownMin = Math.min(
+    -1e-9,
+    ...points.map((point) => point.drawdown),
+  );
+  const drawdownY = (value) =>
+    drawdownTop + (value / drawdownMin) * drawdownHeight;
+  const drawdownArea = `${chartPath(points, (point) => point.drawdown, xScale, drawdownY)} L${xScale(lastTime).toFixed(2)},${drawdownTop} L${xScale(firstTime).toFixed(2)},${drawdownTop} Z`;
+  return `
+    <svg viewBox="0 0 ${width} 286" role="img"
+      aria-label="Net, gross, and benchmark growth with net drawdown">
+      ${splitBands(explorer, xScale, growthTop, 241)}
+      <line class="chart-grid-line" x1="${left}" x2="${width - right}"
+        y1="${growthY(1).toFixed(2)}" y2="${growthY(1).toFixed(2)}"></line>
+      <text class="chart-value-label" x="4" y="${(growthTop + 8).toFixed(2)}">${metric(growthMax)}×</text>
+      <text class="chart-value-label" x="4" y="${(growthTop + growthHeight).toFixed(2)}">${metric(growthMin)}×</text>
+      <path class="chart-line benchmark" d="${chartPath(points, (point) => point.benchmarkGrowth, xScale, growthY)}"></path>
+      <path class="chart-line gross" d="${chartPath(points, (point) => point.grossGrowth, xScale, growthY)}"></path>
+      <path class="chart-line net" d="${chartPath(points, (point) => point.netGrowth, xScale, growthY)}"></path>
+      <line class="chart-grid-line" x1="${left}" x2="${width - right}"
+        y1="${drawdownTop}" y2="${drawdownTop}"></line>
+      <path class="drawdown-area" d="${drawdownArea}"></path>
+      <text class="chart-value-label adverse" x="4" y="${drawdownTop + drawdownHeight}">${signedPercent(drawdownMin)}</text>
+      ${chartDateLabels(explorer, xScale, 280)}
+    </svg>
+    <div class="chart-legend">
+      <span><i class="net"></i>Net growth</span>
+      <span><i class="gross"></i>Gross growth</span>
+      <span><i class="benchmark"></i>Benchmark</span>
+      <span><i class="drawdown"></i>Net drawdown</span>
+      <span class="chart-role">validation = selection · test = visible audit</span>
+    </div>`;
+}
+
+function renderExposureChart(explorer) {
+  const points = explorer.path.points;
+  const width = 760;
+  const left = 42;
+  const right = 12;
+  const firstTime = chartTime(points[0].timestamp);
+  const lastTime = chartTime(points.at(-1).timestamp);
+  const timeSpread = Math.max(1, lastTime - firstTime);
+  const xScale = (value) => {
+    const ratio = Math.max(0, Math.min(1, (value - firstTime) / timeSpread));
+    return left + ratio * (width - left - right);
+  };
+  const exposureValues = points.flatMap((point) => [
+    point.grossExposure,
+    point.netExposure,
+  ]);
+  const exposureMin = Math.min(-0.05, ...exposureValues);
+  const exposureMax = Math.max(0.05, ...exposureValues);
+  const exposureSpread = exposureMax - exposureMin;
+  const exposureTop = 18;
+  const exposureHeight = 164;
+  const exposureY = (value) =>
+    exposureTop + ((exposureMax - value) / exposureSpread) * exposureHeight;
+  const turnoverTop = 207;
+  const turnoverHeight = 52;
+  const maximumTurnover = Math.max(
+    1e-9,
+    ...points.map((point) => point.oneWayTurnover),
+  );
+  const barWidth = Math.max(
+    1,
+    (width - left - right) / Math.max(points.length, 1) - 1,
+  );
+  const bars = points
+    .map((point) => {
+      const height = (point.oneWayTurnover / maximumTurnover) * turnoverHeight;
+      return `<rect class="turnover-bar ${point.rebalanced ? "rebalanced" : ""}"
+        x="${(xScale(chartTime(point.timestamp)) - barWidth / 2).toFixed(2)}"
+        y="${(turnoverTop + turnoverHeight - height).toFixed(2)}"
+        width="${barWidth.toFixed(2)}" height="${height.toFixed(2)}">
+        <title>${escapeHtml(point.timestamp)} · turnover ${metric(point.oneWayTurnover)} · cost ${metric(point.cost)}</title>
+      </rect>`;
+    })
+    .join("");
+  return `
+    <svg viewBox="0 0 ${width} 286" role="img"
+      aria-label="Gross and net exposure with one-way turnover">
+      ${splitBands(explorer, xScale, exposureTop, 241)}
+      <line class="chart-grid-line" x1="${left}" x2="${width - right}"
+        y1="${exposureY(0).toFixed(2)}" y2="${exposureY(0).toFixed(2)}"></line>
+      <text class="chart-value-label" x="4" y="${exposureTop + 8}">${metric(exposureMax)}×</text>
+      <text class="chart-value-label" x="4" y="${exposureTop + exposureHeight}">${metric(exposureMin)}×</text>
+      <path class="chart-line exposure-gross" d="${chartPath(points, (point) => point.grossExposure, xScale, exposureY)}"></path>
+      <path class="chart-line exposure-net" d="${chartPath(points, (point) => point.netExposure, xScale, exposureY)}"></path>
+      <line class="chart-grid-line" x1="${left}" x2="${width - right}"
+        y1="${turnoverTop + turnoverHeight}" y2="${turnoverTop + turnoverHeight}"></line>
+      ${bars}
+      <text class="chart-value-label" x="4" y="${turnoverTop + 9}">turn</text>
+      ${chartDateLabels(explorer, xScale, 280)}
+    </svg>
+    <div class="chart-legend">
+      <span><i class="exposure-gross"></i>Gross exposure</span>
+      <span><i class="exposure-net"></i>Net exposure</span>
+      <span><i class="turnover"></i>One-way turnover</span>
+      <span class="chart-role">historical research weights · not live holdings</span>
+    </div>`;
+}
+
+function renderPortfolioChart(explorer) {
+  const performance = state.portfolioView === "performance";
+  element("portfolio-chart-title").textContent = performance
+    ? "Growth & drawdown"
+    : "Exposure & implementation";
+  element("portfolio-chart-note").textContent = performance
+    ? `${explorer.path.totalRows} full rows → ${explorer.path.sampledRows} deterministic points`
+    : "Executed book, one-way turnover, and rebalance days";
+  element("portfolio-chart").innerHTML = performance
+    ? renderPerformanceChart(explorer)
+    : renderExposureChart(explorer);
+  document.querySelectorAll("[data-portfolio-view]").forEach((button) => {
+    button.setAttribute(
+      "aria-selected",
+      String(button.dataset.portfolioView === state.portfolioView),
+    );
+  });
+}
+
+function signalStateLabel(value) {
+  if (value === 1) return "LONG";
+  if (value === -1) return "SHORT";
+  return "FLAT";
+}
+
+function renderPortfolioBook(explorer) {
+  const book = explorer.currentBook;
+  const maximumWeight = Number(
+    explorer.signalPolicy?.parameters?.max_abs_weight ?? 0.3,
+  );
+  element("portfolio-book-note").textContent =
+    `${book.timestamp} · gross ${metric(book.grossExposure)} · net ${metric(book.netExposure)}`;
+  element("portfolio-book").innerHTML = `
+    <div class="book-disclosure">Historical target/executed weights · no Broker or account state</div>
+    <div class="position-table" role="table" aria-label="Latest mechanical research book">
+      <div class="position-row heading" role="row">
+        <span>Asset / state</span><span>Target</span><span>Executed</span><span>Action</span>
+      </div>
+      ${book.positions
+        .map((position) => {
+          const stateLabel = signalStateLabel(position.signalState);
+          const side = position.executedWeight > 0 ? "long" : position.executedWeight < 0 ? "short" : "flat";
+          const magnitude = Math.min(
+            100,
+            (Math.abs(position.executedWeight) / Math.max(maximumWeight, 1e-12)) * 100,
+          );
+          return `
+            <div class="position-row" role="row">
+              <span class="position-asset">
+                <b>${escapeHtml(position.asset)}</b>
+                <i class="${side}">${stateLabel}</i>
+                <small>${escapeHtml(position.signalEvent)} · ${escapeHtml(position.executionAction)}</small>
+              </span>
+              <span>${signedPercent(position.targetWeight)}</span>
+              <span class="position-weight ${side}">
+                <b>${signedPercent(position.executedWeight)}</b>
+                <i style="--position-size:${magnitude.toFixed(2)}%"></i>
+              </span>
+              <span class="position-action" title="${escapeHtml(position.executionReason)}">
+                ${escapeHtml(position.executionAction)}
+              </span>
+            </div>`;
+        })
+        .join("")}
+    </div>`;
+}
+
+function renderPortfolioAttribution(explorer) {
+  const split = state.attributionSplit;
+  const rows = explorer.attribution[split];
+  const maximum = Math.max(
+    1e-12,
+    ...rows.map((item) => Math.abs(item.annualizedNetContribution)),
+  );
+  element("portfolio-attribution").innerHTML = `
+    <div class="attribution-disclosure">${split === "validation" ? "Selection split" : "Visible audit only"} · annualized net contribution and mean component-risk share</div>
+    <div class="attribution-table">
+      ${rows
+        .map((item) => {
+          const contribution = item.annualizedNetContribution;
+          const width = Math.abs(contribution) / maximum * 50;
+          const left = contribution >= 0 ? 50 : 50 - width;
+          return `
+            <div class="attribution-row">
+              <b>${escapeHtml(item.asset)}</b>
+              <span class="contribution-track">
+                <i class="${contribution >= 0 ? "positive" : "negative"}"
+                  style="left:${left.toFixed(2)}%;width:${width.toFixed(2)}%"></i>
+              </span>
+              <span class="${contribution < 0 ? "adverse" : ""}">${signedPercent(contribution)}</span>
+              <small>risk ${signedPercent(item.meanVarianceContributionShare)}</small>
+            </div>`;
+        })
+        .join("")}
+    </div>`;
+  document.querySelectorAll("[data-attribution-split]").forEach((button) => {
+    button.setAttribute(
+      "aria-selected",
+      String(button.dataset.attributionSplit === split),
+    );
+  });
+}
+
+function renderPortfolioTransitions(explorer) {
+  const transitions = explorer.recentTransitions.slice().reverse().slice(0, 10);
+  element("portfolio-transitions").innerHTML =
+    transitions
+      .map(
+        (item) => `
+          <div class="transition-row">
+            <time>${escapeHtml(item.timestamp)}</time>
+            <b>${escapeHtml(item.asset)}</b>
+            <span>${escapeHtml(item.signalEvent)}</span>
+            <code>${signalStateLabel(item.priorSignalState)} → ${signalStateLabel(item.signalState)}</code>
+            <small>${escapeHtml(item.executionAction)} · ${signedPercent(item.tradeWeight)} · ${escapeHtml(item.executionReason)}</small>
+          </div>`,
+      )
+      .join("") ||
+    '<div class="empty-panel">No mechanical transitions in the bounded evidence window.</div>';
+}
+
+function renderPortfolioExplorer(project) {
+  const section = element("portfolio-explorer");
+  const explorer = project.portfolioExplorer;
+  if (!explorer) {
+    section.hidden = true;
+    return;
+  }
+  section.hidden = false;
+  const summary = explorer.path.summary;
+  element("portfolio-meta").textContent =
+    `${explorer.run.id} · ${explorer.selection.selectionSplit} selection · ${explorer.selection.testRole} test`;
+  element("portfolio-summary").innerHTML = [
+    ["Net total return", signedPercent(summary.netTotalReturn), summary.netTotalReturn < 0 ? "bad" : ""],
+    ["Maximum drawdown", signedPercent(summary.maximumDrawdown), "bad"],
+    ["Total cost drag", percent(summary.totalCost), summary.totalCost > 0 ? "bad" : ""],
+    ["One-way turnover", metric(summary.totalOneWayTurnover), "neutral"],
+    ["Rebalance days", summary.rebalanceDays, "neutral"],
+  ]
+    .map(
+      ([label, value, tone]) => `
+        <span class="${tone}">
+          <small>${escapeHtml(label)}</small>
+          <b>${escapeHtml(value)}</b>
+        </span>`,
+    )
+    .join("");
+  renderPortfolioChart(explorer);
+  renderPortfolioBook(explorer);
+  renderPortfolioAttribution(explorer);
+  renderPortfolioTransitions(explorer);
 }
 
 function renderTrajectory(project) {
@@ -784,6 +1120,7 @@ function renderEmptyWorkspace(message = "Create a Project with aq project create
   element("handoff-meta").textContent = "No delegated request";
   element("handoff-board").innerHTML =
     '<div class="empty-panel handoff-empty">Delegated research requests will appear here.</div>';
+  element("portfolio-explorer").hidden = true;
   element("trajectory-meta").textContent = "No Experiments";
   element("trajectory-chart").innerHTML =
     '<div class="empty-panel">Candidate verdicts will appear here.</div>';
@@ -847,6 +1184,7 @@ function render() {
   renderScoreboard(project);
   renderDiagnostics(project);
   renderHandoff(project);
+  renderPortfolioExplorer(project);
   renderSessions(project);
   renderTrajectory(project);
   renderTimeline(project);
@@ -907,6 +1245,20 @@ document.querySelectorAll("[data-catalog]").forEach((button) => {
     state.catalog = button.dataset.catalog;
     const project = selectedProject();
     if (project) renderCatalog(project);
+  });
+});
+document.querySelectorAll("[data-portfolio-view]").forEach((button) => {
+  button.addEventListener("click", () => {
+    state.portfolioView = button.dataset.portfolioView;
+    const explorer = selectedProject()?.portfolioExplorer;
+    if (explorer) renderPortfolioChart(explorer);
+  });
+});
+document.querySelectorAll("[data-attribution-split]").forEach((button) => {
+  button.addEventListener("click", () => {
+    state.attributionSplit = button.dataset.attributionSplit;
+    const explorer = selectedProject()?.portfolioExplorer;
+    if (explorer) renderPortfolioAttribution(explorer);
   });
 });
 window.addEventListener("hashchange", () => {
