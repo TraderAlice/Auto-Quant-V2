@@ -291,6 +291,7 @@ function renderHandoff(project) {
         <span><b>${session.experiments.length}</b><small>experiments</small></span>
         <span><b>${session.campaigns.length}</b><small>campaigns</small></span>
       </div>
+      <span class="context-note">${escapeHtml(session.selectionIntegrity.selectionMetric)} · ${escapeHtml(session.selectionIntegrity.selectionSplit)} selection · ${escapeHtml(session.selectionIntegrity.testRole)} test${session.selectionIntegrity.externalHoldoutRequired ? " · new holdout required" : ""}</span>
     </article>
     <article class="handoff-card report-card ${latestReport ? "ready" : ""}">
       <small>03 · Decision-support report</small>
@@ -305,7 +306,7 @@ function renderTrajectory(project) {
   const session = selectedSession(project);
   const experiments = session?.experiments ?? [];
   element("trajectory-meta").textContent = session
-    ? `${session.session.studyId} · leader ${metric(session.session.leader.value)}`
+    ? `${session.session.studyId} · ${session.selectionIntegrity.candidateTrials} trials · ${session.selectionIntegrity.selectionSplit} selection · ${session.selectionIntegrity.externalHoldoutRequired ? "new holdout required" : session.selectionIntegrity.testRole}`
     : "No Experiments";
   if (!experiments.length) {
     element("trajectory-chart").innerHTML =
@@ -381,10 +382,10 @@ function runMetricLayers(item) {
   if (layers.kind === "portfolio") {
     return `
       <div class="catalog-evidence" aria-label="Portfolio evidence">
-        <span><b>${metric(layers.factor.testRankIc)}</b><i>test IC</i></span>
-        <span><b>${metric(layers.portfolio.testNetSharpe)}</b><i>net Sharpe</i></span>
+        <span><b>${metric(layers.factor.validationRankIc)}</b><i>validation IC</i></span>
+        <span><b>${metric(layers.portfolio.validationNetSharpe)}</b><i>validation</i></span>
+        <span><b>${metric(layers.portfolio.testNetSharpe)}</b><i>test audit</i></span>
         <span><b>${metric(layers.implementation.testAnnualizedTurnover)}</b><i>ann. turn</i></span>
-        <span><b>${metric(layers.portfolio.testMaximumDrawdown)}</b><i>max DD</i></span>
         <span><b>${metric(layers.robustness.test25bpsSharpe)}</b><i>25bps</i></span>
         <span><b>${metric(layers.robustness.testExtraDelaySharpe)}</b><i>+1 delay</i></span>
       </div>`;
@@ -398,6 +399,17 @@ function runMetricLayers(item) {
         <span><b>${metric(layers.validationBaselineAdvantage)}</b><i>vs baseline</i></span>
         <span><b>${metric(layers.failureRate)}</b><i>fail rate</i></span>
         <span><b>${layers.folds}×${layers.seeds}</b><i>folds × seeds</i></span>
+      </div>`;
+  }
+  if (layers.kind === "factor") {
+    return `
+      <div class="catalog-evidence" aria-label="Factor evidence">
+        <span><b>${metric(layers.validationMeanIc)}</b><i>validation IC</i></span>
+        <span><b>${metric(layers.validationIcir)}</b><i>validation ICIR</i></span>
+        <span><b>${metric(layers.testMeanIc)}</b><i>test audit IC</i></span>
+        <span><b>${metric(layers.testIcir)}</b><i>test audit ICIR</i></span>
+        <span><b>${metric(layers.meanCoverage)}</b><i>coverage</i></span>
+        <span><b>${metric(layers.meanRankTurnover)}</b><i>rank turn</i></span>
       </div>`;
   }
   return "";

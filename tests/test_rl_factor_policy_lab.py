@@ -157,6 +157,9 @@ class GovernedRlFactorPolicyLabTests(unittest.TestCase):
                 6,
             )
             self.assertEqual(metrics["rl"]["aggregate"]["failure_rate"], 0.0)
+            self.assertFalse(
+                metrics["research_integrity"]["test_enters_selection"]
+            )
             self.assertLess(
                 metrics["comparison"][
                     "mean_validation_advantage_vs_best_baseline"

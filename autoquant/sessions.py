@@ -55,6 +55,12 @@ EXPERIMENT_ID = re.compile(r"^exp-[0-9]{4}-[0-9a-f]{12}$")
 SESSION_STATUSES = {"active", "promoted"}
 VERDICTS = {"KEEP", "REVERT", "CRASH"}
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
+REFERENCE_INTEGRITY_KEYS = {
+    "selection_split",
+    "test_role",
+    "test_enters_selection",
+    "external_holdout_rule",
+}
 
 
 @dataclass(frozen=True)
@@ -966,6 +972,7 @@ def session_snapshot(
         }
     except AutoQuantValidationError:
         pass
+    experiments = list_experiments(project, session)
     return {
         "session": session.manifest,
         "path": str(session.root_dir),
@@ -982,9 +989,77 @@ def session_snapshot(
             "valid": not issues,
             "issues": [issue.to_dict() for issue in issues],
         },
-        "experiments": [
-            summary.to_dict() for summary in list_experiments(project, session)
-        ],
+        "selectionIntegrity": build_selection_integrity(
+            session.leader_run,
+            [summary.verdict for summary in experiments],
+        ),
+        "experiments": [summary.to_dict() for summary in experiments],
+    }
+
+
+def build_selection_integrity(
+    leader_run: RunContext,
+    verdicts: list[str],
+) -> dict[str, Any]:
+    if any(verdict not in VERDICTS for verdict in verdicts):
+        raise AutoQuantValidationError(
+            [_issue("selectionIntegrity", "session.verdict", "Invalid verdict")]
+        )
+    raw = leader_run.result["metrics"].get("research_integrity")
+    declared = (
+        isinstance(raw, dict)
+        and REFERENCE_INTEGRITY_KEYS.issubset(raw)
+        and isinstance(raw.get("selection_split"), str)
+        and isinstance(raw.get("test_role"), str)
+        and isinstance(raw.get("test_enters_selection"), bool)
+        and isinstance(raw.get("external_holdout_rule"), str)
+    )
+    if declared:
+        selection_split = raw["selection_split"]
+        test_role = raw["test_role"]
+        test_enters_selection: bool | None = raw["test_enters_selection"]
+        external_holdout_rule = raw["external_holdout_rule"]
+    else:
+        selection_split = "unspecified"
+        test_role = "unspecified"
+        test_enters_selection = None
+        external_holdout_rule = "unspecified"
+    counts = {
+        verdict: verdicts.count(verdict)
+        for verdict in ("KEEP", "REVERT", "CRASH")
+    }
+    candidate_trials = len(verdicts)
+    external_required: bool | None = (
+        candidate_trials > 0 and test_role == "visible-diagnostic"
+        if declared
+        else None
+    )
+    if declared and external_required:
+        warning = (
+            "Visible test evidence and candidate iteration share this Session; "
+            "use a new external holdout before a fresh production-grade claim."
+        )
+    elif declared:
+        warning = (
+            "Test evidence is visible diagnostic output; changing a candidate "
+            "after inspecting it consumes its holdout value."
+        )
+    else:
+        warning = (
+            "This Study does not declare selection/test semantics; Core makes "
+            "no holdout or objective-isolation claim."
+        )
+    return {
+        "selectionMetric": leader_run.result["objective"]["metric"],
+        "selectionSplit": selection_split,
+        "testRole": test_role,
+        "testEntersSelection": test_enters_selection,
+        "externalHoldoutRule": external_holdout_rule,
+        "candidateTrials": candidate_trials,
+        "evaluatedRuns": candidate_trials + 1,
+        "verdicts": counts,
+        "externalHoldoutRequired": external_required,
+        "warning": warning,
     }
 
 

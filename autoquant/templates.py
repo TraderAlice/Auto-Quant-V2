@@ -277,7 +277,7 @@ def _apply_ohlcv_factor_lab(project: ProjectContext) -> None:
             [],
             10,
         ),
-        objective=StudyObjective("score", "maximize", 0.01),
+        objective=StudyObjective("validation_mean_ic", "maximize", 0.01),
         dataset=StudyDataset(
             "synthetic-ohlcv-factor-fixture",
             "v1",
@@ -337,7 +337,7 @@ def _apply_ohlcv_portfolio_lab(project: ProjectContext) -> None:
             [],
             15,
         ),
-        objective=StudyObjective("robust_net_sharpe", "maximize", 0.05),
+        objective=StudyObjective("validation_net_sharpe", "maximize", 0.05),
         dataset=StudyDataset(
             "synthetic-ohlcv-portfolio-fixture",
             "v1",

@@ -61,6 +61,9 @@ Read the relevant linked document before changing a subsystem:
 - Governed causal state encoding, fixed factor-mixture actions, RL reward,
   seeds/folds/baselines, and policy evidence:
   [[docs/design/rl-factor-policy-lab]]
+- Validation-only candidate selection, visible-test limitations, trial counts,
+  and shared Session/Report/Studio integrity evidence:
+  [[docs/design/research-selection-integrity]]
 - Resumable Agent worktrees, KEEP/REVERT/CRASH Experiments, and guarded source
   promotion: [[docs/design/research-session-loop]]
 - Provider-neutral external Researcher turns, budgets, restoration, and

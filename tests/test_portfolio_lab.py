@@ -216,12 +216,19 @@ class OhlcvPortfolioLabTests(unittest.TestCase):
 
             self.assertEqual(run.result["status"], "succeeded")
             metrics = run.result["metrics"]
-            self.assertTrue(math.isfinite(metrics["robust_net_sharpe"]))
+            self.assertEqual(
+                run.result["objective"]["metric"],
+                "validation_net_sharpe",
+            )
+            self.assertTrue(math.isfinite(metrics["validation_net_sharpe"]))
             self.assertIn("factor", metrics)
             self.assertIn("portfolio", metrics)
             self.assertIn("implementation", metrics)
             self.assertIn("robustness", metrics)
             self.assertTrue(metrics["constraint_audit"]["passed"])
+            self.assertFalse(
+                metrics["research_integrity"]["test_enters_selection"]
+            )
             self.assertEqual(
                 {item["kind"] for item in run.result["artifacts"]},
                 {"portfolio-report", "portfolio-daily", "portfolio-weights"},
@@ -233,6 +240,34 @@ class OhlcvPortfolioLabTests(unittest.TestCase):
             self.assertTrue(layers["constraintsPassed"])
             self.assertTrue(
                 math.isfinite(layers["portfolio"]["testNetSharpe"])
+            )
+
+    def test_test_only_bar_changes_do_not_change_selection_metric(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, project = make_portfolio_lab(directory)
+            before = execute_study(project, PORTFOLIO_STUDY_ID)
+            for asset_number, source in enumerate(
+                sorted((project.root_dir / "data" / "ohlcv").glob("*.csv"))
+            ):
+                frame = pd.read_csv(source)
+                rows = frame.index[-40:]
+                direction = 1.0 if asset_number % 2 else -1.0
+                scale = 1.0 + direction * np.linspace(0.0, 0.30, len(rows))
+                frame.loc[rows, ["open", "high", "low", "close"]] = (
+                    frame.loc[rows, ["open", "high", "low", "close"]]
+                    .mul(scale, axis=0)
+                )
+                frame.to_csv(source, index=False)
+
+            after = execute_study(project, PORTFOLIO_STUDY_ID)
+
+            self.assertEqual(
+                before.result["metrics"]["validation_net_sharpe"],
+                after.result["metrics"]["validation_net_sharpe"],
+            )
+            self.assertNotEqual(
+                before.result["metrics"]["portfolio"]["test"]["net"]["sharpe"],
+                after.result["metrics"]["portfolio"]["test"]["net"]["sharpe"],
             )
 
     def test_known_factor_is_keep_and_future_leak_is_crash(self) -> None:

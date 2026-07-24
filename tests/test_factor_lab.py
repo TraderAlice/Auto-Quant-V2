@@ -6,6 +6,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import numpy as np
+import pandas as pd
+
 from autoquant.research import run_campaign
 from autoquant.runs import execute_study, load_run
 from autoquant.sessions import (
@@ -72,8 +75,23 @@ class OhlcvFactorLabTests(unittest.TestCase):
             run = execute_study(project, OHLCV_STUDY_ID)
             self.assertEqual(run.result["status"], "succeeded")
             self.assertGreater(run.result["metrics"]["ic_dates"], 250)
-            self.assertGreater(run.result["metrics"]["score"], -1.0)
-            self.assertLess(run.result["metrics"]["score"], 1.0)
+            self.assertEqual(
+                run.result["objective"]["metric"],
+                "validation_mean_ic",
+            )
+            self.assertGreater(
+                run.result["metrics"]["validation_mean_ic"],
+                -1.0,
+            )
+            self.assertLess(
+                run.result["metrics"]["validation_mean_ic"],
+                1.0,
+            )
+            self.assertFalse(
+                run.result["metrics"]["research_integrity"][
+                    "test_enters_selection"
+                ]
+            )
             self.assertEqual(
                 run.result["dataset"]["sourceHashes"],
                 study.dataset_hashes,
@@ -87,6 +105,10 @@ class OhlcvFactorLabTests(unittest.TestCase):
             )
             snapshot = build_studio_snapshot(workspace.root_dir)
             self.assertEqual(snapshot["projects"][0]["counts"]["runs"], 1)
+            self.assertEqual(
+                snapshot["projects"][0]["runs"][0]["metricLayers"]["kind"],
+                "factor",
+            )
 
     def test_known_factor_is_keep_and_future_leak_is_crash(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -103,6 +125,14 @@ class OhlcvFactorLabTests(unittest.TestCase):
             )
             self.assertEqual(kept.result["verdict"], "KEEP")
             self.assertGreater(kept.result["improvement"], 0.5)
+            integrity = session_snapshot(
+                project,
+                load_session(project, session.manifest["id"]),
+            )["selectionIntegrity"]
+            self.assertEqual(integrity["selectionSplit"], "validation")
+            self.assertFalse(integrity["testEntersSelection"])
+            self.assertEqual(integrity["candidateTrials"], 1)
+            self.assertTrue(integrity["externalHoldoutRequired"])
 
             active = load_session(project, session.manifest["id"])
             candidate = active.worktree_project.root_dir / "factors" / "candidate.py"
@@ -114,6 +144,34 @@ class OhlcvFactorLabTests(unittest.TestCase):
             )
             self.assertEqual(crashed.result["verdict"], "CRASH")
             self.assertEqual(crashed.result["errors"][0]["code"], "factor.lookahead")
+
+    def test_test_only_bar_changes_do_not_change_selection_metric(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, project = make_factor_lab(directory)
+            before = execute_study(project, OHLCV_STUDY_ID)
+            for asset_number, source in enumerate(
+                sorted((project.root_dir / "data" / "ohlcv").glob("*.csv"))
+            ):
+                frame = pd.read_csv(source)
+                rows = frame.index[-40:]
+                direction = 1.0 if asset_number % 2 else -1.0
+                scale = 1.0 + direction * np.linspace(0.0, 0.30, len(rows))
+                frame.loc[rows, ["open", "high", "low", "close"]] = (
+                    frame.loc[rows, ["open", "high", "low", "close"]]
+                    .mul(scale, axis=0)
+                )
+                frame.to_csv(source, index=False)
+
+            after = execute_study(project, OHLCV_STUDY_ID)
+
+            self.assertEqual(
+                before.result["metrics"]["validation_mean_ic"],
+                after.result["metrics"]["validation_mean_ic"],
+            )
+            self.assertNotEqual(
+                before.result["metrics"]["test"]["mean_ic"],
+                after.result["metrics"]["test"]["mean_ic"],
+            )
 
     def test_dataset_change_stales_session_and_changes_identity(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

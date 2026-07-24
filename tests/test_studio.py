@@ -85,6 +85,17 @@ class StudioObservationTests(unittest.TestCase):
             self.assertEqual(observed["counts"]["verdicts"]["KEEP"], 1)
             self.assertEqual(observed["sessions"][0]["session"]["id"], session.manifest["id"])
             self.assertTrue(observed["sessions"][0]["authority"]["valid"])
+            self.assertEqual(
+                observed["sessions"][0]["selectionIntegrity"][
+                    "selectionSplit"
+                ],
+                "unspecified",
+            )
+            self.assertIsNone(
+                observed["sessions"][0]["selectionIntegrity"][
+                    "externalHoldoutRequired"
+                ]
+            )
             self.assertTrue(
                 any(item["kind"] == "experiment" for item in observed["timeline"])
             )

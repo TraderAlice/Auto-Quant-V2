@@ -65,6 +65,9 @@ The V2 foundation now implements:
 - one governed RL Factor-Policy Lab that confines Agent changes to a causal
   state encoder while the Judge fixes factor-mixture actions, Q-learning,
   rewards, portfolio accounting, folds, seeds, baselines, and model evidence.
+- one shared research-selection integrity projection that keeps reference
+  promotion validation-only and freezes trial/test-reuse disclosure through
+  Sessions, Reports, and Studio.
 
 The canonical contracts are [[docs/PROJECT_FORMAT]] and [[docs/CLI]]. The
 boundary designs are [[docs/design/workspace-project-boundaries]] and
@@ -199,6 +202,8 @@ behind the Harness contract, not the owner of Workspace or Project semantics.
 - OHLCV Portfolio Lab design: [[docs/design/portfolio-construction-lab]]
 - Governed RL Factor-Policy Lab design:
   [[docs/design/rl-factor-policy-lab]]
+- Research selection and visible-test integrity:
+  [[docs/design/research-selection-integrity]]
 - Research Session loop design: [[docs/design/research-session-loop]]
 - External Researcher driver design:
   [[docs/design/external-researcher-driver]]

@@ -55,6 +55,13 @@ validation-only objective. Every model, episode, fold, seed, action, failure,
 and baseline comparison is Run evidence. See
 [[docs/design/rl-factor-policy-lab]].
 
+All three reference templates publish a nested `research_integrity` metric
+declaring validation-only selection, visible diagnostic test evidence, and the
+external-holdout rule. Session snapshots derive exact candidate/verdict counts
+from immutable Experiments; Reports freeze the same projection. Generic
+Studies without this declaration remain valid and are explicitly shown as
+`unspecified`. See [[docs/design/research-selection-integrity]].
+
 ```text
 factor-lab/
 ├── autoquant.json
@@ -423,6 +430,8 @@ Experiment/Campaign history.
 Core freezes a complete evidence projection into `report.json`: the exact
 request/Brief, Session baseline and leader at publication, fixed locks, Harness,
 Run metrics and artifacts, Experiment verdicts, and Campaign outcomes. It
+also freezes Core-derived selection metric/split, trial and verdict counts,
+test visibility, and external-holdout status. It
 validates every reference, renders deterministic `report.md`, hashes the three
 files, and writes `manifest.json` last. Loading a Report verifies:
 
@@ -432,7 +441,9 @@ files, and writes `manifest.json` last. Loading a Report verifies:
 4. exact projections of every referenced immutable Run, Experiment, and
    Campaign;
 5. chronological Experiment/Campaign prefixes and the corresponding KEEP
-   leader chain.
+   leader chain;
+6. selection-integrity equality with the frozen Experiment prefix and leader
+   Run.
 
 An older Report remains valid when a Session later adds evidence. Rewriting a
 conclusion requires a new immutable Report. Report authority is

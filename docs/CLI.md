@@ -136,6 +136,12 @@ leader bytes in the worktree. `session promote` is the only operation that
 copies a KEEP into Project source; it rejects a stale Project base and rolls
 back if the source, receipt, and Session pointer cannot all be committed.
 
+`session show --json` also projects selection integrity from verified evidence:
+selection metric/split, exact candidate and evaluated-Run counts, verdict
+counts, test visibility/use, and whether a new external holdout is required.
+Reference templates select on validation only. Generic Studies without a
+declaration return explicit `unspecified` values.
+
 ## Research Campaign commands
 
 ```bash

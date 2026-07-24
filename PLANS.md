@@ -32,6 +32,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/research-selection-integrity]] | Made reference promotion validation-only and disclosed trial/test reuse across Session, Report, and Studio. | 2026-07-24 |
 | [[plans/rl-factor-policy-lab]] | Added a governed causal state encoder and fixed factor-mixture Q-policy with folds, seeds, portfolio rewards, simple baselines, and exact model evidence. | 2026-07-24 |
 | [[plans/portfolio-construction-lab]] | Added a fixed causal factor-to-target-weight Judge with drift, costs, professional evidence layers, stresses, artifacts, and a complete reference Project. | 2026-07-24 |
 | [[plans/openalice-research-handoff]] | Turned an external research request into one Study-bound Session brief and a verified decision-support report that OpenAlice can publish. | 2026-07-24 |

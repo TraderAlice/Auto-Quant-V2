@@ -7,7 +7,8 @@ Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]], [[docs/CLI]],
 [[docs/design/external-researcher-driver]],
 [[docs/design/studio-observation-surface]],
 [[docs/design/portfolio-construction-lab]], and
-[[docs/design/rl-factor-policy-lab]].
+[[docs/design/rl-factor-policy-lab]], and
+[[docs/design/research-selection-integrity]].
 
 ## Scope
 
@@ -118,6 +119,13 @@ Core must keep alpha, sizing, portfolio construction, and execution assumptions
 separate. A candidate can have predictive factor quality and still be
 uninvestable after constraints and costs. Conversely, a stable low-turnover
 portfolio may be useful without an impressive raw IC.
+
+Reference candidate promotion uses validation only. Test metrics are visible
+diagnostic evidence, so Core conservatively marks a Session as requiring a new
+external holdout after candidate iteration. Trial/verdict counts and this
+warning are derived from immutable history and frozen into Reports; statistical
+selection adjustment remains separate until its assumptions are fixed. See
+[[docs/design/research-selection-integrity]].
 
 ## Mechanical signal-to-portfolio contract
 

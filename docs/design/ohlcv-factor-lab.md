@@ -97,11 +97,14 @@ The Judge owns target construction and evaluation:
 5. Align factors at time `t` only with returns from `t` to `t + 1`.
 6. Measure per-timestamp cross-sectional Spearman information coefficient.
 7. Aggregate chronological train, validation, and test metrics.
-8. Publish one finite primary `score`, diagnostics, and a JSON report artifact.
+8. Publish finite primary `validation_mean_ic`, diagnostic test metrics, a
+   research-integrity declaration, and a JSON report artifact.
 
-The primary score is intentionally conservative and rewards out-of-sample
-cross-sectional consistency. Exact aggregation and minimum population rules
-live in the fixed Judge source and are content-hashed with every Run.
+The primary score is validation mean IC only. Test IC is visible diagnostic
+evidence and never enters candidate selection. Exact aggregation, minimum
+population, and integrity rules live in the fixed Judge source and are
+content-hashed with every Run. See
+[[docs/design/research-selection-integrity]].
 
 The causality audit is a misuse detector, not a proof against arbitrary hostile
 Python. It reliably rejects common future leaks such as negative shifts,
@@ -131,8 +134,10 @@ receive a new dataset identity.
 3. Candidate authority excludes Judge, Study, program, and data bytes.
 4. Forward returns and split boundaries are computed only by the fixed Judge.
 5. Validation and test periods are chronological, never random row splits.
-6. Data file hashes are preserved in new immutable Run evidence.
-7. Routine validation remains bounded and does not invoke Freqtrade or a
+6. Candidate selection uses validation only; visible test evidence requires a
+   new external holdout after test-guided iteration.
+7. Data file hashes are preserved in new immutable Run evidence.
+8. Routine validation remains bounded and does not invoke Freqtrade or a
    multi-year backtest.
 
 ## Known limits

@@ -89,6 +89,51 @@ def report_analysis(run_id: str) -> dict:
     }
 
 
+def fully_rehash_report(report, forged: dict, session_id: str) -> tuple[Path, str]:
+    forged["evidenceHash"] = hash_json(forged["evidence"])
+    identity = hash_json(
+        {
+            "sessionId": forged["sessionId"],
+            "briefHash": forged["brief"]["briefHash"],
+            "analysisHash": forged["analysisHash"],
+            "evidenceHash": forged["evidenceHash"],
+            "publishedAt": forged["publishedAt"],
+        }
+    )
+    stamp = datetime.fromisoformat(forged["publishedAt"]).strftime(
+        "%Y%m%dT%H%M%S%fZ"
+    )
+    forged_id = f"report-{stamp}-{identity[:12]}"
+    forged["id"] = forged_id
+    forged_root = report.root_dir.with_name(forged_id)
+    report.root_dir.rename(forged_root)
+    (forged_root / "report.json").write_text(
+        json.dumps(forged, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    (forged_root / "report.md").write_text(
+        report_module._render_markdown(forged),
+        encoding="utf-8",
+    )
+    files = {
+        name: hash_file(forged_root / name)
+        for name in ("analysis.json", "report.json", "report.md")
+    }
+    manifest = {
+        "schemaVersion": 1,
+        "id": forged_id,
+        "sessionId": session_id,
+        "completed": True,
+        "reportHash": files["report.json"],
+        "files": files,
+    }
+    (forged_root / "manifest.json").write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return forged_root, forged_id
+
+
 class ResearchHandoffTests(unittest.TestCase):
     def _project(self, directory: str):
         _, project = make_project(directory)
@@ -188,8 +233,24 @@ class ResearchHandoffTests(unittest.TestCase):
 
             self.assertEqual(report.report["tradingAuthority"], "none")
             self.assertEqual(report.report["request"], research_request())
+            self.assertEqual(
+                report.report["evidence"]["selectionIntegrity"][
+                    "selectionSplit"
+                ],
+                "unspecified",
+            )
+            self.assertEqual(
+                report.report["evidence"]["selectionIntegrity"][
+                    "candidateTrials"
+                ],
+                0,
+            )
             self.assertIn(
                 "quantitative decision support only",
+                (report.root_dir / "report.md").read_text(encoding="utf-8"),
+            )
+            self.assertIn(
+                "Research selection integrity",
                 (report.root_dir / "report.md").read_text(encoding="utf-8"),
             )
             self.assertEqual(
@@ -220,10 +281,25 @@ class ResearchHandoffTests(unittest.TestCase):
                 "Improve after the first report snapshot.",
             )
             later = load_session(project, session.manifest["id"])
+            later_snapshot = session_snapshot(project, later)
+            self.assertEqual(
+                later_snapshot["selectionIntegrity"]["candidateTrials"],
+                1,
+            )
+            self.assertEqual(
+                later_snapshot["selectionIntegrity"]["verdicts"]["KEEP"],
+                1,
+            )
             loaded = load_report(project, later, report.report["id"])
             self.assertEqual(
                 loaded.report["evidence"]["session"]["leader"]["runId"],
                 baseline_id,
+            )
+            self.assertEqual(
+                loaded.report["evidence"]["selectionIntegrity"][
+                    "candidateTrials"
+                ],
+                0,
             )
             self.assertNotEqual(later.manifest["leader"]["runId"], baseline_id)
 
@@ -281,51 +357,47 @@ class ResearchHandoffTests(unittest.TestCase):
                 json.dumps(report.report)
             )
             forged["evidence"]["runs"][0]["metrics"]["score"] = 999.0
-            forged["evidenceHash"] = hash_json(forged["evidence"])
-            identity = hash_json(
-                {
-                    "sessionId": forged["sessionId"],
-                    "briefHash": forged["brief"]["briefHash"],
-                    "analysisHash": forged["analysisHash"],
-                    "evidenceHash": forged["evidenceHash"],
-                    "publishedAt": forged["publishedAt"],
-                }
-            )
-            stamp = datetime.fromisoformat(forged["publishedAt"]).strftime(
-                "%Y%m%dT%H%M%S%fZ"
-            )
-            forged_id = f"report-{stamp}-{identity[:12]}"
-            forged["id"] = forged_id
-            forged_root = report.root_dir.with_name(forged_id)
-            report.root_dir.rename(forged_root)
-            (forged_root / "report.json").write_text(
-                json.dumps(forged, indent=2, sort_keys=True) + "\n",
-                encoding="utf-8",
-            )
-            (forged_root / "report.md").write_text(
-                report_module._render_markdown(forged),
-                encoding="utf-8",
-            )
-            files = {
-                name: hash_file(forged_root / name)
-                for name in ("analysis.json", "report.json", "report.md")
-            }
-            manifest = {
-                "schemaVersion": 1,
-                "id": forged_id,
-                "sessionId": session.manifest["id"],
-                "completed": True,
-                "reportHash": files["report.json"],
-                "files": files,
-            }
-            (forged_root / "manifest.json").write_text(
-                json.dumps(manifest, indent=2, sort_keys=True) + "\n",
-                encoding="utf-8",
+            _, forged_id = fully_rehash_report(
+                report,
+                forged,
+                session.manifest["id"],
             )
 
             with self.assertRaisesRegex(
                 AutoQuantValidationError,
                 "Frozen Run differs",
+            ):
+                load_report(
+                    project,
+                    load_session(project, session.manifest["id"]),
+                    forged_id,
+                )
+
+    def test_report_loader_rejects_rehashed_selection_integrity(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = self._project(directory)
+            session = start_session(
+                project,
+                "factor-quality",
+                request=research_request(),
+            )
+            report = publish_report(
+                project,
+                session.manifest["id"],
+                report_analysis(session.manifest["baseline"]["runId"]),
+            )
+            forged = json.loads(json.dumps(report.report))
+            forged["evidence"]["selectionIntegrity"]["candidateTrials"] = 99
+            forged["evidence"]["selectionIntegrity"]["evaluatedRuns"] = 100
+            _, forged_id = fully_rehash_report(
+                report,
+                forged,
+                session.manifest["id"],
+            )
+
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "selection integrity differs",
             ):
                 load_report(
                     project,

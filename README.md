@@ -55,6 +55,11 @@ stress. Its Run artifacts expose exact daily accounting and target weights;
 Studio summarizes factor, portfolio, implementation, and robustness evidence.
 It emits research targets only and has no Broker or trading-account authority.
 
+Every reference Project uses validation-only KEEP/REVERT. Test metrics remain
+visible diagnostic evidence; after a Session iterates candidates, Core marks a
+new external holdout as required and carries exact trial/verdict counts through
+Studio and immutable Research Reports.
+
 The `ohlcv-rl-factor-lab` starter asks a narrower question than “can an RL bot
 trade?”: can a bounded policy use causal regime features to choose among fixed
 factor mixtures? Agents edit only a pure state encoder. The Judge fixes

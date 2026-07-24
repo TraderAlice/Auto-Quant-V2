@@ -27,11 +27,15 @@ numeric aligned Series and may use only the current and prior rows.
 - cost every bought/sold dollar at 10 basis points;
 - signal at close `t` earns only close `t` to close `t+1`;
 - chronological 60/20/20 train/validation/test;
-- primary score is the lower validation/test net Sharpe;
+- primary score is validation net Sharpe only;
 - mandatory 0/10/25bps and one-extra-bar-delay stresses.
 
 The Judge owns every rule above. Do not edit `judges/**`, the Study, program,
 or dataset while comparing candidates.
+
+Test metrics are visible diagnostic evidence and never enter KEEP/REVERT.
+Changing a candidate after inspecting them consumes their holdout value; use a
+new external period or dataset before a production-grade claim.
 
 ## Evidence discipline
 

@@ -218,14 +218,11 @@ def _evaluate() -> tuple[dict[str, Any], dict[str, Any]]:
         "validation": _split_metrics(daily_ic.iloc[train_end:validation_end]),
         "test": _split_metrics(daily_ic.iloc[validation_end:]),
     }
-    score = min(
-        float(splits["validation"]["mean_ic"]),
-        float(splits["test"]["mean_ic"]),
-    )
+    validation_mean_ic = float(splits["validation"]["mean_ic"])
     ranked = factor_panel.rank(axis=1, pct=True)
     turnover = float(ranked.diff().abs().mean(axis=1).dropna().mean())
     metrics = {
-        "score": score,
+        "validation_mean_ic": validation_mean_ic,
         "train": splits["train"],
         "validation": splits["validation"],
         "test": splits["test"],
@@ -233,11 +230,19 @@ def _evaluate() -> tuple[dict[str, Any], dict[str, Any]]:
         "mean_rank_turnover": turnover,
         "assets": int(len(universe)),
         "ic_dates": int(len(daily_ic)),
+        "research_integrity": {
+            "selection_split": "validation",
+            "test_role": "visible-diagnostic",
+            "test_enters_selection": False,
+            "external_holdout_rule": (
+                "required-after-test-guided-iteration"
+            ),
+        },
     }
     if not all(
         math.isfinite(float(value))
         for value in (
-            score,
+            validation_mean_ic,
             metrics["mean_coverage"],
             metrics["mean_rank_turnover"],
         )
@@ -256,7 +261,10 @@ def _evaluate() -> tuple[dict[str, Any], dict[str, Any]]:
             "target": "next-bar close-to-close return",
             "measure": "per-date cross-sectional Spearman IC",
             "split": "chronological 60/20/20",
-            "score": "minimum of validation and test mean IC",
+            "score": "validation mean IC only",
+            "testRole": (
+                "visible diagnostic evidence; never enters candidate selection"
+            ),
         },
         "causalityAuditCuts": audited,
         "coverageByAsset": coverage,
@@ -280,7 +288,8 @@ def main() -> None:
                 "status": "succeeded",
                 "summary": (
                     "Causal factor evaluated on chronological "
-                    f"validation/test splits; score={metrics['score']:.6f}"
+                    "validation/test splits; validation mean IC="
+                    f"{metrics['validation_mean_ic']:.6f}"
                 ),
                 "metrics": metrics,
                 "artifacts": [

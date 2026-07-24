@@ -297,6 +297,7 @@ def _portfolio_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
                     "maximum_drawdown"
                 ],
             },
+            "selection": metrics.get("research_integrity"),
             "implementation": {
                 "testAnnualizedTurnover": metrics["implementation"]["test"][
                     "annualized_one_way_turnover"
@@ -317,6 +318,28 @@ def _portfolio_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
                 ]["sharpe"],
             },
             "constraintsPassed": metrics["constraint_audit"]["passed"],
+        }
+    except (KeyError, TypeError):
+        return None
+
+
+def _factor_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
+    metrics = result["metrics"]
+    if not all(
+        isinstance(metrics.get(key), dict)
+        for key in ("validation", "test")
+    ):
+        return None
+    try:
+        return {
+            "kind": "factor",
+            "validationMeanIc": metrics["validation"]["mean_ic"],
+            "validationIcir": metrics["validation"]["icir"],
+            "testMeanIc": metrics["test"]["mean_ic"],
+            "testIcir": metrics["test"]["icir"],
+            "meanCoverage": metrics["mean_coverage"],
+            "meanRankTurnover": metrics["mean_rank_turnover"],
+            "selection": metrics.get("research_integrity"),
         }
     except (KeyError, TypeError):
         return None
@@ -355,7 +378,11 @@ def _rl_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def _run_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
-    return _portfolio_metric_layers(result) or _rl_metric_layers(result)
+    return (
+        _portfolio_metric_layers(result)
+        or _rl_metric_layers(result)
+        or _factor_metric_layers(result)
+    )
 
 
 def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
@@ -408,6 +435,7 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
                     "worktree": snapshot["worktree"],
                     "candidate": snapshot["candidate"],
                     "delegation": snapshot["delegation"],
+                    "selectionIntegrity": snapshot["selectionIntegrity"],
                     "authority": authority,
                     "experiments": snapshot["experiments"],
                     "campaigns": campaigns,

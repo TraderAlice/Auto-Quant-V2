@@ -642,6 +642,14 @@ def _evaluate() -> tuple[
             "riskAversion": RISK_AVERSION,
             "costBps": BASE_COST_BPS,
         },
+        "research_integrity": {
+            "selection_split": "validation",
+            "test_role": "visible-diagnostic",
+            "test_enters_selection": False,
+            "external_holdout_rule": (
+                "required-after-test-guided-iteration"
+            ),
+        },
     }
     if not math.isfinite(metrics["validation_mean_net_sharpe"]):
         raise JudgeFailure("policy.non-finite", "Primary score is non-finite")

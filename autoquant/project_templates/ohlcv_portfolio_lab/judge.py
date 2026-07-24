@@ -310,9 +310,8 @@ def _evaluate() -> tuple[dict[str, Any], dict[str, Any], Any]:
         }
         implementation[name] = implementation_metrics(base, index)
 
-    robust_net_sharpe = min(
-        float(portfolio_metrics["validation"]["net"]["sharpe"]),
-        float(portfolio_metrics["test"]["net"]["sharpe"]),
+    validation_net_sharpe = float(
+        portfolio_metrics["validation"]["net"]["sharpe"]
     )
     cost_stress: dict[str, Any] = {}
     for cost_bps in (0.0, BASE_COST_BPS, 25.0):
@@ -359,7 +358,7 @@ def _evaluate() -> tuple[dict[str, Any], dict[str, Any], Any]:
         for asset, value in contribution.items()
     }
     metrics = {
-        "robust_net_sharpe": robust_net_sharpe,
+        "validation_net_sharpe": validation_net_sharpe,
         "factor": factor_metrics,
         "portfolio": portfolio_metrics,
         "implementation": implementation,
@@ -369,8 +368,16 @@ def _evaluate() -> tuple[dict[str, Any], dict[str, Any], Any]:
             "test_annualized_gross_contribution": per_asset_contribution,
         },
         "constraint_audit": audit,
+        "research_integrity": {
+            "selection_split": "validation",
+            "test_role": "visible-diagnostic",
+            "test_enters_selection": False,
+            "external_holdout_rule": (
+                "required-after-test-guided-iteration"
+            ),
+        },
     }
-    if not math.isfinite(robust_net_sharpe):
+    if not math.isfinite(validation_net_sharpe):
         raise JudgeFailure("portfolio.non-finite", "Primary score is non-finite")
     report = {
         "schemaVersion": 1,
@@ -394,7 +401,10 @@ def _evaluate() -> tuple[dict[str, Any], dict[str, Any], Any]:
             "cost": "sum(abs(trade weight)) * 10bps",
             "benchmark": "equal-weight long-only next-bar return",
             "split": "chronological 60/20/20 over active target dates",
-            "score": "minimum validation/test net Sharpe at 10bps",
+            "score": "validation net Sharpe at 10bps only",
+            "testRole": (
+                "visible diagnostic evidence; never enters candidate selection"
+            ),
             "tradingAuthority": "none",
         },
         "fixedParameters": {
@@ -432,7 +442,8 @@ def main() -> None:
                 "status": "succeeded",
                 "summary": (
                     "Causal factor translated into constrained next-bar targets; "
-                    f"robust net Sharpe={metrics['robust_net_sharpe']:.6f}"
+                    "validation net Sharpe="
+                    f"{metrics['validation_net_sharpe']:.6f}"
                 ),
                 "metrics": metrics,
                 "artifacts": [

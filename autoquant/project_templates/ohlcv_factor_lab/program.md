@@ -29,5 +29,10 @@ full-sample normalization, external data, and mutation of the input are not.
 6. KEEP only when the fixed objective improves; otherwise accept restoration
    and form a different hypothesis.
 
+The fixed objective is validation mean IC only. Test IC is visible diagnostic
+evidence and never enters KEEP/REVERT. Changing a candidate after inspecting
+test evidence consumes its holdout value; obtain a new external period or
+dataset before a production-grade claim.
+
 Do not modify the Study, Judge, program, dataset, or AutoQuant Core to improve a
 candidate. Do not treat this synthetic benchmark as a real-market alpha claim.

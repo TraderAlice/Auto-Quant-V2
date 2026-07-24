@@ -15,6 +15,7 @@ from .research import list_campaigns, load_campaign
 from .runs import load_run
 from .sessions import (
     SessionContext,
+    build_selection_integrity,
     list_experiments,
     load_experiment,
     load_session,
@@ -530,6 +531,10 @@ def _session_evidence(
                 if key != "fixedHashes"
             },
         },
+        "selectionIntegrity": build_selection_integrity(
+            session.leader_run,
+            [item.result["verdict"] for item in experiments],
+        ),
         "runs": run_evidence,
         "experiments": experiment_evidence,
         "campaigns": campaign_evidence,
@@ -591,6 +596,7 @@ def _render_markdown(report: dict[str, Any]) -> str:
     evidence = report["evidence"]
     baseline = evidence["session"]["baseline"]
     leader = evidence["session"]["leader"]
+    integrity = evidence["selectionIntegrity"]
     source = request["source"]
     source_identity = (
         f"{source['system']} workspace={source['workspaceId'] or 'unspecified'} "
@@ -632,6 +638,21 @@ def _render_markdown(report: dict[str, Any]) -> str:
         f"{leader['metric']}={leader['value']}",
         f"- Experiments: {len(evidence['experiments'])}",
         f"- Campaigns: {len(evidence['campaigns'])}",
+        "",
+        "## Research selection integrity",
+        "",
+        f"- Selection metric / split: `{integrity['selectionMetric']}` / "
+        f"`{integrity['selectionSplit']}`",
+        f"- Candidate trials / evaluated Runs: "
+        f"{integrity['candidateTrials']} / {integrity['evaluatedRuns']}",
+        f"- Verdicts: KEEP={integrity['verdicts']['KEEP']}, "
+        f"REVERT={integrity['verdicts']['REVERT']}, "
+        f"CRASH={integrity['verdicts']['CRASH']}",
+        f"- Test role / enters selection: `{integrity['testRole']}` / "
+        f"`{integrity['testEntersSelection']}`",
+        f"- External holdout required: "
+        f"`{integrity['externalHoldoutRequired']}`",
+        f"- Warning: {integrity['warning']}",
         "",
         "## Findings",
         "",
@@ -929,7 +950,13 @@ def _verify_frozen_evidence(
     path: Path,
 ) -> None:
     evidence = report["evidence"]
-    required = {"session", "runs", "experiments", "campaigns"}
+    required = {
+        "session",
+        "selectionIntegrity",
+        "runs",
+        "experiments",
+        "campaigns",
+    }
     if not isinstance(evidence, dict):
         raise AutoQuantValidationError(
             [_issue(path, "report.evidence", "Evidence must be an object")]
@@ -1099,6 +1126,27 @@ def _verify_frozen_evidence(
                     path,
                     "report.run-catalog",
                     "Frozen Runs must exactly cover the baseline and Experiment prefix",
+                )
+            )
+        frozen_integrity = evidence.get("selectionIntegrity")
+        expected_integrity = build_selection_integrity(
+            load_run(project, expected_leader["runId"]),
+            [
+                item["verdict"]
+                for item in experiments
+                if isinstance(item, dict) and item.get("verdict") in {
+                    "KEEP",
+                    "REVERT",
+                    "CRASH",
+                }
+            ],
+        )
+        if frozen_integrity != expected_integrity:
+            issues.append(
+                _issue(
+                    path,
+                    "report.selection-integrity",
+                    "Frozen selection integrity differs from Experiment prefix",
                 )
             )
     try:

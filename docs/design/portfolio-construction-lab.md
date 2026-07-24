@@ -110,15 +110,17 @@ or capacity guarantee.
 
 ### Robustness
 
-- chronological 60/20/20 train, validation, and untouched test splits;
+- chronological 60/20/20 train, validation, and visible diagnostic test splits;
 - net results under 0, 10, and 25 basis-point cost assumptions;
 - one additional bar of signal delay;
 - annualized per-asset gross contribution;
 - complete deterministic daily returns and target-weight artifacts.
 
-The primary `robust_net_sharpe` is the minimum of validation and test net Sharpe
-under the base 10 basis-point cost assumption. Stresses are mandatory evidence
-but V1 does not fold every stress into one opaque scalar.
+The primary `validation_net_sharpe` is validation net Sharpe under the base
+10 basis-point cost assumption. Test and stress metrics remain mandatory
+visible evidence but never enter KEEP/REVERT. Candidate iteration after
+inspecting them requires a new external holdout for a fresh production-grade
+claim. See [[docs/design/research-selection-integrity]].
 
 ## Benchmark
 
@@ -150,8 +152,10 @@ RunResult remains the immutable authority for artifact identities.
 5. Turnover and cost conventions are reported separately.
 6. Aggregate performance retains split, per-asset, implementation, and stress
    evidence.
-7. The simulation emits target weights only and has no trading authority.
-8. Routine tests use a small deterministic OHLCV fixture.
+7. Validation alone owns candidate selection; test is visible diagnostic
+   evidence.
+8. The simulation emits target weights only and has no trading authority.
+9. Routine tests use a small deterministic OHLCV fixture.
 
 ## Change checklist
 

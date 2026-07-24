@@ -36,6 +36,8 @@ The first viewport prioritizes:
   cost stress, and delay stress;
 - RL Run summaries for validation/test audit Sharpe, seed/fold dispersion,
   simple-baseline advantage, failure rate, and fold × seed coverage;
+- Session selection split, candidate trial count, visible-test role, and
+  external-holdout requirement;
 - request → evidence → report readiness and exact copyable headless commands;
 - fixed Study catalog and Project research program;
 - category-level diagnostics when evidence cannot be verified.
