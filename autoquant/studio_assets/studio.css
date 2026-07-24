@@ -372,10 +372,9 @@ main {
 
 .research-hero {
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) minmax(390px, 0.95fr);
-  align-items: end;
-  gap: 36px;
-  min-height: 168px;
+  grid-template-columns: 1fr;
+  gap: 18px;
+  min-height: 0;
   padding-bottom: 24px;
   border-bottom: 1px solid var(--line-strong);
 }
@@ -388,11 +387,11 @@ main {
 }
 
 .hero-copy h1 {
-  max-width: 760px;
-  margin: 10px 0 9px;
-  font-size: clamp(30px, 4.3vw, 56px);
-  line-height: 0.98;
-  letter-spacing: -0.055em;
+  max-width: 980px;
+  margin: 9px 0 8px;
+  font-size: clamp(28px, 3.2vw, 44px);
+  line-height: 1.02;
+  letter-spacing: -0.045em;
 }
 
 .hero-copy p {
@@ -450,6 +449,16 @@ main {
   color: var(--acid);
 }
 
+.score-cell.good strong,
+.handoff-metrics > span.good b {
+  color: var(--acid);
+}
+
+.score-cell.bad strong,
+.handoff-metrics > span.bad b {
+  color: var(--red);
+}
+
 .diagnostic-banner {
   margin-top: 16px;
   padding: 12px 14px;
@@ -475,7 +484,7 @@ main {
 
 .handoff-card {
   min-width: 0;
-  min-height: 226px;
+  min-height: 250px;
   padding: 17px;
   background: var(--panel-soft);
 }
@@ -1204,11 +1213,28 @@ main {
 
 .command-button code {
   display: block;
-  overflow: hidden;
   color: #8d9585;
   font: 6px var(--mono);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.program-details {
+  border-bottom: 1px solid var(--line);
+}
+
+.program-details summary {
+  padding: 14px 0;
+  color: var(--faint);
+  cursor: pointer;
+  font: 7px var(--mono);
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.program-details[open] summary {
+  color: var(--acid);
 }
 
 .campaign-row strong {

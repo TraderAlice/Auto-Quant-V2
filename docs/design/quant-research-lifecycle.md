@@ -1,11 +1,13 @@
 # Quantitative research lifecycle and OpenAlice handoff
 
-Status: delegation/report, portfolio, and governed RL lanes implemented.
+Status: request-driven Project intake, delegation/report, portfolio, and
+governed RL lanes implemented.
 
 Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]], [[docs/CLI]],
 [[docs/design/study-run-evidence]], [[docs/design/research-session-loop]],
 [[docs/design/external-researcher-driver]],
 [[docs/design/studio-observation-surface]],
+[[docs/design/research-intake-and-dataset-snapshots]],
 [[docs/design/portfolio-construction-lab]], and
 [[docs/design/rl-factor-policy-lab]], and
 [[docs/design/research-selection-integrity]].
@@ -45,6 +47,13 @@ is one fixed evaluation question inside it. A Session is one active line of
 candidate research against that fixed authority. A Run is one immutable
 execution. A Report is a content-hashed decision-support handoff over an exact
 evidence snapshot.
+
+The request can now create that construction site through strict external
+daily-OHLCV intake. The caller supplies a package; AutoQuant validates and
+normalizes it into Project-local content, records provider/calendar/adjustment
+claims, binds request/dataset/Study hashes, and exposes exact baseline and
+Session-start actions. Retrieval remains external authority. See
+[[docs/design/research-intake-and-dataset-snapshots]].
 
 OpenAlice's Workspace and Session ids in a request are caller-supplied context.
 AutoQuant preserves and hashes them but cannot authenticate them. OpenAlice
@@ -272,11 +281,13 @@ artifacts so AI work remains attributable and reproducible.
 
 ## Phased delivery
 
-1. Delegation and report handoff:
+1. Request-driven Project and market-data intake:
+   [[plans/request-driven-market-data-intake]].
+2. Delegation and report handoff:
    [[plans/openalice-research-handoff]].
-2. Causal signal-to-portfolio accounting and professional evidence:
+3. Causal signal-to-portfolio accounting and professional evidence:
    [[plans/portfolio-construction-lab]].
-3. Governed RL factor/target policy lane:
+4. Governed RL factor/target policy lane:
    [[plans/rl-factor-policy-lab]].
 
 Each phase must produce bounded deterministic evidence and a commit before the
@@ -310,8 +321,8 @@ next phase changes its assumptions.
 
 ## Known gaps
 
-- Portfolio construction/accounting is designed but not implemented.
-- RL execution is designed but not implemented and depends on the portfolio
-  lane.
-- Cross-Project report aggregation and OpenAlice-side automatic Project
-  creation remain future collaboration work.
+- Mixed-asset/multi-calendar Studies, intraday intake, corporate-action
+  verification, and point-in-time universe evidence remain future data work.
+- Cross-Project report aggregation and OpenAlice-side invocation/Inbox
+  publication remain future collaboration work; AutoQuant now owns the exact
+  request-driven Project command and report artifacts at its boundary.

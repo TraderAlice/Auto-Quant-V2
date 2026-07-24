@@ -27,6 +27,9 @@ Binding `--host` to a non-loopback address is an explicit operator decision.
 The first viewport prioritizes:
 
 - every discovered Project and its verification state;
+- pre-Session request intake, locked dataset/provider/adjustment claims,
+  requested assets versus research universe, baseline selection/audit/stress
+  metrics, and the exact Session-start command;
 - active Sessions and current leader values;
 - delegated caller questions, assets, direction, horizon, and Brief identity;
 - running external Researcher phase and turn budget;
@@ -62,6 +65,16 @@ The handoff cards and Inspector distinguish caller-supplied OpenAlice context
 from authenticated provenance. Copy buttons only write an exact Core-generated
 CLI string to the local clipboard. They do not invoke the command or mutate the
 Project.
+
+For a request-driven Project with no Session, the handoff board shows
+`research mandate → dataset → immutable baseline → iterate`. The hero promotes
+the latest verified Run's decision metrics over generic object counts, and the
+Inspector presents request scope, dataset authority, baseline evidence, and a
+copy-only start command before the long research program. Positive values are
+not coloured as success without a fixed pass threshold; negative return/risk
+evidence is visibly adverse. Once the delegated Session exists, the established
+`request → governed evidence → decision-support report` projection replaces
+that pre-Session state.
 
 ## Machine-readable snapshot
 

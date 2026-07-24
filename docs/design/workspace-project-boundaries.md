@@ -1,7 +1,7 @@
 # Workspace and Project boundaries
 
-Status: implemented for V1 discovery, blank construction, and self-contained
-reference templates.
+Status: implemented for V1 discovery, blank/template construction, and
+request-driven self-contained Projects.
 
 Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]], and
 [[docs/design/agent-cli-contract]].
@@ -50,9 +50,9 @@ own Study, Run, evaluation, research-loop, dataset-format, or Studio semantics.
 6. A directory cannot be both a Workspace and Project.
 7. A direct Project path cannot receive a redundant Workspace `--project`
    selection.
-8. Project creation stages a complete blank or explicitly selected reference
-   template in a hidden temporary directory, validates it, and atomically
-   renames it into discovery.
+8. Project creation stages a complete blank, explicitly selected reference
+   template, or validated request/dataset intake in a hidden temporary
+   directory and atomically renames it into discovery.
 9. Project data and cache contents are ignored by their own `.gitignore`
    files. Neither location is durable system truth.
 10. Changing one Project does not change another Project's files or identity.
@@ -71,9 +71,9 @@ autoquant-workspace.json
 ```
 
 Project creation travels the reverse direction: strict id, Workspace, and
-template validation → hidden staged starter → optional self-contained template
-population and Study validation → atomic rename → optional first-default
-Workspace update.
+template/intake validation → hidden staged starter → optional self-contained
+template population and Study validation → atomic rename → optional
+first-default Workspace update.
 
 ## Non-goals
 
@@ -111,5 +111,6 @@ uv run aq validate /tmp/quant-workspace --json
 - Project manifests expose semantic directory slots, including `sessions`, but
   do not select a default Study, dataset, Session, or execution profile.
 - Project identity is strict path identity but not yet a content hash.
-- There are factor, portfolio, and governed RL reference templates. Production
-  ingestion and additional Broker/backtest adapters remain future work.
+- There are factor, portfolio, and governed RL reference templates plus strict
+  caller-supplied daily-OHLCV intake. Network/provider adapters and additional
+  Broker/backtest adapters remain future work.

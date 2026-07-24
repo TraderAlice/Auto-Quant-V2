@@ -41,6 +41,15 @@ from .reports import (
     load_report_analysis,
     publish_report,
 )
+from .intake import (
+    INTAKE_TEMPLATE_REQUIREMENTS,
+    OHLCV_DATASET_PACKAGE_JSON_SCHEMA,
+    PROJECT_INTAKE,
+    PROJECT_REQUEST,
+    DATASET_SNAPSHOT,
+    load_project_intake,
+    prepare_project_intake,
+)
 from .studio import STUDIO_SNAPSHOT_JSON_SCHEMA, build_studio_snapshot, serve_studio
 from .templates import PROJECT_TEMPLATE_IDS, TEMPLATE_STUDY_IDS
 from .sessions import (
@@ -146,6 +155,7 @@ def build_parser() -> RaisingArgumentParser:
             "campaign-result",
             "campaign-progress",
             "research-request",
+            "ohlcv-dataset-package",
             "report-analysis",
             "studio-snapshot",
         ],
@@ -178,6 +188,23 @@ def build_parser() -> RaisingArgumentParser:
     )
     project_create.set_defaults(command_id="project.create")
     _json_argument(project_create)
+
+    project_intake = project_actions.add_parser(
+        "intake",
+        help="create a Project from a research request and OHLCV package",
+    )
+    project_intake.add_argument("workspace")
+    project_intake.add_argument("project_id")
+    project_intake.add_argument("--request", required=True)
+    project_intake.add_argument("--dataset", required=True)
+    project_intake.add_argument(
+        "--template",
+        choices=tuple(INTAKE_TEMPLATE_REQUIREMENTS),
+        default="ohlcv-portfolio-lab",
+    )
+    project_intake.add_argument("--name")
+    project_intake.set_defaults(command_id="project.intake")
+    _json_argument(project_intake)
 
     project_list = project_actions.add_parser("list", help="list Workspace Projects")
     project_list.add_argument("workspace")
@@ -577,6 +604,114 @@ def _project_create(args: argparse.Namespace) -> CommandResult:
                 ),
             ]
         ),
+    )
+
+
+def _project_intake(args: argparse.Namespace) -> CommandResult:
+    prepared = prepare_project_intake(
+        args.request,
+        args.dataset,
+        args.template,
+    )
+    project = create_project(
+        args.workspace,
+        args.project_id,
+        name=args.name or prepared.request["title"],
+        description=prepared.request["question"],
+        template=args.template,
+        template_intake=prepared,
+    )
+    intake = load_project_intake(project)
+    assert intake is not None
+    study_id = intake["study"]["id"]
+    request_path = project.root_dir / PROJECT_REQUEST
+    return CommandResult(
+        "project.intake",
+        {
+            "projectDir": str(project.root_dir),
+            "manifest": project.manifest.to_dict(),
+            "intake": intake,
+        },
+        (
+            f"Created request-driven Project '{project.manifest.id}'\n"
+            f"Request: {prepared.request['title']}\n"
+            f"Dataset: {prepared.package['id']}@{prepared.package['version']} · "
+            f"{len(prepared.assets)} assets · {prepared.start}..{prepared.end}\n"
+            f"Study: {study_id}\n"
+        ),
+        project_context(project),
+        [
+            artifact(
+                "project",
+                project.manifest.id,
+                project.root_dir / PROJECT_MANIFEST,
+                immutable=False,
+            ),
+            artifact(
+                "research-request",
+                prepared.request_hash,
+                request_path,
+                immutable=False,
+            ),
+            artifact(
+                "dataset-snapshot",
+                intake["manifest"]["datasetSnapshotHash"],
+                project.root_dir / DATASET_SNAPSHOT,
+                immutable=False,
+            ),
+            artifact(
+                "project-intake",
+                project.manifest.id,
+                project.root_dir / PROJECT_INTAKE,
+                immutable=False,
+            ),
+        ],
+        [
+            next_action(
+                "study.inspect",
+                "Inspect the fixed Study and content-locked market snapshot.",
+                [
+                    "aq",
+                    "study",
+                    "inspect",
+                    str(project.root_dir),
+                    "--study",
+                    study_id,
+                    "--json",
+                ],
+                "read-only",
+            ),
+            next_action(
+                "run.execute",
+                "Execute the bounded real-data baseline.",
+                [
+                    "aq",
+                    "run",
+                    "execute",
+                    str(project.root_dir),
+                    "--study",
+                    study_id,
+                    "--json",
+                ],
+                "creates-artifact",
+            ),
+            next_action(
+                "session.start",
+                "Start delegated research with the preserved request.",
+                [
+                    "aq",
+                    "session",
+                    "start",
+                    str(project.root_dir),
+                    "--study",
+                    study_id,
+                    "--request",
+                    str(request_path),
+                    "--json",
+                ],
+                "creates-artifact",
+            ),
+        ],
     )
 
 
@@ -1594,6 +1729,7 @@ def _studio_serve(args: argparse.Namespace) -> CommandResult:
 
 def _validate(args: argparse.Namespace) -> CommandResult:
     project = _selected_project(args)
+    intake = load_project_intake(project)
     return CommandResult(
         "validate",
         {
@@ -1603,6 +1739,7 @@ def _validate(args: argparse.Namespace) -> CommandResult:
                 "name": project.manifest.name,
                 "rootDir": str(project.root_dir),
             },
+            "intake": intake,
         },
         f"Valid AutoQuant Project '{project.manifest.id}' at {project.root_dir}\n",
         project_context(project),
@@ -1628,6 +1765,7 @@ def _validate(args: argparse.Namespace) -> CommandResult:
 def _inspect(args: argparse.Namespace) -> CommandResult:
     project = _selected_project(args)
     data = inspect_project(project)
+    data["intake"] = load_project_intake(project)
     directory_lines = [
         f"  {key}: {value['entries']} entries ({value['relativePath']})"
         for key, value in data["directories"].items()
@@ -1685,6 +1823,7 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "campaign-result",
             "experiment",
             "judge-output",
+            "ohlcv-dataset-package",
             "project",
             "report-analysis",
             "research-request",
@@ -1712,6 +1851,7 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "campaign-result": CAMPAIGN_RESULT_JSON_SCHEMA,
             "campaign-progress": CAMPAIGN_PROGRESS_JSON_SCHEMA,
             "research-request": RESEARCH_REQUEST_JSON_SCHEMA,
+            "ohlcv-dataset-package": OHLCV_DATASET_PACKAGE_JSON_SCHEMA,
             "report-analysis": REPORT_ANALYSIS_JSON_SCHEMA,
             "studio-snapshot": STUDIO_SNAPSHOT_JSON_SCHEMA,
         }
@@ -1725,6 +1865,8 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
         return _workspace_init(args)
     if args.command_id == "project.create":
         return _project_create(args)
+    if args.command_id == "project.intake":
+        return _project_intake(args)
     if args.command_id == "project.list":
         return _project_list(args)
     if args.command_id == "project.default":

@@ -32,6 +32,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/request-driven-market-data-intake]] | Turned a real request and caller-supplied OHLCV snapshot into a content-locked research Project. | 2026-07-24 |
 | [[plans/mechanical-signal-policy-and-attribution]] | Made signal-state triggers, target sizing, and portfolio contribution attribution explicit. | 2026-07-24 |
 | [[plans/professional-factor-diagnostics]] | Added purge-aware rank/Pearson IC, decay, significance, quantiles, style overlap, stability, and exact daily evidence. | 2026-07-24 |
 | [[plans/research-selection-integrity]] | Made reference promotion validation-only and disclosed trial/test reuse across Session, Report, and Studio. | 2026-07-24 |

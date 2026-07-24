@@ -4,7 +4,8 @@ Status: V1 implemented.
 
 Related: [[docs/ARCHITECTURE]], [[docs/CLI]], [[docs/PROJECT_FORMAT]],
 [[docs/design/agent-cli-contract]], [[docs/design/research-session-loop]], and
-[[docs/design/external-researcher-driver]], and
+[[docs/design/external-researcher-driver]],
+[[docs/design/research-intake-and-dataset-snapshots]], and
 [[docs/design/quant-research-lifecycle]].
 
 ## Scope
@@ -48,6 +49,10 @@ It records its schema version, generation time, source scope, Workspace
 identity when present, and ordered Project observations. Each Project contains:
 
 - identity, description, research program, and validation diagnostics;
+- verified pre-Session request intake, dataset snapshot, and exact
+  Session-start command when present;
+- latest verified baseline decision metrics, with selection versus visible
+  audit/stress roles preserved rather than collapsed into one score;
 - verified Study and Run summaries;
 - verified Session snapshots and Experiment histories;
 - verified delegated requests and derived Research Briefs;
@@ -107,7 +112,8 @@ The first viewport answers:
 2. Which Sessions are active, and what is each current leader?
 3. Are external Researchers running, stopped, failed, or budget-exhausted?
 4. Which hypotheses were kept, reverted, or crashed?
-5. What did the caller ask, and is a verified Report ready?
+5. What did the caller ask, is its dataset content-locked, and is a verified
+   Report ready?
 6. What exact headless command advances or inspects the work?
 7. What verified evidence changed most recently?
 
@@ -115,6 +121,14 @@ The visual system is a dense research observatory rather than a generic admin
 dashboard. It supports keyboard focus, narrow screens, reduced motion, empty
 Projects, invalid evidence diagnostics, manual refresh, and bounded automatic
 refresh.
+
+Before a delegated Session exists, the first viewport prioritizes mandate,
+requested assets versus research universe, dataset authority, immutable
+baseline evidence, and the exact next headless action. Generic object counts
+must not displace available quantitative evidence. Sign alone is not a
+promotion threshold: the browser may mark negative return/risk evidence as
+adverse, but it must not colour a positive factor or portfolio value as
+successful unless Core exposes an explicit verified pass decision.
 
 ## Invariants
 

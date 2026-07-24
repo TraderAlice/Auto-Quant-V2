@@ -34,6 +34,9 @@ The V2 foundation now implements:
 - strict `autoquant-workspace.json` and `autoquant.json` manifests;
 - self-contained blank or reference-template Project creation and one-level
   Workspace discovery;
+- transactional request-driven Project intake from strict caller-supplied
+  daily-OHLCV packages, with normalized local bytes, explicit provider and
+  adjustment claims, source/snapshot hashes, and exact Study identity;
 - default or explicit Project resolution with root confinement and symlink
   rejection;
 - a packaged `aq` CLI with versioned JSON envelopes, capability discovery,
@@ -82,6 +85,8 @@ governed RL lane is defined in [[docs/design/rl-factor-policy-lab]]. The
 factor tear-sheet protocol is defined in [[docs/design/factor-diagnostics]].
 Mechanical signal state and attribution are defined in
 [[docs/design/signal-policy-and-attribution]].
+Request-driven construction and external dataset snapshots are defined in
+[[docs/design/research-intake-and-dataset-snapshots]].
 The end-to-end OpenAlice handoff, professional evidence stack, and HCI
 boundary are defined in [[docs/design/quant-research-lifecycle]].
 
@@ -196,6 +201,8 @@ behind the Harness contract, not the owner of Workspace or Project semantics.
 - Packaged browser presentation: `autoquant/studio_assets/`
 - Project template construction: `autoquant/templates.py` and
   `autoquant/project_templates/`
+- Request-driven dataset intake and Project snapshot verification:
+  `autoquant/intake.py`
 - Canonical Workspace/Project format: [[docs/PROJECT_FORMAT]]
 - Canonical CLI contract: [[docs/CLI]]
 - Workspace/Project design: [[docs/design/workspace-project-boundaries]]
@@ -203,6 +210,8 @@ behind the Harness contract, not the owner of Workspace or Project semantics.
 - Study/Run evidence design: [[docs/design/study-run-evidence]]
 - OHLCV Factor Lab design: [[docs/design/ohlcv-factor-lab]]
 - OHLCV Portfolio Lab design: [[docs/design/portfolio-construction-lab]]
+- Research intake and dataset snapshot design:
+  [[docs/design/research-intake-and-dataset-snapshots]]
 - Governed RL Factor-Policy Lab design:
   [[docs/design/rl-factor-policy-lab]]
 - Research selection and visible-test integrity:
@@ -253,8 +262,8 @@ These commands must not start autonomous research or a long backtest.
 
 - Branching/Pareto search and robust multi-metric promotion gates are not
   implemented.
-- Production ingestion, corporate-action, exchange-calendar, and external
-  dataset metadata contracts are not implemented.
+- Network ingestion, corporate-action computation, exchange-holiday
+  verification, and point-in-time universe contracts are not implemented.
 - The V0.5 Freqtrade runner is not adapted into the Study/Run contract.
 - Studio is read-only and does not yet provide confirmed Core operations.
 - ML is a supported architectural direction but has no execution contract yet.

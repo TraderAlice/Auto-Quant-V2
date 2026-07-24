@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, Callable
 from urllib.parse import urlsplit
 
+from .intake import load_project_intake
 from .research import list_campaign_progress, list_campaigns
 from .reports import list_reports
 from .runs import list_runs, load_run
@@ -534,6 +535,33 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
     diagnostics.extend(issues)
     sessions_raw, issues = _read_category("sessions", lambda: list_sessions(project))
     diagnostics.extend(issues)
+    intake_raw, issues = _read_category(
+        "intake",
+        lambda: load_project_intake(project),
+    )
+    diagnostics.extend(issues)
+    intake = intake_raw if isinstance(intake_raw, dict) else None
+    if intake is not None:
+        intake = {
+            **intake,
+            "commands": [
+                _command(
+                    "session.start",
+                    [
+                        "aq",
+                        "session",
+                        "start",
+                        str(project.root_dir),
+                        "--study",
+                        intake["study"]["id"],
+                        "--request",
+                        str(project.root_dir / intake["manifest"]["requestPath"]),
+                        "--json",
+                    ],
+                    "creates-artifact",
+                )
+            ],
+        }
     studies = [item.to_dict() for item in studies_raw]
     runs: list[dict[str, Any]] = []
     for item in runs_raw:
@@ -596,6 +624,7 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
             "path": str(program_path),
             "text": program_path.read_text(encoding="utf-8"),
         },
+        "intake": intake,
         "valid": not diagnostics,
         "diagnostics": diagnostics,
         "counts": {
@@ -1005,6 +1034,7 @@ STUDIO_SNAPSHOT_JSON_SCHEMA: dict[str, Any] = {
                 "description",
                 "rootDir",
                 "researchProgram",
+                "intake",
                 "valid",
                 "diagnostics",
                 "counts",
@@ -1027,6 +1057,7 @@ STUDIO_SNAPSHOT_JSON_SCHEMA: dict[str, Any] = {
                         "text": {"type": "string"},
                     },
                 },
+                "intake": {"type": ["object", "null"]},
                 "valid": {"type": "boolean"},
                 "diagnostics": {
                     "type": "array",

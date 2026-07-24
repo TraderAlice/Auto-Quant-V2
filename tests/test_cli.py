@@ -10,6 +10,7 @@ from pathlib import Path
 
 from autoquant.sessions import start_session
 from autoquant.studies import create_study
+from tests.intake_helpers import write_intake_inputs
 from tests.study_helpers import SUCCESS_JUDGE, make_project, study_definition
 
 
@@ -145,6 +146,7 @@ class AgentCliTests(unittest.TestCase):
                 "schema",
                 "workspace.init",
                 "project.create",
+                "project.intake",
                 "project.list",
                 "project.default",
                 "validate",
@@ -206,6 +208,22 @@ class AgentCliTests(unittest.TestCase):
                 "ohlcv-rl-factor-lab",
             ],
         )
+        project_intake = next(
+            command for command in commands if command["id"] == "project.intake"
+        )
+        self.assertEqual(project_intake["effect"], "creates-artifact")
+        self.assertEqual(
+            next(
+                argument
+                for argument in project_intake["arguments"]
+                if argument["name"] == "template"
+            )["choices"],
+            [
+                "ohlcv-factor-lab",
+                "ohlcv-portfolio-lab",
+                "ohlcv-rl-factor-lab",
+            ],
+        )
         schema = next(command for command in commands if command["id"] == "schema")
         self.assertEqual(
             schema["arguments"][0]["choices"],
@@ -221,6 +239,7 @@ class AgentCliTests(unittest.TestCase):
                 "campaign-result",
                 "campaign-progress",
                 "research-request",
+                "ohlcv-dataset-package",
                 "report-analysis",
                 "studio-snapshot",
             ],
@@ -271,6 +290,67 @@ class AgentCliTests(unittest.TestCase):
             ],
             "autoquant-studio-snapshot",
         )
+        dataset_schema = run_cli("schema", "ohlcv-dataset-package", "--json")
+        self.assertEqual(dataset_schema.returncode, 0, dataset_schema.stderr)
+        self.assertEqual(
+            json_output(dataset_schema)["data"]["schema"]["properties"][
+                "frequency"
+            ]["const"],
+            "1d",
+        )
+
+    def test_cli_intakes_request_and_dataset_into_ready_project(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            request_path, package_path = write_intake_inputs(root)
+            workspace = root / "workspace"
+            self.assertEqual(
+                run_cli("workspace", "init", str(workspace), "--json").returncode,
+                0,
+            )
+
+            created = run_cli(
+                "project",
+                "intake",
+                str(workspace),
+                "real-portfolio",
+                "--request",
+                str(request_path),
+                "--dataset",
+                str(package_path),
+                "--template",
+                "ohlcv-portfolio-lab",
+                "--json",
+            )
+
+            self.assertEqual(created.returncode, 0, created.stderr)
+            envelope = json_output(created)
+            self.assertEqual(envelope["command"], "project.intake")
+            self.assertEqual(
+                envelope["data"]["intake"]["manifest"]["status"],
+                "ready-for-session",
+            )
+            self.assertEqual(
+                envelope["data"]["intake"]["dataset"]["requestedAssets"],
+                ["AAPL", "MSFT"],
+            )
+            self.assertEqual(
+                [item["kind"] for item in envelope["artifacts"]],
+                [
+                    "project",
+                    "research-request",
+                    "dataset-snapshot",
+                    "project-intake",
+                ],
+            )
+            self.assertEqual(
+                [item["id"] for item in envelope["nextActions"]],
+                ["study.inspect", "run.execute", "session.start"],
+            )
+            self.assertIn(
+                str(Path(envelope["data"]["projectDir"]) / "request.json"),
+                envelope["nextActions"][-1]["argv"],
+            )
 
     def test_json_cli_completes_a_two_project_workspace_flow(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

@@ -70,6 +70,9 @@ Read the relevant linked document before changing a subsystem:
 - Mechanical signal state, hysteresis, conviction/risk sizing, execution
   reasons, and portfolio contribution reconciliation:
   [[docs/design/signal-policy-and-attribution]]
+- Request-driven Project construction, external OHLCV package validation,
+  normalized dataset snapshots, and pre-Session intake state:
+  [[docs/design/research-intake-and-dataset-snapshots]]
 - Resumable Agent worktrees, KEEP/REVERT/CRASH Experiments, and guarded source
   promotion: [[docs/design/research-session-loop]]
 - Provider-neutral external Researcher turns, budgets, restoration, and

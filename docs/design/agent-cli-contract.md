@@ -1,7 +1,8 @@
 # Agent CLI contract
 
-Status: implemented for Workspace, Project, Study, Run, Session, Experiment,
-bounded Research Campaign, delegated request, and Research Report operations.
+Status: implemented for Workspace, Project, request-driven OHLCV intake,
+Study, Run, Session, Experiment, bounded Research Campaign, delegated request,
+and Research Report operations.
 
 Related: [[docs/CLI]], [[docs/PROJECT_FORMAT]],
 [[docs/design/workspace-project-boundaries]], and
@@ -64,7 +65,10 @@ The current CLI supports:
 - `long-running-server`.
 
 Study/Session creation, Run execution, and Experiment evaluation use
-`creates-artifact`. Bounded `research.run` also uses `creates-artifact`: it may
+`creates-artifact`. Transactional `project.intake` also uses
+`creates-artifact`: it validates request/data before atomically exposing a
+self-contained Project and does not start a Run. Bounded `research.run` also
+uses `creates-artifact`: it may
 advance the Session leader through ordinary KEEP Experiments but never copies
 source into the owning Project. `report.publish` uses `creates-artifact` after
 strict analysis and evidence-reference validation. Only

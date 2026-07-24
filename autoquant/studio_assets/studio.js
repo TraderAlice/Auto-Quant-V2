@@ -37,6 +37,30 @@ const metric = (value) => {
   return number.toLocaleString(undefined, { maximumFractionDigits: 4 });
 };
 
+const percent = (value) => {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return "—";
+  }
+  return `${metric(Number(value) * 100)}%`;
+};
+
+const valueTone = (value) => {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number >= 0) return "";
+  return "bad";
+};
+
+const latestSuccessfulRun = (project) =>
+  project.runs
+    .slice()
+    .reverse()
+    .find((run) => run.status === "succeeded" && run.metricLayers) ?? null;
+
+const shortHash = (value) =>
+  typeof value === "string" && value.length > 14
+    ? `${value.slice(0, 8)}…${value.slice(-6)}`
+    : String(value ?? "—");
+
 const relativeTime = (value) => {
   const milliseconds = Date.now() - new Date(value).getTime();
   if (!Number.isFinite(milliseconds)) return "unknown";
@@ -116,12 +140,38 @@ function renderProjects() {
 
 function renderScoreboard(project) {
   const counts = project.counts;
-  const values = [
-    ["Active Sessions", counts.activeSessions, counts.sessions === 1 ? "1 total" : `${counts.sessions} total`, counts.activeSessions ? "live" : ""],
-    ["Running", counts.runningCampaigns, "mutable progress", counts.runningCampaigns ? "live" : ""],
-    ["Reports", counts.reports, `${counts.delegatedSessions} delegated`, counts.reports ? "live" : ""],
-    ["Immutable Runs", counts.runs, `${counts.verdicts.KEEP} kept · ${counts.campaigns} campaigns`, ""],
-  ];
+  const run = latestSuccessfulRun(project);
+  const layers = run?.metricLayers;
+  let values;
+  if (layers?.kind === "portfolio") {
+    values = [
+      ["Validation net Sharpe", metric(layers.portfolio.validationNetSharpe), "selection · baseline", valueTone(layers.portfolio.validationNetSharpe)],
+      ["Validation rank IC", metric(layers.factor.validationRankIc), "causal factor", valueTone(layers.factor.validationRankIc)],
+      ["Test max drawdown", percent(layers.portfolio.testMaximumDrawdown), "visible audit only", valueTone(layers.portfolio.testMaximumDrawdown)],
+      ["25 bps stress", metric(layers.robustness.test25bpsSharpe), "test stress · audit", valueTone(layers.robustness.test25bpsSharpe)],
+    ];
+  } else if (layers?.kind === "rl-policy") {
+    values = [
+      ["Validation net Sharpe", metric(layers.validationMeanNetSharpe), "seed/fold mean", valueTone(layers.validationMeanNetSharpe)],
+      ["Baseline advantage", metric(layers.validationBaselineAdvantage), "validation only", valueTone(layers.validationBaselineAdvantage)],
+      ["Seed/fold dispersion", metric(layers.validationSeedFoldStd), "lower is steadier", ""],
+      ["Failure rate", percent(layers.failureRate), `${layers.folds}×${layers.seeds} fold/seed`, layers.failureRate > 0 ? "bad" : "good"],
+    ];
+  } else if (layers?.kind === "factor") {
+    values = [
+      ["Validation rank IC", metric(layers.validationMeanIc), "1 bar · selection", valueTone(layers.validationMeanIc)],
+      ["HAC t-stat", metric(layers.validationHacTStatistic), "dependence-aware", valueTone(layers.validationHacTStatistic)],
+      ["Worst fold IC", metric(layers.validationWorstFoldMeanIc), "stability floor", valueTone(layers.validationWorstFoldMeanIc)],
+      ["Test rank IC", metric(layers.testMeanIc), "visible audit only", valueTone(layers.testMeanIc)],
+    ];
+  } else {
+    values = [
+      ["Active Sessions", counts.activeSessions, counts.sessions === 1 ? "1 total" : `${counts.sessions} total`, counts.activeSessions ? "live" : ""],
+      ["Running", counts.runningCampaigns, "mutable progress", counts.runningCampaigns ? "live" : ""],
+      ["Reports", counts.reports, `${counts.delegatedSessions} delegated`, counts.reports ? "live" : ""],
+      ["Immutable Runs", counts.runs, `${counts.verdicts.KEEP} kept · ${counts.campaigns} campaigns`, ""],
+    ];
+  }
   element("scoreboard").innerHTML = values
     .map(
       ([label, value, note, className]) => `
@@ -227,6 +277,7 @@ function copyCommandButton(command, label = "Copy command") {
   return `
     <button class="command-button" type="button"
       data-copy-command="${escapeHtml(command.display)}"
+      data-copy-label="${escapeHtml(label)}"
       title="${escapeHtml(command.display)}">
       <span>${escapeHtml(label)}</span>
       <code>${escapeHtml(command.display)}</code>
@@ -244,7 +295,7 @@ function bindCopyCommands() {
         if (label) label.textContent = "Copy failed";
       }
       window.setTimeout(() => {
-        if (label) label.textContent = "Copy command";
+        if (label) label.textContent = button.dataset.copyLabel ?? "Copy command";
       }, 1600);
     });
   });
@@ -254,6 +305,60 @@ function renderHandoff(project) {
   const session = selectedSession(project);
   const delegation = session?.delegation;
   if (!session || !delegation) {
+    const intake = project.intake;
+    if (intake) {
+      const request = intake.request;
+      const dataset = intake.dataset;
+      const source = request.source;
+      const start = intake.commands.find((item) => item.id === "session.start");
+      const baseline = latestSuccessfulRun(project);
+      const layers = baseline?.metricLayers;
+      const portfolio = layers?.kind === "portfolio" ? layers : null;
+      const baselineTone = valueTone(baseline?.primaryValue);
+      element("handoff-flow").textContent =
+        "REQUEST → DATASET → BASELINE → ITERATE";
+      element("handoff-meta").textContent = baseline
+        ? `${baseline.primaryMetric} ${metric(baseline.primaryValue)} · Session not started`
+        : "Content locked · baseline pending";
+      element("handoff-board").innerHTML = `
+        <article class="handoff-card request-card">
+          <small>01 · Research mandate</small>
+          <h3>${escapeHtml(request.title)}</h3>
+          <p>${escapeHtml(request.question)}</p>
+          <dl class="handoff-kv">
+            <dt>Requested assets</dt><dd>${escapeHtml(request.assets.map((item) => item.symbol).join(", "))}</dd>
+            <dt>Direction</dt><dd>${escapeHtml(request.direction)}</dd>
+            <dt>Horizon</dt><dd>${escapeHtml(request.horizon)}</dd>
+          </dl>
+          <span class="context-note">Caller-supplied context · ${escapeHtml(source.system)} / ${escapeHtml(source.workspaceId ?? "unspecified")}</span>
+        </article>
+        <article class="handoff-card evidence-card">
+          <small>02 · Research universe</small>
+          <h3>${dataset.universe.length}-asset content-locked panel</h3>
+          <p>${escapeHtml(dataset.universe.join(" · "))}</p>
+          <div class="handoff-metrics">
+            <span><b>${escapeHtml(dataset.frequency)}</b><small>frequency</small></span>
+            <span><b>${dataset.assets[0]?.observations ?? "—"}</b><small>sessions</small></span>
+            <span><b>${escapeHtml(dataset.market.calendar)}</b><small>calendar claim</small></span>
+          </div>
+          <span class="context-note">${escapeHtml(dataset.provider.name)} · ${escapeHtml(dataset.priceAdjustment)} · ${escapeHtml(dataset.timeRange.start)} → ${escapeHtml(dataset.timeRange.end)} · provider claims</span>
+        </article>
+        <article class="handoff-card report-card ${baseline ? "ready" : ""}">
+          <small>03 · Baseline &amp; next action</small>
+          <h3>${baseline ? `${escapeHtml(baseline.primaryMetric)} = ${metric(baseline.primaryValue)}` : escapeHtml(intake.study.name)}</h3>
+          <p>${baseline ? "The immutable baseline is descriptive evidence, not a recommendation. Start a governed Session to test candidates against validation-only selection." : "Start a governed Session to run a fresh baseline and freeze this request into its derived Brief."}</p>
+          ${portfolio ? `
+          <div class="handoff-metrics">
+            <span class="${valueTone(portfolio.factor.validationRankIc)}"><b>${metric(portfolio.factor.validationRankIc)}</b><small>validation IC</small></span>
+            <span class="${valueTone(portfolio.portfolio.testMaximumDrawdown)}"><b>${percent(portfolio.portfolio.testMaximumDrawdown)}</b><small>test max DD</small></span>
+            <span class="${valueTone(portfolio.robustness.test25bpsSharpe)}"><b>${metric(portfolio.robustness.test25bpsSharpe)}</b><small>25bps audit</small></span>
+          </div>` : ""}
+          <span class="status-chip ${baselineTone === "bad" ? "revert" : "active"}">${baseline ? (baselineTone === "bad" ? "negative baseline" : "baseline verified") : "ready"}</span>
+          ${copyCommandButton(start, "Copy start command")}
+        </article>`;
+      return;
+    }
+    element("handoff-flow").textContent = "REQUEST → EVIDENCE → REPORT";
     element("handoff-meta").textContent = "No delegated request";
     element("handoff-board").innerHTML = `
       <div class="empty-panel handoff-empty">
@@ -268,6 +373,7 @@ function renderHandoff(project) {
   const publish = commandFor(session, "report.publish");
   const show = commandFor(session, "report.show");
   const assets = request.assets.map((item) => item.symbol).join(", ");
+  element("handoff-flow").textContent = "REQUEST → EVIDENCE → REPORT";
   element("handoff-meta").textContent =
     latestReport ? `${session.reports.length} verified report${session.reports.length === 1 ? "" : "s"}` : "Report analysis pending";
   element("handoff-board").innerHTML = `
@@ -496,6 +602,60 @@ function renderInspector(project) {
   const session = selectedSession(project);
   if (!session) {
     element("inspector-kind").textContent = "PROJECT";
+    const intake = project.intake;
+    const baseline = latestSuccessfulRun(project);
+    if (intake) {
+      const request = intake.request;
+      const dataset = intake.dataset;
+      const portfolio =
+        baseline?.metricLayers?.kind === "portfolio"
+          ? baseline.metricLayers
+          : null;
+      const start = intake.commands.find((item) => item.id === "session.start");
+      element("inspector-content").innerHTML = `
+        <section class="inspector-section">
+          <small>Research mandate</small>
+          <h3>${escapeHtml(request.title)}</h3>
+          <p>${escapeHtml(request.question)}</p>
+          <dl class="inspector-kv">
+            <dt>Requested</dt><dd>${escapeHtml(request.assets.map((item) => item.symbol).join(", "))}</dd>
+            <dt>Research universe</dt><dd>${escapeHtml(dataset.universe.join(", "))}</dd>
+            <dt>Direction</dt><dd>${escapeHtml(request.direction)}</dd>
+            <dt>Horizon</dt><dd>${escapeHtml(request.horizon)}</dd>
+          </dl>
+        </section>
+        <section class="inspector-section">
+          <small>Dataset authority</small>
+          <h3>${escapeHtml(dataset.id)}@${escapeHtml(dataset.version)}</h3>
+          <p>Provider, calendar, venue, and adjustment values are caller-supplied claims. Canonical Project-local bytes are content locked.</p>
+          <dl class="inspector-kv">
+            <dt>Provider claim</dt><dd>${escapeHtml(dataset.provider.name)}</dd>
+            <dt>Adjustment</dt><dd>${escapeHtml(dataset.priceAdjustment)}</dd>
+            <dt>Calendar</dt><dd>${escapeHtml(dataset.market.calendar)} · ${escapeHtml(dataset.frequency)}</dd>
+            <dt>Coverage</dt><dd>${escapeHtml(dataset.timeRange.start)} → ${escapeHtml(dataset.timeRange.end)}</dd>
+            <dt>Dataset hash</dt><dd title="${escapeHtml(intake.manifest.datasetHash)}">${escapeHtml(shortHash(intake.manifest.datasetHash))}</dd>
+          </dl>
+        </section>
+        <section class="inspector-section">
+          <small>Immutable baseline</small>
+          <h3>${escapeHtml(baseline?.studyId ?? intake.study.name)}</h3>
+          ${baseline ? `<span class="status-chip ${valueTone(baseline.primaryValue) === "bad" ? "revert" : "published"}">${escapeHtml(baseline.status)}</span>` : '<span class="status-chip active">pending</span>'}
+          <dl class="inspector-kv">
+            <dt>${escapeHtml(baseline?.primaryMetric ?? "Primary metric")}</dt><dd>${metric(baseline?.primaryValue)}</dd>
+            ${portfolio ? `<dt>Validation rank IC</dt><dd>${metric(portfolio.factor.validationRankIc)}</dd>
+            <dt>Test max drawdown</dt><dd>${percent(portfolio.portfolio.testMaximumDrawdown)}</dd>
+            <dt>Annual turnover</dt><dd>${percent(portfolio.implementation.testAnnualizedTurnover)}</dd>
+            <dt>Cost drag</dt><dd>${percent(portfolio.implementation.testCostDrag)}</dd>` : ""}
+            <dt>Selection</dt><dd>validation only</dd>
+          </dl>
+          ${copyCommandButton(start, "Copy start command")}
+        </section>
+        <details class="program-details">
+          <summary>Research program</summary>
+          <pre class="program-copy">${escapeHtml(project.researchProgram.text)}</pre>
+        </details>`;
+      return;
+    }
     element("inspector-content").innerHTML = `
       <section class="inspector-section">
         <small>Research program</small>
@@ -620,6 +780,7 @@ function renderEmptyWorkspace(message = "Create a Project with aq project create
   element("pulse-meta").textContent = "No active Sessions";
   element("session-lanes").innerHTML =
     '<div class="empty-panel">A governed Session will appear here after its first fixed baseline.</div>';
+  element("handoff-flow").textContent = "REQUEST → EVIDENCE → REPORT";
   element("handoff-meta").textContent = "No delegated request";
   element("handoff-board").innerHTML =
     '<div class="empty-panel handoff-empty">Delegated research requests will appear here.</div>';
@@ -675,7 +836,9 @@ function render() {
   element("project-state").textContent = project.valid
     ? project.counts.runningCampaigns
       ? "RESEARCHER IN PROGRESS"
-      : "VERIFIED RESEARCH PROJECT"
+      : project.intake && project.counts.sessions === 0
+        ? "CONTENT-LOCKED INTAKE READY"
+        : "VERIFIED RESEARCH PROJECT"
     : "ATTENTION REQUIRED";
   element("project-title").textContent = project.name;
   element("project-description").textContent =

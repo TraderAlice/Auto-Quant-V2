@@ -41,6 +41,24 @@ contexts, artifacts, operation effects, and executable next actions under
 `--json`. See [`docs/PROJECT_FORMAT.md`](docs/PROJECT_FORMAT.md) and
 [`docs/CLI.md`](docs/CLI.md).
 
+For an actual delegated question, construct a Project from a strict request and
+caller-supplied daily-OHLCV package instead of editing a synthetic template:
+
+```bash
+uv run aq schema ohlcv-dataset-package --json
+uv run aq project intake ./quant-workspace us-leadership \
+  --request research-request.json \
+  --dataset /path/to/dataset.json \
+  --template ohlcv-portfolio-lab \
+  --json
+```
+
+Intake validates and normalizes the complete aligned panel, confines every
+source path, preserves provider/calendar/adjustment claims, hashes source and
+Project-local bytes, and transactionally creates the exact Study. It does not
+download data or silently start research. Its returned `session.start` action
+binds the preserved request after a fresh baseline.
+
 The `ohlcv-factor-lab` starter is the first runnable V2 research Project. It
 uses ordinary pandas/NumPy factor code, a deterministic six-asset synthetic
 OHLCV fixture, dataset-fixed purge-aware chronological evaluation, dataset

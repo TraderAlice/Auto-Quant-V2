@@ -1,8 +1,8 @@
 # AutoQuant V2 CLI
 
-Status: Workspace/Project, Study/Run evidence, governed Session/Experiment
-research, bounded external Researcher Campaigns, delegated requests, and
-evidence-bound Research Reports implemented.
+Status: Workspace/Project and request-driven OHLCV intake, Study/Run evidence,
+governed Session/Experiment research, bounded external Researcher Campaigns,
+delegated requests, and evidence-bound Research Reports implemented.
 
 `aq` is the public human- and Agent-facing command line interface. Humans
 receive compact text by default. `--json` emits exactly one versioned envelope.
@@ -15,6 +15,7 @@ aq capabilities --json
 aq schema
 aq schema project --json
 aq schema research-request --json
+aq schema ohlcv-dataset-package --json
 aq schema report-analysis --json
 ```
 
@@ -38,6 +39,11 @@ aq project create <workspace-dir> <project-id> \
   [--name NAME] [--description TEXT] \
   [--template blank|ohlcv-factor-lab|ohlcv-portfolio-lab|ohlcv-rl-factor-lab] \
   [--json]
+aq project intake <workspace-dir> <project-id> \
+  --request research-request.json \
+  --dataset ohlcv-dataset-package.json \
+  [--template ohlcv-factor-lab|ohlcv-portfolio-lab|ohlcv-rl-factor-lab] \
+  [--name NAME] [--json]
 aq project list <workspace-dir> [--json]
 aq project default <workspace-dir> <project-id> [--json]
 aq validate <project-or-workspace-dir> [--project ID] [--json]
@@ -58,6 +64,21 @@ transaction costs, layered professional metrics, and cost/delay stresses.
 fixed factor-mixture actions, Q-learning, folds, seeds, rewards, portfolio
 accounting, and simple baselines. All three reference templates are bounded,
 deterministic construction fixtures.
+
+`project intake` is the production-shaped construction boundary for the same
+three fixed Labs. It validates the strict request and a caller-supplied,
+path-confined daily session-OHLCV package before creating anything. Every asset
+must share the exact timestamp panel; template-specific breadth/history floors
+apply. Core canonicalizes CSV into the Project, records provider, retrieval,
+calendar, terms, and price-adjustment claims, hashes source and normalized
+bytes, replaces the synthetic Study dataset identity, and atomically publishes
+the Project. V1 does not download data, authenticate provider claims, fill
+missing sessions, or support intraday/continuous/mixed-class packages.
+
+The JSON result contains Project-level `request.json`, `intake.json`,
+`data/ohlcv/snapshot.json`, the verified Study identity, and exact next actions
+for inspection, a baseline Run, and a delegated Session start. See
+[[docs/design/research-intake-and-dataset-snapshots]].
 
 ## Study and Run commands
 

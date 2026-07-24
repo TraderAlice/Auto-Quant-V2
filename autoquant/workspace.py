@@ -611,6 +611,7 @@ def create_project(
     name: str | None = None,
     description: str = "",
     template: str = "blank",
+    template_intake: Any | None = None,
 ) -> ProjectContext:
     from .templates import PROJECT_TEMPLATE_IDS
 
@@ -672,7 +673,21 @@ def create_project(
             from .templates import apply_project_template
 
             staged = load_project(temporary, expected_id=project_id)
-            apply_project_template(staged, template)
+            apply_project_template(
+                staged,
+                template,
+                intake=template_intake,
+            )
+        elif template_intake is not None:
+            raise AutoQuantValidationError(
+                [
+                    _issue(
+                        template,
+                        "intake.template",
+                        "Blank Projects cannot receive OHLCV intake",
+                    )
+                ]
+            )
         os.replace(temporary, target)
     except Exception:
         if temporary.exists():

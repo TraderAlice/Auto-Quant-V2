@@ -68,6 +68,26 @@ from immutable Experiments; Reports freeze the same projection. Generic
 Studies without this declaration remain valid and are explicitly shown as
 `unspecified`. See [[docs/design/research-selection-integrity]].
 
+`aq project intake` uses one of these same fixed templates but replaces the
+construction fixture with a validated caller-supplied daily-OHLCV snapshot.
+The resulting Project adds:
+
+```text
+request.json
+intake.json
+data/ohlcv/
+├── <SYMBOL>.csv
+├── README.md
+└── snapshot.json
+```
+
+`snapshot.json` preserves package/provider/market/adjustment claims, requested
+assets, research universe, coverage, source hashes, and canonical hashes.
+`intake.json` binds request, snapshot, Study, dataset, and complete Study input
+hashes. The Study's `ohlcv/**` closure makes every local dataset byte part of
+Run and Session identity. See
+[[docs/design/research-intake-and-dataset-snapshots]].
+
 ```text
 factor-lab/
 ├── autoquant.json

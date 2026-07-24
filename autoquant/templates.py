@@ -8,6 +8,7 @@ import random
 from datetime import date, timedelta
 from importlib import resources
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from .studies import (
     StudyDataset,
@@ -24,6 +25,9 @@ from .workspace import (
     ProjectContext,
     ValidationIssue,
 )
+
+if TYPE_CHECKING:
+    from .intake import PreparedIntake
 
 
 PROJECT_TEMPLATE_IDS = (
@@ -252,8 +256,117 @@ def _write_template_source(
     )
 
 
-def _apply_ohlcv_factor_lab(project: ProjectContext) -> None:
-    end = _write_demo_ohlcv(project)
+def _intake_dataset(
+    project: ProjectContext,
+    intake: PreparedIntake,
+    study_id: str,
+) -> tuple[date, dict[str, object], str]:
+    from .intake import materialize_intake_dataset
+
+    _, snapshot_hash = materialize_intake_dataset(project, intake, study_id)
+    return (
+        date.fromisoformat(intake.end),
+        {
+            "id": intake.package["id"],
+            "version": intake.package["version"],
+            "asset_class": intake.package["assetClass"],
+            "universe": intake.universe,
+            "start": intake.start,
+        },
+        snapshot_hash,
+    )
+
+
+def _finalize_intake(
+    project: ProjectContext,
+    intake: PreparedIntake | None,
+    study,
+    snapshot_hash: str | None,
+) -> None:
+    if intake is None:
+        return
+    from .intake import finalize_project_intake
+
+    assert snapshot_hash is not None
+    finalize_project_intake(project, intake, study, snapshot_hash)
+
+
+def _externalize_intake_guidance(
+    project: ProjectContext,
+    intake: PreparedIntake | None,
+    program_path: Path,
+) -> None:
+    if intake is None:
+        return
+    replacements = {
+        (
+            "Do not modify the Study, Judge, program, dataset, or AutoQuant "
+            "Core to improve a\ncandidate. Do not treat this synthetic "
+            "benchmark as a real-market alpha claim."
+        ): (
+            "Do not modify the Study, Judge, program, dataset, or AutoQuant "
+            "Core to improve a\ncandidate. These historical provider-supplied "
+            "bars are research evidence, not proof of\nfuture alpha."
+        ),
+        (
+            "This is a synthetic bar-target-weight simulation, not an L2 fill "
+            "model, order\ninstruction, or live-trading recommendation."
+        ): (
+            "This is a historical bar-target-weight simulation, not an L2 fill "
+            "model, order\ninstruction, or live-trading recommendation."
+        ),
+        (
+            "The checked-in construction recipe\ngenerates a small "
+            "deterministic synthetic fixture; it is a Harness benchmark,\nnot "
+            "evidence about real markets."
+        ): (
+            "This Project was transactionally constructed from a caller-"
+            "supplied, content-locked\ndaily OHLCV snapshot. Provider, "
+            "calendar, and price-adjustment metadata are\ndisclosed claims, "
+            "not authenticated by AutoQuant."
+        ),
+    }
+    disclosure = (
+        "\n\n## External dataset authority\n\n"
+        f"- Dataset: `{intake.package['id']}@{intake.package['version']}`\n"
+        f"- Research universe: {', '.join(intake.universe)}\n"
+        f"- Coverage: `{intake.start}` through `{intake.end}`\n"
+        f"- Provider claim: `{intake.package['provider']['name']}`\n"
+        f"- Adjustment claim: `{intake.package['priceAdjustment']}`\n\n"
+        "The Study hashes canonical Project-local bytes. Do not add newer rows "
+        "or replace the\nsnapshot during one Session; create a new intake/"
+        "Study identity for a fresh holdout.\n"
+    )
+    for path in (
+        project.root_dir / project.manifest.research_program,
+        program_path,
+    ):
+        text = path.read_text(encoding="utf-8")
+        for old, new in replacements.items():
+            text = text.replace(old, new)
+        path.write_text(text.rstrip() + disclosure, encoding="utf-8")
+
+
+def _apply_ohlcv_factor_lab(
+    project: ProjectContext,
+    intake: PreparedIntake | None = None,
+) -> None:
+    if intake is None:
+        end = _write_demo_ohlcv(project)
+        dataset = {
+            "id": "synthetic-ohlcv-factor-fixture",
+            "version": "v1",
+            "asset_class": "synthetic-multi-asset",
+            "universe": list(OHLCV_ASSETS),
+            "start": OHLCV_START.isoformat(),
+        }
+        snapshot_hash = None
+    else:
+        end, dataset, snapshot_hash = _intake_dataset(
+            project,
+            intake,
+            OHLCV_STUDY_ID,
+        )
     _write_template_source(project, "factors/candidate.py", "candidate.py")
     _write_template_source(project, "judges/ohlcv_factor.py", "judge.py")
     _write_template_source(
@@ -271,6 +384,8 @@ def _apply_ohlcv_factor_lab(project: ProjectContext) -> None:
         name="OHLCV Factor Quality",
         description=(
             "Mine a causal cross-sectional factor on a fixed synthetic OHLCV fixture"
+            if intake is None
+            else "Mine a causal cross-sectional factor on a content-locked market snapshot"
         ),
         program="program.md",
         subject=StudySubject("factor", "candidate-factor", "working"),
@@ -284,11 +399,11 @@ def _apply_ohlcv_factor_lab(project: ProjectContext) -> None:
         ),
         objective=StudyObjective("validation_mean_ic", "maximize", 0.01),
         dataset=StudyDataset(
-            "synthetic-ohlcv-factor-fixture",
-            "v1",
-            "synthetic-multi-asset",
-            list(OHLCV_ASSETS),
-            StudyTimeRange(OHLCV_START.isoformat(), end.isoformat()),
+            str(dataset["id"]),
+            str(dataset["version"]),
+            str(dataset["asset_class"]),
+            list(dataset["universe"]),
+            StudyTimeRange(str(dataset["start"]), end.isoformat()),
             ["ohlcv/**"],
         ),
     )
@@ -297,12 +412,32 @@ def _apply_ohlcv_factor_lab(project: ProjectContext) -> None:
         _template_text("program.md"),
         encoding="utf-8",
     )
-    load_study(project, OHLCV_STUDY_ID)
+    _externalize_intake_guidance(project, intake, study.program_path)
+    study = load_study(project, OHLCV_STUDY_ID)
+    _finalize_intake(project, intake, study, snapshot_hash)
 
 
-def _apply_ohlcv_portfolio_lab(project: ProjectContext) -> None:
+def _apply_ohlcv_portfolio_lab(
+    project: ProjectContext,
+    intake: PreparedIntake | None = None,
+) -> None:
     template = "ohlcv_portfolio_lab"
-    end = _write_demo_ohlcv(project, readme_template=template)
+    if intake is None:
+        end = _write_demo_ohlcv(project, readme_template=template)
+        dataset = {
+            "id": "synthetic-ohlcv-portfolio-fixture",
+            "version": "v1",
+            "asset_class": "synthetic-multi-asset",
+            "universe": list(OHLCV_ASSETS),
+            "start": OHLCV_START.isoformat(),
+        }
+        snapshot_hash = None
+    else:
+        end, dataset, snapshot_hash = _intake_dataset(
+            project,
+            intake,
+            PORTFOLIO_STUDY_ID,
+        )
     _write_template_source(
         project,
         "factors/candidate.py",
@@ -344,11 +479,11 @@ def _apply_ohlcv_portfolio_lab(project: ProjectContext) -> None:
         ),
         objective=StudyObjective("validation_net_sharpe", "maximize", 0.05),
         dataset=StudyDataset(
-            "synthetic-ohlcv-portfolio-fixture",
-            "v1",
-            "synthetic-multi-asset",
-            list(OHLCV_ASSETS),
-            StudyTimeRange(OHLCV_START.isoformat(), end.isoformat()),
+            str(dataset["id"]),
+            str(dataset["version"]),
+            str(dataset["asset_class"]),
+            list(dataset["universe"]),
+            StudyTimeRange(str(dataset["start"]), end.isoformat()),
             ["ohlcv/**"],
         ),
     )
@@ -357,12 +492,32 @@ def _apply_ohlcv_portfolio_lab(project: ProjectContext) -> None:
         _template_text("program.md", template=template),
         encoding="utf-8",
     )
-    load_study(project, PORTFOLIO_STUDY_ID)
+    _externalize_intake_guidance(project, intake, study.program_path)
+    study = load_study(project, PORTFOLIO_STUDY_ID)
+    _finalize_intake(project, intake, study, snapshot_hash)
 
 
-def _apply_ohlcv_rl_factor_lab(project: ProjectContext) -> None:
+def _apply_ohlcv_rl_factor_lab(
+    project: ProjectContext,
+    intake: PreparedIntake | None = None,
+) -> None:
     template = "ohlcv_rl_factor_lab"
-    end = _write_rl_ohlcv(project)
+    if intake is None:
+        end = _write_rl_ohlcv(project)
+        dataset = {
+            "id": "synthetic-ohlcv-rl-regime-fixture",
+            "version": "v1",
+            "asset_class": "synthetic-multi-asset",
+            "universe": list(OHLCV_ASSETS),
+            "start": OHLCV_START.isoformat(),
+        }
+        snapshot_hash = None
+    else:
+        end, dataset, snapshot_hash = _intake_dataset(
+            project,
+            intake,
+            RL_STUDY_ID,
+        )
     _write_template_source(
         project,
         "models/candidate.py",
@@ -414,11 +569,11 @@ def _apply_ohlcv_rl_factor_lab(project: ProjectContext) -> None:
             0.20,
         ),
         dataset=StudyDataset(
-            "synthetic-ohlcv-rl-regime-fixture",
-            "v1",
-            "synthetic-multi-asset",
-            list(OHLCV_ASSETS),
-            StudyTimeRange(OHLCV_START.isoformat(), end.isoformat()),
+            str(dataset["id"]),
+            str(dataset["version"]),
+            str(dataset["asset_class"]),
+            list(dataset["universe"]),
+            StudyTimeRange(str(dataset["start"]), end.isoformat()),
             ["ohlcv/**"],
         ),
     )
@@ -427,10 +582,17 @@ def _apply_ohlcv_rl_factor_lab(project: ProjectContext) -> None:
         _template_text("program.md", template=template),
         encoding="utf-8",
     )
-    load_study(project, RL_STUDY_ID)
+    _externalize_intake_guidance(project, intake, study.program_path)
+    study = load_study(project, RL_STUDY_ID)
+    _finalize_intake(project, intake, study, snapshot_hash)
 
 
-def apply_project_template(project: ProjectContext, template_id: str) -> None:
+def apply_project_template(
+    project: ProjectContext,
+    template_id: str,
+    *,
+    intake: PreparedIntake | None = None,
+) -> None:
     if template_id not in PROJECT_TEMPLATE_IDS:
         raise AutoQuantValidationError(
             [
@@ -443,10 +605,20 @@ def apply_project_template(project: ProjectContext, template_id: str) -> None:
             ]
         )
     if template_id == "blank":
+        if intake is not None:
+            raise AutoQuantValidationError(
+                [
+                    _issue(
+                        template_id,
+                        "intake.template",
+                        "Blank Projects cannot receive OHLCV intake",
+                    )
+                ]
+            )
         return
     if template_id == "ohlcv-factor-lab":
-        _apply_ohlcv_factor_lab(project)
+        _apply_ohlcv_factor_lab(project, intake)
     elif template_id == "ohlcv-portfolio-lab":
-        _apply_ohlcv_portfolio_lab(project)
+        _apply_ohlcv_portfolio_lab(project, intake)
     else:
-        _apply_ohlcv_rl_factor_lab(project)
+        _apply_ohlcv_rl_factor_lab(project, intake)
