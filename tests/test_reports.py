@@ -269,7 +269,12 @@ class ResearchHandoffTests(unittest.TestCase):
             self.assertEqual(studio_session["reports"][0]["id"], report.report["id"])
             self.assertEqual(
                 [item["id"] for item in studio_session["commands"]],
-                ["session.show", "report.publish", "report.show"],
+                [
+                    "session.show",
+                    "session.compare",
+                    "report.publish",
+                    "report.show",
+                ],
             )
             self.assertEqual(observation["timeline"][0]["kind"], "report")
 

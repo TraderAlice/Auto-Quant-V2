@@ -200,6 +200,7 @@ class AgentCliTests(unittest.TestCase):
                 "session.start",
                 "session.list",
                 "session.show",
+                "session.compare",
                 "session.promote",
                 "experiment.evaluate",
                 "experiment.list",
@@ -274,6 +275,7 @@ class AgentCliTests(unittest.TestCase):
                 "judge-output",
                 "run-result",
                 "portfolio-diagnostics",
+                "session-decision-matrix",
                 "session",
                 "experiment",
                 "researcher-response",
@@ -354,6 +356,22 @@ class AgentCliTests(unittest.TestCase):
                 "kind"
             ]["const"],
             "autoquant-portfolio-diagnostics",
+        )
+        comparison_schema = run_cli(
+            "schema",
+            "session-decision-matrix",
+            "--json",
+        )
+        self.assertEqual(
+            comparison_schema.returncode,
+            0,
+            comparison_schema.stderr,
+        )
+        self.assertEqual(
+            json_output(comparison_schema)["data"]["schema"]["properties"][
+                "kind"
+            ]["const"],
+            "autoquant-session-decision-matrix",
         )
 
     def test_cli_intakes_request_and_dataset_into_ready_project(self) -> None:
@@ -728,7 +746,7 @@ class AgentCliTests(unittest.TestCase):
             self.assertEqual(started_json["data"]["session"]["leader"]["value"], 1.0)
             self.assertEqual(
                 [action["id"] for action in started_json["nextActions"]],
-                ["session.show", "experiment.evaluate"],
+                ["session.show", "session.compare", "experiment.evaluate"],
             )
             (worktree / "factors/candidate.py").write_text("SCORE = 2.0\n")
 
@@ -752,6 +770,28 @@ class AgentCliTests(unittest.TestCase):
             self.assertIn(
                 "session.promote",
                 [action["id"] for action in evaluated_json["nextActions"]],
+            )
+            compared = run_cli(
+                "session",
+                "compare",
+                str(workspace),
+                "--session",
+                session_id,
+                "--trials",
+                "1",
+                "--json",
+            )
+            self.assertEqual(compared.returncode, 0, compared.stderr)
+            comparison = json_output(compared)
+            self.assertEqual(comparison["command"], "session.compare")
+            self.assertEqual(
+                comparison["data"]["kind"],
+                "autoquant-session-decision-matrix",
+            )
+            self.assertEqual(comparison["data"]["metricFamily"], "generic")
+            self.assertEqual(
+                [trial["verdict"] for trial in comparison["data"]["trials"]],
+                ["BASELINE", "KEEP"],
             )
 
             history = run_cli(

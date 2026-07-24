@@ -189,6 +189,7 @@ Humans can watch the same Workspace through the lightweight local Studio:
 ```bash
 uv run aq studio snapshot ./quant-workspace --json
 uv run aq studio serve ./quant-workspace
+uv run aq session compare ./quant-workspace --session SESSION_ID --json
 ```
 
 Studio shows Projects, delegated requests, active Session leaders, running

@@ -10,7 +10,8 @@ Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]], [[docs/CLI]],
 [[docs/design/research-intake-and-dataset-snapshots]],
 [[docs/design/portfolio-construction-lab]], and
 [[docs/design/rl-factor-policy-lab]], and
-[[docs/design/research-selection-integrity]].
+[[docs/design/research-selection-integrity]], and
+[[docs/design/session-decision-matrix]].
 
 ## Scope
 
@@ -278,6 +279,13 @@ The browser may copy exact headless commands, filter, compare, and inspect. It
 must never invent a metric, approve a candidate, publish a report, or become a
 second evaluator. Human guidance enters through explicit request/analysis
 artifacts so AI work remains attributable and reproducible.
+
+The implemented Session Decision Matrix is the first multi-candidate HCI
+surface under this rule. Core verifies and normalizes a bounded immutable trial
+chain; CLI and Studio present the same metric descriptors, preference
+directions, validation-only non-dominance, leader trade-offs, and explicitly
+separate test-audit evidence. The browser neither chooses metrics nor changes
+the fixed primary-objective verdict.
 
 ## Phased delivery
 

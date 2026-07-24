@@ -72,6 +72,9 @@ The V2 foundation now implements:
 - one shared research-selection integrity projection that keeps reference
   promotion validation-only and freezes trial/test-reuse disclosure through
   Sessions, Reports, and Studio.
+- one bounded Session Decision Matrix that verifies the immutable trial chain,
+  applies fixed family-specific metric semantics, and separates validation
+  comparison from test audit and contextual evidence.
 
 The canonical contracts are [[docs/PROJECT_FORMAT]] and [[docs/CLI]]. The
 boundary designs are [[docs/design/workspace-project-boundaries]] and
@@ -88,10 +91,16 @@ Mechanical signal state and attribution are defined in
 [[docs/design/signal-policy-and-attribution]].
 Bounded immutable Portfolio artifact projection is defined in
 [[docs/design/portfolio-decision-explorer]].
+Session-level professional evidence comparison is defined in
+[[docs/design/session-decision-matrix]].
 Request-driven construction and external dataset snapshots are defined in
 [[docs/design/research-intake-and-dataset-snapshots]].
 The end-to-end OpenAlice handoff, professional evidence stack, and HCI
 boundary are defined in [[docs/design/quant-research-lifecycle]].
+
+The implementation boundary for Session comparison is
+`autoquant/decision_matrix.py`; CLI and Studio consume that Core read model
+without reimplementing metric choice or verdict semantics.
 
 The repository also contains the V0.5 development Harness inherited from
 Auto-Quant Classic:

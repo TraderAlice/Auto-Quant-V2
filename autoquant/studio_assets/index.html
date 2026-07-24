@@ -161,6 +161,42 @@
           <div class="session-lanes" id="session-lanes"></div>
         </section>
 
+        <section
+          class="decision-matrix-section"
+          id="decision-matrix"
+          aria-labelledby="decision-matrix-title"
+          hidden
+        >
+          <header class="section-header">
+            <span>
+              <small>BASELINE → CANDIDATES → LEADER</small>
+              <h2 id="decision-matrix-title">Session decision matrix</h2>
+            </span>
+            <span class="section-meta" id="decision-matrix-meta">No Session</span>
+          </header>
+          <div class="decision-summary" id="decision-summary"></div>
+          <article class="decision-matrix-panel">
+            <header class="panel-toolbar">
+              <span>
+                <b>Professional evidence comparison</b>
+                <small id="decision-matrix-note">
+                  Validation-only comparison · immutable verdicts
+                </small>
+              </span>
+              <div class="segmented-control compact" role="tablist" aria-label="Decision matrix evidence">
+                <button type="button" role="tab" aria-selected="true" data-matrix-view="selection">
+                  Selection
+                </button>
+                <button type="button" role="tab" aria-selected="false" data-matrix-view="all">
+                  + Test audit
+                </button>
+              </div>
+            </header>
+            <div class="decision-matrix-scroll" id="decision-matrix-table"></div>
+            <p class="decision-tradeoff-note" id="decision-tradeoff-note"></p>
+          </article>
+        </section>
+
         <div class="workbench-grid">
           <section class="trajectory-panel" aria-labelledby="trajectory-title">
             <header class="section-header compact">

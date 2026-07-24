@@ -5,7 +5,8 @@ Status: V1 implemented.
 Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]], [[docs/CLI]],
 [[docs/design/study-run-evidence]], and
 [[docs/design/agent-cli-contract]], and
-[[docs/design/quant-research-lifecycle]].
+[[docs/design/quant-research-lifecycle]], and
+[[docs/design/session-decision-matrix]].
 
 ## Scope
 

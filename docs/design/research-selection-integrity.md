@@ -6,7 +6,8 @@ Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]],
 [[docs/design/research-session-loop]],
 [[docs/design/portfolio-construction-lab]],
 [[docs/design/rl-factor-policy-lab]], and
-[[docs/design/quant-research-lifecycle]].
+[[docs/design/quant-research-lifecycle]], and
+[[docs/design/session-decision-matrix]].
 
 ## Scope
 
@@ -87,6 +88,12 @@ Studio receives the same Session projection. It shows trial count and holdout
 status beside the leader, and labels test values on Run cards as audit evidence.
 It does not estimate a corrected Sharpe, decide that a holdout is fresh, or
 reset history.
+
+The Session Decision Matrix follows the same boundary. Only declared
+validation metrics can enter baseline comparison and non-dominance. Test rows
+use a distinct audit relation, full-scope diagnostics remain display-only, and
+context values have no preference direction. Showing those rows cannot change
+the immutable KEEP/REVERT/CRASH chain.
 
 ## Invariants
 

@@ -5,6 +5,7 @@ const state = {
   catalog: "studies",
   portfolioView: "performance",
   attributionSplit: "validation",
+  matrixView: "selection",
   autoRefresh: true,
   loading: false,
   timer: null,
@@ -744,6 +745,165 @@ function renderPortfolioExplorer(project) {
   renderPortfolioTransitions(explorer);
 }
 
+function matrixValue(value, unit) {
+  if (unit === "percent") return percent(value);
+  if (unit === "count") {
+    return value === null || value === undefined ? "—" : metric(Math.round(Number(value)));
+  }
+  return metric(value);
+}
+
+function matrixRelationLabel(relation) {
+  return {
+    better: "BETTER",
+    worse: "WORSE",
+    same: "SAME",
+    context: "CONTEXT",
+    unavailable: "N/A",
+    "audit-better": "AUDIT ↑",
+    "audit-worse": "AUDIT ↓",
+    "audit-same": "AUDIT =",
+    "display-better": "DISPLAY ↑",
+    "display-worse": "DISPLAY ↓",
+    "display-same": "DISPLAY =",
+  }[relation] ?? "";
+}
+
+function renderDecisionMatrix(project) {
+  const section = element("decision-matrix");
+  const session = selectedSession(project);
+  const matrix = session?.decisionMatrix;
+  if (!matrix) {
+    section.hidden = true;
+    return;
+  }
+  section.hidden = false;
+  const descriptors = matrix.metrics.filter(
+    (item) => state.matrixView === "all" || item.split !== "test",
+  );
+  const descriptorByKey = Object.fromEntries(
+    matrix.metrics.map((item) => [item.key, item]),
+  );
+  const leader = matrix.trials.find((trial) => trial.isCurrentLeader);
+  const leaderTradeoffs = matrix.tradeoffs.leaderVsBaseline;
+  const comparableCount = matrix.tradeoffs.selectionEligibleMetricKeys.length;
+  element("decision-matrix-meta").textContent =
+    `${matrix.metricFamily} · ${matrix.scope.displayedCandidateTrials}/${matrix.scope.totalCandidateTrials} candidates · ${matrix.selectionIntegrity.selectionSplit} selection`;
+  element("decision-summary").innerHTML = [
+    [
+      "Leader objective",
+      matrixValue(leader?.primaryValue, "number"),
+      matrix.objective.metric,
+      "leader",
+    ],
+    [
+      "Better vs baseline",
+      `${leaderTradeoffs.improved.length}/${comparableCount}`,
+      "validation-eligible fields",
+      "better",
+    ],
+    [
+      "Worse vs baseline",
+      `${leaderTradeoffs.regressed.length}/${comparableCount}`,
+      "trade-offs to inspect",
+      leaderTradeoffs.regressed.length ? "worse" : "",
+    ],
+    [
+      "Non-dominated",
+      matrix.tradeoffs.nonDominatedRunIds.length,
+      "displayed successful Runs",
+      "neutral",
+    ],
+  ]
+    .map(
+      ([label, value, note, tone]) => `
+        <span class="${tone}">
+          <small>${escapeHtml(label)}</small>
+          <b>${escapeHtml(value)}</b>
+          <i>${escapeHtml(note)}</i>
+        </span>`,
+    )
+    .join("");
+
+  const trialHeaders = matrix.trials
+    .map((trial) => {
+      const identity =
+        trial.role === "baseline"
+          ? "B0"
+          : `E${String(trial.sequence).padStart(2, "0")}`;
+      return `
+        <th class="matrix-trial-head ${normalizedStatus(trial.verdict)} ${trial.isCurrentLeader ? "leader" : ""}"
+          scope="col" title="${escapeHtml(trial.hypothesis)}">
+          <small>${identity}${trial.isCurrentLeader ? " · LEADER" : ""}</small>
+          <b>${escapeHtml(trial.verdict)}</b>
+          <code>${escapeHtml(shortHash(trial.runId))}</code>
+        </th>`;
+    })
+    .join("");
+  let previousGroup = null;
+  const rows = [];
+  for (const descriptor of descriptors) {
+    if (descriptor.group !== previousGroup) {
+      rows.push(`
+        <tr class="matrix-group-row">
+          <th colspan="${matrix.trials.length + 1}">${escapeHtml(descriptor.group)} · ${escapeHtml(descriptor.split)}</th>
+        </tr>`);
+      previousGroup = descriptor.group;
+    }
+    const cells = matrix.trials
+      .map((trial) => {
+        const value = trial.metrics[descriptor.key];
+        const relation = trial.vsBaseline[descriptor.key];
+        const failed = trial.status !== "succeeded";
+        return `
+          <td class="matrix-value ${failed ? "failed" : normalizedStatus(relation)} ${trial.isCurrentLeader ? "leader" : ""}">
+            <b>${failed ? "CRASH" : escapeHtml(matrixValue(value, descriptor.unit))}</b>
+            <small>${trial.role === "baseline" ? "REFERENCE" : escapeHtml(matrixRelationLabel(relation))}</small>
+          </td>`;
+      })
+      .join("");
+    rows.push(`
+      <tr class="${descriptor.primary ? "primary" : ""} ${descriptor.split === "test" ? "audit" : ""}">
+        <th class="matrix-metric" scope="row">
+          <b>${escapeHtml(descriptor.label)}</b>
+          <small>${descriptor.primary ? "PRIMARY · " : ""}${escapeHtml(descriptor.preference)}${descriptor.selectionEligible ? " · COMPARED" : " · DISPLAY ONLY"}</small>
+        </th>
+        ${cells}
+      </tr>`);
+  }
+  element("decision-matrix-table").innerHTML = `
+    <table class="decision-table" aria-label="Verified Session metric comparison">
+      <thead>
+        <tr>
+          <th class="matrix-corner" scope="col">
+            <small>METRIC DICTIONARY</small>
+            <b>${descriptors.length} evidence rows</b>
+          </th>
+          ${trialHeaders}
+        </tr>
+      </thead>
+      <tbody>${rows.join("")}</tbody>
+    </table>`;
+  const labels = (keys) =>
+    keys
+      .map((key) => descriptorByKey[key]?.label ?? key)
+      .join(", ") || "none";
+  element("decision-matrix-note").textContent =
+    state.matrixView === "all"
+      ? "Test evidence is visible audit only and remains excluded from every comparison claim."
+      : "Validation and fixed full-scope evidence; test audit is hidden.";
+  element("decision-tradeoff-note").innerHTML =
+    `<b>Leader gains:</b> ${escapeHtml(labels(leaderTradeoffs.improved))} ` +
+    `<span>·</span> <b>Watch:</b> ${escapeHtml(labels(leaderTradeoffs.regressed))} ` +
+    `<span>·</span> ${escapeHtml(matrix.tradeoffs.warning)}`;
+  document.querySelectorAll("[data-matrix-view]").forEach((button) => {
+    button.setAttribute(
+      "aria-selected",
+      String(button.dataset.matrixView === state.matrixView),
+    );
+  });
+}
+
 function renderTrajectory(project) {
   const session = selectedSession(project);
   const experiments = session?.experiments ?? [];
@@ -1121,6 +1281,7 @@ function renderEmptyWorkspace(message = "Create a Project with aq project create
   element("handoff-board").innerHTML =
     '<div class="empty-panel handoff-empty">Delegated research requests will appear here.</div>';
   element("portfolio-explorer").hidden = true;
+  element("decision-matrix").hidden = true;
   element("trajectory-meta").textContent = "No Experiments";
   element("trajectory-chart").innerHTML =
     '<div class="empty-panel">Candidate verdicts will appear here.</div>';
@@ -1186,6 +1347,7 @@ function render() {
   renderHandoff(project);
   renderPortfolioExplorer(project);
   renderSessions(project);
+  renderDecisionMatrix(project);
   renderTrajectory(project);
   renderTimeline(project);
   renderCatalog(project);
@@ -1259,6 +1421,13 @@ document.querySelectorAll("[data-attribution-split]").forEach((button) => {
     state.attributionSplit = button.dataset.attributionSplit;
     const explorer = selectedProject()?.portfolioExplorer;
     if (explorer) renderPortfolioAttribution(explorer);
+  });
+});
+document.querySelectorAll("[data-matrix-view]").forEach((button) => {
+  button.addEventListener("click", () => {
+    state.matrixView = button.dataset.matrixView;
+    const project = selectedProject();
+    if (project) renderDecisionMatrix(project);
   });
 });
 window.addEventListener("hashchange", () => {

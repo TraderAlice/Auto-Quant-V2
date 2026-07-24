@@ -32,6 +32,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/session-decision-matrix]] | Compared one verified Session across professional factor, portfolio, implementation, robustness, mechanical-policy, and RL evidence. | 2026-07-24 |
 | [[plans/portfolio-decision-explorer]] | Projected verified portfolio accounting, positions, mechanical signal state, and attribution into a bounded human/Agent decision surface. | 2026-07-24 |
 | [[plans/request-driven-market-data-intake]] | Turned a real request and caller-supplied OHLCV snapshot into a content-locked research Project. | 2026-07-24 |
 | [[plans/mechanical-signal-policy-and-attribution]] | Made signal-state triggers, target sizing, and portfolio contribution attribution explicit. | 2026-07-24 |

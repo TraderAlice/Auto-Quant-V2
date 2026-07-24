@@ -132,7 +132,7 @@ CLI_COMMANDS = [
     ),
     descriptor(
         "schema",
-        "aq schema [workspace|project|study|judge-output|run-result|portfolio-diagnostics|session|experiment|research-request|ohlcv-dataset-package|report-analysis|researcher-response|campaign-result|campaign-progress|studio-snapshot] [--json]",
+        "aq schema [workspace|project|study|judge-output|run-result|portfolio-diagnostics|session-decision-matrix|session|experiment|research-request|ohlcv-dataset-package|report-analysis|researcher-response|campaign-result|campaign-progress|studio-snapshot] [--json]",
         "List or emit canonical AutoQuant JSON Schemas.",
         "read-only",
         [
@@ -149,6 +149,7 @@ CLI_COMMANDS = [
                     "judge-output",
                     "run-result",
                     "portfolio-diagnostics",
+                    "session-decision-matrix",
                     "session",
                     "experiment",
                     "researcher-response",
@@ -514,6 +515,26 @@ CLI_COMMANDS = [
         "Inspect a Session Agent brief, authority, candidate, leader, and history.",
         "read-only",
         [PATH_ARGUMENT, PROJECT_ARGUMENT, SESSION_ARGUMENT, JSON_ARGUMENT],
+    ),
+    descriptor(
+        "session.compare",
+        "aq session compare <path> --session ID [--trials 1..100] [--project ID] [--json]",
+        "Compare a bounded verified Session baseline, candidates, and leader across professional metric layers.",
+        "read-only",
+        [
+            PATH_ARGUMENT,
+            PROJECT_ARGUMENT,
+            SESSION_ARGUMENT,
+            argument(
+                "trials",
+                "option",
+                "integer",
+                False,
+                "Maximum candidate trials; baseline and current leader stay anchored.",
+                default=24,
+            ),
+            JSON_ARGUMENT,
+        ],
     ),
     descriptor(
         "session.promote",

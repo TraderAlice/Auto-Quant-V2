@@ -46,6 +46,9 @@ The first viewport prioritizes:
   book, recent mechanical transitions, and validation/test attribution;
 - RL Run summaries for validation/test audit Sharpe, seed/fold dispersion,
   simple-baseline advantage, failure rate, and fold × seed coverage;
+- a bounded Session decision matrix comparing baseline, recent candidates, and
+  current leader across fixed validation, robustness, implementation, and
+  test-audit metrics;
 - Session selection split, candidate trial count, visible-test role, and
   external-holdout requirement;
 - request → evidence → report readiness and exact copyable headless commands;
@@ -74,6 +77,15 @@ research state, not account holdings or an instruction to trade. Use
 `aq run portfolio <path> --run ID --points N --json` for a specific historical
 Run or a different bounded point count.
 
+The Session Decision Matrix is also a Core projection. It verifies the
+immutable Session/Experiment/Run chain, then compares a bounded set of
+baseline, candidate, and leader trials using a fixed family-specific metric
+dictionary. Preference arrows make lower-is-better risk and cost fields
+explicit. The Selection view excludes test rows from the comparison; the Test
+audit view reveals them without changing verdicts, leader choice, or the
+validation-only non-dominated set. Context such as hysteresis policy state is
+display-only, and failed trials remain visible as unavailable evidence.
+
 The handoff cards and Inspector distinguish caller-supplied OpenAlice context
 from authenticated provenance. Copy buttons only write an exact Core-generated
 CLI string to the local clipboard. They do not invoke the command or mutate the
@@ -99,6 +111,7 @@ aq studio snapshot ./quant-workspace --json
 aq schema studio-snapshot --json
 aq schema campaign-progress --json
 aq schema portfolio-diagnostics --json
+aq schema session-decision-matrix --json
 ```
 
 The HTTP projection exposes only:

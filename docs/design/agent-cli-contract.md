@@ -2,12 +2,13 @@
 
 Status: implemented for Workspace, Project, request-driven OHLCV intake,
 Study, Run, Session, Experiment, bounded Research Campaign, delegated request,
-and Research Report operations.
+Research Report, and Session comparison operations.
 
 Related: [[docs/CLI]], [[docs/PROJECT_FORMAT]],
 [[docs/design/workspace-project-boundaries]], and
 [[docs/design/study-run-evidence]], and
-[[docs/design/external-researcher-driver]].
+[[docs/design/external-researcher-driver]], and
+[[docs/design/session-decision-matrix]].
 
 ## Scope
 
@@ -77,6 +78,11 @@ rollback-safe receipt publication. Future operations may add `mode-dependent`
 only when their confirmation, progress, and evidence contracts are defined.
 `studio.serve` uses `long-running-server`, does not support terminal JSON, and
 exposes only fixed read-only HTTP routes.
+
+`session.compare` is read-only. It returns one bounded Core-authored comparison
+object after verifying the Session, Experiments, and Runs; the CLI and Studio
+must not independently select metrics, infer preference direction, or include
+test audit fields in dominance.
 
 ## CLI-to-Studio flow
 

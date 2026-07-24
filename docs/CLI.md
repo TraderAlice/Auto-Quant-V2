@@ -18,6 +18,7 @@ aq schema research-request --json
 aq schema ohlcv-dataset-package --json
 aq schema report-analysis --json
 aq schema portfolio-diagnostics --json
+aq schema session-decision-matrix --json
 ```
 
 `capabilities --json` is the authoritative machine discovery surface. Each
@@ -136,6 +137,8 @@ aq session start <path> --study ID \
   [--project ID] [--json]
 aq session list <path> [--project ID] [--json]
 aq session show <path> --session ID [--project ID] [--json]
+aq session compare <path> --session ID \
+  [--trials 24] [--project ID] [--json]
 aq session promote <path> --session ID [--project ID] [--json]
 
 aq experiment evaluate <path> \
@@ -186,6 +189,16 @@ selection metric/split, exact candidate and evaluated-Run counts, verdict
 counts, test visibility/use, and whether a new external holdout is required.
 Reference templates select on validation only. Generic Studies without a
 declaration return explicit `unspecified` values.
+
+`session compare` verifies the immutable Session, Experiment chain, and
+referenced Runs before producing one bounded baseline/candidate/leader matrix.
+`--trials` defaults to 24 and is bounded to 1–100; the current leader and
+baseline remain visible even when older candidates are omitted. Core owns the
+metric dictionary, units, preference direction, comparable set, and
+validation-only non-dominance calculation. Test values are explicitly labelled
+audit evidence, contextual policy state is display-only, and neither can
+change an Experiment verdict. Failed candidates remain explicit rows without
+invented metrics.
 
 ## Research Campaign commands
 

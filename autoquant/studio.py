@@ -14,6 +14,10 @@ from pathlib import Path
 from typing import Any, Callable
 from urllib.parse import urlsplit
 
+from .decision_matrix import (
+    STUDIO_COMPARISON_TRIALS,
+    load_session_decision_matrix,
+)
 from .intake import load_project_intake
 from .portfolio_explorer import (
     DEFAULT_PORTFOLIO_POINTS,
@@ -612,6 +616,20 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
                 item.to_dict() for item in list_reports(project, session)
             ]
             progress = list_campaign_progress(session)
+            decision_matrix = None
+            try:
+                decision_matrix = load_session_decision_matrix(
+                    project,
+                    session.manifest["id"],
+                    trial_limit=STUDIO_COMPARISON_TRIALS,
+                )
+            except AutoQuantValidationError as error:
+                diagnostics.extend(
+                    _diagnostics(
+                        f"session-comparison:{session.manifest['id']}",
+                        error,
+                    )
+                )
             authority = snapshot["authority"]
             if not authority["valid"]:
                 diagnostics.extend(
@@ -628,6 +646,7 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
                     "candidate": snapshot["candidate"],
                     "delegation": snapshot["delegation"],
                     "selectionIntegrity": snapshot["selectionIntegrity"],
+                    "decisionMatrix": decision_matrix,
                     "authority": authority,
                     "experiments": snapshot["experiments"],
                     "campaigns": campaigns,
@@ -705,7 +724,20 @@ def _session_commands(
                 "--json",
             ],
             "read-only",
-        )
+        ),
+        _command(
+            "session.compare",
+            [
+                "aq",
+                "session",
+                "compare",
+                str(project.root_dir),
+                "--session",
+                session.manifest["id"],
+                "--json",
+            ],
+            "read-only",
+        ),
     ]
     if session.delegation is not None:
         commands.append(

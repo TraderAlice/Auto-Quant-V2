@@ -10,6 +10,13 @@ from typing import Any, Sequence
 
 from .briefs import RESEARCH_REQUEST_JSON_SCHEMA, load_research_request
 from .capabilities import CLI_COMMANDS
+from .decision_matrix import (
+    DEFAULT_COMPARISON_TRIALS,
+    MAX_COMPARISON_TRIALS,
+    MIN_COMPARISON_TRIALS,
+    SESSION_DECISION_MATRIX_JSON_SCHEMA,
+    load_session_decision_matrix,
+)
 from .cli_contract import (
     artifact,
     error_envelope,
@@ -157,6 +164,7 @@ def build_parser() -> RaisingArgumentParser:
             "judge-output",
             "run-result",
             "portfolio-diagnostics",
+            "session-decision-matrix",
             "session",
             "experiment",
             "researcher-response",
@@ -369,6 +377,26 @@ def build_parser() -> RaisingArgumentParser:
     session_show.add_argument("--session", required=True)
     session_show.set_defaults(command_id="session.show")
     _json_argument(session_show)
+
+    session_compare = session_actions.add_parser(
+        "compare",
+        help="compare bounded verified Session trials across metric layers",
+    )
+    session_compare.add_argument("path")
+    session_compare.add_argument("--project")
+    session_compare.add_argument("--session", required=True)
+    session_compare.add_argument(
+        "--trials",
+        type=int,
+        choices=range(
+            MIN_COMPARISON_TRIALS,
+            MAX_COMPARISON_TRIALS + 1,
+        ),
+        default=DEFAULT_COMPARISON_TRIALS,
+        metavar=f"{MIN_COMPARISON_TRIALS}..{MAX_COMPARISON_TRIALS}",
+    )
+    session_compare.set_defaults(command_id="session.compare")
+    _json_argument(session_compare)
 
     session_promote = session_actions.add_parser(
         "promote",
@@ -1141,7 +1169,21 @@ def _session_next_actions(project, session) -> list[dict[str, Any]]:
                 "--json",
             ],
             "read-only",
-        )
+        ),
+        next_action(
+            "session.compare",
+            "Compare baseline, candidates, and leader across verified metric layers.",
+            [
+                "aq",
+                "session",
+                "compare",
+                str(project.root_dir),
+                "--session",
+                session.manifest["id"],
+                "--json",
+            ],
+            "read-only",
+        ),
     ]
     if session.manifest["status"] == "active":
         actions.append(
@@ -1326,6 +1368,34 @@ def _session_show(args: argparse.Namespace) -> CommandResult:
             )
         ],
         _session_next_actions(project, session),
+    )
+
+
+def _session_compare(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    matrix = load_session_decision_matrix(
+        project,
+        args.session,
+        trial_limit=args.trials,
+    )
+    tradeoffs = matrix["tradeoffs"]
+    return CommandResult(
+        "session.compare",
+        matrix,
+        (
+            f"Session decision matrix: {matrix['session']['id']}\n"
+            f"Family: {matrix['metricFamily']} · "
+            f"{len(matrix['metrics'])} metrics\n"
+            f"Trials: {matrix['scope']['displayedCandidateTrials']}/"
+            f"{matrix['scope']['totalCandidateTrials']} candidates "
+            f"+ baseline\n"
+            f"Leader: {matrix['session']['leaderRunId']}\n"
+            f"Leader vs baseline: {len(tradeoffs['leaderVsBaseline']['improved'])} "
+            f"better · {len(tradeoffs['leaderVsBaseline']['regressed'])} worse\n"
+            f"Displayed non-dominated Runs: "
+            f"{', '.join(tradeoffs['nonDominatedRunIds'])}\n"
+        ),
+        project_context(project),
     )
 
 
@@ -1890,6 +1960,7 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "judge-output",
             "ohlcv-dataset-package",
             "portfolio-diagnostics",
+            "session-decision-matrix",
             "project",
             "report-analysis",
             "research-request",
@@ -1912,6 +1983,7 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "judge-output": JUDGE_OUTPUT_JSON_SCHEMA,
             "run-result": RUN_RESULT_JSON_SCHEMA,
             "portfolio-diagnostics": PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA,
+            "session-decision-matrix": SESSION_DECISION_MATRIX_JSON_SCHEMA,
             "session": SESSION_JSON_SCHEMA,
             "experiment": EXPERIMENT_JSON_SCHEMA,
             "researcher-response": RESEARCHER_RESPONSE_JSON_SCHEMA,
@@ -1962,6 +2034,8 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
         return _session_list(args)
     if args.command_id == "session.show":
         return _session_show(args)
+    if args.command_id == "session.compare":
+        return _session_compare(args)
     if args.command_id == "session.promote":
         return _session_promote(args)
     if args.command_id == "experiment.evaluate":
