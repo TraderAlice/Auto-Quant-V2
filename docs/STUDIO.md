@@ -87,7 +87,7 @@ Exact nested metrics, decision ledgers, daily slices, models, training
 histories, actions, and artifacts remain in the verified Run.
 
 The Portfolio Decision Explorer is a bounded projection, not a browser-side
-CSV reader. Core first verifies all five immutable Portfolio artifacts,
+CSV reader. Core first verifies the immutable Portfolio artifacts,
 reconciles the complete chronology, and then deterministically samples 180
 display points. Performance and exposure are alternate views of the same
 verified path. Validation is the selection split; Test audit is visibly
@@ -111,6 +111,15 @@ dimmed in the book and always have zero target. These values are verified by
 Core; Studio does not estimate covariance or choose risk. The reported cash
 field is unused research gross budget, not Broker account balance.
 
+The Mechanical Position Lifecycle panel switches between validation selection
+and visible test audit. It shows complete-episode count, win rate, median
+holding bars, payoff, intent mismatch, cumulative-contribution MFE/MAE,
+per-asset episode contribution/cost, and recent episode rows. Left/right
+censored split segments remain visible but never enter complete-episode
+win/payoff statistics. Core reconstructs and verifies the rows from the exact
+decision ledger before Studio receives them; the browser never invents trades
+or compounds an episode as an isolated account return.
+
 The Session Decision Matrix is also a Core projection. It verifies the
 immutable Session/Experiment/Run chain, then compares a bounded set of
 baseline, candidate, and leader trials using a fixed family-specific metric
@@ -118,7 +127,8 @@ dictionary. Preference arrows make lower-is-better risk and cost fields
 explicit. The Selection view excludes test rows from the comparison; the Test
 audit view reveals them without changing verdicts, leader choice, or the
 validation-only non-dominated set. Context such as hysteresis policy state,
-liquidity capacity, and executed-risk intervention is display-only, and
+position lifecycle, liquidity capacity, and executed-risk intervention is
+display-only, and
 failed trials remain visible as
 unavailable evidence.
 

@@ -88,9 +88,13 @@ Context-only assets participate in research
 ranking but never become positions. Its decision ledger reconciles each
 asset's mandate, proposed/executed weight, trade, return, cost, regime, and
 component risk contribution; a no-hysteresis baseline shows whether intent
-persistence actually reduces churn. Studio summarizes the verified policy and
-attribution evidence. It emits research targets only and has no Broker or
-trading-account authority.
+persistence actually reduces churn. A split-bounded position-lifecycle
+artifact then reconstructs contiguous executed long/short episodes, allocates
+entry/resize/exit/reversal costs, and reports complete-episode holding, win,
+payoff, MFE/MAE, and intent-mismatch evidence without treating censored
+segments as completed trades. Studio summarizes the verified policy,
+attribution, and lifecycle evidence. It emits research targets only and has no
+Broker or trading-account authority.
 
 Every reference Project uses validation-only KEEP/REVERT. Test metrics remain
 visible diagnostic evidence; after a Session iterates candidates, Core marks a
@@ -255,8 +259,9 @@ shows the request-bound mandate, authorized/context-only assets, bounded
 verified growth/drawdown, exposure/cash/turnover, the historical mechanical
 book, raw/governed targets, portfolio-volatility forecast/scale, signal
 transitions, final executed-book risk compliance, split attribution, and
-validation/test liquidity-capacity
-envelopes with binding assets. It is read-only, exposes
+validation/test liquidity-capacity envelopes with binding assets, plus
+validation/test mechanical position episodes and per-asset lifecycle
+statistics. It is read-only, exposes
 copy-only exact CLI commands, and uses the same verified Core loaders as the
 CLI. A specific historical Run is available through `aq run factor <path>
 --run ID --json`, `aq run portfolio <path> --run ID --json`, or

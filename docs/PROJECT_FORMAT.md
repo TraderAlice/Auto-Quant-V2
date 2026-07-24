@@ -62,7 +62,8 @@ comparison rule. See [[docs/design/ohlcv-factor-lab]],
 [[docs/design/factor-diagnostics]], and
 [[docs/design/portfolio-construction-lab]],
 [[docs/design/executed-book-risk-compliance]], and
-[[docs/design/signal-policy-and-attribution]].
+[[docs/design/signal-policy-and-attribution]], and
+[[docs/design/mechanical-position-lifecycle-evidence]].
 
 New Portfolio and governed-RL Projects also contain the fixed
 `strategies/portfolio-mandate.json`. For request intake it derives the
@@ -375,7 +376,13 @@ New Portfolio ledgers
 also record causal trailing dollar volume, reference-NAV participation,
 1%/5% asset and portfolio capacity, availability, and one deterministic
 binding asset per trade date. Aggregate capacity remains contextual and cannot
-enter candidate selection.
+enter candidate selection. New Portfolio Runs also declare
+`portfolio-position-episodes`: one exact split-bounded row per contiguous
+executed long/short state, including entry/holding/exit cost allocation,
+complete-versus-censored status, decision bars, additive net contribution,
+cumulative-contribution MFE/MAE, and signal/execution mismatch counts. Its
+aggregate `position_lifecycle` metrics reconcile exactly to the decision
+ledger and remain contextual only.
 
 `manifest.json` is written last and pins every other Run file hash. Run listing
 ignores incomplete directories; opening a completed Run rejects changed,

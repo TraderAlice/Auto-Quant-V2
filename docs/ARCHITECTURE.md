@@ -91,6 +91,10 @@ The V2 foundation now implements:
 - one causal liquidity-capacity layer that inverts exact executed trade
   weights against trailing close-times-volume at fixed participation ceilings,
   publishes missing history and binding assets, and makes no impact/fill claim.
+- one split-bounded mechanical position-lifecycle layer that reconstructs
+  contiguous executed-weight sign episodes, allocates exact transition costs,
+  names censored boundaries, and reconciles additive contribution to the
+  decision ledger without claiming standalone trade returns.
 - one governed RL Factor-Policy Lab that confines Agent changes to a causal
   state encoder while the Judge fixes factor-mixture actions, Q-learning,
   rewards, portfolio accounting, folds, seeds, baselines, and model evidence.
@@ -278,6 +282,8 @@ behind the Harness contract, not the owner of Workspace or Project semantics.
   [[docs/design/request-bound-portfolio-mandates]]
 - Portfolio decision explorer design:
   [[docs/design/portfolio-decision-explorer]]
+- Mechanical position lifecycle design:
+  [[docs/design/mechanical-position-lifecycle-evidence]]
 - Research intake and dataset snapshot design:
   [[docs/design/research-intake-and-dataset-snapshots]]
 - Governed RL Factor-Policy Lab design:

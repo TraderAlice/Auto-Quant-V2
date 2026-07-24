@@ -1532,6 +1532,24 @@ def _run_portfolio(args: argparse.Namespace) -> CommandResult:
             "contextual only\n"
         )
     )
+    lifecycle = diagnostics["positionLifecycle"]
+    validation_lifecycle = (
+        lifecycle["validation"] if lifecycle["available"] else None
+    )
+    lifecycle_summary = (
+        "Mechanical position lifecycle: legacy evidence unavailable\n"
+        if validation_lifecycle is None
+        else (
+            "Validation position lifecycle: "
+            f"{validation_lifecycle['completeEpisodes']} complete episodes · "
+            f"win rate {validation_lifecycle['completeEpisodeWinRate']} · "
+            "median holding "
+            f"{validation_lifecycle['medianCompleteHoldingBars']} bars · "
+            f"payoff {validation_lifecycle['completePayoffRatio']} · "
+            "intent mismatch "
+            f"{validation_lifecycle['intentMismatchRate']} · contextual only\n"
+        )
+    )
     return CommandResult(
         "run.portfolio",
         diagnostics,
@@ -1557,6 +1575,7 @@ def _run_portfolio(args: argparse.Namespace) -> CommandResult:
             f"{book['executionReason']}\n"
             f"{execution_risk_summary}"
             f"{capacity_summary}"
+            f"{lifecycle_summary}"
         ),
         project_context(project),
         [

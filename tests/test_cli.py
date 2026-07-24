@@ -183,6 +183,14 @@ class AgentCliTests(unittest.TestCase):
                 projected["data"]["mandate"]["riskPolicy"]["method"],
                 "trailing-covariance-volatility-ceiling-v1",
             )
+            self.assertTrue(
+                projected["data"]["positionLifecycle"]["available"]
+            )
+            self.assertTrue(
+                projected["data"]["positionLifecycle"]["validation"][
+                    "reconciliation"
+                ]["passed"]
+            )
             self.assertEqual(
                 {item["kind"] for item in projected["artifacts"]},
                 {
@@ -191,6 +199,7 @@ class AgentCliTests(unittest.TestCase):
                     "portfolio-targets",
                     "portfolio-weights",
                     "portfolio-decisions",
+                    "portfolio-position-episodes",
                 },
             )
             human = run_cli(
@@ -208,6 +217,7 @@ class AgentCliTests(unittest.TestCase):
                 human.stdout,
             )
             self.assertIn("Validation executed-book risk", human.stdout)
+            self.assertIn("Validation position lifecycle", human.stdout)
             self.assertIn("Executed book:", human.stdout)
             self.assertIn("contextual only", human.stdout)
 

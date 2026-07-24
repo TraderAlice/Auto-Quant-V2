@@ -65,7 +65,12 @@ executed breaches, and execution reason; inspect how often the ceiling binds
 and whether cash exposure is signal-driven or risk-driven. Reconcile capacity
 to the exact trade weight, causal ADV, and binding asset; treat missing-history
 dates as unavailable, not liquid. The 1% p10 envelope is contextual and cannot
-select a candidate. The ungoverned comparison is diagnostic only and cannot
+select a candidate. Read `position-episodes.csv` to inspect contiguous
+executed long/short states, exact entry/resize/exit/reversal costs, holding
+bars, additive contribution, MFE/MAE, and intent mismatch. Keep left/right
+censored segments out of complete-episode win/payoff interpretation. This
+lifecycle evidence is contextual and cannot select a candidate. The
+ungoverned comparison is diagnostic only and cannot
 select a candidate. A higher primary score is not enough when coverage
 collapses, hysteresis adds no value,
 concentration rises, the risk governor constantly suppresses an unstable raw

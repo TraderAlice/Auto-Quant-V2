@@ -216,6 +216,24 @@ class PortfolioDecisionExplorerTests(unittest.TestCase):
             self.assertIsNotNone(
                 diagnostics["liquidityCapacity"]["latestTrade"]
             )
+            self.assertTrue(
+                diagnostics["positionLifecycle"]["available"]
+            )
+            self.assertEqual(
+                diagnostics["positionLifecycle"]["selectionAuthority"],
+                "context-only",
+            )
+            self.assertTrue(
+                diagnostics["positionLifecycle"]["validation"][
+                    "reconciliation"
+                ]["passed"]
+            )
+            self.assertGreater(
+                diagnostics["positionLifecycle"]["validation"][
+                    "activeSegments"
+                ],
+                0,
+            )
             self.assertEqual(diagnostics["path"]["sampledRows"], 64)
             self.assertGreater(diagnostics["path"]["totalRows"], 64)
             sampled_dates = {
@@ -367,6 +385,74 @@ class PortfolioDecisionExplorerTests(unittest.TestCase):
                 "Asset liquidity-capacity evidence does not reconcile",
             ):
                 load_portfolio_diagnostics(project, run.result["id"])
+
+    def test_rehashed_position_episode_mismatch_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, project, run = make_lab(Path(directory))
+            path = run.root_dir / "artifacts" / "position-episodes.csv"
+            with path.open(encoding="utf-8", newline="") as handle:
+                rows = list(csv.DictReader(handle))
+                fields = list(rows[0])
+            active = next(
+                row for row in rows if int(row["decision_bars"]) > 0
+            )
+            active["net_contribution"] = str(
+                float(active["net_contribution"]) + 0.01
+            )
+            with path.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=fields)
+                writer.writeheader()
+                writer.writerows(rows)
+            rehash_run(run.root_dir)
+
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "Position-episode evidence is invalid",
+            ):
+                load_portfolio_diagnostics(project, run.result["id"])
+
+    def test_legacy_run_without_position_lifecycle_remains_readable(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, project, run = make_lab(Path(directory))
+            result_path = run.root_dir / "result.json"
+            result = json.loads(result_path.read_text(encoding="utf-8"))
+            result["metrics"].pop("position_lifecycle")
+            result["artifacts"] = [
+                item
+                for item in result["artifacts"]
+                if item["kind"] != "portfolio-position-episodes"
+            ]
+            result_path.write_text(
+                json.dumps(result, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            report_path = (
+                run.root_dir / "artifacts" / "portfolio-report.json"
+            )
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+            report["metrics"].pop("position_lifecycle")
+            report_path.write_text(
+                json.dumps(report, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            (
+                run.root_dir / "artifacts" / "position-episodes.csv"
+            ).unlink()
+            rehash_run(run.root_dir)
+
+            diagnostics = load_portfolio_diagnostics(
+                project,
+                run.result["id"],
+            )
+
+            self.assertFalse(
+                diagnostics["positionLifecycle"]["available"]
+            )
+            self.assertIsNone(
+                diagnostics["positionLifecycle"]["validation"]
+            )
 
     def test_legacy_run_without_capacity_evidence_remains_readable(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

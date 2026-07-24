@@ -165,6 +165,14 @@ The same projection reconciles daily and per-asset executed-book risk:
 forecast coverage, pretrade breaches, risk-only overrides, final breaches,
 and the current executed forecast. Available final breaches are invalid
 evidence, not warnings.
+For new Runs it also verifies `portfolio-position-episodes`, reconstructs
+every split-bounded executed-position episode from the decision ledger, and
+returns complete-episode holding/win/payoff, per-asset contribution/cost,
+MFE/MAE, intent mismatch, and recent episodes. Boundary-censored segments are
+named separately. These are additive portfolio-contribution diagnostics, not
+standalone compounded trade returns or selection/trading authority. Legacy
+Runs without the paired metric and artifact remain readable and return
+`positionLifecycle.available=false`.
 `--points` defaults to 180 and is bounded to 40–400; full history is
 reconciled before deterministic sampling. The operation has no live account
 or trading authority.

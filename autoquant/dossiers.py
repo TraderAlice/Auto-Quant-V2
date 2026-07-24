@@ -1196,6 +1196,39 @@ def _render_markdown(dossier: dict[str, Any]) -> str:
                 ]
             )
         lines.append("")
+    lifecycle_lanes = [
+        lane
+        for lane in evidence["lanes"]
+        if isinstance(
+            lane["leaderRun"]["metrics"].get("position_lifecycle"),
+            dict,
+        )
+    ]
+    if lifecycle_lanes:
+        lines.extend(["## Mechanical position lifecycle", ""])
+        for lane in lifecycle_lanes:
+            validation = lane["leaderRun"]["metrics"][
+                "position_lifecycle"
+            ]["validation"]
+            lines.extend(
+                [
+                    f"- {lane['name']}: validation complete episodes / win "
+                    f"rate / median holding bars / payoff ratio = "
+                    f"`{validation['complete_episodes']}` / "
+                    f"`{validation['complete_episode_win_rate']}` / "
+                    f"`{validation['median_complete_holding_bars']}` / "
+                    f"`{validation['complete_payoff_ratio']}`",
+                    f"- {lane['name']}: validation intent-mismatch rate / "
+                    f"average segment MFE / MAE = "
+                    f"`{validation['intent_mismatch_rate']}` / "
+                    f"`{validation['average_segment_mfe']}` / "
+                    f"`{validation['average_segment_mae']}`",
+                    f"- {lane['name']}: split-bounded position episodes are "
+                    "contextual additive contribution evidence, not "
+                    "standalone trade returns or trading authority.",
+                ]
+            )
+        lines.append("")
     lines.extend(["", "## Lane summaries", ""])
     for lane in evidence["lanes"]:
         integrity = lane["report"]["selectionIntegrity"]

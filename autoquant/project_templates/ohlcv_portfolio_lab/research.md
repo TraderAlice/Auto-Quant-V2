@@ -16,6 +16,10 @@ aq session start . --study ohlcv-portfolio-quality --json
 Work only inside the returned Session worktree and edit `factors/**`. State one
 falsifiable factor hypothesis, evaluate it, and inspect all metric layers and
 artifacts before accepting a KEEP.
+Use `position-episodes.csv` when the question depends on how an executed
+position opened, persisted, reversed, or closed. Treat complete episodes
+separately from split-censored segments and remember that episode P&L is
+additive portfolio contribution, not a standalone compounded trade return.
 
 The fixed Judge owns timing, percentile entry/hold/exit state,
 inverse-volatility conviction sizing, request-bound tradable/context assets,

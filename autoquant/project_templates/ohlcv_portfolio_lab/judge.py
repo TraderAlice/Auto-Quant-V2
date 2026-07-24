@@ -32,12 +32,14 @@ from judges.portfolio_core import (
     PortfolioFailure,
     attribution_metrics,
     build_decision_ledger,
+    build_position_episodes,
     constraint_audit,
     construct_signal_policy,
     execution_risk_metrics,
     implementation_metrics,
     liquidity_capacity_metrics,
     performance_metrics,
+    position_episode_metrics,
     signal_policy_metrics,
     simulate_targets,
 )
@@ -295,6 +297,7 @@ def _evaluate() -> tuple[
     Any,
     Any,
     pd.DataFrame,
+    pd.DataFrame,
 ]:
     study, data_root = _load_contract()
     mandate = _load_mandate()
@@ -425,6 +428,48 @@ def _evaluate() -> tuple[
         },
         **{
             name: execution_risk_metrics(base, index)
+            for name, index in splits.items()
+        },
+    }
+    episode_roles = {
+        "train": "training",
+        "validation": "selection",
+        "test": "visible-audit",
+    }
+    episode_frames = {
+        name: build_position_episodes(
+            decision_ledger,
+            index,
+            split=name,
+            role=episode_roles[name],
+        )
+        for name, index in splits.items()
+    }
+    position_episodes = pd.concat(
+        episode_frames.values(),
+        ignore_index=True,
+    )
+    position_lifecycle = {
+        "policy": {
+            "method": "split-bounded-executed-position-episodes-v1",
+            "state": "sign-of-executed-weight",
+            "boundary": "split-clipped-left-right-censored",
+            "pnl": (
+                "additive-portfolio-return-contribution-after-"
+                "proportional-trade-cost"
+            ),
+            "excursion": (
+                "cumulative-net-contribution-from-split-segment-start"
+            ),
+            "selection_authority": "context-only",
+            "trading_authority": "none",
+        },
+        **{
+            name: position_episode_metrics(
+                episode_frames[name],
+                decision_ledger,
+                index,
+            )
             for name, index in splits.items()
         },
     }
@@ -635,6 +680,7 @@ def _evaluate() -> tuple[
         "attribution": attribution,
         "liquidity_capacity": liquidity_capacity,
         "execution_risk": execution_risk,
+        "position_lifecycle": position_lifecycle,
         "split_protocol": split_protocol,
         "robustness": {
             "cost_stress": cost_stress,
@@ -697,6 +743,11 @@ def _evaluate() -> tuple[
                 "risk compliance bypasses the no-trade band with minimum "
                 "proportional scale-down"
             ),
+            "positionLifecycle": (
+                "contiguous executed-weight signs clipped to fixed splits; "
+                "linear close/open cost allocated exactly; MFE/MAE is "
+                "daily cumulative additive return contribution"
+            ),
             "noTrade": "retain drifted book below 0.05 one-way turnover",
             "turnover": "0.5 * sum(abs(trade weight))",
             "cost": "sum(abs(trade weight)) * 10bps",
@@ -742,7 +793,14 @@ def _evaluate() -> tuple[
         "splitProtocol": split_protocol,
         "metrics": metrics,
     }
-    return metrics, report, base, construction, decision_ledger
+    return (
+        metrics,
+        report,
+        base,
+        construction,
+        decision_ledger,
+        position_episodes,
+    )
 
 
 def main() -> None:
@@ -753,6 +811,7 @@ def main() -> None:
             simulation,
             construction,
             decision_ledger,
+            position_episodes,
         ) = _evaluate()
         artifacts = Path(os.environ["AUTOQUANT_ARTIFACTS_DIR"])
         report_path = artifacts / "portfolio-report.json"
@@ -777,6 +836,12 @@ def main() -> None:
         )
         decision_ledger.to_csv(
             artifacts / "portfolio-decisions.csv",
+            index=False,
+            date_format="%Y-%m-%d",
+            float_format="%.12g",
+        )
+        position_episodes.to_csv(
+            artifacts / "position-episodes.csv",
             index=False,
             date_format="%Y-%m-%d",
             float_format="%.12g",
@@ -830,6 +895,15 @@ def main() -> None:
                             "trade, contribution, cost, regime, variance, "
                             "executed-book risk compliance, and causal "
                             "liquidity-capacity ledger"
+                        ),
+                    },
+                    {
+                        "kind": "portfolio-position-episodes",
+                        "path": "position-episodes.csv",
+                        "description": (
+                            "Split-bounded executed-position episodes with "
+                            "holding, contribution, cost, excursion, censoring, "
+                            "and signal/execution mismatch evidence"
                         ),
                     },
                 ],

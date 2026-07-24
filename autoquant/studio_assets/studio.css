@@ -2042,6 +2042,14 @@ main {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.portfolio-lifecycle-panel {
+  min-width: 0;
+  margin-top: 10px;
+  padding: 15px;
+  border: 1px solid var(--line);
+  background: rgb(16 19 15 / 96%);
+}
+
 .portfolio-chart-panel,
 .portfolio-book-panel,
 .portfolio-attribution-panel,
@@ -2050,6 +2058,89 @@ main {
   padding: 15px;
   border: 1px solid var(--line);
   background: rgb(16 19 15 / 96%);
+}
+
+.lifecycle-stats {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  border: 1px solid var(--line);
+}
+
+.lifecycle-stats > span {
+  min-width: 0;
+  padding: 10px;
+  border-right: 1px solid var(--line);
+}
+
+.lifecycle-stats > span:last-child {
+  border-right: 0;
+}
+
+.lifecycle-stats small,
+.lifecycle-stats b {
+  display: block;
+}
+
+.lifecycle-stats small {
+  color: var(--faint);
+  font: 6px var(--mono);
+  text-transform: uppercase;
+}
+
+.lifecycle-stats b {
+  margin-top: 5px;
+  color: var(--paper);
+  font: 15px var(--display);
+}
+
+.lifecycle-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.lifecycle-table {
+  border-top: 1px solid var(--line);
+}
+
+.lifecycle-row {
+  display: grid;
+  grid-template-columns: minmax(48px, 1fr) repeat(4, minmax(46px, 0.7fr));
+  gap: 8px;
+  padding: 8px 2px;
+  border-bottom: 1px solid var(--line);
+  font: 7px var(--mono);
+}
+
+.lifecycle-row small {
+  color: var(--faint);
+}
+
+.lifecycle-episodes {
+  max-height: 218px;
+  overflow-y: auto;
+  border-top: 1px solid var(--line);
+}
+
+.lifecycle-episode {
+  display: grid;
+  grid-template-columns: 55px 40px 38px minmax(66px, 0.7fr) repeat(2, minmax(46px, 0.5fr));
+  gap: 8px;
+  padding: 8px 2px;
+  border-bottom: 1px solid var(--line);
+  font: 7px var(--mono);
+}
+
+.lifecycle-episode time,
+.lifecycle-episode small {
+  color: var(--faint);
+}
+
+.lifecycle-disclosure {
+  margin: 9px 0 0;
+  color: var(--faint);
+  font: 6px/1.6 var(--mono);
 }
 
 .panel-toolbar {
@@ -3504,10 +3595,15 @@ main {
 
   .portfolio-primary-grid,
   .portfolio-secondary-grid,
+  .lifecycle-detail-grid,
   .factor-primary-grid,
   .rl-primary-grid,
   .rl-secondary-grid {
     grid-template-columns: 1fr;
+  }
+
+  .lifecycle-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .factor-summary,

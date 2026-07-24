@@ -16,6 +16,7 @@ from autoquant.project_templates.ohlcv_portfolio_lab.portfolio_core import (
     SignalConstruction,
     attribution_metrics,
     build_decision_ledger,
+    build_position_episodes,
     constraint_audit,
     construct_signal_policy,
     construct_targets,
@@ -23,6 +24,7 @@ from autoquant.project_templates.ohlcv_portfolio_lab.portfolio_core import (
     execute_risk_compliant_book,
     execution_risk_metrics,
     liquidity_capacity_metrics,
+    position_episode_metrics,
     signal_policy_metrics,
     simulate_targets,
 )
@@ -78,6 +80,109 @@ def make_portfolio_lab(directory: str | Path):
 
 
 class PortfolioAccountingTests(unittest.TestCase):
+    def test_position_episodes_allocate_transition_costs_and_boundaries(
+        self,
+    ) -> None:
+        index = pd.bdate_range("2026-01-01", periods=5)
+        ledger = pd.DataFrame(
+            {
+                "timestamp": index,
+                "asset": ["A"] * 5,
+                "signal_state": [1, 1, -1, 0, 1],
+                "pretrade_weight": [0.0, 0.2, 0.3, -0.1, 0.0],
+                "executed_weight": [0.2, 0.3, -0.1, 0.0, 0.15],
+                "executed_state": [1, 1, -1, 0, 1],
+                "trade_weight": [0.2, 0.1, -0.4, 0.1, 0.15],
+                "execution_action": [
+                    "open",
+                    "resize",
+                    "reverse",
+                    "close",
+                    "open",
+                ],
+                "execution_reason": ["target_rebalance"] * 5,
+                "risk_rebalance_override": [False] * 5,
+                "gross_return_contribution": [
+                    0.01,
+                    -0.005,
+                    0.002,
+                    0.0,
+                    0.003,
+                ],
+                "cost_contribution": [
+                    0.002,
+                    0.001,
+                    0.004,
+                    0.001,
+                    0.0015,
+                ],
+            }
+        )
+        ledger["net_return_contribution"] = (
+            ledger["gross_return_contribution"]
+            - ledger["cost_contribution"]
+        )
+
+        episodes = build_position_episodes(
+            ledger,
+            index,
+            split="validation",
+            role="selection",
+        )
+        metrics = position_episode_metrics(episodes, ledger, index)
+
+        self.assertEqual(
+            episodes[["side", "complete", "right_censored"]].values.tolist(),
+            [
+                ["long", True, False],
+                ["short", True, False],
+                ["long", False, True],
+            ],
+        )
+        first = episodes.iloc[0]
+        self.assertAlmostEqual(first["entry_cost"], 0.002)
+        self.assertAlmostEqual(first["holding_cost"], 0.001)
+        self.assertAlmostEqual(first["exit_cost"], 0.003)
+        self.assertAlmostEqual(first["net_contribution"], -0.001)
+        self.assertAlmostEqual(first["maximum_favorable_excursion"], 0.008)
+        self.assertAlmostEqual(first["maximum_adverse_excursion"], -0.001)
+        self.assertEqual(metrics["complete_episodes"], 2)
+        self.assertEqual(metrics["right_censored_segments"], 1)
+        self.assertTrue(metrics["reconciliation"]["passed"])
+        self.assertAlmostEqual(metrics["total_gross_contribution"], 0.01)
+        self.assertAlmostEqual(metrics["total_cost"], 0.0095)
+        self.assertAlmostEqual(metrics["total_net_contribution"], 0.0005)
+
+        boundary_index = pd.bdate_range("2026-02-02", periods=2)
+        boundary = pd.DataFrame(
+            {
+                "timestamp": boundary_index,
+                "asset": ["A", "A"],
+                "signal_state": [1, 0],
+                "pretrade_weight": [0.2, 0.2],
+                "executed_weight": [0.2, 0.0],
+                "executed_state": [1, 0],
+                "trade_weight": [0.0, -0.2],
+                "execution_action": ["hold", "close"],
+                "execution_reason": ["portfolio_no_trade_band", "target_rebalance"],
+                "risk_rebalance_override": [False, False],
+                "gross_return_contribution": [0.01, 0.0],
+                "cost_contribution": [0.0, 0.002],
+                "net_return_contribution": [0.01, -0.002],
+            }
+        )
+        carried = build_position_episodes(
+            boundary,
+            boundary_index,
+            split="test",
+            role="visible-audit",
+        )
+        self.assertEqual(len(carried), 1)
+        self.assertTrue(bool(carried.iloc[0]["left_censored"]))
+        self.assertFalse(bool(carried.iloc[0]["complete"]))
+        self.assertEqual(carried.iloc[0]["decision_bars"], 1)
+        self.assertAlmostEqual(carried.iloc[0]["exit_cost"], 0.002)
+
     def test_executed_book_risk_overrides_no_trade_with_minimum_scale(
         self,
     ) -> None:
@@ -808,6 +913,12 @@ class OhlcvPortfolioLabTests(unittest.TestCase):
             self.assertIn("attribution", metrics)
             self.assertIn("robustness", metrics)
             self.assertIn("liquidity_capacity", metrics)
+            self.assertIn("position_lifecycle", metrics)
+            self.assertTrue(
+                metrics["position_lifecycle"]["validation"][
+                    "reconciliation"
+                ]["passed"]
+            )
             self.assertEqual(
                 metrics["liquidity_capacity"]["policy"][
                     "selection_authority"
@@ -867,6 +978,7 @@ class OhlcvPortfolioLabTests(unittest.TestCase):
                     "portfolio-targets",
                     "portfolio-weights",
                     "portfolio-decisions",
+                    "portfolio-position-episodes",
                 },
             )
             decision_path = run.root_dir / "artifacts" / "portfolio-decisions.csv"
@@ -879,6 +991,12 @@ class OhlcvPortfolioLabTests(unittest.TestCase):
             self.assertIn("causal_adv_dollar_volume", decision_columns)
             self.assertIn("portfolio_capacity_nav_1pct", decision_columns)
             self.assertIn("capacity_binding_asset", decision_columns)
+            episode_path = (
+                run.root_dir / "artifacts" / "position-episodes.csv"
+            )
+            episode_columns = pd.read_csv(episode_path, nrows=1).columns
+            self.assertIn("episode_id", episode_columns)
+            self.assertIn("maximum_favorable_excursion", episode_columns)
             snapshot = build_studio_snapshot(workspace.root_dir)
             self.assertEqual(snapshot["projects"][0]["counts"]["runs"], 1)
             layers = snapshot["projects"][0]["runs"][0]["metricLayers"]
@@ -890,6 +1008,7 @@ class OhlcvPortfolioLabTests(unittest.TestCase):
             self.assertTrue(
                 layers["attribution"]["validationReconciliationPassed"]
             )
+            self.assertIsNotNone(layers["positionLifecycle"])
             self.assertGreater(
                 layers["attribution"][
                     "validationMaximumAbsoluteRiskContributionShare"

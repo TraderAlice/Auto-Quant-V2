@@ -26,6 +26,39 @@ RISK_COVARIANCE_MINIMUM = 20
 LIQUIDITY_ADV_WINDOW = 20
 LIQUIDITY_PARTICIPATION_LIMITS = (0.01, 0.05)
 RISK_COMPLIANCE_TOLERANCE = 1e-10
+POSITION_EPISODE_TOLERANCE = 1e-10
+POSITION_EPISODE_COLUMNS = (
+    "episode_id",
+    "split",
+    "role",
+    "episode_number",
+    "asset",
+    "side",
+    "entry_timestamp",
+    "last_earning_timestamp",
+    "exit_timestamp",
+    "entry_action",
+    "exit_action",
+    "left_censored",
+    "right_censored",
+    "complete",
+    "decision_bars",
+    "entry_weight",
+    "last_executed_weight",
+    "peak_abs_weight",
+    "average_abs_weight",
+    "gross_contribution",
+    "entry_cost",
+    "holding_cost",
+    "exit_cost",
+    "total_cost",
+    "net_contribution",
+    "maximum_favorable_excursion",
+    "maximum_adverse_excursion",
+    "intent_mismatch_bars",
+    "no_trade_bars",
+    "risk_override_bars",
+)
 
 
 class PortfolioFailure(ValueError):
@@ -1476,6 +1509,568 @@ def build_decision_ledger(
         raise PortfolioFailure(
             "portfolio.non-finite",
             "Decision ledger contains non-finite numeric evidence",
+        )
+    return result
+
+
+def _position_state(weight: float) -> int:
+    return 1 if weight > 1e-12 else -1 if weight < -1e-12 else 0
+
+
+def build_position_episodes(
+    ledger: pd.DataFrame,
+    index: pd.Index,
+    *,
+    split: str,
+    role: str,
+) -> pd.DataFrame:
+    """Reconstruct exact split-bounded executed-position episodes."""
+
+    required = {
+        "timestamp",
+        "asset",
+        "signal_state",
+        "pretrade_weight",
+        "executed_weight",
+        "executed_state",
+        "trade_weight",
+        "execution_action",
+        "execution_reason",
+        "risk_rebalance_override",
+        "gross_return_contribution",
+        "cost_contribution",
+    }
+    if (
+        not isinstance(split, str)
+        or not split
+        or role not in {"training", "selection", "visible-audit"}
+        or len(index) == 0
+        or not required.issubset(ledger.columns)
+    ):
+        raise PortfolioFailure(
+            "portfolio.position-episodes",
+            "Position-episode inputs are incomplete",
+        )
+    timestamps = pd.DatetimeIndex(index)
+    if not timestamps.is_monotonic_increasing or not timestamps.is_unique:
+        raise PortfolioFailure(
+            "portfolio.position-episodes",
+            "Position-episode index must be unique and chronological",
+        )
+    selected = ledger[ledger["timestamp"].isin(timestamps)].copy()
+    if selected.empty:
+        raise PortfolioFailure(
+            "portfolio.position-episodes",
+            "Position-episode split has no decision rows",
+        )
+    selected = selected.sort_values(["asset", "timestamp"]).reset_index(
+        drop=True
+    )
+    expected_dates = set(timestamps)
+    if any(
+        len(group) != len(timestamps)
+        or set(pd.DatetimeIndex(group["timestamp"])) != expected_dates
+        for _, group in selected.groupby("asset", sort=True)
+    ):
+        raise PortfolioFailure(
+            "portfolio.position-episodes",
+            "Every asset must cover the complete split",
+        )
+
+    output: list[dict[str, object]] = []
+    for asset, asset_rows in selected.groupby("asset", sort=True):
+        sequence = 0
+        current: dict[str, object] | None = None
+
+        def open_episode(
+            state: int,
+            timestamp: pd.Timestamp,
+            *,
+            left_censored: bool,
+            action: str,
+            entry_weight: float,
+            entry_cost: float,
+        ) -> dict[str, object]:
+            nonlocal sequence
+            sequence += 1
+            return {
+                "episode_id": f"{split}:{asset}:{sequence:04d}",
+                "split": split,
+                "role": role,
+                "episode_number": sequence,
+                "asset": str(asset),
+                "side": "long" if state == 1 else "short",
+                "entry_timestamp": timestamp,
+                "last_earning_timestamp": pd.NaT,
+                "exit_timestamp": pd.NaT,
+                "entry_action": action,
+                "exit_action": "split_boundary_carry",
+                "left_censored": left_censored,
+                "right_censored": False,
+                "decision_bars": 0,
+                "entry_weight": entry_weight,
+                "last_executed_weight": 0.0,
+                "_weight_sum": 0.0,
+                "peak_abs_weight": 0.0,
+                "gross_contribution": 0.0,
+                "entry_cost": entry_cost,
+                "holding_cost": 0.0,
+                "exit_cost": 0.0,
+                "_path": [],
+                "intent_mismatch_bars": 0,
+                "no_trade_bars": 0,
+                "risk_override_bars": 0,
+            }
+
+        def close_episode(
+            episode: dict[str, object],
+            *,
+            right_censored: bool,
+            timestamp: pd.Timestamp | None,
+            action: str,
+        ) -> None:
+            episode["right_censored"] = right_censored
+            episode["exit_timestamp"] = (
+                pd.NaT if right_censored else timestamp
+            )
+            episode["exit_action"] = action
+            costs = (
+                float(episode["entry_cost"])
+                + float(episode["holding_cost"])
+                + float(episode["exit_cost"])
+            )
+            gross = float(episode["gross_contribution"])
+            path = np.cumsum(
+                np.asarray(episode.pop("_path"), dtype=float)
+            )
+            net = gross - costs
+            if path.size and not math.isclose(
+                float(path[-1]),
+                net,
+                rel_tol=0.0,
+                abs_tol=POSITION_EPISODE_TOLERANCE,
+            ):
+                raise PortfolioFailure(
+                    "portfolio.position-episode-reconciliation",
+                    "Episode contribution path does not reconcile",
+                )
+            bars = int(episode["decision_bars"])
+            weight_sum = float(episode.pop("_weight_sum"))
+            episode["average_abs_weight"] = (
+                weight_sum / bars if bars else 0.0
+            )
+            episode["total_cost"] = costs
+            episode["net_contribution"] = net
+            episode["maximum_favorable_excursion"] = (
+                max(0.0, float(path.max())) if path.size else 0.0
+            )
+            episode["maximum_adverse_excursion"] = (
+                min(0.0, float(path.min())) if path.size else 0.0
+            )
+            episode["complete"] = not bool(
+                episode["left_censored"]
+                or episode["right_censored"]
+            )
+            output.append(episode)
+
+        first = True
+        for raw in asset_rows.to_dict("records"):
+            timestamp = pd.Timestamp(raw["timestamp"])
+            pretrade_weight = float(raw["pretrade_weight"])
+            executed_weight = float(raw["executed_weight"])
+            trade_weight = float(raw["trade_weight"])
+            pretrade_state = _position_state(pretrade_weight)
+            executed_state = int(raw["executed_state"])
+            if (
+                executed_state != _position_state(executed_weight)
+                or not math.isclose(
+                    trade_weight,
+                    executed_weight - pretrade_weight,
+                    rel_tol=0.0,
+                    abs_tol=POSITION_EPISODE_TOLERANCE,
+                )
+            ):
+                raise PortfolioFailure(
+                    "portfolio.position-episode-state",
+                    "Executed state or trade differs from the weight transition",
+                )
+            if first and pretrade_state != 0:
+                current = open_episode(
+                    pretrade_state,
+                    timestamp,
+                    left_censored=True,
+                    action="split_boundary_carry",
+                    entry_weight=pretrade_weight,
+                    entry_cost=0.0,
+                )
+            first = False
+            current_state = (
+                1
+                if current is not None and current["side"] == "long"
+                else -1
+                if current is not None
+                else 0
+            )
+            if current_state != pretrade_state:
+                raise PortfolioFailure(
+                    "portfolio.position-episode-state",
+                    "Pretrade weight does not match the open episode",
+                )
+
+            cost = float(raw["cost_contribution"])
+            if cost < -POSITION_EPISODE_TOLERANCE:
+                raise PortfolioFailure(
+                    "portfolio.position-episode-cost",
+                    "Episode source cost cannot be negative",
+                )
+            cost_for_current = 0.0
+            if current_state == executed_state:
+                if current is None:
+                    if (
+                        abs(trade_weight) > POSITION_EPISODE_TOLERANCE
+                        or cost > POSITION_EPISODE_TOLERANCE
+                    ):
+                        raise PortfolioFailure(
+                            "portfolio.position-episode-cost",
+                            "Flat-to-flat row cannot contain trade cost",
+                        )
+                else:
+                    current["holding_cost"] = (
+                        float(current["holding_cost"]) + cost
+                    )
+                    cost_for_current = cost
+            else:
+                close_notional = (
+                    abs(pretrade_weight) if current_state else 0.0
+                )
+                open_notional = (
+                    abs(executed_weight) if executed_state else 0.0
+                )
+                transition_notional = close_notional + open_notional
+                if (
+                    not math.isclose(
+                        abs(trade_weight),
+                        transition_notional,
+                        rel_tol=0.0,
+                        abs_tol=POSITION_EPISODE_TOLERANCE,
+                    )
+                    or transition_notional <= POSITION_EPISODE_TOLERANCE
+                ):
+                    raise PortfolioFailure(
+                        "portfolio.position-episode-trade",
+                        "Episode transition notional does not reconcile",
+                    )
+                close_cost = cost * close_notional / transition_notional
+                open_cost = cost - close_cost
+                if current is not None:
+                    current["exit_cost"] = (
+                        float(current["exit_cost"]) + close_cost
+                    )
+                    if int(current["decision_bars"]) == 0:
+                        current["last_executed_weight"] = pretrade_weight
+                    current["_path"].append(-close_cost)
+                    close_episode(
+                        current,
+                        right_censored=False,
+                        timestamp=timestamp,
+                        action=str(raw["execution_action"]),
+                    )
+                    current = None
+                if executed_state:
+                    current = open_episode(
+                        executed_state,
+                        timestamp,
+                        left_censored=False,
+                        action=str(raw["execution_action"]),
+                        entry_weight=executed_weight,
+                        entry_cost=open_cost,
+                    )
+                    cost_for_current = open_cost
+
+            gross = float(raw["gross_return_contribution"])
+            if current is None:
+                if abs(gross) > POSITION_EPISODE_TOLERANCE:
+                    raise PortfolioFailure(
+                        "portfolio.position-episode-contribution",
+                        "Flat executed state cannot earn gross contribution",
+                    )
+                continue
+            current["gross_contribution"] = (
+                float(current["gross_contribution"]) + gross
+            )
+            current["_path"].append(gross - cost_for_current)
+            current["decision_bars"] = int(current["decision_bars"]) + 1
+            current["last_earning_timestamp"] = timestamp
+            current["last_executed_weight"] = executed_weight
+            current["_weight_sum"] = (
+                float(current["_weight_sum"]) + abs(executed_weight)
+            )
+            current["peak_abs_weight"] = max(
+                float(current["peak_abs_weight"]),
+                abs(executed_weight),
+            )
+            if int(raw["signal_state"]) != executed_state:
+                current["intent_mismatch_bars"] = (
+                    int(current["intent_mismatch_bars"]) + 1
+                )
+            if str(raw["execution_reason"]) == "portfolio_no_trade_band":
+                current["no_trade_bars"] = (
+                    int(current["no_trade_bars"]) + 1
+                )
+            if bool(raw["risk_rebalance_override"]):
+                current["risk_override_bars"] = (
+                    int(current["risk_override_bars"]) + 1
+                )
+
+        if current is not None:
+            close_episode(
+                current,
+                right_censored=True,
+                timestamp=None,
+                action="split_boundary_carry",
+            )
+
+    if not output:
+        return pd.DataFrame(columns=POSITION_EPISODE_COLUMNS)
+    result = pd.DataFrame(output)
+    result = result.loc[:, POSITION_EPISODE_COLUMNS]
+    numeric = result[
+        [
+            "episode_number",
+            "decision_bars",
+            "entry_weight",
+            "last_executed_weight",
+            "peak_abs_weight",
+            "average_abs_weight",
+            "gross_contribution",
+            "entry_cost",
+            "holding_cost",
+            "exit_cost",
+            "total_cost",
+            "net_contribution",
+            "maximum_favorable_excursion",
+            "maximum_adverse_excursion",
+            "intent_mismatch_bars",
+            "no_trade_bars",
+            "risk_override_bars",
+        ]
+    ].to_numpy(dtype=float)
+    if not np.isfinite(numeric).all():
+        raise PortfolioFailure(
+            "portfolio.non-finite",
+            "Position episodes contain non-finite evidence",
+        )
+    return result
+
+
+def position_episode_metrics(
+    episodes: pd.DataFrame,
+    ledger: pd.DataFrame,
+    index: pd.Index,
+) -> dict[str, object]:
+    """Aggregate split-bounded episode diagnostics and exact reconciliation."""
+
+    selected = ledger[ledger["timestamp"].isin(index)].copy()
+    if selected.empty:
+        raise PortfolioFailure(
+            "portfolio.population",
+            "Position-lifecycle split has no decision rows",
+        )
+    active = episodes[episodes["decision_bars"].astype(int) > 0].copy()
+    complete = active[active["complete"].astype(bool)].copy()
+    winners = complete[
+        complete["net_contribution"] > POSITION_EPISODE_TOLERANCE
+    ]
+    losers = complete[
+        complete["net_contribution"] < -POSITION_EPISODE_TOLERANCE
+    ]
+    average_win = (
+        float(winners["net_contribution"].mean())
+        if len(winners)
+        else 0.0
+    )
+    average_loss = (
+        float(losers["net_contribution"].mean())
+        if len(losers)
+        else 0.0
+    )
+    gross_profit = float(winners["net_contribution"].sum())
+    gross_loss = abs(float(losers["net_contribution"].sum()))
+
+    def group_metrics(group: pd.DataFrame) -> dict[str, object]:
+        active_group = group[group["decision_bars"].astype(int) > 0]
+        complete_group = active_group[
+            active_group["complete"].astype(bool)
+        ]
+        return {
+            "segments": int(len(group)),
+            "active_segments": int(len(active_group)),
+            "complete_episodes": int(len(complete_group)),
+            "decision_bars": int(active_group["decision_bars"].sum()),
+            "total_gross_contribution": float(
+                group["gross_contribution"].sum()
+            ),
+            "total_cost": float(group["total_cost"].sum()),
+            "total_net_contribution": float(
+                group["net_contribution"].sum()
+            ),
+            "complete_episode_win_rate": (
+                float(
+                    (
+                        complete_group["net_contribution"]
+                        > POSITION_EPISODE_TOLERANCE
+                    ).mean()
+                )
+                if len(complete_group)
+                else 0.0
+            ),
+        }
+
+    episode_gross = float(episodes["gross_contribution"].sum())
+    episode_cost = float(episodes["total_cost"].sum())
+    episode_net = float(episodes["net_contribution"].sum())
+    ledger_gross = float(selected["gross_return_contribution"].sum())
+    ledger_cost = float(selected["cost_contribution"].sum())
+    ledger_net = float(selected["net_return_contribution"].sum())
+    reconciliation = {
+        "passed": (
+            abs(episode_gross - ledger_gross)
+            <= POSITION_EPISODE_TOLERANCE
+            and abs(episode_cost - ledger_cost)
+            <= POSITION_EPISODE_TOLERANCE
+            and abs(episode_net - ledger_net)
+            <= POSITION_EPISODE_TOLERANCE
+            and abs(episode_net - (episode_gross - episode_cost))
+            <= POSITION_EPISODE_TOLERANCE
+        ),
+        "gross_contribution_error": abs(episode_gross - ledger_gross),
+        "cost_error": abs(episode_cost - ledger_cost),
+        "net_contribution_error": abs(episode_net - ledger_net),
+        "episode_identity_error": abs(
+            episode_net - (episode_gross - episode_cost)
+        ),
+    }
+    if not reconciliation["passed"]:
+        raise PortfolioFailure(
+            "portfolio.position-episode-reconciliation",
+            "Position episodes do not reconcile the decision ledger",
+        )
+
+    total_bars = int(active["decision_bars"].sum())
+    result: dict[str, object] = {
+        "status": "available" if len(active) else "no_positions",
+        "segments": int(len(episodes)),
+        "active_segments": int(len(active)),
+        "complete_episodes": int(len(complete)),
+        "left_censored_segments": int(
+            episodes["left_censored"].astype(bool).sum()
+        ),
+        "right_censored_segments": int(
+            episodes["right_censored"].astype(bool).sum()
+        ),
+        "long_segments": int((episodes["side"] == "long").sum()),
+        "short_segments": int((episodes["side"] == "short").sum()),
+        "decision_bars": total_bars,
+        "segment_positive_rate": (
+            float(
+                (
+                    active["net_contribution"]
+                    > POSITION_EPISODE_TOLERANCE
+                ).mean()
+            )
+            if len(active)
+            else 0.0
+        ),
+        "complete_episode_win_rate": (
+            float(
+                (
+                    complete["net_contribution"]
+                    > POSITION_EPISODE_TOLERANCE
+                ).mean()
+            )
+            if len(complete)
+            else 0.0
+        ),
+        "average_complete_holding_bars": (
+            float(complete["decision_bars"].mean())
+            if len(complete)
+            else 0.0
+        ),
+        "median_complete_holding_bars": (
+            float(complete["decision_bars"].median())
+            if len(complete)
+            else 0.0
+        ),
+        "average_complete_win_contribution": average_win,
+        "average_complete_loss_contribution": average_loss,
+        "complete_payoff_ratio": (
+            average_win / abs(average_loss)
+            if average_win > 0 and average_loss < 0
+            else 0.0
+        ),
+        "complete_profit_factor": (
+            gross_profit / gross_loss
+            if gross_profit > 0 and gross_loss > 0
+            else 0.0
+        ),
+        "average_segment_mfe": (
+            float(active["maximum_favorable_excursion"].mean())
+            if len(active)
+            else 0.0
+        ),
+        "average_segment_mae": (
+            float(active["maximum_adverse_excursion"].mean())
+            if len(active)
+            else 0.0
+        ),
+        "intent_mismatch_bars": int(
+            active["intent_mismatch_bars"].sum()
+        ),
+        "intent_mismatch_rate": (
+            float(active["intent_mismatch_bars"].sum() / total_bars)
+            if total_bars
+            else 0.0
+        ),
+        "no_trade_bars": int(active["no_trade_bars"].sum()),
+        "no_trade_bar_rate": (
+            float(active["no_trade_bars"].sum() / total_bars)
+            if total_bars
+            else 0.0
+        ),
+        "risk_override_bars": int(
+            active["risk_override_bars"].sum()
+        ),
+        "total_gross_contribution": episode_gross,
+        "total_cost": episode_cost,
+        "total_net_contribution": episode_net,
+        "entry_action_counts": {
+            str(key): int(value)
+            for key, value in episodes["entry_action"].value_counts().items()
+        },
+        "exit_action_counts": {
+            str(key): int(value)
+            for key, value in episodes["exit_action"].value_counts().items()
+        },
+        "by_asset": {
+            str(name): group_metrics(group)
+            for name, group in episodes.groupby("asset", sort=True)
+        },
+        "by_side": {
+            str(name): group_metrics(group)
+            for name, group in episodes.groupby("side", sort=True)
+        },
+        "reconciliation": reconciliation,
+    }
+    numeric: list[float] = [
+        float(value)
+        for value in result.values()
+        if isinstance(value, (int, float)) and not isinstance(value, bool)
+    ]
+    numeric.extend(float(value) for value in reconciliation.values())
+    if not all(math.isfinite(value) for value in numeric):
+        raise PortfolioFailure(
+            "portfolio.non-finite",
+            "Position-lifecycle metrics contain non-finite values",
         )
     return result
 

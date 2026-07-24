@@ -10,6 +10,7 @@ const state = {
   factorStability: "regimes",
   portfolioView: "performance",
   attributionSplit: "validation",
+  lifecycleSplit: "validation",
   rlView: "performance",
   rlSplit: "validation",
   matrixView: "selection",
@@ -1806,6 +1807,79 @@ function renderPortfolioExplorer(project) {
   renderPortfolioBook(explorer);
   renderPortfolioAttribution(explorer);
   renderPortfolioTransitions(explorer);
+  renderPortfolioLifecycle(explorer);
+}
+
+function renderPortfolioLifecycle(explorer) {
+  const target = element("portfolio-lifecycle");
+  const lifecycle = explorer.positionLifecycle;
+  document.querySelectorAll("[data-lifecycle-split]").forEach((button) => {
+    button.setAttribute(
+      "aria-selected",
+      String(button.dataset.lifecycleSplit === state.lifecycleSplit),
+    );
+  });
+  if (!lifecycle?.available) {
+    target.innerHTML =
+      '<div class="empty-panel">Legacy Run: mechanical position lifecycle evidence is unavailable.</div>';
+    return;
+  }
+  const split = lifecycle[state.lifecycleSplit];
+  const episodes = lifecycle.recentEpisodes.filter(
+    (episode) => episode.split === state.lifecycleSplit,
+  );
+  const stats = [
+    ["Complete episodes", split.completeEpisodes],
+    ["Win rate", percent(split.completeEpisodeWinRate)],
+    ["Median holding", `${metric(split.medianCompleteHoldingBars, 1)} bars`],
+    ["Payoff", metric(split.completePayoffRatio)],
+    ["Intent mismatch", percent(split.intentMismatchRate)],
+    [
+      "MFE / MAE",
+      `${signedPercent(split.averageSegmentMfe)} / ${signedPercent(split.averageSegmentMae)}`,
+    ],
+  ];
+  target.innerHTML = `
+    <div class="lifecycle-stats">
+      ${stats.map(([label, value]) => `<span><small>${escapeHtml(label)}</small><b>${escapeHtml(value)}</b></span>`).join("")}
+    </div>
+    <div class="lifecycle-detail-grid">
+      <div>
+        <div class="lifecycle-row">
+          <small>Asset</small><small>Segments</small><small>Complete</small><small>Win rate</small><small>Net / cost</small>
+        </div>
+        <div class="lifecycle-table">
+          ${split.byAsset.map((row) => `
+            <div class="lifecycle-row">
+              <b>${escapeHtml(row.asset)}</b>
+              <span>${escapeHtml(row.activeSegments)}</span>
+              <span>${escapeHtml(row.completeEpisodes)}</span>
+              <span>${percent(row.completeEpisodeWinRate)}</span>
+              <span>${signedPercent(row.totalNetContribution)} / ${percent(row.totalCost)}</span>
+            </div>`).join("")}
+        </div>
+      </div>
+      <div>
+        <div class="lifecycle-episode">
+          <small>Entry</small><small>Asset</small><small>Side</small><small>Lifecycle</small><small>Net</small><small>MFE / MAE</small>
+        </div>
+        <div class="lifecycle-episodes">
+          ${episodes.map((episode) => `
+            <div class="lifecycle-episode">
+              <time>${escapeHtml(episode.entryTimestamp)}</time>
+              <b>${escapeHtml(episode.asset)}</b>
+              <span>${escapeHtml(episode.side)}</span>
+              <span>${escapeHtml(episode.decisionBars)} bars · ${episode.complete ? "complete" : "censored"}</span>
+              <span>${signedPercent(episode.netContribution)}</span>
+              <small>${signedPercent(episode.maximumFavorableExcursion)} / ${signedPercent(episode.maximumAdverseExcursion)}</small>
+            </div>`).join("") || '<div class="empty-panel">No recent active episodes in this split.</div>'}
+        </div>
+      </div>
+    </div>
+    <p class="lifecycle-disclosure">
+      ${escapeHtml(split.leftCensoredSegments)} left-censored · ${escapeHtml(split.rightCensoredSegments)} right-censored ·
+      complete-episode win/payoff statistics exclude censored segments. Episode P&amp;L is additive portfolio contribution, not a standalone compounded trade return.
+    </p>`;
 }
 
 function rlBaselineLabel(value) {
@@ -2951,6 +3025,13 @@ document.querySelectorAll("[data-portfolio-view]").forEach((button) => {
     state.portfolioView = button.dataset.portfolioView;
     const explorer = selectedProject()?.portfolioExplorer;
     if (explorer) renderPortfolioChart(explorer);
+  });
+});
+document.querySelectorAll("[data-lifecycle-split]").forEach((button) => {
+  button.addEventListener("click", () => {
+    state.lifecycleSplit = button.dataset.lifecycleSplit;
+    const explorer = selectedProject()?.portfolioExplorer;
+    if (explorer) renderPortfolioLifecycle(explorer);
   });
 });
 document.querySelectorAll("[data-factor-view]").forEach((button) => {

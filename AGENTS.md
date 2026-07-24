@@ -79,6 +79,9 @@ Read the relevant linked document before changing a subsystem:
 - Mechanical signal state, hysteresis, conviction/risk sizing, execution
   reasons, and portfolio contribution reconciliation:
   [[docs/design/signal-policy-and-attribution]]
+- Split-bounded executed-position episodes, holding periods, entry/exit cost,
+  contribution excursions, and signal/execution mismatch:
+  [[docs/design/mechanical-position-lifecycle-evidence]]
 - Causal covariance forecast, one-sided portfolio-volatility ceiling, shared
   Portfolio/RL risk policy, and pre/post sizing evidence:
   [[docs/design/portfolio-risk-governor]]

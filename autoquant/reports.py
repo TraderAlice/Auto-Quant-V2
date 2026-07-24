@@ -743,6 +743,33 @@ def _render_markdown(report: dict[str, Any]) -> str:
                     "evidence only; no Broker, account, or order authority.",
                 ]
             )
+        lifecycle = leader_run["metrics"].get("position_lifecycle")
+        validation_lifecycle = (
+            lifecycle.get("validation")
+            if isinstance(lifecycle, dict)
+            else None
+        )
+        if isinstance(validation_lifecycle, dict):
+            lines.extend(
+                [
+                    "- Mechanical position lifecycle: "
+                    "`split-bounded-executed-position-episodes-v1` "
+                    "(contextual episode evidence)",
+                    "- Validation complete episodes / win rate / median "
+                    "holding bars / payoff ratio: "
+                    f"`{validation_lifecycle['complete_episodes']}` / "
+                    f"`{validation_lifecycle['complete_episode_win_rate']}` / "
+                    f"`{validation_lifecycle['median_complete_holding_bars']}` / "
+                    f"`{validation_lifecycle['complete_payoff_ratio']}`",
+                    "- Validation intent-mismatch rate / average segment "
+                    "MFE / MAE: "
+                    f"`{validation_lifecycle['intent_mismatch_rate']}` / "
+                    f"`{validation_lifecycle['average_segment_mfe']}` / "
+                    f"`{validation_lifecycle['average_segment_mae']}`",
+                    "- Episode returns are additive portfolio contribution, "
+                    "not standalone compounded trade returns; no trading authority.",
+                ]
+            )
         lines.append("")
     lines.extend(
         [

@@ -32,6 +32,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/mechanical-position-lifecycle-evidence]] | Reconstructed every split-bounded executed position episode with holding, contribution, cost, excursion, and signal/execution mismatch evidence. | 2026-07-25 |
 | [[plans/executed-book-risk-compliance]] | Made the final post-drift, post-no-trade Portfolio and governed-RL book obey the causal request-bound volatility ceiling. | 2026-07-25 |
 | [[plans/ohlcv-liquidity-capacity-envelope]] | Turned exact mechanical trade paths and causal trailing OHLCV dollar volume into a reconciled capital-capacity envelope. | 2026-07-25 |
 | [[plans/portfolio-risk-governor]] | Made every request-bound Portfolio and governed-RL sleeve obey one causal covariance-based volatility ceiling with auditable sizing evidence. | 2026-07-25 |

@@ -375,6 +375,7 @@ def _portfolio_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
         layers["attribution"] = None
         layers["liquidityCapacity"] = None
         layers["executedBookRisk"] = None
+        layers["positionLifecycle"] = None
         if isinstance(signal_policy, dict):
             validation_policy = signal_policy.get("validation", {})
             comparison = signal_policy.get(
@@ -485,6 +486,35 @@ def _portfolio_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
                         )
                     ),
                     "selectionAuthority": execution_risk.get(
+                        "policy",
+                        {},
+                    ).get("selection_authority"),
+                }
+        lifecycle = metrics.get("position_lifecycle")
+        if isinstance(lifecycle, dict):
+            validation_lifecycle = lifecycle.get("validation", {})
+            if isinstance(validation_lifecycle, dict):
+                layers["positionLifecycle"] = {
+                    "validationCompleteEpisodes": (
+                        validation_lifecycle.get("complete_episodes")
+                    ),
+                    "validationCompleteEpisodeWinRate": (
+                        validation_lifecycle.get(
+                            "complete_episode_win_rate"
+                        )
+                    ),
+                    "validationMedianCompleteHoldingBars": (
+                        validation_lifecycle.get(
+                            "median_complete_holding_bars"
+                        )
+                    ),
+                    "validationCompletePayoffRatio": (
+                        validation_lifecycle.get("complete_payoff_ratio")
+                    ),
+                    "validationIntentMismatchRate": (
+                        validation_lifecycle.get("intent_mismatch_rate")
+                    ),
+                    "selectionAuthority": lifecycle.get(
                         "policy",
                         {},
                     ).get("selection_authority"),

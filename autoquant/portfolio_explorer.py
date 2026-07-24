@@ -11,9 +11,17 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
+
 from .mandates import (
     PORTFOLIO_MANDATE,
     validate_portfolio_mandate,
+)
+from .project_templates.ohlcv_portfolio_lab.portfolio_core import (
+    POSITION_EPISODE_COLUMNS,
+    PortfolioFailure,
+    build_position_episodes,
+    position_episode_metrics,
 )
 from .runs import RunContext, load_run
 from .workspace import (
@@ -32,14 +40,19 @@ MAX_PORTFOLIO_POINTS = 400
 MAX_ARTIFACT_BYTES = 32 * 1024 * 1024
 MAX_DAILY_ROWS = 100_000
 MAX_DECISION_ROWS = 1_000_000
+MAX_EPISODE_ROWS = 100_000
 MAX_UNIVERSE = 256
 MAX_RECENT_TRANSITIONS = 40
-EXPECTED_ARTIFACT_KINDS = {
+BASE_ARTIFACT_KINDS = {
     "portfolio-report",
     "portfolio-daily",
     "portfolio-targets",
     "portfolio-weights",
     "portfolio-decisions",
+}
+POSITION_EPISODE_ARTIFACT_KIND = "portfolio-position-episodes"
+EXPECTED_ARTIFACT_KINDS = BASE_ARTIFACT_KINDS | {
+    POSITION_EPISODE_ARTIFACT_KIND
 }
 DAILY_NUMERIC_COLUMNS = (
     "gross_return",
@@ -269,7 +282,7 @@ def _artifact_paths(
             "path": relative,
             "sha256": content_hash,
         }
-    missing = EXPECTED_ARTIFACT_KINDS - paths.keys()
+    missing = BASE_ARTIFACT_KINDS - paths.keys()
     if missing:
         _fail(
             run.root_dir,
@@ -2371,6 +2384,507 @@ def _liquidity_capacity_projection(
     return projection
 
 
+EPISODE_BOOLEAN_COLUMNS = {
+    "left_censored",
+    "right_censored",
+    "complete",
+}
+EPISODE_INTEGER_COLUMNS = {
+    "episode_number",
+    "decision_bars",
+    "intent_mismatch_bars",
+    "no_trade_bars",
+    "risk_override_bars",
+}
+EPISODE_DATE_COLUMNS = {
+    "entry_timestamp",
+    "last_earning_timestamp",
+    "exit_timestamp",
+}
+EPISODE_STRING_COLUMNS = {
+    "episode_id",
+    "split",
+    "role",
+    "asset",
+    "side",
+    "entry_action",
+    "exit_action",
+}
+EPISODE_FLOAT_COLUMNS = (
+    set(POSITION_EPISODE_COLUMNS)
+    - EPISODE_BOOLEAN_COLUMNS
+    - EPISODE_INTEGER_COLUMNS
+    - EPISODE_DATE_COLUMNS
+    - EPISODE_STRING_COLUMNS
+)
+
+
+def _parse_position_episodes(path: Path) -> pd.DataFrame:
+    fields, raw_rows = _read_csv(
+        path,
+        required=set(POSITION_EPISODE_COLUMNS),
+        maximum_rows=MAX_EPISODE_ROWS,
+    )
+    if fields != list(POSITION_EPISODE_COLUMNS):
+        _fail(
+            path,
+            "portfolio.position-episode-columns",
+            "Position-episode columns differ from the fixed contract",
+        )
+    parsed: list[dict[str, Any]] = []
+    for row_number, raw in enumerate(raw_rows, start=2):
+        row_path = f"{path}:{row_number}"
+        row: dict[str, Any] = {}
+        for field in EPISODE_STRING_COLUMNS:
+            if not raw[field]:
+                _fail(
+                    f"{row_path}/{field}",
+                    "portfolio.position-episode-string",
+                    f"{field} must be non-empty",
+                )
+            row[field] = raw[field]
+        for field in EPISODE_DATE_COLUMNS:
+            row[field] = (
+                pd.NaT
+                if raw[field] == ""
+                else pd.Timestamp(
+                    _session_date(raw[field], f"{row_path}/{field}")
+                )
+            )
+        for field in EPISODE_BOOLEAN_COLUMNS:
+            if raw[field] not in {"True", "False"}:
+                _fail(
+                    f"{row_path}/{field}",
+                    "portfolio.boolean",
+                    f"{field} must be True or False",
+                )
+            row[field] = raw[field] == "True"
+        for field in EPISODE_INTEGER_COLUMNS:
+            try:
+                value = int(raw[field])
+            except ValueError:
+                _fail(
+                    f"{row_path}/{field}",
+                    "portfolio.integer",
+                    f"{field} must be a non-negative integer",
+                )
+            if str(value) != raw[field] or value < 0:
+                _fail(
+                    f"{row_path}/{field}",
+                    "portfolio.integer",
+                    f"{field} must be a non-negative integer",
+                )
+            row[field] = value
+        for field in EPISODE_FLOAT_COLUMNS:
+            row[field] = _finite(raw[field], f"{row_path}/{field}")
+        if (
+            row["split"] not in {"train", "validation", "test"}
+            or row["role"]
+            not in {"training", "selection", "visible-audit"}
+            or row["side"] not in {"long", "short"}
+            or row["episode_id"]
+            != (
+                f"{row['split']}:{row['asset']}:"
+                f"{row['episode_number']:04d}"
+            )
+            or row["complete"]
+            != (not (row["left_censored"] or row["right_censored"]))
+            or (
+                row["decision_bars"] == 0
+                and not pd.isna(row["last_earning_timestamp"])
+            )
+            or (
+                row["decision_bars"] > 0
+                and pd.isna(row["last_earning_timestamp"])
+            )
+            or (
+                row["right_censored"]
+                != pd.isna(row["exit_timestamp"])
+            )
+            or row["intent_mismatch_bars"] > row["decision_bars"]
+            or row["no_trade_bars"] > row["decision_bars"]
+            or row["risk_override_bars"] > row["decision_bars"]
+            or min(
+                row["peak_abs_weight"],
+                row["average_abs_weight"],
+                row["entry_cost"],
+                row["holding_cost"],
+                row["exit_cost"],
+                row["total_cost"],
+                row["maximum_favorable_excursion"],
+            )
+            < -1e-12
+            or row["maximum_adverse_excursion"] > 1e-12
+            or not math.isclose(
+                row["total_cost"],
+                row["entry_cost"]
+                + row["holding_cost"]
+                + row["exit_cost"],
+                rel_tol=0.0,
+                abs_tol=1e-10,
+            )
+            or not math.isclose(
+                row["net_contribution"],
+                row["gross_contribution"] - row["total_cost"],
+                rel_tol=0.0,
+                abs_tol=1e-10,
+            )
+            or (
+                row["side"] == "long"
+                and row["entry_weight"] < -1e-12
+            )
+            or (
+                row["side"] == "short"
+                and row["entry_weight"] > 1e-12
+            )
+        ):
+            _fail(
+                row_path,
+                "portfolio.position-episode-value",
+                "Position-episode evidence is invalid",
+            )
+        parsed.append(row)
+    if not parsed:
+        return pd.DataFrame(columns=POSITION_EPISODE_COLUMNS)
+    result = pd.DataFrame(parsed)
+    return result.loc[:, POSITION_EPISODE_COLUMNS]
+
+
+def _compare_position_episode_frames(
+    actual: pd.DataFrame,
+    expected: pd.DataFrame,
+    path: Path,
+) -> None:
+    if len(actual) != len(expected):
+        _fail(
+            path,
+            "portfolio.position-episode-coverage",
+            "Position-episode artifact does not match reconstructed coverage",
+        )
+    for row_number, (actual_row, expected_row) in enumerate(
+        zip(actual.to_dict("records"), expected.to_dict("records")),
+        start=2,
+    ):
+        for field in POSITION_EPISODE_COLUMNS:
+            actual_value = actual_row[field]
+            expected_value = expected_row[field]
+            if field in EPISODE_FLOAT_COLUMNS:
+                matches = math.isclose(
+                    float(actual_value),
+                    float(expected_value),
+                    rel_tol=1e-10,
+                    abs_tol=1e-10,
+                )
+            elif field in EPISODE_DATE_COLUMNS:
+                matches = (
+                    pd.isna(actual_value) and pd.isna(expected_value)
+                ) or (
+                    not pd.isna(actual_value)
+                    and not pd.isna(expected_value)
+                    and pd.Timestamp(actual_value)
+                    == pd.Timestamp(expected_value)
+                )
+            else:
+                matches = actual_value == expected_value
+            if not matches:
+                _fail(
+                    f"{path}:{row_number}/{field}",
+                    "portfolio.position-episode-reconciliation",
+                    "Position-episode artifact differs from the decision ledger",
+                )
+
+
+def _compare_position_metrics(
+    actual: Any,
+    expected: Any,
+    path: str,
+) -> None:
+    if isinstance(expected, dict):
+        if not isinstance(actual, dict) or set(actual) != set(expected):
+            _fail(
+                path,
+                "portfolio.position-lifecycle-metrics",
+                "Position-lifecycle metric shape differs from reconstructed evidence",
+            )
+        for key, value in expected.items():
+            _compare_position_metrics(
+                actual[key],
+                value,
+                f"{path}/{key}",
+            )
+    elif isinstance(expected, bool):
+        if actual is not expected:
+            _fail(
+                path,
+                "portfolio.position-lifecycle-metrics",
+                "Position-lifecycle metric differs from reconstructed evidence",
+            )
+    elif isinstance(expected, float):
+        if not math.isclose(
+            _finite(actual, path),
+            expected,
+            rel_tol=1e-10,
+            abs_tol=1e-10,
+        ):
+            _fail(
+                path,
+                "portfolio.position-lifecycle-metrics",
+                "Position-lifecycle metric differs from reconstructed evidence",
+            )
+    elif actual != expected:
+        _fail(
+            path,
+            "portfolio.position-lifecycle-metrics",
+            "Position-lifecycle metric differs from reconstructed evidence",
+        )
+
+
+def _position_lifecycle_projection(
+    result: dict[str, Any],
+    episode_path: Path | None,
+    ordered_decisions: list[dict[str, Any]],
+    daily: ParsedDaily,
+    splits: dict[str, Any],
+) -> dict[str, Any]:
+    raw = result["metrics"].get("position_lifecycle")
+    if raw is None and episode_path is None:
+        return {
+            "available": False,
+            "policy": None,
+            "selectionAuthority": "context-only",
+            "validation": None,
+            "test": None,
+            "recentEpisodes": [],
+        }
+    if not isinstance(raw, dict) or episode_path is None:
+        _fail(
+            "RunResult/metrics/position_lifecycle",
+            "portfolio.position-lifecycle",
+            "Position-lifecycle metrics and artifact must exist together",
+        )
+    policy = {
+        "method": "split-bounded-executed-position-episodes-v1",
+        "state": "sign-of-executed-weight",
+        "boundary": "split-clipped-left-right-censored",
+        "pnl": (
+            "additive-portfolio-return-contribution-after-"
+            "proportional-trade-cost"
+        ),
+        "excursion": (
+            "cumulative-net-contribution-from-split-segment-start"
+        ),
+        "selection_authority": "context-only",
+        "trading_authority": "none",
+    }
+    if raw.get("policy") != policy or set(raw) != {
+        "policy",
+        "train",
+        "validation",
+        "test",
+    }:
+        _fail(
+            "RunResult/metrics/position_lifecycle/policy",
+            "portfolio.position-lifecycle-policy",
+            "Position-lifecycle policy differs from the fixed contract",
+        )
+    ledger = pd.DataFrame(ordered_decisions)
+    ledger["timestamp"] = pd.to_datetime(
+        ledger["timestamp"],
+        format="%Y-%m-%d",
+    )
+    roles = {
+        "train": "training",
+        "validation": "selection",
+        "test": "visible-audit",
+    }
+    expected_frames: dict[str, pd.DataFrame] = {}
+    expected_metrics: dict[str, dict[str, object]] = {}
+    for split_name in ("train", "validation", "test"):
+        split = splits[split_name]
+        index = pd.DatetimeIndex(
+            [
+                timestamp
+                for timestamp in pd.to_datetime(
+                    daily.dates,
+                    format="%Y-%m-%d",
+                )
+                if pd.Timestamp(split["start"])
+                <= timestamp
+                <= pd.Timestamp(split["signalEnd"])
+            ]
+        )
+        try:
+            frame = build_position_episodes(
+                ledger,
+                index,
+                split=split_name,
+                role=roles[split_name],
+            )
+            metrics = position_episode_metrics(
+                frame,
+                ledger,
+                index,
+            )
+        except PortfolioFailure as error:
+            _fail(
+                episode_path,
+                getattr(error, "code", "portfolio.position-lifecycle"),
+                str(error),
+            )
+        expected_frames[split_name] = frame
+        expected_metrics[split_name] = metrics
+        _compare_position_metrics(
+            raw[split_name],
+            metrics,
+            f"RunResult/metrics/position_lifecycle/{split_name}",
+        )
+    expected = pd.concat(
+        expected_frames.values(),
+        ignore_index=True,
+    )
+    actual = _parse_position_episodes(episode_path)
+    _compare_position_episode_frames(actual, expected, episode_path)
+
+    def split_projection(name: str) -> dict[str, Any]:
+        value = expected_metrics[name]
+        return {
+            "status": value["status"],
+            "segments": value["segments"],
+            "activeSegments": value["active_segments"],
+            "completeEpisodes": value["complete_episodes"],
+            "leftCensoredSegments": value["left_censored_segments"],
+            "rightCensoredSegments": value["right_censored_segments"],
+            "longSegments": value["long_segments"],
+            "shortSegments": value["short_segments"],
+            "decisionBars": value["decision_bars"],
+            "segmentPositiveRate": value["segment_positive_rate"],
+            "completeEpisodeWinRate": value[
+                "complete_episode_win_rate"
+            ],
+            "averageCompleteHoldingBars": value[
+                "average_complete_holding_bars"
+            ],
+            "medianCompleteHoldingBars": value[
+                "median_complete_holding_bars"
+            ],
+            "averageCompleteWinContribution": value[
+                "average_complete_win_contribution"
+            ],
+            "averageCompleteLossContribution": value[
+                "average_complete_loss_contribution"
+            ],
+            "completePayoffRatio": value["complete_payoff_ratio"],
+            "completeProfitFactor": value["complete_profit_factor"],
+            "averageSegmentMfe": value["average_segment_mfe"],
+            "averageSegmentMae": value["average_segment_mae"],
+            "intentMismatchBars": value["intent_mismatch_bars"],
+            "intentMismatchRate": value["intent_mismatch_rate"],
+            "noTradeBars": value["no_trade_bars"],
+            "noTradeBarRate": value["no_trade_bar_rate"],
+            "riskOverrideBars": value["risk_override_bars"],
+            "totalGrossContribution": value[
+                "total_gross_contribution"
+            ],
+            "totalCost": value["total_cost"],
+            "totalNetContribution": value[
+                "total_net_contribution"
+            ],
+            "byAsset": [
+                {
+                    "asset": asset,
+                    "segments": metrics["segments"],
+                    "activeSegments": metrics["active_segments"],
+                    "completeEpisodes": metrics["complete_episodes"],
+                    "decisionBars": metrics["decision_bars"],
+                    "totalNetContribution": metrics[
+                        "total_net_contribution"
+                    ],
+                    "totalCost": metrics["total_cost"],
+                    "completeEpisodeWinRate": metrics[
+                        "complete_episode_win_rate"
+                    ],
+                }
+                for asset, metrics in value["by_asset"].items()
+            ],
+            "reconciliation": value["reconciliation"],
+        }
+
+    active_recent = expected[
+        expected["split"].isin(["validation", "test"])
+        & (expected["decision_bars"].astype(int) > 0)
+    ]
+    recent = pd.concat(
+        [
+            active_recent[active_recent["split"].eq(name)]
+            .sort_values(
+                ["entry_timestamp", "asset", "episode_number"],
+            )
+            .tail(12)
+            for name in ("validation", "test")
+        ],
+        ignore_index=True,
+    )
+    return {
+        "available": True,
+        "policy": {
+            "method": policy["method"],
+            "state": policy["state"],
+            "boundary": policy["boundary"],
+            "pnl": policy["pnl"],
+            "excursion": policy["excursion"],
+            "selectionAuthority": policy["selection_authority"],
+            "tradingAuthority": policy["trading_authority"],
+        },
+        "selectionAuthority": "context-only",
+        "validation": split_projection("validation"),
+        "test": split_projection("test"),
+        "recentEpisodes": [
+            {
+                "id": row["episode_id"],
+                "split": row["split"],
+                "role": row["role"],
+                "asset": row["asset"],
+                "side": row["side"],
+                "entryTimestamp": pd.Timestamp(
+                    row["entry_timestamp"]
+                ).date().isoformat(),
+                "lastEarningTimestamp": (
+                    None
+                    if pd.isna(row["last_earning_timestamp"])
+                    else pd.Timestamp(
+                        row["last_earning_timestamp"]
+                    ).date().isoformat()
+                ),
+                "exitTimestamp": (
+                    None
+                    if pd.isna(row["exit_timestamp"])
+                    else pd.Timestamp(
+                        row["exit_timestamp"]
+                    ).date().isoformat()
+                ),
+                "entryAction": row["entry_action"],
+                "exitAction": row["exit_action"],
+                "leftCensored": bool(row["left_censored"]),
+                "rightCensored": bool(row["right_censored"]),
+                "complete": bool(row["complete"]),
+                "decisionBars": int(row["decision_bars"]),
+                "netContribution": float(row["net_contribution"]),
+                "totalCost": float(row["total_cost"]),
+                "maximumFavorableExcursion": float(
+                    row["maximum_favorable_excursion"]
+                ),
+                "maximumAdverseExcursion": float(
+                    row["maximum_adverse_excursion"]
+                ),
+                "intentMismatchBars": int(
+                    row["intent_mismatch_bars"]
+                ),
+            }
+            for row in recent.to_dict("records")
+        ],
+    }
+
+
 def load_portfolio_diagnostics(
     project: ProjectContext,
     run_id: str,
@@ -2521,6 +3035,13 @@ def load_portfolio_diagnostics(
         "liquidityCapacity": _liquidity_capacity_projection(
             run.result,
             ordered_decisions,
+            splits,
+        ),
+        "positionLifecycle": _position_lifecycle_projection(
+            run.result,
+            paths.get(POSITION_EPISODE_ARTIFACT_KIND),
+            ordered_decisions,
+            daily,
             splits,
         ),
         "attribution": _attribution_projection(run.result, universe),
@@ -2748,6 +3269,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "riskGovernor",
         "executedBookRisk",
         "liquidityCapacity",
+        "positionLifecycle",
         "attribution",
     ],
     "properties": {
@@ -2957,7 +3479,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "artifacts": {
             "type": "object",
             "additionalProperties": False,
-            "required": sorted(EXPECTED_ARTIFACT_KINDS),
+            "required": sorted(BASE_ARTIFACT_KINDS),
             "properties": {
                 kind: {"$ref": "#/$defs/artifact"}
                 for kind in sorted(EXPECTED_ARTIFACT_KINDS)
@@ -3147,6 +3669,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "riskGovernor": {"type": "object"},
         "executedBookRisk": {"type": "object"},
         "liquidityCapacity": {"type": "object"},
+        "positionLifecycle": {"type": "object"},
         "attribution": {
             "type": "object",
             "additionalProperties": False,
