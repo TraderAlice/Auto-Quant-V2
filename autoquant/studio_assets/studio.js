@@ -380,14 +380,20 @@ function runMetricLayers(item) {
   const layers = item.metricLayers;
   if (!layers) return "";
   if (layers.kind === "portfolio") {
+    const signal = layers.signalPolicy;
+    const attribution = layers.attribution;
     return `
       <div class="catalog-evidence" aria-label="Portfolio evidence">
         <span><b>${metric(layers.factor.validationRankIc)}</b><i>validation IC</i></span>
         <span><b>${metric(layers.portfolio.validationNetSharpe)}</b><i>validation</i></span>
+        ${signal ? `<span><b>${metric(signal.validationStateChangeRate)}</b><i>state change</i></span>` : ""}
+        ${signal ? `<span><b>${metric(signal.validationTransitionReductionRate)}</b><i>hysteresis saved</i></span>` : ""}
+        ${attribution ? `<span><b>${metric(attribution.validationMaximumAbsoluteNetContributionShare)}</b><i>max asset contrib.</i></span>` : ""}
+        ${attribution ? `<span><b>${metric(attribution.validationMaximumAbsoluteRiskContributionShare)}</b><i>max risk contrib.</i></span>` : ""}
+        ${attribution ? `<span><b>${attribution.validationReconciliationPassed ? "pass" : "fail"}</b><i>attribution</i></span>` : ""}
         <span><b>${metric(layers.portfolio.testNetSharpe)}</b><i>test audit</i></span>
         <span><b>${metric(layers.implementation.testAnnualizedTurnover)}</b><i>ann. turn</i></span>
         <span><b>${metric(layers.robustness.test25bpsSharpe)}</b><i>25bps</i></span>
-        <span><b>${metric(layers.robustness.testExtraDelaySharpe)}</b><i>+1 delay</i></span>
       </div>`;
   }
   if (layers.kind === "rl-policy") {

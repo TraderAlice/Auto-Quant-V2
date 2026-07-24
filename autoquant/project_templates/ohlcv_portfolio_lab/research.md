@@ -17,7 +17,12 @@ Work only inside the returned Session worktree and edit `factors/**`. State one
 falsifiable factor hypothesis, evaluate it, and inspect all metric layers and
 artifacts before accepting a KEEP.
 
-The fixed Judge owns timing, volatility scaling, long/short budgets, caps,
-drift, no-trade behavior, transaction costs, benchmark, chronological splits,
-stress tests, and the verdict metric. AutoQuant produces target-weight
-research only; it has no Broker or trading-account authority.
+The fixed Judge owns timing, percentile entry/hold/exit/reversal state,
+inverse-volatility conviction sizing, long/short budgets, caps, drift,
+no-trade behavior, transaction costs, benchmark, dataset-fixed purged splits,
+attribution, stress tests, and the verdict metric.
+
+Successful Runs include proposed and executed weights plus a long-form
+per-asset decision ledger. Use it to trace factor → intent → target → trade →
+return/risk/cost contribution. AutoQuant produces target-weight research only;
+it has no Broker or trading-account authority.

@@ -340,7 +340,7 @@ def _apply_ohlcv_portfolio_lab(project: ProjectContext) -> None:
             "judges/ohlcv_portfolio.py",
             ["judges/**"],
             [],
-            15,
+            60,
         ),
         objective=StudyObjective("validation_net_sharpe", "maximize", 0.05),
         dataset=StudyDataset(
@@ -406,7 +406,7 @@ def _apply_ohlcv_rl_factor_lab(project: ProjectContext) -> None:
             "judges/ohlcv_rl_factor.py",
             ["judges/**"],
             [],
-            45,
+            90,
         ),
         objective=StudyObjective(
             "validation_mean_net_sharpe",

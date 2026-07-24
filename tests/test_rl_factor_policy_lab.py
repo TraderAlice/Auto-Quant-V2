@@ -139,6 +139,7 @@ class GovernedRlFactorPolicyLabTests(unittest.TestCase):
             study = load_study(project, RL_STUDY_ID)
             self.assertEqual(study.definition.editable["paths"], ["models/**"])
             self.assertEqual(study.definition.judge.paths, ["judges/**"])
+            self.assertEqual(study.definition.judge.timeout_seconds, 90)
             self.assertEqual(len(study.dataset_hashes), 7)
 
             first = execute_study(project, RL_STUDY_ID)
@@ -228,7 +229,7 @@ print(json.dumps({{
                 session.manifest["id"],
                 f"{shlex.quote(sys.executable)} {shlex.quote(str(researcher))}",
                 max_turns=1,
-                max_wall_seconds=60,
+                max_wall_seconds=180,
                 turn_timeout_seconds=30,
             )
 

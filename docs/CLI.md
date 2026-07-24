@@ -142,6 +142,12 @@ inference, fixed-tertile behavior, style overlap, and asset/fold/causal-regime
 stability. Studio is a concise projection; exact daily IC/regime and quantile
 rows remain Run artifacts.
 
+For the Portfolio Lab, the same commands preserve the fixed signal policy,
+dataset-fixed purged splits, hysteresis comparison, contribution
+reconciliation, and attribution by asset, signal intent, and causal regime.
+Proposed/executed weights and the exact per-asset decision path remain
+immutable Run artifacts; Studio is the concise human projection.
+
 `session show --json` also projects selection integrity from verified evidence:
 selection metric/split, exact candidate and evaluated-Run counts, verdict
 counts, test visibility/use, and whether a new external holdout is required.

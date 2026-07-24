@@ -141,8 +141,8 @@ a broker order book:
 
 ```text
 causal factor values at bar t
-→ cross-sectional normalization or rank
-→ optional causal volatility scaling
+→ cross-sectional percentile and explicit entry/hold/exit/reversal intent
+→ causal conviction and inverse-volatility sizing
 → long-only or long/short budget
 → per-asset, gross, net, leverage, and concentration constraints
 → target weights
@@ -164,13 +164,14 @@ available balance, venue rules, and account mutations remain forward-looking
 OpenAlice/UTA concerns.
 
 The first reference contract is deliberately narrower than the general sketch:
-it is gross-one dollar-neutral, allocates `+0.5/-0.5`, caps absolute target
-weight at `0.30`, retains the drifted book below `0.05` one-way turnover, and
-charges every bought or sold dollar at the declared basis-point cost. It emits
-factor, portfolio/risk, implementation, constraint, cost-stress, extra-delay,
-and per-asset contribution evidence plus exact daily and target-weight
-artifacts. The executable details are
-[[docs/design/portfolio-construction-lab]].
+it uses fixed `0.75/0.25` entry and `0.55/0.45` exit percentiles, is gross-one
+dollar-neutral, allocates `+0.5/-0.5`, caps absolute target weight at `0.30`,
+retains the drifted book below `0.05` one-way turnover, and charges every
+bought or sold dollar at the declared basis-point cost. Its exact ledger
+connects signal intent, proposed target, pre-trade drift, executed weight,
+trade, return, cost, regime, and component variance contribution. The
+executable details are [[docs/design/portfolio-construction-lab]] and
+[[docs/design/signal-policy-and-attribution]].
 
 Tolerance bands are a first-class implementation choice: research on
 rebalancing frames the problem as tracking-error versus transaction-cost
@@ -184,7 +185,8 @@ not an opaque trading bot:
 
 - state: current causal factor vector, volatility/regime features, and previous
   target or position;
-- action: factor blend weights or constrained portfolio target weights;
+- action: one governed stateful factor-mixture sleeve and its constrained
+  portfolio target weights;
 - transition: the next chronological bar or rebalance interval;
 - reward: next-period net portfolio return minus fixed cost, risk, turnover,
   and constraint penalties;

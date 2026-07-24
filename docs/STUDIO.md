@@ -35,8 +35,9 @@ The first viewport prioritizes:
 - factor Run summaries for validation one/five-bar IC, HAC strength, tertile
   spread, weakest chronological fold, maximum fixed-style overlap, test audit
   IC, and rank turnover;
-- portfolio Run summaries for held-out IC, net Sharpe, turnover, drawdown,
-  cost stress, and delay stress;
+- portfolio Run summaries for held-out IC, net Sharpe, signal-state change,
+  hysteresis transition reduction, maximum asset return/risk contribution,
+  attribution reconciliation, turnover, and cost stress;
 - RL Run summaries for validation/test audit Sharpe, seed/fold dispersion,
   simple-baseline advantage, failure rate, and fold × seed coverage;
 - Session selection split, candidate trial count, visible-test role, and
@@ -51,10 +52,11 @@ mutable; completed evidence is loaded and hash-verified by Core.
 
 Run cards are diagnostic projections, not replacements for full evidence.
 Factor cards show strength, decay, monotonic spread, stability, style overlap,
-and test audit evidence beside the headline score. Portfolio and RL cards
-likewise show implementation, stress, dispersion, failure, and baseline
-comparison. Exact nested metrics, daily slices, models, training histories,
-actions, and artifacts remain in the verified Run.
+and test audit evidence beside the headline score. Portfolio cards show signal
+churn, hysteresis effect, contribution concentration, and reconciliation.
+RL cards show implementation, dispersion, failure, and baseline comparison.
+Exact nested metrics, decision ledgers, daily slices, models, training
+histories, actions, and artifacts remain in the verified Run.
 
 The handoff cards and Inspector distinguish caller-supplied OpenAlice context
 from authenticated provenance. Copy buttons only write an exact Core-generated

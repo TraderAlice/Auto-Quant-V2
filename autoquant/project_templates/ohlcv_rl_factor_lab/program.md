@@ -38,8 +38,9 @@ state from the encoder. Test one representation hypothesis at a time.
 
 The Judge owns:
 
-- activity, intraday, reversal, and equal-blend actions;
-- gross-one dollar-neutral target construction and 0.30 asset caps;
+- activity, intraday, reversal, and equal-blend governed signal sleeves;
+- fixed percentile entry/exit hysteresis, inverse-volatility conviction,
+  gross-one dollar-neutral target construction, and 0.30 asset caps;
 - drift, 0.05 no-trade threshold, full-notional 10bps costs, and benchmark;
 - next-bar reward and fixed quadratic risk penalty;
 - linear Q-learning, 4 episodes, learning rate, discount, and exploration;
@@ -50,6 +51,8 @@ The Judge owns:
 - all metrics, artifacts, and the validation-only promotion score.
 
 Candidate code cannot improve by changing any evaluation rule above.
+Each action's sleeve maintains its own causal intent history; RL chooses a
+sleeve but never controls its signal triggers or position sizing.
 
 ## Evidence discipline
 

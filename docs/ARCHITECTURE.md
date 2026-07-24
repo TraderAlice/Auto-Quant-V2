@@ -59,9 +59,9 @@ The V2 foundation now implements:
   factor code, deterministic local data, dataset-fixed purged horizons, a
   professional factor tear sheet, and a fixed no-lookahead audit.
 - one self-contained OHLCV Portfolio Lab reference Project that mechanically
-  translates the same causal factor API into capped target weights, drift-aware
-  turnover and costs, layered risk/implementation evidence, and cost/delay
-  stresses without trading authority.
+  translates the same causal factor API through explicit signal state into
+  capped target weights, drift-aware execution, reconciled contribution/risk
+  attribution, and policy/cost/delay stresses without trading authority.
 - one governed RL Factor-Policy Lab that confines Agent changes to a causal
   state encoder while the Judge fixes factor-mixture actions, Q-learning,
   rewards, portfolio accounting, folds, seeds, baselines, and model evidence.
@@ -80,6 +80,8 @@ Project is defined in [[docs/design/ohlcv-factor-lab]]; causal target-weight
 construction is defined in [[docs/design/portfolio-construction-lab]]. The
 governed RL lane is defined in [[docs/design/rl-factor-policy-lab]]. The
 factor tear-sheet protocol is defined in [[docs/design/factor-diagnostics]].
+Mechanical signal state and attribution are defined in
+[[docs/design/signal-policy-and-attribution]].
 The end-to-end OpenAlice handoff, professional evidence stack, and HCI
 boundary are defined in [[docs/design/quant-research-lifecycle]].
 

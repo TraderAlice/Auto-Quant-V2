@@ -15,15 +15,24 @@ import pandas as pd
 from judges.portfolio_core import (
     BASE_COST_BPS,
     GROSS_TARGET,
+    LONG_ENTRY_PERCENTILE,
+    LONG_EXIT_PERCENTILE,
     MAX_ABS_WEIGHT,
     NO_TRADE_ONE_WAY,
     REFERENCE_NAV,
+    RISK_COVARIANCE_MINIMUM,
+    RISK_COVARIANCE_WINDOW,
+    SHORT_ENTRY_PERCENTILE,
+    SHORT_EXIT_PERCENTILE,
     VOLATILITY_WINDOW,
     PortfolioFailure,
+    attribution_metrics,
+    build_decision_ledger,
     constraint_audit,
-    construct_targets,
+    construct_signal_policy,
     implementation_metrics,
     performance_metrics,
+    signal_policy_metrics,
     simulate_targets,
 )
 
@@ -221,22 +230,55 @@ def _factor_metrics(
     return result
 
 
-def _split_indices(index: pd.Index) -> dict[str, pd.Index]:
-    if len(index) < 3 * MIN_SPLIT_OBSERVATIONS:
+def _split_indices(
+    index: pd.DatetimeIndex,
+) -> tuple[dict[str, pd.DatetimeIndex], dict[str, Any]]:
+    if len(index) < 3 * (MIN_SPLIT_OBSERVATIONS + 1):
         raise JudgeFailure(
             "portfolio.population",
-            "Too few active portfolio dates for chronological evaluation",
+            "Too few dataset dates for fixed purged chronological evaluation",
         )
     train_end = int(len(index) * 0.60)
     validation_end = int(len(index) * 0.80)
-    return {
-        "train": index[:train_end],
-        "validation": index[train_end:validation_end],
-        "test": index[validation_end:],
+    ranges = {
+        "train": (0, train_end),
+        "validation": (train_end, validation_end),
+        "test": (validation_end, len(index)),
     }
+    splits: dict[str, pd.DatetimeIndex] = {}
+    protocol: dict[str, Any] = {
+        "method": "dataset-fixed-chronological-60-20-20",
+        "candidateDependent": False,
+        "forwardHorizonBars": 1,
+        "targetCrossesBoundary": False,
+        "splits": {},
+    }
+    for name, (start, stop) in ranges.items():
+        eligible = index[start : stop - 1]
+        if len(eligible) < MIN_SPLIT_OBSERVATIONS:
+            raise JudgeFailure(
+                "portfolio.population",
+                f"Fixed split {name} has only {len(eligible)} signal dates",
+            )
+        splits[name] = pd.DatetimeIndex(eligible)
+        protocol["splits"][name] = {
+            "start": index[start].date().isoformat(),
+            "end": index[stop - 1].date().isoformat(),
+            "signalEnd": index[stop - 2].date().isoformat(),
+            "targetEnd": index[stop - 1].date().isoformat(),
+            "eligibleSignalRows": len(eligible),
+            "purgedBoundaryRows": 1,
+        }
+    return splits, protocol
 
 
-def _evaluate() -> tuple[dict[str, Any], dict[str, Any], Any]:
+def _evaluate() -> tuple[
+    dict[str, Any],
+    dict[str, Any],
+    Any,
+    Any,
+    pd.DataFrame,
+]:
     study, data_root = _load_contract()
     dataset = study["dataset"]
     universe = dataset["universe"]
@@ -276,7 +318,8 @@ def _evaluate() -> tuple[dict[str, Any], dict[str, Any], Any]:
     volume_panel = pd.DataFrame(volumes)
     forward_returns = close_panel.shift(-1) / close_panel - 1.0
     factor_evidence = _daily_factor_evidence(factor_panel, forward_returns)
-    targets = construct_targets(factor_panel, close_panel)
+    construction = construct_signal_policy(factor_panel, close_panel)
+    targets = construction.targets
     audit = constraint_audit(targets)
     if not audit["passed"]:
         raise JudgeFailure(
@@ -284,10 +327,14 @@ def _evaluate() -> tuple[dict[str, Any], dict[str, Any], Any]:
             "Fixed target construction violated its declared constraints",
         )
     base = simulate_targets(targets, close_panel, volume_panel)
-    active_index = base.daily.index[
-        base.weights.abs().sum(axis=1) > 1e-12
-    ]
-    splits = _split_indices(active_index)
+    decision_ledger = build_decision_ledger(
+        construction,
+        base,
+        close_panel,
+    )
+    splits, split_protocol = _split_indices(
+        pd.DatetimeIndex(factor_panel.index)
+    )
 
     factor_metrics: dict[str, Any] = {}
     portfolio_metrics: dict[str, Any] = {}
@@ -309,6 +356,15 @@ def _evaluate() -> tuple[dict[str, Any], dict[str, Any], Any]:
             ),
         }
         implementation[name] = implementation_metrics(base, index)
+
+    policy_metrics = {
+        name: signal_policy_metrics(construction, index)
+        for name, index in splits.items()
+    }
+    attribution = {
+        name: attribution_metrics(decision_ledger, base, index)
+        for name, index in splits.items()
+    }
 
     validation_net_sharpe = float(
         portfolio_metrics["validation"]["net"]["sharpe"]
@@ -348,6 +404,71 @@ def _evaluate() -> tuple[dict[str, Any], dict[str, Any], Any]:
             ("test", splits["test"]),
         )
     }
+    no_hysteresis = construct_signal_policy(
+        factor_panel,
+        close_panel,
+        long_exit=LONG_ENTRY_PERCENTILE,
+        short_exit=SHORT_ENTRY_PERCENTILE,
+    )
+    no_hysteresis_simulation = simulate_targets(
+        no_hysteresis.targets,
+        close_panel,
+        volume_panel,
+    )
+    hysteresis_comparison: dict[str, Any] = {}
+    for split in ("validation", "test"):
+        index = splits[split]
+        governed_policy = policy_metrics[split]
+        baseline_policy = signal_policy_metrics(no_hysteresis, index)
+        governed_implementation = implementation[split]
+        baseline_implementation = implementation_metrics(
+            no_hysteresis_simulation,
+            index,
+        )
+        governed_net = portfolio_metrics[split]["net"]
+        baseline_net = performance_metrics(
+            no_hysteresis_simulation.daily.loc[index, "net_return"],
+            no_hysteresis_simulation.daily.loc[index, "benchmark_return"],
+        )
+        baseline_transitions = int(baseline_policy["signal_transitions"])
+        transition_reduction = (
+            baseline_transitions
+            - int(governed_policy["signal_transitions"])
+        )
+        hysteresis_comparison[split] = {
+            "governed": {
+                "signal_transitions": governed_policy["signal_transitions"],
+                "state_change_rate": governed_policy["state_change_rate"],
+                "annualized_target_one_way_turnover": governed_policy[
+                    "annualized_target_one_way_turnover"
+                ],
+                "annualized_implementation_one_way_turnover": (
+                    governed_implementation["annualized_one_way_turnover"]
+                ),
+                "net_sharpe": governed_net["sharpe"],
+            },
+            "no_hysteresis": {
+                "signal_transitions": baseline_transitions,
+                "state_change_rate": baseline_policy["state_change_rate"],
+                "annualized_target_one_way_turnover": baseline_policy[
+                    "annualized_target_one_way_turnover"
+                ],
+                "annualized_implementation_one_way_turnover": (
+                    baseline_implementation["annualized_one_way_turnover"]
+                ),
+                "net_sharpe": baseline_net["sharpe"],
+            },
+            "transition_reduction": transition_reduction,
+            "transition_reduction_rate": (
+                transition_reduction / baseline_transitions
+                if baseline_transitions > 0
+                else 0.0
+            ),
+            "implementation_turnover_reduction": (
+                baseline_implementation["annualized_one_way_turnover"]
+                - governed_implementation["annualized_one_way_turnover"]
+            ),
+        }
     test_index = splits["test"]
     contribution = (
         base.weights.loc[test_index]
@@ -362,6 +483,24 @@ def _evaluate() -> tuple[dict[str, Any], dict[str, Any], Any]:
         "factor": factor_metrics,
         "portfolio": portfolio_metrics,
         "implementation": implementation,
+        "signal_policy": {
+            "parameters": {
+                "long_entry_percentile": LONG_ENTRY_PERCENTILE,
+                "long_exit_percentile": LONG_EXIT_PERCENTILE,
+                "short_exit_percentile": SHORT_EXIT_PERCENTILE,
+                "short_entry_percentile": SHORT_ENTRY_PERCENTILE,
+                "volatility_window": VOLATILITY_WINDOW,
+                "gross_target": GROSS_TARGET,
+                "max_abs_weight": MAX_ABS_WEIGHT,
+                "no_trade_one_way": NO_TRADE_ONE_WAY,
+            },
+            "train": policy_metrics["train"],
+            "validation": policy_metrics["validation"],
+            "test": policy_metrics["test"],
+            "hysteresis_comparison": hysteresis_comparison,
+        },
+        "attribution": attribution,
+        "split_protocol": split_protocol,
         "robustness": {
             "cost_stress": cost_stress,
             "extra_delay": delay_stress,
@@ -393,14 +532,22 @@ def _evaluate() -> tuple[dict[str, Any], dict[str, Any], Any]:
             "decision": "OHLCV and factor known through close t",
             "return": "close t to close t+1",
             "factorTransform": (
-                "cross-sectional centered rank divided by trailing 20-bar volatility"
+                "cross-sectional percentile state machine with inverse-volatility "
+                "conviction sizing"
+            ),
+            "signalState": (
+                "long entry/exit 0.75/0.55; short entry/exit 0.25/0.45; "
+                "direct reversal at opposite entry"
             ),
             "portfolio": "gross 1.0, long +0.5, short -0.5, max abs weight 0.30",
             "noTrade": "retain drifted book below 0.05 one-way turnover",
             "turnover": "0.5 * sum(abs(trade weight))",
             "cost": "sum(abs(trade weight)) * 10bps",
             "benchmark": "equal-weight long-only next-bar return",
-            "split": "chronological 60/20/20 over active target dates",
+            "split": (
+                "dataset-fixed chronological 60/20/20 with one-bar "
+                "boundary purge"
+            ),
             "score": "validation net Sharpe at 10bps only",
             "testRole": (
                 "visible diagnostic evidence; never enters candidate selection"
@@ -414,16 +561,29 @@ def _evaluate() -> tuple[dict[str, Any], dict[str, Any], Any]:
             "noTradeOneWay": NO_TRADE_ONE_WAY,
             "baseCostBps": BASE_COST_BPS,
             "referenceNav": REFERENCE_NAV,
+            "longEntryPercentile": LONG_ENTRY_PERCENTILE,
+            "longExitPercentile": LONG_EXIT_PERCENTILE,
+            "shortExitPercentile": SHORT_EXIT_PERCENTILE,
+            "shortEntryPercentile": SHORT_ENTRY_PERCENTILE,
+            "riskCovarianceWindow": RISK_COVARIANCE_WINDOW,
+            "riskCovarianceMinimum": RISK_COVARIANCE_MINIMUM,
         },
         "causalityAuditCuts": causality_cuts,
+        "splitProtocol": split_protocol,
         "metrics": metrics,
     }
-    return metrics, report, base
+    return metrics, report, base, construction, decision_ledger
 
 
 def main() -> None:
     try:
-        metrics, report, simulation = _evaluate()
+        (
+            metrics,
+            report,
+            simulation,
+            construction,
+            decision_ledger,
+        ) = _evaluate()
         artifacts = Path(os.environ["AUTOQUANT_ARTIFACTS_DIR"])
         report_path = artifacts / "portfolio-report.json"
         report_path.write_text(
@@ -433,9 +593,24 @@ def main() -> None:
         daily = simulation.daily.copy()
         daily.index.name = "timestamp"
         daily.to_csv(artifacts / "daily-portfolio.csv", float_format="%.12g")
-        weights = simulation.weights.copy()
-        weights.index.name = "timestamp"
-        weights.to_csv(artifacts / "target-weights.csv", float_format="%.12g")
+        proposed_targets = construction.targets.copy()
+        proposed_targets.index.name = "timestamp"
+        proposed_targets.to_csv(
+            artifacts / "proposed-target-weights.csv",
+            float_format="%.12g",
+        )
+        executed_weights = simulation.weights.copy()
+        executed_weights.index.name = "timestamp"
+        executed_weights.to_csv(
+            artifacts / "executed-weights.csv",
+            float_format="%.12g",
+        )
+        decision_ledger.to_csv(
+            artifacts / "portfolio-decisions.csv",
+            index=False,
+            date_format="%Y-%m-%d",
+            float_format="%.12g",
+        )
         _write_output(
             {
                 "schema_version": 1,
@@ -464,9 +639,27 @@ def main() -> None:
                         ),
                     },
                     {
+                        "kind": "portfolio-targets",
+                        "path": "proposed-target-weights.csv",
+                        "description": (
+                            "Exact per-date signal-policy proposed target weights"
+                        ),
+                    },
+                    {
                         "kind": "portfolio-weights",
-                        "path": "target-weights.csv",
-                        "description": "Exact executed per-date target weights",
+                        "path": "executed-weights.csv",
+                        "description": (
+                            "Exact post-drift and no-trade-band executed weights"
+                        ),
+                    },
+                    {
+                        "kind": "portfolio-decisions",
+                        "path": "portfolio-decisions.csv",
+                        "description": (
+                            "Per-asset signal state, sizing, execution reason, "
+                            "trade, contribution, cost, regime, and variance "
+                            "attribution ledger"
+                        ),
                     },
                 ],
                 "errors": [],

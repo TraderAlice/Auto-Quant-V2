@@ -67,6 +67,9 @@ Read the relevant linked document before changing a subsystem:
 - Purged forward horizons, factor significance/decay/quantiles, fixed style
   overlap, and asset/fold/causal-regime stability:
   [[docs/design/factor-diagnostics]]
+- Mechanical signal state, hysteresis, conviction/risk sizing, execution
+  reasons, and portfolio contribution reconciliation:
+  [[docs/design/signal-policy-and-attribution]]
 - Resumable Agent worktrees, KEEP/REVERT/CRASH Experiments, and guarded source
   promotion: [[docs/design/research-session-loop]]
 - Provider-neutral external Researcher turns, budgets, restoration, and

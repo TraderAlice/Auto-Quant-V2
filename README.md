@@ -51,12 +51,15 @@ artifacts. Its baseline is intentionally fast and the fixture is a Harness
 benchmark—not a market alpha claim.
 
 The `ohlcv-portfolio-lab` starter keeps the same ordinary pandas candidate API
-but fixes the downstream research contract: causal cross-sectional ranking,
-volatility scaling, dollar-neutral capped targets, drift-aware rebalance,
-turnover, costs, volume participation, chronological splits, and cost/delay
-stress. Its Run artifacts expose exact daily accounting and target weights;
-Studio summarizes factor, portfolio, implementation, and robustness evidence.
-It emits research targets only and has no Broker or trading-account authority.
+but fixes the downstream research contract: causal percentile
+entry/hold/exit/reversal state, inverse-volatility conviction sizing,
+dollar-neutral capped targets, drift-aware rebalance, turnover, costs, volume
+participation, and dataset-fixed purged splits. Its decision ledger reconciles
+each asset's proposed/executed weight, trade, return, cost, regime, and
+component risk contribution; a no-hysteresis baseline shows whether intent
+persistence actually reduces churn. Studio summarizes the verified policy and
+attribution evidence. It emits research targets only and has no Broker or
+trading-account authority.
 
 Every reference Project uses validation-only KEEP/REVERT. Test metrics remain
 visible diagnostic evidence; after a Session iterates candidates, Core marks a
@@ -67,10 +70,11 @@ The `ohlcv-rl-factor-lab` starter asks a narrower question than “can an RL bot
 trade?”: can a bounded policy use causal regime features to choose among fixed
 factor mixtures? Agents edit only a pure state encoder. The Judge fixes
 Q-learning, actions, next-bar reward, portfolio accounting, two expanding
-folds, three seeds, and fixed-factor/contextual-ridge baselines. Validation is
-the promotion metric; test evidence is reported separately with an explicit
-repeated-inspection warning. A higher RL score does not count as value added
-when a simple baseline still wins.
+folds, three seeds, and fixed-factor/contextual-ridge baselines. Each action is
+a governed stateful factor sleeve using the same mechanical signal policy.
+Validation is the promotion metric; test evidence is reported separately with
+an explicit repeated-inspection warning. A higher RL score does not count as
+value added when a simple baseline still wins.
 
 The repository-root strategy arena described below remains the V0.5
 compatibility Harness while its execution and evidence contracts are migrated

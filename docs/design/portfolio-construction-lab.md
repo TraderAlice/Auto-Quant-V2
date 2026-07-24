@@ -1,9 +1,10 @@
 # Causal signal-to-portfolio laboratory
 
-Status: V1 implemented.
+Status: V2 implemented.
 
 Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]],
-[[docs/design/study-run-evidence]], [[docs/design/ohlcv-factor-lab]], and
+[[docs/design/study-run-evidence]], [[docs/design/ohlcv-factor-lab]],
+[[docs/design/signal-policy-and-attribution]], and
 [[docs/design/quant-research-lifecycle]].
 
 ## Scope
@@ -33,10 +34,12 @@ re-evaluation at multiple cuts audits causality.
 The fixed Judge owns:
 
 - next-bar close-to-close targets and returns;
-- cross-sectional rank transformation and trailing volatility scaling;
+- cross-sectional percentile entry/hold/exit/reversal state;
+- conviction and trailing inverse-volatility risk sizing;
 - long/short budgets, gross/net targets, and per-asset caps;
 - no-trade tolerance, drift, turnover, costs, and volume participation;
-- chronological splits, benchmark, metrics, stresses, and primary score.
+- dataset-fixed purged chronological splits, benchmark, metrics, contribution
+  attribution, stresses, and primary score.
 
 The candidate cannot improve by changing portfolio machinery.
 
@@ -46,9 +49,9 @@ For decision date `t`:
 
 ```text
 OHLCV known through close t
-→ candidate factor(t)
-→ cross-sectional centered rank
-→ divide by trailing 20-bar realized volatility known at t
+→ candidate factor(t) and cross-sectional percentile
+→ fixed entry/hold/exit/reversal signal intent
+→ conviction divided by trailing 20-bar realized volatility known at t
 → allocate +0.5 long and -0.5 short
 → cap each absolute target weight at 0.30
 → proposed gross 1.0 / net 0.0 target
@@ -62,9 +65,11 @@ This is a `bar-target-weight simulation`. It does not claim a particular
 intraday fill, queue priority, spread path, or order type.
 
 The allocator treats positive and negative scores separately. Each side uses
-proportional water-filling under its cap. If either side lacks enough valid
-cross-sectional breadth to fund the declared budget, the target is flat rather
-than silently changing net exposure.
+proportional water-filling of active intent strength under its cap. If either
+side lacks enough valid cross-sectional breadth to fund the declared budget,
+the target is flat rather than silently changing net exposure. Exact state,
+threshold, conviction, risk-strength, and allocation semantics are
+[[docs/design/signal-policy-and-attribution]].
 
 ## Drift, turnover, costs, and participation
 
@@ -110,11 +115,15 @@ or capacity guarantee.
 
 ### Robustness
 
-- chronological 60/20/20 train, validation, and visible diagnostic test splits;
+- dataset-fixed, one-bar-purged 60/20/20 train, validation, and visible
+  diagnostic test splits;
 - net results under 0, 10, and 25 basis-point cost assumptions;
 - one additional bar of signal delay;
+- governed hysteresis versus a fixed no-hysteresis state baseline;
 - annualized per-asset gross contribution;
-- complete deterministic daily returns and target-weight artifacts.
+- attribution by asset, signal intent, and causal regime;
+- complete deterministic daily returns, proposed/executed weights, and
+  per-asset decision artifacts.
 
 The primary `validation_net_sharpe` is validation net Sharpe under the base
 10 basis-point cost assumption. Test and stress metrics remain mandatory
@@ -137,7 +146,10 @@ Every successful Run declares:
   contribution, constraint audit, and causality cuts;
 - `daily-portfolio.csv`: gross/net/benchmark returns, turnover, cost,
   exposures, rebalance state, and participation;
-- `target-weights.csv`: exact executed per-date asset weights.
+- `proposed-target-weights.csv`: exact state-policy targets;
+- `executed-weights.csv`: exact post-band per-date asset weights;
+- `portfolio-decisions.csv`: exact signal intent, sizing, execution, return,
+  cost, regime, and component-risk ledger.
 
 RunResult remains the immutable authority for artifact identities.
 
@@ -147,15 +159,18 @@ RunResult remains the immutable authority for artifact identities.
 2. Returns credited to a target begin strictly after its decision timestamp.
 3. Candidate code never controls targets, costs, benchmark, splits, metrics, or
    score.
-4. Long and short budgets, gross/net exposure, and caps are explicit and
+4. Every asset/date has an explicit signal event and allocation status.
+5. Long and short budgets, gross/net exposure, and caps are explicit and
    audited.
-5. Turnover and cost conventions are reported separately.
-6. Aggregate performance retains split, per-asset, implementation, and stress
+6. Turnover and cost conventions are reported separately.
+7. Aggregate performance retains split, per-asset, implementation, attribution,
+   and stress
    evidence.
-7. Validation alone owns candidate selection; test is visible diagnostic
+8. Contribution, cost, trade, and component-risk evidence reconciles daily.
+9. Validation alone owns candidate selection; test is visible diagnostic
    evidence.
-8. The simulation emits target weights only and has no trading authority.
-9. Routine tests use a small deterministic OHLCV fixture.
+10. The simulation emits target weights only and has no trading authority.
+11. Routine tests use a small deterministic OHLCV fixture.
 
 ## Change checklist
 
@@ -170,7 +185,7 @@ RunResult remains the immutable authority for artifact identities.
 
 ## Known gaps
 
-- V1 has one fixed dollar-neutral construction, not long-only or configurable
+- V2 has one fixed dollar-neutral state policy, not long-only or configurable
   portfolio families.
 - Costs are linear and participation is a proxy; spread, impact, borrow,
   funding, and futures margin are absent.

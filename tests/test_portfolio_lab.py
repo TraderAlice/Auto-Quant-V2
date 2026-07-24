@@ -11,9 +11,15 @@ import numpy as np
 import pandas as pd
 
 from autoquant.project_templates.ohlcv_portfolio_lab.portfolio_core import (
+    LONG_ENTRY_PERCENTILE,
+    SHORT_ENTRY_PERCENTILE,
+    attribution_metrics,
+    build_decision_ledger,
     constraint_audit,
+    construct_signal_policy,
     construct_targets,
     drift_weights,
+    signal_policy_metrics,
     simulate_targets,
 )
 from autoquant.research import run_campaign
@@ -202,6 +208,239 @@ class PortfolioAccountingTests(unittest.TestCase):
             0.0,
         )
 
+    def test_signal_state_machine_separates_hysteresis_from_targets(self) -> None:
+        index = pd.bdate_range("2026-01-01", periods=30)
+        assets = list("ABCDEF")
+        factors = pd.DataFrame(
+            np.tile(np.arange(6, dtype=float), (len(index), 1)),
+            index=index,
+            columns=assets,
+        )
+        factors.loc[index[20:28], "A"] = [
+            6.0,
+            3.5,
+            2.5,
+            -1.0,
+            2.5,
+            3.5,
+            6.0,
+            -1.0,
+        ]
+        time = np.arange(len(index), dtype=float)
+        closes = pd.DataFrame(
+            {
+                asset: 100.0
+                * np.exp(
+                    np.cumsum(
+                        0.001
+                        + 0.004
+                        * np.sin(time / (3.0 + number))
+                    )
+                )
+                for number, asset in enumerate(assets)
+            },
+            index=index,
+        )
+
+        governed = construct_signal_policy(factors, closes)
+        no_hysteresis = construct_signal_policy(
+            factors,
+            closes,
+            long_exit=LONG_ENTRY_PERCENTILE,
+            short_exit=SHORT_ENTRY_PERCENTILE,
+        )
+        events = (
+            governed.ledger.loc[governed.ledger["asset"].eq("A")]
+            .set_index("timestamp")["signal_event"]
+        )
+
+        self.assertEqual(
+            events.loc[index[20:28]].tolist(),
+            [
+                "enter_long",
+                "hold_long",
+                "exit_long",
+                "enter_short",
+                "hold_short",
+                "exit_short",
+                "enter_long",
+                "reverse_long_to_short",
+            ],
+        )
+        governed_metrics = signal_policy_metrics(
+            governed,
+            index[20:28],
+        )
+        no_hysteresis_metrics = signal_policy_metrics(
+            no_hysteresis,
+            index[20:28],
+        )
+        self.assertLess(
+            governed_metrics["signal_transitions"],
+            no_hysteresis_metrics["signal_transitions"],
+        )
+        active = governed.targets.abs().sum(axis=1) > 0
+        self.assertTrue(
+            np.allclose(
+                governed.targets.loc[active].abs().sum(axis=1),
+                1.0,
+            )
+        )
+
+    def test_decision_ledger_reconciles_execution_and_attribution(self) -> None:
+        index = pd.bdate_range("2026-01-01", periods=80)
+        assets = list("ABCDEF")
+        base = np.arange(6, dtype=float)
+        factors = pd.DataFrame(
+            [np.roll(base, row // 5 % len(assets)) for row in range(len(index))],
+            index=index,
+            columns=assets,
+        )
+        time = np.arange(len(index), dtype=float)
+        closes = pd.DataFrame(
+            {
+                asset: 100.0
+                * np.exp(
+                    np.cumsum(
+                        0.0005
+                        + 0.006
+                        * np.sin(time / (4.0 + number))
+                    )
+                )
+                for number, asset in enumerate(assets)
+            },
+            index=index,
+        )
+        volumes = pd.DataFrame(
+            1_000_000.0,
+            index=index,
+            columns=assets,
+        )
+        construction = construct_signal_policy(factors, closes)
+        simulation = simulate_targets(construction.targets, closes, volumes)
+        ledger = build_decision_ledger(
+            construction,
+            simulation,
+            closes,
+        )
+        attribution = attribution_metrics(
+            ledger,
+            simulation,
+            simulation.daily.index,
+        )
+
+        self.assertTrue(attribution["reconciliation"]["passed"])
+        self.assertGreater(
+            attribution["reconciliation"]["variance_attributed_dates"],
+            20,
+        )
+        self.assertGreater(
+            attribution["concentration"][
+                "maximum_absolute_variance_contribution_share"
+            ],
+            0.0,
+        )
+        self.assertLessEqual(
+            attribution["concentration"][
+                "maximum_absolute_variance_contribution_share"
+            ],
+            1.0,
+        )
+        self.assertEqual(
+            len(ledger),
+            len(simulation.daily) * len(assets),
+        )
+        timestamp = simulation.daily.index[-5]
+        rows = ledger[ledger["timestamp"].eq(timestamp)]
+        self.assertAlmostEqual(
+            float(rows["gross_return_contribution"].sum()),
+            float(simulation.daily.loc[timestamp, "gross_return"]),
+        )
+        self.assertAlmostEqual(
+            float(rows["cost_contribution"].sum()),
+            float(simulation.daily.loc[timestamp, "cost"]),
+        )
+        self.assertAlmostEqual(
+            float(rows["net_return_contribution"].sum()),
+            float(simulation.daily.loc[timestamp, "net_return"]),
+        )
+
+    def test_signal_and_risk_ledger_do_not_change_with_future_bars(self) -> None:
+        index = pd.bdate_range("2026-01-01", periods=120)
+        assets = list("ABCDEF")
+        base = np.arange(6, dtype=float)
+        factors = pd.DataFrame(
+            [np.roll(base, row // 7 % len(assets)) for row in range(len(index))],
+            index=index,
+            columns=assets,
+        )
+        time = np.arange(len(index), dtype=float)
+        closes = pd.DataFrame(
+            {
+                asset: 100.0
+                * np.exp(
+                    np.cumsum(
+                        0.0005
+                        + 0.007
+                        * np.sin(time / (4.0 + number))
+                    )
+                )
+                for number, asset in enumerate(assets)
+            },
+            index=index,
+        )
+        volumes = pd.DataFrame(
+            1_000_000.0,
+            index=index,
+            columns=assets,
+        )
+        full_construction = construct_signal_policy(factors, closes)
+        full_simulation = simulate_targets(
+            full_construction.targets,
+            closes,
+            volumes,
+        )
+        full_ledger = build_decision_ledger(
+            full_construction,
+            full_simulation,
+            closes,
+        )
+
+        cut = 100
+        prefix_construction = construct_signal_policy(
+            factors.iloc[:cut],
+            closes.iloc[:cut],
+        )
+        prefix_simulation = simulate_targets(
+            prefix_construction.targets,
+            closes.iloc[:cut],
+            volumes.iloc[:cut],
+        )
+        prefix_ledger = build_decision_ledger(
+            prefix_construction,
+            prefix_simulation,
+            closes.iloc[:cut],
+        )
+        shared_end = prefix_simulation.daily.index[-1]
+        columns = [
+            "timestamp",
+            "asset",
+            "signal_state",
+            "signal_event",
+            "proposed_target_weight",
+            "pretrade_weight",
+            "executed_weight",
+            "trade_weight",
+            "regime",
+            "component_variance",
+            "variance_contribution_share",
+        ]
+        expected = full_ledger[
+            full_ledger["timestamp"].le(shared_end)
+        ][columns].reset_index(drop=True)
+        actual = prefix_ledger[columns].reset_index(drop=True)
+        pd.testing.assert_frame_equal(actual, expected)
+
 
 class OhlcvPortfolioLabTests(unittest.TestCase):
     def test_template_runs_fast_and_emits_layered_portfolio_evidence(self) -> None:
@@ -210,6 +449,7 @@ class OhlcvPortfolioLabTests(unittest.TestCase):
             study = load_study(project, PORTFOLIO_STUDY_ID)
             self.assertEqual(study.definition.editable["paths"], ["factors/**"])
             self.assertEqual(study.definition.judge.paths, ["judges/**"])
+            self.assertEqual(study.definition.judge.timeout_seconds, 60)
             self.assertEqual(len(study.dataset_hashes), 7)
 
             run = execute_study(project, PORTFOLIO_STUDY_ID)
@@ -224,14 +464,37 @@ class OhlcvPortfolioLabTests(unittest.TestCase):
             self.assertIn("factor", metrics)
             self.assertIn("portfolio", metrics)
             self.assertIn("implementation", metrics)
+            self.assertIn("signal_policy", metrics)
+            self.assertIn("attribution", metrics)
             self.assertIn("robustness", metrics)
             self.assertTrue(metrics["constraint_audit"]["passed"])
+            self.assertFalse(metrics["split_protocol"]["candidateDependent"])
+            self.assertFalse(
+                metrics["split_protocol"]["targetCrossesBoundary"]
+            )
+            self.assertTrue(
+                metrics["attribution"]["validation"]["reconciliation"][
+                    "passed"
+                ]
+            )
+            self.assertGreater(
+                metrics["signal_policy"]["hysteresis_comparison"][
+                    "validation"
+                ]["transition_reduction"],
+                0,
+            )
             self.assertFalse(
                 metrics["research_integrity"]["test_enters_selection"]
             )
             self.assertEqual(
                 {item["kind"] for item in run.result["artifacts"]},
-                {"portfolio-report", "portfolio-daily", "portfolio-weights"},
+                {
+                    "portfolio-report",
+                    "portfolio-daily",
+                    "portfolio-targets",
+                    "portfolio-weights",
+                    "portfolio-decisions",
+                },
             )
             snapshot = build_studio_snapshot(workspace.root_dir)
             self.assertEqual(snapshot["projects"][0]["counts"]["runs"], 1)
@@ -240,6 +503,48 @@ class OhlcvPortfolioLabTests(unittest.TestCase):
             self.assertTrue(layers["constraintsPassed"])
             self.assertTrue(
                 math.isfinite(layers["portfolio"]["testNetSharpe"])
+            )
+            self.assertTrue(
+                layers["attribution"]["validationReconciliationPassed"]
+            )
+            self.assertGreater(
+                layers["attribution"][
+                    "validationMaximumAbsoluteRiskContributionShare"
+                ],
+                0.0,
+            )
+            self.assertGreater(
+                layers["signalPolicy"][
+                    "validationTransitionReductionRate"
+                ],
+                0.0,
+            )
+            artifacts = {
+                item["kind"]: run.root_dir / item["path"]
+                for item in run.result["artifacts"]
+            }
+            decisions = pd.read_csv(
+                artifacts["portfolio-decisions"],
+                parse_dates=["timestamp"],
+            )
+            daily = pd.read_csv(
+                artifacts["portfolio-daily"],
+                parse_dates=["timestamp"],
+            ).set_index("timestamp")
+            grouped = decisions.groupby("timestamp")
+            pd.testing.assert_series_equal(
+                grouped["gross_return_contribution"].sum(),
+                daily["gross_return"],
+                check_names=False,
+                atol=1e-10,
+                rtol=1e-10,
+            )
+            pd.testing.assert_series_equal(
+                grouped["cost_contribution"].sum(),
+                daily["cost"],
+                check_names=False,
+                atol=1e-10,
+                rtol=1e-10,
             )
 
     def test_test_only_bar_changes_do_not_change_selection_metric(self) -> None:
@@ -264,6 +569,14 @@ class OhlcvPortfolioLabTests(unittest.TestCase):
             self.assertEqual(
                 before.result["metrics"]["validation_net_sharpe"],
                 after.result["metrics"]["validation_net_sharpe"],
+            )
+            self.assertEqual(
+                before.result["metrics"]["signal_policy"]["validation"],
+                after.result["metrics"]["signal_policy"]["validation"],
+            )
+            self.assertEqual(
+                before.result["metrics"]["attribution"]["validation"],
+                after.result["metrics"]["attribution"]["validation"],
             )
             self.assertNotEqual(
                 before.result["metrics"]["portfolio"]["test"]["net"]["sharpe"],
@@ -329,7 +642,7 @@ print(json.dumps({
                 session.manifest["id"],
                 f"{shlex.quote(sys.executable)} {shlex.quote(str(researcher))}",
                 max_turns=1,
-                max_wall_seconds=30,
+                max_wall_seconds=90,
                 turn_timeout_seconds=5,
             )
 

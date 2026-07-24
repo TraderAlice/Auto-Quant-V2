@@ -279,7 +279,7 @@ def _portfolio_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
     if not all(isinstance(metrics.get(key), dict) for key in required):
         return None
     try:
-        return {
+        layers = {
             "kind": "portfolio",
             "factor": {
                 "validationRankIc": metrics["factor"]["validation"]["mean_rank_ic"],
@@ -319,6 +319,64 @@ def _portfolio_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
             },
             "constraintsPassed": metrics["constraint_audit"]["passed"],
         }
+        signal_policy = metrics.get("signal_policy")
+        attribution = metrics.get("attribution")
+        layers["signalPolicy"] = None
+        layers["attribution"] = None
+        if isinstance(signal_policy, dict):
+            validation_policy = signal_policy.get("validation", {})
+            comparison = signal_policy.get(
+                "hysteresis_comparison",
+                {},
+            ).get("validation", {})
+            if isinstance(validation_policy, dict) and isinstance(
+                comparison,
+                dict,
+            ):
+                layers["signalPolicy"] = {
+                    "validationStateChangeRate": validation_policy.get(
+                        "state_change_rate"
+                    ),
+                    "validationEntries": validation_policy.get("entries"),
+                    "validationExits": validation_policy.get("exits"),
+                    "validationReversals": validation_policy.get("reversals"),
+                    "validationTransitionReductionRate": comparison.get(
+                        "transition_reduction_rate"
+                    ),
+                    "validationImplementationTurnoverReduction": comparison.get(
+                        "implementation_turnover_reduction"
+                    ),
+                }
+        if isinstance(attribution, dict):
+            validation_attribution = attribution.get("validation", {})
+            if isinstance(validation_attribution, dict):
+                reconciliation = validation_attribution.get(
+                    "reconciliation",
+                    {},
+                )
+                concentration = validation_attribution.get(
+                    "concentration",
+                    {},
+                )
+                layers["attribution"] = {
+                    "validationReconciliationPassed": reconciliation.get(
+                        "passed"
+                    ),
+                    "validationMaximumAbsoluteNetContributionShare": (
+                        concentration.get(
+                            "maximum_absolute_net_contribution_share"
+                        )
+                    ),
+                    "validationAbsoluteNetContributionHhi": concentration.get(
+                        "absolute_net_contribution_hhi"
+                    ),
+                    "validationMaximumAbsoluteRiskContributionShare": (
+                        concentration.get(
+                            "maximum_absolute_variance_contribution_share"
+                        )
+                    ),
+                }
+        return layers
     except (KeyError, TypeError):
         return None
 

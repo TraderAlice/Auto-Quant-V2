@@ -44,18 +44,21 @@ The factor template evaluates causal cross-sectional predictive evidence with
 dataset-fixed purged 1/5/10-bar rank/Pearson IC, HAC inference, fixed-tertile
 behavior, OHLCV-style overlap, and asset/fold/causal-regime stability. The
 portfolio template fixes the next layer: factor normalization, target weights,
-gross/net and per-asset constraints, drift, no-trade behavior, turnover,
-costs, benchmark, risk/implementation metrics, and cost/delay stresses.
+explicit entry/hold/exit/reversal intent, gross/net and per-asset constraints,
+drift, no-trade behavior, turnover, costs, benchmark, risk/implementation
+metrics, decision attribution, and cost/delay/no-hysteresis stresses.
 Candidate code remains confined to `factors/**`; `judges/**` owns every
 comparison rule. See [[docs/design/ohlcv-factor-lab]],
 [[docs/design/factor-diagnostics]], and
-[[docs/design/portfolio-construction-lab]].
+[[docs/design/portfolio-construction-lab]], and
+[[docs/design/signal-policy-and-attribution]].
 
 The RL template confines candidates to a pure row-level state encoder under
 `models/**`. Its fixed Judge owns factor-mixture actions, Q-learning, reward,
 portfolio accounting, chronological folds, seeds, baselines, and the
 validation-only objective. Every model, episode, fold, seed, action, failure,
-and baseline comparison is Run evidence. See
+and baseline comparison is Run evidence. Each action resolves to a fixed
+stateful signal sleeve before portfolio accounting. See
 [[docs/design/rl-factor-policy-lab]].
 
 All three reference templates publish a nested `research_integrity` metric

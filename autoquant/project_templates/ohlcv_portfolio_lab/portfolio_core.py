@@ -17,6 +17,12 @@ MAX_ABS_WEIGHT = 0.30
 NO_TRADE_ONE_WAY = 0.05
 BASE_COST_BPS = 10.0
 REFERENCE_NAV = 1_000_000.0
+LONG_ENTRY_PERCENTILE = 0.75
+LONG_EXIT_PERCENTILE = 0.55
+SHORT_EXIT_PERCENTILE = 0.45
+SHORT_ENTRY_PERCENTILE = 0.25
+RISK_COVARIANCE_WINDOW = 60
+RISK_COVARIANCE_MINIMUM = 20
 
 
 class PortfolioFailure(ValueError):
@@ -31,6 +37,13 @@ class Simulation:
     weights: pd.DataFrame
     trades: pd.DataFrame
     participation: pd.DataFrame
+
+
+@dataclass(frozen=True)
+class SignalConstruction:
+    targets: pd.DataFrame
+    states: pd.DataFrame
+    ledger: pd.DataFrame
 
 
 def _allocate_capped_side(
@@ -141,6 +154,246 @@ def construct_targets(
             continue
         targets.loc[timestamp, pair.index] = long_weights - short_weights
     return targets
+
+
+def _signal_transition(
+    previous: int,
+    score: float | None,
+    *,
+    long_entry: float,
+    long_exit: float,
+    short_exit: float,
+    short_entry: float,
+) -> tuple[int, str]:
+    if score is None or not math.isfinite(score):
+        return (
+            0,
+            "unavailable_flat" if previous == 0 else "unavailable_reset",
+        )
+    if previous == 0:
+        if score >= long_entry:
+            return 1, "enter_long"
+        if score <= short_entry:
+            return -1, "enter_short"
+        return 0, "stay_flat"
+    if previous == 1:
+        if score <= short_entry:
+            return -1, "reverse_long_to_short"
+        if score < long_exit:
+            return 0, "exit_long"
+        return 1, "hold_long"
+    if previous == -1:
+        if score >= long_entry:
+            return 1, "reverse_short_to_long"
+        if score > short_exit:
+            return 0, "exit_short"
+        return -1, "hold_short"
+    raise PortfolioFailure("portfolio.state", "Unknown prior signal state")
+
+
+def _weight_action(previous: float, current: float) -> str:
+    tolerance = 1e-12
+    previous_zero = abs(previous) <= tolerance
+    current_zero = abs(current) <= tolerance
+    if previous_zero and current_zero:
+        return "stay_flat"
+    if previous_zero:
+        return "open_long" if current > 0 else "open_short"
+    if current_zero:
+        return "close_long" if previous > 0 else "close_short"
+    if previous * current < 0:
+        return (
+            "reverse_long_to_short"
+            if previous > 0
+            else "reverse_short_to_long"
+        )
+    if abs(previous - current) <= tolerance:
+        return "hold_long" if current > 0 else "hold_short"
+    return "resize_long" if current > 0 else "resize_short"
+
+
+def construct_signal_policy(
+    factors: pd.DataFrame,
+    closes: pd.DataFrame,
+    *,
+    volatility_window: int = VOLATILITY_WINDOW,
+    gross_target: float = GROSS_TARGET,
+    max_abs_weight: float = MAX_ABS_WEIGHT,
+    long_entry: float = LONG_ENTRY_PERCENTILE,
+    long_exit: float = LONG_EXIT_PERCENTILE,
+    short_exit: float = SHORT_EXIT_PERCENTILE,
+    short_entry: float = SHORT_ENTRY_PERCENTILE,
+) -> SignalConstruction:
+    """Turn causal factor ranks into persistent intent and target weights."""
+
+    if not factors.index.equals(closes.index) or list(factors.columns) != list(
+        closes.columns
+    ):
+        raise PortfolioFailure(
+            "portfolio.alignment",
+            "Factor and close panels must have identical index and columns",
+        )
+    if (
+        volatility_window < 2
+        or not 0 < gross_target <= 2
+        or not 0 < max_abs_weight <= gross_target / 2
+        or not (
+            0.0
+            <= short_entry
+            <= short_exit
+            < long_exit
+            <= long_entry
+            <= 1.0
+        )
+    ):
+        raise PortfolioFailure(
+            "portfolio.parameters",
+            "Invalid fixed signal-policy parameters",
+        )
+    returns = closes.pct_change(fill_method=None)
+    volatility = (
+        returns.rolling(
+            volatility_window,
+            min_periods=volatility_window,
+        )
+        .std(ddof=0)
+        .clip(lower=1e-6)
+    )
+    side_budget = gross_target / 2.0
+    targets = pd.DataFrame(0.0, index=factors.index, columns=factors.columns)
+    states = pd.DataFrame(0, index=factors.index, columns=factors.columns)
+    prior_states = pd.Series(0, index=factors.columns, dtype=int)
+    prior_targets = pd.Series(0.0, index=factors.columns, dtype=float)
+    ledger_rows: list[dict[str, object]] = []
+
+    for timestamp in factors.index:
+        row_factor = factors.loc[timestamp].astype(float)
+        row_volatility = volatility.loc[timestamp].astype(float)
+        valid = (
+            row_factor.notna()
+            & row_volatility.notna()
+            & np.isfinite(row_factor.to_numpy())
+            & np.isfinite(row_volatility.to_numpy())
+        )
+        valid_assets = factors.columns[valid]
+        scores = pd.Series(np.nan, index=factors.columns, dtype=float)
+        sufficient = (
+            len(valid_assets) >= 4
+            and row_factor.loc[valid_assets].nunique() >= 2
+        )
+        if sufficient:
+            ranks = row_factor.loc[valid_assets].rank(method="average")
+            scores.loc[valid_assets] = (
+                (ranks - 1.0) / (len(valid_assets) - 1.0)
+            )
+
+        current_states = pd.Series(0, index=factors.columns, dtype=int)
+        events: dict[str, str] = {}
+        convictions = pd.Series(0.0, index=factors.columns, dtype=float)
+        strengths = pd.Series(0.0, index=factors.columns, dtype=float)
+        for asset in factors.columns:
+            raw_score = scores.loc[asset]
+            score = float(raw_score) if math.isfinite(raw_score) else None
+            state, event = _signal_transition(
+                int(prior_states.loc[asset]),
+                score,
+                long_entry=long_entry,
+                long_exit=long_exit,
+                short_exit=short_exit,
+                short_entry=short_entry,
+            )
+            current_states.loc[asset] = state
+            events[str(asset)] = event
+            if state != 0 and score is not None:
+                conviction = 2.0 * abs(score - 0.5)
+                convictions.loc[asset] = conviction
+                strengths.loc[asset] = (
+                    conviction / float(row_volatility.loc[asset])
+                )
+
+        long_weights = _allocate_capped_side(
+            strengths.where(current_states.eq(1), 0.0),
+            budget=side_budget,
+            cap=max_abs_weight,
+        )
+        short_weights = _allocate_capped_side(
+            strengths.where(current_states.eq(-1), 0.0),
+            budget=side_budget,
+            cap=max_abs_weight,
+        )
+        allocated = (
+            abs(float(long_weights.sum()) - side_budget) <= 1e-9
+            and abs(float(short_weights.sum()) - side_budget) <= 1e-9
+        )
+        if allocated:
+            current_targets = long_weights - short_weights
+            allocation_status = "allocated"
+        else:
+            current_targets = pd.Series(
+                0.0,
+                index=factors.columns,
+                dtype=float,
+            )
+            allocation_status = (
+                "insufficient_cross_section"
+                if not sufficient
+                else "insufficient_side_breadth"
+            )
+        diagonal_risk = current_targets.abs() * row_volatility.fillna(0.0)
+        diagonal_total = float(diagonal_risk.sum())
+        diagonal_share = (
+            diagonal_risk / diagonal_total
+            if diagonal_total > 1e-12
+            else pd.Series(0.0, index=factors.columns, dtype=float)
+        )
+        targets.loc[timestamp] = current_targets
+        states.loc[timestamp] = current_states
+        for asset in factors.columns:
+            score = scores.loc[asset]
+            volatility_value = row_volatility.loc[asset]
+            factor_value = row_factor.loc[asset]
+            target = float(current_targets.loc[asset])
+            previous_target = float(prior_targets.loc[asset])
+            ledger_rows.append(
+                {
+                    "timestamp": timestamp,
+                    "asset": str(asset),
+                    "factor": (
+                        float(factor_value)
+                        if math.isfinite(factor_value)
+                        else np.nan
+                    ),
+                    "percentile_score": (
+                        float(score) if math.isfinite(score) else np.nan
+                    ),
+                    "prior_signal_state": int(prior_states.loc[asset]),
+                    "signal_state": int(current_states.loc[asset]),
+                    "signal_event": events[str(asset)],
+                    "conviction": float(convictions.loc[asset]),
+                    "trailing_volatility": (
+                        float(volatility_value)
+                        if math.isfinite(volatility_value)
+                        else np.nan
+                    ),
+                    "risk_strength": float(strengths.loc[asset]),
+                    "allocation_status": allocation_status,
+                    "prior_target_weight": previous_target,
+                    "proposed_target_weight": target,
+                    "target_delta": target - previous_target,
+                    "target_action": _weight_action(previous_target, target),
+                    "diagonal_risk_budget_share": float(
+                        diagonal_share.loc[asset]
+                    ),
+                }
+            )
+        prior_states = current_states
+        prior_targets = current_targets
+
+    return SignalConstruction(
+        targets=targets,
+        states=states,
+        ledger=pd.DataFrame(ledger_rows),
+    )
 
 
 def drift_weights(
@@ -271,6 +524,458 @@ def simulate_targets(
         trades=trades.loc[valid].copy(),
         participation=participation.loc[valid].copy(),
     )
+
+
+def causal_market_regimes(closes: pd.DataFrame) -> pd.Series:
+    market_return = closes.pct_change(fill_method=None).mean(axis=1)
+    trailing_direction = (
+        (1.0 + market_return)
+        .rolling(20, min_periods=20)
+        .apply(np.prod, raw=True)
+        - 1.0
+    )
+    trailing_volatility = market_return.rolling(
+        20,
+        min_periods=20,
+    ).std(ddof=0)
+    lagged_threshold = trailing_volatility.shift(1).rolling(
+        60,
+        min_periods=20,
+    ).median()
+    labels = pd.Series("unavailable", index=closes.index, dtype="object")
+    valid = (
+        trailing_direction.notna()
+        & trailing_volatility.notna()
+        & lagged_threshold.notna()
+    )
+    for timestamp in closes.index[valid]:
+        direction = "up" if trailing_direction.loc[timestamp] >= 0 else "down"
+        volatility = (
+            "stressed"
+            if trailing_volatility.loc[timestamp]
+            > lagged_threshold.loc[timestamp]
+            else "calm"
+        )
+        labels.loc[timestamp] = f"{direction}-{volatility}"
+    return labels
+
+
+def build_decision_ledger(
+    construction: SignalConstruction,
+    simulation: Simulation,
+    closes: pd.DataFrame,
+    *,
+    cost_bps: float = BASE_COST_BPS,
+) -> pd.DataFrame:
+    """Join signal intent, target sizing, execution, and attribution evidence."""
+
+    if (
+        not construction.targets.index.equals(closes.index)
+        or list(construction.targets.columns) != list(closes.columns)
+        or not simulation.weights.index.equals(simulation.daily.index)
+        or list(simulation.weights.columns) != list(closes.columns)
+    ):
+        raise PortfolioFailure(
+            "portfolio.alignment",
+            "Construction, simulation, and closes are not aligned",
+        )
+    policy = construction.ledger.set_index(["timestamp", "asset"])
+    if not policy.index.is_unique:
+        raise PortfolioFailure(
+            "portfolio.ledger",
+            "Signal construction ledger keys must be unique",
+        )
+    close_returns = closes.pct_change(fill_method=None)
+    forward_returns = closes.shift(-1) / closes - 1.0
+    regimes = causal_market_regimes(closes)
+    prior = pd.Series(0.0, index=closes.columns, dtype=float)
+    rows: list[dict[str, object]] = []
+    for row_number, timestamp in enumerate(simulation.daily.index):
+        pretrade = (
+            pd.Series(0.0, index=closes.columns, dtype=float)
+            if row_number == 0
+            else drift_weights(prior, close_returns.loc[timestamp])
+        )
+        executed = simulation.weights.loc[timestamp].astype(float)
+        trade = simulation.trades.loc[timestamp].astype(float)
+        next_return = forward_returns.loc[timestamp].fillna(0.0).astype(float)
+        history = close_returns.loc[:timestamp].tail(RISK_COVARIANCE_WINDOW)
+        history = history.dropna(how="all")
+        component_variance = pd.Series(
+            0.0,
+            index=closes.columns,
+            dtype=float,
+        )
+        portfolio_variance = 0.0
+        if len(history) >= RISK_COVARIANCE_MINIMUM:
+            covariance = history.cov(
+                min_periods=RISK_COVARIANCE_MINIMUM,
+                ddof=0,
+            ).reindex(index=closes.columns, columns=closes.columns).fillna(0.0)
+            marginal = covariance.dot(executed)
+            component_variance = executed * marginal
+            portfolio_variance = float(component_variance.sum())
+        variance_share = (
+            component_variance / portfolio_variance
+            if portfolio_variance > 1e-18
+            else pd.Series(0.0, index=closes.columns, dtype=float)
+        )
+        portfolio_row = simulation.daily.loc[timestamp]
+        for asset in closes.columns:
+            policy_row = policy.loc[(timestamp, str(asset))]
+            asset_trade = float(trade.loc[asset])
+            gross_contribution = float(
+                executed.loc[asset] * next_return.loc[asset]
+            )
+            cost_contribution = (
+                abs(asset_trade) * cost_bps / 10_000.0
+            )
+            executed_weight = float(executed.loc[asset])
+            rows.append(
+                {
+                    **policy_row.to_dict(),
+                    "timestamp": timestamp,
+                    "asset": str(asset),
+                    "regime": str(regimes.loc[timestamp]),
+                    "pretrade_weight": float(pretrade.loc[asset]),
+                    "executed_weight": executed_weight,
+                    "executed_state": (
+                        1
+                        if executed_weight > 1e-12
+                        else -1
+                        if executed_weight < -1e-12
+                        else 0
+                    ),
+                    "trade_weight": asset_trade,
+                    "execution_action": _weight_action(
+                        float(pretrade.loc[asset]),
+                        executed_weight,
+                    ),
+                    "execution_reason": (
+                        "rebalance_threshold_met"
+                        if bool(portfolio_row["rebalanced"])
+                        else "portfolio_no_trade_band"
+                    ),
+                    "asset_forward_return": float(next_return.loc[asset]),
+                    "gross_return_contribution": gross_contribution,
+                    "cost_contribution": cost_contribution,
+                    "net_return_contribution": (
+                        gross_contribution - cost_contribution
+                    ),
+                    "one_way_turnover_contribution": 0.5
+                    * abs(asset_trade),
+                    "component_variance": float(
+                        component_variance.loc[asset]
+                    ),
+                    "variance_contribution_share": float(
+                        variance_share.loc[asset]
+                    ),
+                    "portfolio_variance": portfolio_variance,
+                    "portfolio_gross_return": float(
+                        portfolio_row["gross_return"]
+                    ),
+                    "portfolio_cost": float(portfolio_row["cost"]),
+                    "portfolio_net_return": float(
+                        portfolio_row["net_return"]
+                    ),
+                    "portfolio_traded_notional": float(
+                        portfolio_row["traded_notional"]
+                    ),
+                }
+            )
+        prior = executed
+    result = pd.DataFrame(rows)
+    required_numeric = result[
+        [
+            "conviction",
+            "risk_strength",
+            "prior_target_weight",
+            "proposed_target_weight",
+            "target_delta",
+            "diagonal_risk_budget_share",
+            "pretrade_weight",
+            "executed_weight",
+            "trade_weight",
+            "asset_forward_return",
+            "gross_return_contribution",
+            "cost_contribution",
+            "net_return_contribution",
+            "one_way_turnover_contribution",
+            "component_variance",
+            "variance_contribution_share",
+            "portfolio_variance",
+            "portfolio_gross_return",
+            "portfolio_cost",
+            "portfolio_net_return",
+            "portfolio_traded_notional",
+        ]
+    ].to_numpy(dtype=float)
+    if not np.isfinite(required_numeric).all():
+        raise PortfolioFailure(
+            "portfolio.non-finite",
+            "Decision ledger contains non-finite numeric evidence",
+        )
+    return result
+
+
+def signal_policy_metrics(
+    construction: SignalConstruction,
+    index: pd.Index,
+) -> dict[str, object]:
+    selected = construction.ledger[
+        construction.ledger["timestamp"].isin(index)
+    ].copy()
+    if selected.empty:
+        raise PortfolioFailure(
+            "portfolio.population",
+            "Signal policy split has no decision rows",
+        )
+    timestamps = int(selected["timestamp"].nunique())
+    events = {
+        str(key): int(value)
+        for key, value in selected["signal_event"].value_counts().items()
+    }
+    actions = {
+        str(key): int(value)
+        for key, value in selected["target_action"].value_counts().items()
+    }
+    allocation = {
+        str(key): int(value)
+        for key, value in selected["allocation_status"].value_counts().items()
+    }
+    state_counts = (
+        selected.groupby("timestamp")["signal_state"]
+        .value_counts()
+        .unstack(fill_value=0)
+    )
+    target_turnover = (
+        selected.assign(abs_delta=selected["target_delta"].abs())
+        .groupby("timestamp")["abs_delta"]
+        .sum()
+        * 0.5
+    )
+    transitions = int(
+        selected["prior_signal_state"].ne(selected["signal_state"]).sum()
+    )
+    result: dict[str, object] = {
+        "decision_rows": int(len(selected)),
+        "timestamps": timestamps,
+        "signal_transitions": transitions,
+        "state_change_rate": float(transitions / len(selected)),
+        "entries": int(
+            selected["signal_event"].isin(
+                {"enter_long", "enter_short"}
+            ).sum()
+        ),
+        "exits": int(
+            selected["signal_event"].isin({"exit_long", "exit_short"}).sum()
+        ),
+        "reversals": int(
+            selected["signal_event"].isin(
+                {"reverse_long_to_short", "reverse_short_to_long"}
+            ).sum()
+        ),
+        "signal_event_counts": events,
+        "target_action_counts": actions,
+        "allocation_status_counts": allocation,
+        "average_long_intents": (
+            float(state_counts[1].mean()) if 1 in state_counts else 0.0
+        ),
+        "average_short_intents": (
+            float(state_counts[-1].mean()) if -1 in state_counts else 0.0
+        ),
+        "average_flat_intents": (
+            float(state_counts[0].mean()) if 0 in state_counts else 0.0
+        ),
+        "mean_target_one_way_turnover": float(target_turnover.mean()),
+        "annualized_target_one_way_turnover": float(
+            target_turnover.mean() * ANNUAL_PERIODS
+        ),
+        "average_gross_proposed_target": float(
+            selected.groupby("timestamp")["proposed_target_weight"]
+            .apply(lambda values: values.abs().sum())
+            .mean()
+        ),
+    }
+    numeric = [
+        float(value)
+        for value in result.values()
+        if isinstance(value, (int, float)) and not isinstance(value, bool)
+    ]
+    if not all(math.isfinite(value) for value in numeric):
+        raise PortfolioFailure(
+            "portfolio.non-finite",
+            "Signal policy metrics contain non-finite values",
+        )
+    return result
+
+
+def attribution_metrics(
+    ledger: pd.DataFrame,
+    simulation: Simulation,
+    index: pd.Index,
+) -> dict[str, object]:
+    selected = ledger[ledger["timestamp"].isin(index)].copy()
+    if selected.empty:
+        raise PortfolioFailure(
+            "portfolio.population",
+            "Attribution split has no decision rows",
+        )
+    timestamps = int(selected["timestamp"].nunique())
+
+    def aggregate(group: pd.DataFrame) -> dict[str, float | int]:
+        return {
+            "observations": int(len(group)),
+            "total_gross_contribution": float(
+                group["gross_return_contribution"].sum()
+            ),
+            "annualized_gross_contribution": float(
+                group["gross_return_contribution"].sum()
+                / timestamps
+                * ANNUAL_PERIODS
+            ),
+            "total_cost_contribution": float(
+                group["cost_contribution"].sum()
+            ),
+            "total_net_contribution": float(
+                group["net_return_contribution"].sum()
+            ),
+            "annualized_net_contribution": float(
+                group["net_return_contribution"].sum()
+                / timestamps
+                * ANNUAL_PERIODS
+            ),
+            "total_one_way_turnover_contribution": float(
+                group["one_way_turnover_contribution"].sum()
+            ),
+            "average_absolute_executed_weight": float(
+                group["executed_weight"].abs().mean()
+            ),
+            "mean_variance_contribution_share": float(
+                group["variance_contribution_share"].mean()
+            ),
+        }
+
+    by_asset = {
+        str(name): aggregate(group)
+        for name, group in selected.groupby("asset", sort=True)
+    }
+    state_names = {-1: "short", 0: "flat", 1: "long"}
+    by_signal_state = {
+        state_names[int(name)]: aggregate(group)
+        for name, group in selected.groupby("signal_state", sort=True)
+    }
+    by_regime = {
+        str(name): aggregate(group)
+        for name, group in selected.groupby("regime", sort=True)
+    }
+    asset_net = pd.Series(
+        {
+            asset: values["total_net_contribution"]
+            for asset, values in by_asset.items()
+        },
+        dtype=float,
+    )
+    absolute_total = float(asset_net.abs().sum())
+    contribution_shares = (
+        asset_net.abs() / absolute_total
+        if absolute_total > 1e-12
+        else pd.Series(0.0, index=asset_net.index, dtype=float)
+    )
+    asset_risk = pd.Series(
+        {
+            asset: values["mean_variance_contribution_share"]
+            for asset, values in by_asset.items()
+        },
+        dtype=float,
+    )
+    absolute_risk_total = float(asset_risk.abs().sum())
+    risk_shares = (
+        asset_risk.abs() / absolute_risk_total
+        if absolute_risk_total > 1e-12
+        else pd.Series(0.0, index=asset_risk.index, dtype=float)
+    )
+
+    gross_error = 0.0
+    cost_error = 0.0
+    net_error = 0.0
+    traded_error = 0.0
+    risk_share_error = 0.0
+    risk_dates = 0
+    for timestamp, group in selected.groupby("timestamp", sort=True):
+        portfolio = simulation.daily.loc[timestamp]
+        gross_error = max(
+            gross_error,
+            abs(
+                float(group["gross_return_contribution"].sum())
+                - float(portfolio["gross_return"])
+            ),
+        )
+        cost_error = max(
+            cost_error,
+            abs(
+                float(group["cost_contribution"].sum())
+                - float(portfolio["cost"])
+            ),
+        )
+        net_error = max(
+            net_error,
+            abs(
+                float(group["net_return_contribution"].sum())
+                - float(portfolio["net_return"])
+            ),
+        )
+        traded_error = max(
+            traded_error,
+            abs(
+                float(group["trade_weight"].abs().sum())
+                - float(portfolio["traded_notional"])
+            ),
+        )
+        if float(group["portfolio_variance"].iloc[0]) > 1e-18:
+            risk_dates += 1
+            risk_share_error = max(
+                risk_share_error,
+                abs(float(group["variance_contribution_share"].sum()) - 1.0),
+            )
+    tolerance = 1e-10
+    reconciliation = {
+        "passed": (
+            gross_error <= tolerance
+            and cost_error <= tolerance
+            and net_error <= tolerance
+            and traded_error <= tolerance
+            and risk_share_error <= tolerance
+        ),
+        "maximum_gross_return_error": gross_error,
+        "maximum_cost_error": cost_error,
+        "maximum_net_return_error": net_error,
+        "maximum_traded_notional_error": traded_error,
+        "maximum_variance_share_error": risk_share_error,
+        "variance_attributed_dates": risk_dates,
+    }
+    return {
+        "reconciliation": reconciliation,
+        "concentration": {
+            "maximum_absolute_net_contribution_share": (
+                float(contribution_shares.max())
+                if not contribution_shares.empty
+                else 0.0
+            ),
+            "absolute_net_contribution_hhi": float(
+                contribution_shares.pow(2).sum()
+            ),
+            "maximum_absolute_variance_contribution_share": (
+                float(risk_shares.max()) if not risk_shares.empty else 0.0
+            ),
+            "absolute_variance_contribution_hhi": float(
+                risk_shares.pow(2).sum()
+            ),
+        },
+        "by_asset": by_asset,
+        "by_signal_state": by_signal_state,
+        "by_regime": by_regime,
+    }
 
 
 def performance_metrics(

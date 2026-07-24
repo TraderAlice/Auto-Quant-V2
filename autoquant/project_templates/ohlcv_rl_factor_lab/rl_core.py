@@ -15,7 +15,7 @@ try:
         NO_TRADE_ONE_WAY,
         REFERENCE_NAV,
         Simulation,
-        construct_targets,
+        construct_signal_policy,
         drift_weights,
         implementation_metrics,
         performance_metrics,
@@ -26,7 +26,7 @@ except ModuleNotFoundError:  # Package-level deterministic primitive tests.
         NO_TRADE_ONE_WAY,
         REFERENCE_NAV,
         Simulation,
-        construct_targets,
+        construct_signal_policy,
         drift_weights,
         implementation_metrics,
         performance_metrics,
@@ -99,7 +99,10 @@ def build_action_targets(
             factor_panels[expert] * weight
             for expert, weight in mixture.items()
         )
-        targets[action] = construct_targets(combined, closes)
+        targets[action] = construct_signal_policy(
+            combined,
+            closes,
+        ).targets
     return targets
 
 

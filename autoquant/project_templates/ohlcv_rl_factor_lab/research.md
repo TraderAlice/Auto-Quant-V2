@@ -4,7 +4,8 @@
 
 Research causal state representations for a fixed factor-mixture policy and
 test whether adaptation survives chronological folds, multiple seeds,
-portfolio constraints, drift, costs, risk, and simple non-RL baselines.
+stateful signal-sleeve triggers, portfolio constraints, drift, costs, risk,
+and simple non-RL baselines.
 
 ## Workflow
 

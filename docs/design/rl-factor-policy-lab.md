@@ -72,8 +72,13 @@ Three factor experts are derived causally:
 - `reversal`: negative prior close return.
 
 The fixed discrete actions are `activity`, `intraday`, `reversal`, and
-`balanced`. Each action becomes a blended factor panel and is converted by the
-portfolio Core into gross-one, dollar-neutral, capped target weights.
+`balanced`. Each action becomes a complete causal signal sleeve: a blended
+factor panel enters the fixed percentile/hysteresis state machine and is
+converted by the portfolio Core into inverse-volatility-conviction, gross-one,
+dollar-neutral, capped target weights. Each sleeve maintains its own causal
+intent history. RL selects among those governed sleeves; it cannot alter
+entry/exit thresholds, sizing, constraints, or costs. See
+[[docs/design/signal-policy-and-attribution]].
 
 ## State, transition, and reward
 
@@ -163,6 +168,10 @@ Successful Runs declare:
 - `policy-actions.csv`: timestamped validation/test actions and accounting.
 
 NumPy and pandas versions are recorded. Artifacts are immutable Run evidence.
+
+The reference Study keeps a 90-second hard Judge timeout for cold installed
+environments plus all fixed folds, seeds, baselines, and sleeve construction.
+Warm reference Runs are much faster and remain deterministic.
 
 ## Studio projection
 
