@@ -34,7 +34,8 @@ The first viewport prioritizes:
 - delegated caller questions, assets, direction, horizon, and Brief identity;
 - running external Researcher phase and turn budget;
 - KEEP, REVERT, and CRASH optimization trajectories;
-- recent immutable Runs, Experiments, Campaigns, and Research Reports;
+- recent immutable Runs, Experiments, Campaigns, Research Reports, and Project
+  Research Dossiers;
 - factor Run summaries for validation one/five-bar IC, HAC strength, tertile
   spread, weakest chronological fold, maximum fixed-style overlap, test audit
   IC, and rank turnover;
@@ -54,7 +55,8 @@ The first viewport prioritizes:
   test-audit metrics;
 - Session selection split, candidate trial count, visible-test role, and
   external-holdout requirement;
-- request → evidence → report readiness and exact copyable headless commands;
+- request → lane Reports → Project Dossier readiness and exact copyable
+  headless commands;
 - a three-lane Research Cockpit showing Factor validation IC, costed Portfolio
   validation Sharpe, RL validation advantage versus the best selected
   baseline, lane phase, Session progress, shared-source conflicts, stale
@@ -118,6 +120,13 @@ from authenticated provenance. Copy buttons only write an exact Core-generated
 CLI string to the local clipboard. They do not invoke the command or mutate the
 Project.
 
+For a canonical request-driven Research Program, the handoff board is
+Project-level even when a Session is selected. It shows current lane Report
+coverage, required blockers, optional RL omission, and whether the immutable
+Dossier is blocked, ready for Agent synthesis, or already current. Studio
+loads this state through the same Core Dossier functions used by CLI. It never
+composes Reports or authors the synthesis in JavaScript.
+
 For a multi-Study Project, the hero and Inspector use comparable cross-lane
 validation readouts instead of promoting the latest Run's absolute headline.
 In particular, RL is summarized by value-add versus the Judge-selected
@@ -149,6 +158,7 @@ aq schema factor-diagnostics --json
 aq schema portfolio-diagnostics --json
 aq schema rl-policy-diagnostics --json
 aq schema research-program-status --json
+aq schema dossier-status --json
 aq schema session-decision-matrix --json
 ```
 
@@ -172,7 +182,7 @@ Studio is not an evaluator. It calls the same Core loaders used by CLI:
   fact;
 - Session authority issues remain visible;
 - mutable progress cannot create a metric or verdict;
-- the browser cannot author analysis or publish a Research Report;
+- the browser cannot author analysis or publish a Research Report or Dossier;
 - no browser interaction changes a Project.
 
 The durable boundary and known gaps are in

@@ -18,6 +18,7 @@ from .decision_matrix import (
     STUDIO_COMPARISON_TRIALS,
     load_session_decision_matrix,
 )
+from .dossiers import list_dossiers, load_dossier_status
 from .factor_explorer import (
     DEFAULT_FACTOR_POINTS,
     load_factor_diagnostics,
@@ -211,6 +212,7 @@ def _resolve_source(
 def _timeline(
     runs: list[dict[str, Any]],
     sessions: list[dict[str, Any]],
+    dossiers: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
     events: list[dict[str, Any]] = []
     for run in runs:
@@ -281,6 +283,17 @@ def _timeline(
                     "mutable": True,
                 }
             )
+    for dossier in dossiers:
+        events.append(
+            {
+                "kind": "dossier",
+                "id": dossier["id"],
+                "at": dossier["publishedAt"],
+                "status": "published",
+                "title": dossier["title"],
+                "value": dossier["findings"],
+            }
+        )
     return sorted(
         events,
         key=lambda event: (event["at"], event["id"]),
@@ -591,6 +604,20 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
         )
     except AutoQuantValidationError as error:
         diagnostics.extend(_diagnostics("research-program", error))
+    dossier_bundle, issues = _read_category(
+        "dossiers",
+        lambda: {
+            "status": load_dossier_status(project, optional=True),
+            "items": [item.to_dict() for item in list_dossiers(project)],
+        },
+    )
+    diagnostics.extend(issues)
+    if isinstance(dossier_bundle, dict):
+        dossier_status = dossier_bundle["status"]
+        dossiers = dossier_bundle["items"]
+    else:
+        dossier_status = None
+        dossiers = []
     studies = [item.to_dict() for item in studies_raw]
     runs: list[dict[str, Any]] = []
     for item in runs_raw:
@@ -794,6 +821,8 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
                 "read-only",
             )
         )
+    if dossier_status is not None and dossier_status["nextAction"] is not None:
+        commands.append(dossier_status["nextAction"])
     return {
         "id": project.manifest.id,
         "name": project.manifest.name,
@@ -804,6 +833,8 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
             "text": program_path.read_text(encoding="utf-8"),
         },
         "researchProgramStatus": research_program_status,
+        "dossierStatus": dossier_status,
+        "dossiers": dossiers,
         "intake": intake,
         "factorExplorer": factor_explorer,
         "portfolioExplorer": portfolio_explorer,
@@ -824,12 +855,13 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
                 item["delegation"] is not None for item in sessions
             ),
             "reports": sum(len(item["reports"]) for item in sessions),
+            "dossiers": len(dossiers),
             "verdicts": verdicts,
         },
         "studies": studies,
         "runs": runs,
         "sessions": sessions,
-        "timeline": _timeline(runs, sessions),
+        "timeline": _timeline(runs, sessions, dossiers),
     }
 
 
@@ -1232,6 +1264,8 @@ STUDIO_SNAPSHOT_JSON_SCHEMA: dict[str, Any] = {
                 "rootDir",
                 "researchProgram",
                 "researchProgramStatus",
+                "dossierStatus",
+                "dossiers",
                 "intake",
                 "factorExplorer",
                 "portfolioExplorer",
@@ -1260,6 +1294,8 @@ STUDIO_SNAPSHOT_JSON_SCHEMA: dict[str, Any] = {
                     },
                 },
                 "researchProgramStatus": {"type": ["object", "null"]},
+                "dossierStatus": {"type": ["object", "null"]},
+                "dossiers": {"type": "array"},
                 "intake": {"type": ["object", "null"]},
                 "factorExplorer": {"type": ["object", "null"]},
                 "portfolioExplorer": {"type": ["object", "null"]},
@@ -1285,6 +1321,7 @@ STUDIO_SNAPSHOT_JSON_SCHEMA: dict[str, Any] = {
                         "runningCampaigns",
                         "delegatedSessions",
                         "reports",
+                        "dossiers",
                         "verdicts",
                     ],
                     "properties": {
@@ -1296,6 +1333,7 @@ STUDIO_SNAPSHOT_JSON_SCHEMA: dict[str, Any] = {
                         "runningCampaigns": {"type": "integer", "minimum": 0},
                         "delegatedSessions": {"type": "integer", "minimum": 0},
                         "reports": {"type": "integer", "minimum": 0},
+                        "dossiers": {"type": "integer", "minimum": 0},
                         "verdicts": {
                             "type": "object",
                             "additionalProperties": False,

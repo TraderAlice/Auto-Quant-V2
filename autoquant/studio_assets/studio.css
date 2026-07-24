@@ -669,6 +669,14 @@ main {
   color: var(--red);
 }
 
+.program-summary .ready b {
+  color: var(--acid);
+}
+
+.program-summary .warning b {
+  color: var(--amber);
+}
+
 .program-assessment {
   min-height: 70px;
   display: grid;
@@ -3213,7 +3221,8 @@ main {
 }
 
 .status-chip.revert,
-.status-chip.budget_exhausted {
+.status-chip.budget_exhausted,
+.status-chip.blocked {
   color: var(--amber);
   border-color: #634d28;
   background: #211b10;

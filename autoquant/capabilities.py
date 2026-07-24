@@ -99,6 +99,13 @@ REPORT_ARGUMENT = argument(
     True,
     "Immutable Research Report id inside a Session.",
 )
+DOSSIER_ARGUMENT = argument(
+    "dossier",
+    "option",
+    "string",
+    True,
+    "Immutable Project-level Research Dossier id.",
+)
 
 
 def descriptor(
@@ -132,7 +139,7 @@ CLI_COMMANDS = [
     ),
     descriptor(
         "schema",
-        "aq schema [workspace|project|study|judge-output|run-result|factor-diagnostics|portfolio-diagnostics|research-program-status|rl-policy-diagnostics|session-decision-matrix|session|experiment|research-request|ohlcv-dataset-package|report-analysis|researcher-response|campaign-result|campaign-progress|studio-snapshot] [--json]",
+        "aq schema [workspace|project|study|judge-output|run-result|factor-diagnostics|portfolio-diagnostics|research-program-status|rl-policy-diagnostics|session-decision-matrix|session|experiment|research-request|ohlcv-dataset-package|report-analysis|dossier-analysis|dossier-result|dossier-status|researcher-response|campaign-result|campaign-progress|studio-snapshot] [--json]",
         "List or emit canonical AutoQuant JSON Schemas.",
         "read-only",
         [
@@ -161,6 +168,9 @@ CLI_COMMANDS = [
                     "research-request",
                     "ohlcv-dataset-package",
                     "report-analysis",
+                    "dossier-analysis",
+                    "dossier-result",
+                    "dossier-status",
                     "studio-snapshot",
                 ],
             ),
@@ -739,6 +749,50 @@ CLI_COMMANDS = [
             PROJECT_ARGUMENT,
             SESSION_ARGUMENT,
             REPORT_ARGUMENT,
+            JSON_ARGUMENT,
+        ],
+    ),
+    descriptor(
+        "dossier.status",
+        "aq dossier status <path> [--project ID] [--json]",
+        "Verify Project intake and current lane Report readiness for one cross-lane Research Dossier.",
+        "read-only",
+        [PATH_ARGUMENT, PROJECT_ARGUMENT, JSON_ARGUMENT],
+    ),
+    descriptor(
+        "dossier.publish",
+        "aq dossier publish <path> --analysis FILE [--project ID] [--json]",
+        "Publish immutable JSON and Markdown synthesis over verified current Factor, Portfolio, and optional RL Reports.",
+        "creates-artifact",
+        [
+            PATH_ARGUMENT,
+            PROJECT_ARGUMENT,
+            argument(
+                "analysis",
+                "option",
+                "string",
+                True,
+                "Strict Dossier analysis with lane Report/finding references.",
+            ),
+            JSON_ARGUMENT,
+        ],
+    ),
+    descriptor(
+        "dossier.list",
+        "aq dossier list <path> [--project ID] [--json]",
+        "List verified immutable Project-level Research Dossiers.",
+        "read-only",
+        [PATH_ARGUMENT, PROJECT_ARGUMENT, JSON_ARGUMENT],
+    ),
+    descriptor(
+        "dossier.show",
+        "aq dossier show <path> --dossier ID [--project ID] [--json]",
+        "Verify and inspect one immutable cross-lane Research Dossier.",
+        "read-only",
+        [
+            PATH_ARGUMENT,
+            PROJECT_ARGUMENT,
+            DOSSIER_ARGUMENT,
             JSON_ARGUMENT,
         ],
     ),

@@ -57,8 +57,11 @@ The V2 foundation now implements:
   evidence.
 - strict delegated Research Requests, Session-derived Briefs, and immutable
   evidence-bound JSON/Markdown Research Reports with no trading authority.
+- immutable Project Research Dossiers that compose current Factor, Portfolio,
+  and compatible optional RL lane Reports into one verified OpenAlice handoff
+  without re-evaluating raw Runs.
 - one packaged local read-only Studio with a shared versioned snapshot,
-  Workspace/Project overview, request → evidence → report handoff, exact
+  Workspace/Project overview, request → lane Reports → Dossier handoff, exact
   copyable CLI commands, explicit mutable Campaign progress, defensive HTTP
   boundary, bounded verified Portfolio decision exploration, and responsive
   research-first presentation.
@@ -109,6 +112,8 @@ Multi-Study Project coordination and lane currentness are defined in
 [[docs/design/research-program-orchestration]].
 The end-to-end OpenAlice handoff, professional evidence stack, and HCI
 boundary are defined in [[docs/design/quant-research-lifecycle]].
+Project-level lane composition is defined in
+[[docs/design/program-research-dossiers]].
 
 The implementation boundary for Session comparison is
 `autoquant/decision_matrix.py`; CLI and Studio consume that Core read model
@@ -168,7 +173,9 @@ files
 → structured metrics and artifacts
 → review
 → keep, revert, branch, or promote
-→ evidence-bound decision-support report
+→ evidence-bound lane Report
+→ Project Research Dossier
+→ OpenAlice Inbox publication
 ```
 
 Backtesting, factor discovery, and ML experiments are different Project
@@ -221,6 +228,8 @@ behind the Harness contract, not the owner of Workspace or Project semantics.
 - Delegated request and derived Brief contracts: `autoquant/briefs.py`
 - Immutable Research Report publication and verification:
   `autoquant/reports.py`
+- Immutable Project Research Dossier composition and verification:
+  `autoquant/dossiers.py`
 - Verified Studio snapshot and local HTTP server: `autoquant/studio.py`
 - Verified Portfolio Run diagnostic projection:
   `autoquant/portfolio_explorer.py`

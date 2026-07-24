@@ -318,6 +318,46 @@ verified history. OpenAlice should publish the exact Markdown through its own
 Inbox boundary, where OpenAlice—not AutoQuant—stamps authoritative Workspace,
 Session, and document-revision provenance.
 
+## Project Research Dossier commands
+
+```bash
+aq dossier status <path> [--project ID] [--json]
+aq schema dossier-analysis --json
+aq dossier publish <path> \
+  --analysis dossier-analysis.json \
+  [--project ID] [--json]
+aq dossier list <path> [--project ID] [--json]
+aq dossier show <path> \
+  --dossier ID \
+  [--project ID] [--json]
+```
+
+A Session Report is one lane's point-in-time answer. A Project Research
+Dossier is the cross-lane return artifact. `dossier status` uses the canonical
+Research Program to require current Factor and Portfolio Reports and to include
+governed RL only when its current Report pins the included Factor source.
+Missing optional RL evidence is not silently ignored: its omission and reason
+are frozen into the Dossier.
+
+The Agent authors strict cross-lane analysis whose references select exact
+included `laneId`, `reportId`, and optional Report `findingId`. Core verifies
+coverage of every included lane and atomically publishes:
+
+```text
+dossiers/dossier-<UTC timestamp>-<identity>/
+├── analysis.json
+├── dossier.json
+├── dossier.md
+└── manifest.json
+```
+
+The Dossier freezes request, dataset, Research Program, lane Study, Report,
+leader Run, selection-integrity, Harness, source/dependency, omission, and
+analysis identities. Later lane research does not invalidate an older
+point-in-time Dossier. `dossier.md` is the exact decision-support document that
+OpenAlice may publish through its own Inbox authority; AutoQuant has no
+trading or authenticated OpenAlice provenance authority.
+
 ## Studio commands
 
 ```bash
@@ -334,7 +374,9 @@ the same verified Core loaders used by other commands. It includes fixed
 Studies, immutable Runs, Session/Experiment history, terminal Campaigns, and
 explicitly mutable in-progress Campaign telemetry. Delegated requests, Research
 Briefs, immutable Reports, and Core-generated copyable CLI commands are in the
-same read model.
+same read model. For canonical multi-Study Projects the snapshot also includes
+Dossier readiness, blockers, explicit optional-lane omissions, immutable
+Dossier summaries, and the exact publish/show command.
 
 `studio serve` is a foreground `long-running-server` operation. It serves the
 packaged read-only browser presentation and the same snapshot contract. It

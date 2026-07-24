@@ -286,6 +286,10 @@ class AgentCliTests(unittest.TestCase):
                 "report.publish",
                 "report.list",
                 "report.show",
+                "dossier.status",
+                "dossier.publish",
+                "dossier.list",
+                "dossier.show",
                 "studio.snapshot",
                 "studio.serve",
             ],
@@ -364,6 +368,9 @@ class AgentCliTests(unittest.TestCase):
                 "research-request",
                 "ohlcv-dataset-package",
                 "report-analysis",
+                "dossier-analysis",
+                "dossier-result",
+                "dossier-status",
                 "studio-snapshot",
             ],
         )
@@ -404,6 +411,14 @@ class AgentCliTests(unittest.TestCase):
                 "const"
             ],
             "autoquant-research-report-analysis",
+        )
+        dossier_schema = run_cli("schema", "dossier-analysis", "--json")
+        self.assertEqual(dossier_schema.returncode, 0, dossier_schema.stderr)
+        self.assertEqual(
+            json_output(dossier_schema)["data"]["schema"]["properties"]["kind"][
+                "const"
+            ],
+            "autoquant-research-dossier-analysis",
         )
         studio_schema = run_cli("schema", "studio-snapshot", "--json")
         self.assertEqual(studio_schema.returncode, 0, studio_schema.stderr)

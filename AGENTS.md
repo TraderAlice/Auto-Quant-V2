@@ -100,6 +100,8 @@ Read the relevant linked document before changing a subsystem:
 - OpenAlice request/report collaboration, professional quantitative evidence,
   causal portfolio construction, governed RL, and human/Agent interaction:
   [[docs/design/quant-research-lifecycle]]
+- Project-level synthesis of verified lane Reports into one immutable
+  OpenAlice handoff: [[docs/design/program-research-dossiers]]
 - Studio operator and public read-model guide: [[docs/STUDIO]]
 - Canonical Workspace and Project file schemas: [[docs/PROJECT_FORMAT]]
 - Human and machine-readable command behavior: [[docs/CLI]]

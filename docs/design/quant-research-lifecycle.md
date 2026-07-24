@@ -38,7 +38,8 @@ OpenAlice or local caller
 → self-contained Project and fixed Study
 → governed Session with derived Research Brief
 → bounded Runs, Experiments, and Campaigns
-→ immutable Research Report
+→ immutable lane Research Reports
+→ immutable Project Research Dossier
 → OpenAlice Inbox publication with authoritative provenance
 → human/Agent decision and separately authorized forward execution
 ```
@@ -46,8 +47,9 @@ OpenAlice or local caller
 A Project is the construction site for one evolving research problem. A Study
 is one fixed evaluation question inside it. A Session is one active line of
 candidate research against that fixed authority. A Run is one immutable
-execution. A Report is a content-hashed decision-support handoff over an exact
-evidence snapshot.
+execution. A Report is one lane's content-hashed decision-support handoff over
+an exact evidence snapshot. A Dossier composes verified current lane Reports
+into the Project-level answer without re-evaluating raw Runs.
 
 The request can now create that construction site through strict external
 daily-OHLCV intake. The caller supplies a package; AutoQuant validates and
@@ -258,6 +260,27 @@ further research, monitoring, avoidance, or a conditional portfolio posture.
 It may not claim an order was placed, that OpenAlice approved a trade, or that
 caller-supplied origin fields were authenticated.
 
+## Project research dossier
+
+The canonical Research Program returns one Project-level answer by composing
+lane Reports:
+
+```text
+Run / Experiment / Campaign
+→ delegated Session Report
+→ Project Research Dossier
+→ OpenAlice Inbox
+```
+
+Factor and Portfolio Reports are required. Governed RL is optional and is
+included only when its current Report pins the selected Factor source;
+otherwise the Dossier records the omission and reason. Agent-authored
+cross-lane findings cite exact included Report and finding ids. Core verifies
+coverage, freezes request/dataset/program/Study/Report/leader identities, and
+renders immutable JSON and Markdown. Later research does not reinterpret an
+older Dossier. The complete contract is
+[[docs/design/program-research-dossiers]].
+
 ## Human-computer interaction
 
 The CLI and JSON schemas are the primary control surface because Agents must be
@@ -276,7 +299,8 @@ Studio is the shared situation room for humans and Agents. It should answer:
 - What is mutable now, and what evidence is immutable?
 - Which metric layer improved or regressed?
 - Which constraints, costs, folds, or seeds failed?
-- Is a verified report ready, and what exact CLI command advances the work?
+- Are lane Reports ready, is the Project Dossier blocked/current, and what
+  exact CLI command advances the work?
 
 The browser may copy exact headless commands, filter, compare, and inspect. It
 must never invent a metric, approve a candidate, publish a report, or become a

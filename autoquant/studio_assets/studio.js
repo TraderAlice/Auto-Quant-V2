@@ -561,11 +561,109 @@ function bindCopyCommands() {
   });
 }
 
+function dossierState(project) {
+  const status = project.dossierStatus;
+  if (!status) return null;
+  const latest = status.latestDossier;
+  const current = Boolean(latest?.current);
+  return {
+    status,
+    latest,
+    current,
+    label: current ? "PUBLISHED" : status.ready ? "READY TO SYNTHESIZE" : "BLOCKED",
+    tone: current ? "published" : status.ready ? "active" : "blocked",
+    command: status.nextAction,
+  };
+}
+
+function dossierInspectorSection(project) {
+  const dossier = dossierState(project);
+  if (!dossier) return "";
+  const included = dossier.status.includedLaneIds.join(", ") || "none";
+  const omissions = dossier.status.omittedOptionalLanes
+    .map((lane) => `${lane.name}: ${lane.reason}`)
+    .join(" · ");
+  const blockerSummary = dossier.status.blockers
+    .map((blocker) => blocker.message)
+    .join(" · ");
+  return `
+    <section class="inspector-section dossier-inspector">
+      <small>OpenAlice return artifact</small>
+      <h3>${escapeHtml(dossier.latest?.title ?? "Project Research Dossier")}</h3>
+      <span class="status-chip ${escapeHtml(dossier.tone)}">${escapeHtml(dossier.label)}</span>
+      <p>${escapeHtml(
+        dossier.latest?.executiveSummary ??
+          (dossier.status.ready
+            ? "Current Factor and Portfolio lane Reports are ready for Agent-authored cross-lane synthesis."
+            : blockerSummary || "Required lane evidence is incomplete."),
+      )}</p>
+      <dl class="inspector-kv">
+        <dt>Included lanes</dt><dd>${escapeHtml(included)}</dd>
+        <dt>Optional omissions</dt><dd>${escapeHtml(omissions || "none")}</dd>
+        <dt>Trading authority</dt><dd>none</dd>
+      </dl>
+      ${copyCommandButton(dossier.command, dossier.current ? "Copy Dossier show CLI" : "Copy next Dossier CLI")}
+    </section>`;
+}
+
 function renderHandoff(project) {
   const session = selectedSession(project);
   const delegation = session?.delegation;
   const section = element("research-handoff");
   section.classList.remove("compact");
+  const dossier = dossierState(project);
+  if (dossier && project.intake) {
+    const request = project.intake.request;
+    const dataset = project.intake.dataset;
+    const readyLanes = dossier.status.lanes.filter((lane) => lane.status === "ready");
+    const reportCount = dossier.status.lanes.filter((lane) => lane.report).length;
+    const omissions = dossier.status.omittedOptionalLanes;
+    const blockers = dossier.status.blockers;
+    const currentTitle = dossier.latest?.title ?? "Cross-lane synthesis pending";
+    const currentSummary =
+      dossier.latest?.executiveSummary ??
+      (dossier.status.ready
+        ? "Agent analysis can now compose the verified lane Reports into one immutable Project answer."
+        : blockers[0]?.message ?? "Required lane evidence is incomplete.");
+    element("handoff-flow").textContent =
+      "REQUEST → LANE REPORTS → PROJECT DOSSIER → OPENALICE";
+    element("handoff-meta").textContent = dossier.current
+      ? `Current Dossier · ${dossier.status.includedLaneIds.length} lanes`
+      : dossier.status.ready
+        ? `${reportCount} current lane Reports · synthesis pending`
+        : `${blockers.length} required evidence blocker${blockers.length === 1 ? "" : "s"}`;
+    element("handoff-board").innerHTML = `
+      <article class="handoff-card request-card">
+        <small>01 · Incoming request</small>
+        <h3>${escapeHtml(request.title)}</h3>
+        <p>${escapeHtml(request.question)}</p>
+        <dl class="handoff-kv">
+          <dt>Assets</dt><dd>${escapeHtml(request.assets.map((item) => item.symbol).join(", "))}</dd>
+          <dt>Direction</dt><dd>${escapeHtml(request.direction)}</dd>
+          <dt>Horizon</dt><dd>${escapeHtml(request.horizon)}</dd>
+        </dl>
+        <span class="context-note">Caller-supplied context · ${escapeHtml(request.source.system)} / ${escapeHtml(request.source.workspaceId ?? "unspecified")}</span>
+      </article>
+      <article class="handoff-card evidence-card">
+        <small>02 · Governed lane Reports</small>
+        <h3>${readyLanes.length}/${dossier.status.lanes.length} lanes composable</h3>
+        <p>Factor and Portfolio are required. Adaptive policy evidence is optional and can only join when its frozen Factor dependency matches.</p>
+        <div class="handoff-metrics">
+          <span><b>${readyLanes.length}</b><small>ready lanes</small></span>
+          <span><b>${reportCount}</b><small>current reports</small></span>
+          <span><b>${dossier.status.blockers.length}</b><small>blockers</small></span>
+        </div>
+        <span class="context-note">${escapeHtml(dataset.id)}@${escapeHtml(dataset.version)} · ${escapeHtml(dataset.timeRange.start)} → ${escapeHtml(dataset.timeRange.end)}${omissions.length ? ` · omitted: ${escapeHtml(omissions.map((lane) => lane.name).join(", "))}` : ""}</span>
+      </article>
+      <article class="handoff-card report-card ${dossier.current ? "ready" : ""}">
+        <small>03 · OpenAlice return artifact</small>
+        <h3>${escapeHtml(currentTitle)}</h3>
+        <p>${escapeHtml(currentSummary)}</p>
+        <span class="status-chip ${escapeHtml(dossier.tone)}">${escapeHtml(dossier.label)}</span>
+        ${copyCommandButton(dossier.command, dossier.current ? "Copy Dossier show CLI" : "Copy next governed CLI")}
+      </article>`;
+    return;
+  }
   if (!session || !delegation) {
     const intake = project.intake;
     if (intake) {
@@ -697,6 +795,7 @@ function renderResearchProgram(project) {
   const summary = program.summary;
   const recommended = program.recommendedAction;
   const assessment = programAssessment(project);
+  const dossier = dossierState(project);
   const currentRuns = program.lanes.filter(
     (lane) => lane.currentRun && lane.latestRun?.status === "succeeded",
   ).length;
@@ -705,12 +804,20 @@ function renderResearchProgram(project) {
   element("research-program-summary").innerHTML = [
     ["Evidence chain", `${currentRuns}/${summary.lanes}`, "current immutable baselines"],
     ["Active researchers", summary.activeSessions, "governed Sessions"],
-    ["Published reports", summary.reports, "decision-support handoffs"],
-    ["Conflicts", summary.conflicts, summary.conflicts ? "attention required" : "none detected"],
+    ["Lane reports", summary.reports, "verified decision-support evidence"],
+    [
+      "OpenAlice dossier",
+      dossier?.current ? "PUBLISHED" : dossier?.status.ready ? "READY" : "BLOCKED",
+      dossier?.current
+        ? `${dossier.status.includedLaneIds.length} frozen lanes`
+        : dossier?.status.ready
+          ? "Agent synthesis pending"
+          : `${dossier?.status.blockers.length ?? 0} required blockers`,
+    ],
   ]
     .map(
       ([label, value, note], index) => `
-        <span class="${index === 3 && Number(value) ? "negative" : ""}">
+        <span class="${index === 3 ? (dossier?.current ? "ready" : dossier?.status.ready ? "warning" : "warning") : ""}">
           <small>${escapeHtml(label)}</small>
           <b>${escapeHtml(value)}</b>
           <i>${escapeHtml(note)}</i>
@@ -779,9 +886,9 @@ function renderResearchProgram(project) {
   element("research-program-footer").innerHTML = `
     <span>
       <b>${program.conflicts.length ? "Shared-source conflict" : "Integration boundary"}</b>
-      ${escapeHtml(program.warnings.join(" · "))}
+      ${escapeHtml(program.warnings.join(" · "))} · Dossier composition is Core-verified and has no trading authority.
     </span>
-    ${copyCommandButton(recommended, "Copy recommended command")}`;
+    ${copyCommandButton(dossier?.command ?? recommended, dossier ? "Copy Dossier next action" : "Copy recommended command")}`;
 }
 
 const evidenceLanes = [
@@ -2079,6 +2186,7 @@ function eventSubtitle(event) {
     experiment: "Experiment verdict",
     campaign: "Terminal Campaign",
     report: "Immutable Research Report",
+    dossier: "Immutable Project Research Dossier",
     progress: "Mutable Campaign progress",
   };
   return `${labels[event.kind] ?? event.kind} · ${event.status}`;
@@ -2274,6 +2382,7 @@ function renderInspector(project) {
           </dl>
           ${copyCommandButton(next, program ? "Copy recommended command" : "Copy start command")}
         </section>
+        ${dossierInspectorSection(project)}
         <details class="program-details">
           <summary>Research program</summary>
           <pre class="program-copy">${escapeHtml(project.researchProgram.text)}</pre>
@@ -2385,6 +2494,7 @@ function renderInspector(project) {
       <p>${escapeHtml(latestReport?.executiveSummary ?? (delegation ? "Publish structured analysis when the evidence is ready." : "This manual Session has no delegated report brief."))}</p>
       ${delegation ? copyCommandButton(commandFor(session, latestReport ? "report.show" : "report.publish")) : ""}
     </section>
+    ${dossierInspectorSection(project)}
     <section class="inspector-section">
       <small>Agent control surface</small>
       ${copyCommandButton(commandFor(session, "session.show"))}

@@ -183,6 +183,25 @@ quantitative decision support only and have no live-trading authority.
 OpenAlice should publish the exact Markdown through its own Inbox so OpenAlice
 can stamp authoritative Workspace, Session, and document-revision provenance.
 
+For the canonical Factor → Portfolio → optional RL Research Program, lane
+Reports are composed into one immutable Project Research Dossier:
+
+```bash
+uv run aq dossier status ./quant-workspace --json
+uv run aq schema dossier-analysis --json
+uv run aq dossier publish ./quant-workspace \
+  --analysis dossier-analysis.json \
+  --json
+uv run aq dossier show ./quant-workspace \
+  --dossier dossier-... \
+  --json
+```
+
+Core verifies exact Report/finding references, freezes every included lane and
+explicit optional omission, and renders `dossier.json` plus `dossier.md`.
+AutoQuant still has no trading authority; OpenAlice owns Inbox publication and
+authenticated collaboration provenance.
+
 Humans can watch the same Workspace through the lightweight local Studio:
 
 ```bash
@@ -194,8 +213,8 @@ uv run aq session compare ./quant-workspace --session SESSION_ID --json
 ```
 
 Studio shows Projects, delegated requests, active Session leaders, running
-Researcher turns, verdict trajectories, report readiness, recent evidence, and
-fixed Studies. For the latest successful Portfolio Run it also shows bounded
+Researcher turns, verdict trajectories, lane Report/Dossier readiness, recent
+evidence, and fixed Studies. For the latest successful Portfolio Run it also shows bounded
 verified growth/drawdown, exposure/turnover, the historical mechanical book,
 signal transitions, and split attribution. It is read-only, exposes copy-only
 exact CLI commands, and uses the same verified Core loaders as the CLI. A

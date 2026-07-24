@@ -32,6 +32,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/program-research-dossier]] | Published one immutable Project-level OpenAlice handoff over verified Factor, Portfolio, and optional RL Reports. | 2026-07-24 |
 | [[plans/research-cockpit-ui]] | Turned the three-lane Studio first viewport into a truthful Project cockpit with selectable evidence detail. | 2026-07-24 |
 | [[plans/governed-factor-to-rl-fusion]] | Bound the current candidate factor into governed RL as a content-locked Study dependency and measured adaptive value beyond the factor itself. | 2026-07-24 |
 | [[plans/multi-study-quant-research-desk]] | Created one request-driven Project with coordinated Factor, Portfolio, and governed-RL Studies plus shared CLI/Studio program status. | 2026-07-24 |

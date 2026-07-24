@@ -17,6 +17,16 @@ from .decision_matrix import (
     SESSION_DECISION_MATRIX_JSON_SCHEMA,
     load_session_decision_matrix,
 )
+from .dossiers import (
+    DOSSIER_ANALYSIS_JSON_SCHEMA,
+    DOSSIER_RESULT_JSON_SCHEMA,
+    DOSSIER_STATUS_JSON_SCHEMA,
+    list_dossiers,
+    load_dossier,
+    load_dossier_analysis,
+    load_dossier_status,
+    publish_dossier,
+)
 from .factor_explorer import (
     DEFAULT_FACTOR_POINTS,
     FACTOR_DIAGNOSTICS_JSON_SCHEMA,
@@ -200,6 +210,9 @@ def build_parser() -> RaisingArgumentParser:
             "research-request",
             "ohlcv-dataset-package",
             "report-analysis",
+            "dossier-analysis",
+            "dossier-result",
+            "dossier-status",
             "studio-snapshot",
         ],
     )
@@ -605,6 +618,52 @@ def build_parser() -> RaisingArgumentParser:
     report_show.add_argument("--report", required=True)
     report_show.set_defaults(command_id="report.show")
     _json_argument(report_show)
+
+    dossier = subcommands.add_parser(
+        "dossier",
+        help="publish and inspect immutable Project-level Research Dossiers",
+    )
+    dossier_actions = dossier.add_subparsers(
+        dest="dossier_action",
+        required=True,
+    )
+    dossier_status = dossier_actions.add_parser(
+        "status",
+        help="inspect cross-lane Dossier readiness and evidence references",
+    )
+    dossier_status.add_argument("path")
+    dossier_status.add_argument("--project")
+    dossier_status.set_defaults(command_id="dossier.status")
+    _json_argument(dossier_status)
+
+    dossier_publish = dossier_actions.add_parser(
+        "publish",
+        help="publish Agent-authored synthesis over verified lane Reports",
+    )
+    dossier_publish.add_argument("path")
+    dossier_publish.add_argument("--project")
+    dossier_publish.add_argument("--analysis", required=True)
+    dossier_publish.set_defaults(command_id="dossier.publish")
+    _json_argument(dossier_publish)
+
+    dossier_list = dossier_actions.add_parser(
+        "list",
+        help="list immutable Research Dossiers in one Project",
+    )
+    dossier_list.add_argument("path")
+    dossier_list.add_argument("--project")
+    dossier_list.set_defaults(command_id="dossier.list")
+    _json_argument(dossier_list)
+
+    dossier_show = dossier_actions.add_parser(
+        "show",
+        help="verify and inspect one immutable Research Dossier",
+    )
+    dossier_show.add_argument("path")
+    dossier_show.add_argument("--project")
+    dossier_show.add_argument("--dossier", required=True)
+    dossier_show.set_defaults(command_id="dossier.show")
+    _json_argument(dossier_show)
 
     studio = subcommands.add_parser(
         "studio",
@@ -2145,6 +2204,184 @@ def _report_show(args: argparse.Namespace) -> CommandResult:
     )
 
 
+def _dossier_artifacts(dossier) -> list[dict[str, Any]]:
+    return [
+        artifact(
+            "research-dossier",
+            dossier.dossier["id"],
+            dossier.root_dir / "dossier.json",
+            immutable=True,
+        ),
+        artifact(
+            "research-dossier-markdown",
+            dossier.dossier["id"],
+            dossier.root_dir / "dossier.md",
+            immutable=True,
+        ),
+    ]
+
+
+def _dossier_status(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    status = load_dossier_status(project)
+    assert status is not None
+    lines = [
+        f"Research Dossier readiness: {'ready' if status['ready'] else 'blocked'}",
+        f"Included lanes: {', '.join(status['includedLaneIds']) or 'none'}",
+    ]
+    lines.extend(
+        f"  {lane['id']}  {lane['status']}  "
+        f"{lane['report']['id'] if lane['report'] else 'no current Report'}"
+        for lane in status["lanes"]
+    )
+    if status["blockers"]:
+        lines.append("Blockers:")
+        lines.extend(
+            f"  {blocker['code']}: {blocker['message']}"
+            for blocker in status["blockers"]
+        )
+    actions = []
+    if status["nextAction"] is not None:
+        action = status["nextAction"]
+        actions.append(
+            next_action(
+                action["id"],
+                action["description"],
+                action["argv"],
+                action["effect"],
+            )
+        )
+    return CommandResult(
+        "dossier.status",
+        status,
+        "\n".join(lines) + "\n",
+        project_context(project),
+        next_actions=actions,
+    )
+
+
+def _dossier_publish(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    analysis = load_dossier_analysis(args.analysis)
+    dossier = publish_dossier(project, analysis)
+    return CommandResult(
+        "dossier.publish",
+        {
+            "manifest": dossier.manifest,
+            "dossier": dossier.dossier,
+            "markdownPath": str(dossier.root_dir / "dossier.md"),
+        },
+        (
+            f"Research Dossier: {dossier.dossier['id']}\n"
+            f"Title: {dossier.analysis['title']}\n"
+            f"Included lanes: "
+            + ", ".join(
+                lane["id"] for lane in dossier.dossier["evidence"]["lanes"]
+            )
+            + "\n"
+            f"Markdown: {dossier.root_dir / 'dossier.md'}\n"
+            "Authority: quantitative decision support; trading authority: none\n"
+        ),
+        project_context(project),
+        _dossier_artifacts(dossier),
+        [
+            next_action(
+                "dossier.show",
+                "Verify the immutable Dossier before OpenAlice Inbox publication.",
+                [
+                    "aq",
+                    "dossier",
+                    "show",
+                    str(project.root_dir),
+                    "--dossier",
+                    dossier.dossier["id"],
+                    "--json",
+                ],
+                "read-only",
+            )
+        ],
+    )
+
+
+def _dossier_list(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    dossiers = list_dossiers(project)
+    lines = [f"Research Dossiers in {project.manifest.id}:"]
+    lines.extend(
+        f"  {item.id}  {item.title}  lanes={','.join(item.included_lanes)}  "
+        f"findings={item.findings}"
+        for item in dossiers
+    )
+    if not dossiers:
+        lines.append("  No Research Dossiers")
+    actions = []
+    if dossiers:
+        actions.append(
+            next_action(
+                "dossier.show",
+                "Verify and inspect the latest immutable Research Dossier.",
+                [
+                    "aq",
+                    "dossier",
+                    "show",
+                    str(project.root_dir),
+                    "--dossier",
+                    dossiers[-1].id,
+                    "--json",
+                ],
+                "read-only",
+            )
+        )
+    else:
+        actions.append(
+            next_action(
+                "dossier.status",
+                "Inspect lane Report readiness for a Project Dossier.",
+                [
+                    "aq",
+                    "dossier",
+                    "status",
+                    str(project.root_dir),
+                    "--json",
+                ],
+                "read-only",
+            )
+        )
+    return CommandResult(
+        "dossier.list",
+        {"dossiers": [item.to_dict() for item in dossiers]},
+        "\n".join(lines) + "\n",
+        project_context(project),
+        next_actions=actions,
+    )
+
+
+def _dossier_show(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    dossier = load_dossier(project, args.dossier)
+    return CommandResult(
+        "dossier.show",
+        {
+            "manifest": dossier.manifest,
+            "dossier": dossier.dossier,
+            "markdownPath": str(dossier.root_dir / "dossier.md"),
+        },
+        (
+            f"Immutable Research Dossier: {dossier.dossier['id']}\n"
+            f"Title: {dossier.analysis['title']}\n"
+            f"Included lanes: "
+            + ", ".join(
+                lane["id"] for lane in dossier.dossier["evidence"]["lanes"]
+            )
+            + "\n"
+            f"Findings: {len(dossier.analysis['findings'])}\n"
+            f"Markdown: {dossier.root_dir / 'dossier.md'}\n"
+        ),
+        project_context(project),
+        _dossier_artifacts(dossier),
+    )
+
+
 def _studio_snapshot(args: argparse.Namespace) -> CommandResult:
     snapshot = build_studio_snapshot(args.path, project_id=args.project)
     source = snapshot["source"]
@@ -2300,6 +2537,9 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
         kinds = [
             "campaign-progress",
             "campaign-result",
+            "dossier-analysis",
+            "dossier-result",
+            "dossier-status",
             "experiment",
             "factor-diagnostics",
             "judge-output",
@@ -2342,6 +2582,9 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "research-request": RESEARCH_REQUEST_JSON_SCHEMA,
             "ohlcv-dataset-package": OHLCV_DATASET_PACKAGE_JSON_SCHEMA,
             "report-analysis": REPORT_ANALYSIS_JSON_SCHEMA,
+            "dossier-analysis": DOSSIER_ANALYSIS_JSON_SCHEMA,
+            "dossier-result": DOSSIER_RESULT_JSON_SCHEMA,
+            "dossier-status": DOSSIER_STATUS_JSON_SCHEMA,
             "studio-snapshot": STUDIO_SNAPSHOT_JSON_SCHEMA,
         }
         schema = schemas.get(args.kind) or workspace_schema_for(args.kind)
@@ -2412,6 +2655,14 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
         return _report_list(args)
     if args.command_id == "report.show":
         return _report_show(args)
+    if args.command_id == "dossier.status":
+        return _dossier_status(args)
+    if args.command_id == "dossier.publish":
+        return _dossier_publish(args)
+    if args.command_id == "dossier.list":
+        return _dossier_list(args)
+    if args.command_id == "dossier.show":
+        return _dossier_show(args)
     if args.command_id == "studio.snapshot":
         return _studio_snapshot(args)
     if args.command_id == "studio.serve":
@@ -2431,6 +2682,7 @@ def _command_id(argv: Sequence[str]) -> str:
         "experiment",
         "research",
         "report",
+        "dossier",
         "studio",
     } and len(argv) > 1:
         return f"{argv[0]}.{argv[1]}"

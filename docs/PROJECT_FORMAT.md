@@ -498,6 +498,37 @@ An older Report remains valid when a Session later adds evidence. Rewriting a
 conclusion requires a new immutable Report. Report authority is
 `quantitative-decision-support`; `tradingAuthority` is always `none`.
 
+## Immutable Project Research Dossier
+
+A request-driven canonical Research Program can compose verified lane Reports
+into one Project-level handoff:
+
+```text
+dossiers/
+└── dossier-<UTC timestamp>-<identity>/
+    ├── analysis.json
+    ├── dossier.json
+    ├── dossier.md
+    └── manifest.json
+```
+
+`dossiers/` is a reserved optional Project root, so existing V1 manifests and
+historical Projects remain valid. Factor and Portfolio Reports are required.
+Governed RL is optional, but omission is explicit. When RL is included, its
+frozen dependency hash must equal the included Factor source hash.
+
+Agent analysis references exact lane Report and optional finding ids. Core
+requires finding coverage of every included lane, freezes the current request,
+dataset, Research Program, Studies, Reports, leader Runs, selection integrity,
+Harnesses, and source/dependency identities, and renders canonical
+`dossier.md`. The terminal manifest hashes the other three files.
+
+Loading verifies the immutable frozen prefix rather than requiring the Project
+to remain current. Thus later Sessions, Reports, or leaders create a new
+publication opportunity without invalidating an older Dossier. Authority is
+`quantitative-decision-support`; `tradingAuthority` is always `none`. See
+[[docs/design/program-research-dossiers]].
+
 ## Canonical schemas
 
 Machine-readable JSON Schemas are available without loading a Project:
@@ -516,14 +547,19 @@ aq schema campaign-result --json
 aq schema campaign-progress --json
 aq schema research-request --json
 aq schema report-analysis --json
+aq schema dossier-analysis --json
+aq schema dossier-result --json
+aq schema dossier-status --json
 aq schema studio-snapshot --json
 ```
 
 The Python validators are authoritative executable behavior in
 `autoquant/workspace.py`, `autoquant/studies.py`, `autoquant/runs.py`,
-`autoquant/sessions.py`, `autoquant/research.py`, and `autoquant/studio.py`.
+`autoquant/sessions.py`, `autoquant/research.py`, `autoquant/dossiers.py`, and
+`autoquant/studio.py`.
 Delegated request/Brief parsing is in `autoquant/briefs.py`; immutable Report
-publication and verification are in `autoquant/reports.py`.
+publication and verification are in `autoquant/reports.py`; Project Dossier
+composition and verification are in `autoquant/dossiers.py`.
 
 ## Compatibility surface
 

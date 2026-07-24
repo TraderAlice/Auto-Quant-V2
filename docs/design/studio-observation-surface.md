@@ -114,8 +114,8 @@ The first viewport answers:
 2. Which Sessions are active, and what is each current leader?
 3. Are external Researchers running, stopped, failed, or budget-exhausted?
 4. Which hypotheses were kept, reverted, or crashed?
-5. What did the caller ask, is its dataset content-locked, and is a verified
-   Report ready?
+5. What did the caller ask, is its dataset content-locked, and are the lane
+   Reports and Project Dossier ready?
 6. What exact headless command advances or inspects the work?
 7. What verified evidence changed most recently?
 
@@ -155,6 +155,14 @@ presentation and the accessibility tree; it does not select a model, Run,
 baseline, validation split, or Judge outcome. An unbound collaboration handoff
 is compact, while a caller-bound intake or delegated Session retains the full
 request → evidence → report surface.
+
+For a request-driven canonical Program, the collaboration surface composes no
+evidence in the browser. Core supplies Dossier readiness, lane Report
+currentness, explicit optional omissions, blockers, latest immutable summary,
+and exact next command. The visible flow is
+`request → lane Reports → Project Dossier → OpenAlice`. A selected Session may
+change the evidence Inspector, but it does not demote the overall handoff back
+to a single-lane Report.
 
 ## Invariants
 
