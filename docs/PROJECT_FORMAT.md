@@ -59,6 +59,14 @@ comparison rule. See [[docs/design/ohlcv-factor-lab]],
 [[docs/design/portfolio-construction-lab]], and
 [[docs/design/signal-policy-and-attribution]].
 
+New Portfolio and governed-RL Projects also contain the fixed
+`strategies/portfolio-mandate.json`. For request intake it derives the
+tradable/context asset partition, direction, cash, gross/net, cap, and
+benchmark from the canonical request; synthetic templates explicitly declare
+the legacy all-universe research-neutral contract. It is a Study dependency,
+not candidate code. See
+[[docs/design/request-bound-portfolio-mandates]].
+
 The RL template confines candidates to a pure row-level state encoder under
 `models/**`. Its fixed Judge owns factor-mixture actions, Q-learning, reward,
 portfolio accounting, chronological folds, seeds, baselines, and the
@@ -104,6 +112,7 @@ factor-lab/
 ├── autoquant.json
 ├── research.md
 ├── strategies/
+│   └── portfolio-mandate.json  # Portfolio/RL templates only
 ├── factors/
 ├── models/
 ├── judges/
@@ -259,6 +268,11 @@ aggregate hashes enter Study input identity without becoming candidate source
 identity. Runs freeze them under `inputs/dependency-sources/`; Sessions copy
 them into the worktree but reject edits or upstream byte changes.
 
+The canonical Portfolio Study depends on
+`strategies/portfolio-mandate.json`. The RL Study depends on both
+`factors/**` and that same mandate, so adaptive actions cannot change the
+position question.
+
 `dataset.paths` is optional and relative to the Project's declared `data/`
 directory. When absent, the historical declarative dataset hash is preserved.
 When present, exact files or non-empty trailing-`/**` closures are content
@@ -335,6 +349,10 @@ runs/
 - Judge entrypoint and fixed source hashes;
 - objective and execution details;
 - nested metrics, immutable artifact references, and structured errors.
+
+Portfolio and RL Run metrics include the complete normalized
+`portfolio_mandate`; their artifact ledgers record the mandate id and
+per-asset tradability.
 
 `manifest.json` is written last and pins every other Run file hash. Run listing
 ignores incomplete directories; opening a completed Run rejects changed,
@@ -523,8 +541,10 @@ dossiers/
 
 `dossiers/` is a reserved optional Project root, so existing V1 manifests and
 historical Projects remain valid. Factor and Portfolio Reports are required.
-Governed RL is optional, but omission is explicit. When RL is included, its
-frozen dependency hash must equal the included Factor source hash.
+Governed RL is optional, but omission is explicit. When RL is included, the
+`factors/**` subset of its frozen dependency closure must equal the included
+Factor source identity and its Portfolio Mandate must equal the included
+Portfolio lane mandate.
 
 Agent analysis references exact lane Report and optional finding ids. Core
 requires finding coverage of every included lane, freezes the current request,
@@ -549,6 +569,7 @@ aq schema project --json
 aq schema study --json
 aq schema judge-output --json
 aq schema run-result --json
+aq schema portfolio-mandate --json
 aq schema session --json
 aq schema session-completion --json
 aq schema experiment --json

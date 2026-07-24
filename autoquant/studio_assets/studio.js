@@ -510,6 +510,11 @@ function renderSessions(project) {
   document.querySelectorAll("[data-session]").forEach((button) => {
     button.addEventListener("click", () => {
       state.sessionId = button.dataset.session;
+      const session = project.sessions.find(
+        (item) => item.session.id === state.sessionId,
+      );
+      const lane = evidenceLaneForStudy(project, session?.session.studyId);
+      if (lane) state.evidenceLane = lane;
       render();
       element("inspector-content").scrollTop = 0;
     });
@@ -915,6 +920,63 @@ const evidenceLanes = [
   },
 ];
 
+const studyIdsByEvidenceLane = {
+  factor: "ohlcv-factor-quality",
+  portfolio: "ohlcv-portfolio-quality",
+  rl: "ohlcv-rl-factor-policy",
+};
+
+function evidenceLaneForStudy(project, studyId) {
+  const programLane = project.researchProgramStatus?.lanes.find(
+    (lane) => lane.studyId === studyId,
+  );
+  return laneKind(programLane) ??
+    Object.entries(studyIdsByEvidenceLane).find(
+      ([, candidateStudyId]) => candidateStudyId === studyId,
+    )?.[0] ??
+    null;
+}
+
+function sessionForEvidenceLane(project, laneId) {
+  const programLane = project.researchProgramStatus?.lanes.find(
+    (lane) => laneKind(lane) === laneId,
+  );
+  const latestSessionId = programLane?.latestSession?.id;
+  return (
+    project.sessions.find(
+      (item) => item.session.id === latestSessionId,
+    ) ??
+    project.sessions
+      .slice()
+      .reverse()
+      .find(
+        (item) =>
+          evidenceLaneForStudy(project, item.session.studyId) === laneId,
+      ) ??
+    null
+  );
+}
+
+function syncEvidenceSelection(project) {
+  const available = evidenceLanes.filter((lane) => project[lane.explorer]);
+  if (!available.length) return;
+  const recommendedKind = laneKind(projectFocusLane(project));
+  if (!available.some((lane) => lane.id === state.evidenceLane)) {
+    state.evidenceLane =
+      available.find((lane) => lane.id === recommendedKind)?.id ??
+      available[0].id;
+  }
+  const selected = selectedSession(project);
+  if (
+    evidenceLaneForStudy(project, selected?.session.studyId) !==
+    state.evidenceLane
+  ) {
+    state.sessionId =
+      sessionForEvidenceLane(project, state.evidenceLane)?.session.id ??
+      state.sessionId;
+  }
+}
+
 function renderEvidenceWorkbench(project) {
   const section = element("evidence-workbench");
   const available = evidenceLanes.filter((lane) => project[lane.explorer]);
@@ -965,6 +1027,9 @@ function renderEvidenceWorkbench(project) {
       button.addEventListener("click", () => {
         state.evidenceLane =
           button.dataset.evidenceLane ?? button.dataset.openEvidence;
+        state.sessionId =
+          sessionForEvidenceLane(project, state.evidenceLane)?.session.id ??
+          state.sessionId;
         render();
         element("evidence-workbench").scrollIntoView({
           behavior: "smooth",
@@ -1451,13 +1516,30 @@ function signalStateLabel(value) {
   return "FLAT";
 }
 
+function mandateMarkup(mandate) {
+  const tradable = mandate.tradableAssets.join(", ");
+  const context = mandate.contextAssets.length
+    ? `${mandate.contextAssets.length} context-only`
+    : "no context-only assets";
+  const lock = mandate.available
+    ? `LOCKED · ${String(mandate.id).slice(-8)}`
+    : "LEGACY · implicit";
+  return `
+    <span class="mandate-direction">${escapeHtml(mandate.direction.toUpperCase())}</span>
+    <span><small>Construction</small><b>${escapeHtml(mandate.family)}</b></span>
+    <span class="mandate-assets"><small>Authorized positions</small><b>${escapeHtml(tradable)}</b><i>${escapeHtml(context)}</i></span>
+    <span><small>Gross / cap</small><b>${metric(mandate.grossLimit)} / ${percent(mandate.maxAbsWeight)}</b></span>
+    <span><small>Benchmark</small><b>${escapeHtml(mandate.benchmark)}</b></span>
+    <code>${escapeHtml(lock)}</code>`;
+}
+
 function renderPortfolioBook(explorer) {
   const book = explorer.currentBook;
   const maximumWeight = Number(
     explorer.signalPolicy?.parameters?.max_abs_weight ?? 0.3,
   );
   element("portfolio-book-note").textContent =
-    `${book.timestamp} · gross ${metric(book.grossExposure)} · net ${metric(book.netExposure)}`;
+    `${book.timestamp} · gross ${metric(book.grossExposure)} · net ${metric(book.netExposure)} · cash ${percent(book.cashWeight)}`;
   element("portfolio-book").innerHTML = `
     <div class="book-disclosure">Historical target/executed weights · no Broker or account state</div>
     <div class="position-table" role="table" aria-label="Latest mechanical research book">
@@ -1466,18 +1548,26 @@ function renderPortfolioBook(explorer) {
       </div>
       ${book.positions
         .map((position) => {
-          const stateLabel = signalStateLabel(position.signalState);
-          const side = position.executedWeight > 0 ? "long" : position.executedWeight < 0 ? "short" : "flat";
+          const stateLabel = position.tradable
+            ? signalStateLabel(position.signalState)
+            : "CONTEXT";
+          const side = !position.tradable
+            ? "context"
+            : position.executedWeight > 0
+              ? "long"
+              : position.executedWeight < 0
+                ? "short"
+                : "flat";
           const magnitude = Math.min(
             100,
             (Math.abs(position.executedWeight) / Math.max(maximumWeight, 1e-12)) * 100,
           );
           return `
-            <div class="position-row" role="row">
+            <div class="position-row ${position.tradable ? "" : "context-only"}" role="row">
               <span class="position-asset">
                 <b>${escapeHtml(position.asset)}</b>
                 <i class="${side}">${stateLabel}</i>
-                <small>${escapeHtml(position.signalEvent)} · ${escapeHtml(position.executionAction)}</small>
+                <small>${escapeHtml(position.allocationStatus)} · ${escapeHtml(position.executionAction)}</small>
               </span>
               <span>${signedPercent(position.targetWeight)}</span>
               <span class="position-weight ${side}">
@@ -1558,6 +1648,7 @@ function renderPortfolioExplorer(project) {
   const summary = explorer.path.summary;
   element("portfolio-meta").textContent =
     `${explorer.run.id} · ${explorer.selection.selectionSplit} selection · ${explorer.selection.testRole} test`;
+  element("portfolio-mandate").innerHTML = mandateMarkup(explorer.mandate);
   element("portfolio-summary").innerHTML = [
     ["Net total return", signedPercent(summary.netTotalReturn), summary.netTotalReturn < 0 ? "bad" : ""],
     ["Maximum drawdown", signedPercent(summary.maximumDrawdown), "bad"],
@@ -1939,6 +2030,7 @@ function renderRlExplorer(project) {
   const candidateAdvantage = fusion.meanValidationAdvantageVsCandidateFactor;
   element("rl-meta").textContent =
     `${explorer.run.id} · ${summary.trialCount} fold/seed trials · validation selection`;
+  element("rl-mandate").innerHTML = mandateMarkup(explorer.portfolioMandate);
   const fusionCards = fusion.available
     ? [
         ["vs candidate factor", `${candidateAdvantage > 0 ? "+" : ""}${metric(candidateAdvantage)}`, "content-locked baseline", candidateAdvantage >= 0 ? "positive" : "negative"],
@@ -2622,6 +2714,7 @@ function render() {
       project.sessions.at(-1)?.session.id ??
       null;
   }
+  syncEvidenceSelection(project);
   element("project-state").textContent = project.valid
     ? project.counts.runningCampaigns
       ? "RESEARCHER IN PROGRESS"

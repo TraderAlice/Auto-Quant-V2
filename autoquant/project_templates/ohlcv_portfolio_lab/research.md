@@ -17,10 +17,12 @@ Work only inside the returned Session worktree and edit `factors/**`. State one
 falsifiable factor hypothesis, evaluate it, and inspect all metric layers and
 artifacts before accepting a KEEP.
 
-The fixed Judge owns timing, percentile entry/hold/exit/reversal state,
-inverse-volatility conviction sizing, long/short budgets, caps, drift,
-no-trade behavior, transaction costs, benchmark, dataset-fixed purged splits,
-attribution, stress tests, and the verdict metric.
+The fixed Judge owns timing, percentile entry/hold/exit state,
+inverse-volatility conviction sizing, request-bound tradable/context assets,
+direction, cash, long/short budgets, caps, drift, no-trade behavior,
+transaction costs, benchmark, dataset-fixed purged splits, attribution,
+stress tests, and the verdict metric. The fixed
+`strategies/portfolio-mandate.json` is not candidate-editable.
 
 Successful Runs include proposed and executed weights plus a long-form
 per-asset decision ledger. Use it to trace factor → intent → target → trade →

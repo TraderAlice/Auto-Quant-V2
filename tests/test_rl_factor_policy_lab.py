@@ -140,11 +140,19 @@ class GovernedRlFactorPolicyLabTests(unittest.TestCase):
             self.assertEqual(study.definition.editable["paths"], ["models/**"])
             self.assertEqual(
                 study.definition.dependencies,
-                {"paths": ["factors/**"]},
+                {
+                    "paths": [
+                        "factors/**",
+                        "strategies/portfolio-mandate.json",
+                    ]
+                },
             )
             self.assertEqual(
                 set(study.dependency_hashes),
-                {"factors/candidate.py"},
+                {
+                    "factors/candidate.py",
+                    "strategies/portfolio-mandate.json",
+                },
             )
             self.assertEqual(study.definition.judge.paths, ["judges/**"])
             self.assertEqual(study.definition.judge.timeout_seconds, 90)

@@ -15,6 +15,11 @@ import pandas as pd
 
 from .briefs import load_research_request, validate_research_request
 from .data import normalize_ohlcv
+from .mandates import (
+    PORTFOLIO_MANDATE,
+    build_portfolio_mandate,
+    load_portfolio_mandate,
+)
 from .studies import StudyContext, hash_file, hash_json, load_study
 from .workspace import (
     SCHEMA_VERSION,
@@ -1048,6 +1053,38 @@ def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
         issues.append(
             _issue(study.manifest_path, "intake.study-dataset", "Study differs from snapshot")
         )
+    mandate_studies = {
+        "ohlcv-portfolio-lab": ("ohlcv-portfolio-quality",),
+        "ohlcv-rl-factor-lab": ("ohlcv-rl-factor-policy",),
+        "ohlcv-research-desk": (
+            "ohlcv-portfolio-quality",
+            "ohlcv-rl-factor-policy",
+        ),
+    }.get(manifest.get("template"), ())
+    requires_mandate = False
+    for mandate_study_id in mandate_studies:
+        mandate_study = load_study(project, mandate_study_id)
+        if (
+            mandate_study.definition.dependencies is not None
+            and PORTFOLIO_MANDATE
+            in mandate_study.definition.dependencies["paths"]
+        ):
+            requires_mandate = True
+    mandate_path = project.root_dir / PORTFOLIO_MANDATE
+    if requires_mandate or mandate_path.exists() or mandate_path.is_symlink():
+        mandate = load_portfolio_mandate(mandate_path)
+        expected_mandate = build_portfolio_mandate(
+            request,
+            list(snapshot.get("universe", [])),
+        )
+        if mandate != expected_mandate:
+            issues.append(
+                _issue(
+                    mandate_path,
+                    "intake.portfolio-mandate",
+                    "Portfolio Mandate differs from the normalized request",
+                )
+            )
     if issues:
         raise AutoQuantValidationError(issues)
     return {

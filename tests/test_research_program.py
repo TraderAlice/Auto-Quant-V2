@@ -15,7 +15,7 @@ from autoquant.research_program import (
 from autoquant.runs import execute_study
 from autoquant.sessions import start_session
 from autoquant.studio import build_studio_snapshot
-from autoquant.studies import load_study
+from autoquant.studies import hash_json, load_study
 from autoquant.templates import (
     OHLCV_STUDY_ID,
     PORTFOLIO_STUDY_ID,
@@ -72,11 +72,25 @@ class MultiStudyResearchProgramTests(unittest.TestCase):
             )
             self.assertEqual(
                 initial["lanes"][0]["study"]["sourceHash"],
-                initial["lanes"][2]["study"]["dependencyHash"],
+                hash_json(
+                    {
+                        path: digest
+                        for path, digest in initial["lanes"][2]["study"][
+                            "dependencySourceHashes"
+                        ].items()
+                        if path.startswith("factors/")
+                    }
+                ),
             )
             self.assertEqual(
                 initial["lanes"][0]["study"]["sourceHashes"],
-                initial["lanes"][2]["study"]["dependencySourceHashes"],
+                {
+                    path: digest
+                    for path, digest in initial["lanes"][2]["study"][
+                        "dependencySourceHashes"
+                    ].items()
+                    if path.startswith("factors/")
+                },
             )
 
             runs = {

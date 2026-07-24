@@ -76,6 +76,9 @@ Read the relevant linked document before changing a subsystem:
 - Mechanical signal state, hysteresis, conviction/risk sizing, execution
   reasons, and portfolio contribution reconciliation:
   [[docs/design/signal-policy-and-attribution]]
+- Request-derived tradable/context universes, directional construction,
+  cash, benchmarks, and shared Portfolio/RL position authority:
+  [[docs/design/request-bound-portfolio-mandates]]
 - Bounded verified Portfolio Run projection, sampled performance/exposure
   series, current mechanical book, transitions, and contribution explorer:
   [[docs/design/portfolio-decision-explorer]]

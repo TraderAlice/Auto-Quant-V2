@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import json
 import math
 import random
 from datetime import date, timedelta
@@ -10,6 +11,10 @@ from importlib import resources
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from .mandates import (
+    PORTFOLIO_MANDATE,
+    build_portfolio_mandate,
+)
 from .studies import (
     StudyDataset,
     StudyDefinition,
@@ -268,6 +273,22 @@ def _write_template_source(
     )
 
 
+def _write_portfolio_mandate(
+    project: ProjectContext,
+    intake: PreparedIntake | None,
+    universe: list[str],
+) -> dict[str, object]:
+    mandate = build_portfolio_mandate(
+        intake.request if intake is not None else None,
+        universe,
+    )
+    (project.root_dir / PORTFOLIO_MANDATE).write_text(
+        json.dumps(mandate, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return mandate
+
+
 def _intake_dataset(
     project: ProjectContext,
     intake: PreparedIntake,
@@ -452,6 +473,11 @@ def _apply_ohlcv_portfolio_lab(
             intake,
             PORTFOLIO_STUDY_ID,
         )
+    _write_portfolio_mandate(
+        project,
+        intake,
+        list(dataset["universe"]),
+    )
     _write_template_source(
         project,
         "factors/candidate.py",
@@ -500,6 +526,7 @@ def _apply_ohlcv_portfolio_lab(
             StudyTimeRange(str(dataset["start"]), end.isoformat()),
             ["ohlcv/**"],
         ),
+        dependencies={"paths": [PORTFOLIO_MANDATE]},
     )
     study = create_study(project, definition)
     study.program_path.write_text(
@@ -532,6 +559,11 @@ def _apply_ohlcv_rl_factor_lab(
             intake,
             RL_STUDY_ID,
         )
+    _write_portfolio_mandate(
+        project,
+        intake,
+        list(dataset["universe"]),
+    )
     _write_template_source(
         project,
         "models/candidate.py",
@@ -597,7 +629,7 @@ def _apply_ohlcv_rl_factor_lab(
             StudyTimeRange(str(dataset["start"]), end.isoformat()),
             ["ohlcv/**"],
         ),
-        dependencies={"paths": ["factors/**"]},
+        dependencies={"paths": ["factors/**", PORTFOLIO_MANDATE]},
     )
     study = create_study(project, definition)
     study.program_path.write_text(
@@ -631,6 +663,11 @@ def _apply_ohlcv_research_desk(
             intake,
             OHLCV_STUDY_ID,
         )
+    _write_portfolio_mandate(
+        project,
+        intake,
+        list(dataset["universe"]),
+    )
 
     # Write every fixed/editable source before creating any Study identity.
     _write_template_source(
@@ -751,6 +788,7 @@ def _apply_ohlcv_research_desk(
                     0.05,
                 ),
                 dataset=shared_dataset,
+                dependencies={"paths": [PORTFOLIO_MANDATE]},
             ),
             "ohlcv_portfolio_lab",
         ),
@@ -783,7 +821,9 @@ def _apply_ohlcv_research_desk(
                     0.20,
                 ),
                 dataset=shared_dataset,
-                dependencies={"paths": ["factors/**"]},
+                dependencies={
+                    "paths": ["factors/**", PORTFOLIO_MANDATE]
+                },
             ),
             "ohlcv_rl_factor_lab",
         ),

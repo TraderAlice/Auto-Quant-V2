@@ -4,6 +4,7 @@ Status: active design.
 
 Related: [[docs/design/study-run-evidence]],
 [[docs/design/research-program-orchestration]],
+[[docs/design/request-bound-portfolio-mandates]],
 [[docs/design/rl-factor-policy-lab]], and
 [[docs/design/research-selection-integrity]].
 
@@ -21,9 +22,10 @@ fixed dependency     research input consumed but not editable in this Session
 The first use is the governed RL Study:
 
 ```text
-factors/** source closure ── read-only dependency ──► RL Judge
-models/candidate.py  ── editable encoder ──────► RL Judge
-judges/**            ── fixed authority ───────► result
+factors/** source closure ───────── read-only dependency ──► RL Judge
+strategies/portfolio-mandate.json ─ read-only dependency ──► Portfolio + RL
+models/candidate.py ─────────────── editable encoder ──────► RL Judge
+judges/** ───────────────────────── fixed authority ───────► result
 ```
 
 ## Study contract
@@ -33,7 +35,7 @@ An optional manifest field declares Project-relative source paths:
 ```json
 {
   "dependencies": {
-    "paths": ["factors/**"]
+    "paths": ["factors/**", "strategies/portfolio-mandate.json"]
   }
 }
 ```
@@ -73,6 +75,10 @@ The resulting cross-sectional panel becomes a `candidate` sleeve under the
 same mechanical signal-state, sizing, constraint, drift, and cost contract as
 every reference expert.
 
+The Portfolio Mandate is a second fixed dependency shared by Portfolio and
+RL. Every RL action sleeve uses its exact tradable/context partition,
+permitted sign, cash, gross/net, cap, and benchmark semantics.
+
 ## Evidence
 
 Every RL Run records:
@@ -83,6 +89,7 @@ Every RL Run records:
 - RL-minus-candidate validation and visible-test advantage;
 - candidate action frequency across every declared fold and seed;
 - whether RL beats the best declared baseline, which may itself be candidate.
+- the complete fixed Portfolio Mandate and constraint audit for every action.
 
 The adaptive value-add claim is positive only when validation evidence beats
 the best baseline. “RL used the candidate” and “RL beat the candidate” are
@@ -90,8 +97,10 @@ separate facts.
 
 ## Research Program behavior
 
-The canonical desk verifies that the RL dependency hash equals the current
-Factor Study source hash. A changed factor makes prior RL Runs stale.
+The canonical desk verifies that the `factors/**` subset of the RL dependency
+closure equals the current Factor Study source identity. It separately
+verifies that Portfolio and RL bind the same request-derived mandate. A changed
+factor or mandate makes prior RL Runs stale.
 
 Factor/Portfolio Sessions write `factors/**`; an RL Session reads the same
 surface as fixed dependency. Simultaneous activity is a coordination conflict

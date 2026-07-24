@@ -13,6 +13,10 @@ from typing import Any, Callable
 import numpy as np
 import pandas as pd
 
+from autoquant.mandates import (
+    PORTFOLIO_MANDATE,
+    load_portfolio_mandate,
+)
 from judges.portfolio_core import constraint_audit
 from judges.rl_core import (
     ACTIONS,
@@ -77,6 +81,17 @@ def _load_contract() -> tuple[dict[str, Any], Path]:
     if not data_root.is_dir():
         raise JudgeFailure("dataset.root", "AUTOQUANT_DATA_ROOT is not a directory")
     return study, data_root
+
+
+def _load_mandate() -> dict[str, Any]:
+    path = Path(os.environ["AUTOQUANT_PROJECT_ROOT"]) / PORTFOLIO_MANDATE
+    try:
+        return load_portfolio_mandate(path)
+    except Exception as error:
+        raise JudgeFailure(
+            "mandate.invalid",
+            f"Invalid fixed Portfolio Mandate: {error}",
+        ) from error
 
 
 def _load_asset(data_root: Path, asset: str, start: str, end: str) -> pd.DataFrame:
@@ -338,6 +353,7 @@ def _fixed_baselines(
     closes: pd.DataFrame,
     volumes: pd.DataFrame,
     split: dict[str, pd.Index],
+    mandate: dict[str, Any],
 ) -> tuple[dict[str, Any], dict[str, Any], str]:
     fixed: dict[str, Any] = {}
     training_scores: dict[str, float] = {}
@@ -349,6 +365,7 @@ def _fixed_baselines(
             closes,
             volumes,
             split["train"],
+            mandate=mandate,
         )
         training_scores[action] = float(
             rollout_metrics(training)["net"]["sharpe"]
@@ -362,6 +379,7 @@ def _fixed_baselines(
                     closes,
                     volumes,
                     index,
+                    mandate=mandate,
                 )
             )
             for name, index in (
@@ -376,6 +394,7 @@ def _fixed_baselines(
         closes,
         volumes,
         split["train"],
+        mandate=mandate,
     )
     ridge = {
         name: rollout_metrics(
@@ -386,6 +405,7 @@ def _fixed_baselines(
                 closes,
                 volumes,
                 index,
+                mandate=mandate,
             )
         )
         for name, index in (
@@ -479,6 +499,7 @@ def _evaluate() -> tuple[
     list[dict[str, Any]],
 ]:
     study, data_root = _load_contract()
+    mandate = _load_mandate()
     model_module = importlib.import_module("models.candidate")
     factor_module = importlib.import_module("factors.candidate")
     if not callable(getattr(factor_module, "compute_factor", None)):
@@ -504,9 +525,10 @@ def _evaluate() -> tuple[
     action_targets = build_action_targets(
         _factor_panels(opens, closes, volumes, candidate_panel),
         closes,
+        mandate=mandate,
     )
     audits = {
-        action: constraint_audit(targets)
+        action: constraint_audit(targets, mandate=mandate)
         for action, targets in action_targets.items()
     }
     if not all(audit["passed"] for audit in audits.values()):
@@ -521,8 +543,9 @@ def _evaluate() -> tuple[
     )
     forward_valid = (closes.shift(-1) / closes - 1.0).notna().all(axis=1)
     active = pd.Series(True, index=closes.index)
-    for targets in action_targets.values():
-        active &= targets.abs().sum(axis=1) > 1e-12
+    if mandate["construction"]["family"] == "dollar-neutral":
+        for targets in action_targets.values():
+            active &= targets.abs().sum(axis=1) > 1e-12
     valid = raw_states.notna().all(axis=1) & forward_valid & active
     active_index = closes.index[valid]
     folds = chronological_folds(active_index)
@@ -562,6 +585,7 @@ def _evaluate() -> tuple[
             closes,
             volumes,
             split,
+            mandate,
         )
         baseline_metrics[fold_name] = {
             **baselines,
@@ -612,6 +636,7 @@ def _evaluate() -> tuple[
                     volumes,
                     split["train"],
                     seed=seed,
+                    mandate=mandate,
                 )
                 selector = q_selector(trained.weights, encoder)
                 validation_rollout = rollout_policy(
@@ -621,6 +646,7 @@ def _evaluate() -> tuple[
                     closes,
                     volumes,
                     split["validation"],
+                    mandate=mandate,
                 )
                 test_rollout = rollout_policy(
                     selector,
@@ -629,6 +655,7 @@ def _evaluate() -> tuple[
                     closes,
                     volumes,
                     split["test"],
+                    mandate=mandate,
                 )
                 validation = rollout_metrics(validation_rollout)
                 test = rollout_metrics(test_rollout)
@@ -736,6 +763,7 @@ def _evaluate() -> tuple[
         raise TrialFailures(failures)
     metrics = {
         "validation_mean_net_sharpe": float(np.mean(validation_sharpes)),
+        "portfolio_mandate": mandate,
         "rl": {
             "aggregate": {
                 "validation_net_sharpe": _aggregate(validation_sharpes),
@@ -771,6 +799,7 @@ def _evaluate() -> tuple[
         },
         "constraint_audit": audits,
         "configuration": {
+            "portfolioMandateId": mandate["id"],
             "actions": list(ACTIONS),
             "factorExperts": list(EXPERTS),
             "rawStateFields": list(BASE_STATE_COLUMNS)
@@ -812,6 +841,7 @@ def _evaluate() -> tuple[
             "universe": dataset["universe"],
             "timeRange": dataset["time_range"],
         },
+        "portfolioMandate": mandate,
         "semantics": {
             "simulation": "governed-factor-mixture-q-policy",
             "state": "fixed causal scalars known through close t",

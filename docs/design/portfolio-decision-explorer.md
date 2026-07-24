@@ -5,6 +5,7 @@ Status: V1 implemented.
 Related: [[docs/ARCHITECTURE]], [[docs/CLI]], [[docs/STUDIO]],
 [[docs/design/study-run-evidence]],
 [[docs/design/portfolio-construction-lab]],
+[[docs/design/request-bound-portfolio-mandates]],
 [[docs/design/signal-policy-and-attribution]],
 [[docs/design/research-selection-integrity]], and
 [[docs/design/studio-observation-surface]].
@@ -84,17 +85,18 @@ drawdown(t) = net growth(t) / running max net growth - 1
 ```
 
 Each point also carries split role, gross/net exposure, one-way turnover,
-cost, rebalance state, and executed weights. The output is capped by a caller
-point budget. Sampling is deterministic and must retain first/last rows,
-train/validation/test boundaries, maximum drawdown, and maximum-turnover
-dates before filling remaining slots evenly. Derived extrema and totals use
-the full history, not only sampled rows.
+unused cash budget, cost, rebalance state, and executed weights. The output is
+capped by a caller point budget. Sampling is deterministic and must retain
+first/last rows, train/validation/test boundaries, maximum drawdown, and
+maximum-turnover dates before filling remaining slots evenly. Derived extrema
+and totals use the full history, not only sampled rows.
 
 ## Mechanical book and attribution
 
 The latest realized decision date exposes, per asset:
 
 - signal state/event and conviction/risk strength;
+- mandate tradability, permitted direction, and allocation status;
 - proposed target, pre-trade, executed, and trade weights;
 - target/execution actions and execution reason;
 - next-bar gross/cost/net return contribution;
@@ -127,8 +129,10 @@ portfolio-explorer claims; other verified Project categories remain visible.
 
 The first explorer version provides:
 
+- verified Portfolio Mandate identity, construction, authorized/context-only
+  assets, cash/cap, and benchmark;
 - net/gross/benchmark growth and net drawdown;
-- exposure, turnover, cost, and split context;
+- exposure, unused cash budget, turnover, cost, and split context;
 - current target/executed mechanical book;
 - validation/test contribution and risk views;
 - recent signal/execution transitions;
@@ -146,6 +150,8 @@ The first explorer version provides:
 7. Current positions are historical research weights, never live holdings.
 8. Browser rendering cannot mutate, evaluate, promote, or read arbitrary
    files.
+9. Context-only assets remain visible research context but have zero target
+   and executed weight.
 
 ## Verification and change checklist
 
@@ -161,7 +167,7 @@ The first explorer version provides:
 
 ## Known limits
 
-- V1 projects the fixed dollar-neutral Portfolio Lab only.
+- V1 projects fixed long/cash, short/cash, and dollar-neutral mandate families.
 - Studio embeds only the latest successful Portfolio Run per Project.
 - The chart is a bounded read model, not a tick/order replay.
 - Cross-Run comparison, parameter surfaces, covariance matrices, and

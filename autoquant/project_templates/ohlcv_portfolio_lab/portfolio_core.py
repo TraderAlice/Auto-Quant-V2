@@ -86,6 +86,107 @@ def _allocate_capped_side(
     return output
 
 
+def _allocate_capped_up_to(
+    strengths: pd.Series,
+    *,
+    limit: float,
+    cap: float,
+) -> pd.Series:
+    """Allocate available directional conviction and leave unused budget in cash."""
+
+    clean = strengths.astype(float)
+    clean = clean[np.isfinite(clean.to_numpy()) & (clean > 0)]
+    if clean.empty:
+        return pd.Series(0.0, index=strengths.index, dtype=float)
+    budget = min(float(limit), len(clean) * float(cap))
+    return _allocate_capped_side(strengths, budget=budget, cap=cap)
+
+
+def _resolve_mandate(
+    columns: pd.Index,
+    mandate: dict[str, object] | None,
+) -> dict[str, object]:
+    """Resolve the copied Judge's fixed position contract."""
+
+    universe = [str(column) for column in columns]
+    if mandate is None:
+        return {
+            "id": "legacy-dollar-neutral",
+            "direction": "research-only",
+            "family": "dollar-neutral",
+            "gross_limit": GROSS_TARGET,
+            "max_abs_weight": MAX_ABS_WEIGHT,
+            "tradable_assets": universe,
+            "context_assets": [],
+            "benchmark": "equal-weight-long-research-universe",
+        }
+    source = mandate.get("source")
+    construction = mandate.get("construction")
+    if not isinstance(source, dict) or not isinstance(construction, dict):
+        raise PortfolioFailure(
+            "mandate.contract",
+            "Portfolio Mandate source and construction must be objects",
+        )
+    research = mandate.get("researchUniverse")
+    tradable = mandate.get("tradableAssets")
+    context = mandate.get("contextAssets")
+    if research != universe:
+        raise PortfolioFailure(
+            "mandate.universe",
+            "Portfolio Mandate research universe differs from the Study panel",
+        )
+    if (
+        not isinstance(tradable, list)
+        or not tradable
+        or not all(isinstance(asset, str) for asset in tradable)
+        or not isinstance(context, list)
+        or not all(isinstance(asset, str) for asset in context)
+        or set(tradable) | set(context) != set(universe)
+        or set(tradable) & set(context)
+    ):
+        raise PortfolioFailure(
+            "mandate.assets",
+            "Portfolio Mandate must partition research and tradable assets",
+        )
+    direction = source.get("direction")
+    family = construction.get("family")
+    gross_limit = construction.get("grossLimit")
+    max_abs_weight = construction.get("maxAbsWeight")
+    benchmark = construction.get("benchmark")
+    if (
+        direction
+        not in {"long", "short", "long-short", "relative-value", "research-only"}
+        or family not in {"long-cash", "short-cash", "dollar-neutral"}
+        or not isinstance(gross_limit, (int, float))
+        or isinstance(gross_limit, bool)
+        or not 0 < float(gross_limit) <= 2
+        or not isinstance(max_abs_weight, (int, float))
+        or isinstance(max_abs_weight, bool)
+        or not 0 < float(max_abs_weight) <= float(gross_limit)
+        or benchmark
+        not in {
+            "cash",
+            "equal-weight-long-research-universe",
+            "equal-weight-long-tradable",
+            "equal-weight-short-tradable",
+        }
+    ):
+        raise PortfolioFailure(
+            "mandate.construction",
+            "Portfolio Mandate contains unsupported construction semantics",
+        )
+    return {
+        "id": str(mandate.get("id")),
+        "direction": str(direction),
+        "family": str(family),
+        "gross_limit": float(gross_limit),
+        "max_abs_weight": float(max_abs_weight),
+        "tradable_assets": list(tradable),
+        "context_assets": list(context),
+        "benchmark": str(benchmark),
+    }
+
+
 def construct_targets(
     factors: pd.DataFrame,
     closes: pd.DataFrame,
@@ -191,6 +292,49 @@ def _signal_transition(
     raise PortfolioFailure("portfolio.state", "Unknown prior signal state")
 
 
+def _directional_signal_transition(
+    previous: int,
+    score: float | None,
+    *,
+    family: str,
+    long_entry: float,
+    long_exit: float,
+    short_exit: float,
+    short_entry: float,
+) -> tuple[int, str]:
+    if family == "dollar-neutral":
+        return _signal_transition(
+            previous,
+            score,
+            long_entry=long_entry,
+            long_exit=long_exit,
+            short_exit=short_exit,
+            short_entry=short_entry,
+        )
+    if score is None or not math.isfinite(score):
+        return (
+            0,
+            "unavailable_flat" if previous == 0 else "unavailable_reset",
+        )
+    if family == "long-cash":
+        if previous == 1:
+            return (1, "hold_long") if score >= long_exit else (0, "exit_long")
+        return (1, "enter_long") if score >= long_entry else (0, "stay_flat")
+    if family == "short-cash":
+        if previous == -1:
+            return (
+                (-1, "hold_short")
+                if score <= short_exit
+                else (0, "exit_short")
+            )
+        return (
+            (-1, "enter_short")
+            if score <= short_entry
+            else (0, "stay_flat")
+        )
+    raise PortfolioFailure("mandate.family", "Unknown Portfolio Mandate family")
+
+
 def _weight_action(previous: float, current: float) -> str:
     tolerance = 1e-12
     previous_zero = abs(previous) <= tolerance
@@ -223,6 +367,7 @@ def construct_signal_policy(
     long_exit: float = LONG_EXIT_PERCENTILE,
     short_exit: float = SHORT_EXIT_PERCENTILE,
     short_entry: float = SHORT_ENTRY_PERCENTILE,
+    mandate: dict[str, object] | None = None,
 ) -> SignalConstruction:
     """Turn causal factor ranks into persistent intent and target weights."""
 
@@ -233,10 +378,19 @@ def construct_signal_policy(
             "portfolio.alignment",
             "Factor and close panels must have identical index and columns",
         )
+    resolved = _resolve_mandate(factors.columns, mandate)
+    gross_target = float(resolved["gross_limit"])
+    max_abs_weight = float(resolved["max_abs_weight"])
+    family = str(resolved["family"])
+    tradable_assets = set(resolved["tradable_assets"])
     if (
         volatility_window < 2
         or not 0 < gross_target <= 2
-        or not 0 < max_abs_weight <= gross_target / 2
+        or not 0 < max_abs_weight <= gross_target
+        or (
+            family == "dollar-neutral"
+            and max_abs_weight > gross_target / 2
+        )
         or not (
             0.0
             <= short_entry
@@ -292,11 +446,16 @@ def construct_signal_policy(
         convictions = pd.Series(0.0, index=factors.columns, dtype=float)
         strengths = pd.Series(0.0, index=factors.columns, dtype=float)
         for asset in factors.columns:
+            if str(asset) not in tradable_assets:
+                current_states.loc[asset] = 0
+                events[str(asset)] = "context_only"
+                continue
             raw_score = scores.loc[asset]
             score = float(raw_score) if math.isfinite(raw_score) else None
-            state, event = _signal_transition(
+            state, event = _directional_signal_transition(
                 int(prior_states.loc[asset]),
                 score,
+                family=family,
                 long_entry=long_entry,
                 long_exit=long_exit,
                 short_exit=short_exit,
@@ -311,34 +470,82 @@ def construct_signal_policy(
                     conviction / float(row_volatility.loc[asset])
                 )
 
-        long_weights = _allocate_capped_side(
-            strengths.where(current_states.eq(1), 0.0),
-            budget=side_budget,
-            cap=max_abs_weight,
-        )
-        short_weights = _allocate_capped_side(
-            strengths.where(current_states.eq(-1), 0.0),
-            budget=side_budget,
-            cap=max_abs_weight,
-        )
-        allocated = (
-            abs(float(long_weights.sum()) - side_budget) <= 1e-9
-            and abs(float(short_weights.sum()) - side_budget) <= 1e-9
-        )
-        if allocated:
-            current_targets = long_weights - short_weights
-            allocation_status = "allocated"
+        if family == "dollar-neutral":
+            long_weights = _allocate_capped_side(
+                strengths.where(current_states.eq(1), 0.0),
+                budget=side_budget,
+                cap=max_abs_weight,
+            )
+            short_weights = _allocate_capped_side(
+                strengths.where(current_states.eq(-1), 0.0),
+                budget=side_budget,
+                cap=max_abs_weight,
+            )
+            allocated = (
+                abs(float(long_weights.sum()) - side_budget) <= 1e-9
+                and abs(float(short_weights.sum()) - side_budget) <= 1e-9
+            )
+            current_targets = (
+                long_weights - short_weights
+                if allocated
+                else pd.Series(0.0, index=factors.columns, dtype=float)
+            )
+            allocation_status = (
+                "allocated"
+                if allocated
+                else (
+                    "insufficient_cross_section"
+                    if not sufficient
+                    else "insufficient_side_breadth"
+                )
+            )
+        elif family == "long-cash":
+            current_targets = _allocate_capped_up_to(
+                strengths.where(current_states.eq(1), 0.0),
+                limit=gross_target,
+                cap=max_abs_weight,
+            )
+            allocation_status = (
+                "insufficient_cross_section"
+                if not sufficient
+                else (
+                    "no_permitted_signal"
+                    if float(current_targets.abs().sum()) <= 1e-12
+                    else (
+                        "allocated"
+                        if abs(float(current_targets.sum()) - gross_target)
+                        <= 1e-9
+                        else "allocated_with_cash"
+                    )
+                )
+            )
+        elif family == "short-cash":
+            current_targets = -_allocate_capped_up_to(
+                strengths.where(current_states.eq(-1), 0.0),
+                limit=gross_target,
+                cap=max_abs_weight,
+            )
+            allocation_status = (
+                "insufficient_cross_section"
+                if not sufficient
+                else (
+                    "no_permitted_signal"
+                    if float(current_targets.abs().sum()) <= 1e-12
+                    else (
+                        "allocated"
+                        if abs(float(current_targets.sum()) + gross_target)
+                        <= 1e-9
+                        else "allocated_with_cash"
+                    )
+                )
+            )
         else:
             current_targets = pd.Series(
                 0.0,
                 index=factors.columns,
                 dtype=float,
             )
-            allocation_status = (
-                "insufficient_cross_section"
-                if not sufficient
-                else "insufficient_side_breadth"
-            )
+            allocation_status = "invalid_mandate"
         diagonal_risk = current_targets.abs() * row_volatility.fillna(0.0)
         diagonal_total = float(diagonal_risk.sum())
         diagonal_share = (
@@ -369,6 +576,9 @@ def construct_signal_policy(
                     "prior_signal_state": int(prior_states.loc[asset]),
                     "signal_state": int(current_states.loc[asset]),
                     "signal_event": events[str(asset)],
+                    "tradable": str(asset) in tradable_assets,
+                    "permitted_direction": family,
+                    "mandate_id": str(resolved["id"]),
                     "conviction": float(convictions.loc[asset]),
                     "trailing_volatility": (
                         float(volatility_value)
@@ -376,7 +586,11 @@ def construct_signal_policy(
                         else np.nan
                     ),
                     "risk_strength": float(strengths.loc[asset]),
-                    "allocation_status": allocation_status,
+                    "allocation_status": (
+                        allocation_status
+                        if str(asset) in tradable_assets
+                        else "context_only"
+                    ),
                     "prior_target_weight": previous_target,
                     "proposed_target_weight": target,
                     "target_delta": target - previous_target,
@@ -425,6 +639,7 @@ def simulate_targets(
     no_trade_one_way: float = NO_TRADE_ONE_WAY,
     reference_nav: float = REFERENCE_NAV,
     extra_delay: int = 0,
+    mandate: dict[str, object] | None = None,
 ) -> Simulation:
     """Execute close targets, then credit only the following close return."""
 
@@ -445,6 +660,9 @@ def simulate_targets(
         )
     if not isinstance(extra_delay, int) or extra_delay < 0:
         raise PortfolioFailure("portfolio.delay", "extra_delay must be non-negative")
+    resolved = _resolve_mandate(targets.columns, mandate)
+    tradable_assets = list(resolved["tradable_assets"])
+    benchmark_kind = str(resolved["benchmark"])
     proposed_targets = targets.shift(extra_delay).fillna(0.0)
     close_returns = closes.pct_change(fill_method=None)
     forward_returns = closes.shift(-1) / closes - 1.0
@@ -472,7 +690,19 @@ def simulate_targets(
         next_returns = forward_returns.loc[timestamp].fillna(0.0).astype(float)
         gross_return = float((current * next_returns).sum())
         net_return = gross_return - cost
-        benchmark_return = float(next_returns.mean())
+        if benchmark_kind == "cash":
+            benchmark_return = 0.0
+        elif benchmark_kind == "equal-weight-long-research-universe":
+            benchmark_return = float(next_returns.mean())
+        elif benchmark_kind == "equal-weight-long-tradable":
+            benchmark_return = float(next_returns.loc[tradable_assets].mean())
+        elif benchmark_kind == "equal-weight-short-tradable":
+            benchmark_return = -float(next_returns.loc[tradable_assets].mean())
+        else:
+            raise PortfolioFailure(
+                "mandate.benchmark",
+                "Unknown Portfolio Mandate benchmark",
+            )
         dollar_volume = (
             closes.loc[timestamp].astype(float)
             * volumes.loc[timestamp].astype(float)
@@ -508,6 +738,7 @@ def simulate_targets(
                 "cost": cost,
                 "gross_exposure": float(current.abs().sum()),
                 "net_exposure": float(current.sum()),
+                "cash_weight": 1.0 - float(current.abs().sum()),
                 "max_abs_weight": float(current.abs().max()),
                 "concentration_hhi": float(current.pow(2).sum()),
                 "rebalanced": rebalance,
@@ -1103,22 +1334,80 @@ def constraint_audit(
     *,
     gross_target: float = GROSS_TARGET,
     max_abs_weight: float = MAX_ABS_WEIGHT,
-) -> dict[str, float | int | bool]:
+    mandate: dict[str, object] | None = None,
+) -> dict[str, object]:
+    resolved = _resolve_mandate(targets.columns, mandate)
+    gross_target = float(resolved["gross_limit"])
+    max_abs_weight = float(resolved["max_abs_weight"])
+    family = str(resolved["family"])
+    tradable = list(resolved["tradable_assets"])
+    context = list(resolved["context_assets"])
     active = targets[targets.abs().sum(axis=1) > 1e-12]
     if active.empty:
-        raise PortfolioFailure("portfolio.no-targets", "No active targets were constructed")
-    gross_error = float((active.abs().sum(axis=1) - gross_target).abs().max())
-    net_error = float(active.sum(axis=1).abs().max())
+        if family == "dollar-neutral":
+            raise PortfolioFailure(
+                "portfolio.no-targets",
+                "No active targets were constructed",
+            )
+        return {
+            "passed": True,
+            "mandate_id": resolved["id"],
+            "family": family,
+            "tradable_assets": tradable,
+            "context_assets": context,
+            "active_dates": 0,
+            "maximum_gross_error": 0.0,
+            "maximum_gross_exposure": 0.0,
+            "maximum_abs_net_target": 0.0,
+            "maximum_net_rule_error": 0.0,
+            "maximum_opposite_exposure": 0.0,
+            "maximum_context_weight": 0.0,
+            "maximum_tradable_gross": 0.0,
+            "maximum_abs_target_weight": 0.0,
+        }
+    gross = active.abs().sum(axis=1)
+    net = active.sum(axis=1)
+    if family == "dollar-neutral":
+        gross_error = float((gross - gross_target).abs().max())
+        net_rule_error = float(net.abs().max())
+        opposite_exposure = 0.0
+    elif family == "long-cash":
+        gross_error = float((gross - gross_target).clip(lower=0.0).max())
+        net_rule_error = float((net - gross).abs().max())
+        opposite_exposure = float((-active.clip(upper=0.0)).sum(axis=1).max())
+    elif family == "short-cash":
+        gross_error = float((gross - gross_target).clip(lower=0.0).max())
+        net_rule_error = float((net + gross).abs().max())
+        opposite_exposure = float(active.clip(lower=0.0).sum(axis=1).max())
+    else:
+        raise PortfolioFailure("mandate.family", "Unknown mandate family")
     maximum_weight = float(active.abs().max().max())
+    context_weight = (
+        float(active[context].abs().max().max())
+        if context
+        else 0.0
+    )
+    tradable_gross = float(active[tradable].abs().sum(axis=1).max())
     passed = (
         gross_error <= 1e-8
-        and net_error <= 1e-8
+        and net_rule_error <= 1e-8
+        and opposite_exposure <= 1e-8
+        and context_weight <= 1e-8
         and maximum_weight <= max_abs_weight + 1e-8
     )
     return {
         "passed": passed,
+        "mandate_id": resolved["id"],
+        "family": family,
+        "tradable_assets": tradable,
+        "context_assets": context,
         "active_dates": int(len(active)),
         "maximum_gross_error": gross_error,
-        "maximum_abs_net_target": net_error,
+        "maximum_gross_exposure": float(gross.max()),
+        "maximum_abs_net_target": float(net.abs().max()),
+        "maximum_net_rule_error": net_rule_error,
+        "maximum_opposite_exposure": opposite_exposure,
+        "maximum_context_weight": context_weight,
+        "maximum_tradable_gross": tradable_gross,
         "maximum_abs_target_weight": maximum_weight,
     }

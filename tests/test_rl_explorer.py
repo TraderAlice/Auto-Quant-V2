@@ -73,7 +73,19 @@ class RlPolicyEvidenceExplorerTests(unittest.TestCase):
             self.assertFalse(diagnostics["protocol"]["testEntersSelection"])
             self.assertEqual(
                 diagnostics["factorFusion"]["dependency"]["paths"],
-                ["factors/**"],
+                [
+                    "factors/**",
+                    "strategies/portfolio-mandate.json",
+                ],
+            )
+            self.assertTrue(diagnostics["portfolioMandate"]["available"])
+            self.assertEqual(
+                diagnostics["portfolioMandate"]["family"],
+                "dollar-neutral",
+            )
+            self.assertEqual(
+                diagnostics["portfolioMandate"]["id"],
+                run.result["metrics"]["portfolio_mandate"]["id"],
             )
             self.assertTrue(diagnostics["factorFusion"]["available"])
             self.assertEqual(

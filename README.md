@@ -50,7 +50,9 @@ uv run aq project intake ./quant-workspace us-leadership \
 Intake validates and normalizes the complete aligned panel, confines every
 source path, preserves provider/calendar/adjustment claims, hashes source and
 Project-local bytes, and transactionally creates one coordinated Project with
-Factor, Portfolio, and governed RL Studies. It does not download data or
+Factor, Portfolio, and governed RL Studies. It also derives one fixed
+Portfolio Mandate: requested assets and direction define position authority,
+while other panel assets remain research context. It does not download data or
 silently start research. `aq project program` returns verified lane status,
 shared-source conflicts, evidence currentness, and the exact recommended
 headless command. The narrow single-lane templates remain available when a
@@ -68,9 +70,11 @@ benchmark—not a market alpha claim.
 The `ohlcv-portfolio-lab` starter keeps the same ordinary pandas candidate API
 but fixes the downstream research contract: causal percentile
 entry/hold/exit/reversal state, inverse-volatility conviction sizing,
-dollar-neutral capped targets, drift-aware rebalance, turnover, costs, volume
-participation, and dataset-fixed purged splits. Its decision ledger reconciles
-each asset's proposed/executed weight, trade, return, cost, regime, and
+request-mapped long/cash, short/cash, or dollar-neutral capped targets,
+drift-aware rebalance, turnover, costs, volume participation, and
+dataset-fixed purged splits. Context-only assets participate in research
+ranking but never become positions. Its decision ledger reconciles each
+asset's mandate, proposed/executed weight, trade, return, cost, regime, and
 component risk contribution; a no-hysteresis baseline shows whether intent
 persistence actually reduces churn. Studio summarizes the verified policy and
 attribution evidence. It emits research targets only and has no Broker or
@@ -87,8 +91,9 @@ content-locked candidate factor and fixed reference factors? Agents edit only
 a pure state encoder. The Judge audits the factor dependency and fixes
 Q-learning, actions, next-bar reward, portfolio accounting, two expanding
 folds, three seeds, and fixed-factor/contextual-ridge baselines. Each action is
-a governed stateful factor sleeve using the same mechanical signal policy.
-Evidence reports both RL-minus-best-baseline and RL-minus-candidate-factor.
+a governed stateful factor sleeve using the same request-bound Portfolio
+Mandate and mechanical signal policy. Evidence reports both
+RL-minus-best-baseline and RL-minus-candidate-factor.
 Validation is the promotion metric; test evidence is reported separately with
 an explicit repeated-inspection warning. A higher RL score does not count as
 value added when a simple baseline still wins.
@@ -227,12 +232,13 @@ uv run aq session compare ./quant-workspace --session SESSION_ID --json
 
 Studio shows Projects, delegated requests, active Session leaders, running
 Researcher turns, verdict trajectories, lane Report/Dossier readiness, recent
-evidence, and fixed Studies. For the latest successful Portfolio Run it also shows bounded
-verified growth/drawdown, exposure/turnover, the historical mechanical book,
-signal transitions, and split attribution. It is read-only, exposes copy-only
-exact CLI commands, and uses the same verified Core loaders as the CLI. A
-specific historical Run is available through `aq run factor <path> --run ID
---json`, `aq run portfolio <path> --run ID --json`, or
+evidence, and fixed Studies. For the latest successful Portfolio Run it also
+shows the request-bound mandate, authorized/context-only assets, bounded
+verified growth/drawdown, exposure/cash/turnover, the historical mechanical
+book, signal transitions, and split attribution. It is read-only, exposes
+copy-only exact CLI commands, and uses the same verified Core loaders as the
+CLI. A specific historical Run is available through `aq run factor <path>
+--run ID --json`, `aq run portfolio <path> --run ID --json`, or
 `aq run rl <path> --run ID --json`. The RL explorer leads with value-add
 versus the fixed validation-selected baseline, then preserves every fold/seed,
 training episode, action allocation, turnover, cost, and test-audit warning.

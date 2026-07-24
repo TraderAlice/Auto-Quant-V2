@@ -3,7 +3,8 @@
 Status: V1 implemented.
 
 Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]],
-[[docs/design/portfolio-construction-lab]], and
+[[docs/design/portfolio-construction-lab]],
+[[docs/design/request-bound-portfolio-mandates]], and
 [[docs/design/quant-research-lifecycle]].
 
 ## Scope
@@ -56,11 +57,13 @@ cannot change:
 
 This is a replaceable representation surface, not arbitrary training code.
 
-The Study separately declares `factors/**` as a fixed dependency closure.
-Its bytes are included in Study/Run/Session identity but not in the editable
-model source hash. The RL Judge imports it only after independently verifying
+The Study separately declares `factors/**` and
+`strategies/portfolio-mandate.json` as fixed dependency closures. Their bytes
+are included in Study/Run/Session identity but not in the editable model
+source hash. The RL Judge imports the factor only after independently verifying
 the pandas Series contract, input immutability, determinism, numeric alignment,
-and prefix causality. A changed factor makes existing RL evidence stale.
+and prefix causality. It validates and applies the same exact mandate as the
+Portfolio lane. A changed factor or mandate makes existing RL evidence stale.
 
 ## Fixed environment
 
@@ -80,11 +83,13 @@ Four factor experts are derived causally:
 
 The fixed discrete actions are `candidate`, `activity`, `intraday`, `reversal`,
 and `balanced`. Each action becomes a complete causal signal sleeve: a factor
-panel or equal blend enters the fixed percentile/hysteresis state machine and is
-converted by the portfolio Core into inverse-volatility-conviction, gross-one,
-dollar-neutral, capped target weights. Each sleeve maintains its own causal
-intent history. RL selects among those governed sleeves; it cannot alter
-entry/exit thresholds, sizing, constraints, or costs. See
+panel or equal blend enters the fixed percentile/hysteresis state machine and
+is converted by the portfolio Core into request-permitted
+inverse-volatility-conviction targets. Each sleeve maintains its own causal
+intent history and shares the exact tradable/context assets, direction, cash,
+gross/net, cap, and benchmark contract. RL selects among those governed
+sleeves; it cannot alter entry/exit thresholds, sizing, constraints, or costs.
+See
 [[docs/design/signal-policy-and-attribution]].
 
 ## State, transition, and reward
@@ -168,6 +173,8 @@ Run metrics contain:
 - every baseline, RL-minus-best-baseline, RL-minus-candidate-factor, and
   candidate-action-frequency comparison;
 - reward, timing, action, fold, seed, and training-budget configuration.
+- the complete fixed Portfolio Mandate and a constraint audit for every action
+  sleeve.
 
 Successful Runs declare:
 
@@ -200,8 +207,9 @@ failed seed.
 5. Validation alone determines the Study objective.
 6. Test inspection is disclosed and never described as a permanently untouched
    result after iterative use.
-7. RL target weights are research evidence and have no trading authority.
-8. The complete fixture and training campaign remain deterministic and bounded.
+7. Every action sleeve obeys the exact fixed Portfolio Mandate.
+8. RL target weights are research evidence and have no trading authority.
+9. The complete fixture and training campaign remain deterministic and bounded.
 
 ## Change checklist
 

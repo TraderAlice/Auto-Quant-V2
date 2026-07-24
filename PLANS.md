@@ -32,6 +32,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/request-bound-portfolio-mandates]] | Bound Portfolio and governed-RL positions to one request-derived, content-locked direction and tradable-asset mandate. | 2026-07-24 |
 | [[plans/reported-session-completion]] | Let a delegated baseline-retaining lane finish without promotion and leave no false active conflict. | 2026-07-24 |
 | [[plans/program-research-dossier]] | Published one immutable Project-level OpenAlice handoff over verified Factor, Portfolio, and optional RL Reports. | 2026-07-24 |
 | [[plans/research-cockpit-ui]] | Turned the three-lane Studio first viewport into a truthful Project cockpit with selectable evidence detail. | 2026-07-24 |

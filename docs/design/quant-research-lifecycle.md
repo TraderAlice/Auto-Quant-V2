@@ -8,8 +8,9 @@ Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]], [[docs/CLI]],
 [[docs/design/external-researcher-driver]],
 [[docs/design/studio-observation-surface]],
 [[docs/design/research-intake-and-dataset-snapshots]],
-[[docs/design/portfolio-construction-lab]], and
-[[docs/design/rl-factor-policy-lab]], and
+[[docs/design/portfolio-construction-lab]],
+[[docs/design/request-bound-portfolio-mandates]],
+[[docs/design/rl-factor-policy-lab]],
 [[docs/design/research-selection-integrity]], and
 [[docs/design/session-decision-matrix]].
 
@@ -176,14 +177,17 @@ the findings as one input to a later decision. Live order types, TPSL,
 available balance, venue rules, and account mutations remain forward-looking
 OpenAlice/UTA concerns.
 
-The first reference contract is deliberately narrower than the general sketch:
-it uses fixed `0.75/0.25` entry and `0.55/0.45` exit percentiles, is gross-one
-dollar-neutral, allocates `+0.5/-0.5`, caps absolute target weight at `0.30`,
-retains the drifted book below `0.05` one-way turnover, and charges every
-bought or sold dollar at the declared basis-point cost. Its exact ledger
-connects signal intent, proposed target, pre-trade drift, executed weight,
-trade, return, cost, regime, and component variance contribution. The
-executable details are [[docs/design/portfolio-construction-lab]] and
+The first reference contract fixes `0.75/0.25` entry and `0.55/0.45` exit
+percentiles, absolute target cap `0.30`, a `0.05` one-way turnover no-trade
+band, and full traded-notional cost. A content-locked Portfolio Mandate maps
+the caller's direction to requested-assets-only long/cash, short/cash, or
+dollar-neutral construction; wider peer data remains context-only. Synthetic
+fixtures explicitly retain the historical all-universe research-neutral
+contract. The exact ledger connects mandate, tradability, signal intent,
+proposed target, pre-trade drift, executed weight, trade, return, cost,
+regime, and component variance contribution. The executable details are
+[[docs/design/request-bound-portfolio-mandates]],
+[[docs/design/portfolio-construction-lab]], and
 [[docs/design/signal-policy-and-attribution]].
 
 Tolerance bands are a first-class implementation choice: research on
@@ -209,8 +213,10 @@ not an opaque trading bot:
 The Judge owns state timing, action bounds, reward, costs, constraints,
 splits, seeds, budgets, and baselines. Candidate code implements only a pure
 row-level causal feature transform inside the declared editable closure. The
-current Factor Study candidate is a separate content-locked dependency: RL can
-select its governed sleeve but cannot edit it.
+current Factor Study candidate and request-derived Portfolio Mandate are
+separate content-locked dependencies: RL can select a governed factor sleeve
+but cannot edit the factor input or change which assets, signs, cash, or
+benchmark that sleeve may use.
 
 Required evidence includes:
 
@@ -232,8 +238,8 @@ truth.
 
 V1 makes the candidate surface smaller than a general training adapter: the
 Agent edits a pure deterministic row-level state encoder. The Judge fixes five
-factor-mixture actions (candidate, three references, and equal blend), linear
-Q-learning, next-bar costed reward, two
+factor-mixture actions (candidate, three references, and equal blend), the same
+request-bound Portfolio Mandate, linear Q-learning, next-bar costed reward, two
 expanding folds, three seeds, portfolio accounting, and fixed/simple-linear
 baselines. The promotion objective aggregates validation evidence only. Test
 metrics remain visible audit evidence and carry an explicit warning that

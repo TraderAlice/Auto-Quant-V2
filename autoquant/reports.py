@@ -601,6 +601,10 @@ def _render_markdown(report: dict[str, Any]) -> str:
     evidence = report["evidence"]
     baseline = evidence["session"]["baseline"]
     leader = evidence["session"]["leader"]
+    leader_run = next(
+        item for item in evidence["runs"] if item["id"] == leader["runId"]
+    )
+    mandate = leader_run["metrics"].get("portfolio_mandate")
     integrity = evidence["selectionIntegrity"]
     source = request["source"]
     source_identity = (
@@ -644,24 +648,58 @@ def _render_markdown(report: dict[str, Any]) -> str:
         f"- Experiments: {len(evidence['experiments'])}",
         f"- Campaigns: {len(evidence['campaigns'])}",
         "",
-        "## Research selection integrity",
-        "",
-        f"- Selection metric / split: `{integrity['selectionMetric']}` / "
-        f"`{integrity['selectionSplit']}`",
-        f"- Candidate trials / evaluated Runs: "
-        f"{integrity['candidateTrials']} / {integrity['evaluatedRuns']}",
-        f"- Verdicts: KEEP={integrity['verdicts']['KEEP']}, "
-        f"REVERT={integrity['verdicts']['REVERT']}, "
-        f"CRASH={integrity['verdicts']['CRASH']}",
-        f"- Test role / enters selection: `{integrity['testRole']}` / "
-        f"`{integrity['testEntersSelection']}`",
-        f"- External holdout required: "
-        f"`{integrity['externalHoldoutRequired']}`",
-        f"- Warning: {integrity['warning']}",
-        "",
-        "## Findings",
-        "",
     ]
+    if isinstance(mandate, dict):
+        construction = mandate["construction"]
+        lines.extend(
+            [
+                "## Portfolio mandate",
+                "",
+                f"- Mandate: `{mandate['id']}`",
+                f"- Requested direction / construction: "
+                f"`{mandate['source']['direction']}` / "
+                f"`{construction['family']}`",
+                "- Authorized positions: "
+                + ", ".join(f"`{item}`" for item in mandate["tradableAssets"]),
+                "- Context-only research assets: "
+                + (
+                    ", ".join(
+                        f"`{item}`" for item in mandate["contextAssets"]
+                    )
+                    if mandate["contextAssets"]
+                    else "none"
+                ),
+                f"- Gross limit / per-asset cap / cash allowed: "
+                f"`{construction['grossLimit']}` / "
+                f"`{construction['maxAbsWeight']}` / "
+                f"`{construction['cashAllowed']}`",
+                f"- Shorting allowed / benchmark: "
+                f"`{construction['shortAllowed']}` / "
+                f"`{construction['benchmark']}`",
+                "",
+            ]
+        )
+    lines.extend(
+        [
+            "## Research selection integrity",
+            "",
+            f"- Selection metric / split: `{integrity['selectionMetric']}` / "
+            f"`{integrity['selectionSplit']}`",
+            f"- Candidate trials / evaluated Runs: "
+            f"{integrity['candidateTrials']} / {integrity['evaluatedRuns']}",
+            f"- Verdicts: KEEP={integrity['verdicts']['KEEP']}, "
+            f"REVERT={integrity['verdicts']['REVERT']}, "
+            f"CRASH={integrity['verdicts']['CRASH']}",
+            f"- Test role / enters selection: `{integrity['testRole']}` / "
+            f"`{integrity['testEntersSelection']}`",
+            f"- External holdout required: "
+            f"`{integrity['externalHoldoutRequired']}`",
+            f"- Warning: {integrity['warning']}",
+            "",
+            "## Findings",
+            "",
+        ]
+    )
     for finding in analysis["findings"]:
         refs = ", ".join(_evidence_label(item) for item in finding["evidenceRefs"])
         lines.extend(

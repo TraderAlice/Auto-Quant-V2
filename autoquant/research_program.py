@@ -11,7 +11,7 @@ from .intake import PROJECT_REQUEST, load_project_intake
 from .reports import list_reports
 from .runs import list_runs, load_run
 from .sessions import list_sessions, load_session
-from .studies import load_study
+from .studies import hash_json, load_study
 from .workspace import (
     SCHEMA_VERSION,
     AutoQuantValidationError,
@@ -43,7 +43,7 @@ CANONICAL_LANES: tuple[dict[str, Any], ...] = (
         "role": "mechanical-portfolio-evidence",
         "dependsOn": ["factor"],
         "editablePaths": ["factors/**"],
-        "dependencyPaths": [],
+        "dependencyPaths": ["strategies/portfolio-mandate.json"],
         "optional": False,
     },
     {
@@ -53,13 +53,17 @@ CANONICAL_LANES: tuple[dict[str, Any], ...] = (
         "role": "adaptive-policy-challenge",
         "dependsOn": ["portfolio"],
         "editablePaths": ["models/**"],
-        "dependencyPaths": ["factors/**"],
+        "dependencyPaths": [
+            "factors/**",
+            "strategies/portfolio-mandate.json",
+        ],
         "optional": True,
     },
 )
 INTEGRATION = {
     "factorToPortfolio": "shared-candidate-source",
     "rlFactorDependency": "content-locked-candidate-source",
+    "portfolioMandate": "request-bound-shared-fixed-dependency",
     "tradingAuthority": "none",
 }
 
@@ -491,9 +495,14 @@ def load_research_program(
             "research-program.factor-source",
             "Factor and Portfolio lanes must share the exact candidate factor source",
         )
+    rl_factor_hashes = {
+        path: digest
+        for path, digest in rl_study["dependencySourceHashes"].items()
+        if path.startswith("factors/")
+    }
     if (
-        rl_study["dependencyHash"] != factor_study["sourceHash"]
-        or rl_study["dependencySourceHashes"] != factor_study["sourceHashes"]
+        hash_json(rl_factor_hashes) != factor_study["sourceHash"]
+        or rl_factor_hashes != factor_study["sourceHashes"]
     ):
         _fail(
             path,

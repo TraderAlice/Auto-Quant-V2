@@ -11,6 +11,10 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
+from .mandates import (
+    PORTFOLIO_MANDATE,
+    validate_portfolio_mandate,
+)
 from .runs import RunContext, load_run
 from .workspace import (
     SCHEMA_VERSION,
@@ -298,7 +302,7 @@ class ParsedDaily:
 
 def _parse_daily(path: Path) -> ParsedDaily:
     required = {"timestamp", "rebalanced", *DAILY_NUMERIC_COLUMNS}
-    _, raw_rows = _read_csv(
+    fields, raw_rows = _read_csv(
         path,
         required=required,
         maximum_rows=MAX_DAILY_ROWS,
@@ -310,6 +314,22 @@ def _parse_daily(path: Path) -> ParsedDaily:
             key: _finite(raw[key], f"{path}:{index}/{key}")
             for key in DAILY_NUMERIC_COLUMNS
         }
+        cash_weight = (
+            _finite(raw["cash_weight"], f"{path}:{index}/cash_weight")
+            if "cash_weight" in fields
+            else 1.0 - values["gross_exposure"]
+        )
+        if not math.isclose(
+            cash_weight,
+            1.0 - values["gross_exposure"],
+            rel_tol=0.0,
+            abs_tol=1e-9,
+        ):
+            _fail(
+                f"{path}:{index}/cash_weight",
+                "portfolio.cash-reconciliation",
+                "Cash weight must equal one minus gross exposure",
+            )
         if (
             values["gross_return"] <= -1.0
             or values["net_return"] <= -1.0
@@ -346,6 +366,7 @@ def _parse_daily(path: Path) -> ParsedDaily:
             {
                 "timestamp": timestamp,
                 **values,
+                "cash_weight": cash_weight,
                 "rebalanced": raw["rebalanced"] == "True",
             }
         )
@@ -394,7 +415,7 @@ def _parse_decisions(
     targets: dict[str, dict[str, float]],
     weights: dict[str, dict[str, float]],
 ) -> tuple[list[dict[str, Any]], dict[tuple[str, str], dict[str, Any]]]:
-    _, raw_rows = _read_csv(
+    fields, raw_rows = _read_csv(
         path,
         required=DECISION_REQUIRED_COLUMNS,
         maximum_rows=MAX_DECISION_ROWS,
@@ -406,6 +427,14 @@ def _parse_decisions(
     }
     decisions: dict[tuple[str, str], dict[str, Any]] = {}
     ordered: list[dict[str, Any]] = []
+    mandate_columns = {"tradable", "permitted_direction", "mandate_id"}
+    has_mandate_columns = mandate_columns.issubset(fields)
+    if mandate_columns & set(fields) and not has_mandate_columns:
+        _fail(
+            path,
+            "portfolio.mandate-columns",
+            "Decision ledger must contain the complete mandate column set",
+        )
     for row_number, raw in enumerate(raw_rows, start=2):
         row_path = f"{path}:{row_number}"
         timestamp = _session_date(raw["timestamp"], f"{row_path}/timestamp")
@@ -462,6 +491,19 @@ def _parse_decisions(
                     "portfolio.decision-string",
                     f"{field} must be non-empty",
                 )
+        if has_mandate_columns:
+            if raw["tradable"] not in {"True", "False"}:
+                _fail(
+                    f"{row_path}/tradable",
+                    "portfolio.boolean",
+                    "tradable must be True or False",
+                )
+            if not raw["permitted_direction"] or not raw["mandate_id"]:
+                _fail(
+                    row_path,
+                    "portfolio.mandate-decision",
+                    "Mandate decision fields must be non-empty",
+                )
         if not math.isclose(
             numeric["proposed_target_weight"],
             targets[timestamp][asset],
@@ -496,6 +538,21 @@ def _parse_decisions(
             "regime": raw["regime"],
             "execution_action": raw["execution_action"],
             "execution_reason": raw["execution_reason"],
+            "tradable": (
+                raw["tradable"] == "True"
+                if has_mandate_columns
+                else True
+            ),
+            "permitted_direction": (
+                raw["permitted_direction"]
+                if has_mandate_columns
+                else "dollar-neutral"
+            ),
+            "mandate_id": (
+                raw["mandate_id"]
+                if has_mandate_columns
+                else "legacy-dollar-neutral"
+            ),
         }
         decisions[key] = parsed
         ordered.append(parsed)
@@ -712,6 +769,7 @@ def _path_projection(
                 "drawdown": drawdown,
                 "grossExposure": row["gross_exposure"],
                 "netExposure": row["net_exposure"],
+                "cashWeight": row["cash_weight"],
                 "oneWayTurnover": row["one_way_turnover"],
                 "cost": row["cost"],
                 "rebalanced": row["rebalanced"],
@@ -826,6 +884,9 @@ def _current_book(
                 "asset": asset,
                 "signalState": item["signal_state"],
                 "signalEvent": item["signal_event"],
+                "tradable": item["tradable"],
+                "permittedDirection": item["permitted_direction"],
+                "allocationStatus": item["allocation_status"],
                 "conviction": item["conviction"],
                 "riskStrength": item["risk_strength"],
                 "targetWeight": item["proposed_target_weight"],
@@ -848,6 +909,7 @@ def _current_book(
         "historicalResearchWeights": True,
         "grossExposure": daily_row["gross_exposure"],
         "netExposure": daily_row["net_exposure"],
+        "cashWeight": daily_row["cash_weight"],
         "oneWayTurnover": daily_row["one_way_turnover"],
         "cost": daily_row["cost"],
         "rebalanced": daily_row["rebalanced"],
@@ -864,7 +926,13 @@ def _recent_transitions(
         item
         for item in ordered
         if item["signal_event"]
-        not in {"hold_long", "hold_short", "stay_flat", "unavailable_flat"}
+        not in {
+            "hold_long",
+            "hold_short",
+            "stay_flat",
+            "unavailable_flat",
+            "context_only",
+        }
         or item["execution_action"]
         in {
             "open_long",
@@ -883,6 +951,9 @@ def _recent_transitions(
             "timestamp": item["timestamp"],
             "asset": item["asset"],
             "signalEvent": item["signal_event"],
+            "tradable": item["tradable"],
+            "permittedDirection": item["permitted_direction"],
+            "allocationStatus": item["allocation_status"],
             "priorSignalState": item["prior_signal_state"],
             "signalState": item["signal_state"],
             "targetWeight": item["proposed_target_weight"],
@@ -932,6 +1003,94 @@ def _signal_policy_projection(result: dict[str, Any]) -> dict[str, Any]:
             "targetActionCounts": split.get("target_action_counts"),
         }
     return output
+
+
+def _mandate_projection(
+    run: RunContext,
+    report: dict[str, Any],
+    universe: list[str],
+) -> dict[str, Any]:
+    raw = run.result["metrics"].get("portfolio_mandate")
+    report_raw = report.get("portfolioMandate")
+    if raw is None and report_raw is None:
+        return {
+            "available": False,
+            "id": None,
+            "sha256": None,
+            "sourceKind": "legacy-implicit",
+            "requestHash": None,
+            "direction": "research-only",
+            "family": "dollar-neutral",
+            "researchUniverse": universe,
+            "tradableAssets": universe,
+            "contextAssets": [],
+            "grossLimit": 1.0,
+            "maxAbsWeight": 0.30,
+            "cashAllowed": True,
+            "shortAllowed": True,
+            "benchmark": "equal-weight-long-research-universe",
+        }
+    if not isinstance(raw, dict) or not isinstance(report_raw, dict):
+        _fail(
+            "RunResult/metrics/portfolio_mandate",
+            "portfolio.mandate",
+            "Portfolio Mandate must exist in both Run metrics and report",
+        )
+    try:
+        mandate = validate_portfolio_mandate(
+            raw,
+            "RunResult/metrics/portfolio_mandate",
+        )
+    except AutoQuantValidationError as error:
+        raise error
+    if report_raw != mandate:
+        _fail(
+            "portfolio-report.json/portfolioMandate",
+            "portfolio.mandate-report",
+            "Portfolio report Mandate differs from Run metrics",
+        )
+    if mandate["researchUniverse"] != universe:
+        _fail(
+            "RunResult/metrics/portfolio_mandate/researchUniverse",
+            "portfolio.mandate-universe",
+            "Portfolio Mandate differs from the Run universe",
+        )
+    dependencies = run.result.get("dependencies")
+    source_hashes = (
+        dependencies.get("sourceHashes")
+        if isinstance(dependencies, dict)
+        else None
+    )
+    mandate_hash = (
+        source_hashes.get(PORTFOLIO_MANDATE)
+        if isinstance(source_hashes, dict)
+        else None
+    )
+    if not isinstance(mandate_hash, str):
+        _fail(
+            "RunResult/dependencies/sourceHashes",
+            "portfolio.mandate-dependency",
+            "Portfolio Mandate is absent from fixed Run dependencies",
+        )
+    source = mandate["source"]
+    construction = mandate["construction"]
+    return {
+        "available": True,
+        "id": mandate["id"],
+        "sha256": mandate_hash,
+        "sourceKind": source["kind"],
+        "requestHash": source["requestHash"],
+        "direction": source["direction"],
+        "family": construction["family"],
+        "researchUniverse": mandate["researchUniverse"],
+        "tradableAssets": mandate["tradableAssets"],
+        "contextAssets": mandate["contextAssets"],
+        "grossLimit": construction["grossLimit"],
+        "maxAbsWeight": construction["maxAbsWeight"],
+        "cashAllowed": construction["cashAllowed"],
+        "shortAllowed": construction["shortAllowed"],
+        "benchmark": construction["benchmark"],
+    }
 
 
 def load_portfolio_diagnostics(
@@ -1043,6 +1202,7 @@ def load_portfolio_diagnostics(
             ],
         },
         "universe": universe,
+        "mandate": _mandate_projection(run, report, universe),
         "selection": {
             "selectionSplit": research_integrity.get("selection_split"),
             "testRole": research_integrity.get("test_role"),
@@ -1115,6 +1275,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 "drawdown",
                 "grossExposure",
                 "netExposure",
+                "cashWeight",
                 "oneWayTurnover",
                 "cost",
                 "rebalanced",
@@ -1129,6 +1290,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 "drawdown": {"type": "number"},
                 "grossExposure": {"type": "number"},
                 "netExposure": {"type": "number"},
+                "cashWeight": {"type": "number"},
                 "oneWayTurnover": {"type": "number", "minimum": 0},
                 "cost": {"type": "number", "minimum": 0},
                 "rebalanced": {"type": "boolean"},
@@ -1145,6 +1307,9 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 "asset",
                 "signalState",
                 "signalEvent",
+                "tradable",
+                "permittedDirection",
+                "allocationStatus",
                 "conviction",
                 "targetWeight",
                 "targetAction",
@@ -1162,6 +1327,15 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 "asset": {"type": "string", "minLength": 1},
                 "signalState": {"enum": [-1, 0, 1]},
                 "signalEvent": {"type": "string", "minLength": 1},
+                "tradable": {"type": "boolean"},
+                "permittedDirection": {
+                    "enum": [
+                        "dollar-neutral",
+                        "long-cash",
+                        "short-cash",
+                    ]
+                },
+                "allocationStatus": {"type": "string", "minLength": 1},
                 "conviction": {"type": "number"},
                 "targetWeight": {"type": "number"},
                 "targetAction": {"type": "string", "minLength": 1},
@@ -1185,6 +1359,9 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 "priorSignalState",
                 "signalState",
                 "signalEvent",
+                "tradable",
+                "permittedDirection",
+                "allocationStatus",
                 "targetWeight",
                 "executedWeight",
                 "tradeWeight",
@@ -1198,6 +1375,15 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 "priorSignalState": {"enum": [-1, 0, 1]},
                 "signalState": {"enum": [-1, 0, 1]},
                 "signalEvent": {"type": "string", "minLength": 1},
+                "tradable": {"type": "boolean"},
+                "permittedDirection": {
+                    "enum": [
+                        "dollar-neutral",
+                        "long-cash",
+                        "short-cash",
+                    ]
+                },
+                "allocationStatus": {"type": "string", "minLength": 1},
                 "targetWeight": {"type": "number"},
                 "executedWeight": {"type": "number"},
                 "tradeWeight": {"type": "number"},
@@ -1237,6 +1423,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "kind",
         "run",
         "universe",
+        "mandate",
         "selection",
         "artifacts",
         "path",
@@ -1284,6 +1471,105 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
             "maxItems": MAX_UNIVERSE,
             "items": {"type": "string", "minLength": 1},
             "uniqueItems": True,
+        },
+        "mandate": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "available",
+                "id",
+                "sha256",
+                "sourceKind",
+                "requestHash",
+                "direction",
+                "family",
+                "researchUniverse",
+                "tradableAssets",
+                "contextAssets",
+                "grossLimit",
+                "maxAbsWeight",
+                "cashAllowed",
+                "shortAllowed",
+                "benchmark",
+            ],
+            "properties": {
+                "available": {"type": "boolean"},
+                "id": {
+                    "anyOf": [
+                        {"type": "null"},
+                        {
+                            "type": "string",
+                            "pattern": "^mandate-[0-9a-f]{16}$",
+                        },
+                    ]
+                },
+                "sha256": {
+                    "anyOf": [
+                        {"type": "null"},
+                        {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{64}$",
+                        },
+                    ]
+                },
+                "sourceKind": {
+                    "enum": [
+                        "legacy-implicit",
+                        "research-request",
+                        "template-default",
+                    ]
+                },
+                "requestHash": {
+                    "anyOf": [
+                        {"type": "null"},
+                        {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{64}$",
+                        },
+                    ]
+                },
+                "direction": {
+                    "enum": [
+                        "long",
+                        "short",
+                        "long-short",
+                        "relative-value",
+                        "research-only",
+                    ]
+                },
+                "family": {
+                    "enum": [
+                        "dollar-neutral",
+                        "long-cash",
+                        "short-cash",
+                    ]
+                },
+                "researchUniverse": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": True,
+                    "items": {"type": "string", "minLength": 1},
+                },
+                "tradableAssets": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": True,
+                    "items": {"type": "string", "minLength": 1},
+                },
+                "contextAssets": {
+                    "type": "array",
+                    "uniqueItems": True,
+                    "items": {"type": "string", "minLength": 1},
+                },
+                "grossLimit": {"type": "number", "exclusiveMinimum": 0},
+                "maxAbsWeight": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                },
+                "cashAllowed": {"type": "boolean"},
+                "shortAllowed": {"type": "boolean"},
+                "benchmark": {"type": "string", "minLength": 1},
+            },
         },
         "selection": {
             "type": "object",
@@ -1403,6 +1689,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 "historicalResearchWeights",
                 "grossExposure",
                 "netExposure",
+                "cashWeight",
                 "oneWayTurnover",
                 "cost",
                 "rebalanced",
@@ -1413,6 +1700,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 "historicalResearchWeights": {"const": True},
                 "grossExposure": {"type": "number", "minimum": 0},
                 "netExposure": {"type": "number"},
+                "cashWeight": {"type": "number"},
                 "oneWayTurnover": {"type": "number", "minimum": 0},
                 "cost": {"type": "number", "minimum": 0},
                 "rebalanced": {"type": "boolean"},

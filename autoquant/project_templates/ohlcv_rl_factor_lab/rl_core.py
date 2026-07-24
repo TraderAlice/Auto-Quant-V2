@@ -89,6 +89,8 @@ class TrainedPolicy:
 def build_action_targets(
     factor_panels: dict[str, pd.DataFrame],
     closes: pd.DataFrame,
+    *,
+    mandate: dict[str, object] | None = None,
 ) -> dict[str, pd.DataFrame]:
     if set(factor_panels) != set(EXPERTS):
         raise PolicyFailure(
@@ -104,6 +106,7 @@ def build_action_targets(
         targets[action] = construct_signal_policy(
             combined,
             closes,
+            mandate=mandate,
         ).targets
     return targets
 
@@ -174,6 +177,7 @@ def _account_step(
     volume: pd.Series,
     *,
     first: bool,
+    mandate: dict[str, object] | None = None,
 ) -> tuple[pd.Series, pd.Series, pd.Series, dict[str, float | bool]]:
     pretrade = (
         pd.Series(0.0, index=proposed.index, dtype=float)
@@ -191,7 +195,25 @@ def _account_step(
     gross_return = float((current * forward_return).sum())
     net_return = gross_return - cost
     reward = net_return - RISK_AVERSION * gross_return**2
-    benchmark_return = float(forward_return.mean())
+    if mandate is None:
+        benchmark_return = float(forward_return.mean())
+    else:
+        construction = mandate["construction"]
+        benchmark = construction["benchmark"]
+        tradable = list(mandate["tradableAssets"])
+        if benchmark == "cash":
+            benchmark_return = 0.0
+        elif benchmark == "equal-weight-long-research-universe":
+            benchmark_return = float(forward_return.mean())
+        elif benchmark == "equal-weight-long-tradable":
+            benchmark_return = float(forward_return.loc[tradable].mean())
+        elif benchmark == "equal-weight-short-tradable":
+            benchmark_return = -float(forward_return.loc[tradable].mean())
+        else:
+            raise PolicyFailure(
+                "mandate.benchmark",
+                "Unknown Portfolio Mandate benchmark",
+            )
     dollar_volume = close * volume
     participation = (
         trade.abs() * REFERENCE_NAV / dollar_volume.replace(0.0, np.nan)
@@ -206,6 +228,7 @@ def _account_step(
         "cost": cost,
         "gross_exposure": float(current.abs().sum()),
         "net_exposure": float(current.sum()),
+        "cash_weight": 1.0 - float(current.abs().sum()),
         "max_abs_weight": float(current.abs().max()),
         "concentration_hhi": float(current.pow(2).sum()),
         "rebalanced": rebalanced,
@@ -232,6 +255,8 @@ def rollout_policy(
     closes: pd.DataFrame,
     volumes: pd.DataFrame,
     index: pd.Index,
+    *,
+    mandate: dict[str, object] | None = None,
 ) -> Rollout:
     if len(index) < MIN_SPLIT_OBSERVATIONS:
         raise PolicyFailure(
@@ -266,6 +291,7 @@ def rollout_policy(
             closes.loc[timestamp],
             volumes.loc[timestamp],
             first=position == 0,
+            mandate=mandate,
         )
         daily_rows.append(row)
         weight_rows.append(current)
@@ -297,6 +323,7 @@ def train_q_policy(
     train_index: pd.Index,
     *,
     seed: int,
+    mandate: dict[str, object] | None = None,
 ) -> TrainedPolicy:
     if seed not in SEEDS:
         raise PolicyFailure("policy.seed", "Seed is outside the fixed set")
@@ -332,6 +359,7 @@ def train_q_policy(
                 closes.loc[timestamp],
                 volumes.loc[timestamp],
                 first=position == 0,
+                mandate=mandate,
             )
             reward = float(row["reward"])
             done = position == len(train_index) - 1
@@ -392,6 +420,8 @@ def train_contextual_ridge(
     closes: pd.DataFrame,
     volumes: pd.DataFrame,
     train_index: pd.Index,
+    *,
+    mandate: dict[str, object] | None = None,
 ) -> dict[str, object]:
     raw = raw_states.loc[train_index, list(BASE_STATE_COLUMNS)]
     mean = raw.mean()
@@ -410,6 +440,7 @@ def train_contextual_ridge(
             closes,
             volumes,
             train_index,
+            mandate=mandate,
         )
         target = rollout.rewards.to_numpy(dtype=float)
         coefficients.append(

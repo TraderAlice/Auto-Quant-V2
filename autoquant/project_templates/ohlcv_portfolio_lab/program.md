@@ -20,11 +20,15 @@ numeric aligned Series and may use only the current and prior rows.
 
 ## Fixed portfolio contract
 
-- factor rank becomes a `short / flat / long` percentile state;
-- enter long/short at `0.75 / 0.25`, exit at `0.55 / 0.45`, and reverse at the
-  opposite entry threshold;
+- `strategies/portfolio-mandate.json` fixes tradable versus context assets,
+  permitted direction, cash, gross/net, cap, and benchmark;
+- factor rank becomes only a mandate-permitted percentile state;
+- enter long/short at `0.75 / 0.25` and exit at `0.55 / 0.45`;
 - size conviction by inverse trailing 20-bar volatility;
-- gross 1.0, long +0.5, short -0.5;
+- directional requests allocate only their permitted side and retain unused
+  gross budget in cash;
+- long-short/relative-value require exact gross 1.0, long +0.5, short -0.5;
+- context-only assets remain flat with zero target;
 - maximum absolute target weight 0.30;
 - retain the drifted book below 0.05 one-way turnover;
 - cost every bought/sold dollar at 10 basis points;
@@ -33,8 +37,9 @@ numeric aligned Series and may use only the current and prior rows.
 - primary score is validation net Sharpe only;
 - mandatory 0/10/25bps, one-extra-bar-delay, and no-hysteresis comparisons.
 
-The Judge owns every rule above. Do not edit `judges/**`, the Study, program,
-or dataset while comparing candidates.
+The Judge owns every rule above. Do not edit `judges/**`,
+`strategies/portfolio-mandate.json`, the Study, program, or dataset while
+comparing candidates.
 
 Test metrics are visible diagnostic evidence and never enter KEEP/REVERT.
 Changing a candidate after inspecting them consumes their holdout value; use a

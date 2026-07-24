@@ -4,7 +4,8 @@ Status: V1 implemented.
 
 Related: [[docs/ARCHITECTURE]], [[docs/CLI]], [[docs/PROJECT_FORMAT]],
 [[docs/STUDIO]], [[docs/design/workspace-project-boundaries]],
-[[docs/design/study-run-evidence]], and
+[[docs/design/study-run-evidence]],
+[[docs/design/request-bound-portfolio-mandates]], and
 [[docs/design/quant-research-lifecycle]].
 
 ## Scope
@@ -31,6 +32,7 @@ to OpenAlice.
   `autoquant/studio_assets/`
 - Deterministic contract tests: `tests/test_intake.py` and
   `tests/test_cli.py`
+- Request-derived position authority: `autoquant/mandates.py`
 
 ## External package
 
@@ -119,6 +121,14 @@ The Study declares `ohlcv/**`, so canonical CSV, snapshot, and README bytes all
 enter `datasetHash`, Run identity, Session locks, and Reports. Editing any one
 creates a different Study/Run identity and stales an existing Session.
 
+Portfolio and governed-RL intake also writes the strict fixed
+`strategies/portfolio-mandate.json`. Core derives it from the exact normalized
+request and dataset universe: requested assets are tradable, remaining assets
+are context-only, and direction determines long/cash, short/cash, or
+dollar-neutral construction and benchmark. Portfolio and RL Studies bind the
+same file as a dependency. Intake reconstructs it on every load, so request or
+mandate tampering fails rather than changing the position question silently.
+
 Project-root `request.json` preserves the exact canonical caller request.
 Project-root `intake.json` points to and hashes the request, snapshot, and
 generated Study. Its `studyInputHash` is the immutable identity at handoff,
@@ -149,6 +159,9 @@ publishes the Project and returns exact commands to:
 1. inspect the coordinated research program;
 2. execute a bounded baseline Run in the recommended lane;
 3. start a delegated Session using the preserved request.
+
+For Portfolio or RL work, those commands operate only after the request-derived
+Portfolio Mandate has been content-locked into the Study identity.
 
 The three single-lane templates remain available for narrow, explicitly
 selected work. `ohlcv-research-desk` is the default delegated-research intake:
@@ -187,6 +200,8 @@ Studio remains read-only and does not duplicate validation or construction.
    verifiable identity chain.
 7. Core creates the Project but does not autonomously start research.
 8. AutoQuant retains no Broker or trading-account authority.
+9. Research-universe assets outside the request remain context-only unless the
+   request explicitly authorizes them.
 
 ## Verification and change checklist
 

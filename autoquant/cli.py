@@ -74,6 +74,7 @@ from .intake import (
     load_project_intake,
     prepare_project_intake,
 )
+from .mandates import PORTFOLIO_MANDATE_JSON_SCHEMA
 from .portfolio_explorer import (
     DEFAULT_PORTFOLIO_POINTS,
     MAX_PORTFOLIO_POINTS,
@@ -206,6 +207,7 @@ def build_parser() -> RaisingArgumentParser:
             "session-decision-matrix",
             "session",
             "session-completion",
+            "portfolio-mandate",
             "experiment",
             "researcher-response",
             "campaign-result",
@@ -2695,6 +2697,7 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "rl-policy-diagnostics",
             "session-decision-matrix",
             "session-completion",
+            "portfolio-mandate",
             "project",
             "report-analysis",
             "research-request",
@@ -2723,6 +2726,7 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "session-decision-matrix": SESSION_DECISION_MATRIX_JSON_SCHEMA,
             "session": SESSION_JSON_SCHEMA,
             "session-completion": SESSION_COMPLETION_JSON_SCHEMA,
+            "portfolio-mandate": PORTFOLIO_MANDATE_JSON_SCHEMA,
             "experiment": EXPERIMENT_JSON_SCHEMA,
             "researcher-response": RESEARCHER_RESPONSE_JSON_SCHEMA,
             "campaign-result": CAMPAIGN_RESULT_JSON_SCHEMA,

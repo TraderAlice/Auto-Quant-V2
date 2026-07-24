@@ -6,6 +6,7 @@ Related: [[docs/design/quant-research-lifecycle]],
 [[docs/design/research-intake-and-dataset-snapshots]],
 [[docs/design/ohlcv-factor-lab]],
 [[docs/design/portfolio-construction-lab]],
+[[docs/design/request-bound-portfolio-mandates]],
 [[docs/design/rl-factor-policy-lab]], and
 [[docs/design/studio-observation-surface]].
 
@@ -39,7 +40,9 @@ The lanes are coordinated but do not collapse into one score.
 - one Project-level request and dataset snapshot;
 - one `factors/candidate.py` shared by Factor and Portfolio Studies;
 - one `models/candidate.py` for the governed RL Study;
-- one exact `factors/**` dependency closure bound by the RL Study;
+- one request-derived `strategies/portfolio-mandate.json` bound by Portfolio
+  and RL Studies;
+- one exact `factors/**` dependency closure additionally bound by the RL Study;
 - precise fixed Judge closures for all three Studies;
 - one program manifest declaring lane order, dependencies, roles, editable
   surfaces, and the RL integration boundary.
@@ -64,8 +67,8 @@ evidence. It edits `factors/**`.
 ### Portfolio quality
 
 Owns whether the same current factor survives mechanical signal state,
-position sizing, constraints, drift, turnover, cost, and risk. It also edits
-`factors/**`.
+request-permitted position sizing, constraints, drift, turnover, cost, and
+risk. It edits `factors/**` while consuming the mandate as fixed input.
 
 Factor and Portfolio Sessions therefore share an editable surface. The
 research-program projection marks simultaneous active Sessions as a conflict;
@@ -75,7 +78,8 @@ it never attempts an automatic merge.
 
 Owns whether a bounded adaptive state representation adds value beyond fixed
 and contextual baselines. It edits `models/**` and reads the current
-`factors/**` through a separately hashed, fixed dependency closure.
+`factors/**` plus the same Portfolio Mandate through separately hashed, fixed
+dependency closures.
 The Judge independently re-audits the factor and evaluates it as both an action
 and a standalone baseline.
 
@@ -91,7 +95,8 @@ writer-reader conflict: finish promotion, then start a fresh RL Session.
 - every referenced Study;
 - shared dataset identity and hash;
 - declared editable paths;
-- declared dependency paths and exact Factor-source/RL-dependency equality;
+- declared dependency paths, exact Factor-source/RL-factor-subset equality,
+  and shared Portfolio/RL mandate identity;
 - latest immutable Run and whether its `studyInputHash` still matches current
   Project source;
 - latest Session, experiment count, leader, and active state;
@@ -134,7 +139,9 @@ the identical object through CLI JSON.
 6. Report readiness is not trading approval.
 7. RL consumes only the exact content-locked candidate source declared by its
    Study; no mutable implicit cross-Study reads are allowed.
-8. AutoQuant has no OpenAlice provenance or live-trading authority.
-9. Only `active` Sessions participate in writer/writer and writer/reader
+8. Portfolio and RL consume one request-derived position mandate; research
+   context never becomes an implicit tradable universe.
+9. AutoQuant has no OpenAlice provenance or live-trading authority.
+10. Only `active` Sessions participate in writer/writer and writer/reader
    conflicts; a verified completed or promoted lane is terminal coordination
    history.

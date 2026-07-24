@@ -217,6 +217,13 @@ class ProgramResearchDossierTests(unittest.TestCase):
                 "factor": factor_report.report["id"],
                 "portfolio": portfolio_report.report["id"],
             }
+            portfolio_markdown = (
+                portfolio_report.root_dir / "report.md"
+            ).read_text(encoding="utf-8")
+            self.assertIn("## Portfolio mandate", portfolio_markdown)
+            self.assertIn("`long` / `long-cash`", portfolio_markdown)
+            self.assertIn("`AAPL`, `MSFT`", portfolio_markdown)
+            self.assertIn("`NVDA`, `QQQ`, `SPY`", portfolio_markdown)
             active_program = load_research_program(project)
             assert active_program is not None
             self.assertEqual(
@@ -299,6 +306,10 @@ class ProgramResearchDossierTests(unittest.TestCase):
                 encoding="utf-8"
             )
             self.assertIn("Program evidence", markdown)
+            self.assertIn("## Portfolio mandate", markdown)
+            self.assertIn("`long` / `long-cash`", markdown)
+            self.assertIn("`AAPL`, `MSFT`", markdown)
+            self.assertIn("`NVDA`, `QQQ`, `SPY`", markdown)
             self.assertIn("Omitted optional lanes", markdown)
             self.assertIn("OpenAlice Inbox", markdown)
             self.assertEqual(
@@ -384,6 +395,15 @@ class ProgramResearchDossierTests(unittest.TestCase):
                 ["factor", "portfolio", "rl"],
             )
             self.assertEqual(status["omittedOptionalLanes"], [])
+            status_by_lane = {
+                lane["id"]: lane for lane in status["lanes"]
+            }
+            self.assertEqual(
+                status_by_lane["portfolio"]["leaderRun"][
+                    "portfolioMandateId"
+                ],
+                status_by_lane["rl"]["leaderRun"]["portfolioMandateId"],
+            )
 
             incomplete = dossier_analysis(reports)
             incomplete["findings"] = incomplete["findings"][:1]
@@ -407,6 +427,11 @@ class ProgramResearchDossierTests(unittest.TestCase):
                 loaded.dossier["evidenceHash"],
                 dossier.dossier["evidenceHash"],
             )
+            markdown = (loaded.root_dir / "dossier.md").read_text(
+                encoding="utf-8"
+            )
+            self.assertEqual(markdown.count("## Portfolio mandate"), 1)
+            self.assertIn("`long` / `long-cash`", markdown)
 
             # A later lane Report does not rewrite or invalidate the point-in-time
             # Dossier evidence prefix.

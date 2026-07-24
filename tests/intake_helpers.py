@@ -88,7 +88,7 @@ def write_intake_inputs(
         "schemaVersion": 1,
         "kind": "autoquant-research-request",
         "title": "US leadership durability",
-        "question": "Does relative activity improve a costed US equity basket?",
+        "question": "Does relative activity support a costed long allocation?",
         "decisionContext": "OpenAlice is reviewing a medium-term equity posture.",
         "assets": [
             {
@@ -102,7 +102,7 @@ def write_intake_inputs(
                 "venue": "US-COMPOSITE",
             },
         ],
-        "direction": "relative-value",
+        "direction": "long",
         "horizon": "one to four weeks",
         "hypotheses": ["Relative activity may identify persistent leadership."],
         "constraints": ["No live trading authority."],

@@ -4,6 +4,7 @@ Status: implemented.
 
 Related: [[docs/design/quant-research-lifecycle]],
 [[docs/design/research-program-orchestration]],
+[[docs/design/request-bound-portfolio-mandates]],
 [[docs/design/research-selection-integrity]],
 [[docs/design/studio-observation-surface]], [[docs/PROJECT_FORMAT]], and
 [[docs/CLI]].
@@ -53,6 +54,9 @@ cross-lane analysis.
 6. a leader Run whose Study input, dataset, source, and fixed dependency
    identities equal the current lane Study;
 7. the same content-locked Project request in every included Report.
+8. Portfolio and included governed-RL leader Runs use the same fixed Portfolio
+   Mandate; RL factor-dependency comparison uses only the `factors/**` subset
+   of its multi-input dependency closure.
 
 Readiness is a publication-time condition. A published Dossier is a valid
 point-in-time snapshot when later research adds evidence or changes the current
@@ -111,6 +115,8 @@ non-file entries are rejected.
   findings, selection integrity, and Harness;
 - leader Run id/hash, subject/source/dependency identity, objective, metrics,
   artifacts, and dataset;
+- request-derived Portfolio Mandate identity and complete frozen metrics for
+  every applicable lane;
 - omitted optional lanes;
 - normalized cross-lane analysis and its hash;
 - OpenAlice handoff boundary.
@@ -125,6 +131,8 @@ and exact frozen projections.
 `dossier.md` is the human handoff document. It includes:
 
 - caller question, decision context, assets, direction, and horizon;
+- authorized positions, context-only research assets, construction family,
+  cash/cap, and benchmark from the frozen Portfolio Mandate;
 - executive synthesis;
 - a lane evidence table;
 - lane Report summaries and selection-integrity warnings;

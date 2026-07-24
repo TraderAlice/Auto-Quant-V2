@@ -19,6 +19,7 @@ aq schema ohlcv-dataset-package --json
 aq schema report-analysis --json
 aq schema factor-diagnostics --json
 aq schema portfolio-diagnostics --json
+aq schema portfolio-mandate --json
 aq schema rl-policy-diagnostics --json
 aq schema research-program-status --json
 aq schema session-decision-matrix --json
@@ -65,7 +66,10 @@ creates a complete, self-contained pandas factor research Project with local
 synthetic OHLCV, content-locked Study, fixed no-lookahead Judge, and executable
 next actions. `ohlcv-portfolio-lab` uses the same causal candidate API and
 adds fixed constrained target construction, drift-aware accounting,
-transaction costs, layered professional metrics, and cost/delay stresses.
+transaction costs, layered professional metrics, and cost/delay stresses. New
+Portfolio and RL Projects bind a strict `portfolio-mandate`: delegated intake
+authorizes requested assets and direction while retaining other panel assets
+as research context only.
 `ohlcv-rl-factor-lab` adds a deterministic causal state encoder surface over
 a content-locked candidate-factor sleeve plus fixed reference actions,
 Q-learning, folds, seeds, rewards, portfolio accounting, and simple baselines.
@@ -77,7 +81,8 @@ Project over one dataset snapshot. Factor and Portfolio deliberately share
 `factors/candidate.py`; RL owns `models/candidate.py`. The program reports
 simultaneous active Sessions on the shared Factor surface as a conflict and
 also reports active factor-writer/RL-reader conflicts. The RL Study binds the
-exact current candidate bytes, so factor changes stale its Run evidence.
+exact current candidate bytes and the same fixed Portfolio Mandate as the
+Portfolio lane, so factor or mandate changes stale its Run evidence.
 
 `project intake` defaults to this research-desk template. It validates the
 strict request and a caller-supplied,
@@ -143,11 +148,12 @@ and `run show` verify terminal file hashes before returning evidence.
 `run portfolio` is the bounded decision-explorer projection for a successful
 Portfolio Lab Run. Core verifies the immutable Run and its report, daily path,
 target weights, executed weights, and per-asset decision ledger before
-returning compounded gross/net/benchmark paths, drawdown, exposure,
-turnover/cost, the latest historical mechanical book, recent signal
-transitions, and validation/test attribution. `--points` defaults to 180 and
-is bounded to 40–400; full history is reconciled before deterministic
-sampling. The operation has no live account or trading authority.
+returning compounded gross/net/benchmark paths, drawdown, exposure, unused
+cash budget, turnover/cost, the latest historical mechanical book, recent
+signal transitions, validation/test attribution, and exact mandate.
+`--points` defaults to 180 and is bounded to 40–400; full history is
+reconciled before deterministic sampling. The operation has no live account
+or trading authority.
 
 `run factor` is the corresponding bounded professional tear sheet for a
 successful fixed Factor Lab Run. Core verifies the immutable report, daily
@@ -165,7 +171,8 @@ reward, action frequency, observation count, turnover, and cost; then returns
 a bounded action path with exact trial, training, and model evidence.
 Validation advantage versus each fold's fixed validation-selected baseline is
 the value-add test. Test remains visible audit only, failed seeds cannot be
-hidden, and factor-mixture actions carry no trading authority.
+hidden, every action must pass the shared Portfolio Mandate audit, and
+factor-mixture actions carry no trading authority.
 
 A failed Run is a successful artifact-creation operation whose RunResult has
 `status: failed`; it retains errors and logs. A CLI error means trustworthy Run
@@ -365,10 +372,12 @@ dossiers/dossier-<UTC timestamp>-<identity>/
 
 The Dossier freezes request, dataset, Research Program, lane Study, Report,
 leader Run, selection-integrity, Harness, source/dependency, omission, and
-analysis identities. Later lane research does not invalidate an older
-point-in-time Dossier. `dossier.md` is the exact decision-support document that
-OpenAlice may publish through its own Inbox authority; AutoQuant has no
-trading or authenticated OpenAlice provenance authority.
+analysis identities. It requires Portfolio and included RL evidence to use the
+same fixed mandate and renders the authorized/context-only asset boundary.
+Later lane research does not invalidate an older point-in-time Dossier.
+`dossier.md` is the exact decision-support document that OpenAlice may publish
+through its own Inbox authority; AutoQuant has no trading or authenticated
+OpenAlice provenance authority.
 
 ## Studio commands
 

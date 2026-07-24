@@ -76,6 +76,9 @@ The V2 foundation now implements:
   translates the same causal factor API through explicit signal state into
   capped target weights, drift-aware execution, reconciled contribution/risk
   attribution, and policy/cost/delay stresses without trading authority.
+- one request-bound Portfolio Mandate that derives tradable/context assets,
+  permitted direction, cash, gross/net, cap, and benchmark from caller intent
+  and is shared exactly by Portfolio and governed RL.
 - one governed RL Factor-Policy Lab that confines Agent changes to a causal
   state encoder while the Judge fixes factor-mixture actions, Q-learning,
   rewards, portfolio accounting, folds, seeds, baselines, and model evidence.
@@ -101,6 +104,8 @@ Bounded immutable Factor artifact projection is defined in
 [[docs/design/factor-evidence-explorer]].
 Mechanical signal state and attribution are defined in
 [[docs/design/signal-policy-and-attribution]].
+Request-bound position authority is defined in
+[[docs/design/request-bound-portfolio-mandates]].
 Bounded immutable Portfolio artifact projection is defined in
 [[docs/design/portfolio-decision-explorer]].
 Bounded governed RL artifact projection is defined in
@@ -248,6 +253,8 @@ behind the Harness contract, not the owner of Workspace or Project semantics.
 - Factor evidence explorer design:
   [[docs/design/factor-evidence-explorer]]
 - OHLCV Portfolio Lab design: [[docs/design/portfolio-construction-lab]]
+- Request-bound Portfolio Mandate design:
+  [[docs/design/request-bound-portfolio-mandates]]
 - Portfolio decision explorer design:
   [[docs/design/portfolio-decision-explorer]]
 - Research intake and dataset snapshot design:

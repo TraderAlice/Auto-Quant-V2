@@ -13,6 +13,11 @@ from autoquant.intake import (
     load_project_intake,
     prepare_project_intake,
 )
+from autoquant.mandates import (
+    PORTFOLIO_MANDATE,
+    load_portfolio_mandate,
+)
+from autoquant.portfolio_explorer import load_portfolio_diagnostics
 from autoquant.runs import execute_study
 from autoquant.sessions import start_session
 from autoquant.studio import build_studio_snapshot
@@ -79,6 +84,19 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                 self.assertEqual(asset["sourceHash"], hash_file(source))
                 self.assertEqual(asset["normalizedHash"], hash_file(normalized))
             study = load_study(project, PORTFOLIO_STUDY_ID)
+            mandate = load_portfolio_mandate(
+                project.root_dir / PORTFOLIO_MANDATE
+            )
+            self.assertEqual(mandate["source"]["direction"], "long")
+            self.assertEqual(mandate["tradableAssets"], ["AAPL", "MSFT"])
+            self.assertEqual(
+                mandate["contextAssets"],
+                ["NVDA", "QQQ", "SPY"],
+            )
+            self.assertEqual(
+                study.definition.dependencies,
+                {"paths": [PORTFOLIO_MANDATE]},
+            )
             self.assertEqual(study.definition.dataset.universe, intake["dataset"]["universe"])
             self.assertEqual(
                 study.definition.dataset.time_range.start,
@@ -104,6 +122,24 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                 run.result["dataset"]["universe"],
                 list(prepared.universe),
             )
+            self.assertEqual(
+                run.result["metrics"]["portfolio_mandate"],
+                mandate,
+            )
+            diagnostics = load_portfolio_diagnostics(
+                project,
+                run.result["id"],
+            )
+            self.assertEqual(diagnostics["mandate"]["direction"], "long")
+            self.assertEqual(
+                diagnostics["mandate"]["tradableAssets"],
+                ["AAPL", "MSFT"],
+            )
+            for position in diagnostics["currentBook"]["positions"]:
+                if position["asset"] in {"NVDA", "QQQ", "SPY"}:
+                    self.assertFalse(position["tradable"])
+                    self.assertEqual(position["targetWeight"], 0.0)
+                    self.assertEqual(position["allocationStatus"], "context_only")
             session = start_session(
                 project,
                 PORTFOLIO_STUDY_ID,
@@ -143,6 +179,36 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                     run.result["dataset"]["id"],
                     "bounded-us-equities",
                 )
+
+    def test_request_bound_mandate_tampering_invalidates_intake(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            request_path, package_path = write_intake_inputs(root)
+            workspace = initialize_workspace(root / "workspace")
+            prepared = prepare_project_intake(
+                request_path,
+                package_path,
+                "ohlcv-research-desk",
+            )
+            project = create_project(
+                workspace.root_dir,
+                "tamper-desk",
+                template=prepared.template,
+                template_intake=prepared,
+            )
+            mandate_path = project.root_dir / PORTFOLIO_MANDATE
+            mandate = json.loads(mandate_path.read_text(encoding="utf-8"))
+            mandate["tradableAssets"].append("NVDA")
+            mandate_path.write_text(
+                json.dumps(mandate, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "Mandate id is not derived|differs from the normalized request",
+            ):
+                load_project_intake(project)
 
     def test_invalid_intakes_leave_workspace_unchanged(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

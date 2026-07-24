@@ -12,12 +12,14 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from autoquant.mandates import (
+    PORTFOLIO_MANDATE,
+    load_portfolio_mandate,
+)
 from judges.portfolio_core import (
     BASE_COST_BPS,
-    GROSS_TARGET,
     LONG_ENTRY_PERCENTILE,
     LONG_EXIT_PERCENTILE,
-    MAX_ABS_WEIGHT,
     NO_TRADE_ONE_WAY,
     REFERENCE_NAV,
     RISK_COVARIANCE_MINIMUM,
@@ -63,6 +65,17 @@ def _load_contract() -> tuple[dict[str, Any], Path]:
     if not data_root.is_dir():
         raise JudgeFailure("dataset.root", "AUTOQUANT_DATA_ROOT is not a directory")
     return study, data_root
+
+
+def _load_mandate() -> dict[str, Any]:
+    path = Path(os.environ["AUTOQUANT_PROJECT_ROOT"]) / PORTFOLIO_MANDATE
+    try:
+        return load_portfolio_mandate(path)
+    except Exception as error:
+        raise JudgeFailure(
+            "mandate.invalid",
+            f"Invalid fixed Portfolio Mandate: {error}",
+        ) from error
 
 
 def _load_asset(data_root: Path, asset: str, start: str, end: str) -> pd.DataFrame:
@@ -280,6 +293,7 @@ def _evaluate() -> tuple[
     pd.DataFrame,
 ]:
     study, data_root = _load_contract()
+    mandate = _load_mandate()
     dataset = study["dataset"]
     universe = dataset["universe"]
     time_range = dataset["time_range"]
@@ -318,15 +332,24 @@ def _evaluate() -> tuple[
     volume_panel = pd.DataFrame(volumes)
     forward_returns = close_panel.shift(-1) / close_panel - 1.0
     factor_evidence = _daily_factor_evidence(factor_panel, forward_returns)
-    construction = construct_signal_policy(factor_panel, close_panel)
+    construction = construct_signal_policy(
+        factor_panel,
+        close_panel,
+        mandate=mandate,
+    )
     targets = construction.targets
-    audit = constraint_audit(targets)
+    audit = constraint_audit(targets, mandate=mandate)
     if not audit["passed"]:
         raise JudgeFailure(
             "portfolio.constraints",
             "Fixed target construction violated its declared constraints",
         )
-    base = simulate_targets(targets, close_panel, volume_panel)
+    base = simulate_targets(
+        targets,
+        close_panel,
+        volume_panel,
+        mandate=mandate,
+    )
     decision_ledger = build_decision_ledger(
         construction,
         base,
@@ -376,6 +399,7 @@ def _evaluate() -> tuple[
             close_panel,
             volume_panel,
             cost_bps=cost_bps,
+            mandate=mandate,
         )
         key = f"{int(cost_bps)}bps"
         cost_stress[key] = {
@@ -393,6 +417,7 @@ def _evaluate() -> tuple[
         close_panel,
         volume_panel,
         extra_delay=1,
+        mandate=mandate,
     )
     delay_stress = {
         split: performance_metrics(
@@ -409,11 +434,13 @@ def _evaluate() -> tuple[
         close_panel,
         long_exit=LONG_ENTRY_PERCENTILE,
         short_exit=SHORT_ENTRY_PERCENTILE,
+        mandate=mandate,
     )
     no_hysteresis_simulation = simulate_targets(
         no_hysteresis.targets,
         close_panel,
         volume_panel,
+        mandate=mandate,
     )
     hysteresis_comparison: dict[str, Any] = {}
     for split in ("validation", "test"):
@@ -480,6 +507,7 @@ def _evaluate() -> tuple[
     }
     metrics = {
         "validation_net_sharpe": validation_net_sharpe,
+        "portfolio_mandate": mandate,
         "factor": factor_metrics,
         "portfolio": portfolio_metrics,
         "implementation": implementation,
@@ -490,8 +518,8 @@ def _evaluate() -> tuple[
                 "short_exit_percentile": SHORT_EXIT_PERCENTILE,
                 "short_entry_percentile": SHORT_ENTRY_PERCENTILE,
                 "volatility_window": VOLATILITY_WINDOW,
-                "gross_target": GROSS_TARGET,
-                "max_abs_weight": MAX_ABS_WEIGHT,
+                "gross_target": mandate["construction"]["grossLimit"],
+                "max_abs_weight": mandate["construction"]["maxAbsWeight"],
                 "no_trade_one_way": NO_TRADE_ONE_WAY,
             },
             "train": policy_metrics["train"],
@@ -527,6 +555,7 @@ def _evaluate() -> tuple[
             "universe": universe,
             "timeRange": time_range,
         },
+        "portfolioMandate": mandate,
         "semantics": {
             "simulation": "bar-target-weight",
             "decision": "OHLCV and factor known through close t",
@@ -539,11 +568,15 @@ def _evaluate() -> tuple[
                 "long entry/exit 0.75/0.55; short entry/exit 0.25/0.45; "
                 "direct reversal at opposite entry"
             ),
-            "portfolio": "gross 1.0, long +0.5, short -0.5, max abs weight 0.30",
+            "portfolio": (
+                f"{mandate['construction']['family']} over authorized tradable "
+                "assets; gross limit 1.0; max abs weight 0.30; unused "
+                "directional budget remains cash"
+            ),
             "noTrade": "retain drifted book below 0.05 one-way turnover",
             "turnover": "0.5 * sum(abs(trade weight))",
             "cost": "sum(abs(trade weight)) * 10bps",
-            "benchmark": "equal-weight long-only next-bar return",
+            "benchmark": mandate["construction"]["benchmark"],
             "split": (
                 "dataset-fixed chronological 60/20/20 with one-bar "
                 "boundary purge"
@@ -556,8 +589,8 @@ def _evaluate() -> tuple[
         },
         "fixedParameters": {
             "volatilityWindow": VOLATILITY_WINDOW,
-            "grossTarget": GROSS_TARGET,
-            "maxAbsWeight": MAX_ABS_WEIGHT,
+            "grossTarget": mandate["construction"]["grossLimit"],
+            "maxAbsWeight": mandate["construction"]["maxAbsWeight"],
             "noTradeOneWay": NO_TRADE_ONE_WAY,
             "baseCostBps": BASE_COST_BPS,
             "referenceNav": REFERENCE_NAV,

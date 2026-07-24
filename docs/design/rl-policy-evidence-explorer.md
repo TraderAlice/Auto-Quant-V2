@@ -4,6 +4,7 @@ Status: V1 implemented.
 
 Related: [[docs/design/rl-factor-policy-lab]],
 [[docs/design/portfolio-decision-explorer]],
+[[docs/design/request-bound-portfolio-mandates]],
 [[docs/design/session-decision-matrix]], and
 [[docs/design/studio-observation-surface]].
 
@@ -22,6 +23,7 @@ trainer, a policy selector, a backtest implementation, or a trading surface.
 
 The fixed Judge remains the sole authority for states, actions, rewards,
 portfolio accounting, folds, seeds, baselines, and the validation objective.
+The exact Portfolio Mandate is also fixed Judge/Study authority.
 The explorer may:
 
 - verify artifact identity and reconcile redundant evidence;
@@ -67,6 +69,8 @@ The read layer verifies:
 6. fold aggregate and RL-minus-validation-selected-baseline values reconcile
    with their constituent trials;
 7. no duplicate timestamps or undeclared actions/splits occur.
+8. the Run/report/config mandate identities match, the dependency hash is
+   fixed, and every action sleeve passed the same constraint audit.
 
 The first inconsistent field fails the projection with a structured validation
 issue. Studio then shows a Project diagnostic instead of partial RL evidence.
@@ -76,6 +80,8 @@ issue. Studio then shows a Project diagnostic instead of partial RL evidence.
 `aq run rl` returns `autoquant-rl-policy-diagnostics` with:
 
 - immutable Run, dataset, Harness, artifact, and protocol identity;
+- fixed Portfolio Mandate direction, construction, authorized/context-only
+  assets, cash/cap, and benchmark;
 - a headline validation/test audit summary;
 - one row per fold/seed trial;
 - one row per declared baseline and fold;
@@ -102,6 +108,8 @@ The Studio explorer has three views:
 The summary leads with validation advantage versus the best baseline, then
 minimum and dispersion across trials. Raw high Sharpe never visually overrides
 negative value-add evidence.
+The mandate strip is shared with Portfolio so humans can verify that adaptive
+actions answer the same requested position question.
 
 ## Invariants
 
@@ -113,3 +121,5 @@ negative value-add evidence.
 6. Action names describe fixed factor-mixture sleeves, not executable orders.
 7. Corrupt evidence produces diagnostics, never a best-effort chart.
 8. Studio remains read-only and has no trading authority.
+9. RL cannot use a different tradable universe or permitted direction from the
+   Portfolio lane.

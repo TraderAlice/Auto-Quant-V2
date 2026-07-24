@@ -5,6 +5,7 @@ Status: V1 implemented.
 Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]],
 [[docs/design/factor-diagnostics]],
 [[docs/design/portfolio-construction-lab]],
+[[docs/design/request-bound-portfolio-mandates]],
 [[docs/design/rl-factor-policy-lab]],
 [[docs/design/research-selection-integrity]], and
 [[docs/design/quant-research-lifecycle]].
@@ -50,9 +51,16 @@ Exit thresholds create hysteresis:
 - short remains short at score `<= 0.45`, exits above `0.45`, and reverses
   directly to long at `>= 0.75`.
 
-Missing or insufficient cross-sectional evidence resets intent to flat. Every
-asset/date receives one fixed event such as `enter_long`, `hold_short`,
-`exit_long`, `reverse_short_to_long`, `stay_flat`, or
+The fixed Portfolio Mandate limits this state machine:
+
+- `long-cash` uses only long entry/hold/exit events;
+- `short-cash` uses only short entry/hold/exit events;
+- dollar-neutral uses the full two-sided transition set;
+- context-only assets always emit `context_only` and remain flat.
+
+Missing or insufficient cross-sectional evidence resets permitted intent to
+flat. Every tradable asset/date receives one fixed event such as `enter_long`,
+`hold_short`, `exit_long`, `reverse_short_to_long`, `stay_flat`, or
 `unavailable_reset`.
 
 Hysteresis changes signal intent, while the existing portfolio no-trade band
@@ -67,10 +75,14 @@ conviction = 2 * abs(percentile_score - 0.5)
 risk_strength = conviction / trailing_20_bar_volatility
 ```
 
-Long and short strengths are independently water-filled into fixed `+0.5` and
-`-0.5` budgets under the existing `0.30` absolute asset cap. If either side
-lacks sufficient breadth to fund its budget, the proposed portfolio is flat
-and the allocation status records the reason.
+Dollar-neutral long and short strengths are independently water-filled into
+fixed `+0.5` and `-0.5` budgets under the `0.30` absolute asset cap. If either
+side lacks sufficient breadth to fund its budget, the proposed portfolio is
+flat and the allocation status records the reason.
+
+Directional strengths are water-filled up to gross `1.0` on the permitted
+side under the same cap. Unused capacity remains cash; it never creates the
+opposite side. Context-only assets receive zero strength and target.
 
 This is inverse-volatility conviction sizing under diagonal risk assumptions,
 not covariance optimization or equal risk contribution. The ledger discloses
@@ -89,6 +101,8 @@ book with the proposed target:
 Each asset/date ledger row contains:
 
 - factor value, percentile, prior/new signal state, and signal event;
+- mandate id, tradability, permitted construction family, and allocation
+  status;
 - conviction, volatility, risk strength, allocation status, and proposed
   target;
 - drifted pre-trade weight, executed weight, trade, target action, execution
@@ -161,7 +175,8 @@ long backtest.
 2. Dataset-fixed split boundaries and one-bar purge are candidate-independent.
 3. Every asset/date has one explicit signal event and allocation status.
 4. Signal hysteresis and portfolio no-trade execution remain separate.
-5. Proposed targets obey gross, net, side-budget, and asset-cap rules.
+5. Proposed targets obey the mandate's tradable set, permitted sign, cash,
+   gross/net, side-budget, and asset-cap rules.
 6. Every executed trade and contribution reconciles exactly to portfolio
    accounting.
 7. Risk attribution uses only trailing information available at the decision

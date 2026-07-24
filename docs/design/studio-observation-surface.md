@@ -3,9 +3,10 @@
 Status: V1 implemented.
 
 Related: [[docs/ARCHITECTURE]], [[docs/CLI]], [[docs/PROJECT_FORMAT]],
-[[docs/design/agent-cli-contract]], [[docs/design/research-session-loop]], and
+[[docs/design/agent-cli-contract]], [[docs/design/research-session-loop]],
 [[docs/design/external-researcher-driver]],
-[[docs/design/research-intake-and-dataset-snapshots]], and
+[[docs/design/research-intake-and-dataset-snapshots]],
+[[docs/design/request-bound-portfolio-mandates]], and
 [[docs/design/quant-research-lifecycle]].
 
 ## Scope
@@ -53,6 +54,8 @@ identity when present, and ordered Project observations. Each Project contains:
   Session-start command when present;
 - latest verified baseline decision metrics, with selection versus visible
   audit/stress roles preserved rather than collapsed into one score;
+- verified Portfolio Mandate direction, construction, authorized/context-only
+  assets, cash/cap, benchmark, and fixed identity when available;
 - latest verified governed RL baseline, fold/seed, training, action, and
   implementation projection when available;
 - verified Study and Run summaries;
@@ -156,6 +159,11 @@ baseline, validation split, or Judge outcome. An unbound collaboration handoff
 is compact, while a caller-bound intake or delegated Session retains the full
 request → evidence → report surface.
 
+Selecting an evidence lane also selects that lane's latest Session in the
+Inspector so the visible Run, Report, and Session remain semantically aligned.
+The Portfolio and RL explorers disclose the same fixed mandate. Context-only
+assets are visibly distinct and may never appear as current positions.
+
 For a request-driven canonical Program, the collaboration surface composes no
 evidence in the browser. Core supplies Dossier readiness, lane Report
 currentness, explicit optional omissions, blockers, latest immutable summary,
@@ -179,6 +187,8 @@ to a single-lane Report.
    a pass, rejection, KEEP, or promotion verdict.
 10. Evidence-lane selection hides presentation detail only; every claim still
     comes from the same Core-projected snapshot.
+11. Evidence lane and Inspector Session stay aligned; browser selection cannot
+    combine one lane's explorer with another lane's Report.
 
 ## Known gaps
 

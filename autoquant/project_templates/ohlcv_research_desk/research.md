@@ -8,8 +8,9 @@ changing Project, request, universe, or dataset:
 1. **Factor quality** — test whether a causal cross-sectional signal predicts
    forward returns across horizons, folds, regimes, assets, and style overlap.
 2. **Portfolio quality** — test whether the same `factors/candidate.py`
-   survives mechanical signal state, sizing, constraints, drift, costs, risk,
-   and attribution.
+   survives the request-bound tradable/context universe, direction, cash,
+   mechanical signal state, sizing, constraints, drift, costs, risk, and
+   attribution.
 3. **Governed RL policy** — bind the current candidate factor as a read-only
    sleeve and test whether a bounded adaptive state encoder adds value beyond
    that factor and fixed/contextual policies across every declared fold and
@@ -37,10 +38,13 @@ after costs; a portfolio can be mechanically sound without proving a raw
 factor claim; an RL policy can have high absolute Sharpe yet add no value over
 a simple baseline.
 
-The RL lane content-locks the current `factors/candidate.py` bytes when its
-Study is loaded. Promoting a different factor makes prior RL evidence stale;
-create fresh RL evidence or start a new RL Session. Factor writers and active
-RL readers are surfaced as a concurrency conflict.
+Portfolio and RL bind the same fixed
+`strategies/portfolio-mandate.json`; neither lane may turn context assets into
+implicit positions or learn around the requested direction. The RL lane also
+content-locks the current `factors/candidate.py` bytes. Promoting a different
+factor makes prior RL evidence stale; create fresh RL evidence or start a new
+RL Session. Factor writers and active RL readers are surfaced as a
+concurrency conflict.
 
 AutoQuant produces quantitative decision support only. Target weights,
 historical actions, and Reports are not Broker orders, account state, or

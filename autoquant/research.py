@@ -7,6 +7,7 @@ import math
 import os
 import re
 import shutil
+import signal
 import subprocess
 import time
 import uuid
@@ -354,23 +355,33 @@ def _invoke_researcher(
     stdout = ""
     stderr = ""
     try:
-        completed = subprocess.run(
+        process = subprocess.Popen(
             ["/bin/sh", "-lc", command],
             cwd=session.worktree_project.root_dir,
             env=environment,
-            input=json.dumps(brief, ensure_ascii=False),
-            capture_output=True,
-            check=False,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
-            timeout=max(0.001, timeout_seconds),
+            start_new_session=True,
         )
-        exit_code = completed.returncode
-        stdout = completed.stdout
-        stderr = completed.stderr
-    except subprocess.TimeoutExpired as error:
-        timed_out = True
-        stdout = _text(error.stdout)
-        stderr = _text(error.stderr)
+        try:
+            stdout, stderr = process.communicate(
+                json.dumps(brief, ensure_ascii=False),
+                timeout=max(0.001, timeout_seconds),
+            )
+            exit_code = process.returncode
+        except subprocess.TimeoutExpired as error:
+            timed_out = True
+            stdout = _text(error.stdout)
+            stderr = _text(error.stderr)
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            final_stdout, final_stderr = process.communicate()
+            stdout = final_stdout or stdout
+            stderr = final_stderr or stderr
     except OSError as error:
         stderr = str(error)
     stdout, stdout_truncated = _bounded_output(stdout)

@@ -587,6 +587,28 @@ def _current_lane_report(
     return session, current_report, leader_run, blockers
 
 
+def _factor_dependency_hash(result: dict[str, Any]) -> str | None:
+    dependencies = result.get("dependencies")
+    source_hashes = (
+        dependencies.get("sourceHashes")
+        if isinstance(dependencies, dict)
+        else None
+    )
+    if not isinstance(source_hashes, dict):
+        return None
+    factor_hashes = {
+        path: content_hash
+        for path, content_hash in source_hashes.items()
+        if path.startswith("factors/")
+    }
+    return hash_json(factor_hashes) if factor_hashes else None
+
+
+def _portfolio_mandate_id(result: dict[str, Any]) -> str | None:
+    mandate = result.get("metrics", {}).get("portfolio_mandate")
+    return mandate.get("id") if isinstance(mandate, dict) else None
+
+
 def _readiness(
     project: ProjectContext,
 ) -> tuple[dict[str, Any], dict[str, Any] | None, dict[str, Any]]:
@@ -652,6 +674,12 @@ def _readiness(
                         if isinstance(leader_run.result.get("dependencies"), dict)
                         else None
                     ),
+                    "factorDependencyHash": _factor_dependency_hash(
+                        leader_run.result
+                    ),
+                    "portfolioMandateId": _portfolio_mandate_id(
+                        leader_run.result
+                    ),
                     "datasetHash": leader_run.result["dataset"]["hash"],
                     "objective": leader_run.result["objective"],
                 }
@@ -686,7 +714,7 @@ def _readiness(
         and rl
         and factor["status"] == "ready"
         and rl["status"] == "ready"
-        and rl["leaderRun"]["dependencyHash"]
+        and rl["leaderRun"]["factorDependencyHash"]
         != factor["leaderRun"]["sourceHash"]
     ):
         rl["status"] = "omitted"
@@ -694,6 +722,22 @@ def _readiness(
             _blocker(
                 "dossier.rl-dependency-mismatch",
                 "RL Report does not pin the included Factor Report source",
+                "rl",
+            )
+        )
+    if (
+        portfolio
+        and rl
+        and portfolio["status"] == "ready"
+        and rl["status"] == "ready"
+        and portfolio["leaderRun"]["portfolioMandateId"]
+        != rl["leaderRun"]["portfolioMandateId"]
+    ):
+        rl["status"] = "omitted"
+        rl["blockers"].append(
+            _blocker(
+                "dossier.portfolio-mandate-mismatch",
+                "RL Report does not use the included Portfolio Report mandate",
                 "rl",
             )
         )
@@ -1036,6 +1080,39 @@ def _render_markdown(dossier: dict[str, Any]) -> str:
             f"{integrity['candidateTrials']} trials; "
             f"holdout required={integrity['externalHoldoutRequired']} |"
         )
+    mandates: dict[str, dict[str, Any]] = {}
+    for lane in evidence["lanes"]:
+        mandate = lane["leaderRun"]["metrics"].get("portfolio_mandate")
+        if isinstance(mandate, dict) and isinstance(mandate.get("id"), str):
+            mandates[mandate["id"]] = mandate
+    if mandates:
+        lines.extend(["", "## Portfolio mandate", ""])
+        for mandate in mandates.values():
+            construction = mandate["construction"]
+            lines.extend(
+                [
+                    f"- Mandate: `{mandate['id']}`",
+                    f"- Direction / construction: "
+                    f"`{mandate['source']['direction']}` / "
+                    f"`{construction['family']}`",
+                    "- Authorized positions: "
+                    + ", ".join(f"`{item}`" for item in mandate["tradableAssets"]),
+                    "- Context-only assets: "
+                    + (
+                        ", ".join(
+                            f"`{item}`" for item in mandate["contextAssets"]
+                        )
+                        if mandate["contextAssets"]
+                        else "none"
+                    ),
+                    f"- Gross limit / per-asset cap / cash: "
+                    f"`{construction['grossLimit']}` / "
+                    f"`{construction['maxAbsWeight']}` / "
+                    f"`{construction['cashAllowed']}`",
+                    f"- Benchmark: `{construction['benchmark']}`",
+                    "",
+                ]
+            )
     lines.extend(["", "## Lane summaries", ""])
     for lane in evidence["lanes"]:
         lines.extend(

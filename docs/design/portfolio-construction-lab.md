@@ -4,6 +4,7 @@ Status: V2 implemented.
 
 Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]],
 [[docs/design/study-run-evidence]], [[docs/design/ohlcv-factor-lab]],
+[[docs/design/request-bound-portfolio-mandates]],
 [[docs/design/signal-policy-and-attribution]], and
 [[docs/design/quant-research-lifecycle]].
 
@@ -36,7 +37,8 @@ The fixed Judge owns:
 - next-bar close-to-close targets and returns;
 - cross-sectional percentile entry/hold/exit/reversal state;
 - conviction and trailing inverse-volatility risk sizing;
-- long/short budgets, gross/net targets, and per-asset caps;
+- the fixed request-derived tradable/context universe, permitted direction,
+  cash, gross/net rules, benchmark, and per-asset cap;
 - no-trade tolerance, drift, turnover, costs, and volume participation;
 - dataset-fixed purged chronological splits, benchmark, metrics, contribution
   attribution, stresses, and primary score.
@@ -50,11 +52,11 @@ For decision date `t`:
 ```text
 OHLCV known through close t
 → candidate factor(t) and cross-sectional percentile
-→ fixed entry/hold/exit/reversal signal intent
+→ request-permitted entry/hold/exit signal intent
 → conviction divided by trailing 20-bar realized volatility known at t
-→ allocate +0.5 long and -0.5 short
-→ cap each absolute target weight at 0.30
-→ proposed gross 1.0 / net 0.0 target
+→ allocate long/cash, short/cash, or +0.5/-0.5 dollar-neutral budget
+→ cap each absolute target weight at 0.30; unused directional budget is cash
+→ context-only assets remain flat with zero target
 → compare with the prior book drifted through return t
 → retain the drifted book when one-way turnover is below 0.05
 → otherwise rebalance at close t
@@ -64,11 +66,13 @@ OHLCV known through close t
 This is a `bar-target-weight simulation`. It does not claim a particular
 intraday fill, queue priority, spread path, or order type.
 
-The allocator treats positive and negative scores separately. Each side uses
-proportional water-filling of active intent strength under its cap. If either
-side lacks enough valid cross-sectional breadth to fund the declared budget,
-the target is flat rather than silently changing net exposure. Exact state,
-threshold, conviction, risk-strength, and allocation semantics are
+The request-derived Portfolio Mandate decides which assets and signs may
+become positions. Directional families water-fill permitted active strength
+up to the gross limit and retain unused budget in cash. Dollar-neutral
+families treat positive and negative scores separately and require both
+`+0.5/-0.5` sides to fund exactly; otherwise the target is flat rather than
+silently changing net exposure. Exact state, threshold, conviction,
+risk-strength, and allocation semantics are
 [[docs/design/signal-policy-and-attribution]].
 
 ## Drift, turnover, costs, and participation
@@ -133,10 +137,16 @@ claim. See [[docs/design/research-selection-integrity]].
 
 ## Benchmark
 
-The fixed reference benchmark is equal-weight long-only over assets with valid
-next-bar returns. It is not a tradable recommendation. Beta, active return,
-tracking error, and information ratio use the exact same chronological dates
-as the evaluated portfolio.
+The fixed benchmark follows the Portfolio Mandate:
+
+- long: equal-weight long requested/tradable assets;
+- short: equal-weight short requested/tradable assets;
+- long-short and relative-value: cash;
+- synthetic research-only: equal-weight long research universe.
+
+It is not a tradable recommendation. Beta, active return, tracking error, and
+information ratio use the exact same chronological dates as the evaluated
+portfolio.
 
 ## Artifacts
 
@@ -145,11 +155,12 @@ Every successful Run declares:
 - `portfolio-report.json`: assumptions, split metrics, stresses, per-asset
   contribution, constraint audit, and causality cuts;
 - `daily-portfolio.csv`: gross/net/benchmark returns, turnover, cost,
-  exposures, rebalance state, and participation;
+  exposures, unused cash budget, rebalance state, and participation;
 - `proposed-target-weights.csv`: exact state-policy targets;
 - `executed-weights.csv`: exact post-band per-date asset weights;
-- `portfolio-decisions.csv`: exact signal intent, sizing, execution, return,
-  cost, regime, and component-risk ledger.
+- `portfolio-decisions.csv`: exact mandate id, tradability, permitted
+  direction, signal intent, sizing, execution, return, cost, regime, and
+  component-risk ledger.
 
 RunResult remains the immutable authority for artifact identities.
 
@@ -165,8 +176,8 @@ reconciled before display sampling; the browser never reads artifact paths.
 3. Candidate code never controls targets, costs, benchmark, splits, metrics, or
    score.
 4. Every asset/date has an explicit signal event and allocation status.
-5. Long and short budgets, gross/net exposure, and caps are explicit and
-   audited.
+5. Tradable/context assets, direction, cash, gross/net exposure, benchmark,
+   and caps are explicit and audited.
 6. Turnover and cost conventions are reported separately.
 7. Aggregate performance retains split, per-asset, implementation, attribution,
    and stress
@@ -190,8 +201,8 @@ reconciled before display sampling; the browser never reads artifact paths.
 
 ## Known gaps
 
-- V2 has one fixed dollar-neutral state policy, not long-only or configurable
-  portfolio families.
+- V2 has fixed request-mapped long/cash, short/cash, and dollar-neutral
+  families, not arbitrary optimizer constraints or a strategy DSL.
 - Costs are linear and participation is a proxy; spread, impact, borrow,
   funding, and futures margin are absent.
 - Corporate actions, calendar metadata, and production price adjustments

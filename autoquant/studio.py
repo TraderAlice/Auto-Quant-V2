@@ -309,6 +309,25 @@ def _portfolio_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
     try:
         layers = {
             "kind": "portfolio",
+            "mandate": (
+                {
+                    "id": metrics["portfolio_mandate"]["id"],
+                    "direction": metrics["portfolio_mandate"]["source"][
+                        "direction"
+                    ],
+                    "family": metrics["portfolio_mandate"]["construction"][
+                        "family"
+                    ],
+                    "tradableAssets": metrics["portfolio_mandate"][
+                        "tradableAssets"
+                    ],
+                    "contextAssets": metrics["portfolio_mandate"][
+                        "contextAssets"
+                    ],
+                }
+                if isinstance(metrics.get("portfolio_mandate"), dict)
+                else None
+            ),
             "factor": {
                 "validationRankIc": metrics["factor"]["validation"]["mean_rank_ic"],
                 "testRankIc": metrics["factor"]["test"]["mean_rank_ic"],
@@ -521,6 +540,25 @@ def _rl_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
         comparison = metrics["comparison"]
         return {
             "kind": "rl-policy",
+            "mandate": (
+                {
+                    "id": metrics["portfolio_mandate"]["id"],
+                    "direction": metrics["portfolio_mandate"]["source"][
+                        "direction"
+                    ],
+                    "family": metrics["portfolio_mandate"]["construction"][
+                        "family"
+                    ],
+                    "tradableAssets": metrics["portfolio_mandate"][
+                        "tradableAssets"
+                    ],
+                    "contextAssets": metrics["portfolio_mandate"][
+                        "contextAssets"
+                    ],
+                }
+                if isinstance(metrics.get("portfolio_mandate"), dict)
+                else None
+            ),
             "validationMeanNetSharpe": metrics[
                 "validation_mean_net_sharpe"
             ],
@@ -1126,6 +1164,8 @@ def _handler(
                     b"Not found\n",
                     head_only=head_only,
                 )
+            except (BrokenPipeError, ConnectionResetError):
+                return
             except Exception as error:
                 status, payload = _error_payload(error)
                 body = json.dumps(

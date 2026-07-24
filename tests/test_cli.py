@@ -363,6 +363,7 @@ class AgentCliTests(unittest.TestCase):
                 "session-decision-matrix",
                 "session",
                 "session-completion",
+                "portfolio-mandate",
                 "experiment",
                 "researcher-response",
                 "campaign-result",
@@ -497,6 +498,22 @@ class AgentCliTests(unittest.TestCase):
                 "kind"
             ]["const"],
             "autoquant-session-completion",
+        )
+        mandate_schema = run_cli(
+            "schema",
+            "portfolio-mandate",
+            "--json",
+        )
+        self.assertEqual(
+            mandate_schema.returncode,
+            0,
+            mandate_schema.stderr,
+        )
+        self.assertEqual(
+            json_output(mandate_schema)["data"]["schema"]["properties"][
+                "kind"
+            ]["const"],
+            "autoquant-portfolio-mandate",
         )
 
     def test_cli_intakes_request_and_dataset_into_ready_project(self) -> None:

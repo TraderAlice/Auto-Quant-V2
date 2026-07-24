@@ -10,6 +10,10 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
+from .mandates import (
+    PORTFOLIO_MANDATE,
+    validate_portfolio_mandate,
+)
 from .runs import RunContext, load_run
 from .workspace import (
     SCHEMA_VERSION,
@@ -1065,7 +1069,7 @@ def load_rl_diagnostics(
     dependencies = run.result.get("dependencies")
     if has_candidate_fusion and (
         not isinstance(dependencies, dict)
-        or dependencies.get("paths") != ["factors/**"]
+        or "factors/**" not in dependencies.get("paths", [])
         or not isinstance(dependencies.get("hash"), str)
         or not isinstance(dependencies.get("sourceHashes"), dict)
         or "factors/candidate.py" not in dependencies["sourceHashes"]
@@ -1075,6 +1079,86 @@ def load_rl_diagnostics(
             "rl.factor-dependency",
             "RL Run must bind the exact content-locked candidate factor source",
         )
+    raw_mandate = metrics.get("portfolio_mandate")
+    report_mandate = report.get("portfolioMandate")
+    if raw_mandate is None and report_mandate is None:
+        mandate_projection = {
+            "available": False,
+            "id": None,
+            "sha256": None,
+            "sourceKind": "legacy-implicit",
+            "requestHash": None,
+            "direction": "research-only",
+            "family": "dollar-neutral",
+            "researchUniverse": run.result["dataset"]["universe"],
+            "tradableAssets": run.result["dataset"]["universe"],
+            "contextAssets": [],
+            "grossLimit": 1.0,
+            "maxAbsWeight": 0.30,
+            "cashAllowed": True,
+            "shortAllowed": True,
+            "benchmark": "equal-weight-long-research-universe",
+        }
+    else:
+        if not isinstance(raw_mandate, dict) or not isinstance(
+            report_mandate,
+            dict,
+        ):
+            _fail(
+                "RunResult/metrics/portfolio_mandate",
+                "rl.portfolio-mandate",
+                "RL Portfolio Mandate must exist in metrics and report",
+            )
+        mandate = validate_portfolio_mandate(
+            raw_mandate,
+            "RunResult/metrics/portfolio_mandate",
+        )
+        if (
+            report_mandate != mandate
+            or mandate["researchUniverse"]
+            != run.result["dataset"]["universe"]
+            or configuration.get("portfolioMandateId") != mandate["id"]
+        ):
+            _fail(
+                "RunResult/metrics/portfolio_mandate",
+                "rl.portfolio-mandate",
+                "RL Portfolio Mandate does not reconcile report, dataset, and configuration",
+            )
+        source_hashes = (
+            dependencies.get("sourceHashes")
+            if isinstance(dependencies, dict)
+            else None
+        )
+        mandate_hash = (
+            source_hashes.get(PORTFOLIO_MANDATE)
+            if isinstance(source_hashes, dict)
+            else None
+        )
+        if not isinstance(mandate_hash, str):
+            _fail(
+                "RunResult/dependencies/sourceHashes",
+                "rl.portfolio-mandate-dependency",
+                "RL Run does not bind the fixed Portfolio Mandate",
+            )
+        source = mandate["source"]
+        construction = mandate["construction"]
+        mandate_projection = {
+            "available": True,
+            "id": mandate["id"],
+            "sha256": mandate_hash,
+            "sourceKind": source["kind"],
+            "requestHash": source["requestHash"],
+            "direction": source["direction"],
+            "family": construction["family"],
+            "researchUniverse": mandate["researchUniverse"],
+            "tradableAssets": mandate["tradableAssets"],
+            "contextAssets": mandate["contextAssets"],
+            "grossLimit": construction["grossLimit"],
+            "maxAbsWeight": construction["maxAbsWeight"],
+            "cashAllowed": construction["cashAllowed"],
+            "shortAllowed": construction["shortAllowed"],
+            "benchmark": construction["benchmark"],
+        }
     mean_validation_turnover = sum(
         item["validation"]["meanOneWayTurnover"] for item in trials
     ) / len(trials)
@@ -1112,6 +1196,7 @@ def load_rl_diagnostics(
         },
         "harness": run.result["harness"],
         "artifacts": artifacts,
+        "portfolioMandate": mandate_projection,
         "protocol": {
             "selectionSplit": "validation",
             "testRole": "visible-diagnostic",
@@ -1175,8 +1260,8 @@ def load_rl_diagnostics(
                 "fixed validation-selected baseline. Test is visible audit "
                 "evidence only; repeated inspection consumes holdout value. "
                 "The candidate sleeve is an exact content-locked Study "
-                "dependency; all actions are research factor sleeves and "
-                "carry no trading authority."
+                "dependency. Every action sleeve shares the exact fixed "
+                "Portfolio Mandate; all actions carry no trading authority."
             )
             if has_candidate_fusion
             else (
@@ -1201,6 +1286,7 @@ RL_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "dataset",
         "harness",
         "artifacts",
+        "portfolioMandate",
         "protocol",
         "summary",
         "factorFusion",
@@ -1219,6 +1305,7 @@ RL_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "dataset": {"type": "object"},
         "harness": {"type": "object"},
         "artifacts": {"type": "object"},
+        "portfolioMandate": {"type": "object"},
         "protocol": {"type": "object"},
         "summary": {"type": "object"},
         "factorFusion": {"type": "object"},

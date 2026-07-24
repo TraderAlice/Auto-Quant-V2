@@ -47,7 +47,8 @@ The first viewport prioritizes:
   attribution reconciliation, turnover, and cost stress;
 - the latest successful Portfolio Run's verified full-history growth,
   drawdown, exposure, turnover/cost path, current historical target/executed
-  book, recent mechanical transitions, and validation/test attribution;
+  book, recent mechanical transitions, validation/test attribution, and exact
+  request-derived position mandate;
 - RL Run summaries for validation/test audit Sharpe, seed/fold dispersion,
   simple-baseline advantage, failure rate, and fold × seed coverage;
 - a bounded Session decision matrix comparing baseline, recent candidates, and
@@ -88,6 +89,13 @@ diagnostic and does not enter selection. The latest book is historical
 research state, not account holdings or an instruction to trade. Use
 `aq run portfolio <path> --run ID --points N --json` for a specific historical
 Run or a different bounded point count.
+
+For request-driven Portfolio evidence, the mandate strip distinguishes the
+research universe from assets authorized as positions. It shows direction,
+long/cash, short/cash, or dollar-neutral family, gross/cap, benchmark, and
+locked identity. Context-only assets remain in factor/risk evidence but are
+dimmed in the book and always have zero target. The reported cash field is
+unused research gross budget, not Broker account balance.
 
 The Session Decision Matrix is also a Core projection. It verifies the
 immutable Session/Experiment/Run chain, then compares a bounded set of
@@ -142,6 +150,11 @@ signs remain descriptive and are never treated as browser-authored acceptance
 or promotion decisions. The recommended next lane and command are projected by
 Core.
 
+Selecting Factor, Portfolio, or Adaptive Policy evidence also aligns the
+Inspector to that lane's latest Session and Report. This prevents a Portfolio
+chart from appearing beside RL Session authority while preserving the
+Project-level Dossier handoff above it.
+
 For a request-driven Project with no Session, the handoff board shows
 `research mandate → dataset → immutable baseline → iterate`. The hero promotes
 the latest verified Run's decision metrics over generic object counts, and the
@@ -163,6 +176,7 @@ aq schema studio-snapshot --json
 aq schema campaign-progress --json
 aq schema factor-diagnostics --json
 aq schema portfolio-diagnostics --json
+aq schema portfolio-mandate --json
 aq schema rl-policy-diagnostics --json
 aq schema research-program-status --json
 aq schema dossier-status --json

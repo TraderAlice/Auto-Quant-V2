@@ -448,6 +448,10 @@ class OhlcvPortfolioLabTests(unittest.TestCase):
             workspace, project = make_portfolio_lab(directory)
             study = load_study(project, PORTFOLIO_STUDY_ID)
             self.assertEqual(study.definition.editable["paths"], ["factors/**"])
+            self.assertEqual(
+                study.definition.dependencies,
+                {"paths": ["strategies/portfolio-mandate.json"]},
+            )
             self.assertEqual(study.definition.judge.paths, ["judges/**"])
             self.assertEqual(study.definition.judge.timeout_seconds, 60)
             self.assertEqual(len(study.dataset_hashes), 7)
@@ -467,6 +471,10 @@ class OhlcvPortfolioLabTests(unittest.TestCase):
             self.assertIn("signal_policy", metrics)
             self.assertIn("attribution", metrics)
             self.assertIn("robustness", metrics)
+            self.assertEqual(
+                metrics["portfolio_mandate"]["construction"]["family"],
+                "dollar-neutral",
+            )
             self.assertTrue(metrics["constraint_audit"]["passed"])
             self.assertFalse(metrics["split_protocol"]["candidateDependent"])
             self.assertFalse(
