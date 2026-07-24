@@ -13,7 +13,7 @@ from autoquant.research_program import (
     load_research_program,
 )
 from autoquant.runs import execute_study
-from autoquant.sessions import start_session
+from autoquant.sessions import evaluate_experiment, start_session
 from autoquant.studio import build_studio_snapshot
 from autoquant.studies import hash_json, load_study
 from autoquant.templates import (
@@ -26,6 +26,59 @@ from tests.intake_helpers import write_intake_inputs
 
 
 class MultiStudyResearchProgramTests(unittest.TestCase):
+    def test_reverted_candidate_does_not_replace_current_lane_evidence(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            request_path, package_path = write_intake_inputs(root)
+            workspace = initialize_workspace(root / "workspace", name="Quant Desk")
+            prepared = prepare_project_intake(
+                request_path,
+                package_path,
+                "ohlcv-research-desk",
+            )
+            project = create_project(
+                workspace.root_dir,
+                "revert-aware-desk",
+                name=prepared.request["title"],
+                description=prepared.request["question"],
+                template=prepared.template,
+                template_intake=prepared,
+            )
+            session = start_session(project, OHLCV_STUDY_ID)
+            baseline_id = session.manifest["baseline"]["runId"]
+            candidate = (
+                session.worktree_project.root_dir
+                / "factors"
+                / "candidate.py"
+            )
+            candidate.write_text(
+                "from __future__ import annotations\n\n"
+                "import pandas as pd\n\n"
+                "def compute_factor(frame: pd.DataFrame) -> pd.Series:\n"
+                "    return -frame[\"close\"].pct_change(10)\n",
+                encoding="utf-8",
+            )
+            rejected = evaluate_experiment(
+                project,
+                session.manifest["id"],
+                "Reverse a positive baseline to produce a rejected attempt.",
+            )
+            self.assertEqual(rejected.result["verdict"], "REVERT")
+
+            status = load_research_program(project)
+            assert status is not None
+            factor = status["lanes"][0]
+
+            self.assertTrue(factor["currentRun"])
+            self.assertEqual(factor["phase"], "researching")
+            self.assertEqual(factor["latestRun"]["id"], baseline_id)
+            self.assertNotEqual(
+                factor["latestRun"]["id"],
+                rejected.result["candidate"]["runId"],
+            )
+
     def test_one_intake_coordinates_factor_portfolio_and_rl_evidence(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

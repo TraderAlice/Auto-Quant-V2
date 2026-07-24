@@ -97,8 +97,9 @@ writer-reader conflict: finish promotion, then start a fresh RL Session.
 - declared editable paths;
 - declared dependency paths, exact Factor-source/RL-factor-subset equality,
   and shared Portfolio/RL mandate identity;
-- latest immutable Run and whether its `studyInputHash` still matches current
-  Project source;
+- most recent successful immutable Run whose `studyInputHash` matches current
+  Project source, falling back to the latest attempt only when no current
+  evidence exists;
 - latest Session, experiment count, leader, and active state;
 - immutable Reports for that Session;
 - shared writer/writer and writer/reader concurrency conflicts.
@@ -109,9 +110,13 @@ Each lane is projected as:
 - `baseline-ready`: current immutable Run exists, no Session;
 - `researching`: an active Session exists;
 - `reported`: the latest Session has an immutable Report;
-- `stale`: the latest Project Run no longer matches current Study input.
+- `stale`: Project Runs exist, but no successful Run matches current Study
+  input.
 
 These are coordination states, not scientific verdicts.
+Candidate Runs remain immutable search history, but a REVERT/CRASH can never
+replace the lane's current evidence or headline metric merely because it was
+executed later.
 
 ## Next actions
 
@@ -135,6 +140,7 @@ the identical object through CLI JSON.
 3. Factor and Portfolio share source intentionally and cannot be researched
    concurrently without an explicit conflict.
 4. Currentness is an exact hash comparison, never a timestamp guess.
+   Rejected candidate recency cannot override matching canonical evidence.
 5. Downstream evidence never retroactively changes an upstream Run.
 6. Report readiness is not trading approval.
 7. RL consumes only the exact content-locked candidate source declared by its

@@ -265,11 +265,20 @@ def _lane_state(
             f"{lane['id']} Study dependency paths differ from program declaration",
         )
     run_summaries = list_runs(project, lane["studyId"])
-    latest_run = (
-        _run_summary(project, run_summaries[-1].id)
-        if run_summaries
-        else None
-    )
+    latest_run = None
+    latest_attempt = None
+    for summary in reversed(run_summaries):
+        candidate = _run_summary(project, summary.id)
+        if latest_attempt is None:
+            latest_attempt = candidate
+        if (
+            candidate["status"] == "succeeded"
+            and candidate["studyInputHash"] == study.input_hash
+        ):
+            latest_run = candidate
+            break
+    if latest_run is None:
+        latest_run = latest_attempt
     sessions = [
         item
         for item in list_sessions(project)
@@ -282,6 +291,7 @@ def _lane_state(
         reports = [item.to_dict() for item in list_reports(project, session)]
     current_run = (
         latest_run is not None
+        and latest_run["status"] == "succeeded"
         and latest_run["studyInputHash"] == study.input_hash
     )
     if latest_run is not None and not current_run:
