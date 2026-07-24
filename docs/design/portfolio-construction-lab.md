@@ -207,5 +207,6 @@ reconciled before display sampling; the browser never reads artifact paths.
   funding, and futures margin are absent.
 - Corporate actions, calendar metadata, and production price adjustments
   remain outside the synthetic fixture.
-- Parameter-neighborhood and selection-adjusted statistics are not yet
-  automated.
+- Parameter-neighborhood surfaces are not automated. Project-wide unique
+  strategy search is disclosed through PSR/DSR, but correlated parameter-grid
+  effective trial count and PBO require richer predeclared evidence.

@@ -17,7 +17,12 @@ from autoquant.project_templates.ohlcv_rl_factor_lab.rl_core import (
 )
 from autoquant.research import run_campaign
 from autoquant.runs import execute_study
-from autoquant.sessions import evaluate_experiment, start_session
+from autoquant.sessions import (
+    evaluate_experiment,
+    load_session,
+    session_snapshot,
+    start_session,
+)
 from autoquant.studio import build_studio_snapshot
 from autoquant.studies import load_study
 from autoquant.templates import RL_STUDY_ID
@@ -267,6 +272,22 @@ print(json.dumps({{
                     run["metricLayers"]["kind"] == "rl-policy"
                     for run in observed["runs"]
                 )
+            )
+            integrity = session_snapshot(
+                project,
+                load_session(project, session.manifest["id"]),
+            )["selectionIntegrity"]
+            self.assertEqual(
+                integrity["researchFamily"]["uniqueSourceTrials"],
+                2,
+            )
+            self.assertEqual(
+                integrity["selectionAdjustment"]["status"],
+                "unsupported",
+            )
+            self.assertEqual(
+                integrity["selectionAdjustment"]["reason"],
+                "aggregate-dependent-fold-seed-objective",
             )
 
             candidate = (

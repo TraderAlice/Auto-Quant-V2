@@ -230,3 +230,6 @@ failed seed.
 - Reward has a local quadratic risk penalty but no path-dependent drawdown,
   borrow, funding, or nonlinear impact term.
 - Statistical confidence remains limited by two small folds and three seeds.
+  Core records the complete research-family trial count but deliberately marks
+  single-path DSR unsupported because the objective aggregates dependent
+  fold/seed paths.

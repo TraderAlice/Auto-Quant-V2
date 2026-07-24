@@ -75,6 +75,12 @@ added value.
 Any failed declared seed/fold fails the complete Run; successful seeds are
 never averaged after silently dropping a failed trial.
 
+Core counts unique encoder sources across the complete fixed-evaluation
+Project family. It does not assign this fold/seed aggregate a single-path DSR:
+the expanding folds and repeated seeds are dependent evidence, not one longer
+return history. Treat the explicit unsupported reason as statistical honesty,
+while continuing to inspect baseline advantage, dispersion, and failures.
+
 Test-fold evidence never enters the objective. Repeatedly editing after reading
 it consumes its holdout value; disclose that fact and obtain a new external
 holdout before making a production claim.

@@ -1073,12 +1073,25 @@ def _render_markdown(dossier: dict[str, Any]) -> str:
     ]
     for lane in evidence["lanes"]:
         integrity = lane["report"]["selectionIntegrity"]
+        family = integrity.get("researchFamily")
+        adjustment = integrity.get("selectionAdjustment")
+        family_summary = (
+            f"; family={family['uniqueSourceTrials']} unique"
+            if isinstance(family, dict)
+            else ""
+        )
+        adjustment_summary = (
+            f"; adjusted pass={adjustment['passes']}"
+            if isinstance(adjustment, dict)
+            else ""
+        )
         lines.append(
             f"| {lane['name']} | `{lane['study']['id']}` | "
             f"`{lane['report']['id']}` | `{lane['leaderRun']['id']}` | "
             f"{integrity['selectionMetric']} / {integrity['selectionSplit']}; "
             f"{integrity['candidateTrials']} trials; "
-            f"holdout required={integrity['externalHoldoutRequired']} |"
+            f"holdout required={integrity['externalHoldoutRequired']}"
+            f"{family_summary}{adjustment_summary} |"
         )
     mandates: dict[str, dict[str, Any]] = {}
     for lane in evidence["lanes"]:
@@ -1115,6 +1128,9 @@ def _render_markdown(dossier: dict[str, Any]) -> str:
             )
     lines.extend(["", "## Lane summaries", ""])
     for lane in evidence["lanes"]:
+        integrity = lane["report"]["selectionIntegrity"]
+        family = integrity.get("researchFamily")
+        adjustment = integrity.get("selectionAdjustment")
         lines.extend(
             [
                 f"### {lane['name']}",
@@ -1127,10 +1143,38 @@ def _render_markdown(dossier: dict[str, Any]) -> str:
                 f"{lane['report']['harness']['version']}`.",
                 "",
                 f"Selection warning: "
-                f"{lane['report']['selectionIntegrity']['warning']}",
+                f"{integrity['warning']}",
                 "",
             ]
         )
+        if isinstance(family, dict):
+            lines.extend(
+                [
+                    f"Research family: `{family['id']}`; "
+                    f"{family['uniqueSourceTrials']} unique sources across "
+                    f"{family['totalExecutions']} executions; "
+                    f"reproducible=`{family['reproducible']}`.",
+                    "",
+                ]
+            )
+        if isinstance(adjustment, dict):
+            lines.extend(
+                [
+                    f"Selection adjustment: "
+                    f"`{adjustment['method'] or adjustment['status']}`; "
+                    f"passes {adjustment['confidenceLevel']:.0%}="
+                    f"`{adjustment['passes']}`"
+                    + (
+                        f"; reason=`{adjustment['reason']}`."
+                        if adjustment.get("reason")
+                        else "."
+                    ),
+                    "",
+                    f"Selection interpretation: "
+                    f"{adjustment['interpretation']}",
+                    "",
+                ]
+            )
     lines.extend(["## Cross-lane findings", ""])
     for finding in analysis["findings"]:
         references = ", ".join(

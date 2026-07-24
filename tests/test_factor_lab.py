@@ -293,6 +293,23 @@ class OhlcvFactorLabTests(unittest.TestCase):
             self.assertFalse(integrity["testEntersSelection"])
             self.assertEqual(integrity["candidateTrials"], 1)
             self.assertTrue(integrity["externalHoldoutRequired"])
+            self.assertEqual(
+                integrity["researchFamily"]["uniqueSourceTrials"],
+                2,
+            )
+            adjustment = integrity["selectionAdjustment"]
+            self.assertEqual(adjustment["method"], "bonferroni-hac-v1")
+            self.assertAlmostEqual(
+                adjustment["statistics"]["familywiseAdjustedPValue"],
+                min(
+                    1.0,
+                    adjustment["statistics"]["rawHacPValue"] * 2,
+                ),
+            )
+            self.assertEqual(
+                adjustment["verdictAuthority"],
+                "diagnostic-only",
+            )
 
             active = load_session(project, session.manifest["id"])
             candidate = active.worktree_project.root_dir / "factors" / "candidate.py"

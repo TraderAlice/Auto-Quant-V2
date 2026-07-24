@@ -112,6 +112,9 @@ Bounded governed RL artifact projection is defined in
 [[docs/design/rl-policy-evidence-explorer]].
 Session-level professional evidence comparison is defined in
 [[docs/design/session-decision-matrix]].
+Project-wide strategy-search history and selection-adjusted Factor/Portfolio
+evidence are defined in
+[[docs/design/selection-adjusted-research-evidence]].
 Request-driven construction and external dataset snapshots are defined in
 [[docs/design/research-intake-and-dataset-snapshots]].
 Multi-Study Project coordination and lane currentness are defined in
@@ -265,6 +268,8 @@ behind the Harness contract, not the owner of Workspace or Project semantics.
   [[docs/design/cross-study-factor-dependencies]]
 - Research selection and visible-test integrity:
   [[docs/design/research-selection-integrity]]
+- Project-wide research families and selection adjustment:
+  [[docs/design/selection-adjusted-research-evidence]]
 - Research Session loop design: [[docs/design/research-session-loop]]
 - External Researcher driver design:
   [[docs/design/external-researcher-driver]]

@@ -460,6 +460,8 @@ def _report_root(session: SessionContext, report_id: str) -> Path:
 def _session_evidence(
     project: ProjectContext,
     session: SessionContext,
+    *,
+    selection_cutoff: str | None = None,
 ) -> tuple[dict[str, Any], dict[tuple[str, str], dict[str, Any]]]:
     experiments = [
         load_experiment(project, session, summary.id)
@@ -537,8 +539,10 @@ def _session_evidence(
             },
         },
         "selectionIntegrity": build_selection_integrity(
+            project,
             session.leader_run,
             [item.result["verdict"] for item in experiments],
+            cutoff=selection_cutoff,
         ),
         "runs": run_evidence,
         "experiments": experiment_evidence,
@@ -695,11 +699,70 @@ def _render_markdown(report: dict[str, Any]) -> str:
             f"- External holdout required: "
             f"`{integrity['externalHoldoutRequired']}`",
             f"- Warning: {integrity['warning']}",
-            "",
-            "## Findings",
-            "",
         ]
     )
+    family = integrity.get("researchFamily")
+    adjustment = integrity.get("selectionAdjustment")
+    if isinstance(family, dict):
+        lines.extend(
+            [
+                f"- Research family: `{family['id']}` "
+                f"(`{family['boundary']}`)",
+                f"- Project-family unique trials / executions / duplicates: "
+                f"{family['uniqueSourceTrials']} / "
+                f"{family['totalExecutions']} / "
+                f"{family['duplicateExecutions']}",
+                f"- Successful / failed sources / reproducible: "
+                f"{family['successfulSourceTrials']} / "
+                f"{family['failedSourceTrials']} / "
+                f"`{family['reproducible']}`",
+            ]
+        )
+    if isinstance(adjustment, dict):
+        lines.append(
+            f"- Selection adjustment: "
+            f"`{adjustment['method'] or adjustment['status']}`; "
+            f"passes {adjustment['confidenceLevel']:.0%}="
+            f"`{adjustment['passes']}`"
+        )
+        lines.append(
+            f"- Adjustment interpretation: "
+            f"{adjustment['interpretation']}"
+        )
+        statistics = adjustment.get("statistics")
+        if (
+            adjustment.get("method") == "bonferroni-hac-v1"
+            and isinstance(statistics, dict)
+        ):
+            lines.append(
+                f"- Family-wise HAC p / confidence: "
+                f"`{statistics['familywiseAdjustedPValue']:.6g}` / "
+                f"`{statistics['familywiseConfidence']:.2%}`"
+            )
+        elif (
+            adjustment.get("method") == "deflated-sharpe-ratio-v1"
+            and isinstance(statistics, dict)
+        ):
+            lines.extend(
+                [
+                    f"- PSR / DSR probability: "
+                    f"`{statistics['probabilisticSharpeProbability']:.2%}` / "
+                    f"`{statistics['deflatedSharpeProbability']:.2%}`",
+                    f"- Observed / expected-max annualized Sharpe: "
+                    f"`{statistics['observedAnnualizedSharpe']:.4f}` / "
+                    f"`{statistics['expectedMaximumAnnualizedSharpe']:.4f}`",
+                    f"- Observations / minimum track record / sufficient: "
+                    f"{statistics['observations']} / "
+                    f"{statistics['minimumTrackRecordObservations']} / "
+                    f"`{statistics['trackRecordSufficient']}`",
+                ]
+            )
+        elif adjustment.get("reason"):
+            lines.append(
+                f"- Adjustment unavailable reason: "
+                f"`{adjustment['reason']}`"
+            )
+    lines.extend(["", "## Findings", ""])
     for finding in analysis["findings"]:
         refs = ", ".join(_evidence_label(item) for item in finding["evidenceRefs"])
         lines.extend(
@@ -802,9 +865,13 @@ def publish_report(
             ]
         )
     validate_session_authority(project, session)
-    evidence, catalog = _session_evidence(project, session)
-    _resolve_analysis_evidence(normalized, catalog, "analysis")
     published = datetime.now(timezone.utc)
+    evidence, catalog = _session_evidence(
+        project,
+        session,
+        selection_cutoff=published.isoformat(),
+    )
+    _resolve_analysis_evidence(normalized, catalog, "analysis")
     stamp = published.strftime("%Y%m%dT%H%M%S%fZ")
     analysis_hash = hash_json(normalized)
     evidence_hash = hash_json(evidence)
@@ -1196,6 +1263,7 @@ def _verify_frozen_evidence(
             )
         frozen_integrity = evidence.get("selectionIntegrity")
         expected_integrity = build_selection_integrity(
+            project,
             load_run(project, expected_leader["runId"]),
             [
                 item["verdict"]
@@ -1206,7 +1274,22 @@ def _verify_frozen_evidence(
                     "CRASH",
                 }
             ],
+            cutoff=report["publishedAt"],
         )
+        selection_v2_keys = {
+            "researchFamily",
+            "selectionAdjustment",
+            "verdictAuthority",
+        }
+        if (
+            isinstance(frozen_integrity, dict)
+            and selection_v2_keys.isdisjoint(frozen_integrity)
+        ):
+            expected_integrity = {
+                key: value
+                for key, value in expected_integrity.items()
+                if key not in selection_v2_keys
+            }
         if frozen_integrity != expected_integrity:
             issues.append(
                 _issue(

@@ -78,9 +78,14 @@ stateful signal sleeve before portfolio accounting. See
 All three reference templates publish a nested `research_integrity` metric
 declaring validation-only selection, visible diagnostic test evidence, and the
 external-holdout rule. Session snapshots derive exact candidate/verdict counts
-from immutable Experiments; Reports freeze the same projection. Generic
-Studies without this declaration remain valid and are explicitly shown as
-`unspecified`. See [[docs/design/research-selection-integrity]].
+from immutable Experiments. They also discover every verified Project Run with
+the same Study/program/Judge/dataset/dependency/objective contract, deduplicate
+editable source hashes, and publish a content-derived research-family ledger
+summary plus the supported selection adjustment. Reports freeze that family
+as of publication. Generic Studies without the declaration remain valid and
+are explicitly shown as `unspecified`; unsupported statistic families name an
+exact reason. See [[docs/design/research-selection-integrity]] and
+[[docs/design/selection-adjusted-research-evidence]].
 
 `aq project intake` uses one of these same fixed templates but replaces the
 construction fixture with a validated caller-supplied daily-OHLCV snapshot.
@@ -506,8 +511,9 @@ Experiment/Campaign history.
 Core freezes a complete evidence projection into `report.json`: the exact
 request/Brief, Session baseline and leader at publication, fixed locks, Harness,
 Run metrics and artifacts, Experiment verdicts, and Campaign outcomes. It
-also freezes Core-derived selection metric/split, trial and verdict counts,
-test visibility, and external-holdout status. It
+also freezes Core-derived selection metric/split, Session trial and verdict
+counts, the complete as-of Project research-family summary, selection
+adjustment, test visibility, and external-holdout status. It
 validates every reference, renders deterministic `report.md`, hashes the three
 files, and writes `manifest.json` last. Loading a Report verifies:
 
@@ -519,7 +525,7 @@ files, and writes `manifest.json` last. Loading a Report verifies:
 5. chronological Experiment/Campaign prefixes and the corresponding KEEP
    leader chain;
 6. selection-integrity equality with the frozen Experiment prefix and leader
-   Run.
+   Run, including every matching Project Run completed by `publishedAt`.
 
 An older Report remains valid when a Session later adds evidence. Rewriting a
 conclusion requires a new immutable Report. Report authority is

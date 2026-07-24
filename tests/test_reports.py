@@ -249,12 +249,26 @@ class ResearchHandoffTests(unittest.TestCase):
                 ],
                 0,
             )
+            self.assertEqual(
+                report.report["evidence"]["selectionIntegrity"][
+                    "researchFamily"
+                ]["uniqueSourceTrials"],
+                1,
+            )
             self.assertIn(
                 "quantitative decision support only",
                 (report.root_dir / "report.md").read_text(encoding="utf-8"),
             )
             self.assertIn(
                 "Research selection integrity",
+                (report.root_dir / "report.md").read_text(encoding="utf-8"),
+            )
+            self.assertIn(
+                "Project-family unique trials",
+                (report.root_dir / "report.md").read_text(encoding="utf-8"),
+            )
+            self.assertIn(
+                "Selection adjustment",
                 (report.root_dir / "report.md").read_text(encoding="utf-8"),
             )
             self.assertEqual(
@@ -300,6 +314,12 @@ class ResearchHandoffTests(unittest.TestCase):
                 later_snapshot["selectionIntegrity"]["verdicts"]["KEEP"],
                 1,
             )
+            self.assertEqual(
+                later_snapshot["selectionIntegrity"]["researchFamily"][
+                    "uniqueSourceTrials"
+                ],
+                2,
+            )
             loaded = load_report(project, later, report.report["id"])
             self.assertEqual(
                 loaded.report["evidence"]["session"]["leader"]["runId"],
@@ -310,6 +330,12 @@ class ResearchHandoffTests(unittest.TestCase):
                     "candidateTrials"
                 ],
                 0,
+            )
+            self.assertEqual(
+                loaded.report["evidence"]["selectionIntegrity"][
+                    "researchFamily"
+                ]["uniqueSourceTrials"],
+                1,
             )
             self.assertNotEqual(later.manifest["leader"]["runId"], baseline_id)
 
@@ -322,6 +348,46 @@ class ResearchHandoffTests(unittest.TestCase):
                 "files changed",
             ):
                 load_report(project, later, report.report["id"])
+
+    def test_legacy_report_without_selection_v2_fields_remains_loadable(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = self._project(directory)
+            session = start_session(
+                project,
+                "factor-quality",
+                request=research_request(),
+            )
+            report = publish_report(
+                project,
+                session.manifest["id"],
+                report_analysis(session.manifest["baseline"]["runId"]),
+            )
+            historical = json.loads(json.dumps(report.report))
+            integrity = historical["evidence"]["selectionIntegrity"]
+            for key in (
+                "researchFamily",
+                "selectionAdjustment",
+                "verdictAuthority",
+            ):
+                integrity.pop(key)
+            _, report_id = fully_rehash_report(
+                report,
+                historical,
+                session.manifest["id"],
+            )
+
+            loaded = load_report(project, session, report_id)
+
+            self.assertNotIn(
+                "researchFamily",
+                loaded.report["evidence"]["selectionIntegrity"],
+            )
+            self.assertIn(
+                "Research selection integrity",
+                (loaded.root_dir / "report.md").read_text(encoding="utf-8"),
+            )
 
     def test_baseline_report_completes_session_without_project_mutation(
         self,

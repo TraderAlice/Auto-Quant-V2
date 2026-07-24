@@ -900,6 +900,7 @@ def load_session_decision_matrix(
         if leader_relations[spec.key] == "unavailable"
     ]
     selection_integrity = build_selection_integrity(
+        project,
         session.leader_run,
         [summary.verdict for summary in summaries],
     )

@@ -52,7 +52,10 @@ constraint, and robustness layers. Read `portfolio-decisions.csv` when a
 conclusion depends on one asset or date. A higher primary score is not enough
 when coverage collapses, hysteresis adds no value, concentration rises,
 turnover/costs dominate, delayed performance reverses, attribution fails to
-reconcile, or one asset explains the result.
+reconcile, or one asset explains the result. Also inspect the complete
+Project-family trial count, probabilistic/deflated Sharpe, expected maximum
+Sharpe from strategy search, and minimum track record. Those diagnostics do
+not rewrite KEEP/REVERT and cannot be reset by starting another Session.
 
 This is a synthetic bar-target-weight simulation, not an L2 fill model, order
 instruction, or live-trading recommendation.

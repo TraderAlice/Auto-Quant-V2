@@ -82,8 +82,13 @@ trading-account authority.
 
 Every reference Project uses validation-only KEEP/REVERT. Test metrics remain
 visible diagnostic evidence; after a Session iterates candidates, Core marks a
-new external holdout as required and carries exact trial/verdict counts through
-Studio and immutable Research Reports.
+new external holdout as required. Core also groups every matching immutable
+Run into a Project-wide fixed-evaluation research family, deduplicates repeated
+source executions, and carries the complete as-of search count through Studio
+and immutable Research Reports. Factor evidence receives family-wise
+Bonferroni-HAC inference; Portfolio evidence receives PSR/DSR and a minimum
+track-record check. These are diagnostic selection-risk disclosures and never
+rewrite KEEP/REVERT.
 
 The `ohlcv-rl-factor-lab` starter asks a narrower question than “can an RL bot
 trade?”: can a bounded policy use causal regime features to choose among a

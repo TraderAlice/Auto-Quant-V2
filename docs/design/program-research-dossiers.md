@@ -32,9 +32,10 @@ Run / Experiment / Campaign
 
 A lane Report already freezes and verifies the request, Brief, Session leader,
 Study/Harness/dataset locks, Run metrics and artifacts, Experiment/Campaign
-prefix, selection integrity, findings, and limitations. The Dossier cites
-these Reports and their finding ids. It never re-evaluates raw Runs or invents
-a cross-lane score.
+prefix, Project-wide research-family history, selection adjustment, findings,
+and limitations. The Dossier cites these Reports and their finding ids. It
+never re-evaluates raw Runs, resets search history, or invents a cross-lane
+score.
 
 Factor and Portfolio are required lanes. Governed RL is optional because the
 research question may not justify adaptive complexity. When RL lacks a current

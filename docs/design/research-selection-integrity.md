@@ -5,6 +5,7 @@ Status: V1 implemented.
 Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]],
 [[docs/design/research-session-loop]],
 [[docs/design/portfolio-construction-lab]],
+[[docs/design/selection-adjusted-research-evidence]],
 [[docs/design/rl-factor-policy-lab]], and
 [[docs/design/quant-research-lifecycle]], and
 [[docs/design/session-decision-matrix]].
@@ -15,9 +16,10 @@ This document owns candidate-selection versus test-evidence semantics across
 reference Runs, Sessions, Studio, and Research Reports. It defines what Core
 can prove from immutable history and what must remain an explicit warning.
 
-It does not make visible data secret, infer whether a human actually looked at
-a metric, or manufacture a selection-adjusted statistic without sufficient
-inputs.
+It does not make visible data secret or infer whether a human actually looked
+at a metric. Project-wide family identity and statistically justified
+selection adjustment are owned by
+[[docs/design/selection-adjusted-research-evidence]].
 
 ## Run contract
 
@@ -84,10 +86,10 @@ Core-authored disclosure.
 
 ## Studio projection
 
-Studio receives the same Session projection. It shows trial count and holdout
-status beside the leader, and labels test values on Run cards as audit evidence.
-It does not estimate a corrected Sharpe, decide that a holdout is fresh, or
-reset history.
+Studio receives the same Session projection. It shows Project-family trial
+count, selection adjustment, and holdout status beside the leader, and labels
+test values on Run cards as audit evidence. It never computes the correction
+in browser code, decides that a holdout is fresh, or resets history.
 
 The Session Decision Matrix follows the same boundary. Only declared
 validation metrics can enter baseline comparison and non-dominance. Test rows
@@ -119,6 +121,4 @@ the immutable KEEP/REVERT/CRASH chain.
 ## Known gaps
 
 - There is no blind/encrypted test execution or one-time reveal operation.
-- Trial count is disclosed but not yet transformed into Deflated Sharpe or
-  family-wise error control.
 - External data governance remains an OpenAlice/organization responsibility.

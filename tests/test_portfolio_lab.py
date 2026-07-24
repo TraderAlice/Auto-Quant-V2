@@ -24,7 +24,12 @@ from autoquant.project_templates.ohlcv_portfolio_lab.portfolio_core import (
 )
 from autoquant.research import run_campaign
 from autoquant.runs import execute_study
-from autoquant.sessions import evaluate_experiment, start_session
+from autoquant.sessions import (
+    evaluate_experiment,
+    load_session,
+    session_snapshot,
+    start_session,
+)
 from autoquant.studio import build_studio_snapshot
 from autoquant.studies import load_study
 from autoquant.templates import PORTFOLIO_STUDY_ID
@@ -615,6 +620,28 @@ class OhlcvPortfolioLabTests(unittest.TestCase):
             )
             self.assertEqual(crashed.result["verdict"], "CRASH")
             self.assertEqual(crashed.result["errors"][0]["code"], "factor.lookahead")
+            integrity = session_snapshot(
+                project,
+                load_session(project, session.manifest["id"]),
+            )["selectionIntegrity"]
+            self.assertEqual(
+                integrity["researchFamily"]["uniqueSourceTrials"],
+                3,
+            )
+            self.assertEqual(
+                integrity["researchFamily"]["failedSourceTrials"],
+                1,
+            )
+            adjustment = integrity["selectionAdjustment"]
+            self.assertEqual(adjustment["method"], "deflated-sharpe-ratio-v1")
+            self.assertGreater(
+                adjustment["statistics"]["probabilisticSharpeProbability"],
+                adjustment["statistics"]["deflatedSharpeProbability"],
+            )
+            self.assertGreater(
+                adjustment["statistics"]["expectedMaximumAnnualizedSharpe"],
+                0.0,
+            )
 
     def test_external_campaign_and_studio_share_portfolio_evidence(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

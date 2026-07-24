@@ -99,6 +99,24 @@ class StudioObservationTests(unittest.TestCase):
                     "externalHoldoutRequired"
                 ]
             )
+            self.assertEqual(
+                observed["sessions"][0]["selectionIntegrity"][
+                    "researchFamily"
+                ]["uniqueSourceTrials"],
+                2,
+            )
+            self.assertEqual(
+                observed["sessions"][0]["selectionIntegrity"][
+                    "selectionAdjustment"
+                ]["status"],
+                "unsupported",
+            )
+            self.assertEqual(
+                observed["sessions"][0]["selectionIntegrity"][
+                    "verdictAuthority"
+                ],
+                "diagnostic-only",
+            )
             self.assertTrue(
                 any(item["kind"] == "experiment" for item in observed["timeline"])
             )
@@ -267,6 +285,7 @@ class StudioObservationTests(unittest.TestCase):
                     self.assertIn(".evidence-lane-tabs", css)
                     self.assertIn(".mandate-strip", css)
                     self.assertIn(".inspector-lane", css)
+                    self.assertIn(".selection-risk", css)
                     self.assertIn(".command-button", css)
                     self.assertIn("@media (max-width: 680px)", css)
                     self.assertIn(":focus-visible", css)
@@ -285,6 +304,10 @@ class StudioObservationTests(unittest.TestCase):
                     self.assertIn("Copy completion CLI", javascript)
                     self.assertIn("no trading authority", javascript)
                     self.assertIn("browser-authored verdict", javascript)
+                    self.assertIn("selectionRiskSection", javascript)
+                    self.assertIn("Family trials", javascript)
+                    self.assertIn("Project-family trials", javascript)
+                    self.assertIn("diagnostic only", javascript)
                     self.assertNotIn("RESEARCH CHAIN PASSES", javascript)
 
                 request = Request(

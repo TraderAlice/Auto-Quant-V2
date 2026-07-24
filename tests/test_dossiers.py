@@ -311,6 +311,9 @@ class ProgramResearchDossierTests(unittest.TestCase):
             self.assertIn("`AAPL`, `MSFT`", markdown)
             self.assertIn("`NVDA`, `QQQ`, `SPY`", markdown)
             self.assertIn("Omitted optional lanes", markdown)
+            self.assertIn("Research family:", markdown)
+            self.assertIn("Selection adjustment:", markdown)
+            self.assertIn("Selection interpretation:", markdown)
             self.assertIn("OpenAlice Inbox", markdown)
             self.assertEqual(
                 [item.id for item in list_dossiers(project)],

@@ -54,6 +54,94 @@ const percent = (value) => {
   return `${metric(Number(value) * 100)}%`;
 };
 
+const probabilityMetric = (value) => {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return "—";
+  }
+  const number = Number(value);
+  if (number !== 0 && Math.abs(number) < 0.0001) {
+    return number.toExponential(2);
+  }
+  return metric(number);
+};
+
+const selectionEvidence = (integrity) => {
+  const family = integrity?.researchFamily ?? null;
+  const adjustment = integrity?.selectionAdjustment ?? null;
+  if (!family || !adjustment) {
+    return {
+      family,
+      adjustment,
+      label: "NOT AVAILABLE",
+      tone: "blocked",
+    };
+  }
+  if (adjustment.status !== "available") {
+    return {
+      family,
+      adjustment,
+      label: "UNSUPPORTED",
+      tone: "blocked",
+    };
+  }
+  return {
+    family,
+    adjustment,
+    label: adjustment.passes ? "SURVIVES 95%" : "BELOW 95%",
+    tone: adjustment.passes ? "active" : "adverse",
+  };
+};
+
+const selectionContext = (integrity) => {
+  const evidence = selectionEvidence(integrity);
+  if (!evidence.family) return "selection adjustment unavailable";
+  return (
+    `${evidence.family.uniqueSourceTrials} family trial` +
+    `${evidence.family.uniqueSourceTrials === 1 ? "" : "s"} · ` +
+    `${evidence.label.toLowerCase()}`
+  );
+};
+
+const selectionRiskSection = (integrity) => {
+  const evidence = selectionEvidence(integrity);
+  const family = evidence.family;
+  const adjustment = evidence.adjustment;
+  if (!family || !adjustment) return "";
+  const statistics = adjustment.statistics;
+  let statisticalRows = "";
+  if (adjustment.method === "bonferroni-hac-v1" && statistics) {
+    statisticalRows = `
+      <dt>Raw HAC p</dt><dd>${probabilityMetric(statistics.rawHacPValue)}</dd>
+      <dt>Adjusted p</dt><dd>${probabilityMetric(statistics.familywiseAdjustedPValue)}</dd>
+      <dt>Family confidence</dt><dd>${percent(statistics.familywiseConfidence)}</dd>`;
+  } else if (
+    adjustment.method === "deflated-sharpe-ratio-v1" &&
+    statistics
+  ) {
+    statisticalRows = `
+      <dt>PSR / DSR</dt><dd>${percent(statistics.probabilisticSharpeProbability)} / ${percent(statistics.deflatedSharpeProbability)}</dd>
+      <dt>Sharpe observed / expected max</dt><dd>${metric(statistics.observedAnnualizedSharpe)} / ${metric(statistics.expectedMaximumAnnualizedSharpe)}</dd>
+      <dt>Track record</dt><dd>${statistics.observations} / ${statistics.minimumTrackRecordObservations ?? "unreachable"} required</dd>`;
+  } else if (adjustment.reason) {
+    statisticalRows = `
+      <dt>Reason</dt><dd>${escapeHtml(adjustment.reason)}</dd>`;
+  }
+  return `
+    <section class="inspector-section selection-risk">
+      <small>Selection risk · diagnostic only</small>
+      <h3>${escapeHtml(adjustment.method ?? "No valid single-path adjustment")}</h3>
+      <span class="status-chip ${evidence.tone}">${escapeHtml(evidence.label)}</span>
+      <dl class="inspector-kv">
+        <dt>Research family</dt><dd title="${escapeHtml(family.id)}">${escapeHtml(family.id)}</dd>
+        <dt>Unique trials</dt><dd>${family.uniqueSourceTrials}</dd>
+        <dt>Executions / duplicates</dt><dd>${family.totalExecutions} / ${family.duplicateExecutions}</dd>
+        <dt>Reproducible</dt><dd>${family.reproducible ? "yes" : "no"}</dd>
+        ${statisticalRows}
+      </dl>
+      <p>${escapeHtml(adjustment.interpretation ?? "Core published the selection-adjustment evidence shown above.")} Project-wide fixed-evaluation family; restarting a Session does not reset the trial count.</p>
+    </section>`;
+};
+
 const signedPercent = (value) => {
   if (value === null || value === undefined || Number.isNaN(Number(value))) {
     return "—";
@@ -485,8 +573,8 @@ function renderSessions(project) {
               <strong>${metric(session.leader.value)}</strong>
             </span>
             <span class="lane-stat">
-              <small>Experiments</small>
-              <strong>${item.experiments.length}</strong>
+              <small>Family trials</small>
+              <strong>${item.selectionIntegrity.researchFamily?.uniqueSourceTrials ?? item.experiments.length}</strong>
             </span>
             <span class="lane-stat">
               <small>Turn</small>
@@ -765,10 +853,10 @@ function renderHandoff(project) {
       <p>${session.authority.valid ? "Fixed Study authority is verified." : "Authority needs attention before publication."}</p>
       <div class="handoff-metrics">
         <span><b>${metric(session.session.leader.value)}</b><small>leader</small></span>
-        <span><b>${session.experiments.length}</b><small>experiments</small></span>
+        <span><b>${session.selectionIntegrity.researchFamily?.uniqueSourceTrials ?? session.experiments.length}</b><small>family trials</small></span>
         <span><b>${session.campaigns.length}</b><small>campaigns</small></span>
       </div>
-      <span class="context-note">${escapeHtml(session.selectionIntegrity.selectionMetric)} · ${escapeHtml(session.selectionIntegrity.selectionSplit)} selection · ${escapeHtml(session.selectionIntegrity.testRole)} test${session.selectionIntegrity.externalHoldoutRequired ? " · new holdout required" : ""}</span>
+      <span class="context-note">${escapeHtml(session.selectionIntegrity.selectionMetric)} · ${escapeHtml(session.selectionIntegrity.selectionSplit)} selection · ${escapeHtml(selectionContext(session.selectionIntegrity))} · ${escapeHtml(session.selectionIntegrity.testRole)} test${session.selectionIntegrity.externalHoldoutRequired ? " · new holdout required" : ""}</span>
     </article>
     <article class="handoff-card report-card ${latestReport ? "ready" : ""}">
       <small>03 · Decision-support report</small>
@@ -2230,8 +2318,12 @@ function renderDecisionMatrix(project) {
 function renderTrajectory(project) {
   const session = selectedSession(project);
   const experiments = session?.experiments ?? [];
+  const familyTrials =
+    session?.selectionIntegrity.researchFamily?.uniqueSourceTrials ??
+    session?.selectionIntegrity.candidateTrials ??
+    0;
   element("trajectory-meta").textContent = session
-    ? `${session.session.studyId} · ${session.selectionIntegrity.candidateTrials} trials · ${session.selectionIntegrity.selectionSplit} selection · ${session.selectionIntegrity.externalHoldoutRequired ? "new holdout required" : session.selectionIntegrity.testRole}`
+    ? `${session.session.studyId} · ${familyTrials} Project-family trials · ${selectionContext(session.selectionIntegrity)} · ${session.selectionIntegrity.selectionSplit} selection · ${session.selectionIntegrity.externalHoldoutRequired ? "new holdout required" : session.selectionIntegrity.testRole}`
     : "No Experiments";
   if (!experiments.length) {
     element("trajectory-chart").innerHTML =
@@ -2567,6 +2659,7 @@ function renderInspector(project) {
         <dt>Authority</dt><dd>${session.authority.valid ? "verified" : "stale"}</dd>
       </dl>
     </section>
+    ${selectionRiskSection(session.selectionIntegrity)}
     <section class="inspector-section">
       <small>Researcher Campaigns</small>
       <div class="campaign-list">${campaignRows(session)}</div>

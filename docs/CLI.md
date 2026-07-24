@@ -248,8 +248,13 @@ immutable Run artifacts; Studio is the concise human projection.
 `session show --json` also projects selection integrity from verified evidence:
 selection metric/split, exact candidate and evaluated-Run counts, verdict
 counts, test visibility/use, and whether a new external holdout is required.
-Reference templates select on validation only. Generic Studies without a
-declaration return explicit `unspecified` values.
+It additionally includes the Project-wide fixed-evaluation `researchFamily`
+with unique-source and duplicate-execution counts plus a Core-authored
+`selectionAdjustment`. Factor Studies use Bonferroni-adjusted HAC evidence,
+Portfolio Studies use probabilistic/deflated Sharpe and minimum track record,
+and aggregate fold/seed RL objectives return an explicit unsupported reason.
+The adjustment is diagnostic only. Reference templates select on validation
+only; generic Studies return explicit `unspecified` or unsupported values.
 
 `session compare` verifies the immutable Session, Experiment chain, and
 referenced Runs before producing one bounded baseline/candidate/leader matrix.

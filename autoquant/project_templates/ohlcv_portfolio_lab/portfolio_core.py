@@ -1227,6 +1227,21 @@ def performance_metrics(
     benchmark_values = pair["benchmark"].astype(float)
     mean = float(values.mean())
     std = float(values.std(ddof=0))
+    standardized = (
+        (values - mean) / std
+        if std > 1e-12
+        else pd.Series(0.0, index=values.index, dtype=float)
+    )
+    return_skewness = (
+        float(standardized.pow(3).mean())
+        if std > 1e-12
+        else 0.0
+    )
+    return_kurtosis = (
+        float(standardized.pow(4).mean())
+        if std > 1e-12
+        else 3.0
+    )
     annual_volatility = std * math.sqrt(annual_periods)
     total_growth = float((1.0 + values).prod())
     annual_return = (
@@ -1269,10 +1284,14 @@ def performance_metrics(
     )
     result: dict[str, float | int] = {
         "observations": int(len(values)),
+        "annualization_periods": int(annual_periods),
         "total_return": total_growth - 1.0,
         "annual_return": annual_return,
         "annual_volatility": annual_volatility,
         "sharpe": sharpe,
+        "period_sharpe": mean / std if std > 1e-12 else 0.0,
+        "return_skewness": return_skewness,
+        "return_kurtosis": return_kurtosis,
         "sortino": sortino,
         "maximum_drawdown": maximum_drawdown,
         "calmar": calmar,

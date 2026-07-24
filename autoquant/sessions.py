@@ -23,6 +23,7 @@ from .briefs import (
     validate_session_brief,
 )
 from .runs import RunContext, execute_study, harness_identity, load_run
+from .selection import build_research_family, build_selection_adjustment
 from .studies import (
     StudyContext,
     copy_hashed_files,
@@ -1250,6 +1251,7 @@ def session_snapshot(
             "issues": [issue.to_dict() for issue in issues],
         },
         "selectionIntegrity": build_selection_integrity(
+            project,
             session.leader_run,
             [summary.verdict for summary in experiments],
         ),
@@ -1258,8 +1260,11 @@ def session_snapshot(
 
 
 def build_selection_integrity(
+    project: ProjectContext,
     leader_run: RunContext,
     verdicts: list[str],
+    *,
+    cutoff: str | None = None,
 ) -> dict[str, Any]:
     if any(verdict not in VERDICTS for verdict in verdicts):
         raise AutoQuantValidationError(
@@ -1309,6 +1314,12 @@ def build_selection_integrity(
             "This Study does not declare selection/test semantics; Core makes "
             "no holdout or objective-isolation claim."
         )
+    family = build_research_family(
+        project,
+        leader_run,
+        cutoff=cutoff,
+    )
+    adjustment = build_selection_adjustment(leader_run, family)
     return {
         "selectionMetric": leader_run.result["objective"]["metric"],
         "selectionSplit": selection_split,
@@ -1320,6 +1331,9 @@ def build_selection_integrity(
         "verdicts": counts,
         "externalHoldoutRequired": external_required,
         "warning": warning,
+        "researchFamily": family.projection,
+        "selectionAdjustment": adjustment,
+        "verdictAuthority": "diagnostic-only",
     }
 
 

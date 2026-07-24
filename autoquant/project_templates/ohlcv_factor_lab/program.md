@@ -27,7 +27,8 @@ full-sample normalization, external data, and mutation of the input are not.
 4. Run the bounded Experiment command supplied by the Session.
 5. Inspect validation/test one-bar IC, HAC strength, 5/10-bar decay, tertile
    monotonicity/spread, style overlap, asset/fold/regime stability, coverage,
-   turnover, errors, and verdict.
+   turnover, errors, verdict, Project-family trial count, and family-wise
+   adjusted HAC significance.
 6. KEEP only when the fixed objective improves; otherwise accept restoration
    and form a different hypothesis.
 
@@ -35,6 +36,12 @@ The fixed objective is validation mean IC only. Test IC is visible diagnostic
 evidence and never enters KEEP/REVERT. Changing a candidate after inspecting
 test evidence consumes its holdout value; obtain a new external period or
 dataset before a production-grade claim.
+
+Starting a new Session does not create a fresh statistical search. Core counts
+unique editable source hashes across every Run with the same fixed Study,
+Judge, data, dependencies, and objective. Treat the Bonferroni-HAC result as a
+selection-risk diagnostic, not permission to hide failed attempts or override
+the immutable verdict.
 
 The Judge fixes dataset-derived split dates and purges the last 1/5/10 signal
 rows whose targets would cross each boundary. Treat sparse regimes, one weak

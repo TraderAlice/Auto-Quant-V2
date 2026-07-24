@@ -3222,6 +3222,10 @@ main {
   margin-top: 10px;
 }
 
+.selection-risk p {
+  margin-top: 12px;
+}
+
 .inspector-lanes {
   display: grid;
   gap: 5px;

@@ -54,8 +54,9 @@ The first viewport prioritizes:
 - a bounded Session decision matrix comparing baseline, recent candidates, and
   current leader across fixed validation, robustness, implementation, and
   test-audit metrics;
-- Session selection split, candidate trial count, visible-test role, and
-  external-holdout requirement;
+- Session selection split, Project-family unique strategy trials, duplicate
+  executions, reproducibility, visible-test role, external-holdout
+  requirement, and Core-authored selection adjustment;
 - request → lane Reports → Project Dossier readiness and exact copyable
   headless commands;
 - a three-lane Research Cockpit showing Factor validation IC, costed Portfolio
@@ -105,6 +106,14 @@ explicit. The Selection view excludes test rows from the comparison; the Test
 audit view reveals them without changing verdicts, leader choice, or the
 validation-only non-dominated set. Context such as hysteresis policy state is
 display-only, and failed trials remain visible as unavailable evidence.
+
+The Session rail, handoff board, trajectory disclosure, and Inspector share
+one Project-wide research-family projection. Starting another Session cannot
+reset the unique-source count. The browser formats Factor family-wise p-values
+or Portfolio PSR/DSR evidence supplied by Core; it does not derive trial
+families, calculate corrections, or turn a diagnostic pass into a trading
+verdict. Governed RL explains why its dependent fold/seed aggregate has no
+valid single-path DSR.
 
 The Factor Evidence Explorer verifies and reconciles all three immutable
 Factor artifacts before sampling a bounded timeline. Humans may switch between

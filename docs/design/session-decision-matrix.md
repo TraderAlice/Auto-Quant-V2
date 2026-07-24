@@ -73,8 +73,11 @@ includes the Session baseline. It then selects the most recent candidates and
 anchors the current leader candidate if it would otherwise be omitted.
 Output discloses total, displayed, and omitted candidate counts.
 
-All comparison claims are scoped to these displayed trials. V1 does not claim
-that a hidden older trial was dominated.
+All comparison claims are scoped to these displayed trials. The matrix does
+not claim that a hidden older trial was dominated. Its accompanying
+`selectionIntegrity` object separately covers the complete Project-wide
+fixed-evaluation research family and selection adjustment; the bounded visual
+row set never resets or substitutes that statistical history.
 
 Failed candidate Runs remain rows with their immutable `CRASH` verdict,
 structured errors, and unavailable metrics. They never enter non-dominance.
@@ -147,7 +150,9 @@ read-only and returns no source files or arbitrary artifact content.
 ## Known limits
 
 - V1 compares one linear Session, not branches or different Study contracts.
-- Non-dominance is descriptive and does not adjust for multiple trials.
+- Non-dominance remains descriptive. Multiple-search adjustment is a separate
+  Core diagnostic over the complete research family and does not alter the
+  displayed Pareto relations or immutable verdicts.
 - Metric dictionaries are fixed for current reference Judges rather than a
   universal metric DSL.
 - Parameter surfaces and cross-Project comparison remain future work.
