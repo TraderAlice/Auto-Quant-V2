@@ -37,6 +37,9 @@ The V2 foundation now implements:
 - transactional request-driven Project intake from strict caller-supplied
   daily-OHLCV packages, with normalized local bytes, explicit provider and
   adjustment claims, source/snapshot hashes, and exact Study identity;
+- one canonical request-driven research desk that coordinates Factor,
+  Portfolio, and governed RL Studies over the same dataset, exposes exact lane
+  currentness/conflicts/next actions, and keeps method choice inside AutoQuant;
 - default or explicit Project resolution with root confinement and symlink
   rejection;
 - a packaged `aq` CLI with versioned JSON envelopes, capability discovery,
@@ -102,6 +105,8 @@ Session-level professional evidence comparison is defined in
 [[docs/design/session-decision-matrix]].
 Request-driven construction and external dataset snapshots are defined in
 [[docs/design/research-intake-and-dataset-snapshots]].
+Multi-Study Project coordination and lane currentness are defined in
+[[docs/design/research-program-orchestration]].
 The end-to-end OpenAlice handoff, professional evidence stack, and HCI
 boundary are defined in [[docs/design/quant-research-lifecycle]].
 

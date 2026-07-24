@@ -40,6 +40,12 @@ or Runs. It owns only discovery and an optional default Project.
 independently owned candidate, Judge, Study, and deterministic local dataset;
 it is not recorded as a runtime parent in `autoquant.json`.
 
+`--template ohlcv-research-desk` creates the canonical multi-Study Project:
+one shared dataset, one Factor candidate shared by Factor and Portfolio
+evaluation, one RL state encoder, three fixed Studies, and a strict
+`research-program.json` coordination manifest. See
+[[docs/design/research-program-orchestration]].
+
 The factor template evaluates causal cross-sectional predictive evidence with
 dataset-fixed purged 1/5/10-bar rank/Pearson IC, HAC inference, fixed-tertile
 behavior, OHLCV-style overlap, and asset/fold/causal-regime stability. The
@@ -75,6 +81,7 @@ The resulting Project adds:
 ```text
 request.json
 intake.json
+research-program.json
 data/ohlcv/
 ├── <SYMBOL>.csv
 ├── README.md
@@ -83,9 +90,13 @@ data/ohlcv/
 
 `snapshot.json` preserves package/provider/market/adjustment claims, requested
 assets, research universe, coverage, source hashes, and canonical hashes.
-`intake.json` binds request, snapshot, Study, dataset, and complete Study input
-hashes. The Study's `ohlcv/**` closure makes every local dataset byte part of
-Run and Session identity. See
+`intake.json` binds request, snapshot, primary construction Study, dataset, and
+the Study input identity at handoff. Editable source may evolve; its current
+hash determines whether existing Run evidence is stale rather than corrupting
+the intake record. `research-program.json` binds the canonical Factor,
+Portfolio, and governed RL lanes and their editable surfaces. Every Study's
+`ohlcv/**` closure makes every local dataset byte part of Run and Session
+identity. See
 [[docs/design/research-intake-and-dataset-snapshots]].
 
 ```text
@@ -522,11 +533,15 @@ uv run aq project create /tmp/quant-workspace portfolio-lab \
   --template ohlcv-portfolio-lab
 uv run aq project create /tmp/quant-workspace rl-factor-lab \
   --template ohlcv-rl-factor-lab
+uv run aq project create /tmp/quant-workspace research-desk \
+  --template ohlcv-research-desk
+uv run aq project program /tmp/quant-workspace --project research-desk --json
 uv run aq validate /tmp/quant-workspace
 uv run aq inspect /tmp/quant-workspace --project factor-lab --json
 uv run python -m unittest \
   tests.test_workspace tests.test_cli tests.test_studies \
   tests.test_runs tests.test_sessions tests.test_factor_lab \
   tests.test_portfolio_lab tests.test_rl_factor_policy_lab -v
-uv run python -m unittest tests.test_reports tests.test_studio -v
+uv run python -m unittest \
+  tests.test_reports tests.test_studio tests.test_research_program -v
 ```

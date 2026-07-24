@@ -35,6 +35,7 @@ PROJECT_TEMPLATE_IDS = (
     "ohlcv-factor-lab",
     "ohlcv-portfolio-lab",
     "ohlcv-rl-factor-lab",
+    "ohlcv-research-desk",
 )
 OHLCV_STUDY_ID = "ohlcv-factor-quality"
 PORTFOLIO_STUDY_ID = "ohlcv-portfolio-quality"
@@ -43,6 +44,17 @@ TEMPLATE_STUDY_IDS = {
     "ohlcv-factor-lab": OHLCV_STUDY_ID,
     "ohlcv-portfolio-lab": PORTFOLIO_STUDY_ID,
     "ohlcv-rl-factor-lab": RL_STUDY_ID,
+    "ohlcv-research-desk": OHLCV_STUDY_ID,
+}
+TEMPLATE_STUDY_SEQUENCES = {
+    "ohlcv-factor-lab": (OHLCV_STUDY_ID,),
+    "ohlcv-portfolio-lab": (PORTFOLIO_STUDY_ID,),
+    "ohlcv-rl-factor-lab": (RL_STUDY_ID,),
+    "ohlcv-research-desk": (
+        OHLCV_STUDY_ID,
+        PORTFOLIO_STUDY_ID,
+        RL_STUDY_ID,
+    ),
 }
 OHLCV_ASSETS = ("ALPHA", "BRAVO", "CHARLIE", "DELTA", "ECHO", "FOXTROT")
 OHLCV_START = date(2024, 1, 2)
@@ -344,7 +356,9 @@ def _externalize_intake_guidance(
         text = path.read_text(encoding="utf-8")
         for old, new in replacements.items():
             text = text.replace(old, new)
-        path.write_text(text.rstrip() + disclosure, encoding="utf-8")
+        if "## External dataset authority" not in text:
+            text = text.rstrip() + disclosure
+        path.write_text(text, encoding="utf-8")
 
 
 def _apply_ohlcv_factor_lab(
@@ -587,6 +601,200 @@ def _apply_ohlcv_rl_factor_lab(
     _finalize_intake(project, intake, study, snapshot_hash)
 
 
+def _apply_ohlcv_research_desk(
+    project: ProjectContext,
+    intake: PreparedIntake | None = None,
+) -> None:
+    """Create one shared-data Project with Factor, Portfolio, and RL Studies."""
+
+    if intake is None:
+        end = _write_rl_ohlcv(project)
+        dataset = {
+            "id": "synthetic-ohlcv-research-desk-fixture",
+            "version": "v1",
+            "asset_class": "synthetic-multi-asset",
+            "universe": list(OHLCV_ASSETS),
+            "start": OHLCV_START.isoformat(),
+        }
+        snapshot_hash = None
+    else:
+        end, dataset, snapshot_hash = _intake_dataset(
+            project,
+            intake,
+            OHLCV_STUDY_ID,
+        )
+
+    # Write every fixed/editable source before creating any Study identity.
+    _write_template_source(
+        project,
+        "factors/candidate.py",
+        "candidate.py",
+        template="ohlcv_portfolio_lab",
+    )
+    _write_template_source(
+        project,
+        "models/candidate.py",
+        "candidate.py",
+        template="ohlcv_rl_factor_lab",
+    )
+    _write_template_source(
+        project,
+        "judges/ohlcv_factor.py",
+        "judge.py",
+        template="ohlcv_factor_lab",
+    )
+    _write_template_source(
+        project,
+        "judges/factor_diagnostics.py",
+        "factor_diagnostics.py",
+        template="ohlcv_factor_lab",
+    )
+    _write_template_source(
+        project,
+        "judges/ohlcv_portfolio.py",
+        "judge.py",
+        template="ohlcv_portfolio_lab",
+    )
+    _write_template_source(
+        project,
+        "judges/portfolio_core.py",
+        "portfolio_core.py",
+        template="ohlcv_portfolio_lab",
+    )
+    _write_template_source(
+        project,
+        "judges/ohlcv_rl_factor.py",
+        "judge.py",
+        template="ohlcv_rl_factor_lab",
+    )
+    _write_template_source(
+        project,
+        "judges/rl_core.py",
+        "rl_core.py",
+        template="ohlcv_rl_factor_lab",
+    )
+    (project.root_dir / project.manifest.research_program).write_text(
+        _template_text("research.md", template="ohlcv_research_desk"),
+        encoding="utf-8",
+    )
+
+    shared_dataset = StudyDataset(
+        str(dataset["id"]),
+        str(dataset["version"]),
+        str(dataset["asset_class"]),
+        list(dataset["universe"]),
+        StudyTimeRange(str(dataset["start"]), end.isoformat()),
+        ["ohlcv/**"],
+    )
+    definitions = (
+        (
+            StudyDefinition(
+                schema_version=1,
+                id=OHLCV_STUDY_ID,
+                name="OHLCV Factor Quality",
+                description="Mine causal factor evidence on the shared research snapshot",
+                program="program.md",
+                subject=StudySubject("factor", "candidate-factor", "working"),
+                editable={"paths": ["factors/**"]},
+                judge=StudyJudge(
+                    "python",
+                    "judges/ohlcv_factor.py",
+                    [
+                        "judges/ohlcv_factor.py",
+                        "judges/factor_diagnostics.py",
+                    ],
+                    [],
+                    60,
+                ),
+                objective=StudyObjective(
+                    "validation_mean_ic",
+                    "maximize",
+                    0.01,
+                ),
+                dataset=shared_dataset,
+            ),
+            "ohlcv_factor_lab",
+        ),
+        (
+            StudyDefinition(
+                schema_version=1,
+                id=PORTFOLIO_STUDY_ID,
+                name="OHLCV Portfolio Quality",
+                description=(
+                    "Translate the shared candidate factor into constrained, "
+                    "costed target weights"
+                ),
+                program="program.md",
+                subject=StudySubject("factor", "portfolio-factor", "working"),
+                editable={"paths": ["factors/**"]},
+                judge=StudyJudge(
+                    "python",
+                    "judges/ohlcv_portfolio.py",
+                    [
+                        "judges/ohlcv_portfolio.py",
+                        "judges/portfolio_core.py",
+                    ],
+                    [],
+                    60,
+                ),
+                objective=StudyObjective(
+                    "validation_net_sharpe",
+                    "maximize",
+                    0.05,
+                ),
+                dataset=shared_dataset,
+            ),
+            "ohlcv_portfolio_lab",
+        ),
+        (
+            StudyDefinition(
+                schema_version=1,
+                id=RL_STUDY_ID,
+                name="Governed RL Factor Policy",
+                description=(
+                    "Challenge fixed reference factor sleeves with a bounded "
+                    "adaptive state representation"
+                ),
+                program="program.md",
+                subject=StudySubject("model", "rl-state-encoder", "working"),
+                editable={"paths": ["models/**"]},
+                judge=StudyJudge(
+                    "python",
+                    "judges/ohlcv_rl_factor.py",
+                    [
+                        "judges/ohlcv_rl_factor.py",
+                        "judges/rl_core.py",
+                        "judges/portfolio_core.py",
+                    ],
+                    [],
+                    90,
+                ),
+                objective=StudyObjective(
+                    "validation_mean_net_sharpe",
+                    "maximize",
+                    0.20,
+                ),
+                dataset=shared_dataset,
+            ),
+            "ohlcv_rl_factor_lab",
+        ),
+    )
+    studies = []
+    for definition, source_template in definitions:
+        study = create_study(project, definition)
+        study.program_path.write_text(
+            _template_text("program.md", template=source_template),
+            encoding="utf-8",
+        )
+        _externalize_intake_guidance(project, intake, study.program_path)
+        studies.append(load_study(project, definition.id))
+
+    _finalize_intake(project, intake, studies[0], snapshot_hash)
+    from .research_program import create_research_program_manifest
+
+    create_research_program_manifest(project)
+
+
 def apply_project_template(
     project: ProjectContext,
     template_id: str,
@@ -620,5 +828,7 @@ def apply_project_template(
         _apply_ohlcv_factor_lab(project, intake)
     elif template_id == "ohlcv-portfolio-lab":
         _apply_ohlcv_portfolio_lab(project, intake)
-    else:
+    elif template_id == "ohlcv-rl-factor-lab":
         _apply_ohlcv_rl_factor_lab(project, intake)
+    else:
+        _apply_ohlcv_research_desk(project, intake)

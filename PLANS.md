@@ -32,6 +32,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/multi-study-quant-research-desk]] | Created one request-driven Project with coordinated Factor, Portfolio, and governed-RL Studies plus shared CLI/Studio program status. | 2026-07-24 |
 | [[plans/rl-policy-evidence-explorer]] | Projected one governed RL Run into verified baseline, fold/seed, training, action, and implementation evidence for Agents and Studio. | 2026-07-24 |
 | [[plans/factor-evidence-explorer]] | Projected one verified Factor Run into a bounded professional tear sheet for Agents and Studio. | 2026-07-24 |
 | [[plans/session-decision-matrix]] | Compared one verified Session across professional factor, portfolio, implementation, robustness, mechanical-policy, and RL evidence. | 2026-07-24 |

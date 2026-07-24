@@ -20,16 +20,11 @@ factor, model, dataset, Study, and Run work.
 uv sync
 uv run aq capabilities --json
 uv run aq workspace init ./quant-workspace --name "Quant Research Desk"
-uv run aq project create ./quant-workspace factor-lab \
-  --name "Factor Lab" \
-  --description "Mine robust cross-asset factors" \
-  --template ohlcv-factor-lab
-uv run aq project create ./quant-workspace portfolio-lab \
-  --name "Portfolio Lab" \
-  --template ohlcv-portfolio-lab
-uv run aq project create ./quant-workspace rl-factor-lab \
-  --name "RL Factor Lab" \
-  --template ohlcv-rl-factor-lab
+uv run aq project create ./quant-workspace research-desk \
+  --name "Research Desk" \
+  --description "Coordinate factor, portfolio, and RL evidence" \
+  --template ohlcv-research-desk
+uv run aq project program ./quant-workspace --project research-desk
 uv run aq project create ./quant-workspace ml-lab --name "ML Lab"
 uv run aq project list ./quant-workspace
 uv run aq validate ./quant-workspace
@@ -49,15 +44,17 @@ uv run aq schema ohlcv-dataset-package --json
 uv run aq project intake ./quant-workspace us-leadership \
   --request research-request.json \
   --dataset /path/to/dataset.json \
-  --template ohlcv-portfolio-lab \
   --json
 ```
 
 Intake validates and normalizes the complete aligned panel, confines every
 source path, preserves provider/calendar/adjustment claims, hashes source and
-Project-local bytes, and transactionally creates the exact Study. It does not
-download data or silently start research. Its returned `session.start` action
-binds the preserved request after a fresh baseline.
+Project-local bytes, and transactionally creates one coordinated Project with
+Factor, Portfolio, and governed RL Studies. It does not download data or
+silently start research. `aq project program` returns verified lane status,
+shared-source conflicts, evidence currentness, and the exact recommended
+headless command. The narrow single-lane templates remain available when a
+caller intentionally selects one method.
 
 The `ohlcv-factor-lab` starter is the first runnable V2 research Project. It
 uses ordinary pandas/NumPy factor code, a deterministic six-asset synthetic

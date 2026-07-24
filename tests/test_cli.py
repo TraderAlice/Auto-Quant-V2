@@ -197,6 +197,51 @@ class AgentCliTests(unittest.TestCase):
                 )
             )
 
+    def test_cli_constructs_and_projects_multi_study_research_desk(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Path(directory) / "workspace"
+            self.assertEqual(
+                run_cli("workspace", "init", str(workspace), "--json").returncode,
+                0,
+            )
+            created = run_cli(
+                "project",
+                "create",
+                str(workspace),
+                "research-desk",
+                "--template",
+                "ohlcv-research-desk",
+                "--json",
+            )
+            self.assertEqual(created.returncode, 0, created.stderr)
+            envelope = json_output(created)
+            self.assertEqual(
+                [item["kind"] for item in envelope["artifacts"]],
+                ["project", "research-program"],
+            )
+            self.assertEqual(
+                [action["id"] for action in envelope["nextActions"]],
+                ["project.program", "run.execute"],
+            )
+            projected = run_cli(
+                "project",
+                "program",
+                envelope["data"]["projectDir"],
+                "--json",
+            )
+            self.assertEqual(projected.returncode, 0, projected.stderr)
+            status = json_output(projected)
+            self.assertEqual(status["command"], "project.program")
+            self.assertEqual(
+                status["data"]["kind"],
+                "autoquant-research-program-status",
+            )
+            self.assertEqual(
+                [lane["id"] for lane in status["data"]["lanes"]],
+                ["factor", "portfolio", "rl"],
+            )
+            self.assertEqual(status["nextActions"][0]["id"], "run.execute")
+
     def test_capabilities_describe_every_public_command(self) -> None:
         result = run_cli("capabilities", "--json")
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -215,6 +260,7 @@ class AgentCliTests(unittest.TestCase):
                 "project.intake",
                 "project.list",
                 "project.default",
+                "project.program",
                 "validate",
                 "inspect",
                 "study.create",
@@ -276,6 +322,7 @@ class AgentCliTests(unittest.TestCase):
                 "ohlcv-factor-lab",
                 "ohlcv-portfolio-lab",
                 "ohlcv-rl-factor-lab",
+                "ohlcv-research-desk",
             ],
         )
         project_intake = next(
@@ -292,6 +339,7 @@ class AgentCliTests(unittest.TestCase):
                 "ohlcv-factor-lab",
                 "ohlcv-portfolio-lab",
                 "ohlcv-rl-factor-lab",
+                "ohlcv-research-desk",
             ],
         )
         schema = next(command for command in commands if command["id"] == "schema")
@@ -305,6 +353,7 @@ class AgentCliTests(unittest.TestCase):
                 "run-result",
                 "factor-diagnostics",
                 "portfolio-diagnostics",
+                "research-program-status",
                 "rl-policy-diagnostics",
                 "session-decision-matrix",
                 "session",
@@ -468,6 +517,47 @@ class AgentCliTests(unittest.TestCase):
             self.assertIn(
                 str(Path(envelope["data"]["projectDir"]) / "request.json"),
                 envelope["nextActions"][-1]["argv"],
+            )
+
+    def test_cli_intake_defaults_to_multi_study_research_desk(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            request_path, package_path = write_intake_inputs(root)
+            workspace = root / "workspace"
+            self.assertEqual(
+                run_cli("workspace", "init", str(workspace), "--json").returncode,
+                0,
+            )
+            created = run_cli(
+                "project",
+                "intake",
+                str(workspace),
+                "delegated-desk",
+                "--request",
+                str(request_path),
+                "--dataset",
+                str(package_path),
+                "--json",
+            )
+            self.assertEqual(created.returncode, 0, created.stderr)
+            envelope = json_output(created)
+            self.assertEqual(
+                envelope["data"]["intake"]["manifest"]["template"],
+                "ohlcv-research-desk",
+            )
+            self.assertEqual(
+                [item["kind"] for item in envelope["artifacts"]],
+                [
+                    "project",
+                    "research-request",
+                    "dataset-snapshot",
+                    "project-intake",
+                    "research-program",
+                ],
+            )
+            self.assertEqual(
+                [action["id"] for action in envelope["nextActions"]],
+                ["project.program", "run.execute"],
             )
 
     def test_json_cli_completes_a_two_project_workspace_flow(self) -> None:

@@ -303,6 +303,8 @@ statistics or selection authority.
    [[plans/portfolio-construction-lab]].
 4. Governed RL factor/target policy lane:
    [[plans/rl-factor-policy-lab]].
+5. One-request multi-Study research desk:
+   [[plans/multi-study-quant-research-desk]].
 
 Each phase must produce bounded deterministic evidence and a commit before the
 next phase changes its assumptions.
@@ -337,6 +339,8 @@ next phase changes its assumptions.
 
 - Mixed-asset/multi-calendar Studies, intraday intake, corporate-action
   verification, and point-in-time universe evidence remain future data work.
+- V1 governed RL uses fixed reference sleeves; a promoted arbitrary factor is
+  not yet a governed cross-Study model input.
 - Cross-Project report aggregation and OpenAlice-side invocation/Inbox
   publication remain future collaboration work; AutoQuant now owns the exact
   request-driven Project command and report artifacts at its boundary.

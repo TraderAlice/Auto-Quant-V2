@@ -55,6 +55,9 @@ The first viewport prioritizes:
 - Session selection split, candidate trial count, visible-test role, and
   external-holdout requirement;
 - request → evidence → report readiness and exact copyable headless commands;
+- a three-lane Quant Research Program board showing Factor, Portfolio, and RL
+  phase, latest objective value, Session progress, shared-source conflicts,
+  stale evidence, and the exact recommended next command;
 - fixed Study catalog and Project research program;
 - category-level diagnostics when evidence cannot be verified.
 
@@ -133,6 +136,7 @@ aq schema campaign-progress --json
 aq schema factor-diagnostics --json
 aq schema portfolio-diagnostics --json
 aq schema rl-policy-diagnostics --json
+aq schema research-program-status --json
 aq schema session-decision-matrix --json
 ```
 

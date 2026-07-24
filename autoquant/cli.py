@@ -78,8 +78,18 @@ from .rl_explorer import (
     RL_DIAGNOSTICS_JSON_SCHEMA,
     load_rl_diagnostics,
 )
+from .research_program import (
+    RESEARCH_PROGRAM_MANIFEST,
+    RESEARCH_PROGRAM_STATUS_JSON_SCHEMA,
+    RESEARCH_DESK_TEMPLATE,
+    load_research_program,
+)
 from .studio import STUDIO_SNAPSHOT_JSON_SCHEMA, build_studio_snapshot, serve_studio
-from .templates import PROJECT_TEMPLATE_IDS, TEMPLATE_STUDY_IDS
+from .templates import (
+    PROJECT_TEMPLATE_IDS,
+    TEMPLATE_STUDY_IDS,
+    TEMPLATE_STUDY_SEQUENCES,
+)
 from .sessions import (
     EXPERIMENT_JSON_SCHEMA,
     SESSION_JSON_SCHEMA,
@@ -179,6 +189,7 @@ def build_parser() -> RaisingArgumentParser:
             "run-result",
             "factor-diagnostics",
             "portfolio-diagnostics",
+            "research-program-status",
             "rl-policy-diagnostics",
             "session-decision-matrix",
             "session",
@@ -232,7 +243,7 @@ def build_parser() -> RaisingArgumentParser:
     project_intake.add_argument(
         "--template",
         choices=tuple(INTAKE_TEMPLATE_REQUIREMENTS),
-        default="ohlcv-portfolio-lab",
+        default=RESEARCH_DESK_TEMPLATE,
     )
     project_intake.add_argument("--name")
     project_intake.set_defaults(command_id="project.intake")
@@ -251,6 +262,15 @@ def build_parser() -> RaisingArgumentParser:
     project_default.add_argument("project_id")
     project_default.set_defaults(command_id="project.default")
     _json_argument(project_default)
+
+    project_program = project_actions.add_parser(
+        "program",
+        help="inspect one verified multi-Study research program",
+    )
+    project_program.add_argument("path")
+    project_program.add_argument("--project")
+    project_program.set_defaults(command_id="project.program")
+    _json_argument(project_program)
 
     for command in ("validate", "inspect"):
         command_parser = subcommands.add_parser(
@@ -643,6 +663,98 @@ def _project_create(args: argparse.Namespace) -> CommandResult:
         description=args.description,
         template=args.template,
     )
+    program = None
+    if args.template == RESEARCH_DESK_TEMPLATE:
+        program = load_research_program(project)
+        assert program is not None
+        next_actions = [
+            next_action(
+                "project.program",
+                "Inspect the coordinated Factor, Portfolio, and RL lanes.",
+                [
+                    "aq",
+                    "project",
+                    "program",
+                    str(project.root_dir),
+                    "--json",
+                ],
+                "read-only",
+            ),
+        ]
+        if program["recommendedAction"] is not None:
+            action = program["recommendedAction"]
+            next_actions.append(
+                next_action(
+                    action["id"],
+                    action["description"],
+                    action["argv"],
+                    action["effect"],
+                )
+            )
+    elif args.template != "blank":
+        study_id = TEMPLATE_STUDY_IDS[args.template]
+        next_actions = [
+            next_action(
+                "study.inspect",
+                "Inspect the fixed reference Study and content identity.",
+                [
+                    "aq",
+                    "study",
+                    "inspect",
+                    str(project.root_dir),
+                    "--study",
+                    study_id,
+                    "--json",
+                ],
+                "read-only",
+            ),
+            next_action(
+                "run.execute",
+                "Execute the bounded reference baseline.",
+                [
+                    "aq",
+                    "run",
+                    "execute",
+                    str(project.root_dir),
+                    "--study",
+                    study_id,
+                    "--json",
+                ],
+                "creates-artifact",
+            ),
+        ]
+    else:
+        next_actions = [
+            next_action(
+                "validate",
+                "Validate the newly created Project.",
+                ["aq", "validate", str(project.root_dir), "--json"],
+                "read-only",
+            ),
+            next_action(
+                "inspect",
+                "Inspect the Project construction surfaces.",
+                ["aq", "inspect", str(project.root_dir), "--json"],
+                "read-only",
+            ),
+        ]
+    artifacts = [
+        artifact(
+            "project",
+            project.manifest.id,
+            project.root_dir / PROJECT_MANIFEST,
+            immutable=False,
+        )
+    ]
+    if program is not None:
+        artifacts.append(
+            artifact(
+                "research-program",
+                program["manifest"]["id"],
+                project.root_dir / RESEARCH_PROGRAM_MANIFEST,
+                immutable=False,
+            )
+        )
     return CommandResult(
         "project.create",
         {
@@ -652,61 +764,8 @@ def _project_create(args: argparse.Namespace) -> CommandResult:
         },
         f"Created AutoQuant Project '{project.manifest.id}' at {project.root_dir}\n",
         project_context(project),
-        [
-            artifact(
-                "project",
-                project.manifest.id,
-                project.root_dir / PROJECT_MANIFEST,
-                immutable=False,
-            )
-        ],
-        (
-            [
-                next_action(
-                    "study.inspect",
-                    "Inspect the fixed reference Study and content identity.",
-                    [
-                        "aq",
-                        "study",
-                        "inspect",
-                        str(project.root_dir),
-                        "--study",
-                        TEMPLATE_STUDY_IDS[args.template],
-                        "--json",
-                    ],
-                    "read-only",
-                ),
-                next_action(
-                    "run.execute",
-                    "Execute the bounded reference baseline.",
-                    [
-                        "aq",
-                        "run",
-                        "execute",
-                        str(project.root_dir),
-                        "--study",
-                        TEMPLATE_STUDY_IDS[args.template],
-                        "--json",
-                    ],
-                    "creates-artifact",
-                ),
-            ]
-            if args.template != "blank"
-            else [
-                next_action(
-                    "validate",
-                    "Validate the newly created Project.",
-                    ["aq", "validate", str(project.root_dir), "--json"],
-                    "read-only",
-                ),
-                next_action(
-                    "inspect",
-                    "Inspect the Project construction surfaces.",
-                    ["aq", "inspect", str(project.root_dir), "--json"],
-                    "read-only",
-                ),
-            ]
-        ),
+        artifacts,
+        next_actions,
     )
 
 
@@ -728,48 +787,34 @@ def _project_intake(args: argparse.Namespace) -> CommandResult:
     assert intake is not None
     study_id = intake["study"]["id"]
     request_path = project.root_dir / PROJECT_REQUEST
-    return CommandResult(
-        "project.intake",
-        {
-            "projectDir": str(project.root_dir),
-            "manifest": project.manifest.to_dict(),
-            "intake": intake,
-        },
-        (
-            f"Created request-driven Project '{project.manifest.id}'\n"
-            f"Request: {prepared.request['title']}\n"
-            f"Dataset: {prepared.package['id']}@{prepared.package['version']} · "
-            f"{len(prepared.assets)} assets · {prepared.start}..{prepared.end}\n"
-            f"Study: {study_id}\n"
-        ),
-        project_context(project),
-        [
-            artifact(
-                "project",
-                project.manifest.id,
-                project.root_dir / PROJECT_MANIFEST,
-                immutable=False,
+    program = load_research_program(project, optional=True)
+    if program is not None:
+        next_actions = [
+            next_action(
+                "project.program",
+                "Inspect the coordinated Factor, Portfolio, and RL research lanes.",
+                [
+                    "aq",
+                    "project",
+                    "program",
+                    str(project.root_dir),
+                    "--json",
+                ],
+                "read-only",
             ),
-            artifact(
-                "research-request",
-                prepared.request_hash,
-                request_path,
-                immutable=False,
-            ),
-            artifact(
-                "dataset-snapshot",
-                intake["manifest"]["datasetSnapshotHash"],
-                project.root_dir / DATASET_SNAPSHOT,
-                immutable=False,
-            ),
-            artifact(
-                "project-intake",
-                project.manifest.id,
-                project.root_dir / PROJECT_INTAKE,
-                immutable=False,
-            ),
-        ],
-        [
+        ]
+        if program["recommendedAction"] is not None:
+            action = program["recommendedAction"]
+            next_actions.append(
+                next_action(
+                    action["id"],
+                    action["description"],
+                    action["argv"],
+                    action["effect"],
+                )
+            )
+    else:
+        next_actions = [
             next_action(
                 "study.inspect",
                 "Inspect the fixed Study and content-locked market snapshot.",
@@ -814,7 +859,106 @@ def _project_intake(args: argparse.Namespace) -> CommandResult:
                 ],
                 "creates-artifact",
             ),
+        ]
+    artifacts = [
+        artifact(
+            "project",
+            project.manifest.id,
+            project.root_dir / PROJECT_MANIFEST,
+            immutable=False,
+        ),
+        artifact(
+            "research-request",
+            prepared.request_hash,
+            request_path,
+            immutable=False,
+        ),
+        artifact(
+            "dataset-snapshot",
+            intake["manifest"]["datasetSnapshotHash"],
+            project.root_dir / DATASET_SNAPSHOT,
+            immutable=False,
+        ),
+        artifact(
+            "project-intake",
+            project.manifest.id,
+            project.root_dir / PROJECT_INTAKE,
+            immutable=False,
+        ),
+    ]
+    if program is not None:
+        artifacts.append(
+            artifact(
+                "research-program",
+                program["manifest"]["id"],
+                project.root_dir / RESEARCH_PROGRAM_MANIFEST,
+                immutable=False,
+            )
+        )
+    return CommandResult(
+        "project.intake",
+        {
+            "projectDir": str(project.root_dir),
+            "manifest": project.manifest.to_dict(),
+            "intake": intake,
+        },
+        (
+            f"Created request-driven Project '{project.manifest.id}'\n"
+            f"Request: {prepared.request['title']}\n"
+            f"Dataset: {prepared.package['id']}@{prepared.package['version']} · "
+            f"{len(prepared.assets)} assets · {prepared.start}..{prepared.end}\n"
+            f"Studies: {len(TEMPLATE_STUDY_SEQUENCES[args.template])} · "
+            f"primary {study_id}\n"
+        ),
+        project_context(project),
+        artifacts,
+        next_actions,
+    )
+
+
+def _project_program(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    program = load_research_program(project)
+    assert program is not None
+    lane_lines = [
+        f"  {lane['id']}: {lane['phase']} · "
+        f"{lane['study']['objective']['metric']}"
+        for lane in program["lanes"]
+    ]
+    actions = []
+    if program["recommendedAction"] is not None:
+        action = program["recommendedAction"]
+        actions.append(
+            next_action(
+                action["id"],
+                action["description"],
+                action["argv"],
+                action["effect"],
+            )
+        )
+    return CommandResult(
+        "project.program",
+        program,
+        (
+            f"Research program: {program['project']['name']}\n"
+            + "\n".join(lane_lines)
+            + "\n"
+            + (
+                f"Recommended: {program['recommendedAction']['display']}\n"
+                if program["recommendedAction"] is not None
+                else "Recommended: no pending lane action\n"
+            )
+        ),
+        project_context(project),
+        [
+            artifact(
+                "research-program",
+                program["manifest"]["id"],
+                project.root_dir / RESEARCH_PROGRAM_MANIFEST,
+                immutable=False,
+            )
         ],
+        actions,
     )
 
 
@@ -2133,6 +2277,7 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "judge-output",
             "ohlcv-dataset-package",
             "portfolio-diagnostics",
+            "research-program-status",
             "rl-policy-diagnostics",
             "session-decision-matrix",
             "project",
@@ -2158,6 +2303,7 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "run-result": RUN_RESULT_JSON_SCHEMA,
             "factor-diagnostics": FACTOR_DIAGNOSTICS_JSON_SCHEMA,
             "portfolio-diagnostics": PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA,
+            "research-program-status": RESEARCH_PROGRAM_STATUS_JSON_SCHEMA,
             "rl-policy-diagnostics": RL_DIAGNOSTICS_JSON_SCHEMA,
             "session-decision-matrix": SESSION_DECISION_MATRIX_JSON_SCHEMA,
             "session": SESSION_JSON_SCHEMA,
@@ -2186,6 +2332,8 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
         return _project_list(args)
     if args.command_id == "project.default":
         return _project_default(args)
+    if args.command_id == "project.program":
+        return _project_program(args)
     if args.command_id == "validate":
         return _validate(args)
     if args.command_id == "inspect":

@@ -132,7 +132,7 @@ CLI_COMMANDS = [
     ),
     descriptor(
         "schema",
-        "aq schema [workspace|project|study|judge-output|run-result|factor-diagnostics|portfolio-diagnostics|rl-policy-diagnostics|session-decision-matrix|session|experiment|research-request|ohlcv-dataset-package|report-analysis|researcher-response|campaign-result|campaign-progress|studio-snapshot] [--json]",
+        "aq schema [workspace|project|study|judge-output|run-result|factor-diagnostics|portfolio-diagnostics|research-program-status|rl-policy-diagnostics|session-decision-matrix|session|experiment|research-request|ohlcv-dataset-package|report-analysis|researcher-response|campaign-result|campaign-progress|studio-snapshot] [--json]",
         "List or emit canonical AutoQuant JSON Schemas.",
         "read-only",
         [
@@ -150,6 +150,7 @@ CLI_COMMANDS = [
                     "run-result",
                     "factor-diagnostics",
                     "portfolio-diagnostics",
+                    "research-program-status",
                     "rl-policy-diagnostics",
                     "session-decision-matrix",
                     "session",
@@ -277,8 +278,8 @@ CLI_COMMANDS = [
                 "option",
                 "string",
                 False,
-                "Fixed research Lab to bind to the snapshot.",
-                default="ohlcv-portfolio-lab",
+                "Research desk or fixed Lab to bind to the snapshot.",
+                default="ohlcv-research-desk",
                 choices=list(PROJECT_TEMPLATE_IDS[1:]),
             ),
             argument(
@@ -330,6 +331,13 @@ CLI_COMMANDS = [
             ),
             JSON_ARGUMENT,
         ],
+    ),
+    descriptor(
+        "project.program",
+        "aq project program <path> [--project ID] [--json]",
+        "Verify coordinated Factor, Portfolio, and governed-RL lane status and exact next actions.",
+        "read-only",
+        [PATH_ARGUMENT, PROJECT_ARGUMENT, JSON_ARGUMENT],
     ),
     descriptor(
         "validate",

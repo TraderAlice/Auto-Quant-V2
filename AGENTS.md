@@ -85,6 +85,9 @@ Read the relevant linked document before changing a subsystem:
 - Request-driven Project construction, external OHLCV package validation,
   normalized dataset snapshots, and pre-Session intake state:
   [[docs/design/research-intake-and-dataset-snapshots]]
+- One-request/multi-Study orchestration, shared factor-source sequencing, lane
+  currentness, and research-program status:
+  [[docs/design/research-program-orchestration]]
 - Resumable Agent worktrees, KEEP/REVERT/CRASH Experiments, and guarded source
   promotion: [[docs/design/research-session-loop]]
 - Provider-neutral external Researcher turns, budgets, restoration, and

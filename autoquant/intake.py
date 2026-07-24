@@ -43,6 +43,7 @@ INTAKE_TEMPLATE_REQUIREMENTS = {
     "ohlcv-factor-lab": (4, 180),
     "ohlcv-portfolio-lab": (5, 180),
     "ohlcv-rl-factor-lab": (5, 240),
+    "ohlcv-research-desk": (5, 240),
 }
 
 
@@ -1008,14 +1009,11 @@ def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
         issues.append(
             _issue(study.manifest_path, "intake.study-hash", "Study hash mismatch")
         )
-    if study.input_hash != manifest.get("studyInputHash"):
-        issues.append(
-            _issue(
-                study.manifest_path,
-                "intake.study-input-hash",
-                "Study input hash mismatch",
-            )
-        )
+    # `studyInputHash` is the immutable identity created at intake time. The
+    # editable Study subject is expected to evolve after that handoff, so a
+    # different current input hash is evidence staleness, not intake
+    # corruption. Run/Session/Report projections compare against the current
+    # Study identity and surface that state explicitly.
     if study.dataset_hash != manifest.get("datasetHash"):
         issues.append(
             _issue(
@@ -1061,6 +1059,8 @@ def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
             "name": study.definition.name,
             "hash": study.study_hash,
             "inputHash": study.input_hash,
+            "intakeInputHash": manifest["studyInputHash"],
+            "current": study.input_hash == manifest["studyInputHash"],
         },
     }
 

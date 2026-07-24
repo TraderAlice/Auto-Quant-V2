@@ -121,7 +121,12 @@ creates a different Study/Run identity and stales an existing Session.
 
 Project-root `request.json` preserves the exact canonical caller request.
 Project-root `intake.json` points to and hashes the request, snapshot, and
-generated Study. It is verified whenever Core or Studio projects intake state.
+generated Study. Its `studyInputHash` is the immutable identity at handoff,
+not a requirement that editable research source remain unchanged forever.
+Core and Studio verify the fixed Study/dataset contract while exposing whether
+the current Study input still matches that intake identity. Existing Runs
+become stale evidence after an intentional source change; the intake itself
+does not become corrupt.
 Once a delegated Session starts, the existing Session contract copies and
 freezes the request and derived Brief independently.
 
@@ -133,7 +138,7 @@ The public operation is:
 aq project intake <workspace> <project-id>
   --request <request.json>
   --dataset <ohlcv-package.json>
-  --template ohlcv-factor-lab|ohlcv-portfolio-lab|ohlcv-rl-factor-lab
+  --template ohlcv-research-desk
 ```
 
 Validation and construction occur inside the existing hidden Project staging
@@ -141,9 +146,14 @@ directory. Any failure removes that staging directory and leaves Workspace
 discovery/default selection unchanged. A successful operation atomically
 publishes the Project and returns exact commands to:
 
-1. inspect the fixed Study;
-2. execute a baseline Run;
+1. inspect the coordinated research program;
+2. execute a bounded baseline Run in the recommended lane;
 3. start a delegated Session using the preserved request.
+
+The three single-lane templates remain available for narrow, explicitly
+selected work. `ohlcv-research-desk` is the default delegated-research intake:
+one dataset snapshot supports coordinated Factor, Portfolio, and governed RL
+Studies without asking the caller to choose an implementation method.
 
 The command does not silently run research.
 

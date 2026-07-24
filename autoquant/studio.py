@@ -29,6 +29,7 @@ from .portfolio_explorer import (
 )
 from .rl_explorer import DEFAULT_RL_POINTS, load_rl_diagnostics
 from .research import list_campaign_progress, list_campaigns
+from .research_program import load_research_program
 from .reports import list_reports
 from .runs import list_runs, load_run
 from .sessions import list_sessions, load_session, session_snapshot
@@ -575,6 +576,14 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
                 )
             ],
         }
+    research_program_status = None
+    try:
+        research_program_status = load_research_program(
+            project,
+            optional=True,
+        )
+    except AutoQuantValidationError as error:
+        diagnostics.extend(_diagnostics("research-program", error))
     studies = [item.to_dict() for item in studies_raw]
     runs: list[dict[str, Any]] = []
     for item in runs_raw:
@@ -764,6 +773,20 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
                 "read-only",
             )
         )
+    if research_program_status is not None:
+        commands.append(
+            _command(
+                "project.program",
+                [
+                    "aq",
+                    "project",
+                    "program",
+                    str(project.root_dir),
+                    "--json",
+                ],
+                "read-only",
+            )
+        )
     return {
         "id": project.manifest.id,
         "name": project.manifest.name,
@@ -773,6 +796,7 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
             "path": str(program_path),
             "text": program_path.read_text(encoding="utf-8"),
         },
+        "researchProgramStatus": research_program_status,
         "intake": intake,
         "factorExplorer": factor_explorer,
         "portfolioExplorer": portfolio_explorer,
@@ -1200,6 +1224,7 @@ STUDIO_SNAPSHOT_JSON_SCHEMA: dict[str, Any] = {
                 "description",
                 "rootDir",
                 "researchProgram",
+                "researchProgramStatus",
                 "intake",
                 "factorExplorer",
                 "portfolioExplorer",
@@ -1227,6 +1252,7 @@ STUDIO_SNAPSHOT_JSON_SCHEMA: dict[str, Any] = {
                         "text": {"type": "string"},
                     },
                 },
+                "researchProgramStatus": {"type": ["object", "null"]},
                 "intake": {"type": ["object", "null"]},
                 "factorExplorer": {"type": ["object", "null"]},
                 "portfolioExplorer": {"type": ["object", "null"]},

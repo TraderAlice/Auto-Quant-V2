@@ -20,6 +20,7 @@ aq schema report-analysis --json
 aq schema factor-diagnostics --json
 aq schema portfolio-diagnostics --json
 aq schema rl-policy-diagnostics --json
+aq schema research-program-status --json
 aq schema session-decision-matrix --json
 ```
 
@@ -41,15 +42,16 @@ Agents should discover the contract rather than scrape `--help`.
 aq workspace init <workspace-dir> [--name NAME] [--json]
 aq project create <workspace-dir> <project-id> \
   [--name NAME] [--description TEXT] \
-  [--template blank|ohlcv-factor-lab|ohlcv-portfolio-lab|ohlcv-rl-factor-lab] \
+  [--template blank|ohlcv-factor-lab|ohlcv-portfolio-lab|ohlcv-rl-factor-lab|ohlcv-research-desk] \
   [--json]
 aq project intake <workspace-dir> <project-id> \
   --request research-request.json \
   --dataset ohlcv-dataset-package.json \
-  [--template ohlcv-factor-lab|ohlcv-portfolio-lab|ohlcv-rl-factor-lab] \
+  [--template ohlcv-factor-lab|ohlcv-portfolio-lab|ohlcv-rl-factor-lab|ohlcv-research-desk] \
   [--name NAME] [--json]
 aq project list <workspace-dir> [--json]
 aq project default <workspace-dir> <project-id> [--json]
+aq project program <project-or-workspace-dir> [--project ID] [--json]
 aq validate <project-or-workspace-dir> [--project ID] [--json]
 aq inspect <project-or-workspace-dir> [--project ID] [--json]
 ```
@@ -69,8 +71,15 @@ fixed factor-mixture actions, Q-learning, folds, seeds, rewards, portfolio
 accounting, and simple baselines. All three reference templates are bounded,
 deterministic construction fixtures.
 
-`project intake` is the production-shaped construction boundary for the same
-three fixed Labs. It validates the strict request and a caller-supplied,
+`ohlcv-research-desk` coordinates those three evaluation questions in one
+Project over one dataset snapshot. Factor and Portfolio deliberately share
+`factors/candidate.py`; RL owns `models/candidate.py`. The program reports
+simultaneous active Sessions on the shared Factor surface as a conflict and
+discloses that V1 RL still uses fixed reference sleeves rather than the
+promoted arbitrary factor.
+
+`project intake` defaults to this research-desk template. It validates the
+strict request and a caller-supplied,
 path-confined daily session-OHLCV package before creating anything. Every asset
 must share the exact timestamp panel; template-specific breadth/history floors
 apply. Core canonicalizes CSV into the Project, records provider, retrieval,
@@ -80,8 +89,10 @@ the Project. V1 does not download data, authenticate provider claims, fill
 missing sessions, or support intraday/continuous/mixed-class packages.
 
 The JSON result contains Project-level `request.json`, `intake.json`,
-`data/ohlcv/snapshot.json`, the verified Study identity, and exact next actions
-for inspection, a baseline Run, and a delegated Session start. See
+`data/ohlcv/snapshot.json`, three verified Study identities, and exact next
+actions for inspecting the program and advancing its recommended lane.
+`project program --json` is the stable Agent read model for lane phase, current
+Run evidence, Sessions, Reports, shared-source conflicts, and next action. See
 [[docs/design/research-intake-and-dataset-snapshots]].
 
 ## Study and Run commands

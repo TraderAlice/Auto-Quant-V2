@@ -73,6 +73,25 @@ const latestSuccessfulRun = (project) =>
     .reverse()
     .find((run) => run.status === "succeeded" && run.metricLayers) ?? null;
 
+const projectFocusLane = (project) => {
+  const program = project.researchProgramStatus;
+  if (!program) return null;
+  return (
+    program.lanes.find((lane) => lane.id === program.recommendedLaneId) ??
+    program.lanes[0] ??
+    null
+  );
+};
+
+const projectFocusRun = (project) => {
+  const lane = projectFocusLane(project);
+  if (lane?.latestRun?.id) {
+    const run = project.runs.find((item) => item.id === lane.latestRun.id);
+    if (run?.status === "succeeded" && run.metricLayers) return run;
+  }
+  return latestSuccessfulRun(project);
+};
+
 const shortHash = (value) =>
   typeof value === "string" && value.length > 14
     ? `${value.slice(0, 8)}…${value.slice(-6)}`
@@ -157,7 +176,7 @@ function renderProjects() {
 
 function renderScoreboard(project) {
   const counts = project.counts;
-  const run = latestSuccessfulRun(project);
+  const run = projectFocusRun(project);
   const layers = run?.metricLayers;
   let values;
   if (layers?.kind === "portfolio") {
@@ -327,8 +346,12 @@ function renderHandoff(project) {
       const request = intake.request;
       const dataset = intake.dataset;
       const source = request.source;
-      const start = intake.commands.find((item) => item.id === "session.start");
-      const baseline = latestSuccessfulRun(project);
+      const program = project.researchProgramStatus;
+      const lane = projectFocusLane(project);
+      const next =
+        program?.recommendedAction ??
+        intake.commands.find((item) => item.id === "session.start");
+      const baseline = projectFocusRun(project);
       const layers = baseline?.metricLayers;
       const portfolio = layers?.kind === "portfolio" ? layers : null;
       const baselineTone = valueTone(baseline?.primaryValue);
@@ -361,7 +384,7 @@ function renderHandoff(project) {
           <span class="context-note">${escapeHtml(dataset.provider.name)} · ${escapeHtml(dataset.priceAdjustment)} · ${escapeHtml(dataset.timeRange.start)} → ${escapeHtml(dataset.timeRange.end)} · provider claims</span>
         </article>
         <article class="handoff-card report-card ${baseline ? "ready" : ""}">
-          <small>03 · Baseline &amp; next action</small>
+          <small>03 · ${lane ? escapeHtml(lane.name) : "Baseline"} &amp; next action</small>
           <h3>${baseline ? `${escapeHtml(baseline.primaryMetric)} = ${metric(baseline.primaryValue)}` : escapeHtml(intake.study.name)}</h3>
           <p>${baseline ? "The immutable baseline is descriptive evidence, not a recommendation. Start a governed Session to test candidates against validation-only selection." : "Start a governed Session to run a fresh baseline and freeze this request into its derived Brief."}</p>
           ${portfolio ? `
@@ -371,7 +394,7 @@ function renderHandoff(project) {
             <span class="${valueTone(portfolio.robustness.test25bpsSharpe)}"><b>${metric(portfolio.robustness.test25bpsSharpe)}</b><small>25bps audit</small></span>
           </div>` : ""}
           <span class="status-chip ${baselineTone === "bad" ? "revert" : "active"}">${baseline ? (baselineTone === "bad" ? "negative baseline" : "baseline verified") : "ready"}</span>
-          ${copyCommandButton(start, "Copy start command")}
+          ${copyCommandButton(next, program ? "Copy recommended command" : "Copy start command")}
         </article>`;
       return;
     }
@@ -423,6 +446,87 @@ function renderHandoff(project) {
       <span class="status-chip ${latestReport ? "published" : "active"}">${latestReport ? "verified" : "pending"}</span>
       ${copyCommandButton(latestReport ? show : publish)}
     </article>`;
+}
+
+function programPhaseLabel(phase) {
+  return {
+    "not-started": "NOT STARTED",
+    "baseline-ready": "BASELINE READY",
+    researching: "RESEARCHING",
+    reported: "REPORTED",
+    stale: "STALE EVIDENCE",
+  }[phase] ?? String(phase ?? "unknown").toUpperCase();
+}
+
+function renderResearchProgram(project) {
+  const section = element("research-program-status");
+  const program = project.researchProgramStatus;
+  if (!program) {
+    section.hidden = true;
+    return;
+  }
+  section.hidden = false;
+  const summary = program.summary;
+  const recommended = program.recommendedAction;
+  element("research-program-meta").textContent =
+    `${program.dataset.universe.length} assets · one snapshot · ${summary.lanes} fixed Studies`;
+  element("research-program-summary").innerHTML = [
+    ["Program lanes", summary.lanes, "factor / portfolio / RL"],
+    ["Active Sessions", summary.activeSessions, "shared-source conflicts checked"],
+    ["Reports", summary.reports, "immutable decision support"],
+    ["Conflicts", summary.conflicts, summary.conflicts ? "attention required" : "none detected"],
+  ]
+    .map(
+      ([label, value, note], index) => `
+        <span class="${index === 3 && Number(value) ? "negative" : ""}">
+          <small>${escapeHtml(label)}</small>
+          <b>${escapeHtml(value)}</b>
+          <i>${escapeHtml(note)}</i>
+        </span>`,
+    )
+    .join("");
+  element("research-program-lanes").innerHTML = program.lanes
+    .map((lane, index) => {
+      const run = lane.latestRun;
+      const session = lane.latestSession;
+      const selected = lane.id === program.recommendedLaneId;
+      const command =
+        lane.commands.find((item) => item.id === recommended?.id) ??
+        lane.commands.find((item) => item.id === "session.show") ??
+        lane.commands.find((item) => item.id === "run.execute") ??
+        lane.commands[0];
+      return `
+        <article class="program-lane ${lane.phase} ${selected ? "recommended" : ""}">
+          <header>
+            <span>${String(index + 1).padStart(2, "0")}</span>
+            <small>${escapeHtml(lane.role)}</small>
+          </header>
+          <h3>${escapeHtml(lane.name)}</h3>
+          <p>${escapeHtml(lane.study.description)}</p>
+          <dl>
+            <dt>Objective</dt>
+            <dd>${escapeHtml(lane.study.objective.metric)}</dd>
+            <dt>Latest value</dt>
+            <dd>${run?.value === null || run?.value === undefined ? "—" : metric(run.value)}</dd>
+            <dt>Session</dt>
+            <dd>${session ? `${session.experiments} experiments` : "not started"}</dd>
+            <dt>Source</dt>
+            <dd>${escapeHtml(lane.editablePaths.join(", "))}</dd>
+          </dl>
+          <div class="program-lane-foot">
+            <span class="program-phase ${lane.phase}">${escapeHtml(programPhaseLabel(lane.phase))}</span>
+            ${selected ? "<b>NEXT</b>" : ""}
+          </div>
+          ${copyCommandButton(command, `${lane.name} command`)}
+        </article>`;
+    })
+    .join("");
+  element("research-program-footer").innerHTML = `
+    <span>
+      <b>${program.conflicts.length ? "Shared-source conflict" : "Integration boundary"}</b>
+      ${escapeHtml(program.warnings.join(" · "))}
+    </span>
+    ${copyCommandButton(recommended, "Copy recommended command")}`;
 }
 
 function chartTime(timestamp) {
@@ -1770,15 +1874,19 @@ function renderInspector(project) {
   if (!session) {
     element("inspector-kind").textContent = "PROJECT";
     const intake = project.intake;
-    const baseline = latestSuccessfulRun(project);
+    const baseline = projectFocusRun(project);
     if (intake) {
       const request = intake.request;
       const dataset = intake.dataset;
+      const program = project.researchProgramStatus;
+      const lane = projectFocusLane(project);
       const portfolio =
         baseline?.metricLayers?.kind === "portfolio"
           ? baseline.metricLayers
           : null;
-      const start = intake.commands.find((item) => item.id === "session.start");
+      const next =
+        program?.recommendedAction ??
+        intake.commands.find((item) => item.id === "session.start");
       element("inspector-content").innerHTML = `
         <section class="inspector-section">
           <small>Research mandate</small>
@@ -1804,8 +1912,8 @@ function renderInspector(project) {
           </dl>
         </section>
         <section class="inspector-section">
-          <small>Immutable baseline</small>
-          <h3>${escapeHtml(baseline?.studyId ?? intake.study.name)}</h3>
+          <small>${lane ? "Recommended lane evidence" : "Immutable baseline"}</small>
+          <h3>${escapeHtml(lane?.name ?? baseline?.studyId ?? intake.study.name)}</h3>
           ${baseline ? `<span class="status-chip ${valueTone(baseline.primaryValue) === "bad" ? "revert" : "published"}">${escapeHtml(baseline.status)}</span>` : '<span class="status-chip active">pending</span>'}
           <dl class="inspector-kv">
             <dt>${escapeHtml(baseline?.primaryMetric ?? "Primary metric")}</dt><dd>${metric(baseline?.primaryValue)}</dd>
@@ -1815,7 +1923,7 @@ function renderInspector(project) {
             <dt>Cost drag</dt><dd>${percent(portfolio.implementation.testCostDrag)}</dd>` : ""}
             <dt>Selection</dt><dd>validation only</dd>
           </dl>
-          ${copyCommandButton(start, "Copy start command")}
+          ${copyCommandButton(next, program ? "Copy recommended command" : "Copy start command")}
         </section>
         <details class="program-details">
           <summary>Research program</summary>
@@ -1951,6 +2059,7 @@ function renderEmptyWorkspace(message = "Create a Project with aq project create
   element("handoff-meta").textContent = "No delegated request";
   element("handoff-board").innerHTML =
     '<div class="empty-panel handoff-empty">Delegated research requests will appear here.</div>';
+  element("research-program-status").hidden = true;
   element("factor-explorer").hidden = true;
   element("portfolio-explorer").hidden = true;
   element("rl-explorer").hidden = true;
@@ -2018,6 +2127,7 @@ function render() {
   renderScoreboard(project);
   renderDiagnostics(project);
   renderHandoff(project);
+  renderResearchProgram(project);
   renderFactorExplorer(project);
   renderPortfolioExplorer(project);
   renderRlExplorer(project);
