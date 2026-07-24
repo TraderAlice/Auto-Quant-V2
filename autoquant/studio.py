@@ -376,6 +376,7 @@ def _portfolio_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
         layers["liquidityCapacity"] = None
         layers["executedBookRisk"] = None
         layers["positionLifecycle"] = None
+        layers["parameterNeighborhood"] = None
         if isinstance(signal_policy, dict):
             validation_policy = signal_policy.get("validation", {})
             comparison = signal_policy.get(
@@ -515,6 +516,39 @@ def _portfolio_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
                         validation_lifecycle.get("intent_mismatch_rate")
                     ),
                     "selectionAuthority": lifecycle.get(
+                        "policy",
+                        {},
+                    ).get("selection_authority"),
+                }
+        neighborhood = metrics.get("parameter_neighborhood")
+        if isinstance(neighborhood, dict):
+            validation_neighborhood = neighborhood.get(
+                "validation",
+                {},
+            )
+            aggregate = (
+                validation_neighborhood.get("aggregate", {})
+                if isinstance(validation_neighborhood, dict)
+                else {}
+            )
+            if isinstance(aggregate, dict):
+                layers["parameterNeighborhood"] = {
+                    "validationConfigurationCount": aggregate.get(
+                        "configuration_count"
+                    ),
+                    "validationPositiveNetSharpeRate": aggregate.get(
+                        "positive_net_sharpe_rate"
+                    ),
+                    "validationSignAgreementWithBaseRate": aggregate.get(
+                        "sign_agreement_with_base_rate"
+                    ),
+                    "validationMinimumNetSharpe": aggregate.get(
+                        "minimum_net_sharpe"
+                    ),
+                    "validationWorstNetSharpeDelta": aggregate.get(
+                        "worst_net_sharpe_delta"
+                    ),
+                    "selectionAuthority": neighborhood.get(
                         "policy",
                         {},
                     ).get("selection_authority"),

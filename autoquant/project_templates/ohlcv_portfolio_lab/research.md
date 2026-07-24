@@ -20,6 +20,10 @@ Use `position-episodes.csv` when the question depends on how an executed
 position opened, persisted, reversed, or closed. Treat complete episodes
 separately from split-censored segments and remember that episode P&L is
 additive portfolio contribution, not a standalone compounded trade return.
+Use `portfolio-parameter-neighborhood.json` to test whether the fixed result
+survives the predeclared local entry/exit and no-trade neighborhood. It is
+context-only robustness evidence: never pick a better-looking cell or use it
+to rewrite KEEP/REVERT.
 
 The fixed Judge owns timing, percentile entry/hold/exit state,
 inverse-volatility conviction sizing, request-bound tradable/context assets,

@@ -143,6 +143,8 @@ The first explorer version provides:
   assets, cash/cap, benchmark, and risk policy;
 - net/gross/benchmark growth and net drawdown;
 - exposure, unused cash budget, turnover, cost, and split context;
+- a strictly reconstructed validation/test mechanical-parameter neighborhood
+  projection with no selection or trading authority;
 - current target/executed mechanical book;
 - validation/test executed-book forecast coverage, pretrade breaches,
   risk-only overrides, final breaches, and latest final-book status;

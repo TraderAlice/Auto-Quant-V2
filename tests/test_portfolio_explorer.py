@@ -234,6 +234,43 @@ class PortfolioDecisionExplorerTests(unittest.TestCase):
                 ],
                 0,
             )
+            self.assertTrue(
+                diagnostics["parameterNeighborhood"]["available"]
+            )
+            self.assertEqual(
+                diagnostics["parameterNeighborhood"]["policy"][
+                    "selectionAuthority"
+                ],
+                "context-only",
+            )
+            self.assertEqual(
+                diagnostics["parameterNeighborhood"]["policy"][
+                    "configurationCount"
+                ],
+                15,
+            )
+            self.assertEqual(
+                len(
+                    diagnostics["parameterNeighborhood"]["validation"][
+                        "configurations"
+                    ]
+                ),
+                15,
+            )
+            base_cell = next(
+                item
+                for item in diagnostics["parameterNeighborhood"][
+                    "validation"
+                ]["configurations"]
+                if item["isBase"]
+            )
+            self.assertEqual(base_cell["id"], "base__band-005")
+            self.assertAlmostEqual(
+                base_cell["netSharpe"],
+                run.result["metrics"]["portfolio"]["validation"]["net"][
+                    "sharpe"
+                ],
+            )
             self.assertEqual(diagnostics["path"]["sampledRows"], 64)
             self.assertGreater(diagnostics["path"]["totalRows"], 64)
             sampled_dates = {
@@ -303,6 +340,30 @@ class PortfolioDecisionExplorerTests(unittest.TestCase):
                 diagnostics,
                 PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA,
             )
+
+    def test_rehashed_parameter_neighborhood_mismatch_is_rejected(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, project, run = make_lab(Path(directory))
+            path = (
+                run.root_dir
+                / "artifacts"
+                / "portfolio-parameter-neighborhood.json"
+            )
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            payload["rows"][0]["netReturn"] += 0.01
+            path.write_text(
+                json.dumps(payload, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            rehash_run(run.root_dir)
+
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "Parameter-neighborhood numeric value does not reconcile",
+            ):
+                load_portfolio_diagnostics(project, run.result["id"])
 
     def test_rehashed_risk_governor_mismatch_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

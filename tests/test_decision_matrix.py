@@ -138,6 +138,9 @@ class SessionDecisionMatrixTests(unittest.TestCase):
                 "validationExecutedRiskForecastCoverage",
                 "validationRiskRebalanceOverrides",
                 "validationExecutedRiskBreaches",
+                "validationNeighborhoodMinimumNetSharpe",
+                "validationNeighborhoodPositiveSharpeRate",
+                "validationNeighborhoodWorstSharpeDelta",
             ):
                 self.assertEqual(
                     descriptors[key]["preference"],
@@ -178,6 +181,16 @@ class SessionDecisionMatrixTests(unittest.TestCase):
             self.assertEqual(
                 baseline_metrics["validationExecutedRiskBreaches"],
                 0.0,
+            )
+            self.assertIsNotNone(
+                baseline_metrics[
+                    "validationNeighborhoodMinimumNetSharpe"
+                ]
+            )
+            self.assertIsNotNone(
+                baseline_metrics[
+                    "validationNeighborhoodPositiveSharpeRate"
+                ]
             )
             self.assertTrue(complete["tradeoffs"]["testExcluded"])
             self.assertNotIn(

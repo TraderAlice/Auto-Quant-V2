@@ -33,6 +33,7 @@ from judges.portfolio_core import (
     attribution_metrics,
     build_decision_ledger,
     build_position_episodes,
+    build_risk_covariance_cache,
     constraint_audit,
     construct_signal_policy,
     execution_risk_metrics,
@@ -48,6 +49,53 @@ from judges.portfolio_core import (
 REQUIRED_COLUMNS = ("timestamp", "open", "high", "low", "close", "volume")
 MIN_ASSETS_PER_DATE = 4
 MIN_SPLIT_OBSERVATIONS = 20
+PARAMETER_NEIGHBORHOOD_METHOD = (
+    "predeclared-signal-threshold-no-trade-neighborhood-v1"
+)
+PARAMETER_SIGNAL_PROFILES: tuple[dict[str, Any], ...] = (
+    {
+        "id": "broad-entry",
+        "label": "Broad entry",
+        "long_entry": 0.55,
+        "long_exit": 0.55,
+        "short_exit": 0.45,
+        "short_entry": 0.45,
+    },
+    {
+        "id": "base",
+        "label": "Base",
+        "long_entry": LONG_ENTRY_PERCENTILE,
+        "long_exit": LONG_EXIT_PERCENTILE,
+        "short_exit": SHORT_EXIT_PERCENTILE,
+        "short_entry": SHORT_ENTRY_PERCENTILE,
+    },
+    {
+        "id": "selective-entry",
+        "label": "Selective entry",
+        "long_entry": 0.95,
+        "long_exit": 0.55,
+        "short_exit": 0.45,
+        "short_entry": 0.05,
+    },
+    {
+        "id": "fast-exit",
+        "label": "Fast exit",
+        "long_entry": 0.75,
+        "long_exit": 0.75,
+        "short_exit": 0.25,
+        "short_entry": 0.25,
+    },
+    {
+        "id": "selective-fast-exit",
+        "label": "Selective + fast exit",
+        "long_entry": 0.95,
+        "long_exit": 0.75,
+        "short_exit": 0.25,
+        "short_entry": 0.05,
+    },
+)
+PARAMETER_NO_TRADE_BANDS = (0.0, NO_TRADE_ONE_WAY, 0.10)
+PARAMETER_BASE_CONFIGURATION_ID = "base__band-005"
 
 
 class JudgeFailure(ValueError):
@@ -291,6 +339,320 @@ def _split_indices(
     return splits, protocol
 
 
+def _parameter_configuration_id(profile_id: str, band: float) -> str:
+    return f"{profile_id}__band-{int(round(band * 100)):03d}"
+
+
+def _parameter_signal_daily(
+    construction: Any,
+    index: pd.DatetimeIndex,
+) -> pd.DataFrame:
+    selected = construction.ledger[
+        construction.ledger["timestamp"].isin(index)
+    ].copy()
+    selected["signal_transition"] = selected[
+        "prior_signal_state"
+    ].ne(selected["signal_state"])
+    selected["entry"] = selected["signal_event"].isin(
+        {"enter_long", "enter_short"}
+    )
+    selected["exit"] = selected["signal_event"].isin(
+        {"exit_long", "exit_short"}
+    )
+    selected["reversal"] = selected["signal_event"].isin(
+        {"reverse_long_to_short", "reverse_short_to_long"}
+    )
+    return (
+        selected.groupby("timestamp", sort=True)
+        .agg(
+            decision_rows=("asset", "size"),
+            signal_transitions=("signal_transition", "sum"),
+            entries=("entry", "sum"),
+            exits=("exit", "sum"),
+            reversals=("reversal", "sum"),
+        )
+        .reindex(index, fill_value=0)
+        .astype(int)
+    )
+
+
+def _parameter_neighborhood(
+    factor_panel: pd.DataFrame,
+    close_panel: pd.DataFrame,
+    volume_panel: pd.DataFrame,
+    splits: dict[str, pd.DatetimeIndex],
+    mandate: dict[str, Any],
+    *,
+    base_construction: Any,
+    base_simulation: Any,
+    risk_covariance_cache: Any,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    roles = {
+        "validation": "selection-context",
+        "test": "visible-audit",
+    }
+    configurations: dict[str, dict[str, Any]] = {}
+    rows: list[dict[str, Any]] = []
+    for profile in PARAMETER_SIGNAL_PROFILES:
+        construction = (
+            base_construction
+            if profile["id"] == "base"
+            else construct_signal_policy(
+                factor_panel,
+                close_panel,
+                long_entry=float(profile["long_entry"]),
+                long_exit=float(profile["long_exit"]),
+                short_exit=float(profile["short_exit"]),
+                short_entry=float(profile["short_entry"]),
+                mandate=mandate,
+                risk_covariance_cache=risk_covariance_cache,
+            )
+        )
+        for band in PARAMETER_NO_TRADE_BANDS:
+            configuration_id = _parameter_configuration_id(
+                str(profile["id"]),
+                band,
+            )
+            is_base = configuration_id == PARAMETER_BASE_CONFIGURATION_ID
+            simulation = (
+                base_simulation
+                if is_base
+                else simulate_targets(
+                    construction.targets,
+                    close_panel,
+                    volume_panel,
+                    no_trade_one_way=band,
+                    mandate=mandate,
+                    risk_covariance_cache=risk_covariance_cache,
+                )
+            )
+            split_metrics: dict[str, Any] = {}
+            for split in ("validation", "test"):
+                index = splits[split]
+                performance = performance_metrics(
+                    simulation.daily.loc[index, "net_return"],
+                    simulation.daily.loc[index, "benchmark_return"],
+                )
+                implementation = implementation_metrics(simulation, index)
+                signal = signal_policy_metrics(construction, index)
+                split_metrics[split] = {
+                    "performance": performance,
+                    "implementation": {
+                        "mean_one_way_turnover": implementation[
+                            "mean_one_way_turnover"
+                        ],
+                        "annualized_one_way_turnover": implementation[
+                            "annualized_one_way_turnover"
+                        ],
+                        "total_cost_drag": implementation["total_cost_drag"],
+                        "rebalance_rate": implementation["rebalance_rate"],
+                        "no_trade_rate": implementation["no_trade_rate"],
+                    },
+                    "signal": {
+                        "decision_rows": signal["decision_rows"],
+                        "timestamps": signal["timestamps"],
+                        "signal_transitions": signal["signal_transitions"],
+                        "state_change_rate": signal["state_change_rate"],
+                        "entries": signal["entries"],
+                        "exits": signal["exits"],
+                        "reversals": signal["reversals"],
+                    },
+                }
+                daily_signal = _parameter_signal_daily(construction, index)
+                daily = simulation.daily.loc[index]
+                for timestamp in index:
+                    rows.append(
+                        {
+                            "configurationId": configuration_id,
+                            "signalProfile": profile["id"],
+                            "noTradeOneWay": band,
+                            "split": split,
+                            "role": roles[split],
+                            "timestamp": timestamp.date().isoformat(),
+                            "netReturn": float(
+                                daily.loc[timestamp, "net_return"]
+                            ),
+                            "benchmarkReturn": float(
+                                daily.loc[timestamp, "benchmark_return"]
+                            ),
+                            "oneWayTurnover": float(
+                                daily.loc[timestamp, "one_way_turnover"]
+                            ),
+                            "cost": float(daily.loc[timestamp, "cost"]),
+                            "rebalanced": bool(
+                                daily.loc[timestamp, "rebalanced"]
+                            ),
+                            "signalDecisionRows": int(
+                                daily_signal.loc[
+                                    timestamp,
+                                    "decision_rows",
+                                ]
+                            ),
+                            "signalTransitions": int(
+                                daily_signal.loc[
+                                    timestamp,
+                                    "signal_transitions",
+                                ]
+                            ),
+                            "entries": int(
+                                daily_signal.loc[timestamp, "entries"]
+                            ),
+                            "exits": int(
+                                daily_signal.loc[timestamp, "exits"]
+                            ),
+                            "reversals": int(
+                                daily_signal.loc[timestamp, "reversals"]
+                            ),
+                        }
+                    )
+            configurations[configuration_id] = {
+                "signal_profile": profile["id"],
+                "no_trade_one_way": band,
+                "is_base": is_base,
+                "validation": split_metrics["validation"],
+                "test": split_metrics["test"],
+            }
+
+    for split in ("validation", "test"):
+        base = configurations[PARAMETER_BASE_CONFIGURATION_ID][split]
+        for configuration in configurations.values():
+            current = configuration[split]
+            current["delta_vs_base"] = {
+                "net_sharpe": (
+                    current["performance"]["sharpe"]
+                    - base["performance"]["sharpe"]
+                ),
+                "total_return": (
+                    current["performance"]["total_return"]
+                    - base["performance"]["total_return"]
+                ),
+                "annualized_one_way_turnover": (
+                    current["implementation"][
+                        "annualized_one_way_turnover"
+                    ]
+                    - base["implementation"][
+                        "annualized_one_way_turnover"
+                    ]
+                ),
+                "total_cost_drag": (
+                    current["implementation"]["total_cost_drag"]
+                    - base["implementation"]["total_cost_drag"]
+                ),
+                "signal_transitions": (
+                    current["signal"]["signal_transitions"]
+                    - base["signal"]["signal_transitions"]
+                ),
+            }
+
+    split_output: dict[str, Any] = {}
+    for split in ("validation", "test"):
+        values = [
+            configuration[split]
+            for configuration in configurations.values()
+        ]
+        sharpes = np.asarray(
+            [value["performance"]["sharpe"] for value in values],
+            dtype=float,
+        )
+        base_sharpe = float(
+            configurations[PARAMETER_BASE_CONFIGURATION_ID][split][
+                "performance"
+            ]["sharpe"]
+        )
+        deltas = sharpes - base_sharpe
+        turnovers = [
+            value["implementation"]["annualized_one_way_turnover"]
+            for value in values
+        ]
+        costs = [
+            value["implementation"]["total_cost_drag"]
+            for value in values
+        ]
+        transitions = [
+            value["signal"]["signal_transitions"] for value in values
+        ]
+        base_sign = 1 if base_sharpe > 0 else -1 if base_sharpe < 0 else 0
+        signs = np.sign(sharpes)
+        split_output[split] = {
+            "configurations": {
+                configuration_id: configuration[split]
+                for configuration_id, configuration in configurations.items()
+            },
+            "aggregate": {
+                "configuration_count": len(values),
+                "base_net_sharpe": base_sharpe,
+                "positive_net_sharpe_rate": float(
+                    np.mean(sharpes > 0)
+                ),
+                "sign_agreement_with_base_rate": float(
+                    np.mean(signs == base_sign)
+                ),
+                "minimum_net_sharpe": float(np.min(sharpes)),
+                "median_net_sharpe": float(np.median(sharpes)),
+                "maximum_net_sharpe": float(np.max(sharpes)),
+                "net_sharpe_std": float(np.std(sharpes, ddof=0)),
+                "worst_net_sharpe_delta": float(np.min(deltas)),
+                "best_net_sharpe_delta": float(np.max(deltas)),
+                "minimum_annualized_one_way_turnover": float(
+                    min(turnovers)
+                ),
+                "maximum_annualized_one_way_turnover": float(
+                    max(turnovers)
+                ),
+                "minimum_total_cost_drag": float(min(costs)),
+                "maximum_total_cost_drag": float(max(costs)),
+                "minimum_signal_transitions": int(min(transitions)),
+                "maximum_signal_transitions": int(max(transitions)),
+            },
+        }
+
+    policy = {
+        "method": PARAMETER_NEIGHBORHOOD_METHOD,
+        "base_configuration_id": PARAMETER_BASE_CONFIGURATION_ID,
+        "role": "robustness-only",
+        "selection_authority": "context-only",
+        "trading_authority": "none",
+        "configuration_count": len(configurations),
+        "signal_profiles": [
+            {
+                "id": profile["id"],
+                "label": profile["label"],
+                "long_entry": profile["long_entry"],
+                "long_exit": profile["long_exit"],
+                "short_exit": profile["short_exit"],
+                "short_entry": profile["short_entry"],
+            }
+            for profile in PARAMETER_SIGNAL_PROFILES
+        ],
+        "no_trade_bands": list(PARAMETER_NO_TRADE_BANDS),
+    }
+    metrics = {
+        "policy": policy,
+        "validation": split_output["validation"],
+        "test": split_output["test"],
+    }
+    artifact = {
+        "schemaVersion": 1,
+        "inputHash": os.environ["AUTOQUANT_INPUT_HASH"],
+        "method": PARAMETER_NEIGHBORHOOD_METHOD,
+        "baseConfigurationId": PARAMETER_BASE_CONFIGURATION_ID,
+        "signalProfiles": [
+            {
+                "id": profile["id"],
+                "label": profile["label"],
+                "longEntry": profile["long_entry"],
+                "longExit": profile["long_exit"],
+                "shortExit": profile["short_exit"],
+                "shortEntry": profile["short_entry"],
+            }
+            for profile in PARAMETER_SIGNAL_PROFILES
+        ],
+        "noTradeBands": list(PARAMETER_NO_TRADE_BANDS),
+        "rows": rows,
+    }
+    return metrics, artifact
+
+
 def _evaluate() -> tuple[
     dict[str, Any],
     dict[str, Any],
@@ -298,6 +660,7 @@ def _evaluate() -> tuple[
     Any,
     pd.DataFrame,
     pd.DataFrame,
+    dict[str, Any],
 ]:
     study, data_root = _load_contract()
     mandate = _load_mandate()
@@ -338,11 +701,16 @@ def _evaluate() -> tuple[
     close_panel = pd.DataFrame(closes)
     volume_panel = pd.DataFrame(volumes)
     forward_returns = close_panel.shift(-1) / close_panel - 1.0
+    risk_covariance_cache = build_risk_covariance_cache(
+        close_panel,
+        mandate=mandate,
+    )
     factor_evidence = _daily_factor_evidence(factor_panel, forward_returns)
     construction = construct_signal_policy(
         factor_panel,
         close_panel,
         mandate=mandate,
+        risk_covariance_cache=risk_covariance_cache,
     )
     targets = construction.targets
     audit = constraint_audit(targets, mandate=mandate)
@@ -356,6 +724,7 @@ def _evaluate() -> tuple[
         close_panel,
         volume_panel,
         mandate=mandate,
+        risk_covariance_cache=risk_covariance_cache,
     )
     decision_ledger = build_decision_ledger(
         construction,
@@ -473,6 +842,18 @@ def _evaluate() -> tuple[
             for name, index in splits.items()
         },
     }
+    parameter_neighborhood, parameter_neighborhood_artifact = (
+        _parameter_neighborhood(
+            factor_panel,
+            close_panel,
+            volume_panel,
+            splits,
+            mandate,
+            base_construction=construction,
+            base_simulation=base,
+            risk_covariance_cache=risk_covariance_cache,
+        )
+    )
 
     validation_net_sharpe = float(
         portfolio_metrics["validation"]["net"]["sharpe"]
@@ -485,6 +866,7 @@ def _evaluate() -> tuple[
             volume_panel,
             cost_bps=cost_bps,
             mandate=mandate,
+            risk_covariance_cache=risk_covariance_cache,
         )
         key = f"{int(cost_bps)}bps"
         cost_stress[key] = {
@@ -503,6 +885,7 @@ def _evaluate() -> tuple[
         volume_panel,
         extra_delay=1,
         mandate=mandate,
+        risk_covariance_cache=risk_covariance_cache,
     )
     delay_stress = {
         split: performance_metrics(
@@ -520,12 +903,14 @@ def _evaluate() -> tuple[
         long_exit=LONG_ENTRY_PERCENTILE,
         short_exit=SHORT_ENTRY_PERCENTILE,
         mandate=mandate,
+        risk_covariance_cache=risk_covariance_cache,
     )
     no_hysteresis_simulation = simulate_targets(
         no_hysteresis.targets,
         close_panel,
         volume_panel,
         mandate=mandate,
+        risk_covariance_cache=risk_covariance_cache,
     )
     hysteresis_comparison: dict[str, Any] = {}
     for split in ("validation", "test"):
@@ -586,12 +971,14 @@ def _evaluate() -> tuple[
         close_panel,
         mandate=mandate,
         apply_risk_governor=False,
+        risk_covariance_cache=risk_covariance_cache,
     )
     ungoverned_simulation = simulate_targets(
         ungoverned.targets,
         close_panel,
         volume_panel,
         mandate=mandate,
+        risk_covariance_cache=risk_covariance_cache,
     )
     risk_governor_comparison: dict[str, Any] = {}
     for split in ("validation", "test"):
@@ -681,6 +1068,7 @@ def _evaluate() -> tuple[
         "liquidity_capacity": liquidity_capacity,
         "execution_risk": execution_risk,
         "position_lifecycle": position_lifecycle,
+        "parameter_neighborhood": parameter_neighborhood,
         "split_protocol": split_protocol,
         "robustness": {
             "cost_stress": cost_stress,
@@ -800,6 +1188,7 @@ def _evaluate() -> tuple[
         construction,
         decision_ledger,
         position_episodes,
+        parameter_neighborhood_artifact,
     )
 
 
@@ -812,6 +1201,7 @@ def main() -> None:
             construction,
             decision_ledger,
             position_episodes,
+            parameter_neighborhood,
         ) = _evaluate()
         artifacts = Path(os.environ["AUTOQUANT_ARTIFACTS_DIR"])
         report_path = artifacts / "portfolio-report.json"
@@ -845,6 +1235,15 @@ def main() -> None:
             index=False,
             date_format="%Y-%m-%d",
             float_format="%.12g",
+        )
+        (artifacts / "portfolio-parameter-neighborhood.json").write_text(
+            json.dumps(
+                parameter_neighborhood,
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
         )
         _write_output(
             {
@@ -904,6 +1303,14 @@ def main() -> None:
                             "Split-bounded executed-position episodes with "
                             "holding, contribution, cost, excursion, censoring, "
                             "and signal/execution mismatch evidence"
+                        ),
+                    },
+                    {
+                        "kind": "portfolio-parameter-neighborhood",
+                        "path": "portfolio-parameter-neighborhood.json",
+                        "description": (
+                            "Exact predeclared local signal-threshold and "
+                            "no-trade-band validation/test paths"
                         ),
                     },
                 ],

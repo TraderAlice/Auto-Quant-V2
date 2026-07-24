@@ -221,6 +221,10 @@ class ProgramResearchDossierTests(unittest.TestCase):
                 portfolio_report.root_dir / "report.md"
             ).read_text(encoding="utf-8")
             self.assertIn("## Portfolio mandate", portfolio_markdown)
+            self.assertIn(
+                "Mechanical parameter neighborhood",
+                portfolio_markdown,
+            )
             self.assertIn("`long` / `long-cash`", portfolio_markdown)
             self.assertIn("`AAPL`, `MSFT`", portfolio_markdown)
             self.assertIn("`NVDA`, `QQQ`, `SPY`", portfolio_markdown)
@@ -326,6 +330,10 @@ class ProgramResearchDossierTests(unittest.TestCase):
                 markdown,
             )
             self.assertIn("## Liquidity capacity", markdown)
+            self.assertIn(
+                "## Mechanical parameter neighborhood",
+                markdown,
+            )
             self.assertIn(
                 "## Executed-book risk compliance",
                 markdown,

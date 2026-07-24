@@ -1241,6 +1241,42 @@ def _render_markdown(dossier: dict[str, Any]) -> str:
                 ]
             )
         lines.append("")
+    neighborhood_lanes = [
+        lane
+        for lane in evidence["lanes"]
+        if isinstance(
+            lane["leaderRun"]["metrics"].get(
+                "parameter_neighborhood"
+            ),
+            dict,
+        )
+    ]
+    if neighborhood_lanes:
+        lines.extend(["## Mechanical parameter neighborhood", ""])
+        for lane in neighborhood_lanes:
+            neighborhood = lane["leaderRun"]["metrics"][
+                "parameter_neighborhood"
+            ]
+            validation = neighborhood["validation"]["aggregate"]
+            lines.extend(
+                [
+                    f"- {lane['name']}: validation configurations / "
+                    f"positive-Sharpe rate / sign agreement with base = "
+                    f"`{validation['configuration_count']}` / "
+                    f"`{validation['positive_net_sharpe_rate']}` / "
+                    f"`{validation['sign_agreement_with_base_rate']}`",
+                    f"- {lane['name']}: minimum / median / maximum net "
+                    f"Sharpe; worst delta versus base = "
+                    f"`{validation['minimum_net_sharpe']}` / "
+                    f"`{validation['median_net_sharpe']}` / "
+                    f"`{validation['maximum_net_sharpe']}`; "
+                    f"`{validation['worst_net_sharpe_delta']}`",
+                    f"- {lane['name']}: predeclared local neighborhood only; "
+                    "no cell is selected, promoted, or granted trading "
+                    "authority.",
+                ]
+            )
+        lines.append("")
     lifecycle_lanes = [
         lane
         for lane in evidence["lanes"]

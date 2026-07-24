@@ -770,6 +770,41 @@ def _render_markdown(report: dict[str, Any]) -> str:
                     "not standalone compounded trade returns; no trading authority.",
                 ]
             )
+        neighborhood = leader_run["metrics"].get(
+            "parameter_neighborhood"
+        )
+        validation_neighborhood = (
+            neighborhood.get("validation")
+            if isinstance(neighborhood, dict)
+            else None
+        )
+        aggregate = (
+            validation_neighborhood.get("aggregate")
+            if isinstance(validation_neighborhood, dict)
+            else None
+        )
+        if isinstance(aggregate, dict):
+            lines.extend(
+                [
+                    "- Mechanical parameter neighborhood: "
+                    "`predeclared-signal-threshold-no-trade-neighborhood-v1` "
+                    "(local context only; no parameter selection)",
+                    "- Validation configurations / positive-Sharpe rate / "
+                    "sign agreement with base: "
+                    f"`{aggregate['configuration_count']}` / "
+                    f"`{aggregate['positive_net_sharpe_rate']}` / "
+                    f"`{aggregate['sign_agreement_with_base_rate']}`",
+                    "- Validation minimum / median / maximum net Sharpe; "
+                    "worst delta versus base: "
+                    f"`{aggregate['minimum_net_sharpe']}` / "
+                    f"`{aggregate['median_net_sharpe']}` / "
+                    f"`{aggregate['maximum_net_sharpe']}`; "
+                    f"`{aggregate['worst_net_sharpe_delta']}`",
+                    "- The neighborhood is a predeclared robustness surface, "
+                    "not an optimizer; no cell changes KEEP/REVERT or trading "
+                    "authority.",
+                ]
+            )
         lines.append("")
     policy_rationale = leader_run["metrics"].get("policy_rationale")
     validation_policy = (

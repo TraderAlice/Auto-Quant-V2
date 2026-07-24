@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import math
 import shlex
 import sys
@@ -17,6 +18,7 @@ from autoquant.project_templates.ohlcv_portfolio_lab.portfolio_core import (
     attribution_metrics,
     build_decision_ledger,
     build_position_episodes,
+    build_risk_covariance_cache,
     constraint_audit,
     construct_signal_policy,
     construct_targets,
@@ -505,6 +507,24 @@ class PortfolioAccountingTests(unittest.TestCase):
             closes,
             mandate=mandate,
         )
+        risk_cache = build_risk_covariance_cache(
+            closes,
+            mandate=mandate,
+        )
+        cached_governed = construct_signal_policy(
+            factors,
+            closes,
+            mandate=mandate,
+            risk_covariance_cache=risk_cache,
+        )
+        pd.testing.assert_frame_equal(
+            cached_governed.targets,
+            governed.targets,
+        )
+        pd.testing.assert_frame_equal(
+            cached_governed.ledger,
+            governed.ledger,
+        )
         ungoverned = construct_signal_policy(
             factors,
             closes,
@@ -560,6 +580,21 @@ class PortfolioAccountingTests(unittest.TestCase):
             closes,
             volumes,
             mandate=mandate,
+        )
+        cached_simulation = simulate_targets(
+            governed.targets,
+            closes,
+            volumes,
+            mandate=mandate,
+            risk_covariance_cache=risk_cache,
+        )
+        pd.testing.assert_frame_equal(
+            cached_simulation.daily,
+            simulation.daily,
+        )
+        pd.testing.assert_frame_equal(
+            cached_simulation.weights,
+            simulation.weights,
         )
         compliance = execution_risk_metrics(simulation, index[:-1])
         self.assertEqual(compliance["executed_breach_dates"], 0)
@@ -914,6 +949,28 @@ class OhlcvPortfolioLabTests(unittest.TestCase):
             self.assertIn("robustness", metrics)
             self.assertIn("liquidity_capacity", metrics)
             self.assertIn("position_lifecycle", metrics)
+            self.assertIn("parameter_neighborhood", metrics)
+            neighborhood = metrics["parameter_neighborhood"]
+            self.assertEqual(
+                neighborhood["policy"]["base_configuration_id"],
+                "base__band-005",
+            )
+            self.assertEqual(
+                neighborhood["policy"]["selection_authority"],
+                "context-only",
+            )
+            self.assertEqual(
+                neighborhood["validation"]["aggregate"][
+                    "configuration_count"
+                ],
+                15,
+            )
+            self.assertAlmostEqual(
+                neighborhood["validation"]["configurations"][
+                    "base__band-005"
+                ]["performance"]["sharpe"],
+                metrics["portfolio"]["validation"]["net"]["sharpe"],
+            )
             self.assertTrue(
                 metrics["position_lifecycle"]["validation"][
                     "reconciliation"
@@ -979,6 +1036,7 @@ class OhlcvPortfolioLabTests(unittest.TestCase):
                     "portfolio-weights",
                     "portfolio-decisions",
                     "portfolio-position-episodes",
+                    "portfolio-parameter-neighborhood",
                 },
             )
             decision_path = run.root_dir / "artifacts" / "portfolio-decisions.csv"
@@ -997,6 +1055,30 @@ class OhlcvPortfolioLabTests(unittest.TestCase):
             episode_columns = pd.read_csv(episode_path, nrows=1).columns
             self.assertIn("episode_id", episode_columns)
             self.assertIn("maximum_favorable_excursion", episode_columns)
+            neighborhood_path = (
+                run.root_dir
+                / "artifacts"
+                / "portfolio-parameter-neighborhood.json"
+            )
+            neighborhood_artifact = json.loads(
+                neighborhood_path.read_text(encoding="utf-8")
+            )
+            self.assertEqual(
+                neighborhood_artifact["baseConfigurationId"],
+                "base__band-005",
+            )
+            self.assertEqual(
+                len(neighborhood_artifact["rows"]),
+                15
+                * (
+                    metrics["split_protocol"]["splits"]["validation"][
+                        "eligibleSignalRows"
+                    ]
+                    + metrics["split_protocol"]["splits"]["test"][
+                        "eligibleSignalRows"
+                    ]
+                ),
+            )
             snapshot = build_studio_snapshot(workspace.root_dir)
             self.assertEqual(snapshot["projects"][0]["counts"]["runs"], 1)
             layers = snapshot["projects"][0]["runs"][0]["metricLayers"]
@@ -1009,6 +1091,13 @@ class OhlcvPortfolioLabTests(unittest.TestCase):
                 layers["attribution"]["validationReconciliationPassed"]
             )
             self.assertIsNotNone(layers["positionLifecycle"])
+            self.assertIsNotNone(layers["parameterNeighborhood"])
+            self.assertEqual(
+                layers["parameterNeighborhood"][
+                    "validationConfigurationCount"
+                ],
+                15,
+            )
             self.assertGreater(
                 layers["attribution"][
                     "validationMaximumAbsoluteRiskContributionShare"

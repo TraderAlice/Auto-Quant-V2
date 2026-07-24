@@ -2202,12 +2202,177 @@ main {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.portfolio-lifecycle-panel {
+.portfolio-lifecycle-panel,
+.portfolio-parameter-panel {
   min-width: 0;
   margin-top: 10px;
   padding: 15px;
   border: 1px solid var(--line);
   background: rgb(16 19 15 / 96%);
+}
+
+.parameter-stats {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  border: 1px solid var(--line);
+}
+
+.parameter-stats > span {
+  min-width: 0;
+  padding: 9px 10px;
+  border-left: 1px solid var(--line);
+}
+
+.parameter-stats > span:first-child {
+  border-left: 0;
+}
+
+.parameter-stats small,
+.parameter-stats b {
+  display: block;
+}
+
+.parameter-stats small {
+  overflow: hidden;
+  color: var(--faint);
+  font: 5px var(--mono);
+  letter-spacing: 0.06em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.parameter-stats b {
+  margin-top: 6px;
+  color: var(--paper);
+  font: 11px var(--mono);
+}
+
+.parameter-grid-scroll {
+  margin-top: 10px;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+}
+
+.parameter-grid {
+  display: grid;
+  grid-template-columns: minmax(160px, 0.8fr) repeat(3, minmax(120px, 1fr));
+  min-width: 570px;
+}
+
+.parameter-grid > span {
+  min-width: 0;
+  min-height: 58px;
+  padding: 9px 11px;
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+}
+
+.parameter-grid > span:nth-child(-n + 4) {
+  min-height: 38px;
+  border-top: 0;
+}
+
+.parameter-grid > span:nth-child(4n + 1) {
+  border-left: 0;
+}
+
+.parameter-corner {
+  display: flex;
+  align-items: center;
+  color: var(--faint);
+  font: 5px var(--mono);
+  letter-spacing: 0.08em;
+}
+
+.parameter-band small,
+.parameter-band b,
+.parameter-profile small,
+.parameter-profile b,
+.parameter-cell i,
+.parameter-cell b,
+.parameter-cell small {
+  display: block;
+}
+
+.parameter-band {
+  text-align: center;
+}
+
+.parameter-band small {
+  color: var(--faint);
+  font: 5px var(--mono);
+  text-transform: uppercase;
+}
+
+.parameter-band b {
+  margin-top: 4px;
+  color: #bdc3b4;
+  font: 9px var(--mono);
+}
+
+.parameter-profile {
+  background: rgb(9 13 9 / 72%);
+}
+
+.parameter-profile b {
+  color: #d8dccf;
+  font: 8px var(--mono);
+}
+
+.parameter-profile small {
+  margin-top: 6px;
+  color: var(--faint);
+  font: 6px var(--mono);
+}
+
+.parameter-cell {
+  position: relative;
+  background: rgb(161 171 156 / 7%);
+  text-align: right;
+}
+
+.parameter-cell.positive {
+  background: rgb(194 255 91 / var(--parameter-alpha));
+}
+
+.parameter-cell.negative {
+  background: rgb(255 102 99 / var(--parameter-alpha));
+}
+
+.parameter-cell.base {
+  z-index: 1;
+  outline: 1px solid var(--cyan);
+  outline-offset: -3px;
+}
+
+.parameter-cell i {
+  color: var(--faint);
+  font: 5px var(--mono);
+  font-style: normal;
+  letter-spacing: 0.08em;
+}
+
+.parameter-cell.base i {
+  color: var(--cyan);
+}
+
+.parameter-cell b {
+  margin-top: 4px;
+  color: var(--paper);
+  font: 15px var(--mono);
+}
+
+.parameter-cell small {
+  margin-top: 2px;
+  color: #8f978a;
+  font: 6px var(--mono);
+}
+
+.parameter-disclosure {
+  margin: 9px 0 0;
+  color: var(--faint);
+  font: 6px/1.6 var(--mono);
 }
 
 .portfolio-chart-panel,
@@ -3786,6 +3951,22 @@ main {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .parameter-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .parameter-stats > span {
+    border-top: 1px solid var(--line);
+  }
+
+  .parameter-stats > span:nth-child(-n + 3) {
+    border-top: 0;
+  }
+
+  .parameter-stats > span:nth-child(3n + 1) {
+    border-left: 0;
+  }
+
   .factor-summary,
   .rl-summary {
     grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -3973,6 +4154,23 @@ main {
 
   .mandate-strip > :nth-child(-n + 3) {
     border-top: 1px solid var(--line);
+  }
+
+  .parameter-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .parameter-stats > span {
+    border-top: 1px solid var(--line);
+    border-left: 1px solid var(--line);
+  }
+
+  .parameter-stats > span:nth-child(-n + 2) {
+    border-top: 0;
+  }
+
+  .parameter-stats > span:nth-child(odd) {
+    border-left: 0;
   }
 
   .mandate-strip > :first-child {

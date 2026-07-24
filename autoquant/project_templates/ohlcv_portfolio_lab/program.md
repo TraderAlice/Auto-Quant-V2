@@ -45,6 +45,8 @@ numeric aligned Series and may use only the current and prior rows.
 - dataset-fixed purged 60/20/20 train/validation/test;
 - primary score is validation net Sharpe only;
 - mandatory 0/10/25bps, one-extra-bar-delay, and no-hysteresis comparisons.
+- mandatory five-profile × three-band mechanical parameter neighborhood;
+  every cell is context only and cannot select a parameter or candidate.
 
 The Judge owns every rule above. Do not edit `judges/**`,
 `strategies/portfolio-mandate.json`, the Study, program, or dataset while
@@ -70,6 +72,9 @@ executed long/short states, exact entry/resize/exit/reversal costs, holding
 bars, additive contribution, MFE/MAE, and intent mismatch. Keep left/right
 censored segments out of complete-episode win/payoff interpretation. This
 lifecycle evidence is contextual and cannot select a candidate. The
+`portfolio-parameter-neighborhood.json` artifact preserves exact
+validation/test return, turnover, cost, rebalance, and signal-transition paths.
+Use it to detect a one-point result, not to choose the strongest cell. The
 ungoverned comparison is diagnostic only and cannot
 select a candidate. A higher primary score is not enough when coverage
 collapses, hysteresis adds no value,

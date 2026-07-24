@@ -191,6 +191,9 @@ class AgentCliTests(unittest.TestCase):
                     "reconciliation"
                 ]["passed"]
             )
+            self.assertTrue(
+                projected["data"]["parameterNeighborhood"]["available"]
+            )
             self.assertEqual(
                 {item["kind"] for item in projected["artifacts"]},
                 {
@@ -200,6 +203,7 @@ class AgentCliTests(unittest.TestCase):
                     "portfolio-weights",
                     "portfolio-decisions",
                     "portfolio-position-episodes",
+                    "portfolio-parameter-neighborhood",
                 },
             )
             human = run_cli(
@@ -218,6 +222,10 @@ class AgentCliTests(unittest.TestCase):
             )
             self.assertIn("Validation executed-book risk", human.stdout)
             self.assertIn("Validation position lifecycle", human.stdout)
+            self.assertIn(
+                "Validation parameter neighborhood",
+                human.stdout,
+            )
             self.assertIn("Executed book:", human.stdout)
             self.assertIn("contextual only", human.stdout)
 

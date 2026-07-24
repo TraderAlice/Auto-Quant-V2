@@ -82,6 +82,9 @@ class SignalConstruction:
     ledger: pd.DataFrame
 
 
+RiskCovarianceCache = dict[object, tuple[int, np.ndarray | None]]
+
+
 def _allocate_capped_side(
     strengths: pd.Series,
     *,
@@ -281,6 +284,7 @@ def _govern_portfolio_risk(
     resolved: dict[str, object],
     *,
     enabled: bool,
+    risk_covariance_cache: RiskCovarianceCache | None = None,
 ) -> tuple[pd.Series, dict[str, float | int | str]]:
     """Apply one causal, one-sided portfolio-volatility ceiling."""
 
@@ -309,12 +313,40 @@ def _govern_portfolio_risk(
             "scale": 1.0,
         }
     assert isinstance(policy, dict)
-    history = (
-        close_returns.loc[:timestamp]
-        .tail(int(policy["covariance_window"]))
-        .dropna(how="any")
-    )
-    observations = int(len(history))
+    covariance_values: np.ndarray | None
+    if risk_covariance_cache is not None:
+        cached = risk_covariance_cache.get(timestamp)
+        if cached is None:
+            raise PortfolioFailure(
+                "portfolio.risk-cache",
+                "Risk covariance cache is missing a decision timestamp",
+            )
+        observations, covariance_values = cached
+        if (
+            covariance_values is not None
+            and covariance_values.shape
+            != (len(raw_targets), len(raw_targets))
+        ):
+            raise PortfolioFailure(
+                "portfolio.risk-cache",
+                "Risk covariance cache shape is invalid",
+            )
+    else:
+        history = (
+            close_returns.loc[:timestamp]
+            .tail(int(policy["covariance_window"]))
+            .dropna(how="any")
+        )
+        observations = int(len(history))
+        covariance = history.cov(ddof=0).reindex(
+            index=raw_targets.index,
+            columns=raw_targets.index,
+        )
+        covariance_values = (
+            None
+            if covariance.isna().any().any()
+            else covariance.to_numpy(dtype=float)
+        )
     minimum = int(policy["minimum_observations"])
     ceiling = float(policy["annualized_volatility_ceiling"])
     if observations < minimum:
@@ -326,11 +358,7 @@ def _govern_portfolio_risk(
             "annualized_volatility_ceiling": ceiling,
             "scale": 0.0,
         }
-    covariance = history.cov(ddof=0).reindex(
-        index=raw_targets.index,
-        columns=raw_targets.index,
-    )
-    if covariance.isna().any().any():
+    if covariance_values is None:
         return raw_targets * 0.0, {
             "status": "invalid_covariance",
             "observations": observations,
@@ -340,7 +368,7 @@ def _govern_portfolio_risk(
             "scale": 0.0,
         }
     vector = raw_targets.to_numpy(dtype=float)
-    variance = float(vector @ covariance.to_numpy(dtype=float) @ vector)
+    variance = float(vector @ covariance_values @ vector)
     if not math.isfinite(variance) or variance < -1e-12:
         return raw_targets * 0.0, {
             "status": "invalid_covariance",
@@ -375,6 +403,43 @@ def _govern_portfolio_risk(
     }
 
 
+def build_risk_covariance_cache(
+    closes: pd.DataFrame,
+    *,
+    mandate: dict[str, object] | None,
+) -> RiskCovarianceCache:
+    """Precompute one causal covariance panel for repeated fixed simulations."""
+
+    resolved = _resolve_mandate(closes.columns, mandate)
+    policy = resolved["risk_policy"]
+    if policy is None:
+        return {}
+    assert isinstance(policy, dict)
+    close_returns = closes.pct_change(fill_method=None)
+    cache: RiskCovarianceCache = {}
+    window = int(policy["covariance_window"])
+    minimum = int(policy["minimum_observations"])
+    for timestamp in closes.index:
+        history = (
+            close_returns.loc[:timestamp]
+            .tail(window)
+            .dropna(how="any")
+        )
+        observations = int(len(history))
+        covariance_values: np.ndarray | None = None
+        if observations >= minimum:
+            covariance = history.cov(ddof=0).reindex(
+                index=closes.columns,
+                columns=closes.columns,
+            )
+            if not covariance.isna().any().any():
+                values = covariance.to_numpy(dtype=float)
+                if np.isfinite(values).all():
+                    covariance_values = values
+        cache[timestamp] = (observations, covariance_values)
+    return cache
+
+
 def execute_risk_compliant_book(
     pretrade: pd.Series,
     proposed: pd.Series,
@@ -383,6 +448,7 @@ def execute_risk_compliant_book(
     *,
     mandate: dict[str, object] | None,
     no_trade_one_way: float = NO_TRADE_ONE_WAY,
+    risk_covariance_cache: RiskCovarianceCache | None = None,
 ) -> tuple[pd.Series, dict[str, object]]:
     """Choose the final book, with risk compliance outranking no-trade."""
 
@@ -410,6 +476,7 @@ def execute_risk_compliant_book(
         timestamp,
         resolved,
         enabled=False,
+        risk_covariance_cache=risk_covariance_cache,
     )
     runtime_proposed, proposed_risk = _govern_portfolio_risk(
         proposed,
@@ -417,6 +484,7 @@ def execute_risk_compliant_book(
         timestamp,
         resolved,
         enabled=True,
+        risk_covariance_cache=risk_covariance_cache,
     )
     proposed_delta = runtime_proposed - pretrade
     proposed_one_way = 0.5 * float(proposed_delta.abs().sum())
@@ -430,6 +498,7 @@ def execute_risk_compliant_book(
         timestamp,
         resolved,
         enabled=True,
+        risk_covariance_cache=risk_covariance_cache,
     )
     repair_trade = current - ordinary_book
     repaired = bool(repair_trade.abs().sum() > 1e-12)
@@ -689,6 +758,7 @@ def construct_signal_policy(
     short_entry: float = SHORT_ENTRY_PERCENTILE,
     mandate: dict[str, object] | None = None,
     apply_risk_governor: bool = True,
+    risk_covariance_cache: RiskCovarianceCache | None = None,
 ) -> SignalConstruction:
     """Turn causal factor ranks into persistent intent and target weights."""
 
@@ -874,6 +944,7 @@ def construct_signal_policy(
             timestamp,
             resolved,
             enabled=apply_risk_governor,
+            risk_covariance_cache=risk_covariance_cache,
         )
         diagonal_risk = current_targets.abs() * row_volatility.fillna(0.0)
         diagonal_total = float(diagonal_risk.sum())
@@ -986,6 +1057,7 @@ def simulate_targets(
     reference_nav: float = REFERENCE_NAV,
     extra_delay: int = 0,
     mandate: dict[str, object] | None = None,
+    risk_covariance_cache: RiskCovarianceCache | None = None,
 ) -> Simulation:
     """Execute close targets, then credit only the following close return."""
 
@@ -1032,6 +1104,7 @@ def simulate_targets(
             timestamp,
             mandate=mandate,
             no_trade_one_way=no_trade_one_way,
+            risk_covariance_cache=risk_covariance_cache,
         )
         rebalance = bool(execution_risk["rebalanced"])
         trade = current - pretrade

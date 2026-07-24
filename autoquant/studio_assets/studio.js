@@ -11,6 +11,7 @@ const state = {
   portfolioView: "performance",
   attributionSplit: "validation",
   lifecycleSplit: "validation",
+  parameterSplit: "validation",
   rlView: "performance",
   rlSplit: "validation",
   matrixView: "selection",
@@ -1807,7 +1808,96 @@ function renderPortfolioExplorer(project) {
   renderPortfolioBook(explorer);
   renderPortfolioAttribution(explorer);
   renderPortfolioTransitions(explorer);
+  renderPortfolioParameterNeighborhood(explorer);
   renderPortfolioLifecycle(explorer);
+}
+
+function renderPortfolioParameterNeighborhood(explorer) {
+  const target = element("portfolio-parameter-neighborhood");
+  const neighborhood = explorer.parameterNeighborhood;
+  document.querySelectorAll("[data-parameter-split]").forEach((button) => {
+    button.setAttribute(
+      "aria-selected",
+      String(button.dataset.parameterSplit === state.parameterSplit),
+    );
+  });
+  if (!neighborhood?.available) {
+    target.innerHTML =
+      '<div class="empty-panel">Legacy Run: mechanical parameter-neighborhood evidence is unavailable.</div>';
+    return;
+  }
+  const split = neighborhood[state.parameterSplit];
+  const aggregate = split.aggregate;
+  const profiles = neighborhood.policy.signalProfiles;
+  const bands = neighborhood.policy.noTradeBands;
+  const cells = new Map(
+    split.configurations.map((item) => [
+      `${item.signalProfile}:${Number(item.noTradeOneWay).toFixed(2)}`,
+      item,
+    ]),
+  );
+  const maximumMagnitude = Math.max(
+    1e-12,
+    ...split.configurations.map((item) => Math.abs(item.netSharpe)),
+  );
+  const stats = [
+    ["Positive Sharpe", percent(aggregate.positiveNetSharpeRate)],
+    ["Sign agreement", percent(aggregate.signAgreementWithBaseRate)],
+    ["Worst Δ vs base", `${aggregate.worstNetSharpeDelta >= 0 ? "+" : ""}${metric(aggregate.worstNetSharpeDelta)}`],
+    ["Sharpe min / median / max", `${metric(aggregate.minimumNetSharpe)} / ${metric(aggregate.medianNetSharpe)} / ${metric(aggregate.maximumNetSharpe)}`],
+    ["Annual turnover range", `${metric(aggregate.minimumAnnualizedOneWayTurnover)}–${metric(aggregate.maximumAnnualizedOneWayTurnover)}`],
+    ["Signal transitions", `${aggregate.minimumSignalTransitions}–${aggregate.maximumSignalTransitions}`],
+  ];
+  const header = bands
+    .map(
+      (band) =>
+        `<span class="parameter-band"><small>No-trade</small><b>${percent(band)}</b></span>`,
+    )
+    .join("");
+  const rows = profiles
+    .map((profile) => {
+      const profileCells = bands
+        .map((band) => {
+          const cell = cells.get(`${profile.id}:${Number(band).toFixed(2)}`);
+          if (!cell) return '<span class="parameter-cell missing">—</span>';
+          const alpha = 0.08 + Math.min(0.24, Math.abs(cell.netSharpe) / maximumMagnitude * 0.24);
+          const delta = `${cell.netSharpeDeltaVsBase >= 0 ? "+" : ""}${metric(cell.netSharpeDeltaVsBase)}`;
+          return `
+            <span
+              class="parameter-cell ${cell.netSharpe >= 0 ? "positive" : "negative"} ${cell.isBase ? "base" : ""}"
+              style="--parameter-alpha:${alpha.toFixed(3)}"
+              title="${escapeHtml(profile.label)} · no-trade ${percent(band)} · Sharpe ${metric(cell.netSharpe)} · delta ${delta} · turnover ${metric(cell.annualizedOneWayTurnover)}"
+            >
+              ${cell.isBase ? '<i>BASE</i>' : '<i>LOCAL</i>'}
+              <b>${metric(cell.netSharpe)}</b>
+              <small>Δ ${delta}</small>
+            </span>`;
+        })
+        .join("");
+      return `
+        <span class="parameter-profile">
+          <b>${escapeHtml(profile.label)}</b>
+          <small>L ${metric(profile.longEntry)}→${metric(profile.longExit)} · S ${metric(profile.shortEntry)}→${metric(profile.shortExit)}</small>
+        </span>
+        ${profileCells}`;
+    })
+    .join("");
+  target.innerHTML = `
+    <div class="parameter-stats">
+      ${stats.map(([label, value]) => `<span><small>${escapeHtml(label)}</small><b>${escapeHtml(value)}</b></span>`).join("")}
+    </div>
+    <div class="parameter-grid-scroll">
+      <div class="parameter-grid" style="--parameter-columns:${bands.length}">
+        <span class="parameter-corner">SIGNAL PROFILE × EXECUTION BAND</span>
+        ${header}
+        ${rows}
+      </div>
+    </div>
+    <p class="parameter-disclosure">
+      ${state.parameterSplit === "validation" ? "Validation context" : "Visible test audit"} ·
+      ${aggregate.configurationCount} predeclared cells · base is outlined only for identity.
+      No cell is selected, recommended, or allowed to change KEEP/REVERT. Test-guided iteration requires a fresh external holdout.
+    </p>`;
 }
 
 function renderPortfolioLifecycle(explorer) {
@@ -3148,6 +3238,13 @@ document.querySelectorAll("[data-lifecycle-split]").forEach((button) => {
     state.lifecycleSplit = button.dataset.lifecycleSplit;
     const explorer = selectedProject()?.portfolioExplorer;
     if (explorer) renderPortfolioLifecycle(explorer);
+  });
+});
+document.querySelectorAll("[data-parameter-split]").forEach((button) => {
+  button.addEventListener("click", () => {
+    state.parameterSplit = button.dataset.parameterSplit;
+    const explorer = selectedProject()?.portfolioExplorer;
+    if (explorer) renderPortfolioParameterNeighborhood(explorer);
   });
 });
 document.querySelectorAll("[data-factor-view]").forEach((button) => {

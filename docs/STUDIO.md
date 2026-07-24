@@ -120,6 +120,16 @@ win/payoff statistics. Core reconstructs and verifies the rows from the exact
 decision ledger before Studio receives them; the browser never invents trades
 or compounds an episode as an isolated account return.
 
+The Mechanical Parameter Neighborhood panel switches between validation
+context and visible test audit. It shows the fixed five signal profiles across
+`0%`, `5%`, and `10%` one-way no-trade bands, outlines the ordinary base cell,
+and reports positive-Sharpe/sign-agreement rates, worst local degradation,
+turnover, cost, and signal-transition ranges. Color encodes the sign and
+magnitude of each cell's net Sharpe; it does not crown a winner. All 15 cells
+are predeclared, context-only evidence and cannot change KEEP/REVERT. Core
+reconstructs every value from the immutable daily neighborhood artifact before
+the browser receives it.
+
 The Session Decision Matrix is also a Core projection. It verifies the
 immutable Session/Experiment/Run chain, then compares a bounded set of
 baseline, candidate, and leader trials using a fixed family-specific metric

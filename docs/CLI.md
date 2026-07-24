@@ -67,7 +67,10 @@ synthetic OHLCV, content-locked Study, fixed no-lookahead Judge, and executable
 next actions. `ohlcv-portfolio-lab` uses the same causal candidate API and
 adds fixed constrained target construction, drift-aware accounting,
 transaction costs, layered professional metrics, and cost/delay/risk-governor
-stresses. New Portfolio and RL Projects bind a strict `portfolio-mandate`:
+stresses. It also emits a fixed 15-cell signal-threshold × no-trade
+neighborhood with exact validation/test paths; the neighborhood is context
+only and never selects a parameter. New Portfolio and RL Projects bind a
+strict `portfolio-mandate`:
 delegated intake authorizes requested assets and direction while retaining
 other panel assets as research context only. The same Mandate fixes a causal
 60-bar covariance forecast and a 15% annualized volatility ceiling that may

@@ -21,6 +21,7 @@ from .project_templates.ohlcv_portfolio_lab.portfolio_core import (
     POSITION_EPISODE_COLUMNS,
     PortfolioFailure,
     build_position_episodes,
+    performance_metrics,
     position_episode_metrics,
 )
 from .runs import RunContext, load_run
@@ -41,6 +42,7 @@ MAX_ARTIFACT_BYTES = 32 * 1024 * 1024
 MAX_DAILY_ROWS = 100_000
 MAX_DECISION_ROWS = 1_000_000
 MAX_EPISODE_ROWS = 100_000
+MAX_NEIGHBORHOOD_ROWS = 100_000
 MAX_UNIVERSE = 256
 MAX_RECENT_TRANSITIONS = 40
 BASE_ARTIFACT_KINDS = {
@@ -51,9 +53,60 @@ BASE_ARTIFACT_KINDS = {
     "portfolio-decisions",
 }
 POSITION_EPISODE_ARTIFACT_KIND = "portfolio-position-episodes"
+PARAMETER_NEIGHBORHOOD_ARTIFACT_KIND = (
+    "portfolio-parameter-neighborhood"
+)
 EXPECTED_ARTIFACT_KINDS = BASE_ARTIFACT_KINDS | {
-    POSITION_EPISODE_ARTIFACT_KIND
+    POSITION_EPISODE_ARTIFACT_KIND,
+    PARAMETER_NEIGHBORHOOD_ARTIFACT_KIND,
 }
+PARAMETER_NEIGHBORHOOD_METHOD = (
+    "predeclared-signal-threshold-no-trade-neighborhood-v1"
+)
+PARAMETER_BASE_CONFIGURATION_ID = "base__band-005"
+PARAMETER_SIGNAL_PROFILES: tuple[dict[str, Any], ...] = (
+    {
+        "id": "broad-entry",
+        "label": "Broad entry",
+        "longEntry": 0.55,
+        "longExit": 0.55,
+        "shortExit": 0.45,
+        "shortEntry": 0.45,
+    },
+    {
+        "id": "base",
+        "label": "Base",
+        "longEntry": 0.75,
+        "longExit": 0.55,
+        "shortExit": 0.45,
+        "shortEntry": 0.25,
+    },
+    {
+        "id": "selective-entry",
+        "label": "Selective entry",
+        "longEntry": 0.95,
+        "longExit": 0.55,
+        "shortExit": 0.45,
+        "shortEntry": 0.05,
+    },
+    {
+        "id": "fast-exit",
+        "label": "Fast exit",
+        "longEntry": 0.75,
+        "longExit": 0.75,
+        "shortExit": 0.25,
+        "shortEntry": 0.25,
+    },
+    {
+        "id": "selective-fast-exit",
+        "label": "Selective + fast exit",
+        "longEntry": 0.95,
+        "longExit": 0.75,
+        "shortExit": 0.25,
+        "shortEntry": 0.05,
+    },
+)
+PARAMETER_NO_TRADE_BANDS = (0.0, 0.05, 0.10)
 DAILY_NUMERIC_COLUMNS = (
     "gross_return",
     "net_return",
@@ -1323,6 +1376,612 @@ def _sample_indices(
                 if len(selected) < limit
             )
     return sorted(selected)
+
+
+def _parameter_configuration_id(profile_id: str, band: float) -> str:
+    return f"{profile_id}__band-{int(round(band * 100)):03d}"
+
+
+def _compare_parameter_value(
+    actual: Any,
+    expected: Any,
+    path: str,
+) -> None:
+    if isinstance(expected, dict):
+        if not isinstance(actual, dict) or set(actual) != set(expected):
+            _fail(
+                path,
+                "portfolio.parameter-neighborhood-metric",
+                "Parameter-neighborhood metric keys do not reconcile",
+            )
+        for key, expected_value in expected.items():
+            _compare_parameter_value(
+                actual[key],
+                expected_value,
+                f"{path}/{key}",
+            )
+        return
+    if isinstance(expected, bool):
+        if actual is not expected:
+            _fail(
+                path,
+                "portfolio.parameter-neighborhood-metric",
+                "Parameter-neighborhood boolean does not reconcile",
+            )
+        return
+    if isinstance(expected, (int, float)):
+        if (
+            not isinstance(actual, (int, float))
+            or isinstance(actual, bool)
+            or not math.isclose(
+                float(actual),
+                float(expected),
+                rel_tol=1e-9,
+                abs_tol=1e-11,
+            )
+        ):
+            _fail(
+                path,
+                "portfolio.parameter-neighborhood-metric",
+                "Parameter-neighborhood numeric value does not reconcile",
+            )
+        return
+    if actual != expected:
+        _fail(
+            path,
+            "portfolio.parameter-neighborhood-metric",
+            "Parameter-neighborhood value does not reconcile",
+        )
+
+
+def _parameter_neighborhood_projection(
+    result: dict[str, Any],
+    artifact_path: Path | None,
+    daily: ParsedDaily,
+    splits: dict[str, Any],
+) -> dict[str, Any]:
+    metric = result["metrics"].get("parameter_neighborhood")
+    if metric is None and artifact_path is None:
+        return {
+            "available": False,
+            "policy": None,
+            "validation": None,
+            "test": None,
+        }
+    if not isinstance(metric, dict) or artifact_path is None:
+        _fail(
+            "RunResult/metrics/parameter_neighborhood",
+            "portfolio.parameter-neighborhood-availability",
+            "Parameter-neighborhood metric and artifact must appear together",
+        )
+    try:
+        payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        _fail(
+            artifact_path,
+            "portfolio.parameter-neighborhood-json",
+            "Parameter-neighborhood artifact must be UTF-8 JSON",
+        )
+    if not isinstance(payload, dict) or set(payload) != {
+        "schemaVersion",
+        "inputHash",
+        "method",
+        "baseConfigurationId",
+        "signalProfiles",
+        "noTradeBands",
+        "rows",
+    }:
+        _fail(
+            artifact_path,
+            "portfolio.parameter-neighborhood-shape",
+            "Parameter-neighborhood artifact has an unexpected root shape",
+        )
+    if (
+        payload["schemaVersion"] != 1
+        or payload["inputHash"] != result["inputHash"]
+        or payload["method"] != PARAMETER_NEIGHBORHOOD_METHOD
+        or payload["baseConfigurationId"]
+        != PARAMETER_BASE_CONFIGURATION_ID
+        or payload["signalProfiles"] != list(PARAMETER_SIGNAL_PROFILES)
+        or payload["noTradeBands"] != list(PARAMETER_NO_TRADE_BANDS)
+    ):
+        _fail(
+            artifact_path,
+            "portfolio.parameter-neighborhood-contract",
+            "Parameter-neighborhood fixed contract does not reconcile",
+        )
+    raw_rows = payload["rows"]
+    if (
+        not isinstance(raw_rows, list)
+        or len(raw_rows) > MAX_NEIGHBORHOOD_ROWS
+    ):
+        _fail(
+            artifact_path,
+            "portfolio.parameter-neighborhood-rows",
+            "Parameter-neighborhood rows exceed the bounded JSON contract",
+        )
+    row_fields = {
+        "configurationId",
+        "signalProfile",
+        "noTradeOneWay",
+        "split",
+        "role",
+        "timestamp",
+        "netReturn",
+        "benchmarkReturn",
+        "oneWayTurnover",
+        "cost",
+        "rebalanced",
+        "signalDecisionRows",
+        "signalTransitions",
+        "entries",
+        "exits",
+        "reversals",
+    }
+    configuration_ids = [
+        _parameter_configuration_id(profile["id"], band)
+        for profile in PARAMETER_SIGNAL_PROFILES
+        for band in PARAMETER_NO_TRADE_BANDS
+    ]
+    profile_by_configuration = {
+        _parameter_configuration_id(profile["id"], band): (
+            profile["id"],
+            band,
+        )
+        for profile in PARAMETER_SIGNAL_PROFILES
+        for band in PARAMETER_NO_TRADE_BANDS
+    }
+    daily_dates = set(daily.dates)
+    expected_dates = {
+        split: [
+            timestamp
+            for timestamp in daily.dates
+            if (
+                splits[split]["start"]
+                <= timestamp
+                <= splits[split]["signalEnd"]
+            )
+        ]
+        for split in ("validation", "test")
+    }
+    expected_order = [
+        (configuration_id, split, timestamp)
+        for configuration_id in configuration_ids
+        for split in ("validation", "test")
+        for timestamp in expected_dates[split]
+    ]
+    if len(raw_rows) != len(expected_order):
+        _fail(
+            artifact_path,
+            "portfolio.parameter-neighborhood-coverage",
+            "Parameter-neighborhood rows do not cover every fixed cell/date",
+        )
+    parsed: dict[tuple[str, str], list[dict[str, Any]]] = {
+        (configuration_id, split): []
+        for configuration_id in configuration_ids
+        for split in ("validation", "test")
+    }
+    observed_order: list[tuple[str, str, str]] = []
+    for index, row in enumerate(raw_rows):
+        path = f"{artifact_path}/rows/{index}"
+        if not isinstance(row, dict) or set(row) != row_fields:
+            _fail(
+                path,
+                "portfolio.parameter-neighborhood-row",
+                "Parameter-neighborhood row has an unexpected shape",
+            )
+        configuration_id = row["configurationId"]
+        split = row["split"]
+        timestamp = _session_date(row["timestamp"], f"{path}/timestamp")
+        if (
+            configuration_id not in profile_by_configuration
+            or split not in {"validation", "test"}
+            or timestamp not in daily_dates
+        ):
+            _fail(
+                path,
+                "portfolio.parameter-neighborhood-identity",
+                "Parameter-neighborhood row identity is outside the fixed panel",
+            )
+        profile_id, band = profile_by_configuration[configuration_id]
+        expected_role = (
+            "selection-context"
+            if split == "validation"
+            else "visible-audit"
+        )
+        if (
+            row["signalProfile"] != profile_id
+            or not isinstance(row["noTradeOneWay"], (int, float))
+            or isinstance(row["noTradeOneWay"], bool)
+            or not math.isclose(
+                float(row["noTradeOneWay"]),
+                float(band),
+                rel_tol=0.0,
+                abs_tol=1e-12,
+            )
+            or row["role"] != expected_role
+        ):
+            _fail(
+                path,
+                "portfolio.parameter-neighborhood-identity",
+                "Parameter-neighborhood row parameters do not reconcile",
+            )
+        numeric = {
+            key: _finite(row[key], f"{path}/{key}")
+            for key in (
+                "netReturn",
+                "benchmarkReturn",
+                "oneWayTurnover",
+                "cost",
+            )
+        }
+        if numeric["oneWayTurnover"] < 0 or numeric["cost"] < 0:
+            _fail(
+                path,
+                "portfolio.parameter-neighborhood-accounting",
+                "Turnover and cost must be non-negative",
+            )
+        if type(row["rebalanced"]) is not bool:
+            _fail(
+                f"{path}/rebalanced",
+                "portfolio.parameter-neighborhood-accounting",
+                "Rebalanced must be boolean",
+            )
+        counts: dict[str, int] = {}
+        for key in (
+            "signalDecisionRows",
+            "signalTransitions",
+            "entries",
+            "exits",
+            "reversals",
+        ):
+            value = row[key]
+            if (
+                not isinstance(value, int)
+                or isinstance(value, bool)
+                or value < 0
+            ):
+                _fail(
+                    f"{path}/{key}",
+                    "portfolio.parameter-neighborhood-signal",
+                    "Signal counts must be non-negative integers",
+                )
+            counts[key] = value
+        if (
+            counts["signalTransitions"]
+            > counts["signalDecisionRows"]
+            or counts["entries"]
+            + counts["exits"]
+            + counts["reversals"]
+            > counts["signalTransitions"]
+        ):
+            _fail(
+                path,
+                "portfolio.parameter-neighborhood-signal",
+                "Signal transition counts are internally inconsistent",
+            )
+        observed_order.append((configuration_id, split, timestamp))
+        parsed[(configuration_id, split)].append(
+            {
+                "timestamp": timestamp,
+                **numeric,
+                "rebalanced": row["rebalanced"],
+                **counts,
+            }
+        )
+    if observed_order != expected_order:
+        _fail(
+            artifact_path,
+            "portfolio.parameter-neighborhood-order",
+            "Parameter-neighborhood rows must follow the fixed deterministic order",
+        )
+
+    reconstructed: dict[str, dict[str, Any]] = {
+        "validation": {},
+        "test": {},
+    }
+    for configuration_id in configuration_ids:
+        for split in ("validation", "test"):
+            rows = parsed[(configuration_id, split)]
+            frame = pd.DataFrame(rows).set_index("timestamp")
+            performance = performance_metrics(
+                frame["netReturn"],
+                frame["benchmarkReturn"],
+            )
+            decision_rows = int(frame["signalDecisionRows"].sum())
+            transitions = int(frame["signalTransitions"].sum())
+            implementation = {
+                "mean_one_way_turnover": float(
+                    frame["oneWayTurnover"].mean()
+                ),
+                "annualized_one_way_turnover": float(
+                    frame["oneWayTurnover"].mean() * 252
+                ),
+                "total_cost_drag": float(frame["cost"].sum()),
+                "rebalance_rate": float(frame["rebalanced"].mean()),
+                "no_trade_rate": float((~frame["rebalanced"]).mean()),
+            }
+            signal = {
+                "decision_rows": decision_rows,
+                "timestamps": int(len(frame)),
+                "signal_transitions": transitions,
+                "state_change_rate": (
+                    float(transitions / decision_rows)
+                    if decision_rows
+                    else 0.0
+                ),
+                "entries": int(frame["entries"].sum()),
+                "exits": int(frame["exits"].sum()),
+                "reversals": int(frame["reversals"].sum()),
+            }
+            reconstructed[split][configuration_id] = {
+                "performance": performance,
+                "implementation": implementation,
+                "signal": signal,
+            }
+
+    expected_metric: dict[str, Any] = {}
+    for split in ("validation", "test"):
+        base = reconstructed[split][PARAMETER_BASE_CONFIGURATION_ID]
+        for configuration_id in configuration_ids:
+            current = reconstructed[split][configuration_id]
+            current["delta_vs_base"] = {
+                "net_sharpe": (
+                    current["performance"]["sharpe"]
+                    - base["performance"]["sharpe"]
+                ),
+                "total_return": (
+                    current["performance"]["total_return"]
+                    - base["performance"]["total_return"]
+                ),
+                "annualized_one_way_turnover": (
+                    current["implementation"][
+                        "annualized_one_way_turnover"
+                    ]
+                    - base["implementation"][
+                        "annualized_one_way_turnover"
+                    ]
+                ),
+                "total_cost_drag": (
+                    current["implementation"]["total_cost_drag"]
+                    - base["implementation"]["total_cost_drag"]
+                ),
+                "signal_transitions": (
+                    current["signal"]["signal_transitions"]
+                    - base["signal"]["signal_transitions"]
+                ),
+            }
+        sharpes = [
+            reconstructed[split][configuration_id]["performance"]["sharpe"]
+            for configuration_id in configuration_ids
+        ]
+        base_sharpe = base["performance"]["sharpe"]
+        turnovers = [
+            reconstructed[split][configuration_id]["implementation"][
+                "annualized_one_way_turnover"
+            ]
+            for configuration_id in configuration_ids
+        ]
+        costs = [
+            reconstructed[split][configuration_id]["implementation"][
+                "total_cost_drag"
+            ]
+            for configuration_id in configuration_ids
+        ]
+        transitions = [
+            reconstructed[split][configuration_id]["signal"][
+                "signal_transitions"
+            ]
+            for configuration_id in configuration_ids
+        ]
+        base_sign = 1 if base_sharpe > 0 else -1 if base_sharpe < 0 else 0
+        expected_metric[split] = {
+            "configurations": reconstructed[split],
+            "aggregate": {
+                "configuration_count": len(configuration_ids),
+                "base_net_sharpe": base_sharpe,
+                "positive_net_sharpe_rate": float(
+                    sum(value > 0 for value in sharpes) / len(sharpes)
+                ),
+                "sign_agreement_with_base_rate": float(
+                    sum(
+                        (
+                            1
+                            if value > 0
+                            else -1
+                            if value < 0
+                            else 0
+                        )
+                        == base_sign
+                        for value in sharpes
+                    )
+                    / len(sharpes)
+                ),
+                "minimum_net_sharpe": min(sharpes),
+                "median_net_sharpe": float(pd.Series(sharpes).median()),
+                "maximum_net_sharpe": max(sharpes),
+                "net_sharpe_std": float(
+                    pd.Series(sharpes).std(ddof=0)
+                ),
+                "worst_net_sharpe_delta": min(
+                    value - base_sharpe for value in sharpes
+                ),
+                "best_net_sharpe_delta": max(
+                    value - base_sharpe for value in sharpes
+                ),
+                "minimum_annualized_one_way_turnover": min(turnovers),
+                "maximum_annualized_one_way_turnover": max(turnovers),
+                "minimum_total_cost_drag": min(costs),
+                "maximum_total_cost_drag": max(costs),
+                "minimum_signal_transitions": min(transitions),
+                "maximum_signal_transitions": max(transitions),
+            },
+        }
+    expected_policy = {
+        "method": PARAMETER_NEIGHBORHOOD_METHOD,
+        "base_configuration_id": PARAMETER_BASE_CONFIGURATION_ID,
+        "role": "robustness-only",
+        "selection_authority": "context-only",
+        "trading_authority": "none",
+        "configuration_count": len(configuration_ids),
+        "signal_profiles": [
+            {
+                "id": profile["id"],
+                "label": profile["label"],
+                "long_entry": profile["longEntry"],
+                "long_exit": profile["longExit"],
+                "short_exit": profile["shortExit"],
+                "short_entry": profile["shortEntry"],
+            }
+            for profile in PARAMETER_SIGNAL_PROFILES
+        ],
+        "no_trade_bands": list(PARAMETER_NO_TRADE_BANDS),
+    }
+    _compare_parameter_value(
+        metric,
+        {
+            "policy": expected_policy,
+            "validation": expected_metric["validation"],
+            "test": expected_metric["test"],
+        },
+        "RunResult/metrics/parameter_neighborhood",
+    )
+    for split in ("validation", "test"):
+        base_reconciliation = {
+            "performance": result["metrics"]["portfolio"][split]["net"],
+            "implementation": {
+                key: result["metrics"]["implementation"][split][key]
+                for key in (
+                    "mean_one_way_turnover",
+                    "annualized_one_way_turnover",
+                    "total_cost_drag",
+                    "rebalance_rate",
+                    "no_trade_rate",
+                )
+            },
+            "signal": {
+                key: result["metrics"]["signal_policy"][split][key]
+                for key in (
+                    "decision_rows",
+                    "timestamps",
+                    "signal_transitions",
+                    "state_change_rate",
+                    "entries",
+                    "exits",
+                    "reversals",
+                )
+            },
+        }
+        _compare_parameter_value(
+            reconstructed[split][PARAMETER_BASE_CONFIGURATION_ID],
+            {
+                **base_reconciliation,
+                "delta_vs_base": {
+                    "net_sharpe": 0.0,
+                    "total_return": 0.0,
+                    "annualized_one_way_turnover": 0.0,
+                    "total_cost_drag": 0.0,
+                    "signal_transitions": 0,
+                },
+            },
+            f"RunResult/metrics/parameter_neighborhood/base/{split}",
+        )
+
+    def split_projection(split: str) -> dict[str, Any]:
+        aggregate = expected_metric[split]["aggregate"]
+        return {
+            "aggregate": {
+                "configurationCount": aggregate["configuration_count"],
+                "baseNetSharpe": aggregate["base_net_sharpe"],
+                "positiveNetSharpeRate": aggregate[
+                    "positive_net_sharpe_rate"
+                ],
+                "signAgreementWithBaseRate": aggregate[
+                    "sign_agreement_with_base_rate"
+                ],
+                "minimumNetSharpe": aggregate["minimum_net_sharpe"],
+                "medianNetSharpe": aggregate["median_net_sharpe"],
+                "maximumNetSharpe": aggregate["maximum_net_sharpe"],
+                "netSharpeStd": aggregate["net_sharpe_std"],
+                "worstNetSharpeDelta": aggregate[
+                    "worst_net_sharpe_delta"
+                ],
+                "bestNetSharpeDelta": aggregate[
+                    "best_net_sharpe_delta"
+                ],
+                "minimumAnnualizedOneWayTurnover": aggregate[
+                    "minimum_annualized_one_way_turnover"
+                ],
+                "maximumAnnualizedOneWayTurnover": aggregate[
+                    "maximum_annualized_one_way_turnover"
+                ],
+                "minimumTotalCostDrag": aggregate[
+                    "minimum_total_cost_drag"
+                ],
+                "maximumTotalCostDrag": aggregate[
+                    "maximum_total_cost_drag"
+                ],
+                "minimumSignalTransitions": aggregate[
+                    "minimum_signal_transitions"
+                ],
+                "maximumSignalTransitions": aggregate[
+                    "maximum_signal_transitions"
+                ],
+            },
+            "configurations": [
+                {
+                    "id": configuration_id,
+                    "signalProfile": profile_by_configuration[
+                        configuration_id
+                    ][0],
+                    "noTradeOneWay": profile_by_configuration[
+                        configuration_id
+                    ][1],
+                    "isBase": (
+                        configuration_id
+                        == PARAMETER_BASE_CONFIGURATION_ID
+                    ),
+                    "netSharpe": reconstructed[split][configuration_id][
+                        "performance"
+                    ]["sharpe"],
+                    "totalReturn": reconstructed[split][configuration_id][
+                        "performance"
+                    ]["total_return"],
+                    "annualizedOneWayTurnover": reconstructed[split][
+                        configuration_id
+                    ]["implementation"]["annualized_one_way_turnover"],
+                    "totalCostDrag": reconstructed[split][configuration_id][
+                        "implementation"
+                    ]["total_cost_drag"],
+                    "rebalanceRate": reconstructed[split][configuration_id][
+                        "implementation"
+                    ]["rebalance_rate"],
+                    "signalTransitions": reconstructed[split][
+                        configuration_id
+                    ]["signal"]["signal_transitions"],
+                    "netSharpeDeltaVsBase": reconstructed[split][
+                        configuration_id
+                    ]["delta_vs_base"]["net_sharpe"],
+                }
+                for configuration_id in configuration_ids
+            ],
+        }
+
+    return {
+        "available": True,
+        "policy": {
+            "method": PARAMETER_NEIGHBORHOOD_METHOD,
+            "baseConfigurationId": PARAMETER_BASE_CONFIGURATION_ID,
+            "role": "robustness-only",
+            "selectionAuthority": "context-only",
+            "tradingAuthority": "none",
+            "configurationCount": len(configuration_ids),
+            "signalProfiles": list(PARAMETER_SIGNAL_PROFILES),
+            "noTradeBands": list(PARAMETER_NO_TRADE_BANDS),
+        },
+        "validation": split_projection("validation"),
+        "test": split_projection("test"),
+    }
 
 
 def _path_projection(
@@ -3044,6 +3703,12 @@ def load_portfolio_diagnostics(
             daily,
             splits,
         ),
+        "parameterNeighborhood": _parameter_neighborhood_projection(
+            run.result,
+            paths.get(PARAMETER_NEIGHBORHOOD_ARTIFACT_KIND),
+            daily,
+            splits,
+        ),
         "attribution": _attribution_projection(run.result, universe),
     }
 
@@ -3270,6 +3935,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "executedBookRisk",
         "liquidityCapacity",
         "positionLifecycle",
+        "parameterNeighborhood",
         "attribution",
     ],
     "properties": {
@@ -3670,6 +4336,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "executedBookRisk": {"type": "object"},
         "liquidityCapacity": {"type": "object"},
         "positionLifecycle": {"type": "object"},
+        "parameterNeighborhood": {"type": "object"},
         "attribution": {
             "type": "object",
             "additionalProperties": False,

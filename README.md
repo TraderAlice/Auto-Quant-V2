@@ -92,9 +92,11 @@ persistence actually reduces churn. A split-bounded position-lifecycle
 artifact then reconstructs contiguous executed long/short episodes, allocates
 entry/resize/exit/reversal costs, and reports complete-episode holding, win,
 payoff, MFE/MAE, and intent-mismatch evidence without treating censored
-segments as completed trades. Studio summarizes the verified policy,
-attribution, and lifecycle evidence. It emits research targets only and has no
-Broker or trading-account authority.
+segments as completed trades. A fixed 5×3 entry/exit and no-trade parameter
+neighborhood then shows local Sharpe, turnover, cost, and transition stability
+without choosing a winning cell. Studio summarizes the verified policy,
+attribution, lifecycle, and parameter-neighborhood evidence. It emits research
+targets only and has no Broker or trading-account authority.
 
 Every reference Project uses validation-only KEEP/REVERT. Test metrics remain
 visible diagnostic evidence; after a Session iterates candidates, Core marks a
@@ -265,7 +267,8 @@ book, raw/governed targets, portfolio-volatility forecast/scale, signal
 transitions, final executed-book risk compliance, split attribution, and
 validation/test liquidity-capacity envelopes with binding assets, plus
 validation/test mechanical position episodes and per-asset lifecycle
-statistics. It is read-only, exposes
+statistics, plus a validation/test 5×3 mechanical-parameter heatmap whose cells
+are context-only and cannot enter selection. It is read-only, exposes
 copy-only exact CLI commands, and uses the same verified Core loaders as the
 CLI. A specific historical Run is available through `aq run factor <path>
 --run ID --json`, `aq run portfolio <path> --run ID --json`, or

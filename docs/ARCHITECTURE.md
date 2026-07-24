@@ -95,6 +95,9 @@ The V2 foundation now implements:
   contiguous executed-weight sign episodes, allocates exact transition costs,
   names censored boundaries, and reconciles additive contribution to the
   decision ledger without claiming standalone trade returns.
+- one predeclared local mechanical-parameter neighborhood that crosses five
+  attainable signal entry/exit profiles with three no-trade bands, preserves
+  exact validation/test paths, and has no selection or trading authority.
 - one governed RL Factor-Policy Lab that confines Agent changes to a causal
   state encoder while the Judge fixes factor-mixture actions, Q-learning,
   rewards, portfolio accounting, folds, seeds, baselines, and model evidence.
@@ -130,6 +133,8 @@ Request-bound position authority is defined in
 [[docs/design/request-bound-portfolio-mandates]].
 Bounded immutable Portfolio artifact projection is defined in
 [[docs/design/portfolio-decision-explorer]].
+Predeclared local mechanical-parameter stability is defined in
+[[docs/design/portfolio-parameter-neighborhood]].
 Bounded governed RL artifact projection is defined in
 [[docs/design/rl-policy-evidence-explorer]].
 Exact governed-RL action persistence and chosen-versus-runner-up linear

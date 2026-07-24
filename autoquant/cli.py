@@ -1550,6 +1550,25 @@ def _run_portfolio(args: argparse.Namespace) -> CommandResult:
             f"{validation_lifecycle['intentMismatchRate']} · contextual only\n"
         )
     )
+    neighborhood = diagnostics["parameterNeighborhood"]
+    validation_neighborhood = (
+        neighborhood["validation"] if neighborhood["available"] else None
+    )
+    neighborhood_summary = (
+        "Mechanical parameter neighborhood: legacy evidence unavailable\n"
+        if validation_neighborhood is None
+        else (
+            "Validation parameter neighborhood: "
+            f"{validation_neighborhood['aggregate']['configurationCount']} "
+            "predeclared cells · positive Sharpe "
+            f"{validation_neighborhood['aggregate']['positiveNetSharpeRate']} · "
+            "sign agreement "
+            f"{validation_neighborhood['aggregate']['signAgreementWithBaseRate']} · "
+            "worst Sharpe delta "
+            f"{validation_neighborhood['aggregate']['worstNetSharpeDelta']} · "
+            "context only, no parameter selection\n"
+        )
+    )
     return CommandResult(
         "run.portfolio",
         diagnostics,
@@ -1576,6 +1595,7 @@ def _run_portfolio(args: argparse.Namespace) -> CommandResult:
             f"{execution_risk_summary}"
             f"{capacity_summary}"
             f"{lifecycle_summary}"
+            f"{neighborhood_summary}"
         ),
         project_context(project),
         [

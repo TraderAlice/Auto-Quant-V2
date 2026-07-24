@@ -135,6 +135,8 @@ or capacity guarantee.
 - net results under 0, 10, and 25 basis-point cost assumptions;
 - one additional bar of signal delay;
 - governed hysteresis versus a fixed no-hysteresis state baseline;
+- a predeclared five-profile by three-band local parameter neighborhood with
+  exact validation/test paths and no selection authority;
 - annualized per-asset gross contribution;
 - attribution by asset, signal intent, and causal regime;
 - complete deterministic daily returns, proposed/executed weights, and
@@ -173,6 +175,9 @@ Every successful Run declares:
   direction, signal intent, raw/governed sizing, covariance forecast and
   scale, execution, return, cost, regime, component-risk, causal ADV,
   participation-capacity, and binding-asset ledger.
+- `portfolio-parameter-neighborhood.json`: exact validation/test net return,
+  turnover, cost, rebalance, and signal-transition paths for every predeclared
+  signal-profile and no-trade-band cell.
 
 RunResult remains the immutable authority for artifact identities.
 
@@ -224,9 +229,9 @@ reconciled before display sampling; the browser never reads artifact paths.
   absent.
 - Corporate actions, calendar metadata, and production price adjustments
   remain outside the synthetic fixture.
-- Parameter-neighborhood surfaces are not automated. Project-wide unique
-  strategy search is disclosed through PSR/DSR, but correlated parameter-grid
-  effective trial count and PBO require richer predeclared evidence.
+- The implemented parameter neighborhood is deliberately local and
+  context-only. Correlated-grid effective trial count, PBO, and automatic
+  optimization remain absent.
 - The V1 risk governor uses sample covariance and a fixed ceiling. Shrinkage,
   stress covariance, risk-parity solving, and caller-approved risk budgets are
   separate work.
