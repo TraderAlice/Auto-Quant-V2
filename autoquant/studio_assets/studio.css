@@ -380,10 +380,21 @@ main {
 .research-hero {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 18px;
+  gap: 14px;
   min-height: 0;
-  padding-bottom: 24px;
+  padding-bottom: 20px;
   border-bottom: 1px solid var(--line-strong);
+}
+
+.hero-heading {
+  display: grid;
+  grid-template-columns: minmax(250px, 0.72fr) minmax(430px, 1.28fr);
+  align-items: stretch;
+  gap: 24px;
+}
+
+.hero-copy {
+  align-self: center;
 }
 
 .eyebrow,
@@ -402,11 +413,123 @@ main {
 }
 
 .hero-copy p {
-  max-width: 680px;
+  max-width: 620px;
   margin: 0;
   color: var(--muted);
   font-size: 12px;
   line-height: 1.65;
+}
+
+.decision-brief {
+  min-width: 0;
+  display: grid;
+  align-content: center;
+  padding: 15px 17px;
+  border: 1px solid var(--line);
+  border-left: 2px solid var(--cyan);
+  background:
+    linear-gradient(90deg, rgb(114 213 233 / 5%), transparent 45%),
+    #0d100c;
+}
+
+.decision-brief.bad {
+  border-left-color: var(--red);
+  background:
+    linear-gradient(90deg, rgb(238 120 111 / 7%), transparent 48%),
+    #0d100c;
+}
+
+.decision-brief.good {
+  border-left-color: var(--acid);
+  background:
+    linear-gradient(90deg, rgb(199 243 109 / 6%), transparent 48%),
+    #0d100c;
+}
+
+.decision-brief.warning {
+  border-left-color: var(--amber);
+}
+
+.decision-brief header,
+.decision-brief footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.decision-brief header > small,
+.decision-brief footer small {
+  color: var(--faint);
+  font: 6px var(--mono);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.decision-status {
+  padding: 4px 6px;
+  color: var(--cyan);
+  border: 1px solid rgb(114 213 233 / 34%);
+  font: 6px var(--mono);
+  letter-spacing: 0.09em;
+}
+
+.decision-brief.bad .decision-status {
+  color: var(--red);
+  border-color: rgb(238 120 111 / 40%);
+}
+
+.decision-brief.good .decision-status {
+  color: var(--acid);
+  border-color: rgb(199 243 109 / 36%);
+}
+
+.decision-brief.warning .decision-status {
+  color: var(--amber);
+  border-color: rgb(223 181 100 / 38%);
+}
+
+.decision-brief h2 {
+  margin: 10px 0 5px;
+  color: #ece9df;
+  font-size: 17px;
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+}
+
+.decision-brief > p {
+  margin: 0;
+  color: #9da396;
+  font-size: 9px;
+  line-height: 1.6;
+}
+
+.decision-brief footer {
+  align-items: end;
+  margin-top: 11px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.decision-brief footer > span {
+  min-width: 0;
+}
+
+.decision-brief footer b {
+  display: block;
+  margin-top: 4px;
+  color: #c8cbbf;
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.decision-brief footer code {
+  flex: 0 0 auto;
+  max-width: 42%;
+  color: #666e61;
+  font: 5px/1.5 var(--mono);
+  text-align: right;
+  white-space: normal;
 }
 
 .hero-scoreboard {
@@ -434,15 +557,15 @@ main {
 
 .score-cell small {
   margin-bottom: 12px;
-  color: var(--faint);
-  font: 6px var(--mono);
+  color: #777e71;
+  font: 7px var(--mono);
   letter-spacing: 0.11em;
   text-transform: uppercase;
 }
 
 .score-cell strong {
   color: #f4f0e5;
-  font: 22px var(--mono);
+  font: 23px var(--mono);
   letter-spacing: -0.08em;
 }
 
@@ -1075,6 +1198,21 @@ main {
   background:
     linear-gradient(180deg, rgb(114 213 233 / 7%), transparent 70%),
     var(--panel-raised);
+}
+
+.evidence-lane-tabs[data-lane-count="1"] {
+  grid-template-columns: 1fr;
+}
+
+.evidence-lane-tabs[data-lane-count="1"] button {
+  min-height: 56px;
+  grid-template-columns: minmax(150px, 0.55fr) minmax(190px, 0.7fr) minmax(220px, 1fr);
+  align-items: center;
+  gap: 18px;
+}
+
+.evidence-lane-tabs[data-lane-count="1"] button[aria-selected="true"] {
+  box-shadow: inset 3px 0 var(--cyan);
 }
 
 .evidence-lane-tabs span,
@@ -4099,6 +4237,11 @@ main {
     grid-template-columns: 1fr;
   }
 
+  .hero-heading {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
   .mandate-strip {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -4165,6 +4308,17 @@ main {
     min-height: auto;
   }
 
+  .decision-brief header,
+  .decision-brief footer {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .decision-brief footer code {
+    max-width: none;
+    text-align: left;
+  }
+
   .hero-scoreboard {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -4200,6 +4354,11 @@ main {
 
   .evidence-lane-tabs button {
     min-height: 64px;
+  }
+
+  .evidence-lane-tabs[data-lane-count="1"] button {
+    grid-template-columns: 1fr;
+    gap: 5px;
   }
 
   .mandate-strip {

@@ -196,6 +196,17 @@ const projectFocusRun = (project) => {
   return latestSuccessfulRun(project);
 };
 
+const projectFocusStudy = (project) => {
+  const run = projectFocusRun(project);
+  const lane = projectFocusLane(project);
+  return (
+    project.studies.find((study) => study.id === run?.studyId) ??
+    project.studies.find((study) => study.id === lane?.studyId) ??
+    project.studies[0] ??
+    null
+  );
+};
+
 const laneKind = (lane) => {
   if (["factor", "portfolio", "rl"].includes(lane?.id)) return lane.id;
   return {
@@ -362,6 +373,120 @@ const programAssessment = (project) => {
   };
 };
 
+const researchDecisionBrief = (project) => {
+  const program = project.researchProgramStatus;
+  const run = projectFocusRun(project);
+  const layers = run?.metricLayers;
+  const origin = project.intake || project.sessions.some((item) => item.delegation)
+    ? "OPENALICE REQUEST"
+    : "LOCAL RESEARCH";
+  if (program) {
+    const assessment = programAssessment(project);
+    const recommended = program.lanes.find(
+      (lane) => lane.id === program.recommendedLaneId,
+    );
+    return {
+      tone: assessment.tone,
+      label: assessment.label,
+      title: assessment.title,
+      detail: assessment.detail,
+      next: recommended
+        ? `Work ${recommended.name} before interpreting downstream complexity as value-add.`
+        : "Inspect the earliest incomplete or adverse evidence lane.",
+      boundary: `${program.summary.lanes} fixed Studies · validation selects`,
+      origin,
+    };
+  }
+  if (layers?.kind === "rl-policy") {
+    const advantage = Number(layers.validationBaselineAdvantage);
+    const standalone = Number(layers.validationMeanNetSharpe);
+    const oracleHit = Number(layers.factorOpportunity?.validationOracleHitRate);
+    const candidateUse = Number(layers.validationCandidateActionFrequency);
+    const adverse = Number.isFinite(advantage) && advantage < 0;
+    return {
+      tone: adverse ? "bad" : "good",
+      label: adverse ? "DO NOT PROMOTE ADAPTIVITY" : "INCREMENTAL VALUE OBSERVED",
+      title: adverse ? "No incremental RL value" : "RL clears the simpler-policy comparison",
+      detail: adverse
+        ? `Despite ${metric(standalone)} standalone validation Sharpe, the policy trails the validation-selected simpler baseline by ${metric(Math.abs(advantage))}.`
+        : `The policy leads the validation-selected simpler baseline by ${metric(advantage)} with ${metric(standalone)} standalone validation Sharpe.`,
+      next:
+        adverse && Number.isFinite(oracleHit) && oracleHit < 0.5
+          ? `Rebuild the causal state and learning contract: the policy selects the local-best sleeve only ${percent(oracleHit)} of the time.`
+          : adverse && Number.isFinite(candidateUse) && candidateUse === 0
+            ? "Audit why the locked candidate sleeve is never selected before adding policy complexity."
+            : "Challenge the result with fixed robustness gates before any promotion decision.",
+      boundary: `${layers.folds}×${layers.seeds} declared fold/seed trials · validation selects · test audits`,
+      origin,
+    };
+  }
+  if (layers?.kind === "portfolio") {
+    const value = Number(layers.portfolio?.validationNetSharpe);
+    const adverse = Number.isFinite(value) && value < 0;
+    return {
+      tone: adverse ? "bad" : "neutral",
+      label: adverse ? "IMPLEMENTATION EDGE FAILED" : "COSTED EDGE OBSERVED",
+      title: adverse ? "Signal does not survive implementation" : "Mechanical portfolio evidence is available",
+      detail: `Validation net Sharpe is ${metric(value)} after the declared construction, turnover, cost, and risk rules.`,
+      next: adverse
+        ? "Return to factor construction or reduce implementation drag before expanding the portfolio."
+        : "Inspect drawdown, turnover, capacity, parameter neighborhoods, and fixed stress evidence.",
+      boundary: "validation selects · test and stress evidence audit only",
+      origin,
+    };
+  }
+  if (layers?.kind === "factor") {
+    const value = Number(layers.validationMeanIc);
+    const adverse = Number.isFinite(value) && value < 0;
+    return {
+      tone: adverse ? "bad" : "neutral",
+      label: adverse ? "PREDICTIVE EVIDENCE FAILED" : "PREDICTIVE EVIDENCE OBSERVED",
+      title: adverse ? "Signal direction is adverse" : "Causal factor evidence is available",
+      detail: `Validation rank IC is ${metric(value)} under the fixed horizon and fold protocol.`,
+      next: adverse
+        ? "Repair or replace the factor before portfolio or adaptive-policy work."
+        : "Inspect decay, fold stability, asset breadth, and style overlap before portfolio construction.",
+      boundary: "validation selects · test evidence audits only",
+      origin,
+    };
+  }
+  const active = project.counts.activeSessions > 0 || project.counts.runningCampaigns > 0;
+  return {
+    tone: active ? "warning" : "neutral",
+    label: active ? "RESEARCH IN PROGRESS" : run ? "IMMUTABLE EVIDENCE READY" : "BASELINE PENDING",
+    title: active ? "A governed iteration is active" : run ? "Inspect the fixed Study result" : "Define and run the first fixed Study",
+    detail: run
+      ? `${run.primaryMetric} is ${metric(run.primaryValue)}. Read it against the Study contract before drawing a conclusion.`
+      : "No successful structured evidence Run is available yet.",
+    next: active
+      ? "Wait for the fixed Judge verdict, then compare the candidate with the immutable leader."
+      : run
+        ? "Open the evidence lane and inspect its acceptance boundary."
+        : "Create a bounded Study with a declared metric, split, dataset, and baseline.",
+    boundary: run ? "immutable Run evidence" : "no selection evidence",
+    origin,
+  };
+};
+
+function renderDecisionBrief(project) {
+  const brief = researchDecisionBrief(project);
+  element("decision-brief").className = `decision-brief ${brief.tone}`;
+  element("decision-brief").innerHTML = `
+    <header>
+      <small>Current research decision</small>
+      <span class="decision-status">${escapeHtml(brief.label)}</span>
+    </header>
+    <h2>${escapeHtml(brief.title)}</h2>
+    <p>${escapeHtml(brief.detail)}</p>
+    <footer>
+      <span>
+        <small>Next investigation</small>
+        <b>${escapeHtml(brief.next)}</b>
+      </span>
+      <code>${escapeHtml(brief.origin)} · ${escapeHtml(brief.boundary)}</code>
+    </footer>`;
+}
+
 const shortHash = (value) =>
   typeof value === "string" && value.length > 14
     ? `${value.slice(0, 8)}…${value.slice(-6)}`
@@ -502,11 +627,28 @@ function renderScoreboard(project) {
       ["25 bps stress", metric(layers.robustness.test25bpsSharpe), "test stress · audit", valueTone(layers.robustness.test25bpsSharpe)],
     ];
   } else if (layers?.kind === "rl-policy") {
+    const opportunity = layers.factorOpportunity;
+    const summary = project.rlExplorer?.summary;
     values = [
-      ["Validation net Sharpe", metric(layers.validationMeanNetSharpe), "seed/fold mean", valueTone(layers.validationMeanNetSharpe)],
-      ["Baseline advantage", metric(layers.validationBaselineAdvantage), "validation only", valueTone(layers.validationBaselineAdvantage)],
-      ["Seed/fold dispersion", metric(layers.validationSeedFoldStd), "lower is steadier", ""],
-      ["Failure rate", percent(layers.failureRate), `${layers.folds}×${layers.seeds} fold/seed`, layers.failureRate > 0 ? "bad" : "good"],
+      ["Incremental RL value", metric(layers.validationBaselineAdvantage), "vs best simpler policy", valueTone(layers.validationBaselineAdvantage)],
+      [
+        "Local-best hit rate",
+        percent(opportunity?.validationOracleHitRate),
+        `${metric(opportunity?.validationMeanSelectedRank)} / 5 mean rank`,
+        Number(opportunity?.validationOracleHitRate) < 0.5 ? "bad" : "",
+      ],
+      [
+        "Candidate capture",
+        percent(layers.validationCandidateActionFrequency),
+        `${percent(opportunity?.validationCandidateOracleFrequency)} locally best`,
+        Number(layers.validationCandidateActionFrequency) === 0 ? "bad" : "",
+      ],
+      [
+        "Implementation drag",
+        percent(summary?.meanValidationCostDrag),
+        `${metric(summary?.meanValidationOneWayTurnover)} one-way turnover`,
+        Number(summary?.meanValidationCostDrag) > 0 ? "bad" : "",
+      ],
     ];
   } else if (layers?.kind === "factor") {
     values = [
@@ -718,6 +860,7 @@ function renderHandoff(project) {
   const session = selectedSession(project);
   const delegation = session?.delegation;
   const section = element("research-handoff");
+  section.hidden = false;
   section.classList.remove("compact");
   const dossier = dossierState(project);
   if (dossier && project.intake) {
@@ -832,13 +975,8 @@ function renderHandoff(project) {
     }
     element("handoff-flow").textContent = "REQUEST → EVIDENCE → REPORT";
     element("handoff-meta").textContent = "No delegated request";
-    section.classList.add("compact");
-    element("handoff-board").innerHTML = `
-      <div class="empty-panel handoff-empty">
-        <span><b>No caller brief is bound.</b> Add <code>--request request.json</code> when another
-        OpenAlice workbench delegates a question; AutoQuant will preserve intent, evidence identity,
-        and the return-report boundary.</span>
-      </div>`;
+    section.hidden = true;
+    element("handoff-board").innerHTML = "";
     return;
   }
   const request = delegation.request;
@@ -1096,7 +1234,9 @@ function renderEvidenceWorkbench(project) {
   const selected = available.find((lane) => lane.id === state.evidenceLane);
   element("evidence-workbench-meta").textContent =
     `${selected.label} lane · immutable Run evidence`;
-  element("evidence-lane-tabs").innerHTML = available
+  const tabs = element("evidence-lane-tabs");
+  tabs.dataset.laneCount = String(available.length);
+  tabs.innerHTML = available
     .map((lane, index) => {
       const laneProgram = project.researchProgramStatus?.lanes.find(
         (item) => laneKind(item) === lane.id,
@@ -3164,6 +3304,12 @@ function renderEmptyWorkspace(message = "Create a Project with aq project create
   element("project-state").textContent = "EMPTY WORKSPACE";
   element("project-title").textContent = "No research Projects yet";
   element("project-description").textContent = message;
+  element("decision-brief").className = "decision-brief neutral";
+  element("decision-brief").innerHTML = `
+    <header><small>Current research decision</small><span class="decision-status">NO PROJECT</span></header>
+    <h2>Research workspace is ready</h2>
+    <p>Create a bounded Project and fixed Study before interpreting any evidence.</p>
+    <footer><span><small>Next investigation</small><b>${escapeHtml(message)}</b></span><code>LOCAL / READ ONLY</code></footer>`;
   element("scoreboard").innerHTML = ["Projects", "Studies", "Runs", "Sessions"]
     .map(
       (label) => `
@@ -3179,6 +3325,7 @@ function renderEmptyWorkspace(message = "Create a Project with aq project create
     '<div class="empty-panel">A governed Session will appear here after its first fixed baseline.</div>';
   element("handoff-flow").textContent = "REQUEST → EVIDENCE → REPORT";
   element("handoff-meta").textContent = "No delegated request";
+  element("research-handoff").hidden = false;
   element("handoff-board").innerHTML =
     '<div class="empty-panel handoff-empty">Delegated research requests will appear here.</div>';
   element("research-program-status").hidden = true;
@@ -3247,10 +3394,12 @@ function render() {
   element("project-title").textContent = project.name;
   element("project-description").textContent =
     project.description ||
+    projectFocusStudy(project)?.description ||
     (project.researchProgramStatus
       ? "One research question tested through predictive signal, costed portfolio, and adaptive-policy evidence."
       : "No Project description recorded.");
   document.title = `${project.name} — AutoQuant Studio`;
+  renderDecisionBrief(project);
   renderScoreboard(project);
   renderDiagnostics(project);
   renderHandoff(project);

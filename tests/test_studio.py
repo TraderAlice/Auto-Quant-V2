@@ -271,6 +271,8 @@ class StudioObservationTests(unittest.TestCase):
                     html = response.read().decode()
                     self.assertIn("Research observatory", html)
                     self.assertIn("Research cockpit", html)
+                    self.assertIn("Current research decision brief", html)
+                    self.assertIn('id="decision-brief"', html)
                     self.assertIn("Research handoff", html)
                     self.assertIn('id="handoff-board"', html)
                     self.assertIn('id="evidence-workbench"', html)
@@ -283,6 +285,8 @@ class StudioObservationTests(unittest.TestCase):
                 with urlopen(f"{base}/assets/studio.css", timeout=3) as response:
                     css = response.read().decode()
                     self.assertIn(".handoff-board", css)
+                    self.assertIn(".decision-brief", css)
+                    self.assertIn('[data-lane-count="1"]', css)
                     self.assertIn(".program-assessment", css)
                     self.assertIn(".evidence-lane-tabs", css)
                     self.assertIn(".mandate-strip", css)
@@ -297,6 +301,9 @@ class StudioObservationTests(unittest.TestCase):
                 with urlopen(f"{base}/assets/studio.js", timeout=3) as response:
                     javascript = response.read().decode()
                     self.assertIn("programAssessment", javascript)
+                    self.assertIn("researchDecisionBrief", javascript)
+                    self.assertIn("DO NOT PROMOTE ADAPTIVITY", javascript)
+                    self.assertIn("projectFocusStudy", javascript)
                     self.assertIn("validationBaselineAdvantage", javascript)
                     self.assertIn("data-evidence-lane", javascript)
                     self.assertIn("mandateMarkup", javascript)
