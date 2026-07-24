@@ -4,6 +4,7 @@ Status: V1 implemented.
 
 Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]],
 [[docs/design/ohlcv-factor-lab]],
+[[docs/design/factor-evidence-explorer]],
 [[docs/design/portfolio-construction-lab]],
 [[docs/design/rl-factor-policy-lab]],
 [[docs/design/research-selection-integrity]], and
@@ -105,9 +106,10 @@ Every successful reference Run publishes:
 - `factor-quantiles.csv`: timestamp, split, horizon, low/middle/high return,
   and high-minus-low spread.
 
-The Run metric object contains the complete machine-readable summary. Studio
-shows only decision-useful headline fields; CLI and Research Reports retain the
-full verified evidence.
+The Run metric object contains the complete machine-readable summary. The
+bounded Core projection in [[docs/design/factor-evidence-explorer]] verifies
+and reconciles the three artifacts before CLI and Studio expose their path and
+stability evidence. Research Reports retain the full verified Run as authority.
 
 The reference Study keeps a 60-second hard Judge timeout. Normal warm source
 runs are much faster; the allowance covers cold pandas/NumPy import and

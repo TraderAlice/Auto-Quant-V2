@@ -132,7 +132,7 @@ CLI_COMMANDS = [
     ),
     descriptor(
         "schema",
-        "aq schema [workspace|project|study|judge-output|run-result|portfolio-diagnostics|session-decision-matrix|session|experiment|research-request|ohlcv-dataset-package|report-analysis|researcher-response|campaign-result|campaign-progress|studio-snapshot] [--json]",
+        "aq schema [workspace|project|study|judge-output|run-result|factor-diagnostics|portfolio-diagnostics|session-decision-matrix|session|experiment|research-request|ohlcv-dataset-package|report-analysis|researcher-response|campaign-result|campaign-progress|studio-snapshot] [--json]",
         "List or emit canonical AutoQuant JSON Schemas.",
         "read-only",
         [
@@ -148,6 +148,7 @@ CLI_COMMANDS = [
                     "study",
                     "judge-output",
                     "run-result",
+                    "factor-diagnostics",
                     "portfolio-diagnostics",
                     "session-decision-matrix",
                     "session",
@@ -462,6 +463,26 @@ CLI_COMMANDS = [
         "Verify and inspect one immutable RunResult.",
         "read-only",
         [PATH_ARGUMENT, PROJECT_ARGUMENT, RUN_ARGUMENT, JSON_ARGUMENT],
+    ),
+    descriptor(
+        "run.factor",
+        "aq run factor <path> --run ID [--points 40..400] [--project ID] [--json]",
+        "Project one verified Factor Run into bounded IC, decay, quantile, stability, and style diagnostics.",
+        "read-only",
+        [
+            PATH_ARGUMENT,
+            PROJECT_ARGUMENT,
+            RUN_ARGUMENT,
+            argument(
+                "points",
+                "option",
+                "integer",
+                False,
+                "Maximum sampled full-history Factor path points.",
+                default=180,
+            ),
+            JSON_ARGUMENT,
+        ],
     ),
     descriptor(
         "run.portfolio",

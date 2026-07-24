@@ -67,6 +67,9 @@ Read the relevant linked document before changing a subsystem:
 - Purged forward horizons, factor significance/decay/quantiles, fixed style
   overlap, and asset/fold/causal-regime stability:
   [[docs/design/factor-diagnostics]]
+- Verified Factor artifacts, bounded IC/quantile paths, horizon profile, and
+  Studio tear-sheet projection:
+  [[docs/design/factor-evidence-explorer]]
 - Mechanical signal state, hysteresis, conviction/risk sizing, execution
   reasons, and portfolio contribution reconciliation:
   [[docs/design/signal-policy-and-attribution]]

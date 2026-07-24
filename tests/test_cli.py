@@ -75,9 +75,36 @@ class AgentCliTests(unittest.TestCase):
                 "--json",
             )
             self.assertEqual(executed.returncode, 0, executed.stderr)
-            result = json_output(executed)["data"]
+            execution = json_output(executed)
+            result = execution["data"]
             self.assertEqual(result["status"], "succeeded")
             self.assertIn("sourceHashes", result["dataset"])
+            self.assertIn(
+                "run.factor",
+                [item["id"] for item in execution["nextActions"]],
+            )
+            diagnostics = run_cli(
+                "run",
+                "factor",
+                str(project),
+                "--run",
+                result["id"],
+                "--points",
+                "48",
+                "--json",
+            )
+            self.assertEqual(diagnostics.returncode, 0, diagnostics.stderr)
+            projected = json_output(diagnostics)
+            self.assertEqual(projected["command"], "run.factor")
+            self.assertEqual(
+                projected["data"]["kind"],
+                "autoquant-factor-diagnostics",
+            )
+            self.assertEqual(projected["data"]["icPath"]["sampledRows"], 48)
+            self.assertEqual(
+                {item["kind"] for item in projected["artifacts"]},
+                {"factor-report", "factor-daily", "factor-quantiles"},
+            )
 
     def test_cli_constructs_portfolio_lab_with_correct_next_actions(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -196,6 +223,7 @@ class AgentCliTests(unittest.TestCase):
                 "run.execute",
                 "run.list",
                 "run.show",
+                "run.factor",
                 "run.portfolio",
                 "session.start",
                 "session.list",
@@ -274,6 +302,7 @@ class AgentCliTests(unittest.TestCase):
                 "study",
                 "judge-output",
                 "run-result",
+                "factor-diagnostics",
                 "portfolio-diagnostics",
                 "session-decision-matrix",
                 "session",
@@ -350,6 +379,12 @@ class AgentCliTests(unittest.TestCase):
             portfolio_schema.returncode,
             0,
             portfolio_schema.stderr,
+        )
+        self.assertEqual(
+            json_output(
+                run_cli("schema", "factor-diagnostics", "--json")
+            )["data"]["schema"]["properties"]["kind"]["const"],
+            "autoquant-factor-diagnostics",
         )
         self.assertEqual(
             json_output(portfolio_schema)["data"]["schema"]["properties"][

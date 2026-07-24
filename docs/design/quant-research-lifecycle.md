@@ -287,6 +287,12 @@ directions, validation-only non-dominance, leader trade-offs, and explicitly
 separate test-audit evidence. The browser neither chooses metrics nor changes
 the fixed primary-objective verdict.
 
+The implemented Factor Evidence Explorer applies the same rule inside one
+Run. Core reconciles full daily IC and quantile artifacts before sampling;
+Agents receive the normalized object through `aq run factor`, while humans
+switch path, horizon, split, and stability views without browser-side
+statistics or selection authority.
+
 ## Phased delivery
 
 1. Request-driven Project and market-data intake:

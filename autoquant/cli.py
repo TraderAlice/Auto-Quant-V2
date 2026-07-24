@@ -17,6 +17,13 @@ from .decision_matrix import (
     SESSION_DECISION_MATRIX_JSON_SCHEMA,
     load_session_decision_matrix,
 )
+from .factor_explorer import (
+    DEFAULT_FACTOR_POINTS,
+    FACTOR_DIAGNOSTICS_JSON_SCHEMA,
+    MAX_FACTOR_POINTS,
+    MIN_FACTOR_POINTS,
+    load_factor_diagnostics,
+)
 from .cli_contract import (
     artifact,
     error_envelope,
@@ -163,6 +170,7 @@ def build_parser() -> RaisingArgumentParser:
             "study",
             "judge-output",
             "run-result",
+            "factor-diagnostics",
             "portfolio-diagnostics",
             "session-decision-matrix",
             "session",
@@ -328,6 +336,23 @@ def build_parser() -> RaisingArgumentParser:
     run_show.add_argument("--run", required=True)
     run_show.set_defaults(command_id="run.show")
     _json_argument(run_show)
+
+    run_factor = run_actions.add_parser(
+        "factor",
+        help="inspect bounded Factor Run professional diagnostics",
+    )
+    run_factor.add_argument("path")
+    run_factor.add_argument("--project")
+    run_factor.add_argument("--run", required=True)
+    run_factor.add_argument(
+        "--points",
+        type=int,
+        choices=range(MIN_FACTOR_POINTS, MAX_FACTOR_POINTS + 1),
+        default=DEFAULT_FACTOR_POINTS,
+        metavar=f"{MIN_FACTOR_POINTS}..{MAX_FACTOR_POINTS}",
+    )
+    run_factor.set_defaults(command_id="run.factor")
+    _json_argument(run_factor)
 
     run_portfolio = run_actions.add_parser(
         "portfolio",
@@ -1009,6 +1034,58 @@ def _run_execute(args: argparse.Namespace) -> CommandResult:
     run = execute_study(project, args.study)
     metric = run.result["objective"]["metric"]
     value = run.result["metrics"].get(metric)
+    actions = [
+        next_action(
+            "run.show",
+            "Verify and inspect the immutable RunResult.",
+            [
+                "aq",
+                "run",
+                "show",
+                str(project.root_dir),
+                "--run",
+                run.result["id"],
+                "--json",
+            ],
+            "read-only",
+        ),
+    ]
+    if (
+        run.result["status"] == "succeeded"
+        and metric == "validation_mean_ic"
+    ):
+        actions.append(
+            next_action(
+                "run.factor",
+                "Inspect the verified professional Factor tear sheet.",
+                [
+                    "aq",
+                    "run",
+                    "factor",
+                    str(project.root_dir),
+                    "--run",
+                    run.result["id"],
+                    "--json",
+                ],
+                "read-only",
+            )
+        )
+    actions.append(
+        next_action(
+            "run.list",
+            "List immutable Runs for this Study.",
+            [
+                "aq",
+                "run",
+                "list",
+                str(project.root_dir),
+                "--study",
+                run.result["study"]["id"],
+                "--json",
+            ],
+            "read-only",
+        )
+    )
     return CommandResult(
         "run.execute",
         run.result,
@@ -1020,36 +1097,7 @@ def _run_execute(args: argparse.Namespace) -> CommandResult:
         ),
         project_context(project),
         _run_artifacts(run),
-        [
-            next_action(
-                "run.show",
-                "Verify and inspect the immutable RunResult.",
-                [
-                    "aq",
-                    "run",
-                    "show",
-                    str(project.root_dir),
-                    "--run",
-                    run.result["id"],
-                    "--json",
-                ],
-                "read-only",
-            ),
-            next_action(
-                "run.list",
-                "List immutable Runs for this Study.",
-                [
-                    "aq",
-                    "run",
-                    "list",
-                    str(project.root_dir),
-                    "--study",
-                    run.result["study"]["id"],
-                    "--json",
-                ],
-                "read-only",
-            ),
-        ],
+        actions,
     )
 
 
@@ -1111,6 +1159,45 @@ def _run_show(args: argparse.Namespace) -> CommandResult:
         ),
         project_context(project),
         _run_artifacts(run),
+    )
+
+
+def _run_factor(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    diagnostics = load_factor_diagnostics(
+        project,
+        args.run,
+        point_limit=args.points,
+    )
+    summary = diagnostics["summary"]
+    validation = summary["validation"]
+    return CommandResult(
+        "run.factor",
+        diagnostics,
+        (
+            f"Factor Run: {diagnostics['run']['id']}\n"
+            f"Selection mean rank IC: {validation['meanRankIc']}\n"
+            f"HAC t / p: {validation['hacTStatistic']} / "
+            f"{validation['hacNormalPValue']}\n"
+            f"IC path: {diagnostics['icPath']['totalRows']} rows → "
+            f"{diagnostics['icPath']['sampledRows']} points\n"
+            f"Mean coverage / rank turnover: {summary['meanCoverage']} / "
+            f"{summary['meanRankTurnover']}\n"
+            "Test and longer-horizon evidence are diagnostic only.\n"
+        ),
+        project_context(project),
+        [
+            artifact(
+                kind,
+                f"{diagnostics['run']['id']}:{kind}",
+                project.root_dir
+                / project.manifest.directories["runs"]
+                / diagnostics["run"]["id"]
+                / item["path"],
+                immutable=True,
+            )
+            for kind, item in diagnostics["artifacts"].items()
+        ],
     )
 
 
@@ -1957,6 +2044,7 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "campaign-progress",
             "campaign-result",
             "experiment",
+            "factor-diagnostics",
             "judge-output",
             "ohlcv-dataset-package",
             "portfolio-diagnostics",
@@ -1982,6 +2070,7 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "study": STUDY_JSON_SCHEMA,
             "judge-output": JUDGE_OUTPUT_JSON_SCHEMA,
             "run-result": RUN_RESULT_JSON_SCHEMA,
+            "factor-diagnostics": FACTOR_DIAGNOSTICS_JSON_SCHEMA,
             "portfolio-diagnostics": PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA,
             "session-decision-matrix": SESSION_DECISION_MATRIX_JSON_SCHEMA,
             "session": SESSION_JSON_SCHEMA,
@@ -2026,6 +2115,8 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
         return _run_list(args)
     if args.command_id == "run.show":
         return _run_show(args)
+    if args.command_id == "run.factor":
+        return _run_factor(args)
     if args.command_id == "run.portfolio":
         return _run_portfolio(args)
     if args.command_id == "session.start":

@@ -79,6 +79,95 @@
         </section>
 
         <section
+          class="factor-section"
+          id="factor-explorer"
+          aria-labelledby="factor-title"
+          hidden
+        >
+          <header class="section-header">
+            <span>
+              <small>IC PATH → DECAY → STABILITY</small>
+              <h2 id="factor-title">Factor evidence explorer</h2>
+            </span>
+            <span class="section-meta" id="factor-meta">No Factor Run</span>
+          </header>
+          <div class="factor-summary" id="factor-summary"></div>
+          <div class="factor-primary-grid">
+            <article class="factor-chart-panel">
+              <header class="panel-toolbar factor-toolbar">
+                <span>
+                  <b id="factor-chart-title">Rank &amp; Pearson IC path</b>
+                  <small id="factor-chart-note">Full evidence · bounded verified sample</small>
+                </span>
+                <div class="factor-toolbar-controls">
+                  <div class="segmented-control compact" role="tablist" aria-label="Factor chart">
+                    <button type="button" role="tab" aria-selected="true" data-factor-view="ic">
+                      IC path
+                    </button>
+                    <button type="button" role="tab" aria-selected="false" data-factor-view="quantiles">
+                      Quantiles
+                    </button>
+                  </div>
+                  <div class="segmented-control compact" role="tablist" aria-label="Factor horizon">
+                    <button type="button" role="tab" aria-selected="true" data-factor-horizon="1">
+                      1 bar
+                    </button>
+                    <button type="button" role="tab" aria-selected="false" data-factor-horizon="5">
+                      5
+                    </button>
+                    <button type="button" role="tab" aria-selected="false" data-factor-horizon="10">
+                      10
+                    </button>
+                  </div>
+                  <div class="segmented-control compact" role="tablist" aria-label="Factor split">
+                    <button type="button" role="tab" aria-selected="true" data-factor-split="validation">
+                      Validation
+                    </button>
+                    <button type="button" role="tab" aria-selected="false" data-factor-split="test">
+                      Test audit
+                    </button>
+                  </div>
+                </div>
+              </header>
+              <div class="factor-chart" id="factor-chart"></div>
+            </article>
+            <article class="factor-horizon-panel">
+              <header class="panel-toolbar">
+                <span>
+                  <b>Horizon profile</b>
+                  <small>Fixed 1 / 5 / 10-bar decay · test is audit-only</small>
+                </span>
+              </header>
+              <div id="factor-horizons"></div>
+            </article>
+          </div>
+          <article class="factor-stability-panel">
+            <header class="panel-toolbar factor-toolbar">
+              <span>
+                <b>Stability &amp; distinctiveness</b>
+                <small>Fold, causal regime, asset, and fixed-style evidence</small>
+              </span>
+              <div class="segmented-control compact" role="tablist" aria-label="Factor stability">
+                <button type="button" role="tab" aria-selected="true" data-factor-stability="regimes">
+                  Regimes
+                </button>
+                <button type="button" role="tab" aria-selected="false" data-factor-stability="folds">
+                  Folds
+                </button>
+                <button type="button" role="tab" aria-selected="false" data-factor-stability="assets">
+                  Assets
+                </button>
+                <button type="button" role="tab" aria-selected="false" data-factor-stability="styles">
+                  Style overlap
+                </button>
+              </div>
+            </header>
+            <div id="factor-stability"></div>
+          </article>
+          <div class="factor-warning" id="factor-warning"></div>
+        </section>
+
+        <section
           class="portfolio-section"
           id="portfolio-explorer"
           aria-labelledby="portfolio-title"

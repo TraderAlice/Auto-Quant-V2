@@ -38,6 +38,9 @@ The first viewport prioritizes:
 - factor Run summaries for validation one/five-bar IC, HAC strength, tertile
   spread, weakest chronological fold, maximum fixed-style overlap, test audit
   IC, and rank turnover;
+- the latest successful Factor Run's verified IC path, fixed-horizon decay,
+  quantile path, fold/regime/asset stability, style overlap, coverage, and
+  turnover tear sheet;
 - portfolio Run summaries for held-out IC, net Sharpe, signal-state change,
   hysteresis transition reduction, maximum asset return/risk contribution,
   attribution reconciliation, turnover, and cost stress;
@@ -86,6 +89,14 @@ audit view reveals them without changing verdicts, leader choice, or the
 validation-only non-dominated set. Context such as hysteresis policy state is
 display-only, and failed trials remain visible as unavailable evidence.
 
+The Factor Evidence Explorer verifies and reconciles all three immutable
+Factor artifacts before sampling a bounded timeline. Humans may switch between
+rank/Pearson IC and fixed-tertile paths, 1/5/10-bar horizons, validation and
+test audit, and fold/regime/asset/style stability. Those controls format the
+Core object; JavaScript never parses CSV, re-bins assets, selects a horizon, or
+turns diagnostic evidence into an acceptance gate. The exact headless
+`aq run factor` command is copyable from the disclosure footer.
+
 The handoff cards and Inspector distinguish caller-supplied OpenAlice context
 from authenticated provenance. Copy buttons only write an exact Core-generated
 CLI string to the local clipboard. They do not invoke the command or mutate the
@@ -110,6 +121,7 @@ starting a server:
 aq studio snapshot ./quant-workspace --json
 aq schema studio-snapshot --json
 aq schema campaign-progress --json
+aq schema factor-diagnostics --json
 aq schema portfolio-diagnostics --json
 aq schema session-decision-matrix --json
 ```

@@ -189,6 +189,7 @@ Humans can watch the same Workspace through the lightweight local Studio:
 ```bash
 uv run aq studio snapshot ./quant-workspace --json
 uv run aq studio serve ./quant-workspace
+uv run aq run factor ./quant-workspace --run RUN_ID --json
 uv run aq session compare ./quant-workspace --session SESSION_ID --json
 ```
 
@@ -198,8 +199,8 @@ fixed Studies. For the latest successful Portfolio Run it also shows bounded
 verified growth/drawdown, exposure/turnover, the historical mechanical book,
 signal transitions, and split attribution. It is read-only, exposes copy-only
 exact CLI commands, and uses the same verified Core loaders as the CLI. A
-specific historical Run is available through
-`aq run portfolio <path> --run ID --json`. See
+specific historical Run is available through `aq run factor <path> --run ID
+--json` or `aq run portfolio <path> --run ID --json`. See
 [`docs/STUDIO.md`](docs/STUDIO.md).
 
 The v0.5 development Harness still uses **Freqtrade as its one core engine**,

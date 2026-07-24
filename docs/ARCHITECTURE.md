@@ -62,6 +62,9 @@ The V2 foundation now implements:
 - one self-contained OHLCV Factor Lab reference Project with ordinary pandas
   factor code, deterministic local data, dataset-fixed purged horizons, a
   professional factor tear sheet, and a fixed no-lookahead audit.
+- one bounded Factor evidence projection that reconciles immutable daily IC
+  and quantile artifacts before exposing horizon, stability, style, coverage,
+  and turnover evidence to CLI and Studio.
 - one self-contained OHLCV Portfolio Lab reference Project that mechanically
   translates the same causal factor API through explicit signal state into
   capped target weights, drift-aware execution, reconciled contribution/risk
@@ -87,6 +90,8 @@ Project is defined in [[docs/design/ohlcv-factor-lab]]; causal target-weight
 construction is defined in [[docs/design/portfolio-construction-lab]]. The
 governed RL lane is defined in [[docs/design/rl-factor-policy-lab]]. The
 factor tear-sheet protocol is defined in [[docs/design/factor-diagnostics]].
+Bounded immutable Factor artifact projection is defined in
+[[docs/design/factor-evidence-explorer]].
 Mechanical signal state and attribution are defined in
 [[docs/design/signal-policy-and-attribution]].
 Bounded immutable Portfolio artifact projection is defined in
@@ -223,6 +228,8 @@ behind the Harness contract, not the owner of Workspace or Project semantics.
 - Agent CLI design: [[docs/design/agent-cli-contract]]
 - Study/Run evidence design: [[docs/design/study-run-evidence]]
 - OHLCV Factor Lab design: [[docs/design/ohlcv-factor-lab]]
+- Factor evidence explorer design:
+  [[docs/design/factor-evidence-explorer]]
 - OHLCV Portfolio Lab design: [[docs/design/portfolio-construction-lab]]
 - Portfolio decision explorer design:
   [[docs/design/portfolio-decision-explorer]]

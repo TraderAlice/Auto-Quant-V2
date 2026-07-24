@@ -17,6 +17,7 @@ aq schema project --json
 aq schema research-request --json
 aq schema ohlcv-dataset-package --json
 aq schema report-analysis --json
+aq schema factor-diagnostics --json
 aq schema portfolio-diagnostics --json
 aq schema session-decision-matrix --json
 ```
@@ -103,6 +104,8 @@ aq study inspect <path> --study ID [--project ID] [--json]
 aq run execute <path> --study ID [--project ID] [--json]
 aq run list <path> [--study ID] [--project ID] [--json]
 aq run show <path> --run ID [--project ID] [--json]
+aq run factor <path> --run ID \
+  [--points 180] [--project ID] [--json]
 aq run portfolio <path> --run ID \
   [--points 180] [--project ID] [--json]
 ```
@@ -124,6 +127,15 @@ turnover/cost, the latest historical mechanical book, recent signal
 transitions, and validation/test attribution. `--points` defaults to 180 and
 is bounded to 40–400; full history is reconciled before deterministic
 sampling. The operation has no live account or trading authority.
+
+`run factor` is the corresponding bounded professional tear sheet for a
+successful fixed Factor Lab Run. Core verifies the immutable report, daily
+1/5/10-bar rank/Pearson IC, and fixed-tertile artifacts; reconciles every
+split/horizon aggregate; then deterministically samples 40–400 timestamp
+anchors. The response keeps horizon decay, quantiles, folds, causal regimes,
+assets, styles, coverage, and rank turnover machine-readable. Validation
+one-bar rank IC remains the only selection objective; test and all other
+layers are explicitly diagnostic.
 
 A failed Run is a successful artifact-creation operation whose RunResult has
 `status: failed`; it retains errors and logs. A CLI error means trustworthy Run

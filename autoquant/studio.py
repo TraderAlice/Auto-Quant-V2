@@ -18,6 +18,10 @@ from .decision_matrix import (
     STUDIO_COMPARISON_TRIALS,
     load_session_decision_matrix,
 )
+from .factor_explorer import (
+    DEFAULT_FACTOR_POINTS,
+    load_factor_diagnostics,
+)
 from .intake import load_project_intake
 from .portfolio_explorer import (
     DEFAULT_PORTFOLIO_POINTS,
@@ -580,6 +584,30 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
         if metric_layers is not None:
             summary["metricLayers"] = metric_layers
         runs.append(summary)
+    factor_explorer = None
+    factor_candidate = next(
+        (
+            item
+            for item in reversed(runs_raw)
+            if item.status == "succeeded"
+            and item.primary_metric == "validation_mean_ic"
+        ),
+        None,
+    )
+    if factor_candidate is not None:
+        try:
+            factor_explorer = load_factor_diagnostics(
+                project,
+                factor_candidate.id,
+                point_limit=DEFAULT_FACTOR_POINTS,
+            )
+        except AutoQuantValidationError as error:
+            diagnostics.extend(
+                _diagnostics(
+                    f"factor-explorer:{factor_candidate.id}",
+                    error,
+                )
+            )
     portfolio_explorer = None
     portfolio_candidate = next(
         (
@@ -662,6 +690,39 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
         for experiment in item["experiments"]:
             verdict = experiment["verdict"]
             verdicts[verdict] += 1
+    commands: list[dict[str, Any]] = []
+    if factor_explorer is not None:
+        commands.append(
+            _command(
+                "run.factor",
+                [
+                    "aq",
+                    "run",
+                    "factor",
+                    str(project.root_dir),
+                    "--run",
+                    factor_explorer["run"]["id"],
+                    "--json",
+                ],
+                "read-only",
+            )
+        )
+    if portfolio_explorer is not None:
+        commands.append(
+            _command(
+                "run.portfolio",
+                [
+                    "aq",
+                    "run",
+                    "portfolio",
+                    str(project.root_dir),
+                    "--run",
+                    portfolio_explorer["run"]["id"],
+                    "--json",
+                ],
+                "read-only",
+            )
+        )
     return {
         "id": project.manifest.id,
         "name": project.manifest.name,
@@ -672,7 +733,9 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
             "text": program_path.read_text(encoding="utf-8"),
         },
         "intake": intake,
+        "factorExplorer": factor_explorer,
         "portfolioExplorer": portfolio_explorer,
+        "commands": commands,
         "valid": not diagnostics,
         "diagnostics": diagnostics,
         "counts": {
@@ -1096,7 +1159,9 @@ STUDIO_SNAPSHOT_JSON_SCHEMA: dict[str, Any] = {
                 "rootDir",
                 "researchProgram",
                 "intake",
+                "factorExplorer",
                 "portfolioExplorer",
+                "commands",
                 "valid",
                 "diagnostics",
                 "counts",
@@ -1120,7 +1185,12 @@ STUDIO_SNAPSHOT_JSON_SCHEMA: dict[str, Any] = {
                     },
                 },
                 "intake": {"type": ["object", "null"]},
+                "factorExplorer": {"type": ["object", "null"]},
                 "portfolioExplorer": {"type": ["object", "null"]},
+                "commands": {
+                    "type": "array",
+                    "items": {"type": "object"},
+                },
                 "valid": {"type": "boolean"},
                 "diagnostics": {
                     "type": "array",

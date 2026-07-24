@@ -3,6 +3,10 @@ const state = {
   projectId: null,
   sessionId: null,
   catalog: "studies",
+  factorView: "ic",
+  factorHorizon: "1",
+  factorSplit: "validation",
+  factorStability: "regimes",
   portfolioView: "performance",
   attributionSplit: "validation",
   matrixView: "selection",
@@ -431,6 +435,285 @@ function chartPath(points, value, xScale, yScale) {
       return `${index ? "L" : "M"}${x.toFixed(2)},${y.toFixed(2)}`;
     })
     .join(" ");
+}
+
+function factorSeriesPath(points, key, xScale, yScale) {
+  return points
+    .filter((point) => Number.isFinite(Number(point[key])))
+    .map((point, index) => {
+      const x = xScale(chartTime(point.timestamp));
+      const y = yScale(Number(point[key]));
+      return `${index ? "L" : "M"}${x.toFixed(2)},${y.toFixed(2)}`;
+    })
+    .join(" ");
+}
+
+function factorChartDateLabels(points, xScale, y) {
+  if (!points.length) return "";
+  const first = points[0].timestamp;
+  const last = points.at(-1).timestamp;
+  return [first, last]
+    .map(
+      (timestamp, index) => `
+        <text class="chart-axis-label" x="${xScale(chartTime(timestamp)).toFixed(2)}"
+          y="${y}" text-anchor="${index ? "end" : "start"}">
+          ${escapeHtml(timestamp)}
+        </text>`,
+    )
+    .join("");
+}
+
+function renderFactorChart(explorer) {
+  const chart = element("factor-chart");
+  const horizon = state.factorHorizon;
+  const split = state.factorSplit;
+  const audit = split === "test";
+  const source =
+    state.factorView === "quantiles"
+      ? explorer.quantilePath.points.filter(
+          (point) =>
+            point.split === split && String(point.horizon) === horizon,
+        )
+      : explorer.icPath.points.filter((point) => point.split === split);
+  document.querySelectorAll("[data-factor-view]").forEach((button) => {
+    button.setAttribute(
+      "aria-selected",
+      String(button.dataset.factorView === state.factorView),
+    );
+  });
+  document.querySelectorAll("[data-factor-horizon]").forEach((button) => {
+    button.setAttribute(
+      "aria-selected",
+      String(button.dataset.factorHorizon === horizon),
+    );
+  });
+  document.querySelectorAll("[data-factor-split]").forEach((button) => {
+    button.setAttribute(
+      "aria-selected",
+      String(button.dataset.factorSplit === split),
+    );
+  });
+  element("factor-chart-title").textContent =
+    state.factorView === "quantiles"
+      ? "Fixed-tertile forward returns"
+      : "Rank & Pearson IC path";
+  element("factor-chart-note").textContent =
+    `${horizon}-bar · ${split}${audit ? " · VISIBLE AUDIT ONLY" : " · SELECTION"} · ${source.length} sampled points`;
+  if (!source.length) {
+    chart.innerHTML =
+      '<div class="empty-panel">No finite evidence for this fixed split and horizon.</div>';
+    return;
+  }
+  const width = 760;
+  const height = 270;
+  const left = 46;
+  const right = 14;
+  const top = 20;
+  const bottom = 34;
+  const firstTime = chartTime(source[0].timestamp);
+  const lastTime = chartTime(source.at(-1).timestamp);
+  const timeSpread = Math.max(1, lastTime - firstTime);
+  const xScale = (value) =>
+    left + ((value - firstTime) / timeSpread) * (width - left - right);
+  const keys =
+    state.factorView === "quantiles"
+      ? ["low", "middle", "high", "highMinusLow"]
+      : [`rankIcH${horizon}`, `pearsonIcH${horizon}`];
+  const values = [
+    0,
+    ...source.flatMap((point) =>
+      keys
+        .map((key) => Number(point[key]))
+        .filter((value) => Number.isFinite(value)),
+    ),
+  ];
+  const minimum = Math.min(...values);
+  const maximum = Math.max(...values);
+  const padding = Math.max(1e-6, (maximum - minimum) * 0.08);
+  const low = minimum - padding;
+  const high = maximum + padding;
+  const spread = Math.max(1e-9, high - low);
+  const yScale = (value) =>
+    top + ((high - value) / spread) * (height - top - bottom);
+  const zero = yScale(0);
+  const palette =
+    state.factorView === "quantiles"
+      ? [
+          ["low", "factor-low", "Low"],
+          ["middle", "factor-middle", "Middle"],
+          ["high", "factor-high", "High"],
+          ["highMinusLow", "factor-spread", "High − low"],
+        ]
+      : [
+          [`rankIcH${horizon}`, "factor-rank", "Rank IC"],
+          [`pearsonIcH${horizon}`, "factor-pearson", "Pearson IC"],
+        ];
+  chart.innerHTML = `
+    <svg class="factor-svg" viewBox="0 0 ${width} ${height}" role="img"
+      aria-label="${escapeHtml(state.factorView === "quantiles" ? "Quantile forward-return path" : "Rank and Pearson information-coefficient path")}">
+      <line class="factor-zero" x1="${left}" x2="${width - right}" y1="${zero}" y2="${zero}"></line>
+      <text class="chart-axis-label" x="${left - 6}" y="${top + 4}" text-anchor="end">${escapeHtml(metric(high))}</text>
+      <text class="chart-axis-label" x="${left - 6}" y="${zero + 4}" text-anchor="end">0</text>
+      <text class="chart-axis-label" x="${left - 6}" y="${height - bottom}" text-anchor="end">${escapeHtml(metric(low))}</text>
+      ${palette
+        .map(
+          ([key, className, label]) => `
+            <path class="factor-line ${className}" d="${factorSeriesPath(source, key, xScale, yScale)}">
+              <title>${escapeHtml(label)}</title>
+            </path>`,
+        )
+        .join("")}
+      ${factorChartDateLabels(source, xScale, height - 8)}
+    </svg>
+    <div class="factor-legend">
+      ${palette
+        .map(
+          ([, className, label]) => `
+            <span class="${className}"><i></i>${escapeHtml(label)}</span>`,
+        )
+        .join("")}
+      <span class="${audit ? "audit-label" : "selection-label"}">${audit ? "TEST · AUDIT ONLY" : "VALIDATION · SELECTION"}</span>
+    </div>`;
+}
+
+function renderFactorHorizons(explorer) {
+  const rows = explorer.horizonProfile;
+  element("factor-horizons").innerHTML = `
+    <table class="factor-table horizon-table" aria-label="Fixed factor horizon profile">
+      <thead>
+        <tr>
+          <th>Horizon</th>
+          <th>Train</th>
+          <th>Validation</th>
+          <th>Test audit</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows
+          .map(
+            (row) => `
+              <tr>
+                <th>${row.horizon} bar${row.horizon === 1 ? "" : "s"}</th>
+                <td><b>${metric(row.train.meanRankIc)}</b><small>IC · ${row.train.observations} obs</small></td>
+                <td class="selection-cell"><b>${metric(row.validation.meanRankIc)}</b><small>IC · t ${metric(row.validation.hacTStatistic)}</small></td>
+                <td class="audit-cell"><b>${metric(row.test.meanRankIc)}</b><small>AUDIT · ${row.test.observations} obs</small></td>
+              </tr>`,
+          )
+          .join("")}
+      </tbody>
+    </table>`;
+}
+
+function renderFactorStability(explorer) {
+  const split = state.factorSplit;
+  const kind = state.factorStability;
+  document.querySelectorAll("[data-factor-stability]").forEach((button) => {
+    button.setAttribute(
+      "aria-selected",
+      String(button.dataset.factorStability === kind),
+    );
+  });
+  const definitions = {
+    regimes: {
+      rows: explorer.stability.causalRegimes.filter(
+        (row) => row.split === split,
+      ),
+      name: (row) => row.regime,
+      value: (row) => row.meanRankIc,
+      detail: (row) =>
+        `${row.observations} obs · ${row.sufficient ? "sufficient" : "sparse"}`,
+      label: "Mean rank IC",
+    },
+    folds: {
+      rows: explorer.stability.chronologicalFolds.filter(
+        (row) => row.split === split,
+      ),
+      name: (row) => row.id,
+      value: (row) => row.meanRankIc,
+      detail: (row) => `${row.observations} obs · ICIR ${metric(row.rankIcir)}`,
+      label: "Mean rank IC",
+    },
+    assets: {
+      rows: explorer.stability.assets.filter((row) => row.split === split),
+      name: (row) => row.asset,
+      value: (row) => row.rankCorrelation,
+      detail: (row) => `${row.observations} paired observations`,
+      label: "Time-series rank corr.",
+    },
+    styles: {
+      rows: explorer.stability.styles.filter((row) => row.split === split),
+      name: (row) => row.style.replaceAll("_", " "),
+      value: (row) => row.meanRankCorrelation,
+      detail: (row) =>
+        `|corr| mean ${metric(row.meanAbsoluteRankCorrelation)} · ${row.observations} obs`,
+      label: "Mean rank overlap",
+    },
+  };
+  const definition = definitions[kind];
+  element("factor-stability").innerHTML = `
+    <div class="factor-stability-meta">
+      <span>${escapeHtml(definition.label)}</span>
+      <b class="${split === "test" ? "audit-label" : "selection-label"}">${split === "test" ? "TEST · AUDIT ONLY" : "VALIDATION · SELECTION CONTEXT"}</b>
+    </div>
+    <div class="factor-stability-grid">
+      ${definition.rows
+        .map((row) => {
+          const value = definition.value(row);
+          const magnitude = Number.isFinite(Number(value))
+            ? Math.min(100, Math.abs(Number(value)) * 100)
+            : 0;
+          return `
+            <div class="factor-stability-row">
+              <span>
+                <b>${escapeHtml(definition.name(row))}</b>
+                <small>${escapeHtml(definition.detail(row))}</small>
+              </span>
+              <i><u style="width:${magnitude}%"></u></i>
+              <strong>${metric(value)}</strong>
+            </div>`;
+        })
+        .join("") || '<div class="empty-panel">No stability rows for this split.</div>'}
+    </div>`;
+}
+
+function renderFactorExplorer(project) {
+  const section = element("factor-explorer");
+  const explorer = project.factorExplorer;
+  if (!explorer) {
+    section.hidden = true;
+    return;
+  }
+  section.hidden = false;
+  const summary = explorer.summary;
+  const validation = summary.validation;
+  const test = summary.testAudit;
+  element("factor-meta").textContent =
+    `${explorer.run.id} · ${explorer.dataset.universe.length} assets · validation selection`;
+  element("factor-summary").innerHTML = [
+    ["Validation rank IC", metric(validation.meanRankIc), `${validation.observations} observations`],
+    ["HAC t / p", `${metric(validation.hacTStatistic)} / ${metric(validation.hacNormalPValue)}`, "normal approximation"],
+    ["Weakest validation fold", metric(summary.weakestValidationFold?.meanRankIc), summary.weakestValidationFold?.id ?? "unavailable"],
+    ["Maximum style overlap", metric(summary.maximumValidationStyleOverlap?.absoluteMeanRankCorrelation), summary.maximumValidationStyleOverlap?.style?.replaceAll("_", " ") ?? "unavailable"],
+    ["Coverage", percent(summary.meanCoverage), "mean asset availability"],
+    ["Rank turnover", percent(summary.meanRankTurnover), "full-scope diagnostic"],
+    ["Test rank IC", metric(test.meanRankIc), "VISIBLE AUDIT ONLY"],
+  ]
+    .map(
+      ([label, value, note]) => `
+        <span>
+          <small>${escapeHtml(label)}</small>
+          <b>${escapeHtml(value)}</b>
+          <i>${escapeHtml(note)}</i>
+        </span>`,
+    )
+    .join("");
+  renderFactorChart(explorer);
+  renderFactorHorizons(explorer);
+  renderFactorStability(explorer);
+  const command = project.commands?.find((item) => item.id === "run.factor");
+  element("factor-warning").innerHTML = `
+    <span>${escapeHtml(explorer.warning)}</span>
+    ${copyCommandButton(command, "Copy Factor JSON command")}`;
 }
 
 function splitBands(explorer, xScale, top, height) {
@@ -1280,6 +1563,7 @@ function renderEmptyWorkspace(message = "Create a Project with aq project create
   element("handoff-meta").textContent = "No delegated request";
   element("handoff-board").innerHTML =
     '<div class="empty-panel handoff-empty">Delegated research requests will appear here.</div>';
+  element("factor-explorer").hidden = true;
   element("portfolio-explorer").hidden = true;
   element("decision-matrix").hidden = true;
   element("trajectory-meta").textContent = "No Experiments";
@@ -1345,6 +1629,7 @@ function render() {
   renderScoreboard(project);
   renderDiagnostics(project);
   renderHandoff(project);
+  renderFactorExplorer(project);
   renderPortfolioExplorer(project);
   renderSessions(project);
   renderDecisionMatrix(project);
@@ -1414,6 +1699,37 @@ document.querySelectorAll("[data-portfolio-view]").forEach((button) => {
     state.portfolioView = button.dataset.portfolioView;
     const explorer = selectedProject()?.portfolioExplorer;
     if (explorer) renderPortfolioChart(explorer);
+  });
+});
+document.querySelectorAll("[data-factor-view]").forEach((button) => {
+  button.addEventListener("click", () => {
+    state.factorView = button.dataset.factorView;
+    const explorer = selectedProject()?.factorExplorer;
+    if (explorer) renderFactorChart(explorer);
+  });
+});
+document.querySelectorAll("[data-factor-horizon]").forEach((button) => {
+  button.addEventListener("click", () => {
+    state.factorHorizon = button.dataset.factorHorizon;
+    const explorer = selectedProject()?.factorExplorer;
+    if (explorer) renderFactorChart(explorer);
+  });
+});
+document.querySelectorAll("[data-factor-split]").forEach((button) => {
+  button.addEventListener("click", () => {
+    state.factorSplit = button.dataset.factorSplit;
+    const explorer = selectedProject()?.factorExplorer;
+    if (explorer) {
+      renderFactorChart(explorer);
+      renderFactorStability(explorer);
+    }
+  });
+});
+document.querySelectorAll("[data-factor-stability]").forEach((button) => {
+  button.addEventListener("click", () => {
+    state.factorStability = button.dataset.factorStability;
+    const explorer = selectedProject()?.factorExplorer;
+    if (explorer) renderFactorStability(explorer);
   });
 });
 document.querySelectorAll("[data-attribution-split]").forEach((button) => {
