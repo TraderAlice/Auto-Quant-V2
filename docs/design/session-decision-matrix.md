@@ -57,8 +57,8 @@ V1 recognizes the three reference evidence families:
 - Portfolio: validation factor quality, net performance, drawdown/tail risk,
   risk-governor activation/scale/pre-post forecast context, turnover/cost,
   causal liquidity-capacity/coverage/reference-NAV breach context, cost/delay
-  stress, contribution concentration, mechanical transition context, and
-  visible test performance;
+  stress, executed-risk coverage/overrides/breaches, contribution
+  concentration, mechanical transition context, and visible test performance;
 - RL policy: validation mean/minimum/dispersion, advantage over the best fixed
   baseline, failure rate, validation turnover/cost, and visible test evidence.
 
@@ -66,7 +66,8 @@ Unknown Studies receive only their fixed primary metric. Missing metrics are
 explicitly unavailable; Core never substitutes zero.
 
 `context` fields such as signal state-change rate, risk-governor activation,
-average risk scale, and capacity are shown because they explain mechanics but
+average risk scale, capacity, and executed-risk intervention are shown because
+they explain mechanics but
 have no universal favorable direction without a caller capital mandate.
 Frequent risk reduction can indicate either
 healthy protection or an over-risky raw signal; it therefore cannot dominate

@@ -1,11 +1,12 @@
 # Causal portfolio risk governor
 
-Status: V1 active implementation.
+Status: V1 implemented.
 
 Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]],
 [[docs/design/portfolio-construction-lab]],
 [[docs/design/signal-policy-and-attribution]],
 [[docs/design/request-bound-portfolio-mandates]],
+[[docs/design/executed-book-risk-compliance]],
 [[docs/design/rl-factor-policy-lab]], and
 [[docs/design/quant-research-lifecycle]].
 
@@ -88,6 +89,11 @@ CLI and Studio consume a verified Core projection. The browser may format the
 policy or plot its chronology but cannot recompute covariance or choose a
 scale.
 
+This target governor is followed by the separate fixed execution decision in
+[[docs/design/executed-book-risk-compliance]]. That step rechecks the actual
+post-drift/no-trade book under this identical policy; target compliance alone
+is not treated as final-book compliance.
+
 ## Governed RL
 
 Every fixed expert and mixture action is converted to a complete signal sleeve
@@ -110,6 +116,8 @@ Portfolio/RL policy is a dependency failure, not a comparable result.
 7. Legacy evidence is not reinterpreted.
 8. All weights remain historical quantitative decision support with no trading
    authority.
+9. The final executed book is independently checked after drift and no-trade
+   selection.
 
 ## Research basis and limits
 

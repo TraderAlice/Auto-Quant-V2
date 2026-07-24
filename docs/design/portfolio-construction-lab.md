@@ -6,6 +6,7 @@ Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]],
 [[docs/design/study-run-evidence]], [[docs/design/ohlcv-factor-lab]],
 [[docs/design/request-bound-portfolio-mandates]],
 [[docs/design/signal-policy-and-attribution]],
+[[docs/design/executed-book-risk-compliance]],
 [[docs/design/portfolio-liquidity-capacity]], and
 [[docs/design/quant-research-lifecycle]].
 
@@ -64,6 +65,8 @@ OHLCV known through close t
 → compare with the prior book drifted through return t
 → retain the drifted book when one-way turnover is below 0.05
 → otherwise rebalance at close t
+→ recheck the chosen final book under the same causal covariance ceiling
+→ if excessive, bypass no-trade with minimum proportional scale-down
 → earn close(t)→close(t+1) return
 ```
 
@@ -122,6 +125,8 @@ or capacity guarantee.
 - mean/max volume participation at the fixed reference NAV.
 - causal 20-observation dollar-volume capacity at 1%/5% participation,
   trade-date coverage, reference-NAV breach rate, and binding assets.
+- final-book forecast coverage, pretrade breaches, risk-only no-trade
+  overrides, and zero available executed breaches.
 
 ### Robustness
 
@@ -196,6 +201,8 @@ reconciled before display sampling; the browser never reads artifact paths.
 11. OHLCV capacity is a contextual participation envelope, not an impact or
     fill guarantee, and never enters selection.
 12. Routine tests use a small deterministic OHLCV fixture.
+13. Final post-drift weights, not only targets, obey the request-bound risk
+    ceiling whenever its causal forecast is available.
 
 ## Change checklist
 

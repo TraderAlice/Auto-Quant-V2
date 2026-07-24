@@ -4,7 +4,8 @@ Status: V1 implemented.
 
 Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]],
 [[docs/design/portfolio-construction-lab]],
-[[docs/design/request-bound-portfolio-mandates]], and
+[[docs/design/request-bound-portfolio-mandates]],
+[[docs/design/executed-book-risk-compliance]], and
 [[docs/design/quant-research-lifecycle]].
 
 ## Scope
@@ -90,6 +91,10 @@ intent history and shares the exact tradable/context assets, direction, cash,
 gross/net, cap, benchmark, and one-sided covariance volatility ceiling. RL
 selects among those governed sleeves; it cannot alter entry/exit thresholds,
 sizing, risk scale, constraints, or costs.
+After drift and no-trade selection, the shared execution primitive rechecks
+the selected final sleeve and applies only the proportional scale-down needed
+for the same ceiling. This step runs during training, baselines, validation,
+and test.
 See
 [[docs/design/signal-policy-and-attribution]] and
 [[docs/design/portfolio-risk-governor]].
@@ -184,6 +189,8 @@ Successful Runs declare:
 - `policy-models.json`: exact feature names and learned weights by fold/seed;
 - `training-history.json`: episode reward histories for every trained model;
 - `policy-actions.csv`: timestamped validation/test actions and accounting.
+  Each row also records pretrade/final risk forecasts, ceiling, coverage,
+  risk-only override, and execution reason.
 
 NumPy and pandas versions are recorded. Artifacts are immutable Run evidence.
 
@@ -211,7 +218,12 @@ failed seed.
    result after iterative use.
 7. Every action sleeve obeys the exact fixed Portfolio Mandate.
 8. RL target weights are research evidence and have no trading authority.
+9. Every final post-drift book is checked by the shared execution-risk
+   primitive; a risk-only repair may override the no-trade band but may never
+   scale exposure up.
 9. The complete fixture and training campaign remain deterministic and bounded.
+10. Every training, baseline, validation, and test action path enforces risk on
+    the post-drift final book through the shared Portfolio Core primitive.
 
 ## Change checklist
 

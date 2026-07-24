@@ -72,6 +72,8 @@ delegated intake authorizes requested assets and direction while retaining
 other panel assets as research context only. The same Mandate fixes a causal
 60-bar covariance forecast and a 15% annualized volatility ceiling that may
 scale targets down but never up.
+Portfolio accounting and RL rollout then recheck the final post-drift book;
+risk may bypass the no-trade band using the minimum proportional repair.
 `ohlcv-rl-factor-lab` adds a deterministic causal state encoder surface over
 a content-locked candidate-factor sleeve plus fixed reference actions,
 Q-learning, folds, seeds, rewards, portfolio accounting, and simple baselines.
@@ -159,6 +161,10 @@ close-times-volume ledger and returns validation/test 1%/5% participation
 capacity distributions, coverage, reference-$1m breach rates, binding assets,
 and the latest rebalance envelope. These are contextual OHLCV estimates, not
 impact or fill claims.
+The same projection reconciles daily and per-asset executed-book risk:
+forecast coverage, pretrade breaches, risk-only overrides, final breaches,
+and the current executed forecast. Available final breaches are invalid
+evidence, not warnings.
 `--points` defaults to 180 and is bounded to 40–400; full history is
 reconciled before deterministic sampling. The operation has no live account
 or trading authority.
@@ -181,6 +187,8 @@ Validation advantage versus each fold's fixed validation-selected baseline is
 the value-add test. Test remains visible audit only, failed seeds cannot be
 hidden, every action must pass the shared Portfolio Mandate audit, and
 the shared causal risk governor cannot be bypassed by the editable encoder.
+Every timestamped action also carries the same post-drift execution-risk
+status, forecast, ceiling, override reason, and zero-breach invariant.
 Factor-mixture actions carry no trading authority.
 
 A failed Run is a successful artifact-creation operation whose RunResult has

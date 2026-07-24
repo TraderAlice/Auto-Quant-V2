@@ -470,6 +470,32 @@ def _rollout_action_rows(
                 "net_return": float(daily["net_return"]),
                 "one_way_turnover": float(daily["one_way_turnover"]),
                 "cost": float(daily["cost"]),
+                "execution_risk_status": str(
+                    daily["execution_risk_status"]
+                ),
+                "execution_risk_forecast_available": bool(
+                    daily["execution_risk_forecast_available"]
+                ),
+                "execution_risk_observations": int(
+                    daily["execution_risk_observations"]
+                ),
+                "pretrade_risk_forecast_annualized": float(
+                    daily["pretrade_risk_forecast_annualized"]
+                ),
+                "executed_risk_forecast_annualized": float(
+                    daily["executed_risk_forecast_annualized"]
+                ),
+                "execution_risk_ceiling_annualized": float(
+                    daily["execution_risk_ceiling_annualized"]
+                ),
+                "risk_rebalance_override": bool(
+                    daily["risk_rebalance_override"]
+                ),
+                "execution_reason": str(daily["execution_reason"]),
+                "gross_exposure": float(daily["gross_exposure"]),
+                "proposed_one_way_turnover": float(
+                    daily["proposed_one_way_turnover"]
+                ),
             }
         )
     return rows
@@ -488,6 +514,56 @@ def _aggregate(values: list[float]) -> dict[str, float | int]:
         "standard_deviation": float(array.std(ddof=0)),
         "minimum": float(array.min()),
         "maximum": float(array.max()),
+    }
+
+
+def _aggregate_execution_risk_trials(
+    folds: dict[str, Any],
+    split: str,
+) -> dict[str, float | int | str]:
+    items = [
+        seed[split]["execution_risk"]
+        for fold in folds.values()
+        for seed in fold["seeds"].values()
+        if seed.get("status") == "succeeded"
+    ]
+    active = sum(int(item["active_dates"]) for item in items)
+    available = sum(
+        int(item["forecast_available_dates"]) for item in items
+    )
+    executed_breaches = sum(
+        int(item["executed_breach_dates"]) for item in items
+    )
+    if executed_breaches:
+        raise JudgeFailure(
+            "policy.risk-breach",
+            "A governed RL rollout contains an executed-book risk breach",
+        )
+    return {
+        "status": "available" if available else "forecast_unavailable",
+        "trial_paths": len(items),
+        "active_dates": active,
+        "forecast_available_dates": available,
+        "forecast_coverage": available / active if active else 0.0,
+        "pretrade_breach_dates": sum(
+            int(item["pretrade_breach_dates"]) for item in items
+        ),
+        "risk_rebalance_override_dates": sum(
+            int(item["risk_rebalance_override_dates"])
+            for item in items
+        ),
+        "executed_breach_dates": executed_breaches,
+        "maximum_executed_forecast_annualized": max(
+            (
+                float(item["maximum_executed_forecast_annualized"])
+                for item in items
+            ),
+            default=0.0,
+        ),
+        "maximum_ceiling_error": max(
+            (float(item["maximum_ceiling_error"]) for item in items),
+            default=0.0,
+        ),
     }
 
 
@@ -761,6 +837,26 @@ def _evaluate() -> tuple[
     total_trials = len(folds) * len(SEEDS)
     if failures:
         raise TrialFailures(failures)
+    execution_risk = {
+        "policy": {
+            "method": (
+                "post-drift-executed-book-volatility-compliance-v1"
+            ),
+            "risk_policy": mandate["construction"]["riskPolicy"],
+            "no_trade_priority": "risk-compliance-first",
+            "repair": "minimum-proportional-scale-down",
+            "selection_authority": "context-only",
+            "trading_authority": "none",
+        },
+        "validation": _aggregate_execution_risk_trials(
+            fold_metrics,
+            "validation",
+        ),
+        "test": _aggregate_execution_risk_trials(
+            fold_metrics,
+            "test",
+        ),
+    }
     metrics = {
         "validation_mean_net_sharpe": float(np.mean(validation_sharpes)),
         "portfolio_mandate": mandate,
@@ -797,6 +893,7 @@ def _evaluate() -> tuple[
                 np.mean(validation_candidate_action_frequencies)
             ),
         },
+        "execution_risk": execution_risk,
         "constraint_audit": audits,
         "configuration": {
             "portfolioMandateId": mandate["id"],
@@ -814,6 +911,10 @@ def _evaluate() -> tuple[
             "epsilonEnd": EPSILON_END,
             "riskAversion": RISK_AVERSION,
             "costBps": BASE_COST_BPS,
+            "executionRiskMethod": (
+                "post-drift-executed-book-volatility-compliance-v1"
+            ),
+            "executionRiskPriority": "risk-compliance-first",
         },
         "research_integrity": {
             "selection_split": "validation",
@@ -851,6 +952,11 @@ def _evaluate() -> tuple[
             ),
             "return": "close t to close t+1",
             "reward": "net return after 10bps cost minus 0.10 * gross_return^2",
+            "executionRisk": (
+                "every selected sleeve is rechecked after drift; risk "
+                "compliance bypasses the no-trade band with minimum "
+                "proportional scale-down"
+            ),
             "objective": "mean validation net Sharpe across every successful seed/fold",
             "testRole": "reported audit evidence; never enters promotion",
             "testVisibilityWarning": (
@@ -938,7 +1044,7 @@ def main() -> None:
                         "path": "policy-actions.csv",
                         "description": (
                             "Timestamped validation/test actions, rewards, returns, "
-                            "turnover, and costs"
+                            "turnover, costs, and executed-book risk compliance"
                         ),
                     },
                 ],

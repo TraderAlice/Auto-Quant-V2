@@ -721,6 +721,28 @@ def _render_markdown(report: dict[str, Any]) -> str:
                     f"`{conservative['reference_nav_breach_rate']}`",
                 ]
             )
+        execution_risk = leader_run["metrics"].get("execution_risk")
+        validation_execution_risk = (
+            execution_risk.get("validation")
+            if isinstance(execution_risk, dict)
+            else None
+        )
+        if isinstance(validation_execution_risk, dict):
+            lines.extend(
+                [
+                    "- Executed-book risk: "
+                    "`post-drift-executed-book-volatility-compliance-v1` "
+                    "(contextual safety invariant)",
+                    "- Validation forecast coverage / pretrade breaches / "
+                    "risk-only overrides / executed breaches: "
+                    f"`{validation_execution_risk['forecast_coverage']}` / "
+                    f"`{validation_execution_risk['pretrade_breach_dates']}` / "
+                    f"`{validation_execution_risk['risk_rebalance_override_dates']}` / "
+                    f"`{validation_execution_risk['executed_breach_dates']}`",
+                    "- Final executed weights are historical research "
+                    "evidence only; no Broker, account, or order authority.",
+                ]
+            )
         lines.append("")
     lines.extend(
         [

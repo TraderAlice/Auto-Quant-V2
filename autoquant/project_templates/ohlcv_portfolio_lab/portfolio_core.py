@@ -25,6 +25,7 @@ RISK_COVARIANCE_WINDOW = 60
 RISK_COVARIANCE_MINIMUM = 20
 LIQUIDITY_ADV_WINDOW = 20
 LIQUIDITY_PARTICIPATION_LIMITS = (0.01, 0.05)
+RISK_COMPLIANCE_TOLERANCE = 1e-10
 
 
 class PortfolioFailure(ValueError):
@@ -339,6 +340,138 @@ def _govern_portfolio_risk(
         "annualized_volatility_ceiling": ceiling,
         "scale": scale,
     }
+
+
+def execute_risk_compliant_book(
+    pretrade: pd.Series,
+    proposed: pd.Series,
+    close_returns: pd.DataFrame,
+    timestamp: object,
+    *,
+    mandate: dict[str, object] | None,
+    no_trade_one_way: float = NO_TRADE_ONE_WAY,
+) -> tuple[pd.Series, dict[str, object]]:
+    """Choose the final book, with risk compliance outranking no-trade."""
+
+    if (
+        not pretrade.index.equals(proposed.index)
+        or list(close_returns.columns) != list(pretrade.index)
+        or timestamp not in close_returns.index
+        or not 0 <= no_trade_one_way <= 1
+    ):
+        raise PortfolioFailure(
+            "portfolio.execution-risk",
+            "Invalid executed-book risk inputs",
+        )
+    if not np.isfinite(pretrade.to_numpy(dtype=float)).all() or not np.isfinite(
+        proposed.to_numpy(dtype=float)
+    ).all():
+        raise PortfolioFailure(
+            "portfolio.non-finite",
+            "Executed-book risk inputs contain non-finite weights",
+        )
+    resolved = _resolve_mandate(pretrade.index, mandate)
+    _, pretrade_risk = _govern_portfolio_risk(
+        pretrade,
+        close_returns,
+        timestamp,
+        resolved,
+        enabled=False,
+    )
+    runtime_proposed, proposed_risk = _govern_portfolio_risk(
+        proposed,
+        close_returns,
+        timestamp,
+        resolved,
+        enabled=True,
+    )
+    proposed_delta = runtime_proposed - pretrade
+    proposed_one_way = 0.5 * float(proposed_delta.abs().sum())
+    ordinary_rebalance = (
+        proposed_one_way + 1e-12 >= no_trade_one_way
+    )
+    ordinary_book = runtime_proposed if ordinary_rebalance else pretrade
+    current, execution_risk = _govern_portfolio_risk(
+        ordinary_book,
+        close_returns,
+        timestamp,
+        resolved,
+        enabled=True,
+    )
+    repair_trade = current - ordinary_book
+    repaired = bool(repair_trade.abs().sum() > 1e-12)
+    risk_override = repaired and not ordinary_rebalance
+    actual_trade = current - pretrade
+    rebalanced = bool(actual_trade.abs().sum() > 1e-12)
+    raw_status = str(execution_risk["status"])
+    if repaired:
+        status = (
+            f"{raw_status}_fail_flat"
+            if raw_status in {"insufficient_history", "invalid_covariance"}
+            else "risk_repaired"
+        )
+    else:
+        status = raw_status
+    if risk_override:
+        reason = "risk_ceiling_override"
+    elif repaired:
+        reason = "target_risk_repair"
+    elif ordinary_rebalance:
+        reason = "rebalance_threshold_met"
+    else:
+        reason = "portfolio_no_trade_band"
+
+    final_forecast = float(execution_risk["post_annualized_volatility"])
+    ceiling = float(execution_risk["annualized_volatility_ceiling"])
+    policy = resolved["risk_policy"]
+    forecast_available = (
+        isinstance(policy, dict)
+        and raw_status
+        not in {"insufficient_history", "invalid_covariance"}
+    )
+    if (
+        forecast_available
+        and final_forecast
+        > ceiling + RISK_COMPLIANCE_TOLERANCE
+    ):
+        raise PortfolioFailure(
+            "portfolio.risk-breach",
+            "Final executed book exceeds the volatility ceiling",
+        )
+    result: dict[str, object] = {
+        "status": status,
+        "forecast_available": forecast_available,
+        "observations": int(execution_risk["observations"]),
+        "pretrade_forecast_annualized": float(
+            pretrade_risk["pre_annualized_volatility"]
+        ),
+        "proposed_forecast_pre_annualized": float(
+            proposed_risk["pre_annualized_volatility"]
+        ),
+        "proposed_forecast_post_annualized": float(
+            proposed_risk["post_annualized_volatility"]
+        ),
+        "executed_forecast_annualized": final_forecast,
+        "annualized_volatility_ceiling": ceiling,
+        "proposed_runtime_scale": float(proposed_risk["scale"]),
+        "risk_repair_scale": float(execution_risk["scale"]),
+        "proposed_one_way": proposed_one_way,
+        "ordinary_rebalance": ordinary_rebalance,
+        "risk_rebalance_override": risk_override,
+        "rebalanced": rebalanced,
+        "execution_reason": reason,
+    }
+    numeric = [
+        float(value)
+        for value in result.values()
+        if isinstance(value, (int, float)) and not isinstance(value, bool)
+    ]
+    if not all(math.isfinite(value) and value >= 0 for value in numeric):
+        raise PortfolioFailure(
+            "portfolio.non-finite",
+            "Executed-book risk evidence contains invalid values",
+        )
+    return current, result
 
 
 def construct_targets(
@@ -849,7 +982,7 @@ def simulate_targets(
     executed = pd.DataFrame(0.0, index=targets.index, columns=targets.columns)
     trades = pd.DataFrame(0.0, index=targets.index, columns=targets.columns)
     participation = pd.DataFrame(0.0, index=targets.index, columns=targets.columns)
-    daily_rows: list[dict[str, float | bool]] = []
+    daily_rows: list[dict[str, object]] = []
     prior = pd.Series(0.0, index=targets.columns, dtype=float)
 
     for row_number, timestamp in enumerate(targets.index):
@@ -859,10 +992,15 @@ def simulate_targets(
             else drift_weights(prior, close_returns.loc[timestamp])
         )
         proposed = proposed_targets.loc[timestamp].fillna(0.0).astype(float)
-        proposed_delta = proposed - pretrade
-        proposed_one_way = 0.5 * float(proposed_delta.abs().sum())
-        rebalance = proposed_one_way + 1e-12 >= no_trade_one_way
-        current = proposed if rebalance else pretrade
+        current, execution_risk = execute_risk_compliant_book(
+            pretrade,
+            proposed,
+            close_returns,
+            timestamp,
+            mandate=mandate,
+            no_trade_one_way=no_trade_one_way,
+        )
+        rebalance = bool(execution_risk["rebalanced"])
         trade = current - pretrade
         traded_notional = float(trade.abs().sum())
         one_way_turnover = 0.5 * traded_notional
@@ -922,6 +1060,52 @@ def simulate_targets(
                 "max_abs_weight": float(current.abs().max()),
                 "concentration_hhi": float(current.pow(2).sum()),
                 "rebalanced": rebalance,
+                "execution_reason": str(
+                    execution_risk["execution_reason"]
+                ),
+                "execution_risk_status": str(execution_risk["status"]),
+                "execution_risk_forecast_available": bool(
+                    execution_risk["forecast_available"]
+                ),
+                "execution_risk_observations": int(
+                    execution_risk["observations"]
+                ),
+                "pretrade_risk_forecast_annualized": float(
+                    execution_risk["pretrade_forecast_annualized"]
+                ),
+                "proposed_risk_forecast_pre_annualized": float(
+                    execution_risk[
+                        "proposed_forecast_pre_annualized"
+                    ]
+                ),
+                "proposed_risk_forecast_post_annualized": float(
+                    execution_risk[
+                        "proposed_forecast_post_annualized"
+                    ]
+                ),
+                "executed_risk_forecast_annualized": float(
+                    execution_risk["executed_forecast_annualized"]
+                ),
+                "execution_risk_ceiling_annualized": float(
+                    execution_risk[
+                        "annualized_volatility_ceiling"
+                    ]
+                ),
+                "proposed_runtime_risk_scale": float(
+                    execution_risk["proposed_runtime_scale"]
+                ),
+                "execution_risk_repair_scale": float(
+                    execution_risk["risk_repair_scale"]
+                ),
+                "proposed_one_way_turnover": float(
+                    execution_risk["proposed_one_way"]
+                ),
+                "ordinary_rebalance": bool(
+                    execution_risk["ordinary_rebalance"]
+                ),
+                "risk_rebalance_override": bool(
+                    execution_risk["risk_rebalance_override"]
+                ),
                 "max_participation": float(row_participation.max()),
                 "mean_participation": float(row_participation.mean()),
             }
@@ -1140,10 +1324,59 @@ def build_decision_ledger(
                         float(pretrade.loc[asset]),
                         executed_weight,
                     ),
-                    "execution_reason": (
-                        "rebalance_threshold_met"
-                        if bool(portfolio_row["rebalanced"])
-                        else "portfolio_no_trade_band"
+                    "execution_reason": str(
+                        portfolio_row["execution_reason"]
+                    ),
+                    "execution_risk_status": str(
+                        portfolio_row["execution_risk_status"]
+                    ),
+                    "execution_risk_forecast_available": bool(
+                        portfolio_row[
+                            "execution_risk_forecast_available"
+                        ]
+                    ),
+                    "execution_risk_observations": int(
+                        portfolio_row["execution_risk_observations"]
+                    ),
+                    "pretrade_risk_forecast_annualized": float(
+                        portfolio_row[
+                            "pretrade_risk_forecast_annualized"
+                        ]
+                    ),
+                    "proposed_risk_forecast_pre_annualized": float(
+                        portfolio_row[
+                            "proposed_risk_forecast_pre_annualized"
+                        ]
+                    ),
+                    "proposed_risk_forecast_post_annualized": float(
+                        portfolio_row[
+                            "proposed_risk_forecast_post_annualized"
+                        ]
+                    ),
+                    "executed_risk_forecast_annualized": float(
+                        portfolio_row[
+                            "executed_risk_forecast_annualized"
+                        ]
+                    ),
+                    "execution_risk_ceiling_annualized": float(
+                        portfolio_row[
+                            "execution_risk_ceiling_annualized"
+                        ]
+                    ),
+                    "proposed_runtime_risk_scale": float(
+                        portfolio_row["proposed_runtime_risk_scale"]
+                    ),
+                    "execution_risk_repair_scale": float(
+                        portfolio_row["execution_risk_repair_scale"]
+                    ),
+                    "proposed_one_way_turnover": float(
+                        portfolio_row["proposed_one_way_turnover"]
+                    ),
+                    "ordinary_rebalance": bool(
+                        portfolio_row["ordinary_rebalance"]
+                    ),
+                    "risk_rebalance_override": bool(
+                        portfolio_row["risk_rebalance_override"]
                     ),
                     "liquidity_capacity_status": capacity_status,
                     "liquidity_adv_observations": (
@@ -1209,6 +1442,15 @@ def build_decision_ledger(
             "pretrade_weight",
             "executed_weight",
             "trade_weight",
+            "execution_risk_observations",
+            "pretrade_risk_forecast_annualized",
+            "proposed_risk_forecast_pre_annualized",
+            "proposed_risk_forecast_post_annualized",
+            "executed_risk_forecast_annualized",
+            "execution_risk_ceiling_annualized",
+            "proposed_runtime_risk_scale",
+            "execution_risk_repair_scale",
+            "proposed_one_way_turnover",
             "liquidity_adv_observations",
             "causal_adv_dollar_volume",
             "reference_nav_adv_participation",
@@ -1234,6 +1476,134 @@ def build_decision_ledger(
         raise PortfolioFailure(
             "portfolio.non-finite",
             "Decision ledger contains non-finite numeric evidence",
+        )
+    return result
+
+
+def execution_risk_metrics(
+    simulation: Simulation,
+    index: pd.Index,
+) -> dict[str, object]:
+    """Summarize final-book compliance with the causal volatility ceiling."""
+
+    daily = simulation.daily.loc[index].copy()
+    required = {
+        "execution_reason",
+        "execution_risk_status",
+        "execution_risk_forecast_available",
+        "pretrade_risk_forecast_annualized",
+        "executed_risk_forecast_annualized",
+        "execution_risk_ceiling_annualized",
+        "proposed_one_way_turnover",
+        "risk_rebalance_override",
+        "gross_exposure",
+    }
+    if daily.empty or not required.issubset(daily.columns):
+        raise PortfolioFailure(
+            "portfolio.execution-risk",
+            "Execution-risk split evidence is incomplete",
+        )
+    active = daily[
+        (daily["gross_exposure"].abs() > 1e-12)
+        | (daily["proposed_one_way_turnover"].abs() > 1e-12)
+        | daily["risk_rebalance_override"].astype(bool)
+    ]
+    available = active[
+        active["execution_risk_forecast_available"].astype(bool)
+    ]
+    unavailable = active[
+        ~active["execution_risk_forecast_available"].astype(bool)
+    ]
+    pretrade_breach = available[
+        available["pretrade_risk_forecast_annualized"]
+        > available["execution_risk_ceiling_annualized"]
+        + RISK_COMPLIANCE_TOLERANCE
+    ]
+    executed_breach = available[
+        available["executed_risk_forecast_annualized"]
+        > available["execution_risk_ceiling_annualized"]
+        + RISK_COMPLIANCE_TOLERANCE
+    ]
+    overrides = active[active["risk_rebalance_override"].astype(bool)]
+    ceiling_error = (
+        available["executed_risk_forecast_annualized"]
+        - available["execution_risk_ceiling_annualized"]
+    ).clip(lower=0.0)
+    result: dict[str, object] = {
+        "status": (
+            "available"
+            if not available.empty
+            else "no_active_dates"
+            if active.empty
+            else "forecast_unavailable"
+        ),
+        "dates": int(len(daily)),
+        "active_dates": int(len(active)),
+        "forecast_available_dates": int(len(available)),
+        "forecast_unavailable_dates": int(len(unavailable)),
+        "forecast_coverage": (
+            float(len(available) / len(active))
+            if len(active)
+            else 0.0
+        ),
+        "pretrade_breach_dates": int(len(pretrade_breach)),
+        "pretrade_breach_rate": (
+            float(len(pretrade_breach) / len(available))
+            if len(available)
+            else 0.0
+        ),
+        "risk_rebalance_override_dates": int(len(overrides)),
+        "risk_rebalance_override_rate": (
+            float(len(overrides) / len(active))
+            if len(active)
+            else 0.0
+        ),
+        "executed_breach_dates": int(len(executed_breach)),
+        "executed_breach_rate": (
+            float(len(executed_breach) / len(available))
+            if len(available)
+            else 0.0
+        ),
+        "mean_executed_forecast_annualized": (
+            float(available["executed_risk_forecast_annualized"].mean())
+            if len(available)
+            else 0.0
+        ),
+        "maximum_executed_forecast_annualized": (
+            float(available["executed_risk_forecast_annualized"].max())
+            if len(available)
+            else 0.0
+        ),
+        "maximum_ceiling_error": (
+            float(ceiling_error.max()) if len(ceiling_error) else 0.0
+        ),
+        "status_counts": {
+            str(key): int(value)
+            for key, value in daily[
+                "execution_risk_status"
+            ].value_counts().items()
+        },
+        "execution_reason_counts": {
+            str(key): int(value)
+            for key, value in daily[
+                "execution_reason"
+            ].value_counts().items()
+        },
+    }
+    numeric = [
+        float(value)
+        for value in result.values()
+        if isinstance(value, (int, float)) and not isinstance(value, bool)
+    ]
+    if not all(math.isfinite(value) and value >= 0 for value in numeric):
+        raise PortfolioFailure(
+            "portfolio.non-finite",
+            "Execution-risk metrics contain invalid values",
+        )
+    if int(result["executed_breach_dates"]):
+        raise PortfolioFailure(
+            "portfolio.risk-breach",
+            "Final executed-book path contains a volatility-ceiling breach",
         )
     return result
 

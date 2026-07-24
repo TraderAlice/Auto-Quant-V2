@@ -162,6 +162,15 @@ class AgentCliTests(unittest.TestCase):
             self.assertEqual(projected["data"]["path"]["sampledRows"], 48)
             self.assertTrue(projected["data"]["riskGovernor"]["available"])
             self.assertTrue(
+                projected["data"]["executedBookRisk"]["available"]
+            )
+            self.assertEqual(
+                projected["data"]["executedBookRisk"]["validation"][
+                    "executedBreachDates"
+                ],
+                0,
+            )
+            self.assertTrue(
                 projected["data"]["liquidityCapacity"]["available"]
             )
             self.assertEqual(
@@ -198,6 +207,8 @@ class AgentCliTests(unittest.TestCase):
                 "Validation 1% participation capacity p10",
                 human.stdout,
             )
+            self.assertIn("Validation executed-book risk", human.stdout)
+            self.assertIn("Executed book:", human.stdout)
             self.assertIn("contextual only", human.stdout)
 
     def test_cli_constructs_rl_factor_lab_with_correct_next_actions(self) -> None:

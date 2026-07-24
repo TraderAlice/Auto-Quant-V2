@@ -123,6 +123,8 @@ non-file entries are rejected.
   applicable lane;
 - Portfolio liquidity-capacity policy, validation envelope, coverage, and
   reference-NAV breach evidence when present;
+- Portfolio and governed-RL executed-book forecast coverage, pretrade breach,
+  risk-only override, and zero-final-breach evidence when present;
 - omitted optional lanes;
 - normalized cross-lane analysis and its hash;
 - OpenAlice handoff boundary.

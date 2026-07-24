@@ -54,10 +54,14 @@ explicit entry/hold/exit/reversal intent, gross/net and per-asset constraints,
 drift, no-trade behavior, turnover, costs, benchmark, a causal covariance
 volatility ceiling, risk/implementation metrics, decision attribution, and
 cost/delay/no-hysteresis/risk-governor stresses.
+The final post-drift Portfolio and RL books share an additional fixed
+execution-risk decision: risk outranks the no-trade band and may only scale
+the chosen book down.
 Candidate code remains confined to `factors/**`; `judges/**` owns every
 comparison rule. See [[docs/design/ohlcv-factor-lab]],
 [[docs/design/factor-diagnostics]], and
-[[docs/design/portfolio-construction-lab]], and
+[[docs/design/portfolio-construction-lab]],
+[[docs/design/executed-book-risk-compliance]], and
 [[docs/design/signal-policy-and-attribution]].
 
 New Portfolio and governed-RL Projects also contain the fixed
@@ -364,6 +368,10 @@ per-asset tradability. New Portfolio decision ledgers also record the
 pre-governor target, covariance observations, pre/post annualized forecast,
 ceiling, scale, and status on every asset/date. Governed RL action sleeves bind
 the same complete Mandate before training or rollout. New Portfolio ledgers
+and daily artifacts also record pretrade/proposed/executed forecasts,
+forecast coverage, proportional repair scale, risk-only override, and exact
+execution reason. RL action artifacts publish the same final-book fields.
+New Portfolio ledgers
 also record causal trailing dollar volume, reference-NAV participation,
 1%/5% asset and portfolio capacity, availability, and one deterministic
 binding asset per trade date. Aggregate capacity remains contextual and cannot

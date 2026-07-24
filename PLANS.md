@@ -32,6 +32,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/executed-book-risk-compliance]] | Made the final post-drift, post-no-trade Portfolio and governed-RL book obey the causal request-bound volatility ceiling. | 2026-07-25 |
 | [[plans/ohlcv-liquidity-capacity-envelope]] | Turned exact mechanical trade paths and causal trailing OHLCV dollar volume into a reconciled capital-capacity envelope. | 2026-07-25 |
 | [[plans/portfolio-risk-governor]] | Made every request-bound Portfolio and governed-RL sleeve obey one causal covariance-based volatility ceiling with auditable sizing evidence. | 2026-07-25 |
 | [[plans/selection-adjusted-research-evidence]] | Quantified Project-wide strategy-search selection risk instead of treating a chosen backtest as one isolated trial. | 2026-07-24 |

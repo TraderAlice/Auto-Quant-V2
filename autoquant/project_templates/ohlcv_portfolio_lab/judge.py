@@ -34,6 +34,7 @@ from judges.portfolio_core import (
     build_decision_ledger,
     constraint_audit,
     construct_signal_policy,
+    execution_risk_metrics,
     implementation_metrics,
     liquidity_capacity_metrics,
     performance_metrics,
@@ -411,6 +412,22 @@ def _evaluate() -> tuple[
             for name, index in splits.items()
         },
     }
+    execution_risk = {
+        "policy": {
+            "method": (
+                "post-drift-executed-book-volatility-compliance-v1"
+            ),
+            "risk_policy": mandate["construction"]["riskPolicy"],
+            "no_trade_priority": "risk-compliance-first",
+            "repair": "minimum-proportional-scale-down",
+            "selection_authority": "context-only",
+            "trading_authority": "none",
+        },
+        **{
+            name: execution_risk_metrics(base, index)
+            for name, index in splits.items()
+        },
+    }
 
     validation_net_sharpe = float(
         portfolio_metrics["validation"]["net"]["sharpe"]
@@ -617,6 +634,7 @@ def _evaluate() -> tuple[
         },
         "attribution": attribution,
         "liquidity_capacity": liquidity_capacity,
+        "execution_risk": execution_risk,
         "split_protocol": split_protocol,
         "robustness": {
             "cost_stress": cost_stress,
@@ -674,6 +692,11 @@ def _evaluate() -> tuple[
                 "observations; annualized volatility ceiling 0.15; scale-down "
                 "only"
             ),
+            "executionRisk": (
+                "the final post-drift book is rechecked through close t; "
+                "risk compliance bypasses the no-trade band with minimum "
+                "proportional scale-down"
+            ),
             "noTrade": "retain drifted book below 0.05 one-way turnover",
             "turnover": "0.5 * sum(abs(trade weight))",
             "cost": "sum(abs(trade weight)) * 10bps",
@@ -707,6 +730,9 @@ def _evaluate() -> tuple[
             "riskCovarianceWindow": RISK_COVARIANCE_WINDOW,
             "riskCovarianceMinimum": RISK_COVARIANCE_MINIMUM,
             "riskPolicy": mandate["construction"]["riskPolicy"],
+            "executionRiskMethod": (
+                "post-drift-executed-book-volatility-compliance-v1"
+            ),
             "liquidityAdvWindow": LIQUIDITY_ADV_WINDOW,
             "liquidityParticipationLimits": list(
                 LIQUIDITY_PARTICIPATION_LIMITS
@@ -801,8 +827,9 @@ def main() -> None:
                         "path": "portfolio-decisions.csv",
                         "description": (
                             "Per-asset signal state, sizing, execution reason, "
-                            "trade, contribution, cost, regime, and variance "
-                            "attribution plus causal liquidity-capacity ledger"
+                            "trade, contribution, cost, regime, variance, "
+                            "executed-book risk compliance, and causal "
+                            "liquidity-capacity ledger"
                         ),
                     },
                 ],

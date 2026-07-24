@@ -82,6 +82,9 @@ Read the relevant linked document before changing a subsystem:
 - Causal covariance forecast, one-sided portfolio-volatility ceiling, shared
   Portfolio/RL risk policy, and pre/post sizing evidence:
   [[docs/design/portfolio-risk-governor]]
+- Post-drift executed-book volatility compliance, no-trade risk overrides,
+  proportional repairs, and shared Portfolio/RL execution evidence:
+  [[docs/design/executed-book-risk-compliance]]
 - Causal OHLCV dollar-volume capacity envelopes, exact trade-path
   reconciliation, binding assets, and no-impact interpretation:
   [[docs/design/portfolio-liquidity-capacity]]

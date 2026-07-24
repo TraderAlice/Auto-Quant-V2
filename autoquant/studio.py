@@ -374,6 +374,7 @@ def _portfolio_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
         layers["signalPolicy"] = None
         layers["attribution"] = None
         layers["liquidityCapacity"] = None
+        layers["executedBookRisk"] = None
         if isinstance(signal_policy, dict):
             validation_policy = signal_policy.get("validation", {})
             comparison = signal_policy.get(
@@ -449,6 +450,44 @@ def _portfolio_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
                     "selectionAuthority": capacity.get("policy", {}).get(
                         "selection_authority"
                     ),
+                }
+        execution_risk = metrics.get("execution_risk")
+        if isinstance(execution_risk, dict):
+            validation_execution_risk = execution_risk.get(
+                "validation",
+                {},
+            )
+            if isinstance(validation_execution_risk, dict):
+                layers["executedBookRisk"] = {
+                    "validationForecastCoverage": (
+                        validation_execution_risk.get(
+                            "forecast_coverage"
+                        )
+                    ),
+                    "validationPretradeBreachDates": (
+                        validation_execution_risk.get(
+                            "pretrade_breach_dates"
+                        )
+                    ),
+                    "validationRiskRebalanceOverrideDates": (
+                        validation_execution_risk.get(
+                            "risk_rebalance_override_dates"
+                        )
+                    ),
+                    "validationExecutedBreachDates": (
+                        validation_execution_risk.get(
+                            "executed_breach_dates"
+                        )
+                    ),
+                    "validationMaximumExecutedForecastAnnualized": (
+                        validation_execution_risk.get(
+                            "maximum_executed_forecast_annualized"
+                        )
+                    ),
+                    "selectionAuthority": execution_risk.get(
+                        "policy",
+                        {},
+                    ).get("selection_authority"),
                 }
         return layers
     except (KeyError, TypeError):
@@ -611,6 +650,26 @@ def _rl_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
             "failureRate": aggregate["failure_rate"],
             "folds": len(metrics["configuration"]["folds"]),
             "seeds": len(metrics["configuration"]["seeds"]),
+            "executedBookRisk": (
+                {
+                    "validationForecastCoverage": metrics[
+                        "execution_risk"
+                    ]["validation"]["forecast_coverage"],
+                    "validationRiskRebalanceOverrideDates": metrics[
+                        "execution_risk"
+                    ]["validation"][
+                        "risk_rebalance_override_dates"
+                    ],
+                    "validationExecutedBreachDates": metrics[
+                        "execution_risk"
+                    ]["validation"]["executed_breach_dates"],
+                    "selectionAuthority": metrics["execution_risk"][
+                        "policy"
+                    ]["selection_authority"],
+                }
+                if isinstance(metrics.get("execution_risk"), dict)
+                else None
+            ),
         }
     except (KeyError, TypeError):
         return None

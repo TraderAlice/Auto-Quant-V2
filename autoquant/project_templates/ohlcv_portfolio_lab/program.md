@@ -35,6 +35,9 @@ numeric aligned Series and may use only the current and prior rows.
 - uniformly scale raw targets down to a 15% annualized volatility ceiling and
   never scale exposure up;
 - retain the drifted book below 0.05 one-way turnover;
+- recheck that chosen post-drift book against the same causal covariance
+  ceiling; risk outranks no-trade and may apply only the minimum proportional
+  scale-down;
 - cost every bought/sold dollar at 10 basis points;
 - estimate causal ADV from 20 `close × volume` observations through decision
   close and invert exact trade weights at 1%/5% participation;
@@ -56,13 +59,15 @@ new external period or dataset before a production-grade claim.
 Inspect factor, signal-state, portfolio/risk, implementation, attribution,
 constraint, and robustness layers. Read `portfolio-decisions.csv` when a
 conclusion depends on one asset or date. Reconcile raw and governed targets,
-forecast volatility, scale, and status; inspect how often the ceiling binds
+forecast volatility, scale, and status. Then reconcile the actual executed
+book's forecast coverage, pretrade breaches, risk-only no-trade overrides,
+executed breaches, and execution reason; inspect how often the ceiling binds
 and whether cash exposure is signal-driven or risk-driven. Reconcile capacity
 to the exact trade weight, causal ADV, and binding asset; treat missing-history
 dates as unavailable, not liquid. The 1% p10 envelope is contextual and cannot
-select a candidate. The ungoverned
-comparison is diagnostic only and cannot select a candidate. A higher primary
-score is not enough when coverage collapses, hysteresis adds no value,
+select a candidate. The ungoverned comparison is diagnostic only and cannot
+select a candidate. A higher primary score is not enough when coverage
+collapses, hysteresis adds no value,
 concentration rises, the risk governor constantly suppresses an unstable raw
 book, turnover/costs dominate, the capacity envelope is too small or poorly
 covered, delayed performance reverses, attribution fails to reconcile, or one

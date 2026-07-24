@@ -76,6 +76,10 @@ request-mapped long/cash, short/cash, or dollar-neutral capped targets,
 then a trailing-covariance portfolio forecast that only scales exposure down
 above a fixed 15% annualized ceiling. It also fixes drift-aware rebalance,
 turnover, costs, volume participation, and dataset-fixed purged splits.
+After drift, the final book is checked again: an excessive retained book
+bypasses the no-trade band and receives only the proportional scale-down
+needed to restore the same ceiling. Governed RL uses this exact execution
+primitive for training and evaluation.
 It inverts the exact executed trade path against causal trailing
 close-times-volume at fixed 1%/5% participation ceilings, producing a
 reconciled capital-capacity envelope rather than pretending OHLCV can model
@@ -250,7 +254,8 @@ evidence, and fixed Studies. For the latest successful Portfolio Run it also
 shows the request-bound mandate, authorized/context-only assets, bounded
 verified growth/drawdown, exposure/cash/turnover, the historical mechanical
 book, raw/governed targets, portfolio-volatility forecast/scale, signal
-transitions, split attribution, and validation/test liquidity-capacity
+transitions, final executed-book risk compliance, split attribution, and
+validation/test liquidity-capacity
 envelopes with binding assets. It is read-only, exposes
 copy-only exact CLI commands, and uses the same verified Core loaders as the
 CLI. A specific historical Run is available through `aq run factor <path>
@@ -258,6 +263,8 @@ CLI. A specific historical Run is available through `aq run factor <path>
 `aq run rl <path> --run ID --json`. The RL explorer leads with value-add
 versus the fixed validation-selected baseline, then preserves every fold/seed,
 training episode, action allocation, turnover, cost, and test-audit warning.
+Its action ledger also proves post-drift risk compliance for every fold and
+seed.
 See
 [`docs/STUDIO.md`](docs/STUDIO.md).
 

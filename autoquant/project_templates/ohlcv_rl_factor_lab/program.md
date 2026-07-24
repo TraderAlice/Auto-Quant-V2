@@ -54,7 +54,9 @@ The Judge owns:
 - the shared trailing 60-row covariance forecast, 20-observation minimum,
   15% annualized volatility ceiling, and scale-down-only governance on every
   action sleeve before RL selection and reward;
-- drift, 0.05 no-trade threshold, full-notional 10bps costs, and benchmark;
+- drift, 0.05 no-trade threshold, then shared final-book compliance where risk
+  may override no-trade only through minimum proportional scale-down;
+- full-notional 10bps costs and benchmark;
 - next-bar reward and fixed quadratic risk penalty;
 - linear Q-learning, 4 episodes, learning rate, discount, and exploration;
 - seeds 11, 29, and 47;
@@ -74,6 +76,9 @@ Inspect every seed and fold, seed dispersion, failures, action frequencies,
 turnover/cost/risk, RL-minus-best-baseline, RL-minus-candidate-factor, and
 candidate-action-frequency evidence. A positive RL Sharpe does not prove RL
 added value.
+Reconcile final-book risk coverage, pretrade breaches, risk-only overrides,
+executed breaches, and execution reasons across every declared policy path;
+these are implementation context and cannot select the editable encoder.
 
 Any failed declared seed/fold fails the complete Run; successful seeds are
 never averaged after silently dropping a failed trial.

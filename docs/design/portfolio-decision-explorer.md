@@ -7,6 +7,7 @@ Related: [[docs/ARCHITECTURE]], [[docs/CLI]], [[docs/STUDIO]],
 [[docs/design/portfolio-construction-lab]],
 [[docs/design/request-bound-portfolio-mandates]],
 [[docs/design/signal-policy-and-attribution]],
+[[docs/design/executed-book-risk-compliance]],
 [[docs/design/portfolio-liquidity-capacity]],
 [[docs/design/research-selection-integrity]], and
 [[docs/design/studio-observation-surface]].
@@ -86,7 +87,8 @@ drawdown(t) = net growth(t) / running max net growth - 1
 ```
 
 Each point also carries split role, gross/net exposure, one-way turnover,
-unused cash budget, cost, rebalance state, and executed weights. The output is
+unused cash budget, cost, rebalance state, executed-book forecast/ceiling,
+risk-only override state, and executed weights. The output is
 capped by a caller point budget. Sampling is deterministic and must retain
 first/last rows, train/validation/test boundaries, maximum drawdown, and
 maximum-turnover dates before filling remaining slots evenly. Derived extrema
@@ -102,6 +104,8 @@ The latest realized decision date exposes, per asset:
   trade weights;
 - covariance observations, pre/post annualized forecast, fixed ceiling,
   scale, and governor status;
+- final post-drift forecast, compliance status, proportional repair scale,
+  risk-only override, and execution reason;
 - causal ADV, reference-NAV participation, 1%/5% asset and portfolio capacity,
   capacity status, and binding-asset identity;
 - target/execution actions and execution reason;
@@ -140,6 +144,8 @@ The first explorer version provides:
 - net/gross/benchmark growth and net drawdown;
 - exposure, unused cash budget, turnover, cost, and split context;
 - current target/executed mechanical book;
+- validation/test executed-book forecast coverage, pretrade breaches,
+  risk-only overrides, final breaches, and latest final-book status;
 - validation/test capacity distributions, coverage, reference-NAV breaches,
   and latest rebalance binding asset;
 - validation/test contribution and risk views;
@@ -161,6 +167,8 @@ The first explorer version provides:
 9. Context-only assets remain visible research context but have zero target
    and executed weight.
 10. Capacity values reconcile the complete ledger and remain contextual only.
+11. Daily and per-asset executed-risk evidence reconcile exactly; an available
+    final-book breach is invalid evidence.
 
 ## Verification and change checklist
 

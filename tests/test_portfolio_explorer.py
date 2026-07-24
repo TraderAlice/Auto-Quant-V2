@@ -12,6 +12,7 @@ import jsonschema
 
 from autoquant.portfolio_explorer import (
     PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA,
+    _liquidity_capacity_projection,
     load_portfolio_diagnostics,
 )
 from autoquant.runs import execute_study
@@ -52,6 +53,104 @@ def rehash_run(run_root: Path) -> None:
 
 
 class PortfolioDecisionExplorerTests(unittest.TestCase):
+    def test_liquidity_projection_excludes_the_purged_boundary_row(
+        self,
+    ) -> None:
+        policy = {
+            "method": "trailing-average-dollar-volume-capacity-v1",
+            "adv_window": 20,
+            "participation_limits": [0.01, 0.05],
+            "reference_nav": 1_000_000.0,
+            "selection_authority": "context-only",
+            "trading_authority": "none",
+        }
+
+        def split_metrics(capacity: float) -> dict[str, object]:
+            return {
+                "status": "available",
+                "trade_dates": 1,
+                "available_trade_dates": 1,
+                "unavailable_trade_dates": 0,
+                "trade_date_coverage": 1.0,
+                "binding_asset_counts_1pct": {"A": 1},
+                "capacity_1pct": {
+                    "status": "available",
+                    "observations": 1,
+                    "minimum_nav": capacity,
+                    "tenth_percentile_nav": capacity,
+                    "median_nav": capacity,
+                    "reference_nav_breach_rate": 0.0,
+                },
+                "capacity_5pct": {
+                    "status": "available",
+                    "observations": 1,
+                    "minimum_nav": capacity * 5,
+                    "tenth_percentile_nav": capacity * 5,
+                    "median_nav": capacity * 5,
+                    "reference_nav_breach_rate": 0.0,
+                },
+            }
+
+        decisions = [
+            {
+                "timestamp": "2026-01-01",
+                "asset": "A",
+                "liquidity_capacity_status": "available",
+                "portfolio_capacity_nav_1pct": 2_000_000.0,
+                "portfolio_capacity_nav_5pct": 10_000_000.0,
+                "capacity_binding_asset": True,
+                "reference_nav_adv_participation": 0.005,
+            },
+            {
+                "timestamp": "2026-01-02",
+                "asset": "A",
+                "liquidity_capacity_status": "available",
+                "portfolio_capacity_nav_1pct": 1_500_000.0,
+                "portfolio_capacity_nav_5pct": 7_500_000.0,
+                "capacity_binding_asset": True,
+                "reference_nav_adv_participation": 0.006,
+            },
+            {
+                "timestamp": "2026-01-03",
+                "asset": "A",
+                "liquidity_capacity_status": "available",
+                "portfolio_capacity_nav_1pct": 3_000_000.0,
+                "portfolio_capacity_nav_5pct": 15_000_000.0,
+                "capacity_binding_asset": True,
+                "reference_nav_adv_participation": 0.004,
+            },
+        ]
+        projection = _liquidity_capacity_projection(
+            {
+                "metrics": {
+                    "liquidity_capacity": {
+                        "policy": policy,
+                        "validation": split_metrics(2_000_000.0),
+                        "test": split_metrics(3_000_000.0),
+                    }
+                }
+            },
+            decisions,
+            {
+                "validation": {
+                    "start": "2026-01-01",
+                    "signalEnd": "2026-01-01",
+                    "end": "2026-01-02",
+                },
+                "test": {
+                    "start": "2026-01-03",
+                    "signalEnd": "2026-01-03",
+                    "end": "2026-01-03",
+                },
+            },
+        )
+
+        self.assertEqual(projection["validation"]["tradeDates"], 1)
+        self.assertEqual(
+            projection["validation"]["capacity1Pct"]["minimumNav"],
+            2_000_000.0,
+        )
+
     def test_projection_preserves_full_path_anchors_book_and_attribution(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             _, project, run = make_lab(Path(directory))
@@ -75,6 +174,26 @@ class PortfolioDecisionExplorerTests(unittest.TestCase):
             self.assertEqual(
                 diagnostics["riskGovernor"]["selectionAuthority"],
                 "diagnostic-only",
+            )
+            self.assertTrue(diagnostics["executedBookRisk"]["available"])
+            self.assertEqual(
+                diagnostics["executedBookRisk"]["selectionAuthority"],
+                "context-only",
+            )
+            self.assertEqual(
+                diagnostics["executedBookRisk"]["validation"][
+                    "executedBreachDates"
+                ],
+                0,
+            )
+            self.assertLessEqual(
+                diagnostics["executedBookRisk"]["validation"][
+                    "maximumExecutedForecastAnnualized"
+                ],
+                diagnostics["mandate"]["riskPolicy"][
+                    "annualizedVolatilityCeiling"
+                ]
+                + 1e-12,
             )
             self.assertTrue(diagnostics["liquidityCapacity"]["available"])
             self.assertEqual(
@@ -135,6 +254,10 @@ class PortfolioDecisionExplorerTests(unittest.TestCase):
                 latest["riskForecastPostAnnualized"],
                 latest["riskVolatilityCeilingAnnualized"] + 1e-12,
             )
+            self.assertLessEqual(
+                latest["executedRiskForecastAnnualized"],
+                latest["executionRiskCeilingAnnualized"] + 1e-12,
+            )
             self.assertEqual(len(latest["positions"]), 6)
             self.assertAlmostEqual(
                 sum(abs(item["executedWeight"]) for item in latest["positions"]),
@@ -185,6 +308,33 @@ class PortfolioDecisionExplorerTests(unittest.TestCase):
             with self.assertRaisesRegex(
                 AutoQuantValidationError,
                 "Risk-governor weights or volatility forecasts do not reconcile",
+            ):
+                load_portfolio_diagnostics(project, run.result["id"])
+
+    def test_rehashed_executed_book_risk_breach_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, project, run = make_lab(Path(directory))
+            path = run.root_dir / "artifacts" / "daily-portfolio.csv"
+            with path.open(encoding="utf-8", newline="") as handle:
+                rows = list(csv.DictReader(handle))
+                fields = list(rows[0])
+            active = next(
+                row
+                for row in rows
+                if row["execution_risk_forecast_available"] == "True"
+            )
+            active["executed_risk_forecast_annualized"] = str(
+                float(active["execution_risk_ceiling_annualized"]) + 0.01
+            )
+            with path.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=fields)
+                writer.writeheader()
+                writer.writerows(rows)
+            rehash_run(run.root_dir)
+
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "Executed-book risk evidence is invalid",
             ):
                 load_portfolio_diagnostics(project, run.result["id"])
 
@@ -283,6 +433,67 @@ class PortfolioDecisionExplorerTests(unittest.TestCase):
             )
             self.assertIsNone(
                 diagnostics["liquidityCapacity"]["validation"]
+            )
+
+    def test_legacy_run_without_execution_risk_remains_readable(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, project, run = make_lab(Path(directory))
+            new_fields = {
+                "execution_risk_status",
+                "execution_risk_forecast_available",
+                "execution_risk_observations",
+                "pretrade_risk_forecast_annualized",
+                "proposed_risk_forecast_pre_annualized",
+                "proposed_risk_forecast_post_annualized",
+                "executed_risk_forecast_annualized",
+                "execution_risk_ceiling_annualized",
+                "proposed_runtime_risk_scale",
+                "execution_risk_repair_scale",
+                "proposed_one_way_turnover",
+                "ordinary_rebalance",
+                "risk_rebalance_override",
+            }
+            for name in ("daily-portfolio.csv", "portfolio-decisions.csv"):
+                path = run.root_dir / "artifacts" / name
+                with path.open(encoding="utf-8", newline="") as handle:
+                    rows = list(csv.DictReader(handle))
+                    fields = [
+                        field for field in rows[0] if field not in new_fields
+                    ]
+                if name == "daily-portfolio.csv":
+                    fields.remove("execution_reason")
+                with path.open("w", encoding="utf-8", newline="") as handle:
+                    writer = csv.DictWriter(
+                        handle,
+                        fieldnames=fields,
+                        extrasaction="ignore",
+                    )
+                    writer.writeheader()
+                    writer.writerows(rows)
+            result_path = run.root_dir / "result.json"
+            result = json.loads(result_path.read_text(encoding="utf-8"))
+            result["metrics"].pop("execution_risk")
+            result_path.write_text(
+                json.dumps(result, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            report_path = run.root_dir / "artifacts" / "portfolio-report.json"
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+            report["metrics"].pop("execution_risk")
+            report_path.write_text(
+                json.dumps(report, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            rehash_run(run.root_dir)
+
+            diagnostics = load_portfolio_diagnostics(
+                project,
+                run.result["id"],
+            )
+
+            self.assertFalse(diagnostics["executedBookRisk"]["available"])
+            self.assertIsNone(
+                diagnostics["executedBookRisk"]["validation"]
             )
 
     def test_point_and_artifact_size_limits_are_structured(self) -> None:

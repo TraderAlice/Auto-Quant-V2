@@ -146,6 +146,35 @@ LIQUIDITY_DECISION_FLOATS = LIQUIDITY_DECISION_COLUMNS - {
     "liquidity_capacity_status",
     "capacity_binding_asset",
 }
+EXECUTION_RISK_DAILY_FLOATS = {
+    "execution_risk_observations",
+    "pretrade_risk_forecast_annualized",
+    "proposed_risk_forecast_pre_annualized",
+    "proposed_risk_forecast_post_annualized",
+    "executed_risk_forecast_annualized",
+    "execution_risk_ceiling_annualized",
+    "proposed_runtime_risk_scale",
+    "execution_risk_repair_scale",
+    "proposed_one_way_turnover",
+}
+EXECUTION_RISK_DAILY_BOOLEANS = {
+    "execution_risk_forecast_available",
+    "ordinary_rebalance",
+    "risk_rebalance_override",
+}
+EXECUTION_RISK_DAILY_STRINGS = {
+    "execution_reason",
+    "execution_risk_status",
+}
+EXECUTION_RISK_DAILY_COLUMNS = (
+    EXECUTION_RISK_DAILY_FLOATS
+    | EXECUTION_RISK_DAILY_BOOLEANS
+    | EXECUTION_RISK_DAILY_STRINGS
+)
+EXECUTION_RISK_DECISION_COLUMNS = EXECUTION_RISK_DAILY_COLUMNS - {
+    "execution_reason"
+}
+EXECUTION_RISK_DECISION_FLOATS = EXECUTION_RISK_DAILY_FLOATS
 
 
 def _issue(path: Path | str, code: str, message: str) -> ValidationIssue:
@@ -334,6 +363,13 @@ def _parse_daily(path: Path) -> ParsedDaily:
         maximum_rows=MAX_DAILY_ROWS,
     )
     dates = _strict_dates(raw_rows, path)
+    has_execution_risk = EXECUTION_RISK_DAILY_COLUMNS.issubset(fields)
+    if EXECUTION_RISK_DAILY_COLUMNS & set(fields) and not has_execution_risk:
+        _fail(
+            path,
+            "portfolio.execution-risk-columns",
+            "Daily evidence must contain the complete execution-risk column set",
+        )
     rows: list[dict[str, Any]] = []
     for index, (timestamp, raw) in enumerate(zip(dates, raw_rows), start=2):
         values = {
@@ -388,12 +424,97 @@ def _parse_daily(path: Path) -> ParsedDaily:
                 "portfolio.boolean",
                 "rebalanced must be True or False",
             )
+        if has_execution_risk:
+            execution_numeric = {
+                key: _finite(raw[key], f"{path}:{index}/{key}")
+                for key in EXECUTION_RISK_DAILY_FLOATS
+            }
+            execution_boolean: dict[str, bool] = {}
+            for key in EXECUTION_RISK_DAILY_BOOLEANS:
+                if raw[key] not in {"True", "False"}:
+                    _fail(
+                        f"{path}:{index}/{key}",
+                        "portfolio.boolean",
+                        f"{key} must be True or False",
+                    )
+                execution_boolean[key] = raw[key] == "True"
+            if any(not raw[key] for key in EXECUTION_RISK_DAILY_STRINGS):
+                _fail(
+                    f"{path}:{index}",
+                    "portfolio.execution-risk-string",
+                    "Execution-risk status and reason must be non-empty",
+                )
+            if (
+                any(value < 0 for value in execution_numeric.values())
+                or not 0
+                <= execution_numeric["proposed_runtime_risk_scale"]
+                <= 1
+                or not 0
+                <= execution_numeric["execution_risk_repair_scale"]
+                <= 1
+                or not math.isclose(
+                    execution_numeric["execution_risk_observations"],
+                    round(
+                        execution_numeric["execution_risk_observations"]
+                    ),
+                    rel_tol=0.0,
+                    abs_tol=1e-12,
+                )
+                or (
+                    execution_boolean[
+                        "execution_risk_forecast_available"
+                    ]
+                    and execution_numeric[
+                        "executed_risk_forecast_annualized"
+                    ]
+                    > execution_numeric[
+                        "execution_risk_ceiling_annualized"
+                    ]
+                    + 1e-10
+                )
+                or (
+                    execution_boolean["risk_rebalance_override"]
+                    and (
+                        execution_boolean["ordinary_rebalance"]
+                        or raw["execution_reason"]
+                        != "risk_ceiling_override"
+                        or raw["rebalanced"] != "True"
+                    )
+                )
+            ):
+                _fail(
+                    f"{path}:{index}",
+                    "portfolio.execution-risk-value",
+                    "Executed-book risk evidence is invalid",
+                )
+            execution_values: dict[str, Any] = {
+                **execution_numeric,
+                **execution_boolean,
+                "execution_reason": raw["execution_reason"],
+                "execution_risk_status": raw[
+                    "execution_risk_status"
+                ],
+            }
+        else:
+            execution_values = {
+                **{
+                    key: 0.0
+                    for key in EXECUTION_RISK_DAILY_FLOATS
+                },
+                **{
+                    key: False
+                    for key in EXECUTION_RISK_DAILY_BOOLEANS
+                },
+                "execution_reason": "legacy_unavailable",
+                "execution_risk_status": "legacy_unavailable",
+            }
         rows.append(
             {
                 "timestamp": timestamp,
                 **values,
                 "cash_weight": cash_weight,
                 "rebalanced": raw["rebalanced"] == "True",
+                **execution_values,
             }
         )
     return ParsedDaily(dates, rows)
@@ -475,6 +596,18 @@ def _parse_decisions(
             "portfolio.liquidity-columns",
             "Decision ledger must contain the complete liquidity-capacity column set",
         )
+    has_execution_risk_columns = EXECUTION_RISK_DECISION_COLUMNS.issubset(
+        fields
+    )
+    if (
+        EXECUTION_RISK_DECISION_COLUMNS & set(fields)
+        and not has_execution_risk_columns
+    ):
+        _fail(
+            path,
+            "portfolio.execution-risk-columns",
+            "Decision ledger must contain the complete execution-risk column set",
+        )
     for row_number, raw in enumerate(raw_rows, start=2):
         row_path = f"{path}:{row_number}"
         timestamp = _session_date(raw["timestamp"], f"{row_path}/timestamp")
@@ -550,6 +683,37 @@ def _parse_decisions(
                 "portfolio_capacity_nav_5pct": 0.0,
             }
         )
+        execution_risk_numeric = (
+            {
+                field: _finite(raw[field], f"{row_path}/{field}")
+                for field in EXECUTION_RISK_DECISION_FLOATS
+            }
+            if has_execution_risk_columns
+            else {
+                field: 0.0 for field in EXECUTION_RISK_DECISION_FLOATS
+            }
+        )
+        execution_risk_booleans: dict[str, bool] = {}
+        if has_execution_risk_columns:
+            for field in EXECUTION_RISK_DAILY_BOOLEANS:
+                if raw[field] not in {"True", "False"}:
+                    _fail(
+                        f"{row_path}/{field}",
+                        "portfolio.boolean",
+                        f"{field} must be True or False",
+                    )
+                execution_risk_booleans[field] = raw[field] == "True"
+            if not raw["execution_risk_status"]:
+                _fail(
+                    f"{row_path}/execution_risk_status",
+                    "portfolio.execution-risk-status",
+                    "Execution-risk status must be non-empty",
+                )
+        else:
+            execution_risk_booleans = {
+                field: False
+                for field in EXECUTION_RISK_DAILY_BOOLEANS
+            }
         for field in (
             "signal_event",
             "allocation_status",
@@ -583,6 +747,49 @@ def _parse_decisions(
                 row_path,
                 "portfolio.liquidity-status",
                 "Liquidity status or binding flag is invalid",
+            )
+        if has_execution_risk_columns and (
+            any(value < 0 for value in execution_risk_numeric.values())
+            or not 0
+            <= execution_risk_numeric["proposed_runtime_risk_scale"]
+            <= 1
+            or not 0
+            <= execution_risk_numeric["execution_risk_repair_scale"]
+            <= 1
+            or not math.isclose(
+                execution_risk_numeric["execution_risk_observations"],
+                round(
+                    execution_risk_numeric[
+                        "execution_risk_observations"
+                    ]
+                ),
+                rel_tol=0.0,
+                abs_tol=1e-12,
+            )
+            or (
+                execution_risk_booleans[
+                    "execution_risk_forecast_available"
+                ]
+                and execution_risk_numeric[
+                    "executed_risk_forecast_annualized"
+                ]
+                > execution_risk_numeric[
+                    "execution_risk_ceiling_annualized"
+                ]
+                + 1e-10
+            )
+            or (
+                execution_risk_booleans["risk_rebalance_override"]
+                and (
+                    execution_risk_booleans["ordinary_rebalance"]
+                    or raw["execution_reason"] != "risk_ceiling_override"
+                )
+            )
+        ):
+            _fail(
+                row_path,
+                "portfolio.execution-risk-value",
+                "Executed-book risk decision evidence is invalid",
             )
         if (
             not 0.0 <= risk_numeric["risk_governor_scale"] <= 1.0
@@ -734,6 +941,8 @@ def _parse_decisions(
             **numeric,
             **risk_numeric,
             **liquidity_numeric,
+            **execution_risk_numeric,
+            **execution_risk_booleans,
             "signal_event": raw["signal_event"],
             "allocation_status": raw["allocation_status"],
             "target_action": raw["target_action"],
@@ -744,6 +953,11 @@ def _parse_decisions(
                 raw["risk_governor_status"]
                 if has_risk_columns
                 else "legacy_none"
+            ),
+            "execution_risk_status": (
+                raw["execution_risk_status"]
+                if has_execution_risk_columns
+                else "legacy_unavailable"
             ),
             "liquidity_capacity_status": (
                 raw["liquidity_capacity_status"]
@@ -823,6 +1037,68 @@ def _parse_decisions(
                 "portfolio.liquidity-panel",
                 "Liquidity-capacity evidence must be identical across one date",
             )
+        execution_risk_signatures = {
+            (
+                item["execution_risk_status"],
+                item["execution_risk_forecast_available"],
+                item["execution_risk_observations"],
+                item["pretrade_risk_forecast_annualized"],
+                item["proposed_risk_forecast_pre_annualized"],
+                item["proposed_risk_forecast_post_annualized"],
+                item["executed_risk_forecast_annualized"],
+                item["execution_risk_ceiling_annualized"],
+                item["proposed_runtime_risk_scale"],
+                item["execution_risk_repair_scale"],
+                item["proposed_one_way_turnover"],
+                item["ordinary_rebalance"],
+                item["risk_rebalance_override"],
+                item["execution_reason"],
+            )
+            for item in rows
+        }
+        if len(execution_risk_signatures) != 1:
+            _fail(
+                f"{path}/{timestamp}",
+                "portfolio.execution-risk-panel",
+                "Execution-risk evidence must be identical across one date",
+            )
+        execution_signature = next(iter(execution_risk_signatures))
+        expected_execution_signature = (
+            expected_daily["execution_risk_status"],
+            expected_daily["execution_risk_forecast_available"],
+            expected_daily["execution_risk_observations"],
+            expected_daily["pretrade_risk_forecast_annualized"],
+            expected_daily["proposed_risk_forecast_pre_annualized"],
+            expected_daily["proposed_risk_forecast_post_annualized"],
+            expected_daily["executed_risk_forecast_annualized"],
+            expected_daily["execution_risk_ceiling_annualized"],
+            expected_daily["proposed_runtime_risk_scale"],
+            expected_daily["execution_risk_repair_scale"],
+            expected_daily["proposed_one_way_turnover"],
+            expected_daily["ordinary_rebalance"],
+            expected_daily["risk_rebalance_override"],
+            expected_daily["execution_reason"],
+        )
+        if execution_signature[0] != "legacy_unavailable":
+            for actual, expected_value in zip(
+                execution_signature,
+                expected_execution_signature,
+            ):
+                if isinstance(actual, float):
+                    matches = math.isclose(
+                        actual,
+                        float(expected_value),
+                        rel_tol=1e-10,
+                        abs_tol=1e-10,
+                    )
+                else:
+                    matches = actual == expected_value
+                if not matches:
+                    _fail(
+                        f"{path}/{timestamp}",
+                        "portfolio.execution-risk-daily",
+                        "Decision execution-risk evidence differs from daily evidence",
+                    )
         status, capacity_1pct, capacity_5pct = next(
             iter(liquidity_signatures)
         )
@@ -912,6 +1188,15 @@ def _parse_decisions(
                     "portfolio.reconciliation",
                     f"Decision ledger does not reconcile daily {label}",
                 )
+        has_trade = (
+            sum(abs(item["trade_weight"]) for item in rows) > 1e-12
+        )
+        if has_trade != bool(expected_daily["rebalanced"]):
+            _fail(
+                f"{path}/{timestamp}",
+                "portfolio.rebalance-reconciliation",
+                "Daily rebalance flag differs from the exact trade vector",
+            )
     return ordered, decisions
 
 
@@ -1076,6 +1361,15 @@ def _path_projection(
                 "oneWayTurnover": row["one_way_turnover"],
                 "cost": row["cost"],
                 "rebalanced": row["rebalanced"],
+                "executedRiskForecastAnnualized": row[
+                    "executed_risk_forecast_annualized"
+                ],
+                "executionRiskCeilingAnnualized": row[
+                    "execution_risk_ceiling_annualized"
+                ],
+                "riskRebalanceOverride": row[
+                    "risk_rebalance_override"
+                ],
                 "weights": weights[row["timestamp"]],
             }
         )
@@ -1219,6 +1513,23 @@ def _current_book(
         "oneWayTurnover": daily_row["one_way_turnover"],
         "cost": daily_row["cost"],
         "rebalanced": daily_row["rebalanced"],
+        "executionRiskStatus": daily_row["execution_risk_status"],
+        "executionRiskForecastAvailable": daily_row[
+            "execution_risk_forecast_available"
+        ],
+        "pretradeRiskForecastAnnualized": daily_row[
+            "pretrade_risk_forecast_annualized"
+        ],
+        "executedRiskForecastAnnualized": daily_row[
+            "executed_risk_forecast_annualized"
+        ],
+        "executionRiskCeilingAnnualized": daily_row[
+            "execution_risk_ceiling_annualized"
+        ],
+        "riskRebalanceOverride": daily_row[
+            "risk_rebalance_override"
+        ],
+        "executionReason": daily_row["execution_reason"],
         "riskGovernorStatus": decisions[
             (timestamp, universe[0])
         ]["risk_governor_status"],
@@ -1533,6 +1844,264 @@ def _risk_governor_projection(
     return projected
 
 
+def _executed_book_risk_projection(
+    result: dict[str, Any],
+    daily: ParsedDaily,
+    splits: dict[str, Any],
+    mandate: dict[str, Any],
+) -> dict[str, Any]:
+    raw = result["metrics"].get("execution_risk")
+    has_daily = any(
+        row["execution_risk_status"] != "legacy_unavailable"
+        for row in daily.rows
+    )
+    if raw is None and not has_daily:
+        return {
+            "available": False,
+            "policy": None,
+            "selectionAuthority": "context-only",
+            "validation": None,
+            "test": None,
+            "latest": None,
+        }
+    if not isinstance(raw, dict) or not has_daily:
+        _fail(
+            "RunResult/metrics/execution_risk",
+            "portfolio.execution-risk",
+            "Execution-risk metrics and daily evidence must exist together",
+        )
+    policy = raw.get("policy")
+    expected_policy = {
+        "method": (
+            "post-drift-executed-book-volatility-compliance-v1"
+        ),
+        "risk_policy": mandate["riskPolicy"],
+        "no_trade_priority": "risk-compliance-first",
+        "repair": "minimum-proportional-scale-down",
+        "selection_authority": "context-only",
+        "trading_authority": "none",
+    }
+    if policy != expected_policy:
+        _fail(
+            "RunResult/metrics/execution_risk/policy",
+            "portfolio.execution-risk-policy",
+            "Executed-book risk policy differs from the fixed contract",
+        )
+
+    def derive(split_name: str) -> dict[str, Any]:
+        split = splits[split_name]
+        dated = [
+            row
+            for row in daily.rows
+            if split["start"]
+            <= row["timestamp"]
+            <= split["signalEnd"]
+        ]
+        active = [
+            row
+            for row in dated
+            if (
+                abs(row["gross_exposure"]) > 1e-12
+                or abs(row["proposed_one_way_turnover"]) > 1e-12
+                or row["risk_rebalance_override"]
+            )
+        ]
+        available = [
+            row
+            for row in active
+            if row["execution_risk_forecast_available"]
+        ]
+        unavailable = [
+            row
+            for row in active
+            if not row["execution_risk_forecast_available"]
+        ]
+        pretrade_breach = [
+            row
+            for row in available
+            if row["pretrade_risk_forecast_annualized"]
+            > row["execution_risk_ceiling_annualized"] + 1e-10
+        ]
+        executed_breach = [
+            row
+            for row in available
+            if row["executed_risk_forecast_annualized"]
+            > row["execution_risk_ceiling_annualized"] + 1e-10
+        ]
+        overrides = [
+            row for row in active if row["risk_rebalance_override"]
+        ]
+        errors = [
+            max(
+                0.0,
+                row["executed_risk_forecast_annualized"]
+                - row["execution_risk_ceiling_annualized"],
+            )
+            for row in available
+        ]
+        status_counts: dict[str, int] = {}
+        reason_counts: dict[str, int] = {}
+        for row in dated:
+            status = row["execution_risk_status"]
+            reason = row["execution_reason"]
+            status_counts[status] = status_counts.get(status, 0) + 1
+            reason_counts[reason] = reason_counts.get(reason, 0) + 1
+        return {
+            "status": (
+                "available"
+                if available
+                else "no_active_dates"
+                if not active
+                else "forecast_unavailable"
+            ),
+            "dates": len(dated),
+            "active_dates": len(active),
+            "forecast_available_dates": len(available),
+            "forecast_unavailable_dates": len(unavailable),
+            "forecast_coverage": (
+                len(available) / len(active) if active else 0.0
+            ),
+            "pretrade_breach_dates": len(pretrade_breach),
+            "pretrade_breach_rate": (
+                len(pretrade_breach) / len(available)
+                if available
+                else 0.0
+            ),
+            "risk_rebalance_override_dates": len(overrides),
+            "risk_rebalance_override_rate": (
+                len(overrides) / len(active) if active else 0.0
+            ),
+            "executed_breach_dates": len(executed_breach),
+            "executed_breach_rate": (
+                len(executed_breach) / len(available)
+                if available
+                else 0.0
+            ),
+            "mean_executed_forecast_annualized": (
+                sum(
+                    row["executed_risk_forecast_annualized"]
+                    for row in available
+                )
+                / len(available)
+                if available
+                else 0.0
+            ),
+            "maximum_executed_forecast_annualized": (
+                max(
+                    row["executed_risk_forecast_annualized"]
+                    for row in available
+                )
+                if available
+                else 0.0
+            ),
+            "maximum_ceiling_error": max(errors) if errors else 0.0,
+            "status_counts": status_counts,
+            "execution_reason_counts": reason_counts,
+        }
+
+    def compare(expected: Any, actual: Any, path: str) -> None:
+        if isinstance(actual, dict):
+            if not isinstance(expected, dict) or set(expected) != set(actual):
+                _fail(
+                    path,
+                    "portfolio.execution-risk-metrics",
+                    "Execution-risk metric shape differs from daily evidence",
+                )
+            for key, value in actual.items():
+                compare(expected[key], value, f"{path}/{key}")
+        elif isinstance(actual, float):
+            if not math.isclose(
+                _finite(expected, path),
+                actual,
+                rel_tol=1e-10,
+                abs_tol=1e-10,
+            ):
+                _fail(
+                    path,
+                    "portfolio.execution-risk-metrics",
+                    "Execution-risk metric differs from daily evidence",
+                )
+        elif expected != actual:
+            _fail(
+                path,
+                "portfolio.execution-risk-metrics",
+                "Execution-risk metric differs from daily evidence",
+            )
+
+    projection: dict[str, Any] = {
+        "available": True,
+        "policy": {
+            "method": policy["method"],
+            "riskPolicy": policy["risk_policy"],
+            "noTradePriority": policy["no_trade_priority"],
+            "repair": policy["repair"],
+            "selectionAuthority": policy["selection_authority"],
+            "tradingAuthority": policy["trading_authority"],
+        },
+        "selectionAuthority": "context-only",
+    }
+    fields = {
+        "status": "status",
+        "dates": "dates",
+        "activeDates": "active_dates",
+        "forecastAvailableDates": "forecast_available_dates",
+        "forecastUnavailableDates": "forecast_unavailable_dates",
+        "forecastCoverage": "forecast_coverage",
+        "pretradeBreachDates": "pretrade_breach_dates",
+        "pretradeBreachRate": "pretrade_breach_rate",
+        "riskRebalanceOverrideDates": (
+            "risk_rebalance_override_dates"
+        ),
+        "riskRebalanceOverrideRate": (
+            "risk_rebalance_override_rate"
+        ),
+        "executedBreachDates": "executed_breach_dates",
+        "executedBreachRate": "executed_breach_rate",
+        "meanExecutedForecastAnnualized": (
+            "mean_executed_forecast_annualized"
+        ),
+        "maximumExecutedForecastAnnualized": (
+            "maximum_executed_forecast_annualized"
+        ),
+        "maximumCeilingError": "maximum_ceiling_error",
+        "statusCounts": "status_counts",
+        "executionReasonCounts": "execution_reason_counts",
+    }
+    for split_name in ("validation", "test"):
+        derived = derive(split_name)
+        compare(
+            raw.get(split_name),
+            derived,
+            f"RunResult/metrics/execution_risk/{split_name}",
+        )
+        projection[split_name] = {
+            output: derived[source]
+            for output, source in fields.items()
+        }
+    latest = daily.rows[-1]
+    projection["latest"] = {
+        "timestamp": latest["timestamp"],
+        "status": latest["execution_risk_status"],
+        "forecastAvailable": latest[
+            "execution_risk_forecast_available"
+        ],
+        "pretradeForecastAnnualized": latest[
+            "pretrade_risk_forecast_annualized"
+        ],
+        "executedForecastAnnualized": latest[
+            "executed_risk_forecast_annualized"
+        ],
+        "ceilingAnnualized": latest[
+            "execution_risk_ceiling_annualized"
+        ],
+        "riskRebalanceOverride": latest[
+            "risk_rebalance_override"
+        ],
+        "executionReason": latest["execution_reason"],
+    }
+    return projection
+
+
 def _quantile(values: list[float], probability: float) -> float:
     ordered = sorted(values)
     if not ordered:
@@ -1596,7 +2165,7 @@ def _liquidity_capacity_projection(
         dated = [
             (timestamp, rows)
             for timestamp, rows in sorted(by_date.items())
-            if split["start"] <= timestamp <= split["end"]
+            if split["start"] <= timestamp <= split["signalEnd"]
         ]
         trade_dates = [
             (timestamp, rows)
@@ -1943,6 +2512,12 @@ def load_portfolio_diagnostics(
         ),
         "signalPolicy": _signal_policy_projection(run.result),
         "riskGovernor": _risk_governor_projection(run.result, mandate),
+        "executedBookRisk": _executed_book_risk_projection(
+            run.result,
+            daily,
+            splits,
+            mandate,
+        ),
         "liquidityCapacity": _liquidity_capacity_projection(
             run.result,
             ordered_decisions,
@@ -1995,6 +2570,9 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 "oneWayTurnover",
                 "cost",
                 "rebalanced",
+                "executedRiskForecastAnnualized",
+                "executionRiskCeilingAnnualized",
+                "riskRebalanceOverride",
                 "weights",
             ],
             "properties": {
@@ -2010,6 +2588,15 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 "oneWayTurnover": {"type": "number", "minimum": 0},
                 "cost": {"type": "number", "minimum": 0},
                 "rebalanced": {"type": "boolean"},
+                "executedRiskForecastAnnualized": {
+                    "type": "number",
+                    "minimum": 0,
+                },
+                "executionRiskCeilingAnnualized": {
+                    "type": "number",
+                    "minimum": 0,
+                },
+                "riskRebalanceOverride": {"type": "boolean"},
                 "weights": {
                     "type": "object",
                     "additionalProperties": {"type": "number"},
@@ -2159,6 +2746,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "recentTransitions",
         "signalPolicy",
         "riskGovernor",
+        "executedBookRisk",
         "liquidityCapacity",
         "attribution",
     ],
@@ -2461,6 +3049,13 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 "oneWayTurnover",
                 "cost",
                 "rebalanced",
+                "executionRiskStatus",
+                "executionRiskForecastAvailable",
+                "pretradeRiskForecastAnnualized",
+                "executedRiskForecastAnnualized",
+                "executionRiskCeilingAnnualized",
+                "riskRebalanceOverride",
+                "executionReason",
                 "riskGovernorStatus",
                 "riskGovernorScale",
                 "riskForecastPreAnnualized",
@@ -2478,6 +3073,30 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 "oneWayTurnover": {"type": "number", "minimum": 0},
                 "cost": {"type": "number", "minimum": 0},
                 "rebalanced": {"type": "boolean"},
+                "executionRiskStatus": {
+                    "type": "string",
+                    "minLength": 1,
+                },
+                "executionRiskForecastAvailable": {
+                    "type": "boolean"
+                },
+                "pretradeRiskForecastAnnualized": {
+                    "type": "number",
+                    "minimum": 0,
+                },
+                "executedRiskForecastAnnualized": {
+                    "type": "number",
+                    "minimum": 0,
+                },
+                "executionRiskCeilingAnnualized": {
+                    "type": "number",
+                    "minimum": 0,
+                },
+                "riskRebalanceOverride": {"type": "boolean"},
+                "executionReason": {
+                    "type": "string",
+                    "minLength": 1,
+                },
                 "riskGovernorStatus": {
                     "type": "string",
                     "minLength": 1,
@@ -2526,6 +3145,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
             },
         },
         "riskGovernor": {"type": "object"},
+        "executedBookRisk": {"type": "object"},
         "liquidityCapacity": {"type": "object"},
         "attribution": {
             "type": "object",

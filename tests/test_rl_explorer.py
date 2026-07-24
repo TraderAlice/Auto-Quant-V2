@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import json
 import tempfile
 import unittest
@@ -87,6 +88,23 @@ class RlPolicyEvidenceExplorerTests(unittest.TestCase):
                 diagnostics["portfolioMandate"]["id"],
                 run.result["metrics"]["portfolio_mandate"]["id"],
             )
+            self.assertTrue(diagnostics["executedBookRisk"]["available"])
+            self.assertEqual(
+                diagnostics["executedBookRisk"]["selectionAuthority"],
+                "context-only",
+            )
+            self.assertEqual(
+                diagnostics["executedBookRisk"]["validation"][
+                    "executedBreachDates"
+                ],
+                0,
+            )
+            self.assertEqual(
+                diagnostics["executedBookRisk"]["validation"][
+                    "trialPaths"
+                ],
+                6,
+            )
             self.assertTrue(diagnostics["factorFusion"]["available"])
             self.assertEqual(
                 diagnostics["factorFusion"][
@@ -152,6 +170,62 @@ class RlPolicyEvidenceExplorerTests(unittest.TestCase):
                 load_rl_diagnostics(project, run.result["id"])
 
             actions_path = run.root_dir / "artifacts" / "policy-actions.csv"
+            original_actions = actions_path.read_text(encoding="utf-8")
+            with actions_path.open(
+                encoding="utf-8",
+                newline="",
+            ) as handle:
+                rows = list(csv.DictReader(handle))
+                fields = list(rows[0])
+            active = next(
+                row
+                for row in rows
+                if row["execution_risk_forecast_available"] == "True"
+            )
+            active["executed_risk_forecast_annualized"] = str(
+                float(active["execution_risk_ceiling_annualized"]) + 0.01
+            )
+            with actions_path.open(
+                "w",
+                encoding="utf-8",
+                newline="",
+            ) as handle:
+                writer = csv.DictWriter(handle, fieldnames=fields)
+                writer.writeheader()
+                writer.writerows(rows)
+            rehash_run(run.root_dir)
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "Action executed-book risk evidence is invalid",
+            ):
+                load_rl_diagnostics(project, run.result["id"])
+
+            actions_path.write_text(original_actions, encoding="utf-8")
+            rehash_run(run.root_dir)
+            with actions_path.open(
+                encoding="utf-8",
+                newline="",
+            ) as handle:
+                rows = list(csv.DictReader(handle))
+                fields = list(rows[0])
+            rows[0]["execution_risk_observations"] = "2.5"
+            with actions_path.open(
+                "w",
+                encoding="utf-8",
+                newline="",
+            ) as handle:
+                writer = csv.DictWriter(handle, fieldnames=fields)
+                writer.writeheader()
+                writer.writerows(rows)
+            rehash_run(run.root_dir)
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "Expected a non-negative integer",
+            ):
+                load_rl_diagnostics(project, run.result["id"])
+
+            actions_path.write_text(original_actions, encoding="utf-8")
+            rehash_run(run.root_dir)
             lines = actions_path.read_text(encoding="utf-8").splitlines()
             actions_path.write_text(
                 "\n".join(lines[:-1]) + "\n",

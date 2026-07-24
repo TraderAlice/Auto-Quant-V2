@@ -13,6 +13,7 @@ import pandas as pd
 from autoquant.mandates import build_portfolio_mandate
 from autoquant.project_templates.ohlcv_portfolio_lab.portfolio_core import (
     construct_signal_policy,
+    execution_risk_metrics,
 )
 from autoquant.project_templates.ohlcv_rl_factor_lab.rl_core import (
     ACTIONS,
@@ -173,6 +174,42 @@ class RlEnvironmentTests(unittest.TestCase):
                 action_targets["candidate"].abs().sum(axis=1)
                 < ungoverned_candidate.abs().sum(axis=1) - 1e-12
             ).any()
+        )
+
+        volumes = pd.DataFrame(
+            1_000_000.0,
+            index=dates,
+            columns=columns,
+        )
+        raw_states = pd.DataFrame(
+            0.0,
+            index=dates,
+            columns=list(BASE_STATE_COLUMNS),
+        )
+        rollout = rollout_policy(
+            fixed_selector("candidate"),
+            raw_states,
+            action_targets,
+            closes,
+            volumes,
+            dates[-30:-1],
+            mandate=mandate,
+        )
+        compliance = execution_risk_metrics(
+            rollout.simulation,
+            rollout.simulation.daily.index,
+        )
+        self.assertEqual(compliance["executed_breach_dates"], 0)
+        self.assertTrue(
+            (
+                rollout.simulation.daily[
+                    "executed_risk_forecast_annualized"
+                ]
+                <= rollout.simulation.daily[
+                    "execution_risk_ceiling_annualized"
+                ]
+                + 1e-12
+            ).all()
         )
 
     def test_action_reward_begins_after_the_decision_close(self) -> None:

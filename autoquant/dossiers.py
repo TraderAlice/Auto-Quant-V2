@@ -1168,6 +1168,34 @@ def _render_markdown(dossier: dict[str, Any]) -> str:
                 ]
             )
         lines.append("")
+    execution_risk_lanes = [
+        lane
+        for lane in evidence["lanes"]
+        if isinstance(
+            lane["leaderRun"]["metrics"].get("execution_risk"),
+            dict,
+        )
+    ]
+    if execution_risk_lanes:
+        lines.extend(["## Executed-book risk compliance", ""])
+        for lane in execution_risk_lanes:
+            validation = lane["leaderRun"]["metrics"][
+                "execution_risk"
+            ]["validation"]
+            lines.extend(
+                [
+                    f"- {lane['name']}: validation forecast coverage / "
+                    f"pretrade breaches / risk-only overrides / executed "
+                    f"breaches = `{validation['forecast_coverage']}` / "
+                    f"`{validation['pretrade_breach_dates']}` / "
+                    f"`{validation['risk_rebalance_override_dates']}` / "
+                    f"`{validation['executed_breach_dates']}`",
+                    f"- {lane['name']}: post-drift executed-book compliance "
+                    "is contextual research evidence, not Broker, account, "
+                    "capital, or order authority.",
+                ]
+            )
+        lines.append("")
     lines.extend(["", "## Lane summaries", ""])
     for lane in evidence["lanes"]:
         integrity = lane["report"]["selectionIntegrity"]

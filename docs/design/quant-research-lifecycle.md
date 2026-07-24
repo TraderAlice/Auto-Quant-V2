@@ -10,6 +10,7 @@ Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]], [[docs/CLI]],
 [[docs/design/research-intake-and-dataset-snapshots]],
 [[docs/design/portfolio-construction-lab]],
 [[docs/design/request-bound-portfolio-mandates]],
+[[docs/design/executed-book-risk-compliance]],
 [[docs/design/rl-factor-policy-lab]],
 [[docs/design/research-selection-integrity]], and
 [[docs/design/session-decision-matrix]].
@@ -161,7 +162,9 @@ causal factor values at bar t
 → per-asset, gross, net, leverage, and concentration constraints
 → causal portfolio covariance forecast and one-sided volatility ceiling
 → target weights
-→ optional tolerance/no-trade bands
+→ drift and optional tolerance/no-trade decision
+→ final executed-book covariance check
+→ minimum proportional risk repair when required
 → rebalance after a declared lag
 → turnover and fixed cost model
 → portfolio return over the next bar
@@ -188,12 +191,15 @@ contract. The exact ledger connects mandate, tradability, signal intent,
 pre-governor/governed target, covariance forecast/scale, pre-trade drift,
 executed weight, trade, return, cost, regime, component variance contribution,
 causal trailing dollar volume, and participation-capacity binding asset. The
+post-drift ledger additionally records the final executed forecast, ceiling,
+coverage, proportional repair, and whether risk overrode no-trade. The
 capacity layer reports exact 1%/5% OHLCV envelopes and missing-history dates;
 it does not claim spread, impact, or fills. The executable details are
 [[docs/design/request-bound-portfolio-mandates]],
 [[docs/design/portfolio-construction-lab]], and
 [[docs/design/signal-policy-and-attribution]],
 [[docs/design/portfolio-risk-governor]], and
+[[docs/design/executed-book-risk-compliance]], and
 [[docs/design/portfolio-liquidity-capacity]].
 
 Tolerance bands are a first-class implementation choice: research on

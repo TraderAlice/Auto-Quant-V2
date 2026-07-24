@@ -327,6 +327,11 @@ class ProgramResearchDossierTests(unittest.TestCase):
             )
             self.assertIn("## Liquidity capacity", markdown)
             self.assertIn(
+                "## Executed-book risk compliance",
+                markdown,
+            )
+            self.assertIn("executed breaches", markdown)
+            self.assertIn(
                 "OHLCV participation envelope only",
                 markdown,
             )
@@ -457,6 +462,12 @@ class ProgramResearchDossierTests(unittest.TestCase):
             )
             self.assertEqual(markdown.count("## Portfolio mandate"), 1)
             self.assertIn("`long` / `long-cash`", markdown)
+            self.assertIn(
+                "## Executed-book risk compliance",
+                markdown,
+            )
+            self.assertIn("Portfolio implementation", markdown)
+            self.assertIn("Governed RL value-add", markdown)
 
             # A later lane Report does not rewrite or invalidate the point-in-time
             # Dossier evidence prefix.

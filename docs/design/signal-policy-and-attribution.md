@@ -6,6 +6,7 @@ Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]],
 [[docs/design/factor-diagnostics]],
 [[docs/design/portfolio-construction-lab]],
 [[docs/design/request-bound-portfolio-mandates]],
+[[docs/design/executed-book-risk-compliance]],
 [[docs/design/rl-factor-policy-lab]],
 [[docs/design/research-selection-integrity]], and
 [[docs/design/quant-research-lifecycle]].
@@ -100,6 +101,14 @@ book with the proposed target:
 - rebalance when proposed one-way turnover is at least `0.05`;
 - otherwise retain the drifted book.
 
+That ordinary choice is not yet final. Core forecasts the chosen post-drift
+book with the same causal covariance policy. If it exceeds the mandate
+ceiling, Core applies the minimum uniform scale-down needed to comply. This
+risk-only repair outranks the no-trade band, records an explicit override, and
+never increases exposure. Unavailable covariance follows the mandate's
+existing fail-flat policy. See
+[[docs/design/executed-book-risk-compliance]].
+
 Each asset/date ledger row contains:
 
 - factor value, percentile, prior/new signal state, and signal event;
@@ -111,6 +120,9 @@ Each asset/date ledger row contains:
   scale, and governor status;
 - drifted pre-trade weight, executed weight, trade, target action, execution
   action, and execution reason;
+- pretrade/proposed/executed annualized forecasts, final ceiling, runtime and
+  repair scales, forecast availability, observation count, ordinary rebalance,
+  and risk-only override;
 - next-bar asset return, gross contribution, allocated linear cost, and net
   contribution;
 - causal market regime and ex-ante component variance contribution/share from
@@ -187,6 +199,8 @@ long backtest.
    close.
 8. Validation net Sharpe alone controls promotion.
 9. Output is research target-weight evidence with no trading authority.
+10. Every available final executed-book forecast is within the exact mandate
+    ceiling; risk may override no-trade but may only reduce exposure.
 
 ## Known limits
 

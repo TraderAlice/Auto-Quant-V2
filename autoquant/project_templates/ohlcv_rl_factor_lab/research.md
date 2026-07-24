@@ -25,9 +25,13 @@ every RL action sleeve and is also not editable. Every sleeve receives the
 same causal covariance forecast and one-sided volatility ceiling before the
 policy may select it; editable state encoding cannot bypass position or risk
 authority.
+After selection, the shared accounting path also rechecks the actual
+post-drift/no-trade book. Risk may override no-trade only through the minimum
+proportional scale-down, identically to the Portfolio lane.
 
 The fixed Judge owns all learning and evaluation authority. Test results are
 audit evidence, not the promotion metric, and repeated inspection must be
 reported as a limitation. Inspect the locked risk policy alongside action
 constraints, baseline advantage, seed/fold dispersion, action frequency,
-turnover, and costs. AutoQuant has no trading-account authority.
+turnover, costs, final-book forecast coverage, risk-only overrides, and
+executed breaches. AutoQuant has no trading-account authority.

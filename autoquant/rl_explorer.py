@@ -48,6 +48,18 @@ ACTION_COLUMNS = [
     "one_way_turnover",
     "cost",
 ]
+ACTION_EXECUTION_RISK_COLUMNS = [
+    "execution_risk_status",
+    "execution_risk_forecast_available",
+    "execution_risk_observations",
+    "pretrade_risk_forecast_annualized",
+    "executed_risk_forecast_annualized",
+    "execution_risk_ceiling_annualized",
+    "risk_rebalance_override",
+    "execution_reason",
+    "gross_exposure",
+    "proposed_one_way_turnover",
+]
 SPLITS = ("validation", "test")
 
 
@@ -67,6 +79,13 @@ def _finite(value: Any, path: Path | str) -> float:
     if not math.isfinite(number):
         _fail(path, "rl.number", "Expected a finite numeric value")
     return number
+
+
+def _csv_nonnegative_integer(value: Any, path: Path | str) -> int:
+    number = _finite(value, path)
+    if number < 0 or not number.is_integer():
+        _fail(path, "rl.integer", "Expected a non-negative integer")
+    return int(number)
 
 
 def _integer(value: Any, path: Path | str, *, minimum: int = 0) -> int:
@@ -330,6 +349,77 @@ def _performance(
         or not math.isclose(sum(normalized_frequencies.values()), 1.0, abs_tol=1e-9)
     ):
         _fail(path, "rl.action-frequency", "Action frequencies must sum to one")
+    execution_risk = value.get("execution_risk")
+    if execution_risk is None:
+        normalized_execution_risk = {
+            "available": False,
+            "activeDates": 0,
+            "forecastAvailableDates": 0,
+            "forecastCoverage": 0.0,
+            "pretradeBreachDates": 0,
+            "riskRebalanceOverrideDates": 0,
+            "executedBreachDates": 0,
+            "maximumExecutedForecastAnnualized": 0.0,
+            "maximumCeilingError": 0.0,
+        }
+    elif isinstance(execution_risk, dict):
+        normalized_execution_risk = {
+            "available": True,
+            "activeDates": _integer(
+                execution_risk.get("active_dates"),
+                f"{path}/execution_risk/active_dates",
+            ),
+            "forecastAvailableDates": _integer(
+                execution_risk.get("forecast_available_dates"),
+                f"{path}/execution_risk/forecast_available_dates",
+            ),
+            "forecastCoverage": _finite(
+                execution_risk.get("forecast_coverage"),
+                f"{path}/execution_risk/forecast_coverage",
+            ),
+            "pretradeBreachDates": _integer(
+                execution_risk.get("pretrade_breach_dates"),
+                f"{path}/execution_risk/pretrade_breach_dates",
+            ),
+            "riskRebalanceOverrideDates": _integer(
+                execution_risk.get("risk_rebalance_override_dates"),
+                f"{path}/execution_risk/risk_rebalance_override_dates",
+            ),
+            "executedBreachDates": _integer(
+                execution_risk.get("executed_breach_dates"),
+                f"{path}/execution_risk/executed_breach_dates",
+            ),
+            "maximumExecutedForecastAnnualized": _finite(
+                execution_risk.get(
+                    "maximum_executed_forecast_annualized"
+                ),
+                f"{path}/execution_risk/maximum_executed_forecast_annualized",
+            ),
+            "maximumCeilingError": _finite(
+                execution_risk.get("maximum_ceiling_error"),
+                f"{path}/execution_risk/maximum_ceiling_error",
+            ),
+        }
+        if (
+            normalized_execution_risk["forecastAvailableDates"]
+            > normalized_execution_risk["activeDates"]
+            or not 0
+            <= normalized_execution_risk["forecastCoverage"]
+            <= 1
+            or normalized_execution_risk["executedBreachDates"]
+            or normalized_execution_risk["maximumCeilingError"] > 1e-10
+        ):
+            _fail(
+                f"{path}/execution_risk",
+                "rl.execution-risk",
+                "Trial executed-book risk evidence is invalid",
+            )
+    else:
+        _fail(
+            f"{path}/execution_risk",
+            "rl.execution-risk",
+            "Trial executed-book risk evidence must be an object",
+        )
     return {
         "netSharpe": _finite(net.get("sharpe"), f"{path}/net/sharpe"),
         "netTotalReturn": _finite(net.get("total_return"), f"{path}/net/total_return"),
@@ -346,6 +436,7 @@ def _performance(
             f"{path}/implementation/total_cost_drag",
         ),
         "actionFrequency": normalized_frequencies,
+        "executionRisk": normalized_execution_risk,
     }
 
 
@@ -534,8 +625,16 @@ def _action_rows(
     try:
         with path.open("r", encoding="utf-8", newline="") as handle:
             reader = csv.DictReader(handle)
-            if reader.fieldnames != ACTION_COLUMNS:
+            fields = tuple(reader.fieldnames or [])
+            complete_fields = tuple(
+                [*ACTION_COLUMNS, *ACTION_EXECUTION_RISK_COLUMNS]
+            )
+            if fields not in {
+                tuple(ACTION_COLUMNS),
+                complete_fields,
+            }:
                 _fail(path, "rl.csv-columns", "Action CSV columns differ from the fixed contract")
+            has_execution_risk = fields == complete_fields
             rows: list[dict[str, Any]] = []
             seen: set[tuple[str, int, str, str]] = set()
             last_dates: dict[tuple[str, int, str], str] = {}
@@ -575,6 +674,74 @@ def _action_rows(
                         "netReturn": _finite(row["net_return"], f"{path}:{row_number}/net_return"),
                         "oneWayTurnover": _finite(row["one_way_turnover"], f"{path}:{row_number}/one_way_turnover"),
                         "cost": _finite(row["cost"], f"{path}:{row_number}/cost"),
+                        **(
+                            {
+                                "executionRiskStatus": row[
+                                    "execution_risk_status"
+                                ],
+                                "executionRiskForecastAvailable": (
+                                    row[
+                                        "execution_risk_forecast_available"
+                                    ]
+                                    == "True"
+                                ),
+                                "executionRiskObservations": (
+                                    _csv_nonnegative_integer(
+                                        row[
+                                            "execution_risk_observations"
+                                        ],
+                                        f"{path}:{row_number}/execution_risk_observations",
+                                    )
+                                ),
+                                "pretradeRiskForecastAnnualized": _finite(
+                                    row[
+                                        "pretrade_risk_forecast_annualized"
+                                    ],
+                                    f"{path}:{row_number}/pretrade_risk_forecast_annualized",
+                                ),
+                                "executedRiskForecastAnnualized": _finite(
+                                    row[
+                                        "executed_risk_forecast_annualized"
+                                    ],
+                                    f"{path}:{row_number}/executed_risk_forecast_annualized",
+                                ),
+                                "executionRiskCeilingAnnualized": _finite(
+                                    row[
+                                        "execution_risk_ceiling_annualized"
+                                    ],
+                                    f"{path}:{row_number}/execution_risk_ceiling_annualized",
+                                ),
+                                "riskRebalanceOverride": (
+                                    row["risk_rebalance_override"] == "True"
+                                ),
+                                "executionReason": row[
+                                    "execution_reason"
+                                ],
+                                "grossExposure": _finite(
+                                    row["gross_exposure"],
+                                    f"{path}:{row_number}/gross_exposure",
+                                ),
+                                "proposedOneWayTurnover": _finite(
+                                    row["proposed_one_way_turnover"],
+                                    f"{path}:{row_number}/proposed_one_way_turnover",
+                                ),
+                            }
+                            if has_execution_risk
+                            else {
+                                "executionRiskStatus": (
+                                    "legacy_unavailable"
+                                ),
+                                "executionRiskForecastAvailable": False,
+                                "executionRiskObservations": 0,
+                                "pretradeRiskForecastAnnualized": 0.0,
+                                "executedRiskForecastAnnualized": 0.0,
+                                "executionRiskCeilingAnnualized": 0.0,
+                                "riskRebalanceOverride": False,
+                                "executionReason": "legacy_unavailable",
+                                "grossExposure": 0.0,
+                                "proposedOneWayTurnover": 0.0,
+                            }
+                        ),
                     }
                 )
                 if rows[-1]["oneWayTurnover"] < -1e-12 or rows[-1]["cost"] < -1e-12:
@@ -583,6 +750,65 @@ def _action_rows(
                         "rl.implementation",
                         "Turnover and cost must be non-negative",
                     )
+                if has_execution_risk:
+                    if (
+                        row["execution_risk_forecast_available"]
+                        not in {"True", "False"}
+                        or row["risk_rebalance_override"]
+                        not in {"True", "False"}
+                        or not rows[-1]["executionRiskStatus"]
+                        or not rows[-1]["executionReason"]
+                        or rows[-1]["executionRiskStatus"]
+                        not in {
+                            "flat",
+                            "within_ceiling",
+                            "volatility_limited",
+                            "risk_repaired",
+                            "insufficient_history_fail_flat",
+                            "invalid_covariance_fail_flat",
+                        }
+                        or rows[-1]["executionReason"]
+                        not in {
+                            "risk_ceiling_override",
+                            "target_risk_repair",
+                            "rebalance_threshold_met",
+                            "portfolio_no_trade_band",
+                        }
+                        or min(
+                            rows[-1][
+                                "pretradeRiskForecastAnnualized"
+                            ],
+                            rows[-1][
+                                "executedRiskForecastAnnualized"
+                            ],
+                            rows[-1][
+                                "executionRiskCeilingAnnualized"
+                            ],
+                        )
+                        < 0
+                        or rows[-1]["grossExposure"] < 0
+                        or rows[-1]["proposedOneWayTurnover"] < 0
+                        or (
+                            rows[-1]["riskRebalanceOverride"]
+                            and rows[-1]["executionReason"]
+                            != "risk_ceiling_override"
+                        )
+                        or (
+                            rows[-1]["executionRiskForecastAvailable"]
+                            and rows[-1][
+                                "executedRiskForecastAnnualized"
+                            ]
+                            > rows[-1][
+                                "executionRiskCeilingAnnualized"
+                            ]
+                            + 1e-10
+                        )
+                    ):
+                        _fail(
+                            f"{path}:{row_number}",
+                            "rl.execution-risk",
+                            "Action executed-book risk evidence is invalid",
+                        )
                 if len(rows) > MAX_ACTION_ROWS:
                     _fail(path, "rl.row-limit", f"Action CSV exceeds {MAX_ACTION_ROWS} rows")
     except UnicodeDecodeError:
@@ -636,6 +862,109 @@ def _action_projection(
                 _close(cumulative_reward / len(group), expected["meanReward"], f"{fold}/{seed}/{split}/meanReward", "mean reward")
                 _close(mean_turnover, expected["meanOneWayTurnover"], f"{fold}/{seed}/{split}/turnover", "mean turnover")
                 _close(total_cost, expected["totalCostDrag"], f"{fold}/{seed}/{split}/cost", "cost drag")
+                expected_risk = expected["executionRisk"]
+                has_action_risk = any(
+                    row["executionRiskStatus"] != "legacy_unavailable"
+                    for row in group
+                )
+                if expected_risk["available"] != has_action_risk:
+                    _fail(
+                        f"policy-actions/{fold}/{seed}/{split}",
+                        "rl.execution-risk",
+                        "Trial metrics and action risk evidence must exist together",
+                    )
+                if has_action_risk:
+                    active_risk_rows = [
+                        row
+                        for row in group
+                        if (
+                            row["grossExposure"] > 1e-12
+                            or row["proposedOneWayTurnover"] > 1e-12
+                            or row["riskRebalanceOverride"]
+                        )
+                    ]
+                    available_risk_rows = [
+                        row
+                        for row in active_risk_rows
+                        if row["executionRiskForecastAvailable"]
+                    ]
+                    pretrade_breaches = [
+                        row
+                        for row in available_risk_rows
+                        if row["pretradeRiskForecastAnnualized"]
+                        > row["executionRiskCeilingAnnualized"] + 1e-10
+                    ]
+                    executed_breaches = [
+                        row
+                        for row in available_risk_rows
+                        if row["executedRiskForecastAnnualized"]
+                        > row["executionRiskCeilingAnnualized"] + 1e-10
+                    ]
+                    overrides = [
+                        row
+                        for row in active_risk_rows
+                        if row["riskRebalanceOverride"]
+                    ]
+                    derived_risk = {
+                        "available": True,
+                        "activeDates": len(active_risk_rows),
+                        "forecastAvailableDates": len(
+                            available_risk_rows
+                        ),
+                        "forecastCoverage": (
+                            len(available_risk_rows)
+                            / len(active_risk_rows)
+                            if active_risk_rows
+                            else 0.0
+                        ),
+                        "pretradeBreachDates": len(pretrade_breaches),
+                        "riskRebalanceOverrideDates": len(overrides),
+                        "executedBreachDates": len(executed_breaches),
+                        "maximumExecutedForecastAnnualized": (
+                            max(
+                                row[
+                                    "executedRiskForecastAnnualized"
+                                ]
+                                for row in available_risk_rows
+                            )
+                            if available_risk_rows
+                            else 0.0
+                        ),
+                        "maximumCeilingError": (
+                            max(
+                                max(
+                                    0.0,
+                                    row[
+                                        "executedRiskForecastAnnualized"
+                                    ]
+                                    - row[
+                                        "executionRiskCeilingAnnualized"
+                                    ],
+                                )
+                                for row in available_risk_rows
+                            )
+                            if available_risk_rows
+                            else 0.0
+                        ),
+                    }
+                    for key, value in derived_risk.items():
+                        if key == "available":
+                            continue
+                        if isinstance(value, float):
+                            _close(
+                                value,
+                                expected_risk[key],
+                                f"{fold}/{seed}/{split}/executionRisk/{key}",
+                                "executed-book risk",
+                            )
+                        elif value != expected_risk[key]:
+                            _fail(
+                                f"{fold}/{seed}/{split}/executionRisk/{key}",
+                                "rl.reconciliation",
+                                "Action rows do not reconcile executed-book risk",
+                            )
+                else:
+                    derived_risk = expected_risk
                 transition_count = 0
                 for prior, current in zip(group, group[1:]):
                     if prior["action"] != current["action"]:
@@ -654,6 +983,7 @@ def _action_projection(
                         "meanOneWayTurnover": mean_turnover,
                         "totalCostDrag": total_cost,
                         "actionTransitions": transition_count,
+                        "executionRisk": derived_risk,
                     }
                 )
 
@@ -694,6 +1024,142 @@ def _action_projection(
         "points": [rows[index] for index in sorted(selected)],
         "transitions": transition_rows,
     }
+
+
+def _execution_risk_projection(
+    metrics: dict[str, Any],
+    action_summaries: list[dict[str, Any]],
+    mandate: dict[str, Any],
+) -> dict[str, Any]:
+    raw = metrics.get("execution_risk")
+    has_actions = any(
+        summary["executionRisk"]["available"]
+        for summary in action_summaries
+    )
+    if raw is None and not has_actions:
+        return {
+            "available": False,
+            "policy": None,
+            "selectionAuthority": "context-only",
+            "validation": None,
+            "test": None,
+        }
+    if not isinstance(raw, dict) or not has_actions:
+        _fail(
+            "RunResult/metrics/execution_risk",
+            "rl.execution-risk",
+            "RL execution-risk metrics and action evidence must exist together",
+        )
+    expected_policy = {
+        "method": (
+            "post-drift-executed-book-volatility-compliance-v1"
+        ),
+        "risk_policy": mandate["riskPolicy"],
+        "no_trade_priority": "risk-compliance-first",
+        "repair": "minimum-proportional-scale-down",
+        "selection_authority": "context-only",
+        "trading_authority": "none",
+    }
+    policy = raw.get("policy")
+    if policy != expected_policy:
+        _fail(
+            "RunResult/metrics/execution_risk/policy",
+            "rl.execution-risk-policy",
+            "RL execution-risk policy differs from the Portfolio Mandate",
+        )
+    projection: dict[str, Any] = {
+        "available": True,
+        "policy": {
+            "method": policy["method"],
+            "riskPolicy": policy["risk_policy"],
+            "noTradePriority": policy["no_trade_priority"],
+            "repair": policy["repair"],
+            "selectionAuthority": policy["selection_authority"],
+            "tradingAuthority": policy["trading_authority"],
+        },
+        "selectionAuthority": "context-only",
+    }
+    for split in SPLITS:
+        items = [
+            summary["executionRisk"]
+            for summary in action_summaries
+            if summary["split"] == split
+        ]
+        active = sum(item["activeDates"] for item in items)
+        available = sum(item["forecastAvailableDates"] for item in items)
+        derived = {
+            "status": (
+                "available" if available else "forecast_unavailable"
+            ),
+            "trial_paths": len(items),
+            "active_dates": active,
+            "forecast_available_dates": available,
+            "forecast_coverage": available / active if active else 0.0,
+            "pretrade_breach_dates": sum(
+                item["pretradeBreachDates"] for item in items
+            ),
+            "risk_rebalance_override_dates": sum(
+                item["riskRebalanceOverrideDates"] for item in items
+            ),
+            "executed_breach_dates": sum(
+                item["executedBreachDates"] for item in items
+            ),
+            "maximum_executed_forecast_annualized": max(
+                (
+                    item["maximumExecutedForecastAnnualized"]
+                    for item in items
+                ),
+                default=0.0,
+            ),
+            "maximum_ceiling_error": max(
+                (item["maximumCeilingError"] for item in items),
+                default=0.0,
+            ),
+        }
+        actual = raw.get(split)
+        if not isinstance(actual, dict) or set(actual) != set(derived):
+            _fail(
+                f"RunResult/metrics/execution_risk/{split}",
+                "rl.execution-risk",
+                "RL aggregate execution-risk shape differs from action evidence",
+            )
+        for key, value in derived.items():
+            if isinstance(value, float):
+                _close(
+                    actual[key],
+                    value,
+                    f"metrics/execution_risk/{split}/{key}",
+                    "aggregate executed-book risk",
+                )
+            elif actual[key] != value:
+                _fail(
+                    f"metrics/execution_risk/{split}/{key}",
+                    "rl.reconciliation",
+                    "RL aggregate execution risk does not reconcile",
+                )
+        projection[split] = {
+            "status": derived["status"],
+            "trialPaths": derived["trial_paths"],
+            "activeDates": derived["active_dates"],
+            "forecastAvailableDates": derived[
+                "forecast_available_dates"
+            ],
+            "forecastCoverage": derived["forecast_coverage"],
+            "pretradeBreachDates": derived[
+                "pretrade_breach_dates"
+            ],
+            "riskRebalanceOverrideDates": derived[
+                "risk_rebalance_override_dates"
+            ],
+            "executedBreachDates": derived[
+                "executed_breach_dates"
+            ],
+            "maximumExecutedForecastAnnualized": derived[
+                "maximum_executed_forecast_annualized"
+            ],
+            "maximumCeilingError": derived["maximum_ceiling_error"],
+        }
+    return projection
 
 
 def load_rl_diagnostics(
@@ -1199,6 +1665,11 @@ def load_rl_diagnostics(
         "harness": run.result["harness"],
         "artifacts": artifacts,
         "portfolioMandate": mandate_projection,
+        "executedBookRisk": _execution_risk_projection(
+            metrics,
+            action_summaries,
+            mandate_projection,
+        ),
         "protocol": {
             "selectionSplit": "validation",
             "testRole": "visible-diagnostic",
@@ -1290,6 +1761,7 @@ RL_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "harness",
         "artifacts",
         "portfolioMandate",
+        "executedBookRisk",
         "protocol",
         "summary",
         "factorFusion",
@@ -1309,6 +1781,7 @@ RL_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "harness": {"type": "object"},
         "artifacts": {"type": "object"},
         "portfolioMandate": {"type": "object"},
+        "executedBookRisk": {"type": "object"},
         "protocol": {"type": "object"},
         "summary": {"type": "object"},
         "factorFusion": {"type": "object"},

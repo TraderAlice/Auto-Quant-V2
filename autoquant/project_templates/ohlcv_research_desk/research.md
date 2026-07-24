@@ -42,10 +42,12 @@ a simple baseline.
 Portfolio and RL bind the same fixed
 `strategies/portfolio-mandate.json`; neither lane may turn context assets into
 implicit positions, learn around the requested direction, or bypass the shared
-scale-down-only portfolio-volatility ceiling. The RL lane also content-locks
-the current `factors/candidate.py` bytes. Promoting a different factor makes
-prior RL evidence stale; create fresh RL evidence or start a new RL Session.
-Factor writers and active RL readers are surfaced as a concurrency conflict.
+scale-down-only target and final executed-book portfolio-volatility ceiling.
+Risk may override no-trade only by reducing the chosen book; the same
+primitive governs both lanes. The RL lane also content-locks the current
+`factors/candidate.py` bytes. Promoting a different factor makes prior RL
+evidence stale; create fresh RL evidence or start a new RL Session. Factor
+writers and active RL readers are surfaced as a concurrency conflict.
 
 AutoQuant produces quantitative decision support only. Target weights,
 historical actions, and Reports are not Broker orders, account state, or

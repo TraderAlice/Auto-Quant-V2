@@ -516,7 +516,7 @@ CLI_COMMANDS = [
     descriptor(
         "run.portfolio",
         "aq run portfolio <path> --run ID [--points 40..400] [--project ID] [--json]",
-        "Project one verified Portfolio Run into bounded performance, position, signal, attribution, risk-governor, and OHLCV liquidity-capacity diagnostics.",
+        "Project one verified Portfolio Run into bounded performance, position, signal, attribution, target and executed-book risk, and OHLCV liquidity-capacity diagnostics.",
         "read-only",
         [
             PATH_ARGUMENT,
@@ -536,7 +536,7 @@ CLI_COMMANDS = [
     descriptor(
         "run.rl",
         "aq run rl <path> --run ID [--points 40..400] [--project ID] [--json]",
-        "Project one verified governed RL Run into bounded baseline, fold/seed, training, action, and implementation evidence.",
+        "Project one verified governed RL Run into bounded baseline, fold/seed, training, action, implementation, and executed-book risk evidence.",
         "read-only",
         [
             PATH_ARGUMENT,

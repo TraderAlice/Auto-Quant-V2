@@ -1650,9 +1650,9 @@ function renderPortfolioBook(explorer) {
     explorer.signalPolicy?.parameters?.max_abs_weight ?? 0.3,
   );
   element("portfolio-book-note").textContent =
-    `${book.timestamp} · gross ${metric(book.grossExposure)} · net ${metric(book.netExposure)} · cash ${percent(book.cashWeight)} · risk ${book.riskGovernorStatus} · scale ${metric(book.riskGovernorScale)}`;
+    `${book.timestamp} · gross ${metric(book.grossExposure)} · net ${metric(book.netExposure)} · cash ${percent(book.cashWeight)} · executed risk ${book.executionRiskStatus}`;
   element("portfolio-book").innerHTML = `
-    <div class="book-disclosure">Historical target/executed weights · covariance forecast ${percent(book.riskForecastPreAnnualized)} → ${percent(book.riskForecastPostAnnualized)} · ceiling ${percent(book.riskVolatilityCeilingAnnualized)}${escapeHtml(capacityDisclosure)} · no Broker or account state</div>
+    <div class="book-disclosure">Historical target/executed weights · target risk ${percent(book.riskForecastPreAnnualized)} → ${percent(book.riskForecastPostAnnualized)} · executed book ${percent(book.executedRiskForecastAnnualized)} / ${percent(book.executionRiskCeilingAnnualized)} · ${escapeHtml(book.executionReason)}${escapeHtml(capacityDisclosure)} · no Broker or account state</div>
     <div class="position-table" role="table" aria-label="Latest mechanical research book">
       <div class="position-row heading" role="row">
         <span>Asset / state</span><span>Target</span><span>Executed</span><span>Action</span>
@@ -1760,6 +1760,7 @@ function renderPortfolioExplorer(project) {
   section.hidden = false;
   const summary = explorer.path.summary;
   const validationCapacity = explorer.liquidityCapacity?.validation;
+  const validationExecutionRisk = explorer.executedBookRisk?.validation;
   element("portfolio-meta").textContent =
     `${explorer.run.id} · ${explorer.selection.selectionSplit} selection · ${explorer.selection.testRole} test`;
   element("portfolio-mandate").innerHTML = mandateMarkup(explorer.mandate);
@@ -1768,11 +1769,17 @@ function renderPortfolioExplorer(project) {
     ["Maximum drawdown", signedPercent(summary.maximumDrawdown), "bad"],
     ["Total cost drag", percent(summary.totalCost), summary.totalCost > 0 ? "bad" : ""],
     ["One-way turnover", metric(summary.totalOneWayTurnover), "neutral"],
-    ["Rebalance days", summary.rebalanceDays, "neutral"],
     [
       "Validation risk-limited",
       percent(explorer.signalPolicy.validation.riskLimitedRate),
       explorer.signalPolicy.validation.riskLimitedRate > 0 ? "warning" : "neutral",
+    ],
+    [
+      "Executed risk",
+      validationExecutionRisk
+        ? `${validationExecutionRisk.executedBreachDates} breach · ${validationExecutionRisk.riskRebalanceOverrideDates} override`
+        : "LEGACY",
+      validationExecutionRisk?.executedBreachDates > 0 ? "bad" : "neutral",
     ],
     [
       "1% capacity · p10",
@@ -2126,6 +2133,7 @@ function renderRlDetail(explorer) {
     Math.max(1, rows.length);
   const cost = rows.reduce((sum, row) => sum + row.totalCostDrag, 0) /
     Math.max(1, rows.length);
+  const executionRisk = explorer.executedBookRisk?.[state.rlSplit];
   element("rl-detail").innerHTML = `
     <div class="rl-action-mix">
       ${actions
@@ -2143,8 +2151,10 @@ function renderRlDetail(explorer) {
       <span><small>Mean total cost drag</small><b>${percent(cost)}</b></span>
       <span><small>Action transitions</small><b>${metric(transitions)}</b></span>
       <span><small>Cost assumption</small><b>${metric(explorer.protocol.configuration.costBps)} bps</b></span>
+      <span><small>Executed risk breaches</small><b>${executionRisk ? metric(executionRisk.executedBreachDates) : "LEGACY"}</b></span>
+      <span><small>Risk-only overrides</small><b>${executionRisk ? metric(executionRisk.riskRebalanceOverrideDates) : "LEGACY"}</b></span>
     </div>
-    <p class="book-disclosure">Actions select the content-locked candidate factor, fixed reference factors, or their governed blend. They are historical research evidence, not orders or account positions.</p>`;
+    <p class="book-disclosure">Actions select the content-locked candidate factor, fixed reference factors, or their governed blend. Final post-drift books are risk-checked before reward; all values remain historical research evidence, not orders or account positions.</p>`;
 }
 
 function renderRlExplorer(project) {

@@ -49,7 +49,8 @@ The first viewport prioritizes:
 - the latest successful Portfolio Run's verified full-history growth,
   drawdown, exposure, turnover/cost path, current historical target/executed
   book, pre/post risk-governor targets and covariance forecast, recent
-  mechanical transitions, validation/test attribution, causal 1%/5%
+  mechanical transitions, final-book compliance and risk-only overrides,
+  validation/test attribution, causal 1%/5%
   participation-capacity distributions, latest binding asset, and exact
   request-derived position/risk mandate;
 - RL Run summaries for validation/test audit Sharpe, seed/fold dispersion,
@@ -101,7 +102,8 @@ long/cash, short/cash, or dollar-neutral family, gross/cap, benchmark, and
 locked identity. It also shows the fixed annualized volatility ceiling. The
 current book discloses raw target → governed target, forecast volatility →
 governed volatility, scale, and status; the validation summary shows how often
-the ceiling bound. The same summary shows the 1% capacity p10 and trade-date
+the ceiling bound. It separately shows whether the final executed path breached
+and how often risk overrode no-trade. The same summary shows the 1% capacity p10 and trade-date
 coverage; the book cites the latest rebalance capacity and binding asset.
 Those values are an OHLCV dollar-volume envelope, not impact, fill, or live
 capital evidence. Context-only assets remain in factor/risk evidence but are
@@ -115,8 +117,9 @@ baseline, candidate, and leader trials using a fixed family-specific metric
 dictionary. Preference arrows make lower-is-better risk and cost fields
 explicit. The Selection view excludes test rows from the comparison; the Test
 audit view reveals them without changing verdicts, leader choice, or the
-validation-only non-dominated set. Context such as hysteresis policy state and
-liquidity capacity is display-only, and failed trials remain visible as
+validation-only non-dominated set. Context such as hysteresis policy state,
+liquidity capacity, and executed-risk intervention is display-only, and
+failed trials remain visible as
 unavailable evidence.
 
 The Session rail, handoff board, trajectory disclosure, and Inspector share
@@ -140,7 +143,8 @@ artifacts before showing a claim. It leads with validation value-add versus the
 fixed Judge's selected baseline rather than raw Sharpe. Humans may switch among
 fold/seed performance, complete training histories, and fixed-sleeve action
 allocation, and may reveal test as visibly audit-only evidence. All declared
-seeds remain present; JavaScript never selects a seed, substitutes a baseline,
+seeds and their executed-book compliance remain present; JavaScript never
+selects a seed, substitutes a baseline,
 trains a model, or interprets absent state. The exact headless `aq run rl`
 command is copyable from the disclosure footer.
 

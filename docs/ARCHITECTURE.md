@@ -85,6 +85,9 @@ The V2 foundation now implements:
   trailing returns through the decision close, scales exposure down above the
   fixed ceiling, and publishes pre/post sizing evidence without adding
   leverage or trading authority.
+- one shared executed-book compliance step that rechecks the final post-drift
+  Portfolio or RL sleeve, lets risk outrank the no-trade band, and applies only
+  the minimum proportional scale-down required by the same Mandate ceiling.
 - one causal liquidity-capacity layer that inverts exact executed trade
   weights against trailing close-times-volume at fixed participation ceilings,
   publishes missing history and binding assets, and makes no impact/fill claim.
@@ -115,6 +118,8 @@ Mechanical signal state and attribution are defined in
 [[docs/design/signal-policy-and-attribution]].
 Portfolio-level covariance forecasting and scale-down semantics are defined in
 [[docs/design/portfolio-risk-governor]].
+Post-drift final-book compliance is defined in
+[[docs/design/executed-book-risk-compliance]].
 OHLCV participation-capacity semantics are defined in
 [[docs/design/portfolio-liquidity-capacity]].
 Request-bound position authority is defined in

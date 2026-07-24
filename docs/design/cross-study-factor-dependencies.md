@@ -6,6 +6,7 @@ Related: [[docs/design/study-run-evidence]],
 [[docs/design/research-program-orchestration]],
 [[docs/design/request-bound-portfolio-mandates]],
 [[docs/design/portfolio-risk-governor]],
+[[docs/design/executed-book-risk-compliance]],
 [[docs/design/rl-factor-policy-lab]], and
 [[docs/design/research-selection-integrity]].
 
@@ -78,7 +79,8 @@ every reference expert.
 
 The Portfolio Mandate is a second fixed dependency shared by Portfolio and
 RL. Every RL action sleeve uses its exact tradable/context partition,
-permitted sign, cash, gross/net, cap, and benchmark semantics.
+permitted sign, cash, gross/net, cap, benchmark, and final executed-book risk
+semantics.
 
 ## Evidence
 
@@ -89,8 +91,10 @@ Every RL Run records:
 - candidate-only validation and visible-test performance by fold;
 - RL-minus-candidate validation and visible-test advantage;
 - candidate action frequency across every declared fold and seed;
-- whether RL beats the best declared baseline, which may itself be candidate.
-- the complete fixed Portfolio Mandate and constraint audit for every action.
+- whether RL beats the best declared baseline, which may itself be candidate;
+- the complete fixed Portfolio Mandate and constraint audit for every action;
+- final-book forecast coverage, pretrade breaches, risk-only no-trade
+  overrides, executed breaches, and the exact execution reason.
 
 The adaptive value-add claim is positive only when validation evidence beats
 the best baseline. “RL used the candidate” and “RL beat the candidate” are
@@ -122,3 +126,5 @@ Session.
 7. Targets and actions remain research evidence with no trading authority.
 8. Every RL action sleeve inherits the mandate risk governor before selection;
    editable encoder code cannot alter or bypass it.
+9. Every selected post-drift sleeve is rechecked against the same ceiling, and
+   any necessary repair is a scale-down-only execution decision.

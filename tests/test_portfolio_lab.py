@@ -20,6 +20,8 @@ from autoquant.project_templates.ohlcv_portfolio_lab.portfolio_core import (
     construct_signal_policy,
     construct_targets,
     drift_weights,
+    execute_risk_compliant_book,
+    execution_risk_metrics,
     liquidity_capacity_metrics,
     signal_policy_metrics,
     simulate_targets,
@@ -76,6 +78,71 @@ def make_portfolio_lab(directory: str | Path):
 
 
 class PortfolioAccountingTests(unittest.TestCase):
+    def test_executed_book_risk_overrides_no_trade_with_minimum_scale(
+        self,
+    ) -> None:
+        index = pd.bdate_range("2026-01-01", periods=30)
+        signs = np.where(np.arange(len(index)) % 2 == 0, 1.0, -1.0)
+        close_returns = pd.DataFrame(
+            {
+                "A": signs * 0.0098,
+                "B": -signs * 0.0098,
+            },
+            index=index,
+        )
+        mandate = build_portfolio_mandate(None, ["A", "B"])
+        pretrade = pd.Series({"A": 0.5, "B": -0.5})
+        proposed = pretrade * 0.95
+
+        current, evidence = execute_risk_compliant_book(
+            pretrade,
+            proposed,
+            close_returns,
+            index[-1],
+            mandate=mandate,
+        )
+
+        self.assertTrue(evidence["risk_rebalance_override"])
+        self.assertFalse(evidence["ordinary_rebalance"])
+        self.assertTrue(evidence["rebalanced"])
+        self.assertEqual(evidence["execution_reason"], "risk_ceiling_override")
+        self.assertEqual(evidence["status"], "risk_repaired")
+        self.assertGreater(
+            evidence["pretrade_forecast_annualized"],
+            evidence["annualized_volatility_ceiling"],
+        )
+        self.assertLessEqual(
+            evidence["executed_forecast_annualized"],
+            evidence["annualized_volatility_ceiling"] + 1e-12,
+        )
+        expected_scale = (
+            evidence["annualized_volatility_ceiling"]
+            / evidence["pretrade_forecast_annualized"]
+        )
+        self.assertAlmostEqual(
+            evidence["risk_repair_scale"],
+            expected_scale,
+        )
+        pd.testing.assert_series_equal(
+            current,
+            pretrade * expected_scale,
+        )
+
+        future = pd.DataFrame(
+            {"A": [0.9, -0.8], "B": [-0.9, 0.8]},
+            index=pd.bdate_range(index[-1] + pd.Timedelta(days=1), periods=2),
+        )
+        extended = pd.concat([close_returns, future])
+        repeated, repeated_evidence = execute_risk_compliant_book(
+            pretrade,
+            proposed,
+            extended,
+            index[-1],
+            mandate=mandate,
+        )
+        pd.testing.assert_series_equal(current, repeated)
+        self.assertEqual(evidence, repeated_evidence)
+
     def test_constructed_targets_obey_gross_net_and_asset_caps(self) -> None:
         index = pd.bdate_range("2026-01-01", periods=50)
         assets = list("ABCDEF")
@@ -376,6 +443,27 @@ class PortfolioAccountingTests(unittest.TestCase):
             governed_metrics[
                 "maximum_pre_governor_annualized_volatility"
             ],
+        )
+
+        volumes = pd.DataFrame(
+            1_000_000.0,
+            index=index,
+            columns=assets,
+        )
+        simulation = simulate_targets(
+            governed.targets,
+            closes,
+            volumes,
+            mandate=mandate,
+        )
+        compliance = execution_risk_metrics(simulation, index[:-1])
+        self.assertEqual(compliance["executed_breach_dates"], 0)
+        self.assertLessEqual(
+            compliance["maximum_executed_forecast_annualized"],
+            mandate["construction"]["riskPolicy"][
+                "annualizedVolatilityCeiling"
+            ]
+            + 1e-12,
         )
 
     def test_decision_ledger_reconciles_execution_and_attribution(self) -> None:

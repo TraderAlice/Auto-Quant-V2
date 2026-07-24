@@ -6,6 +6,7 @@ Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]], [[docs/CLI]],
 [[docs/design/research-intake-and-dataset-snapshots]],
 [[docs/design/portfolio-construction-lab]],
 [[docs/design/signal-policy-and-attribution]],
+[[docs/design/executed-book-risk-compliance]],
 [[docs/design/rl-factor-policy-lab]], and
 [[docs/design/program-research-dossiers]].
 
@@ -71,8 +72,9 @@ cannot become positions or implicit hedges without caller intent.
 ## Mechanical construction
 
 All families share the same causal percentile, hysteresis, conviction,
-inverse-volatility strength, per-asset cap, one-sided covariance risk
-governor, drift, no-trade band, and next-bar accounting.
+inverse-volatility strength, per-asset cap, one-sided covariance target risk
+governor, drift, no-trade band, final executed-book risk compliance, and
+next-bar accounting.
 
 Directional families modify only permitted position state and budget:
 
@@ -102,6 +104,12 @@ those sleeves; it cannot:
 - substitute a different benchmark;
 - learn around a failed mandate constraint.
 
+After RL selects a sleeve, the common accounting path drifts the prior book,
+applies the ordinary no-trade decision, and then rechecks the actual chosen
+book. A minimum proportional repair may override no-trade only to meet the
+same ceiling. Portfolio and RL therefore make identical final-book decisions
+for identical inputs.
+
 The RL Study separately depends on both `factors/**` and the mandate. Program
 and Dossier compatibility compare the Factor subset of the dependency closure
 to the Factor lane source, while separately requiring Portfolio and RL
@@ -121,6 +129,8 @@ Core projections expose:
 - constraint errors for gross, net rule, opposite-sign exposure,
   context-only exposure, and maximum weight;
 - current gross, net, and unused cash budget;
+- final-book forecast coverage, pretrade breaches, risk-only rebalance
+  overrides, executed breaches, and current execution reason;
 - the exact fixed dependency hash.
 
 CLI, Studio, lane Reports, and Project Dossiers consume those verified
@@ -149,6 +159,8 @@ inventory.
 8. Every surface discloses that weights are historical research evidence with
    no trading authority.
 9. Historical implicit-neutral evidence remains loadable and labelled legacy.
+10. Risk compliance has priority over the no-trade band and cannot increase
+    exposure.
 
 ## Known limits
 

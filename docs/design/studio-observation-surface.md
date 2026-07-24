@@ -8,6 +8,7 @@ Related: [[docs/ARCHITECTURE]], [[docs/CLI]], [[docs/PROJECT_FORMAT]],
 [[docs/design/research-intake-and-dataset-snapshots]],
 [[docs/design/request-bound-portfolio-mandates]],
 [[docs/design/portfolio-risk-governor]],
+[[docs/design/executed-book-risk-compliance]],
 [[docs/design/portfolio-liquidity-capacity]], and
 [[docs/design/quant-research-lifecycle]].
 
@@ -167,7 +168,10 @@ The Portfolio and RL explorers disclose the same fixed mandate. Context-only
 assets are visibly distinct and may never appear as current positions. The
 Portfolio explorer also shows the annualized ceiling, validation activation
 rate, current governor status/scale, pre/post forecast, and raw-to-governed
-target transition. It also shows the validation 1% capacity p10, trade-date
+target transition. Separately, Portfolio and governed-RL explorers expose the
+final post-drift book's risk-forecast coverage, pretrade breaches, risk-only
+rebalance overrides, executed breaches, current ceiling, and execution reason.
+The Portfolio explorer also shows the validation 1% capacity p10, trade-date
 coverage, and latest rebalance binding asset from the verified causal
 dollar-volume ledger. These are historical research weights and diagnostics,
 not live account risk, impact, or fill evidence.
@@ -197,6 +201,8 @@ to a single-lane Report.
     comes from the same Core-projected snapshot.
 11. Evidence lane and Inspector Session stay aligned; browser selection cannot
     combine one lane's explorer with another lane's Report.
+12. Studio projects executed-book risk only from Core-reconciled immutable
+    rows and never treats a risk override as trading permission.
 
 ## Known gaps
 

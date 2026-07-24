@@ -17,6 +17,8 @@ try:
         Simulation,
         construct_signal_policy,
         drift_weights,
+        execution_risk_metrics,
+        execute_risk_compliant_book,
         implementation_metrics,
         performance_metrics,
     )
@@ -28,6 +30,8 @@ except ModuleNotFoundError:  # Package-level deterministic primitive tests.
         Simulation,
         construct_signal_policy,
         drift_weights,
+        execution_risk_metrics,
+        execute_risk_compliant_book,
         implementation_metrics,
         performance_metrics,
     )
@@ -171,7 +175,8 @@ def state_with_previous_action(
 def _account_step(
     previous_weights: pd.Series,
     proposed: pd.Series,
-    close_return: pd.Series,
+    close_returns: pd.DataFrame,
+    timestamp: object,
     forward_return: pd.Series,
     close: pd.Series,
     volume: pd.Series,
@@ -182,12 +187,17 @@ def _account_step(
     pretrade = (
         pd.Series(0.0, index=proposed.index, dtype=float)
         if first
-        else drift_weights(previous_weights, close_return)
+        else drift_weights(previous_weights, close_returns.loc[timestamp])
     )
-    proposed_delta = proposed - pretrade
-    proposed_one_way = 0.5 * float(proposed_delta.abs().sum())
-    rebalanced = proposed_one_way + 1e-12 >= NO_TRADE_ONE_WAY
-    current = proposed if rebalanced else pretrade
+    current, execution_risk = execute_risk_compliant_book(
+        pretrade,
+        proposed,
+        close_returns,
+        timestamp,
+        mandate=mandate,
+        no_trade_one_way=NO_TRADE_ONE_WAY,
+    )
+    rebalanced = bool(execution_risk["rebalanced"])
     trade = current - pretrade
     traded_notional = float(trade.abs().sum())
     one_way_turnover = 0.5 * traded_notional
@@ -218,7 +228,7 @@ def _account_step(
     participation = (
         trade.abs() * REFERENCE_NAV / dollar_volume.replace(0.0, np.nan)
     ).fillna(0.0)
-    row: dict[str, float | bool] = {
+    row: dict[str, object] = {
         "gross_return": gross_return,
         "net_return": net_return,
         "benchmark_return": benchmark_return,
@@ -232,13 +242,51 @@ def _account_step(
         "max_abs_weight": float(current.abs().max()),
         "concentration_hhi": float(current.pow(2).sum()),
         "rebalanced": rebalanced,
+        "execution_reason": str(execution_risk["execution_reason"]),
+        "execution_risk_status": str(execution_risk["status"]),
+        "execution_risk_forecast_available": bool(
+            execution_risk["forecast_available"]
+        ),
+        "execution_risk_observations": int(
+            execution_risk["observations"]
+        ),
+        "pretrade_risk_forecast_annualized": float(
+            execution_risk["pretrade_forecast_annualized"]
+        ),
+        "proposed_risk_forecast_pre_annualized": float(
+            execution_risk["proposed_forecast_pre_annualized"]
+        ),
+        "proposed_risk_forecast_post_annualized": float(
+            execution_risk["proposed_forecast_post_annualized"]
+        ),
+        "executed_risk_forecast_annualized": float(
+            execution_risk["executed_forecast_annualized"]
+        ),
+        "execution_risk_ceiling_annualized": float(
+            execution_risk["annualized_volatility_ceiling"]
+        ),
+        "proposed_runtime_risk_scale": float(
+            execution_risk["proposed_runtime_scale"]
+        ),
+        "execution_risk_repair_scale": float(
+            execution_risk["risk_repair_scale"]
+        ),
+        "proposed_one_way_turnover": float(
+            execution_risk["proposed_one_way"]
+        ),
+        "ordinary_rebalance": bool(
+            execution_risk["ordinary_rebalance"]
+        ),
+        "risk_rebalance_override": bool(
+            execution_risk["risk_rebalance_override"]
+        ),
         "max_participation": float(participation.max()),
         "mean_participation": float(participation.mean()),
     }
     numeric = [
         float(value)
         for value in row.values()
-        if not isinstance(value, bool)
+        if isinstance(value, (int, float)) and not isinstance(value, bool)
     ]
     if not all(math.isfinite(value) for value in numeric):
         raise PolicyFailure(
@@ -267,7 +315,7 @@ def rollout_policy(
     forward_returns = closes.shift(-1) / closes - 1.0
     previous_weights = pd.Series(0.0, index=closes.columns, dtype=float)
     previous_action = "balanced"
-    daily_rows: list[dict[str, float | bool]] = []
+    daily_rows: list[dict[str, object]] = []
     weight_rows: list[pd.Series] = []
     trade_rows: list[pd.Series] = []
     participation_rows: list[pd.Series] = []
@@ -286,7 +334,8 @@ def rollout_policy(
         current, trade, participation, row = _account_step(
             previous_weights,
             action_targets[action].loc[timestamp],
-            close_returns.loc[timestamp].fillna(0.0),
+            close_returns,
+            timestamp,
             forward_returns.loc[timestamp].fillna(0.0),
             closes.loc[timestamp],
             volumes.loc[timestamp],
@@ -354,7 +403,8 @@ def train_q_policy(
             current, _, _, row = _account_step(
                 previous_weights,
                 action_targets[action].loc[timestamp],
-                close_returns.loc[timestamp].fillna(0.0),
+                close_returns,
+                timestamp,
                 forward_returns.loc[timestamp].fillna(0.0),
                 closes.loc[timestamp],
                 volumes.loc[timestamp],
@@ -512,6 +562,10 @@ def rollout_metrics(rollout: Rollout) -> dict[str, object]:
             rollout.simulation.daily["benchmark_return"],
         ),
         "implementation": implementation_metrics(
+            rollout.simulation,
+            index,
+        ),
+        "execution_risk": execution_risk_metrics(
             rollout.simulation,
             index,
         ),

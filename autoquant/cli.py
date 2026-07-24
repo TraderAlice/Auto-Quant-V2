@@ -1514,6 +1514,24 @@ def _run_portfolio(args: argparse.Namespace) -> CommandResult:
             f"{validation_capacity['tradeDateCoverage']} · contextual only\n"
         )
     )
+    executed_risk = diagnostics["executedBookRisk"]
+    validation_execution_risk = (
+        executed_risk["validation"]
+        if executed_risk["available"]
+        else None
+    )
+    execution_risk_summary = (
+        "Executed-book risk: legacy evidence unavailable\n"
+        if validation_execution_risk is None
+        else (
+            "Validation executed-book risk: "
+            f"{validation_execution_risk['executedBreachDates']} breaches · "
+            f"{validation_execution_risk['riskRebalanceOverrideDates']} "
+            "risk overrides · coverage "
+            f"{validation_execution_risk['forecastCoverage']} · "
+            "contextual only\n"
+        )
+    )
     return CommandResult(
         "run.portfolio",
         diagnostics,
@@ -1533,6 +1551,11 @@ def _run_portfolio(args: argparse.Namespace) -> CommandResult:
             f"{book['riskForecastPreAnnualized']} → "
             f"{book['riskForecastPostAnnualized']} · ceiling "
             f"{book['riskVolatilityCeilingAnnualized']}\n"
+            f"Executed book: {book['executionRiskStatus']} · annualized "
+            f"forecast {book['executedRiskForecastAnnualized']} · ceiling "
+            f"{book['executionRiskCeilingAnnualized']} · "
+            f"{book['executionReason']}\n"
+            f"{execution_risk_summary}"
             f"{capacity_summary}"
         ),
         project_context(project),
@@ -1559,6 +1582,22 @@ def _run_rl(args: argparse.Namespace) -> CommandResult:
         point_limit=args.points,
     )
     summary = diagnostics["summary"]
+    execution_risk = diagnostics["executedBookRisk"]
+    validation_execution_risk = (
+        execution_risk["validation"]
+        if execution_risk["available"]
+        else None
+    )
+    execution_risk_line = (
+        "Executed-book risk: legacy evidence unavailable\n"
+        if validation_execution_risk is None
+        else (
+            "Validation executed-book risk: "
+            f"{validation_execution_risk['executedBreachDates']} breaches · "
+            f"{validation_execution_risk['riskRebalanceOverrideDates']} "
+            "risk overrides · contextual only\n"
+        )
+    )
     return CommandResult(
         "run.rl",
         diagnostics,
@@ -1573,6 +1612,7 @@ def _run_rl(args: argparse.Namespace) -> CommandResult:
             f"{summary['failureRate']}\n"
             f"Action path: {diagnostics['actionPath']['totalRows']} rows → "
             f"{diagnostics['actionPath']['sampledRows']} points\n"
+            f"{execution_risk_line}"
             "Test evidence is visible audit only; actions have no trading authority.\n"
         ),
         project_context(project),
