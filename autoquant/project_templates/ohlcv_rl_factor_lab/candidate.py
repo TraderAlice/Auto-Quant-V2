@@ -17,8 +17,9 @@ def encode_state(state: dict[str, float]) -> list[float]:
 
     This intentionally weak baseline can learn one globally preferred factor
     mixture and switching persistence, but cannot adapt to the observable
-    volume regime. Research candidates may add causal state fields and bounded
-    interactions while preserving this pure row-level API.
+    volume regime or execution context. Research candidates may add causal
+    market fields, pretrade-book summaries, per-sleeve target distances, and
+    bounded interactions while preserving this pure row-level API.
     """
 
     return [

@@ -1678,6 +1678,17 @@ def _run_rl(args: argparse.Namespace) -> CommandResult:
             "missed · contextual only\n"
         )
     )
+    contextual = diagnostics["contextualBaselines"]
+    contextual_line = (
+        "Contextual challenger: legacy fixed-path labels\n"
+        if not contextual
+        or not all(item["available"] for item in contextual)
+        else (
+            "Contextual challenger: same-pretrade train-only labels · "
+            f"{contextual[0]['iterations']} fixed iterations · "
+            f"{len(contextual)} folds\n"
+        )
+    )
     return CommandResult(
         "run.rl",
         diagnostics,
@@ -1693,6 +1704,7 @@ def _run_rl(args: argparse.Namespace) -> CommandResult:
             f"Action path: {diagnostics['actionPath']['totalRows']} rows → "
             f"{diagnostics['actionPath']['sampledRows']} points\n"
             f"{policy_behavior_line}"
+            f"{contextual_line}"
             f"{factor_opportunity_line}"
             f"{execution_risk_line}"
             "Test evidence is visible audit only; actions have no trading authority.\n"

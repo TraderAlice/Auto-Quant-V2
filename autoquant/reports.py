@@ -850,6 +850,32 @@ def _render_markdown(report: dict[str, Any]) -> str:
                 "",
             ]
         )
+    rl_configuration = leader_run["metrics"].get("configuration")
+    if (
+        isinstance(rl_configuration, dict)
+        and rl_configuration.get("contextualRidgeMethod")
+        == "iterative-same-pretrade-contextual-ridge-v1"
+    ):
+        lines.extend(
+            [
+                "## RL simple-policy challenger",
+                "",
+                "- Contextual baseline: "
+                "`iterative-same-pretrade-contextual-ridge-v1`",
+                "- Training scope / anchor / fixed iterations: "
+                f"`{rl_configuration['contextualRidgeLabelScope']}` / "
+                f"`{rl_configuration['contextualRidgeAnchorAction']}` / "
+                f"`{rl_configuration['contextualRidgeIterations']}`",
+                "- Every action label at one train timestamp starts from the "
+                "same behavior-path pretrade book. The fitted policy is "
+                "rerolled on train dates before the next fixed iteration and "
+                "is frozen before validation.",
+                "- This removes fixed-sleeve path confounding but remains a "
+                "simple one-step comparator, not an ex-post oracle or trading "
+                "policy.",
+                "",
+            ]
+        )
     factor_opportunity = leader_run["metrics"].get("factor_opportunity")
     validation_opportunity = (
         factor_opportunity.get("validation")

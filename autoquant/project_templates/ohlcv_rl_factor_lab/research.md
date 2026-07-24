@@ -4,8 +4,8 @@
 
 Research causal state representations for a fixed factor-mixture policy and
 test whether adaptation survives chronological folds, multiple seeds,
-stateful signal-sleeve triggers, portfolio constraints, drift, costs, risk,
-and simple non-RL baselines.
+stateful signal-sleeve triggers, the actual drifted pretrade book, portfolio
+constraints, costs, risk, and path-consistent simple baselines.
 
 ## Workflow
 
@@ -18,6 +18,9 @@ aq session start . --study ohlcv-rl-factor-policy --json
 Work only inside the returned Session worktree and edit `models/**`. State one
 falsifiable representation hypothesis, evaluate it, and inspect seed/fold,
 baseline, implementation, and model artifacts before accepting a KEEP.
+Use the pretrade-book summaries and per-sleeve target distances when a
+hypothesis concerns switching cost, stale holdings, or no-trade behavior;
+`previous_action` alone does not identify the current portfolio.
 `factors/**` is a fixed content-locked input to this Study; start a fresh RL
 Session after promoting different factor bytes.
 `strategies/portfolio-mandate.json` is the shared fixed position contract for

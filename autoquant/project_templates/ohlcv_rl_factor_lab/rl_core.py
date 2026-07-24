@@ -63,6 +63,7 @@ EPSILON_END = 0.02
 RISK_AVERSION = 0.10
 FEATURE_ABS_LIMIT = 20.0
 RIDGE_PENALTY = 1e-3
+CONTEXTUAL_RIDGE_ITERATIONS = 4
 MIN_SPLIT_OBSERVATIONS = 24
 BASE_STATE_COLUMNS = (
     "volume_regime",
@@ -72,6 +73,27 @@ BASE_STATE_COLUMNS = (
     "activity_trailing_reward_10",
     "intraday_trailing_reward_10",
     "reversal_trailing_reward_10",
+)
+PRETRADE_STATE_COLUMNS = (
+    "pretrade_gross_exposure",
+    "pretrade_net_exposure",
+    "pretrade_cash_weight",
+    "pretrade_max_abs_weight",
+    "pretrade_concentration_hhi",
+)
+ACTION_DISTANCE_COLUMNS = tuple(
+    f"{action}_target_distance"
+    for action in ACTIONS
+)
+PREVIOUS_ACTION_COLUMNS = tuple(
+    f"previous_{action}"
+    for action in ACTIONS
+)
+POLICY_STATE_COLUMNS = (
+    BASE_STATE_COLUMNS
+    + PRETRADE_STATE_COLUMNS
+    + ACTION_DISTANCE_COLUMNS
+    + PREVIOUS_ACTION_COLUMNS
 )
 
 
@@ -86,6 +108,7 @@ class Rollout:
     simulation: Simulation
     actions: pd.Series
     rewards: pd.Series
+    states: pd.DataFrame
 
 
 @dataclass(frozen=True)
@@ -176,6 +199,90 @@ def state_with_previous_action(
     return result
 
 
+def build_policy_state(
+    raw_state: pd.Series,
+    previous_action: str,
+    pretrade_weights: pd.Series,
+    action_targets: dict[str, pd.Series],
+) -> dict[str, float]:
+    """Build one causal market-and-execution state at the decision close."""
+
+    if set(action_targets) != set(ACTIONS):
+        raise PolicyFailure(
+            "policy.state-actions",
+            "Policy state action targets differ from the fixed action set",
+        )
+    if (
+        pretrade_weights.index.has_duplicates
+        or any(
+            not target.index.equals(pretrade_weights.index)
+            for target in action_targets.values()
+        )
+    ):
+        raise PolicyFailure(
+            "policy.state-assets",
+            "Policy state books do not share one ordered asset universe",
+        )
+    result = state_with_previous_action(raw_state, previous_action)
+    result.update(
+        {
+            "pretrade_gross_exposure": float(
+                pretrade_weights.abs().sum()
+            ),
+            "pretrade_net_exposure": float(pretrade_weights.sum()),
+            "pretrade_cash_weight": (
+                1.0 - float(pretrade_weights.abs().sum())
+            ),
+            "pretrade_max_abs_weight": float(
+                pretrade_weights.abs().max()
+            ),
+            "pretrade_concentration_hhi": float(
+                pretrade_weights.pow(2).sum()
+            ),
+        }
+    )
+    result.update(
+        {
+            f"{action}_target_distance": float(
+                0.5
+                * (
+                    action_targets[action] - pretrade_weights
+                ).abs().sum()
+            )
+            for action in ACTIONS
+        }
+    )
+    if set(result) != set(POLICY_STATE_COLUMNS):
+        raise PolicyFailure(
+            "policy.state-fields",
+            "Policy state fields differ from the fixed causal contract",
+        )
+    if not all(math.isfinite(value) for value in result.values()):
+        raise PolicyFailure(
+            "policy.state",
+            "Causal policy state contains non-finite values",
+        )
+    return result
+
+
+def _pretrade_weights(
+    previous_weights: pd.Series,
+    close_returns: pd.DataFrame,
+    timestamp: object,
+    *,
+    first: bool,
+) -> pd.Series:
+    return (
+        pd.Series(
+            0.0,
+            index=previous_weights.index,
+            dtype=float,
+        )
+        if first
+        else drift_weights(previous_weights, close_returns.loc[timestamp])
+    )
+
+
 def _account_step(
     previous_weights: pd.Series,
     proposed: pd.Series,
@@ -189,10 +296,11 @@ def _account_step(
     mandate: dict[str, object] | None = None,
     risk_covariance_cache: RiskCovarianceCache | None = None,
 ) -> tuple[pd.Series, pd.Series, pd.Series, dict[str, float | bool]]:
-    pretrade = (
-        pd.Series(0.0, index=proposed.index, dtype=float)
-        if first
-        else drift_weights(previous_weights, close_returns.loc[timestamp])
+    pretrade = _pretrade_weights(
+        previous_weights,
+        close_returns,
+        timestamp,
+        first=first,
     )
     current, execution_risk = execute_risk_compliant_book(
         pretrade,
@@ -327,10 +435,23 @@ def rollout_policy(
     trade_rows: list[pd.Series] = []
     participation_rows: list[pd.Series] = []
     actions: list[str] = []
+    state_rows: list[dict[str, float]] = []
     for position, timestamp in enumerate(index):
-        state = state_with_previous_action(
+        first = position == 0
+        pretrade = _pretrade_weights(
+            previous_weights,
+            close_returns,
+            timestamp,
+            first=first,
+        )
+        state = build_policy_state(
             raw_states.loc[timestamp],
             previous_action,
+            pretrade,
+            {
+                action: action_targets[action].loc[timestamp]
+                for action in ACTIONS
+            },
         )
         action = selector(state)
         if action not in ACTIONS:
@@ -346,7 +467,7 @@ def rollout_policy(
             forward_returns.loc[timestamp].fillna(0.0),
             closes.loc[timestamp],
             volumes.loc[timestamp],
-            first=position == 0,
+            first=first,
             mandate=mandate,
             risk_covariance_cache=risk_covariance_cache,
         )
@@ -355,6 +476,7 @@ def rollout_policy(
         trade_rows.append(trade)
         participation_rows.append(participation)
         actions.append(action)
+        state_rows.append(state)
         previous_weights = current
         previous_action = action
     simulation = Simulation(
@@ -367,6 +489,11 @@ def rollout_policy(
         simulation=simulation,
         actions=pd.Series(actions, index=index, name="action"),
         rewards=simulation.daily["reward"].copy(),
+        states=pd.DataFrame(
+            state_rows,
+            index=index,
+            columns=list(POLICY_STATE_COLUMNS),
+        ),
     )
 
 
@@ -590,9 +717,21 @@ def train_q_policy(
         total_reward = 0.0
         action_counts = {action: 0 for action in ACTIONS}
         for position, timestamp in enumerate(train_index):
-            state = state_with_previous_action(
+            first = position == 0
+            pretrade = _pretrade_weights(
+                previous_weights,
+                close_returns,
+                timestamp,
+                first=first,
+            )
+            state = build_policy_state(
                 raw_states.loc[timestamp],
                 previous_action,
+                pretrade,
+                {
+                    action: action_targets[action].loc[timestamp]
+                    for action in ACTIONS
+                },
             )
             encoded = encoder(state)
             q_values = weights @ encoded
@@ -609,7 +748,7 @@ def train_q_policy(
                 forward_returns.loc[timestamp].fillna(0.0),
                 closes.loc[timestamp],
                 volumes.loc[timestamp],
-                first=position == 0,
+                first=first,
                 mandate=mandate,
                 risk_covariance_cache=risk_covariance_cache,
             )
@@ -619,9 +758,22 @@ def train_q_policy(
                 target = reward
             else:
                 next_timestamp = train_index[position + 1]
-                next_state = state_with_previous_action(
+                next_pretrade = _pretrade_weights(
+                    current,
+                    close_returns,
+                    next_timestamp,
+                    first=False,
+                )
+                next_state = build_policy_state(
                     raw_states.loc[next_timestamp],
                     action,
+                    next_pretrade,
+                    {
+                        candidate: action_targets[candidate].loc[
+                            next_timestamp
+                        ]
+                        for candidate in ACTIONS
+                    },
                 )
                 next_encoded = encoder(next_state)
                 target = reward + DISCOUNT * float(
@@ -676,36 +828,136 @@ def train_contextual_ridge(
     mandate: dict[str, object] | None = None,
     risk_covariance_cache: RiskCovarianceCache | None = None,
 ) -> dict[str, object]:
-    raw = raw_states.loc[train_index, list(BASE_STATE_COLUMNS)]
-    mean = raw.mean()
-    scale = raw.std(ddof=0).replace(0.0, 1.0)
-    normalized = (raw - mean) / scale
-    design = np.column_stack(
-        [np.ones(len(normalized)), normalized.to_numpy(dtype=float)]
+    """Fit a deterministic train-only same-pretrade contextual comparator."""
+
+    cache = (
+        risk_covariance_cache
+        if risk_covariance_cache is not None
+        else build_risk_covariance_cache(closes, mandate=mandate)
     )
-    coefficients: list[list[float]] = []
-    gram = design.T @ design + RIDGE_PENALTY * np.eye(design.shape[1])
-    for action in ACTIONS:
-        rollout = rollout_policy(
-            fixed_selector(action),
+    selector = fixed_selector("balanced")
+    history: list[dict[str, object]] = []
+    model: dict[str, object] | None = None
+    for iteration in range(CONTEXTUAL_RIDGE_ITERATIONS):
+        behavior = rollout_policy(
+            selector,
             raw_states,
             action_targets,
             closes,
             volumes,
             train_index,
             mandate=mandate,
-            risk_covariance_cache=risk_covariance_cache,
+            risk_covariance_cache=cache,
         )
-        target = rollout.rewards.to_numpy(dtype=float)
-        coefficients.append(
-            np.linalg.solve(gram, design.T @ target).tolist()
+        opportunities = one_step_action_opportunities(
+            behavior,
+            action_targets,
+            closes,
+            volumes,
+            train_index,
+            mandate=mandate,
+            risk_covariance_cache=cache,
         )
-    return {
-        "columns": list(BASE_STATE_COLUMNS),
-        "mean": mean.to_dict(),
-        "scale": scale.to_dict(),
-        "coefficients": coefficients,
-    }
+        raw = behavior.states.loc[
+            train_index,
+            list(POLICY_STATE_COLUMNS),
+        ]
+        mean = raw.mean()
+        scale = raw.std(ddof=0).replace(0.0, 1.0)
+        normalized = (raw - mean) / scale
+        design = np.column_stack(
+            [
+                np.ones(len(normalized)),
+                normalized.to_numpy(dtype=float),
+            ]
+        )
+        gram = (
+            design.T @ design
+            + RIDGE_PENALTY * np.eye(design.shape[1])
+        )
+        coefficients: list[list[float]] = []
+        for action in ACTIONS:
+            target = np.asarray(
+                [
+                    row["actions"][action]["reward"]
+                    for row in opportunities
+                ],
+                dtype=float,
+            )
+            coefficients.append(
+                np.linalg.solve(gram, design.T @ target).tolist()
+            )
+        model = {
+            "method": (
+                "iterative-same-pretrade-contextual-ridge-v1"
+            ),
+            "labelScope": "train-only",
+            "anchorAction": "balanced",
+            "iterations": CONTEXTUAL_RIDGE_ITERATIONS,
+            "columns": list(POLICY_STATE_COLUMNS),
+            "mean": mean.to_dict(),
+            "scale": scale.to_dict(),
+            "coefficients": coefficients,
+        }
+        selector = ridge_selector(model)
+        improved = rollout_policy(
+            selector,
+            raw_states,
+            action_targets,
+            closes,
+            volumes,
+            train_index,
+            mandate=mandate,
+            risk_covariance_cache=cache,
+        )
+        history.append(
+            {
+                "iteration": iteration + 1,
+                "trainingRows": len(opportunities),
+                "sharedPretradeActionEvaluations": (
+                    len(opportunities) * len(ACTIONS)
+                ),
+                "behaviorActionFrequency": {
+                    action: float(
+                        (behavior.actions == action).mean()
+                    )
+                    for action in ACTIONS
+                },
+                "improvedActionFrequency": {
+                    action: float(
+                        (improved.actions == action).mean()
+                    )
+                    for action in ACTIONS
+                },
+                "improvedTrainingNetSharpe": float(
+                    rollout_metrics(improved)["net"]["sharpe"]
+                ),
+                "behaviorOracleHitRate": float(
+                    np.mean(
+                        [
+                            row["selectedAction"]
+                            == row["oracleAction"]
+                            for row in opportunities
+                        ]
+                    )
+                ),
+                "behaviorMeanRealizedRegret": float(
+                    np.mean(
+                        [
+                            row["realizedRegret"]
+                            for row in opportunities
+                        ]
+                    )
+                ),
+            }
+        )
+    if model is None:
+        raise PolicyFailure(
+            "policy.ridge",
+            "Contextual ridge did not execute its fixed iterations",
+        )
+    model["history"] = history
+    return model
 
 
 def ridge_selector(model: dict[str, object]) -> Callable[[dict[str, float]], str]:

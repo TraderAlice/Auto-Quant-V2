@@ -109,13 +109,19 @@ trading authority   = none
 
 Opportunity evidence:
 
-- cannot enter training, state, reward, Q values, baselines, or policy action;
+- from validation/test cannot enter training, state, reward, Q values,
+  baselines, or policy action;
 - cannot change validation objective, KEEP/REVERT, Session dominance, or
   report disposition;
 - cannot recommend deploying the oracle or claim the oracle return was
   attainable without hindsight;
 - keeps visible-diagnostic test separate and retains the external-holdout rule;
 - remains target-weight research with no Broker, UTA, or order authority.
+
+The fixed contextual baseline may use the same same-pretrade execution
+primitive on the fold's train dates. Those train-only labels are regenerated
+from its declared behavior path and are not the immutable validation/test
+opportunity artifact described here.
 
 ## Public surfaces
 

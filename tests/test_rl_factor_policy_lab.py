@@ -19,10 +19,14 @@ from autoquant.project_templates.ohlcv_rl_factor_lab.rl_core import (
     ACTIONS,
     BASE_STATE_COLUMNS,
     EXPERTS,
+    POLICY_STATE_COLUMNS,
     build_action_targets,
+    build_policy_state,
     fixed_selector,
     one_step_action_opportunities,
+    ridge_selector,
     rollout_policy,
+    train_contextual_ridge,
 )
 from autoquant.research import run_campaign
 from autoquant.runs import execute_study
@@ -106,6 +110,126 @@ def make_rl_lab(directory: str | Path):
 
 
 class RlEnvironmentTests(unittest.TestCase):
+    def test_policy_state_exposes_the_actual_pretrade_book_and_target_distance(
+        self,
+    ) -> None:
+        assets = pd.Index(["A", "B"])
+        raw = pd.Series(0.0, index=list(BASE_STATE_COLUMNS))
+        targets = {
+            "candidate": pd.Series([0.5, -0.5], index=assets),
+            "activity": pd.Series([-0.5, 0.5], index=assets),
+            "intraday": pd.Series([0.25, -0.25], index=assets),
+            "reversal": pd.Series([-0.25, 0.25], index=assets),
+            "balanced": pd.Series([0.0, 0.0], index=assets),
+        }
+        flat = build_policy_state(
+            raw,
+            "balanced",
+            pd.Series(0.0, index=assets),
+            targets,
+        )
+        carried = build_policy_state(
+            raw,
+            "candidate",
+            targets["candidate"],
+            targets,
+        )
+
+        self.assertEqual(set(flat), set(POLICY_STATE_COLUMNS))
+        self.assertEqual(flat["pretrade_gross_exposure"], 0.0)
+        self.assertEqual(flat["candidate_target_distance"], 0.5)
+        self.assertEqual(carried["pretrade_gross_exposure"], 1.0)
+        self.assertEqual(carried["pretrade_net_exposure"], 0.0)
+        self.assertEqual(carried["candidate_target_distance"], 0.0)
+        self.assertEqual(carried["activity_target_distance"], 1.0)
+        self.assertEqual(carried["previous_candidate"], 1.0)
+
+    def test_contextual_ridge_uses_fixed_train_only_same_pretrade_iterations(
+        self,
+    ) -> None:
+        dates = pd.bdate_range("2026-01-01", periods=32)
+        assets = ["A", "B"]
+        time = np.arange(len(dates), dtype=float)
+        closes = pd.DataFrame(
+            {
+                "A": 100.0 * np.exp(np.cumsum(0.002 + 0.01 * np.sin(time))),
+                "B": 100.0 * np.exp(np.cumsum(0.001 - 0.01 * np.sin(time))),
+            },
+            index=dates,
+        )
+        volumes = pd.DataFrame(
+            1_000_000.0,
+            index=dates,
+            columns=assets,
+        )
+        patterns = {
+            "candidate": [0.5, -0.5],
+            "activity": [-0.5, 0.5],
+            "intraday": [0.25, -0.25],
+            "reversal": [-0.25, 0.25],
+            "balanced": [0.0, 0.0],
+        }
+        action_targets = {
+            action: pd.DataFrame(
+                [weights] * len(dates),
+                index=dates,
+                columns=assets,
+            )
+            for action, weights in patterns.items()
+        }
+        raw_states = pd.DataFrame(
+            0.0,
+            index=dates,
+            columns=list(BASE_STATE_COLUMNS),
+        )
+        train_index = dates[:28]
+
+        first = train_contextual_ridge(
+            raw_states,
+            action_targets,
+            closes,
+            volumes,
+            train_index,
+        )
+        second = train_contextual_ridge(
+            raw_states,
+            action_targets,
+            closes,
+            volumes,
+            train_index,
+        )
+
+        self.assertEqual(first, second)
+        self.assertEqual(
+            first["method"],
+            "iterative-same-pretrade-contextual-ridge-v1",
+        )
+        self.assertEqual(first["labelScope"], "train-only")
+        self.assertEqual(first["anchorAction"], "balanced")
+        self.assertEqual(first["iterations"], 4)
+        self.assertEqual(first["columns"], list(POLICY_STATE_COLUMNS))
+        self.assertEqual(len(first["history"]), 4)
+        self.assertTrue(
+            all(
+                item["trainingRows"] == len(train_index)
+                and item["sharedPretradeActionEvaluations"]
+                == len(train_index) * len(ACTIONS)
+                for item in first["history"]
+            )
+        )
+        rollout = rollout_policy(
+            ridge_selector(first),
+            raw_states,
+            action_targets,
+            closes,
+            volumes,
+            dates[-24:],
+        )
+        self.assertEqual(
+            list(rollout.states.columns),
+            list(POLICY_STATE_COLUMNS),
+        )
+
     def test_every_rl_action_inherits_the_fixed_portfolio_risk_governor(
         self,
     ) -> None:

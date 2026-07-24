@@ -29,6 +29,13 @@ Available fields are:
 - `activity_trailing_reward_10`;
 - `intraday_trailing_reward_10`;
 - `reversal_trailing_reward_10`;
+- `pretrade_gross_exposure`, `pretrade_net_exposure`,
+  `pretrade_cash_weight`, `pretrade_max_abs_weight`, and
+  `pretrade_concentration_hhi`;
+- `candidate_target_distance`, `activity_target_distance`,
+  `intraday_target_distance`, `reversal_target_distance`, and
+  `balanced_target_distance`, each measured as one-way distance from the exact
+  drifted pretrade book to that governed sleeve target;
 - `previous_candidate`, `previous_activity`, `previous_intraday`,
   `previous_reversal`, and `previous_balanced`.
 
@@ -61,8 +68,9 @@ The Judge owns:
 - linear Q-learning, 4 episodes, learning rate, discount, and exploration;
 - seeds 11, 29, and 47;
 - two expanding chronological train/validation/test folds;
-- fixed-factor, training-selected expert, equal blend, and contextual-ridge
-  baselines;
+- fixed-factor, training-selected expert, equal blend, and a deterministic
+  four-iteration contextual-ridge baseline trained only on same-pretrade
+  action rewards from the fold's train path;
 - all metrics, artifacts, and the validation-only promotion score.
 
 Candidate code cannot improve by changing any evaluation rule above.
@@ -86,8 +94,11 @@ Inspect the same-pretrade one-step opportunity ledger separately. It replays
 all five governed sleeves from the actual policy pretrade book for the same
 next bar, so selected rank/regret and candidate-versus-balanced reward are
 locally comparable after identical turnover, cost, no-trade, and risk rules.
-The ex-post local best is known only after that bar, never propagates an
-alternate path, and cannot enter training, KEEP/REVERT, or a trading decision.
+The ex-post local best is known only after that bar and never propagates an
+alternate path. Validation/test opportunity evidence cannot enter training,
+KEEP/REVERT, or a trading decision. The fixed contextual baseline separately
+uses the same execution primitive only on train dates to fit action rewards;
+its model evidence declares that scope and every fixed iteration.
 Reconcile final-book risk coverage, pretrade breaches, risk-only overrides,
 executed breaches, and execution reasons across every declared policy path;
 these are implementation context and cannot select the editable encoder.

@@ -107,6 +107,9 @@ At decision close `t`, the raw state contains:
 - causal market volume-regime level;
 - trailing market return and realized volatility;
 - trailing realized gross reward for each expert;
+- the exact drifted pretrade book's gross/net/cash, maximum weight, and
+  concentration summaries;
+- one-way distance from that pretrade book to every governed sleeve target;
 - one-hot previous action.
 
 The action selected at close `t` proposes its fixed target weights. The prior
@@ -165,6 +168,9 @@ Every fold evaluates:
 - the equal factor blend;
 - the best fixed expert selected using training dates only;
 - a deterministic contextual ridge policy trained on the same training dates.
+  It starts from the balanced train path, labels every action from the same
+  timestamp/pretrade book, rolls out the fitted policy to regenerate its
+  behavior path, and repeats for four fixed train-only iterations.
 
 RL evidence reports validation/test advantage against both the best declared
 baseline and the candidate factor by itself, plus candidate-action frequency.
@@ -239,6 +245,11 @@ failed seed.
 14. One-step opportunity rows share the actual policy pretrade book, never
     propagate alternate paths, and treat ex-post oracle reward only as a
     context-only audit upper bound.
+15. The policy state includes the actual drifted pretrade execution context;
+    Q next state is built from the executed current book, not only the action
+    name.
+16. Contextual-baseline action labels share one train-only pretrade path per
+    iteration; validation/test opportunity evidence never enters fitting.
 
 ## Change checklist
 

@@ -24,7 +24,7 @@ from judges.portfolio_core import (
 from judges.rl_core import (
     ACTIONS,
     BASE_COST_BPS,
-    BASE_STATE_COLUMNS,
+    CONTEXTUAL_RIDGE_ITERATIONS,
     DISCOUNT,
     EPISODES,
     EPSILON_END,
@@ -32,10 +32,12 @@ from judges.rl_core import (
     EXPERTS,
     FEATURE_ABS_LIMIT,
     LEARNING_RATE,
+    POLICY_STATE_COLUMNS,
     RISK_AVERSION,
     SEEDS,
     PolicyFailure,
     build_action_targets,
+    build_policy_state,
     build_raw_states,
     chronological_folds,
     fixed_selector,
@@ -44,7 +46,6 @@ from judges.rl_core import (
     ridge_selector,
     rollout_metrics,
     rollout_policy,
-    state_with_previous_action,
     train_contextual_ridge,
     train_q_policy,
 )
@@ -522,7 +523,6 @@ def _rollout_rationale_rows(
     seed: int,
     split: str,
     rollout,
-    raw_states: pd.DataFrame,
     encoder: Callable[[dict[str, float]], np.ndarray],
     feature_names: list[str],
     weights: np.ndarray,
@@ -530,10 +530,20 @@ def _rollout_rationale_rows(
     rows: list[dict[str, Any]] = []
     previous_action = "balanced"
     for timestamp in rollout.actions.index:
-        state = state_with_previous_action(
-            raw_states.loc[timestamp],
-            previous_action,
-        )
+        state = {
+            field: float(rollout.states.loc[timestamp, field])
+            for field in POLICY_STATE_COLUMNS
+        }
+        if not math.isclose(
+            state[f"previous_{previous_action}"],
+            1.0,
+            rel_tol=0.0,
+            abs_tol=1e-12,
+        ):
+            raise JudgeFailure(
+                "policy.rationale-state",
+                "Rollout state previous action does not reconcile",
+            )
         encoded = encoder(state)
         q_values = weights @ encoded
         ranked = sorted(
@@ -578,10 +588,7 @@ def _rollout_rationale_rows(
             "runnerUpAction": runner_up_action,
             "rawState": {
                 field: float(state[field])
-                for field in (
-                    list(BASE_STATE_COLUMNS)
-                    + [f"previous_{action}" for action in ACTIONS]
-                )
+                for field in POLICY_STATE_COLUMNS
             },
             "encodedFeatures": {
                 name: float(encoded[index])
@@ -1282,12 +1289,24 @@ def _evaluate() -> tuple[
     sample_positions = sorted(
         {0, len(active_index) // 2, len(active_index) - 1}
     )
+    zero_pretrade = pd.Series(
+        0.0,
+        index=closes.columns,
+        dtype=float,
+    )
     for position in sample_positions:
         for previous_action in ACTIONS:
             encoder(
-                state_with_previous_action(
+                build_policy_state(
                     raw_states.loc[active_index[position]],
                     previous_action,
+                    zero_pretrade,
+                    {
+                        action: action_targets[action].loc[
+                            active_index[position]
+                        ]
+                        for action in ACTIONS
+                    },
                 )
             )
 
@@ -1426,7 +1445,6 @@ def _evaluate() -> tuple[
                         seed,
                         "validation",
                         validation_rollout,
-                        raw_states,
                         encoder,
                         feature_names,
                         trained.weights,
@@ -1459,7 +1477,6 @@ def _evaluate() -> tuple[
                         seed,
                         "test",
                         test_rollout,
-                        raw_states,
                         encoder,
                         feature_names,
                         trained.weights,
@@ -1652,8 +1669,7 @@ def _evaluate() -> tuple[
             "portfolioMandateId": mandate["id"],
             "actions": list(ACTIONS),
             "factorExperts": list(EXPERTS),
-            "rawStateFields": list(BASE_STATE_COLUMNS)
-            + [f"previous_{action}" for action in ACTIONS],
+            "rawStateFields": list(POLICY_STATE_COLUMNS),
             "featureNames": feature_names,
             "seeds": list(SEEDS),
             "folds": list(folds),
@@ -1662,6 +1678,14 @@ def _evaluate() -> tuple[
             "discount": DISCOUNT,
             "epsilonStart": EPSILON_START,
             "epsilonEnd": EPSILON_END,
+            "contextualRidgeIterations": (
+                CONTEXTUAL_RIDGE_ITERATIONS
+            ),
+            "contextualRidgeMethod": (
+                "iterative-same-pretrade-contextual-ridge-v1"
+            ),
+            "contextualRidgeLabelScope": "train-only",
+            "contextualRidgeAnchorAction": "balanced",
             "riskAversion": RISK_AVERSION,
             "costBps": BASE_COST_BPS,
             "executionRiskMethod": (
@@ -1753,8 +1777,7 @@ def _evaluate() -> tuple[
             "linear-q-chosen-vs-runner-up-decomposition-v1"
         ),
         "actions": list(ACTIONS),
-        "rawStateFields": list(BASE_STATE_COLUMNS)
-        + [f"previous_{action}" for action in ACTIONS],
+        "rawStateFields": list(POLICY_STATE_COLUMNS),
         "featureNames": feature_names,
         "rows": rationale_rows,
     }

@@ -2260,6 +2260,31 @@ function renderRlTraining(explorer) {
           text-anchor="middle">E${episode}</text>`,
     )
     .join("");
+  const contextual = (explorer.contextualBaselines ?? [])
+    .map((baseline) => {
+      if (!baseline.available) {
+        return `
+          <article class="rl-contextual-baseline legacy">
+            <small>${escapeHtml(baseline.fold)} · contextual comparator</small>
+            <strong>LEGACY FIXED-PATH LABELS</strong>
+            <p>Historical immutable evidence predates same-pretrade train-only fitting.</p>
+          </article>`;
+      }
+      const final = baseline.history.at(-1);
+      return `
+        <article class="rl-contextual-baseline">
+          <small>${escapeHtml(baseline.fold)} · simple-policy challenger</small>
+          <strong>SAME-PRETRADE · TRAIN ONLY</strong>
+          <div>
+            <span><b>${baseline.iterations}</b><i>iterations</i></span>
+            <span><b>${metric(final?.improvedTrainingNetSharpe)}</b><i>train Sharpe</i></span>
+            <span><b>${percent(final?.behaviorOracleHitRate)}</b><i>behavior hit</i></span>
+            <span><b>${metric(final?.sharedPretradeActionEvaluations)}</b><i>action labels</i></span>
+          </div>
+          <p>Balanced anchor → fit all governed action rewards from one pretrade path → reroll train behavior. Frozen before validation.</p>
+        </article>`;
+    })
+    .join("");
   return `
     <svg viewBox="0 0 ${width} 270" role="img"
       aria-label="Training total reward for every fold and seed">
@@ -2274,7 +2299,11 @@ function renderRlTraining(explorer) {
     <div class="rl-legend">
       <span>Exact fixed-budget training history · all ${trials.length} trials</span>
       <b>DESCRIPTIVE · NOT A PROMOTION METRIC</b>
-    </div>`;
+    </div>
+    ${contextual ? `
+      <section class="rl-contextual-baselines" aria-label="Contextual baseline training contract">
+        ${contextual}
+      </section>` : ""}`;
 }
 
 function renderRlActions(explorer) {

@@ -318,6 +318,8 @@ class StudioObservationTests(unittest.TestCase):
                     self.assertIn("selectionRiskSection", javascript)
                     self.assertIn("renderRlOpportunity", javascript)
                     self.assertIn("factorOpportunity", javascript)
+                    self.assertIn("contextualBaselines", javascript)
+                    self.assertIn("SAME-PRETRADE · TRAIN ONLY", javascript)
                     self.assertIn("Family trials", javascript)
                     self.assertIn("Project-family trials", javascript)
                     self.assertIn("diagnostic only", javascript)

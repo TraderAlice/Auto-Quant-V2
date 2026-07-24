@@ -67,6 +67,28 @@ class RlPolicyEvidenceExplorerTests(unittest.TestCase):
             self.assertEqual(len(diagnostics["trials"]), 6)
             self.assertEqual(len(diagnostics["baselines"]), 14)
             self.assertEqual(len(diagnostics["models"]), 6)
+            self.assertEqual(len(diagnostics["contextualBaselines"]), 2)
+            self.assertTrue(
+                all(
+                    item["available"]
+                    and item["method"]
+                    == "iterative-same-pretrade-contextual-ridge-v1"
+                    and item["labelScope"] == "train-only"
+                    and item["anchorAction"] == "balanced"
+                    and item["iterations"] == 4
+                    and len(item["history"]) == 4
+                    for item in diagnostics["contextualBaselines"]
+                )
+            )
+            self.assertTrue(
+                all(
+                    iteration["sharedPretradeActionEvaluations"]
+                    == iteration["trainingRows"]
+                    * len(diagnostics["protocol"]["actions"])
+                    for item in diagnostics["contextualBaselines"]
+                    for iteration in item["history"]
+                )
+            )
             self.assertEqual(len(diagnostics["training"]), 24)
             self.assertEqual(len(diagnostics["actionSummaries"]), 12)
             self.assertEqual(diagnostics["actionPath"]["sampledRows"], 64)
@@ -263,6 +285,27 @@ class RlPolicyEvidenceExplorerTests(unittest.TestCase):
                 load_rl_diagnostics(project, run.result["id"])
 
             actions_path = run.root_dir / "artifacts" / "policy-actions.csv"
+            models_path = (
+                run.root_dir / "artifacts" / "policy-models.json"
+            )
+            original_models = models_path.read_text(encoding="utf-8")
+            models = json.loads(original_models)
+            models["models"]["fold-1"]["contextualRidgeBaseline"][
+                "history"
+            ][0]["sharedPretradeActionEvaluations"] += 1
+            models_path.write_text(
+                json.dumps(models, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            rehash_run(run.root_dir)
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "action evaluations do not reconcile",
+            ):
+                load_rl_diagnostics(project, run.result["id"])
+            models_path.write_text(original_models, encoding="utf-8")
+            rehash_run(run.root_dir)
+
             rationale_path = (
                 run.root_dir / "artifacts" / "policy-rationales.json"
             )

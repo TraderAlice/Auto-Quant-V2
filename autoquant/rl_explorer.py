@@ -279,6 +279,13 @@ def _configuration(metrics: dict[str, Any]) -> dict[str, Any]:
             "Factor experts must be unique declared actions including candidate",
         )
     episodes = _integer(value.get("episodes"), "metrics/configuration/episodes", minimum=1)
+    contextual_iterations = value.get("contextualRidgeIterations")
+    if contextual_iterations is not None:
+        contextual_iterations = _integer(
+            contextual_iterations,
+            "metrics/configuration/contextualRidgeIterations",
+            minimum=1,
+        )
     return {
         **value,
         "actions": actions,
@@ -287,6 +294,7 @@ def _configuration(metrics: dict[str, Any]) -> dict[str, Any]:
         "featureNames": features,
         "rawStateFields": raw_fields,
         "episodes": episodes,
+        "contextualRidgeIterations": contextual_iterations,
         "epsilonStart": _finite(value.get("epsilonStart"), "configuration/epsilonStart"),
         "epsilonEnd": _finite(value.get("epsilonEnd"), "configuration/epsilonEnd"),
         "learningRate": _finite(value.get("learningRate"), "configuration/learningRate"),
@@ -492,7 +500,7 @@ def _models(
     value: dict[str, Any],
     configuration: dict[str, Any],
     input_hash: str,
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     if (
         value.get("inputHash") != input_hash
         or value.get("featureNames") != configuration["featureNames"]
@@ -503,6 +511,7 @@ def _models(
     if not isinstance(models, dict) or set(models) != set(configuration["folds"]):
         _fail("policy-models/models", "rl.models", "Model folds differ from configuration")
     output: list[dict[str, Any]] = []
+    contextual: list[dict[str, Any]] = []
     for fold in configuration["folds"]:
         fold_models = models.get(fold)
         if not isinstance(fold_models, dict) or not isinstance(fold_models.get("contextualRidgeBaseline"), dict):
@@ -548,6 +557,148 @@ def _models(
                     coefficient,
                     f"policy-models/{fold}/ridge/{action_index}/{coefficient_index}",
                 )
+        expected_iterations = configuration.get(
+            "contextualRidgeIterations"
+        )
+        if expected_iterations is None:
+            contextual.append(
+                {
+                    "fold": fold,
+                    "available": False,
+                    "method": "legacy-fixed-path-contextual-ridge",
+                    "labelScope": "legacy",
+                    "anchorAction": None,
+                    "iterations": None,
+                    "columns": ridge_columns,
+                    "history": [],
+                }
+            )
+        else:
+            history = ridge.get("history")
+            if (
+                ridge.get("method")
+                != "iterative-same-pretrade-contextual-ridge-v1"
+                or ridge.get("labelScope") != "train-only"
+                or ridge.get("anchorAction") != "balanced"
+                or ridge.get("iterations") != expected_iterations
+                or not isinstance(history, list)
+                or len(history) != expected_iterations
+            ):
+                _fail(
+                    f"policy-models/models/{fold}/contextualRidgeBaseline",
+                    "rl.ridge-contract",
+                    "Contextual ridge training contract is incomplete",
+                )
+            projected_history: list[dict[str, Any]] = []
+            for iteration, item in enumerate(history, start=1):
+                path = (
+                    f"policy-models/models/{fold}/"
+                    f"contextualRidgeBaseline/history/{iteration}"
+                )
+                if (
+                    not isinstance(item, dict)
+                    or item.get("iteration") != iteration
+                ):
+                    _fail(
+                        path,
+                        "rl.ridge-history",
+                        "Contextual ridge iterations must be complete and ordered",
+                    )
+                rows = _integer(
+                    item.get("trainingRows"),
+                    f"{path}/trainingRows",
+                    minimum=1,
+                )
+                evaluations = _integer(
+                    item.get("sharedPretradeActionEvaluations"),
+                    f"{path}/sharedPretradeActionEvaluations",
+                    minimum=1,
+                )
+                if evaluations != rows * len(configuration["actions"]):
+                    _fail(
+                        path,
+                        "rl.ridge-reconciliation",
+                        "Contextual ridge action evaluations do not reconcile",
+                    )
+                frequencies: dict[str, dict[str, float]] = {}
+                for source, label in (
+                    ("behaviorActionFrequency", "behavior"),
+                    ("improvedActionFrequency", "improved"),
+                ):
+                    raw_frequency = item.get(source)
+                    if (
+                        not isinstance(raw_frequency, dict)
+                        or set(raw_frequency)
+                        != set(configuration["actions"])
+                    ):
+                        _fail(
+                            f"{path}/{source}",
+                            "rl.ridge-frequency",
+                            "Contextual ridge action frequency is incomplete",
+                        )
+                    observed = {
+                        action: _finite(
+                            raw_frequency[action],
+                            f"{path}/{source}/{action}",
+                        )
+                        for action in configuration["actions"]
+                    }
+                    if (
+                        any(value < 0.0 or value > 1.0 for value in observed.values())
+                        or not math.isclose(
+                            sum(observed.values()),
+                            1.0,
+                            rel_tol=0.0,
+                            abs_tol=1e-10,
+                        )
+                    ):
+                        _fail(
+                            f"{path}/{source}",
+                            "rl.ridge-frequency",
+                            "Contextual ridge action frequencies must sum to one",
+                        )
+                    frequencies[label] = observed
+                oracle_hit = _finite(
+                    item.get("behaviorOracleHitRate"),
+                    f"{path}/behaviorOracleHitRate",
+                )
+                regret = _finite(
+                    item.get("behaviorMeanRealizedRegret"),
+                    f"{path}/behaviorMeanRealizedRegret",
+                )
+                if not 0.0 <= oracle_hit <= 1.0 or regret < 0.0:
+                    _fail(
+                        path,
+                        "rl.ridge-opportunity",
+                        "Contextual ridge opportunity evidence is out of bounds",
+                    )
+                projected_history.append(
+                    {
+                        "iteration": iteration,
+                        "trainingRows": rows,
+                        "sharedPretradeActionEvaluations": evaluations,
+                        "behaviorActionFrequency": frequencies["behavior"],
+                        "improvedActionFrequency": frequencies["improved"],
+                        "improvedTrainingNetSharpe": _finite(
+                            item.get("improvedTrainingNetSharpe"),
+                            f"{path}/improvedTrainingNetSharpe",
+                        ),
+                        "behaviorOracleHitRate": oracle_hit,
+                        "behaviorMeanRealizedRegret": regret,
+                    }
+                )
+            contextual.append(
+                {
+                    "fold": fold,
+                    "available": True,
+                    "method": ridge["method"],
+                    "labelScope": ridge["labelScope"],
+                    "anchorAction": ridge["anchorAction"],
+                    "iterations": ridge["iterations"],
+                    "columns": ridge_columns,
+                    "history": projected_history,
+                }
+            )
         seeds = fold_models.get("seeds")
         if not isinstance(seeds, dict) or set(seeds) != {str(seed) for seed in configuration["seeds"]}:
             _fail(f"policy-models/models/{fold}/seeds", "rl.models", "Model seeds differ from configuration")
@@ -571,7 +722,7 @@ def _models(
                 for action_index, row in enumerate(weights)
             ]
             output.append({"fold": fold, "seed": seed, "weights": normalized})
-    return output
+    return output, contextual
 
 
 def _training(
@@ -2840,7 +2991,11 @@ def load_rl_diagnostics(
             if action != "balanced"
         ],
     )
-    models = _models(models_value, configuration, run.result["inputHash"])
+    models, contextual_baselines = _models(
+        models_value,
+        configuration,
+        run.result["inputHash"],
+    )
     rationale_value = (
         _read_object(
             paths[POLICY_RATIONALE_ARTIFACT_KIND],
@@ -3377,6 +3532,7 @@ def load_rl_diagnostics(
         "trials": trials,
         "baselines": baselines,
         "models": models,
+        "contextualBaselines": contextual_baselines,
         "training": training,
         "actionSummaries": action_summaries,
         "actionPath": action_path,
@@ -3423,6 +3579,7 @@ RL_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "trials",
         "baselines",
         "models",
+        "contextualBaselines",
         "training",
         "actionSummaries",
         "actionPath",
@@ -3445,6 +3602,10 @@ RL_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "trials": {"type": "array", "items": {"type": "object"}},
         "baselines": {"type": "array", "items": {"type": "object"}},
         "models": {"type": "array", "items": {"type": "object"}},
+        "contextualBaselines": {
+            "type": "array",
+            "items": {"type": "object"},
+        },
         "training": {"type": "array", "items": {"type": "object"}},
         "actionSummaries": {"type": "array", "items": {"type": "object"}},
         "actionPath": {"type": "object"},
