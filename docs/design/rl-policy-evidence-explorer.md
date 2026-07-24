@@ -3,6 +3,7 @@
 Status: V1 implemented.
 
 Related: [[docs/design/rl-factor-policy-lab]],
+[[docs/design/rl-factor-opportunity-audit]],
 [[docs/design/portfolio-decision-explorer]],
 [[docs/design/request-bound-portfolio-mandates]],
 [[docs/design/session-decision-matrix]], and
@@ -50,6 +51,9 @@ A successful governed RL Run declares exactly one of each:
 - `training-history`: every fixed episode for every fold and seed;
 - `policy-actions`: timestamped validation/test actions, rewards, returns,
   turnover, cost, and final executed-book risk compliance.
+- `policy-opportunities`: same-actual-pretrade one-step proposed/executed books,
+  trades, returns, reward, ex-post local-best rank/regret, and candidate-factor
+  opportunity for every declared action.
 
 Every file must be present in the immutable Run manifest, remain size-bounded,
 and match the Run input hash. Report metrics and dataset identity must exactly
@@ -73,6 +77,9 @@ The read layer verifies:
    fixed, and every action sleeve passed the same constraint audit.
 9. per-action pretrade/final forecasts, ceilings, overrides, and zero-breach
    trial/aggregate metrics reconcile across every fold and seed.
+10. every opportunity vector reproduces trade, turnover, cost, return, reward,
+    exposure, deterministic local-best rank/regret, and the selected action
+    ledger without propagating an alternate path.
 
 The first inconsistent field fails the projection with a structured validation
 issue. Studio then shows a Project diagnostic instead of partial RL evidence.
@@ -90,6 +97,8 @@ issue. Studio then shows a Project diagnostic instead of partial RL evidence.
 - exact bounded training histories;
 - fold/seed/split action allocation and implementation summaries;
 - fold/seed/split executed-book risk coverage and intervention summaries;
+- same-pretrade one-step selected-versus-local-best factor opportunity and
+  bounded high-regret decisions;
 - a deterministic bounded action path;
 - warnings about test reuse and lack of trading authority.
 
@@ -107,6 +116,11 @@ The Studio explorer has three views:
   dispersion rather than selecting a lucky seed;
 - **Actions** — fixed-sleeve allocation, transitions, reward, turnover, and
   cost plus final-book risk compliance from the immutable action ledger.
+
+Below those views, policy behavior explains frozen Q selection and the
+one-step opportunity audit contrasts selected versus ex-post local-best sleeve
+mix. Candidate selected/best/missed rates are kept separate so a weak encoder
+is not confused with a weak candidate factor.
 
 The summary leads with validation advantage versus the best baseline, then
 minimum and dispersion across trials. Raw high Sharpe never visually overrides
@@ -128,3 +142,5 @@ actions answer the same requested position question.
    Portfolio lane.
 10. Every governed action path uses the same post-drift compliance primitive
     as Portfolio; editable state code cannot bypass it.
+11. The ex-post one-step local best is always labeled hindsight audit and
+    cannot enter training, selection, or trading authority.

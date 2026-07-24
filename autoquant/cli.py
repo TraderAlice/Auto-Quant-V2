@@ -1656,6 +1656,28 @@ def _run_rl(args: argparse.Namespace) -> CommandResult:
             f"{validation_behavior['tieRate']:.3%} ties · contextual only\n"
         )
     )
+    factor_opportunity = diagnostics["factorOpportunity"]
+    validation_opportunity = (
+        factor_opportunity["validation"]
+        if factor_opportunity["available"]
+        else None
+    )
+    factor_opportunity_line = (
+        "Factor opportunity: legacy evidence unavailable\n"
+        if validation_opportunity is None
+        else (
+            "Validation one-step factor opportunity: "
+            f"{validation_opportunity['oracleHitRate']:.3%} oracle hits · "
+            f"{validation_opportunity['meanSelectedRank']:.3f} mean selected "
+            "rank · "
+            f"{validation_opportunity['meanRealizedRegret']:.6g} mean "
+            "ex-post regret · candidate "
+            f"{validation_opportunity['candidate']['oracleFrequency']:.3%} "
+            "locally best / "
+            f"{validation_opportunity['candidate']['missedOpportunityRate']:.3%} "
+            "missed · contextual only\n"
+        )
+    )
     return CommandResult(
         "run.rl",
         diagnostics,
@@ -1671,6 +1693,7 @@ def _run_rl(args: argparse.Namespace) -> CommandResult:
             f"Action path: {diagnostics['actionPath']['totalRows']} rows → "
             f"{diagnostics['actionPath']['sampledRows']} points\n"
             f"{policy_behavior_line}"
+            f"{factor_opportunity_line}"
             f"{execution_risk_line}"
             "Test evidence is visible audit only; actions have no trading authority.\n"
         ),

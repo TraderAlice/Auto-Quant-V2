@@ -34,4 +34,8 @@ audit evidence, not the promotion metric, and repeated inspection must be
 reported as a limitation. Inspect the locked risk policy alongside action
 constraints, baseline advantage, seed/fold dispersion, action frequency,
 turnover, costs, final-book forecast coverage, risk-only overrides, and
-executed breaches. AutoQuant has no trading-account authority.
+executed breaches. Also inspect the one-step same-pretrade factor opportunity
+audit: selected-versus-local-best rank/regret, candidate locally-best and
+missed rates, and candidate-versus-balanced reward. The local best is ex-post
+hindsight, not an oracle strategy or promotion input. AutoQuant has no
+trading-account authority.

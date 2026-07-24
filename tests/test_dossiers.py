@@ -437,6 +437,10 @@ class ProgramResearchDossierTests(unittest.TestCase):
                         "uncalibrated linear-model scores",
                         rl_markdown,
                     )
+                    self.assertIn(
+                        "## RL one-step factor opportunity",
+                        rl_markdown,
+                    )
             status = load_dossier_status(project)
             assert status is not None
             self.assertTrue(status["ready"])
@@ -488,6 +492,10 @@ class ProgramResearchDossierTests(unittest.TestCase):
             )
             self.assertIn(
                 "## RL policy behavior and rationale",
+                markdown,
+            )
+            self.assertIn(
+                "## RL one-step factor opportunity",
                 markdown,
             )
             self.assertIn("uncalibrated Q margin", markdown)

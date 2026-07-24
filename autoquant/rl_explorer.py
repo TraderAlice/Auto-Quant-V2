@@ -37,9 +37,24 @@ BASE_ARTIFACT_KINDS = {
     "policy-actions",
 }
 POLICY_RATIONALE_ARTIFACT_KIND = "policy-rationales"
+POLICY_OPPORTUNITY_ARTIFACT_KIND = "policy-opportunities"
 EXPECTED_ARTIFACT_KINDS = BASE_ARTIFACT_KINDS | {
-    POLICY_RATIONALE_ARTIFACT_KIND
+    POLICY_RATIONALE_ARTIFACT_KIND,
+    POLICY_OPPORTUNITY_ARTIFACT_KIND,
 }
+FACTOR_OPPORTUNITY_METHOD = (
+    "actual-pretrade-one-step-governed-action-audit-v1"
+)
+FACTOR_OPPORTUNITY_POLICY = {
+    "method": FACTOR_OPPORTUNITY_METHOD,
+    "path_propagation": "selected-policy-only",
+    "oracle_role": "ex-post-audit-upper-bound",
+    "selection_authority": "context-only",
+    "trading_authority": "none",
+}
+FACTOR_OPPORTUNITY_REWARD = (
+    "net-return-after-10bps-cost-minus-0.10-times-gross-return-squared"
+)
 ACTION_COLUMNS = [
     "fold",
     "seed",
@@ -1768,6 +1783,868 @@ def _policy_behavior_projection(
     }
 
 
+def _linear_percentile(values: list[float], percentile: float) -> float:
+    ordered = sorted(values)
+    position = (len(ordered) - 1) * percentile
+    lower = math.floor(position)
+    upper = math.ceil(position)
+    if lower == upper:
+        return ordered[lower]
+    weight = position - lower
+    return ordered[lower] * (1.0 - weight) + ordered[upper] * weight
+
+
+def _opportunity_metrics(
+    rows: list[dict[str, Any]],
+    split: str,
+    actions: list[str],
+) -> dict[str, Any]:
+    selected = [row for row in rows if row["split"] == split]
+    if not selected:
+        _fail(
+            f"policy-opportunities/{split}",
+            "rl.factor-opportunity-coverage",
+            "Factor opportunity split has no decisions",
+        )
+    groups: dict[tuple[str, int], list[dict[str, Any]]] = defaultdict(list)
+    for row in selected:
+        groups[(row["fold"], row["seed"])].append(row)
+    decisions = len(selected)
+    regrets = [row["realizedRegret"] for row in selected]
+    selected_rewards = [row["selectedReward"] for row in selected]
+    oracle_rewards = [row["oracleReward"] for row in selected]
+    selected_ranks = [row["selectedRank"] for row in selected]
+    oracle_hits = sum(row["oracleHit"] for row in selected)
+    by_action: dict[str, dict[str, Any]] = {}
+    for action in actions:
+        selected_count = sum(
+            row["selectedAction"] == action for row in selected
+        )
+        oracle_count = sum(
+            row["oracleAction"] == action for row in selected
+        )
+        evidence = [row["actions"][action] for row in selected]
+        by_action[action] = {
+            "selected_decisions": selected_count,
+            "selected_frequency": selected_count / decisions,
+            "oracle_decisions": oracle_count,
+            "oracle_frequency": oracle_count / decisions,
+            "mean_local_reward": (
+                sum(item["reward"] for item in evidence) / decisions
+            ),
+            "mean_one_way_turnover": (
+                sum(item["oneWayTurnover"] for item in evidence) / decisions
+            ),
+            "total_cost": sum(item["cost"] for item in evidence),
+            "risk_repair_rate": (
+                sum(item["riskRebalanceOverride"] for item in evidence)
+                / decisions
+            ),
+        }
+    candidate_oracle = [
+        row for row in selected if row["oracleAction"] == "candidate"
+    ]
+    candidate_missed = [
+        row
+        for row in candidate_oracle
+        if row["selectedAction"] != "candidate"
+    ]
+    candidate_captured = len(candidate_oracle) - len(candidate_missed)
+    candidate_vs_selected = [
+        row["candidateMinusSelectedReward"] for row in selected
+    ]
+    candidate_vs_balanced = [
+        row["candidateMinusBalancedReward"] for row in selected
+    ]
+    trials: list[dict[str, Any]] = []
+    for (fold, seed), group in groups.items():
+        group_candidate_oracle = sum(
+            row["oracleAction"] == "candidate" for row in group
+        )
+        group_candidate_missed = sum(
+            row["oracleAction"] == "candidate"
+            and row["selectedAction"] != "candidate"
+            for row in group
+        )
+        trials.append(
+            {
+                "fold": fold,
+                "seed": seed,
+                "decisions": len(group),
+                "oracle_hits": sum(row["oracleHit"] for row in group),
+                "oracle_hit_rate": (
+                    sum(row["oracleHit"] for row in group) / len(group)
+                ),
+                "mean_selected_rank": (
+                    sum(row["selectedRank"] for row in group) / len(group)
+                ),
+                "mean_realized_regret": (
+                    sum(row["realizedRegret"] for row in group) / len(group)
+                ),
+                "candidate_oracle_rate": (
+                    group_candidate_oracle / len(group)
+                ),
+                "candidate_missed_opportunity_rate": (
+                    group_candidate_missed / len(group)
+                ),
+            }
+        )
+    reconciliation = {
+        "decision_rows": decisions,
+        "action_evaluations": sum(
+            len(row["actions"]) for row in selected
+        ),
+        "action_evaluation_count_error": abs(
+            sum(len(row["actions"]) for row in selected)
+            - decisions * len(actions)
+        ),
+        "selected_frequency_error": abs(
+            sum(item["selected_frequency"] for item in by_action.values())
+            - 1.0
+        ),
+        "oracle_frequency_error": abs(
+            sum(item["oracle_frequency"] for item in by_action.values())
+            - 1.0
+        ),
+        "regret_identity_error": max(
+            abs(
+                row["oracleReward"]
+                - row["selectedReward"]
+                - row["realizedRegret"]
+            )
+            for row in selected
+        ),
+        "candidate_selected_delta_error": max(
+            abs(
+                row["actions"]["candidate"]["reward"]
+                - row["selectedReward"]
+                - row["candidateMinusSelectedReward"]
+            )
+            for row in selected
+        ),
+        "candidate_balanced_delta_error": max(
+            abs(
+                row["actions"]["candidate"]["reward"]
+                - row["actions"]["balanced"]["reward"]
+                - row["candidateMinusBalancedReward"]
+            )
+            for row in selected
+        ),
+        "negative_regret_error": max(
+            max(0.0, -row["realizedRegret"]) for row in selected
+        ),
+        "selected_action_reconciliation_error": 0.0,
+    }
+    reconciliation["passed"] = (
+        reconciliation["action_evaluations"]
+        == decisions * len(actions)
+        and max(
+            float(value)
+            for key, value in reconciliation.items()
+            if key not in {"decision_rows", "action_evaluations"}
+        )
+        <= 1e-10
+    )
+    return {
+        "status": "available",
+        "decisions": decisions,
+        "trial_paths": len(groups),
+        "oracle_hit_decisions": oracle_hits,
+        "oracle_hit_rate": oracle_hits / decisions,
+        "mean_selected_rank": sum(selected_ranks) / decisions,
+        "mean_selected_reward": sum(selected_rewards) / decisions,
+        "mean_oracle_reward": sum(oracle_rewards) / decisions,
+        "total_realized_regret": sum(regrets),
+        "mean_realized_regret": sum(regrets) / decisions,
+        "median_realized_regret": _median(regrets),
+        "p90_realized_regret": _linear_percentile(regrets, 0.90),
+        "maximum_realized_regret": max(regrets),
+        "positive_regret_rate": (
+            sum(regret > 1e-12 for regret in regrets) / decisions
+        ),
+        "by_action": by_action,
+        "candidate": {
+            "selected_decisions": by_action["candidate"][
+                "selected_decisions"
+            ],
+            "selected_frequency": by_action["candidate"][
+                "selected_frequency"
+            ],
+            "oracle_decisions": len(candidate_oracle),
+            "oracle_frequency": len(candidate_oracle) / decisions,
+            "captured_oracle_decisions": candidate_captured,
+            "oracle_capture_rate": (
+                candidate_captured / len(candidate_oracle)
+                if candidate_oracle
+                else 0.0
+            ),
+            "missed_opportunity_decisions": len(candidate_missed),
+            "missed_opportunity_rate": len(candidate_missed) / decisions,
+            "mean_reward": by_action["candidate"]["mean_local_reward"],
+            "mean_vs_selected_reward": (
+                sum(candidate_vs_selected) / decisions
+            ),
+            "mean_vs_balanced_reward": (
+                sum(candidate_vs_balanced) / decisions
+            ),
+            "win_rate_vs_balanced": (
+                sum(value > 1e-12 for value in candidate_vs_balanced)
+                / decisions
+            ),
+        },
+        "trials": trials,
+        "reconciliation": reconciliation,
+    }
+
+
+def _opportunity_split_projection(value: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "status": value["status"],
+        "decisions": value["decisions"],
+        "trialPaths": value["trial_paths"],
+        "oracleHitDecisions": value["oracle_hit_decisions"],
+        "oracleHitRate": value["oracle_hit_rate"],
+        "meanSelectedRank": value["mean_selected_rank"],
+        "meanSelectedReward": value["mean_selected_reward"],
+        "meanOracleReward": value["mean_oracle_reward"],
+        "totalRealizedRegret": value["total_realized_regret"],
+        "meanRealizedRegret": value["mean_realized_regret"],
+        "medianRealizedRegret": value["median_realized_regret"],
+        "p90RealizedRegret": value["p90_realized_regret"],
+        "maximumRealizedRegret": value["maximum_realized_regret"],
+        "positiveRegretRate": value["positive_regret_rate"],
+        "byAction": [
+            {
+                "action": action,
+                "selectedDecisions": metrics["selected_decisions"],
+                "selectedFrequency": metrics["selected_frequency"],
+                "oracleDecisions": metrics["oracle_decisions"],
+                "oracleFrequency": metrics["oracle_frequency"],
+                "meanLocalReward": metrics["mean_local_reward"],
+                "meanOneWayTurnover": metrics[
+                    "mean_one_way_turnover"
+                ],
+                "totalCost": metrics["total_cost"],
+                "riskRepairRate": metrics["risk_repair_rate"],
+            }
+            for action, metrics in value["by_action"].items()
+        ],
+        "candidate": {
+            "selectedDecisions": value["candidate"]["selected_decisions"],
+            "selectedFrequency": value["candidate"]["selected_frequency"],
+            "oracleDecisions": value["candidate"]["oracle_decisions"],
+            "oracleFrequency": value["candidate"]["oracle_frequency"],
+            "capturedOracleDecisions": value["candidate"][
+                "captured_oracle_decisions"
+            ],
+            "oracleCaptureRate": value["candidate"][
+                "oracle_capture_rate"
+            ],
+            "missedOpportunityDecisions": value["candidate"][
+                "missed_opportunity_decisions"
+            ],
+            "missedOpportunityRate": value["candidate"][
+                "missed_opportunity_rate"
+            ],
+            "meanReward": value["candidate"]["mean_reward"],
+            "meanVsSelectedReward": value["candidate"][
+                "mean_vs_selected_reward"
+            ],
+            "meanVsBalancedReward": value["candidate"][
+                "mean_vs_balanced_reward"
+            ],
+            "winRateVsBalanced": value["candidate"][
+                "win_rate_vs_balanced"
+            ],
+        },
+        "trials": [
+            {
+                "fold": trial["fold"],
+                "seed": trial["seed"],
+                "decisions": trial["decisions"],
+                "oracleHits": trial["oracle_hits"],
+                "oracleHitRate": trial["oracle_hit_rate"],
+                "meanSelectedRank": trial["mean_selected_rank"],
+                "meanRealizedRegret": trial["mean_realized_regret"],
+                "candidateOracleRate": trial["candidate_oracle_rate"],
+                "candidateMissedOpportunityRate": trial[
+                    "candidate_missed_opportunity_rate"
+                ],
+            }
+            for trial in value["trials"]
+        ],
+        "reconciliation": value["reconciliation"],
+    }
+
+
+def _factor_opportunity_projection(
+    value: dict[str, Any] | None,
+    raw_metrics: Any,
+    action_rows: list[dict[str, Any]],
+    configuration: dict[str, Any],
+    assets: list[str],
+    input_hash: str,
+) -> dict[str, Any]:
+    if value is None and raw_metrics is None:
+        return {
+            "available": False,
+            "policy": None,
+            "selectionAuthority": "context-only",
+            "validation": None,
+            "test": None,
+            "representativeDecisions": [],
+        }
+    if value is None or not isinstance(raw_metrics, dict):
+        _fail(
+            "RunResult/metrics/factor_opportunity",
+            "rl.factor-opportunity",
+            "Factor-opportunity metrics and artifact must exist together",
+        )
+    root_fields = {
+        "schemaVersion",
+        "inputHash",
+        "method",
+        "actions",
+        "assets",
+        "reward",
+        "policy",
+        "rows",
+    }
+    if (
+        set(value) != root_fields
+        or value["schemaVersion"] != SCHEMA_VERSION
+        or value["inputHash"] != input_hash
+        or value["method"] != FACTOR_OPPORTUNITY_METHOD
+        or value["actions"] != configuration["actions"]
+        or value["assets"] != assets
+        or value["reward"] != FACTOR_OPPORTUNITY_REWARD
+        or value["policy"] != FACTOR_OPPORTUNITY_POLICY
+        or not isinstance(value["rows"], list)
+        or set(raw_metrics) != {"policy", "validation", "test"}
+        or raw_metrics["policy"] != FACTOR_OPPORTUNITY_POLICY
+    ):
+        _fail(
+            "policy-opportunities",
+            "rl.factor-opportunity-identity",
+            "Factor-opportunity identity differs from the fixed Run",
+        )
+    expected_keys = [
+        (row["fold"], row["seed"], row["split"], row["timestamp"])
+        for row in action_rows
+    ]
+    if len(value["rows"]) != len(action_rows):
+        _fail(
+            "policy-opportunities/rows",
+            "rl.factor-opportunity-coverage",
+            "Opportunity and selected-action row counts differ",
+        )
+    row_fields = {
+        "fold",
+        "seed",
+        "split",
+        "timestamp",
+        "selectedAction",
+        "oracleAction",
+        "selectedRank",
+        "oracleHit",
+        "selectedReward",
+        "oracleReward",
+        "realizedRegret",
+        "candidateMinusSelectedReward",
+        "candidateMinusBalancedReward",
+        "pretradeWeights",
+        "forwardReturns",
+        "actions",
+    }
+    action_fields = {
+        "proposedWeights",
+        "executedWeights",
+        "trades",
+        "grossReturn",
+        "netReturn",
+        "reward",
+        "oneWayTurnover",
+        "cost",
+        "grossExposure",
+        "netExposure",
+        "executionRiskStatus",
+        "executionRiskForecastAvailable",
+        "executionRiskObservations",
+        "pretradeRiskForecastAnnualized",
+        "executedRiskForecastAnnualized",
+        "executionRiskCeilingAnnualized",
+        "riskRebalanceOverride",
+        "executionReason",
+    }
+    normalized: list[dict[str, Any]] = []
+    cost_bps = _finite(
+        configuration.get("costBps"),
+        "metrics/configuration/costBps",
+    )
+    risk_aversion = _finite(
+        configuration.get("riskAversion"),
+        "metrics/configuration/riskAversion",
+    )
+    for index, (raw, selected_action_row) in enumerate(
+        zip(value["rows"], action_rows)
+    ):
+        path = f"policy-opportunities/rows/{index}"
+        if not isinstance(raw, dict) or set(raw) != row_fields:
+            _fail(
+                path,
+                "rl.factor-opportunity-row",
+                "Factor-opportunity row shape differs from the fixed contract",
+            )
+        key = (
+            raw.get("fold"),
+            raw.get("seed"),
+            raw.get("split"),
+            raw.get("timestamp"),
+        )
+        if key != expected_keys[index]:
+            _fail(
+                path,
+                "rl.factor-opportunity-order",
+                "Factor-opportunity chronology differs from action evidence",
+            )
+        if (
+            raw.get("selectedAction") != selected_action_row["action"]
+            or raw.get("selectedAction") not in configuration["actions"]
+            or raw.get("oracleAction") not in configuration["actions"]
+            or not isinstance(raw.get("oracleHit"), bool)
+        ):
+            _fail(
+                path,
+                "rl.factor-opportunity-action",
+                "Factor-opportunity action identity is invalid",
+            )
+        pretrade_raw = raw.get("pretradeWeights")
+        forward_raw = raw.get("forwardReturns")
+        action_values = raw.get("actions")
+        if (
+            not isinstance(pretrade_raw, dict)
+            or set(pretrade_raw) != set(assets)
+            or not isinstance(forward_raw, dict)
+            or set(forward_raw) != set(assets)
+            or not isinstance(action_values, dict)
+            or set(action_values) != set(configuration["actions"])
+        ):
+            _fail(
+                path,
+                "rl.factor-opportunity-vectors",
+                "Opportunity assets/actions differ from the fixed contract",
+            )
+        pretrade = {
+            asset: _finite(pretrade_raw[asset], f"{path}/pretrade/{asset}")
+            for asset in assets
+        }
+        forward = {
+            asset: _finite(forward_raw[asset], f"{path}/forward/{asset}")
+            for asset in assets
+        }
+        actions: dict[str, dict[str, Any]] = {}
+        for action in configuration["actions"]:
+            action_path = f"{path}/actions/{action}"
+            item = action_values[action]
+            if not isinstance(item, dict) or set(item) != action_fields:
+                _fail(
+                    action_path,
+                    "rl.factor-opportunity-action-row",
+                    "Opportunity action shape differs from the fixed contract",
+                )
+            vectors: dict[str, dict[str, float]] = {}
+            for artifact_name in (
+                "proposedWeights",
+                "executedWeights",
+                "trades",
+            ):
+                raw_vector = item.get(artifact_name)
+                if (
+                    not isinstance(raw_vector, dict)
+                    or set(raw_vector) != set(assets)
+                ):
+                    _fail(
+                        f"{action_path}/{artifact_name}",
+                        "rl.factor-opportunity-vector",
+                        "Opportunity weight/trade assets differ",
+                    )
+                vectors[artifact_name] = {
+                    asset: _finite(
+                        raw_vector[asset],
+                        f"{action_path}/{artifact_name}/{asset}",
+                    )
+                    for asset in assets
+                }
+            evidence = {
+                **vectors,
+                "grossReturn": _finite(
+                    item.get("grossReturn"),
+                    f"{action_path}/grossReturn",
+                ),
+                "netReturn": _finite(
+                    item.get("netReturn"),
+                    f"{action_path}/netReturn",
+                ),
+                "reward": _finite(
+                    item.get("reward"),
+                    f"{action_path}/reward",
+                ),
+                "oneWayTurnover": _finite(
+                    item.get("oneWayTurnover"),
+                    f"{action_path}/oneWayTurnover",
+                ),
+                "cost": _finite(
+                    item.get("cost"),
+                    f"{action_path}/cost",
+                ),
+                "grossExposure": _finite(
+                    item.get("grossExposure"),
+                    f"{action_path}/grossExposure",
+                ),
+                "netExposure": _finite(
+                    item.get("netExposure"),
+                    f"{action_path}/netExposure",
+                ),
+                "executionRiskStatus": item.get("executionRiskStatus"),
+                "executionRiskForecastAvailable": item.get(
+                    "executionRiskForecastAvailable"
+                ),
+                "executionRiskObservations": _integer(
+                    item.get("executionRiskObservations"),
+                    f"{action_path}/executionRiskObservations",
+                ),
+                "pretradeRiskForecastAnnualized": _finite(
+                    item.get("pretradeRiskForecastAnnualized"),
+                    f"{action_path}/pretradeRiskForecastAnnualized",
+                ),
+                "executedRiskForecastAnnualized": _finite(
+                    item.get("executedRiskForecastAnnualized"),
+                    f"{action_path}/executedRiskForecastAnnualized",
+                ),
+                "executionRiskCeilingAnnualized": _finite(
+                    item.get("executionRiskCeilingAnnualized"),
+                    f"{action_path}/executionRiskCeilingAnnualized",
+                ),
+                "riskRebalanceOverride": item.get(
+                    "riskRebalanceOverride"
+                ),
+                "executionReason": item.get("executionReason"),
+            }
+            if (
+                not isinstance(evidence["executionRiskStatus"], str)
+                or not evidence["executionRiskStatus"]
+                or not isinstance(
+                    evidence["executionRiskForecastAvailable"], bool
+                )
+                or not isinstance(evidence["riskRebalanceOverride"], bool)
+                or not isinstance(evidence["executionReason"], str)
+                or not evidence["executionReason"]
+                or min(
+                    evidence["oneWayTurnover"],
+                    evidence["cost"],
+                    evidence["grossExposure"],
+                    evidence["pretradeRiskForecastAnnualized"],
+                    evidence["executedRiskForecastAnnualized"],
+                    evidence["executionRiskCeilingAnnualized"],
+                )
+                < -1e-12
+            ):
+                _fail(
+                    action_path,
+                    "rl.factor-opportunity-execution",
+                    "Opportunity execution evidence is invalid",
+                )
+            executed = evidence["executedWeights"]
+            trades = evidence["trades"]
+            for asset in assets:
+                _close(
+                    trades[asset],
+                    executed[asset] - pretrade[asset],
+                    f"{action_path}/trades/{asset}",
+                    "executed minus pretrade weight",
+                    tolerance=1e-10,
+                )
+            traded_notional = sum(abs(trades[asset]) for asset in assets)
+            gross_return = sum(
+                executed[asset] * forward[asset] for asset in assets
+            )
+            gross_exposure = sum(
+                abs(executed[asset]) for asset in assets
+            )
+            net_exposure = sum(executed.values())
+            _close(
+                evidence["oneWayTurnover"],
+                0.5 * traded_notional,
+                f"{action_path}/oneWayTurnover",
+                "one-way turnover",
+                tolerance=1e-10,
+            )
+            _close(
+                evidence["cost"],
+                traded_notional * cost_bps / 10_000.0,
+                f"{action_path}/cost",
+                "transaction cost",
+                tolerance=1e-10,
+            )
+            _close(
+                evidence["grossReturn"],
+                gross_return,
+                f"{action_path}/grossReturn",
+                "executed-book gross return",
+                tolerance=1e-10,
+            )
+            _close(
+                evidence["netReturn"],
+                gross_return - evidence["cost"],
+                f"{action_path}/netReturn",
+                "net return",
+                tolerance=1e-10,
+            )
+            _close(
+                evidence["reward"],
+                evidence["netReturn"]
+                - risk_aversion * evidence["grossReturn"] ** 2,
+                f"{action_path}/reward",
+                "fixed reward",
+                tolerance=1e-10,
+            )
+            _close(
+                evidence["grossExposure"],
+                gross_exposure,
+                f"{action_path}/grossExposure",
+                "gross exposure",
+                tolerance=1e-10,
+            )
+            _close(
+                evidence["netExposure"],
+                net_exposure,
+                f"{action_path}/netExposure",
+                "net exposure",
+                tolerance=1e-10,
+            )
+            actions[action] = evidence
+        rewards = {
+            action: actions[action]["reward"]
+            for action in configuration["actions"]
+        }
+        ranked = sorted(
+            configuration["actions"],
+            key=lambda action: (
+                -rewards[action],
+                configuration["actions"].index(action),
+            ),
+        )
+        selected_action = raw["selectedAction"]
+        oracle_action = ranked[0]
+        selected_reward = _finite(
+            raw.get("selectedReward"),
+            f"{path}/selectedReward",
+        )
+        oracle_reward = _finite(
+            raw.get("oracleReward"),
+            f"{path}/oracleReward",
+        )
+        regret = _finite(
+            raw.get("realizedRegret"),
+            f"{path}/realizedRegret",
+        )
+        candidate_selected = _finite(
+            raw.get("candidateMinusSelectedReward"),
+            f"{path}/candidateMinusSelectedReward",
+        )
+        candidate_balanced = _finite(
+            raw.get("candidateMinusBalancedReward"),
+            f"{path}/candidateMinusBalancedReward",
+        )
+        if (
+            raw.get("oracleAction") != oracle_action
+            or raw.get("selectedRank") != ranked.index(selected_action) + 1
+            or raw["oracleHit"] != (selected_action == oracle_action)
+            or regret < -1e-12
+        ):
+            _fail(
+                path,
+                "rl.factor-opportunity-rank",
+                "Opportunity oracle/rank/regret identity is invalid",
+            )
+        for actual, expected, label in (
+            (selected_reward, rewards[selected_action], "selected reward"),
+            (oracle_reward, rewards[oracle_action], "oracle reward"),
+            (
+                regret,
+                rewards[oracle_action] - rewards[selected_action],
+                "realized regret",
+            ),
+            (
+                candidate_selected,
+                rewards["candidate"] - rewards[selected_action],
+                "candidate minus selected reward",
+            ),
+            (
+                candidate_balanced,
+                rewards["candidate"] - rewards["balanced"],
+                "candidate minus balanced reward",
+            ),
+            (
+                selected_reward,
+                selected_action_row["reward"],
+                "selected action ledger reward",
+            ),
+        ):
+            _close(
+                actual,
+                expected,
+                path,
+                label,
+                tolerance=1e-10,
+            )
+        selected_evidence = actions[selected_action]
+        for artifact_value, ledger_value, label in (
+            (
+                selected_evidence["grossReturn"],
+                selected_action_row["grossReturn"],
+                "selected gross return",
+            ),
+            (
+                selected_evidence["netReturn"],
+                selected_action_row["netReturn"],
+                "selected net return",
+            ),
+            (
+                selected_evidence["oneWayTurnover"],
+                selected_action_row["oneWayTurnover"],
+                "selected turnover",
+            ),
+            (
+                selected_evidence["cost"],
+                selected_action_row["cost"],
+                "selected cost",
+            ),
+        ):
+            _close(
+                artifact_value,
+                ledger_value,
+                path,
+                label,
+                tolerance=1e-10,
+            )
+        if (
+            selected_evidence["executionRiskStatus"]
+            != selected_action_row["executionRiskStatus"]
+            or selected_evidence["executionReason"]
+            != selected_action_row["executionReason"]
+            or selected_evidence["riskRebalanceOverride"]
+            != selected_action_row["riskRebalanceOverride"]
+        ):
+            _fail(
+                path,
+                "rl.factor-opportunity-selected",
+                "Selected opportunity execution differs from action ledger",
+            )
+        normalized.append(
+            {
+                "fold": raw["fold"],
+                "seed": raw["seed"],
+                "split": raw["split"],
+                "timestamp": raw["timestamp"],
+                "selectedAction": selected_action,
+                "oracleAction": oracle_action,
+                "selectedRank": raw["selectedRank"],
+                "oracleHit": raw["oracleHit"],
+                "selectedReward": selected_reward,
+                "oracleReward": oracle_reward,
+                "realizedRegret": max(0.0, regret),
+                "candidateMinusSelectedReward": candidate_selected,
+                "candidateMinusBalancedReward": candidate_balanced,
+                "pretradeWeights": pretrade,
+                "forwardReturns": forward,
+                "actions": actions,
+            }
+        )
+    validation = _opportunity_metrics(
+        normalized,
+        "validation",
+        configuration["actions"],
+    )
+    test = _opportunity_metrics(
+        normalized,
+        "test",
+        configuration["actions"],
+    )
+    _compare_policy_metrics(
+        raw_metrics["validation"],
+        validation,
+        "metrics/factor_opportunity/validation",
+    )
+    _compare_policy_metrics(
+        raw_metrics["test"],
+        test,
+        "metrics/factor_opportunity/test",
+    )
+    representative: list[dict[str, Any]] = []
+    for split in SPLITS:
+        split_rows = sorted(
+            (row for row in normalized if row["split"] == split),
+            key=lambda row: (
+                -row["realizedRegret"],
+                row["fold"],
+                row["seed"],
+                row["timestamp"],
+            ),
+        )[:8]
+        for row in split_rows:
+            representative.append(
+                {
+                    "fold": row["fold"],
+                    "seed": row["seed"],
+                    "split": row["split"],
+                    "timestamp": row["timestamp"],
+                    "selectedAction": row["selectedAction"],
+                    "oracleAction": row["oracleAction"],
+                    "selectedRank": row["selectedRank"],
+                    "oracleHit": row["oracleHit"],
+                    "selectedReward": row["selectedReward"],
+                    "oracleReward": row["oracleReward"],
+                    "realizedRegret": row["realizedRegret"],
+                    "candidateMinusSelectedReward": row[
+                        "candidateMinusSelectedReward"
+                    ],
+                    "candidateMinusBalancedReward": row[
+                        "candidateMinusBalancedReward"
+                    ],
+                    "alternatives": [
+                        {
+                            "action": action,
+                            "reward": row["actions"][action]["reward"],
+                            "grossReturn": row["actions"][action][
+                                "grossReturn"
+                            ],
+                            "netReturn": row["actions"][action]["netReturn"],
+                            "oneWayTurnover": row["actions"][action][
+                                "oneWayTurnover"
+                            ],
+                            "cost": row["actions"][action]["cost"],
+                            "executionReason": row["actions"][action][
+                                "executionReason"
+                            ],
+                            "riskRebalanceOverride": row["actions"][action][
+                                "riskRebalanceOverride"
+                            ],
+                        }
+                        for action in configuration["actions"]
+                    ],
+                }
+            )
+    return {
+        "available": True,
+        "policy": FACTOR_OPPORTUNITY_POLICY,
+        "selectionAuthority": "context-only",
+        "validation": _opportunity_split_projection(validation),
+        "test": _opportunity_split_projection(test),
+        "representativeDecisions": representative,
+    }
+
+
 def _execution_risk_projection(
     metrics: dict[str, Any],
     action_summaries: list[dict[str, Any]],
@@ -1970,6 +2847,14 @@ def load_rl_diagnostics(
             "Policy rationales",
         )
         if POLICY_RATIONALE_ARTIFACT_KIND in paths
+        else None
+    )
+    opportunity_value = (
+        _read_object(
+            paths[POLICY_OPPORTUNITY_ARTIFACT_KIND],
+            "Policy opportunities",
+        )
+        if POLICY_OPPORTUNITY_ARTIFACT_KIND in paths
         else None
     )
     fold_metrics = metrics.get("rl", {}).get("folds")
@@ -2277,6 +3162,14 @@ def load_rl_diagnostics(
         configuration,
         run.result["inputHash"],
     )
+    factor_opportunity = _factor_opportunity_projection(
+        opportunity_value,
+        metrics.get("factor_opportunity"),
+        action_rows,
+        configuration,
+        list(run.result["dataset"]["universe"]),
+        run.result["inputHash"],
+    )
     validation_candidate_action_frequency = None
     if has_candidate_fusion:
         validation_candidate_action_frequency = sum(
@@ -2424,6 +3317,7 @@ def load_rl_diagnostics(
         "artifacts": artifacts,
         "portfolioMandate": mandate_projection,
         "policyBehavior": policy_behavior,
+        "factorOpportunity": factor_opportunity,
         "executedBookRisk": _execution_risk_projection(
             metrics,
             action_summaries,
@@ -2521,6 +3415,7 @@ RL_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "artifacts",
         "portfolioMandate",
         "policyBehavior",
+        "factorOpportunity",
         "executedBookRisk",
         "protocol",
         "summary",
@@ -2542,6 +3437,7 @@ RL_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "artifacts": {"type": "object"},
         "portfolioMandate": {"type": "object"},
         "policyBehavior": {"type": "object"},
+        "factorOpportunity": {"type": "object"},
         "executedBookRisk": {"type": "object"},
         "protocol": {"type": "object"},
         "summary": {"type": "object"},

@@ -850,6 +850,55 @@ def _render_markdown(report: dict[str, Any]) -> str:
                 "",
             ]
         )
+    factor_opportunity = leader_run["metrics"].get("factor_opportunity")
+    validation_opportunity = (
+        factor_opportunity.get("validation")
+        if isinstance(factor_opportunity, dict)
+        else None
+    )
+    if isinstance(validation_opportunity, dict):
+        candidate = validation_opportunity["candidate"]
+        oracle_mix = sorted(
+            validation_opportunity["by_action"].items(),
+            key=lambda item: (-item[1]["oracle_frequency"], item[0]),
+        )
+        lines.extend(
+            [
+                "## RL one-step factor opportunity",
+                "",
+                "- Method: "
+                "`actual-pretrade-one-step-governed-action-audit-v1` "
+                "(actual policy pretrade book; no alternate path propagation)",
+                "- Validation oracle-hit rate / mean selected rank / positive "
+                "regret rate: "
+                f"`{validation_opportunity['oracle_hit_rate']}` / "
+                f"`{validation_opportunity['mean_selected_rank']}` / "
+                f"`{validation_opportunity['positive_regret_rate']}`",
+                "- Validation mean / p90 / maximum realized one-step regret: "
+                f"`{validation_opportunity['mean_realized_regret']}` / "
+                f"`{validation_opportunity['p90_realized_regret']}` / "
+                f"`{validation_opportunity['maximum_realized_regret']}`",
+                "- Candidate selected / locally best / missed-opportunity "
+                "frequency: "
+                f"`{candidate['selected_frequency']}` / "
+                f"`{candidate['oracle_frequency']}` / "
+                f"`{candidate['missed_opportunity_rate']}`",
+                "- Candidate mean reward advantage versus selected / balanced; "
+                "win rate versus balanced: "
+                f"`{candidate['mean_vs_selected_reward']}` / "
+                f"`{candidate['mean_vs_balanced_reward']}`; "
+                f"`{candidate['win_rate_vs_balanced']}`",
+                "- Ex-post local-best action mix: "
+                + ", ".join(
+                    f"`{name}` ({values['oracle_frequency']})"
+                    for name, values in oracle_mix
+                ),
+                "- Oracle means an ex-post one-step audit upper bound, not an "
+                "attainable strategy. This evidence cannot change KEEP/REVERT "
+                "and carries no trading authority.",
+                "",
+            ]
+        )
     lines.extend(
         [
             "## Research selection integrity",

@@ -5,7 +5,8 @@ Status: V1 implemented.
 Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]],
 [[docs/design/portfolio-construction-lab]],
 [[docs/design/request-bound-portfolio-mandates]],
-[[docs/design/executed-book-risk-compliance]], and
+[[docs/design/executed-book-risk-compliance]],
+[[docs/design/rl-factor-opportunity-audit]], and
 [[docs/design/quant-research-lifecycle]].
 
 ## Scope
@@ -194,6 +195,10 @@ Successful Runs declare:
 - `policy-rationales.json`: exact validation/test causal state, encoded
   features, all frozen Q scores, deterministic runner-up, chosen margin, and
   exact per-feature chosen-minus-runner linear contribution.
+- `policy-opportunities.json`: every validation/test action sleeve evaluated
+  for one bar from the selected policy path's exact shared pretrade book,
+  including proposed/executed weights, trades, next returns, reward, local
+  oracle rank/regret, and candidate-factor opportunity.
 
 NumPy and pandas versions are recorded. Artifacts are immutable Run evidence.
 
@@ -231,6 +236,9 @@ failed seed.
     reconcile action chronology and frozen model weights.
 13. Q margin is uncalibrated, linear contribution is not causal importance,
     action-conditioned outcomes are endogenous, and none has trading authority.
+14. One-step opportunity rows share the actual policy pretrade book, never
+    propagate alternate paths, and treat ex-post oracle reward only as a
+    context-only audit upper bound.
 
 ## Change checklist
 

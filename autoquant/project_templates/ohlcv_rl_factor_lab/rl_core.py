@@ -14,7 +14,9 @@ try:
         BASE_COST_BPS,
         NO_TRADE_ONE_WAY,
         REFERENCE_NAV,
+        RiskCovarianceCache,
         Simulation,
+        build_risk_covariance_cache,
         construct_signal_policy,
         drift_weights,
         execution_risk_metrics,
@@ -27,7 +29,9 @@ except ModuleNotFoundError:  # Package-level deterministic primitive tests.
         BASE_COST_BPS,
         NO_TRADE_ONE_WAY,
         REFERENCE_NAV,
+        RiskCovarianceCache,
         Simulation,
+        build_risk_covariance_cache,
         construct_signal_policy,
         drift_weights,
         execution_risk_metrics,
@@ -183,6 +187,7 @@ def _account_step(
     *,
     first: bool,
     mandate: dict[str, object] | None = None,
+    risk_covariance_cache: RiskCovarianceCache | None = None,
 ) -> tuple[pd.Series, pd.Series, pd.Series, dict[str, float | bool]]:
     pretrade = (
         pd.Series(0.0, index=proposed.index, dtype=float)
@@ -196,6 +201,7 @@ def _account_step(
         timestamp,
         mandate=mandate,
         no_trade_one_way=NO_TRADE_ONE_WAY,
+        risk_covariance_cache=risk_covariance_cache,
     )
     rebalanced = bool(execution_risk["rebalanced"])
     trade = current - pretrade
@@ -305,6 +311,7 @@ def rollout_policy(
     index: pd.Index,
     *,
     mandate: dict[str, object] | None = None,
+    risk_covariance_cache: RiskCovarianceCache | None = None,
 ) -> Rollout:
     if len(index) < MIN_SPLIT_OBSERVATIONS:
         raise PolicyFailure(
@@ -341,6 +348,7 @@ def rollout_policy(
             volumes.loc[timestamp],
             first=position == 0,
             mandate=mandate,
+            risk_covariance_cache=risk_covariance_cache,
         )
         daily_rows.append(row)
         weight_rows.append(current)
@@ -362,6 +370,198 @@ def rollout_policy(
     )
 
 
+def one_step_action_opportunities(
+    rollout: Rollout,
+    action_targets: dict[str, pd.DataFrame],
+    closes: pd.DataFrame,
+    volumes: pd.DataFrame,
+    index: pd.Index,
+    *,
+    mandate: dict[str, object] | None = None,
+    risk_covariance_cache: RiskCovarianceCache | None = None,
+) -> list[dict[str, object]]:
+    """Audit every governed action from the actual policy pretrade book."""
+
+    if (
+        not rollout.actions.index.equals(index)
+        or not rollout.simulation.daily.index.equals(index)
+        or not rollout.simulation.weights.index.equals(index)
+        or not rollout.simulation.trades.index.equals(index)
+        or set(action_targets) != set(ACTIONS)
+    ):
+        raise PolicyFailure(
+            "policy.opportunity-identity",
+            "Opportunity audit inputs differ from the selected rollout",
+        )
+    cache = (
+        risk_covariance_cache
+        if risk_covariance_cache is not None
+        else build_risk_covariance_cache(closes, mandate=mandate)
+    )
+    close_returns = closes.pct_change(fill_method=None)
+    forward_returns = closes.shift(-1) / closes - 1.0
+    zero = pd.Series(0.0, index=closes.columns, dtype=float)
+    rows: list[dict[str, object]] = []
+    for position, timestamp in enumerate(index):
+        previous_weights = (
+            zero
+            if position == 0
+            else rollout.simulation.weights.loc[index[position - 1]]
+        )
+        pretrade = (
+            zero.copy()
+            if position == 0
+            else drift_weights(previous_weights, close_returns.loc[timestamp])
+        )
+        forward_return = forward_returns.loc[timestamp].fillna(0.0)
+        action_evidence: dict[str, dict[str, object]] = {}
+        for action in ACTIONS:
+            proposed = action_targets[action].loc[timestamp]
+            current, trade, _, daily = _account_step(
+                previous_weights,
+                proposed,
+                close_returns,
+                timestamp,
+                forward_return,
+                closes.loc[timestamp],
+                volumes.loc[timestamp],
+                first=position == 0,
+                mandate=mandate,
+                risk_covariance_cache=cache,
+            )
+            action_evidence[action] = {
+                "proposedWeights": {
+                    asset: float(proposed[asset])
+                    for asset in closes.columns
+                },
+                "executedWeights": {
+                    asset: float(current[asset])
+                    for asset in closes.columns
+                },
+                "trades": {
+                    asset: float(trade[asset])
+                    for asset in closes.columns
+                },
+                "grossReturn": float(daily["gross_return"]),
+                "netReturn": float(daily["net_return"]),
+                "reward": float(daily["reward"]),
+                "oneWayTurnover": float(daily["one_way_turnover"]),
+                "cost": float(daily["cost"]),
+                "grossExposure": float(daily["gross_exposure"]),
+                "netExposure": float(daily["net_exposure"]),
+                "executionRiskStatus": str(
+                    daily["execution_risk_status"]
+                ),
+                "executionRiskForecastAvailable": bool(
+                    daily["execution_risk_forecast_available"]
+                ),
+                "executionRiskObservations": int(
+                    daily["execution_risk_observations"]
+                ),
+                "pretradeRiskForecastAnnualized": float(
+                    daily["pretrade_risk_forecast_annualized"]
+                ),
+                "executedRiskForecastAnnualized": float(
+                    daily["executed_risk_forecast_annualized"]
+                ),
+                "executionRiskCeilingAnnualized": float(
+                    daily["execution_risk_ceiling_annualized"]
+                ),
+                "riskRebalanceOverride": bool(
+                    daily["risk_rebalance_override"]
+                ),
+                "executionReason": str(daily["execution_reason"]),
+            }
+        selected = str(rollout.actions.loc[timestamp])
+        selected_evidence = action_evidence[selected]
+        actual_daily = rollout.simulation.daily.loc[timestamp]
+        if (
+            not np.allclose(
+                np.asarray(
+                    list(selected_evidence["executedWeights"].values()),
+                    dtype=float,
+                ),
+                rollout.simulation.weights.loc[timestamp].to_numpy(dtype=float),
+                rtol=0.0,
+                atol=1e-12,
+            )
+            or not np.allclose(
+                np.asarray(
+                    list(selected_evidence["trades"].values()),
+                    dtype=float,
+                ),
+                rollout.simulation.trades.loc[timestamp].to_numpy(dtype=float),
+                rtol=0.0,
+                atol=1e-12,
+            )
+            or any(
+                not math.isclose(
+                    float(selected_evidence[artifact_field]),
+                    float(actual_daily[daily_field]),
+                    rel_tol=0.0,
+                    abs_tol=1e-12,
+                )
+                for artifact_field, daily_field in (
+                    ("grossReturn", "gross_return"),
+                    ("netReturn", "net_return"),
+                    ("reward", "reward"),
+                    ("oneWayTurnover", "one_way_turnover"),
+                    ("cost", "cost"),
+                )
+            )
+        ):
+            raise PolicyFailure(
+                "policy.opportunity-selected",
+                "Selected opportunity does not reproduce the actual rollout",
+            )
+        ranked = sorted(
+            ACTIONS,
+            key=lambda action: (
+                -float(action_evidence[action]["reward"]),
+                ACTIONS.index(action),
+            ),
+        )
+        oracle = ranked[0]
+        selected_reward = float(selected_evidence["reward"])
+        oracle_reward = float(action_evidence[oracle]["reward"])
+        regret = oracle_reward - selected_reward
+        if regret < -1e-12:
+            raise PolicyFailure(
+                "policy.opportunity-regret",
+                "Selected opportunity regret is negative",
+            )
+        candidate_reward = float(action_evidence["candidate"]["reward"])
+        balanced_reward = float(action_evidence["balanced"]["reward"])
+        rows.append(
+            {
+                "timestamp": timestamp,
+                "selectedAction": selected,
+                "oracleAction": oracle,
+                "selectedRank": ranked.index(selected) + 1,
+                "oracleHit": selected == oracle,
+                "selectedReward": selected_reward,
+                "oracleReward": oracle_reward,
+                "realizedRegret": max(0.0, regret),
+                "candidateMinusSelectedReward": (
+                    candidate_reward - selected_reward
+                ),
+                "candidateMinusBalancedReward": (
+                    candidate_reward - balanced_reward
+                ),
+                "pretradeWeights": {
+                    asset: float(pretrade[asset])
+                    for asset in closes.columns
+                },
+                "forwardReturns": {
+                    asset: float(forward_return[asset])
+                    for asset in closes.columns
+                },
+                "actions": action_evidence,
+            }
+        )
+    return rows
+
+
 def train_q_policy(
     encoder: Callable[[dict[str, float]], np.ndarray],
     feature_count: int,
@@ -373,6 +573,7 @@ def train_q_policy(
     *,
     seed: int,
     mandate: dict[str, object] | None = None,
+    risk_covariance_cache: RiskCovarianceCache | None = None,
 ) -> TrainedPolicy:
     if seed not in SEEDS:
         raise PolicyFailure("policy.seed", "Seed is outside the fixed set")
@@ -410,6 +611,7 @@ def train_q_policy(
                 volumes.loc[timestamp],
                 first=position == 0,
                 mandate=mandate,
+                risk_covariance_cache=risk_covariance_cache,
             )
             reward = float(row["reward"])
             done = position == len(train_index) - 1
@@ -472,6 +674,7 @@ def train_contextual_ridge(
     train_index: pd.Index,
     *,
     mandate: dict[str, object] | None = None,
+    risk_covariance_cache: RiskCovarianceCache | None = None,
 ) -> dict[str, object]:
     raw = raw_states.loc[train_index, list(BASE_STATE_COLUMNS)]
     mean = raw.mean()
@@ -491,6 +694,7 @@ def train_contextual_ridge(
             volumes,
             train_index,
             mandate=mandate,
+            risk_covariance_cache=risk_covariance_cache,
         )
         target = rollout.rewards.to_numpy(dtype=float)
         coefficients.append(

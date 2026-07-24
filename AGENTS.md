@@ -67,6 +67,9 @@ Read the relevant linked document before changing a subsystem:
 - Governed RL action persistence and exact chosen-versus-runner-up linear
   decision rationale:
   [[docs/design/rl-policy-behavior-rationale]]
+- Same-pretrade one-step governed factor opportunities, realized selection
+  regret, and ex-post oracle authority boundaries:
+  [[docs/design/rl-factor-opportunity-audit]]
 - Verified governed RL artifacts, bounded fold/seed, training, baseline, and
   fixed-action Studio projection:
   [[docs/design/rl-policy-evidence-explorer]]

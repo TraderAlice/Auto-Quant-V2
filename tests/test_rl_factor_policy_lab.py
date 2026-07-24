@@ -21,6 +21,7 @@ from autoquant.project_templates.ohlcv_rl_factor_lab.rl_core import (
     EXPERTS,
     build_action_targets,
     fixed_selector,
+    one_step_action_opportunities,
     rollout_policy,
 )
 from autoquant.research import run_campaign
@@ -211,6 +212,39 @@ class RlEnvironmentTests(unittest.TestCase):
                 + 1e-12
             ).all()
         )
+        opportunities = one_step_action_opportunities(
+            rollout,
+            action_targets,
+            closes,
+            volumes,
+            rollout.actions.index,
+            mandate=mandate,
+        )
+        self.assertEqual(len(opportunities), len(rollout.actions))
+        for timestamp, opportunity in zip(
+            rollout.actions.index,
+            opportunities,
+        ):
+            self.assertEqual(opportunity["selectedAction"], "candidate")
+            self.assertEqual(set(opportunity["actions"]), set(ACTIONS))
+            np.testing.assert_allclose(
+                list(
+                    opportunity["actions"]["candidate"][
+                        "executedWeights"
+                    ].values()
+                ),
+                rollout.simulation.weights.loc[timestamp].to_numpy(),
+                rtol=0.0,
+                atol=1e-12,
+            )
+            np.testing.assert_allclose(
+                list(
+                    opportunity["actions"]["candidate"]["trades"].values()
+                ),
+                rollout.simulation.trades.loc[timestamp].to_numpy(),
+                rtol=0.0,
+                atol=1e-12,
+            )
 
     def test_action_reward_begins_after_the_decision_close(self) -> None:
         dates = pd.bdate_range("2026-01-01", periods=26)
@@ -316,6 +350,7 @@ class GovernedRlFactorPolicyLabTests(unittest.TestCase):
                     "training-history",
                     "policy-actions",
                     "policy-rationales",
+                    "policy-opportunities",
                 },
             )
             rationale = metrics["policy_rationale"]
@@ -338,6 +373,36 @@ class GovernedRlFactorPolicyLabTests(unittest.TestCase):
             self.assertEqual(
                 set(rationale["validation"]["by_feature"]),
                 set(metrics["configuration"]["featureNames"]),
+            )
+            opportunity = metrics["factor_opportunity"]
+            self.assertEqual(
+                opportunity["policy"]["method"],
+                "actual-pretrade-one-step-governed-action-audit-v1",
+            )
+            self.assertEqual(
+                opportunity["policy"]["selection_authority"],
+                "context-only",
+            )
+            self.assertEqual(
+                opportunity["validation"]["decisions"],
+                360,
+            )
+            self.assertEqual(
+                opportunity["validation"]["reconciliation"][
+                    "action_evaluations"
+                ],
+                1800,
+            )
+            self.assertTrue(
+                opportunity["validation"]["reconciliation"]["passed"]
+            )
+            self.assertGreaterEqual(
+                opportunity["validation"]["mean_selected_rank"],
+                1.0,
+            )
+            self.assertLessEqual(
+                opportunity["validation"]["mean_selected_rank"],
+                5.0,
             )
             first_models = next(
                 item
@@ -364,6 +429,10 @@ class GovernedRlFactorPolicyLabTests(unittest.TestCase):
             self.assertEqual(layers["seeds"], 3)
             self.assertEqual(
                 layers["policyBehavior"]["selectionAuthority"],
+                "context-only",
+            )
+            self.assertEqual(
+                layers["factorOpportunity"]["selectionAuthority"],
                 "context-only",
             )
 

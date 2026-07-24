@@ -738,6 +738,32 @@ def _rl_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
                 if isinstance(metrics.get("policy_rationale"), dict)
                 else None
             ),
+            "factorOpportunity": (
+                {
+                    "validationOracleHitRate": metrics[
+                        "factor_opportunity"
+                    ]["validation"]["oracle_hit_rate"],
+                    "validationMeanSelectedRank": metrics[
+                        "factor_opportunity"
+                    ]["validation"]["mean_selected_rank"],
+                    "validationMeanRealizedRegret": metrics[
+                        "factor_opportunity"
+                    ]["validation"]["mean_realized_regret"],
+                    "validationCandidateOracleFrequency": metrics[
+                        "factor_opportunity"
+                    ]["validation"]["candidate"]["oracle_frequency"],
+                    "validationCandidateMissedOpportunityRate": metrics[
+                        "factor_opportunity"
+                    ]["validation"]["candidate"][
+                        "missed_opportunity_rate"
+                    ],
+                    "selectionAuthority": metrics[
+                        "factor_opportunity"
+                    ]["policy"]["selection_authority"],
+                }
+                if isinstance(metrics.get("factor_opportunity"), dict)
+                else None
+            ),
             "executedBookRisk": (
                 {
                     "validationForecastCoverage": metrics[

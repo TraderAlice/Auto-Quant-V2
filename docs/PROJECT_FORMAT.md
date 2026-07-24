@@ -383,6 +383,13 @@ summarize split-bounded action runs, transitions, margins, and descriptive
 action/feature conditionals. Q scale is uncalibrated and the evidence remains
 context-only with no trading authority. Older Runs may omit both the metric
 and artifact and remain readable as legacy evidence.
+New governed RL Runs also declare `policy-opportunities.json`: every fixed
+governed sleeve is evaluated for one next bar from the selected policy path's
+exact actual pretrade book. Proposed/executed weights, trades, costs, reward,
+local ex-post oracle rank/regret, and candidate-factor deltas are immutable
+audit evidence. Alternate books never propagate to a later timestamp; the
+oracle is context-only hindsight, not a strategy or promotion input. See
+[[docs/design/rl-factor-opportunity-audit]].
 New Portfolio ledgers
 also record causal trailing dollar volume, reference-NAV participation,
 1%/5% asset and portfolio capacity, availability, and one deterministic

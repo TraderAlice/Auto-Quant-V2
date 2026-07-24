@@ -15,6 +15,7 @@ const state = {
   rlView: "performance",
   rlSplit: "validation",
   matrixView: "selection",
+  inspectorOpen: false,
   autoRefresh: true,
   loading: false,
   timer: null,
@@ -2433,7 +2434,101 @@ function renderRlBehavior(explorer) {
           .join("")}
       </div>
     </section>
-    <p class="book-disclosure">Q margins are uncalibrated linear-model scores—not probability or confidence. Feature contributions exactly decompose the chosen-minus-runner-up margin, but are not causal importance. Realized action outcomes are descriptive and endogenous. No Broker, account, capital, or order authority.</p>`;
+      <p class="book-disclosure">Q margins are uncalibrated linear-model scores—not probability or confidence. Feature contributions exactly decompose the chosen-minus-runner-up margin, but are not causal importance. Realized action outcomes are descriptive and endogenous. No Broker, account, capital, or order authority.</p>`;
+}
+
+function renderRlOpportunity(explorer) {
+  const root = element("rl-opportunity");
+  const audit = explorer.factorOpportunity;
+  if (!audit?.available) {
+    root.innerHTML = `
+      <div class="rl-behavior-empty">
+        Legacy Run: same-pretrade one-step factor opportunity evidence was not recorded.
+      </div>`;
+    return;
+  }
+  const split = audit[state.rlSplit];
+  const candidate = split.candidate;
+  const actions = [...split.byAction].sort(
+    (left, right) => right.oracleFrequency - left.oracleFrequency ||
+      left.action.localeCompare(right.action),
+  );
+  const decisions = audit.representativeDecisions
+    .filter((row) => row.split === state.rlSplit)
+    .sort(
+      (left, right) => right.realizedRegret - left.realizedRegret ||
+        left.timestamp.localeCompare(right.timestamp),
+    )
+    .slice(0, 6);
+  root.innerHTML = `
+    <div class="rl-behavior-stats rl-opportunity-stats">
+      <span><small>Selected = local best</small><b>${percent(split.oracleHitRate)}</b></span>
+      <span><small>Mean selected rank</small><b>${metric(split.meanSelectedRank)} / ${metric(explorer.protocol.actions.length)}</b></span>
+      <span><small>Mean one-step regret</small><b>${metric(split.meanRealizedRegret)}</b></span>
+      <span><small>P90 / max regret</small><b>${metric(split.p90RealizedRegret)} / ${metric(split.maximumRealizedRegret)}</b></span>
+      <span><small>Candidate locally best</small><b>${percent(candidate.oracleFrequency)}</b></span>
+      <span><small>Candidate vs balanced</small><b>${percent(candidate.winRateVsBalanced)} wins</b></span>
+    </div>
+    <div class="rl-behavior-grid rl-opportunity-grid">
+      <section>
+        <h3>Selected mix versus ex-post local-best mix</h3>
+        <div class="rl-behavior-table opportunity-table" role="table" aria-label="Selected and locally best factor sleeves">
+          <div class="heading" role="row">
+            <span>Sleeve</span><span>Selected</span><span>Locally best</span><span>Mean reward</span><span>Turnover</span>
+          </div>
+          ${actions
+            .map(
+              (row) => `
+                <div role="row">
+                  <span><i class="rl-action-${escapeHtml(row.action)}"></i><b>${escapeHtml(row.action)}</b></span>
+                  <span>${percent(row.selectedFrequency)}</span>
+                  <span>${percent(row.oracleFrequency)}</span>
+                  <span class="${row.meanLocalReward >= 0 ? "positive" : "negative"}">${metric(row.meanLocalReward)}</span>
+                  <span>${metric(row.meanOneWayTurnover)}</span>
+                </div>`,
+            )
+            .join("")}
+        </div>
+      </section>
+      <section>
+        <h3>Candidate factor capture</h3>
+        <div class="rl-candidate-opportunity">
+          <span><small>Selected / locally best</small><b>${percent(candidate.selectedFrequency)} / ${percent(candidate.oracleFrequency)}</b></span>
+          <span><small>Missed opportunity</small><b>${percent(candidate.missedOpportunityRate)}</b></span>
+          <span><small>Mean Δ vs selected</small><b class="${candidate.meanVsSelectedReward >= 0 ? "positive" : "negative"}">${metric(candidate.meanVsSelectedReward)}</b></span>
+          <span><small>Mean Δ vs balanced</small><b class="${candidate.meanVsBalancedReward >= 0 ? "positive" : "negative"}">${metric(candidate.meanVsBalancedReward)}</b></span>
+        </div>
+      </section>
+    </div>
+    <section class="rl-rationale-decisions rl-opportunity-decisions">
+      <h3>Largest realized one-step opportunity gaps</h3>
+      <div class="rl-rationale-list">
+        ${decisions
+          .map(
+            (row) => `
+              <div>
+                <span>
+                  <small>${escapeHtml(row.fold)} / s${metric(row.seed)} · ${escapeHtml(row.timestamp)} · rank ${metric(row.selectedRank)}</small>
+                  <b>${escapeHtml(row.selectedAction)} <i>→ local best</i> ${escapeHtml(row.oracleAction)}</b>
+                </span>
+                <span>
+                  <small>Selected / local-best reward</small>
+                  <b>${metric(row.selectedReward)} / ${metric(row.oracleReward)}</b>
+                </span>
+                <span>
+                  <small>Realized regret</small>
+                  <b class="negative">${metric(row.realizedRegret)}</b>
+                </span>
+                <span>
+                  <small>Candidate Δ vs selected / balanced</small>
+                  <b>${metric(row.candidateMinusSelectedReward)} / ${metric(row.candidateMinusBalancedReward)}</b>
+                </span>
+              </div>`,
+          )
+          .join("")}
+      </div>
+    </section>
+    <p class="book-disclosure">Each alternative starts from the selected policy path’s exact actual pretrade book, uses the same target, no-trade, volatility-risk, cost, and next-bar reward primitives, then stops. “Local best” is known only after the bar: it is a hindsight audit upper bound—not a strategy, confidence score, selection input, or trading authority.</p>`;
 }
 
 function renderRlExplorer(project) {
@@ -2483,6 +2578,7 @@ function renderRlExplorer(project) {
   renderRlBaselines(explorer);
   renderRlDetail(explorer);
   renderRlBehavior(explorer);
+  renderRlOpportunity(explorer);
   const command = project.commands?.find((item) => item.id === "run.rl");
   element("rl-warning").innerHTML = `
     <span>${escapeHtml(explorer.warning)}</span>
@@ -3214,6 +3310,19 @@ function scheduleRefresh() {
 }
 
 element("refresh").addEventListener("click", () => refresh());
+element("inspector-toggle").addEventListener("click", (event) => {
+  state.inspectorOpen = !state.inspectorOpen;
+  studio.classList.toggle("inspector-collapsed", !state.inspectorOpen);
+  element("research-inspector").setAttribute(
+    "aria-hidden",
+    String(!state.inspectorOpen),
+  );
+  event.currentTarget.setAttribute(
+    "aria-pressed",
+    String(state.inspectorOpen),
+  );
+  event.currentTarget.textContent = state.inspectorOpen ? "Close" : "Inspect";
+});
 element("auto-refresh").addEventListener("click", (event) => {
   state.autoRefresh = !state.autoRefresh;
   event.currentTarget.setAttribute("aria-pressed", String(state.autoRefresh));
@@ -3302,6 +3411,7 @@ document.querySelectorAll("[data-rl-split]").forEach((button) => {
       renderRlBaselines(explorer);
       renderRlDetail(explorer);
       renderRlBehavior(explorer);
+      renderRlOpportunity(explorer);
     }
   });
 });

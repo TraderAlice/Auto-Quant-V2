@@ -1241,6 +1241,57 @@ def _render_markdown(dossier: dict[str, Any]) -> str:
                 ]
             )
         lines.append("")
+    opportunity_lanes = [
+        lane
+        for lane in evidence["lanes"]
+        if isinstance(
+            lane["leaderRun"]["metrics"].get("factor_opportunity"),
+            dict,
+        )
+    ]
+    if opportunity_lanes:
+        lines.extend(["## RL one-step factor opportunity", ""])
+        for lane in opportunity_lanes:
+            opportunity = lane["leaderRun"]["metrics"][
+                "factor_opportunity"
+            ]["validation"]
+            candidate = opportunity["candidate"]
+            oracle_mix = sorted(
+                opportunity["by_action"].items(),
+                key=lambda item: (
+                    -item[1]["oracle_frequency"],
+                    item[0],
+                ),
+            )
+            lines.extend(
+                [
+                    f"- {lane['name']}: validation oracle-hit rate / mean "
+                    f"selected rank / mean realized regret = "
+                    f"`{opportunity['oracle_hit_rate']}` / "
+                    f"`{opportunity['mean_selected_rank']}` / "
+                    f"`{opportunity['mean_realized_regret']}`",
+                    f"- {lane['name']}: candidate selected / locally best / "
+                    f"missed-opportunity frequency = "
+                    f"`{candidate['selected_frequency']}` / "
+                    f"`{candidate['oracle_frequency']}` / "
+                    f"`{candidate['missed_opportunity_rate']}`",
+                    f"- {lane['name']}: candidate mean reward advantage versus "
+                    f"selected / balanced; win rate versus balanced = "
+                    f"`{candidate['mean_vs_selected_reward']}` / "
+                    f"`{candidate['mean_vs_balanced_reward']}`; "
+                    f"`{candidate['win_rate_vs_balanced']}`",
+                    f"- {lane['name']}: ex-post local-best action mix = "
+                    + ", ".join(
+                        f"`{name}` ({values['oracle_frequency']})"
+                        for name, values in oracle_mix
+                    ),
+                    f"- {lane['name']}: all alternatives start from the actual "
+                    "policy pretrade book and end after one bar. The oracle is "
+                    "a hindsight audit upper bound, not a strategy, selection "
+                    "input, or trading authority.",
+                ]
+            )
+        lines.append("")
     neighborhood_lanes = [
         lane
         for lane in evidence["lanes"]

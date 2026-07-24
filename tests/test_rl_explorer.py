@@ -154,6 +154,34 @@ class RlPolicyEvidenceExplorerTests(unittest.TestCase):
                 },
                 {"validation", "test"},
             )
+            opportunity = diagnostics["factorOpportunity"]
+            self.assertTrue(opportunity["available"])
+            self.assertEqual(
+                opportunity["policy"]["method"],
+                "actual-pretrade-one-step-governed-action-audit-v1",
+            )
+            self.assertEqual(
+                opportunity["selectionAuthority"],
+                "context-only",
+            )
+            self.assertEqual(opportunity["validation"]["decisions"], 360)
+            self.assertEqual(opportunity["validation"]["trialPaths"], 6)
+            self.assertEqual(
+                opportunity["validation"]["reconciliation"][
+                    "action_evaluations"
+                ],
+                1800,
+            )
+            self.assertTrue(
+                opportunity["validation"]["reconciliation"]["passed"]
+            )
+            self.assertEqual(
+                {
+                    item["split"]
+                    for item in opportunity["representativeDecisions"]
+                },
+                {"validation", "test"},
+            )
             self.assertTrue(
                 all(
                     item["selectedBaseline"] == "contextual-ridge"
@@ -187,15 +215,21 @@ class RlPolicyEvidenceExplorerTests(unittest.TestCase):
             rationale_path = (
                 run.root_dir / "artifacts" / "policy-rationales.json"
             )
+            opportunity_path = (
+                run.root_dir / "artifacts" / "policy-opportunities.json"
+            )
             legacy_result = json.loads(result_path.read_text(encoding="utf-8"))
             legacy_report = json.loads(report_path.read_text(encoding="utf-8"))
             legacy_result["metrics"].pop("policy_rationale")
+            legacy_result["metrics"].pop("factor_opportunity")
             legacy_result["artifacts"] = [
                 item
                 for item in legacy_result["artifacts"]
-                if item["kind"] != "policy-rationales"
+                if item["kind"]
+                not in {"policy-rationales", "policy-opportunities"}
             ]
             legacy_report["metrics"].pop("policy_rationale")
+            legacy_report["metrics"].pop("factor_opportunity")
             result_path.write_text(
                 json.dumps(legacy_result, indent=2, sort_keys=True) + "\n",
                 encoding="utf-8",
@@ -205,9 +239,11 @@ class RlPolicyEvidenceExplorerTests(unittest.TestCase):
                 encoding="utf-8",
             )
             rationale_path.unlink()
+            opportunity_path.unlink()
             rehash_run(run.root_dir)
             legacy = load_rl_diagnostics(project, run.result["id"])
             self.assertFalse(legacy["policyBehavior"]["available"])
+            self.assertFalse(legacy["factorOpportunity"]["available"])
 
     def test_limits_and_rehashed_action_corruption_fail_structurally(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -246,6 +282,35 @@ class RlPolicyEvidenceExplorerTests(unittest.TestCase):
             ):
                 load_rl_diagnostics(project, run.result["id"])
             rationale_path.write_text(original_rationale, encoding="utf-8")
+            rehash_run(run.root_dir)
+
+            opportunities_path = (
+                run.root_dir / "artifacts" / "policy-opportunities.json"
+            )
+            original_opportunities = opportunities_path.read_text(
+                encoding="utf-8"
+            )
+            opportunities = json.loads(original_opportunities)
+            first_row = opportunities["rows"][0]
+            selected = first_row["selectedAction"]
+            first_asset = opportunities["assets"][0]
+            first_row["actions"][selected]["executedWeights"][
+                first_asset
+            ] += 0.01
+            opportunities_path.write_text(
+                json.dumps(opportunities, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            rehash_run(run.root_dir)
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "executed minus pretrade weight",
+            ):
+                load_rl_diagnostics(project, run.result["id"])
+            opportunities_path.write_text(
+                original_opportunities,
+                encoding="utf-8",
+            )
             rehash_run(run.root_dir)
 
             original_actions = actions_path.read_text(encoding="utf-8")

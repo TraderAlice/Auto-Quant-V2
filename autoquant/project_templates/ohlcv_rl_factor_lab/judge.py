@@ -17,7 +17,10 @@ from autoquant.mandates import (
     PORTFOLIO_MANDATE,
     load_portfolio_mandate,
 )
-from judges.portfolio_core import constraint_audit
+from judges.portfolio_core import (
+    build_risk_covariance_cache,
+    constraint_audit,
+)
 from judges.rl_core import (
     ACTIONS,
     BASE_COST_BPS,
@@ -36,6 +39,7 @@ from judges.rl_core import (
     build_raw_states,
     chronological_folds,
     fixed_selector,
+    one_step_action_opportunities,
     q_selector,
     ridge_selector,
     rollout_metrics,
@@ -49,6 +53,13 @@ from judges.rl_core import (
 REQUIRED_COLUMNS = ("timestamp", "open", "high", "low", "close", "volume")
 MIN_OBSERVATIONS = 240
 MAX_FEATURES = 32
+FACTOR_OPPORTUNITY_POLICY = {
+    "method": "actual-pretrade-one-step-governed-action-audit-v1",
+    "path_propagation": "selected-policy-only",
+    "oracle_role": "ex-post-audit-upper-bound",
+    "selection_authority": "context-only",
+    "trading_authority": "none",
+}
 
 
 class JudgeFailure(ValueError):
@@ -354,6 +365,7 @@ def _fixed_baselines(
     volumes: pd.DataFrame,
     split: dict[str, pd.Index],
     mandate: dict[str, Any],
+    risk_covariance_cache,
 ) -> tuple[dict[str, Any], dict[str, Any], str]:
     fixed: dict[str, Any] = {}
     training_scores: dict[str, float] = {}
@@ -366,6 +378,7 @@ def _fixed_baselines(
             volumes,
             split["train"],
             mandate=mandate,
+            risk_covariance_cache=risk_covariance_cache,
         )
         training_scores[action] = float(
             rollout_metrics(training)["net"]["sharpe"]
@@ -380,6 +393,7 @@ def _fixed_baselines(
                     volumes,
                     index,
                     mandate=mandate,
+                    risk_covariance_cache=risk_covariance_cache,
                 )
             )
             for name, index in (
@@ -395,6 +409,7 @@ def _fixed_baselines(
         volumes,
         split["train"],
         mandate=mandate,
+        risk_covariance_cache=risk_covariance_cache,
     )
     ridge = {
         name: rollout_metrics(
@@ -406,6 +421,7 @@ def _fixed_baselines(
                 volumes,
                 index,
                 mandate=mandate,
+                risk_covariance_cache=risk_covariance_cache,
             )
         )
         for name, index in (
@@ -602,6 +618,251 @@ def _rollout_rationale_rows(
         rows.append(row)
         previous_action = selected_action
     return rows
+
+
+def _rollout_opportunity_rows(
+    fold: str,
+    seed: int,
+    split: str,
+    rollout,
+    action_targets: dict[str, pd.DataFrame],
+    closes: pd.DataFrame,
+    volumes: pd.DataFrame,
+    mandate: dict[str, Any],
+    risk_covariance_cache,
+) -> list[dict[str, Any]]:
+    rows = one_step_action_opportunities(
+        rollout,
+        action_targets,
+        closes,
+        volumes,
+        rollout.actions.index,
+        mandate=mandate,
+        risk_covariance_cache=risk_covariance_cache,
+    )
+    return [
+        {
+            **row,
+            "fold": fold,
+            "seed": seed,
+            "split": split,
+            "timestamp": row["timestamp"].date().isoformat(),
+        }
+        for row in rows
+    ]
+
+
+def _linear_percentile(values: list[float], percentile: float) -> float:
+    ordered = sorted(float(value) for value in values)
+    position = (len(ordered) - 1) * percentile
+    lower = int(math.floor(position))
+    upper = int(math.ceil(position))
+    if lower == upper:
+        return ordered[lower]
+    weight = position - lower
+    return ordered[lower] * (1.0 - weight) + ordered[upper] * weight
+
+
+def _factor_opportunity_metrics(
+    rows: list[dict[str, Any]],
+    split: str,
+) -> dict[str, Any]:
+    selected = [row for row in rows if row["split"] == split]
+    if not selected:
+        raise JudgeFailure(
+            "policy.opportunity-coverage",
+            "Factor opportunity split has no decisions",
+        )
+    groups: dict[tuple[str, int], list[dict[str, Any]]] = {}
+    for row in selected:
+        groups.setdefault((row["fold"], int(row["seed"])), []).append(row)
+    decisions = len(selected)
+    regrets = [float(row["realizedRegret"]) for row in selected]
+    selected_rewards = [float(row["selectedReward"]) for row in selected]
+    oracle_rewards = [float(row["oracleReward"]) for row in selected]
+    selected_ranks = [int(row["selectedRank"]) for row in selected]
+    oracle_hits = sum(bool(row["oracleHit"]) for row in selected)
+    by_action: dict[str, dict[str, Any]] = {}
+    for action in ACTIONS:
+        selected_count = sum(
+            row["selectedAction"] == action for row in selected
+        )
+        oracle_count = sum(row["oracleAction"] == action for row in selected)
+        evidence = [row["actions"][action] for row in selected]
+        by_action[action] = {
+            "selected_decisions": selected_count,
+            "selected_frequency": selected_count / decisions,
+            "oracle_decisions": oracle_count,
+            "oracle_frequency": oracle_count / decisions,
+            "mean_local_reward": float(
+                np.mean([item["reward"] for item in evidence])
+            ),
+            "mean_one_way_turnover": float(
+                np.mean([item["oneWayTurnover"] for item in evidence])
+            ),
+            "total_cost": float(sum(item["cost"] for item in evidence)),
+            "risk_repair_rate": float(
+                np.mean([item["riskRebalanceOverride"] for item in evidence])
+            ),
+        }
+    candidate_oracle = [
+        row for row in selected if row["oracleAction"] == "candidate"
+    ]
+    candidate_missed = [
+        row
+        for row in candidate_oracle
+        if row["selectedAction"] != "candidate"
+    ]
+    candidate_captured = len(candidate_oracle) - len(candidate_missed)
+    candidate_vs_selected = [
+        float(row["candidateMinusSelectedReward"]) for row in selected
+    ]
+    candidate_vs_balanced = [
+        float(row["candidateMinusBalancedReward"]) for row in selected
+    ]
+    trials = []
+    for (fold, seed), group in groups.items():
+        group_candidate_oracle = sum(
+            row["oracleAction"] == "candidate" for row in group
+        )
+        group_candidate_missed = sum(
+            row["oracleAction"] == "candidate"
+            and row["selectedAction"] != "candidate"
+            for row in group
+        )
+        trials.append(
+            {
+                "fold": fold,
+                "seed": seed,
+                "decisions": len(group),
+                "oracle_hits": sum(row["oracleHit"] for row in group),
+                "oracle_hit_rate": float(
+                    np.mean([row["oracleHit"] for row in group])
+                ),
+                "mean_selected_rank": float(
+                    np.mean([row["selectedRank"] for row in group])
+                ),
+                "mean_realized_regret": float(
+                    np.mean([row["realizedRegret"] for row in group])
+                ),
+                "candidate_oracle_rate": (
+                    group_candidate_oracle / len(group)
+                ),
+                "candidate_missed_opportunity_rate": (
+                    group_candidate_missed / len(group)
+                ),
+            }
+        )
+    reconciliation = {
+        "decision_rows": decisions,
+        "action_evaluations": sum(
+            len(row["actions"]) for row in selected
+        ),
+        "action_evaluation_count_error": abs(
+            sum(len(row["actions"]) for row in selected)
+            - decisions * len(ACTIONS)
+        ),
+        "selected_frequency_error": abs(
+            sum(item["selected_frequency"] for item in by_action.values())
+            - 1.0
+        ),
+        "oracle_frequency_error": abs(
+            sum(item["oracle_frequency"] for item in by_action.values())
+            - 1.0
+        ),
+        "regret_identity_error": max(
+            abs(
+                float(row["oracleReward"])
+                - float(row["selectedReward"])
+                - float(row["realizedRegret"])
+            )
+            for row in selected
+        ),
+        "candidate_selected_delta_error": max(
+            abs(
+                float(row["actions"]["candidate"]["reward"])
+                - float(row["selectedReward"])
+                - float(row["candidateMinusSelectedReward"])
+            )
+            for row in selected
+        ),
+        "candidate_balanced_delta_error": max(
+            abs(
+                float(row["actions"]["candidate"]["reward"])
+                - float(row["actions"]["balanced"]["reward"])
+                - float(row["candidateMinusBalancedReward"])
+            )
+            for row in selected
+        ),
+        "negative_regret_error": max(
+            max(0.0, -float(row["realizedRegret"]))
+            for row in selected
+        ),
+        "selected_action_reconciliation_error": 0.0,
+    }
+    reconciliation["passed"] = (
+        reconciliation["action_evaluations"]
+        == decisions * len(ACTIONS)
+        and max(
+            float(value)
+            for key, value in reconciliation.items()
+            if key
+            not in {
+                "decision_rows",
+                "action_evaluations",
+            }
+        )
+        <= 1e-10
+    )
+    return {
+        "status": "available",
+        "decisions": decisions,
+        "trial_paths": len(groups),
+        "oracle_hit_decisions": oracle_hits,
+        "oracle_hit_rate": oracle_hits / decisions,
+        "mean_selected_rank": float(np.mean(selected_ranks)),
+        "mean_selected_reward": float(np.mean(selected_rewards)),
+        "mean_oracle_reward": float(np.mean(oracle_rewards)),
+        "total_realized_regret": float(sum(regrets)),
+        "mean_realized_regret": float(np.mean(regrets)),
+        "median_realized_regret": float(np.median(regrets)),
+        "p90_realized_regret": _linear_percentile(regrets, 0.90),
+        "maximum_realized_regret": float(max(regrets)),
+        "positive_regret_rate": float(
+            np.mean([regret > 1e-12 for regret in regrets])
+        ),
+        "by_action": by_action,
+        "candidate": {
+            "selected_decisions": by_action["candidate"][
+                "selected_decisions"
+            ],
+            "selected_frequency": by_action["candidate"][
+                "selected_frequency"
+            ],
+            "oracle_decisions": len(candidate_oracle),
+            "oracle_frequency": len(candidate_oracle) / decisions,
+            "captured_oracle_decisions": candidate_captured,
+            "oracle_capture_rate": (
+                candidate_captured / len(candidate_oracle)
+                if candidate_oracle
+                else 0.0
+            ),
+            "missed_opportunity_decisions": len(candidate_missed),
+            "missed_opportunity_rate": len(candidate_missed) / decisions,
+            "mean_reward": by_action["candidate"]["mean_local_reward"],
+            "mean_vs_selected_reward": float(
+                np.mean(candidate_vs_selected)
+            ),
+            "mean_vs_balanced_reward": float(
+                np.mean(candidate_vs_balanced)
+            ),
+            "win_rate_vs_balanced": float(
+                np.mean([value > 1e-12 for value in candidate_vs_balanced])
+            ),
+        },
+        "trials": trials,
+        "reconciliation": reconciliation,
+    }
 
 
 def _policy_behavior_metrics(
@@ -960,6 +1221,7 @@ def _evaluate() -> tuple[
     dict[str, Any],
     list[dict[str, Any]],
     dict[str, Any],
+    dict[str, Any],
 ]:
     study, data_root = _load_contract()
     mandate = _load_mandate()
@@ -987,6 +1249,10 @@ def _evaluate() -> tuple[
     candidate_panel = pd.DataFrame(candidate_by_asset)
     action_targets = build_action_targets(
         _factor_panels(opens, closes, volumes, candidate_panel),
+        closes,
+        mandate=mandate,
+    )
+    risk_covariance_cache = build_risk_covariance_cache(
         closes,
         mandate=mandate,
     )
@@ -1031,6 +1297,7 @@ def _evaluate() -> tuple[
     training_history: dict[str, Any] = {}
     action_rows: list[dict[str, Any]] = []
     rationale_rows: list[dict[str, Any]] = []
+    opportunity_rows: list[dict[str, Any]] = []
     failures: list[dict[str, Any]] = []
     validation_sharpes: list[float] = []
     test_sharpes: list[float] = []
@@ -1050,6 +1317,7 @@ def _evaluate() -> tuple[
             volumes,
             split,
             mandate,
+            risk_covariance_cache,
         )
         baseline_metrics[fold_name] = {
             **baselines,
@@ -1101,6 +1369,7 @@ def _evaluate() -> tuple[
                     split["train"],
                     seed=seed,
                     mandate=mandate,
+                    risk_covariance_cache=risk_covariance_cache,
                 )
                 selector = q_selector(trained.weights, encoder)
                 validation_rollout = rollout_policy(
@@ -1111,6 +1380,7 @@ def _evaluate() -> tuple[
                     volumes,
                     split["validation"],
                     mandate=mandate,
+                    risk_covariance_cache=risk_covariance_cache,
                 )
                 test_rollout = rollout_policy(
                     selector,
@@ -1120,6 +1390,7 @@ def _evaluate() -> tuple[
                     volumes,
                     split["test"],
                     mandate=mandate,
+                    risk_covariance_cache=risk_covariance_cache,
                 )
                 validation = rollout_metrics(validation_rollout)
                 test = rollout_metrics(test_rollout)
@@ -1161,6 +1432,19 @@ def _evaluate() -> tuple[
                         trained.weights,
                     )
                 )
+                opportunity_rows.extend(
+                    _rollout_opportunity_rows(
+                        fold_name,
+                        seed,
+                        "validation",
+                        validation_rollout,
+                        action_targets,
+                        closes,
+                        volumes,
+                        mandate,
+                        risk_covariance_cache,
+                    )
+                )
                 action_rows.extend(
                     _rollout_action_rows(
                         fold_name,
@@ -1179,6 +1463,19 @@ def _evaluate() -> tuple[
                         encoder,
                         feature_names,
                         trained.weights,
+                    )
+                )
+                opportunity_rows.extend(
+                    _rollout_opportunity_rows(
+                        fold_name,
+                        seed,
+                        "test",
+                        test_rollout,
+                        action_targets,
+                        closes,
+                        volumes,
+                        mandate,
+                        risk_covariance_cache,
                     )
                 )
             except Exception as error:
@@ -1300,6 +1597,17 @@ def _evaluate() -> tuple[
             "test",
         ),
     }
+    factor_opportunity = {
+        "policy": FACTOR_OPPORTUNITY_POLICY,
+        "validation": _factor_opportunity_metrics(
+            opportunity_rows,
+            "validation",
+        ),
+        "test": _factor_opportunity_metrics(
+            opportunity_rows,
+            "test",
+        ),
+    }
     metrics = {
         "validation_mean_net_sharpe": float(np.mean(validation_sharpes)),
         "portfolio_mandate": mandate,
@@ -1337,6 +1645,7 @@ def _evaluate() -> tuple[
             ),
         },
         "policy_rationale": policy_rationale,
+        "factor_opportunity": factor_opportunity,
         "execution_risk": execution_risk,
         "constraint_audit": audits,
         "configuration": {
@@ -1359,6 +1668,7 @@ def _evaluate() -> tuple[
                 "post-drift-executed-book-volatility-compliance-v1"
             ),
             "executionRiskPriority": "risk-compliance-first",
+            "factorOpportunityMethod": FACTOR_OPPORTUNITY_POLICY["method"],
         },
         "research_integrity": {
             "selection_split": "validation",
@@ -1399,6 +1709,11 @@ def _evaluate() -> tuple[
             "policyRationale": (
                 "exact linear chosen-versus-runner-up Q-margin "
                 "decomposition; Q scores are uncalibrated and contextual"
+            ),
+            "factorOpportunity": (
+                "all fixed sleeves evaluated for one next bar from the "
+                "selected policy path's exact shared pretrade book; the "
+                "ex-post oracle is an audit upper bound only"
             ),
             "executionRisk": (
                 "every selected sleeve is rechecked after drift; risk "
@@ -1443,7 +1758,27 @@ def _evaluate() -> tuple[
         "featureNames": feature_names,
         "rows": rationale_rows,
     }
-    return metrics, report, models, histories, action_rows, rationales
+    opportunities = {
+        "schemaVersion": 1,
+        "inputHash": os.environ["AUTOQUANT_INPUT_HASH"],
+        "method": FACTOR_OPPORTUNITY_POLICY["method"],
+        "actions": list(ACTIONS),
+        "assets": list(closes.columns),
+        "reward": (
+            "net-return-after-10bps-cost-minus-0.10-times-gross-return-squared"
+        ),
+        "policy": FACTOR_OPPORTUNITY_POLICY,
+        "rows": opportunity_rows,
+    }
+    return (
+        metrics,
+        report,
+        models,
+        histories,
+        action_rows,
+        rationales,
+        opportunities,
+    )
 
 
 def main() -> None:
@@ -1455,6 +1790,7 @@ def main() -> None:
             histories,
             action_rows,
             rationales,
+            opportunities,
         ) = _evaluate()
         artifacts = Path(os.environ["AUTOQUANT_ARTIFACTS_DIR"])
         (artifacts / "rl-report.json").write_text(
@@ -1476,6 +1812,10 @@ def main() -> None:
         )
         (artifacts / "policy-rationales.json").write_text(
             json.dumps(rationales, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        (artifacts / "policy-opportunities.json").write_text(
+            json.dumps(opportunities, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
         )
         _write_output(
@@ -1524,6 +1864,15 @@ def main() -> None:
                         "description": (
                             "Exact raw state, encoded features, action Q values, "
                             "runner-up margins, and linear feature contributions"
+                        ),
+                    },
+                    {
+                        "kind": "policy-opportunities",
+                        "path": "policy-opportunities.json",
+                        "description": (
+                            "Same-pretrade one-step governed action books, "
+                            "rewards, local oracle rank/regret, and candidate "
+                            "factor opportunity evidence"
                         ),
                     },
                 ],

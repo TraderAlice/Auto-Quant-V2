@@ -14,7 +14,7 @@
   </head>
   <body>
     <a class="skip-link" href="#research-main">Skip to research</a>
-    <div class="studio-shell" id="studio" aria-busy="true">
+    <div class="studio-shell inspector-collapsed" id="studio" aria-busy="true">
       <header class="topbar">
         <div class="brand-lockup">
           <span class="brand-mark" aria-hidden="true">AQ</span>
@@ -32,6 +32,15 @@
             <i aria-hidden="true"></i>
             <span>Connecting</span>
           </span>
+          <button
+            class="quiet-button"
+            id="inspector-toggle"
+            type="button"
+            aria-controls="research-inspector"
+            aria-pressed="false"
+          >
+            Inspect
+          </button>
           <button class="quiet-button" id="auto-refresh" type="button" aria-pressed="true">
             Auto
           </button>
@@ -400,6 +409,16 @@
             </header>
             <div id="rl-behavior"></div>
           </article>
+          <article class="rl-opportunity-panel">
+            <header class="panel-toolbar">
+              <span>
+                <b>One-step factor opportunity audit</b>
+                <small>Same actual pretrade book · all governed sleeves · no alternate path propagation</small>
+              </span>
+              <span class="section-meta">EX-POST AUDIT · CONTEXT ONLY</span>
+            </header>
+            <div id="rl-opportunity"></div>
+          </article>
           <div class="rl-warning" id="rl-warning"></div>
         </section>
 
@@ -498,7 +517,7 @@
         </section>
       </main>
 
-      <aside class="inspector" aria-label="Selected research detail">
+      <aside class="inspector" id="research-inspector" aria-label="Selected research detail" aria-hidden="true">
         <header>
           <span>Inspector</span>
           <b id="inspector-kind">PROJECT</b>

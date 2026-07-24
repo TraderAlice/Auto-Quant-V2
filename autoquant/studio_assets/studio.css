@@ -85,6 +85,13 @@ a:focus-visible,
     / var(--rail) minmax(560px, 1fr) var(--inspector);
 }
 
+.studio-shell.inspector-collapsed {
+  grid-template:
+    "top top top" 66px
+    "rail main inspect" minmax(calc(100vh - 66px), auto)
+    / var(--rail) minmax(560px, 1fr) 0;
+}
+
 .topbar {
   position: sticky;
   z-index: 20;
@@ -1524,14 +1531,16 @@ main {
 .rl-trials-panel,
 .rl-baselines-panel,
 .rl-detail-panel,
-.rl-behavior-panel {
+.rl-behavior-panel,
+.rl-opportunity-panel {
   min-width: 0;
   padding: 15px;
   border: 1px solid var(--line);
   background: rgb(16 19 15 / 96%);
 }
 
-.rl-behavior-panel {
+.rl-behavior-panel,
+.rl-opportunity-panel {
   margin-top: 10px;
 }
 
@@ -1575,7 +1584,8 @@ main {
 }
 
 .rl-behavior-grid h3,
-.rl-rationale-decisions h3 {
+.rl-rationale-decisions h3,
+.rl-opportunity-grid h3 {
   margin: 0 0 8px;
   color: #a6ada0;
   font: 6px var(--mono);
@@ -1605,6 +1615,10 @@ main {
   grid-template-columns: minmax(112px, 1.4fr) repeat(3, minmax(65px, 0.7fr));
 }
 
+.rl-behavior-table.opportunity-table > div {
+  grid-template-columns: minmax(82px, 1fr) repeat(4, minmax(62px, 0.72fr));
+}
+
 .rl-behavior-table > div > span {
   min-width: 0;
   padding: 5px 7px;
@@ -1632,12 +1646,14 @@ main {
 }
 
 .rl-behavior-table .positive,
-.rl-rationale-list .positive {
+.rl-rationale-list .positive,
+.rl-candidate-opportunity .positive {
   color: var(--acid);
 }
 
 .rl-behavior-table .negative,
-.rl-rationale-list .negative {
+.rl-rationale-list .negative,
+.rl-candidate-opportunity .negative {
   color: var(--red);
 }
 
@@ -1688,6 +1704,37 @@ main {
   color: var(--faint);
   border-top: 1px solid var(--line);
   font: 7px var(--mono);
+}
+
+.rl-candidate-opportunity {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-top: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+}
+
+.rl-candidate-opportunity > span {
+  min-height: 58px;
+  padding: 10px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.rl-candidate-opportunity small,
+.rl-candidate-opportunity b {
+  display: block;
+}
+
+.rl-candidate-opportunity small {
+  color: var(--faint);
+  font: 5px var(--mono);
+  text-transform: uppercase;
+}
+
+.rl-candidate-opportunity b {
+  margin-top: 8px;
+  color: #d8dbd0;
+  font: 8px var(--mono);
 }
 
 .rl-toolbar-controls {
@@ -3582,6 +3629,16 @@ main {
   background: #0e100d;
 }
 
+.studio-shell.inspector-collapsed .inspector {
+  display: none;
+  padding: 0;
+  overflow: hidden;
+  border-left: 0;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .inspector > header {
   margin-inline: 0;
   padding-bottom: 13px;
@@ -4001,6 +4058,13 @@ main {
       / 176px minmax(0, 1fr);
   }
 
+  .studio-shell.inspector-collapsed {
+    grid-template:
+      "top top" 66px
+      "rail main" auto
+      / 176px minmax(0, 1fr);
+  }
+
   .topbar {
     grid-template-columns: 176px minmax(0, 1fr);
   }
@@ -4282,6 +4346,14 @@ main {
 
   .rl-behavior-table.feature-table > div {
     min-width: 430px;
+  }
+
+  .rl-behavior-table.opportunity-table > div {
+    min-width: 500px;
+  }
+
+  .rl-candidate-opportunity {
+    grid-template-columns: 1fr;
   }
 
   .factor-stability-grid {

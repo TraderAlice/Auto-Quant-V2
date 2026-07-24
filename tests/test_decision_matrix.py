@@ -251,12 +251,28 @@ class SessionDecisionMatrixTests(unittest.TestCase):
             self.assertIsNotNone(values["validationMeanActionRunLength"])
             self.assertIsNotNone(values["validationMedianActionMargin"])
             self.assertIsNotNone(values["validationQDecisionTieRate"])
+            self.assertIsNotNone(values["validationOneStepOracleHitRate"])
+            self.assertIsNotNone(values["validationMeanSelectedActionRank"])
+            self.assertIsNotNone(values["validationMeanOneStepRegret"])
+            self.assertIsNotNone(
+                values["validationCandidateOracleFrequency"]
+            )
+            self.assertIsNotNone(
+                values["validationCandidateMissedOpportunityRate"]
+            )
             self.assertEqual(values["failureRate"], 0.0)
             self.assertFalse(
                 next(
                     item
                     for item in matrix["metrics"]
                     if item["key"] == "validationMedianActionMargin"
+                )["selectionEligible"]
+            )
+            self.assertFalse(
+                next(
+                    item
+                    for item in matrix["metrics"]
+                    if item["key"] == "validationMeanOneStepRegret"
                 )["selectionEligible"]
             )
             self.assertFalse(

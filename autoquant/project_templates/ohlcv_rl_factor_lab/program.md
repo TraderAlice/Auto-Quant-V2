@@ -82,6 +82,12 @@ uncalibrated linear-model scores. Their exact feature decomposition explains
 one frozen comparison only; it is not probability, confidence, causal
 importance, or a selection metric. Realized outcomes conditioned on the chosen
 action are descriptive and endogenous.
+Inspect the same-pretrade one-step opportunity ledger separately. It replays
+all five governed sleeves from the actual policy pretrade book for the same
+next bar, so selected rank/regret and candidate-versus-balanced reward are
+locally comparable after identical turnover, cost, no-trade, and risk rules.
+The ex-post local best is known only after that bar, never propagates an
+alternate path, and cannot enter training, KEEP/REVERT, or a trading decision.
 Reconcile final-book risk coverage, pretrade breaches, risk-only overrides,
 executed breaches, and execution reasons across every declared policy path;
 these are implementation context and cannot select the editable encoder.
