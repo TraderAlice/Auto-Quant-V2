@@ -666,16 +666,46 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
         if metric_layers is not None:
             summary["metricLayers"] = metric_layers
         runs.append(summary)
+
+    def current_program_run(lane_id: str):
+        if research_program_status is None:
+            return None
+        lane = next(
+            (
+                item
+                for item in research_program_status["lanes"]
+                if item["id"] == lane_id
+            ),
+            None,
+        )
+        if (
+            lane is None
+            or not lane["currentRun"]
+            or lane["latestRun"] is None
+            or lane["latestRun"]["status"] != "succeeded"
+        ):
+            return None
+        return next(
+            (
+                item
+                for item in runs_raw
+                if item.id == lane["latestRun"]["id"]
+            ),
+            None,
+        )
+
     factor_explorer = None
-    factor_candidate = next(
-        (
-            item
-            for item in reversed(runs_raw)
-            if item.status == "succeeded"
-            and item.primary_metric == "validation_mean_ic"
-        ),
-        None,
-    )
+    factor_candidate = current_program_run("factor")
+    if research_program_status is None:
+        factor_candidate = next(
+            (
+                item
+                for item in reversed(runs_raw)
+                if item.status == "succeeded"
+                and item.primary_metric == "validation_mean_ic"
+            ),
+            None,
+        )
     if factor_candidate is not None:
         try:
             factor_explorer = load_factor_diagnostics(
@@ -691,15 +721,17 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
                 )
             )
     portfolio_explorer = None
-    portfolio_candidate = next(
-        (
-            item
-            for item in reversed(runs_raw)
-            if item.status == "succeeded"
-            and item.primary_metric == "validation_net_sharpe"
-        ),
-        None,
-    )
+    portfolio_candidate = current_program_run("portfolio")
+    if research_program_status is None:
+        portfolio_candidate = next(
+            (
+                item
+                for item in reversed(runs_raw)
+                if item.status == "succeeded"
+                and item.primary_metric == "validation_net_sharpe"
+            ),
+            None,
+        )
     if portfolio_candidate is not None:
         try:
             portfolio_explorer = load_portfolio_diagnostics(
@@ -715,15 +747,17 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
                 )
             )
     rl_explorer = None
-    rl_candidate = next(
-        (
-            item
-            for item in reversed(runs_raw)
-            if item.status == "succeeded"
-            and item.primary_metric == "validation_mean_net_sharpe"
-        ),
-        None,
-    )
+    rl_candidate = current_program_run("rl")
+    if research_program_status is None:
+        rl_candidate = next(
+            (
+                item
+                for item in reversed(runs_raw)
+                if item.status == "succeeded"
+                and item.primary_metric == "validation_mean_net_sharpe"
+            ),
+            None,
+        )
     if rl_candidate is not None:
         try:
             rl_explorer = load_rl_diagnostics(

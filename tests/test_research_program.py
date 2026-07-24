@@ -78,6 +78,12 @@ class MultiStudyResearchProgramTests(unittest.TestCase):
                 factor["latestRun"]["id"],
                 rejected.result["candidate"]["runId"],
             )
+            studio = build_studio_snapshot(project.root_dir)
+            observed = studio["projects"][0]
+            self.assertEqual(
+                observed["factorExplorer"]["run"]["id"],
+                baseline_id,
+            )
 
     def test_one_intake_coordinates_factor_portfolio_and_rl_evidence(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

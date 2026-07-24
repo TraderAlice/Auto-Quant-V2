@@ -116,7 +116,9 @@ Each lane is projected as:
 These are coordination states, not scientific verdicts.
 Candidate Runs remain immutable search history, but a REVERT/CRASH can never
 replace the lane's current evidence or headline metric merely because it was
-executed later.
+executed later. Studio explorers use that same current Run pointer, so charts,
+tables, cockpit headlines, and the Inspector cannot disagree about which
+evidence is canonical.
 
 ## Next actions
 
