@@ -1,7 +1,7 @@
 # Agent CLI contract
 
 Status: implemented for Workspace, Project, Study, Run, Session, Experiment,
-and bounded Research Campaign operations.
+bounded Research Campaign, delegated request, and Research Report operations.
 
 Related: [[docs/CLI]], [[docs/PROJECT_FORMAT]],
 [[docs/design/workspace-project-boundaries]], and
@@ -66,7 +66,8 @@ The current CLI supports:
 Study/Session creation, Run execution, and Experiment evaluation use
 `creates-artifact`. Bounded `research.run` also uses `creates-artifact`: it may
 advance the Session leader through ordinary KEEP Experiments but never copies
-source into the owning Project. Only
+source into the owning Project. `report.publish` uses `creates-artifact` after
+strict analysis and evidence-reference validation. Only
 `session.promote` uses `mutates-project`, after stale-base validation and
 rollback-safe receipt publication. Future operations may add `mode-dependent`
 only when their confirmation, progress, and evidence contracts are defined.
@@ -84,6 +85,10 @@ Core operation
 
 Core operation data is authoritative. The Studio must not reimplement manifest
 validation, Project selection, evaluation, or mutation policy.
+
+Studio may expose Core-generated `argv` and shell-display strings for copy.
+Copying a command is not an operation and grants no new authority; the CLI
+remains the mutation boundary.
 
 Long-running research will require versioned progress events on stderr or a
 separate stream while stdout retains one terminal envelope. That protocol is a

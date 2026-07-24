@@ -49,9 +49,12 @@ The V2 foundation now implements:
 - provider-neutral external Researcher Campaigns with strict briefs/responses,
   aggregate and per-turn budgets, failure recovery, and immutable turn
   evidence.
+- strict delegated Research Requests, Session-derived Briefs, and immutable
+  evidence-bound JSON/Markdown Research Reports with no trading authority.
 - one packaged local read-only Studio with a shared versioned snapshot,
-  Workspace/Project overview, explicit mutable Campaign progress, defensive
-  HTTP boundary, and responsive research-first presentation.
+  Workspace/Project overview, request → evidence → report handoff, exact
+  copyable CLI commands, explicit mutable Campaign progress, defensive HTTP
+  boundary, and responsive research-first presentation.
 - one self-contained OHLCV Factor Lab reference Project with ordinary pandas
   factor code, deterministic local data, chronological held-out metrics, and a
   fixed no-lookahead audit.
@@ -63,7 +66,10 @@ in [[docs/design/study-run-evidence]]; governed source research is defined in
 [[docs/design/research-session-loop]]; external orchestration is defined in
 [[docs/design/external-researcher-driver]]; Studio observation is defined in
 [[docs/design/studio-observation-surface]]; the first quantitative reference
-Project is defined in [[docs/design/ohlcv-factor-lab]].
+Project is defined in [[docs/design/ohlcv-factor-lab]]. The end-to-end
+OpenAlice handoff, professional evidence stack, causal portfolio direction,
+governed RL lane, and HCI boundary are defined in
+[[docs/design/quant-research-lifecycle]].
 
 The repository also contains the V0.5 development Harness inherited from
 Auto-Quant Classic:
@@ -97,6 +103,7 @@ through explicit plans while preserving historical evidence.
 - factors, features, strategies, models, and project-local research code;
 - Study and Session history;
 - immutable Researcher Campaign evidence;
+- exact delegated request/Brief context and immutable Research Reports;
 - immutable Run evidence and reviewed candidates;
 - project-specific notebooks, reports, and presentation assets.
 
@@ -118,6 +125,7 @@ files
 → structured metrics and artifacts
 → review
 → keep, revert, branch, or promote
+→ evidence-bound decision-support report
 ```
 
 Backtesting, factor discovery, and ML experiments are different Project
@@ -167,6 +175,9 @@ behind the Harness contract, not the owner of Workspace or Project semantics.
   `autoquant/sessions.py`
 - Bounded external Researcher orchestration and Campaign evidence:
   `autoquant/research.py`
+- Delegated request and derived Brief contracts: `autoquant/briefs.py`
+- Immutable Research Report publication and verification:
+  `autoquant/reports.py`
 - Verified Studio snapshot and local HTTP server: `autoquant/studio.py`
 - Packaged browser presentation: `autoquant/studio_assets/`
 - Project template construction: `autoquant/templates.py` and
@@ -181,6 +192,8 @@ behind the Harness contract, not the owner of Workspace or Project semantics.
 - External Researcher driver design:
   [[docs/design/external-researcher-driver]]
 - Studio observation design: [[docs/design/studio-observation-surface]]
+- Quantitative research lifecycle and OpenAlice handoff:
+  [[docs/design/quant-research-lifecycle]]
 - Studio operator guide: [[docs/STUDIO]]
 - Current public Harness contract: [[docs/harness]]
 - Planning and documentation governance:
@@ -226,3 +239,5 @@ These commands must not start autonomous research or a long backtest.
 - The V0.5 Freqtrade runner is not adapted into the Study/Run contract.
 - Studio is read-only and does not yet provide confirmed Core operations.
 - ML is a supported architectural direction but has no execution contract yet.
+- OpenAlice-side automatic Project creation and Inbox publication are not
+  implemented; AutoQuant emits exact report artifacts for that authority.

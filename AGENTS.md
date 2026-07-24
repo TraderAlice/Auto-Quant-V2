@@ -62,6 +62,9 @@ Read the relevant linked document before changing a subsystem:
 - Read-only Workspace observation, local HTTP, browser presentation, and
   mutable-versus-immutable research state:
   [[docs/design/studio-observation-surface]]
+- OpenAlice request/report collaboration, professional quantitative evidence,
+  causal portfolio construction, governed RL, and human/Agent interaction:
+  [[docs/design/quant-research-lifecycle]]
 - Studio operator and public read-model guide: [[docs/STUDIO]]
 - Canonical Workspace and Project file schemas: [[docs/PROJECT_FORMAT]]
 - Human and machine-readable command behavior: [[docs/CLI]]

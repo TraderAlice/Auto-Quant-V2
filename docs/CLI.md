@@ -1,7 +1,8 @@
 # AutoQuant V2 CLI
 
 Status: Workspace/Project, Study/Run evidence, governed Session/Experiment
-research, and bounded external Researcher Campaigns implemented.
+research, bounded external Researcher Campaigns, delegated requests, and
+evidence-bound Research Reports implemented.
 
 `aq` is the public human- and Agent-facing command line interface. Humans
 receive compact text by default. `--json` emits exactly one versioned envelope.
@@ -13,6 +14,8 @@ aq capabilities
 aq capabilities --json
 aq schema
 aq schema project --json
+aq schema research-request --json
+aq schema report-analysis --json
 ```
 
 `capabilities --json` is the authoritative machine discovery surface. Each
@@ -88,7 +91,9 @@ evidence could not be created or verified.
 ## Session and Experiment commands
 
 ```bash
-aq session start <path> --study ID [--project ID] [--json]
+aq session start <path> --study ID \
+  [--request research-request.json] \
+  [--project ID] [--json]
 aq session list <path> [--project ID] [--json]
 aq session show <path> --session ID [--project ID] [--json]
 aq session promote <path> --session ID [--project ID] [--json]
@@ -107,6 +112,15 @@ aq experiment show <path> \
 `session start` runs a fresh successful baseline and returns an Agent brief
 containing the disposable worktree, fixed program, editable closure, leader,
 authority status, and exact next commands. The caller edits only that worktree.
+
+With `--request`, Session start first validates the strict external question,
+assets, direction, horizon, hypotheses, constraints, deliverables, and
+caller-supplied origin context. Requested assets and asset classes must fit the
+selected Study. Core copies canonical `request.json` and derives `brief.json`
+from that request plus the Project, Study, baseline, dataset, Judge, and Harness
+locks. Those files are verified on every Session load and are included in each
+external Researcher turn. Existing local Sessions without a request remain
+valid.
 
 `experiment evaluate` freezes the candidate into a canonical Run, compares the
 primary metric with the current leader, publishes immutable Experiment
@@ -149,6 +163,48 @@ The external command is explicit host-code execution, not an OS sandbox.
 Callers that require stronger isolation can wrap the same stdin/stdout
 protocol in their own sandbox.
 
+## Research Report commands
+
+```bash
+aq report publish <path> \
+  --session ID \
+  --analysis report-analysis.json \
+  [--project ID] [--json]
+aq report list <path> --session ID [--project ID] [--json]
+aq report show <path> \
+  --session ID \
+  --report ID \
+  [--project ID] [--json]
+```
+
+`report publish` is available only for a delegated Session. The Agent-authored
+analysis is strict JSON: title, executive summary, findings with confidence,
+conditional recommendations, limitations, unresolved questions, and exact
+Run/Experiment/Campaign evidence references. A Run reference may also name one
+of that Run's declared artifact paths.
+
+Core does not write the conclusions. It validates every reference against the
+verified Session history, freezes the current baseline/leader, Run metrics,
+Experiments, Campaigns, Study locks, Harness, dataset, request, and Brief, then
+atomically publishes:
+
+```text
+reports/report-<UTC timestamp>-<identity>/
+├── analysis.json
+├── report.json
+├── report.md
+└── manifest.json
+```
+
+`report.md` is rendered deterministically for human/OpenAlice consumption.
+`report.json` is the machine handoff. Both declare
+`quantitative-decision-support` authority and `tradingAuthority: none`.
+Later Session research does not reinterpret an older report; its frozen
+Experiment/Campaign catalogs must remain chronological prefixes of the
+verified history. OpenAlice should publish the exact Markdown through its own
+Inbox boundary, where OpenAlice—not AutoQuant—stamps authoritative Workspace,
+Session, and document-revision provenance.
+
 ## Studio commands
 
 ```bash
@@ -163,7 +219,9 @@ aq studio serve <path> \
 `studio snapshot` builds one Workspace or direct-Project observation through
 the same verified Core loaders used by other commands. It includes fixed
 Studies, immutable Runs, Session/Experiment history, terminal Campaigns, and
-explicitly mutable in-progress Campaign telemetry.
+explicitly mutable in-progress Campaign telemetry. Delegated requests, Research
+Briefs, immutable Reports, and Core-generated copyable CLI commands are in the
+same read model.
 
 `studio serve` is a foreground `long-running-server` operation. It serves the
 packaged read-only browser presentation and the same snapshot contract. It
@@ -278,9 +336,11 @@ uv run aq capabilities --json
 This CLI owns Workspace/Project lifecycle, fixed Study and immutable Run
 evidence, the governed Session/Experiment edit/evaluate/promotion loop, and
 bounded provider-neutral Researcher Campaigns. The legacy `prepare.py` and
-`run.py` commands remain the V0.5 compatibility Harness. The local Studio
-projects the current read model. Richer robust comparison and Studio mutation
-operations remain separate future surfaces.
+`run.py` commands remain the V0.5 compatibility Harness. Delegated
+request/Brief/Report handoff is Project-local and has no OpenAlice provenance
+or live-trading authority. The local Studio projects the current read model.
+Richer robust comparison and Studio mutation operations remain separate future
+surfaces.
 
 ## Verification
 
@@ -288,5 +348,5 @@ operations remain separate future surfaces.
 uv run aq capabilities --json
 uv run python -m unittest \
   tests.test_cli tests.test_studies tests.test_runs tests.test_sessions \
-  tests.test_research -v
+  tests.test_research tests.test_reports tests.test_studio -v
 ```

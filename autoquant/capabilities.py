@@ -90,6 +90,13 @@ CAMPAIGN_ARGUMENT = argument(
     True,
     "Immutable Campaign id inside a Session.",
 )
+REPORT_ARGUMENT = argument(
+    "report",
+    "option",
+    "string",
+    True,
+    "Immutable Research Report id inside a Session.",
+)
 
 
 def descriptor(
@@ -123,7 +130,7 @@ CLI_COMMANDS = [
     ),
     descriptor(
         "schema",
-        "aq schema [workspace|project|study|judge-output|run-result|session|experiment|researcher-response|campaign-result|campaign-progress|studio-snapshot] [--json]",
+        "aq schema [workspace|project|study|judge-output|run-result|session|experiment|research-request|report-analysis|researcher-response|campaign-result|campaign-progress|studio-snapshot] [--json]",
         "List or emit canonical AutoQuant JSON Schemas.",
         "read-only",
         [
@@ -144,6 +151,8 @@ CLI_COMMANDS = [
                     "researcher-response",
                     "campaign-result",
                     "campaign-progress",
+                    "research-request",
+                    "report-analysis",
                     "studio-snapshot",
                 ],
             ),
@@ -397,10 +406,22 @@ CLI_COMMANDS = [
     ),
     descriptor(
         "session.start",
-        "aq session start <path> --study ID [--project ID] [--json]",
-        "Create a resumable candidate worktree from a fresh successful Study baseline.",
+        "aq session start <path> --study ID [--request FILE] [--project ID] [--json]",
+        "Create a resumable candidate worktree and optionally bind one delegated Research Request into its fixed brief.",
         "creates-artifact",
-        [PATH_ARGUMENT, PROJECT_ARGUMENT, STUDY_ARGUMENT, JSON_ARGUMENT],
+        [
+            PATH_ARGUMENT,
+            PROJECT_ARGUMENT,
+            STUDY_ARGUMENT,
+            argument(
+                "request",
+                "option",
+                "string",
+                False,
+                "Strict research-request JSON supplied by OpenAlice or a local caller.",
+            ),
+            JSON_ARGUMENT,
+        ],
     ),
     descriptor(
         "session.list",
@@ -522,6 +543,45 @@ CLI_COMMANDS = [
             PROJECT_ARGUMENT,
             SESSION_ARGUMENT,
             CAMPAIGN_ARGUMENT,
+            JSON_ARGUMENT,
+        ],
+    ),
+    descriptor(
+        "report.publish",
+        "aq report publish <path> --session ID --analysis FILE [--project ID] [--json]",
+        "Verify Agent-authored analysis references and publish immutable JSON plus Markdown over one delegated Session evidence snapshot.",
+        "creates-artifact",
+        [
+            PATH_ARGUMENT,
+            PROJECT_ARGUMENT,
+            SESSION_ARGUMENT,
+            argument(
+                "analysis",
+                "option",
+                "string",
+                True,
+                "Strict report-analysis JSON with evidence-bound findings.",
+            ),
+            JSON_ARGUMENT,
+        ],
+    ),
+    descriptor(
+        "report.list",
+        "aq report list <path> --session ID [--project ID] [--json]",
+        "List verified immutable Research Reports in one Session.",
+        "read-only",
+        [PATH_ARGUMENT, PROJECT_ARGUMENT, SESSION_ARGUMENT, JSON_ARGUMENT],
+    ),
+    descriptor(
+        "report.show",
+        "aq report show <path> --session ID --report ID [--project ID] [--json]",
+        "Verify and inspect one immutable evidence-bound Research Report.",
+        "read-only",
+        [
+            PATH_ARGUMENT,
+            PROJECT_ARGUMENT,
+            SESSION_ARGUMENT,
+            REPORT_ARGUMENT,
             JSON_ARGUMENT,
         ],
     ),

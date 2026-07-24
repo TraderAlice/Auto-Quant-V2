@@ -431,6 +431,7 @@ def _brief(
             "minimumImprovement": study.definition.objective.minimum_improvement,
         },
         "leader": session.manifest["leader"],
+        "delegation": snapshot["delegation"],
         "locks": {
             key: value
             for key, value in session.manifest["locks"].items()

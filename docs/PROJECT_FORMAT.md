@@ -276,6 +276,8 @@ Sessions provide the governed candidate-editing layer above Studies and Runs:
 sessions/
 └── session-<UTC timestamp>-<identity>/
     ├── session.json
+    ├── request.json                 # delegated Sessions only
+    ├── brief.json                   # delegated Sessions only
     ├── worktree/<project-id>/
     ├── experiments/
     │   └── exp-0001-<candidate identity>/
@@ -289,6 +291,12 @@ sessions/
     │       ├── turns/turn-0001/
     │       ├── result.json
     │       └── manifest.json
+    ├── reports/
+    │   └── report-<UTC timestamp>-<identity>/
+    │       ├── analysis.json
+    │       ├── report.json
+    │       ├── report.md
+    │       └── manifest.json
     └── promotion.json
 ```
 
@@ -299,6 +307,44 @@ sessions/
 - successful baseline and current leader Run/source/metric/value pointers;
 - Study/program/Judge/dataset/Harness locks;
 - a complete hash inventory of every non-editable worktree file.
+
+When Session start receives a strict delegated Research Request,
+`session.json` also pins its `brief` id, normalized request hash, and derived
+Brief hash. `request.json` records the exact normalized caller input:
+
+```json
+{
+  "schemaVersion": 1,
+  "kind": "autoquant-research-request",
+  "title": "Assess AAPL trend support",
+  "question": "Does current evidence support a conditional long view?",
+  "decisionContext": "OpenAlice is preparing an investment discussion.",
+  "assets": [
+    {"symbol": "AAPL", "assetClass": "equity", "venue": "NASDAQ"}
+  ],
+  "direction": "long",
+  "horizon": "one to three months",
+  "hypotheses": ["Trend quality remains stable out of sample."],
+  "constraints": ["Use only the locked dataset and cost assumptions."],
+  "deliverables": ["factor evidence", "risk limitations"],
+  "source": {
+    "system": "openalice",
+    "workspaceId": "equity-desk",
+    "sessionId": "resume-...",
+    "artifactPath": "requests/aapl.md",
+    "artifactRevision": "sha256:..."
+  }
+}
+```
+
+Origin fields are caller-supplied content, not authenticated OpenAlice
+provenance. Requested symbols and asset classes must fit the selected Study.
+`brief.json` is derived from that request plus Project/Session/Study identity,
+baseline, objective, dataset, Judge, and Harness locks. Its authority is
+`research-prioritization`; trading authority is `none`. Every Session load
+reconstructs the expected Brief and rejects a changed request, Brief, or
+pointer. Sessions without a `brief` field remain valid and must not contain
+untracked request/Brief files.
 
 The worktree is a complete structural Project containing only the selected
 fixed Study/Judge inputs and candidate-editable source bytes. It has empty
@@ -342,6 +388,40 @@ Research module validator.
 The complete operating and authority contract is
 [[docs/design/research-session-loop]].
 
+## Immutable Research Report
+
+A delegated Session may publish any number of point-in-time Reports. The Agent
+provides strict `analysis.json` with:
+
+- title and executive summary;
+- one or more findings, each with a kebab-case id, confidence, and non-empty
+  evidence references;
+- conditional recommendations with evidence references;
+- limitations and unresolved questions.
+
+Evidence kinds are `run`, `experiment`, or `campaign`. Only Run references may
+select an `artifactPath`, and that path must match a declared immutable Run
+artifact. Every id must belong to the Session baseline or chronological
+Experiment/Campaign history.
+
+Core freezes a complete evidence projection into `report.json`: the exact
+request/Brief, Session baseline and leader at publication, fixed locks, Harness,
+Run metrics and artifacts, Experiment verdicts, and Campaign outcomes. It
+validates every reference, renders deterministic `report.md`, hashes the three
+files, and writes `manifest.json` last. Loading a Report verifies:
+
+1. every Report file hash and canonical Markdown;
+2. strict normalized analysis and analysis/evidence hashes;
+3. the unchanged delegated request/Brief;
+4. exact projections of every referenced immutable Run, Experiment, and
+   Campaign;
+5. chronological Experiment/Campaign prefixes and the corresponding KEEP
+   leader chain.
+
+An older Report remains valid when a Session later adds evidence. Rewriting a
+conclusion requires a new immutable Report. Report authority is
+`quantitative-decision-support`; `tradingAuthority` is always `none`.
+
 ## Canonical schemas
 
 Machine-readable JSON Schemas are available without loading a Project:
@@ -358,12 +438,16 @@ aq schema experiment --json
 aq schema researcher-response --json
 aq schema campaign-result --json
 aq schema campaign-progress --json
+aq schema research-request --json
+aq schema report-analysis --json
 aq schema studio-snapshot --json
 ```
 
 The Python validators are authoritative executable behavior in
 `autoquant/workspace.py`, `autoquant/studies.py`, `autoquant/runs.py`,
 `autoquant/sessions.py`, `autoquant/research.py`, and `autoquant/studio.py`.
+Delegated request/Brief parsing is in `autoquant/briefs.py`; immutable Report
+publication and verification are in `autoquant/reports.py`.
 
 ## Compatibility surface
 
@@ -386,4 +470,5 @@ uv run aq inspect /tmp/quant-workspace --project factor-lab --json
 uv run python -m unittest \
   tests.test_workspace tests.test_cli tests.test_studies \
   tests.test_runs tests.test_sessions tests.test_factor_lab -v
+uv run python -m unittest tests.test_reports tests.test_studio -v
 ```

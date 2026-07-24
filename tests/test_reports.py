@@ -1,0 +1,338 @@
+from __future__ import annotations
+
+import json
+import tempfile
+import unittest
+from datetime import datetime
+from pathlib import Path
+
+import autoquant.reports as report_module
+from autoquant.reports import (
+    list_reports,
+    load_report,
+    publish_report,
+)
+from autoquant.research import run_campaign
+from autoquant.sessions import (
+    evaluate_experiment,
+    load_session,
+    session_snapshot,
+    start_session,
+)
+from autoquant.studio import build_studio_snapshot
+from autoquant.studies import create_study, hash_file, hash_json
+from autoquant.workspace import AutoQuantValidationError
+from tests.study_helpers import make_project, study_definition
+
+
+def research_request() -> dict:
+    return {
+        "schemaVersion": 1,
+        "kind": "autoquant-research-request",
+        "title": "Assess AAA directional factor support",
+        "question": "Does the current factor support a conditional long view on AAA?",
+        "decisionContext": "OpenAlice needs quantitative evidence before discussion.",
+        "assets": [
+            {
+                "symbol": "AAA/USD",
+                "assetClass": "equity",
+                "venue": "TEST",
+            }
+        ],
+        "direction": "long",
+        "horizon": "one month",
+        "hypotheses": ["The factor remains positive out of sample."],
+        "constraints": ["Use only the fixed Study dataset and Judge."],
+        "deliverables": ["factor evidence", "limitations", "conditional guidance"],
+        "source": {
+            "system": "openalice",
+            "workspaceId": "equity-desk",
+            "sessionId": "resume-test-origin",
+            "artifactPath": "requests/aaa.md",
+            "artifactRevision": "sha256:test-request-revision",
+        },
+    }
+
+
+def report_analysis(run_id: str) -> dict:
+    reference = {
+        "kind": "run",
+        "id": run_id,
+        "artifactPath": "artifacts/report.json",
+    }
+    return {
+        "schemaVersion": 1,
+        "kind": "autoquant-research-report-analysis",
+        "title": "AAA factor evidence",
+        "executiveSummary": (
+            "The fixed synthetic Judge reports positive evidence, but this tiny "
+            "fixture is not sufficient for a live-trading decision."
+        ),
+        "findings": [
+            {
+                "id": "positive-fixed-score",
+                "claim": "The current candidate clears the fixed baseline score.",
+                "confidence": "medium",
+                "evidenceRefs": [reference],
+            }
+        ],
+        "recommendations": [
+            {
+                "action": "Continue bounded research before any forward decision.",
+                "rationale": "The evidence is causal but intentionally synthetic.",
+                "conditions": ["Add realistic cost and portfolio evidence."],
+                "evidenceRefs": [reference],
+            }
+        ],
+        "limitations": ["The checked-in fixture is not market data."],
+        "unresolvedQuestions": ["Does the factor survive portfolio costs?"],
+    }
+
+
+class ResearchHandoffTests(unittest.TestCase):
+    def _project(self, directory: str):
+        _, project = make_project(directory)
+        create_study(project, study_definition())
+        return project
+
+    def test_delegated_session_binds_request_brief_and_researcher_input(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = self._project(directory)
+            session = start_session(
+                project,
+                "factor-quality",
+                request=research_request(),
+            )
+
+            self.assertIsNotNone(session.delegation)
+            self.assertEqual(
+                session.delegation["request"]["title"],
+                "Assess AAA directional factor support",
+            )
+            self.assertEqual(
+                session.delegation["brief"]["authorityBoundary"]["trading"],
+                "none",
+            )
+            self.assertTrue((session.root_dir / "request.json").is_file())
+            self.assertTrue((session.root_dir / "brief.json").is_file())
+            self.assertEqual(
+                session_snapshot(project, session)["delegation"]["brief"]["id"],
+                session.manifest["brief"]["id"],
+            )
+
+            researcher = Path(directory) / "researcher.py"
+            researcher.write_text(
+                "import json\n"
+                "print(json.dumps({'schema_version': 1, 'action': 'stop', "
+                "'reason': 'request inspected'}))\n",
+                encoding="utf-8",
+            )
+            campaign = run_campaign(
+                project,
+                session.manifest["id"],
+                f"python3 {researcher}",
+                max_turns=1,
+                max_wall_seconds=20,
+                turn_timeout_seconds=5,
+            )
+            turn_input = json.loads(
+                (
+                    campaign.root_dir / "turns" / "turn-0001" / "input.json"
+                ).read_text(encoding="utf-8")
+            )
+            self.assertEqual(
+                turn_input["delegation"]["request"]["question"],
+                research_request()["question"],
+            )
+
+    def test_request_scope_and_tampering_are_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = self._project(directory)
+            outside = research_request()
+            outside["assets"][0]["symbol"] = "BBB/USD"
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "outside the selected Study universe",
+            ):
+                start_session(project, "factor-quality", request=outside)
+
+            session = start_session(
+                project,
+                "factor-quality",
+                request=research_request(),
+            )
+            request_path = session.root_dir / "request.json"
+            changed = json.loads(request_path.read_text(encoding="utf-8"))
+            changed["title"] = "Rewritten request"
+            request_path.write_text(json.dumps(changed), encoding="utf-8")
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "Request hash mismatch",
+            ):
+                load_session(project, session.manifest["id"])
+
+    def test_report_publication_is_immutable_and_survives_later_research(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = self._project(directory)
+            session = start_session(
+                project,
+                "factor-quality",
+                request=research_request(),
+            )
+            baseline_id = session.manifest["baseline"]["runId"]
+            report = publish_report(
+                project,
+                session.manifest["id"],
+                report_analysis(baseline_id),
+            )
+
+            self.assertEqual(report.report["tradingAuthority"], "none")
+            self.assertEqual(report.report["request"], research_request())
+            self.assertIn(
+                "quantitative decision support only",
+                (report.root_dir / "report.md").read_text(encoding="utf-8"),
+            )
+            self.assertEqual(
+                [item.id for item in list_reports(project, session)],
+                [report.report["id"]],
+            )
+            studio = build_studio_snapshot(project.root_dir)
+            observation = studio["projects"][0]
+            self.assertEqual(observation["counts"]["delegatedSessions"], 1)
+            self.assertEqual(observation["counts"]["reports"], 1)
+            studio_session = observation["sessions"][0]
+            self.assertEqual(
+                studio_session["delegation"]["request"]["title"],
+                research_request()["title"],
+            )
+            self.assertEqual(studio_session["reports"][0]["id"], report.report["id"])
+            self.assertEqual(
+                [item["id"] for item in studio_session["commands"]],
+                ["session.show", "report.publish", "report.show"],
+            )
+            self.assertEqual(observation["timeline"][0]["kind"], "report")
+
+            candidate = session.worktree_project.root_dir / "factors/candidate.py"
+            candidate.write_text("SCORE = 2.0\n", encoding="utf-8")
+            evaluate_experiment(
+                project,
+                session.manifest["id"],
+                "Improve after the first report snapshot.",
+            )
+            later = load_session(project, session.manifest["id"])
+            loaded = load_report(project, later, report.report["id"])
+            self.assertEqual(
+                loaded.report["evidence"]["session"]["leader"]["runId"],
+                baseline_id,
+            )
+            self.assertNotEqual(later.manifest["leader"]["runId"], baseline_id)
+
+            result_path = report.root_dir / "report.json"
+            changed = json.loads(result_path.read_text(encoding="utf-8"))
+            changed["analysis"]["executiveSummary"] = "tampered"
+            result_path.write_text(json.dumps(changed), encoding="utf-8")
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "files changed",
+            ):
+                load_report(project, later, report.report["id"])
+
+    def test_report_rejects_unknown_evidence_and_legacy_session(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = self._project(directory)
+            session = start_session(
+                project,
+                "factor-quality",
+                request=research_request(),
+            )
+            invalid = report_analysis(session.manifest["baseline"]["runId"])
+            invalid["findings"][0]["evidenceRefs"][0]["id"] = "run-invented"
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "Unknown Session evidence",
+            ):
+                publish_report(project, session.manifest["id"], invalid)
+
+            legacy = start_session(project, "factor-quality")
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "require a delegated Session brief",
+            ):
+                publish_report(
+                    project,
+                    legacy.manifest["id"],
+                    report_analysis(legacy.manifest["baseline"]["runId"]),
+                )
+
+    def test_report_loader_rejects_fully_rehashed_fabricated_metrics(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = self._project(directory)
+            session = start_session(
+                project,
+                "factor-quality",
+                request=research_request(),
+            )
+            report = publish_report(
+                project,
+                session.manifest["id"],
+                report_analysis(session.manifest["baseline"]["runId"]),
+            )
+            forged = json.loads(
+                json.dumps(report.report)
+            )
+            forged["evidence"]["runs"][0]["metrics"]["score"] = 999.0
+            forged["evidenceHash"] = hash_json(forged["evidence"])
+            identity = hash_json(
+                {
+                    "sessionId": forged["sessionId"],
+                    "briefHash": forged["brief"]["briefHash"],
+                    "analysisHash": forged["analysisHash"],
+                    "evidenceHash": forged["evidenceHash"],
+                    "publishedAt": forged["publishedAt"],
+                }
+            )
+            stamp = datetime.fromisoformat(forged["publishedAt"]).strftime(
+                "%Y%m%dT%H%M%S%fZ"
+            )
+            forged_id = f"report-{stamp}-{identity[:12]}"
+            forged["id"] = forged_id
+            forged_root = report.root_dir.with_name(forged_id)
+            report.root_dir.rename(forged_root)
+            (forged_root / "report.json").write_text(
+                json.dumps(forged, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            (forged_root / "report.md").write_text(
+                report_module._render_markdown(forged),
+                encoding="utf-8",
+            )
+            files = {
+                name: hash_file(forged_root / name)
+                for name in ("analysis.json", "report.json", "report.md")
+            }
+            manifest = {
+                "schemaVersion": 1,
+                "id": forged_id,
+                "sessionId": session.manifest["id"],
+                "completed": True,
+                "reportHash": files["report.json"],
+                "files": files,
+            }
+            (forged_root / "manifest.json").write_text(
+                json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "Frozen Run differs",
+            ):
+                load_report(
+                    project,
+                    load_session(project, session.manifest["id"]),
+                    forged_id,
+                )
+
+
+if __name__ == "__main__":
+    unittest.main()

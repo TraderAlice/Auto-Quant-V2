@@ -238,11 +238,15 @@ class StudioObservationTests(unittest.TestCase):
                 with urlopen(f"{base}/", timeout=3) as response:
                     html = response.read().decode()
                     self.assertIn("Research observatory", html)
+                    self.assertIn("Research handoff", html)
+                    self.assertIn('id="handoff-board"', html)
                     self.assertIn('href="/assets/studio.css"', html)
                     self.assertNotIn("<script>", html)
 
                 with urlopen(f"{base}/assets/studio.css", timeout=3) as response:
                     css = response.read().decode()
+                    self.assertIn(".handoff-board", css)
+                    self.assertIn(".command-button", css)
                     self.assertIn("@media (max-width: 680px)", css)
                     self.assertIn(":focus-visible", css)
 

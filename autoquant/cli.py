@@ -8,6 +8,7 @@ import sys
 from dataclasses import dataclass, field
 from typing import Any, Sequence
 
+from .briefs import RESEARCH_REQUEST_JSON_SCHEMA, load_research_request
 from .capabilities import CLI_COMMANDS
 from .cli_contract import (
     artifact,
@@ -32,6 +33,13 @@ from .research import (
     list_campaigns,
     load_campaign,
     run_campaign,
+)
+from .reports import (
+    REPORT_ANALYSIS_JSON_SCHEMA,
+    list_reports,
+    load_report,
+    load_report_analysis,
+    publish_report,
 )
 from .studio import STUDIO_SNAPSHOT_JSON_SCHEMA, build_studio_snapshot, serve_studio
 from .templates import OHLCV_STUDY_ID, PROJECT_TEMPLATE_IDS
@@ -137,6 +145,8 @@ def build_parser() -> RaisingArgumentParser:
             "researcher-response",
             "campaign-result",
             "campaign-progress",
+            "research-request",
+            "report-analysis",
             "studio-snapshot",
         ],
     )
@@ -288,6 +298,10 @@ def build_parser() -> RaisingArgumentParser:
     session_start.add_argument("path")
     session_start.add_argument("--project")
     session_start.add_argument("--study", required=True)
+    session_start.add_argument(
+        "--request",
+        help="strict delegated research-request JSON to bind into the Session",
+    )
     session_start.set_defaults(command_id="session.start")
     _json_argument(session_start)
 
@@ -396,6 +410,43 @@ def build_parser() -> RaisingArgumentParser:
     research_show.add_argument("--campaign", required=True)
     research_show.set_defaults(command_id="research.show")
     _json_argument(research_show)
+
+    report = subcommands.add_parser(
+        "report",
+        help="publish and inspect immutable evidence-bound Research Reports",
+    )
+    report_actions = report.add_subparsers(dest="report_action", required=True)
+    report_publish = report_actions.add_parser(
+        "publish",
+        help="publish Agent-authored analysis over verified Session evidence",
+    )
+    report_publish.add_argument("path")
+    report_publish.add_argument("--project")
+    report_publish.add_argument("--session", required=True)
+    report_publish.add_argument("--analysis", required=True)
+    report_publish.set_defaults(command_id="report.publish")
+    _json_argument(report_publish)
+
+    report_list = report_actions.add_parser(
+        "list",
+        help="list immutable Research Reports in one Session",
+    )
+    report_list.add_argument("path")
+    report_list.add_argument("--project")
+    report_list.add_argument("--session", required=True)
+    report_list.set_defaults(command_id="report.list")
+    _json_argument(report_list)
+
+    report_show = report_actions.add_parser(
+        "show",
+        help="verify and inspect one immutable Research Report",
+    )
+    report_show.add_argument("path")
+    report_show.add_argument("--project")
+    report_show.add_argument("--session", required=True)
+    report_show.add_argument("--report", required=True)
+    report_show.set_defaults(command_id="report.show")
+    _json_argument(report_show)
 
     studio = subcommands.add_parser(
         "studio",
@@ -931,13 +982,38 @@ def _session_next_actions(project, session) -> list[dict[str, Any]]:
                     "mutates-project",
                 )
             )
+    if session.delegation is not None:
+        actions.append(
+            next_action(
+                "report.publish",
+                "Publish strict analysis over the current verified Session evidence.",
+                [
+                    "aq",
+                    "report",
+                    "publish",
+                    str(project.root_dir),
+                    "--session",
+                    session.manifest["id"],
+                    "--analysis",
+                    "report-analysis.json",
+                    "--json",
+                ],
+                "creates-artifact",
+            )
+        )
     return actions
 
 
 def _session_start(args: argparse.Namespace) -> CommandResult:
     project = _selected_project(args)
-    session = start_session(project, args.study)
+    request = load_research_request(args.request) if args.request else None
+    session = start_session(project, args.study, request=request)
     data = session_snapshot(project, session)
+    delegation_line = (
+        f"Request: {session.delegation['request']['title']}\n"
+        if session.delegation is not None
+        else ""
+    )
     return CommandResult(
         "session.start",
         data,
@@ -948,6 +1024,7 @@ def _session_start(args: argparse.Namespace) -> CommandResult:
             f"{session.manifest['leader']['value']}\n"
             f"Worktree: {session.worktree_project.root_dir}\n"
             f"Editable: {', '.join(session.manifest['editablePaths'])}\n"
+            f"{delegation_line}"
         ),
         project_context(project),
         [
@@ -958,6 +1035,24 @@ def _session_start(args: argparse.Namespace) -> CommandResult:
                 immutable=False,
             ),
             *_run_artifacts(session.baseline_run),
+            *(
+                [
+                    artifact(
+                        "research-request",
+                        session.manifest["brief"]["requestHash"],
+                        session.root_dir / "request.json",
+                        immutable=True,
+                    ),
+                    artifact(
+                        "research-brief",
+                        session.manifest["brief"]["id"],
+                        session.root_dir / "brief.json",
+                        immutable=True,
+                    ),
+                ]
+                if session.delegation is not None
+                else []
+            ),
         ],
         _session_next_actions(project, session),
     )
@@ -1313,6 +1408,129 @@ def _research_show(args: argparse.Namespace) -> CommandResult:
     )
 
 
+def _report_artifacts(report) -> list[dict[str, Any]]:
+    return [
+        artifact(
+            "research-report",
+            report.report["id"],
+            report.root_dir / "report.json",
+            immutable=True,
+        ),
+        artifact(
+            "research-report-markdown",
+            report.report["id"],
+            report.root_dir / "report.md",
+            immutable=True,
+        ),
+    ]
+
+
+def _report_publish(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    analysis = load_report_analysis(args.analysis)
+    report = publish_report(project, args.session, analysis)
+    return CommandResult(
+        "report.publish",
+        {
+            "manifest": report.manifest,
+            "report": report.report,
+            "markdownPath": str(report.root_dir / "report.md"),
+        },
+        (
+            f"Research Report: {report.report['id']}\n"
+            f"Title: {report.analysis['title']}\n"
+            f"Session: {report.report['sessionId']}\n"
+            f"Leader: {report.report['evidence']['session']['leader']['runId']}\n"
+            f"Markdown: {report.root_dir / 'report.md'}\n"
+            "Authority: quantitative decision support; trading authority: none\n"
+        ),
+        project_context(project),
+        _report_artifacts(report),
+        [
+            next_action(
+                "report.show",
+                "Verify the immutable report before OpenAlice Inbox publication.",
+                [
+                    "aq",
+                    "report",
+                    "show",
+                    str(project.root_dir),
+                    "--session",
+                    report.report["sessionId"],
+                    "--report",
+                    report.report["id"],
+                    "--json",
+                ],
+                "read-only",
+            )
+        ],
+    )
+
+
+def _report_list(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    session = load_session(project, args.session)
+    reports = list_reports(project, session)
+    lines = [f"Research Reports in {session.manifest['id']}:"]
+    lines.extend(
+        f"  {item.id}  {item.title}  findings={item.findings}  "
+        f"recommendations={item.recommendations}"
+        for item in reports
+    )
+    if not reports:
+        lines.append("  No Research Reports")
+    actions = []
+    if reports:
+        actions.append(
+            next_action(
+                "report.show",
+                "Verify and inspect the latest immutable Research Report.",
+                [
+                    "aq",
+                    "report",
+                    "show",
+                    str(project.root_dir),
+                    "--session",
+                    session.manifest["id"],
+                    "--report",
+                    reports[-1].id,
+                    "--json",
+                ],
+                "read-only",
+            )
+        )
+    return CommandResult(
+        "report.list",
+        {"reports": [item.to_dict() for item in reports]},
+        "\n".join(lines) + "\n",
+        project_context(project),
+        next_actions=actions,
+    )
+
+
+def _report_show(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    session = load_session(project, args.session)
+    report = load_report(project, session, args.report)
+    return CommandResult(
+        "report.show",
+        {
+            "manifest": report.manifest,
+            "report": report.report,
+            "markdownPath": str(report.root_dir / "report.md"),
+        },
+        (
+            f"Immutable Research Report: {report.report['id']}\n"
+            f"Title: {report.analysis['title']}\n"
+            f"Session: {report.report['sessionId']}\n"
+            f"Findings: {len(report.analysis['findings'])}\n"
+            f"Markdown: {report.root_dir / 'report.md'}\n"
+        ),
+        project_context(project),
+        _report_artifacts(report),
+    )
+
+
 def _studio_snapshot(args: argparse.Namespace) -> CommandResult:
     snapshot = build_studio_snapshot(args.path, project_id=args.project)
     source = snapshot["source"]
@@ -1468,6 +1686,8 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "experiment",
             "judge-output",
             "project",
+            "report-analysis",
+            "research-request",
             "researcher-response",
             "run-result",
             "session",
@@ -1491,6 +1711,8 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "researcher-response": RESEARCHER_RESPONSE_JSON_SCHEMA,
             "campaign-result": CAMPAIGN_RESULT_JSON_SCHEMA,
             "campaign-progress": CAMPAIGN_PROGRESS_JSON_SCHEMA,
+            "research-request": RESEARCH_REQUEST_JSON_SCHEMA,
+            "report-analysis": REPORT_ANALYSIS_JSON_SCHEMA,
             "studio-snapshot": STUDIO_SNAPSHOT_JSON_SCHEMA,
         }
         schema = schemas.get(args.kind) or workspace_schema_for(args.kind)
@@ -1543,6 +1765,12 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
         return _research_list(args)
     if args.command_id == "research.show":
         return _research_show(args)
+    if args.command_id == "report.publish":
+        return _report_publish(args)
+    if args.command_id == "report.list":
+        return _report_list(args)
+    if args.command_id == "report.show":
+        return _report_show(args)
     if args.command_id == "studio.snapshot":
         return _studio_snapshot(args)
     if args.command_id == "studio.serve":
@@ -1561,6 +1789,7 @@ def _command_id(argv: Sequence[str]) -> str:
         "session",
         "experiment",
         "research",
+        "report",
         "studio",
     } and len(argv) > 1:
         return f"{argv[0]}.{argv[1]}"

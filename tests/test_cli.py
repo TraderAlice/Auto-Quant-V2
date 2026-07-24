@@ -113,6 +113,9 @@ class AgentCliTests(unittest.TestCase):
                 "research.run",
                 "research.list",
                 "research.show",
+                "report.publish",
+                "report.list",
+                "report.show",
                 "studio.snapshot",
                 "studio.serve",
             ],
@@ -148,6 +151,8 @@ class AgentCliTests(unittest.TestCase):
                 "researcher-response",
                 "campaign-result",
                 "campaign-progress",
+                "research-request",
+                "report-analysis",
                 "studio-snapshot",
             ],
         )
@@ -172,6 +177,22 @@ class AgentCliTests(unittest.TestCase):
                 "const"
             ],
             "campaign-progress",
+        )
+        request_schema = run_cli("schema", "research-request", "--json")
+        self.assertEqual(request_schema.returncode, 0, request_schema.stderr)
+        self.assertEqual(
+            json_output(request_schema)["data"]["schema"]["properties"]["kind"][
+                "const"
+            ],
+            "autoquant-research-request",
+        )
+        report_schema = run_cli("schema", "report-analysis", "--json")
+        self.assertEqual(report_schema.returncode, 0, report_schema.stderr)
+        self.assertEqual(
+            json_output(report_schema)["data"]["schema"]["properties"]["kind"][
+                "const"
+            ],
+            "autoquant-research-report-analysis",
         )
         studio_schema = run_cli("schema", "studio-snapshot", "--json")
         self.assertEqual(studio_schema.returncode, 0, studio_schema.stderr)
@@ -678,6 +699,140 @@ print(json.dumps({
             self.assertEqual(
                 studio_json["nextActions"][0]["id"],
                 "studio.serve",
+            )
+
+    def test_json_cli_binds_request_and_publishes_verified_report(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, project = make_project(directory)
+            create_study(project, study_definition())
+            request = {
+                "schemaVersion": 1,
+                "kind": "autoquant-research-request",
+                "title": "AAA support request",
+                "question": "Does AAA have positive factor support?",
+                "decisionContext": "OpenAlice is gathering decision support.",
+                "assets": [
+                    {
+                        "symbol": "AAA/USD",
+                        "assetClass": "equity",
+                        "venue": "TEST",
+                    }
+                ],
+                "direction": "long",
+                "horizon": "one month",
+                "hypotheses": ["The factor remains positive."],
+                "constraints": ["Use the locked Study."],
+                "deliverables": ["factor evidence"],
+                "source": {
+                    "system": "openalice",
+                    "workspaceId": "equity-desk",
+                    "sessionId": "resume-cli-origin",
+                    "artifactPath": "requests/aaa.md",
+                    "artifactRevision": "sha256:cli-request",
+                },
+            }
+            request_path = Path(directory) / "request.json"
+            request_path.write_text(json.dumps(request), encoding="utf-8")
+            started = run_cli(
+                "session",
+                "start",
+                str(project.root_dir),
+                "--study",
+                "factor-quality",
+                "--request",
+                str(request_path),
+                "--json",
+            )
+            self.assertEqual(started.returncode, 0, started.stderr)
+            started_json = json_output(started)
+            session_id = started_json["data"]["session"]["id"]
+            baseline_id = started_json["data"]["session"]["baseline"]["runId"]
+            self.assertEqual(
+                started_json["data"]["delegation"]["request"]["title"],
+                "AAA support request",
+            )
+            self.assertEqual(
+                [item["kind"] for item in started_json["artifacts"][-2:]],
+                ["research-request", "research-brief"],
+            )
+            self.assertEqual(
+                started_json["nextActions"][-1]["id"],
+                "report.publish",
+            )
+
+            evidence = {
+                "kind": "run",
+                "id": baseline_id,
+                "artifactPath": "artifacts/report.json",
+            }
+            analysis = {
+                "schemaVersion": 1,
+                "kind": "autoquant-research-report-analysis",
+                "title": "AAA evidence report",
+                "executiveSummary": "The fixed baseline is positive.",
+                "findings": [
+                    {
+                        "id": "positive-baseline",
+                        "claim": "The fixed baseline score is positive.",
+                        "confidence": "medium",
+                        "evidenceRefs": [evidence],
+                    }
+                ],
+                "recommendations": [],
+                "limitations": ["Synthetic fixture only."],
+                "unresolvedQuestions": ["Does it survive realistic costs?"],
+            }
+            analysis_path = Path(directory) / "analysis.json"
+            analysis_path.write_text(json.dumps(analysis), encoding="utf-8")
+            published = run_cli(
+                "report",
+                "publish",
+                str(project.root_dir),
+                "--session",
+                session_id,
+                "--analysis",
+                str(analysis_path),
+                "--json",
+            )
+            self.assertEqual(published.returncode, 0, published.stderr)
+            published_json = json_output(published)
+            report_id = published_json["data"]["report"]["id"]
+            self.assertEqual(
+                published_json["data"]["report"]["tradingAuthority"],
+                "none",
+            )
+            self.assertEqual(
+                [item["kind"] for item in published_json["artifacts"]],
+                ["research-report", "research-report-markdown"],
+            )
+
+            listed = run_cli(
+                "report",
+                "list",
+                str(project.root_dir),
+                "--session",
+                session_id,
+                "--json",
+            )
+            self.assertEqual(listed.returncode, 0, listed.stderr)
+            self.assertEqual(
+                json_output(listed)["data"]["reports"][0]["id"],
+                report_id,
+            )
+            shown = run_cli(
+                "report",
+                "show",
+                str(project.root_dir),
+                "--session",
+                session_id,
+                "--report",
+                report_id,
+                "--json",
+            )
+            self.assertEqual(shown.returncode, 0, shown.stderr)
+            self.assertEqual(
+                json_output(shown)["data"]["report"]["analysisHash"],
+                published_json["data"]["report"]["analysisHash"],
             )
 
 

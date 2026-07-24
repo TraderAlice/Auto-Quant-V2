@@ -64,6 +64,8 @@ protocol.
 
 Every turn receives fresh:
 
+- the verified delegated request and derived Research Brief when the Session
+  was started with `--request`;
 - Campaign and turn ids;
 - complete Study program text and hash;
 - worktree and editable paths;
@@ -76,6 +78,9 @@ Every turn receives fresh:
 
 The Researcher therefore does not need to scrape CLI prose or infer current
 best state from mutable files.
+
+Delegated context has research-prioritization authority only. It cannot change
+the objective, locks, budgets, Judge, verdict, or editable closure.
 
 ## Campaign evidence
 

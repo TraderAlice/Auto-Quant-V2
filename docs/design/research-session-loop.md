@@ -4,7 +4,8 @@ Status: V1 implemented.
 
 Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]], [[docs/CLI]],
 [[docs/design/study-run-evidence]], and
-[[docs/design/agent-cli-contract]].
+[[docs/design/agent-cli-contract]], and
+[[docs/design/quant-research-lifecycle]].
 
 ## Scope
 
@@ -13,7 +14,9 @@ Session identity, disposable working construction, Experiment evidence,
 KEEP/REVERT/CRASH comparison, leader restoration, and guarded promotion.
 
 It does not own the Researcher's model/provider, proposal quality, parallel
-search, portfolio guardrails, or Studio presentation.
+search, portfolio guardrails, or Studio presentation. Delegated request/Brief
+and Report files compose the Session boundary, while their end-to-end handoff
+semantics are owned by [[docs/design/quant-research-lifecycle]].
 
 ## Authority model
 
@@ -41,6 +44,8 @@ The Project gains one durable `sessions/` ownership slot:
 sessions/
 └── session-<UTC timestamp>-<identity>/
     ├── session.json
+    ├── request.json        # optional delegated request
+    ├── brief.json          # optional derived Research Brief
     ├── worktree/
     │   └── <project-id>/
     │       ├── autoquant.json
@@ -59,6 +64,8 @@ sessions/
     │       ├── turns/
     │       ├── result.json
     │       └── manifest.json
+    ├── reports/
+    │   └── report-<UTC timestamp>-<identity>/
     └── promotion.json
 ```
 
@@ -80,6 +87,17 @@ A Session pins:
 Session start executes a fresh successful baseline through the ordinary
 Study/Run contract. It then constructs the worktree from exact fixed and
 editable bytes. Canonical Project candidate source is not changed.
+
+When `--request` is supplied, Core validates it before baseline execution and
+requires every requested symbol and asset class to fit the selected Study. It
+then derives a Research Brief from the normalized request, Session identity,
+baseline, objective, Study/program/Judge/dataset locks, and Harness. The
+Session pointer stores the Brief id and request/Brief hashes; the canonical
+request and derived Brief live beside it. Every load reconstructs the expected
+Brief and rejects missing, changed, or untracked delegation files.
+
+Caller-provided OpenAlice Workspace, Session, artifact path, and revision are
+content-locked context. They are not authenticated inside AutoQuant.
 
 Evaluation rejects stale or modified authority before running:
 
@@ -155,6 +173,7 @@ The CLI is the shared protocol:
 
 ```text
 aq session start <path> --study <id> --json
+aq session start <path> --study <id> --request request.json --json
 → edit data.worktree under data.editablePaths
 → aq experiment evaluate <path> --session <id> --hypothesis "..." --json
 → inspect verdict/history/nextActions
@@ -165,6 +184,10 @@ An external Codex, another coding Agent, or a human can drive these same
 operations. The implemented provider-neutral bounded layer is
 [[docs/design/external-researcher-driver]]; it composes this contract rather
 than entering the Judge or promotion authority.
+
+A delegated Session may publish immutable Reports over any verified evidence
+prefix. Report publication neither changes the leader nor closes the Session.
+Later Experiments do not mutate an earlier Report.
 
 ## Invariants
 
@@ -180,6 +203,10 @@ than entering the Judge or promotion authority.
 9. Promotion is explicit, stale-base guarded, hash-verified, and rollback-safe.
 10. Session pointers may be rebuilt from immutable Runs and Experiments; they
    are not research evidence by themselves.
+11. A delegated Brief is exactly derived from caller content and fixed
+    Session/Study authority; caller context cannot alter the Judge.
+12. Reports freeze chronological evidence prefixes and have no trading
+    authority.
 
 ## Known gaps
 

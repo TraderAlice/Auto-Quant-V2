@@ -119,8 +119,8 @@ function renderScoreboard(project) {
   const values = [
     ["Active Sessions", counts.activeSessions, counts.sessions === 1 ? "1 total" : `${counts.sessions} total`, counts.activeSessions ? "live" : ""],
     ["Running", counts.runningCampaigns, "mutable progress", counts.runningCampaigns ? "live" : ""],
-    ["Experiments", counts.verdicts.KEEP + counts.verdicts.REVERT + counts.verdicts.CRASH, `${counts.verdicts.KEEP} kept`, ""],
-    ["Immutable Runs", counts.runs, `${counts.campaigns} campaigns`, ""],
+    ["Reports", counts.reports, `${counts.delegatedSessions} delegated`, counts.reports ? "live" : ""],
+    ["Immutable Runs", counts.runs, `${counts.verdicts.KEEP} kept · ${counts.campaigns} campaigns`, ""],
   ];
   element("scoreboard").innerHTML = values
     .map(
@@ -178,8 +178,8 @@ function renderSessions(project) {
           <button class="session-lane ${selected ? "active" : ""}" type="button"
             data-session="${escapeHtml(session.id)}" aria-pressed="${selected}">
             <span class="lane-identity">
-              <span>${escapeHtml(session.status)} session</span>
-              <strong>${escapeHtml(session.studyId)}</strong>
+              <span>${item.delegation ? "delegated" : escapeHtml(session.status)} session</span>
+              <strong>${escapeHtml(item.delegation?.request?.title ?? session.studyId)}</strong>
               <code>${escapeHtml(session.id)}</code>
             </span>
             <span class="lane-stat">
@@ -193,6 +193,10 @@ function renderSessions(project) {
             <span class="lane-stat">
               <small>Turn</small>
               <strong>${escapeHtml(campaign.turn)}</strong>
+            </span>
+            <span class="lane-stat">
+              <small>Reports</small>
+              <strong>${item.reports.length}</strong>
             </span>
             <span class="lane-state ${campaign.live ? "live" : normalizedStatus(campaign.status) === "failed" ? "warning" : ""}">
               <i aria-hidden="true"></i>
@@ -212,6 +216,89 @@ function renderSessions(project) {
       element("inspector-content").scrollTop = 0;
     });
   });
+}
+
+function commandFor(session, id) {
+  return session?.commands?.find((item) => item.id === id) ?? null;
+}
+
+function copyCommandButton(command, label = "Copy command") {
+  if (!command) return "";
+  return `
+    <button class="command-button" type="button"
+      data-copy-command="${escapeHtml(command.display)}"
+      title="${escapeHtml(command.display)}">
+      <span>${escapeHtml(label)}</span>
+      <code>${escapeHtml(command.display)}</code>
+    </button>`;
+}
+
+function bindCopyCommands() {
+  document.querySelectorAll("[data-copy-command]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const label = button.querySelector("span");
+      try {
+        await navigator.clipboard.writeText(button.dataset.copyCommand);
+        if (label) label.textContent = "Copied";
+      } catch {
+        if (label) label.textContent = "Copy failed";
+      }
+      window.setTimeout(() => {
+        if (label) label.textContent = "Copy command";
+      }, 1600);
+    });
+  });
+}
+
+function renderHandoff(project) {
+  const session = selectedSession(project);
+  const delegation = session?.delegation;
+  if (!session || !delegation) {
+    element("handoff-meta").textContent = "No delegated request";
+    element("handoff-board").innerHTML = `
+      <div class="empty-panel handoff-empty">
+        Bind a strict request with <code>aq session start … --request request.json</code>
+        to preserve caller intent and produce a verified report handoff.
+      </div>`;
+    return;
+  }
+  const request = delegation.request;
+  const source = request.source;
+  const latestReport = session.reports.at(-1);
+  const publish = commandFor(session, "report.publish");
+  const show = commandFor(session, "report.show");
+  const assets = request.assets.map((item) => item.symbol).join(", ");
+  element("handoff-meta").textContent =
+    latestReport ? `${session.reports.length} verified report${session.reports.length === 1 ? "" : "s"}` : "Report analysis pending";
+  element("handoff-board").innerHTML = `
+    <article class="handoff-card request-card">
+      <small>01 · Incoming request</small>
+      <h3>${escapeHtml(request.title)}</h3>
+      <p>${escapeHtml(request.question)}</p>
+      <dl class="handoff-kv">
+        <dt>Assets</dt><dd>${escapeHtml(assets)}</dd>
+        <dt>Direction</dt><dd>${escapeHtml(request.direction)}</dd>
+        <dt>Horizon</dt><dd>${escapeHtml(request.horizon)}</dd>
+      </dl>
+      <span class="context-note">Caller-supplied context · ${escapeHtml(source.system)} / ${escapeHtml(source.workspaceId ?? "unspecified")}</span>
+    </article>
+    <article class="handoff-card evidence-card">
+      <small>02 · Governed evidence</small>
+      <h3>${escapeHtml(session.session.studyId)}</h3>
+      <p>${session.authority.valid ? "Fixed Study authority is verified." : "Authority needs attention before publication."}</p>
+      <div class="handoff-metrics">
+        <span><b>${metric(session.session.leader.value)}</b><small>leader</small></span>
+        <span><b>${session.experiments.length}</b><small>experiments</small></span>
+        <span><b>${session.campaigns.length}</b><small>campaigns</small></span>
+      </div>
+    </article>
+    <article class="handoff-card report-card ${latestReport ? "ready" : ""}">
+      <small>03 · Decision-support report</small>
+      <h3>${escapeHtml(latestReport?.title ?? "Analysis not published")}</h3>
+      <p>${escapeHtml(latestReport?.executiveSummary ?? "An Agent supplies strict findings; Core verifies references and renders the report.")}</p>
+      <span class="status-chip ${latestReport ? "published" : "active"}">${latestReport ? "verified" : "pending"}</span>
+      ${copyCommandButton(latestReport ? show : publish)}
+    </article>`;
 }
 
 function renderTrajectory(project) {
@@ -264,6 +351,7 @@ function eventSubtitle(event) {
     session: "Session pointer",
     experiment: "Experiment verdict",
     campaign: "Terminal Campaign",
+    report: "Immutable Research Report",
     progress: "Mutable Campaign progress",
   };
   return `${labels[event.kind] ?? event.kind} · ${event.status}`;
@@ -368,8 +456,22 @@ function renderInspector(project) {
     return;
   }
   const manifest = session.session;
+  const delegation = session.delegation;
+  const latestReport = session.reports.at(-1);
   element("inspector-kind").textContent = "SESSION";
   element("inspector-content").innerHTML = `
+    ${delegation ? `
+    <section class="inspector-section">
+      <small>Incoming research brief</small>
+      <h3>${escapeHtml(delegation.request.title)}</h3>
+      <p>${escapeHtml(delegation.request.question)}</p>
+      <dl class="inspector-kv">
+        <dt>Direction</dt><dd>${escapeHtml(delegation.request.direction)}</dd>
+        <dt>Horizon</dt><dd>${escapeHtml(delegation.request.horizon)}</dd>
+        <dt>Brief</dt><dd title="${escapeHtml(delegation.brief.id)}">${escapeHtml(delegation.brief.id)}</dd>
+        <dt>Origin</dt><dd>caller-supplied</dd>
+      </dl>
+    </section>` : ""}
     <section class="inspector-section">
       <small>Current leader</small>
       <h3>${escapeHtml(manifest.studyId)}</h3>
@@ -394,6 +496,16 @@ function renderInspector(project) {
         <dt>Next sequence</dt><dd>${manifest.nextExperiment}</dd>
         <dt>Editable</dt><dd>${escapeHtml(manifest.editablePaths.join(", "))}</dd>
       </dl>
+    </section>
+    <section class="inspector-section">
+      <small>Research report</small>
+      <h3>${escapeHtml(latestReport?.title ?? "No report published")}</h3>
+      <p>${escapeHtml(latestReport?.executiveSummary ?? (delegation ? "Publish structured analysis when the evidence is ready." : "This manual Session has no delegated report brief."))}</p>
+      ${delegation ? copyCommandButton(commandFor(session, latestReport ? "report.show" : "report.publish")) : ""}
+    </section>
+    <section class="inspector-section">
+      <small>Agent control surface</small>
+      ${copyCommandButton(commandFor(session, "session.show"))}
     </section>
     <section class="inspector-section">
       <small>Research program</small>
@@ -458,6 +570,9 @@ function renderEmptyWorkspace(message = "Create a Project with aq project create
   element("pulse-meta").textContent = "No active Sessions";
   element("session-lanes").innerHTML =
     '<div class="empty-panel">A governed Session will appear here after its first fixed baseline.</div>';
+  element("handoff-meta").textContent = "No delegated request";
+  element("handoff-board").innerHTML =
+    '<div class="empty-panel handoff-empty">Delegated research requests will appear here.</div>';
   element("trajectory-meta").textContent = "No Experiments";
   element("trajectory-chart").innerHTML =
     '<div class="empty-panel">Candidate verdicts will appear here.</div>';
@@ -518,11 +633,13 @@ function render() {
   document.title = `${project.name} — AutoQuant Studio`;
   renderScoreboard(project);
   renderDiagnostics(project);
+  renderHandoff(project);
   renderSessions(project);
   renderTrajectory(project);
   renderTimeline(project);
   renderCatalog(project);
   renderInspector(project);
+  bindCopyCommands();
   studio.setAttribute("aria-busy", "false");
 }
 

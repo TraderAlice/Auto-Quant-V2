@@ -15,6 +15,13 @@ from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+from .briefs import (
+    RESEARCH_BRIEF,
+    RESEARCH_REQUEST,
+    build_research_brief,
+    validate_research_request,
+    validate_session_brief,
+)
 from .runs import RunContext, execute_study, harness_identity, load_run
 from .studies import (
     StudyContext,
@@ -58,6 +65,7 @@ class SessionContext:
     worktree_project: ProjectContext
     baseline_run: RunContext
     leader_run: RunContext
+    delegation: dict[str, Any] | None
 
 
 @dataclass(frozen=True)
@@ -71,6 +79,8 @@ class SessionSummary:
     experiments: int
     updated_at: str
     path: str
+    delegated: bool
+    request_title: str | None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -83,6 +93,8 @@ class SessionSummary:
             "experiments": self.experiments,
             "updatedAt": self.updated_at,
             "path": self.path,
+            "delegated": self.delegated,
+            "requestTitle": self.request_title,
         }
 
 
@@ -347,8 +359,53 @@ def _canonical_data_root(project: ProjectContext) -> Path:
     )
 
 
-def start_session(project: ProjectContext, study_id: str) -> SessionContext:
+def start_session(
+    project: ProjectContext,
+    study_id: str,
+    *,
+    request: dict[str, Any] | None = None,
+) -> SessionContext:
+    normalized_request = (
+        validate_research_request(request, "request")
+        if request is not None
+        else None
+    )
     study = load_study(project, study_id)
+    if normalized_request is not None:
+        requested_symbols = {
+            item["symbol"] for item in normalized_request["assets"]
+        }
+        study_symbols = set(study.definition.dataset.universe)
+        missing_symbols = sorted(requested_symbols - study_symbols)
+        mismatched_classes = sorted(
+            {
+                item["assetClass"]
+                for item in normalized_request["assets"]
+                if item["assetClass"] != study.definition.dataset.asset_class
+            }
+        )
+        request_issues: list[ValidationIssue] = []
+        if missing_symbols:
+            request_issues.append(
+                _issue(
+                    "request/assets",
+                    "request.study-universe",
+                    "Requested assets are outside the selected Study universe: "
+                    + ", ".join(missing_symbols),
+                )
+            )
+        if mismatched_classes:
+            request_issues.append(
+                _issue(
+                    "request/assets",
+                    "request.study-asset-class",
+                    "Requested asset classes differ from the selected Study "
+                    f"asset class '{study.definition.dataset.asset_class}': "
+                    + ", ".join(mismatched_classes),
+                )
+            )
+        if request_issues:
+            raise AutoQuantValidationError(request_issues)
     baseline = execute_study(project, study_id)
     if baseline.result["status"] != "succeeded":
         raise AutoQuantValidationError(
@@ -369,6 +426,11 @@ def start_session(project: ProjectContext, study_id: str) -> SessionContext:
             "study": study.definition.id,
             "baseline": baseline.result["id"],
             "startedAt": started.isoformat(),
+            "requestHash": (
+                hash_json(normalized_request)
+                if normalized_request is not None
+                else None
+            ),
         }
     )
     session_id = f"session-{stamp}-{identity[:12]}"
@@ -409,8 +471,24 @@ def start_session(project: ProjectContext, study_id: str) -> SessionContext:
             },
             "nextExperiment": 1,
         }
+        if normalized_request is not None:
+            brief = build_research_brief(
+                normalized_request,
+                project,
+                manifest,
+                baseline.result,
+                created_at=started.isoformat(),
+            )
+            manifest["brief"] = {
+                "id": brief["id"],
+                "requestHash": hash_json(normalized_request),
+                "briefHash": hash_json(brief),
+            }
+            _write_json(temporary / RESEARCH_REQUEST, normalized_request)
+            _write_json(temporary / RESEARCH_BRIEF, brief)
         (temporary / "experiments").mkdir()
         (temporary / "campaigns").mkdir()
+        (temporary / "reports").mkdir()
         _write_json(temporary / SESSION_MANIFEST, manifest)
         os.replace(temporary, target)
     except Exception:
@@ -441,7 +519,8 @@ def _validate_session_manifest(
         "locks",
         "nextExperiment",
     }
-    issues = _strict_keys(value, required, path)
+    allowed = required | ({"brief"} if "brief" in value else set())
+    issues = _strict_keys(value, allowed, path)
     if value.get("schemaVersion") != SCHEMA_VERSION:
         issues.append(_issue(f"{path}/schemaVersion", "schema.version", "Expected V1"))
     if value.get("id") != expected_id:
@@ -590,6 +669,12 @@ def load_session(project: ProjectContext, session_id: str) -> SessionContext:
     worktree = load_project(worktree_root, expected_id=project.manifest.id)
     baseline = load_run(project, manifest["baseline"]["runId"])
     leader = load_run(project, manifest["leader"]["runId"])
+    delegation = validate_session_brief(
+        project,
+        root,
+        manifest,
+        baseline.result,
+    )
     for key, run in (("baseline", baseline), ("leader", leader)):
         pointer = manifest[key]
         if (
@@ -636,7 +721,15 @@ def load_session(project: ProjectContext, session_id: str) -> SessionContext:
             )
         if receipt_issues:
             raise AutoQuantValidationError(receipt_issues)
-    return SessionContext(root, manifest_path, manifest, worktree, baseline, leader)
+    return SessionContext(
+        root,
+        manifest_path,
+        manifest,
+        worktree,
+        baseline,
+        leader,
+        delegation,
+    )
 
 
 def list_sessions(project: ProjectContext) -> list[SessionSummary]:
@@ -660,6 +753,12 @@ def list_sessions(project: ProjectContext) -> list[SessionSummary]:
                 experiments=session.manifest["nextExperiment"] - 1,
                 updated_at=session.manifest["updatedAt"],
                 path=str(session.root_dir),
+                delegated=session.delegation is not None,
+                request_title=(
+                    session.delegation["request"]["title"]
+                    if session.delegation is not None
+                    else None
+                ),
             )
         )
     return summaries
@@ -878,6 +977,7 @@ def session_snapshot(
             / program_relative
         ),
         "candidate": candidate,
+        "delegation": session.delegation,
         "authority": {
             "valid": not issues,
             "issues": [issue.to_dict() for issue in issues],
@@ -1618,6 +1718,16 @@ SESSION_JSON_SCHEMA: dict[str, Any] = {
             },
         },
         "nextExperiment": {"type": "integer", "minimum": 1},
+        "brief": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["id", "requestHash", "briefHash"],
+            "properties": {
+                "id": {"type": "string", "pattern": "^brief-[0-9a-f]{16}$"},
+                "requestHash": {"type": "string", "pattern": SHA256.pattern},
+                "briefHash": {"type": "string", "pattern": SHA256.pattern},
+            },
+        },
     },
     "$defs": {
         "runPointer": {

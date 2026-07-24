@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shlex
 import threading
 import webbrowser
 from datetime import datetime, timezone
@@ -14,6 +15,7 @@ from typing import Any, Callable
 from urllib.parse import urlsplit
 
 from .research import list_campaign_progress, list_campaigns
+from .reports import list_reports
 from .runs import list_runs
 from .sessions import list_sessions, load_session, session_snapshot
 from .studies import list_studies
@@ -241,6 +243,17 @@ def _timeline(
                     "value": campaign["experiments"],
                 }
             )
+        for report in item["reports"]:
+            events.append(
+                {
+                    "kind": "report",
+                    "id": report["id"],
+                    "at": report["publishedAt"],
+                    "status": "published",
+                    "title": report["title"],
+                    "value": report["findings"],
+                }
+            )
         for progress in item["progress"]:
             events.append(
                 {
@@ -283,6 +296,9 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
             campaigns = [
                 item.to_dict() for item in list_campaigns(project, session)
             ]
+            reports = [
+                item.to_dict() for item in list_reports(project, session)
+            ]
             progress = list_campaign_progress(session)
             authority = snapshot["authority"]
             if not authority["valid"]:
@@ -298,10 +314,13 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
                     "session": snapshot["session"],
                     "worktree": snapshot["worktree"],
                     "candidate": snapshot["candidate"],
+                    "delegation": snapshot["delegation"],
                     "authority": authority,
                     "experiments": snapshot["experiments"],
                     "campaigns": campaigns,
+                    "reports": reports,
                     "progress": progress,
+                    "commands": _session_commands(project, session, reports),
                 }
             )
         except AutoQuantValidationError as error:
@@ -331,6 +350,10 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
             ),
             "campaigns": sum(len(item["campaigns"]) for item in sessions),
             "runningCampaigns": sum(len(item["progress"]) for item in sessions),
+            "delegatedSessions": sum(
+                item["delegation"] is not None for item in sessions
+            ),
+            "reports": sum(len(item["reports"]) for item in sessions),
             "verdicts": verdicts,
         },
         "studies": studies,
@@ -338,6 +361,74 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
         "sessions": sessions,
         "timeline": _timeline(runs, sessions),
     }
+
+
+def _command(command_id: str, argv: list[str], effect: str) -> dict[str, Any]:
+    return {
+        "id": command_id,
+        "argv": argv,
+        "display": shlex.join(argv),
+        "effect": effect,
+    }
+
+
+def _session_commands(
+    project: ProjectContext,
+    session,
+    reports: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    commands = [
+        _command(
+            "session.show",
+            [
+                "aq",
+                "session",
+                "show",
+                str(project.root_dir),
+                "--session",
+                session.manifest["id"],
+                "--json",
+            ],
+            "read-only",
+        )
+    ]
+    if session.delegation is not None:
+        commands.append(
+            _command(
+                "report.publish",
+                [
+                    "aq",
+                    "report",
+                    "publish",
+                    str(project.root_dir),
+                    "--session",
+                    session.manifest["id"],
+                    "--analysis",
+                    "report-analysis.json",
+                    "--json",
+                ],
+                "creates-artifact",
+            )
+        )
+    if reports:
+        commands.append(
+            _command(
+                "report.show",
+                [
+                    "aq",
+                    "report",
+                    "show",
+                    str(project.root_dir),
+                    "--session",
+                    session.manifest["id"],
+                    "--report",
+                    reports[-1]["id"],
+                    "--json",
+                ],
+                "read-only",
+            )
+        )
+    return commands
 
 
 def build_studio_snapshot(
@@ -694,6 +785,8 @@ STUDIO_SNAPSHOT_JSON_SCHEMA: dict[str, Any] = {
                         "activeSessions",
                         "campaigns",
                         "runningCampaigns",
+                        "delegatedSessions",
+                        "reports",
                         "verdicts",
                     ],
                     "properties": {
@@ -703,6 +796,8 @@ STUDIO_SNAPSHOT_JSON_SCHEMA: dict[str, Any] = {
                         "activeSessions": {"type": "integer", "minimum": 0},
                         "campaigns": {"type": "integer", "minimum": 0},
                         "runningCampaigns": {"type": "integer", "minimum": 0},
+                        "delegatedSessions": {"type": "integer", "minimum": 0},
+                        "reports": {"type": "integer", "minimum": 0},
                         "verdicts": {
                             "type": "object",
                             "additionalProperties": False,

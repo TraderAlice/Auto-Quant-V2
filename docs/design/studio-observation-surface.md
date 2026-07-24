@@ -4,7 +4,8 @@ Status: V1 implemented.
 
 Related: [[docs/ARCHITECTURE]], [[docs/CLI]], [[docs/PROJECT_FORMAT]],
 [[docs/design/agent-cli-contract]], [[docs/design/research-session-loop]], and
-[[docs/design/external-researcher-driver]].
+[[docs/design/external-researcher-driver]], and
+[[docs/design/quant-research-lifecycle]].
 
 ## Scope
 
@@ -31,8 +32,10 @@ and Experiment integrity, Session authority, and Campaign hashes. The snapshot
 normalizes those verified objects for observation. The HTTP server and browser
 must not reimplement validators or inspect arbitrary Project files.
 
-The browser may sort, filter, select, and render. It cannot create metrics,
-change verdicts, execute commands, or write Project state.
+The browser may sort, filter, select, render, and copy an exact Core-generated
+CLI command. It cannot create metrics, change verdicts, execute commands,
+publish Reports, or write Project state. Clipboard copy grants no new
+authority.
 
 ## Snapshot contract
 
@@ -47,8 +50,11 @@ identity when present, and ordered Project observations. Each Project contains:
 - identity, description, research program, and validation diagnostics;
 - verified Study and Run summaries;
 - verified Session snapshots and Experiment histories;
+- verified delegated requests and derived Research Briefs;
 - verified terminal Campaign summaries;
+- verified immutable Research Report summaries;
 - explicitly mutable active Campaign progress;
+- exact CLI commands for copy-only human/Agent handoff;
 - counts and a normalized recent-evidence timeline derived from those objects.
 
 Failure to verify one evidence category never turns unverified bytes into
@@ -57,8 +63,10 @@ other independently verified categories remain observable.
 
 ## Mutable Researcher progress
 
-Terminal Runs, Experiments, and Campaigns are immutable evidence. A currently
-executing external Researcher needs a different contract.
+Terminal Runs, Experiments, Campaigns, and Research Reports are immutable
+evidence. A Report remains valid when its Session later adds evidence because
+it freezes a verified chronological prefix. A currently executing external
+Researcher needs a different contract.
 
 Before invoking a Researcher turn, Campaign execution writes a strict
 `progress.json` inside the hidden Campaign staging directory. It records:
@@ -99,7 +107,9 @@ The first viewport answers:
 2. Which Sessions are active, and what is each current leader?
 3. Are external Researchers running, stopped, failed, or budget-exhausted?
 4. Which hypotheses were kept, reverted, or crashed?
-5. What verified evidence changed most recently?
+5. What did the caller ask, and is a verified Report ready?
+6. What exact headless command advances or inspects the work?
+7. What verified evidence changed most recently?
 
 The visual system is a dense research observatory rather than a generic admin
 dashboard. It supports keyboard focus, narrow screens, reduced motion, empty

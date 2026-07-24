@@ -1,0 +1,1286 @@
+"""Immutable evidence-bound Research Reports."""
+
+from __future__ import annotations
+
+import json
+import os
+import re
+import shutil
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from pathlib import Path, PurePosixPath
+from typing import Any
+
+from .research import list_campaigns, load_campaign
+from .runs import load_run
+from .sessions import (
+    SessionContext,
+    list_experiments,
+    load_experiment,
+    load_session,
+    validate_session_authority,
+)
+from .studies import hash_file, hash_json
+from .workspace import (
+    SCHEMA_VERSION,
+    AutoQuantValidationError,
+    ProjectContext,
+    ValidationIssue,
+    confined_path,
+)
+
+
+REPORT_ANALYSIS = "analysis.json"
+REPORT_RESULT = "report.json"
+REPORT_MARKDOWN = "report.md"
+REPORT_MANIFEST = "manifest.json"
+REPORT_ANALYSIS_KIND = "autoquant-research-report-analysis"
+REPORT_KIND = "autoquant-research-report"
+REPORT_ID = re.compile(
+    r"^report-[0-9]{8}T[0-9]{12}Z-[0-9a-f]{12}$"
+)
+FINDING_ID = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+CONFIDENCE_LEVELS = {"low", "medium", "high"}
+EVIDENCE_KINDS = {"run", "experiment", "campaign"}
+SHA256 = re.compile(r"^[0-9a-f]{64}$")
+
+
+@dataclass(frozen=True)
+class ReportContext:
+    root_dir: Path
+    manifest: dict[str, Any]
+    report: dict[str, Any]
+    analysis: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class ReportSummary:
+    id: str
+    title: str
+    session_id: str
+    leader_run_id: str
+    findings: int
+    recommendations: int
+    published_at: str
+    path: str
+    markdown_path: str
+    executive_summary: str
+    authority: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "title": self.title,
+            "sessionId": self.session_id,
+            "leaderRunId": self.leader_run_id,
+            "findings": self.findings,
+            "recommendations": self.recommendations,
+            "publishedAt": self.published_at,
+            "path": self.path,
+            "markdownPath": self.markdown_path,
+            "executiveSummary": self.executive_summary,
+            "authority": self.authority,
+        }
+
+
+def _issue(path: Path | str, code: str, message: str) -> ValidationIssue:
+    return ValidationIssue(str(path), code, message)
+
+
+def _strict_keys(
+    value: dict[str, Any],
+    required: set[str],
+    path: Path | str,
+) -> list[ValidationIssue]:
+    issues = [
+        _issue(f"{path}/{key}", "schema.missing", f"Missing required field '{key}'")
+        for key in sorted(required - value.keys())
+    ]
+    issues.extend(
+        _issue(f"{path}/{key}", "schema.unknown", f"Unknown field '{key}'")
+        for key in sorted(value.keys() - required)
+    )
+    return issues
+
+
+def _read_json(path: Path, label: str) -> dict[str, Any]:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        raise AutoQuantValidationError(
+            [_issue(path, f"{label}.missing", f"Missing {label}: {path}")]
+        ) from None
+    except json.JSONDecodeError as error:
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    path,
+                    f"{label}.json",
+                    f"Invalid JSON at line {error.lineno}, column "
+                    f"{error.colno}: {error.msg}",
+                )
+            ]
+        ) from None
+    if not isinstance(value, dict):
+        raise AutoQuantValidationError(
+            [_issue(path, f"{label}.type", f"{label} must be a JSON object")]
+        )
+    return value
+
+
+def _write_json(path: Path, value: Any) -> None:
+    path.write_text(
+        json.dumps(value, indent=2, ensure_ascii=False, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _non_empty(value: Any, path: str) -> list[ValidationIssue]:
+    if not isinstance(value, str) or not value.strip():
+        return [_issue(path, "schema.string", "Must be a non-empty string")]
+    return []
+
+
+def _string_list(
+    value: Any,
+    path: str,
+    *,
+    allow_empty: bool,
+) -> list[ValidationIssue]:
+    if (
+        not isinstance(value, list)
+        or (not allow_empty and not value)
+        or not all(isinstance(item, str) and item.strip() for item in value)
+    ):
+        return [
+            _issue(
+                path,
+                "schema.array",
+                "Must be an array of non-empty strings"
+                + ("" if allow_empty else " with at least one item"),
+            )
+        ]
+    return []
+
+
+def _validate_evidence_refs(
+    value: Any,
+    path: str,
+) -> tuple[list[dict[str, Any]], list[ValidationIssue]]:
+    issues: list[ValidationIssue] = []
+    if not isinstance(value, list) or not value:
+        return [], [
+            _issue(
+                path,
+                "schema.array",
+                "evidenceRefs must contain at least one reference",
+            )
+        ]
+    normalized: list[dict[str, Any]] = []
+    identities: list[tuple[Any, Any, Any]] = []
+    for index, reference in enumerate(value):
+        ref_path = f"{path}/{index}"
+        if not isinstance(reference, dict):
+            issues.append(
+                _issue(ref_path, "schema.type", "Evidence reference must be an object")
+            )
+            continue
+        issues.extend(
+            _strict_keys(reference, {"kind", "id", "artifactPath"}, ref_path)
+        )
+        if reference.get("kind") not in EVIDENCE_KINDS:
+            issues.append(
+                _issue(f"{ref_path}/kind", "schema.choice", "Invalid evidence kind")
+            )
+        issues.extend(_non_empty(reference.get("id"), f"{ref_path}/id"))
+        artifact_path = reference.get("artifactPath")
+        if artifact_path is not None:
+            issues.extend(_non_empty(artifact_path, f"{ref_path}/artifactPath"))
+            if isinstance(artifact_path, str):
+                candidate = PurePosixPath(artifact_path)
+                if (
+                    candidate.is_absolute()
+                    or ".." in candidate.parts
+                    or "\\" in artifact_path
+                ):
+                    issues.append(
+                        _issue(
+                            f"{ref_path}/artifactPath",
+                            "schema.path",
+                            "artifactPath must be a confined POSIX relative path",
+                        )
+                    )
+        if reference.get("kind") != "run" and artifact_path is not None:
+            issues.append(
+                _issue(
+                    f"{ref_path}/artifactPath",
+                    "report.artifact-kind",
+                    "Only Run evidence may reference a declared artifact",
+                )
+            )
+        normalized_ref = {
+            "kind": reference.get("kind"),
+            "id": reference.get("id"),
+            "artifactPath": artifact_path,
+        }
+        normalized.append(normalized_ref)
+        identities.append(
+            (
+                normalized_ref["kind"],
+                normalized_ref["id"],
+                normalized_ref["artifactPath"],
+            )
+        )
+    if len(identities) != len(set(identities)):
+        issues.append(
+            _issue(path, "report.duplicate-evidence", "Evidence references must be unique")
+        )
+    return normalized, issues
+
+
+def validate_report_analysis(
+    value: dict[str, Any],
+    path: Path | str = "report-analysis",
+) -> dict[str, Any]:
+    required = {
+        "schemaVersion",
+        "kind",
+        "title",
+        "executiveSummary",
+        "findings",
+        "recommendations",
+        "limitations",
+        "unresolvedQuestions",
+    }
+    issues = _strict_keys(value, required, path)
+    if value.get("schemaVersion") != SCHEMA_VERSION:
+        issues.append(_issue(f"{path}/schemaVersion", "schema.version", "Expected V1"))
+    if value.get("kind") != REPORT_ANALYSIS_KIND:
+        issues.append(
+            _issue(
+                f"{path}/kind",
+                "report.kind",
+                f"Expected {REPORT_ANALYSIS_KIND}",
+            )
+        )
+    for key in ("title", "executiveSummary"):
+        issues.extend(_non_empty(value.get(key), f"{path}/{key}"))
+    for key in ("limitations", "unresolvedQuestions"):
+        issues.extend(
+            _string_list(value.get(key), f"{path}/{key}", allow_empty=True)
+        )
+
+    findings = value.get("findings")
+    normalized_findings: list[dict[str, Any]] = []
+    finding_ids: list[str] = []
+    if not isinstance(findings, list) or not findings:
+        issues.append(
+            _issue(
+                f"{path}/findings",
+                "schema.array",
+                "Findings must contain at least one item",
+            )
+        )
+        findings = []
+    for index, finding in enumerate(findings):
+        finding_path = f"{path}/findings/{index}"
+        if not isinstance(finding, dict):
+            issues.append(
+                _issue(finding_path, "schema.type", "Finding must be an object")
+            )
+            continue
+        issues.extend(
+            _strict_keys(
+                finding,
+                {"id", "claim", "confidence", "evidenceRefs"},
+                finding_path,
+            )
+        )
+        finding_id = finding.get("id")
+        if not isinstance(finding_id, str) or not FINDING_ID.fullmatch(finding_id):
+            issues.append(
+                _issue(
+                    f"{finding_path}/id",
+                    "schema.id",
+                    "Finding id must be lowercase kebab-case",
+                )
+            )
+        else:
+            finding_ids.append(finding_id)
+        issues.extend(_non_empty(finding.get("claim"), f"{finding_path}/claim"))
+        if finding.get("confidence") not in CONFIDENCE_LEVELS:
+            issues.append(
+                _issue(
+                    f"{finding_path}/confidence",
+                    "schema.choice",
+                    "Invalid confidence",
+                )
+            )
+        refs, ref_issues = _validate_evidence_refs(
+            finding.get("evidenceRefs"),
+            f"{finding_path}/evidenceRefs",
+        )
+        issues.extend(ref_issues)
+        normalized_findings.append(
+            {
+                "id": finding_id,
+                "claim": (
+                    finding["claim"].strip()
+                    if isinstance(finding.get("claim"), str)
+                    else finding.get("claim")
+                ),
+                "confidence": finding.get("confidence"),
+                "evidenceRefs": refs,
+            }
+        )
+    if len(finding_ids) != len(set(finding_ids)):
+        issues.append(
+            _issue(f"{path}/findings", "report.duplicate-finding", "Finding ids must be unique")
+        )
+
+    recommendations = value.get("recommendations")
+    normalized_recommendations: list[dict[str, Any]] = []
+    if not isinstance(recommendations, list):
+        issues.append(
+            _issue(
+                f"{path}/recommendations",
+                "schema.array",
+                "Recommendations must be an array",
+            )
+        )
+        recommendations = []
+    for index, recommendation in enumerate(recommendations):
+        recommendation_path = f"{path}/recommendations/{index}"
+        if not isinstance(recommendation, dict):
+            issues.append(
+                _issue(
+                    recommendation_path,
+                    "schema.type",
+                    "Recommendation must be an object",
+                )
+            )
+            continue
+        issues.extend(
+            _strict_keys(
+                recommendation,
+                {"action", "rationale", "conditions", "evidenceRefs"},
+                recommendation_path,
+            )
+        )
+        for key in ("action", "rationale"):
+            issues.extend(
+                _non_empty(
+                    recommendation.get(key),
+                    f"{recommendation_path}/{key}",
+                )
+            )
+        issues.extend(
+            _string_list(
+                recommendation.get("conditions"),
+                f"{recommendation_path}/conditions",
+                allow_empty=True,
+            )
+        )
+        refs, ref_issues = _validate_evidence_refs(
+            recommendation.get("evidenceRefs"),
+            f"{recommendation_path}/evidenceRefs",
+        )
+        issues.extend(ref_issues)
+        normalized_recommendations.append(
+            {
+                "action": (
+                    recommendation["action"].strip()
+                    if isinstance(recommendation.get("action"), str)
+                    else recommendation.get("action")
+                ),
+                "rationale": (
+                    recommendation["rationale"].strip()
+                    if isinstance(recommendation.get("rationale"), str)
+                    else recommendation.get("rationale")
+                ),
+                "conditions": [
+                    item.strip()
+                    for item in (
+                        recommendation["conditions"]
+                        if isinstance(recommendation.get("conditions"), list)
+                        else []
+                    )
+                ],
+                "evidenceRefs": refs,
+            }
+        )
+    if issues:
+        raise AutoQuantValidationError(issues)
+    return {
+        "schemaVersion": SCHEMA_VERSION,
+        "kind": REPORT_ANALYSIS_KIND,
+        "title": value["title"].strip(),
+        "executiveSummary": value["executiveSummary"].strip(),
+        "findings": normalized_findings,
+        "recommendations": normalized_recommendations,
+        "limitations": [item.strip() for item in value["limitations"]],
+        "unresolvedQuestions": [
+            item.strip() for item in value["unresolvedQuestions"]
+        ],
+    }
+
+
+def load_report_analysis(path: str | Path) -> dict[str, Any]:
+    analysis_path = Path(path).expanduser().absolute()
+    return validate_report_analysis(
+        _read_json(analysis_path, "report analysis"),
+        analysis_path,
+    )
+
+
+def _reports_root(session: SessionContext, *, create: bool) -> Path:
+    root = confined_path(session.root_dir, "reports", "session/reports")
+    if root.is_symlink():
+        raise AutoQuantValidationError(
+            [_issue(root, "path.symlink", "Reports directory cannot be a symlink")]
+        )
+    if create:
+        root.mkdir(exist_ok=True)
+    if not root.is_dir():
+        raise AutoQuantValidationError(
+            [_issue(root, "report.directory", "Missing Session reports directory")]
+        )
+    return root
+
+
+def _report_root(session: SessionContext, report_id: str) -> Path:
+    if not REPORT_ID.fullmatch(report_id):
+        raise AutoQuantValidationError(
+            [_issue(report_id, "report.id", "Invalid Research Report id")]
+        )
+    return confined_path(_reports_root(session, create=False), report_id, report_id)
+
+
+def _session_evidence(
+    project: ProjectContext,
+    session: SessionContext,
+) -> tuple[dict[str, Any], dict[tuple[str, str], dict[str, Any]]]:
+    experiments = [
+        load_experiment(project, session, summary.id)
+        for summary in list_experiments(project, session)
+    ]
+    campaigns = [
+        load_campaign(project, session, summary.id)
+        for summary in list_campaigns(project, session)
+    ]
+    run_ids = {
+        session.manifest["baseline"]["runId"],
+        session.manifest["leader"]["runId"],
+        *(item.result["candidate"]["runId"] for item in experiments),
+    }
+    runs = [load_run(project, run_id) for run_id in sorted(run_ids)]
+    catalog: dict[tuple[str, str], dict[str, Any]] = {}
+    run_evidence: list[dict[str, Any]] = []
+    for run in runs:
+        item = {
+            "id": run.result["id"],
+            "resultHash": run.manifest["resultHash"],
+            "status": run.result["status"],
+            "summary": run.result["summary"],
+            "subject": run.result["subject"],
+            "dataset": run.result["dataset"],
+            "objective": run.result["objective"],
+            "metrics": run.result["metrics"],
+            "artifacts": run.result["artifacts"],
+        }
+        run_evidence.append(item)
+        catalog[("run", item["id"])] = item
+    experiment_evidence: list[dict[str, Any]] = []
+    for experiment in experiments:
+        item = {
+            "id": experiment.result["id"],
+            "resultHash": experiment.manifest["resultHash"],
+            "sequence": experiment.result["sequence"],
+            "hypothesis": experiment.result["hypothesis"],
+            "verdict": experiment.result["verdict"],
+            "candidate": experiment.result["candidate"],
+            "improvement": experiment.result["improvement"],
+        }
+        experiment_evidence.append(item)
+        catalog[("experiment", item["id"])] = item
+    campaign_evidence: list[dict[str, Any]] = []
+    for campaign in campaigns:
+        item = {
+            "id": campaign.result["id"],
+            "resultHash": campaign.manifest["resultHash"],
+            "status": campaign.result["status"],
+            "reason": campaign.result["reason"],
+            "turnsCompleted": campaign.result["turnsCompleted"],
+            "experiments": campaign.result["experiments"],
+            "verdicts": campaign.result["verdicts"],
+        }
+        campaign_evidence.append(item)
+        catalog[("campaign", item["id"])] = item
+    snapshot = {
+        "session": {
+            "id": session.manifest["id"],
+            "status": session.manifest["status"],
+            "studyId": session.manifest["studyId"],
+            "brief": session.manifest["brief"],
+            "baseline": session.manifest["baseline"],
+            "leader": session.manifest["leader"],
+            "locks": {
+                key: value
+                for key, value in session.manifest["locks"].items()
+                if key != "fixedHashes"
+            },
+        },
+        "runs": run_evidence,
+        "experiments": experiment_evidence,
+        "campaigns": campaign_evidence,
+    }
+    return snapshot, catalog
+
+
+def _resolve_analysis_evidence(
+    analysis: dict[str, Any],
+    catalog: dict[tuple[str, str], dict[str, Any]],
+    path: Path | str,
+) -> None:
+    issues: list[ValidationIssue] = []
+    references = [
+        reference
+        for owner in [*analysis["findings"], *analysis["recommendations"]]
+        for reference in owner["evidenceRefs"]
+    ]
+    for index, reference in enumerate(references):
+        evidence = catalog.get((reference["kind"], reference["id"]))
+        if evidence is None:
+            issues.append(
+                _issue(
+                    f"{path}/evidenceRefs/{index}",
+                    "report.unknown-evidence",
+                    f"Unknown Session evidence: {reference['kind']}:{reference['id']}",
+                )
+            )
+            continue
+        artifact_path = reference["artifactPath"]
+        if artifact_path is not None:
+            available = {
+                artifact["path"]
+                for artifact in evidence.get("artifacts", [])
+                if isinstance(artifact, dict) and isinstance(artifact.get("path"), str)
+            }
+            if artifact_path not in available:
+                issues.append(
+                    _issue(
+                        f"{path}/evidenceRefs/{index}/artifactPath",
+                        "report.unknown-artifact",
+                        f"Run {reference['id']} does not declare artifact {artifact_path}",
+                    )
+                )
+    if issues:
+        raise AutoQuantValidationError(issues)
+
+
+def _evidence_label(reference: dict[str, Any]) -> str:
+    label = f"{reference['kind']}:{reference['id']}"
+    if reference["artifactPath"] is not None:
+        label += f"#{reference['artifactPath']}"
+    return f"`{label}`"
+
+
+def _render_markdown(report: dict[str, Any]) -> str:
+    request = report["request"]
+    analysis = report["analysis"]
+    evidence = report["evidence"]
+    baseline = evidence["session"]["baseline"]
+    leader = evidence["session"]["leader"]
+    source = request["source"]
+    source_identity = (
+        f"{source['system']} workspace={source['workspaceId'] or 'unspecified'} "
+        f"session={source['sessionId'] or 'unspecified'}"
+    )
+    assets = ", ".join(
+        f"{item['symbol']} ({item['assetClass']}"
+        + (f", {item['venue']}" if item["venue"] else "")
+        + ")"
+        for item in request["assets"]
+    )
+    lines = [
+        f"# {analysis['title']}",
+        "",
+        "> Authority: quantitative decision support only. This report is not a",
+        "> trade order, broker confirmation, or authenticated OpenAlice origin.",
+        "",
+        "## Research request",
+        "",
+        f"**Question:** {request['question']}",
+        "",
+        f"**Decision context:** {request['decisionContext']}",
+        "",
+        f"**Assets:** {assets}",
+        "",
+        f"**Direction / horizon:** {request['direction']} / {request['horizon']}",
+        "",
+        f"**Caller-supplied source:** {source_identity}",
+        "",
+        "## Executive summary",
+        "",
+        analysis["executiveSummary"],
+        "",
+        "## Evidence state",
+        "",
+        f"- Baseline: `{baseline['runId']}` — "
+        f"{baseline['metric']}={baseline['value']}",
+        f"- Leader: `{leader['runId']}` — "
+        f"{leader['metric']}={leader['value']}",
+        f"- Experiments: {len(evidence['experiments'])}",
+        f"- Campaigns: {len(evidence['campaigns'])}",
+        "",
+        "## Findings",
+        "",
+    ]
+    for finding in analysis["findings"]:
+        refs = ", ".join(_evidence_label(item) for item in finding["evidenceRefs"])
+        lines.extend(
+            [
+                f"### {finding['id']}",
+                "",
+                finding["claim"],
+                "",
+                f"Confidence: **{finding['confidence']}**. Evidence: {refs}.",
+                "",
+            ]
+        )
+    lines.extend(["## Recommendations", ""])
+    if analysis["recommendations"]:
+        for index, recommendation in enumerate(analysis["recommendations"], start=1):
+            refs = ", ".join(
+                _evidence_label(item) for item in recommendation["evidenceRefs"]
+            )
+            lines.extend(
+                [
+                    f"{index}. **{recommendation['action']}** — "
+                    f"{recommendation['rationale']}",
+                    "",
+                    "   Conditions: "
+                    + (
+                        "; ".join(recommendation["conditions"])
+                        if recommendation["conditions"]
+                        else "none declared"
+                    )
+                    + f". Evidence: {refs}.",
+                    "",
+                ]
+            )
+    else:
+        lines.extend(["No action recommendation was made.", ""])
+    lines.extend(["## Limitations", ""])
+    lines.extend(
+        [f"- {item}" for item in analysis["limitations"]]
+        or ["- No additional limitations were declared."]
+    )
+    lines.extend(["", "## Unresolved questions", ""])
+    lines.extend(
+        [f"- {item}" for item in analysis["unresolvedQuestions"]]
+        or ["- No unresolved questions were declared."]
+    )
+    lines.extend(
+        [
+            "",
+            "## Reproducibility and handoff",
+            "",
+            f"- Report: `{report['id']}`",
+            f"- Brief: `{report['brief']['id']}`",
+            f"- Session: `{report['sessionId']}`",
+            f"- Study: `{evidence['session']['studyId']}`",
+            f"- Harness: `{report['harness']['id']}@{report['harness']['version']}` "
+            f"commit `{report['harness']['commit']}`",
+            f"- Dataset hash: `{evidence['session']['locks']['datasetHash']}`",
+            "",
+            "Publish this exact Markdown through OpenAlice Inbox to let OpenAlice",
+            "stamp authoritative Workspace, Session, and document-revision provenance.",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def publish_report(
+    project: ProjectContext,
+    session_id: str,
+    analysis: dict[str, Any],
+) -> ReportContext:
+    normalized = validate_report_analysis(analysis)
+    session = load_session(project, session_id)
+    if session.delegation is None:
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    session.manifest_path,
+                    "report.request-required",
+                    "Research Reports require a delegated Session brief",
+                )
+            ]
+        )
+    validate_session_authority(project, session)
+    evidence, catalog = _session_evidence(project, session)
+    _resolve_analysis_evidence(normalized, catalog, "analysis")
+    published = datetime.now(timezone.utc)
+    stamp = published.strftime("%Y%m%dT%H%M%S%fZ")
+    analysis_hash = hash_json(normalized)
+    evidence_hash = hash_json(evidence)
+    identity = hash_json(
+        {
+            "sessionId": session_id,
+            "briefHash": session.manifest["brief"]["briefHash"],
+            "analysisHash": analysis_hash,
+            "evidenceHash": evidence_hash,
+            "publishedAt": published.isoformat(),
+        }
+    )
+    report_id = f"report-{stamp}-{identity[:12]}"
+    reports_root = _reports_root(session, create=True)
+    target = confined_path(reports_root, report_id, f"report/{report_id}")
+    staging = reports_root / f".{report_id}.creating"
+    if target.exists() or target.is_symlink() or staging.exists():
+        raise AutoQuantValidationError(
+            [_issue(target, "report.collision", "Research Report already exists")]
+        )
+    report = {
+        "schemaVersion": SCHEMA_VERSION,
+        "kind": REPORT_KIND,
+        "id": report_id,
+        "authority": "quantitative-decision-support",
+        "tradingAuthority": "none",
+        "publishedAt": published.isoformat(),
+        "project": {
+            "id": project.manifest.id,
+            "name": project.manifest.name,
+        },
+        "sessionId": session_id,
+        "brief": session.manifest["brief"],
+        "request": session.delegation["request"],
+        "harness": session.manifest["locks"]["harness"],
+        "analysisHash": analysis_hash,
+        "evidenceHash": evidence_hash,
+        "analysis": normalized,
+        "evidence": evidence,
+        "openAliceHandoff": {
+            "document": REPORT_MARKDOWN,
+            "provenance": "openalice-authoritative-on-inbox-publication",
+            "sourceContext": "caller-supplied-content-locked",
+        },
+    }
+    try:
+        staging.mkdir()
+        _write_json(staging / REPORT_ANALYSIS, normalized)
+        _write_json(staging / REPORT_RESULT, report)
+        (staging / REPORT_MARKDOWN).write_text(
+            _render_markdown(report),
+            encoding="utf-8",
+        )
+        files = {
+            path.name: hash_file(path)
+            for path in sorted(staging.iterdir(), key=lambda item: item.name)
+            if path.is_file()
+        }
+        manifest = {
+            "schemaVersion": SCHEMA_VERSION,
+            "id": report_id,
+            "sessionId": session_id,
+            "completed": True,
+            "reportHash": files[REPORT_RESULT],
+            "files": files,
+        }
+        _write_json(staging / REPORT_MANIFEST, manifest)
+        os.replace(staging, target)
+    except Exception:
+        if staging.exists():
+            shutil.rmtree(staging)
+        raise
+    return load_report(project, load_session(project, session_id), report_id)
+
+
+def _report_files(root: Path) -> dict[str, str]:
+    files: dict[str, str] = {}
+    for path in sorted(root.iterdir(), key=lambda item: item.name):
+        if path.name == REPORT_MANIFEST:
+            continue
+        if path.is_symlink() or not path.is_file():
+            raise AutoQuantValidationError(
+                [_issue(path, "report.entry", "Report entries must be real files")]
+            )
+        files[path.name] = hash_file(path)
+    return files
+
+
+def _validate_report_result(
+    value: dict[str, Any],
+    path: Path,
+    report_id: str,
+    session: SessionContext,
+) -> None:
+    required = {
+        "schemaVersion",
+        "kind",
+        "id",
+        "authority",
+        "tradingAuthority",
+        "publishedAt",
+        "project",
+        "sessionId",
+        "brief",
+        "request",
+        "harness",
+        "analysisHash",
+        "evidenceHash",
+        "analysis",
+        "evidence",
+        "openAliceHandoff",
+    }
+    issues = _strict_keys(value, required, path)
+    if (
+        value.get("schemaVersion") != SCHEMA_VERSION
+        or value.get("kind") != REPORT_KIND
+        or value.get("id") != report_id
+        or value.get("sessionId") != session.manifest["id"]
+        or value.get("authority") != "quantitative-decision-support"
+        or value.get("tradingAuthority") != "none"
+    ):
+        issues.append(_issue(path, "report.identity", "Invalid Research Report identity"))
+    if value.get("project") != {
+        "id": session.manifest["projectId"],
+        "name": session.baseline_run.result["project"]["name"],
+    }:
+        issues.append(_issue(f"{path}/project", "report.project", "Report Project differs"))
+    if value.get("brief") != session.manifest.get("brief"):
+        issues.append(_issue(f"{path}/brief", "report.brief", "Report Brief differs from Session"))
+    if session.delegation is None or value.get("request") != session.delegation["request"]:
+        issues.append(
+            _issue(f"{path}/request", "report.request", "Report request differs from Session")
+        )
+    if value.get("harness") != session.manifest["locks"]["harness"]:
+        issues.append(
+            _issue(f"{path}/harness", "report.harness", "Report Harness differs from Session")
+        )
+    if value.get("openAliceHandoff") != {
+        "document": REPORT_MARKDOWN,
+        "provenance": "openalice-authoritative-on-inbox-publication",
+        "sourceContext": "caller-supplied-content-locked",
+    }:
+        issues.append(
+            _issue(
+                f"{path}/openAliceHandoff",
+                "report.handoff",
+                "Invalid OpenAlice handoff boundary",
+            )
+        )
+    analysis = value.get("analysis")
+    if not isinstance(analysis, dict):
+        issues.append(_issue(f"{path}/analysis", "schema.type", "Invalid analysis"))
+    else:
+        try:
+            normalized = validate_report_analysis(analysis, f"{path}/analysis")
+            if hash_json(normalized) != value.get("analysisHash"):
+                issues.append(
+                    _issue(f"{path}/analysisHash", "report.analysis-hash", "Analysis hash mismatch")
+                )
+        except AutoQuantValidationError as error:
+            issues.extend(error.issues)
+    evidence = value.get("evidence")
+    if not isinstance(evidence, dict) or hash_json(evidence) != value.get("evidenceHash"):
+        issues.append(
+            _issue(f"{path}/evidenceHash", "report.evidence-hash", "Evidence hash mismatch")
+        )
+    for key in ("analysisHash", "evidenceHash"):
+        if not isinstance(value.get(key), str) or not SHA256.fullmatch(value.get(key, "")):
+            issues.append(_issue(f"{path}/{key}", "schema.hash", f"Invalid {key}"))
+    published_at = value.get("publishedAt")
+    if not isinstance(published_at, str):
+        issues.append(_issue(f"{path}/publishedAt", "schema.string", "Invalid publishedAt"))
+    else:
+        try:
+            published = datetime.fromisoformat(published_at)
+            if published.utcoffset() is None or published.utcoffset().total_seconds() != 0:
+                raise ValueError("publishedAt must be UTC")
+            stamp = published.strftime("%Y%m%dT%H%M%S%fZ")
+            identity = hash_json(
+                {
+                    "sessionId": session.manifest["id"],
+                    "briefHash": session.manifest["brief"]["briefHash"],
+                    "analysisHash": value.get("analysisHash"),
+                    "evidenceHash": value.get("evidenceHash"),
+                    "publishedAt": published_at,
+                }
+            )
+            if report_id != f"report-{stamp}-{identity[:12]}":
+                issues.append(
+                    _issue(path, "report.derived-id", "Research Report id is not derived")
+                )
+        except ValueError:
+            issues.append(
+                _issue(f"{path}/publishedAt", "schema.datetime", "Invalid publishedAt")
+            )
+    if issues:
+        raise AutoQuantValidationError(issues)
+
+
+def _verify_frozen_evidence(
+    project: ProjectContext,
+    session: SessionContext,
+    report: dict[str, Any],
+    path: Path,
+) -> None:
+    evidence = report["evidence"]
+    required = {"session", "runs", "experiments", "campaigns"}
+    if not isinstance(evidence, dict):
+        raise AutoQuantValidationError(
+            [_issue(path, "report.evidence", "Evidence must be an object")]
+        )
+    issues = _strict_keys(evidence, required, f"{path}/evidence")
+    runs = evidence.get("runs")
+    experiments = evidence.get("experiments")
+    campaigns = evidence.get("campaigns")
+    if not all(isinstance(items, list) for items in (runs, experiments, campaigns)):
+        issues.append(
+            _issue(f"{path}/evidence", "schema.array", "Evidence catalogs must be arrays")
+        )
+    if issues:
+        raise AutoQuantValidationError(issues)
+    catalog: dict[tuple[str, str], dict[str, Any]] = {}
+    run_ids: list[str] = []
+    for item in runs:
+        if not isinstance(item, dict) or not isinstance(item.get("id"), str):
+            issues.append(_issue(path, "report.run", "Invalid frozen Run evidence"))
+            continue
+        run = load_run(project, item["id"])
+        expected = {
+            "id": run.result["id"],
+            "resultHash": run.manifest["resultHash"],
+            "status": run.result["status"],
+            "summary": run.result["summary"],
+            "subject": run.result["subject"],
+            "dataset": run.result["dataset"],
+            "objective": run.result["objective"],
+            "metrics": run.result["metrics"],
+            "artifacts": run.result["artifacts"],
+        }
+        if item != expected:
+            issues.append(
+                _issue(path, "report.run-evidence", f"Frozen Run differs: {item['id']}")
+            )
+        catalog[("run", item["id"])] = item
+        run_ids.append(item["id"])
+    current_experiments = list_experiments(project, session)
+    expected_leader = dict(session.manifest["baseline"])
+    for index, item in enumerate(experiments):
+        if not isinstance(item, dict) or not isinstance(item.get("id"), str):
+            issues.append(_issue(path, "report.experiment", "Invalid frozen Experiment evidence"))
+            continue
+        experiment = load_experiment(project, session, item["id"])
+        expected = {
+            "id": experiment.result["id"],
+            "resultHash": experiment.manifest["resultHash"],
+            "sequence": experiment.result["sequence"],
+            "hypothesis": experiment.result["hypothesis"],
+            "verdict": experiment.result["verdict"],
+            "candidate": experiment.result["candidate"],
+            "improvement": experiment.result["improvement"],
+        }
+        if item != expected:
+            issues.append(
+                _issue(
+                    path,
+                    "report.experiment-evidence",
+                    f"Frozen Experiment differs: {item['id']}",
+                )
+            )
+        if index >= len(current_experiments) or current_experiments[index].id != item["id"]:
+            issues.append(
+                _issue(
+                    path,
+                    "report.experiment-prefix",
+                    "Frozen Experiments must be a chronological Session-history prefix",
+                )
+            )
+        if experiment.result["leader"] != expected_leader:
+            issues.append(
+                _issue(path, "report.leader-chain", "Frozen Experiment leader chain is invalid")
+            )
+        if experiment.result["verdict"] == "KEEP":
+            expected_leader = dict(experiment.result["candidate"])
+        catalog[("experiment", item["id"])] = item
+    current_campaigns = list_campaigns(project, session)
+    for index, item in enumerate(campaigns):
+        if not isinstance(item, dict) or not isinstance(item.get("id"), str):
+            issues.append(_issue(path, "report.campaign", "Invalid frozen Campaign evidence"))
+            continue
+        campaign = load_campaign(project, session, item["id"])
+        expected = {
+            "id": campaign.result["id"],
+            "resultHash": campaign.manifest["resultHash"],
+            "status": campaign.result["status"],
+            "reason": campaign.result["reason"],
+            "turnsCompleted": campaign.result["turnsCompleted"],
+            "experiments": campaign.result["experiments"],
+            "verdicts": campaign.result["verdicts"],
+        }
+        if item != expected:
+            issues.append(
+                _issue(
+                    path,
+                    "report.campaign-evidence",
+                    f"Frozen Campaign differs: {item['id']}",
+                )
+            )
+        if index >= len(current_campaigns) or current_campaigns[index].id != item["id"]:
+            issues.append(
+                _issue(
+                    path,
+                    "report.campaign-prefix",
+                    "Frozen Campaigns must be a chronological Session-history prefix",
+                )
+            )
+        catalog[("campaign", item["id"])] = item
+    frozen_session = evidence.get("session")
+    if not isinstance(frozen_session, dict):
+        issues.append(_issue(path, "report.session", "Invalid frozen Session evidence"))
+    else:
+        issues.extend(
+            _strict_keys(
+                frozen_session,
+                {
+                    "id",
+                    "status",
+                    "studyId",
+                    "brief",
+                    "baseline",
+                    "leader",
+                    "locks",
+                },
+                f"{path}/evidence/session",
+            )
+        )
+        expected_fixed = {
+            "id": session.manifest["id"],
+            "studyId": session.manifest["studyId"],
+            "brief": session.manifest["brief"],
+            "baseline": session.manifest["baseline"],
+            "locks": {
+                key: value
+                for key, value in session.manifest["locks"].items()
+                if key != "fixedHashes"
+            },
+        }
+        for key, value in expected_fixed.items():
+            if frozen_session.get(key) != value:
+                issues.append(
+                    _issue(path, "report.session-evidence", f"Frozen Session {key} differs")
+                )
+        if frozen_session.get("status") not in {"active", "promoted"}:
+            issues.append(_issue(path, "report.session-status", "Invalid frozen Session status"))
+        if frozen_session.get("leader") != expected_leader:
+            issues.append(
+                _issue(path, "report.leader-chain", "Frozen leader differs from KEEP prefix")
+            )
+        expected_run_ids = {
+            session.manifest["baseline"]["runId"],
+            expected_leader["runId"],
+            *(
+                item["candidate"].get("runId")
+                for item in experiments
+                if (
+                    isinstance(item, dict)
+                    and isinstance(item.get("candidate"), dict)
+                    and isinstance(item["candidate"].get("runId"), str)
+                )
+            ),
+        }
+        if set(run_ids) != expected_run_ids or len(run_ids) != len(set(run_ids)):
+            issues.append(
+                _issue(
+                    path,
+                    "report.run-catalog",
+                    "Frozen Runs must exactly cover the baseline and Experiment prefix",
+                )
+            )
+    try:
+        _resolve_analysis_evidence(report["analysis"], catalog, path)
+    except AutoQuantValidationError as error:
+        issues.extend(error.issues)
+    if issues:
+        raise AutoQuantValidationError(issues)
+
+
+def load_report(
+    project: ProjectContext,
+    session: SessionContext,
+    report_id: str,
+) -> ReportContext:
+    root = _report_root(session, report_id)
+    if root.is_symlink() or not root.is_dir():
+        raise AutoQuantValidationError(
+            [_issue(root, "report.missing", f"Unknown Research Report: {report_id}")]
+        )
+    manifest = _read_json(root / REPORT_MANIFEST, "report manifest")
+    required = {
+        "schemaVersion",
+        "id",
+        "sessionId",
+        "completed",
+        "reportHash",
+        "files",
+    }
+    issues = _strict_keys(manifest, required, root / REPORT_MANIFEST)
+    if (
+        manifest.get("schemaVersion") != SCHEMA_VERSION
+        or manifest.get("id") != report_id
+        or manifest.get("sessionId") != session.manifest["id"]
+        or manifest.get("completed") is not True
+    ):
+        issues.append(_issue(root / REPORT_MANIFEST, "report.manifest", "Invalid terminal manifest"))
+    files = manifest.get("files")
+    actual = _report_files(root)
+    if not isinstance(files, dict) or files != actual:
+        issues.append(_issue(root, "report.tampered", "Research Report files changed"))
+    if isinstance(files, dict) and files.get(REPORT_RESULT) != manifest.get("reportHash"):
+        issues.append(_issue(root, "report.result-hash", "Research Report hash mismatch"))
+    if issues:
+        raise AutoQuantValidationError(issues)
+    analysis = validate_report_analysis(
+        _read_json(root / REPORT_ANALYSIS, "report analysis"),
+        root / REPORT_ANALYSIS,
+    )
+    report = _read_json(root / REPORT_RESULT, "research report")
+    _validate_report_result(report, root / REPORT_RESULT, report_id, session)
+    if report["analysis"] != analysis:
+        raise AutoQuantValidationError(
+            [_issue(root, "report.analysis", "Stored analysis differs from report")]
+        )
+    if (root / REPORT_MARKDOWN).read_text(encoding="utf-8") != _render_markdown(report):
+        raise AutoQuantValidationError(
+            [_issue(root / REPORT_MARKDOWN, "report.markdown", "Report Markdown is not canonical")]
+        )
+    _verify_frozen_evidence(project, session, report, root / REPORT_RESULT)
+    return ReportContext(root, manifest, report, analysis)
+
+
+def list_reports(
+    project: ProjectContext,
+    session: SessionContext,
+) -> list[ReportSummary]:
+    root = session.root_dir / "reports"
+    if not root.exists():
+        return []
+    root = _reports_root(session, create=False)
+    summaries: list[ReportSummary] = []
+    for entry in sorted(root.iterdir(), key=lambda item: item.name):
+        if entry.name.startswith("."):
+            continue
+        if entry.is_symlink() or not entry.is_dir():
+            raise AutoQuantValidationError(
+                [_issue(entry, "report.entry", "Report entries must be real directories")]
+            )
+        report = load_report(project, session, entry.name)
+        summaries.append(
+            ReportSummary(
+                id=report.report["id"],
+                title=report.analysis["title"],
+                session_id=report.report["sessionId"],
+                leader_run_id=report.report["evidence"]["session"]["leader"]["runId"],
+                findings=len(report.analysis["findings"]),
+                recommendations=len(report.analysis["recommendations"]),
+                published_at=report.report["publishedAt"],
+                path=str(report.root_dir),
+                markdown_path=str(report.root_dir / REPORT_MARKDOWN),
+                executive_summary=report.analysis["executiveSummary"],
+                authority=report.report["authority"],
+            )
+        )
+    return summaries
+
+
+EVIDENCE_REFERENCE_JSON_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": ["kind", "id", "artifactPath"],
+    "properties": {
+        "kind": {"enum": sorted(EVIDENCE_KINDS)},
+        "id": {"type": "string", "minLength": 1},
+        "artifactPath": {
+            "anyOf": [
+                {"type": "null"},
+                {"type": "string", "minLength": 1},
+            ]
+        },
+    },
+}
+
+
+REPORT_ANALYSIS_JSON_SCHEMA: dict[str, Any] = {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "AutoQuant Agent-authored report analysis",
+    "type": "object",
+    "additionalProperties": False,
+    "required": [
+        "schemaVersion",
+        "kind",
+        "title",
+        "executiveSummary",
+        "findings",
+        "recommendations",
+        "limitations",
+        "unresolvedQuestions",
+    ],
+    "properties": {
+        "schemaVersion": {"const": SCHEMA_VERSION},
+        "kind": {"const": REPORT_ANALYSIS_KIND},
+        "title": {"type": "string", "minLength": 1},
+        "executiveSummary": {"type": "string", "minLength": 1},
+        "findings": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["id", "claim", "confidence", "evidenceRefs"],
+                "properties": {
+                    "id": {"type": "string", "pattern": FINDING_ID.pattern},
+                    "claim": {"type": "string", "minLength": 1},
+                    "confidence": {"enum": sorted(CONFIDENCE_LEVELS)},
+                    "evidenceRefs": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": EVIDENCE_REFERENCE_JSON_SCHEMA,
+                    },
+                },
+            },
+        },
+        "recommendations": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["action", "rationale", "conditions", "evidenceRefs"],
+                "properties": {
+                    "action": {"type": "string", "minLength": 1},
+                    "rationale": {"type": "string", "minLength": 1},
+                    "conditions": {
+                        "type": "array",
+                        "items": {"type": "string", "minLength": 1},
+                    },
+                    "evidenceRefs": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": EVIDENCE_REFERENCE_JSON_SCHEMA,
+                    },
+                },
+            },
+        },
+        "limitations": {
+            "type": "array",
+            "items": {"type": "string", "minLength": 1},
+        },
+        "unresolvedQuestions": {
+            "type": "array",
+            "items": {"type": "string", "minLength": 1},
+        },
+    },
+}

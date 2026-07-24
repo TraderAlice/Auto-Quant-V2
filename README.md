@@ -65,6 +65,12 @@ backtest output:
 # Establish a fresh successful baseline and a disposable candidate worktree.
 uv run aq session start ./quant-workspace --study factor-quality --json
 
+# Or bind an OpenAlice/local request into the Session's exact Research Brief.
+uv run aq session start ./quant-workspace \
+  --study factor-quality \
+  --request research-request.json \
+  --json
+
 # Edit only the returned worktree/editablePaths, then judge one hypothesis.
 uv run aq experiment evaluate ./quant-workspace \
   --session session-... \
@@ -100,6 +106,31 @@ sandbox. It may propose candidate code, but the locked Judge still owns
 metrics and verdicts, and Project promotion remains a separate explicit
 operation.
 
+A delegated Session preserves the caller's question, assets, direction,
+horizon, constraints, deliverables, and caller-supplied origin context. The
+selected Study must cover the requested assets. After research, an Agent
+submits strict findings that reference verified Session evidence; AutoQuant
+publishes immutable machine and human handoffs:
+
+```bash
+uv run aq schema research-request --json
+uv run aq schema report-analysis --json
+uv run aq report publish ./quant-workspace \
+  --session session-... \
+  --analysis report-analysis.json \
+  --json
+uv run aq report show ./quant-workspace \
+  --session session-... \
+  --report report-... \
+  --json
+```
+
+Core validates every cited Run, Experiment, Campaign, and Run artifact, then
+freezes `report.json` and deterministically renders `report.md`. Reports are
+quantitative decision support only and have no live-trading authority.
+OpenAlice should publish the exact Markdown through its own Inbox so OpenAlice
+can stamp authoritative Workspace, Session, and document-revision provenance.
+
 Humans can watch the same Workspace through the lightweight local Studio:
 
 ```bash
@@ -107,9 +138,10 @@ uv run aq studio snapshot ./quant-workspace --json
 uv run aq studio serve ./quant-workspace
 ```
 
-Studio shows Projects, active Session leaders, running Researcher turns,
-verdict trajectories, recent evidence, and fixed Studies. It is read-only and
-uses the same verified Core loaders as the CLI. See
+Studio shows Projects, delegated requests, active Session leaders, running
+Researcher turns, verdict trajectories, report readiness, recent evidence, and
+fixed Studies. It is read-only, exposes copy-only exact CLI commands, and uses
+the same verified Core loaders as the CLI. See
 [`docs/STUDIO.md`](docs/STUDIO.md).
 
 The v0.5 development Harness still uses **Freqtrade as its one core engine**,

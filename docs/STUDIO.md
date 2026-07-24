@@ -28,15 +28,22 @@ The first viewport prioritizes:
 
 - every discovered Project and its verification state;
 - active Sessions and current leader values;
+- delegated caller questions, assets, direction, horizon, and Brief identity;
 - running external Researcher phase and turn budget;
 - KEEP, REVERT, and CRASH optimization trajectories;
-- recent immutable Runs, Experiments, and Campaigns;
+- recent immutable Runs, Experiments, Campaigns, and Research Reports;
+- request → evidence → report readiness and exact copyable headless commands;
 - fixed Study catalog and Project research program;
 - category-level diagnostics when evidence cannot be verified.
 
 The browser polls a bounded snapshot every four seconds while visible. Manual
 refresh remains available. Running Campaign progress is visibly labelled
 mutable; completed evidence is loaded and hash-verified by Core.
+
+The handoff cards and Inspector distinguish caller-supplied OpenAlice context
+from authenticated provenance. Copy buttons only write an exact Core-generated
+CLI string to the local clipboard. They do not invoke the command or mutate the
+Project.
 
 ## Machine-readable snapshot
 
@@ -69,6 +76,7 @@ Studio is not an evaluator. It calls the same Core loaders used by CLI:
   fact;
 - Session authority issues remain visible;
 - mutable progress cannot create a metric or verdict;
+- the browser cannot author analysis or publish a Research Report;
 - no browser interaction changes a Project.
 
 The durable boundary and known gaps are in
