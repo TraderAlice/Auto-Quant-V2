@@ -104,6 +104,32 @@ class AgentCliTests(unittest.TestCase):
                 )
             )
 
+    def test_cli_constructs_rl_factor_lab_with_correct_next_actions(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Path(directory) / "workspace"
+            self.assertEqual(
+                run_cli("workspace", "init", str(workspace), "--json").returncode,
+                0,
+            )
+            created = run_cli(
+                "project",
+                "create",
+                str(workspace),
+                "rl-factor-lab",
+                "--template",
+                "ohlcv-rl-factor-lab",
+                "--json",
+            )
+            self.assertEqual(created.returncode, 0, created.stderr)
+            envelope = json_output(created)
+            self.assertEqual(envelope["data"]["template"], "ohlcv-rl-factor-lab")
+            self.assertTrue(
+                all(
+                    "ohlcv-rl-factor-policy" in action["argv"]
+                    for action in envelope["nextActions"]
+                )
+            )
+
     def test_capabilities_describe_every_public_command(self) -> None:
         result = run_cli("capabilities", "--json")
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -173,7 +199,12 @@ class AgentCliTests(unittest.TestCase):
         )
         self.assertEqual(
             template_argument["choices"],
-            ["blank", "ohlcv-factor-lab", "ohlcv-portfolio-lab"],
+            [
+                "blank",
+                "ohlcv-factor-lab",
+                "ohlcv-portfolio-lab",
+                "ohlcv-rl-factor-lab",
+            ],
         )
         schema = next(command for command in commands if command["id"] == "schema")
         self.assertEqual(

@@ -58,6 +58,9 @@ Read the relevant linked document before changing a subsystem:
 - Causal signal ranking, constrained target weights, drift-aware accounting,
   costs, risk/implementation metrics, and portfolio stress evidence:
   [[docs/design/portfolio-construction-lab]]
+- Governed causal state encoding, fixed factor-mixture actions, RL reward,
+  seeds/folds/baselines, and policy evidence:
+  [[docs/design/rl-factor-policy-lab]]
 - Resumable Agent worktrees, KEEP/REVERT/CRASH Experiments, and guarded source
   promotion: [[docs/design/research-session-loop]]
 - Provider-neutral external Researcher turns, budgets, restoration, and

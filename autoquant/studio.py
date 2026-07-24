@@ -322,6 +322,42 @@ def _portfolio_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
         return None
 
 
+def _rl_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
+    metrics = result["metrics"]
+    if not all(
+        isinstance(metrics.get(key), dict)
+        for key in ("rl", "baselines", "comparison", "configuration")
+    ):
+        return None
+    try:
+        aggregate = metrics["rl"]["aggregate"]
+        return {
+            "kind": "rl-policy",
+            "validationMeanNetSharpe": metrics[
+                "validation_mean_net_sharpe"
+            ],
+            "testMeanNetSharpe": aggregate["test_net_sharpe"]["mean"],
+            "validationSeedFoldStd": aggregate["validation_net_sharpe"][
+                "standard_deviation"
+            ],
+            "testSeedFoldStd": aggregate["test_net_sharpe"][
+                "standard_deviation"
+            ],
+            "validationBaselineAdvantage": metrics["comparison"][
+                "mean_validation_advantage_vs_best_baseline"
+            ],
+            "failureRate": aggregate["failure_rate"],
+            "folds": len(metrics["configuration"]["folds"]),
+            "seeds": len(metrics["configuration"]["seeds"]),
+        }
+    except (KeyError, TypeError):
+        return None
+
+
+def _run_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
+    return _portfolio_metric_layers(result) or _rl_metric_layers(result)
+
+
 def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
     diagnostics: list[dict[str, str]] = []
     program_path = confined_path(
@@ -339,7 +375,7 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
     runs: list[dict[str, Any]] = []
     for item in runs_raw:
         summary = item.to_dict()
-        metric_layers = _portfolio_metric_layers(
+        metric_layers = _run_metric_layers(
             load_run(project, item.id).result
         )
         if metric_layers is not None:

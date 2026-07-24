@@ -32,6 +32,10 @@ The first viewport prioritizes:
 - running external Researcher phase and turn budget;
 - KEEP, REVERT, and CRASH optimization trajectories;
 - recent immutable Runs, Experiments, Campaigns, and Research Reports;
+- portfolio Run summaries for held-out IC, net Sharpe, turnover, drawdown,
+  cost stress, and delay stress;
+- RL Run summaries for validation/test audit Sharpe, seed/fold dispersion,
+  simple-baseline advantage, failure rate, and fold × seed coverage;
 - request → evidence → report readiness and exact copyable headless commands;
 - fixed Study catalog and Project research program;
 - category-level diagnostics when evidence cannot be verified.
@@ -39,6 +43,12 @@ The first viewport prioritizes:
 The browser polls a bounded snapshot every four seconds while visible. Manual
 refresh remains available. Running Campaign progress is visibly labelled
 mutable; completed evidence is loaded and hash-verified by Core.
+
+Run cards are diagnostic projections, not replacements for full evidence.
+Portfolio and RL cards deliberately show implementation, stress, dispersion,
+failure, and baseline comparison beside the headline score. Exact nested
+metrics, models, training histories, actions, and artifacts remain in the
+verified Run.
 
 The handoff cards and Inspector distinguish caller-supplied OpenAlice context
 from authenticated provenance. Copy buttons only write an exact Core-generated

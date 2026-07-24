@@ -42,7 +42,7 @@ from .reports import (
     publish_report,
 )
 from .studio import STUDIO_SNAPSHOT_JSON_SCHEMA, build_studio_snapshot, serve_studio
-from .templates import OHLCV_STUDY_ID, PORTFOLIO_STUDY_ID, PROJECT_TEMPLATE_IDS
+from .templates import PROJECT_TEMPLATE_IDS, TEMPLATE_STUDY_IDS
 from .sessions import (
     EXPERIMENT_JSON_SCHEMA,
     SESSION_JSON_SCHEMA,
@@ -541,11 +541,7 @@ def _project_create(args: argparse.Namespace) -> CommandResult:
                         "inspect",
                         str(project.root_dir),
                         "--study",
-                        (
-                            OHLCV_STUDY_ID
-                            if args.template == "ohlcv-factor-lab"
-                            else PORTFOLIO_STUDY_ID
-                        ),
+                        TEMPLATE_STUDY_IDS[args.template],
                         "--json",
                     ],
                     "read-only",
@@ -559,11 +555,7 @@ def _project_create(args: argparse.Namespace) -> CommandResult:
                         "execute",
                         str(project.root_dir),
                         "--study",
-                        (
-                            OHLCV_STUDY_ID
-                            if args.template == "ohlcv-factor-lab"
-                            else PORTFOLIO_STUDY_ID
-                        ),
+                        TEMPLATE_STUDY_IDS[args.template],
                         "--json",
                     ],
                     "creates-artifact",

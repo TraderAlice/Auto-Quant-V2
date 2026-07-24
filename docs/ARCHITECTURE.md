@@ -62,6 +62,9 @@ The V2 foundation now implements:
   translates the same causal factor API into capped target weights, drift-aware
   turnover and costs, layered risk/implementation evidence, and cost/delay
   stresses without trading authority.
+- one governed RL Factor-Policy Lab that confines Agent changes to a causal
+  state encoder while the Judge fixes factor-mixture actions, Q-learning,
+  rewards, portfolio accounting, folds, seeds, baselines, and model evidence.
 
 The canonical contracts are [[docs/PROJECT_FORMAT]] and [[docs/CLI]]. The
 boundary designs are [[docs/design/workspace-project-boundaries]] and
@@ -72,9 +75,9 @@ in [[docs/design/study-run-evidence]]; governed source research is defined in
 [[docs/design/studio-observation-surface]]; the first quantitative reference
 Project is defined in [[docs/design/ohlcv-factor-lab]]; causal target-weight
 construction is defined in [[docs/design/portfolio-construction-lab]]. The
-end-to-end OpenAlice handoff, professional evidence stack, causal portfolio
-direction, governed RL lane, and HCI boundary are defined in
-[[docs/design/quant-research-lifecycle]].
+governed RL lane is defined in [[docs/design/rl-factor-policy-lab]]. The
+end-to-end OpenAlice handoff, professional evidence stack, and HCI boundary are
+defined in [[docs/design/quant-research-lifecycle]].
 
 The repository also contains the V0.5 development Harness inherited from
 Auto-Quant Classic:
@@ -194,6 +197,8 @@ behind the Harness contract, not the owner of Workspace or Project semantics.
 - Study/Run evidence design: [[docs/design/study-run-evidence]]
 - OHLCV Factor Lab design: [[docs/design/ohlcv-factor-lab]]
 - OHLCV Portfolio Lab design: [[docs/design/portfolio-construction-lab]]
+- Governed RL Factor-Policy Lab design:
+  [[docs/design/rl-factor-policy-lab]]
 - Research Session loop design: [[docs/design/research-session-loop]]
 - External Researcher driver design:
   [[docs/design/external-researcher-driver]]

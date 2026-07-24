@@ -27,6 +27,9 @@ uv run aq project create ./quant-workspace factor-lab \
 uv run aq project create ./quant-workspace portfolio-lab \
   --name "Portfolio Lab" \
   --template ohlcv-portfolio-lab
+uv run aq project create ./quant-workspace rl-factor-lab \
+  --name "RL Factor Lab" \
+  --template ohlcv-rl-factor-lab
 uv run aq project create ./quant-workspace ml-lab --name "ML Lab"
 uv run aq project list ./quant-workspace
 uv run aq validate ./quant-workspace
@@ -52,13 +55,22 @@ stress. Its Run artifacts expose exact daily accounting and target weights;
 Studio summarizes factor, portfolio, implementation, and robustness evidence.
 It emits research targets only and has no Broker or trading-account authority.
 
+The `ohlcv-rl-factor-lab` starter asks a narrower question than “can an RL bot
+trade?”: can a bounded policy use causal regime features to choose among fixed
+factor mixtures? Agents edit only a pure state encoder. The Judge fixes
+Q-learning, actions, next-bar reward, portfolio accounting, two expanding
+folds, three seeds, and fixed-factor/contextual-ridge baselines. Validation is
+the promotion metric; test evidence is reported separately with an explicit
+repeated-inspection warning. A higher RL score does not count as value added
+when a simple baseline still wins.
+
 The repository-root strategy arena described below remains the V0.5
 compatibility Harness while its execution and evidence contracts are migrated
 into Projects.
 
 V2 Projects can also define strict Studies and publish immutable RunResults
 through one bounded Python Judge lane. This is the common evidence contract for
-future Freqtrade, factor, and ML research:
+Freqtrade, factor, portfolio, and governed model research:
 
 ```bash
 uv run aq study list ./quant-workspace

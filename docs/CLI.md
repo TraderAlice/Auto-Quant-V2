@@ -36,7 +36,8 @@ Agents should discover the contract rather than scrape `--help`.
 aq workspace init <workspace-dir> [--name NAME] [--json]
 aq project create <workspace-dir> <project-id> \
   [--name NAME] [--description TEXT] \
-  [--template blank|ohlcv-factor-lab|ohlcv-portfolio-lab] [--json]
+  [--template blank|ohlcv-factor-lab|ohlcv-portfolio-lab|ohlcv-rl-factor-lab] \
+  [--json]
 aq project list <workspace-dir> [--json]
 aq project default <workspace-dir> <project-id> [--json]
 aq validate <project-or-workspace-dir> [--project ID] [--json]
@@ -53,7 +54,10 @@ synthetic OHLCV, content-locked Study, fixed no-lookahead Judge, and executable
 next actions. `ohlcv-portfolio-lab` uses the same causal candidate API and
 adds fixed constrained target construction, drift-aware accounting,
 transaction costs, layered professional metrics, and cost/delay stresses.
-Both reference templates remain fast, deterministic construction fixtures.
+`ohlcv-rl-factor-lab` adds a deterministic causal state encoder surface over
+fixed factor-mixture actions, Q-learning, folds, seeds, rewards, portfolio
+accounting, and simple baselines. All three reference templates are bounded,
+deterministic construction fixtures.
 
 ## Study and Run commands
 

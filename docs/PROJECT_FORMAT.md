@@ -35,10 +35,10 @@ or Runs. It owns only discovery and an optional default Project.
 ## Project
 
 `aq project create` produces a complete blank Project. The optional
-`--template ohlcv-factor-lab` or `--template ohlcv-portfolio-lab`
-construction input additionally creates an independently owned factor, Judge,
-Study, and deterministic local dataset; it is not recorded as a runtime parent
-in `autoquant.json`.
+`--template ohlcv-factor-lab`, `--template ohlcv-portfolio-lab`, or
+`--template ohlcv-rl-factor-lab` construction input additionally creates an
+independently owned candidate, Judge, Study, and deterministic local dataset;
+it is not recorded as a runtime parent in `autoquant.json`.
 
 The factor template evaluates causal cross-sectional predictive evidence. The
 portfolio template fixes the next layer: factor normalization, target weights,
@@ -47,6 +47,13 @@ costs, benchmark, risk/implementation metrics, and cost/delay stresses.
 Candidate code remains confined to `factors/**`; `judges/**` owns every
 comparison rule. See [[docs/design/ohlcv-factor-lab]] and
 [[docs/design/portfolio-construction-lab]].
+
+The RL template confines candidates to a pure row-level state encoder under
+`models/**`. Its fixed Judge owns factor-mixture actions, Q-learning, reward,
+portfolio accounting, chronological folds, seeds, baselines, and the
+validation-only objective. Every model, episode, fold, seed, action, failure,
+and baseline comparison is Run evidence. See
+[[docs/design/rl-factor-policy-lab]].
 
 ```text
 factor-lab/
@@ -476,11 +483,13 @@ uv run aq project create /tmp/quant-workspace ohlcv-lab \
   --template ohlcv-factor-lab
 uv run aq project create /tmp/quant-workspace portfolio-lab \
   --template ohlcv-portfolio-lab
+uv run aq project create /tmp/quant-workspace rl-factor-lab \
+  --template ohlcv-rl-factor-lab
 uv run aq validate /tmp/quant-workspace
 uv run aq inspect /tmp/quant-workspace --project factor-lab --json
 uv run python -m unittest \
   tests.test_workspace tests.test_cli tests.test_studies \
   tests.test_runs tests.test_sessions tests.test_factor_lab \
-  tests.test_portfolio_lab -v
+  tests.test_portfolio_lab tests.test_rl_factor_policy_lab -v
 uv run python -m unittest tests.test_reports tests.test_studio -v
 ```

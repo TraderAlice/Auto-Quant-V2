@@ -377,16 +377,30 @@ function renderTimeline(project) {
 
 function runMetricLayers(item) {
   const layers = item.metricLayers;
-  if (!layers || layers.kind !== "portfolio") return "";
-  return `
-    <div class="catalog-evidence" aria-label="Portfolio evidence">
-      <span><b>${metric(layers.factor.testRankIc)}</b><i>test IC</i></span>
-      <span><b>${metric(layers.portfolio.testNetSharpe)}</b><i>net Sharpe</i></span>
-      <span><b>${metric(layers.implementation.testAnnualizedTurnover)}</b><i>ann. turn</i></span>
-      <span><b>${metric(layers.portfolio.testMaximumDrawdown)}</b><i>max DD</i></span>
-      <span><b>${metric(layers.robustness.test25bpsSharpe)}</b><i>25bps</i></span>
-      <span><b>${metric(layers.robustness.testExtraDelaySharpe)}</b><i>+1 delay</i></span>
-    </div>`;
+  if (!layers) return "";
+  if (layers.kind === "portfolio") {
+    return `
+      <div class="catalog-evidence" aria-label="Portfolio evidence">
+        <span><b>${metric(layers.factor.testRankIc)}</b><i>test IC</i></span>
+        <span><b>${metric(layers.portfolio.testNetSharpe)}</b><i>net Sharpe</i></span>
+        <span><b>${metric(layers.implementation.testAnnualizedTurnover)}</b><i>ann. turn</i></span>
+        <span><b>${metric(layers.portfolio.testMaximumDrawdown)}</b><i>max DD</i></span>
+        <span><b>${metric(layers.robustness.test25bpsSharpe)}</b><i>25bps</i></span>
+        <span><b>${metric(layers.robustness.testExtraDelaySharpe)}</b><i>+1 delay</i></span>
+      </div>`;
+  }
+  if (layers.kind === "rl-policy") {
+    return `
+      <div class="catalog-evidence" aria-label="RL policy evidence">
+        <span><b>${metric(layers.validationMeanNetSharpe)}</b><i>validation</i></span>
+        <span><b>${metric(layers.testMeanNetSharpe)}</b><i>test audit</i></span>
+        <span><b>${metric(layers.validationSeedFoldStd)}</b><i>seed/fold σ</i></span>
+        <span><b>${metric(layers.validationBaselineAdvantage)}</b><i>vs baseline</i></span>
+        <span><b>${metric(layers.failureRate)}</b><i>fail rate</i></span>
+        <span><b>${layers.folds}×${layers.seeds}</b><i>folds × seeds</i></span>
+      </div>`;
+  }
+  return "";
 }
 
 function renderCatalog(project) {

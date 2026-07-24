@@ -1,11 +1,13 @@
 # Quantitative research lifecycle and OpenAlice handoff
 
-Status: delegation/report and portfolio lanes implemented; RL lane targeted.
+Status: delegation/report, portfolio, and governed RL lanes implemented.
 
 Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]], [[docs/CLI]],
 [[docs/design/study-run-evidence]], [[docs/design/research-session-loop]],
-[[docs/design/external-researcher-driver]], and
-[[docs/design/studio-observation-surface]].
+[[docs/design/external-researcher-driver]],
+[[docs/design/studio-observation-surface]],
+[[docs/design/portfolio-construction-lab]], and
+[[docs/design/rl-factor-policy-lab]].
 
 ## Scope
 
@@ -162,8 +164,8 @@ control rather than blindly trading every calendar interval:
 
 ## Governed reinforcement learning
 
-The first RL use case is a meta-policy over causal factors or portfolio target
-weights, not an opaque trading bot:
+The implemented `ohlcv-rl-factor-lab` is a meta-policy over causal factors,
+not an opaque trading bot:
 
 - state: current causal factor vector, volatility/regime features, and previous
   target or position;
@@ -175,18 +177,18 @@ weights, not an opaque trading bot:
   parameters, and training history.
 
 The Judge owns state timing, action bounds, reward, costs, constraints,
-splits, seeds, budgets, and baselines. Candidate code may implement a feature
-transform, policy, or training method only within the declared editable
-closure.
+splits, seeds, budgets, and baselines. In V1 candidate code implements only a
+pure row-level causal feature transform inside the declared editable closure.
 
 Required evidence includes:
 
-- untouched chronological test folds or walk-forward windows;
+- chronologically isolated test folds or walk-forward windows;
 - every declared random seed, not only the best seed;
 - mean, dispersion, and failure rate across seeds and folds;
 - equal-weight, fixed-factor, and simple linear baselines;
 - net turnover/cost/risk metrics from the same portfolio accounting;
-- no test-set tuning or reward changes during candidate search.
+- no test-fold training or reward changes during candidate search, plus
+  disclosure when visible test evidence has informed later candidates.
 
 Financial RL evidence is fragile. A recent multi-method benchmark reports weak
 robustness and rapid degradation for many deep portfolio methods:
@@ -195,6 +197,16 @@ deep RL emphasizes intrinsic variance and standardized statistical reporting:
 <https://ojs.aaai.org/index.php/AAAI/article/view/11694>. AutoQuant therefore
 treats RL as a higher-burden candidate lane rather than a privileged source of
 truth.
+
+V1 makes the candidate surface smaller than a general training adapter: the
+Agent edits a pure deterministic row-level state encoder. The Judge fixes four
+factor-mixture actions, linear Q-learning, next-bar costed reward, two
+expanding folds, three seeds, portfolio accounting, and fixed/simple-linear
+baselines. The promotion objective aggregates validation evidence only. Test
+metrics remain visible audit evidence and carry an explicit warning that
+repeated inspection consumes holdout value. Exact models, training histories,
+and timestamped actions are immutable artifacts. Executable details are in
+[[docs/design/rl-factor-policy-lab]].
 
 ## Research report
 

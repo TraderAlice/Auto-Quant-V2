@@ -111,5 +111,5 @@ uv run aq validate /tmp/quant-workspace --json
 - Project manifests expose semantic directory slots, including `sessions`, but
   do not select a default Study, dataset, Session, or execution profile.
 - Project identity is strict path identity but not yet a content hash.
-- There is one quantitative reference template; ML and Broker/backtest
-  templates remain future work.
+- There are factor, portfolio, and governed RL reference templates. Production
+  ingestion and additional Broker/backtest adapters remain future work.
