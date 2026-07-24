@@ -2,6 +2,7 @@ const state = {
   snapshot: null,
   projectId: null,
   sessionId: null,
+  evidenceLane: null,
   catalog: "studies",
   factorView: "ic",
   factorHorizon: "1",
@@ -92,6 +93,172 @@ const projectFocusRun = (project) => {
   return latestSuccessfulRun(project);
 };
 
+const laneKind = (lane) => {
+  if (["factor", "portfolio", "rl"].includes(lane?.id)) return lane.id;
+  return {
+    "causal-predictive-evidence": "factor",
+    "mechanical-portfolio-evidence": "portfolio",
+    "adaptive-policy-challenge": "rl",
+  }[lane?.role] ?? null;
+};
+
+const runForLane = (project, lane) => {
+  if (!lane?.latestRun?.id) return null;
+  return project.runs.find((run) => run.id === lane.latestRun.id) ?? null;
+};
+
+const latestRunForLaneKind = (project, kind) =>
+  project.runs
+    .slice()
+    .reverse()
+    .find(
+      (run) =>
+        run.status === "succeeded" &&
+        (kind === "rl"
+          ? run.metricLayers?.kind === "rl-policy"
+          : run.metricLayers?.kind === kind),
+    ) ?? null;
+
+const laneReadout = (project, lane) => {
+  const kind = laneKind(lane);
+  const run = runForLane(project, lane);
+  const layers = run?.metricLayers;
+  if (kind === "factor") {
+    const value = layers?.kind === "factor" ? layers.validationMeanIc : lane?.latestRun?.value;
+    if (!Number.isFinite(Number(value))) {
+      return {
+        kind,
+        metric: "Validation rank IC",
+        value,
+        display: "—",
+        tone: "warning",
+        verdict: "EVIDENCE PENDING",
+        detail: "No current immutable Factor Run is available",
+      };
+    }
+    return {
+      kind,
+      metric: "Validation rank IC",
+      value,
+      display: metric(value),
+      tone: Number(value) < 0 ? "bad" : "neutral",
+      verdict: Number(value) < 0 ? "NEGATIVE VALIDATION IC" : "NON-NEGATIVE VALIDATION IC",
+      detail:
+        Number(value) < 0
+          ? "Validation cross-sectional association is adverse"
+          : "Direction is non-negative; fixed uncertainty and acceptance evidence still govern",
+    };
+  }
+  if (kind === "portfolio") {
+    const value =
+      layers?.kind === "portfolio"
+        ? layers.portfolio.validationNetSharpe
+        : lane?.latestRun?.value;
+    if (!Number.isFinite(Number(value))) {
+      return {
+        kind,
+        metric: "Validation net Sharpe",
+        value,
+        display: "—",
+        tone: "warning",
+        verdict: "EVIDENCE PENDING",
+        detail: "No current immutable Portfolio Run is available",
+      };
+    }
+    return {
+      kind,
+      metric: "Validation net Sharpe",
+      value,
+      display: metric(value),
+      tone: Number(value) < 0 ? "bad" : "neutral",
+      verdict: Number(value) < 0 ? "NEGATIVE AFTER COSTS" : "NON-NEGATIVE AFTER COSTS",
+      detail:
+        Number(value) < 0
+          ? "Mechanical portfolio evidence is adverse after implementation"
+          : "Costed return is non-negative; robustness and fixed gates still govern",
+    };
+  }
+  if (kind === "rl") {
+    const value =
+      layers?.kind === "rl-policy"
+        ? layers.validationBaselineAdvantage
+        : lane?.latestRun?.value;
+    if (!Number.isFinite(Number(value))) {
+      return {
+        kind,
+        metric: "RL vs best baseline",
+        value,
+        display: "—",
+        tone: "warning",
+        verdict: "EVIDENCE PENDING",
+        detail: "No current immutable adaptive-policy Run is available",
+      };
+    }
+    return {
+      kind,
+      metric: "RL vs best baseline",
+      value,
+      display: metric(value),
+      tone: Number(value) < 0 ? "bad" : "neutral",
+      verdict: Number(value) < 0 ? "TRAILS BEST BASELINE" : "ABOVE BEST BASELINE",
+      detail:
+        Number(value) >= 0
+          ? "RL exceeds the fixed validation-selected baseline; this is not a promotion verdict"
+          : "RL trails the best fixed validation-selected baseline",
+    };
+  }
+  return {
+    kind: kind ?? "unknown",
+    metric: lane?.study?.objective?.metric ?? "Objective",
+    value: lane?.latestRun?.value,
+    display: metric(lane?.latestRun?.value),
+    tone: "",
+    verdict: lane?.latestRun ? "BASELINE READY" : "EVIDENCE PENDING",
+    detail: lane?.latestRun ? "Immutable evidence is available" : "Run the fixed Study",
+  };
+};
+
+const programAssessment = (project) => {
+  const program = project.researchProgramStatus;
+  if (!program) return null;
+  const readouts = program.lanes.map((lane) => laneReadout(project, lane));
+  const adverse = readouts.filter((item) => item.tone === "bad");
+  const missing = program.lanes.filter((lane) => !lane.latestRun || !lane.currentRun);
+  const recommended = program.lanes.find(
+    (lane) => lane.id === program.recommendedLaneId,
+  );
+  if (program.summary.conflicts) {
+    return {
+      tone: "warning",
+      label: "COORDINATION REQUIRED",
+      title: "Resolve shared-source conflicts",
+      detail: `${program.summary.conflicts} active conflict${program.summary.conflicts === 1 ? "" : "s"} can invalidate downstream evidence.`,
+    };
+  }
+  if (missing.length) {
+    return {
+      tone: "warning",
+      label: "EVIDENCE INCOMPLETE",
+      title: "Refresh the research chain",
+      detail: `${missing.length} lane${missing.length === 1 ? "" : "s"} lack current immutable evidence.`,
+    };
+  }
+  if (adverse.length) {
+    return {
+      tone: "bad",
+      label: "ADVERSE EVIDENCE",
+      title: recommended ? `Next: ${recommended.name}` : "Review the earliest adverse lane",
+      detail: `${adverse.map((item) => item.verdict.toLowerCase()).join(" · ")}. These are observed relationships, not a browser-authored verdict.`,
+    };
+  }
+  return {
+    tone: "neutral",
+    label: "NO SIGN-LEVEL WARNING",
+    title: recommended ? `Next: ${recommended.name}` : "Inspect fixed acceptance evidence",
+    detail: "Headline values are non-negative. Only Core-owned gates, uncertainty, robustness, and verified reports may support promotion.",
+  };
+};
+
 const shortHash = (value) =>
   typeof value === "string" && value.length > 14
     ? `${value.slice(0, 8)}…${value.slice(-6)}`
@@ -168,6 +335,7 @@ function renderProjects() {
     button.addEventListener("click", () => {
       state.projectId = button.dataset.project;
       state.sessionId = null;
+      state.evidenceLane = null;
       window.location.hash = encodeURIComponent(state.projectId);
       render();
     });
@@ -176,6 +344,50 @@ function renderProjects() {
 
 function renderScoreboard(project) {
   const counts = project.counts;
+  const program = project.researchProgramStatus;
+  if (program) {
+    const readouts = Object.fromEntries(
+      program.lanes.map((lane) => {
+        const readout = laneReadout(project, lane);
+        return [readout.kind, readout];
+      }),
+    );
+    const current = program.lanes.filter(
+      (lane) => lane.currentRun && lane.latestRun?.status === "succeeded",
+    ).length;
+    const values = [
+      ["Current evidence", `${current}/${program.lanes.length}`, "immutable lane baselines", current === program.lanes.length ? "good" : "live"],
+      [
+        readouts.factor?.metric ?? "Factor evidence",
+        readouts.factor?.display ?? "—",
+        "validation selection",
+        readouts.factor?.tone ?? "",
+      ],
+      [
+        readouts.portfolio?.metric ?? "Portfolio evidence",
+        readouts.portfolio?.display ?? "—",
+        "costed implementation",
+        readouts.portfolio?.tone ?? "",
+      ],
+      [
+        readouts.rl?.metric ?? "Adaptive evidence",
+        readouts.rl?.display ?? "—",
+        "validation value-add",
+        readouts.rl?.tone ?? "",
+      ],
+    ];
+    element("scoreboard").innerHTML = values
+      .map(
+        ([label, value, note, className]) => `
+          <div class="score-cell ${className}">
+            <small>${escapeHtml(label)}</small>
+            <strong>${escapeHtml(value)}</strong>
+            <span>${escapeHtml(note)}</span>
+          </div>`,
+      )
+      .join("");
+    return;
+  }
   const run = projectFocusRun(project);
   const layers = run?.metricLayers;
   let values;
@@ -320,6 +532,18 @@ function copyCommandButton(command, label = "Copy command") {
     </button>`;
 }
 
+function compactCommandButton(command, label = "Copy CLI") {
+  if (!command) return "";
+  return `
+    <button class="command-button compact-command" type="button"
+      data-copy-command="${escapeHtml(command.display)}"
+      data-copy-label="${escapeHtml(label)}"
+      title="${escapeHtml(command.display)}">
+      <span>${escapeHtml(label)}</span>
+      <code>${escapeHtml(command.display)}</code>
+    </button>`;
+}
+
 function bindCopyCommands() {
   document.querySelectorAll("[data-copy-command]").forEach((button) => {
     button.addEventListener("click", async () => {
@@ -340,6 +564,8 @@ function bindCopyCommands() {
 function renderHandoff(project) {
   const session = selectedSession(project);
   const delegation = session?.delegation;
+  const section = element("research-handoff");
+  section.classList.remove("compact");
   if (!session || !delegation) {
     const intake = project.intake;
     if (intake) {
@@ -400,10 +626,12 @@ function renderHandoff(project) {
     }
     element("handoff-flow").textContent = "REQUEST → EVIDENCE → REPORT";
     element("handoff-meta").textContent = "No delegated request";
+    section.classList.add("compact");
     element("handoff-board").innerHTML = `
       <div class="empty-panel handoff-empty">
-        Bind a strict request with <code>aq session start … --request request.json</code>
-        to preserve caller intent and produce a verified report handoff.
+        <span><b>No caller brief is bound.</b> Add <code>--request request.json</code> when another
+        OpenAlice workbench delegates a question; AutoQuant will preserve intent, evidence identity,
+        and the return-report boundary.</span>
       </div>`;
     return;
   }
@@ -468,12 +696,16 @@ function renderResearchProgram(project) {
   section.hidden = false;
   const summary = program.summary;
   const recommended = program.recommendedAction;
+  const assessment = programAssessment(project);
+  const currentRuns = program.lanes.filter(
+    (lane) => lane.currentRun && lane.latestRun?.status === "succeeded",
+  ).length;
   element("research-program-meta").textContent =
     `${program.dataset.universe.length} assets · one snapshot · ${summary.lanes} fixed Studies`;
   element("research-program-summary").innerHTML = [
-    ["Program lanes", summary.lanes, "factor / portfolio / RL"],
-    ["Active Sessions", summary.activeSessions, "shared-source conflicts checked"],
-    ["Reports", summary.reports, "immutable decision support"],
+    ["Evidence chain", `${currentRuns}/${summary.lanes}`, "current immutable baselines"],
+    ["Active researchers", summary.activeSessions, "governed Sessions"],
+    ["Published reports", summary.reports, "decision-support handoffs"],
     ["Conflicts", summary.conflicts, summary.conflicts ? "attention required" : "none detected"],
   ]
     .map(
@@ -485,29 +717,43 @@ function renderResearchProgram(project) {
         </span>`,
     )
     .join("");
+  element("research-program-assessment").innerHTML = `
+    <span class="assessment-signal ${escapeHtml(assessment.tone)}">
+      <i aria-hidden="true"></i>
+      <small>Evidence readout</small>
+      <b>${escapeHtml(assessment.label)}</b>
+    </span>
+    <span class="assessment-copy">
+      <strong>${escapeHtml(assessment.title)}</strong>
+      <span>${escapeHtml(assessment.detail)}</span>
+    </span>
+    <span class="assessment-boundary">Validation decides · test audits · no trading authority</span>`;
   element("research-program-lanes").innerHTML = program.lanes
     .map((lane, index) => {
-      const run = lane.latestRun;
       const session = lane.latestSession;
       const selected = lane.id === program.recommendedLaneId;
+      const kind = laneKind(lane);
+      const readout = laneReadout(project, lane);
+      const evidenceSelected = kind === state.evidenceLane;
       const command =
         lane.commands.find((item) => item.id === recommended?.id) ??
         lane.commands.find((item) => item.id === "session.show") ??
         lane.commands.find((item) => item.id === "run.execute") ??
         lane.commands[0];
       return `
-        <article class="program-lane ${lane.phase} ${selected ? "recommended" : ""}">
+        <article class="program-lane ${lane.phase} ${selected ? "recommended" : ""} ${evidenceSelected ? "evidence-selected" : ""}">
           <header>
             <span>${String(index + 1).padStart(2, "0")}</span>
             <small>${escapeHtml(lane.role)}</small>
           </header>
           <h3>${escapeHtml(lane.name)}</h3>
-          <p>${escapeHtml(lane.study.description)}</p>
+          <div class="program-lane-readout ${escapeHtml(readout.tone)}">
+            <small>${escapeHtml(readout.metric)}</small>
+            <strong>${escapeHtml(readout.display)}</strong>
+            <b>${escapeHtml(readout.verdict)}</b>
+          </div>
+          <p>${escapeHtml(readout.detail)}</p>
           <dl>
-            <dt>Objective</dt>
-            <dd>${escapeHtml(lane.study.objective.metric)}</dd>
-            <dt>Latest value</dt>
-            <dd>${run?.value === null || run?.value === undefined ? "—" : metric(run.value)}</dd>
             <dt>Session</dt>
             <dd>${session ? `${session.experiments} experiments` : "not started"}</dd>
             <dt>Source</dt>
@@ -519,9 +765,14 @@ function renderResearchProgram(project) {
           </dl>
           <div class="program-lane-foot">
             <span class="program-phase ${lane.phase}">${escapeHtml(programPhaseLabel(lane.phase))}</span>
-            ${selected ? "<b>NEXT</b>" : ""}
+            ${selected ? "<b>NEXT RESEARCH LANE</b>" : ""}
           </div>
-          ${copyCommandButton(command, `${lane.name} command`)}
+          <div class="program-lane-actions">
+            <button class="lane-open-button" type="button" data-open-evidence="${escapeHtml(kind)}">
+              Inspect evidence
+            </button>
+            ${compactCommandButton(command)}
+          </div>
         </article>`;
     })
     .join("");
@@ -531,6 +782,89 @@ function renderResearchProgram(project) {
       ${escapeHtml(program.warnings.join(" · "))}
     </span>
     ${copyCommandButton(recommended, "Copy recommended command")}`;
+}
+
+const evidenceLanes = [
+  {
+    id: "factor",
+    label: "Factor",
+    question: "Does the signal predict?",
+    explorer: "factorExplorer",
+    section: "factor-explorer",
+  },
+  {
+    id: "portfolio",
+    label: "Portfolio",
+    question: "Does the edge survive implementation?",
+    explorer: "portfolioExplorer",
+    section: "portfolio-explorer",
+  },
+  {
+    id: "rl",
+    label: "Adaptive policy",
+    question: "Does RL beat the best simpler policy?",
+    explorer: "rlExplorer",
+    section: "rl-explorer",
+  },
+];
+
+function renderEvidenceWorkbench(project) {
+  const section = element("evidence-workbench");
+  const available = evidenceLanes.filter((lane) => project[lane.explorer]);
+  if (!available.length) {
+    section.hidden = true;
+    return;
+  }
+  section.hidden = false;
+  const recommendedKind = laneKind(projectFocusLane(project));
+  if (!available.some((lane) => lane.id === state.evidenceLane)) {
+    state.evidenceLane =
+      available.find((lane) => lane.id === recommendedKind)?.id ?? available[0].id;
+  }
+  const selected = available.find((lane) => lane.id === state.evidenceLane);
+  element("evidence-workbench-meta").textContent =
+    `${selected.label} lane · immutable Run evidence`;
+  element("evidence-lane-tabs").innerHTML = available
+    .map((lane, index) => {
+      const laneProgram = project.researchProgramStatus?.lanes.find(
+        (item) => laneKind(item) === lane.id,
+      );
+      const fallbackRun = latestRunForLaneKind(project, lane.id);
+      const readout = laneReadout(
+        project,
+        laneProgram ?? {
+          id: lane.id,
+          latestRun: fallbackRun ? { id: fallbackRun.id, value: fallbackRun.primaryValue } : null,
+        },
+      );
+      const active = lane.id === state.evidenceLane;
+      return `
+        <button type="button" role="tab" aria-selected="${active}"
+          data-evidence-lane="${escapeHtml(lane.id)}">
+          <span>${String(index + 1).padStart(2, "0")} · ${escapeHtml(lane.label)}</span>
+          <strong>${escapeHtml(readout.verdict)}</strong>
+          <small>${escapeHtml(lane.question)}</small>
+        </button>`;
+    })
+    .join("");
+  evidenceLanes.forEach((lane) => {
+    const explorer = element(lane.section);
+    if (!project[lane.explorer]) return;
+    explorer.hidden = lane.id !== state.evidenceLane;
+  });
+  document
+    .querySelectorAll("[data-evidence-lane], [data-open-evidence]")
+    .forEach((button) => {
+      button.addEventListener("click", () => {
+        state.evidenceLane =
+          button.dataset.evidenceLane ?? button.dataset.openEvidence;
+        render();
+        element("evidence-workbench").scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      });
+    });
 }
 
 function chartTime(timestamp) {
@@ -1946,6 +2280,54 @@ function renderInspector(project) {
         </details>`;
       return;
     }
+    const program = project.researchProgramStatus;
+    if (program) {
+      const assessment = programAssessment(project);
+      const laneRows = program.lanes
+        .map((lane) => {
+          const readout = laneReadout(project, lane);
+          return `
+            <button class="inspector-lane" type="button" data-open-evidence="${escapeHtml(readout.kind)}">
+              <span>
+                <small>${escapeHtml(lane.name)}</small>
+                <strong>${escapeHtml(readout.verdict)}</strong>
+              </span>
+              <b class="${escapeHtml(readout.tone)}">${escapeHtml(readout.display)}</b>
+            </button>`;
+        })
+        .join("");
+      element("inspector-content").innerHTML = `
+        <section class="inspector-section program-verdict">
+          <small>Current evidence readout</small>
+          <h3>${escapeHtml(assessment.title)}</h3>
+          <span class="status-chip ${assessment.tone === "bad" ? "adverse" : "active"}">${escapeHtml(assessment.label)}</span>
+          <p>${escapeHtml(assessment.detail)}</p>
+        </section>
+        <section class="inspector-section">
+          <small>Evidence chain</small>
+          <div class="inspector-lanes">${laneRows}</div>
+        </section>
+        <section class="inspector-section">
+          <small>Research scope</small>
+          <h3>${escapeHtml(program.dataset.id)}@${escapeHtml(program.dataset.version)}</h3>
+          <dl class="inspector-kv">
+            <dt>Universe</dt><dd>${program.dataset.universe.length} assets</dd>
+            <dt>Asset class</dt><dd>${escapeHtml(program.dataset.assetClass)}</dd>
+            <dt>Coverage</dt><dd>${escapeHtml(program.dataset.timeRange.start)} → ${escapeHtml(program.dataset.timeRange.end)}</dd>
+            <dt>Evidence</dt><dd>validation selects</dd>
+          </dl>
+        </section>
+        <section class="inspector-section">
+          <small>Next governed action</small>
+          <p>Work the earliest failed lane before interpreting downstream complexity as value-add.</p>
+          ${copyCommandButton(program.recommendedAction, "Copy recommended CLI")}
+        </section>
+        <details class="program-details">
+          <summary>Program contract</summary>
+          <pre class="program-copy">${escapeHtml(project.researchProgram.text)}</pre>
+        </details>`;
+      return;
+    }
     element("inspector-content").innerHTML = `
       <section class="inspector-section">
         <small>Research program</small>
@@ -2075,6 +2457,7 @@ function renderEmptyWorkspace(message = "Create a Project with aq project create
   element("handoff-board").innerHTML =
     '<div class="empty-panel handoff-empty">Delegated research requests will appear here.</div>';
   element("research-program-status").hidden = true;
+  element("evidence-workbench").hidden = true;
   element("factor-explorer").hidden = true;
   element("portfolio-explorer").hidden = true;
   element("rl-explorer").hidden = true;
@@ -2137,7 +2520,10 @@ function render() {
     : "ATTENTION REQUIRED";
   element("project-title").textContent = project.name;
   element("project-description").textContent =
-    project.description || "No Project description recorded.";
+    project.description ||
+    (project.researchProgramStatus
+      ? "One research question tested through predictive signal, costed portfolio, and adaptive-policy evidence."
+      : "No Project description recorded.");
   document.title = `${project.name} — AutoQuant Studio`;
   renderScoreboard(project);
   renderDiagnostics(project);
@@ -2152,6 +2538,7 @@ function render() {
   renderTimeline(project);
   renderCatalog(project);
   renderInspector(project);
+  renderEvidenceWorkbench(project);
   bindCopyCommands();
   studio.setAttribute("aria-busy", "false");
 }

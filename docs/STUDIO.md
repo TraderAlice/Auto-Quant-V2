@@ -55,9 +55,13 @@ The first viewport prioritizes:
 - Session selection split, candidate trial count, visible-test role, and
   external-holdout requirement;
 - request → evidence → report readiness and exact copyable headless commands;
-- a three-lane Quant Research Program board showing Factor, Portfolio, and RL
-  phase, latest objective value, Session progress, shared-source conflicts,
-  stale evidence, and the exact recommended next command;
+- a three-lane Research Cockpit showing Factor validation IC, costed Portfolio
+  validation Sharpe, RL validation advantage versus the best selected
+  baseline, lane phase, Session progress, shared-source conflicts, stale
+  evidence, and the exact recommended next command;
+- one selectable Factor, Portfolio, or RL evidence workbench at a time, keeping
+  the complete bounded explorer available without rendering all three long
+  reports into one page;
 - fixed Study catalog and Project research program;
 - category-level diagnostics when evidence cannot be verified.
 
@@ -113,6 +117,14 @@ The handoff cards and Inspector distinguish caller-supplied OpenAlice context
 from authenticated provenance. Copy buttons only write an exact Core-generated
 CLI string to the local clipboard. They do not invoke the command or mutate the
 Project.
+
+For a multi-Study Project, the hero and Inspector use comparable cross-lane
+validation readouts instead of promoting the latest Run's absolute headline.
+In particular, RL is summarized by value-add versus the Judge-selected
+baseline, not raw RL Sharpe. Negative values can be labelled adverse; positive
+signs remain descriptive and are never treated as browser-authored acceptance
+or promotion decisions. The recommended next lane and command are projected by
+Core.
 
 For a request-driven Project with no Session, the handoff board shows
 `research mandate → dataset → immutable baseline → iterate`. The hero promotes

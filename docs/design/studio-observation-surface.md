@@ -132,6 +132,30 @@ promotion threshold: the browser may mark negative return/risk evidence as
 adverse, but it must not colour a positive factor or portfolio value as
 successful unless Core exposes an explicit verified pass decision.
 
+For a multi-Study Quant Research Program, the Project viewport is a research
+cockpit rather than the report page of whichever Run happens to be selected.
+It presents the current evidence chain in causal order:
+
+1. validation rank IC asks whether the candidate factor predicts;
+2. costed validation net Sharpe asks whether the mechanical portfolio preserves
+   useful evidence after implementation; and
+3. validation advantage versus the Judge-selected baseline asks whether the RL
+   policy adds value beyond simpler fixed or contextual policies.
+
+Those values remain descriptive projections of verified Run evidence. Browser
+code may state exact relationships such as negative IC or trailing a baseline
+and may visually mark them adverse. It cannot infer that a positive sign
+passes uncertainty, robustness, minimum-improvement, or promotion gates. The
+recommended lane and CLI action come from the verified Research Program status,
+not from a browser-side workflow decision.
+
+The cockpit shows all program lanes together, then exposes one complete bounded
+Factor, Portfolio, or RL explorer at a time. Lane selection changes only
+presentation and the accessibility tree; it does not select a model, Run,
+baseline, validation split, or Judge outcome. An unbound collaboration handoff
+is compact, while a caller-bound intake or delegated Session retains the full
+request → evidence → report surface.
+
 ## Invariants
 
 1. Studio never bypasses a Core loader for completed evidence.
@@ -143,6 +167,10 @@ successful unless Core exposes an explicit verified pass decision.
 6. Server routes are fixed and read-only.
 7. The packaged application has no network or CDN dependency.
 8. CLI and HTTP expose the same snapshot builder.
+9. Cross-lane cockpit labels describe verified relationships and never create
+   a pass, rejection, KEEP, or promotion verdict.
+10. Evidence-lane selection hides presentation detail only; every claim still
+    comes from the same Core-projected snapshot.
 
 ## Known gaps
 

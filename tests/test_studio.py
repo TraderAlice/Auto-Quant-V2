@@ -249,17 +249,32 @@ class StudioObservationTests(unittest.TestCase):
                 with urlopen(f"{base}/", timeout=3) as response:
                     html = response.read().decode()
                     self.assertIn("Research observatory", html)
+                    self.assertIn("Research cockpit", html)
                     self.assertIn("Research handoff", html)
                     self.assertIn('id="handoff-board"', html)
+                    self.assertIn('id="evidence-workbench"', html)
+                    self.assertIn('id="evidence-lane-tabs"', html)
                     self.assertIn('href="/assets/studio.css"', html)
                     self.assertNotIn("<script>", html)
 
                 with urlopen(f"{base}/assets/studio.css", timeout=3) as response:
                     css = response.read().decode()
                     self.assertIn(".handoff-board", css)
+                    self.assertIn(".program-assessment", css)
+                    self.assertIn(".evidence-lane-tabs", css)
+                    self.assertIn(".inspector-lane", css)
                     self.assertIn(".command-button", css)
                     self.assertIn("@media (max-width: 680px)", css)
                     self.assertIn(":focus-visible", css)
+
+                with urlopen(f"{base}/assets/studio.js", timeout=3) as response:
+                    javascript = response.read().decode()
+                    self.assertIn("programAssessment", javascript)
+                    self.assertIn("validationBaselineAdvantage", javascript)
+                    self.assertIn("data-evidence-lane", javascript)
+                    self.assertIn("no trading authority", javascript)
+                    self.assertIn("browser-authored verdict", javascript)
+                    self.assertNotIn("RESEARCH CHAIN PASSES", javascript)
 
                 request = Request(
                     f"{base}/api/v1/snapshot",

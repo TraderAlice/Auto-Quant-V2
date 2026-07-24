@@ -62,12 +62,31 @@
               AutoQuant is assembling a verified research snapshot.
             </p>
           </div>
-          <div class="hero-scoreboard" id="scoreboard" aria-label="Research totals"></div>
+          <div class="hero-scoreboard" id="scoreboard" aria-label="Project research readout"></div>
         </section>
 
         <section class="diagnostic-banner" id="diagnostics" role="alert" hidden></section>
 
-        <section class="handoff-section" aria-labelledby="handoff-title">
+        <section
+          class="program-section"
+          id="research-program-status"
+          aria-labelledby="research-program-title"
+          hidden
+        >
+          <header class="section-header">
+            <span>
+              <small>QUESTION → FACTOR → PORTFOLIO → ADAPTIVITY</small>
+              <h2 id="research-program-title">Research cockpit</h2>
+            </span>
+            <span class="section-meta" id="research-program-meta">No multi-Study program</span>
+          </header>
+          <div class="program-summary" id="research-program-summary"></div>
+          <div class="program-assessment" id="research-program-assessment"></div>
+          <div class="program-lanes" id="research-program-lanes"></div>
+          <div class="program-footer" id="research-program-footer"></div>
+        </section>
+
+        <section class="handoff-section" id="research-handoff" aria-labelledby="handoff-title">
           <header class="section-header">
             <span>
               <small id="handoff-flow">REQUEST → EVIDENCE → REPORT</small>
@@ -79,21 +98,24 @@
         </section>
 
         <section
-          class="program-section"
-          id="research-program-status"
-          aria-labelledby="research-program-title"
+          class="evidence-workbench"
+          id="evidence-workbench"
+          aria-labelledby="evidence-workbench-title"
           hidden
         >
           <header class="section-header">
             <span>
-              <small>QUESTION → FACTOR → PORTFOLIO → ADAPTIVITY</small>
-              <h2 id="research-program-title">Quant research program</h2>
+              <small>SELECT A LANE → INSPECT IMMUTABLE EVIDENCE</small>
+              <h2 id="evidence-workbench-title">Evidence workbench</h2>
             </span>
-            <span class="section-meta" id="research-program-meta">No multi-Study program</span>
+            <span class="section-meta" id="evidence-workbench-meta">No lane selected</span>
           </header>
-          <div class="program-summary" id="research-program-summary"></div>
-          <div class="program-lanes" id="research-program-lanes"></div>
-          <div class="program-footer" id="research-program-footer"></div>
+          <div
+            class="evidence-lane-tabs"
+            id="evidence-lane-tabs"
+            role="tablist"
+            aria-label="Research evidence lane"
+          ></div>
         </section>
 
         <section
