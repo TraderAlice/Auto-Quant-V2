@@ -33,6 +33,7 @@ CANONICAL_LANES: tuple[dict[str, Any], ...] = (
         "role": "causal-predictive-evidence",
         "dependsOn": [],
         "editablePaths": ["factors/**"],
+        "dependencyPaths": [],
         "optional": False,
     },
     {
@@ -42,6 +43,7 @@ CANONICAL_LANES: tuple[dict[str, Any], ...] = (
         "role": "mechanical-portfolio-evidence",
         "dependsOn": ["factor"],
         "editablePaths": ["factors/**"],
+        "dependencyPaths": [],
         "optional": False,
     },
     {
@@ -51,12 +53,13 @@ CANONICAL_LANES: tuple[dict[str, Any], ...] = (
         "role": "adaptive-policy-challenge",
         "dependsOn": ["portfolio"],
         "editablePaths": ["models/**"],
+        "dependencyPaths": ["factors/**"],
         "optional": True,
     },
 )
 INTEGRATION = {
     "factorToPortfolio": "shared-candidate-source",
-    "rlFactorDependency": "fixed-reference-sleeves-not-promoted-candidate",
+    "rlFactorDependency": "content-locked-candidate-source",
     "tradingAuthority": "none",
 }
 
@@ -246,6 +249,17 @@ def _lane_state(
             "research-program.editable",
             f"{lane['id']} Study editable paths differ from program declaration",
         )
+    dependency_paths = (
+        study.definition.dependencies["paths"]
+        if study.definition.dependencies is not None
+        else []
+    )
+    if dependency_paths != lane["dependencyPaths"]:
+        _fail(
+            study.manifest_path,
+            "research-program.dependencies",
+            f"{lane['id']} Study dependency paths differ from program declaration",
+        )
     run_summaries = list_runs(project, lane["studyId"])
     latest_run = (
         _run_summary(project, run_summaries[-1].id)
@@ -375,6 +389,9 @@ def _lane_state(
             "description": study.definition.description,
             "inputHash": study.input_hash,
             "sourceHash": study.source_hash,
+            "sourceHashes": study.editable_hashes,
+            "dependencyHash": study.dependency_hash,
+            "dependencySourceHashes": study.dependency_hashes,
             "datasetHash": study.dataset_hash,
             "objective": {
                 "metric": study.definition.objective.metric,
@@ -436,6 +453,28 @@ def load_research_program(
             "research-program.dataset",
             "Every research-program Study must bind the same dataset contract and bytes",
         )
+    lane_by_id = {lane["id"]: lane for lane in lanes}
+    factor_study = lane_by_id["factor"]["study"]
+    portfolio_study = lane_by_id["portfolio"]["study"]
+    rl_study = lane_by_id["rl"]["study"]
+    if (
+        factor_study["sourceHash"] != portfolio_study["sourceHash"]
+        or factor_study["sourceHashes"] != portfolio_study["sourceHashes"]
+    ):
+        _fail(
+            path,
+            "research-program.factor-source",
+            "Factor and Portfolio lanes must share the exact candidate factor source",
+        )
+    if (
+        rl_study["dependencyHash"] != factor_study["sourceHash"]
+        or rl_study["dependencySourceHashes"] != factor_study["sourceHashes"]
+    ):
+        _fail(
+            path,
+            "research-program.rl-factor-dependency",
+            "RL dependency identity must equal the current Factor source identity",
+        )
 
     active_by_path: dict[str, list[dict[str, str]]] = {}
     for lane in lanes:
@@ -448,6 +487,7 @@ def load_research_program(
             )
     conflicts = [
         {
+            "kind": "writer-writer",
             "editablePath": editable,
             "sessions": sessions,
             "message": (
@@ -458,8 +498,48 @@ def load_research_program(
         for editable, sessions in sorted(active_by_path.items())
         if len(sessions) > 1
     ]
+    active_lanes = [
+        lane
+        for lane in lanes
+        if lane["latestSession"] is not None
+        and lane["latestSession"]["status"] == "active"
+    ]
+    reader_conflicts: dict[str, dict[str, dict[str, str]]] = {}
+    for writer in active_lanes:
+        writer_files = set(writer["study"]["sourceHashes"])
+        writer_session = writer["latestSession"]
+        for reader in active_lanes:
+            if writer["id"] == reader["id"]:
+                continue
+            shared = writer_files & set(
+                reader["study"]["dependencySourceHashes"]
+            )
+            for relative in shared:
+                sessions = reader_conflicts.setdefault(relative, {})
+                sessions[writer_session["id"]] = {
+                    "laneId": writer["id"],
+                    "sessionId": writer_session["id"],
+                    "access": "writer",
+                }
+                reader_session = reader["latestSession"]
+                sessions[reader_session["id"]] = {
+                    "laneId": reader["id"],
+                    "sessionId": reader_session["id"],
+                    "access": "reader",
+                }
+    conflicts.extend(
+        {
+            "kind": "writer-reader",
+            "editablePath": relative,
+            "sessions": list(sessions.values()),
+            "message": (
+                "An active writer Session can change a factor pinned by an "
+                "active reader Session; start a fresh reader Session after promotion."
+            ),
+        }
+        for relative, sessions in sorted(reader_conflicts.items())
+    )
 
-    lane_by_id = {lane["id"]: lane for lane in lanes}
     recommended_lane = next(
         (
             lane
@@ -508,8 +588,8 @@ def load_research_program(
     }
     warnings = [
         (
-            "The governed RL lane uses fixed reference sleeves and does not "
-            "consume promoted factors/candidate.py in V1."
+            "The governed RL lane pins the current factors/** source closure. "
+            "After factor promotion, create fresh RL evidence or a new RL Session."
         )
     ]
     warnings.extend(conflict["message"] for conflict in conflicts)

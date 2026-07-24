@@ -138,6 +138,14 @@ class GovernedRlFactorPolicyLabTests(unittest.TestCase):
             workspace, project = make_rl_lab(directory)
             study = load_study(project, RL_STUDY_ID)
             self.assertEqual(study.definition.editable["paths"], ["models/**"])
+            self.assertEqual(
+                study.definition.dependencies,
+                {"paths": ["factors/**"]},
+            )
+            self.assertEqual(
+                set(study.dependency_hashes),
+                {"factors/candidate.py"},
+            )
             self.assertEqual(study.definition.judge.paths, ["judges/**"])
             self.assertEqual(study.definition.judge.timeout_seconds, 90)
             self.assertEqual(len(study.dataset_hashes), 7)
@@ -160,6 +168,11 @@ class GovernedRlFactorPolicyLabTests(unittest.TestCase):
             self.assertEqual(metrics["rl"]["aggregate"]["failure_rate"], 0.0)
             self.assertFalse(
                 metrics["research_integrity"]["test_enters_selection"]
+            )
+            self.assertIn("candidate", metrics["configuration"]["actions"])
+            self.assertEqual(
+                metrics["configuration"]["factorExperts"][0],
+                "candidate",
             )
             self.assertLess(
                 metrics["comparison"][

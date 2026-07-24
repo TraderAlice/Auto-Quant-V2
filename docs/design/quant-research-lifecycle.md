@@ -204,8 +204,10 @@ not an opaque trading bot:
   parameters, and training history.
 
 The Judge owns state timing, action bounds, reward, costs, constraints,
-splits, seeds, budgets, and baselines. In V1 candidate code implements only a
-pure row-level causal feature transform inside the declared editable closure.
+splits, seeds, budgets, and baselines. Candidate code implements only a pure
+row-level causal feature transform inside the declared editable closure. The
+current Factor Study candidate is a separate content-locked dependency: RL can
+select its governed sleeve but cannot edit it.
 
 Required evidence includes:
 
@@ -226,8 +228,9 @@ treats RL as a higher-burden candidate lane rather than a privileged source of
 truth.
 
 V1 makes the candidate surface smaller than a general training adapter: the
-Agent edits a pure deterministic row-level state encoder. The Judge fixes four
-factor-mixture actions, linear Q-learning, next-bar costed reward, two
+Agent edits a pure deterministic row-level state encoder. The Judge fixes five
+factor-mixture actions (candidate, three references, and equal blend), linear
+Q-learning, next-bar costed reward, two
 expanding folds, three seeds, portfolio accounting, and fixed/simple-linear
 baselines. The promotion objective aggregates validation evidence only. Test
 metrics remain visible audit evidence and carry an explicit warning that
@@ -305,6 +308,8 @@ statistics or selection authority.
    [[plans/rl-factor-policy-lab]].
 5. One-request multi-Study research desk:
    [[plans/multi-study-quant-research-desk]].
+6. Governed Factor-to-RL content dependency:
+   [[plans/governed-factor-to-rl-fusion]].
 
 Each phase must produce bounded deterministic evidence and a commit before the
 next phase changes its assumptions.
@@ -339,8 +344,8 @@ next phase changes its assumptions.
 
 - Mixed-asset/multi-calendar Studies, intraday intake, corporate-action
   verification, and point-in-time universe evidence remain future data work.
-- V1 governed RL uses fixed reference sleeves; a promoted arbitrary factor is
-  not yet a governed cross-Study model input.
+- Candidate-factor dependencies are Project-local source closures; immutable
+  promoted Report artifacts are not yet a general cross-Project model input.
 - Cross-Project report aggregation and OpenAlice-side invocation/Inbox
   publication remain future collaboration work; AutoQuant now owns the exact
   request-driven Project command and report artifacts at its boundary.

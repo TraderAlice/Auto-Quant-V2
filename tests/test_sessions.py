@@ -118,6 +118,54 @@ class GovernedResearchSessionTests(unittest.TestCase):
                 evaluate_experiment(project, session.manifest["id"], "Cheat")
             self.assertEqual(len(list_runs(project)), 1)
 
+    def test_dependency_is_copied_read_only_and_upstream_change_stales_session(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, project = make_project(directory)
+            models = project.root_dir / "models"
+            models.mkdir(exist_ok=True)
+            (models / "policy.py").write_text("POLICY = 'v1'\n", encoding="utf-8")
+            create_study(
+                project,
+                study_definition(
+                    editable=["models/**"],
+                    dependencies=["factors/candidate.py"],
+                ),
+            )
+            session = start_session(project, "factor-quality")
+            dependency = (
+                session.worktree_project.root_dir
+                / "factors"
+                / "candidate.py"
+            )
+            self.assertTrue(dependency.is_file())
+            dependency.write_text("SCORE = 9.0\n", encoding="utf-8")
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "dependencyHash differs|outside the editable closure changed",
+            ):
+                evaluate_experiment(
+                    project,
+                    session.manifest["id"],
+                    "Attempt to edit the fixed upstream factor.",
+                )
+
+            dependency.write_text("SCORE = 1.25\n", encoding="utf-8")
+            (project.root_dir / "factors" / "candidate.py").write_text(
+                "SCORE = 2.0\n",
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "dependencyHash differs",
+            ):
+                evaluate_experiment(
+                    project,
+                    session.manifest["id"],
+                    "Use a stale upstream factor.",
+                )
+
         with tempfile.TemporaryDirectory() as directory:
             project, session = self._setup(directory)
             worktree = session.worktree_project.root_dir

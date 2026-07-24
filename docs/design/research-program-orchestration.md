@@ -27,7 +27,7 @@ caller request + one content-locked OHLCV snapshot
         │    same factor → mechanical state → target weights → costs/risk
         │
         └─ governed-rl-policy
-             fixed reference sleeves → adaptive-policy value-add challenge
+             locked candidate + references → adaptive-policy value-add challenge
 ```
 
 The lanes are coordinated but do not collapse into one score.
@@ -39,6 +39,7 @@ The lanes are coordinated but do not collapse into one score.
 - one Project-level request and dataset snapshot;
 - one `factors/candidate.py` shared by Factor and Portfolio Studies;
 - one `models/candidate.py` for the governed RL Study;
+- one exact `factors/**` dependency closure bound by the RL Study;
 - precise fixed Judge closures for all three Studies;
 - one program manifest declaring lane order, dependencies, roles, editable
   surfaces, and the RL integration boundary.
@@ -73,12 +74,14 @@ it never attempts an automatic merge.
 ### Governed RL policy
 
 Owns whether a bounded adaptive state representation adds value beyond fixed
-and contextual baselines. It edits `models/**`.
+and contextual baselines. It edits `models/**` and reads the current
+`factors/**` through a separately hashed, fixed dependency closure.
+The Judge independently re-audits the factor and evaluates it as both an action
+and a standalone baseline.
 
-V1's actions are still fixed reference factor-mixture sleeves. The lane does
-not yet consume arbitrary promoted `factors/candidate.py` as an action or state
-input. The program must disclose this explicitly so proximity in one Project
-is not mistaken for a causal artifact dependency.
+A promoted factor changes the RL Study input hash, making old RL Runs stale.
+An active Factor/Portfolio writer plus an active RL reader is an explicit
+writer-reader conflict: finish promotion, then start a fresh RL Session.
 
 ## Verified status projection
 
@@ -88,11 +91,12 @@ is not mistaken for a causal artifact dependency.
 - every referenced Study;
 - shared dataset identity and hash;
 - declared editable paths;
+- declared dependency paths and exact Factor-source/RL-dependency equality;
 - latest immutable Run and whether its `studyInputHash` still matches current
   Project source;
 - latest Session, experiment count, leader, and active state;
 - immutable Reports for that Session;
-- shared-surface concurrency conflicts.
+- shared writer/writer and writer/reader concurrency conflicts.
 
 Each lane is projected as:
 
@@ -127,6 +131,6 @@ the identical object through CLI JSON.
 4. Currentness is an exact hash comparison, never a timestamp guess.
 5. Downstream evidence never retroactively changes an upstream Run.
 6. Report readiness is not trading approval.
-7. The RL integration boundary is explicit until a governed cross-Study
-   artifact dependency exists.
+7. RL consumes only the exact content-locked candidate source declared by its
+   Study; no mutable implicit cross-Study reads are allowed.
 8. AutoQuant has no OpenAlice provenance or live-trading authority.

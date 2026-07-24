@@ -488,6 +488,11 @@ def _session_evidence(
             "objective": run.result["objective"],
             "metrics": run.result["metrics"],
             "artifacts": run.result["artifacts"],
+            **(
+                {"dependencies": run.result["dependencies"]}
+                if "dependencies" in run.result
+                else {}
+            ),
         }
         run_evidence.append(item)
         catalog[("run", item["id"])] = item
@@ -714,6 +719,14 @@ def _render_markdown(report: dict[str, Any]) -> str:
             f"- Harness: `{report['harness']['id']}@{report['harness']['version']}` "
             f"commit `{report['harness']['commit']}`",
             f"- Dataset hash: `{evidence['session']['locks']['datasetHash']}`",
+            *(
+                [
+                    "- Fixed dependency hash: "
+                    f"`{evidence['session']['locks']['dependencyHash']}`"
+                ]
+                if "dependencyHash" in evidence["session"]["locks"]
+                else []
+            ),
             "",
             "Publish this exact Markdown through OpenAlice Inbox to let OpenAlice",
             "stamp authoritative Workspace, Session, and document-revision provenance.",
@@ -988,6 +1001,11 @@ def _verify_frozen_evidence(
             "objective": run.result["objective"],
             "metrics": run.result["metrics"],
             "artifacts": run.result["artifacts"],
+            **(
+                {"dependencies": run.result["dependencies"]}
+                if "dependencies" in run.result
+                else {}
+            ),
         }
         if item != expected:
             issues.append(

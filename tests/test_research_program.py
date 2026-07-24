@@ -70,6 +70,14 @@ class MultiStudyResearchProgramTests(unittest.TestCase):
                 initial["lanes"][1]["study"]["sourceHash"],
                 initial["lanes"][2]["study"]["sourceHash"],
             )
+            self.assertEqual(
+                initial["lanes"][0]["study"]["sourceHash"],
+                initial["lanes"][2]["study"]["dependencyHash"],
+            )
+            self.assertEqual(
+                initial["lanes"][0]["study"]["sourceHashes"],
+                initial["lanes"][2]["study"]["dependencySourceHashes"],
+            )
 
             runs = {
                 study_id: execute_study(project, study_id)
@@ -101,11 +109,18 @@ class MultiStudyResearchProgramTests(unittest.TestCase):
 
             start_session(project, OHLCV_STUDY_ID)
             start_session(project, PORTFOLIO_STUDY_ID)
+            start_session(project, RL_STUDY_ID)
             conflicted = load_research_program(project)
             assert conflicted is not None
-            self.assertEqual(conflicted["summary"]["activeSessions"], 2)
-            self.assertEqual(conflicted["summary"]["conflicts"], 1)
+            self.assertEqual(conflicted["summary"]["activeSessions"], 3)
+            self.assertEqual(conflicted["summary"]["conflicts"], 2)
             self.assertEqual(conflicted["conflicts"][0]["editablePath"], "factors/**")
+            self.assertEqual(conflicted["conflicts"][0]["kind"], "writer-writer")
+            self.assertEqual(conflicted["conflicts"][1]["kind"], "writer-reader")
+            self.assertEqual(
+                conflicted["conflicts"][1]["editablePath"],
+                "factors/candidate.py",
+            )
 
             candidate_path = project.root_dir / "factors" / "candidate.py"
             candidate_path.write_text(
@@ -117,10 +132,10 @@ class MultiStudyResearchProgramTests(unittest.TestCase):
             assert stale is not None
             self.assertFalse(stale["lanes"][0]["currentRun"])
             self.assertFalse(stale["lanes"][1]["currentRun"])
-            self.assertTrue(stale["lanes"][2]["currentRun"])
+            self.assertFalse(stale["lanes"][2]["currentRun"])
             self.assertEqual(
                 [lane["phase"] for lane in stale["lanes"]],
-                ["stale", "stale", "baseline-ready"],
+                ["stale", "stale", "stale"],
             )
             self.assertEqual(stale["recommendedAction"]["id"], "run.execute")
 

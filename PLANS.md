@@ -32,6 +32,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/governed-factor-to-rl-fusion]] | Bound the current candidate factor into governed RL as a content-locked Study dependency and measured adaptive value beyond the factor itself. | 2026-07-24 |
 | [[plans/multi-study-quant-research-desk]] | Created one request-driven Project with coordinated Factor, Portfolio, and governed-RL Studies plus shared CLI/Studio program status. | 2026-07-24 |
 | [[plans/rl-policy-evidence-explorer]] | Projected one governed RL Run into verified baseline, fold/seed, training, action, and implementation evidence for Agents and Studio. | 2026-07-24 |
 | [[plans/factor-evidence-explorer]] | Projected one verified Factor Run into a bounded professional tear sheet for Agents and Studio. | 2026-07-24 |

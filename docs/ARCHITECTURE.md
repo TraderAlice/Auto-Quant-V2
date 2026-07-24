@@ -244,6 +244,8 @@ behind the Harness contract, not the owner of Workspace or Project semantics.
   [[docs/design/research-intake-and-dataset-snapshots]]
 - Governed RL Factor-Policy Lab design:
   [[docs/design/rl-factor-policy-lab]]
+- Read-only Study source dependencies and governed Factor-to-RL fusion:
+  [[docs/design/cross-study-factor-dependencies]]
 - Research selection and visible-test integrity:
   [[docs/design/research-selection-integrity]]
 - Research Session loop design: [[docs/design/research-session-loop]]

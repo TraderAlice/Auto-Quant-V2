@@ -404,6 +404,14 @@ CLI_COMMANDS = [
             argument("judge-path", "option", "string", False, "Repeatable fixed Judge file or trailing /** closure.", default="Judge entrypoint"),
             argument("judge-arg", "option", "string", False, "Repeatable fixed Judge argument.", default="None"),
             argument("editable", "option", "string", True, "Repeatable Agent-editable file or trailing /** closure."),
+            argument(
+                "dependency",
+                "option",
+                "string",
+                False,
+                "Repeatable fixed strategy, factor, or model source path or trailing /** closure.",
+                default="None",
+            ),
             argument("metric", "option", "string", False, "Primary metric name.", default="score"),
             argument(
                 "direction",

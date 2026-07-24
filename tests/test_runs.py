@@ -75,6 +75,46 @@ class ImmutableRunTests(unittest.TestCase):
                 [first.result["id"], second.result["id"]],
             )
 
+    def test_run_freezes_fixed_dependency_separately_from_candidate_source(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, project = make_project(directory)
+            (project.root_dir / "models" / "policy.py").write_text(
+                "POLICY = 'v1'\n",
+                encoding="utf-8",
+            )
+            study = create_study(
+                project,
+                study_definition(
+                    editable=["models/**"],
+                    dependencies=["factors/candidate.py"],
+                ),
+            )
+            run = execute_study(project, study.definition.id)
+
+            self.assertEqual(
+                run.result["dependencies"]["paths"],
+                ["factors/candidate.py"],
+            )
+            self.assertEqual(
+                run.result["dependencies"]["hash"],
+                study.dependency_hash,
+            )
+            self.assertTrue(
+                (
+                    run.root_dir
+                    / "inputs"
+                    / "dependency-sources"
+                    / "factors"
+                    / "candidate.py"
+                ).is_file()
+            )
+            self.assertFalse(
+                (run.root_dir / "sources" / "factors" / "candidate.py").exists()
+            )
+            self.assertEqual(load_run(project, run.result["id"]), run)
+
     def test_exit_malformed_output_and_timeout_publish_failed_evidence(self) -> None:
         cases = [
             ("exit-study", FAILURE_JUDGE, 10, "judge.exit"),

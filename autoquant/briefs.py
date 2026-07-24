@@ -327,6 +327,15 @@ def build_research_brief(
             "programHash": session_manifest["locks"]["programHash"],
             "judgeHash": session_manifest["locks"]["judgeHash"],
             "datasetHash": session_manifest["locks"]["datasetHash"],
+            **(
+                {
+                    "dependencyHash": session_manifest["locks"][
+                        "dependencyHash"
+                    ]
+                }
+                if "dependencyHash" in session_manifest["locks"]
+                else {}
+            ),
             "objective": baseline_result["objective"],
             "dataset": baseline_result["dataset"],
         },

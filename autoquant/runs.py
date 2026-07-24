@@ -436,6 +436,7 @@ def _materialize_execution_workspace(
     shutil.copy2(project.root_dir / PROJECT_MANIFEST, destination / PROJECT_MANIFEST)
     combined = dict(study.judge_hashes)
     combined.update(study.editable_hashes)
+    combined.update(study.dependency_hashes)
     copy_hashed_files(project, combined, destination)
     studies_directory = project.manifest.directories["studies"]
     staged_study = destination / studies_directory / study.definition.id
@@ -459,21 +460,31 @@ def _freeze_inputs(
     shutil.copy2(study.program_path, inputs / "program.md")
     copy_hashed_files(project, study.judge_hashes, inputs / "judge-sources")
     copy_hashed_files(project, study.editable_hashes, run_staging / "sources")
+    if study.dependency_hashes:
+        copy_hashed_files(
+            project,
+            study.dependency_hashes,
+            inputs / "dependency-sources",
+        )
+    identity = {
+        "studyHash": study.study_hash,
+        "programHash": study.program_hash,
+        "judgeHashes": study.judge_hashes,
+        "judgeHash": study.judge_hash,
+        "sourceHashes": study.editable_hashes,
+        "sourceHash": study.source_hash,
+        "datasetSourceHashes": study.dataset_hashes,
+        "datasetHash": study.dataset_hash,
+        "studyInputHash": study.input_hash,
+        "harness": harness,
+        "inputHash": run_input_hash,
+    }
+    if study.dependency_hash is not None:
+        identity["dependencyHashes"] = study.dependency_hashes
+        identity["dependencyHash"] = study.dependency_hash
     _write_json(
         inputs / "identity.json",
-        {
-            "studyHash": study.study_hash,
-            "programHash": study.program_hash,
-            "judgeHashes": study.judge_hashes,
-            "judgeHash": study.judge_hash,
-            "sourceHashes": study.editable_hashes,
-            "sourceHash": study.source_hash,
-            "datasetSourceHashes": study.dataset_hashes,
-            "datasetHash": study.dataset_hash,
-            "studyInputHash": study.input_hash,
-            "harness": harness,
-            "inputHash": run_input_hash,
-        },
+        identity,
     )
     if study.dataset_hashes:
         _write_json(inputs / "dataset-files.json", study.dataset_hashes)
@@ -683,6 +694,10 @@ def execute_study(
             "studyHash": (study.study_hash, owning_study.study_hash),
             "programHash": (study.program_hash, owning_study.program_hash),
             "judgeHash": (study.judge_hash, owning_study.judge_hash),
+            "dependencyHash": (
+                study.dependency_hash,
+                owning_study.dependency_hash,
+            ),
             "datasetHash": (study.dataset_hash, owning_study.dataset_hash),
         }
         changed = [
@@ -802,6 +817,12 @@ def execute_study(
             "artifacts": artifacts,
             "errors": normalized["errors"],
         }
+        if study.dependency_hash is not None:
+            result["dependencies"] = {
+                "paths": study.definition.dependencies["paths"],
+                "hash": study.dependency_hash,
+                "sourceHashes": study.dependency_hashes,
+            }
         _write_json(temporary / RUN_RESULT, result)
         files = _all_file_hashes(temporary)
         manifest = {
@@ -884,7 +905,8 @@ def _validate_run_result(
         "artifacts",
         "errors",
     }
-    issues = _strict_keys(result, required, str(path))
+    allowed = required | ({"dependencies"} if "dependencies" in result else set())
+    issues = _strict_keys(result, allowed, str(path))
     if result.get("schemaVersion") != RUN_SCHEMA_VERSION:
         issues.append(
             _issue(
@@ -1033,6 +1055,73 @@ def _validate_run_result(
                         f"{path}/dataset/sourceHashes",
                         "run.dataset-hashes",
                         "Dataset sourceHashes must map relative paths to SHA-256 hashes",
+                    )
+                )
+
+    dependencies = result.get("dependencies")
+    if dependencies is not None:
+        if not isinstance(dependencies, dict):
+            issues.append(
+                _issue(
+                    f"{path}/dependencies",
+                    "schema.type",
+                    "dependencies must be an object",
+                )
+            )
+        else:
+            issues.extend(
+                _strict_keys(
+                    dependencies,
+                    {"paths", "hash", "sourceHashes"},
+                    f"{path}/dependencies",
+                )
+            )
+            dependency_paths = dependencies.get("paths")
+            dependency_hashes = dependencies.get("sourceHashes")
+            if (
+                not isinstance(dependency_paths, list)
+                or not dependency_paths
+                or not all(
+                    isinstance(pattern, str) and pattern
+                    for pattern in dependency_paths
+                )
+            ):
+                issues.append(
+                    _issue(
+                        f"{path}/dependencies/paths",
+                        "run.dependency-paths",
+                        "Dependency paths must be a non-empty array of strings",
+                    )
+                )
+            if (
+                not isinstance(dependency_hashes, dict)
+                or not dependency_hashes
+                or not all(
+                    isinstance(relative, str)
+                    and relative
+                    and "\\" not in relative
+                    and not PurePosixPath(relative).is_absolute()
+                    and ".." not in PurePosixPath(relative).parts
+                    and isinstance(content_hash, str)
+                    and SHA256.fullmatch(content_hash)
+                    for relative, content_hash in dependency_hashes.items()
+                )
+            ):
+                issues.append(
+                    _issue(
+                        f"{path}/dependencies/sourceHashes",
+                        "run.dependency-hashes",
+                        "Dependency sourceHashes must map confined paths to SHA-256 hashes",
+                    )
+                )
+            elif dependencies.get("hash") != hash_json(
+                dict(sorted(dependency_hashes.items()))
+            ):
+                issues.append(
+                    _issue(
+                        f"{path}/dependencies/hash",
+                        "run.dependency-hash",
+                        "Dependency hash does not match sourceHashes",
                     )
                 )
 
@@ -1344,6 +1433,27 @@ RUN_RESULT_JSON_SCHEMA: dict[str, Any] = {
             "dependentRequired": {
                 "paths": ["sourceHashes"],
                 "sourceHashes": ["paths"],
+            },
+        },
+        "dependencies": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["paths", "hash", "sourceHashes"],
+            "properties": {
+                "paths": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {"type": "string", "minLength": 1},
+                },
+                "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                "sourceHashes": {
+                    "type": "object",
+                    "minProperties": 1,
+                    "additionalProperties": {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{64}$",
+                    },
+                },
             },
         },
         "judge": {"type": "object"},

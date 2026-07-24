@@ -9,9 +9,9 @@ Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]],
 ## Scope
 
 This document owns the first reinforcement-learning reference Project:
-causal state, fixed factor-mixture actions, chronological transitions, reward,
-training budget, seeds, folds, baselines, model evidence, and the candidate
-authority boundary.
+causal state, a content-locked candidate factor plus fixed reference actions,
+chronological transitions, reward, training budget, seeds, folds, baselines,
+model evidence, and the candidate authority boundary.
 
 It does not own live orders, Broker/UTA state, an unconstrained RL framework,
 distributed training, hyperparameter sweeps, or a claim that RL is preferable
@@ -56,6 +56,12 @@ cannot change:
 
 This is a replaceable representation surface, not arbitrary training code.
 
+The Study separately declares `factors/**` as a fixed dependency closure.
+Its bytes are included in Study/Run/Session identity but not in the editable
+model source hash. The RL Judge imports it only after independently verifying
+the pandas Series contract, input immutability, determinism, numeric alignment,
+and prefix causality. A changed factor makes existing RL evidence stale.
+
 ## Fixed environment
 
 The synthetic six-asset fixture alternates two persistent regimes. At close
@@ -65,15 +71,16 @@ regime plus noise. A market-wide volume level exposes a causal but imperfect
 regime feature. The fixture exists only to prove the Harness can distinguish a
 state-aware policy; it is not market evidence.
 
-Three factor experts are derived causally:
+Four factor experts are derived causally:
 
+- `candidate`: the exact content-locked Factor Study candidate;
 - `activity`: per-asset relative volume;
 - `intraday`: current close relative to current open;
 - `reversal`: negative prior close return.
 
-The fixed discrete actions are `activity`, `intraday`, `reversal`, and
-`balanced`. Each action becomes a complete causal signal sleeve: a blended
-factor panel enters the fixed percentile/hysteresis state machine and is
+The fixed discrete actions are `candidate`, `activity`, `intraday`, `reversal`,
+and `balanced`. Each action becomes a complete causal signal sleeve: a factor
+panel or equal blend enters the fixed percentile/hysteresis state machine and is
 converted by the portfolio Core into inverse-volatility-conviction, gross-one,
 dollar-neutral, capped target weights. Each sleeve maintains its own causal
 intent history. RL selects among those governed sleeves; it cannot alter
@@ -146,8 +153,9 @@ Every fold evaluates:
 - the best fixed expert selected using training dates only;
 - a deterministic contextual ridge policy trained on the same training dates.
 
-RL evidence reports the validation/test advantage against the best declared
-baseline. Positive RL score alone is not evidence that RL added value.
+RL evidence reports validation/test advantage against both the best declared
+baseline and the candidate factor by itself, plus candidate-action frequency.
+Positive RL score alone is not evidence that RL added value.
 
 ## Evidence and artifacts
 
@@ -157,7 +165,8 @@ Run metrics contain:
 - validation/test net performance, implementation, action frequency, and
   cumulative reward;
 - mean, standard deviation, minimum, and failure rate across seeds/folds;
-- every baseline and RL-minus-best-baseline comparison;
+- every baseline, RL-minus-best-baseline, RL-minus-candidate-factor, and
+  candidate-action-frequency comparison;
 - reward, timing, action, fold, seed, and training-budget configuration.
 
 Successful Runs declare:
@@ -176,16 +185,17 @@ Warm reference Runs are much faster and remain deterministic.
 ## Studio projection
 
 Studio may project validation score, test mean, seed/fold dispersion, baseline
-advantage, and failure rate from verified Run metrics. It must label these as
-RL evidence and preserve the full Run as authority. It cannot train, select a
-seed, promote a policy, or hide a failed seed.
+advantage, candidate-factor advantage, candidate usage, and failure rate from
+verified Run metrics. It must label these as RL evidence and preserve the full
+Run as authority. It cannot train, select a seed, promote a policy, or hide a
+failed seed.
 
 ## Invariants
 
 1. State at `t` contains nothing learned after close `t`.
 2. Reward for action `t` begins after close `t`.
-3. Candidate code never owns actions, reward, portfolio accounting, seeds,
-   folds, budgets, baselines, or acceptance.
+3. Candidate model code never owns actions, reward, portfolio accounting,
+   factor dependency, seeds, folds, budgets, baselines, or acceptance.
 4. Every declared seed and fold is represented in success or failure evidence.
 5. Validation alone determines the Study objective.
 6. Test inspection is disclosed and never described as a permanently untouched

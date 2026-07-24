@@ -40,6 +40,72 @@ class StudyContractTests(unittest.TestCase):
             self.assertNotEqual(before.dataset_hash, after.dataset_hash)
             self.assertNotEqual(before.input_hash, after.input_hash)
 
+    def test_fixed_dependency_changes_input_without_becoming_editable_source(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, project = make_project(directory)
+            models = project.root_dir / "models"
+            models.mkdir(exist_ok=True)
+            (models / "policy.py").write_text("POLICY = 'v1'\n", encoding="utf-8")
+            study = create_study(
+                project,
+                study_definition(
+                    editable=["models/**"],
+                    dependencies=["factors/candidate.py"],
+                ),
+            )
+            self.assertEqual(
+                list(study.dependency_hashes),
+                ["factors/candidate.py"],
+            )
+            self.assertNotIn(
+                "dependencies",
+                study_definition().to_dict(),
+            )
+            before_source = study.source_hash
+            before_dependency = study.dependency_hash
+            before_input = study.input_hash
+
+            (project.root_dir / "factors" / "candidate.py").write_text(
+                "SCORE = 3.5\n",
+                encoding="utf-8",
+            )
+            changed = load_study(project, "factor-quality")
+            self.assertEqual(changed.source_hash, before_source)
+            self.assertNotEqual(changed.dependency_hash, before_dependency)
+            self.assertNotEqual(changed.input_hash, before_input)
+
+    def test_dependency_must_be_nonempty_fixed_source_disjoint_from_editable(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, project = make_project(directory)
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "cannot also be editable",
+            ):
+                create_study(
+                    project,
+                    study_definition(
+                        dependencies=["factors/candidate.py"],
+                    ),
+                )
+
+        with tempfile.TemporaryDirectory() as directory:
+            _, project = make_project(directory)
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "not a file|matched no files",
+            ):
+                create_study(
+                    project,
+                    study_definition(
+                        editable=["models/**"],
+                        dependencies=["models/missing.py"],
+                    ),
+                )
+
     def test_study_pins_program_judge_sources_editable_sources_and_dataset(
         self,
     ) -> None:

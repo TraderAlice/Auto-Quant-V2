@@ -82,11 +82,13 @@ new external holdout as required and carries exact trial/verdict counts through
 Studio and immutable Research Reports.
 
 The `ohlcv-rl-factor-lab` starter asks a narrower question than “can an RL bot
-trade?”: can a bounded policy use causal regime features to choose among fixed
-factor mixtures? Agents edit only a pure state encoder. The Judge fixes
+trade?”: can a bounded policy use causal regime features to choose among a
+content-locked candidate factor and fixed reference factors? Agents edit only
+a pure state encoder. The Judge audits the factor dependency and fixes
 Q-learning, actions, next-bar reward, portfolio accounting, two expanding
 folds, three seeds, and fixed-factor/contextual-ridge baselines. Each action is
 a governed stateful factor sleeve using the same mechanical signal policy.
+Evidence reports both RL-minus-best-baseline and RL-minus-candidate-factor.
 Validation is the promotion metric; test evidence is reported separately with
 an explicit repeated-inspection warning. A higher RL score does not count as
 value added when a simple baseline still wins.

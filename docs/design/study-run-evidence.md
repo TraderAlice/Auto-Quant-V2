@@ -1,6 +1,7 @@
 # Study contracts and immutable Run evidence
 
-Status: V1 Python Judge lane and optional dataset content locks implemented.
+Status: V1 Python Judge lane, optional dataset content locks, and fixed source
+dependencies implemented.
 
 Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]], [[docs/CLI]],
 [[docs/design/workspace-project-boundaries]], and
@@ -55,6 +56,8 @@ A Study contains:
 - stable id, name, description, and human program;
 - subject kind/name/version;
 - exact editable files or trailing-`/**` directory closures;
+- optional separately hashed, non-editable strategy/factor/model dependency
+  closures;
 - one Python Judge entrypoint, its complete fixed source closure, arguments,
   and wall-clock timeout;
 - primary metric, maximize/minimize direction, and minimum improvement;
@@ -67,10 +70,14 @@ The Core derives:
 - `programHash` from program bytes;
 - `judgeHash` from every fixed Judge source path and content hash;
 - `sourceHash` from every editable source path and content hash;
+- optional `dependencyHash` from every declared fixed dependency path and
+  content hash;
 - `datasetHash` from the declared dataset identity alone for legacy Studies, or
   from that definition plus the complete matched file-hash inventory when
   optional `dataset.paths` is present;
-- `studyInputHash` from those five identities.
+- `studyInputHash` from the fixed identities, including `dependencyHash` only
+  when the optional dependency field is declared. Legacy identities remain
+  unchanged.
 
 The complete Run `inputHash` additionally binds the installed AutoQuant
 Harness id/version/commit, dirty state, source hash, and Python version.
@@ -88,10 +95,12 @@ executions still receive unique immutable Run ids.
    model directories; Judge paths stay beneath its declared Judge directory.
 6. The Study manifest, program, Judge entrypoint, and every Judge source file
    are outside the editable closure.
-7. The Judge entrypoint is included in the declared Judge closure.
-8. Program, Judge, editable source, and artifact paths are Project- or
+7. Dependency closures stay under strategy/factor/model directories, are
+   non-empty, and cannot overlap editable files.
+8. The Judge entrypoint is included in the declared Judge closure.
+9. Program, Judge, editable source, dependency, and artifact paths are Project- or
    artifact-root-confined POSIX relative paths.
-9. Dataset paths are confined beneath the canonical Project data root. Exact
+10. Dataset paths are confined beneath the canonical Project data root. Exact
    paths are files; closures are non-empty real directories; neither may
    contain symlinks.
 
@@ -99,8 +108,8 @@ executions still receive unique immutable Run ids.
 
 ```text
 strict Study load
-→ hash Study/program/Judge/editable sources/dataset/Harness
-→ freeze Run inputs and editable source bytes
+→ hash Study/program/Judge/editable/dependency sources/dataset/Harness
+→ freeze Run inputs, editable source bytes, and fixed dependency bytes
 → materialize isolated source workspace
 → execute fixed Python Judge with a bounded timeout
 → validate one Judge output JSON and exact artifact inventory
@@ -111,8 +120,8 @@ strict Study load
 ```
 
 The isolated execution workspace contains only the Project manifest, Study,
-program, fixed Judge sources, and editable sources. It does not inherit
-undeclared Project code. Dataset access is explicit through
+program, fixed Judge sources, editable sources, and declared fixed dependency
+sources. It does not inherit undeclared Project code. Dataset access is explicit through
 `AUTOQUANT_DATA_ROOT`. Content-locked Studies hash that same canonical root
 before execution and freeze its relative file-hash inventory into Run inputs;
 they do not copy potentially large dataset bytes into the isolated workspace.
@@ -162,6 +171,8 @@ collision.
    frozen `inputs/dataset-files.json` preserves the same inventory.
 7. Completed Run directories are read-only protocol artifacts. New analysis
    produces a derived artifact or new Run rather than changing them.
+8. A dependency-bearing RunResult records paths, aggregate hash, and
+   `sourceHashes`; `inputs/dependency-sources/` preserves those exact bytes.
 
 ## Non-goals
 
@@ -175,13 +186,15 @@ collision.
 
 - Update Study, Judge output, RunResult schemas, parser behavior, CLI
   capability descriptors, and canonical docs together.
-- Keep Judge and editable source closures disjoint.
+- Keep Judge, editable source, and dependency authority surfaces disjoint.
 - Add failure evidence for each new execution failure mode.
 - Preserve manifest-last atomic publication and full-file tamper verification.
 - Add Studio as a projection of verified RunResult rather than a second
   evaluator.
 - Keep optional content locks backward compatible: absence of `dataset.paths`
   must preserve the historical definition and dataset hash exactly.
+- Keep optional source dependencies backward compatible: their absence must
+  preserve historical Study serialization and input hashes exactly.
 
 ## Verification
 

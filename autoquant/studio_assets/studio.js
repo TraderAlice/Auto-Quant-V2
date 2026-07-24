@@ -512,6 +512,10 @@ function renderResearchProgram(project) {
             <dd>${session ? `${session.experiments} experiments` : "not started"}</dd>
             <dt>Source</dt>
             <dd>${escapeHtml(lane.editablePaths.join(", "))}</dd>
+            ${lane.dependencyPaths?.length ? `
+              <dt>Fixed input</dt>
+              <dd>${escapeHtml(lane.dependencyPaths.join(", "))}</dd>
+            ` : ""}
           </dl>
           <div class="program-lane-foot">
             <span class="program-phase ${lane.phase}">${escapeHtml(programPhaseLabel(lane.phase))}</span>
@@ -1477,7 +1481,7 @@ function renderRlDetail(explorer) {
       <span><small>Action transitions</small><b>${metric(transitions)}</b></span>
       <span><small>Cost assumption</small><b>${metric(explorer.protocol.configuration.costBps)} bps</b></span>
     </div>
-    <p class="book-disclosure">Actions select fixed governed factor-mixture sleeves. They are historical research evidence, not orders or account positions.</p>`;
+    <p class="book-disclosure">Actions select the content-locked candidate factor, fixed reference factors, or their governed blend. They are historical research evidence, not orders or account positions.</p>`;
 }
 
 function renderRlExplorer(project) {
@@ -1489,11 +1493,22 @@ function renderRlExplorer(project) {
   }
   section.hidden = false;
   const summary = explorer.summary;
+  const fusion = explorer.factorFusion;
   const advantage = summary.meanValidationAdvantageVsBestBaseline;
+  const candidateAdvantage = fusion.meanValidationAdvantageVsCandidateFactor;
   element("rl-meta").textContent =
     `${explorer.run.id} · ${summary.trialCount} fold/seed trials · validation selection`;
+  const fusionCards = fusion.available
+    ? [
+        ["vs candidate factor", `${candidateAdvantage > 0 ? "+" : ""}${metric(candidateAdvantage)}`, "content-locked baseline", candidateAdvantage >= 0 ? "positive" : "negative"],
+        ["Candidate usage", percent(fusion.meanValidationCandidateActionFrequency), "validation action frequency", ""],
+      ]
+    : [
+        ["Factor fusion", "Legacy", "reference sleeves only", "audit"],
+      ];
   element("rl-summary").innerHTML = [
     ["RL value-add", `${advantage > 0 ? "+" : ""}${metric(advantage)}`, "vs best validation baseline", advantage >= 0 ? "positive" : "negative"],
+    ...fusionCards,
     ["Validation Sharpe", metric(summary.validation.mean), `minimum ${metric(summary.validation.minimum)}`, ""],
     ["Seed / fold dispersion", metric(summary.validation.standardDeviation), `${summary.validation.observations} trials`, ""],
     ["Failure rate", percent(summary.failureRate), "all declared trials", summary.failureRate ? "negative" : ""],

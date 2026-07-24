@@ -1344,6 +1344,11 @@ main {
   fill: #e9e7dc;
 }
 
+.rl-action-candidate {
+  fill: #ef6f91;
+  background: #ef6f91 !important;
+}
+
 .rl-action-activity {
   fill: var(--acid);
   background: var(--acid) !important;

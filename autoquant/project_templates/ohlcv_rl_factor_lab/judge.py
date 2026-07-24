@@ -22,6 +22,7 @@ from judges.rl_core import (
     EPISODES,
     EPSILON_END,
     EPSILON_START,
+    EXPERTS,
     FEATURE_ABS_LIMIT,
     LEARNING_RATE,
     RISK_AVERSION,
@@ -212,12 +213,85 @@ def _candidate_encoder(
     return names, encode
 
 
+def _factor_series(module: Any, frame: pd.DataFrame, asset: str) -> pd.Series:
+    before = frame.copy(deep=True)
+    try:
+        first = module.compute_factor(frame)
+        second = module.compute_factor(frame)
+    except Exception as error:
+        raise JudgeFailure(
+            "factor.execution",
+            f"compute_factor raised for {asset}: {type(error).__name__}: {error}",
+        ) from error
+    if not frame.equals(before):
+        raise JudgeFailure("factor.mutation", f"compute_factor mutated {asset} input")
+    if not isinstance(first, pd.Series) or not isinstance(second, pd.Series):
+        raise JudgeFailure("factor.type", "compute_factor must return pandas.Series")
+    if (
+        len(first) != len(frame)
+        or not first.index.equals(frame.index)
+        or len(second) != len(frame)
+        or not second.index.equals(frame.index)
+    ):
+        raise JudgeFailure(
+            "factor.alignment",
+            "Factor Series must preserve the input length and index",
+        )
+    try:
+        first_numeric = pd.to_numeric(first, errors="raise").astype(float)
+        second_numeric = pd.to_numeric(second, errors="raise").astype(float)
+    except (TypeError, ValueError) as error:
+        raise JudgeFailure("factor.numeric", f"Factor must be numeric: {error}") from error
+    if (
+        np.isinf(first_numeric.to_numpy()).any()
+        or np.isinf(second_numeric.to_numpy()).any()
+    ):
+        raise JudgeFailure("factor.non-finite", "Factor cannot contain infinity")
+    if not np.isclose(
+        first_numeric.to_numpy(dtype=float),
+        second_numeric.to_numpy(dtype=float),
+        rtol=1e-10,
+        atol=1e-12,
+        equal_nan=True,
+    ).all():
+        raise JudgeFailure(
+            "factor.nondeterministic",
+            "compute_factor returned different values for one fixed input",
+        )
+    return first_numeric
+
+
+def _audit_factor_causality(
+    module: Any,
+    frame: pd.DataFrame,
+    full: pd.Series,
+    asset: str,
+) -> list[int]:
+    cuts = sorted({len(frame) // 2, (len(frame) * 3) // 4, len(frame) - 2})
+    for cut in cuts:
+        prefix = _factor_series(module, frame.iloc[: cut + 1].copy(), asset)
+        start = max(0, cut - 4)
+        if not np.isclose(
+            full.iloc[start : cut + 1].to_numpy(dtype=float),
+            prefix.iloc[start : cut + 1].to_numpy(dtype=float),
+            rtol=1e-10,
+            atol=1e-12,
+            equal_nan=True,
+        ).all():
+            raise JudgeFailure(
+                "factor.lookahead",
+                f"{asset} past factor values change when future rows are withheld",
+            )
+    return cuts
+
+
 def _panels(
     study: dict[str, Any],
     data_root: Path,
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+) -> tuple[dict[str, pd.DataFrame], pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     dataset = study["dataset"]
     time_range = dataset["time_range"]
+    frames: dict[str, pd.DataFrame] = {}
     opens: dict[str, pd.Series] = {}
     closes: dict[str, pd.Series] = {}
     volumes: dict[str, pd.Series] = {}
@@ -228,6 +302,7 @@ def _panels(
             time_range["start"],
             time_range["end"],
         )
+        frames[asset] = frame
         index = pd.DatetimeIndex(frame["timestamp"])
         for target, column in (
             (opens, "open"),
@@ -237,15 +312,17 @@ def _panels(
             values = frame[column].astype(float)
             values.index = index
             target[asset] = values
-    return pd.DataFrame(opens), pd.DataFrame(closes), pd.DataFrame(volumes)
+    return frames, pd.DataFrame(opens), pd.DataFrame(closes), pd.DataFrame(volumes)
 
 
 def _factor_panels(
     opens: pd.DataFrame,
     closes: pd.DataFrame,
     volumes: pd.DataFrame,
+    candidate: pd.DataFrame,
 ) -> dict[str, pd.DataFrame]:
     return {
+        "candidate": candidate,
         "activity": np.log(
             volumes
             / volumes.rolling(20, min_periods=20).mean()
@@ -402,11 +479,30 @@ def _evaluate() -> tuple[
     list[dict[str, Any]],
 ]:
     study, data_root = _load_contract()
-    module = importlib.import_module("models.candidate")
-    feature_names, encoder = _candidate_encoder(module)
-    opens, closes, volumes = _panels(study, data_root)
+    model_module = importlib.import_module("models.candidate")
+    factor_module = importlib.import_module("factors.candidate")
+    if not callable(getattr(factor_module, "compute_factor", None)):
+        raise JudgeFailure(
+            "factor.api",
+            "factors.candidate must export callable compute_factor(frame)",
+        )
+    feature_names, encoder = _candidate_encoder(model_module)
+    frames, opens, closes, volumes = _panels(study, data_root)
+    candidate_by_asset: dict[str, pd.Series] = {}
+    factor_causality_cuts: dict[str, list[int]] = {}
+    for asset, frame in frames.items():
+        factor = _factor_series(factor_module, frame, asset)
+        factor_causality_cuts[asset] = _audit_factor_causality(
+            factor_module,
+            frame,
+            factor,
+            asset,
+        )
+        factor.index = pd.DatetimeIndex(frame["timestamp"])
+        candidate_by_asset[asset] = factor
+    candidate_panel = pd.DataFrame(candidate_by_asset)
     action_targets = build_action_targets(
-        _factor_panels(opens, closes, volumes),
+        _factor_panels(opens, closes, volumes, candidate_panel),
         closes,
     )
     audits = {
@@ -453,6 +549,11 @@ def _evaluate() -> tuple[
     test_sharpes: list[float] = []
     validation_advantages: list[float] = []
     test_advantages: list[float] = []
+    candidate_validation_sharpes: list[float] = []
+    candidate_test_sharpes: list[float] = []
+    validation_advantages_vs_candidate: list[float] = []
+    test_advantages_vs_candidate: list[float] = []
+    validation_candidate_action_frequencies: list[float] = []
 
     for fold_name, split in folds.items():
         baselines, ridge_model, best_baseline = _fixed_baselines(
@@ -480,6 +581,18 @@ def _evaluate() -> tuple[
                 "test",
             )["net"]["sharpe"]
         )
+        candidate_validation = float(
+            baselines["fixed_factor_or_blend"]["candidate"]["validation"][
+                "net"
+            ]["sharpe"]
+        )
+        candidate_test = float(
+            baselines["fixed_factor_or_blend"]["candidate"]["test"]["net"][
+                "sharpe"
+            ]
+        )
+        candidate_validation_sharpes.append(candidate_validation)
+        candidate_test_sharpes.append(candidate_test)
         seed_metrics: dict[str, Any] = {}
         policy_models[fold_name] = {
             "contextualRidgeBaseline": ridge_model,
@@ -525,6 +638,9 @@ def _evaluate() -> tuple[
                 fold_test.append(test_sharpe)
                 validation_sharpes.append(validation_sharpe)
                 test_sharpes.append(test_sharpe)
+                validation_candidate_action_frequencies.append(
+                    float(validation["action_frequency"]["candidate"])
+                )
                 seed_metrics[str(seed)] = {
                     "status": "succeeded",
                     "validation": validation,
@@ -582,8 +698,16 @@ def _evaluate() -> tuple[
             continue
         validation_advantage = float(np.mean(fold_validation)) - best_validation
         test_advantage = float(np.mean(fold_test)) - matching_test
+        validation_advantage_vs_candidate = (
+            float(np.mean(fold_validation)) - candidate_validation
+        )
+        test_advantage_vs_candidate = float(np.mean(fold_test)) - candidate_test
         validation_advantages.append(validation_advantage)
         test_advantages.append(test_advantage)
+        validation_advantages_vs_candidate.append(
+            validation_advantage_vs_candidate
+        )
+        test_advantages_vs_candidate.append(test_advantage_vs_candidate)
         fold_metrics[fold_name] = {
             "ranges": {
                 name: {
@@ -599,6 +723,10 @@ def _evaluate() -> tuple[
                 "test_net_sharpe": _aggregate(fold_test),
                 "validation_advantage_vs_best_baseline": validation_advantage,
                 "test_advantage_vs_validation_selected_baseline": test_advantage,
+                "validation_advantage_vs_candidate_factor": (
+                    validation_advantage_vs_candidate
+                ),
+                "test_advantage_vs_candidate_factor": test_advantage_vs_candidate,
                 "best_validation_baseline": best_baseline,
             },
         }
@@ -625,10 +753,26 @@ def _evaluate() -> tuple[
             "mean_test_advantage_vs_validation_selected_baseline": float(
                 np.mean(test_advantages)
             ),
+            "candidate_factor_validation_net_sharpe": _aggregate(
+                candidate_validation_sharpes
+            ),
+            "candidate_factor_test_net_sharpe": _aggregate(
+                candidate_test_sharpes
+            ),
+            "mean_validation_advantage_vs_candidate_factor": float(
+                np.mean(validation_advantages_vs_candidate)
+            ),
+            "mean_test_advantage_vs_candidate_factor": float(
+                np.mean(test_advantages_vs_candidate)
+            ),
+            "mean_validation_candidate_action_frequency": float(
+                np.mean(validation_candidate_action_frequencies)
+            ),
         },
         "constraint_audit": audits,
         "configuration": {
             "actions": list(ACTIONS),
+            "factorExperts": list(EXPERTS),
             "rawStateFields": list(BASE_STATE_COLUMNS)
             + [f"previous_{action}" for action in ACTIONS],
             "featureNames": feature_names,
@@ -649,6 +793,11 @@ def _evaluate() -> tuple[
             "external_holdout_rule": (
                 "required-after-test-guided-iteration"
             ),
+            "factor_dependency": {
+                "module": "factors.candidate",
+                "mode": "content-locked-study-dependency",
+                "causalityAuditCuts": factor_causality_cuts,
+            },
         },
     }
     if not math.isfinite(metrics["validation_mean_net_sharpe"]):
@@ -666,7 +815,10 @@ def _evaluate() -> tuple[
         "semantics": {
             "simulation": "governed-factor-mixture-q-policy",
             "state": "fixed causal scalars known through close t",
-            "action": "one of four fixed factor mixtures at close t",
+            "action": (
+                "candidate factor, one of three reference factors, or their "
+                "equal-weight blend at close t"
+            ),
             "return": "close t to close t+1",
             "reward": "net return after 10bps cost minus 0.10 * gross_return^2",
             "objective": "mean validation net Sharpe across every successful seed/fold",

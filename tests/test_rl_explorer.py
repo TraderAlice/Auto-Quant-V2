@@ -64,13 +64,26 @@ class RlPolicyEvidenceExplorerTests(unittest.TestCase):
             )
             self.assertEqual(diagnostics["run"]["inputHash"], run.result["inputHash"])
             self.assertEqual(len(diagnostics["trials"]), 6)
-            self.assertEqual(len(diagnostics["baselines"]), 12)
+            self.assertEqual(len(diagnostics["baselines"]), 14)
             self.assertEqual(len(diagnostics["models"]), 6)
             self.assertEqual(len(diagnostics["training"]), 24)
             self.assertEqual(len(diagnostics["actionSummaries"]), 12)
             self.assertEqual(diagnostics["actionPath"]["sampledRows"], 64)
             self.assertEqual(diagnostics["actionPath"]["totalRows"], 780)
             self.assertFalse(diagnostics["protocol"]["testEntersSelection"])
+            self.assertEqual(
+                diagnostics["factorFusion"]["dependency"]["paths"],
+                ["factors/**"],
+            )
+            self.assertTrue(diagnostics["factorFusion"]["available"])
+            self.assertEqual(
+                diagnostics["factorFusion"][
+                    "meanValidationAdvantageVsCandidateFactor"
+                ],
+                run.result["metrics"]["comparison"][
+                    "mean_validation_advantage_vs_candidate_factor"
+                ],
+            )
             self.assertEqual(
                 diagnostics["summary"]["validation"]["mean"],
                 run.result["metrics"]["validation_mean_net_sharpe"],

@@ -10,8 +10,9 @@ changing Project, request, universe, or dataset:
 2. **Portfolio quality** — test whether the same `factors/candidate.py`
    survives mechanical signal state, sizing, constraints, drift, costs, risk,
    and attribution.
-3. **Governed RL policy** — test whether a bounded adaptive state encoder adds
-   value beyond fixed and contextual policies across every declared fold and
+3. **Governed RL policy** — bind the current candidate factor as a read-only
+   sleeve and test whether a bounded adaptive state encoder adds value beyond
+   that factor and fixed/contextual policies across every declared fold and
    seed.
 
 ## Working order
@@ -36,9 +37,10 @@ after costs; a portfolio can be mechanically sound without proving a raw
 factor claim; an RL policy can have high absolute Sharpe yet add no value over
 a simple baseline.
 
-The V1 RL lane uses fixed reference factor-mixture sleeves. It does not consume
-the promoted arbitrary candidate factor. Treat it as an adaptivity challenge,
-not as proof that the discovered factor has been fused into RL.
+The RL lane content-locks the current `factors/candidate.py` bytes when its
+Study is loaded. Promoting a different factor makes prior RL evidence stale;
+create fresh RL evidence or start a new RL Session. Factor writers and active
+RL readers are surfaced as a concurrency conflict.
 
 AutoQuant produces quantitative decision support only. Target weights,
 historical actions, and Reports are not Broker orders, account state, or

@@ -217,6 +217,9 @@ studies/
   "editable": {
     "paths": ["factors/**"]
   },
+  "dependencies": {
+    "paths": ["models/fixed-input.py"]
+  },
   "judge": {
     "kind": "python",
     "entrypoint": "judges/evaluate.py",
@@ -248,6 +251,13 @@ must be exact files or trailing-`/**` closures beneath the Project's declared
 strategy, factor, or model directories. Judge paths use the same closure syntax
 but stay beneath the declared Judge directory and are fixed and disjoint from
 editable source.
+
+`dependencies` is optional. Its exact paths or trailing-`/**` closures use the
+same confined strategy/factor/model roots, must be non-empty and disjoint from
+the editable closure, and remain fixed for that Study. Their individual and
+aggregate hashes enter Study input identity without becoming candidate source
+identity. Runs freeze them under `inputs/dependency-sources/`; Sessions copy
+them into the worktree but reject edits or upstream byte changes.
 
 `dataset.paths` is optional and relative to the Project's declared `data/`
 directory. When absent, the historical declarative dataset hash is preserved.
@@ -302,6 +312,7 @@ runs/
     │   ├── program.md
     │   ├── identity.json
     │   ├── dataset-files.json  # content-locked Studies only
+    │   ├── dependency-sources/ # declared fixed source dependencies only
     │   └── judge-sources/<project-relative files>
     ├── sources/<editable project-relative files>
     ├── artifacts/<declared Judge files>
@@ -318,6 +329,7 @@ runs/
 - complete input and Study-input hashes;
 - Harness id/version/commit/dirty/source/Python identity;
 - Project, Study, subject/version, and editable source identity;
+- optional fixed dependency paths, aggregate hash, and source-file hashes;
 - dataset id/version, asset class, universe, date range, dataset hash, and
   optional content-locked source hashes;
 - Judge entrypoint and fixed source hashes;
@@ -365,7 +377,7 @@ sessions/
 - Session status, Project, Study, worktree, timestamps, and next sequence;
 - exact editable paths and Project source hash at Session start;
 - successful baseline and current leader Run/source/metric/value pointers;
-- Study/program/Judge/dataset/Harness locks;
+- Study/program/Judge/dataset/dependency/Harness locks;
 - a complete hash inventory of every non-editable worktree file.
 
 When Session start receives a strict delegated Research Request,

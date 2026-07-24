@@ -540,6 +540,12 @@ def _apply_ohlcv_rl_factor_lab(
     )
     _write_template_source(
         project,
+        "factors/candidate.py",
+        "candidate.py",
+        template="ohlcv_portfolio_lab",
+    )
+    _write_template_source(
+        project,
         "judges/ohlcv_rl_factor.py",
         "judge.py",
         template=template,
@@ -565,7 +571,8 @@ def _apply_ohlcv_rl_factor_lab(
         id=RL_STUDY_ID,
         name="Governed RL Factor Policy",
         description=(
-            "Test causal state representations for a fixed factor-mixture policy"
+            "Test causal state representations across a locked candidate "
+            "factor and fixed reference sleeves"
         ),
         program="program.md",
         subject=StudySubject("model", "rl-state-encoder", "working"),
@@ -590,6 +597,7 @@ def _apply_ohlcv_rl_factor_lab(
             StudyTimeRange(str(dataset["start"]), end.isoformat()),
             ["ohlcv/**"],
         ),
+        dependencies={"paths": ["factors/**"]},
     )
     study = create_study(project, definition)
     study.program_path.write_text(
@@ -752,8 +760,8 @@ def _apply_ohlcv_research_desk(
                 id=RL_STUDY_ID,
                 name="Governed RL Factor Policy",
                 description=(
-                    "Challenge fixed reference factor sleeves with a bounded "
-                    "adaptive state representation"
+                    "Challenge a locked candidate factor and fixed reference "
+                    "sleeves with a bounded adaptive state representation"
                 ),
                 program="program.md",
                 subject=StudySubject("model", "rl-state-encoder", "working"),
@@ -775,6 +783,7 @@ def _apply_ohlcv_research_desk(
                     0.20,
                 ),
                 dataset=shared_dataset,
+                dependencies={"paths": ["factors/**"]},
             ),
             "ohlcv_rl_factor_lab",
         ),

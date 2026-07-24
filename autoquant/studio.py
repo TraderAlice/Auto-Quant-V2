@@ -505,6 +505,7 @@ def _rl_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
         return None
     try:
         aggregate = metrics["rl"]["aggregate"]
+        comparison = metrics["comparison"]
         return {
             "kind": "rl-policy",
             "validationMeanNetSharpe": metrics[
@@ -517,9 +518,15 @@ def _rl_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
             "testSeedFoldStd": aggregate["test_net_sharpe"][
                 "standard_deviation"
             ],
-            "validationBaselineAdvantage": metrics["comparison"][
+            "validationBaselineAdvantage": comparison[
                 "mean_validation_advantage_vs_best_baseline"
             ],
+            "validationCandidateFactorAdvantage": comparison.get(
+                "mean_validation_advantage_vs_candidate_factor"
+            ),
+            "validationCandidateActionFrequency": comparison.get(
+                "mean_validation_candidate_action_frequency"
+            ),
             "failureRate": aggregate["failure_rate"],
             "folds": len(metrics["configuration"]["folds"]),
             "seeds": len(metrics["configuration"]["seeds"]),

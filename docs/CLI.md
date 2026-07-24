@@ -67,16 +67,17 @@ next actions. `ohlcv-portfolio-lab` uses the same causal candidate API and
 adds fixed constrained target construction, drift-aware accounting,
 transaction costs, layered professional metrics, and cost/delay stresses.
 `ohlcv-rl-factor-lab` adds a deterministic causal state encoder surface over
-fixed factor-mixture actions, Q-learning, folds, seeds, rewards, portfolio
-accounting, and simple baselines. All three reference templates are bounded,
-deterministic construction fixtures.
+a content-locked candidate-factor sleeve plus fixed reference actions,
+Q-learning, folds, seeds, rewards, portfolio accounting, and simple baselines.
+All three reference templates are bounded, deterministic construction
+fixtures.
 
 `ohlcv-research-desk` coordinates those three evaluation questions in one
 Project over one dataset snapshot. Factor and Portfolio deliberately share
 `factors/candidate.py`; RL owns `models/candidate.py`. The program reports
 simultaneous active Sessions on the shared Factor surface as a conflict and
-discloses that V1 RL still uses fixed reference sleeves rather than the
-promoted arbitrary factor.
+also reports active factor-writer/RL-reader conflicts. The RL Study binds the
+exact current candidate bytes, so factor changes stale its Run evidence.
 
 `project intake` defaults to this research-desk template. It validates the
 strict request and a caller-supplied,
@@ -103,6 +104,7 @@ aq study create <path> <study-id> \
   --judge judges/evaluate.py \
   --judge-path 'judges/**' \
   --editable 'factors/**' \
+  [--dependency 'models/fixed-input.py'] \
   --metric score \
   --dataset-id synthetic-bars \
   --dataset-path 'ohlcv/**' \
@@ -127,6 +129,11 @@ aq run rl <path> --run ID \
 `--dataset-path` is optional and repeatable. When provided it is relative to
 the selected Project's `data/` directory and binds matching file bytes into
 Study and Run identity.
+
+`--dependency` is optional and repeatable. It declares fixed Project-relative
+strategy/factor/model source that the Judge may import but the Study cannot
+edit. Dependency files are separately hashed, frozen into Run inputs, copied
+read-only into Session worktrees, and included in Study currentness.
 
 `study create` validates the complete fixed contract immediately. `run execute`
 freezes inputs, runs the Python Judge under its timeout, and atomically

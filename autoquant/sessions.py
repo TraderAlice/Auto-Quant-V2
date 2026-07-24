@@ -335,17 +335,22 @@ def _materialize_worktree(
     _copy_project_file(project, program_relative, worktree_root)
     copy_hashed_files(project, study.judge_hashes, worktree_root)
     copy_hashed_files(project, study.editable_hashes, worktree_root)
+    if study.dependency_hashes:
+        copy_hashed_files(project, study.dependency_hashes, worktree_root)
     return load_project(worktree_root, expected_id=project.manifest.id)
 
 
 def _session_lock(study: StudyContext, baseline: RunContext) -> dict[str, Any]:
-    return {
+    lock = {
         "studyHash": study.study_hash,
         "programHash": study.program_hash,
         "judgeHash": study.judge_hash,
         "datasetHash": study.dataset_hash,
         "harness": baseline.result["harness"],
     }
+    if study.dependency_hash is not None:
+        lock["dependencyHash"] = study.dependency_hash
+    return lock
 
 
 def _run_pointer(run: RunContext) -> dict[str, Any]:
@@ -603,17 +608,20 @@ def _validate_session_manifest(
     if not isinstance(locks, dict):
         issues.append(_issue(f"{path}/locks", "schema.type", "locks must be an object"))
     else:
+        lock_keys = {
+            "studyHash",
+            "programHash",
+            "judgeHash",
+            "datasetHash",
+            "harness",
+            "fixedHashes",
+        }
+        if "dependencyHash" in locks:
+            lock_keys.add("dependencyHash")
         issues.extend(
             _strict_keys(
                 locks,
-                {
-                    "studyHash",
-                    "programHash",
-                    "judgeHash",
-                    "datasetHash",
-                    "harness",
-                    "fixedHashes",
-                },
+                lock_keys,
                 f"{path}/locks",
             )
         )
@@ -632,6 +640,17 @@ def _validate_session_manifest(
         for key in ("studyHash", "programHash", "judgeHash", "datasetHash"):
             if not isinstance(locks.get(key), str) or not SHA256.fullmatch(locks.get(key, "")):
                 issues.append(_issue(f"{path}/locks/{key}", "schema.hash", f"Invalid {key}"))
+        if "dependencyHash" in locks and (
+            not isinstance(locks.get("dependencyHash"), str)
+            or not SHA256.fullmatch(locks.get("dependencyHash", ""))
+        ):
+            issues.append(
+                _issue(
+                    f"{path}/locks/dependencyHash",
+                    "schema.hash",
+                    "Invalid dependencyHash",
+                )
+            )
         harness = locks.get("harness")
         if not isinstance(harness, dict):
             issues.append(_issue(f"{path}/locks/harness", "schema.type", "Invalid Harness lock"))
@@ -888,6 +907,8 @@ def _authority_issues(
             "judgeHash": study.judge_hash,
             "datasetHash": study.dataset_hash,
         }
+        if "dependencyHash" in locks:
+            actual["dependencyHash"] = study.dependency_hash
         for key, value in actual.items():
             if value != locks[key]:
                 issues.append(
@@ -1222,6 +1243,8 @@ def restore_session_worktree(
         "judgeHash": canonical.judge_hash,
         "datasetHash": canonical.dataset_hash,
     }
+    if "dependencyHash" in locks:
+        fixed_identity["dependencyHash"] = canonical.dependency_hash
     issues = [
         _issue(
             canonical.root_dir,
@@ -1781,6 +1804,10 @@ SESSION_JSON_SCHEMA: dict[str, Any] = {
                 "studyHash": {"type": "string", "pattern": SHA256.pattern},
                 "programHash": {"type": "string", "pattern": SHA256.pattern},
                 "judgeHash": {"type": "string", "pattern": SHA256.pattern},
+                "dependencyHash": {
+                    "type": "string",
+                    "pattern": SHA256.pattern,
+                },
                 "datasetHash": {"type": "string", "pattern": SHA256.pattern},
                 "harness": {"type": "object"},
                 "fixedHashes": {

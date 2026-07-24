@@ -88,6 +88,8 @@ Read the relevant linked document before changing a subsystem:
 - One-request/multi-Study orchestration, shared factor-source sequencing, lane
   currentness, and research-program status:
   [[docs/design/research-program-orchestration]]
+- Read-only cross-Study source dependencies and governed Factor-to-RL fusion:
+  [[docs/design/cross-study-factor-dependencies]]
 - Resumable Agent worktrees, KEEP/REVERT/CRASH Experiments, and guarded source
   promotion: [[docs/design/research-session-loop]]
 - Provider-neutral external Researcher turns, budgets, restoration, and

@@ -304,6 +304,14 @@ def build_parser() -> RaisingArgumentParser:
     study_create.add_argument("--judge-path", action="append")
     study_create.add_argument("--judge-arg", action="append", default=[])
     study_create.add_argument("--editable", action="append", required=True)
+    study_create.add_argument(
+        "--dependency",
+        action="append",
+        help=(
+            "repeatable fixed Project-relative strategy, factor, or model source "
+            "path or trailing /** closure"
+        ),
+    )
     study_create.add_argument("--metric", default="score")
     study_create.add_argument(
         "--direction",
@@ -1064,6 +1072,11 @@ def _study_create(args: argparse.Namespace) -> CommandResult:
             StudyTimeRange(args.start, args.end),
             args.dataset_path,
         ),
+        dependencies=(
+            {"paths": args.dependency}
+            if args.dependency
+            else None
+        ),
     )
     study = create_study(project, definition)
     return CommandResult(
@@ -1110,6 +1123,14 @@ def _study_data(study) -> dict[str, Any]:
             "judgeSourceHashes": study.judge_hashes,
             "sourceHash": study.source_hash,
             "sourceHashes": study.editable_hashes,
+            **(
+                {
+                    "dependencyHash": study.dependency_hash,
+                    "dependencySourceHashes": study.dependency_hashes,
+                }
+                if study.dependency_hash is not None
+                else {}
+            ),
             "datasetHash": study.dataset_hash,
             "datasetSourceHashes": study.dataset_hashes,
             "inputHash": study.input_hash,
@@ -1154,7 +1175,14 @@ def _study_inspect(args: argparse.Namespace) -> CommandResult:
             f"{len(study.definition.dataset.universe)} assets · "
             f"{study.definition.dataset.time_range.start}.."
             f"{study.definition.dataset.time_range.end}\n"
-            f"Input hash: {study.input_hash}\n"
+            + (
+                "Fixed dependencies: "
+                f"{len(study.dependency_hashes)} files · "
+                f"{study.dependency_hash}\n"
+                if study.dependency_hash is not None
+                else ""
+            )
+            + f"Input hash: {study.input_hash}\n"
         ),
         project_context(project),
         [

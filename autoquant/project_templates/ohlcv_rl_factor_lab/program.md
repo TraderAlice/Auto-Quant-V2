@@ -25,20 +25,28 @@ Available fields are:
 - `volume_regime`;
 - `market_return_5`;
 - `market_volatility_20`;
+- `candidate_trailing_reward_10`;
 - `activity_trailing_reward_10`;
 - `intraday_trailing_reward_10`;
 - `reversal_trailing_reward_10`;
-- `previous_activity`, `previous_intraday`, `previous_reversal`, and
-  `previous_balanced`.
+- `previous_candidate`, `previous_activity`, `previous_intraday`,
+  `previous_reversal`, and `previous_balanced`.
 
 Do not read files, environment variables, clocks, randomness, or mutable global
 state from the encoder. Test one representation hypothesis at a time.
 
 ## Fixed Judge authority
 
+The Study also declares the `factors/**` source closure as a fixed,
+content-locked dependency. It is copied into the Session worktree for
+execution but is not editable in this Study. The Judge independently checks
+the `factors.candidate` pandas API,
+alignment, determinism, numeric output, and prefix causality before using it.
+
 The Judge owns:
 
-- activity, intraday, reversal, and equal-blend governed signal sleeves;
+- candidate, activity, intraday, reversal, and equal-blend governed signal
+  sleeves;
 - fixed percentile entry/exit hysteresis, inverse-volatility conviction,
   gross-one dollar-neutral target construction, and 0.30 asset caps;
 - drift, 0.05 no-trade threshold, full-notional 10bps costs, and benchmark;
@@ -57,8 +65,9 @@ sleeve but never controls its signal triggers or position sizing.
 ## Evidence discipline
 
 Inspect every seed and fold, seed dispersion, failures, action frequencies,
-turnover/cost/risk, and RL-minus-best-baseline evidence. A positive RL Sharpe
-does not prove RL added value.
+turnover/cost/risk, RL-minus-best-baseline, RL-minus-candidate-factor, and
+candidate-action-frequency evidence. A positive RL Sharpe does not prove RL
+added value.
 
 Any failed declared seed/fold fails the complete Run; successful seeds are
 never averaged after silently dropping a failed trial.

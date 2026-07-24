@@ -33,17 +33,18 @@ except ModuleNotFoundError:  # Package-level deterministic primitive tests.
     )
 
 
-ACTIONS = ("activity", "intraday", "reversal", "balanced")
-EXPERTS = ACTIONS[:3]
+ACTIONS = ("candidate", "activity", "intraday", "reversal", "balanced")
+EXPERTS = ACTIONS[:4]
 ACTION_MIXTURES = {
-    "activity": {"activity": 1.0, "intraday": 0.0, "reversal": 0.0},
-    "intraday": {"activity": 0.0, "intraday": 1.0, "reversal": 0.0},
-    "reversal": {"activity": 0.0, "intraday": 0.0, "reversal": 1.0},
-    "balanced": {
-        "activity": 1.0 / 3.0,
-        "intraday": 1.0 / 3.0,
-        "reversal": 1.0 / 3.0,
-    },
+    expert: {
+        candidate: float(candidate == expert)
+        for candidate in EXPERTS
+    }
+    for expert in EXPERTS
+}
+ACTION_MIXTURES["balanced"] = {
+    expert: 1.0 / len(EXPERTS)
+    for expert in EXPERTS
 }
 SEEDS = (11, 29, 47)
 EPISODES = 4
@@ -59,6 +60,7 @@ BASE_STATE_COLUMNS = (
     "volume_regime",
     "market_return_5",
     "market_volatility_20",
+    "candidate_trailing_reward_10",
     "activity_trailing_reward_10",
     "intraday_trailing_reward_10",
     "reversal_trailing_reward_10",

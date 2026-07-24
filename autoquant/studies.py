@@ -81,11 +81,14 @@ class StudyDefinition:
     judge: StudyJudge
     objective: StudyObjective
     dataset: StudyDataset
+    dependencies: dict[str, list[str]] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         value = asdict(self)
         if self.dataset.paths is None:
             value["dataset"].pop("paths")
+        if self.dependencies is None:
+            value.pop("dependencies")
         return value
 
 
@@ -101,6 +104,8 @@ class StudyContext:
     judge_hash: str
     editable_hashes: dict[str, str]
     source_hash: str
+    dependency_hashes: dict[str, str]
+    dependency_hash: str | None
     dataset_hashes: dict[str, str]
     dataset_hash: str
     input_hash: str
@@ -231,6 +236,8 @@ def parse_study_definition(raw: dict[str, Any], path: Path) -> StudyDefinition:
         "objective",
         "dataset",
     }
+    if "dependencies" in raw:
+        required.add("dependencies")
     issues = _strict_keys(raw, required=required, path=path)
     if raw.get("schema_version") != SCHEMA_VERSION:
         issues.append(
@@ -309,6 +316,49 @@ def parse_study_definition(raw: dict[str, Any], path: Path) -> StudyDefinition:
                     "Editable paths must be unique",
                 )
             )
+
+    dependencies: dict[str, list[str]] | None = None
+    if "dependencies" in raw:
+        dependencies_raw = _object(
+            raw.get("dependencies"),
+            f"{path}/dependencies",
+            issues,
+        )
+        issues.extend(
+            _strict_keys(
+                dependencies_raw,
+                required={"paths"},
+                path=f"{path}/dependencies",
+            )
+        )
+        dependency_values = dependencies_raw.get("paths")
+        dependency_paths: list[str] = []
+        if not isinstance(dependency_values, list) or not dependency_values:
+            issues.append(
+                _issue(
+                    f"{path}/dependencies/paths",
+                    "schema.array",
+                    "Must contain at least one fixed dependency path or closure",
+                )
+            )
+        else:
+            dependency_paths = [
+                _path_pattern(
+                    value,
+                    f"{path}/dependencies/paths/{index}",
+                    issues,
+                )
+                for index, value in enumerate(dependency_values)
+            ]
+            if len(dependency_paths) != len(set(dependency_paths)):
+                issues.append(
+                    _issue(
+                        f"{path}/dependencies/paths",
+                        "study.duplicate-path",
+                        "Dependency paths must be unique",
+                    )
+                )
+        dependencies = {"paths": dependency_paths}
 
     judge_raw = _object(raw.get("judge"), f"{path}/judge", issues)
     issues.extend(
@@ -578,6 +628,7 @@ def parse_study_definition(raw: dict[str, Any], path: Path) -> StudyDefinition:
             StudyTimeRange(start, end),
             dataset_paths,
         ),
+        dependencies=dependencies,
     )
 
 
@@ -866,6 +917,56 @@ def _load_study_root(
             ]
         )
     editable_hashes = snapshot_patterns(project, definition.editable["paths"])
+    dependency_hashes: dict[str, str] = {}
+    dependency_hash: str | None = None
+    if definition.dependencies is not None:
+        invalid_dependencies = []
+        for pattern in definition.dependencies["paths"]:
+            relative = pattern[:-3] if pattern.endswith("/**") else pattern
+            if not any(
+                relative == allowed or relative.startswith(f"{allowed}/")
+                for allowed in allowed_editable_roots
+            ):
+                invalid_dependencies.append(pattern)
+        if invalid_dependencies:
+            raise AutoQuantValidationError(
+                [
+                    _issue(
+                        f"{manifest_path}/dependencies/paths",
+                        "study.dependency-surface",
+                        "Dependency paths must stay under Project strategy, factor, "
+                        "or model source directories: "
+                        + ", ".join(invalid_dependencies),
+                    )
+                ]
+            )
+        dependency_hashes = snapshot_patterns(
+            project,
+            definition.dependencies["paths"],
+        )
+        if not dependency_hashes:
+            raise AutoQuantValidationError(
+                [
+                    _issue(
+                        f"{manifest_path}/dependencies/paths",
+                        "study.dependency-empty",
+                        "Dependency closure must contain at least one source file",
+                    )
+                ]
+            )
+        overlap = sorted(editable_hashes.keys() & dependency_hashes.keys())
+        if overlap:
+            raise AutoQuantValidationError(
+                [
+                    _issue(
+                        f"{manifest_path}/dependencies/paths",
+                        "study.dependency-editable-overlap",
+                        "Dependency files cannot also be editable: "
+                        + ", ".join(overlap),
+                    )
+                ]
+            )
+        dependency_hash = hash_json(dependency_hashes)
     study_manifest_relative = (
         Path(project.manifest.directories["studies"])
         / definition.id
@@ -923,29 +1024,32 @@ def _load_study_root(
         if definition.dataset.paths is not None
         else definition_dict["dataset"]
     )
-    input_hash = hash_json(
-        {
-            "studyHash": study_hash,
-            "programHash": program_hash,
-            "judgeHash": judge_hash,
-            "sourceHash": source_hash,
-            "datasetHash": dataset_hash,
-        }
-    )
+    input_identity = {
+        "studyHash": study_hash,
+        "programHash": program_hash,
+        "judgeHash": judge_hash,
+        "sourceHash": source_hash,
+        "datasetHash": dataset_hash,
+    }
+    if dependency_hash is not None:
+        input_identity["dependencyHash"] = dependency_hash
+    input_hash = hash_json(input_identity)
     return StudyContext(
-        root,
-        manifest_path,
-        program_path,
-        definition,
-        study_hash,
-        program_hash,
-        judge_hashes,
-        judge_hash,
-        editable_hashes,
-        source_hash,
-        dataset_hashes,
-        dataset_hash,
-        input_hash,
+        root_dir=root,
+        manifest_path=manifest_path,
+        program_path=program_path,
+        definition=definition,
+        study_hash=study_hash,
+        program_hash=program_hash,
+        judge_hashes=judge_hashes,
+        judge_hash=judge_hash,
+        editable_hashes=editable_hashes,
+        source_hash=source_hash,
+        dependency_hashes=dependency_hashes,
+        dependency_hash=dependency_hash,
+        dataset_hashes=dataset_hashes,
+        dataset_hash=dataset_hash,
+        input_hash=input_hash,
     )
 
 
@@ -1126,6 +1230,19 @@ STUDY_JSON_SCHEMA: dict[str, Any] = {
                 "paths": {
                     "type": "array",
                     "minItems": 1,
+                    "items": {"type": "string", "minLength": 1},
+                }
+            },
+        },
+        "dependencies": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["paths"],
+            "properties": {
+                "paths": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": True,
                     "items": {"type": "string", "minLength": 1},
                 }
             },

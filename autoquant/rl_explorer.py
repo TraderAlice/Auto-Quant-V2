@@ -184,6 +184,7 @@ def _configuration(metrics: dict[str, Any]) -> dict[str, Any]:
     seeds = value.get("seeds")
     features = value.get("featureNames")
     raw_fields = value.get("rawStateFields")
+    factor_experts = value.get("factorExperts")
     if (
         not isinstance(actions, list)
         or not actions
@@ -214,6 +215,27 @@ def _configuration(metrics: dict[str, Any]) -> dict[str, Any]:
         or not all(isinstance(item, str) and item for item in raw_fields)
     ):
         _fail("metrics/configuration/features", "rl.features", "Feature declarations are invalid")
+    if factor_experts is None:
+        if "candidate" in actions:
+            _fail(
+                "metrics/configuration/factorExperts",
+                "rl.factor-experts",
+                "Candidate-fusion Runs must declare their fixed factor experts",
+            )
+    elif (
+        not isinstance(factor_experts, list)
+        or "candidate" not in factor_experts
+        or len(factor_experts) != len(set(factor_experts))
+        or not all(
+            isinstance(item, str) and item in actions
+            for item in factor_experts
+        )
+    ):
+        _fail(
+            "metrics/configuration/factorExperts",
+            "rl.factor-experts",
+            "Factor experts must be unique declared actions including candidate",
+        )
     episodes = _integer(value.get("episodes"), "metrics/configuration/episodes", minimum=1)
     return {
         **value,
@@ -720,6 +742,15 @@ def load_rl_diagnostics(
 
     metrics = run.result["metrics"]
     configuration = _configuration(metrics)
+    has_candidate_fusion = "candidate" in configuration["actions"]
+    factor_experts = configuration.get(
+        "factorExperts",
+        [
+            action
+            for action in configuration["actions"]
+            if action != "balanced"
+        ],
+    )
     models = _models(models_value, configuration, run.result["inputHash"])
     fold_metrics = metrics.get("rl", {}).get("folds")
     baseline_metrics = metrics.get("baselines")
@@ -738,6 +769,10 @@ def load_rl_diagnostics(
     test_sharpes: list[float] = []
     validation_advantages: list[float] = []
     test_advantages: list[float] = []
+    candidate_validation_sharpes: list[float] = []
+    candidate_test_sharpes: list[float] = []
+    validation_advantages_vs_candidate: list[float] = []
+    test_advantages_vs_candidate: list[float] = []
     for fold in configuration["folds"]:
         fold_value = fold_metrics[fold]
         if not isinstance(fold_value, dict):
@@ -782,6 +817,33 @@ def load_rl_diagnostics(
             f"baselines/{fold}/{selected}/test",
             configuration["actions"],
         )
+        candidate_validation = None
+        candidate_test = None
+        if has_candidate_fusion:
+            candidate_validation = _performance(
+                _baseline_split(
+                    fold_baselines,
+                    "fixed:candidate",
+                    "validation",
+                    f"baselines/{fold}/fixed:candidate",
+                ),
+                f"baselines/{fold}/fixed:candidate/validation",
+                configuration["actions"],
+            )
+            candidate_test = _performance(
+                _baseline_split(
+                    fold_baselines,
+                    "fixed:candidate",
+                    "test",
+                    f"baselines/{fold}/fixed:candidate",
+                ),
+                f"baselines/{fold}/fixed:candidate/test",
+                configuration["actions"],
+            )
+            candidate_validation_sharpes.append(
+                candidate_validation["netSharpe"]
+            )
+            candidate_test_sharpes.append(candidate_test["netSharpe"])
         seed_values = fold_value.get("seeds")
         if not isinstance(seed_values, dict) or set(seed_values) != {
             str(seed) for seed in configuration["seeds"]
@@ -810,6 +872,16 @@ def load_rl_diagnostics(
                 _fail(f"rl/{fold}/{seed}", "rl.trial-observations", "Trial observations differ from fold ranges")
             validation_advantage = validation["netSharpe"] - selected_validation["netSharpe"]
             test_advantage = test["netSharpe"] - selected_test["netSharpe"]
+            validation_advantage_vs_candidate = (
+                validation["netSharpe"] - candidate_validation["netSharpe"]
+                if candidate_validation is not None
+                else None
+            )
+            test_advantage_vs_candidate = (
+                test["netSharpe"] - candidate_test["netSharpe"]
+                if candidate_test is not None
+                else None
+            )
             fold_validation.append(validation["netSharpe"])
             fold_test.append(test["netSharpe"])
             validation_sharpes.append(validation["netSharpe"])
@@ -824,6 +896,18 @@ def load_rl_diagnostics(
                     "test": test,
                     "validationAdvantage": validation_advantage,
                     "testAdvantage": test_advantage,
+                    **(
+                        {
+                            "validationAdvantageVsCandidateFactor": (
+                                validation_advantage_vs_candidate
+                            ),
+                            "testAdvantageVsCandidateFactor": (
+                                test_advantage_vs_candidate
+                            ),
+                        }
+                        if has_candidate_fusion
+                        else {}
+                    ),
                 }
             )
         fold_aggregate = fold_value.get("aggregate")
@@ -833,6 +917,18 @@ def load_rl_diagnostics(
         _reconcile_aggregate(fold_aggregate.get("test_net_sharpe"), fold_test, f"{fold}/test")
         validation_advantage = sum(fold_validation) / len(fold_validation) - selected_validation["netSharpe"]
         test_advantage = sum(fold_test) / len(fold_test) - selected_test["netSharpe"]
+        validation_advantage_vs_candidate = (
+            sum(fold_validation) / len(fold_validation)
+            - candidate_validation["netSharpe"]
+            if candidate_validation is not None
+            else None
+        )
+        test_advantage_vs_candidate = (
+            sum(fold_test) / len(fold_test)
+            - candidate_test["netSharpe"]
+            if candidate_test is not None
+            else None
+        )
         _close(
             fold_aggregate.get("validation_advantage_vs_best_baseline"),
             validation_advantage,
@@ -845,8 +941,26 @@ def load_rl_diagnostics(
             f"{fold}/testAdvantage",
             "test baseline advantage",
         )
+        if has_candidate_fusion:
+            _close(
+                fold_aggregate.get("validation_advantage_vs_candidate_factor"),
+                validation_advantage_vs_candidate,
+                f"{fold}/validationCandidateAdvantage",
+                "validation candidate-factor advantage",
+            )
+            _close(
+                fold_aggregate.get("test_advantage_vs_candidate_factor"),
+                test_advantage_vs_candidate,
+                f"{fold}/testCandidateAdvantage",
+                "test candidate-factor advantage",
+            )
         validation_advantages.append(validation_advantage)
         test_advantages.append(test_advantage)
+        if has_candidate_fusion:
+            validation_advantages_vs_candidate.append(
+                validation_advantage_vs_candidate
+            )
+            test_advantages_vs_candidate.append(test_advantage_vs_candidate)
 
     aggregate = metrics.get("rl", {}).get("aggregate")
     if not isinstance(aggregate, dict):
@@ -875,6 +989,18 @@ def load_rl_diagnostics(
         _fail("metrics/comparison", "rl.comparison", "Missing baseline comparison")
     mean_validation_advantage = sum(validation_advantages) / len(validation_advantages)
     mean_test_advantage = sum(test_advantages) / len(test_advantages)
+    mean_validation_advantage_vs_candidate = (
+        sum(validation_advantages_vs_candidate)
+        / len(validation_advantages_vs_candidate)
+        if has_candidate_fusion
+        else None
+    )
+    mean_test_advantage_vs_candidate = (
+        sum(test_advantages_vs_candidate)
+        / len(test_advantages_vs_candidate)
+        if has_candidate_fusion
+        else None
+    )
     _close(
         comparison.get("mean_validation_advantage_vs_best_baseline"),
         mean_validation_advantage,
@@ -887,6 +1013,31 @@ def load_rl_diagnostics(
         "metrics/comparison/test",
         "mean test advantage",
     )
+    candidate_validation_summary = None
+    candidate_test_summary = None
+    if has_candidate_fusion:
+        candidate_validation_summary = _reconcile_aggregate(
+            comparison.get("candidate_factor_validation_net_sharpe"),
+            candidate_validation_sharpes,
+            "metrics/comparison/candidateValidation",
+        )
+        candidate_test_summary = _reconcile_aggregate(
+            comparison.get("candidate_factor_test_net_sharpe"),
+            candidate_test_sharpes,
+            "metrics/comparison/candidateTest",
+        )
+        _close(
+            comparison.get("mean_validation_advantage_vs_candidate_factor"),
+            mean_validation_advantage_vs_candidate,
+            "metrics/comparison/validationCandidate",
+            "mean validation advantage versus candidate factor",
+        )
+        _close(
+            comparison.get("mean_test_advantage_vs_candidate_factor"),
+            mean_test_advantage_vs_candidate,
+            "metrics/comparison/testCandidate",
+            "mean test advantage versus candidate factor",
+        )
 
     training = _training(histories_value, configuration, ranges, run.result["inputHash"])
     action_rows = _action_rows(paths["policy-actions"], configuration, ranges)
@@ -898,6 +1049,32 @@ def load_rl_diagnostics(
         ranges,
         point_limit,
     )
+    validation_candidate_action_frequency = None
+    if has_candidate_fusion:
+        validation_candidate_action_frequency = sum(
+            item["actionFrequency"]["candidate"]
+            for item in action_summaries
+            if item["split"] == "validation"
+        ) / len(trials)
+        _close(
+            comparison.get("mean_validation_candidate_action_frequency"),
+            validation_candidate_action_frequency,
+            "metrics/comparison/candidateActionFrequency",
+            "mean validation candidate action frequency",
+        )
+    dependencies = run.result.get("dependencies")
+    if has_candidate_fusion and (
+        not isinstance(dependencies, dict)
+        or dependencies.get("paths") != ["factors/**"]
+        or not isinstance(dependencies.get("hash"), str)
+        or not isinstance(dependencies.get("sourceHashes"), dict)
+        or "factors/candidate.py" not in dependencies["sourceHashes"]
+    ):
+        _fail(
+            "RunResult/dependencies",
+            "rl.factor-dependency",
+            "RL Run must bind the exact content-locked candidate factor source",
+        )
     mean_validation_turnover = sum(
         item["validation"]["meanOneWayTurnover"] for item in trials
     ) / len(trials)
@@ -940,6 +1117,7 @@ def load_rl_diagnostics(
             "testRole": "visible-diagnostic",
             "testEntersSelection": False,
             "actions": configuration["actions"],
+            "factorExperts": factor_experts,
             "folds": configuration["folds"],
             "seeds": configuration["seeds"],
             "featureNames": configuration["featureNames"],
@@ -960,6 +1138,31 @@ def load_rl_diagnostics(
             "meanValidationCostDrag": mean_validation_cost,
             "rlAddedValidationValue": mean_validation_advantage > 0.0,
         },
+        "factorFusion": {
+            "available": has_candidate_fusion,
+            "mode": (
+                "content-locked-candidate-source"
+                if has_candidate_fusion
+                else "legacy-reference-only"
+            ),
+            "dependency": dependencies if has_candidate_fusion else None,
+            "candidateValidation": candidate_validation_summary,
+            "candidateTestAudit": candidate_test_summary,
+            "meanValidationAdvantageVsCandidateFactor": (
+                mean_validation_advantage_vs_candidate
+            ),
+            "meanTestAdvantageVsCandidateFactor": (
+                mean_test_advantage_vs_candidate
+            ),
+            "meanValidationCandidateActionFrequency": (
+                validation_candidate_action_frequency
+            ),
+            "rlBeatCandidateOnValidation": (
+                mean_validation_advantage_vs_candidate > 0.0
+                if has_candidate_fusion
+                else None
+            ),
+        },
         "trials": trials,
         "baselines": baselines,
         "models": models,
@@ -967,10 +1170,21 @@ def load_rl_diagnostics(
         "actionSummaries": action_summaries,
         "actionPath": action_path,
         "warning": (
-            "RL value-add is the validation advantage versus each fold's fixed "
-            "validation-selected baseline. Test is visible audit evidence only; "
-            "repeated inspection consumes holdout value. Actions are fixed "
-            "research factor sleeves and carry no trading authority."
+            (
+                "RL value-add is the validation advantage versus each fold's "
+                "fixed validation-selected baseline. Test is visible audit "
+                "evidence only; repeated inspection consumes holdout value. "
+                "The candidate sleeve is an exact content-locked Study "
+                "dependency; all actions are research factor sleeves and "
+                "carry no trading authority."
+            )
+            if has_candidate_fusion
+            else (
+                "Legacy RL evidence predates candidate-factor fusion and uses "
+                "reference sleeves only. It remains immutable and readable, "
+                "but cannot support an RL-versus-candidate claim. Test is "
+                "visible audit evidence and actions carry no trading authority."
+            )
         ),
     }
 
@@ -989,6 +1203,7 @@ RL_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "artifacts",
         "protocol",
         "summary",
+        "factorFusion",
         "trials",
         "baselines",
         "models",
@@ -1006,6 +1221,7 @@ RL_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "artifacts": {"type": "object"},
         "protocol": {"type": "object"},
         "summary": {"type": "object"},
+        "factorFusion": {"type": "object"},
         "trials": {"type": "array", "items": {"type": "object"}},
         "baselines": {"type": "array", "items": {"type": "object"}},
         "models": {"type": "array", "items": {"type": "object"}},
