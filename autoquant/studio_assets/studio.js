@@ -375,6 +375,20 @@ function renderTimeline(project) {
       .join("") || '<li class="empty-panel">No verified evidence yet.</li>';
 }
 
+function runMetricLayers(item) {
+  const layers = item.metricLayers;
+  if (!layers || layers.kind !== "portfolio") return "";
+  return `
+    <div class="catalog-evidence" aria-label="Portfolio evidence">
+      <span><b>${metric(layers.factor.testRankIc)}</b><i>test IC</i></span>
+      <span><b>${metric(layers.portfolio.testNetSharpe)}</b><i>net Sharpe</i></span>
+      <span><b>${metric(layers.implementation.testAnnualizedTurnover)}</b><i>ann. turn</i></span>
+      <span><b>${metric(layers.portfolio.testMaximumDrawdown)}</b><i>max DD</i></span>
+      <span><b>${metric(layers.robustness.test25bpsSharpe)}</b><i>25bps</i></span>
+      <span><b>${metric(layers.robustness.testExtraDelaySharpe)}</b><i>+1 delay</i></span>
+    </div>`;
+}
+
 function renderCatalog(project) {
   const items = project[state.catalog];
   document.querySelectorAll("[data-catalog]").forEach((button) => {
@@ -407,6 +421,7 @@ function renderCatalog(project) {
                 <small>${escapeHtml(item.status)} · ${escapeHtml(item.subject.kind)}</small>
                 <strong>${escapeHtml(item.studyId)}</strong>
                 <p>${escapeHtml(item.primaryMetric)} = ${metric(item.primaryValue)}</p>
+                ${runMetricLayers(item)}
                 <code>${escapeHtml(relativeTime(item.startedAt))} · ${item.durationMs}ms</code>
               </article>`,
         )

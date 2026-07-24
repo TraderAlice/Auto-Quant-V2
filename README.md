@@ -24,6 +24,9 @@ uv run aq project create ./quant-workspace factor-lab \
   --name "Factor Lab" \
   --description "Mine robust cross-asset factors" \
   --template ohlcv-factor-lab
+uv run aq project create ./quant-workspace portfolio-lab \
+  --name "Portfolio Lab" \
+  --template ohlcv-portfolio-lab
 uv run aq project create ./quant-workspace ml-lab --name "ML Lab"
 uv run aq project list ./quant-workspace
 uv run aq validate ./quant-workspace
@@ -40,6 +43,14 @@ uses ordinary pandas/NumPy factor code, a deterministic six-asset synthetic
 OHLCV fixture, chronological held-out evaluation, dataset byte locks, and a
 fixed causality audit. Its baseline is intentionally fast and the fixture is a
 Harness benchmark—not a market alpha claim.
+
+The `ohlcv-portfolio-lab` starter keeps the same ordinary pandas candidate API
+but fixes the downstream research contract: causal cross-sectional ranking,
+volatility scaling, dollar-neutral capped targets, drift-aware rebalance,
+turnover, costs, volume participation, chronological splits, and cost/delay
+stress. Its Run artifacts expose exact daily accounting and target weights;
+Studio summarizes factor, portfolio, implementation, and robustness evidence.
+It emits research targets only and has no Broker or trading-account authority.
 
 The repository-root strategy arena described below remains the V0.5
 compatibility Harness while its execution and evidence contracts are migrated

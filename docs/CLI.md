@@ -36,7 +36,7 @@ Agents should discover the contract rather than scrape `--help`.
 aq workspace init <workspace-dir> [--name NAME] [--json]
 aq project create <workspace-dir> <project-id> \
   [--name NAME] [--description TEXT] \
-  [--template blank|ohlcv-factor-lab] [--json]
+  [--template blank|ohlcv-factor-lab|ohlcv-portfolio-lab] [--json]
 aq project list <workspace-dir> [--json]
 aq project default <workspace-dir> <project-id> [--json]
 aq validate <project-or-workspace-dir> [--project ID] [--json]
@@ -50,7 +50,10 @@ the explicit id or its default.
 `blank` is the default construction. `ohlcv-factor-lab` transactionally
 creates a complete, self-contained pandas factor research Project with local
 synthetic OHLCV, content-locked Study, fixed no-lookahead Judge, and executable
-next actions.
+next actions. `ohlcv-portfolio-lab` uses the same causal candidate API and
+adds fixed constrained target construction, drift-aware accounting,
+transaction costs, layered professional metrics, and cost/delay stresses.
+Both reference templates remain fast, deterministic construction fixtures.
 
 ## Study and Run commands
 

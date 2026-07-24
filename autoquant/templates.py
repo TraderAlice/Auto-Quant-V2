@@ -26,8 +26,9 @@ from .workspace import (
 )
 
 
-PROJECT_TEMPLATE_IDS = ("blank", "ohlcv-factor-lab")
+PROJECT_TEMPLATE_IDS = ("blank", "ohlcv-factor-lab", "ohlcv-portfolio-lab")
 OHLCV_STUDY_ID = "ohlcv-factor-quality"
+PORTFOLIO_STUDY_ID = "ohlcv-portfolio-quality"
 OHLCV_ASSETS = ("ALPHA", "BRAVO", "CHARLIE", "DELTA", "ECHO", "FOXTROT")
 OHLCV_START = date(2024, 1, 2)
 OHLCV_OBSERVATIONS = 320
@@ -37,11 +38,11 @@ def _issue(path: Path | str, code: str, message: str) -> ValidationIssue:
     return ValidationIssue(str(path), code, message)
 
 
-def _template_text(relative: str) -> str:
+def _template_text(relative: str, *, template: str = "ohlcv_factor_lab") -> str:
     source = (
         resources.files("autoquant")
         .joinpath("project_templates")
-        .joinpath("ohlcv_factor_lab")
+        .joinpath(template)
         .joinpath(relative)
     )
     return source.read_text(encoding="utf-8")
@@ -57,7 +58,11 @@ def _business_dates(start: date, observations: int) -> list[date]:
     return result
 
 
-def _write_demo_ohlcv(project: ProjectContext) -> date:
+def _write_demo_ohlcv(
+    project: ProjectContext,
+    *,
+    readme_template: str = "ohlcv_factor_lab",
+) -> date:
     """Generate a small causal multi-asset fixture without external downloads."""
 
     output = project.root_dir / project.manifest.directories["data"] / "ohlcv"
@@ -123,16 +128,25 @@ def _write_demo_ohlcv(project: ProjectContext) -> date:
             writer.writerow(["timestamp", "open", "high", "low", "close", "volume"])
             writer.writerows(rows[asset])
     (output / "README.md").write_text(
-        _template_text("data-readme.md"),
+        _template_text("data-readme.md", template=readme_template),
         encoding="utf-8",
     )
     return dates[-1]
 
 
-def _write_template_source(project: ProjectContext, relative: str, source: str) -> None:
+def _write_template_source(
+    project: ProjectContext,
+    relative: str,
+    source: str,
+    *,
+    template: str = "ohlcv_factor_lab",
+) -> None:
     target = project.root_dir / relative
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(_template_text(source), encoding="utf-8")
+    target.write_text(
+        _template_text(source, template=template),
+        encoding="utf-8",
+    )
 
 
 def _apply_ohlcv_factor_lab(project: ProjectContext) -> None:
@@ -178,6 +192,66 @@ def _apply_ohlcv_factor_lab(project: ProjectContext) -> None:
     load_study(project, OHLCV_STUDY_ID)
 
 
+def _apply_ohlcv_portfolio_lab(project: ProjectContext) -> None:
+    template = "ohlcv_portfolio_lab"
+    end = _write_demo_ohlcv(project, readme_template=template)
+    _write_template_source(
+        project,
+        "factors/candidate.py",
+        "candidate.py",
+        template=template,
+    )
+    _write_template_source(
+        project,
+        "judges/ohlcv_portfolio.py",
+        "judge.py",
+        template=template,
+    )
+    _write_template_source(
+        project,
+        "judges/portfolio_core.py",
+        "portfolio_core.py",
+        template=template,
+    )
+    (project.root_dir / project.manifest.research_program).write_text(
+        _template_text("research.md", template=template),
+        encoding="utf-8",
+    )
+    definition = StudyDefinition(
+        schema_version=1,
+        id=PORTFOLIO_STUDY_ID,
+        name="OHLCV Portfolio Quality",
+        description=(
+            "Translate a causal factor into constrained, costed target weights"
+        ),
+        program="program.md",
+        subject=StudySubject("factor", "portfolio-factor", "working"),
+        editable={"paths": ["factors/**"]},
+        judge=StudyJudge(
+            "python",
+            "judges/ohlcv_portfolio.py",
+            ["judges/**"],
+            [],
+            15,
+        ),
+        objective=StudyObjective("robust_net_sharpe", "maximize", 0.05),
+        dataset=StudyDataset(
+            "synthetic-ohlcv-portfolio-fixture",
+            "v1",
+            "synthetic-multi-asset",
+            list(OHLCV_ASSETS),
+            StudyTimeRange(OHLCV_START.isoformat(), end.isoformat()),
+            ["ohlcv/**"],
+        ),
+    )
+    study = create_study(project, definition)
+    study.program_path.write_text(
+        _template_text("program.md", template=template),
+        encoding="utf-8",
+    )
+    load_study(project, PORTFOLIO_STUDY_ID)
+
+
 def apply_project_template(project: ProjectContext, template_id: str) -> None:
     if template_id not in PROJECT_TEMPLATE_IDS:
         raise AutoQuantValidationError(
@@ -192,4 +266,7 @@ def apply_project_template(project: ProjectContext, template_id: str) -> None:
         )
     if template_id == "blank":
         return
-    _apply_ohlcv_factor_lab(project)
+    if template_id == "ohlcv-factor-lab":
+        _apply_ohlcv_factor_lab(project)
+    else:
+        _apply_ohlcv_portfolio_lab(project)

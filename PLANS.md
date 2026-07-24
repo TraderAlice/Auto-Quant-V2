@@ -24,7 +24,6 @@ There are no active plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
-| [[plans/portfolio-construction-lab]] | Add a fixed, causal signal-to-portfolio Judge that measures implementability, risk, costs, and robustness across assets. | 2026-07-24 |
 | [[plans/rl-factor-policy-lab]] | Add a bounded RL factor-allocation lane with fixed rewards, walk-forward evidence, multiple seeds, and simple baselines. | 2026-07-24 |
 
 ## Paused plans
@@ -35,6 +34,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/portfolio-construction-lab]] | Added a fixed causal factor-to-target-weight Judge with drift, costs, professional evidence layers, stresses, artifacts, and a complete reference Project. | 2026-07-24 |
 | [[plans/openalice-research-handoff]] | Turned an external research request into one Study-bound Session brief and a verified decision-support report that OpenAlice can publish. | 2026-07-24 |
 | [[plans/content-locked-ohlcv-factor-lab]] | Gave Agents a self-contained, content-locked OHLCV reference Project for bounded factor research through the complete V2 evidence loop. | 2026-07-24 |
 | [[plans/live-research-studio-foundation]] | Give humans one local read-only Workspace observatory for verified research evidence and explicitly mutable in-progress Campaign state. | 2026-07-24 |

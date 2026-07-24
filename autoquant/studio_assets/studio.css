@@ -1011,6 +1011,34 @@ main {
   font: 7px var(--mono);
 }
 
+.catalog-evidence {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 10px;
+  padding-top: 9px;
+  border-top: 1px solid var(--line);
+}
+
+.catalog-evidence span,
+.catalog-evidence b,
+.catalog-evidence i {
+  display: block;
+}
+
+.catalog-evidence b {
+  color: var(--text);
+  font: 8px var(--mono);
+}
+
+.catalog-evidence i {
+  margin-top: 2px;
+  color: var(--faint);
+  font: 6px var(--mono);
+  font-style: normal;
+  text-transform: uppercase;
+}
+
 .inspector {
   position: sticky;
   top: 66px;

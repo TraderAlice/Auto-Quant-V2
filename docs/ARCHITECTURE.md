@@ -58,6 +58,10 @@ The V2 foundation now implements:
 - one self-contained OHLCV Factor Lab reference Project with ordinary pandas
   factor code, deterministic local data, chronological held-out metrics, and a
   fixed no-lookahead audit.
+- one self-contained OHLCV Portfolio Lab reference Project that mechanically
+  translates the same causal factor API into capped target weights, drift-aware
+  turnover and costs, layered risk/implementation evidence, and cost/delay
+  stresses without trading authority.
 
 The canonical contracts are [[docs/PROJECT_FORMAT]] and [[docs/CLI]]. The
 boundary designs are [[docs/design/workspace-project-boundaries]] and
@@ -66,9 +70,10 @@ in [[docs/design/study-run-evidence]]; governed source research is defined in
 [[docs/design/research-session-loop]]; external orchestration is defined in
 [[docs/design/external-researcher-driver]]; Studio observation is defined in
 [[docs/design/studio-observation-surface]]; the first quantitative reference
-Project is defined in [[docs/design/ohlcv-factor-lab]]. The end-to-end
-OpenAlice handoff, professional evidence stack, causal portfolio direction,
-governed RL lane, and HCI boundary are defined in
+Project is defined in [[docs/design/ohlcv-factor-lab]]; causal target-weight
+construction is defined in [[docs/design/portfolio-construction-lab]]. The
+end-to-end OpenAlice handoff, professional evidence stack, causal portfolio
+direction, governed RL lane, and HCI boundary are defined in
 [[docs/design/quant-research-lifecycle]].
 
 The repository also contains the V0.5 development Harness inherited from
@@ -188,6 +193,7 @@ behind the Harness contract, not the owner of Workspace or Project semantics.
 - Agent CLI design: [[docs/design/agent-cli-contract]]
 - Study/Run evidence design: [[docs/design/study-run-evidence]]
 - OHLCV Factor Lab design: [[docs/design/ohlcv-factor-lab]]
+- OHLCV Portfolio Lab design: [[docs/design/portfolio-construction-lab]]
 - Research Session loop design: [[docs/design/research-session-loop]]
 - External Researcher driver design:
   [[docs/design/external-researcher-driver]]

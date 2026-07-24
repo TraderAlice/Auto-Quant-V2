@@ -42,7 +42,7 @@ from .reports import (
     publish_report,
 )
 from .studio import STUDIO_SNAPSHOT_JSON_SCHEMA, build_studio_snapshot, serve_studio
-from .templates import OHLCV_STUDY_ID, PROJECT_TEMPLATE_IDS
+from .templates import OHLCV_STUDY_ID, PORTFOLIO_STUDY_ID, PROJECT_TEMPLATE_IDS
 from .sessions import (
     EXPERIMENT_JSON_SCHEMA,
     SESSION_JSON_SCHEMA,
@@ -534,34 +534,42 @@ def _project_create(args: argparse.Namespace) -> CommandResult:
             [
                 next_action(
                     "study.inspect",
-                    "Inspect the fixed OHLCV factor Study and content identity.",
+                    "Inspect the fixed reference Study and content identity.",
                     [
                         "aq",
                         "study",
                         "inspect",
                         str(project.root_dir),
                         "--study",
-                        OHLCV_STUDY_ID,
+                        (
+                            OHLCV_STUDY_ID
+                            if args.template == "ohlcv-factor-lab"
+                            else PORTFOLIO_STUDY_ID
+                        ),
                         "--json",
                     ],
                     "read-only",
                 ),
                 next_action(
                     "run.execute",
-                    "Execute the bounded factor baseline.",
+                    "Execute the bounded reference baseline.",
                     [
                         "aq",
                         "run",
                         "execute",
                         str(project.root_dir),
                         "--study",
-                        OHLCV_STUDY_ID,
+                        (
+                            OHLCV_STUDY_ID
+                            if args.template == "ohlcv-factor-lab"
+                            else PORTFOLIO_STUDY_ID
+                        ),
                         "--json",
                     ],
                     "creates-artifact",
                 ),
             ]
-            if args.template == "ohlcv-factor-lab"
+            if args.template != "blank"
             else [
                 next_action(
                     "validate",

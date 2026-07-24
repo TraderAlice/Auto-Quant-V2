@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from .templates import PROJECT_TEMPLATE_IDS
+
 
 EXIT_CODES = {"success": 0, "failure": [1], "usage": 2}
 
@@ -226,7 +228,7 @@ CLI_COMMANDS = [
                 False,
                 "Self-contained Project construction template.",
                 default="blank",
-                choices=["blank", "ohlcv-factor-lab"],
+                choices=list(PROJECT_TEMPLATE_IDS),
             ),
             JSON_ARGUMENT,
         ],

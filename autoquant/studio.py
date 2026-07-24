@@ -16,7 +16,7 @@ from urllib.parse import urlsplit
 
 from .research import list_campaign_progress, list_campaigns
 from .reports import list_reports
-from .runs import list_runs
+from .runs import list_runs, load_run
 from .sessions import list_sessions, load_session, session_snapshot
 from .studies import list_studies
 from .workspace import (
@@ -273,6 +273,55 @@ def _timeline(
     )[:100]
 
 
+def _portfolio_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
+    metrics = result["metrics"]
+    required = ("factor", "portfolio", "implementation", "robustness")
+    if not all(isinstance(metrics.get(key), dict) for key in required):
+        return None
+    try:
+        return {
+            "kind": "portfolio",
+            "factor": {
+                "validationRankIc": metrics["factor"]["validation"]["mean_rank_ic"],
+                "testRankIc": metrics["factor"]["test"]["mean_rank_ic"],
+            },
+            "portfolio": {
+                "validationNetSharpe": metrics["portfolio"]["validation"]["net"][
+                    "sharpe"
+                ],
+                "testNetSharpe": metrics["portfolio"]["test"]["net"]["sharpe"],
+                "testAnnualReturn": metrics["portfolio"]["test"]["net"][
+                    "annual_return"
+                ],
+                "testMaximumDrawdown": metrics["portfolio"]["test"]["net"][
+                    "maximum_drawdown"
+                ],
+            },
+            "implementation": {
+                "testAnnualizedTurnover": metrics["implementation"]["test"][
+                    "annualized_one_way_turnover"
+                ],
+                "testCostDrag": metrics["implementation"]["test"][
+                    "total_cost_drag"
+                ],
+                "testMaximumParticipation": metrics["implementation"]["test"][
+                    "maximum_volume_participation"
+                ],
+            },
+            "robustness": {
+                "test25bpsSharpe": metrics["robustness"]["cost_stress"]["25bps"][
+                    "test"
+                ]["sharpe"],
+                "testExtraDelaySharpe": metrics["robustness"]["extra_delay"][
+                    "test"
+                ]["sharpe"],
+            },
+            "constraintsPassed": metrics["constraint_audit"]["passed"],
+        }
+    except (KeyError, TypeError):
+        return None
+
+
 def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
     diagnostics: list[dict[str, str]] = []
     program_path = confined_path(
@@ -287,7 +336,15 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
     sessions_raw, issues = _read_category("sessions", lambda: list_sessions(project))
     diagnostics.extend(issues)
     studies = [item.to_dict() for item in studies_raw]
-    runs = [item.to_dict() for item in runs_raw]
+    runs: list[dict[str, Any]] = []
+    for item in runs_raw:
+        summary = item.to_dict()
+        metric_layers = _portfolio_metric_layers(
+            load_run(project, item.id).result
+        )
+        if metric_layers is not None:
+            summary["metricLayers"] = metric_layers
+        runs.append(summary)
     sessions: list[dict[str, Any]] = []
     for summary in sessions_raw:
         try:

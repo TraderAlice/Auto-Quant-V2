@@ -1,6 +1,6 @@
 # Quantitative research lifecycle and OpenAlice handoff
 
-Status: delegation/report lane implemented; portfolio and RL lanes targeted.
+Status: delegation/report and portfolio lanes implemented; RL lane targeted.
 
 Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]], [[docs/CLI]],
 [[docs/design/study-run-evidence]], [[docs/design/research-session-loop]],
@@ -119,8 +119,8 @@ portfolio may be useful without an impressive raw IC.
 
 ## Mechanical signal-to-portfolio contract
 
-The initial portfolio lane uses OHLCV bars and target weights, not a broker
-order book:
+The implemented `ohlcv-portfolio-lab` uses OHLCV bars and target weights, not
+a broker order book:
 
 ```text
 causal factor values at bar t
@@ -145,6 +145,15 @@ Target weights are the correct handoff for AutoQuant because OpenAlice may use
 the findings as one input to a later decision. Live order types, TPSL,
 available balance, venue rules, and account mutations remain forward-looking
 OpenAlice/UTA concerns.
+
+The first reference contract is deliberately narrower than the general sketch:
+it is gross-one dollar-neutral, allocates `+0.5/-0.5`, caps absolute target
+weight at `0.30`, retains the drifted book below `0.05` one-way turnover, and
+charges every bought or sold dollar at the declared basis-point cost. It emits
+factor, portfolio/risk, implementation, constraint, cost-stress, extra-delay,
+and per-asset contribution evidence plus exact daily and target-weight
+artifacts. The executable details are
+[[docs/design/portfolio-construction-lab]].
 
 Tolerance bands are a first-class implementation choice: research on
 rebalancing frames the problem as tracking-error versus transaction-cost

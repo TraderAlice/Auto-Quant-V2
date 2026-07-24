@@ -35,9 +35,18 @@ or Runs. It owns only discovery and an optional default Project.
 ## Project
 
 `aq project create` produces a complete blank Project. The optional
-`--template ohlcv-factor-lab` construction input additionally creates an
-independently owned factor, Judge, Study, and deterministic local dataset; it
-is not recorded as a runtime parent in `autoquant.json`.
+`--template ohlcv-factor-lab` or `--template ohlcv-portfolio-lab`
+construction input additionally creates an independently owned factor, Judge,
+Study, and deterministic local dataset; it is not recorded as a runtime parent
+in `autoquant.json`.
+
+The factor template evaluates causal cross-sectional predictive evidence. The
+portfolio template fixes the next layer: factor normalization, target weights,
+gross/net and per-asset constraints, drift, no-trade behavior, turnover,
+costs, benchmark, risk/implementation metrics, and cost/delay stresses.
+Candidate code remains confined to `factors/**`; `judges/**` owns every
+comparison rule. See [[docs/design/ohlcv-factor-lab]] and
+[[docs/design/portfolio-construction-lab]].
 
 ```text
 factor-lab/
@@ -465,10 +474,13 @@ uv run aq workspace init /tmp/quant-workspace
 uv run aq project create /tmp/quant-workspace factor-lab
 uv run aq project create /tmp/quant-workspace ohlcv-lab \
   --template ohlcv-factor-lab
+uv run aq project create /tmp/quant-workspace portfolio-lab \
+  --template ohlcv-portfolio-lab
 uv run aq validate /tmp/quant-workspace
 uv run aq inspect /tmp/quant-workspace --project factor-lab --json
 uv run python -m unittest \
   tests.test_workspace tests.test_cli tests.test_studies \
-  tests.test_runs tests.test_sessions tests.test_factor_lab -v
+  tests.test_runs tests.test_sessions tests.test_factor_lab \
+  tests.test_portfolio_lab -v
 uv run python -m unittest tests.test_reports tests.test_studio -v
 ```
