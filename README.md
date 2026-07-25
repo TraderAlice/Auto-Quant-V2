@@ -60,6 +60,17 @@ shared-source conflicts, evidence currentness, and the exact recommended
 headless command. The narrow single-lane templates remain available when a
 caller intentionally selects one method.
 
+For a new coding Agent, start with one read-only command:
+
+```bash
+uv run aq orient ./quant-workspace --project us-leadership --json
+```
+
+It returns the current research question, scientific/coordination reason,
+exact writable Session worktree closure, protected authority, and one primary
+command with its declared effect. Studio renders the same Core object and
+hash, so the AI operator and human reviewer share one current work contract.
+
 The `ohlcv-factor-lab` starter is the first runnable V2 research Project. It
 uses ordinary pandas/NumPy factor code, a deterministic six-asset synthetic
 OHLCV fixture, dataset-fixed purge-aware chronological evaluation, dataset

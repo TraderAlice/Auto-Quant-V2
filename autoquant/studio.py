@@ -24,6 +24,7 @@ from .factor_explorer import (
     load_factor_diagnostics,
 )
 from .intake import load_project_intake
+from .orientation import build_agent_work_brief
 from .portfolio_explorer import (
     DEFAULT_PORTFOLIO_POINTS,
     load_portfolio_diagnostics,
@@ -34,7 +35,7 @@ from .research_program import load_research_program
 from .reports import list_reports
 from .runs import list_runs, load_run
 from .sessions import list_sessions, load_session, session_snapshot
-from .studies import list_studies
+from .studies import hash_json, list_studies
 from .workspace import (
     PROJECT_MANIFEST,
     SCHEMA_VERSION,
@@ -845,6 +846,16 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
         )
     except AutoQuantValidationError as error:
         diagnostics.extend(_diagnostics("research-program", error))
+    agent_work_brief_raw, issues = _read_category(
+        "agent-work-brief",
+        lambda: build_agent_work_brief(project),
+    )
+    diagnostics.extend(issues)
+    agent_work_brief = (
+        agent_work_brief_raw
+        if isinstance(agent_work_brief_raw, dict)
+        else None
+    )
     dossier_bundle, issues = _read_category(
         "dossiers",
         lambda: {
@@ -1108,6 +1119,12 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
             "text": program_path.read_text(encoding="utf-8"),
         },
         "researchProgramStatus": research_program_status,
+        "agentWorkBrief": agent_work_brief,
+        "agentWorkBriefHash": (
+            hash_json(agent_work_brief)
+            if agent_work_brief is not None
+            else None
+        ),
         "dossierStatus": dossier_status,
         "dossiers": dossiers,
         "intake": intake,
@@ -1567,6 +1584,8 @@ STUDIO_SNAPSHOT_JSON_SCHEMA: dict[str, Any] = {
                 "rootDir",
                 "researchProgram",
                 "researchProgramStatus",
+                "agentWorkBrief",
+                "agentWorkBriefHash",
                 "dossierStatus",
                 "dossiers",
                 "intake",
@@ -1597,6 +1616,11 @@ STUDIO_SNAPSHOT_JSON_SCHEMA: dict[str, Any] = {
                     },
                 },
                 "researchProgramStatus": {"type": ["object", "null"]},
+                "agentWorkBrief": {"type": ["object", "null"]},
+                "agentWorkBriefHash": {
+                    "type": ["string", "null"],
+                    "pattern": "^[0-9a-f]{64}$",
+                },
                 "dossierStatus": {"type": ["object", "null"]},
                 "dossiers": {"type": "array"},
                 "intake": {"type": ["object", "null"]},

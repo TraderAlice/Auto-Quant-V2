@@ -44,6 +44,10 @@ The V2 foundation now implements:
   rejection;
 - a packaged `aq` CLI with versioned JSON envelopes, capability discovery,
   artifacts, next actions, validation, and inspection.
+- one Core-authored Agent Work Brief, exposed by read-only `aq orient` and
+  Studio, that compresses the current question, scientific blocker, exact
+  Session worktree edit authority, protected boundaries, and primary action
+  without adding a parallel lifecycle.
 - strict Project-local Study contracts with separate human program, fixed
   Python Judge closure, Agent-editable strategy/factor/model closure, objective,
   and declarative or content-locked dataset identity;

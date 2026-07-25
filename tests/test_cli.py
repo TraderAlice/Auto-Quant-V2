@@ -66,6 +66,30 @@ class AgentCliTests(unittest.TestCase):
             )
             self.assertEqual(study["dataset"]["paths"], ["ohlcv/**"])
 
+            oriented = run_cli(
+                "orient",
+                str(project),
+                "--json",
+            )
+            self.assertEqual(oriented.returncode, 0, oriented.stderr)
+            orientation = json_output(oriented)
+            self.assertEqual(orientation["command"], "orient")
+            self.assertEqual(
+                orientation["data"]["kind"],
+                "autoquant-agent-work-brief",
+            )
+            self.assertEqual(
+                orientation["data"]["primaryAction"]["id"],
+                "run.execute",
+            )
+            self.assertFalse(
+                orientation["data"]["filesystem"]["writable"]
+            )
+            self.assertEqual(
+                [item["id"] for item in orientation["nextActions"]],
+                ["run.execute"],
+            )
+
             executed = run_cli(
                 "run",
                 "execute",
@@ -360,6 +384,7 @@ class AgentCliTests(unittest.TestCase):
             [
                 "capabilities",
                 "schema",
+                "orient",
                 "workspace.init",
                 "project.create",
                 "project.intake",
@@ -458,6 +483,7 @@ class AgentCliTests(unittest.TestCase):
             [
                 "workspace",
                 "project",
+                "agent-work-brief",
                 "study",
                 "judge-output",
                 "run-result",

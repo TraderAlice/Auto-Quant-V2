@@ -139,7 +139,7 @@ CLI_COMMANDS = [
     ),
     descriptor(
         "schema",
-        "aq schema [workspace|project|study|judge-output|run-result|factor-diagnostics|portfolio-diagnostics|research-program-status|rl-policy-diagnostics|session-decision-matrix|session|session-completion|portfolio-mandate|experiment|research-request|ohlcv-dataset-package|report-analysis|dossier-analysis|dossier-result|dossier-status|researcher-response|campaign-result|campaign-progress|studio-snapshot] [--json]",
+        "aq schema [workspace|project|agent-work-brief|study|judge-output|run-result|factor-diagnostics|portfolio-diagnostics|research-program-status|rl-policy-diagnostics|session-decision-matrix|session|session-completion|portfolio-mandate|experiment|research-request|ohlcv-dataset-package|report-analysis|dossier-analysis|dossier-result|dossier-status|researcher-response|campaign-result|campaign-progress|studio-snapshot] [--json]",
         "List or emit canonical AutoQuant JSON Schemas.",
         "read-only",
         [
@@ -152,6 +152,7 @@ CLI_COMMANDS = [
                 choices=[
                     "workspace",
                     "project",
+                    "agent-work-brief",
                     "study",
                     "judge-output",
                     "run-result",
@@ -178,6 +179,13 @@ CLI_COMMANDS = [
             ),
             JSON_ARGUMENT,
         ],
+    ),
+    descriptor(
+        "orient",
+        "aq orient <project-or-workspace-dir> [--project ID] [--json]",
+        "Return one compact verified Agent work brief with focus, edit authority, blocker, and exact next action.",
+        "read-only",
+        [PATH_ARGUMENT, PROJECT_ARGUMENT, JSON_ARGUMENT],
     ),
     descriptor(
         "workspace.init",

@@ -14,7 +14,7 @@ from urllib.request import Request, urlopen
 
 from autoquant.research import run_campaign
 from autoquant.sessions import evaluate_experiment, start_session
-from autoquant.studies import create_study
+from autoquant.studies import create_study, hash_json
 from autoquant.studio import build_studio_snapshot, create_studio_server
 from autoquant.workspace import (
     AutoQuantValidationError,
@@ -81,6 +81,22 @@ class StudioObservationTests(unittest.TestCase):
             self.assertTrue(observed["valid"])
             self.assertEqual(observed["counts"]["studies"], 1)
             self.assertEqual(observed["counts"]["runs"], 2)
+            self.assertEqual(
+                observed["agentWorkBrief"]["kind"],
+                "autoquant-agent-work-brief",
+            )
+            self.assertEqual(
+                len(observed["agentWorkBriefHash"]),
+                64,
+            )
+            self.assertEqual(
+                observed["agentWorkBriefHash"],
+                hash_json(observed["agentWorkBrief"]),
+            )
+            self.assertEqual(
+                observed["agentWorkBrief"]["filesystem"]["operatingRoot"],
+                str(session.worktree_project.root_dir),
+            )
             self.assertEqual(observed["counts"]["activeSessions"], 1)
             self.assertEqual(observed["counts"]["dossiers"], 0)
             self.assertEqual(observed["counts"]["verdicts"]["KEEP"], 1)
@@ -364,7 +380,10 @@ class StudioObservationTests(unittest.TestCase):
                     self.assertIn("progressionGate", javascript)
                     self.assertIn("REQUIRED RESEARCH COMPLETE", javascript)
                     self.assertIn("researchDecisionBrief", javascript)
-                    self.assertIn("DO NOT PROMOTE ADAPTIVITY", javascript)
+                    self.assertIn("project.agentWorkBrief", javascript)
+                    self.assertIn("project.agentWorkBriefHash", javascript)
+                    self.assertIn("ORIENTATION UNAVAILABLE", javascript)
+                    self.assertNotIn("DO NOT PROMOTE ADAPTIVITY", javascript)
                     self.assertIn("projectFocusStudy", javascript)
                     self.assertIn("renderDeskContext", javascript)
                     self.assertIn("updateDeskNavActive", javascript)
@@ -404,7 +423,7 @@ class StudioObservationTests(unittest.TestCase):
                         javascript,
                     )
                     self.assertIn(
-                        "Raw IC lacks statistical support",
+                        "Core could not verify the Agent Work Brief",
                         javascript,
                     )
                     self.assertIn(

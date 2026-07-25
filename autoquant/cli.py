@@ -76,6 +76,10 @@ from .intake import (
     prepare_project_intake,
 )
 from .mandates import PORTFOLIO_MANDATE_JSON_SCHEMA
+from .orientation import (
+    AGENT_WORK_BRIEF_JSON_SCHEMA,
+    build_agent_work_brief,
+)
 from .portfolio_explorer import (
     DEFAULT_PORTFOLIO_POINTS,
     MAX_PORTFOLIO_POINTS,
@@ -217,6 +221,7 @@ def build_parser() -> RaisingArgumentParser:
         choices=[
             "workspace",
             "project",
+            "agent-work-brief",
             "study",
             "judge-output",
             "run-result",
@@ -309,6 +314,15 @@ def build_parser() -> RaisingArgumentParser:
     project_program.add_argument("--project")
     project_program.set_defaults(command_id="project.program")
     _json_argument(project_program)
+
+    orient = subcommands.add_parser(
+        "orient",
+        help="give a new research Agent one verified work brief",
+    )
+    orient.add_argument("path")
+    orient.add_argument("--project")
+    orient.set_defaults(command_id="orient")
+    _json_argument(orient)
 
     for command in ("validate", "inspect"):
         command_parser = subcommands.add_parser(
@@ -3007,6 +3021,69 @@ def _inspect(args: argparse.Namespace) -> CommandResult:
     )
 
 
+def _orient(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    brief = build_agent_work_brief(project)
+    focus = brief["focus"]
+    filesystem = brief["filesystem"]
+    primary = brief["primaryAction"]
+    writable = (
+        ", ".join(filesystem["editablePaths"])
+        if filesystem["writable"]
+        else "none until a governed Session owns a worktree"
+    )
+    human = (
+        f"AutoQuant Agent Work Brief: {brief['project']['name']}\n"
+        f"Question: {brief['question']['text'] or brief['question']['title']}\n"
+        f"Focus: {focus['laneName'] or 'single Study'} · "
+        f"{focus['studyId'] or 'no Study'}\n"
+        f"State: {focus['coordinationPhase']} · "
+        f"{focus['scientificStage']} · {focus['operatingMode']}\n"
+        f"Reason: {brief['reasons'][0]['code']} — "
+        f"{brief['reasons'][0]['message']}\n"
+        f"Operating root: {filesystem['operatingRoot']}\n"
+        f"Writable now: {writable}\n"
+        f"Protected: {', '.join(filesystem['protectedCategories'])}\n"
+        f"Authority: {brief['authority']['selectionSplit']} selects · "
+        f"{brief['authority']['testRole']} test · trading none\n"
+        + (
+            f"Next: {primary['display']}\n"
+            f"Effect: {primary['effect']} · produces "
+            f"{primary['expectedEvidenceKind']}\n"
+            if primary is not None
+            else "Next: no automatic action; human review required\n"
+        )
+    )
+    actions = [
+        item
+        for item in [brief["primaryAction"], *brief["supportingActions"]]
+        if item is not None
+    ]
+    return CommandResult(
+        "orient",
+        brief,
+        human,
+        project_context(project),
+        [
+            artifact(
+                "project",
+                project.manifest.id,
+                project.root_dir / PROJECT_MANIFEST,
+                immutable=False,
+            )
+        ],
+        [
+            next_action(
+                item["id"],
+                item["description"],
+                item["argv"],
+                item["effect"],
+            )
+            for item in actions
+        ],
+    )
+
+
 def dispatch(args: argparse.Namespace) -> CommandResult:
     if args.command_id == "capabilities":
         human = "\n\n".join(
@@ -3025,6 +3102,7 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
         )
     if args.command_id == "schema":
         kinds = [
+            "agent-work-brief",
             "campaign-progress",
             "campaign-result",
             "dossier-analysis",
@@ -3058,6 +3136,7 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
                 + "".join(f"  {kind}\n" for kind in kinds),
             )
         schemas = {
+            "agent-work-brief": AGENT_WORK_BRIEF_JSON_SCHEMA,
             "study": STUDY_JSON_SCHEMA,
             "judge-output": JUDGE_OUTPUT_JSON_SCHEMA,
             "run-result": RUN_RESULT_JSON_SCHEMA,
@@ -3099,6 +3178,8 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
         return _project_default(args)
     if args.command_id == "project.program":
         return _project_program(args)
+    if args.command_id == "orient":
+        return _orient(args)
     if args.command_id == "validate":
         return _validate(args)
     if args.command_id == "inspect":

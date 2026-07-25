@@ -14,6 +14,7 @@ aq capabilities
 aq capabilities --json
 aq schema
 aq schema project --json
+aq schema agent-work-brief --json
 aq schema research-request --json
 aq schema ohlcv-dataset-package --json
 aq schema report-analysis --json
@@ -53,6 +54,7 @@ aq project intake <workspace-dir> <project-id> \
 aq project list <workspace-dir> [--json]
 aq project default <workspace-dir> <project-id> [--json]
 aq project program <project-or-workspace-dir> [--project ID] [--json]
+aq orient <project-or-workspace-dir> [--project ID] [--json]
 aq validate <project-or-workspace-dir> [--project ID] [--json]
 aq inspect <project-or-workspace-dir> [--project ID] [--json]
 ```
@@ -60,6 +62,17 @@ aq inspect <project-or-workspace-dir> [--project ID] [--json]
 `validate` and `inspect` resolve exactly one Project before reading its
 manifest. A direct Project path rejects `--project`; a Workspace path selects
 the explicit id or its default.
+
+`orient` is the AI-first entry point. It compacts already verified Project,
+Study, research-program, Session, Run, Report, Dossier, gate, and conflict
+state into one strict `AgentWorkBrief`. The brief identifies the current
+question and focus, stable reason code, exact operating root, paths writable
+now versus only declared for a future Session, protected authority, and one
+primary command with working directory, effect, and expected evidence kind.
+It is read-only. Before a Session exists it never advertises canonical Project
+source as the governed edit target; an active valid Session points only to its
+disposable worktree. Human output fits a short terminal readout, while JSON is
+the machine contract defined by `aq schema agent-work-brief --json`.
 
 `blank` is the default construction. `ohlcv-factor-lab` transactionally
 creates a complete, self-contained pandas factor research Project with local

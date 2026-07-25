@@ -18,9 +18,7 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-| Plan | Outcome | Updated |
-| --- | --- | --- |
-| [[plans/ai-first-agent-orientation]] | Let a new research Agent obtain one verified work brief with the current question, blocker, edit boundary, and exact next action, shared with human Studio review. | 2026-07-25 |
+There are no active plans.
 
 ## Proposed plans
 
@@ -34,6 +32,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/ai-first-agent-orientation]] | Gave a new research Agent one verified work brief with the current question, blocker, edit boundary, and exact next action, shared with human Studio review. | 2026-07-25 |
 | [[plans/portfolio-diversification-stress]] | Explained whether different positions are independent risk bets or one correlation-crowded trade, and froze that stress through OpenAlice handoff. | 2026-07-25 |
 | [[plans/evidence-gated-research-progression]] | Made verified Factor and Portfolio evidence—not mere lane completion—govern downstream Portfolio/RL research admission and early-stop handoff. | 2026-07-25 |
 | [[plans/factor-qualification-funnel]] | Proved distinct incremental candidate-factor information before Portfolio and governed-RL research. | 2026-07-25 |

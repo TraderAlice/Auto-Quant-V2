@@ -1,14 +1,16 @@
 # Agent CLI contract
 
-Status: implemented for Workspace, Project, request-driven OHLCV intake,
-Study, Run, Session, Experiment, bounded Research Campaign, delegated request,
-Research Report, and Session comparison operations.
+Status: implemented for Workspace, Project, AI-first Project orientation,
+request-driven OHLCV intake, Study, Run, Session, Experiment, bounded Research
+Campaign, delegated request, Research Report, and Session comparison
+operations.
 
 Related: [[docs/CLI]], [[docs/PROJECT_FORMAT]],
 [[docs/design/workspace-project-boundaries]], and
 [[docs/design/study-run-evidence]], and
 [[docs/design/external-researcher-driver]], and
-[[docs/design/session-decision-matrix]].
+[[docs/design/session-decision-matrix]], and
+[[docs/design/agent-operator-experience]].
 
 ## Scope
 
@@ -33,6 +35,7 @@ Study/Run evaluation rules.
 
 - Envelope constructors and schema version: `autoquant/cli_contract.py`
 - Capability descriptors: `autoquant/capabilities.py`
+- Verified Agent Work Brief projection: `autoquant/orientation.py`
 - Parser, dispatch, human rendering, and JSON rendering: `autoquant/cli.py`
 - Canonical command reference: [[docs/CLI]]
 - Contract tests: `tests/test_cli.py`
@@ -83,6 +86,13 @@ exposes only fixed read-only HTTP routes.
 object after verifying the Session, Experiments, and Runs; the CLI and Studio
 must not independently select metrics, infer preference direction, or include
 test audit fields in dominance.
+
+`orient` is read-only. It returns one strict Core-authored `AgentWorkBrief`
+after resolving the selected Project and reconstructing its current Study,
+Run, Session, Report, Dossier, research-program, gate, and conflict state. Its
+filesystem contract grants candidate writes only inside a valid active Session
+worktree. Studio consumes the exact same object and Core hash rather than
+deriving a competing research decision in JavaScript.
 
 ## CLI-to-Studio flow
 

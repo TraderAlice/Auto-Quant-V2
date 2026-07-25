@@ -68,6 +68,10 @@ The first viewport prioritizes:
   baseline, lane phase, evidence-gated admission, Session progress,
   shared-source conflicts, stale evidence, and the exact recommended next
   command;
+- a first-position decision brief rendered from the exact Core
+  `AgentWorkBrief` and hash also returned by `aq orient`; JavaScript formats
+  its review copy but does not choose the focus, edit root, reason, or next
+  action;
 - one selectable Factor, Portfolio, or RL evidence workbench at a time, keeping
   the complete bounded explorer available without rendering all three long
   reports into one page;
@@ -77,6 +81,13 @@ The first viewport prioritizes:
 The browser polls a bounded snapshot every four seconds while visible. Manual
 refresh remains available. Running Campaign progress is visibly labelled
 mutable; completed evidence is loaded and hash-verified by Core.
+
+Every valid Project snapshot includes `agentWorkBrief` and
+`agentWorkBriefHash`. The brief is the shared AI-operator/human-reviewer
+contract: Studio's Current Research Decision card and the CLI cannot disagree
+about the active question, reason, or next investigation. Detailed Cockpit and
+evidence panels remain richer read models and do not broaden its filesystem or
+trading authority.
 
 Run cards are diagnostic projections, not replacements for full evidence.
 Factor cards show strength, decay, monotonic spread, stability, style overlap,

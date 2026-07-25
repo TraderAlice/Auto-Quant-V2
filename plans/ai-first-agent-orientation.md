@@ -1,6 +1,6 @@
 # Make AutoQuant immediately operable by a new research Agent
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-07-25`
 - Related design: [[docs/design/agent-operator-experience]],
   [[docs/design/agent-cli-contract]],
@@ -87,25 +87,25 @@ documentation scavenger hunt.
 
 ## Acceptance
 
-- [ ] From a Workspace or selected Project path, `aq orient --json` returns one
+- [x] From a Workspace or selected Project path, `aq orient --json` returns one
       strict versioned envelope and never mutates Project or research state.
-- [ ] A fresh Agent can identify the question, current lane/Study/Session/Run,
+- [x] A fresh Agent can identify the question, current lane/Study/Session/Run,
       scientific blocker, exact operating root, editable closures, protected
       authority, and primary executable action without reading another CLI
       response.
-- [ ] When no Session exists, the brief does not advertise direct canonical
+- [x] When no Session exists, the brief does not advertise direct canonical
       edits as the governed next step; when a Session is active, it points only
       to its disposable worktree and declared editable closure.
-- [ ] Blocked progression, stale evidence, shared-source conflicts, reported
+- [x] Blocked progression, stale evidence, shared-source conflicts, reported
       baseline retention, promotion readiness, and completed required research
       each produce distinct stable reason codes and truthful actions.
-- [ ] Selection authority remains validation-only, visible test remains audit
+- [x] Selection authority remains validation-only, visible test remains audit
       only, and every brief states `tradingAuthority: none`.
-- [ ] Studio and CLI consume the same Core object and hash; JavaScript does not
+- [x] Studio and CLI consume the same Core object and hash; JavaScript does not
       independently infer the current research decision or next action.
-- [ ] Human output fits one terminal viewport for the reference Projects while
+- [x] Human output fits one terminal viewport for the reference Projects while
       JSON omits raw histories and heavyweight diagnostic artifacts.
-- [ ] Capability, schema, deterministic, legacy, browser, documentation,
+- [x] Capability, schema, deterministic, legacy, browser, documentation,
       package, and full regression checks pass before commit and push.
 
 ## Work
@@ -114,13 +114,13 @@ documentation scavenger hunt.
       surfaces.
 - [x] Define the AI-operator/human-reviewer authority model and bounded first
       milestone.
-- [ ] Implement and schema one Core Agent Work Brief projection.
-- [ ] Add `aq orient`, capability discovery, human output, and JSON contract.
-- [ ] Replace Studio's browser-authored decision inference with the frozen Core
+- [x] Implement and schema one Core Agent Work Brief projection.
+- [x] Add `aq orient`, capability discovery, human output, and JSON contract.
+- [x] Replace Studio's browser-authored decision inference with the frozen Core
       work brief.
-- [ ] Exercise every coordination/scientific state with deterministic tests
+- [x] Exercise every coordination/scientific state with deterministic tests
       and one real Project.
-- [ ] Complete browser, package, documentation-link, and full-regression
+- [x] Complete browser, package, documentation-link, and full-regression
       evidence; commit and push the fixed milestone.
 
 ## Findings and decisions
@@ -144,17 +144,54 @@ documentation scavenger hunt.
 - 2026-07-25 — Fast factor feedback is important but has different correctness
   and budget questions. It will follow as a separately indexed plan rather
   than weakening the orientation milestone.
+- 2026-07-25 — An ordinary multi-Study Project without a research program must
+  return `study-selection-required` plus bounded read-only inspection actions.
+  Orientation never silently picks a Study.
+- 2026-07-25 — Studio has no browser-authored fallback decision. If Core cannot
+  verify a brief, the first card reports orientation unavailable and points to
+  diagnostics instead of inferring authority from partial metrics.
 
 ## Verification
 
-Pending.
+- `uv run python -m unittest discover -s tests` — all 178 repository tests
+  passed in `1061.725s`.
+- `uv run python -m unittest -v tests.test_orientation tests.test_cli
+  tests.test_studio tests.test_research_program` — the 28 initially affected
+  contract, CLI, Studio, and three-lane state tests passed; final full
+  regression includes the added uncoordinated multi-Study case.
+- `uv run python scripts/check_doc_links.py` — 640 documentation double-links
+  resolve.
+- `uv run python -m compileall -q autoquant tests` and
+  `node --check autoquant/studio_assets/studio.js` passed.
+- `uv build --out-dir /tmp/autoquant-agent-orient-build-20260725-v1` produced
+  the sdist and wheel; wheel inspection confirmed `orientation.py`, CLI,
+  capabilities, Studio Core, and Studio JavaScript are packaged.
+- The real five-asset Yahoo Project returned a 4,423-byte JSON orientation and
+  an 11-line human brief, versus a 19,538-byte complete program envelope. It
+  selected Factor quality, identified missing immutable baseline evidence,
+  denied writes, and emitted the exact bounded `run execute` command.
+- Browser QA against the live read-only Studio at 1280px confirmed the first
+  decision card displayed the same `BASELINE EVIDENCE MISSING`, Factor focus,
+  next investigation, authority boundary, and shortened Core brief hash with
+  no horizontal overflow.
 
 ## Progress log
 
 - 2026-07-25 — Plan activated after auditing the existing CLI/program/session
   surfaces and confirming that trustworthy state exists but is not yet
   compressed into an AI-first work contract.
+- 2026-07-25 — Added the strict Core brief, `aq orient`, capability/schema
+  discovery, exact Session worktree authority, stable reason taxonomy, and
+  Studio object/hash parity.
+- 2026-07-25 — Removed browser-side decision fallback, covered blank,
+  uncoordinated multi-Study, single-Study, stale authority, gate, conflict, and
+  real research-desk states, then completed package/browser/full regression.
 
 ## Completion
 
-Pending.
+AutoQuant now gives a new research Agent one verified, compact, read-only
+entry contract instead of requiring it to reconstruct the lifecycle from
+several large objects and documentation pages. Human Studio review is a
+projection of that exact contract, and no valid orientation grants canonical
+Project writes or trading authority. Research-feedback latency remains the
+next distinct AI-operator problem.

@@ -1,6 +1,7 @@
 # AI-first Agent operator experience
 
-Status: active design.
+Status: implemented for the V1 Agent Work Brief and read-only orientation
+surface.
 
 Related: [[docs/design/agent-cli-contract]],
 [[docs/design/research-program-orchestration]],
@@ -124,9 +125,9 @@ No brief may advertise two writable roots.
 
 ## Operator reason taxonomy
 
-Stable reason categories must distinguish:
+Stable Project-level reason categories distinguish:
 
-- `project-selection-required`;
+- `study-selection-required`;
 - `baseline-evidence-missing`;
 - `current-evidence-stale`;
 - `session-required`;
@@ -142,11 +143,10 @@ Implementation may add more specific codes, but it must not collapse
 scientific rejection into missing workflow state or describe an immutable
 negative result as an infrastructure failure.
 
-A Workspace with one Project or a declared default Project resolves normally.
-A multi-Project Workspace without an explicit/default selection returns
-`project-selection-required`, a bounded Project inventory, no writable root,
-and no mutating primary action. It never guesses which research question the
-Agent should operate.
+A Workspace with a declared default Project resolves normally. A Workspace
+without a default requires `--project ID` through the existing structured
+`workspace.selection-required` CLI error. Orientation never guesses which
+research question the Agent should operate.
 
 ## CLI and Studio parity
 

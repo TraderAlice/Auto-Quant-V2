@@ -513,141 +513,37 @@ const programAssessment = (project) => {
 };
 
 const researchDecisionBrief = (project) => {
-  const program = project.researchProgramStatus;
-  const run = projectFocusRun(project);
-  const layers = run?.metricLayers;
-  const origin = project.intake || project.sessions.some((item) => item.delegation)
-    ? "OPENALICE REQUEST"
-    : "LOCAL RESEARCH";
-  if (program) {
-    const assessment = programAssessment(project);
-    const recommended = program.lanes.find(
-      (lane) => lane.id === program.recommendedLaneId,
-    );
+  const coreBrief = project.agentWorkBrief;
+  if (coreBrief) {
+    const tone = {
+      blocked: "bad",
+      complete: "good",
+      active: "warning",
+      pending: "neutral",
+    }[coreBrief.review.status] ?? "neutral";
     return {
-      tone: assessment.tone,
-      label: assessment.label,
-      title: assessment.title,
-      detail: assessment.detail,
-      next: recommended
-        ? `Work ${recommended.name} before interpreting downstream complexity as value-add.`
-        : program.progression?.stage === "required-research-complete"
-          ? "Return the required-lane Dossier to OpenAlice; run governed RL only if adaptivity is a separately chosen research question."
-          : "Inspect the earliest unsupported evidence gate.",
-      boundary: `${program.summary.lanes} fixed Studies · validation selects`,
-      origin,
+      tone,
+      label: coreBrief.review.label,
+      title: coreBrief.review.title,
+      detail: coreBrief.review.detail,
+      next: coreBrief.review.next,
+      boundary: coreBrief.review.boundary,
+      origin:
+        coreBrief.question.origin === "delegated-request"
+          ? "OPENALICE REQUEST"
+          : "LOCAL RESEARCH",
+      workBriefHash: project.agentWorkBriefHash,
     };
   }
-  if (layers?.kind === "rl-policy") {
-    const advantage = Number(layers.validationBaselineAdvantage);
-    const standalone = Number(layers.validationMeanNetSharpe);
-    const oracleHit = Number(layers.factorOpportunity?.validationOracleHitRate);
-    const candidateUse = Number(layers.validationCandidateActionFrequency);
-    const active = project.rlExplorer?.incrementalAttribution?.validation;
-    const worstRegime = active?.byRegime
-      ?.slice()
-      .sort(
-        (left, right) =>
-          left.totalNetActiveReturn - right.totalNetActiveReturn,
-      )[0];
-    const worstPair = active?.byActionPair
-      ?.slice()
-      .sort(
-        (left, right) =>
-          left.totalNetActiveReturn - right.totalNetActiveReturn,
-      )[0];
-    const adverse = Number.isFinite(advantage) && advantage < 0;
-    return {
-      tone: adverse ? "bad" : "good",
-      label: adverse ? "DO NOT PROMOTE ADAPTIVITY" : "INCREMENTAL VALUE OBSERVED",
-      title: adverse ? "No incremental RL value" : "RL clears the simpler-policy comparison",
-      detail: adverse
-        ? `Despite ${metric(standalone)} standalone validation Sharpe, the policy trails the validation-selected simpler baseline by ${metric(Math.abs(advantage))}.`
-        : `The policy leads the validation-selected simpler baseline by ${metric(advantage)} with ${metric(standalone)} standalone validation Sharpe.`,
-      next:
-        adverse && worstRegime && worstPair
-          ? `Stabilize ${worstRegime.dimension}/${worstRegime.bucket}: the policy choosing ${worstPair.policyAction} while the baseline chooses ${worstPair.baselineAction} is the largest full-path loss.`
-          : adverse && Number.isFinite(oracleHit) && oracleHit < 0.5
-          ? `Rebuild the causal state and learning contract: the policy selects the local-best sleeve only ${percent(oracleHit)} of the time.`
-          : adverse && Number.isFinite(candidateUse) && candidateUse === 0
-            ? "Audit why the locked candidate sleeve is never selected before adding policy complexity."
-            : "Challenge the result with fixed robustness gates before any promotion decision.",
-      boundary: `${layers.folds}×${layers.seeds} declared fold/seed trials · validation selects · test audits`,
-      origin,
-    };
-  }
-  if (layers?.kind === "portfolio") {
-    const value = Number(layers.portfolio?.validationNetSharpe);
-    const adverse = Number.isFinite(value) && value < 0;
-    return {
-      tone: adverse ? "bad" : "neutral",
-      label: adverse ? "IMPLEMENTATION EDGE FAILED" : "COSTED EDGE OBSERVED",
-      title: adverse ? "Signal does not survive implementation" : "Mechanical portfolio evidence is available",
-      detail: `Validation net Sharpe is ${metric(value)} after the declared construction, turnover, cost, and risk rules.`,
-      next: adverse
-        ? "Return to factor construction or reduce implementation drag before expanding the portfolio."
-        : "Inspect drawdown, turnover, capacity, parameter neighborhoods, and fixed stress evidence.",
-      boundary: "validation selects · test and stress evidence audit only",
-      origin,
-    };
-  }
-  if (layers?.kind === "factor") {
-    const value = Number(layers.validationMeanIc);
-    const adverse = Number.isFinite(value) && value < 0;
-    const qualification = project.factorExplorer?.factorQualification;
-    if (qualification?.available) {
-      const diagnosis = qualification.diagnosis;
-      const stage = diagnosis.stage;
-      const positive = stage === "factor-qualification-positive";
-      const weak = stage.includes("statistical-evidence-weak");
-      const titles = {
-        "raw-predictive-edge-absent": "Raw factor direction is adverse",
-        "raw-statistical-evidence-weak": "Raw IC lacks statistical support",
-        "style-neutral-edge-absent": "Candidate edge is a known-style exposure",
-        "style-neutral-statistical-evidence-weak": "Distinct residual edge remains weak",
-        "blend-uplift-absent": "Candidate does not improve the style baseline",
-        "residual-temporal-instability": "Residual edge is not stable through time",
-        "factor-qualification-positive": "Factor can advance to Portfolio research",
-      };
-      return {
-        tone: positive ? "good" : weak ? "warning" : "bad",
-        label: positive
-          ? "DISTINCT FACTOR EVIDENCE OBSERVED"
-          : "DO NOT ADVANCE FACTOR COMPLEXITY",
-        title: titles[stage] ?? stage.replaceAll("-", " "),
-        detail: diagnosis.explanation,
-        next: `Research ${diagnosis.iterationFocus.replaceAll("-", " ")} before treating the candidate as Portfolio or RL input.`,
-        boundary: "train selects style · validation diagnoses · test audits",
-        origin,
-      };
-    }
-    return {
-      tone: adverse ? "bad" : "neutral",
-      label: adverse ? "PREDICTIVE EVIDENCE FAILED" : "PREDICTIVE EVIDENCE OBSERVED",
-      title: adverse ? "Signal direction is adverse" : "Causal factor evidence is available",
-      detail: `Validation rank IC is ${metric(value)} under the fixed horizon and fold protocol.`,
-      next: adverse
-        ? "Repair or replace the factor before portfolio or adaptive-policy work."
-        : "Inspect decay, fold stability, asset breadth, and style overlap before portfolio construction.",
-      boundary: "validation selects · test evidence audits only",
-      origin,
-    };
-  }
-  const active = project.counts.activeSessions > 0 || project.counts.runningCampaigns > 0;
   return {
-    tone: active ? "warning" : "neutral",
-    label: active ? "RESEARCH IN PROGRESS" : run ? "IMMUTABLE EVIDENCE READY" : "BASELINE PENDING",
-    title: active ? "A governed iteration is active" : run ? "Inspect the fixed Study result" : "Define and run the first fixed Study",
-    detail: run
-      ? `${run.primaryMetric} is ${metric(run.primaryValue)}. Read it against the Study contract before drawing a conclusion.`
-      : "No successful structured evidence Run is available yet.",
-    next: active
-      ? "Wait for the fixed Judge verdict, then compare the candidate with the immutable leader."
-      : run
-        ? "Open the evidence lane and inspect its acceptance boundary."
-        : "Create a bounded Study with a declared metric, split, dataset, and baseline.",
-    boundary: run ? "immutable Run evidence" : "no selection evidence",
-    origin,
+    tone: "bad",
+    label: "ORIENTATION UNAVAILABLE",
+    title: "Core could not verify the Agent Work Brief",
+    detail:
+      "Inspect the Project diagnostics; Studio will not reconstruct a research decision from partial browser data.",
+    next: "Repair the reported Core validation issue, then refresh this snapshot.",
+    boundary: "no inferred edit or trading authority",
+    origin: "CORE DIAGNOSTIC",
   };
 };
 
@@ -666,7 +562,7 @@ function renderDecisionBrief(project) {
         <small>Next investigation</small>
         <b>${escapeHtml(brief.next)}</b>
       </span>
-      <code>${escapeHtml(brief.origin)} · ${escapeHtml(brief.boundary)}</code>
+      <code>${escapeHtml(brief.origin)} · ${escapeHtml(brief.boundary)}${brief.workBriefHash ? ` · ${escapeHtml(shortHash(brief.workBriefHash))}` : ""}</code>
     </footer>`;
 }
 

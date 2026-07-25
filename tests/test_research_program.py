@@ -10,6 +10,7 @@ import autoquant.research_program as research_program_module
 import jsonschema
 
 from autoquant.intake import prepare_project_intake
+from autoquant.orientation import build_agent_work_brief
 from autoquant.reports import publish_report
 from autoquant.research_program import (
     RESEARCH_PROGRAM_STATUS_JSON_SCHEMA,
@@ -167,6 +168,15 @@ class MultiStudyResearchProgramTests(unittest.TestCase):
                 [gate["status"] for gate in initial["progression"]["gates"]],
                 ["waiting-current-evidence", "blocked-prerequisite"],
             )
+            initial_brief = build_agent_work_brief(project)
+            self.assertEqual(
+                initial_brief["primaryAction"]["id"],
+                "run.execute",
+            )
+            self.assertEqual(
+                initial_brief["reasons"][0]["code"],
+                "baseline-evidence-missing",
+            )
             self.assertEqual(
                 {lane["study"]["datasetHash"] for lane in initial["lanes"]},
                 {initial["datasetHash"]},
@@ -233,6 +243,16 @@ class MultiStudyResearchProgramTests(unittest.TestCase):
             )
             self.assertEqual(baseline["recommendedLaneId"], "factor")
             self.assertEqual(baseline["recommendedAction"]["id"], "session.start")
+            baseline_brief = build_agent_work_brief(project)
+            self.assertEqual(
+                baseline_brief["reasons"][0]["code"],
+                "scientific-gate-blocked",
+            )
+            self.assertEqual(
+                baseline_brief["primaryAction"]["id"],
+                "session.start",
+            )
+            self.assertFalse(baseline_brief["filesystem"]["writable"])
 
             snapshot = build_studio_snapshot(workspace.root_dir)
             observed = snapshot["projects"][0]["researchProgramStatus"]
@@ -253,6 +273,13 @@ class MultiStudyResearchProgramTests(unittest.TestCase):
                 conflicted["conflicts"][1]["editablePath"],
                 "factors/candidate.py",
             )
+            conflict_brief = build_agent_work_brief(project)
+            self.assertEqual(
+                conflict_brief["reasons"][0]["code"],
+                "shared-source-conflict",
+            )
+            self.assertIsNone(conflict_brief["primaryAction"])
+            self.assertFalse(conflict_brief["filesystem"]["writable"])
 
             candidate_path = project.root_dir / "factors" / "candidate.py"
             candidate_path.write_text(
@@ -330,6 +357,13 @@ class MultiStudyResearchProgramTests(unittest.TestCase):
                 status["progression"]["gates"][0]["status"],
                 "blocked-upstream-evidence",
             )
+            brief = build_agent_work_brief(project)
+            self.assertEqual(
+                brief["reasons"][0]["code"],
+                "scientific-gate-blocked",
+            )
+            self.assertEqual(brief["primaryAction"]["id"], "session.start")
+            self.assertFalse(brief["filesystem"]["writable"])
 
     def test_positive_reported_gates_complete_required_program(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
