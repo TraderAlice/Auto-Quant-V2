@@ -1557,6 +1557,26 @@ def _run_portfolio(args: argparse.Namespace) -> CommandResult:
         f"{viability_friction['annualizedOneWayTurnover']} · break-even "
         f"{break_even_label} · research prioritization only\n"
     )
+    monetization = diagnostics["signalMonetization"]
+    monetization_validation = monetization["validation"]
+    monetization_stages = {
+        item["id"]: item for item in monetization_validation["stages"]
+    }
+    monetization_summary = (
+        "Validation signal monetization: "
+        f"{monetization['diagnosis']['outcome']} · focus "
+        f"{monetization['diagnosis']['iterationFocus']} · equal intent/raw/"
+        "governed/executed gross/net annualized additive contribution "
+        f"{monetization_stages['equalIntent']['annualizedContribution']}/"
+        f"{monetization_stages['preGovernorSizing']['annualizedContribution']}/"
+        f"{monetization_stages['governedTarget']['annualizedContribution']}/"
+        f"{monetization_stages['executedGross']['annualizedContribution']}/"
+        f"{monetization_stages['executedNet']['annualizedContribution']} · "
+        "largest adverse "
+        f"{monetization['diagnosis']['largestAdverseStage']} "
+        f"{monetization['diagnosis']['largestAdverseAnnualizedDelta']} · "
+        "additive diagnostic only\n"
+    )
     capacity = diagnostics["liquidityCapacity"]
     validation_capacity = capacity["validation"] if capacity["available"] else None
     capacity_summary = (
@@ -1639,6 +1659,7 @@ def _run_portfolio(args: argparse.Namespace) -> CommandResult:
             f"Latest historical book: {book['timestamp']} · "
             f"gross {book['grossExposure']} · net {book['netExposure']}\n"
             f"{viability_summary}"
+            f"{monetization_summary}"
             f"{sizing_summary}"
             f"Risk governor: {book['riskGovernorStatus']} · scale "
             f"{book['riskGovernorScale']} · annualized forecast "

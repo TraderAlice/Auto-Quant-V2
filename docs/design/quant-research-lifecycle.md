@@ -226,6 +226,15 @@ underwater duration. Its iteration focus is research prioritization only.
 Visible test evidence remains audit-only and cannot redirect the diagnosis.
 Reports and Dossiers freeze the exact point-in-time diagnosis for OpenAlice.
 
+For the `factor-not-monetized` case, the read model further decomposes
+normalized equal signal intent into fixed pre-governor sizing, governed target,
+historical executed gross, and historical executed net additive contribution.
+The consecutive deltas isolate sizing/caps, risk governance,
+execution/no-trade retention, and cost. Equal intent obeys the Portfolio
+Mandate but is a non-compounded diagnostic, not another candidate or
+benchmark. Validation alone names the largest adverse transformation; test is
+visible audit and the bridge has no selection or trading authority.
+
 Tolerance bands are a first-class implementation choice: research on
 rebalancing frames the problem as tracking-error versus transaction-cost
 control rather than blindly trading every calendar interval:

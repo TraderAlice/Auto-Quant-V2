@@ -520,6 +520,61 @@ class PortfolioDecisionExplorerTests(unittest.TestCase):
                 viability["diagnosis"]["stage"],
                 expected_stage,
             )
+            monetization = diagnostics["signalMonetization"]
+            self.assertEqual(
+                monetization["authority"],
+                "research-prioritization-only",
+            )
+            self.assertEqual(
+                monetization["tradingAuthority"],
+                "none",
+            )
+            self.assertFalse(
+                monetization["semantics"]["counterfactualCompounding"]
+            )
+            self.assertFalse(
+                monetization["diagnosis"]["testEntersDiagnosis"]
+            )
+            self.assertEqual(
+                monetization["validation"]["role"],
+                "selection",
+            )
+            self.assertEqual(
+                monetization["test"]["role"],
+                "visible-audit",
+            )
+            self.assertEqual(
+                [
+                    item["id"]
+                    for item in monetization["validation"]["stages"]
+                ],
+                [
+                    "equalIntent",
+                    "preGovernorSizing",
+                    "governedTarget",
+                    "executedGross",
+                    "executedNet",
+                ],
+            )
+            self.assertEqual(
+                [
+                    item["id"]
+                    for item in monetization["validation"]["deltas"]
+                ],
+                [
+                    "sizingAndCaps",
+                    "riskGovernor",
+                    "executionRetention",
+                    "tradingCost",
+                ],
+            )
+            self.assertTrue(
+                monetization["validation"]["reconciliation"]["passed"]
+            )
+            self.assertEqual(
+                len(monetization["validation"]["byAsset"]),
+                len(diagnostics["universe"]),
+            )
 
             first_asset = diagnostics["universe"][0]
             expected = run.result["metrics"]["attribution"]["validation"]["by_asset"][
@@ -541,6 +596,48 @@ class PortfolioDecisionExplorerTests(unittest.TestCase):
                 diagnostics,
                 PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA,
             )
+
+    def test_rehashed_offsetting_contribution_tamper_is_rejected(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, project, run = make_lab(Path(directory))
+            path = run.root_dir / "artifacts" / "portfolio-decisions.csv"
+            with path.open(encoding="utf-8", newline="") as handle:
+                rows = list(csv.DictReader(handle))
+                fields = list(rows[0])
+            validation = run.result["metrics"]["split_protocol"]["splits"][
+                "validation"
+            ]
+            timestamp = next(
+                row["timestamp"]
+                for row in rows
+                if (
+                    validation["start"]
+                    <= row["timestamp"]
+                    <= validation["signalEnd"]
+                    and abs(float(row["gross_return_contribution"])) > 1e-12
+                )
+            )
+            selected = [
+                row for row in rows if row["timestamp"] == timestamp
+            ][:2]
+            offset = 0.001
+            for sign, row in zip((1.0, -1.0), selected):
+                row["gross_return_contribution"] = str(
+                    float(row["gross_return_contribution"]) + sign * offset
+                )
+            with path.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=fields)
+                writer.writeheader()
+                writer.writerows(rows)
+            rehash_run(run.root_dir)
+
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "Signal monetization evidence does not reconcile",
+            ):
+                load_portfolio_diagnostics(project, run.result["id"])
 
     def test_rehashed_cost_stress_metric_tamper_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

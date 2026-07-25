@@ -14,6 +14,7 @@ from typing import Any
 
 from .decision_support import (
     mechanical_decision_markdown_lines,
+    signal_monetization_markdown_lines,
     sizing_anatomy_markdown_lines,
     strategy_viability_markdown_lines,
     summarize_leader_decision_support,
@@ -1178,6 +1179,13 @@ def _render_markdown(dossier: dict[str, Any]) -> str:
                 strategy_viability_markdown_lines(
                     support,
                     heading="## Frozen portfolio strategy viability",
+                    lane_name=lane["name"],
+                )
+            )
+            lines.extend(
+                signal_monetization_markdown_lines(
+                    support,
+                    heading="## Frozen signal monetization bridge",
                     lane_name=lane["name"],
                 )
             )

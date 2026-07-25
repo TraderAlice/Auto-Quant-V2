@@ -133,6 +133,10 @@ non-file entries are rejected.
   research focus, gross-to-net wedge, cost break-even/stress, delay
   sensitivity, temporal breadth, best-day dependence, and underwater duration
   when the included Report contains that snapshot;
+- Portfolio signal-monetization identity, validation-only transmission outcome,
+  largest adverse stage, equal-intent/sized/governed/executed gross/net
+  additive contribution, gate coverage, and exact reconciliation when the
+  included Report contains that snapshot;
 - Portfolio liquidity-capacity policy, validation envelope, coverage, and
   reference-NAV breach evidence when present;
 - Portfolio and governed-RL executed-book forecast coverage, pretrade breach,

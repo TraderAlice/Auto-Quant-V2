@@ -266,6 +266,12 @@ class ResearchHandoffTests(unittest.TestCase):
             self.assertIsNone(
                 decision_support["portfolioStrategyViability"]
             )
+            self.assertIsNone(
+                decision_support["portfolioSignalMonetizationHash"]
+            )
+            self.assertIsNone(
+                decision_support["portfolioSignalMonetization"]
+            )
             self.assertEqual(
                 report.report["evidence"]["selectionIntegrity"][
                     "selectionSplit"
@@ -452,6 +458,38 @@ class ResearchHandoffTests(unittest.TestCase):
 
             self.assertNotIn(
                 "portfolioStrategyViability",
+                loaded.report["evidence"]["leaderDecisionSupport"],
+            )
+
+    def test_prior_decision_support_without_monetization_remains_loadable(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = self._project(directory)
+            session = start_session(
+                project,
+                "factor-quality",
+                request=research_request(),
+            )
+            report = publish_report(
+                project,
+                session.manifest["id"],
+                report_analysis(session.manifest["baseline"]["runId"]),
+            )
+            historical = json.loads(json.dumps(report.report))
+            support = historical["evidence"]["leaderDecisionSupport"]
+            support.pop("portfolioSignalMonetizationHash")
+            support.pop("portfolioSignalMonetization")
+            _, report_id = fully_rehash_report(
+                report,
+                historical,
+                session.manifest["id"],
+            )
+
+            loaded = load_report(project, session, report_id)
+
+            self.assertNotIn(
+                "portfolioSignalMonetization",
                 loaded.report["evidence"]["leaderDecisionSupport"],
             )
 

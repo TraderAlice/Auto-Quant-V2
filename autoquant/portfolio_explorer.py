@@ -63,6 +63,9 @@ SIZING_ANATOMY_METHOD = (
 STRATEGY_VIABILITY_METHOD = (
     "validation-factor-gross-friction-net-viability-diagnosis-v1"
 )
+SIGNAL_MONETIZATION_METHOD = (
+    "normalized-intent-sizing-governance-execution-cost-bridge-v1"
+)
 BREAK_EVEN_COST_SEARCH_MAX_BPS = 1_000.0
 PERCENTILE_DISTANCE_SEMANTICS = (
     "current-cross-sectional-percentile-points-with-peer-ranks-held-fixed"
@@ -2534,6 +2537,403 @@ def _strategy_viability_projection(
     }
 
 
+def _signal_monetization_projection(
+    ordered_decisions: list[dict[str, Any]],
+    daily: ParsedDaily,
+    splits: dict[str, Any],
+    mandate: dict[str, Any],
+    universe: list[str],
+) -> dict[str, Any]:
+    """Explain additive signal-to-net-return transmission from fixed evidence."""
+
+    family = mandate["family"]
+    gross_limit = float(mandate["grossLimit"])
+    cap = float(mandate["maxAbsWeight"])
+    daily_by_date = {row["timestamp"]: row for row in daily.rows}
+    by_date: dict[str, list[dict[str, Any]]] = {}
+    for item in ordered_decisions:
+        by_date.setdefault(item["timestamp"], []).append(item)
+
+    def equal_intent_weights(
+        rows: list[dict[str, Any]],
+    ) -> dict[str, float]:
+        weights = {asset: 0.0 for asset in universe}
+        longs = [
+            item["asset"]
+            for item in rows
+            if item["tradable"] and item["signal_state"] == 1
+        ]
+        shorts = [
+            item["asset"]
+            for item in rows
+            if item["tradable"] and item["signal_state"] == -1
+        ]
+        if family == "dollar-neutral":
+            side_budget = gross_limit / 2.0
+            if (
+                not longs
+                or not shorts
+                or len(longs) * cap < side_budget - 1e-12
+                or len(shorts) * cap < side_budget - 1e-12
+            ):
+                return weights
+            for asset in longs:
+                weights[asset] = side_budget / len(longs)
+            for asset in shorts:
+                weights[asset] = -side_budget / len(shorts)
+        elif family == "long-cash" and longs:
+            budget = min(gross_limit, len(longs) * cap)
+            for asset in longs:
+                weights[asset] = budget / len(longs)
+        elif family == "short-cash" and shorts:
+            budget = min(gross_limit, len(shorts) * cap)
+            for asset in shorts:
+                weights[asset] = -budget / len(shorts)
+        return weights
+
+    stage_ids = (
+        "equalIntent",
+        "preGovernorSizing",
+        "governedTarget",
+        "executedGross",
+        "executedNet",
+    )
+    stage_labels = {
+        "equalIntent": "Normalized equal intent",
+        "preGovernorSizing": "Fixed sizing and caps",
+        "governedTarget": "Covariance-governed target",
+        "executedGross": "Historical executed gross",
+        "executedNet": "Historical executed net",
+    }
+    delta_contract = (
+        (
+            "sizingAndCaps",
+            "equalIntent",
+            "preGovernorSizing",
+            "Sizing and caps",
+        ),
+        (
+            "riskGovernor",
+            "preGovernorSizing",
+            "governedTarget",
+            "Risk governor",
+        ),
+        (
+            "executionRetention",
+            "governedTarget",
+            "executedGross",
+            "Execution and no-trade retention",
+        ),
+        (
+            "tradingCost",
+            "executedGross",
+            "executedNet",
+            "Trading cost",
+        ),
+    )
+    split_outputs: dict[str, Any] = {}
+    for split_name in ("validation", "test"):
+        split = splits[split_name]
+        selected_dates = [
+            timestamp
+            for timestamp in daily.dates
+            if split["start"] <= timestamp <= split["signalEnd"]
+        ]
+        if not selected_dates:
+            _fail(
+                f"signalMonetization/{split_name}",
+                "portfolio.monetization-population",
+                "Signal monetization split has no realized decision dates",
+            )
+        totals = {stage_id: 0.0 for stage_id in stage_ids}
+        asset_totals = {
+            asset: {
+                stage_id: 0.0 for stage_id in stage_ids
+            }
+            for asset in universe
+        }
+        asset_costs = {asset: 0.0 for asset in universe}
+        coverage = {
+            "decisionDates": len(selected_dates),
+            "assetObservations": 0,
+            "scoreAvailableObservations": 0,
+            "directionalIntentObservations": 0,
+            "flatIntentObservations": 0,
+            "contextOnlyObservations": 0,
+            "equalIntentActiveDates": 0,
+            "rawTargetActiveDates": 0,
+            "riskLimitedDates": 0,
+            "targetExecutionMismatchDates": 0,
+            "noTradeRetentionDates": 0,
+            "rebalancedDates": 0,
+        }
+        errors = {
+            "maximumGrossFormulaError": 0.0,
+            "maximumNetFormulaError": 0.0,
+            "maximumDailyGrossError": 0.0,
+            "maximumDailyCostError": 0.0,
+            "maximumDailyNetError": 0.0,
+            "maximumEqualIntentGrossLimitExcess": 0.0,
+            "maximumEqualIntentCapExcess": 0.0,
+            "maximumContextIntentExposure": 0.0,
+        }
+        for timestamp in selected_dates:
+            rows = by_date.get(timestamp, [])
+            if len(rows) != len(universe):
+                _fail(
+                    f"signalMonetization/{split_name}/{timestamp}",
+                    "portfolio.monetization-panel",
+                    "Signal monetization requires one row per universe asset",
+                )
+            rows_by_asset = {item["asset"]: item for item in rows}
+            intent_weights = equal_intent_weights(rows)
+            intent_gross = sum(abs(value) for value in intent_weights.values())
+            coverage["equalIntentActiveDates"] += int(intent_gross > 1e-12)
+            errors["maximumEqualIntentGrossLimitExcess"] = max(
+                errors["maximumEqualIntentGrossLimitExcess"],
+                max(0.0, intent_gross - gross_limit),
+            )
+            errors["maximumEqualIntentCapExcess"] = max(
+                errors["maximumEqualIntentCapExcess"],
+                max(
+                    (
+                        max(0.0, abs(value) - cap)
+                        for value in intent_weights.values()
+                    ),
+                    default=0.0,
+                ),
+            )
+            errors["maximumContextIntentExposure"] = max(
+                errors["maximumContextIntentExposure"],
+                max(
+                    (
+                        abs(intent_weights[item["asset"]])
+                        for item in rows
+                        if not item["tradable"]
+                    ),
+                    default=0.0,
+                ),
+            )
+            raw_gross = sum(
+                abs(item["pre_governor_target_weight"])
+                for item in rows
+            )
+            coverage["rawTargetActiveDates"] += int(raw_gross > 1e-12)
+            coverage["riskLimitedDates"] += int(
+                rows[0]["risk_governor_scale"] < 1.0 - 1e-12
+            )
+            target_mismatch = any(
+                not math.isclose(
+                    item["proposed_target_weight"],
+                    item["executed_weight"],
+                    rel_tol=0.0,
+                    abs_tol=1e-12,
+                )
+                for item in rows
+            )
+            traded = any(abs(item["trade_weight"]) > 1e-12 for item in rows)
+            coverage["targetExecutionMismatchDates"] += int(target_mismatch)
+            coverage["noTradeRetentionDates"] += int(
+                target_mismatch and not traded
+            )
+            coverage["rebalancedDates"] += int(traded)
+            daily_stage = {stage_id: 0.0 for stage_id in stage_ids}
+            daily_cost = 0.0
+            for asset in universe:
+                item = rows_by_asset[asset]
+                coverage["assetObservations"] += 1
+                coverage["scoreAvailableObservations"] += int(
+                    item["percentile_score"] is not None
+                )
+                coverage["contextOnlyObservations"] += int(
+                    not item["tradable"]
+                )
+                coverage["directionalIntentObservations"] += int(
+                    item["tradable"] and item["signal_state"] != 0
+                )
+                coverage["flatIntentObservations"] += int(
+                    item["tradable"] and item["signal_state"] == 0
+                )
+                forward_return = item["asset_forward_return"]
+                contribution = {
+                    "equalIntent": (
+                        intent_weights[asset] * forward_return
+                    ),
+                    "preGovernorSizing": (
+                        item["pre_governor_target_weight"]
+                        * forward_return
+                    ),
+                    "governedTarget": (
+                        item["proposed_target_weight"] * forward_return
+                    ),
+                    "executedGross": (
+                        item["executed_weight"] * forward_return
+                    ),
+                    "executedNet": item["net_return_contribution"],
+                }
+                errors["maximumGrossFormulaError"] = max(
+                    errors["maximumGrossFormulaError"],
+                    abs(
+                        contribution["executedGross"]
+                        - item["gross_return_contribution"]
+                    ),
+                )
+                errors["maximumNetFormulaError"] = max(
+                    errors["maximumNetFormulaError"],
+                    abs(
+                        item["gross_return_contribution"]
+                        - item["cost_contribution"]
+                        - item["net_return_contribution"]
+                    ),
+                )
+                daily_cost += item["cost_contribution"]
+                asset_costs[asset] += item["cost_contribution"]
+                for stage_id, value in contribution.items():
+                    totals[stage_id] += value
+                    daily_stage[stage_id] += value
+                    asset_totals[asset][stage_id] += value
+            expected = daily_by_date[timestamp]
+            errors["maximumDailyGrossError"] = max(
+                errors["maximumDailyGrossError"],
+                abs(daily_stage["executedGross"] - expected["gross_return"]),
+            )
+            errors["maximumDailyCostError"] = max(
+                errors["maximumDailyCostError"],
+                abs(daily_cost - expected["cost"]),
+            )
+            errors["maximumDailyNetError"] = max(
+                errors["maximumDailyNetError"],
+                abs(daily_stage["executedNet"] - expected["net_return"]),
+            )
+
+        dates = coverage["decisionDates"]
+        annualize = lambda value: value / dates * 252.0
+        stages = [
+            {
+                "id": stage_id,
+                "label": stage_labels[stage_id],
+                "totalContribution": totals[stage_id],
+                "meanDailyContribution": totals[stage_id] / dates,
+                "annualizedContribution": annualize(totals[stage_id]),
+            }
+            for stage_id in stage_ids
+        ]
+        deltas = [
+            {
+                "id": delta_id,
+                "label": label,
+                "fromStage": from_stage,
+                "toStage": to_stage,
+                "totalContributionDelta": (
+                    totals[to_stage] - totals[from_stage]
+                ),
+                "annualizedContributionDelta": annualize(
+                    totals[to_stage] - totals[from_stage]
+                ),
+            }
+            for delta_id, from_stage, to_stage, label in delta_contract
+        ]
+        tolerance = 1e-9
+        reconciliation = {
+            "passed": all(value <= tolerance for value in errors.values()),
+            "tolerance": tolerance,
+            **errors,
+        }
+        if not reconciliation["passed"]:
+            _fail(
+                f"signalMonetization/{split_name}/reconciliation",
+                "portfolio.monetization-reconciliation",
+                "Signal monetization evidence does not reconcile",
+            )
+        split_outputs[split_name] = {
+            "role": split["role"],
+            "coverage": coverage,
+            "stages": stages,
+            "deltas": deltas,
+            "byAsset": [
+                {
+                    "asset": asset,
+                    **{
+                        stage_id: asset_totals[asset][stage_id]
+                        for stage_id in stage_ids
+                    },
+                    "costContribution": asset_costs[asset],
+                }
+                for asset in universe
+            ],
+            "reconciliation": reconciliation,
+        }
+
+    validation = split_outputs["validation"]
+    validation_totals = {
+        item["id"]: item["totalContribution"]
+        for item in validation["stages"]
+    }
+    worst_delta = min(
+        validation["deltas"],
+        key=lambda item: (
+            item["annualizedContributionDelta"],
+            item["id"],
+        ),
+    )
+    if validation_totals["equalIntent"] <= 0.0:
+        outcome = "signal-intent-negative"
+        focus = "signal-direction-and-thresholds"
+        explanation = (
+            "The normalized validation signal-intent book is non-positive; "
+            "inspect factor sign, state thresholds, and directional breadth "
+            "before tuning portfolio transformations."
+        )
+    elif validation_totals["executedNet"] <= 0.0:
+        outcome = "transmission-destroyed-edge"
+        focus_by_delta = {
+            "sizingAndCaps": "sizing-and-caps",
+            "riskGovernor": "risk-governor",
+            "executionRetention": "execution-and-no-trade",
+            "tradingCost": "turnover-and-cost",
+        }
+        focus = focus_by_delta[worst_delta["id"]]
+        explanation = (
+            "Normalized validation signal intent is positive but historical "
+            "executed net contribution is non-positive; the most adverse "
+            f"additive transformation is {worst_delta['label'].lower()}."
+        )
+    else:
+        outcome = "monetized-positive"
+        focus = "robustness-and-external-holdout"
+        explanation = (
+            "The normalized validation signal intent remains positive after "
+            "sizing, governance, execution, and cost; prioritize robustness "
+            "and fresh external holdout evidence."
+        )
+    return {
+        "method": SIGNAL_MONETIZATION_METHOD,
+        "authority": "research-prioritization-only",
+        "tradingAuthority": "none",
+        "semantics": {
+            "contribution": "additive-weight-times-next-bar-return",
+            "equalIntent": (
+                "normalized-mandate-constrained-signal-state-diagnostic"
+            ),
+            "counterfactualCompounding": False,
+            "entersSelection": False,
+        },
+        "diagnosis": {
+            "selectionSplit": "validation",
+            "testEntersDiagnosis": False,
+            "outcome": outcome,
+            "iterationFocus": focus,
+            "largestAdverseStage": worst_delta["id"],
+            "largestAdverseAnnualizedDelta": worst_delta[
+                "annualizedContributionDelta"
+            ],
+            "explanation": explanation,
+        },
+        "validation": validation,
+        "test": split_outputs["test"],
+    }
+
+
 def _path_projection(
     daily: ParsedDaily,
     weights: dict[str, dict[str, float]],
@@ -4939,6 +5339,13 @@ def load_portfolio_diagnostics(
             daily,
             splits,
         ),
+        "signalMonetization": _signal_monetization_projection(
+            ordered_decisions,
+            daily,
+            splits,
+            mandate,
+            universe,
+        ),
         "recentTransitions": _recent_transitions(
             ordered_decisions,
             universe,
@@ -5626,6 +6033,248 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 },
             },
         },
+        "monetizationStage": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "id",
+                "label",
+                "totalContribution",
+                "meanDailyContribution",
+                "annualizedContribution",
+            ],
+            "properties": {
+                "id": {
+                    "enum": [
+                        "equalIntent",
+                        "preGovernorSizing",
+                        "governedTarget",
+                        "executedGross",
+                        "executedNet",
+                    ]
+                },
+                "label": {"type": "string", "minLength": 1},
+                "totalContribution": {"type": "number"},
+                "meanDailyContribution": {"type": "number"},
+                "annualizedContribution": {"type": "number"},
+            },
+        },
+        "monetizationDelta": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "id",
+                "label",
+                "fromStage",
+                "toStage",
+                "totalContributionDelta",
+                "annualizedContributionDelta",
+            ],
+            "properties": {
+                "id": {
+                    "enum": [
+                        "sizingAndCaps",
+                        "riskGovernor",
+                        "executionRetention",
+                        "tradingCost",
+                    ]
+                },
+                "label": {"type": "string", "minLength": 1},
+                "fromStage": {
+                    "enum": [
+                        "equalIntent",
+                        "preGovernorSizing",
+                        "governedTarget",
+                        "executedGross",
+                    ]
+                },
+                "toStage": {
+                    "enum": [
+                        "preGovernorSizing",
+                        "governedTarget",
+                        "executedGross",
+                        "executedNet",
+                    ]
+                },
+                "totalContributionDelta": {"type": "number"},
+                "annualizedContributionDelta": {"type": "number"},
+            },
+        },
+        "monetizationAsset": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "asset",
+                "equalIntent",
+                "preGovernorSizing",
+                "governedTarget",
+                "executedGross",
+                "executedNet",
+                "costContribution",
+            ],
+            "properties": {
+                "asset": {"type": "string", "minLength": 1},
+                "equalIntent": {"type": "number"},
+                "preGovernorSizing": {"type": "number"},
+                "governedTarget": {"type": "number"},
+                "executedGross": {"type": "number"},
+                "executedNet": {"type": "number"},
+                "costContribution": {"type": "number", "minimum": 0},
+            },
+        },
+        "monetizationSplit": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "role",
+                "coverage",
+                "stages",
+                "deltas",
+                "byAsset",
+                "reconciliation",
+            ],
+            "properties": {
+                "role": {"enum": ["selection", "visible-audit"]},
+                "coverage": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": [
+                        "decisionDates",
+                        "assetObservations",
+                        "scoreAvailableObservations",
+                        "directionalIntentObservations",
+                        "flatIntentObservations",
+                        "contextOnlyObservations",
+                        "equalIntentActiveDates",
+                        "rawTargetActiveDates",
+                        "riskLimitedDates",
+                        "targetExecutionMismatchDates",
+                        "noTradeRetentionDates",
+                        "rebalancedDates",
+                    ],
+                    "properties": {
+                        "decisionDates": {"type": "integer", "minimum": 1},
+                        "assetObservations": {
+                            "type": "integer",
+                            "minimum": 1,
+                        },
+                        "scoreAvailableObservations": {
+                            "type": "integer",
+                            "minimum": 0,
+                        },
+                        "directionalIntentObservations": {
+                            "type": "integer",
+                            "minimum": 0,
+                        },
+                        "flatIntentObservations": {
+                            "type": "integer",
+                            "minimum": 0,
+                        },
+                        "contextOnlyObservations": {
+                            "type": "integer",
+                            "minimum": 0,
+                        },
+                        "equalIntentActiveDates": {
+                            "type": "integer",
+                            "minimum": 0,
+                        },
+                        "rawTargetActiveDates": {
+                            "type": "integer",
+                            "minimum": 0,
+                        },
+                        "riskLimitedDates": {
+                            "type": "integer",
+                            "minimum": 0,
+                        },
+                        "targetExecutionMismatchDates": {
+                            "type": "integer",
+                            "minimum": 0,
+                        },
+                        "noTradeRetentionDates": {
+                            "type": "integer",
+                            "minimum": 0,
+                        },
+                        "rebalancedDates": {
+                            "type": "integer",
+                            "minimum": 0,
+                        },
+                    },
+                },
+                "stages": {
+                    "type": "array",
+                    "minItems": 5,
+                    "maxItems": 5,
+                    "items": {"$ref": "#/$defs/monetizationStage"},
+                },
+                "deltas": {
+                    "type": "array",
+                    "minItems": 4,
+                    "maxItems": 4,
+                    "items": {"$ref": "#/$defs/monetizationDelta"},
+                },
+                "byAsset": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": MAX_UNIVERSE,
+                    "items": {"$ref": "#/$defs/monetizationAsset"},
+                },
+                "reconciliation": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": [
+                        "passed",
+                        "tolerance",
+                        "maximumGrossFormulaError",
+                        "maximumNetFormulaError",
+                        "maximumDailyGrossError",
+                        "maximumDailyCostError",
+                        "maximumDailyNetError",
+                        "maximumEqualIntentGrossLimitExcess",
+                        "maximumEqualIntentCapExcess",
+                        "maximumContextIntentExposure",
+                    ],
+                    "properties": {
+                        "passed": {"const": True},
+                        "tolerance": {
+                            "type": "number",
+                            "exclusiveMinimum": 0,
+                        },
+                        "maximumGrossFormulaError": {
+                            "type": "number",
+                            "minimum": 0,
+                        },
+                        "maximumNetFormulaError": {
+                            "type": "number",
+                            "minimum": 0,
+                        },
+                        "maximumDailyGrossError": {
+                            "type": "number",
+                            "minimum": 0,
+                        },
+                        "maximumDailyCostError": {
+                            "type": "number",
+                            "minimum": 0,
+                        },
+                        "maximumDailyNetError": {
+                            "type": "number",
+                            "minimum": 0,
+                        },
+                        "maximumEqualIntentGrossLimitExcess": {
+                            "type": "number",
+                            "minimum": 0,
+                        },
+                        "maximumEqualIntentCapExcess": {
+                            "type": "number",
+                            "minimum": 0,
+                        },
+                        "maximumContextIntentExposure": {
+                            "type": "number",
+                            "minimum": 0,
+                        },
+                    },
+                },
+            },
+        },
     },
     "type": "object",
     "additionalProperties": False,
@@ -5642,6 +6291,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "mechanicalDecision",
         "sizingAnatomy",
         "strategyViability",
+        "signalMonetization",
         "recentTransitions",
         "signalPolicy",
         "riskGovernor",
@@ -6386,6 +7036,102 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 },
                 "validation": {"$ref": "#/$defs/viabilitySplit"},
                 "test": {"$ref": "#/$defs/viabilitySplit"},
+            },
+        },
+        "signalMonetization": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "method",
+                "authority",
+                "tradingAuthority",
+                "semantics",
+                "diagnosis",
+                "validation",
+                "test",
+            ],
+            "properties": {
+                "method": {"const": SIGNAL_MONETIZATION_METHOD},
+                "authority": {
+                    "const": "research-prioritization-only"
+                },
+                "tradingAuthority": {"const": "none"},
+                "semantics": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": [
+                        "contribution",
+                        "equalIntent",
+                        "counterfactualCompounding",
+                        "entersSelection",
+                    ],
+                    "properties": {
+                        "contribution": {
+                            "const": (
+                                "additive-weight-times-next-bar-return"
+                            )
+                        },
+                        "equalIntent": {
+                            "const": (
+                                "normalized-mandate-constrained-"
+                                "signal-state-diagnostic"
+                            )
+                        },
+                        "counterfactualCompounding": {"const": False},
+                        "entersSelection": {"const": False},
+                    },
+                },
+                "diagnosis": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": [
+                        "selectionSplit",
+                        "testEntersDiagnosis",
+                        "outcome",
+                        "iterationFocus",
+                        "largestAdverseStage",
+                        "largestAdverseAnnualizedDelta",
+                        "explanation",
+                    ],
+                    "properties": {
+                        "selectionSplit": {"const": "validation"},
+                        "testEntersDiagnosis": {"const": False},
+                        "outcome": {
+                            "enum": [
+                                "signal-intent-negative",
+                                "transmission-destroyed-edge",
+                                "monetized-positive",
+                            ]
+                        },
+                        "iterationFocus": {
+                            "enum": [
+                                "signal-direction-and-thresholds",
+                                "sizing-and-caps",
+                                "risk-governor",
+                                "execution-and-no-trade",
+                                "turnover-and-cost",
+                                "robustness-and-external-holdout",
+                            ]
+                        },
+                        "largestAdverseStage": {
+                            "enum": [
+                                "sizingAndCaps",
+                                "riskGovernor",
+                                "executionRetention",
+                                "tradingCost",
+                            ]
+                        },
+                        "largestAdverseAnnualizedDelta": {
+                            "type": "number"
+                        },
+                        "explanation": {
+                            "type": "string",
+                            "minLength": 1,
+                        },
+                    },
+                },
+                "validation": {"$ref": "#/$defs/monetizationSplit"},
+                "test": {"$ref": "#/$defs/monetizationSplit"},
             },
         },
         "recentTransitions": {

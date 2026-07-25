@@ -201,6 +201,44 @@ component-variance shares across assets, plus their Herfindahl indices. This
 identifies whether aggregate return or ex-ante risk is effectively one-name
 research.
 
+## Signal monetization bridge
+
+The bounded Portfolio diagnostics also reconstruct a validation and
+visible-test additive transmission bridge:
+
+```text
+normalized equal signal intent
+→ fixed conviction / inverse-volatility sizing and caps
+→ covariance-governed target
+→ historical executed gross contribution
+→ historical executed net contribution
+```
+
+The equal-intent layer gives every active permitted signal on the same side an
+equal share of the fixed Mandate budget. Directional mandates allocate only
+their permitted side and respect the per-asset cap. Dollar-neutral intent is
+flat unless both long and short sides can fully fund their fixed side budgets,
+matching the allocator's side-breadth rule. Context-only assets always receive
+zero diagnostic weight.
+
+Every stage is arithmetic `weight × next-bar asset return`, aggregated by split
+and asset. It is not a separately compounded counterfactual portfolio:
+substituting historical weights would also change drift, turnover, the
+no-trade decision, final risk repair, and cost. The bridge therefore diagnoses
+transmission without claiming an investable equal-weight baseline.
+
+Core reports the additive delta introduced by sizing/caps, the risk governor,
+historical execution/no-trade retention, and cost. It also discloses signal
+coverage, active dates, risk-limited dates, target/executed mismatches,
+no-trade retention, and rebalances. Reconciliation requires the executed gross
+and net stages to equal the immutable decision and daily ledgers exactly.
+
+Only validation determines whether normalized signal intent is already
+non-positive, a positive intent is destroyed during transmission, or the edge
+remains positive after cost. The largest adverse transformation yields a
+bounded next research focus. Test is visible audit only; the bridge never enters
+KEEP/REVERT, promotion, or trading.
+
 ## Hysteresis baseline
 
 The Judge also constructs a fixed no-hysteresis diagnostic policy whose exit
@@ -250,6 +288,10 @@ long backtest.
     signal or position permission.
 12. Current proposed turnover reconciles the exact governed-target and
     pretrade vectors before the execution gate is shown.
+13. Signal-monetization stages are additive diagnostics; they cannot be
+    presented as independently compounded portfolios or selection baselines.
+14. Normalized equal intent obeys the fixed Mandate's tradability, direction,
+    gross, cap, cash, and dollar-neutral side-funding rules.
 
 ## Known limits
 

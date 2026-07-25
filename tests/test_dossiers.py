@@ -268,6 +268,23 @@ class ProgramResearchDossierTests(unittest.TestCase):
             self.assertFalse(
                 viability["diagnosis"]["testEntersDiagnosis"]
             )
+            monetization = support["portfolioSignalMonetization"]
+            assert monetization is not None
+            self.assertEqual(
+                support["portfolioSignalMonetizationHash"],
+                hash_json(monetization),
+            )
+            self.assertEqual(
+                monetization["authority"],
+                "research-prioritization-only",
+            )
+            self.assertEqual(
+                monetization["tradingAuthority"],
+                "none",
+            )
+            self.assertTrue(
+                monetization["validation"]["reconciliation"]["passed"]
+            )
             self.assertEqual(
                 {item["asset"] for item in decision["positions"]},
                 {"AAPL", "MSFT", "NVDA", "QQQ", "SPY"},
@@ -290,6 +307,10 @@ class ProgramResearchDossierTests(unittest.TestCase):
             )
             self.assertIn(
                 "## Frozen leader-Run strategy viability",
+                portfolio_markdown,
+            )
+            self.assertIn(
+                "## Frozen leader-Run signal monetization bridge",
                 portfolio_markdown,
             )
             self.assertIn(
@@ -426,6 +447,10 @@ class ProgramResearchDossierTests(unittest.TestCase):
             )
             self.assertIn(
                 "## Frozen portfolio strategy viability",
+                markdown,
+            )
+            self.assertIn(
+                "## Frozen signal monetization bridge",
                 markdown,
             )
             self.assertIn(

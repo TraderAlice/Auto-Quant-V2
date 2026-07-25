@@ -151,6 +151,39 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                     if not position["tradable"]
                 )
             )
+            monetization = diagnostics["signalMonetization"]
+            self.assertTrue(
+                monetization["validation"]["reconciliation"]["passed"]
+            )
+            monetization_assets = {
+                item["asset"]: item
+                for item in monetization["validation"]["byAsset"]
+            }
+            for asset in ("NVDA", "QQQ", "SPY"):
+                self.assertEqual(
+                    monetization_assets[asset]["equalIntent"],
+                    0.0,
+                )
+                self.assertEqual(
+                    monetization_assets[asset]["preGovernorSizing"],
+                    0.0,
+                )
+                self.assertEqual(
+                    monetization_assets[asset]["governedTarget"],
+                    0.0,
+                )
+            self.assertEqual(
+                monetization["validation"]["reconciliation"][
+                    "maximumEqualIntentGrossLimitExcess"
+                ],
+                0.0,
+            )
+            self.assertEqual(
+                monetization["validation"]["reconciliation"][
+                    "maximumEqualIntentCapExcess"
+                ],
+                0.0,
+            )
             self.assertEqual(decision["tradingAuthority"], "none")
             decision_by_asset = {
                 item["asset"]: item for item in decision["positions"]

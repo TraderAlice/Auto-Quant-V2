@@ -63,6 +63,7 @@ const reportDecisionProof = (report) => {
   if (!support?.available || !portfolio) return "";
   const sizing = portfolio.sizing;
   const viability = portfolio.viability;
+  const monetization = portfolio.monetization;
   return `
     <div class="report-decision-proof">
       <small>Frozen leader decision · ${escapeHtml(portfolio.timestamp)}</small>
@@ -70,6 +71,7 @@ const reportDecisionProof = (report) => {
       <span>${escapeHtml(portfolio.family)} · ${escapeHtml(portfolio.reason)} · authority none</span>
       ${sizing ? `<span>${sizing.atCapAssets} at cap · component-risk HHI ${metric(sizing.componentRiskConcentrationHhi)} · largest ${escapeHtml(sizing.largestAbsoluteComponentRiskContributor ?? "unavailable")}</span>` : ""}
       ${viability ? `<span>${escapeHtml(viability.stage)} · focus ${escapeHtml(viability.iterationFocus)} · gross/net Sharpe ${metric(viability.grossSharpe)} / ${metric(viability.netSharpe)}</span>` : ""}
+      ${monetization ? `<span>${escapeHtml(monetization.outcome)} · largest adverse ${escapeHtml(monetization.largestAdverseStage)} ${signedPercent(monetization.largestAdverseAnnualizedDelta)} annualized additive</span>` : ""}
     </div>`;
 };
 
@@ -2212,6 +2214,62 @@ function renderPortfolioStrategyViability(explorer) {
     </p>`;
 }
 
+function renderPortfolioSignalMonetization(explorer) {
+  const monetization = explorer.signalMonetization;
+  const diagnosis = monetization.diagnosis;
+  const validation = monetization.validation;
+  const test = monetization.test;
+  const stages = validation.stages;
+  const tone =
+    diagnosis.outcome === "monetized-positive" ? "positive" : "adverse";
+  element("portfolio-signal-monetization").innerHTML = `
+    <div class="monetization-diagnosis ${tone}">
+      <span>
+        <small>Validation transmission</small>
+        <b>${escapeHtml(diagnosis.outcome.replaceAll("-", " ").toUpperCase())}</b>
+        <i>focus · ${escapeHtml(diagnosis.iterationFocus.replaceAll("-", " "))}</i>
+      </span>
+      <p>${escapeHtml(diagnosis.explanation)}</p>
+    </div>
+    <div class="monetization-chain" role="list" aria-label="Validation signal monetization stages">
+      ${stages
+        .map(
+          (stage, index) => `
+            <span class="${stage.annualizedContribution > 0 ? "positive" : "adverse"}" role="listitem">
+              <small>0${index + 1} · ${escapeHtml(stage.label)}</small>
+              <b>${signedPercent(stage.annualizedContribution)}</b>
+              <i>annualized additive contribution</i>
+            </span>`,
+        )
+        .join("")}
+    </div>
+    <div class="monetization-deltas">
+      ${validation.deltas
+        .map(
+          (delta) => `
+            <span class="${delta.annualizedContributionDelta < 0 ? "adverse" : "positive"}">
+              <small>${escapeHtml(delta.label)}</small>
+              <b>${signedPercent(delta.annualizedContributionDelta)}</b>
+            </span>`,
+        )
+        .join("")}
+    </div>
+    <div class="monetization-audit">
+      <span><small>Signal-active dates</small><b>${validation.coverage.equalIntentActiveDates} / ${validation.coverage.decisionDates}</b></span>
+      <span><small>Risk-limited dates</small><b>${validation.coverage.riskLimitedDates}</b></span>
+      <span><small>No-trade retention</small><b>${validation.coverage.noTradeRetentionDates}</b></span>
+      <span><small>Rebalanced dates</small><b>${validation.coverage.rebalancedDates}</b></span>
+      <span><small>Test intent → net</small><b>${signedPercent(test.stages[0].annualizedContribution)} → ${signedPercent(test.stages[4].annualizedContribution)}</b></span>
+      <span><small>Reconciliation</small><b>${validation.reconciliation.passed ? "PASS" : "FAIL"}</b></span>
+    </div>
+    <p class="monetization-disclosure">
+      Equal intent is a normalized Mandate-constrained signal-state diagnostic—not an investable
+      comparator. Values are additive weight × next-bar return; no counterfactual compounding,
+      KEEP/REVERT, promotion, order, or account authority. Largest adverse:
+      ${escapeHtml(diagnosis.largestAdverseStage)} (${signedPercent(diagnosis.largestAdverseAnnualizedDelta)}).
+    </p>`;
+}
+
 function renderPortfolioBook(explorer) {
   const book = explorer.currentBook;
   const latestCapacity = explorer.liquidityCapacity?.latestTrade;
@@ -2378,6 +2436,7 @@ function renderPortfolioExplorer(project) {
     .join("");
   renderPortfolioChart(explorer);
   renderPortfolioStrategyViability(explorer);
+  renderPortfolioSignalMonetization(explorer);
   renderPortfolioMechanicalDecision(explorer);
   renderPortfolioSizingAnatomy(explorer);
   renderPortfolioBook(explorer);

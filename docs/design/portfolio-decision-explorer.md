@@ -173,6 +173,20 @@ changes the diagnosis, KEEP/REVERT, or promotion. Break-even cost and
 return-per-turnover are bar-path diagnostics, not spread, impact, or fill
 estimates.
 
+When viability stops at `factor-not-monetized`, the same verified ledger
+provides a more precise `signalMonetization` bridge. For validation and visible
+test, Core projects normalized equal signal intent, fixed pre-governor sizing,
+governed targets, historical executed gross, and historical executed net as
+additive annualized contributions. Consecutive stage deltas isolate
+sizing/caps, covariance governance, execution/no-trade retention, and cost.
+
+The equal-intent stage is Mandate constrained and explicitly non-compounding.
+It is diagnostic normalization, not another strategy, benchmark, objective, or
+selection candidate. Per-asset totals, formula checks, daily gross/cost/net
+reconciliation, context-only zeros, gross limit, and asset caps must all pass
+before Core exposes the bridge. Diagnosis and its largest adverse stage use
+validation only; test remains visible audit.
+
 Validation and visible-test attribution preserve the exact RunResult
 per-asset annualized net contribution, average absolute weight, cost,
 turnover, and mean variance-contribution share. Negative covariance
@@ -207,6 +221,9 @@ The first explorer version provides:
 - one validation-only strategy viability diagnosis with gross-to-net
   implementation wedge, cost curve/break-even, delay sensitivity, temporal
   breadth, best-day dependence, and explicit next research focus;
+- one validation-only signal-monetization bridge from normalized equal intent
+  through sizing, risk governance, historical execution, and cost, with exact
+  additive deltas and per-asset reconciliation;
 - net/gross/benchmark growth and net drawdown;
 - exposure, unused cash budget, turnover, cost, and split context;
 - a strictly reconstructed validation/test mechanical-parameter neighborhood
@@ -249,6 +266,8 @@ The first explorer version provides:
     diagnosis.
 17. Gross/net performance and fixed cost stresses reconcile the immutable
     daily gross, traded-notional, cost, net, and benchmark path.
+18. Signal-monetization diagnosis and largest adverse stage use validation
+    only; equal intent never becomes a selection candidate.
 
 ## Verification and change checklist
 

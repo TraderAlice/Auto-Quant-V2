@@ -50,6 +50,11 @@ def build_leader_decision_support(
         if portfolio_diagnostics is not None
         else None
     )
+    signal_monetization = (
+        portfolio_diagnostics["signalMonetization"]
+        if portfolio_diagnostics is not None
+        else None
+    )
     return {
         "kind": LEADER_DECISION_SUPPORT_KIND,
         "runId": run.result["id"],
@@ -72,6 +77,12 @@ def build_leader_decision_support(
             else None
         ),
         "portfolioStrategyViability": strategy_viability,
+        "portfolioSignalMonetizationHash": (
+            hash_json(signal_monetization)
+            if signal_monetization is not None
+            else None
+        ),
+        "portfolioSignalMonetization": signal_monetization,
     }
 
 
@@ -94,35 +105,32 @@ def verify_leader_decision_support(
             ]
         )
     expected = build_leader_decision_support(project, run_id)
-    prior_sizing_expected = {
-        key: item
-        for key, item in expected.items()
-        if key
-        not in {
-            "portfolioStrategyViabilityHash",
-            "portfolioStrategyViability",
-        }
-    }
-    legacy_expected = {
-        key: item
-        for key, item in prior_sizing_expected.items()
-        if key
-        not in {
+    optional_pairs = (
+        (
             "portfolioSizingAnatomyHash",
             "portfolioSizingAnatomy",
-        }
-    }
-    matches_prior_sizing = (
-        "portfolioStrategyViabilityHash" not in value
-        and "portfolioStrategyViability" not in value
-        and value == prior_sizing_expected
+        ),
+        (
+            "portfolioStrategyViabilityHash",
+            "portfolioStrategyViability",
+        ),
+        (
+            "portfolioSignalMonetizationHash",
+            "portfolioSignalMonetization",
+        ),
     )
-    matches_legacy = (
-        "portfolioSizingAnatomyHash" not in value
-        and "portfolioSizingAnatomy" not in value
-        and value == legacy_expected
-    )
-    if value != expected and not matches_prior_sizing and not matches_legacy:
+    compatible_expected = dict(expected)
+    complete_pairs = True
+    for hash_key, object_key in optional_pairs:
+        hash_present = hash_key in value
+        object_present = object_key in value
+        if hash_present != object_present:
+            complete_pairs = False
+            break
+        if not hash_present:
+            compatible_expected.pop(hash_key)
+            compatible_expected.pop(object_key)
+    if not complete_pairs or value != compatible_expected:
         raise AutoQuantValidationError(
             [
                 ValidationIssue(
@@ -147,6 +155,7 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
             "portfolioMechanicalDecisionHash": None,
             "portfolioSizingAnatomyHash": None,
             "portfolioStrategyViabilityHash": None,
+            "portfolioSignalMonetizationHash": None,
             "portfolio": None,
         }
     decision = value.get("portfolioMechanicalDecision")
@@ -164,6 +173,9 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
             ),
             "portfolioStrategyViabilityHash": value.get(
                 "portfolioStrategyViabilityHash"
+            ),
+            "portfolioSignalMonetizationHash": value.get(
+                "portfolioSignalMonetizationHash"
             ),
             "portfolio": None,
         }
@@ -228,6 +240,39 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
             ],
             "testNetSharpe": test["net"]["sharpe"],
         }
+    monetization = value.get("portfolioSignalMonetization")
+    monetization_summary = None
+    if isinstance(monetization, dict):
+        validation = monetization["validation"]
+        stages = {
+            item["id"]: item for item in validation["stages"]
+        }
+        monetization_summary = {
+            "method": monetization["method"],
+            "outcome": monetization["diagnosis"]["outcome"],
+            "iterationFocus": monetization["diagnosis"][
+                "iterationFocus"
+            ],
+            "largestAdverseStage": monetization["diagnosis"][
+                "largestAdverseStage"
+            ],
+            "largestAdverseAnnualizedDelta": monetization["diagnosis"][
+                "largestAdverseAnnualizedDelta"
+            ],
+            "equalIntentAnnualizedContribution": stages[
+                "equalIntent"
+            ]["annualizedContribution"],
+            "executedGrossAnnualizedContribution": stages[
+                "executedGross"
+            ]["annualizedContribution"],
+            "executedNetAnnualizedContribution": stages[
+                "executedNet"
+            ]["annualizedContribution"],
+            "noTradeRetentionDates": validation["coverage"][
+                "noTradeRetentionDates"
+            ],
+            "decisionDates": validation["coverage"]["decisionDates"],
+        }
     return {
         "available": True,
         "reason": None,
@@ -241,6 +286,9 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
         ),
         "portfolioStrategyViabilityHash": value.get(
             "portfolioStrategyViabilityHash"
+        ),
+        "portfolioSignalMonetizationHash": value.get(
+            "portfolioSignalMonetizationHash"
         ),
         "portfolio": {
             "timestamp": decision["timestamp"],
@@ -257,6 +305,7 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
             "tradingAuthority": decision["tradingAuthority"],
             "sizing": sizing_summary,
             "viability": viability_summary,
+            "monetization": monetization_summary,
         },
     }
 
@@ -549,4 +598,69 @@ def strategy_viability_markdown_lines(
             "",
         ]
     )
+    return lines
+
+
+def signal_monetization_markdown_lines(
+    support: dict[str, Any],
+    *,
+    heading: str,
+    lane_name: str | None = None,
+) -> list[str]:
+    """Render the frozen additive signal-to-portfolio transmission bridge."""
+
+    monetization = support.get("portfolioSignalMonetization")
+    if not isinstance(monetization, dict):
+        return []
+    diagnosis = monetization["diagnosis"]
+    prefix = f"{lane_name}: " if lane_name else ""
+    lines = [
+        heading,
+        "",
+        f"- {prefix}Validation outcome / next research focus: "
+        f"`{diagnosis['outcome']}` / `{diagnosis['iterationFocus']}`",
+        f"- Largest adverse transformation / annualized additive delta: "
+        f"`{diagnosis['largestAdverseStage']}` / "
+        f"`{diagnosis['largestAdverseAnnualizedDelta']}`",
+        f"- Interpretation: {diagnosis['explanation']}",
+        "- The equal-intent layer is a normalized Mandate-constrained "
+        "diagnostic. Contributions are additive weight × next-bar return, "
+        "not separately compounded counterfactual portfolios.",
+        "- Diagnosis authority: `research-prioritization-only`; selection "
+        "split: `validation`; test enters diagnosis: `False`; trading "
+        "authority: `none`.",
+        f"- Monetization hash: "
+        f"`{support['portfolioSignalMonetizationHash']}`",
+        "",
+        "| Split / role | Equal intent | Sized raw | Governed target | "
+        "Executed gross | Executed net | No-trade retention |",
+        "| --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    for split_name in ("validation", "test"):
+        split = monetization[split_name]
+        stages = {item["id"]: item for item in split["stages"]}
+        coverage = split["coverage"]
+        lines.append(
+            f"| `{split_name}` / `{split['role']}` | "
+            f"{_signed_percent(stages['equalIntent']['annualizedContribution'])} | "
+            f"{_signed_percent(stages['preGovernorSizing']['annualizedContribution'])} | "
+            f"{_signed_percent(stages['governedTarget']['annualizedContribution'])} | "
+            f"{_signed_percent(stages['executedGross']['annualizedContribution'])} | "
+            f"{_signed_percent(stages['executedNet']['annualizedContribution'])} | "
+            f"`{coverage['noTradeRetentionDates']}` / "
+            f"`{coverage['decisionDates']}` dates |"
+        )
+    lines.extend(
+        [
+            "",
+            "| Validation transformation | Annualized additive delta |",
+            "| --- | --- |",
+        ]
+    )
+    for delta in monetization["validation"]["deltas"]:
+        lines.append(
+            f"| {delta['label']} | "
+            f"{_signed_percent(delta['annualizedContributionDelta'])} |"
+        )
+    lines.append("")
     return lines

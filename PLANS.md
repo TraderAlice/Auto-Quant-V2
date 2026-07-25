@@ -32,6 +32,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/signal-to-portfolio-monetization]] | Explained how normalized signal intent becomes sized, governed, executed, and post-cost portfolio return. | 2026-07-25 |
 | [[plans/portfolio-strategy-viability]] | Diagnosed whether a mechanical strategy loses its edge at factor prediction, gross monetization, trading friction, or post-cost robustness. | 2026-07-25 |
 | [[plans/portfolio-sizing-anatomy]] | Explained how signal conviction, inverse volatility, caps, water-filling, covariance risk, and execution produce each asset weight. | 2026-07-25 |
 | [[plans/report-bound-mechanical-decision-handoff]] | Froze one Portfolio leader Run's verified mechanical decision through lane Report, Project Dossier, and OpenAlice handoff. | 2026-07-25 |

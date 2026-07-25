@@ -292,6 +292,10 @@ class StudioObservationTests(unittest.TestCase):
                         html,
                     )
                     self.assertIn(
+                        'id="portfolio-signal-monetization"',
+                        html,
+                    )
+                    self.assertIn(
                         "Current mechanical decision",
                         html,
                     )
@@ -318,6 +322,8 @@ class StudioObservationTests(unittest.TestCase):
                     self.assertIn(".sizing-table", css)
                     self.assertIn(".viability-diagnosis", css)
                     self.assertIn(".viability-chain", css)
+                    self.assertIn(".monetization-chain", css)
+                    self.assertIn(".monetization-deltas", css)
                     self.assertIn(".inspector-lane", css)
                     self.assertIn(".inspector-collapsed", css)
                     self.assertIn(".rl-opportunity-panel", css)
@@ -348,6 +354,10 @@ class StudioObservationTests(unittest.TestCase):
                     )
                     self.assertIn(
                         "renderPortfolioStrategyViability",
+                        javascript,
+                    )
+                    self.assertIn(
+                        "renderPortfolioSignalMonetization",
                         javascript,
                     )
                     self.assertIn(

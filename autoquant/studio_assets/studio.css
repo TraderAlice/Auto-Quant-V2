@@ -2740,6 +2740,7 @@ main > div[id] {
 .portfolio-lifecycle-panel,
 .portfolio-parameter-panel,
 .portfolio-viability-panel,
+.portfolio-monetization-panel,
 .portfolio-sizing-panel,
 .portfolio-decision-panel {
   min-width: 0;
@@ -2948,6 +2949,144 @@ main > div[id] {
 }
 
 .viability-disclosure {
+  margin: 0;
+  padding: 8px 10px;
+  color: #71796d;
+  border: 1px solid var(--line);
+  border-top: 0;
+  font: 6px/1.55 var(--mono);
+}
+
+.monetization-diagnosis {
+  display: grid;
+  grid-template-columns: minmax(230px, 0.72fr) minmax(0, 1.28fr);
+  border: 1px solid var(--line);
+  background: #0c0f0b;
+}
+
+.monetization-diagnosis > span {
+  padding: 12px 13px;
+  box-shadow: inset 2px 0 var(--red);
+}
+
+.monetization-diagnosis.positive > span {
+  box-shadow: inset 2px 0 var(--acid);
+}
+
+.monetization-diagnosis small,
+.monetization-diagnosis b,
+.monetization-diagnosis i,
+.monetization-chain small,
+.monetization-chain b,
+.monetization-chain i,
+.monetization-deltas small,
+.monetization-deltas b,
+.monetization-audit small,
+.monetization-audit b {
+  display: block;
+}
+
+.monetization-diagnosis small,
+.monetization-chain small,
+.monetization-deltas small,
+.monetization-audit small {
+  color: var(--faint);
+  font: 6px var(--mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.monetization-diagnosis b {
+  margin-top: 7px;
+  color: var(--red);
+  font: 12px var(--mono);
+}
+
+.monetization-diagnosis.positive b {
+  color: var(--acid);
+}
+
+.monetization-diagnosis i {
+  margin-top: 5px;
+  color: #8e9688;
+  font: 6px var(--mono);
+  font-style: normal;
+}
+
+.monetization-diagnosis p {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  padding: 12px 14px;
+  color: #9ba293;
+  border-left: 1px solid var(--line);
+  font: 7px/1.6 var(--mono);
+}
+
+.monetization-chain {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  border: 1px solid var(--line);
+  border-top: 0;
+  background: #0c0f0b;
+}
+
+.monetization-chain > span,
+.monetization-deltas > span,
+.monetization-audit > span {
+  min-width: 0;
+  padding: 10px 11px;
+  border-left: 1px solid var(--line);
+}
+
+.monetization-chain > span:first-child,
+.monetization-deltas > span:first-child,
+.monetization-audit > span:first-child {
+  border-left: 0;
+}
+
+.monetization-chain b,
+.monetization-deltas b,
+.monetization-audit b {
+  margin-top: 6px;
+  color: var(--paper);
+  font: 9px var(--mono);
+}
+
+.monetization-chain i {
+  margin-top: 4px;
+  color: #747c70;
+  font: 6px var(--mono);
+  font-style: normal;
+}
+
+.monetization-chain .positive b,
+.monetization-deltas .positive b {
+  color: var(--acid);
+}
+
+.monetization-chain .adverse b,
+.monetization-deltas .adverse b {
+  color: var(--red);
+}
+
+.monetization-deltas {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  background: #0c0f0b;
+}
+
+.monetization-audit {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  background: #0a0c09;
+}
+
+.monetization-disclosure {
   margin: 0;
   padding: 8px 10px;
   color: #71796d;
@@ -5362,6 +5501,43 @@ main > div[id] {
   .viability-diagnosis p {
     border-top: 1px solid var(--line);
     border-left: 0;
+  }
+
+  .monetization-diagnosis {
+    grid-template-columns: 1fr;
+  }
+
+  .monetization-diagnosis p {
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+
+  .monetization-chain {
+    grid-template-columns: 1fr;
+  }
+
+  .monetization-chain > span {
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+
+  .monetization-chain > span:first-child {
+    border-top: 0;
+  }
+
+  .monetization-deltas,
+  .monetization-audit {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .monetization-deltas > span:nth-child(odd),
+  .monetization-audit > span:nth-child(odd) {
+    border-left: 0;
+  }
+
+  .monetization-deltas > span:nth-child(n + 3),
+  .monetization-audit > span:nth-child(n + 3) {
+    border-top: 1px solid var(--line);
   }
 
   .viability-chain {
