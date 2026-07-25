@@ -154,6 +154,41 @@ def dossier_analysis(reports: dict[str, str]) -> dict:
     }
 
 
+def early_stop_dossier_analysis(factor_report_id: str) -> dict:
+    reference = {
+        "laneId": "factor",
+        "reportId": factor_report_id,
+        "findingId": "factor-headline",
+    }
+    return {
+        "schemaVersion": 1,
+        "kind": "autoquant-research-dossier-analysis",
+        "title": "Factor-gated early-stop research dossier",
+        "executiveSummary": (
+            "The verified Factor evidence does not support spending complexity "
+            "on Portfolio or RL, so the Project returns an explicit early stop."
+        ),
+        "findings": [
+            {
+                "id": "factor-gate-stop",
+                "claim": "The first required scientific gate did not pass.",
+                "confidence": "medium",
+                "evidenceRefs": [reference],
+            }
+        ],
+        "recommendations": [
+            {
+                "action": "Continue Factor research before downstream modeling.",
+                "rationale": "Coordination phase alone is not scientific readiness.",
+                "conditions": ["Use a new current Factor Run and Report."],
+                "evidenceRefs": [reference],
+            }
+        ],
+        "limitations": ["No Portfolio or RL inference is made."],
+        "unresolvedQuestions": ["Can a distinct factor pass qualification?"],
+    }
+
+
 class ProgramResearchDossierTests(unittest.TestCase):
     def _project(self, directory: str):
         root = Path(directory)
@@ -507,7 +542,7 @@ class ProgramResearchDossierTests(unittest.TestCase):
             )
             self.assertIn("`AAPL`, `MSFT`", markdown)
             self.assertIn("`NVDA`, `QQQ`, `SPY`", markdown)
-            self.assertIn("Omitted optional lanes", markdown)
+            self.assertIn("Omitted gated or optional lanes", markdown)
             self.assertIn("Research family:", markdown)
             self.assertIn("Selection adjustment:", markdown)
             self.assertIn("Selection interpretation:", markdown)
@@ -743,6 +778,54 @@ class ProgramResearchDossierTests(unittest.TestCase):
                 "files changed",
             ):
                 load_dossier(project, dossier.dossier["id"])
+
+    def test_weak_factor_report_can_publish_gated_early_stop_dossier(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project, request = self._project(directory)
+            _, factor_report = self._publish_lane(
+                project,
+                request,
+                "factor",
+                OHLCV_STUDY_ID,
+            )
+
+            status = load_dossier_status(project)
+            assert status is not None
+            self.assertTrue(status["ready"])
+            self.assertEqual(status["includedLaneIds"], ["factor"])
+            self.assertEqual(
+                status["program"]["progression"]["stage"],
+                "factor-evidence-required",
+            )
+            self.assertEqual(
+                {
+                    item["id"]
+                    for item in status["omittedOptionalLanes"]
+                },
+                {"portfolio", "rl"},
+            )
+            self.assertEqual(status["nextAction"]["id"], "dossier.publish")
+
+            dossier = publish_dossier(
+                project,
+                early_stop_dossier_analysis(
+                    factor_report.report["id"],
+                ),
+            )
+            loaded = load_dossier(project, dossier.dossier["id"])
+            self.assertEqual(
+                [lane["id"] for lane in loaded.dossier["evidence"]["lanes"]],
+                ["factor"],
+            )
+            self.assertEqual(
+                {
+                    item["id"]
+                    for item in loaded.dossier["evidence"][
+                        "omittedOptionalLanes"
+                    ]
+                },
+                {"portfolio", "rl"},
+            )
 
 
 if __name__ == "__main__":

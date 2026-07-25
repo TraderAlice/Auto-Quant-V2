@@ -7,7 +7,9 @@ import shlex
 from pathlib import Path
 from typing import Any
 
+from .factor_explorer import load_factor_diagnostics
 from .intake import PROJECT_REQUEST, load_project_intake
+from .portfolio_explorer import load_portfolio_diagnostics
 from .reports import list_reports
 from .runs import list_runs, load_run
 from .sessions import list_sessions, load_session
@@ -25,6 +27,11 @@ RESEARCH_PROGRAM_KIND = "autoquant-research-program"
 RESEARCH_PROGRAM_STATUS_KIND = "autoquant-research-program-status"
 RESEARCH_PROGRAM_ID = "factor-portfolio-rl"
 RESEARCH_DESK_TEMPLATE = "ohlcv-research-desk"
+RESEARCH_PROGRESSION_METHOD = (
+    "report-bound-factor-portfolio-rl-admission-v1"
+)
+FACTOR_QUALIFICATION_POSITIVE = "factor-qualification-positive"
+PORTFOLIO_VIABILITY_POSITIVE = "post-cost-edge-positive"
 CANONICAL_LANES: tuple[dict[str, Any], ...] = (
     {
         "id": "factor",
@@ -220,6 +227,294 @@ def _command(
     }
 
 
+def _current_report(lane: dict[str, Any]) -> dict[str, Any] | None:
+    run = lane["latestRun"]
+    if not lane["currentRun"] or run is None:
+        return None
+    return next(
+        (
+            report
+            for report in reversed(lane["reports"])
+            if report["leaderRunId"] == run["id"]
+        ),
+        None,
+    )
+
+
+def _gate(
+    *,
+    gate_id: str,
+    upstream_lane_id: str,
+    downstream_lane_id: str,
+    required_stage: str,
+    status: str,
+    run_id: str | None,
+    report_id: str | None,
+    diagnosis_stage: str | None,
+    iteration_focus: str,
+    explanation: str,
+) -> dict[str, Any]:
+    return {
+        "id": gate_id,
+        "upstreamLaneId": upstream_lane_id,
+        "downstreamLaneId": downstream_lane_id,
+        "requiredStage": required_stage,
+        "status": status,
+        "runId": run_id,
+        "reportId": report_id,
+        "diagnosisStage": diagnosis_stage,
+        "iterationFocus": iteration_focus,
+        "explanation": explanation,
+        "selectionSplit": "validation",
+        "testEntersGate": False,
+        "authority": "research-prioritization-only",
+        "tradingAuthority": "none",
+    }
+
+
+def _factor_to_portfolio_gate(
+    project: ProjectContext,
+    lane: dict[str, Any],
+) -> dict[str, Any]:
+    run = lane["latestRun"]
+    if not lane["currentRun"] or run is None:
+        return _gate(
+            gate_id="factor-to-portfolio",
+            upstream_lane_id="factor",
+            downstream_lane_id="portfolio",
+            required_stage=FACTOR_QUALIFICATION_POSITIVE,
+            status="waiting-current-evidence",
+            run_id=run["id"] if run is not None else None,
+            report_id=None,
+            diagnosis_stage=None,
+            iteration_focus="candidate-hypothesis-and-timing",
+            explanation=(
+                "Portfolio research waits for one current successful Factor "
+                "Run with reconstructable qualification evidence."
+            ),
+        )
+    diagnostics = load_factor_diagnostics(
+        project,
+        run["id"],
+        point_limit=40,
+    )
+    qualification = diagnostics["factorQualification"]
+    if not qualification["available"]:
+        return _gate(
+            gate_id="factor-to-portfolio",
+            upstream_lane_id="factor",
+            downstream_lane_id="portfolio",
+            required_stage=FACTOR_QUALIFICATION_POSITIVE,
+            status="blocked-legacy-evidence",
+            run_id=run["id"],
+            report_id=None,
+            diagnosis_stage=None,
+            iteration_focus="candidate-hypothesis-and-timing",
+            explanation=(
+                "The current Factor Run predates reconstructable qualification "
+                "evidence; create a current Run before downstream research."
+            ),
+        )
+    diagnosis = qualification["diagnosis"]
+    if diagnosis["stage"] != FACTOR_QUALIFICATION_POSITIVE:
+        return _gate(
+            gate_id="factor-to-portfolio",
+            upstream_lane_id="factor",
+            downstream_lane_id="portfolio",
+            required_stage=FACTOR_QUALIFICATION_POSITIVE,
+            status="blocked-upstream-evidence",
+            run_id=run["id"],
+            report_id=None,
+            diagnosis_stage=diagnosis["stage"],
+            iteration_focus=diagnosis["iterationFocus"],
+            explanation=diagnosis["explanation"],
+        )
+    report = _current_report(lane)
+    if report is None:
+        return _gate(
+            gate_id="factor-to-portfolio",
+            upstream_lane_id="factor",
+            downstream_lane_id="portfolio",
+            required_stage=FACTOR_QUALIFICATION_POSITIVE,
+            status="waiting-current-report",
+            run_id=run["id"],
+            report_id=None,
+            diagnosis_stage=diagnosis["stage"],
+            iteration_focus="factor-report-and-handoff",
+            explanation=(
+                "Factor qualification is positive, but Portfolio admission "
+                "waits for an immutable Report freezing this exact leader Run."
+            ),
+        )
+    return _gate(
+        gate_id="factor-to-portfolio",
+        upstream_lane_id="factor",
+        downstream_lane_id="portfolio",
+        required_stage=FACTOR_QUALIFICATION_POSITIVE,
+        status="passed",
+        run_id=run["id"],
+        report_id=report["id"],
+        diagnosis_stage=diagnosis["stage"],
+        iteration_focus="portfolio-monetization",
+        explanation=(
+            "The current reported Factor leader has distinct validation "
+            "evidence and admits bounded mechanical Portfolio research."
+        ),
+    )
+
+
+def _portfolio_to_rl_gate(
+    project: ProjectContext,
+    lane: dict[str, Any],
+    factor_gate: dict[str, Any],
+) -> dict[str, Any]:
+    run = lane["latestRun"]
+    if factor_gate["status"] != "passed":
+        return _gate(
+            gate_id="portfolio-to-rl",
+            upstream_lane_id="portfolio",
+            downstream_lane_id="rl",
+            required_stage=PORTFOLIO_VIABILITY_POSITIVE,
+            status="blocked-prerequisite",
+            run_id=run["id"] if run is not None else None,
+            report_id=None,
+            diagnosis_stage=None,
+            iteration_focus=factor_gate["iterationFocus"],
+            explanation=(
+                "Governed RL remains locked until the Factor-to-Portfolio "
+                "evidence and Report gate passes."
+            ),
+        )
+    if not lane["currentRun"] or run is None:
+        return _gate(
+            gate_id="portfolio-to-rl",
+            upstream_lane_id="portfolio",
+            downstream_lane_id="rl",
+            required_stage=PORTFOLIO_VIABILITY_POSITIVE,
+            status="waiting-current-evidence",
+            run_id=run["id"] if run is not None else None,
+            report_id=None,
+            diagnosis_stage=None,
+            iteration_focus="signal-to-portfolio",
+            explanation=(
+                "Governed RL waits for one current successful Portfolio Run "
+                "that reconstructs post-cost mechanical viability."
+            ),
+        )
+    diagnostics = load_portfolio_diagnostics(
+        project,
+        run["id"],
+        point_limit=40,
+    )
+    diagnosis = diagnostics["strategyViability"]["diagnosis"]
+    if diagnosis["stage"] != PORTFOLIO_VIABILITY_POSITIVE:
+        return _gate(
+            gate_id="portfolio-to-rl",
+            upstream_lane_id="portfolio",
+            downstream_lane_id="rl",
+            required_stage=PORTFOLIO_VIABILITY_POSITIVE,
+            status="blocked-upstream-evidence",
+            run_id=run["id"],
+            report_id=None,
+            diagnosis_stage=diagnosis["stage"],
+            iteration_focus=diagnosis["iterationFocus"],
+            explanation=diagnosis["explanation"],
+        )
+    report = _current_report(lane)
+    if report is None:
+        return _gate(
+            gate_id="portfolio-to-rl",
+            upstream_lane_id="portfolio",
+            downstream_lane_id="rl",
+            required_stage=PORTFOLIO_VIABILITY_POSITIVE,
+            status="waiting-current-report",
+            run_id=run["id"],
+            report_id=None,
+            diagnosis_stage=diagnosis["stage"],
+            iteration_focus="portfolio-report-and-handoff",
+            explanation=(
+                "Post-cost Portfolio viability is positive, but optional RL "
+                "admission waits for a Report freezing this exact leader Run."
+            ),
+        )
+    return _gate(
+        gate_id="portfolio-to-rl",
+        upstream_lane_id="portfolio",
+        downstream_lane_id="rl",
+        required_stage=PORTFOLIO_VIABILITY_POSITIVE,
+        status="passed",
+        run_id=run["id"],
+        report_id=report["id"],
+        diagnosis_stage=diagnosis["stage"],
+        iteration_focus="optional-adaptive-value-challenge",
+        explanation=(
+            "The current reported mechanical Portfolio leader has positive "
+            "post-cost validation evidence; governed RL is admitted as an "
+            "optional challenge against that simpler policy."
+        ),
+    )
+
+
+def _research_progression(
+    project: ProjectContext,
+    lane_by_id: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    factor_gate = _factor_to_portfolio_gate(project, lane_by_id["factor"])
+    portfolio_gate = _portfolio_to_rl_gate(
+        project,
+        lane_by_id["portfolio"],
+        factor_gate,
+    )
+    rl_lane = lane_by_id["rl"]
+    if factor_gate["status"] != "passed":
+        stage = "factor-evidence-required"
+        focus_lane_id = "factor"
+        explanation = factor_gate["explanation"]
+        optional_lane_id = None
+    elif portfolio_gate["status"] != "passed":
+        stage = "portfolio-evidence-required"
+        focus_lane_id = "portfolio"
+        explanation = portfolio_gate["explanation"]
+        optional_lane_id = None
+    elif (
+        rl_lane["latestSession"] is not None
+        and rl_lane["latestSession"]["status"] == "active"
+    ) or (
+        rl_lane["currentRun"]
+        and not bool(_current_report(rl_lane))
+    ):
+        stage = "optional-rl-in-progress"
+        focus_lane_id = "rl"
+        explanation = (
+            "Required Factor and Portfolio research is complete. Finish the "
+            "already-started optional governed RL challenge and freeze its "
+            "result without allowing it to rewrite the simpler evidence."
+        )
+        optional_lane_id = "rl"
+    else:
+        stage = "required-research-complete"
+        focus_lane_id = None
+        explanation = (
+            "Reported Factor qualification and positive post-cost Portfolio "
+            "evidence complete the required research chain. Governed RL is "
+            "admitted but optional; OpenAlice may consume the required-lane "
+            "Dossier without running it."
+        )
+        optional_lane_id = "rl"
+    return {
+        "method": RESEARCH_PROGRESSION_METHOD,
+        "stage": stage,
+        "focusLaneId": focus_lane_id,
+        "optionalLaneId": optional_lane_id,
+        "explanation": explanation,
+        "gates": [factor_gate, portfolio_gate],
+        "selectionSplit": "validation",
+        "testEntersProgression": False,
+        "authority": "research-prioritization-only",
+        "tradingAuthority": "none",
+    }
+
+
 def _run_summary(project: ProjectContext, run_id: str) -> dict[str, Any]:
     run = load_run(project, run_id)
     metric = run.result["objective"]["metric"]
@@ -338,26 +633,25 @@ def _lane_state(
                 "creates-artifact",
             )
         )
+    start_argv = [
+        "aq",
+        "session",
+        "start",
+        str(project.root_dir),
+        "--study",
+        lane["studyId"],
+    ]
+    if request_path is not None:
+        start_argv.extend(["--request", str(request_path)])
+    start_argv.append("--json")
+    start_command = _command(
+        "session.start",
+        f"Start governed delegated research for {lane['name']}.",
+        start_argv,
+        "creates-artifact",
+    )
     if latest_session is None:
-        argv = [
-            "aq",
-            "session",
-            "start",
-            str(project.root_dir),
-            "--study",
-            lane["studyId"],
-        ]
-        if request_path is not None:
-            argv.extend(["--request", str(request_path)])
-        argv.append("--json")
-        commands.append(
-            _command(
-                "session.start",
-                f"Start governed delegated research for {lane['name']}.",
-                argv,
-                "creates-artifact",
-            )
-        )
+        commands.append(start_command)
     else:
         commands.append(
             _command(
@@ -419,6 +713,8 @@ def _lane_state(
                         "creates-artifact",
                     )
                 )
+        if latest_session.status != "active":
+            commands.append(start_command)
     return {
         **lane,
         "phase": phase,
@@ -520,6 +816,8 @@ def load_research_program(
             "RL dependency identity must equal the current Factor source identity",
         )
 
+    progression = _research_progression(project, lane_by_id)
+
     active_by_path: dict[str, list[dict[str, str]]] = {}
     for lane in lanes:
         session = lane["latestSession"]
@@ -595,23 +893,9 @@ def load_research_program(
         ),
         None,
     )
-    recommended_lane = completion_lane or next(
-        (
-            lane
-            for lane in lanes
-            if lane["phase"] != "reported"
-            and all(
-                lane_by_id[dependency]["phase"] == "reported"
-                for dependency in lane["dependsOn"]
-            )
-        ),
-        None,
-    )
-    if recommended_lane is None:
-        recommended_lane = next(
-            (lane for lane in lanes if lane["phase"] != "reported"),
-            None,
-        )
+    recommended_lane = completion_lane
+    if recommended_lane is None and progression["focusLaneId"] is not None:
+        recommended_lane = lane_by_id[progression["focusLaneId"]]
     recommended_action = None
     if recommended_lane is not None:
         preferred_ids = (
@@ -691,6 +975,7 @@ def load_research_program(
             "conflicts": len(conflicts),
         },
         "conflicts": conflicts,
+        "progression": progression,
         "recommendedLaneId": (
             recommended_lane["id"] if recommended_lane is not None else None
         ),
@@ -715,6 +1000,7 @@ RESEARCH_PROGRAM_STATUS_JSON_SCHEMA: dict[str, Any] = {
         "lanes",
         "summary",
         "conflicts",
+        "progression",
         "recommendedLaneId",
         "recommendedAction",
         "warnings",
@@ -735,6 +1021,115 @@ RESEARCH_PROGRAM_STATUS_JSON_SCHEMA: dict[str, Any] = {
         },
         "summary": {"type": "object"},
         "conflicts": {"type": "array", "items": {"type": "object"}},
+        "progression": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "method",
+                "stage",
+                "focusLaneId",
+                "optionalLaneId",
+                "explanation",
+                "gates",
+                "selectionSplit",
+                "testEntersProgression",
+                "authority",
+                "tradingAuthority",
+            ],
+            "properties": {
+                "method": {"const": RESEARCH_PROGRESSION_METHOD},
+                "stage": {
+                    "enum": [
+                        "factor-evidence-required",
+                        "portfolio-evidence-required",
+                        "optional-rl-in-progress",
+                        "required-research-complete",
+                    ]
+                },
+                "focusLaneId": {
+                    "type": ["string", "null"],
+                    "enum": ["factor", "portfolio", "rl", None],
+                },
+                "optionalLaneId": {
+                    "type": ["string", "null"],
+                    "enum": ["rl", None],
+                },
+                "explanation": {"type": "string", "minLength": 1},
+                "gates": {
+                    "type": "array",
+                    "minItems": 2,
+                    "maxItems": 2,
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "required": [
+                            "id",
+                            "upstreamLaneId",
+                            "downstreamLaneId",
+                            "requiredStage",
+                            "status",
+                            "runId",
+                            "reportId",
+                            "diagnosisStage",
+                            "iterationFocus",
+                            "explanation",
+                            "selectionSplit",
+                            "testEntersGate",
+                            "authority",
+                            "tradingAuthority",
+                        ],
+                        "properties": {
+                            "id": {
+                                "enum": [
+                                    "factor-to-portfolio",
+                                    "portfolio-to-rl",
+                                ]
+                            },
+                            "upstreamLaneId": {
+                                "enum": ["factor", "portfolio"]
+                            },
+                            "downstreamLaneId": {
+                                "enum": ["portfolio", "rl"]
+                            },
+                            "requiredStage": {"type": "string"},
+                            "status": {
+                                "enum": [
+                                    "waiting-current-evidence",
+                                    "blocked-legacy-evidence",
+                                    "blocked-upstream-evidence",
+                                    "blocked-prerequisite",
+                                    "waiting-current-report",
+                                    "passed",
+                                ]
+                            },
+                            "runId": {"type": ["string", "null"]},
+                            "reportId": {"type": ["string", "null"]},
+                            "diagnosisStage": {
+                                "type": ["string", "null"]
+                            },
+                            "iterationFocus": {
+                                "type": "string",
+                                "minLength": 1,
+                            },
+                            "explanation": {
+                                "type": "string",
+                                "minLength": 1,
+                            },
+                            "selectionSplit": {"const": "validation"},
+                            "testEntersGate": {"const": False},
+                            "authority": {
+                                "const": "research-prioritization-only"
+                            },
+                            "tradingAuthority": {"const": "none"},
+                        },
+                    },
+                },
+                "selectionSplit": {"const": "validation"},
+                "testEntersProgression": {"const": False},
+                "authority": {"const": "research-prioritization-only"},
+                "tradingAuthority": {"const": "none"},
+            },
+        },
         "recommendedLaneId": {"type": ["string", "null"]},
         "recommendedAction": {"type": ["object", "null"]},
         "warnings": {

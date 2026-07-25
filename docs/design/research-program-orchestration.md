@@ -8,6 +8,7 @@ Related: [[docs/design/quant-research-lifecycle]],
 [[docs/design/portfolio-construction-lab]],
 [[docs/design/request-bound-portfolio-mandates]],
 [[docs/design/rl-factor-policy-lab]], and
+[[docs/design/evidence-gated-research-progression]], and
 [[docs/design/studio-observation-surface]].
 
 ## Purpose
@@ -120,6 +121,24 @@ executed later. Studio explorers use that same current Run pointer, so charts,
 tables, cockpit headlines, and the Inspector cannot disagree about which
 evidence is canonical.
 
+Scientific progression is projected separately under `progression`:
+
+- Factor is always the first required evidence lane.
+- Portfolio is admitted only when the current successful Factor Run has
+  strictly reconstructed diagnostics at `factor-qualification-positive` and a
+  current immutable Report freezes that exact leader.
+- Governed RL is admitted only when the Factor gate remains passed and the
+  current successful Portfolio Run has strictly reconstructed diagnostics at
+  `post-cost-edge-positive`, again frozen by a current Report.
+- RL is an optional complexity challenge after the two required gates pass. It
+  is never required merely because the Study exists.
+
+A failed gate is a valid research result. It keeps the recommended action in
+the upstream lane and permits an immutable early-stop Dossier rather than
+spending compute on downstream complexity. Gate status is derived by Core from
+strict Run diagnostics and exact Report bindings; the browser does not infer
+it from metric signs or lane phases.
+
 ## Next actions
 
 Core generates exact copy-only commands. It may recommend:
@@ -129,7 +148,11 @@ Core generates exact copy-only commands. It may recommend:
 - inspect an active Session;
 - inspect an immutable Report;
 - complete an active reported lane when its verified leader remains baseline;
-- advance to the next lane after upstream evidence is reported.
+- start a fresh Session after a terminal Session when the evidence gate remains
+  blocked;
+- advance only when the upstream scientific gate passes;
+- return the required Factor/Portfolio evidence through a Dossier once both
+  required gates pass, optionally challenging it with governed RL.
 
 The browser renders these commands but cannot execute them. AI callers receive
 the identical object through CLI JSON.
@@ -153,3 +176,8 @@ the identical object through CLI JSON.
 10. Only `active` Sessions participate in writer/writer and writer/reader
    conflicts; a verified completed or promoted lane is terminal coordination
    history.
+11. Coordination phase never substitutes for scientific admission. A Report
+   freezes evidence but cannot turn a blocked qualification stage into a pass.
+12. Gate authority is research prioritization only: validation evidence and
+   visible test audit may govern which experiment to run next, but no gate has
+   trading authority.

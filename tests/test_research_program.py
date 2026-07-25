@@ -4,16 +4,23 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
+import autoquant.research_program as research_program_module
 import jsonschema
 
 from autoquant.intake import prepare_project_intake
+from autoquant.reports import publish_report
 from autoquant.research_program import (
     RESEARCH_PROGRAM_STATUS_JSON_SCHEMA,
     load_research_program,
 )
 from autoquant.runs import execute_study
-from autoquant.sessions import evaluate_experiment, start_session
+from autoquant.sessions import (
+    complete_session,
+    evaluate_experiment,
+    start_session,
+)
 from autoquant.studio import build_studio_snapshot
 from autoquant.studies import hash_json, load_study
 from autoquant.templates import (
@@ -23,6 +30,41 @@ from autoquant.templates import (
 )
 from autoquant.workspace import create_project, initialize_workspace
 from tests.intake_helpers import write_intake_inputs
+
+
+def _report_analysis(run) -> dict:
+    reference = {
+        "kind": "run",
+        "id": run.result["id"],
+        "artifactPath": run.result["artifacts"][0]["path"],
+    }
+    return {
+        "schemaVersion": 1,
+        "kind": "autoquant-research-report-analysis",
+        "title": "Evidence-gated lane report",
+        "executiveSummary": (
+            "The immutable leader evidence is frozen for bounded downstream "
+            "research prioritization without trading authority."
+        ),
+        "findings": [
+            {
+                "id": "leader-evidence",
+                "claim": "The current leader has verified immutable evidence.",
+                "confidence": "medium",
+                "evidenceRefs": [reference],
+            }
+        ],
+        "recommendations": [
+            {
+                "action": "Follow the Core-owned program progression.",
+                "rationale": "Coordination phase alone is not scientific readiness.",
+                "conditions": ["Validation-only gates remain authoritative."],
+                "evidenceRefs": [reference],
+            }
+        ],
+        "limitations": ["This Report has no trading authority."],
+        "unresolvedQuestions": ["Does the next fixed research gate pass?"],
+    }
 
 
 class MultiStudyResearchProgramTests(unittest.TestCase):
@@ -118,6 +160,14 @@ class MultiStudyResearchProgramTests(unittest.TestCase):
             self.assertEqual(initial["recommendedLaneId"], "factor")
             self.assertEqual(initial["recommendedAction"]["id"], "run.execute")
             self.assertEqual(
+                initial["progression"]["stage"],
+                "factor-evidence-required",
+            )
+            self.assertEqual(
+                [gate["status"] for gate in initial["progression"]["gates"]],
+                ["waiting-current-evidence", "blocked-prerequisite"],
+            )
+            self.assertEqual(
                 {lane["study"]["datasetHash"] for lane in initial["lanes"]},
                 {initial["datasetHash"]},
             )
@@ -173,6 +223,15 @@ class MultiStudyResearchProgramTests(unittest.TestCase):
             self.assertTrue(
                 all(lane["latestRun"]["value"] is not None for lane in baseline["lanes"])
             )
+            self.assertEqual(
+                baseline["progression"]["stage"],
+                "factor-evidence-required",
+            )
+            self.assertEqual(
+                baseline["progression"]["gates"][0]["status"],
+                "blocked-upstream-evidence",
+            )
+            self.assertEqual(baseline["recommendedLaneId"], "factor")
             self.assertEqual(baseline["recommendedAction"]["id"], "session.start")
 
             snapshot = build_studio_snapshot(workspace.root_dir)
@@ -222,3 +281,221 @@ class MultiStudyResearchProgramTests(unittest.TestCase):
                 )
             )
             self.assertEqual(manifest["template"], "ohlcv-research-desk")
+
+    def test_terminal_weak_factor_session_exposes_fresh_session_entry(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            request_path, package_path = write_intake_inputs(root)
+            request = json.loads(request_path.read_text(encoding="utf-8"))
+            workspace = initialize_workspace(root / "workspace", name="Quant Desk")
+            prepared = prepare_project_intake(
+                request_path,
+                package_path,
+                "ohlcv-research-desk",
+            )
+            project = create_project(
+                workspace.root_dir,
+                "repeat-factor-desk",
+                name=prepared.request["title"],
+                description=prepared.request["question"],
+                template=prepared.template,
+                template_intake=prepared,
+            )
+            session = start_session(
+                project,
+                OHLCV_STUDY_ID,
+                request=request,
+            )
+            report = publish_report(
+                project,
+                session.manifest["id"],
+                _report_analysis(session.leader_run),
+            )
+            complete_session(
+                project,
+                session.manifest["id"],
+                report.report["id"],
+            )
+
+            status = load_research_program(project)
+            assert status is not None
+            factor = status["lanes"][0]
+            self.assertEqual(status["recommendedLaneId"], "factor")
+            self.assertEqual(status["recommendedAction"]["id"], "session.start")
+            self.assertIn(
+                "session.start",
+                {command["id"] for command in factor["commands"]},
+            )
+            self.assertEqual(
+                status["progression"]["gates"][0]["status"],
+                "blocked-upstream-evidence",
+            )
+
+    def test_positive_reported_gates_complete_required_program(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = initialize_workspace(Path(directory) / "workspace")
+            project = create_project(
+                workspace.root_dir,
+                "gated-desk",
+                template="ohlcv-research-desk",
+            )
+            lanes = {
+                "factor": {
+                    "latestRun": {"id": "run-factor"},
+                    "currentRun": True,
+                    "reports": [
+                        {"id": "report-factor", "leaderRunId": "run-factor"}
+                    ],
+                    "latestSession": {"status": "completed"},
+                },
+                "portfolio": {
+                    "latestRun": {"id": "run-portfolio"},
+                    "currentRun": True,
+                    "reports": [
+                        {
+                            "id": "report-portfolio",
+                            "leaderRunId": "run-portfolio",
+                        }
+                    ],
+                    "latestSession": {"status": "completed"},
+                },
+                "rl": {
+                    "latestRun": None,
+                    "currentRun": False,
+                    "reports": [],
+                    "latestSession": None,
+                },
+            }
+            positive_factor = {
+                "factorQualification": {
+                    "available": True,
+                    "diagnosis": {
+                        "stage": "factor-qualification-positive",
+                        "iterationFocus": "portfolio-monetization-and-rl-context",
+                        "explanation": "Distinct factor evidence is positive.",
+                    },
+                }
+            }
+            positive_portfolio = {
+                "strategyViability": {
+                    "diagnosis": {
+                        "stage": "post-cost-edge-positive",
+                        "iterationFocus": (
+                            "robustness-capacity-and-external-holdout"
+                        ),
+                        "explanation": "Post-cost portfolio evidence is positive.",
+                    }
+                }
+            }
+            with (
+                mock.patch.object(
+                    research_program_module,
+                    "load_factor_diagnostics",
+                    return_value=positive_factor,
+                ),
+                mock.patch.object(
+                    research_program_module,
+                    "load_portfolio_diagnostics",
+                    return_value=positive_portfolio,
+                ),
+            ):
+                progression = research_program_module._research_progression(
+                    project,
+                    lanes,
+                )
+
+            self.assertEqual(
+                [gate["status"] for gate in progression["gates"]],
+                ["passed", "passed"],
+            )
+            self.assertEqual(
+                progression["stage"],
+                "required-research-complete",
+            )
+            self.assertIsNone(progression["focusLaneId"])
+            self.assertEqual(progression["optionalLaneId"], "rl")
+
+    def test_positive_factor_keeps_program_in_portfolio_until_post_cost_gate(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = initialize_workspace(Path(directory) / "workspace")
+            project = create_project(
+                workspace.root_dir,
+                "portfolio-gated-desk",
+                template="ohlcv-research-desk",
+            )
+            lanes = {
+                "factor": {
+                    "latestRun": {"id": "run-factor"},
+                    "currentRun": True,
+                    "reports": [
+                        {"id": "report-factor", "leaderRunId": "run-factor"}
+                    ],
+                    "latestSession": {"status": "completed"},
+                },
+                "portfolio": {
+                    "latestRun": {"id": "run-portfolio"},
+                    "currentRun": True,
+                    "reports": [
+                        {
+                            "id": "report-portfolio",
+                            "leaderRunId": "run-portfolio",
+                        }
+                    ],
+                    "latestSession": {"status": "completed"},
+                },
+                "rl": {
+                    "latestRun": None,
+                    "currentRun": False,
+                    "reports": [],
+                    "latestSession": None,
+                },
+            }
+            with (
+                mock.patch.object(
+                    research_program_module,
+                    "load_factor_diagnostics",
+                    return_value={
+                        "factorQualification": {
+                            "available": True,
+                            "diagnosis": {
+                                "stage": "factor-qualification-positive",
+                                "iterationFocus": "portfolio-monetization",
+                                "explanation": "Factor evidence is positive.",
+                            },
+                        }
+                    },
+                ),
+                mock.patch.object(
+                    research_program_module,
+                    "load_portfolio_diagnostics",
+                    return_value={
+                        "strategyViability": {
+                            "diagnosis": {
+                                "stage": "post-cost-edge-negative",
+                                "iterationFocus": "turnover-and-cost-control",
+                                "explanation": (
+                                    "The mechanical implementation does not "
+                                    "survive estimated costs."
+                                ),
+                            }
+                        }
+                    },
+                ),
+            ):
+                progression = research_program_module._research_progression(
+                    project,
+                    lanes,
+                )
+
+            self.assertEqual(
+                [gate["status"] for gate in progression["gates"]],
+                ["passed", "blocked-upstream-evidence"],
+            )
+            self.assertEqual(
+                progression["stage"],
+                "portfolio-evidence-required",
+            )
+            self.assertEqual(progression["focusLaneId"], "portfolio")
+            self.assertIsNone(progression["optionalLaneId"])

@@ -1028,6 +1028,11 @@ def _project_program(args: argparse.Namespace) -> CommandResult:
         f"{lane['study']['objective']['metric']}"
         for lane in program["lanes"]
     ]
+    gate_lines = [
+        f"  {gate['id']}: {gate['status']} · "
+        f"{gate['diagnosisStage'] or 'no current diagnosis'}"
+        for gate in program["progression"]["gates"]
+    ]
     actions = []
     if program["recommendedAction"] is not None:
         action = program["recommendedAction"]
@@ -1045,6 +1050,9 @@ def _project_program(args: argparse.Namespace) -> CommandResult:
         (
             f"Research program: {program['project']['name']}\n"
             + "\n".join(lane_lines)
+            + "\n"
+            + f"Progression: {program['progression']['stage']}\n"
+            + "\n".join(gate_lines)
             + "\n"
             + (
                 f"Recommended: {program['recommendedAction']['display']}\n"

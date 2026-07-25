@@ -65,8 +65,9 @@ The first viewport prioritizes:
   headless commands;
 - a three-lane Research Cockpit showing Factor validation IC, costed Portfolio
   validation Sharpe, RL validation advantage versus the best selected
-  baseline, lane phase, Session progress, shared-source conflicts, stale
-  evidence, and the exact recommended next command;
+  baseline, lane phase, evidence-gated admission, Session progress,
+  shared-source conflicts, stale evidence, and the exact recommended next
+  command;
 - one selectable Factor, Portfolio, or RL evidence workbench at a time, keeping
   the complete bounded explorer available without rendering all three long
   reports into one page;
@@ -227,10 +228,18 @@ chooses between source adoption and baseline retention.
 
 For a canonical request-driven Research Program, the handoff board is
 Project-level even when a Session is selected. It shows current lane Report
-coverage, required blockers, optional RL omission, and whether the immutable
-Dossier is blocked, ready for Agent synthesis, or already current. Studio
-loads this state through the same Core Dossier functions used by CLI. It never
-composes Reports or authors the synthesis in JavaScript.
+coverage, dynamically required blockers, gated/optional omission, and whether
+the immutable Dossier is blocked, ready for Agent synthesis, or already
+current. Studio loads this state through the same Core Dossier functions used
+by CLI. It never composes Reports or authors the synthesis in JavaScript.
+
+The Research Cockpit consumes Core's `progression` projection. It labels the
+current Factor focus, Portfolio locked by Factor evidence, and RL locked by the
+simple Portfolio baseline without deriving pass/fail from metric signs. A weak
+Factor can therefore produce a published one-lane early-stop Dossier while the
+downstream workbenches remain read-only. Once both required gates pass, the
+handoff is complete and governed RL is presented as an optional complexity
+challenge rather than mandatory program completion.
 
 When the latest Portfolio Report contains frozen leader-decision support,
 Studio shows a compact proof strip with the historical decision timestamp,

@@ -39,11 +39,19 @@ and limitations. The Dossier cites these Reports and their finding ids. It
 never re-evaluates raw Runs, resets search history, or invents a cross-lane
 score.
 
-Factor and Portfolio are required lanes. Governed RL is optional because the
-research question may not justify adaptive complexity. When RL lacks a current
-Report, the Dossier freezes it under `omittedOptionalLanes` with a reason. An
-optional lane with current evidence is included and must be covered by the
-cross-lane analysis.
+Factor is always required. Portfolio becomes required only when the frozen
+Factor Report proves that its exact leader reached
+`factor-qualification-positive`. Governed RL is always optional and becomes
+admissible only after the frozen Portfolio Report proves
+`post-cost-edge-positive`.
+
+This makes an upstream rejection a complete, useful answer. A Factor-only
+Dossier can freeze a weak-factor early stop; a Factor-plus-Portfolio Dossier
+can freeze a post-cost portfolio rejection without manufacturing an RL
+experiment. Gated or optional lanes without current Reports are frozen as
+omitted with their admission reason. An already-produced downstream Report can
+remain included as optional historical context, but it does not make that lane
+required or override the gate.
 
 ## Readiness
 
@@ -52,7 +60,7 @@ cross-lane analysis.
 1. verified request-driven Project intake;
 2. the canonical Factor → Portfolio → RL Research Program;
 3. no Program identity or shared-source violation;
-4. a delegated Session for every required lane;
+4. a delegated Session for every dynamically required lane;
 5. a verified Report whose frozen leader equals that Session's current leader;
 6. a leader Run whose Study input, dataset, source, and fixed dependency
    identities equal the current lane Study;
@@ -60,6 +68,12 @@ cross-lane analysis.
 8. Portfolio and included governed-RL leader Runs use the same fixed Portfolio
    Mandate; RL factor-dependency comparison uses only the `factors/**` subset
    of its multi-input dependency closure.
+
+Required-lane admission is reconstructed from the immutable frozen upstream
+Report, not from mutable latest state. Factor is required unconditionally;
+Portfolio is required only when the frozen Factor qualification is available
+and positive. RL remains optional. This rule lets published early-stop
+Dossiers remain verifiable after later research changes the Project.
 
 Readiness is a publication-time condition. A published Dossier is a valid
 point-in-time snapshot when later research adds evidence or changes the current
@@ -141,7 +155,7 @@ non-file entries are rejected.
   reference-NAV breach evidence when present;
 - Portfolio and governed-RL executed-book forecast coverage, pretrade breach,
   risk-only override, and zero-final-breach evidence when present;
-- omitted optional lanes;
+- omitted gated or optional lanes and their admission state;
 - normalized cross-lane analysis and its hash;
 - OpenAlice handoff boundary.
 
@@ -169,7 +183,7 @@ are not given synthetic historical evidence.
 - a lane evidence table;
 - lane Report summaries and selection-integrity warnings;
 - cross-lane findings and conditional recommendations;
-- limitations, unresolved questions, and omitted optional lanes;
+- limitations, unresolved questions, and omitted gated or optional lanes;
 - reproducibility hashes and publication instructions.
 
 AutoQuant preserves caller-supplied OpenAlice Workspace/Session/document
@@ -196,7 +210,8 @@ author analysis, publish, select evidence, or send an Inbox document.
 ## Invariants
 
 1. A Dossier cites verified lane Reports, not ungoverned raw claims.
-2. Required-lane coverage is complete; optional-lane omission is explicit.
+2. Dynamically required-lane coverage is complete; gated and optional-lane
+   omission is explicit.
 3. Publication uses current evidence; later research does not invalidate the
    immutable point-in-time artifact.
 4. Every cross-lane reference resolves to one frozen Report or finding.

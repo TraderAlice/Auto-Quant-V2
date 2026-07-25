@@ -321,6 +321,17 @@ class AgentCliTests(unittest.TestCase):
                 [lane["id"] for lane in status["data"]["lanes"]],
                 ["factor", "portfolio", "rl"],
             )
+            self.assertEqual(
+                status["data"]["progression"]["stage"],
+                "factor-evidence-required",
+            )
+            self.assertEqual(
+                [
+                    gate["status"]
+                    for gate in status["data"]["progression"]["gates"]
+                ],
+                ["waiting-current-evidence", "blocked-prerequisite"],
+            )
             self.assertEqual(status["nextActions"][0]["id"], "run.execute")
 
     def test_capabilities_describe_every_public_command(self) -> None:

@@ -32,6 +32,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/evidence-gated-research-progression]] | Made verified Factor and Portfolio evidence—not mere lane completion—govern downstream Portfolio/RL research admission and early-stop handoff. | 2026-07-25 |
 | [[plans/factor-qualification-funnel]] | Proved distinct incremental candidate-factor information before Portfolio and governed-RL research. | 2026-07-25 |
 | [[plans/rl-factor-fusion-diagnosis]] | Diagnosed whether candidate-factor opportunity becomes stable post-cost adaptive value versus a mechanical baseline. | 2026-07-25 |
 | [[plans/signal-to-portfolio-monetization]] | Explained how normalized signal intent becomes sized, governed, executed, and post-cost portfolio return. | 2026-07-25 |

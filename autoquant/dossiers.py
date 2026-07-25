@@ -630,6 +630,45 @@ def _portfolio_mandate_id(result: dict[str, Any]) -> str | None:
     return mandate.get("id") if isinstance(mandate, dict) else None
 
 
+def _program_lane_admission(
+    program: dict[str, Any],
+    lane_id: str,
+) -> dict[str, Any]:
+    gates = {
+        gate["id"]: gate for gate in program["progression"]["gates"]
+    }
+    factor_gate = gates["factor-to-portfolio"]
+    portfolio_gate = gates["portfolio-to-rl"]
+    if lane_id == "factor":
+        return {
+            "admitted": True,
+            "required": True,
+            "gateId": None,
+            "status": "required",
+            "explanation": (
+                "Factor is the first required evidence lane for every "
+                "request-driven research program."
+            ),
+        }
+    if lane_id == "portfolio":
+        admitted = factor_gate["status"] == "passed"
+        return {
+            "admitted": admitted,
+            "required": admitted,
+            "gateId": factor_gate["id"],
+            "status": "required" if admitted else "gated-context-only",
+            "explanation": factor_gate["explanation"],
+        }
+    admitted = portfolio_gate["status"] == "passed"
+    return {
+        "admitted": admitted,
+        "required": False,
+        "gateId": portfolio_gate["id"],
+        "status": "optional-admitted" if admitted else "gated-context-only",
+        "explanation": portfolio_gate["explanation"],
+    }
+
+
 def _readiness(
     project: ProjectContext,
 ) -> tuple[dict[str, Any], dict[str, Any] | None, dict[str, Any]]:
@@ -647,14 +686,37 @@ def _readiness(
     request = intake["request"] if intake is not None else None
     lane_states: list[dict[str, Any]] = []
     for lane in program["lanes"]:
-        required = not lane["optional"]
+        admission = _program_lane_admission(program, lane["id"])
+        required = admission["required"]
         session = report = leader_run = None
         blockers: list[dict[str, Any]] = []
-        if request is not None:
+        inspect_lane = admission["admitted"]
+        if not inspect_lane:
+            inspect_lane = any(
+                item.study_id == lane["studyId"]
+                for item in list_sessions(project)
+            )
+        if request is not None and inspect_lane:
             session, report, leader_run, blockers = _current_lane_report(
                 project,
                 lane,
                 request,
+            )
+            if not admission["admitted"] and report is None:
+                blockers = [
+                    _blocker(
+                        "dossier.lane-gated",
+                        admission["explanation"],
+                        lane["id"],
+                    )
+                ]
+        elif request is not None:
+            blockers.append(
+                _blocker(
+                    "dossier.lane-gated",
+                    admission["explanation"],
+                    lane["id"],
+                )
             )
         else:
             blockers.append(
@@ -670,6 +732,7 @@ def _readiness(
             "role": lane["role"],
             "required": required,
             "status": "ready" if not blockers else ("blocked" if required else "omitted"),
+            "admission": admission,
             "study": lane["study"],
             "session": (
                 {
@@ -881,6 +944,7 @@ def _readiness(
                 project.root_dir / RESEARCH_PROGRAM_MANIFEST
             ),
             "datasetHash": program["datasetHash"],
+            "progression": program["progression"],
         },
         "lanes": public_lanes,
         "includedLaneIds": [lane["id"] for lane in included],
@@ -915,6 +979,7 @@ def _publication_evidence(
                 "name": lane["name"],
                 "role": lane["role"],
                 "required": lane["required"],
+                "admission": lane["admission"],
                 "study": lane["study"],
                 "report": _report_projection(report),
                 "leaderRun": _run_projection(leader_run),
@@ -1518,14 +1583,14 @@ def _render_markdown(dossier: dict[str, Any]) -> str:
             )
     else:
         lines.extend(["No action recommendation was made.", ""])
-    lines.extend(["## Omitted optional lanes", ""])
+    lines.extend(["## Omitted gated or optional lanes", ""])
     if evidence["omittedOptionalLanes"]:
         lines.extend(
             f"- **{lane['name']}** (`{lane['id']}`): {lane['reason']}"
             for lane in evidence["omittedOptionalLanes"]
         )
     else:
-        lines.append("- No optional lane was omitted.")
+        lines.append("- No gated or optional lane was omitted.")
     lines.extend(["", "## Limitations", ""])
     lines.extend(
         [f"- {item}" for item in analysis["limitations"]]
@@ -1949,11 +2014,36 @@ def _verify_frozen_evidence(
         issues.append(
             _issue(path, "dossier.duplicate-lane", "Frozen lane ids must be unique")
         )
-    required_ids = {
-        lane["id"]
-        for lane in program_manifest.get("lanes", [])
-        if isinstance(lane, dict) and not lane.get("optional")
-    }
+    required_ids = {"factor"}
+    factor_lane = next(
+        (
+            lane
+            for lane in lanes
+            if isinstance(lane, dict) and lane.get("id") == "factor"
+        ),
+        None,
+    )
+    factor_support = (
+        factor_lane.get("report", {}).get("leaderDecisionSupport")
+        if isinstance(factor_lane, dict)
+        else None
+    )
+    factor_qualification = (
+        factor_support.get("factorQualification")
+        if isinstance(factor_support, dict)
+        else None
+    )
+    factor_diagnosis = (
+        factor_qualification.get("diagnosis")
+        if isinstance(factor_qualification, dict)
+        and factor_qualification.get("available")
+        else None
+    )
+    if (
+        isinstance(factor_diagnosis, dict)
+        and factor_diagnosis.get("stage") == "factor-qualification-positive"
+    ):
+        required_ids.add("portfolio")
     if not required_ids.issubset(set(lane_ids)):
         issues.append(
             _issue(

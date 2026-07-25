@@ -398,16 +398,69 @@ const laneReadout = (project, lane) => {
   };
 };
 
+const progressionGate = (program, id) =>
+  program?.progression?.gates?.find((gate) => gate.id === id) ?? null;
+
+const laneAdmission = (program, lane) => {
+  const factorGate = progressionGate(program, "factor-to-portfolio");
+  const portfolioGate = progressionGate(program, "portfolio-to-rl");
+  if (lane.id === "factor") {
+    return factorGate?.status === "passed"
+      ? {
+          status: "passed",
+          label: "UPSTREAM GATE PASSED",
+          detail: factorGate.explanation,
+        }
+      : {
+          status: "focus",
+          label: "CURRENT RESEARCH FOCUS",
+          detail: factorGate?.explanation ?? "Current Factor evidence is required.",
+        };
+  }
+  if (lane.id === "portfolio") {
+    if (factorGate?.status !== "passed") {
+      return {
+        status: "locked",
+        label: "LOCKED BY FACTOR EVIDENCE",
+        detail: factorGate?.explanation ?? "Factor admission is not yet available.",
+      };
+    }
+    return portfolioGate?.status === "passed"
+      ? {
+          status: "passed",
+          label: "REQUIRED GATE PASSED",
+          detail: portfolioGate.explanation,
+        }
+      : {
+          status: "focus",
+          label: "CURRENT RESEARCH FOCUS",
+          detail: portfolioGate?.explanation ?? "Current Portfolio evidence is required.",
+        };
+  }
+  if (portfolioGate?.status !== "passed") {
+    return {
+      status: "locked",
+      label: "LOCKED BY SIMPLE BASELINE",
+      detail:
+        portfolioGate?.explanation ??
+        "Positive reported mechanical evidence is required before RL.",
+    };
+  }
+  return {
+    status:
+      program.progression?.focusLaneId === "rl" ? "focus optional" : "optional",
+    label:
+      program.progression?.focusLaneId === "rl"
+        ? "OPTIONAL RESEARCH IN PROGRESS"
+        : "ADMITTED · OPTIONAL",
+    detail: portfolioGate.explanation,
+  };
+};
+
 const programAssessment = (project) => {
   const program = project.researchProgramStatus;
   if (!program) return null;
-  const readouts = program.lanes.map((lane) => laneReadout(project, lane));
-  const adverse = readouts.filter((item) => item.tone === "bad");
-  const cautions = readouts.filter((item) => item.tone === "warning");
-  const missing = program.lanes.filter((lane) => !lane.latestRun || !lane.currentRun);
-  const recommended = program.lanes.find(
-    (lane) => lane.id === program.recommendedLaneId,
-  );
+  // Core progression is rendered verbatim; this is not a browser-authored verdict.
   if (program.summary.conflicts) {
     return {
       tone: "warning",
@@ -416,37 +469,44 @@ const programAssessment = (project) => {
       detail: `${program.summary.conflicts} active conflict${program.summary.conflicts === 1 ? "" : "s"} can invalidate downstream evidence.`,
     };
   }
-  if (missing.length) {
+  const progression = program.progression;
+  if (progression?.stage === "factor-evidence-required") {
+    const gate = progressionGate(program, "factor-to-portfolio");
     return {
-      tone: "warning",
-      label: "EVIDENCE INCOMPLETE",
-      title: "Refresh the research chain",
-      detail: `${missing.length} lane${missing.length === 1 ? "" : "s"} lack current immutable evidence.`,
+      tone: gate?.status?.startsWith("blocked") ? "bad" : "warning",
+      label: "STAY IN FACTOR RESEARCH",
+      title: gate?.diagnosisStage
+        ? gate.diagnosisStage.replaceAll("-", " ")
+        : "Qualify the candidate factor",
+      detail: progression.explanation,
     };
   }
-  if (adverse.length) {
+  if (progression?.stage === "portfolio-evidence-required") {
+    const gate = progressionGate(program, "portfolio-to-rl");
     return {
-      tone: "bad",
-      label: "ADVERSE EVIDENCE",
-      title: recommended ? `Next: ${recommended.name}` : "Review the earliest adverse lane",
-      detail: `${adverse.map((item) => item.verdict.toLowerCase()).join(" · ")}. These are observed relationships, not a browser-authored verdict.`,
+      tone: gate?.status?.startsWith("blocked") ? "bad" : "warning",
+      label: "STAY IN PORTFOLIO RESEARCH",
+      title: gate?.diagnosisStage
+        ? gate.diagnosisStage.replaceAll("-", " ")
+        : "Prove mechanical portfolio viability",
+      detail: progression.explanation,
     };
   }
-  if (cautions.length) {
+  if (progression?.stage === "optional-rl-in-progress") {
     return {
-      tone: "warning",
-      label: "RESEARCH QUALIFICATION INCOMPLETE",
-      title: recommended
-        ? `Resolve evidence quality before ${recommended.name}`
-        : "Resolve evidence quality before downstream complexity",
-      detail: `${cautions.map((item) => item.verdict.toLowerCase()).join(" · ")}. Positive sign alone is not sufficient evidence.`,
+      tone: "neutral",
+      label: "OPTIONAL RL CHALLENGE ACTIVE",
+      title: "Finish the chosen adaptive-policy audit",
+      detail: progression.explanation,
     };
   }
   return {
-    tone: "neutral",
-    label: "NO SIGN-LEVEL WARNING",
-    title: recommended ? `Next: ${recommended.name}` : "Inspect fixed acceptance evidence",
-    detail: "Headline values are non-negative. Only Core-owned gates, uncertainty, robustness, and verified reports may support promotion.",
+    tone: "good",
+    label: "REQUIRED RESEARCH COMPLETE",
+    title: "Factor and mechanical portfolio evidence are report-ready",
+    detail:
+      progression?.explanation ??
+      "The required evidence chain is complete; RL remains optional.",
   };
 };
 
@@ -469,7 +529,9 @@ const researchDecisionBrief = (project) => {
       detail: assessment.detail,
       next: recommended
         ? `Work ${recommended.name} before interpreting downstream complexity as value-add.`
-        : "Inspect the earliest incomplete or adverse evidence lane.",
+        : program.progression?.stage === "required-research-complete"
+          ? "Return the required-lane Dossier to OpenAlice; run governed RL only if adaptivity is a separately chosen research question."
+          : "Inspect the earliest unsupported evidence gate.",
       boundary: `${program.summary.lanes} fixed Studies · validation selects`,
       origin,
     };
@@ -1069,8 +1131,8 @@ function dossierInspectorSection(project) {
       <span class="status-chip ${escapeHtml(dossier.tone)}">${escapeHtml(dossier.label)}</span>
       <p>${escapeHtml(
         dossier.latest?.executiveSummary ??
-          (dossier.status.ready
-            ? "Current Factor and Portfolio lane Reports are ready for Agent-authored cross-lane synthesis."
+      (dossier.status.ready
+            ? "Current evidence-gated lane Reports are ready for Agent-authored Project synthesis."
             : blockerSummary || "Required lane evidence is incomplete."),
       )}</p>
       <dl class="inspector-kv">
@@ -1093,6 +1155,12 @@ function renderHandoff(project) {
     const request = project.intake.request;
     const dataset = project.intake.dataset;
     const readyLanes = dossier.status.lanes.filter((lane) => lane.status === "ready");
+    const requiredNames = dossier.status.lanes
+      .filter((lane) => lane.required)
+      .map((lane) => lane.name);
+    const requiredReady = dossier.status.lanes.filter(
+      (lane) => lane.required && lane.status === "ready",
+    ).length;
     const reportCount = dossier.status.lanes.filter((lane) => lane.report).length;
     const omissions = dossier.status.omittedOptionalLanes;
     const blockers = dossier.status.blockers;
@@ -1105,7 +1173,7 @@ function renderHandoff(project) {
     element("handoff-flow").textContent =
       "REQUEST → LANE REPORTS → PROJECT DOSSIER → OPENALICE";
     element("handoff-meta").textContent = dossier.current
-      ? `Current Dossier · ${dossier.status.includedLaneIds.length} lanes`
+      ? `Current Dossier · ${dossier.status.includedLaneIds.length} ${dossier.status.includedLaneIds.length === 1 ? "lane" : "lanes"}`
       : dossier.status.ready
         ? `${reportCount} current lane Reports · synthesis pending`
         : `${blockers.length} required evidence blocker${blockers.length === 1 ? "" : "s"}`;
@@ -1123,8 +1191,8 @@ function renderHandoff(project) {
       </article>
       <article class="handoff-card evidence-card">
         <small>02 · Governed lane Reports</small>
-        <h3>${readyLanes.length}/${dossier.status.lanes.length} lanes composable</h3>
-        <p>Factor and Portfolio are required. Adaptive policy evidence is optional and can only join when its frozen Factor dependency matches.</p>
+        <h3>${requiredReady}/${requiredNames.length} required ready · ${readyLanes.length} included</h3>
+        <p>${escapeHtml(requiredNames.join(" and ") || "Factor")} ${requiredNames.length === 1 ? "is" : "are"} required by the current scientific gates. Gated downstream lanes may be omitted; adaptive evidence can only join when its frozen dependencies match.</p>
         <div class="handoff-metrics">
           <span><b>${readyLanes.length}</b><small>ready lanes</small></span>
           <span><b>${reportCount}</b><small>current reports</small></span>
@@ -1269,13 +1337,13 @@ function renderResearchProgram(project) {
   const recommended = program.recommendedAction;
   const assessment = programAssessment(project);
   const dossier = dossierState(project);
-  const currentRuns = program.lanes.filter(
-    (lane) => lane.currentRun && lane.latestRun?.status === "succeeded",
+  const gatesPassed = program.progression.gates.filter(
+    (gate) => gate.status === "passed",
   ).length;
   element("research-program-meta").textContent =
     `${program.dataset.universe.length} assets · one snapshot · ${summary.lanes} fixed Studies`;
   element("research-program-summary").innerHTML = [
-    ["Evidence chain", `${currentRuns}/${summary.lanes}`, "current immutable baselines"],
+    ["Required gates", `${gatesPassed}/2`, "reported scientific admission"],
     ["Active researchers", summary.activeSessions, "governed Sessions"],
     ["Lane reports", summary.reports, "verified decision-support evidence"],
     [
@@ -1315,24 +1383,29 @@ function renderResearchProgram(project) {
       const kind = laneKind(lane);
       const readout = laneReadout(project, lane);
       const evidenceSelected = kind === state.evidenceLane;
+      const admission = laneAdmission(program, lane);
       const command =
-        lane.commands.find((item) => item.id === recommended?.id) ??
-        lane.commands.find((item) => item.id === "session.show") ??
-        lane.commands.find((item) => item.id === "run.execute") ??
+        (admission.status === "locked"
+          ? lane.commands.find((item) => item.id === "study.inspect")
+          : lane.commands.find((item) => item.id === recommended?.id) ??
+            lane.commands.find((item) => item.id === "session.show") ??
+            lane.commands.find((item) => item.id === "session.start") ??
+            lane.commands.find((item) => item.id === "run.execute")) ??
         lane.commands[0];
       return `
-        <article class="program-lane ${lane.phase} ${selected ? "recommended" : ""} ${evidenceSelected ? "evidence-selected" : ""}">
+        <article class="program-lane ${lane.phase} admission-${admission.status.replaceAll(" ", "-")} ${selected ? "recommended" : ""} ${evidenceSelected ? "evidence-selected" : ""}">
           <header>
             <span>${String(index + 1).padStart(2, "0")}</span>
             <small>${escapeHtml(lane.role)}</small>
           </header>
           <h3>${escapeHtml(lane.name)}</h3>
+          <span class="admission-chip ${escapeHtml(admission.status.replaceAll(" ", "-"))}">${escapeHtml(admission.label)}</span>
           <div class="program-lane-readout ${escapeHtml(readout.tone)}">
             <small>${escapeHtml(readout.metric)}</small>
             <strong>${escapeHtml(readout.display)}</strong>
             <b>${escapeHtml(readout.verdict)}</b>
           </div>
-          <p>${escapeHtml(readout.detail)}</p>
+          <p>${escapeHtml(admission.detail)}</p>
           <dl>
             <dt>Session</dt>
             <dd>${session ? `${escapeHtml(session.status)} · ${session.experiments} experiments` : "not started"}</dd>
@@ -1346,6 +1419,7 @@ function renderResearchProgram(project) {
           <div class="program-lane-foot">
             <span class="program-phase ${lane.phase}">${escapeHtml(programPhaseLabel(lane.phase))}</span>
             ${selected ? "<b>NEXT RESEARCH LANE</b>" : ""}
+            ${admission.status.includes("optional") && !selected ? "<b>OPTIONAL · NOT REQUIRED</b>" : ""}
           </div>
           <div class="program-lane-actions">
             <button class="lane-open-button" type="button" data-open-evidence="${escapeHtml(kind)}">
@@ -1359,7 +1433,7 @@ function renderResearchProgram(project) {
   element("research-program-footer").innerHTML = `
     <span>
       <b>${program.conflicts.length ? "Shared-source conflict" : "Integration boundary"}</b>
-      ${escapeHtml(program.warnings.join(" · "))} · Dossier composition is Core-verified and has no trading authority.
+      ${escapeHtml(program.progression.explanation)} · ${escapeHtml(program.warnings.join(" · "))} · Dossier composition is Core-verified and has no trading authority.
     </span>
     ${copyCommandButton(dossier?.command ?? recommended, dossier ? "Copy Dossier next action" : "Copy recommended command")}`;
 }

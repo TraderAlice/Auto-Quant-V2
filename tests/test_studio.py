@@ -320,6 +320,8 @@ class StudioObservationTests(unittest.TestCase):
                     self.assertIn(".desk-nav-button", css)
                     self.assertIn('[data-lane-count="1"]', css)
                     self.assertIn(".program-assessment", css)
+                    self.assertIn(".admission-chip", css)
+                    self.assertIn(".program-lane.admission-locked", css)
                     self.assertIn(".evidence-lane-tabs", css)
                     self.assertIn(".mandate-strip", css)
                     self.assertIn(".mechanical-chain", css)
@@ -351,6 +353,9 @@ class StudioObservationTests(unittest.TestCase):
                 with urlopen(f"{base}/assets/studio.js", timeout=3) as response:
                     javascript = response.read().decode()
                     self.assertIn("programAssessment", javascript)
+                    self.assertIn("laneAdmission", javascript)
+                    self.assertIn("progressionGate", javascript)
+                    self.assertIn("REQUIRED RESEARCH COMPLETE", javascript)
                     self.assertIn("researchDecisionBrief", javascript)
                     self.assertIn("DO NOT PROMOTE ADAPTIVITY", javascript)
                     self.assertIn("projectFocusStudy", javascript)

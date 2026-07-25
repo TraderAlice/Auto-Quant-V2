@@ -162,6 +162,8 @@ Request-driven construction and external dataset snapshots are defined in
 [[docs/design/research-intake-and-dataset-snapshots]].
 Multi-Study Project coordination and lane currentness are defined in
 [[docs/design/research-program-orchestration]].
+Scientific admission between Factor, Portfolio, and optional governed RL is
+defined in [[docs/design/evidence-gated-research-progression]].
 The end-to-end OpenAlice handoff, professional evidence stack, and HCI
 boundary are defined in [[docs/design/quant-research-lifecycle]].
 Project-level lane composition is defined in
@@ -307,6 +309,8 @@ behind the Harness contract, not the owner of Workspace or Project semantics.
   [[docs/design/mechanical-position-lifecycle-evidence]]
 - Research intake and dataset snapshot design:
   [[docs/design/research-intake-and-dataset-snapshots]]
+- Evidence-gated Research Program progression:
+  [[docs/design/evidence-gated-research-progression]]
 - Governed RL Factor-Policy Lab design:
   [[docs/design/rl-factor-policy-lab]]
 - Read-only Study source dependencies and governed Factor-to-RL fusion:

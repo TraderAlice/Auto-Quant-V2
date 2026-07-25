@@ -105,8 +105,14 @@ The JSON result contains Project-level `request.json`, `intake.json`,
 `data/ohlcv/snapshot.json`, three verified Study identities, and exact next
 actions for inspecting the program and advancing its recommended lane.
 `project program --json` is the stable Agent read model for lane phase, current
-Run evidence, Sessions, Reports, shared-source conflicts, and next action. See
-[[docs/design/research-intake-and-dataset-snapshots]].
+Run evidence, Sessions, Reports, shared-source conflicts, scientific
+`progression` gates, and next action. Phase is coordination state only.
+Portfolio requires a reported `factor-qualification-positive` leader; optional
+RL requires a reported `post-cost-edge-positive` Portfolio leader. A terminal
+upstream Session that remains blocked exposes a fresh `session start` command
+instead of advancing by phase alone. See
+[[docs/design/research-intake-and-dataset-snapshots]] and
+[[docs/design/evidence-gated-research-progression]].
 
 ## Study and Run commands
 
@@ -423,10 +429,12 @@ aq dossier show <path> \
 
 A Session Report is one lane's point-in-time answer. A Project Research
 Dossier is the cross-lane return artifact. `dossier status` uses the canonical
-Research Program to require current Factor and Portfolio Reports and to include
-governed RL only when its current Report pins the included Factor source.
-Missing optional RL evidence is not silently ignored: its omission and reason
-are frozen into the Dossier.
+Research Program to require Factor, dynamically require Portfolio only after a
+positive frozen Factor qualification, and admit governed RL only after
+positive frozen Portfolio post-cost evidence. RL remains optional. Missing
+gated or optional evidence is not silently ignored: its admission state,
+omission, and reason are frozen into the Dossier. This permits Factor-only and
+Factor-plus-Portfolio early-stop handoffs.
 
 The Agent authors strict cross-lane analysis whose references select exact
 included `laneId`, `reportId`, and optional Report `findingId`. Core verifies

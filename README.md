@@ -248,8 +248,9 @@ uv run aq session complete ./quant-workspace \
 The immutable completion receipt removes the Session from active Program
 conflicts while preserving its Report as point-in-time evidence.
 
-For the canonical Factor → Portfolio → optional RL Research Program, lane
-Reports are composed into one immutable Project Research Dossier:
+For the canonical evidence-gated Factor → Portfolio → optional RL Research
+Program, lane Reports are composed into one immutable Project Research
+Dossier:
 
 ```bash
 uv run aq dossier status ./quant-workspace --json
@@ -262,8 +263,14 @@ uv run aq dossier show ./quant-workspace \
   --json
 ```
 
-Core verifies exact Report/finding references, freezes every included lane and
-explicit optional omission, and renders `dossier.json` plus `dossier.md`.
+Core admits Portfolio only after the frozen Factor leader reaches
+`factor-qualification-positive`, admits optional RL only after the frozen
+Portfolio leader reaches `post-cost-edge-positive`, and never confuses a
+reported coordination phase with a scientific pass. Core verifies exact
+Report/finding references, freezes every included lane and explicit gated or
+optional omission, and renders `dossier.json` plus `dossier.md`. A weak Factor
+may therefore end in a valid Factor-only early-stop Dossier instead of forcing
+downstream compute.
 AutoQuant still has no trading authority; OpenAlice owns Inbox publication and
 authenticated collaboration provenance.
 
