@@ -313,6 +313,28 @@ class ProgramResearchDossierTests(unittest.TestCase):
                 sizing["construction"]["family"],
                 "long-cash",
             )
+            diversification = support[
+                "portfolioDiversificationStress"
+            ]
+            assert diversification is not None
+            self.assertEqual(
+                support["portfolioDiversificationStressHash"],
+                hash_json(diversification),
+            )
+            self.assertEqual(
+                diversification["authority"],
+                "context-only",
+            )
+            self.assertFalse(
+                diversification["testEntersSelection"]
+            )
+            self.assertEqual(
+                diversification["shock"]["method"],
+                (
+                    "observed-to-perfect-position-aligned-"
+                    "covariance-blend-ladder"
+                ),
+            )
             viability = support["portfolioStrategyViability"]
             assert viability is not None
             self.assertEqual(
@@ -362,6 +384,14 @@ class ProgramResearchDossierTests(unittest.TestCase):
             )
             self.assertIn(
                 "## Frozen leader-Run position sizing anatomy",
+                portfolio_markdown,
+            )
+            self.assertIn(
+                "## Frozen leader-Run diversification stress",
+                portfolio_markdown,
+            )
+            self.assertIn(
+                "25% correlation breakdown",
                 portfolio_markdown,
             )
             self.assertIn(
@@ -502,6 +532,14 @@ class ProgramResearchDossierTests(unittest.TestCase):
             )
             self.assertIn(
                 "## Frozen portfolio sizing anatomy",
+                markdown,
+            )
+            self.assertIn(
+                "## Frozen portfolio diversification stress",
+                markdown,
+            )
+            self.assertIn(
+                "25% correlation breakdown",
                 markdown,
             )
             self.assertIn(

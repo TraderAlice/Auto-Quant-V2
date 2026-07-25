@@ -261,6 +261,12 @@ class ResearchHandoffTests(unittest.TestCase):
                 decision_support["portfolioSizingAnatomy"]
             )
             self.assertIsNone(
+                decision_support["portfolioDiversificationStressHash"]
+            )
+            self.assertIsNone(
+                decision_support["portfolioDiversificationStress"]
+            )
+            self.assertIsNone(
                 decision_support["portfolioStrategyViabilityHash"]
             )
             self.assertIsNone(
@@ -490,6 +496,38 @@ class ResearchHandoffTests(unittest.TestCase):
 
             self.assertNotIn(
                 "portfolioSignalMonetization",
+                loaded.report["evidence"]["leaderDecisionSupport"],
+            )
+
+    def test_prior_decision_support_without_diversification_remains_loadable(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = self._project(directory)
+            session = start_session(
+                project,
+                "factor-quality",
+                request=research_request(),
+            )
+            report = publish_report(
+                project,
+                session.manifest["id"],
+                report_analysis(session.manifest["baseline"]["runId"]),
+            )
+            historical = json.loads(json.dumps(report.report))
+            support = historical["evidence"]["leaderDecisionSupport"]
+            support.pop("portfolioDiversificationStressHash")
+            support.pop("portfolioDiversificationStress")
+            _, report_id = fully_rehash_report(
+                report,
+                historical,
+                session.manifest["id"],
+            )
+
+            loaded = load_report(project, session, report_id)
+
+            self.assertNotIn(
+                "portfolioDiversificationStress",
                 loaded.report["evidence"]["leaderDecisionSupport"],
             )
 

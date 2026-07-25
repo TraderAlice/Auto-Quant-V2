@@ -226,6 +226,9 @@ mechanical decision—state transitions, next percentile conditions, weights,
 turnover/risk gate, sizing anatomy, and decision hashes. The anatomy explains
 conviction/inverse-volatility strength, proportional side budget,
 cap/water-fill redistribution, governed/executed weight, and component risk.
+It also freezes effective risk bets and the 25% / 50% / 100% covariance-blend
+ladder toward perfect position-aligned correlation, including validation/test
+ceiling-breach rates and per-asset stress-risk shares.
 The same frozen support diagnoses whether validation evidence fails at factor
 prediction, gross portfolio monetization, or trading friction, with cost
 break-even, delay, monthly breadth, best-day dependence, and underwater
@@ -292,7 +295,8 @@ verified growth/drawdown, exposure/cash/turnover, the historical mechanical
 book, raw/governed targets, the conviction → inverse-volatility →
 cap/water-fill position-sizing anatomy, a validation-only factor → gross →
 friction → net viability diagnosis, portfolio-volatility forecast/scale, signal
-transitions, final executed-book risk compliance, split attribution, and
+transitions, effective risk bets and the 25% / 50% / 100% correlation-breakdown
+ladder, final executed-book risk compliance, split attribution, and
 validation/test liquidity-capacity envelopes with binding assets, plus
 validation/test mechanical position episodes and per-asset lifecycle
 statistics, plus a validation/test 5×3 mechanical-parameter heatmap whose cells

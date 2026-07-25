@@ -85,6 +85,7 @@ const reportDecisionProof = (report) => {
   }
   if (!portfolio) return "";
   const sizing = portfolio.sizing;
+  const diversification = portfolio.diversification;
   const viability = portfolio.viability;
   const monetization = portfolio.monetization;
   return `
@@ -93,6 +94,7 @@ const reportDecisionProof = (report) => {
       <b>${portfolio.stateChanges} state change${portfolio.stateChanges === 1 ? "" : "s"} · ${percent(portfolio.proposedOneWayTurnover)} proposed / ${percent(portfolio.noTradeOneWay)} band</b>
       <span>${escapeHtml(portfolio.family)} · ${escapeHtml(portfolio.reason)} · authority none</span>
       ${sizing ? `<span>${sizing.atCapAssets} at cap · component-risk HHI ${metric(sizing.componentRiskConcentrationHhi)} · largest ${escapeHtml(sizing.largestAbsoluteComponentRiskContributor ?? "unavailable")}</span>` : ""}
+      ${diversification ? `<span>${metric(diversification.effectiveRiskBets)} effective risk bets · sample/perfect-correlation vol ${percent(diversification.sampleForecastAnnualized)} / ${percent(diversification.perfectCorrelationForecastAnnualized)} · breach ${String(diversification.stressBreachesCeiling)}</span>` : ""}
       ${viability ? `<span>${escapeHtml(viability.stage)} · focus ${escapeHtml(viability.iterationFocus)} · gross/net Sharpe ${metric(viability.grossSharpe)} / ${metric(viability.netSharpe)}</span>` : ""}
       ${monetization ? `<span>${escapeHtml(monetization.outcome)} · largest adverse ${escapeHtml(monetization.largestAdverseStage)} ${signedPercent(monetization.largestAdverseAnnualizedDelta)} annualized additive</span>` : ""}
     </div>`;
@@ -2378,6 +2380,114 @@ function renderPortfolioSizingAnatomy(explorer) {
     </div>`;
 }
 
+function renderPortfolioDiversificationStress(explorer) {
+  const stress = explorer.diversificationStress;
+  const current = stress.current;
+  const target = element("portfolio-diversification-stress");
+  const available = current.state === "available";
+  const scenarioLabels = Object.fromEntries(
+    stress.shock.scenarios.map((item) => [item.id, item.label]),
+  );
+  const breachTone =
+    current.stressBreachesCeiling === true ? "adverse" : available ? "positive" : "warning";
+  const currentLadder = current.scenarios
+    .map(
+      (scenario) => `
+        <span class="${scenario.breachesCeiling === true ? "adverse" : scenario.breachesCeiling === false ? "positive" : "warning"}">
+          <small>${escapeHtml(scenarioLabels[scenario.id] ?? scenario.id)}</small>
+          <b>${percent(scenario.forecastAnnualized)} · ${metric(scenario.multiplier)}×</b>
+          <i>${percent(scenario.blendToPerfectCorrelation)} toward perfect alignment · ceiling breach ${String(scenario.breachesCeiling)}</i>
+        </span>`,
+    )
+    .join("");
+  const splitCards = ["validation", "test"]
+    .map((id) => {
+      const split = stress[id];
+      const ladder = split.scenarios
+        .map(
+          (scenario) =>
+            `${percent(scenario.blendToPerfectCorrelation)} ${
+              scenario.stressBreachRate == null
+                ? "—"
+                : percent(scenario.stressBreachRate)
+            }`,
+        )
+        .join(" · ");
+      return `
+        <span>
+          <small>${escapeHtml(id)} · ${escapeHtml(split.role)}</small>
+          <b>${ladder}</b>
+          <i>25% / 50% / 100% ceiling-breach rate · endpoint multiplier med / p95 / max ${metric(split.medianStressMultiplier)}× / ${metric(split.p95StressMultiplier)}× / ${metric(split.maximumStressMultiplier)}×</i>
+          <i>effective bets med / min ${metric(split.medianEffectiveRiskBets)} / ${metric(split.minimumEffectiveRiskBets)} · ${split.availableDates}/${split.totalDates} dates</i>
+        </span>`;
+    })
+    .join("");
+  const activePositions = current.positions.filter((item) => item.active);
+  target.innerHTML = `
+    <div class="diversification-summary">
+      <span class="${available ? "" : "warning"}">
+        <small>Effective risk bets</small>
+        <b>${available ? metric(current.effectiveRiskBets) : current.state.replaceAll("-", " ").toUpperCase()}</b>
+        <i>${current.activeAssets} active · HHI ${metric(current.absoluteComponentRiskHhi)}</i>
+      </span>
+      <span>
+        <small>Observed covariance forecast</small>
+        <b>${percent(current.sampleForecastAnnualized)}</b>
+        <i>${current.covarianceObservations} causal observations</i>
+      </span>
+      <span class="${breachTone}">
+        <small>Perfect-correlation upper bound</small>
+        <b>${percent(current.perfectCorrelationForecastAnnualized)} · ${metric(current.stressMultiplier)}×</b>
+        <i>ceiling ${percent(current.ceilingAnnualized)} · breach ${String(current.stressBreachesCeiling)}</i>
+      </span>
+      <span>
+        <small>Largest component-risk contributor</small>
+        <b>${escapeHtml(current.largestAbsoluteComponentRiskContributor ?? "NONE")}</b>
+        <i>signed components retain hedging effects</i>
+      </span>
+    </div>
+    <div class="diversification-ladder" aria-label="Current correlation breakdown stress ladder">
+      ${currentLadder}
+    </div>
+    <div class="diversification-disclosure">
+      The ladder rebuilds the same causal covariance horizon, then blends 25%, 50%, and 100%
+      toward the perfect position-aligned endpoint that reinforces PnL risk. Scenarios are
+      deterministic context with no assigned probability, selection role, resizing authority,
+      or trading authority.
+    </div>
+    <div class="diversification-splits">${splitCards}</div>
+    ${
+      activePositions.length
+        ? `
+          <div class="diversification-table-scroll">
+            <div class="diversification-table" role="table" aria-label="Current diversification stress by asset">
+              <div class="diversification-row heading" role="row">
+                <span>Asset</span>
+                <span>Executed weight</span>
+                <span>Causal own vol</span>
+                <span>Signed component risk</span>
+                <span>Absolute component share</span>
+                <span>Stress-risk share</span>
+              </div>
+              ${activePositions
+                .map(
+                  (position) => `
+                    <div class="diversification-row" role="row">
+                      <span><b>${escapeHtml(position.asset)}</b></span>
+                      <span>${signedPercent(position.executedWeight)}</span>
+                      <span>${percent(position.causalOwnVolatility)}</span>
+                      <span class="${position.componentRiskShare < 0 ? "positive" : ""}">${signedPercent(position.componentRiskShare)}</span>
+                      <span>${percent(position.absoluteComponentRiskShare)}</span>
+                      <span>${percent(position.stressRiskShare)}</span>
+                    </div>`,
+                )
+                .join("")}
+            </div>
+          </div>`
+        : '<div class="empty-panel">The current historical book is flat or lacks a complete causal covariance history.</div>'
+    }`;
+}
+
 function renderPortfolioStrategyViability(explorer) {
   const viability = explorer.strategyViability;
   const diagnosis = viability.diagnosis;
@@ -2685,6 +2795,7 @@ function renderPortfolioExplorer(project) {
   renderPortfolioSignalMonetization(explorer);
   renderPortfolioMechanicalDecision(explorer);
   renderPortfolioSizingAnatomy(explorer);
+  renderPortfolioDiversificationStress(explorer);
   renderPortfolioBook(explorer);
   renderPortfolioAttribution(explorer);
   renderPortfolioTransitions(explorer);

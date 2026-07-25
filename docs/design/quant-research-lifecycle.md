@@ -218,6 +218,13 @@ Report snapshot rather than recomputing a newer book. This explains why assets
 receive unequal historical research weights while preserving
 `tradingAuthority: none`.
 
+The same frozen decision ledger also yields a causal diversification read
+model. It verifies the exact covariance component arithmetic, reports
+effective risk bets, and blends observed covariance 25%, 50%, and 100% toward
+the perfect position-aligned endpoint. Reports and Dossiers freeze this
+context-only ladder; it never changes the Judge, progression, weights, or
+trading authority. See [[docs/design/portfolio-diversification-stress]].
+
 The next fixed read model diagnoses whether validation evidence stops at
 factor prediction, gross portfolio monetization, or trading friction. It
 reconciles the daily gross-to-net path, cost curve and break-even, turnover

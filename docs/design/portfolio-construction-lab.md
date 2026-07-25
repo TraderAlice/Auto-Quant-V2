@@ -89,6 +89,11 @@ and covariance component contribution. The bounded `sizingAnatomy` projection
 reconstructs the same-side proportional allocation and cap redistribution
 from those primitives. It is a read model of the fixed Judge—not a second
 optimizer—and is defined in [[docs/design/portfolio-decision-explorer]].
+The same immutable ledger supports a separate current/split diversification
+read model: component-risk concentration, effective risk bets, and a fixed
+25% / 50% / 100% covariance blend toward perfect position-aligned correlation.
+It is defined in [[docs/design/portfolio-diversification-stress]] and never
+changes allocation.
 
 The same read model reconstructs `strategyViability` from daily gross return,
 traded notional, cost, net return, and benchmark. It reconciles the fixed cost

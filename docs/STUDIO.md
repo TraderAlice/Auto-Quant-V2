@@ -127,6 +127,15 @@ separate from covariance-aware component risk and identifies concentration in
 the executed book. Every value comes from the Core projection; JavaScript does
 not allocate, optimize, or recommend a position.
 
+The Diversification & Correlation Breakdown panel asks whether those names are
+independent risk bets or one crowded trade. Core supplies current effective
+risk bets, observed covariance volatility, and a fixed 25% / 50% / 100% ladder
+toward perfect position-aligned correlation. Validation and visible test cards
+show the ceiling-breach rate at each rung; the asset table separates signed
+component contribution, absolute concentration share, and terminal stress-risk
+share. JavaScript formats this verified object and never estimates covariance,
+assigns scenario probability, selects a Run, or resizes a position.
+
 For request-driven Portfolio evidence, the mandate strip distinguishes the
 research universe from assets authorized as positions. It shows direction,
 long/cash, short/cash, or dollar-neutral family, gross/cap, benchmark, and

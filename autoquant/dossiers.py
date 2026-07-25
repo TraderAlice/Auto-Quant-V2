@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from .decision_support import (
+    diversification_stress_markdown_lines,
     factor_qualification_markdown_lines,
     mechanical_decision_markdown_lines,
     rl_factor_fusion_diagnosis_markdown_lines,
@@ -1246,6 +1247,15 @@ def _render_markdown(dossier: dict[str, Any]) -> str:
                 sizing_anatomy_markdown_lines(
                     support,
                     heading="## Frozen portfolio sizing anatomy",
+                    lane_name=lane["name"],
+                )
+            )
+            lines.extend(
+                diversification_stress_markdown_lines(
+                    support,
+                    heading=(
+                        "## Frozen portfolio diversification stress"
+                    ),
                     lane_name=lane["name"],
                 )
             )

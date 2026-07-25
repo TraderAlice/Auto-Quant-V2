@@ -143,6 +143,10 @@ non-file entries are rejected.
   strengths, proportional and cap/water-fill weights, governed/executed
   weights, and diagonal/covariance risk decomposition when the included
   Report contains that snapshot;
+- Portfolio diversification-stress identity, effective risk bets, current
+  25% / 50% / 100% correlation-breakdown ladder, split ceiling-breach rates,
+  and per-asset component/stress-risk shares when the included Report contains
+  that snapshot;
 - Portfolio strategy-viability identity, validation-only failure stage and
   research focus, gross-to-net wedge, cost break-even/stress, delay
   sensitivity, temporal breadth, best-day dependence, and underwater duration

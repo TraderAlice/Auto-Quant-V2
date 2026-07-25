@@ -1566,6 +1566,38 @@ def _run_portfolio(args: argparse.Namespace) -> CommandResult:
         f"{sizing_risk['largestAbsoluteContributor']} · "
         "historical decision support only\n"
     )
+    diversification = diagnostics["diversificationStress"]
+    diversification_current = diversification["current"]
+    diversification_validation = diversification["validation"]
+    diversification_ladder = "/".join(
+        (
+            f"{scenario['blendToPerfectCorrelation']:.0%}:"
+            f"{scenario['forecastAnnualized']:.4f}:"
+            f"{scenario['breachesCeiling']}"
+        )
+        for scenario in diversification_current["scenarios"]
+    )
+    validation_ladder = "/".join(
+        (
+            f"{scenario['blendToPerfectCorrelation']:.0%}:"
+            f"{scenario['stressBreachRate']}"
+        )
+        for scenario in diversification_validation["scenarios"]
+    )
+    diversification_summary = (
+        "Diversification stress: "
+        f"{diversification_current['state']} · active assets "
+        f"{diversification_current['activeAssets']} · effective risk bets "
+        f"{diversification_current['effectiveRiskBets']} · sample/perfect-"
+        "correlation annualized volatility "
+        f"{diversification_current['sampleForecastAnnualized']}/"
+        f"{diversification_current['perfectCorrelationForecastAnnualized']} · "
+        f"ceiling breach "
+        f"{diversification_current['stressBreachesCeiling']} · current "
+        f"25%/50%/100% forecast:breach {diversification_ladder} · validation "
+        f"25%/50%/100% breach rate {validation_ladder} · "
+        "context only\n"
+    )
     viability = diagnostics["strategyViability"]
     viability_validation = viability["validation"]
     viability_friction = viability_validation["friction"]
@@ -1689,6 +1721,7 @@ def _run_portfolio(args: argparse.Namespace) -> CommandResult:
             f"{viability_summary}"
             f"{monetization_summary}"
             f"{sizing_summary}"
+            f"{diversification_summary}"
             f"Risk governor: {book['riskGovernorStatus']} · scale "
             f"{book['riskGovernorScale']} · annualized forecast "
             f"{book['riskForecastPreAnnualized']} → "

@@ -66,6 +66,29 @@ STRATEGY_VIABILITY_METHOD = (
 SIGNAL_MONETIZATION_METHOD = (
     "normalized-intent-sizing-governance-execution-cost-bridge-v1"
 )
+DIVERSIFICATION_STRESS_METHOD = (
+    "causal-executed-book-diversification-stress-v1"
+)
+DIVERSIFICATION_SHOCK_METHOD = (
+    "observed-to-perfect-position-aligned-covariance-blend-ladder"
+)
+DIVERSIFICATION_STRESS_SCENARIOS: tuple[dict[str, Any], ...] = (
+    {
+        "id": "quarter-breakdown",
+        "label": "25% correlation breakdown",
+        "blendToPerfectCorrelation": 0.25,
+    },
+    {
+        "id": "half-breakdown",
+        "label": "50% correlation breakdown",
+        "blendToPerfectCorrelation": 0.50,
+    },
+    {
+        "id": "perfect-aligned",
+        "label": "Perfect position-aligned correlation",
+        "blendToPerfectCorrelation": 1.00,
+    },
+)
 BREAK_EVEN_COST_SEARCH_MAX_BPS = 1_000.0
 PERCENTILE_DISTANCE_SEMANTICS = (
     "current-cross-sectional-percentile-points-with-peer-ranks-held-fixed"
@@ -4426,6 +4449,520 @@ def _quantile(values: list[float], probability: float) -> float:
     return ordered[lower] * (1.0 - fraction) + ordered[upper] * fraction
 
 
+def _diversification_stress_projection(
+    daily: ParsedDaily,
+    universe: list[str],
+    decisions: dict[tuple[str, str], dict[str, Any]],
+    splits: dict[str, Any],
+    mandate: dict[str, Any],
+) -> dict[str, Any]:
+    """Reconstruct correlation-crowding stress from the immutable ledger."""
+
+    risk_policy = mandate.get("riskPolicy")
+    annualization = (
+        int(risk_policy["annualizationPeriods"])
+        if isinstance(risk_policy, dict)
+        else 252
+    )
+    ceiling = (
+        float(risk_policy["annualizedVolatilityCeiling"])
+        if isinstance(risk_policy, dict)
+        else None
+    )
+    covariance_window = (
+        int(risk_policy["covarianceWindow"])
+        if isinstance(risk_policy, dict)
+        else 60
+    )
+    minimum_observations = (
+        int(risk_policy["minimumObservations"])
+        if isinstance(risk_policy, dict)
+        else 20
+    )
+    root_annualization = math.sqrt(annualization)
+    reconstructed_returns = pd.DataFrame(
+        index=pd.to_datetime(daily.dates, format="%Y-%m-%d"),
+        columns=universe,
+        dtype=float,
+    )
+    for index in range(1, len(daily.dates)):
+        prior = daily.dates[index - 1]
+        timestamp = daily.dates[index]
+        reconstructed_returns.loc[pd.Timestamp(timestamp)] = [
+            decisions[(prior, asset)]["asset_forward_return"]
+            for asset in universe
+        ]
+    covariance_by_date: dict[str, tuple[int, pd.DataFrame | None]] = {}
+    for timestamp in daily.dates:
+        history = (
+            reconstructed_returns.loc[:pd.Timestamp(timestamp)]
+            .tail(covariance_window)
+            .dropna(how="any")
+        )
+        observations = len(history)
+        covariance = (
+            history.cov(ddof=0).reindex(
+                index=universe,
+                columns=universe,
+            )
+            if observations >= minimum_observations
+            else None
+        )
+        if (
+            covariance is not None
+            and (
+                covariance.isna().any().any()
+                or not all(
+                    math.isfinite(float(value))
+                    for value in covariance.to_numpy().flat
+                )
+            )
+        ):
+            covariance = None
+        covariance_by_date[timestamp] = (observations, covariance)
+
+    def book(timestamp: str, *, include_positions: bool) -> dict[str, Any]:
+        rows = [decisions[(timestamp, asset)] for asset in universe]
+        active = [
+            item
+            for item in rows
+            if abs(item["executed_weight"]) > 1e-12
+        ]
+        variances = {item["portfolio_variance"] for item in rows}
+        if len(variances) != 1:
+            _fail(
+                f"diversificationStress/{timestamp}/portfolioVariance",
+                "portfolio.diversification-variance-panel",
+                "Portfolio variance must be identical across one decision date",
+            )
+        portfolio_variance = next(iter(variances))
+        component_sum = sum(item["component_variance"] for item in rows)
+        if not math.isclose(
+            component_sum,
+            portfolio_variance,
+            rel_tol=0.0,
+            abs_tol=1e-10,
+        ):
+            _fail(
+                f"diversificationStress/{timestamp}/componentVariance",
+                "portfolio.diversification-component-sum",
+                "Component variance must reconcile frozen portfolio variance",
+            )
+        observations, covariance = covariance_by_date[timestamp]
+        covariance_own_volatility = {
+            asset: (
+                math.sqrt(max(float(covariance.loc[asset, asset]), 0.0))
+                if covariance is not None
+                else None
+            )
+            for asset in universe
+        }
+        if covariance is not None:
+            weight_vector = pd.Series(
+                {
+                    item["asset"]: item["executed_weight"]
+                    for item in rows
+                },
+                index=universe,
+                dtype=float,
+            )
+            marginal = covariance.dot(weight_vector)
+            expected_components = weight_vector * marginal
+            expected_variance = float(expected_components.sum())
+            if not math.isclose(
+                expected_variance,
+                portfolio_variance,
+                rel_tol=1e-9,
+                abs_tol=1e-10,
+            ):
+                _fail(
+                    f"diversificationStress/{timestamp}/covarianceVariance",
+                    "portfolio.diversification-covariance",
+                    "Reconstructed causal covariance differs from frozen variance",
+                )
+            for item in rows:
+                if not math.isclose(
+                    float(expected_components[item["asset"]]),
+                    item["component_variance"],
+                    rel_tol=1e-9,
+                    abs_tol=1e-10,
+                ):
+                    _fail(
+                        "diversificationStress/"
+                        f"{timestamp}/{item['asset']}/componentVariance",
+                        "portfolio.diversification-covariance-component",
+                        "Reconstructed covariance component differs from ledger",
+                    )
+        for item in rows:
+            expected_share = (
+                item["component_variance"] / portfolio_variance
+                if portfolio_variance > 1e-18
+                else 0.0
+            )
+            if not math.isclose(
+                item["variance_contribution_share"],
+                expected_share,
+                rel_tol=0.0,
+                abs_tol=1e-9,
+            ):
+                _fail(
+                    "diversificationStress/"
+                    f"{timestamp}/{item['asset']}/componentRiskShare",
+                    "portfolio.diversification-component-share",
+                    "Component-risk share differs from component variance",
+                )
+
+        if not active:
+            state = "flat"
+        elif (
+            portfolio_variance <= 1e-18
+            or covariance is None
+            or any(
+                covariance_own_volatility[item["asset"]] is None
+                or covariance_own_volatility[item["asset"]] <= 0
+                for item in active
+            )
+        ):
+            state = "risk-history-unavailable"
+        else:
+            state = "available"
+
+        sample_forecast = (
+            math.sqrt(portfolio_variance) * root_annualization
+            if state == "available"
+            else 0.0
+        )
+        standalone_daily = {
+            item["asset"]: (
+                abs(item["executed_weight"])
+                * float(covariance_own_volatility[item["asset"]])
+                if covariance_own_volatility[item["asset"]] is not None
+                else 0.0
+            )
+            for item in rows
+        }
+        stress_daily = (
+            sum(standalone_daily[item["asset"]] for item in active)
+            if state == "available"
+            else 0.0
+        )
+        stress_forecast = stress_daily * root_annualization
+        stress_multiplier = (
+            stress_forecast / sample_forecast
+            if state == "available" and sample_forecast > 1e-18
+            else None
+        )
+        component_absolute_total = (
+            sum(
+                abs(item["variance_contribution_share"])
+                for item in rows
+            )
+            if state == "available"
+            else 0.0
+        )
+        absolute_component_shares = {
+            item["asset"]: (
+                abs(item["variance_contribution_share"])
+                / component_absolute_total
+                if component_absolute_total > 1e-18
+                else 0.0
+            )
+            for item in rows
+        }
+        risk_hhi = (
+            sum(value * value for value in absolute_component_shares.values())
+            if state == "available"
+            else None
+        )
+        effective_risk_bets = (
+            1.0 / risk_hhi
+            if risk_hhi is not None and risk_hhi > 1e-18
+            else None
+        )
+        largest_component = (
+            max(
+                universe,
+                key=lambda asset: (
+                    absolute_component_shares[asset],
+                    -universe.index(asset),
+                ),
+            )
+            if state == "available"
+            else None
+        )
+        stress_breach = (
+            stress_forecast > ceiling + 1e-10
+            if state == "available" and ceiling is not None
+            else None
+        )
+        perfect_variance = stress_daily * stress_daily
+        scenario_rows = []
+        for scenario in DIVERSIFICATION_STRESS_SCENARIOS:
+            blend = float(scenario["blendToPerfectCorrelation"])
+            blended_variance = (
+                (1.0 - blend) * portfolio_variance
+                + blend * perfect_variance
+                if state == "available"
+                else 0.0
+            )
+            scenario_forecast = (
+                math.sqrt(max(blended_variance, 0.0))
+                * root_annualization
+            )
+            scenario_rows.append(
+                {
+                    "id": scenario["id"],
+                    "blendToPerfectCorrelation": blend,
+                    "forecastAnnualized": scenario_forecast,
+                    "multiplier": (
+                        scenario_forecast / sample_forecast
+                        if state == "available"
+                        and sample_forecast > 1e-18
+                        else None
+                    ),
+                    "breachesCeiling": (
+                        scenario_forecast > ceiling + 1e-10
+                        if state == "available" and ceiling is not None
+                        else None
+                    ),
+                }
+            )
+        projection = {
+            "timestamp": timestamp,
+            "state": state,
+            "activeAssets": len(active),
+            "covarianceObservations": observations,
+            "sampleForecastAnnualized": sample_forecast,
+            "perfectCorrelationForecastAnnualized": stress_forecast,
+            "stressMultiplier": stress_multiplier,
+            "ceilingAnnualized": ceiling,
+            "stressBreachesCeiling": stress_breach,
+            "absoluteComponentRiskHhi": risk_hhi,
+            "effectiveRiskBets": effective_risk_bets,
+            "largestAbsoluteComponentRiskContributor": largest_component,
+            "scenarios": scenario_rows,
+        }
+        if include_positions:
+            projection["positions"] = [
+                {
+                    "asset": item["asset"],
+                    "active": item in active,
+                    "executedWeight": item["executed_weight"],
+                    "causalOwnVolatility": (
+                        covariance_own_volatility[item["asset"]]
+                    ),
+                    "componentVariance": item["component_variance"],
+                    "componentRiskShare": item[
+                        "variance_contribution_share"
+                    ],
+                    "absoluteComponentRiskShare": (
+                        absolute_component_shares[item["asset"]]
+                    ),
+                    "standaloneRiskLoadAnnualized": (
+                        standalone_daily[item["asset"]]
+                        * root_annualization
+                    ),
+                    "stressRiskShare": (
+                        standalone_daily[item["asset"]] / stress_daily
+                        if stress_daily > 1e-18
+                        else 0.0
+                    ),
+                }
+                for item in rows
+            ]
+            if state == "available":
+                stress_share_sum = sum(
+                    item["stressRiskShare"]
+                    for item in projection["positions"]
+                )
+                if not math.isclose(
+                    stress_share_sum,
+                    1.0,
+                    rel_tol=0.0,
+                    abs_tol=1e-9,
+                ):
+                    _fail(
+                        f"diversificationStress/{timestamp}/stressRiskShare",
+                        "portfolio.diversification-stress-share",
+                        "Per-asset stress-risk shares must sum to one",
+                    )
+        return projection
+
+    dated = {
+        timestamp: book(timestamp, include_positions=False)
+        for timestamp in daily.dates
+    }
+
+    def split_projection(split_name: str) -> dict[str, Any]:
+        split = splits[split_name]
+        rows = [
+            dated[timestamp]
+            for timestamp in daily.dates
+            if split["start"] <= timestamp <= split["signalEnd"]
+        ]
+        available = [item for item in rows if item["state"] == "available"]
+        flat = [item for item in rows if item["state"] == "flat"]
+        unavailable = [
+            item
+            for item in rows
+            if item["state"] == "risk-history-unavailable"
+        ]
+        multipliers = [
+            float(item["stressMultiplier"]) for item in available
+        ]
+        effective_bets = [
+            float(item["effectiveRiskBets"]) for item in available
+        ]
+        breach_count = (
+            sum(item["stressBreachesCeiling"] is True for item in available)
+            if ceiling is not None
+            else None
+        )
+        weakest = (
+            max(
+                available,
+                key=lambda item: (
+                    float(item["stressMultiplier"]),
+                    item["timestamp"],
+                ),
+            )
+            if available
+            else None
+        )
+        scenario_summaries = []
+        for scenario in DIVERSIFICATION_STRESS_SCENARIOS:
+            scenario_id = scenario["id"]
+            scenario_rows = [
+                next(
+                    item
+                    for item in row["scenarios"]
+                    if item["id"] == scenario_id
+                )
+                for row in available
+            ]
+            scenario_multipliers = [
+                float(item["multiplier"]) for item in scenario_rows
+            ]
+            scenario_breaches = (
+                sum(
+                    item["breachesCeiling"] is True
+                    for item in scenario_rows
+                )
+                if ceiling is not None
+                else None
+            )
+            scenario_summaries.append(
+                {
+                    "id": scenario_id,
+                    "blendToPerfectCorrelation": scenario[
+                        "blendToPerfectCorrelation"
+                    ],
+                    "stressBreachDates": scenario_breaches,
+                    "stressBreachRate": (
+                        scenario_breaches / len(scenario_rows)
+                        if scenario_breaches is not None
+                        and scenario_rows
+                        else None
+                    ),
+                    "medianMultiplier": (
+                        _quantile(scenario_multipliers, 0.50)
+                        if scenario_multipliers
+                        else None
+                    ),
+                    "p95Multiplier": (
+                        _quantile(scenario_multipliers, 0.95)
+                        if scenario_multipliers
+                        else None
+                    ),
+                    "maximumMultiplier": (
+                        max(scenario_multipliers)
+                        if scenario_multipliers
+                        else None
+                    ),
+                }
+            )
+        return {
+            "role": split["role"],
+            "totalDates": len(rows),
+            "activeDates": len(available) + len(unavailable),
+            "availableDates": len(available),
+            "flatDates": len(flat),
+            "unavailableDates": len(unavailable),
+            "stressBreachDates": breach_count,
+            "stressBreachRate": (
+                breach_count / len(available)
+                if breach_count is not None and available
+                else None
+            ),
+            "medianStressMultiplier": (
+                _quantile(multipliers, 0.50) if multipliers else None
+            ),
+            "p95StressMultiplier": (
+                _quantile(multipliers, 0.95) if multipliers else None
+            ),
+            "maximumStressMultiplier": (
+                max(multipliers) if multipliers else None
+            ),
+            "medianEffectiveRiskBets": (
+                _quantile(effective_bets, 0.50)
+                if effective_bets
+                else None
+            ),
+            "minimumEffectiveRiskBets": (
+                min(effective_bets) if effective_bets else None
+            ),
+            "maximumStressBook": (
+                {
+                    key: weakest[key]
+                    for key in (
+                        "timestamp",
+                        "activeAssets",
+                        "covarianceObservations",
+                        "sampleForecastAnnualized",
+                        "perfectCorrelationForecastAnnualized",
+                        "stressMultiplier",
+                        "ceilingAnnualized",
+                        "stressBreachesCeiling",
+                        "absoluteComponentRiskHhi",
+                        "effectiveRiskBets",
+                        "largestAbsoluteComponentRiskContributor",
+                    )
+                }
+                if weakest is not None
+                else None
+            ),
+            "scenarios": scenario_summaries,
+        }
+
+    return {
+        "method": DIVERSIFICATION_STRESS_METHOD,
+        "available": any(
+            item["state"] == "available" for item in dated.values()
+        ),
+        "authority": "context-only",
+        "selectionAuthority": "none",
+        "testEntersSelection": False,
+        "tradingAuthority": "none",
+        "shock": {
+            "method": DIVERSIFICATION_SHOCK_METHOD,
+            "pairwiseCorrelationMagnitude": 1.0,
+            "positionSignsAlignRisk": True,
+            "annualizationPeriods": annualization,
+            "covarianceWindow": covariance_window,
+            "minimumObservations": minimum_observations,
+            "ceilingAnnualized": ceiling,
+            "probabilityAssigned": False,
+            "scenarios": [
+                dict(scenario)
+                for scenario in DIVERSIFICATION_STRESS_SCENARIOS
+            ],
+        },
+        "current": book(daily.dates[-1], include_positions=True),
+        "validation": split_projection("validation"),
+        "test": split_projection("test"),
+    }
+
+
 def _liquidity_capacity_projection(
     result: dict[str, Any],
     ordered_decisions: list[dict[str, Any]],
@@ -5334,6 +5871,13 @@ def load_portfolio_diagnostics(
             mandate,
             mechanical_decision,
         ),
+        "diversificationStress": _diversification_stress_projection(
+            daily,
+            universe,
+            decisions,
+            splits,
+            mandate,
+        ),
         "strategyViability": _strategy_viability_projection(
             run.result,
             daily,
@@ -5669,6 +6213,285 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 "totalOneWayTurnoverContribution": {
                     "type": "number",
                     "minimum": 0,
+                },
+            },
+        },
+        "diversificationPosition": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "asset",
+                "active",
+                "executedWeight",
+                "causalOwnVolatility",
+                "componentVariance",
+                "componentRiskShare",
+                "absoluteComponentRiskShare",
+                "standaloneRiskLoadAnnualized",
+                "stressRiskShare",
+            ],
+            "properties": {
+                "asset": {"type": "string", "minLength": 1},
+                "active": {"type": "boolean"},
+                "executedWeight": {"type": "number"},
+                "causalOwnVolatility": {
+                    "type": ["number", "null"],
+                    "exclusiveMinimum": 0,
+                },
+                "componentVariance": {"type": "number"},
+                "componentRiskShare": {"type": "number"},
+                "absoluteComponentRiskShare": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                },
+                "standaloneRiskLoadAnnualized": {
+                    "type": "number",
+                    "minimum": 0,
+                },
+                "stressRiskShare": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                },
+            },
+        },
+        "diversificationScenarioDefinition": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "id",
+                "label",
+                "blendToPerfectCorrelation",
+            ],
+            "properties": {
+                "id": {
+                    "enum": [
+                        "quarter-breakdown",
+                        "half-breakdown",
+                        "perfect-aligned",
+                    ]
+                },
+                "label": {"type": "string", "minLength": 1},
+                "blendToPerfectCorrelation": {
+                    "enum": [0.25, 0.5, 1.0]
+                },
+            },
+        },
+        "diversificationScenarioEvidence": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "id",
+                "blendToPerfectCorrelation",
+                "forecastAnnualized",
+                "multiplier",
+                "breachesCeiling",
+            ],
+            "properties": {
+                "id": {
+                    "enum": [
+                        "quarter-breakdown",
+                        "half-breakdown",
+                        "perfect-aligned",
+                    ]
+                },
+                "blendToPerfectCorrelation": {
+                    "enum": [0.25, 0.5, 1.0]
+                },
+                "forecastAnnualized": {
+                    "type": "number",
+                    "minimum": 0,
+                },
+                "multiplier": {
+                    "type": ["number", "null"],
+                    "minimum": 1,
+                },
+                "breachesCeiling": {
+                    "type": ["boolean", "null"]
+                },
+            },
+        },
+        "diversificationScenarioSummary": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "id",
+                "blendToPerfectCorrelation",
+                "stressBreachDates",
+                "stressBreachRate",
+                "medianMultiplier",
+                "p95Multiplier",
+                "maximumMultiplier",
+            ],
+            "properties": {
+                "id": {
+                    "enum": [
+                        "quarter-breakdown",
+                        "half-breakdown",
+                        "perfect-aligned",
+                    ]
+                },
+                "blendToPerfectCorrelation": {
+                    "enum": [0.25, 0.5, 1.0]
+                },
+                "stressBreachDates": {
+                    "type": ["integer", "null"],
+                    "minimum": 0,
+                },
+                "stressBreachRate": {
+                    "type": ["number", "null"],
+                    "minimum": 0,
+                    "maximum": 1,
+                },
+                "medianMultiplier": {
+                    "type": ["number", "null"],
+                    "minimum": 1,
+                },
+                "p95Multiplier": {
+                    "type": ["number", "null"],
+                    "minimum": 1,
+                },
+                "maximumMultiplier": {
+                    "type": ["number", "null"],
+                    "minimum": 1,
+                },
+            },
+        },
+        "diversificationStressBook": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "timestamp",
+                "activeAssets",
+                "covarianceObservations",
+                "sampleForecastAnnualized",
+                "perfectCorrelationForecastAnnualized",
+                "stressMultiplier",
+                "ceilingAnnualized",
+                "stressBreachesCeiling",
+                "absoluteComponentRiskHhi",
+                "effectiveRiskBets",
+                "largestAbsoluteComponentRiskContributor",
+            ],
+            "properties": {
+                "timestamp": {"type": "string", "format": "date"},
+                "activeAssets": {"type": "integer", "minimum": 1},
+                "covarianceObservations": {
+                    "type": "integer",
+                    "minimum": 0,
+                },
+                "sampleForecastAnnualized": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                },
+                "perfectCorrelationForecastAnnualized": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                },
+                "stressMultiplier": {
+                    "type": "number",
+                    "minimum": 1,
+                },
+                "ceilingAnnualized": {
+                    "type": ["number", "null"],
+                    "exclusiveMinimum": 0,
+                },
+                "stressBreachesCeiling": {
+                    "type": ["boolean", "null"]
+                },
+                "absoluteComponentRiskHhi": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "maximum": 1,
+                },
+                "effectiveRiskBets": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": MAX_UNIVERSE,
+                },
+                "largestAbsoluteComponentRiskContributor": {
+                    "type": "string",
+                    "minLength": 1,
+                },
+            },
+        },
+        "diversificationSplit": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "role",
+                "totalDates",
+                "activeDates",
+                "availableDates",
+                "flatDates",
+                "unavailableDates",
+                "stressBreachDates",
+                "stressBreachRate",
+                "medianStressMultiplier",
+                "p95StressMultiplier",
+                "maximumStressMultiplier",
+                "medianEffectiveRiskBets",
+                "minimumEffectiveRiskBets",
+                "maximumStressBook",
+                "scenarios",
+            ],
+            "properties": {
+                "role": {"type": "string", "minLength": 1},
+                "totalDates": {"type": "integer", "minimum": 0},
+                "activeDates": {"type": "integer", "minimum": 0},
+                "availableDates": {"type": "integer", "minimum": 0},
+                "flatDates": {"type": "integer", "minimum": 0},
+                "unavailableDates": {
+                    "type": "integer",
+                    "minimum": 0,
+                },
+                "stressBreachDates": {
+                    "type": ["integer", "null"],
+                    "minimum": 0,
+                },
+                "stressBreachRate": {
+                    "type": ["number", "null"],
+                    "minimum": 0,
+                    "maximum": 1,
+                },
+                "medianStressMultiplier": {
+                    "type": ["number", "null"],
+                    "minimum": 1,
+                },
+                "p95StressMultiplier": {
+                    "type": ["number", "null"],
+                    "minimum": 1,
+                },
+                "maximumStressMultiplier": {
+                    "type": ["number", "null"],
+                    "minimum": 1,
+                },
+                "medianEffectiveRiskBets": {
+                    "type": ["number", "null"],
+                    "minimum": 1,
+                    "maximum": MAX_UNIVERSE,
+                },
+                "minimumEffectiveRiskBets": {
+                    "type": ["number", "null"],
+                    "minimum": 1,
+                    "maximum": MAX_UNIVERSE,
+                },
+                "maximumStressBook": {
+                    "anyOf": [
+                        {
+                            "$ref": "#/$defs/diversificationStressBook"
+                        },
+                        {"type": "null"},
+                    ]
+                },
+                "scenarios": {
+                    "type": "array",
+                    "minItems": 3,
+                    "maxItems": 3,
+                    "items": {
+                        "$ref": "#/$defs/diversificationScenarioSummary"
+                    },
                 },
             },
         },
@@ -6290,6 +7113,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "currentBook",
         "mechanicalDecision",
         "sizingAnatomy",
+        "diversificationStress",
         "strategyViability",
         "signalMonetization",
         "recentTransitions",
@@ -6980,6 +7804,178 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                     "maxItems": MAX_UNIVERSE,
                     "items": {"$ref": "#/$defs/sizingPosition"},
                 },
+            },
+        },
+        "diversificationStress": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "method",
+                "available",
+                "authority",
+                "selectionAuthority",
+                "testEntersSelection",
+                "tradingAuthority",
+                "shock",
+                "current",
+                "validation",
+                "test",
+            ],
+            "properties": {
+                "method": {"const": DIVERSIFICATION_STRESS_METHOD},
+                "available": {"type": "boolean"},
+                "authority": {"const": "context-only"},
+                "selectionAuthority": {"const": "none"},
+                "testEntersSelection": {"const": False},
+                "tradingAuthority": {"const": "none"},
+                "shock": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": [
+                        "method",
+                        "pairwiseCorrelationMagnitude",
+                        "positionSignsAlignRisk",
+                        "annualizationPeriods",
+                        "covarianceWindow",
+                        "minimumObservations",
+                        "ceilingAnnualized",
+                        "probabilityAssigned",
+                        "scenarios",
+                    ],
+                    "properties": {
+                        "method": {
+                            "const": DIVERSIFICATION_SHOCK_METHOD
+                        },
+                        "pairwiseCorrelationMagnitude": {
+                            "const": 1.0
+                        },
+                        "positionSignsAlignRisk": {"const": True},
+                        "annualizationPeriods": {
+                            "type": "integer",
+                            "minimum": 1,
+                        },
+                        "covarianceWindow": {
+                            "type": "integer",
+                            "minimum": 2,
+                        },
+                        "minimumObservations": {
+                            "type": "integer",
+                            "minimum": 2,
+                        },
+                        "ceilingAnnualized": {
+                            "type": ["number", "null"],
+                            "exclusiveMinimum": 0,
+                        },
+                        "probabilityAssigned": {"const": False},
+                        "scenarios": {
+                            "type": "array",
+                            "minItems": 3,
+                            "maxItems": 3,
+                            "items": {
+                                "$ref": (
+                                    "#/$defs/"
+                                    "diversificationScenarioDefinition"
+                                )
+                            },
+                        },
+                    },
+                },
+                "current": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": [
+                        "timestamp",
+                        "state",
+                        "activeAssets",
+                        "covarianceObservations",
+                        "sampleForecastAnnualized",
+                        "perfectCorrelationForecastAnnualized",
+                        "stressMultiplier",
+                        "ceilingAnnualized",
+                        "stressBreachesCeiling",
+                        "absoluteComponentRiskHhi",
+                        "effectiveRiskBets",
+                        "largestAbsoluteComponentRiskContributor",
+                        "scenarios",
+                        "positions",
+                    ],
+                    "properties": {
+                        "timestamp": {
+                            "type": "string",
+                            "format": "date",
+                        },
+                        "state": {
+                            "enum": [
+                                "available",
+                                "flat",
+                                "risk-history-unavailable",
+                            ]
+                        },
+                        "activeAssets": {
+                            "type": "integer",
+                            "minimum": 0,
+                        },
+                        "covarianceObservations": {
+                            "type": "integer",
+                            "minimum": 0,
+                        },
+                        "sampleForecastAnnualized": {
+                            "type": "number",
+                            "minimum": 0,
+                        },
+                        "perfectCorrelationForecastAnnualized": {
+                            "type": "number",
+                            "minimum": 0,
+                        },
+                        "stressMultiplier": {
+                            "type": ["number", "null"],
+                            "minimum": 1,
+                        },
+                        "ceilingAnnualized": {
+                            "type": ["number", "null"],
+                            "exclusiveMinimum": 0,
+                        },
+                        "stressBreachesCeiling": {
+                            "type": ["boolean", "null"]
+                        },
+                        "absoluteComponentRiskHhi": {
+                            "type": ["number", "null"],
+                            "exclusiveMinimum": 0,
+                            "maximum": 1,
+                        },
+                        "effectiveRiskBets": {
+                            "type": ["number", "null"],
+                            "minimum": 1,
+                            "maximum": MAX_UNIVERSE,
+                        },
+                        "largestAbsoluteComponentRiskContributor": {
+                            "type": ["string", "null"]
+                        },
+                        "scenarios": {
+                            "type": "array",
+                            "minItems": 3,
+                            "maxItems": 3,
+                            "items": {
+                                "$ref": (
+                                    "#/$defs/"
+                                    "diversificationScenarioEvidence"
+                                )
+                            },
+                        },
+                        "positions": {
+                            "type": "array",
+                            "minItems": 1,
+                            "maxItems": MAX_UNIVERSE,
+                            "items": {
+                                "$ref": "#/$defs/diversificationPosition"
+                            },
+                        },
+                    },
+                },
+                "validation": {
+                    "$ref": "#/$defs/diversificationSplit"
+                },
+                "test": {"$ref": "#/$defs/diversificationSplit"},
             },
         },
         "strategyViability": {

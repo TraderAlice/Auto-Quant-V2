@@ -144,6 +144,12 @@ against the immutable artifacts before exposing them.
 covariance-aware variance contribution of the executed book. Both are useful,
 but they are different quantities and are never substituted for one another.
 
+The companion `diversificationStress` projection reuses the same causal
+covariance horizon and verifies those component contributions before exposing
+effective risk bets and a fixed correlation-breakdown ladder. Its exact
+reconstruction, flat/unavailable states, and authority are defined in
+[[docs/design/portfolio-diversification-stress]].
+
 ## Strategy viability diagnosis
 
 The explorer also answers where a backtest loses its edge. Core reconstructs
@@ -218,6 +224,9 @@ The first explorer version provides:
 - one current sizing anatomy that reconciles conviction, trailing volatility,
   same-side strength share, proportional weight, cap/water-fill allocation,
   raw/governed/executed weight, and diagonal versus covariance-aware risk;
+- one current and split-bounded diversification stress that reconciles
+  effective risk bets and 25% / 50% / 100% correlation-breakdown scenarios
+  without selection, optimization, or trading authority;
 - one validation-only strategy viability diagnosis with gross-to-net
   implementation wedge, cost curve/break-even, delay sensitivity, temporal
   breadth, best-day dependence, and explicit next research focus;

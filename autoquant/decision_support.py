@@ -61,6 +61,11 @@ def build_leader_decision_support(
         if portfolio_diagnostics is not None
         else None
     )
+    diversification_stress = (
+        portfolio_diagnostics["diversificationStress"]
+        if portfolio_diagnostics is not None
+        else None
+    )
     strategy_viability = (
         portfolio_diagnostics["strategyViability"]
         if portfolio_diagnostics is not None
@@ -107,6 +112,12 @@ def build_leader_decision_support(
             else None
         ),
         "portfolioSizingAnatomy": sizing_anatomy,
+        "portfolioDiversificationStressHash": (
+            hash_json(diversification_stress)
+            if diversification_stress is not None
+            else None
+        ),
+        "portfolioDiversificationStress": diversification_stress,
         "portfolioStrategyViabilityHash": (
             hash_json(strategy_viability)
             if strategy_viability is not None
@@ -157,6 +168,10 @@ def verify_leader_decision_support(
             "portfolioSizingAnatomy",
         ),
         (
+            "portfolioDiversificationStressHash",
+            "portfolioDiversificationStress",
+        ),
+        (
             "portfolioStrategyViabilityHash",
             "portfolioStrategyViability",
         ),
@@ -205,6 +220,7 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
             "factorQualificationHash": None,
             "portfolioMechanicalDecisionHash": None,
             "portfolioSizingAnatomyHash": None,
+            "portfolioDiversificationStressHash": None,
             "portfolioStrategyViabilityHash": None,
             "portfolioSignalMonetizationHash": None,
             "rlFactorFusionDiagnosisHash": None,
@@ -318,6 +334,9 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
                 "portfolioSizingAnatomyHash": value.get(
                     "portfolioSizingAnatomyHash"
                 ),
+                "portfolioDiversificationStressHash": value.get(
+                    "portfolioDiversificationStressHash"
+                ),
                 "portfolioStrategyViabilityHash": value.get(
                     "portfolioStrategyViabilityHash"
                 ),
@@ -344,6 +363,9 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
             ),
             "portfolioSizingAnatomyHash": value.get(
                 "portfolioSizingAnatomyHash"
+            ),
+            "portfolioDiversificationStressHash": value.get(
+                "portfolioDiversificationStressHash"
             ),
             "portfolioStrategyViabilityHash": value.get(
                 "portfolioStrategyViabilityHash"
@@ -419,6 +441,42 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
             ],
             "testNetSharpe": test["net"]["sharpe"],
         }
+    diversification = value.get("portfolioDiversificationStress")
+    diversification_summary = None
+    if isinstance(diversification, dict):
+        current = diversification["current"]
+        validation = diversification["validation"]
+        test = diversification["test"]
+        diversification_summary = {
+            "method": diversification["method"],
+            "state": current["state"],
+            "activeAssets": current["activeAssets"],
+            "sampleForecastAnnualized": current[
+                "sampleForecastAnnualized"
+            ],
+            "perfectCorrelationForecastAnnualized": current[
+                "perfectCorrelationForecastAnnualized"
+            ],
+            "stressMultiplier": current["stressMultiplier"],
+            "ceilingAnnualized": current["ceilingAnnualized"],
+            "stressBreachesCeiling": current[
+                "stressBreachesCeiling"
+            ],
+            "absoluteComponentRiskHhi": current[
+                "absoluteComponentRiskHhi"
+            ],
+            "effectiveRiskBets": current["effectiveRiskBets"],
+            "largestAbsoluteComponentRiskContributor": current[
+                "largestAbsoluteComponentRiskContributor"
+            ],
+            "validationStressBreachRate": validation[
+                "stressBreachRate"
+            ],
+            "validationMedianEffectiveRiskBets": validation[
+                "medianEffectiveRiskBets"
+            ],
+            "testStressBreachRate": test["stressBreachRate"],
+        }
     monetization = value.get("portfolioSignalMonetization")
     monetization_summary = None
     if isinstance(monetization, dict):
@@ -466,6 +524,9 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
         "portfolioSizingAnatomyHash": value.get(
             "portfolioSizingAnatomyHash"
         ),
+        "portfolioDiversificationStressHash": value.get(
+            "portfolioDiversificationStressHash"
+        ),
         "portfolioStrategyViabilityHash": value.get(
             "portfolioStrategyViabilityHash"
         ),
@@ -489,6 +550,7 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
             "positions": len(decision["positions"]),
             "tradingAuthority": decision["tradingAuthority"],
             "sizing": sizing_summary,
+            "diversification": diversification_summary,
             "viability": viability_summary,
             "monetization": monetization_summary,
         },
@@ -788,6 +850,163 @@ def sizing_anatomy_markdown_lines(
             f"{position['diagonalRiskBudgetShare']:+.2%} → "
             f"{component_risk} |"
         )
+    lines.append("")
+    return lines
+
+
+def diversification_stress_markdown_lines(
+    support: dict[str, Any],
+    *,
+    heading: str,
+    lane_name: str | None = None,
+) -> list[str]:
+    """Render frozen correlation-crowding and effective-risk-bet evidence."""
+
+    stress = support.get("portfolioDiversificationStress")
+    if not isinstance(stress, dict):
+        return []
+    current = stress["current"]
+    prefix = f"{lane_name}: " if lane_name else ""
+    scenario_labels = {
+        item["id"]: item["label"]
+        for item in stress["shock"]["scenarios"]
+    }
+
+    def value(number: float | None, suffix: str = "") -> str:
+        return (
+            "unavailable"
+            if number is None
+            else f"{number:.4f}{suffix}"
+        )
+
+    lines = [
+        heading,
+        "",
+        f"- {prefix}Method / current state / timestamp: "
+        f"`{stress['method']}` / `{current['state']}` / "
+        f"`{current['timestamp']}`",
+        "- Fixed shock ladder: observed covariance is blended 25%, 50%, and "
+        "100% toward the perfect position-aligned correlation endpoint that "
+        "makes PnL risk reinforce; no probability is assigned.",
+        "- Current sample → perfect-correlation annualized volatility / "
+        "multiplier: "
+        f"`{current['sampleForecastAnnualized']:.4f}` → "
+        f"`{current['perfectCorrelationForecastAnnualized']:.4f}` / "
+        f"`{value(current['stressMultiplier'])}`",
+        "- Current ceiling / upper-bound breach / covariance observations: "
+        f"`{value(current['ceilingAnnualized'])}` / "
+        f"`{current['stressBreachesCeiling']}` / "
+        f"`{current['covarianceObservations']}`",
+        "- Current absolute component-risk HHI / effective risk bets / "
+        "largest contributor: "
+        f"`{value(current['absoluteComponentRiskHhi'])}` / "
+        f"`{value(current['effectiveRiskBets'])}` / "
+        f"`{current['largestAbsoluteComponentRiskContributor'] or 'none'}`",
+        f"- Diversification hash: "
+        f"`{support['portfolioDiversificationStressHash']}`",
+        "- Authority: `context-only`; validation and visible test do not "
+        "enter selection or progression; trading authority: `none`.",
+        "",
+        "| Current scenario | Blend toward perfect alignment | "
+        "Annualized volatility | Multiplier | Ceiling breach |",
+        "| --- | --- | --- | --- | --- |",
+    ]
+    for scenario in current["scenarios"]:
+        lines.append(
+            f"| `{scenario_labels[scenario['id']]}` | "
+            f"`{scenario['blendToPerfectCorrelation']:.0%}` | "
+            f"`{scenario['forecastAnnualized']:.4f}` | "
+            f"`{value(scenario['multiplier'])}` | "
+            f"`{scenario['breachesCeiling']}` |"
+        )
+    lines.extend(
+        [
+            "",
+        "| Split / role | Available / active / total dates | "
+        "Perfect-endpoint breach | Stress multiplier median / p95 / max | "
+        "Effective risk bets median / min | Maximum-stress date |",
+        "| --- | --- | --- | --- | --- | --- |",
+        ]
+    )
+    for split_name in ("validation", "test"):
+        split = stress[split_name]
+        maximum = split["maximumStressBook"]
+        breach = (
+            "unavailable"
+            if split["stressBreachRate"] is None
+            else (
+                f"{split['stressBreachDates']} / "
+                f"{split['stressBreachRate']:.2%}"
+            )
+        )
+        lines.append(
+            f"| `{split_name}` / `{split['role']}` | "
+            f"`{split['availableDates']}` / `{split['activeDates']}` / "
+            f"`{split['totalDates']}` | {breach} | "
+            f"`{value(split['medianStressMultiplier'])}` / "
+            f"`{value(split['p95StressMultiplier'])}` / "
+            f"`{value(split['maximumStressMultiplier'])}` | "
+            f"`{value(split['medianEffectiveRiskBets'])}` / "
+            f"`{value(split['minimumEffectiveRiskBets'])}` | "
+            + (
+                f"`{maximum['timestamp']}` / "
+                f"{value(maximum['stressMultiplier'])}×"
+                if maximum is not None
+                else "unavailable"
+            )
+            + " |"
+        )
+    lines.extend(
+        [
+            "",
+            "| Split / scenario | Ceiling-breach dates / rate | "
+            "Multiplier median / p95 / max |",
+            "| --- | --- | --- |",
+        ]
+    )
+    for split_name in ("validation", "test"):
+        for scenario in stress[split_name]["scenarios"]:
+            breach = (
+                "unavailable"
+                if scenario["stressBreachRate"] is None
+                else (
+                    f"{scenario['stressBreachDates']} / "
+                    f"{scenario['stressBreachRate']:.2%}"
+                )
+            )
+            lines.append(
+                f"| `{split_name}` / "
+                f"`{scenario_labels[scenario['id']]}` | {breach} | "
+                f"`{value(scenario['medianMultiplier'])}` / "
+                f"`{value(scenario['p95Multiplier'])}` / "
+                f"`{value(scenario['maximumMultiplier'])}` |"
+            )
+    if current["state"] == "available":
+        lines.extend(
+            [
+                "",
+                "| Asset | Executed weight | Causal own vol | "
+                "Signed / absolute component risk | "
+                "Standalone annualized risk load | Stress-risk share |",
+                "| --- | --- | --- | --- | --- | --- |",
+            ]
+        )
+        for position in current["positions"]:
+            own_volatility = position["causalOwnVolatility"]
+            lines.append(
+                f"| `{position['asset']}` | "
+                f"{_signed_percent(position['executedWeight'])} | "
+                + (
+                    f"{own_volatility:.2%}"
+                    if own_volatility is not None
+                    else "unavailable"
+                )
+                + " | "
+                f"{position['componentRiskShare']:+.2%} / "
+                f"{position['absoluteComponentRiskShare']:.2%} | "
+                f"{position['standaloneRiskLoadAnnualized']:.2%} | "
+                f"{position['stressRiskShare']:.2%} |"
+            )
     lines.append("")
     return lines
 

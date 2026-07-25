@@ -71,6 +71,10 @@ The V2 foundation now implements:
   inverse volatility, same-side budget, caps/water-filling, covariance
   governance, historical execution, and component risk without becoming an
   optimizer or acquiring trading authority.
+- one causal diversification-stress read model that reconstructs the same
+  covariance window, reports absolute component-risk HHI and effective risk
+  bets, and blends observed covariance 25%, 50%, and 100% toward the perfect
+  position-aligned endpoint without resizing the book.
 - one validation-only Portfolio strategy-viability diagnosis that reconciles
   factor, gross portfolio, friction, net performance, cost/delay stress, and
   temporal dependence into a bounded next research focus without altering
@@ -138,6 +142,8 @@ Mechanical signal state and attribution are defined in
 [[docs/design/signal-policy-and-attribution]].
 Portfolio-level covariance forecasting and scale-down semantics are defined in
 [[docs/design/portfolio-risk-governor]].
+Executed-book diversification and correlation-breakdown semantics are defined
+in [[docs/design/portfolio-diversification-stress]].
 Post-drift final-book compliance is defined in
 [[docs/design/executed-book-risk-compliance]].
 OHLCV participation-capacity semantics are defined in
@@ -305,6 +311,8 @@ behind the Harness contract, not the owner of Workspace or Project semantics.
   [[docs/design/request-bound-portfolio-mandates]]
 - Portfolio decision explorer design:
   [[docs/design/portfolio-decision-explorer]]
+- Portfolio diversification-stress design:
+  [[docs/design/portfolio-diversification-stress]]
 - Mechanical position lifecycle design:
   [[docs/design/mechanical-position-lifecycle-evidence]]
 - Research intake and dataset snapshot design:

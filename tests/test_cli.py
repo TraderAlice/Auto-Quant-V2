@@ -188,6 +188,19 @@ class AgentCliTests(unittest.TestCase):
                 projected["data"]["executedBookRisk"]["available"]
             )
             self.assertEqual(
+                projected["data"]["diversificationStress"]["authority"],
+                "context-only",
+            )
+            self.assertEqual(
+                projected["data"]["diversificationStress"]["shock"][
+                    "method"
+                ],
+                (
+                    "observed-to-perfect-position-aligned-"
+                    "covariance-blend-ladder"
+                ),
+            )
+            self.assertEqual(
                 projected["data"]["executedBookRisk"]["validation"][
                     "executedBreachDates"
                 ],

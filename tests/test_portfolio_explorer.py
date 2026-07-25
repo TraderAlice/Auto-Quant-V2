@@ -12,6 +12,8 @@ import jsonschema
 
 from autoquant.portfolio_explorer import (
     PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA,
+    ParsedDaily,
+    _diversification_stress_projection,
     _liquidity_capacity_projection,
     _next_signal_triggers,
     load_portfolio_diagnostics,
@@ -54,6 +56,101 @@ def rehash_run(run_root: Path) -> None:
 
 
 class PortfolioDecisionExplorerTests(unittest.TestCase):
+    def test_diversification_stress_has_explicit_unavailable_single_and_flat_states(
+        self,
+    ) -> None:
+        dates = [
+            "2026-01-01",
+            "2026-01-02",
+            "2026-01-03",
+            "2026-01-04",
+        ]
+        universe = ["AAA", "BBB"]
+        forward = {
+            "2026-01-01": {"AAA": 0.01, "BBB": 0.02},
+            "2026-01-02": {"AAA": -0.01, "BBB": 0.01},
+            "2026-01-03": {"AAA": 0.02, "BBB": -0.01},
+            "2026-01-04": {"AAA": 0.0, "BBB": 0.0},
+        }
+        weights = {
+            "2026-01-01": {"AAA": 0.0, "BBB": 0.0},
+            "2026-01-02": {"AAA": 0.5, "BBB": 0.0},
+            "2026-01-03": {"AAA": 0.5, "BBB": 0.0},
+            "2026-01-04": {"AAA": 0.0, "BBB": 0.0},
+        }
+        decisions = {}
+        for timestamp in dates:
+            variance = (
+                0.000025 if timestamp == "2026-01-03" else 0.0
+            )
+            for asset in universe:
+                component = (
+                    variance
+                    if timestamp == "2026-01-03" and asset == "AAA"
+                    else 0.0
+                )
+                decisions[(timestamp, asset)] = {
+                    "asset": asset,
+                    "executed_weight": weights[timestamp][asset],
+                    "asset_forward_return": forward[timestamp][asset],
+                    "portfolio_variance": variance,
+                    "component_variance": component,
+                    "variance_contribution_share": (
+                        component / variance if variance else 0.0
+                    ),
+                }
+        projection = _diversification_stress_projection(
+            ParsedDaily(dates=dates, rows=[]),
+            universe,
+            decisions,
+            {
+                "validation": {
+                    "start": "2026-01-02",
+                    "signalEnd": "2026-01-03",
+                    "end": "2026-01-03",
+                    "role": "selection",
+                },
+                "test": {
+                    "start": "2026-01-04",
+                    "signalEnd": "2026-01-04",
+                    "end": "2026-01-04",
+                    "role": "visible-audit",
+                },
+            },
+            {
+                "riskPolicy": {
+                    "annualizedVolatilityCeiling": 0.15,
+                    "covarianceWindow": 3,
+                    "minimumObservations": 2,
+                    "annualizationPeriods": 252,
+                }
+            },
+        )
+
+        self.assertEqual(projection["current"]["state"], "flat")
+        self.assertEqual(
+            projection["current"]["sampleForecastAnnualized"],
+            0.0,
+        )
+        self.assertIsNone(projection["current"]["stressMultiplier"])
+        self.assertIsNone(projection["current"]["effectiveRiskBets"])
+        self.assertEqual(
+            projection["validation"]["unavailableDates"],
+            1,
+        )
+        self.assertEqual(
+            projection["validation"]["availableDates"],
+            1,
+        )
+        maximum = projection["validation"]["maximumStressBook"]
+        assert maximum is not None
+        self.assertAlmostEqual(maximum["stressMultiplier"], 1.0)
+        self.assertAlmostEqual(maximum["effectiveRiskBets"], 1.0)
+        self.assertEqual(projection["test"]["flatDates"], 1)
+        self.assertIsNone(
+            projection["test"]["maximumStressMultiplier"]
+        )
+
     def test_state_dependent_next_signal_triggers_are_explicit(self) -> None:
         parameters = {
             "long_entry_percentile": 0.75,
@@ -478,6 +575,116 @@ class PortfolioDecisionExplorerTests(unittest.TestCase):
                     * position["riskGovernorScale"],
                     places=9,
                 )
+            diversification = diagnostics["diversificationStress"]
+            self.assertEqual(
+                diversification["method"],
+                "causal-executed-book-diversification-stress-v1",
+            )
+            self.assertEqual(
+                diversification["authority"],
+                "context-only",
+            )
+            self.assertEqual(
+                diversification["selectionAuthority"],
+                "none",
+            )
+            self.assertFalse(diversification["testEntersSelection"])
+            self.assertEqual(
+                diversification["shock"]["method"],
+                (
+                    "observed-to-perfect-position-aligned-"
+                    "covariance-blend-ladder"
+                ),
+            )
+            self.assertEqual(
+                [
+                    item["blendToPerfectCorrelation"]
+                    for item in diversification["shock"]["scenarios"]
+                ],
+                [0.25, 0.5, 1.0],
+            )
+            current_stress = diversification["current"]
+            self.assertEqual(current_stress["state"], "available")
+            self.assertGreaterEqual(
+                current_stress["stressMultiplier"],
+                1.0,
+            )
+            self.assertGreaterEqual(
+                current_stress["effectiveRiskBets"],
+                1.0,
+            )
+            self.assertLessEqual(
+                current_stress["effectiveRiskBets"],
+                current_stress["activeAssets"],
+            )
+            self.assertAlmostEqual(
+                current_stress["sampleForecastAnnualized"],
+                latest["executedRiskForecastAnnualized"],
+                places=9,
+            )
+            self.assertAlmostEqual(
+                sum(
+                    item["stressRiskShare"]
+                    for item in current_stress["positions"]
+                ),
+                1.0,
+                places=9,
+            )
+            scenario_forecasts = [
+                item["forecastAnnualized"]
+                for item in current_stress["scenarios"]
+            ]
+            self.assertEqual(
+                scenario_forecasts,
+                sorted(scenario_forecasts),
+            )
+            self.assertEqual(
+                [
+                    item["id"]
+                    for item in current_stress["scenarios"]
+                ],
+                [
+                    "quarter-breakdown",
+                    "half-breakdown",
+                    "perfect-aligned",
+                ],
+            )
+            self.assertAlmostEqual(
+                scenario_forecasts[-1],
+                current_stress[
+                    "perfectCorrelationForecastAnnualized"
+                ],
+                places=9,
+            )
+            for split_name, role in (
+                ("validation", "selection"),
+                ("test", "visible-audit"),
+            ):
+                split_stress = diversification[split_name]
+                self.assertEqual(split_stress["role"], role)
+                self.assertGreater(split_stress["availableDates"], 0)
+                self.assertGreaterEqual(
+                    split_stress["medianStressMultiplier"],
+                    1.0,
+                )
+                self.assertGreaterEqual(
+                    split_stress["medianEffectiveRiskBets"],
+                    1.0,
+                )
+                self.assertIsNotNone(
+                    split_stress["maximumStressBook"],
+                )
+                self.assertEqual(
+                    [
+                        item["id"]
+                        for item in split_stress["scenarios"]
+                    ],
+                    [
+                        "quarter-breakdown",
+                        "half-breakdown",
+                        "perfect-aligned",
+                    ],
+                )
             viability = diagnostics["strategyViability"]
             self.assertEqual(
                 viability["authority"],
@@ -596,6 +803,55 @@ class PortfolioDecisionExplorerTests(unittest.TestCase):
                 diagnostics,
                 PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA,
             )
+
+    def test_rehashed_component_risk_tamper_is_rejected_by_covariance(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, project, run = make_lab(Path(directory))
+            path = run.root_dir / "artifacts" / "portfolio-decisions.csv"
+            with path.open(encoding="utf-8", newline="") as handle:
+                rows = list(csv.DictReader(handle))
+                fields = list(rows[0])
+            validation = run.result["metrics"]["split_protocol"]["splits"][
+                "validation"
+            ]
+            timestamp = next(
+                row["timestamp"]
+                for row in rows
+                if (
+                    validation["start"]
+                    <= row["timestamp"]
+                    <= validation["signalEnd"]
+                    and float(row["portfolio_variance"]) > 1e-12
+                )
+            )
+            selected = [
+                row for row in rows if row["timestamp"] == timestamp
+            ][:2]
+            portfolio_variance = float(
+                selected[0]["portfolio_variance"]
+            )
+            offset = portfolio_variance * 0.01
+            for sign, row in zip((1.0, -1.0), selected):
+                row["component_variance"] = str(
+                    float(row["component_variance"]) + sign * offset
+                )
+                row["variance_contribution_share"] = str(
+                    float(row["variance_contribution_share"])
+                    + sign * offset / portfolio_variance
+                )
+            with path.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=fields)
+                writer.writeheader()
+                writer.writerows(rows)
+            rehash_run(run.root_dir)
+
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "Reconstructed covariance component differs from ledger",
+            ):
+                load_portfolio_diagnostics(project, run.result["id"])
 
     def test_rehashed_offsetting_contribution_tamper_is_rejected(
         self,

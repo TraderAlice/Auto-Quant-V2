@@ -288,6 +288,10 @@ class StudioObservationTests(unittest.TestCase):
                         html,
                     )
                     self.assertIn(
+                        'id="portfolio-diversification-stress"',
+                        html,
+                    )
+                    self.assertIn(
                         'id="portfolio-strategy-viability"',
                         html,
                     )
@@ -330,6 +334,9 @@ class StudioObservationTests(unittest.TestCase):
                     self.assertIn(".report-decision-proof", css)
                     self.assertIn(".sizing-summary", css)
                     self.assertIn(".sizing-table", css)
+                    self.assertIn(".diversification-summary", css)
+                    self.assertIn(".diversification-ladder", css)
+                    self.assertIn(".diversification-table", css)
                     self.assertIn(".viability-diagnosis", css)
                     self.assertIn(".viability-chain", css)
                     self.assertIn(".monetization-chain", css)
@@ -370,6 +377,14 @@ class StudioObservationTests(unittest.TestCase):
                     )
                     self.assertIn(
                         "renderPortfolioSizingAnatomy",
+                        javascript,
+                    )
+                    self.assertIn(
+                        "renderPortfolioDiversificationStress",
+                        javascript,
+                    )
+                    self.assertIn(
+                        "25% / 50% / 100% ceiling-breach rate",
                         javascript,
                     )
                     self.assertIn(
