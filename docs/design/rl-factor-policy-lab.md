@@ -220,6 +220,23 @@ Successful Runs declare:
 
 NumPy and pandas versions are recorded. Artifacts are immutable Run evidence.
 
+Core joins these separately verified artifacts into a versioned
+`factorFusionDiagnosis` projection. The projection preserves two different
+counterfactual scopes:
+
+- candidate and local-opportunity evidence starts from the actual policy
+  pretrade book, evaluates only the next bar, and is an ex-post audit;
+- adaptive transmission compares independently rolled complete policy and
+  validation-selected baseline paths, including their own holdings, drift,
+  no-trade decisions, risk repair, turnover, and costs.
+
+The validation projection diagnoses the first demonstrated failure across
+candidate sleeve quality, local candidate capture, adaptive gross selection,
+implementation cost, risk-adjusted advantage, and fold/seed breadth. Test is
+rendered beside it as visible audit only and never changes the stage or next
+research focus. Report and Project Dossier freeze the exact projection and
+hash from the immutable leader Run.
+
 The reference Study keeps a 90-second hard Judge timeout for cold installed
 environments plus all fixed folds, seeds, baselines, and sleeve construction.
 Warm reference Runs are much faster and remain deterministic.
@@ -227,10 +244,12 @@ Warm reference Runs are much faster and remain deterministic.
 ## Studio projection
 
 Studio may project validation score, test mean, seed/fold dispersion, baseline
-advantage, candidate-factor advantage, candidate usage, and failure rate from
-verified Run metrics. It must label these as RL evidence and preserve the full
-Run as authority. It cannot train, select a seed, promote a policy, or hide a
-failed seed.
+advantage, candidate-factor advantage, candidate usage, failure rate, and the
+factor-fusion diagnosis from verified Run metrics. The diagnosis must show
+candidate sleeve, local capture, full-path gross selection, incremental cost,
+stable net value, validation loss locators, and separately labelled test audit.
+Studio must preserve the full Run as authority. It cannot train, select a seed,
+promote a policy, hide a failed seed, or turn a local oracle into a strategy.
 
 ## Invariants
 
@@ -265,6 +284,10 @@ failed seed.
 17. Full-path incremental attribution compares independently rolled books;
     gross edge minus incremental cost equals net active return and per-asset
     active contribution equals gross edge at every timestamp.
+18. Factor-fusion diagnosis is validation-only research prioritization. It
+    preserves local one-step and independent full-path semantics, exposes test
+    only as visible audit, and grants no selection, KEEP/REVERT, promotion,
+    order, account, or trading authority.
 
 ## Change checklist
 

@@ -14,6 +14,7 @@ from typing import Any
 
 from .decision_support import (
     mechanical_decision_markdown_lines,
+    rl_factor_fusion_diagnosis_markdown_lines,
     signal_monetization_markdown_lines,
     sizing_anatomy_markdown_lines,
     strategy_viability_markdown_lines,
@@ -1186,6 +1187,13 @@ def _render_markdown(dossier: dict[str, Any]) -> str:
                 signal_monetization_markdown_lines(
                     support,
                     heading="## Frozen signal monetization bridge",
+                    lane_name=lane["name"],
+                )
+            )
+            lines.extend(
+                rl_factor_fusion_diagnosis_markdown_lines(
+                    support,
+                    heading="## Frozen RL factor-fusion diagnosis",
                     lane_name=lane["name"],
                 )
             )

@@ -301,6 +301,10 @@ class StudioObservationTests(unittest.TestCase):
                     )
                     self.assertIn('id="inspector-toggle"', html)
                     self.assertIn('id="rl-opportunity"', html)
+                    self.assertIn(
+                        'id="rl-fusion-diagnosis"',
+                        html,
+                    )
                     self.assertIn('href="/assets/studio.css"', html)
                     self.assertNotIn("<script>", html)
 
@@ -328,6 +332,8 @@ class StudioObservationTests(unittest.TestCase):
                     self.assertIn(".inspector-collapsed", css)
                     self.assertIn(".rl-opportunity-panel", css)
                     self.assertIn(".rl-incremental-panel", css)
+                    self.assertIn(".rl-fusion-diagnosis", css)
+                    self.assertIn(".rl-fusion-chain", css)
                     self.assertIn(".selection-risk", css)
                     self.assertIn(".command-button", css)
                     self.assertIn("@media (max-width: 680px)", css)
@@ -392,6 +398,18 @@ class StudioObservationTests(unittest.TestCase):
                     self.assertIn("selectionRiskSection", javascript)
                     self.assertIn("renderRlOpportunity", javascript)
                     self.assertIn("renderRlIncremental", javascript)
+                    self.assertIn(
+                        "renderRlFusionDiagnosis",
+                        javascript,
+                    )
+                    self.assertIn(
+                        "Where adaptive value stops",
+                        javascript,
+                    )
+                    self.assertIn(
+                        "Frozen RL factor-fusion diagnosis",
+                        javascript,
+                    )
                     self.assertIn("Gross selection edge", javascript)
                     self.assertIn("factorOpportunity", javascript)
                     self.assertIn("contextualBaselines", javascript)

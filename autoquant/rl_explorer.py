@@ -68,6 +68,9 @@ INCREMENTAL_ATTRIBUTION_POLICY = {
     "selection_authority": "context-only",
     "trading_authority": "none",
 }
+FACTOR_FUSION_DIAGNOSIS_METHOD = (
+    "candidate-opportunity-adaptive-transmission-stability-diagnosis-v1"
+)
 LEARNING_CONTRACT = {
     "method": "fixed-after-train-only-blocked-stability-audit-v1",
     "development_selection_scope": (
@@ -3218,8 +3221,9 @@ def _incremental_split_projection(
                 "baselineSwitched": item["baseline_switched"],
                 "decisions": item["decisions"],
                 "activeDecisions": item["active_decisions"],
-                "meanNetActiveReturn": item["mean_net_active_return"],
                 "totalIncrementalCost": item["total_incremental_cost"],
+                "meanNetActiveReturn": item["mean_net_active_return"],
+                "totalNetActiveReturn": item["total_net_active_return"],
                 "activeWinRate": item["active_win_rate"],
                 "conditionalActiveWinRate": item[
                     "conditional_active_win_rate"
@@ -3259,6 +3263,353 @@ def _incremental_split_projection(
             for item in value["trials"]
         ],
         "reconciliation": value["reconciliation"],
+    }
+
+
+def _factor_fusion_diagnosis(
+    factor_fusion: dict[str, Any],
+    opportunity: dict[str, Any],
+    incremental: dict[str, Any],
+    trials: list[dict[str, Any]],
+    baselines: list[dict[str, Any]],
+    mean_validation_advantage: float,
+    mean_test_advantage: float,
+) -> dict[str, Any]:
+    """Join verified local and full-path evidence into one bounded diagnosis."""
+
+    base = {
+        "method": FACTOR_FUSION_DIAGNOSIS_METHOD,
+        "authority": "research-prioritization-only",
+        "tradingAuthority": "none",
+    }
+    if not factor_fusion["available"]:
+        return {
+            **base,
+            "available": False,
+            "reason": "candidate-factor-fusion-unavailable",
+        }
+    if not opportunity["available"] or not incremental["available"]:
+        return {
+            **base,
+            "available": False,
+            "reason": "required-verified-evidence-unavailable",
+        }
+
+    selected_baselines = [
+        item for item in baselines if item["selectedOnValidation"]
+    ]
+    balanced_baselines = [
+        item for item in baselines if item["name"] == "fixed:balanced"
+    ]
+    if not selected_baselines or len(selected_baselines) != len(
+        balanced_baselines
+    ):
+        _fail(
+            "factorFusionDiagnosis/baselines",
+            "rl.fusion-diagnosis-baselines",
+            "Fusion diagnosis requires one selected and balanced baseline per fold",
+        )
+
+    def split_projection(
+        split: str,
+        role: str,
+        candidate_summary: dict[str, Any],
+        sharpe_advantage: float,
+    ) -> dict[str, Any]:
+        opportunity_split = opportunity[split]
+        incremental_split = incremental[split]
+        candidate = opportunity_split["candidate"]
+        baseline_field = "validation" if split == "validation" else "test"
+        balanced_sharpe = sum(
+            item[baseline_field]["netSharpe"]
+            for item in balanced_baselines
+        ) / len(balanced_baselines)
+        selected_baseline_sharpe = sum(
+            item[baseline_field]["netSharpe"]
+            for item in selected_baselines
+        ) / len(selected_baselines)
+        candidate_sharpe = candidate_summary["mean"]
+        candidate_delta = candidate_sharpe - balanced_sharpe
+        local_delta = candidate["meanVsBalancedReward"]
+        if candidate_delta > 0.0 and local_delta > 0.0:
+            candidate_assessment = "standalone-and-local-positive"
+        elif candidate_delta > 0.0:
+            candidate_assessment = "standalone-positive-local-nondominant"
+        elif local_delta > 0.0:
+            candidate_assessment = "local-opportunity-without-standalone-edge"
+        else:
+            candidate_assessment = "candidate-edge-absent"
+
+        split_trials = [
+            {
+                "fold": item["fold"],
+                "seed": item["seed"],
+                "grossActiveReturn": incremental_trial[
+                    "totalGrossActiveReturn"
+                ],
+                "netActiveReturn": incremental_trial[
+                    "totalNetActiveReturn"
+                ],
+                "sharpeAdvantage": (
+                    item["validationAdvantage"]
+                    if split == "validation"
+                    else item["testAdvantage"]
+                ),
+            }
+            for item in trials
+            for incremental_trial in incremental_split["trials"]
+            if (
+                item["fold"] == incremental_trial["fold"]
+                and item["seed"] == incremental_trial["seed"]
+            )
+        ]
+        if len(split_trials) != len(trials):
+            _fail(
+                f"factorFusionDiagnosis/{split}/trials",
+                "rl.fusion-diagnosis-trials",
+                "Fusion diagnosis trial identities do not reconcile",
+            )
+        net_values = [item["netActiveReturn"] for item in split_trials]
+        mean_net = sum(net_values) / len(net_values)
+        net_standard_deviation = math.sqrt(
+            sum((value - mean_net) ** 2 for value in net_values)
+            / len(net_values)
+        )
+        worst_trial = min(
+            split_trials,
+            key=lambda item: (
+                item["netActiveReturn"],
+                item["fold"],
+                item["seed"],
+            ),
+        )
+        worst_regime = min(
+            incremental_split["byRegime"],
+            key=lambda item: (
+                item["totalNetActiveReturn"],
+                item["key"],
+            ),
+        )
+        worst_pair = min(
+            incremental_split["byActionPair"],
+            key=lambda item: (
+                item["totalNetActiveReturn"],
+                item["key"],
+            ),
+        )
+        worst_switch = min(
+            incremental_split["bySwitchState"],
+            key=lambda item: (
+                item["totalNetActiveReturn"],
+                item["key"],
+            ),
+        )
+        worst_asset = min(
+            incremental_split["byAsset"],
+            key=lambda item: (
+                item["totalGrossActiveContribution"],
+                item["asset"],
+            ),
+        )
+        return {
+            "role": role,
+            "candidateFactor": {
+                "assessment": candidate_assessment,
+                "fixedSleeveNetSharpe": candidate_sharpe,
+                "balancedFixedSleeveNetSharpe": balanced_sharpe,
+                "fixedSleeveSharpeDeltaVsBalanced": candidate_delta,
+                "selectedFrequency": candidate["selectedFrequency"],
+                "localBestFrequency": candidate["oracleFrequency"],
+                "oracleCaptureRate": candidate["oracleCaptureRate"],
+                "missedOpportunityRate": candidate[
+                    "missedOpportunityRate"
+                ],
+                "meanLocalRewardDeltaVsBalanced": local_delta,
+                "meanLocalRewardDeltaVsSelected": candidate[
+                    "meanVsSelectedReward"
+                ],
+            },
+            "policySelection": {
+                "selectedBaselineMeanNetSharpe": selected_baseline_sharpe,
+                "oracleHitRate": opportunity_split["oracleHitRate"],
+                "meanSelectedRank": opportunity_split["meanSelectedRank"],
+                "meanOneStepRealizedRegret": opportunity_split[
+                    "meanRealizedRegret"
+                ],
+            },
+            "adaptiveTransmission": {
+                "meanTrialGrossActiveReturn": incremental_split[
+                    "meanTrialTotalGrossActiveReturn"
+                ],
+                "meanTrialIncrementalCost": incremental_split[
+                    "meanTrialTotalIncrementalCost"
+                ],
+                "meanTrialNetActiveReturn": incremental_split[
+                    "meanTrialTotalNetActiveReturn"
+                ],
+                "meanSharpeAdvantageVsSelectedBaseline": sharpe_advantage,
+                "informationRatio": incremental_split["informationRatio"],
+                "activeDecisionRate": incremental_split[
+                    "activeDecisionRate"
+                ],
+                "conditionalActiveWinRate": incremental_split[
+                    "conditionalActiveWinRate"
+                ],
+                "actionsDifferRate": incremental_split["actionsDifferRate"],
+                "policySwitchRate": incremental_split["policySwitchRate"],
+                "baselineSwitchRate": incremental_split[
+                    "baselineSwitchRate"
+                ],
+            },
+            "stability": {
+                "trialPaths": len(split_trials),
+                "positiveGrossTrialRate": sum(
+                    item["grossActiveReturn"] > 0.0
+                    for item in split_trials
+                )
+                / len(split_trials),
+                "positiveNetTrialRate": sum(
+                    item["netActiveReturn"] > 0.0
+                    for item in split_trials
+                )
+                / len(split_trials),
+                "positiveSharpeAdvantageTrialRate": sum(
+                    item["sharpeAdvantage"] > 0.0
+                    for item in split_trials
+                )
+                / len(split_trials),
+                "netActiveReturnStandardDeviation": (
+                    net_standard_deviation
+                ),
+                "worstTrial": worst_trial,
+            },
+            "lossLocator": {
+                "worstRegime": {
+                    "key": worst_regime["key"],
+                    "decisions": worst_regime["decisions"],
+                    "totalNetActiveReturn": worst_regime[
+                        "totalNetActiveReturn"
+                    ],
+                },
+                "worstActionPair": {
+                    "key": worst_pair["key"],
+                    "decisions": worst_pair["decisions"],
+                    "totalNetActiveReturn": worst_pair[
+                        "totalNetActiveReturn"
+                    ],
+                },
+                "worstSwitchState": {
+                    "key": worst_switch["key"],
+                    "decisions": worst_switch["decisions"],
+                    "totalNetActiveReturn": worst_switch[
+                        "totalNetActiveReturn"
+                    ],
+                },
+                "worstAssetGrossContribution": {
+                    "asset": worst_asset["asset"],
+                    "totalGrossActiveContribution": worst_asset[
+                        "totalGrossActiveContribution"
+                    ],
+                },
+            },
+            "reconciliation": {
+                "incrementalAttributionPassed": incremental_split[
+                    "reconciliation"
+                ]["passed"],
+                "factorOpportunityPassed": opportunity_split[
+                    "reconciliation"
+                ]["passed"],
+                "trialPathsReconciled": len(split_trials) == len(trials),
+            },
+        }
+
+    validation = split_projection(
+        "validation",
+        "selection",
+        factor_fusion["candidateValidation"],
+        mean_validation_advantage,
+    )
+    test = split_projection(
+        "test",
+        "visible-audit",
+        factor_fusion["candidateTestAudit"],
+        mean_test_advantage,
+    )
+    transmission = validation["adaptiveTransmission"]
+    positive_net_trial_rate = validation["stability"][
+        "positiveNetTrialRate"
+    ]
+    candidate_assessment = validation["candidateFactor"]["assessment"]
+    missed_candidate = validation["candidateFactor"][
+        "missedOpportunityRate"
+    ]
+    if transmission["meanTrialGrossActiveReturn"] <= 0.0:
+        stage = "adaptive-book-selection-negative"
+        if candidate_assessment == "candidate-edge-absent":
+            focus = "factor-sleeve-research"
+        elif missed_candidate > 0.0:
+            focus = "policy-state-and-candidate-capture"
+        else:
+            focus = "adaptive-book-selection"
+        explanation = (
+            "Validation adaptive gross active return is non-positive versus "
+            "the selected mechanical baseline; implementation cost is not "
+            "the first demonstrated failure."
+        )
+    elif transmission["meanTrialNetActiveReturn"] <= 0.0:
+        stage = "implementation-cost-destroys-edge"
+        focus = "switch-persistence-and-turnover"
+        explanation = (
+            "Validation adaptive gross active return is positive but "
+            "incremental implementation cost leaves non-positive net active "
+            "return."
+        )
+    elif transmission["meanSharpeAdvantageVsSelectedBaseline"] <= 0.0:
+        stage = "risk-adjusted-adaptive-value-absent"
+        focus = "active-risk-and-drawdown-control"
+        explanation = (
+            "Validation net active return is positive but the frozen policy "
+            "does not beat the selected mechanical baseline on net Sharpe."
+        )
+    elif positive_net_trial_rate < 0.5:
+        stage = "seed-fold-unstable"
+        focus = "train-only-learning-stability"
+        explanation = (
+            "Aggregate validation adaptive value is positive but fewer than "
+            "half of seed/fold trial paths have positive net active return."
+        )
+    else:
+        stage = "adaptive-value-positive"
+        focus = "external-holdout-and-capacity"
+        explanation = (
+            "Validation adaptive gross, net, risk-adjusted, and trial-breadth "
+            "evidence is positive; prioritize fresh external holdout and "
+            "capacity evidence."
+        )
+    return {
+        **base,
+        "available": True,
+        "reason": None,
+        "semantics": {
+            "localOpportunity": (
+                "same-pretrade-one-step-ex-post-audit"
+            ),
+            "adaptiveTransmission": "independent-full-policy-paths",
+            "candidateFactorSource": "content-locked-study-dependency",
+            "selectionSplit": "validation",
+            "testEntersDiagnosis": False,
+            "entersTraining": False,
+            "entersSelection": False,
+        },
+        "diagnosis": {
+            "selectionSplit": "validation",
+            "testEntersDiagnosis": False,
+            "stage": stage,
+            "iterationFocus": focus,
+            "explanation": explanation,
+        },
+        "validation": validation,
+        "testAudit": test,
     }
 
 
@@ -4343,6 +4694,40 @@ def load_rl_diagnostics(
             "rl.learning-contract",
             "Research integrity does not preserve the frozen learning contract",
         )
+    factor_fusion = {
+        "available": has_candidate_fusion,
+        "mode": (
+            "content-locked-candidate-source"
+            if has_candidate_fusion
+            else "legacy-reference-only"
+        ),
+        "dependency": dependencies if has_candidate_fusion else None,
+        "candidateValidation": candidate_validation_summary,
+        "candidateTestAudit": candidate_test_summary,
+        "meanValidationAdvantageVsCandidateFactor": (
+            mean_validation_advantage_vs_candidate
+        ),
+        "meanTestAdvantageVsCandidateFactor": (
+            mean_test_advantage_vs_candidate
+        ),
+        "meanValidationCandidateActionFrequency": (
+            validation_candidate_action_frequency
+        ),
+        "rlBeatCandidateOnValidation": (
+            mean_validation_advantage_vs_candidate > 0.0
+            if has_candidate_fusion
+            else None
+        ),
+    }
+    factor_fusion_diagnosis = _factor_fusion_diagnosis(
+        factor_fusion,
+        factor_opportunity,
+        incremental_attribution,
+        trials,
+        baselines,
+        mean_validation_advantage,
+        mean_test_advantage,
+    )
     return {
         "schemaVersion": SCHEMA_VERSION,
         "kind": RL_DIAGNOSTICS_KIND,
@@ -4371,6 +4756,7 @@ def load_rl_diagnostics(
         "policyBehavior": policy_behavior,
         "factorOpportunity": factor_opportunity,
         "incrementalAttribution": incremental_attribution,
+        "factorFusionDiagnosis": factor_fusion_diagnosis,
         "executedBookRisk": _execution_risk_projection(
             metrics,
             action_summaries,
@@ -4423,31 +4809,7 @@ def load_rl_diagnostics(
                 ),
             },
         },
-        "factorFusion": {
-            "available": has_candidate_fusion,
-            "mode": (
-                "content-locked-candidate-source"
-                if has_candidate_fusion
-                else "legacy-reference-only"
-            ),
-            "dependency": dependencies if has_candidate_fusion else None,
-            "candidateValidation": candidate_validation_summary,
-            "candidateTestAudit": candidate_test_summary,
-            "meanValidationAdvantageVsCandidateFactor": (
-                mean_validation_advantage_vs_candidate
-            ),
-            "meanTestAdvantageVsCandidateFactor": (
-                mean_test_advantage_vs_candidate
-            ),
-            "meanValidationCandidateActionFrequency": (
-                validation_candidate_action_frequency
-            ),
-            "rlBeatCandidateOnValidation": (
-                mean_validation_advantage_vs_candidate > 0.0
-                if has_candidate_fusion
-                else None
-            ),
-        },
+        "factorFusion": factor_fusion,
         "trials": trials,
         "baselines": baselines,
         "models": models,
@@ -4476,11 +4838,382 @@ def load_rl_diagnostics(
     }
 
 
+_FUSION_CANDIDATE_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": [
+        "assessment",
+        "fixedSleeveNetSharpe",
+        "balancedFixedSleeveNetSharpe",
+        "fixedSleeveSharpeDeltaVsBalanced",
+        "selectedFrequency",
+        "localBestFrequency",
+        "oracleCaptureRate",
+        "missedOpportunityRate",
+        "meanLocalRewardDeltaVsBalanced",
+        "meanLocalRewardDeltaVsSelected",
+    ],
+    "properties": {
+        "assessment": {
+            "enum": [
+                "standalone-and-local-positive",
+                "standalone-positive-local-nondominant",
+                "local-opportunity-without-standalone-edge",
+                "candidate-edge-absent",
+            ]
+        },
+        "fixedSleeveNetSharpe": {"type": "number"},
+        "balancedFixedSleeveNetSharpe": {"type": "number"},
+        "fixedSleeveSharpeDeltaVsBalanced": {"type": "number"},
+        "selectedFrequency": {"type": "number", "minimum": 0, "maximum": 1},
+        "localBestFrequency": {"type": "number", "minimum": 0, "maximum": 1},
+        "oracleCaptureRate": {"type": "number", "minimum": 0, "maximum": 1},
+        "missedOpportunityRate": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+        },
+        "meanLocalRewardDeltaVsBalanced": {"type": "number"},
+        "meanLocalRewardDeltaVsSelected": {"type": "number"},
+    },
+}
+
+
+_FUSION_SPLIT_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": [
+        "role",
+        "candidateFactor",
+        "policySelection",
+        "adaptiveTransmission",
+        "stability",
+        "lossLocator",
+        "reconciliation",
+    ],
+    "properties": {
+        "role": {"enum": ["selection", "visible-audit"]},
+        "candidateFactor": _FUSION_CANDIDATE_SCHEMA,
+        "policySelection": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "selectedBaselineMeanNetSharpe",
+                "oracleHitRate",
+                "meanSelectedRank",
+                "meanOneStepRealizedRegret",
+            ],
+            "properties": {
+                "selectedBaselineMeanNetSharpe": {"type": "number"},
+                "oracleHitRate": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                },
+                "meanSelectedRank": {"type": "number", "minimum": 1},
+                "meanOneStepRealizedRegret": {
+                    "type": "number",
+                    "minimum": 0,
+                },
+            },
+        },
+        "adaptiveTransmission": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "meanTrialGrossActiveReturn",
+                "meanTrialIncrementalCost",
+                "meanTrialNetActiveReturn",
+                "meanSharpeAdvantageVsSelectedBaseline",
+                "informationRatio",
+                "activeDecisionRate",
+                "conditionalActiveWinRate",
+                "actionsDifferRate",
+                "policySwitchRate",
+                "baselineSwitchRate",
+            ],
+            "properties": {
+                "meanTrialGrossActiveReturn": {"type": "number"},
+                "meanTrialIncrementalCost": {"type": "number"},
+                "meanTrialNetActiveReturn": {"type": "number"},
+                "meanSharpeAdvantageVsSelectedBaseline": {"type": "number"},
+                "informationRatio": {"type": "number"},
+                "activeDecisionRate": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                },
+                "conditionalActiveWinRate": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                },
+                "actionsDifferRate": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                },
+                "policySwitchRate": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                },
+                "baselineSwitchRate": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                },
+            },
+        },
+        "stability": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "trialPaths",
+                "positiveGrossTrialRate",
+                "positiveNetTrialRate",
+                "positiveSharpeAdvantageTrialRate",
+                "netActiveReturnStandardDeviation",
+                "worstTrial",
+            ],
+            "properties": {
+                "trialPaths": {"type": "integer", "minimum": 1},
+                "positiveGrossTrialRate": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                },
+                "positiveNetTrialRate": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                },
+                "positiveSharpeAdvantageTrialRate": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                },
+                "netActiveReturnStandardDeviation": {
+                    "type": "number",
+                    "minimum": 0,
+                },
+                "worstTrial": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": [
+                        "fold",
+                        "seed",
+                        "grossActiveReturn",
+                        "netActiveReturn",
+                        "sharpeAdvantage",
+                    ],
+                    "properties": {
+                        "fold": {"type": "string", "minLength": 1},
+                        "seed": {"type": "integer"},
+                        "grossActiveReturn": {"type": "number"},
+                        "netActiveReturn": {"type": "number"},
+                        "sharpeAdvantage": {"type": "number"},
+                    },
+                },
+            },
+        },
+        "lossLocator": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "worstRegime",
+                "worstActionPair",
+                "worstSwitchState",
+                "worstAssetGrossContribution",
+            ],
+            "properties": {
+                "worstRegime": {"$ref": "#/$defs/fusionLossBucket"},
+                "worstActionPair": {"$ref": "#/$defs/fusionLossBucket"},
+                "worstSwitchState": {"$ref": "#/$defs/fusionLossBucket"},
+                "worstAssetGrossContribution": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": [
+                        "asset",
+                        "totalGrossActiveContribution",
+                    ],
+                    "properties": {
+                        "asset": {"type": "string", "minLength": 1},
+                        "totalGrossActiveContribution": {"type": "number"},
+                    },
+                },
+            },
+        },
+        "reconciliation": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "incrementalAttributionPassed",
+                "factorOpportunityPassed",
+                "trialPathsReconciled",
+            ],
+            "properties": {
+                "incrementalAttributionPassed": {"const": True},
+                "factorOpportunityPassed": {"const": True},
+                "trialPathsReconciled": {"const": True},
+            },
+        },
+    },
+}
+
+
+_FACTOR_FUSION_DIAGNOSIS_SCHEMA: dict[str, Any] = {
+    "oneOf": [
+        {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "method",
+                "authority",
+                "tradingAuthority",
+                "available",
+                "reason",
+            ],
+            "properties": {
+                "method": {"const": FACTOR_FUSION_DIAGNOSIS_METHOD},
+                "authority": {"const": "research-prioritization-only"},
+                "tradingAuthority": {"const": "none"},
+                "available": {"const": False},
+                "reason": {
+                    "enum": [
+                        "candidate-factor-fusion-unavailable",
+                        "required-verified-evidence-unavailable",
+                    ]
+                },
+            },
+        },
+        {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "method",
+                "authority",
+                "tradingAuthority",
+                "available",
+                "reason",
+                "semantics",
+                "diagnosis",
+                "validation",
+                "testAudit",
+            ],
+            "properties": {
+                "method": {"const": FACTOR_FUSION_DIAGNOSIS_METHOD},
+                "authority": {"const": "research-prioritization-only"},
+                "tradingAuthority": {"const": "none"},
+                "available": {"const": True},
+                "reason": {"type": "null"},
+                "semantics": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": [
+                        "localOpportunity",
+                        "adaptiveTransmission",
+                        "candidateFactorSource",
+                        "selectionSplit",
+                        "testEntersDiagnosis",
+                        "entersTraining",
+                        "entersSelection",
+                    ],
+                    "properties": {
+                        "localOpportunity": {
+                            "const": "same-pretrade-one-step-ex-post-audit"
+                        },
+                        "adaptiveTransmission": {
+                            "const": "independent-full-policy-paths"
+                        },
+                        "candidateFactorSource": {
+                            "const": "content-locked-study-dependency"
+                        },
+                        "selectionSplit": {"const": "validation"},
+                        "testEntersDiagnosis": {"const": False},
+                        "entersTraining": {"const": False},
+                        "entersSelection": {"const": False},
+                    },
+                },
+                "diagnosis": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": [
+                        "selectionSplit",
+                        "testEntersDiagnosis",
+                        "stage",
+                        "iterationFocus",
+                        "explanation",
+                    ],
+                    "properties": {
+                        "selectionSplit": {"const": "validation"},
+                        "testEntersDiagnosis": {"const": False},
+                        "stage": {
+                            "enum": [
+                                "adaptive-book-selection-negative",
+                                "implementation-cost-destroys-edge",
+                                "risk-adjusted-adaptive-value-absent",
+                                "seed-fold-unstable",
+                                "adaptive-value-positive",
+                            ]
+                        },
+                        "iterationFocus": {
+                            "enum": [
+                                "factor-sleeve-research",
+                                "policy-state-and-candidate-capture",
+                                "adaptive-book-selection",
+                                "switch-persistence-and-turnover",
+                                "active-risk-and-drawdown-control",
+                                "train-only-learning-stability",
+                                "external-holdout-and-capacity",
+                            ]
+                        },
+                        "explanation": {"type": "string", "minLength": 1},
+                    },
+                },
+                "validation": {
+                    "allOf": [
+                        _FUSION_SPLIT_SCHEMA,
+                        {
+                            "type": "object",
+                            "properties": {"role": {"const": "selection"}},
+                        },
+                    ]
+                },
+                "testAudit": {
+                    "allOf": [
+                        _FUSION_SPLIT_SCHEMA,
+                        {
+                            "type": "object",
+                            "properties": {
+                                "role": {"const": "visible-audit"}
+                            },
+                        },
+                    ]
+                },
+            },
+        },
+    ]
+}
+
+
 RL_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "title": "AutoQuant bounded governed RL policy diagnostics",
     "type": "object",
     "additionalProperties": False,
+    "$defs": {
+        "fusionLossBucket": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["key", "decisions", "totalNetActiveReturn"],
+            "properties": {
+                "key": {"type": "string", "minLength": 1},
+                "decisions": {"type": "integer", "minimum": 1},
+                "totalNetActiveReturn": {"type": "number"},
+            },
+        }
+    },
     "required": [
         "schemaVersion",
         "kind",
@@ -4492,6 +5225,7 @@ RL_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "policyBehavior",
         "factorOpportunity",
         "incrementalAttribution",
+        "factorFusionDiagnosis",
         "executedBookRisk",
         "protocol",
         "summary",
@@ -4516,6 +5250,7 @@ RL_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "policyBehavior": {"type": "object"},
         "factorOpportunity": {"type": "object"},
         "incrementalAttribution": {"type": "object"},
+        "factorFusionDiagnosis": _FACTOR_FUSION_DIAGNOSIS_SCHEMA,
         "executedBookRisk": {"type": "object"},
         "protocol": {"type": "object"},
         "summary": {"type": "object"},

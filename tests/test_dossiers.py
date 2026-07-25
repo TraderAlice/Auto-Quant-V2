@@ -579,9 +579,38 @@ class ProgramResearchDossierTests(unittest.TestCase):
                 )
                 reports[lane_id] = report.report["id"]
                 if lane_id == "rl":
+                    support = report.report["evidence"][
+                        "leaderDecisionSupport"
+                    ]
+                    fusion = support["rlFactorFusionDiagnosis"]
+                    assert fusion is not None
+                    self.assertEqual(
+                        support["rlFactorFusionDiagnosisHash"],
+                        hash_json(fusion),
+                    )
+                    self.assertTrue(fusion["available"])
+                    self.assertEqual(
+                        fusion["validation"]["role"],
+                        "selection",
+                    )
+                    self.assertEqual(
+                        fusion["testAudit"]["role"],
+                        "visible-audit",
+                    )
+                    self.assertFalse(
+                        fusion["diagnosis"]["testEntersDiagnosis"]
+                    )
                     rl_markdown = (
                         report.root_dir / "report.md"
                     ).read_text(encoding="utf-8")
+                    self.assertIn(
+                        "## Frozen leader-Run RL factor-fusion diagnosis",
+                        rl_markdown,
+                    )
+                    self.assertIn(
+                        "Local opportunity is a same-pretrade",
+                        rl_markdown,
+                    )
                     self.assertIn(
                         "## RL policy behavior and rationale",
                         rl_markdown,
@@ -649,6 +678,10 @@ class ProgramResearchDossierTests(unittest.TestCase):
             )
             self.assertIn(
                 "## RL one-step factor opportunity",
+                markdown,
+            )
+            self.assertIn(
+                "## Frozen RL factor-fusion diagnosis",
                 markdown,
             )
             self.assertIn("uncalibrated Q margin", markdown)

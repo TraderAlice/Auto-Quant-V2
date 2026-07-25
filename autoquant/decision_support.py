@@ -6,9 +6,10 @@ from pathlib import Path
 from typing import Any
 
 from .portfolio_explorer import load_portfolio_diagnostics
+from .rl_explorer import load_rl_diagnostics
 from .runs import load_run
 from .studies import hash_json
-from .templates import PORTFOLIO_STUDY_ID
+from .templates import PORTFOLIO_STUDY_ID, RL_STUDY_ID
 from .workspace import (
     AutoQuantValidationError,
     ProjectContext,
@@ -55,6 +56,20 @@ def build_leader_decision_support(
         if portfolio_diagnostics is not None
         else None
     )
+    rl_diagnostics = (
+        load_rl_diagnostics(
+            project,
+            run_id,
+            point_limit=40,
+        )
+        if run.result["study"]["id"] == RL_STUDY_ID
+        else None
+    )
+    rl_factor_fusion_diagnosis = (
+        rl_diagnostics["factorFusionDiagnosis"]
+        if rl_diagnostics is not None
+        else None
+    )
     return {
         "kind": LEADER_DECISION_SUPPORT_KIND,
         "runId": run.result["id"],
@@ -83,6 +98,12 @@ def build_leader_decision_support(
             else None
         ),
         "portfolioSignalMonetization": signal_monetization,
+        "rlFactorFusionDiagnosisHash": (
+            hash_json(rl_factor_fusion_diagnosis)
+            if rl_factor_fusion_diagnosis is not None
+            else None
+        ),
+        "rlFactorFusionDiagnosis": rl_factor_fusion_diagnosis,
     }
 
 
@@ -117,6 +138,10 @@ def verify_leader_decision_support(
         (
             "portfolioSignalMonetizationHash",
             "portfolioSignalMonetization",
+        ),
+        (
+            "rlFactorFusionDiagnosisHash",
+            "rlFactorFusionDiagnosis",
         ),
     )
     compatible_expected = dict(expected)
@@ -156,13 +181,90 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
             "portfolioSizingAnatomyHash": None,
             "portfolioStrategyViabilityHash": None,
             "portfolioSignalMonetizationHash": None,
+            "rlFactorFusionDiagnosisHash": None,
             "portfolio": None,
+            "rl": None,
         }
     decision = value.get("portfolioMechanicalDecision")
+    rl_diagnosis = value.get("rlFactorFusionDiagnosis")
+    rl_summary = None
+    if isinstance(rl_diagnosis, dict) and rl_diagnosis.get("available"):
+        validation = rl_diagnosis["validation"]
+        candidate = validation["candidateFactor"]
+        transmission = validation["adaptiveTransmission"]
+        stability = validation["stability"]
+        rl_summary = {
+            "method": rl_diagnosis["method"],
+            "stage": rl_diagnosis["diagnosis"]["stage"],
+            "iterationFocus": rl_diagnosis["diagnosis"][
+                "iterationFocus"
+            ],
+            "candidateAssessment": candidate["assessment"],
+            "candidateFixedSharpeDeltaVsBalanced": candidate[
+                "fixedSleeveSharpeDeltaVsBalanced"
+            ],
+            "candidateLocalRewardDeltaVsBalanced": candidate[
+                "meanLocalRewardDeltaVsBalanced"
+            ],
+            "candidateSelectedFrequency": candidate[
+                "selectedFrequency"
+            ],
+            "candidateLocalBestFrequency": candidate[
+                "localBestFrequency"
+            ],
+            "candidateOracleCaptureRate": candidate[
+                "oracleCaptureRate"
+            ],
+            "grossActiveReturn": transmission[
+                "meanTrialGrossActiveReturn"
+            ],
+            "incrementalCost": transmission[
+                "meanTrialIncrementalCost"
+            ],
+            "netActiveReturn": transmission[
+                "meanTrialNetActiveReturn"
+            ],
+            "sharpeAdvantage": transmission[
+                "meanSharpeAdvantageVsSelectedBaseline"
+            ],
+            "positiveNetTrialRate": stability[
+                "positiveNetTrialRate"
+            ],
+            "worstRegime": validation["lossLocator"][
+                "worstRegime"
+            ]["key"],
+            "worstActionPair": validation["lossLocator"][
+                "worstActionPair"
+            ]["key"],
+        }
     if not isinstance(decision, dict):
+        if rl_summary is not None:
+            return {
+                "available": True,
+                "reason": None,
+                "runId": value["runId"],
+                "resultHash": value["resultHash"],
+                "portfolioMechanicalDecisionHash": value.get(
+                    "portfolioMechanicalDecisionHash"
+                ),
+                "portfolioSizingAnatomyHash": value.get(
+                    "portfolioSizingAnatomyHash"
+                ),
+                "portfolioStrategyViabilityHash": value.get(
+                    "portfolioStrategyViabilityHash"
+                ),
+                "portfolioSignalMonetizationHash": value.get(
+                    "portfolioSignalMonetizationHash"
+                ),
+                "rlFactorFusionDiagnosisHash": value.get(
+                    "rlFactorFusionDiagnosisHash"
+                ),
+                "portfolio": None,
+                "rl": rl_summary,
+            }
         return {
             "available": False,
-            "reason": "not-portfolio-leader",
+            "reason": "no-supported-leader-diagnosis",
             "runId": value.get("runId"),
             "resultHash": value.get("resultHash"),
             "portfolioMechanicalDecisionHash": value.get(
@@ -177,7 +279,11 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
             "portfolioSignalMonetizationHash": value.get(
                 "portfolioSignalMonetizationHash"
             ),
+            "rlFactorFusionDiagnosisHash": value.get(
+                "rlFactorFusionDiagnosisHash"
+            ),
             "portfolio": None,
+            "rl": None,
         }
     signal = decision["signalGate"]
     target = decision["targetGate"]
@@ -290,6 +396,9 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
         "portfolioSignalMonetizationHash": value.get(
             "portfolioSignalMonetizationHash"
         ),
+        "rlFactorFusionDiagnosisHash": value.get(
+            "rlFactorFusionDiagnosisHash"
+        ),
         "portfolio": {
             "timestamp": decision["timestamp"],
             "family": signal["family"],
@@ -307,6 +416,7 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
             "viability": viability_summary,
             "monetization": monetization_summary,
         },
+        "rl": None,
     }
 
 
@@ -661,6 +771,89 @@ def signal_monetization_markdown_lines(
         lines.append(
             f"| {delta['label']} | "
             f"{_signed_percent(delta['annualizedContributionDelta'])} |"
+        )
+    lines.append("")
+    return lines
+
+
+def rl_factor_fusion_diagnosis_markdown_lines(
+    support: dict[str, Any],
+    *,
+    heading: str,
+    lane_name: str | None = None,
+) -> list[str]:
+    """Render the frozen candidate-to-adaptive-value diagnosis."""
+
+    fusion = support.get("rlFactorFusionDiagnosis")
+    if not isinstance(fusion, dict) or not fusion.get("available"):
+        return []
+    diagnosis = fusion["diagnosis"]
+    validation = fusion["validation"]
+    candidate = validation["candidateFactor"]
+    transmission = validation["adaptiveTransmission"]
+    stability = validation["stability"]
+    losses = validation["lossLocator"]
+    prefix = f"{lane_name}: " if lane_name else ""
+    lines = [
+        heading,
+        "",
+        f"- {prefix}Validation diagnosis / next research focus: "
+        f"`{diagnosis['stage']}` / `{diagnosis['iterationFocus']}`",
+        f"- Interpretation: {diagnosis['explanation']}",
+        f"- Candidate factor assessment: `{candidate['assessment']}`; "
+        "fixed-sleeve Sharpe delta versus balanced "
+        f"`{candidate['fixedSleeveSharpeDeltaVsBalanced']}`; same-pretrade "
+        "one-step reward delta versus balanced "
+        f"`{candidate['meanLocalRewardDeltaVsBalanced']}`.",
+        "- Candidate selected / locally best / local-best capture: "
+        f"`{candidate['selectedFrequency']}` / "
+        f"`{candidate['localBestFrequency']}` / "
+        f"`{candidate['oracleCaptureRate']}`.",
+        "- Validation mean-trial full-path gross edge / incremental cost / "
+        "net active return: "
+        f"`{transmission['meanTrialGrossActiveReturn']}` / "
+        f"`{transmission['meanTrialIncrementalCost']}` / "
+        f"`{transmission['meanTrialNetActiveReturn']}`.",
+        "- Validation net-Sharpe advantage / information ratio / positive net "
+        "trial-path rate: "
+        f"`{transmission['meanSharpeAdvantageVsSelectedBaseline']}` / "
+        f"`{transmission['informationRatio']}` / "
+        f"`{stability['positiveNetTrialRate']}`.",
+        "- Worst causal regime / action pair / switch state / asset gross "
+        "contributor: "
+        f"`{losses['worstRegime']['key']}` / "
+        f"`{losses['worstActionPair']['key']}` / "
+        f"`{losses['worstSwitchState']['key']}` / "
+        f"`{losses['worstAssetGrossContribution']['asset']}`.",
+        f"- Fusion diagnosis hash: "
+        f"`{support['rlFactorFusionDiagnosisHash']}`",
+        "- Local opportunity is a same-pretrade, one-step, ex-post audit. "
+        "Adaptive transmission uses independent complete policy paths. "
+        "Neither enters training, policy selection, KEEP/REVERT, or trading.",
+        "- Authority: `research-prioritization-only`; selection split: "
+        "`validation`; test enters diagnosis: `False`; trading authority: "
+        "`none`.",
+        "",
+        "| Split / role | Candidate fixed Δ Sharpe | Candidate local Δ reward "
+        "| Gross edge → net active | Sharpe advantage | Positive net trials |",
+        "| --- | --- | --- | --- | --- | --- |",
+    ]
+    for split_name, key in (
+        ("validation", "validation"),
+        ("test", "testAudit"),
+    ):
+        split = fusion[key]
+        split_candidate = split["candidateFactor"]
+        split_transmission = split["adaptiveTransmission"]
+        split_stability = split["stability"]
+        lines.append(
+            f"| `{split_name}` / `{split['role']}` | "
+            f"{split_candidate['fixedSleeveSharpeDeltaVsBalanced']:+.4f} | "
+            f"{split_candidate['meanLocalRewardDeltaVsBalanced']:+.6f} | "
+            f"{_signed_percent(split_transmission['meanTrialGrossActiveReturn'])} "
+            f"→ {_signed_percent(split_transmission['meanTrialNetActiveReturn'])} | "
+            f"{split_transmission['meanSharpeAdvantageVsSelectedBaseline']:+.4f} | "
+            f"{split_stability['positiveNetTrialRate']:.2%} |"
         )
     lines.append("")
     return lines

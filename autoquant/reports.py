@@ -14,6 +14,7 @@ from typing import Any
 from .decision_support import (
     build_leader_decision_support,
     mechanical_decision_markdown_lines,
+    rl_factor_fusion_diagnosis_markdown_lines,
     signal_monetization_markdown_lines,
     sizing_anatomy_markdown_lines,
     strategy_viability_markdown_lines,
@@ -847,6 +848,12 @@ def _render_markdown(report: dict[str, Any]) -> str:
                 heading=(
                     "## Frozen leader-Run signal monetization bridge"
                 ),
+            )
+        )
+        lines.extend(
+            rl_factor_fusion_diagnosis_markdown_lines(
+                leader_decision_support,
+                heading="## Frozen leader-Run RL factor-fusion diagnosis",
             )
         )
     policy_rationale = leader_run["metrics"].get("policy_rationale")

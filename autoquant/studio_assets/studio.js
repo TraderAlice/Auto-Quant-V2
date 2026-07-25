@@ -60,7 +60,19 @@ const percent = (value) => {
 const reportDecisionProof = (report) => {
   const support = report?.leaderDecisionSupport;
   const portfolio = support?.portfolio;
-  if (!support?.available || !portfolio) return "";
+  const rl = support?.rl;
+  if (!support?.available) return "";
+  if (rl) {
+    return `
+      <div class="report-decision-proof">
+        <small>Frozen RL factor-fusion diagnosis</small>
+        <b>${escapeHtml(rl.stage)} · focus ${escapeHtml(rl.iterationFocus)}</b>
+        <span>${escapeHtml(rl.candidateAssessment)} · candidate fixed Δ Sharpe ${signedMetric(rl.candidateFixedSharpeDeltaVsBalanced)} · local Δ reward ${signedMetric(rl.candidateLocalRewardDeltaVsBalanced)}</span>
+        <span>gross ${signedPercent(rl.grossActiveReturn)} · cost ${signedPercent(rl.incrementalCost)} · net ${signedPercent(rl.netActiveReturn)} · Sharpe Δ ${signedMetric(rl.sharpeAdvantage)}</span>
+        <span>${percent(rl.positiveNetTrialRate)} positive net trials · worst ${escapeHtml(rl.worstRegime)} · ${escapeHtml(rl.worstActionPair)} · authority none</span>
+      </div>`;
+  }
+  if (!portfolio) return "";
   const sizing = portfolio.sizing;
   const viability = portfolio.viability;
   const monetization = portfolio.monetization;
@@ -3095,6 +3107,85 @@ function renderRlIncremental(explorer) {
     </p>`;
 }
 
+function renderRlFusionDiagnosis(explorer) {
+  const root = element("rl-fusion-diagnosis");
+  const fusion = explorer.factorFusionDiagnosis;
+  if (!fusion?.available) {
+    root.innerHTML = `
+      <div class="rl-behavior-empty">
+        Legacy Run: candidate-factor fusion diagnosis evidence is unavailable.
+      </div>`;
+    return;
+  }
+  const diagnosis = fusion.diagnosis;
+  const validation = fusion.validation;
+  const candidate = validation.candidateFactor;
+  const policy = validation.policySelection;
+  const transmission = validation.adaptiveTransmission;
+  const stability = validation.stability;
+  const losses = validation.lossLocator;
+  const test = fusion.testAudit;
+  const tone =
+    diagnosis.stage === "adaptive-value-positive" ? "positive" : "adverse";
+  root.innerHTML = `
+    <div class="rl-fusion-diagnosis ${tone}">
+      <span>
+        <small>Where adaptive value stops</small>
+        <b>${escapeHtml(diagnosis.stage.replaceAll("-", " ").toUpperCase())}</b>
+        <i>next focus · ${escapeHtml(diagnosis.iterationFocus.replaceAll("-", " "))}</i>
+      </span>
+      <p>${escapeHtml(diagnosis.explanation)}</p>
+    </div>
+    <div class="rl-fusion-chain" role="list" aria-label="Validation RL factor-fusion value chain">
+      <span class="${candidate.fixedSleeveSharpeDeltaVsBalanced > 0 ? "positive" : "adverse"}" role="listitem">
+        <small>01 · Candidate sleeve</small>
+        <b>${signedMetric(candidate.fixedSleeveSharpeDeltaVsBalanced)} Δ Sharpe</b>
+        <i>${escapeHtml(candidate.assessment.replaceAll("-", " "))}</i>
+      </span>
+      <span class="${candidate.meanLocalRewardDeltaVsBalanced > 0 ? "positive" : "adverse"}" role="listitem">
+        <small>02 · Local opportunity capture</small>
+        <b>${percent(candidate.oracleCaptureRate)} captured</b>
+        <i>${percent(candidate.selectedFrequency)} selected · ${percent(candidate.localBestFrequency)} locally best</i>
+      </span>
+      <span class="${transmission.meanTrialGrossActiveReturn > 0 ? "positive" : "adverse"}" role="listitem">
+        <small>03 · Adaptive book selection</small>
+        <b>${signedPercent(transmission.meanTrialGrossActiveReturn)}</b>
+        <i>gross active · independent paths</i>
+      </span>
+      <span class="${transmission.meanTrialIncrementalCost <= 0 ? "positive" : "warning"}" role="listitem">
+        <small>04 · Incremental cost</small>
+        <b>${signedPercent(transmission.meanTrialIncrementalCost)}</b>
+        <i>${percent(transmission.policySwitchRate)} policy switches</i>
+      </span>
+      <span class="${transmission.meanTrialNetActiveReturn > 0 && transmission.meanSharpeAdvantageVsSelectedBaseline > 0 ? "positive" : "adverse"}" role="listitem">
+        <small>05 · Stable net adaptive value</small>
+        <b>${signedPercent(transmission.meanTrialNetActiveReturn)}</b>
+        <i>Sharpe Δ ${signedMetric(transmission.meanSharpeAdvantageVsSelectedBaseline)} · ${percent(stability.positiveNetTrialRate)} positive trials</i>
+      </span>
+    </div>
+    <div class="rl-fusion-audit">
+      <span><small>Selected = local best</small><b>${percent(policy.oracleHitRate)}</b></span>
+      <span><small>Mean selected rank</small><b>${metric(policy.meanSelectedRank)}</b></span>
+      <span><small>Active-day win</small><b>${percent(transmission.conditionalActiveWinRate)}</b></span>
+      <span><small>Worst causal regime</small><b>${escapeHtml(losses.worstRegime.key)}</b></span>
+      <span><small>Worst action pair</small><b>${escapeHtml(losses.worstActionPair.key)}</b></span>
+      <span><small>Worst switch state</small><b>${escapeHtml(losses.worstSwitchState.key)}</b></span>
+    </div>
+    <div class="rl-fusion-test">
+      <small>TEST · VISIBLE AUDIT ONLY · NEVER ENTERS DIAGNOSIS</small>
+      <span>candidate Δ Sharpe <b>${signedMetric(test.candidateFactor.fixedSleeveSharpeDeltaVsBalanced)}</b></span>
+      <span>gross → net active <b>${signedPercent(test.adaptiveTransmission.meanTrialGrossActiveReturn)} → ${signedPercent(test.adaptiveTransmission.meanTrialNetActiveReturn)}</b></span>
+      <span>Sharpe advantage <b>${signedMetric(test.adaptiveTransmission.meanSharpeAdvantageVsSelectedBaseline)}</b></span>
+      <span>positive net trials <b>${percent(test.stability.positiveNetTrialRate)}</b></span>
+    </div>
+    <p class="rl-fusion-disclosure">
+      Candidate fixed-sleeve evidence and same-pretrade one-step opportunity are distinct.
+      Adaptive gross/cost/net uses independent complete policy paths. Local best is ex-post;
+      Q margins are uncalibrated; validation alone sets the research focus. No training,
+      KEEP/REVERT, promotion, order, account, or trading authority.
+    </p>`;
+}
+
 function renderRlBehavior(explorer) {
   const root = element("rl-behavior");
   const behavior = explorer.policyBehavior;
@@ -3361,6 +3452,7 @@ function renderRlExplorer(project) {
   renderRlTrials(explorer);
   renderRlBaselines(explorer);
   renderRlDetail(explorer);
+  renderRlFusionDiagnosis(explorer);
   renderRlIncremental(explorer);
   renderRlBehavior(explorer);
   renderRlOpportunity(explorer);

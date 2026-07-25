@@ -1789,6 +1789,31 @@ def _run_rl(args: argparse.Namespace) -> CommandResult:
             f"{validation_incremental['activeDecisionRate']:.3%} of days\n"
         )
     )
+    fusion_diagnosis = diagnostics["factorFusionDiagnosis"]
+    validation_fusion = (
+        fusion_diagnosis["validation"]
+        if fusion_diagnosis["available"]
+        else None
+    )
+    fusion_diagnosis_line = (
+        "RL factor-fusion diagnosis: legacy evidence unavailable\n"
+        if validation_fusion is None
+        else (
+            "Validation RL factor fusion: "
+            f"{fusion_diagnosis['diagnosis']['stage']} · focus "
+            f"{fusion_diagnosis['diagnosis']['iterationFocus']} · candidate "
+            f"{validation_fusion['candidateFactor']['assessment']} · "
+            "gross/cost/net active "
+            f"{validation_fusion['adaptiveTransmission']['meanTrialGrossActiveReturn']:.6g}/"
+            f"{validation_fusion['adaptiveTransmission']['meanTrialIncrementalCost']:.6g}/"
+            f"{validation_fusion['adaptiveTransmission']['meanTrialNetActiveReturn']:.6g} · "
+            "Sharpe advantage "
+            f"{validation_fusion['adaptiveTransmission']['meanSharpeAdvantageVsSelectedBaseline']:.6g} · "
+            "positive net trials "
+            f"{validation_fusion['stability']['positiveNetTrialRate']:.3%} · "
+            "research prioritization only\n"
+        )
+    )
     return CommandResult(
         "run.rl",
         diagnostics,
@@ -1805,6 +1830,7 @@ def _run_rl(args: argparse.Namespace) -> CommandResult:
             f"{diagnostics['actionPath']['sampledRows']} points\n"
             f"{policy_behavior_line}"
             f"{contextual_line}"
+            f"{fusion_diagnosis_line}"
             f"{incremental_line}"
             f"{factor_opportunity_line}"
             f"{execution_risk_line}"

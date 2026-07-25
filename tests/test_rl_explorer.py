@@ -278,6 +278,58 @@ class RlPolicyEvidenceExplorerTests(unittest.TestCase):
                     for item in diagnostics["training"]
                 )
             )
+            fusion_diagnosis = diagnostics["factorFusionDiagnosis"]
+            self.assertTrue(fusion_diagnosis["available"])
+            self.assertEqual(
+                fusion_diagnosis["authority"],
+                "research-prioritization-only",
+            )
+            self.assertEqual(
+                fusion_diagnosis["tradingAuthority"],
+                "none",
+            )
+            self.assertEqual(
+                fusion_diagnosis["validation"]["role"],
+                "selection",
+            )
+            self.assertEqual(
+                fusion_diagnosis["testAudit"]["role"],
+                "visible-audit",
+            )
+            self.assertFalse(
+                fusion_diagnosis["semantics"]["testEntersDiagnosis"]
+            )
+            validation_diagnosis = fusion_diagnosis["validation"]
+            candidate = validation_diagnosis["candidateFactor"]
+            balanced_validation = [
+                item["validation"]["netSharpe"]
+                for item in diagnostics["baselines"]
+                if item["name"] == "fixed:balanced"
+            ]
+            self.assertAlmostEqual(
+                candidate["fixedSleeveSharpeDeltaVsBalanced"],
+                diagnostics["factorFusion"]["candidateValidation"]["mean"]
+                - sum(balanced_validation) / len(balanced_validation),
+            )
+            transmission = validation_diagnosis["adaptiveTransmission"]
+            self.assertAlmostEqual(
+                transmission["meanTrialGrossActiveReturn"]
+                - transmission["meanTrialIncrementalCost"],
+                transmission["meanTrialNetActiveReturn"],
+            )
+            self.assertEqual(
+                validation_diagnosis["stability"]["trialPaths"],
+                len(diagnostics["trials"]),
+            )
+            self.assertEqual(
+                set(validation_diagnosis["lossLocator"]),
+                {
+                    "worstRegime",
+                    "worstActionPair",
+                    "worstSwitchState",
+                    "worstAssetGrossContribution",
+                },
+            )
             jsonschema.validate(diagnostics, RL_DIAGNOSTICS_JSON_SCHEMA)
 
             snapshot = build_studio_snapshot(workspace.root_dir)
@@ -351,9 +403,11 @@ class RlPolicyEvidenceExplorerTests(unittest.TestCase):
             self.assertFalse(legacy["policyBehavior"]["available"])
             self.assertFalse(legacy["factorOpportunity"]["available"])
             self.assertFalse(legacy["incrementalAttribution"]["available"])
+            self.assertFalse(legacy["factorFusionDiagnosis"]["available"])
             self.assertIsNone(
                 legacy["protocol"]["configuration"].get("learningContract")
             )
+            jsonschema.validate(legacy, RL_DIAGNOSTICS_JSON_SCHEMA)
 
     def test_limits_and_rehashed_action_corruption_fail_structurally(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
