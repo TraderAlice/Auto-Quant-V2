@@ -125,10 +125,12 @@ The first viewport answers:
 6. What exact headless command advances or inspects the work?
 7. What verified evidence changed most recently?
 
-The visual system is a dense research observatory rather than a generic admin
-dashboard. It supports keyboard focus, narrow screens, reduced motion, empty
-Projects, invalid evidence diagnostics, manual refresh, and bounded automatic
-refresh.
+The visual system is a dense quant research desk rather than a generic admin
+dashboard or a static report. The persistent rail names the current
+Workspace → Project → Study → Run context and provides section navigation
+through the long evidence surface. It supports keyboard focus, narrow screens,
+reduced motion, empty Projects, invalid evidence diagnostics, manual refresh,
+and bounded automatic refresh.
 
 Before a delegated Session exists, the first viewport prioritizes mandate,
 requested assets versus research universe, dataset authority, immutable

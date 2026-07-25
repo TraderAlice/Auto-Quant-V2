@@ -19,7 +19,7 @@
   --amber: #efb95f;
   --red: #ee786f;
   --mono: "SFMono-Regular", "Roboto Mono", Consolas, monospace;
-  --rail: 196px;
+  --rail: 216px;
   --inspector: 304px;
 }
 
@@ -268,6 +268,65 @@ a:focus-visible,
   text-align: center;
 }
 
+.workspace-context {
+  margin: -2px 0 17px;
+  padding: 12px 10px;
+  border: 1px solid var(--line);
+  background:
+    linear-gradient(135deg, rgb(199 243 109 / 5%), transparent 52%),
+    var(--panel-soft);
+}
+
+.workspace-context > strong {
+  display: block;
+  overflow: hidden;
+  color: #d7dacd;
+  font-size: 10px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-context dl {
+  display: grid;
+  gap: 7px;
+  margin: 12px 0 0;
+}
+
+.workspace-context dl > div {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  align-items: baseline;
+  gap: 7px;
+  padding-top: 7px;
+  border-top: 1px solid rgb(42 48 36 / 76%);
+}
+
+.workspace-context dt,
+.workspace-context dd {
+  min-width: 0;
+  margin: 0;
+  font: 7px/1.35 var(--mono);
+}
+
+.workspace-context dt {
+  color: var(--faint);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.workspace-context dd {
+  overflow: hidden;
+  color: #aeb5a5;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rail-projects-heading {
+  margin-top: 0;
+}
+
 #project-list {
   display: grid;
   gap: 5px;
@@ -347,6 +406,73 @@ a:focus-visible,
   background: var(--amber);
 }
 
+.desk-nav {
+  display: grid;
+  gap: 2px;
+  margin-top: 22px;
+  padding-top: 15px;
+  border-top: 1px solid var(--line);
+}
+
+.desk-nav::before {
+  content: "Research desk";
+  margin: 0 6px 7px;
+  color: var(--faint);
+  font: 7px var(--mono);
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.desk-nav-button {
+  width: 100%;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 8px;
+  color: #81887a;
+  border: 0;
+  border-left: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.desk-nav-button:hover {
+  color: #bdc2b5;
+  background: rgb(255 255 255 / 2.5%);
+}
+
+.desk-nav-button.active {
+  color: var(--text);
+  border-left-color: var(--acid);
+  background: rgb(199 243 109 / 5%);
+}
+
+.desk-nav-button > i {
+  color: #596052;
+  font: 7px var(--mono);
+  font-style: normal;
+}
+
+.desk-nav-button.active > i {
+  color: var(--acid);
+}
+
+.desk-nav-button > span {
+  overflow: hidden;
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.desk-nav-button > small {
+  color: var(--faint);
+  font: 6px var(--mono);
+  white-space: nowrap;
+}
+
 .rail-note {
   margin-top: auto;
   padding: 13px 8px 4px;
@@ -370,27 +496,32 @@ a:focus-visible,
 main {
   grid-area: main;
   min-width: 0;
-  padding: 30px clamp(20px, 3vw, 42px) 80px;
+  padding: 22px clamp(20px, 3vw, 42px) 80px;
   background-image:
     linear-gradient(rgb(255 255 255 / 2%) 1px, transparent 1px),
     linear-gradient(90deg, rgb(255 255 255 / 2%) 1px, transparent 1px);
   background-size: 28px 28px;
 }
 
+main > section,
+main > div[id] {
+  scroll-margin-top: 86px;
+}
+
 .research-hero {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 14px;
+  gap: 11px;
   min-height: 0;
-  padding-bottom: 20px;
+  padding-bottom: 16px;
   border-bottom: 1px solid var(--line-strong);
 }
 
 .hero-heading {
   display: grid;
-  grid-template-columns: minmax(250px, 0.72fr) minmax(430px, 1.28fr);
+  grid-template-columns: minmax(250px, 0.75fr) minmax(430px, 1.25fr);
   align-items: stretch;
-  gap: 24px;
+  gap: 18px;
 }
 
 .hero-copy {
@@ -406,9 +537,9 @@ main {
 
 .hero-copy h1 {
   max-width: 980px;
-  margin: 9px 0 8px;
-  font-size: clamp(28px, 3.2vw, 44px);
-  line-height: 1.02;
+  margin: 7px 0 6px;
+  font-size: clamp(27px, 2.7vw, 38px);
+  line-height: 1.04;
   letter-spacing: -0.045em;
 }
 
@@ -416,15 +547,15 @@ main {
   max-width: 620px;
   margin: 0;
   color: var(--muted);
-  font-size: 12px;
-  line-height: 1.65;
+  font-size: 11px;
+  line-height: 1.55;
 }
 
 .decision-brief {
   min-width: 0;
   display: grid;
   align-content: center;
-  padding: 15px 17px;
+  padding: 12px 15px;
   border: 1px solid var(--line);
   border-left: 2px solid var(--cyan);
   background:
@@ -490,7 +621,7 @@ main {
 }
 
 .decision-brief h2 {
-  margin: 10px 0 5px;
+  margin: 8px 0 4px;
   color: #ece9df;
   font-size: 17px;
   line-height: 1.15;
@@ -506,8 +637,8 @@ main {
 
 .decision-brief footer {
   align-items: end;
-  margin-top: 11px;
-  padding-top: 10px;
+  margin-top: 9px;
+  padding-top: 8px;
   border-top: 1px solid var(--line);
 }
 
@@ -541,7 +672,7 @@ main {
 
 .score-cell {
   min-width: 0;
-  padding: 14px 12px;
+  padding: 11px 12px;
   border-left: 1px solid var(--line);
 }
 
@@ -556,7 +687,7 @@ main {
 }
 
 .score-cell small {
-  margin-bottom: 12px;
+  margin-bottom: 9px;
   color: #777e71;
   font: 7px var(--mono);
   letter-spacing: 0.11em;
@@ -565,7 +696,7 @@ main {
 
 .score-cell strong {
   color: #f4f0e5;
-  font: 23px var(--mono);
+  font: 20px var(--mono);
   letter-spacing: -0.08em;
 }
 
@@ -4412,18 +4543,18 @@ main {
     grid-template:
       "top top" 66px
       "rail main" auto
-      / 176px minmax(0, 1fr);
+      / 184px minmax(0, 1fr);
   }
 
   .studio-shell.inspector-collapsed {
     grid-template:
       "top top" 66px
       "rail main" auto
-      / 176px minmax(0, 1fr);
+      / 184px minmax(0, 1fr);
   }
 
   .topbar {
-    grid-template-columns: 176px minmax(0, 1fr);
+    grid-template-columns: 184px minmax(0, 1fr);
   }
 
   .sync-controls {
@@ -4505,7 +4636,9 @@ main {
   }
 
   .rail-heading,
-  .rail-note {
+  .rail-note,
+  .workspace-context,
+  .desk-nav {
     display: none;
   }
 

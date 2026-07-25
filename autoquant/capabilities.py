@@ -821,7 +821,7 @@ CLI_COMMANDS = [
     descriptor(
         "studio.serve",
         "aq studio serve <path> [--project ID] [--host HOST] [--port PORT] [--no-open]",
-        "Serve the packaged local read-only research observatory until interrupted.",
+        "Serve the packaged local read-only quant research workbench until interrupted.",
         "long-running-server",
         [
             PATH_ARGUMENT,

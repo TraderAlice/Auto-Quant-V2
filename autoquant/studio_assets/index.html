@@ -6,7 +6,7 @@
     <meta name="color-scheme" content="dark">
     <meta
       name="description"
-      content="AutoQuant Studio — a local read-only observatory for quantitative research evidence."
+      content="AutoQuant Studio — a local read-only workbench for quantitative research evidence."
     >
     <title>AutoQuant Studio</title>
     <link rel="stylesheet" href="/assets/studio.css">
@@ -20,7 +20,7 @@
           <span class="brand-mark" aria-hidden="true">AQ</span>
           <span>
             <b>AutoQuant</b>
-            <small>Research observatory</small>
+            <small>Quant research desk</small>
           </span>
         </div>
         <div class="source-lockup">
@@ -52,10 +52,32 @@
 
       <aside class="project-rail" aria-label="Research Projects">
         <div class="rail-heading">
+          <span>Workspace</span>
+          <b id="workspace-scope">LOCAL</b>
+        </div>
+        <div class="workspace-context" aria-label="Current research context">
+          <strong id="rail-workspace">Loading…</strong>
+          <dl>
+            <div>
+              <dt>Project</dt>
+              <dd id="rail-project">—</dd>
+            </div>
+            <div>
+              <dt>Study</dt>
+              <dd id="rail-study">—</dd>
+            </div>
+            <div>
+              <dt>Run</dt>
+              <dd id="rail-run">—</dd>
+            </div>
+          </dl>
+        </div>
+        <div class="rail-heading rail-projects-heading">
           <span>Projects</span>
           <b id="project-count">0</b>
         </div>
         <nav id="project-list"></nav>
+        <nav class="desk-nav" id="desk-nav" aria-label="Research desk sections"></nav>
         <div class="rail-note">
           <span>Authority</span>
           <p>Verified Core evidence. Mutable progress is marked live.</p>
@@ -63,7 +85,7 @@
       </aside>
 
       <main id="research-main" tabindex="-1">
-        <section class="research-hero" aria-labelledby="project-title">
+        <section class="research-hero" id="research-overview" aria-labelledby="project-title">
           <div class="hero-heading">
             <div class="hero-copy">
               <span class="eyebrow" id="project-state">RESEARCH PROJECT</span>
@@ -439,7 +461,7 @@
           <div class="rl-warning" id="rl-warning"></div>
         </section>
 
-        <section class="pulse-section" aria-labelledby="pulse-title">
+        <section class="pulse-section" id="research-pulse" aria-labelledby="pulse-title">
           <header class="section-header">
             <span>
               <small>LIVE RESEARCH STATE</small>
@@ -486,7 +508,7 @@
           </article>
         </section>
 
-        <div class="workbench-grid">
+        <div class="workbench-grid" id="research-iteration">
           <section class="trajectory-panel" aria-labelledby="trajectory-title">
             <header class="section-header compact">
               <span>
@@ -515,7 +537,7 @@
           </section>
         </div>
 
-        <section class="catalog-section" aria-labelledby="catalog-title">
+        <section class="catalog-section" id="research-catalog" aria-labelledby="catalog-title">
           <header class="section-header">
             <span>
               <small>FIXED QUESTIONS &amp; EXECUTIONS</small>

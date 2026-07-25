@@ -585,6 +585,113 @@ function renderProjects() {
   });
 }
 
+const deskSectionDefinitions = [
+  { id: "research-overview", label: "Decision" },
+  { id: "research-program-status", label: "Research chain" },
+  { id: "research-handoff", label: "Handoff" },
+  { id: "evidence-workbench", label: "Evidence" },
+  { id: "research-pulse", label: "Sessions" },
+  { id: "decision-matrix", label: "Comparison" },
+  { id: "research-iteration", label: "Iteration" },
+  { id: "research-catalog", label: "Studies & Runs" },
+];
+
+const deskSectionMeta = (project, id) => {
+  const program = project.researchProgramStatus;
+  const selected = selectedSession(project);
+  if (id === "research-overview") return "NOW";
+  if (id === "research-program-status") {
+    return `${program?.summary?.lanes ?? 0} LANES`;
+  }
+  if (id === "research-handoff") {
+    return project.intake || project.counts.delegatedSessions ? "OPENALICE" : "LOCAL";
+  }
+  if (id === "evidence-workbench") {
+    return String(state.evidenceLane ?? "RUN").toUpperCase();
+  }
+  if (id === "research-pulse") {
+    return project.counts.activeSessions
+      ? `${project.counts.activeSessions} ACTIVE`
+      : `${project.counts.sessions} TOTAL`;
+  }
+  if (id === "decision-matrix") {
+    return selected ? "LEADER" : "—";
+  }
+  if (id === "research-iteration") {
+    return `${project.counts.campaigns} CAMPAIGNS`;
+  }
+  if (id === "research-catalog") {
+    return `${project.counts.studies} / ${project.counts.runs}`;
+  }
+  return "";
+};
+
+function updateDeskNavActive() {
+  const buttons = Array.from(document.querySelectorAll("[data-desk-target]"));
+  if (!buttons.length) return;
+  let current = buttons[0].dataset.deskTarget;
+  const atDocumentEnd =
+    window.scrollY + window.innerHeight >=
+    document.documentElement.scrollHeight - 8;
+  if (atDocumentEnd) {
+    current = buttons.at(-1).dataset.deskTarget;
+  } else {
+    for (const button of buttons) {
+      const target = element(button.dataset.deskTarget);
+      if (target && target.getBoundingClientRect().top <= 118) {
+        current = button.dataset.deskTarget;
+      }
+    }
+  }
+  for (const button of buttons) {
+    const active = button.dataset.deskTarget === current;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-current", active ? "location" : "false");
+  }
+}
+
+function renderDeskContext(project) {
+  const source = state.snapshot?.source;
+  const workspaceName =
+    source?.workspace?.name ??
+    String(source?.rootDir ?? "Local workspace").split("/").filter(Boolean).at(-1);
+  element("workspace-scope").textContent = String(source?.scope ?? "local").toUpperCase();
+  element("rail-workspace").textContent = workspaceName || "Local workspace";
+  element("rail-project").textContent = project?.name ?? "No project";
+  const study = project ? projectFocusStudy(project) : null;
+  const run = project ? projectFocusRun(project) : null;
+  element("rail-study").textContent = study?.name ?? study?.id ?? "No study";
+  element("rail-run").textContent = run?.id ? shortHash(run.id) : "No run";
+
+  if (!project) {
+    element("desk-nav").innerHTML = "";
+    return;
+  }
+  const visible = deskSectionDefinitions.filter(({ id }) => {
+    const target = element(id);
+    return target && !target.hidden;
+  });
+  element("desk-nav").innerHTML = visible
+    .map(
+      ({ id, label }, index) => `
+        <button class="desk-nav-button" type="button" data-desk-target="${id}">
+          <i>${String(index + 1).padStart(2, "0")}</i>
+          <span>${escapeHtml(label)}</span>
+          <small>${escapeHtml(deskSectionMeta(project, id))}</small>
+        </button>`,
+    )
+    .join("");
+  document.querySelectorAll("[data-desk-target]").forEach((button) => {
+    button.addEventListener("click", () => {
+      element(button.dataset.deskTarget)?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  });
+  updateDeskNavActive();
+}
+
 function renderScoreboard(project) {
   const counts = project.counts;
   const program = project.researchProgramStatus;
@@ -3508,6 +3615,7 @@ function renderEmptyWorkspace(message = "Create a Project with aq project create
   element("inspector-kind").textContent = "WORKSPACE";
   element("inspector-content").innerHTML =
     '<p class="empty-copy">Workspace discovery is ready. Projects remain self-contained.</p>';
+  renderDeskContext(null);
   document.title = "AutoQuant Studio";
   studio.setAttribute("aria-busy", "false");
 }
@@ -3570,6 +3678,7 @@ function render() {
   renderCatalog(project);
   renderInspector(project);
   renderEvidenceWorkbench(project);
+  renderDeskContext(project);
   bindCopyCommands();
   studio.setAttribute("aria-busy", "false");
 }
@@ -3615,6 +3724,7 @@ function scheduleRefresh() {
 }
 
 element("refresh").addEventListener("click", () => refresh());
+window.addEventListener("scroll", updateDeskNavActive, { passive: true });
 element("inspector-toggle").addEventListener("click", (event) => {
   state.inspectorOpen = !state.inspectorOpen;
   studio.classList.toggle("inspector-collapsed", !state.inspectorOpen);
