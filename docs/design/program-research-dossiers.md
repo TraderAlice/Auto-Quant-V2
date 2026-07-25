@@ -115,12 +115,16 @@ non-file entries are rejected.
 - canonical Research Program manifest plus hash;
 - every included lane's Study identity;
 - Report id/hash, analysis/evidence hashes, Session id, title, summary,
-  findings, selection integrity, and Harness;
+  findings, selection integrity, Harness, and the Report's exact optional
+  leader-decision-support snapshot;
 - leader Run id/hash, subject/source/dependency identity, objective, metrics,
   artifacts, and dataset;
 - request-derived Portfolio Mandate identity, including its fixed
   covariance/volatility policy, and complete frozen metrics for every
   applicable lane;
+- Portfolio leader timestamp, state transitions, next percentile conditions,
+  raw/governed/pretrade/executed weights, turnover/risk gate, and decision
+  hash when the included Report contains that snapshot;
 - Portfolio liquidity-capacity policy, validation envelope, coverage, and
   reference-NAV breach evidence when present;
 - Portfolio and governed-RL executed-book forecast coverage, pretrade breach,
@@ -133,6 +137,11 @@ The manifest is written last after hashing the other three files. Loading
 verifies file hashes, canonical Markdown, normalized analysis, derived id,
 intake/program identity, every referenced immutable Report and leader Run,
 and exact frozen projections.
+
+The Dossier projection copies this snapshot from the immutable lane Report.
+It does not recompute a latest mechanical decision from the Run catalog.
+Legacy Reports/Dossiers without the optional snapshot remain verifiable and
+are not given synthetic historical evidence.
 
 ## Markdown and OpenAlice
 

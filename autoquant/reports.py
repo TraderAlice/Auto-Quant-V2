@@ -11,6 +11,12 @@ from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+from .decision_support import (
+    build_leader_decision_support,
+    mechanical_decision_markdown_lines,
+    summarize_leader_decision_support,
+    verify_leader_decision_support,
+)
 from .research import list_campaigns, load_campaign
 from .runs import load_run
 from .sessions import (
@@ -67,6 +73,7 @@ class ReportSummary:
     markdown_path: str
     executive_summary: str
     authority: str
+    leader_decision_support: dict[str, Any]
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -81,6 +88,7 @@ class ReportSummary:
             "markdownPath": self.markdown_path,
             "executiveSummary": self.executive_summary,
             "authority": self.authority,
+            "leaderDecisionSupport": self.leader_decision_support,
         }
 
 
@@ -547,6 +555,10 @@ def _session_evidence(
         "runs": run_evidence,
         "experiments": experiment_evidence,
         "campaigns": campaign_evidence,
+        "leaderDecisionSupport": build_leader_decision_support(
+            project,
+            session.manifest["leader"]["runId"],
+        ),
     }
     return snapshot, catalog
 
@@ -806,6 +818,14 @@ def _render_markdown(report: dict[str, Any]) -> str:
                 ]
             )
         lines.append("")
+    leader_decision_support = evidence.get("leaderDecisionSupport")
+    if isinstance(leader_decision_support, dict):
+        lines.extend(
+            mechanical_decision_markdown_lines(
+                leader_decision_support,
+                heading="## Frozen leader-Run mechanical decision",
+            )
+        )
     policy_rationale = leader_run["metrics"].get("policy_rationale")
     validation_policy = (
         policy_rationale.get("validation")
@@ -1376,11 +1396,27 @@ def _verify_frozen_evidence(
         "experiments",
         "campaigns",
     }
+    allowed = required | {"leaderDecisionSupport"}
     if not isinstance(evidence, dict):
         raise AutoQuantValidationError(
             [_issue(path, "report.evidence", "Evidence must be an object")]
         )
-    issues = _strict_keys(evidence, required, f"{path}/evidence")
+    issues = [
+        _issue(
+            f"{path}/evidence/{key}",
+            "schema.missing",
+            f"Missing required field '{key}'",
+        )
+        for key in sorted(required - evidence.keys())
+    ]
+    issues.extend(
+        _issue(
+            f"{path}/evidence/{key}",
+            "schema.unknown",
+            f"Unknown field '{key}'",
+        )
+        for key in sorted(evidence.keys() - allowed)
+    )
     runs = evidence.get("runs")
     experiments = evidence.get("experiments")
     campaigns = evidence.get("campaigns")
@@ -1531,6 +1567,16 @@ def _verify_frozen_evidence(
             issues.append(
                 _issue(path, "report.leader-chain", "Frozen leader differs from KEEP prefix")
             )
+        if "leaderDecisionSupport" in evidence:
+            try:
+                verify_leader_decision_support(
+                    project,
+                    evidence["leaderDecisionSupport"],
+                    expected_leader["runId"],
+                    f"{path}/evidence/leaderDecisionSupport",
+                )
+            except AutoQuantValidationError as error:
+                issues.extend(error.issues)
         expected_run_ids = {
             session.manifest["baseline"]["runId"],
             expected_leader["runId"],
@@ -1680,6 +1726,11 @@ def list_reports(
                 markdown_path=str(report.root_dir / REPORT_MARKDOWN),
                 executive_summary=report.analysis["executiveSummary"],
                 authority=report.report["authority"],
+                leader_decision_support=summarize_leader_decision_support(
+                    report.report["evidence"].get(
+                        "leaderDecisionSupport"
+                    )
+                ),
             )
         )
     return summaries

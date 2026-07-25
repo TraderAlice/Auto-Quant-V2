@@ -221,6 +221,10 @@ uv run aq report show ./quant-workspace \
 Core validates every cited Run, Experiment, Campaign, and Run artifact, then
 freezes `report.json` and deterministically renders `report.md`. Reports are
 quantitative decision support only and have no live-trading authority.
+Portfolio Reports additionally freeze the exact leader Run's historical
+mechanical decision—state transitions, next percentile conditions, weights,
+turnover/risk gate, and decision hash. Project Dossiers inherit those exact
+Report bytes; neither artifact silently changes when a later Run appears.
 OpenAlice should publish the exact Markdown through its own Inbox so OpenAlice
 can stamp authoritative Workspace, Session, and document-revision provenance.
 

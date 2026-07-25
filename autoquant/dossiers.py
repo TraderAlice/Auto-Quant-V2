@@ -12,6 +12,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .decision_support import (
+    mechanical_decision_markdown_lines,
+    summarize_leader_decision_support,
+)
 from .intake import load_project_intake
 from .reports import REPORT_ID, list_reports, load_report
 from .research_program import (
@@ -471,7 +475,7 @@ def _run_projection(run) -> dict[str, Any]:
 
 def _report_projection(report) -> dict[str, Any]:
     frozen_session = report.report["evidence"]["session"]
-    return {
+    projection = {
         "id": report.report["id"],
         "reportHash": report.manifest["reportHash"],
         "analysisHash": report.report["analysisHash"],
@@ -487,10 +491,15 @@ def _report_projection(report) -> dict[str, Any]:
         "leader": frozen_session["leader"],
         "authority": report.report["authority"],
     }
+    if "leaderDecisionSupport" in report.report["evidence"]:
+        projection["leaderDecisionSupport"] = report.report["evidence"][
+            "leaderDecisionSupport"
+        ]
+    return projection
 
 
 def _status_report_projection(report) -> dict[str, Any]:
-    return {
+    projection = {
         "id": report.report["id"],
         "title": report.analysis["title"],
         "executiveSummary": report.analysis["executiveSummary"],
@@ -506,6 +515,13 @@ def _status_report_projection(report) -> dict[str, Any]:
             for finding in report.analysis["findings"]
         ],
     }
+    if "leaderDecisionSupport" in report.report["evidence"]:
+        projection["leaderDecisionSupport"] = (
+            summarize_leader_decision_support(
+                report.report["evidence"]["leaderDecisionSupport"]
+            )
+        )
+    return projection
 
 
 def _current_lane_report(
@@ -1139,6 +1155,16 @@ def _render_markdown(dossier: dict[str, Any]) -> str:
                     ]
                 )
             lines.append("")
+    for lane in evidence["lanes"]:
+        support = lane["report"].get("leaderDecisionSupport")
+        if isinstance(support, dict):
+            lines.extend(
+                mechanical_decision_markdown_lines(
+                    support,
+                    heading="## Frozen mechanical portfolio decision",
+                    lane_name=lane["name"],
+                )
+            )
     capacity_lanes = [
         lane
         for lane in evidence["lanes"]

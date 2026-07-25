@@ -305,6 +305,7 @@ class StudioObservationTests(unittest.TestCase):
                     self.assertIn(".mechanical-chain", css)
                     self.assertIn(".mechanical-table", css)
                     self.assertIn(".trigger-condition", css)
+                    self.assertIn(".report-decision-proof", css)
                     self.assertIn(".inspector-lane", css)
                     self.assertIn(".inspector-collapsed", css)
                     self.assertIn(".rl-opportunity-panel", css)
@@ -327,6 +328,14 @@ class StudioObservationTests(unittest.TestCase):
                     self.assertIn("mandateMarkup", javascript)
                     self.assertIn(
                         "renderPortfolioMechanicalDecision",
+                        javascript,
+                    )
+                    self.assertIn(
+                        "reportDecisionProof",
+                        javascript,
+                    )
+                    self.assertIn(
+                        "Frozen leader decision",
                         javascript,
                     )
                     self.assertIn(

@@ -237,6 +237,23 @@ class ResearchHandoffTests(unittest.TestCase):
 
             self.assertEqual(report.report["tradingAuthority"], "none")
             self.assertEqual(report.report["request"], research_request())
+            decision_support = report.report["evidence"][
+                "leaderDecisionSupport"
+            ]
+            self.assertEqual(
+                decision_support["runId"],
+                baseline_id,
+            )
+            self.assertEqual(
+                decision_support["resultHash"],
+                report.report["evidence"]["runs"][0]["resultHash"],
+            )
+            self.assertIsNone(
+                decision_support["portfolioMechanicalDecisionHash"]
+            )
+            self.assertIsNone(
+                decision_support["portfolioMechanicalDecision"]
+            )
             self.assertEqual(
                 report.report["evidence"]["selectionIntegrity"][
                     "selectionSplit"
@@ -365,6 +382,7 @@ class ResearchHandoffTests(unittest.TestCase):
                 report_analysis(session.manifest["baseline"]["runId"]),
             )
             historical = json.loads(json.dumps(report.report))
+            historical["evidence"].pop("leaderDecisionSupport")
             integrity = historical["evidence"]["selectionIntegrity"]
             for key in (
                 "researchFamily",
@@ -383,6 +401,10 @@ class ResearchHandoffTests(unittest.TestCase):
             self.assertNotIn(
                 "researchFamily",
                 loaded.report["evidence"]["selectionIntegrity"],
+            )
+            self.assertNotIn(
+                "leaderDecisionSupport",
+                loaded.report["evidence"],
             )
             self.assertIn(
                 "Research selection integrity",

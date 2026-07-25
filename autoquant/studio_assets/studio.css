@@ -782,6 +782,26 @@ main > div[id] {
   box-shadow: inset 0 3px var(--acid);
 }
 
+.report-decision-proof {
+  display: grid;
+  gap: 5px;
+  margin: 12px 0;
+  padding: 9px;
+  border-left: 2px solid var(--acid);
+  background: rgb(184 255 53 / 0.035);
+  font: 7px/1.45 var(--mono);
+}
+
+.report-decision-proof small,
+.report-decision-proof span {
+  color: var(--muted);
+}
+
+.report-decision-proof b {
+  color: #dfe5cf;
+  font-weight: 600;
+}
+
 .handoff-kv {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);

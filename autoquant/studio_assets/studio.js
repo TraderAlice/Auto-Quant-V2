@@ -57,6 +57,18 @@ const percent = (value) => {
   return `${metric(Number(value) * 100)}%`;
 };
 
+const reportDecisionProof = (report) => {
+  const support = report?.leaderDecisionSupport;
+  const portfolio = support?.portfolio;
+  if (!support?.available || !portfolio) return "";
+  return `
+    <div class="report-decision-proof">
+      <small>Frozen leader decision · ${escapeHtml(portfolio.timestamp)}</small>
+      <b>${portfolio.stateChanges} state change${portfolio.stateChanges === 1 ? "" : "s"} · ${percent(portfolio.proposedOneWayTurnover)} proposed / ${percent(portfolio.noTradeOneWay)} band</b>
+      <span>${escapeHtml(portfolio.family)} · ${escapeHtml(portfolio.reason)} · authority none</span>
+    </div>`;
+};
+
 const capital = (value) => {
   if (value === null || value === undefined || Number.isNaN(Number(value))) {
     return "—";
@@ -1137,6 +1149,7 @@ function renderHandoff(project) {
       <small>03 · Decision-support report</small>
       <h3>${escapeHtml(latestReport?.title ?? "Analysis not published")}</h3>
       <p>${escapeHtml(latestReport?.executiveSummary ?? "An Agent supplies strict findings; Core verifies references and renders the report.")}</p>
+      ${reportDecisionProof(latestReport)}
       <span class="status-chip ${latestReport ? "published" : "active"}">${latestReport ? "verified" : "pending"}</span>
       ${copyCommandButton(latestReport ? show : publish)}
     </article>`;
@@ -3633,6 +3646,7 @@ function renderInspector(project) {
       <small>Research report</small>
       <h3>${escapeHtml(latestReport?.title ?? "No report published")}</h3>
       <p>${escapeHtml(latestReport?.executiveSummary ?? (delegation ? "Publish structured analysis when the evidence is ready." : "This manual Session has no delegated report brief."))}</p>
+      ${reportDecisionProof(latestReport)}
       ${delegation ? copyCommandButton(commandFor(session, latestReport ? "report.show" : "report.publish")) : ""}
     </section>
     ${dossierInspectorSection(project)}

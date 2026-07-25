@@ -19,11 +19,12 @@ from autoquant.dossiers import (
     publish_dossier,
 )
 from autoquant.intake import prepare_project_intake
-from autoquant.reports import publish_report
+from autoquant.reports import load_report, publish_report
 from autoquant.research_program import load_research_program
 from autoquant.runs import execute_study
 from autoquant.sessions import complete_session, start_session
 from autoquant.studio import build_studio_snapshot
+from autoquant.studies import hash_json
 from autoquant.templates import (
     OHLCV_STUDY_ID,
     PORTFOLIO_STUDY_ID,
@@ -35,6 +36,7 @@ from autoquant.workspace import (
     initialize_workspace,
 )
 from tests.intake_helpers import write_intake_inputs
+from tests.test_reports import fully_rehash_report
 
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
@@ -220,7 +222,45 @@ class ProgramResearchDossierTests(unittest.TestCase):
             portfolio_markdown = (
                 portfolio_report.root_dir / "report.md"
             ).read_text(encoding="utf-8")
+            support = portfolio_report.report["evidence"][
+                "leaderDecisionSupport"
+            ]
+            decision = support["portfolioMechanicalDecision"]
+            assert decision is not None
+            self.assertEqual(
+                support["runId"],
+                portfolio_session.manifest["leader"]["runId"],
+            )
+            self.assertEqual(
+                support["portfolioMechanicalDecisionHash"],
+                hash_json(decision),
+            )
+            self.assertEqual(
+                decision["tradingAuthority"],
+                "none",
+            )
+            self.assertEqual(
+                decision["signalGate"]["family"],
+                "long-cash",
+            )
+            self.assertEqual(
+                {item["asset"] for item in decision["positions"]},
+                {"AAPL", "MSFT", "NVDA", "QQQ", "SPY"},
+            )
+            self.assertTrue(
+                any(
+                    item["nextTriggers"]
+                    for item in decision["positions"]
+                    if item["tradable"]
+                )
+            )
             self.assertIn("## Portfolio mandate", portfolio_markdown)
+            self.assertIn(
+                "## Frozen leader-Run mechanical decision",
+                portfolio_markdown,
+            )
+            self.assertIn("Next permitted state conditions", portfolio_markdown)
+            self.assertIn("trading authority: `none`", portfolio_markdown)
             self.assertIn(
                 "Mechanical parameter neighborhood",
                 portfolio_markdown,
@@ -319,11 +359,31 @@ class ProgramResearchDossierTests(unittest.TestCase):
                 dossier.dossier["evidence"]["omittedOptionalLanes"][0]["id"],
                 "rl",
             )
+            dossier_portfolio_lane = next(
+                lane
+                for lane in dossier.dossier["evidence"]["lanes"]
+                if lane["id"] == "portfolio"
+            )
+            self.assertEqual(
+                dossier_portfolio_lane["report"][
+                    "leaderDecisionSupport"
+                ],
+                support,
+            )
             markdown = (dossier.root_dir / "dossier.md").read_text(
                 encoding="utf-8"
             )
             self.assertIn("Program evidence", markdown)
             self.assertIn("## Portfolio mandate", markdown)
+            self.assertIn(
+                "## Frozen mechanical portfolio decision",
+                markdown,
+            )
+            self.assertIn(
+                f"`{decision['timestamp']}`",
+                markdown,
+            )
+            self.assertIn("trading authority: `none`", markdown)
             self.assertIn("`long` / `long-cash`", markdown)
             self.assertIn(
                 "`trailing-covariance-volatility-ceiling-v1`",
@@ -408,6 +468,25 @@ class ProgramResearchDossierTests(unittest.TestCase):
                 "dossier.show",
                 {command["id"] for command in studio["commands"]},
             )
+
+            forged = json.loads(json.dumps(portfolio_report.report))
+            forged["evidence"]["leaderDecisionSupport"][
+                "portfolioMechanicalDecision"
+            ]["tradingAuthority"] = "broker"
+            _, forged_id = fully_rehash_report(
+                portfolio_report,
+                forged,
+                portfolio_session.manifest["id"],
+            )
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "Frozen leader decision support differs",
+            ):
+                load_report(
+                    project,
+                    portfolio_session,
+                    forged_id,
+                )
 
     def test_rl_report_is_included_and_analysis_must_cover_every_lane(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

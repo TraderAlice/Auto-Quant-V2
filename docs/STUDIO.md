@@ -212,6 +212,14 @@ Dossier is blocked, ready for Agent synthesis, or already current. Studio
 loads this state through the same Core Dossier functions used by CLI. It never
 composes Reports or authors the synthesis in JavaScript.
 
+When the latest Portfolio Report contains frozen leader-decision support,
+Studio shows a compact proof strip with the historical decision timestamp,
+state-change count, proposed turnover versus the no-trade band, final gate,
+and `authority none`. This is the Report summary projection, not a browser
+calculation or a live market/account state. Full per-asset conditions and
+weights stay in the canonical Report/Dossier Markdown and Portfolio explorer.
+Legacy Reports show no invented strip.
+
 For a multi-Study Project, the hero and Inspector use comparable cross-lane
 validation readouts instead of promoting the latest Run's absolute headline.
 In particular, RL is summarized by value-add versus the Judge-selected

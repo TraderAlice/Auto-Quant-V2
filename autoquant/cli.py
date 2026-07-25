@@ -17,6 +17,7 @@ from .decision_matrix import (
     SESSION_DECISION_MATRIX_JSON_SCHEMA,
     load_session_decision_matrix,
 )
+from .decision_support import summarize_leader_decision_support
 from .dossiers import (
     DOSSIER_ANALYSIS_JSON_SCHEMA,
     DOSSIER_RESULT_JSON_SCHEMA,
@@ -159,6 +160,25 @@ class CommandResult:
     context: dict[str, Any] = field(default_factory=global_context)
     artifacts: list[dict[str, Any]] = field(default_factory=list)
     next_actions: list[dict[str, Any]] = field(default_factory=list)
+
+
+def _report_decision_support_line(report: dict[str, Any]) -> str:
+    summary = summarize_leader_decision_support(
+        report["evidence"].get("leaderDecisionSupport")
+    )
+    portfolio = summary["portfolio"]
+    if summary["available"] and isinstance(portfolio, dict):
+        return (
+            "Frozen leader decision: "
+            f"{portfolio['timestamp']}  "
+            f"state_changes={portfolio['stateChanges']}  "
+            f"proposed_turnover={portfolio['proposedOneWayTurnover']}  "
+            f"no_trade_band={portfolio['noTradeOneWay']}  "
+            f"gate={portfolio['reason']}  trading_authority=none\n"
+        )
+    if summary["reason"] == "not-portfolio-leader":
+        return "Frozen leader decision: not applicable to this Study lane\n"
+    return "Frozen leader decision: unavailable in legacy Report\n"
 
 
 def _json_argument(parser: argparse.ArgumentParser) -> None:
@@ -2454,6 +2474,7 @@ def _report_publish(args: argparse.Namespace) -> CommandResult:
             f"Title: {report.analysis['title']}\n"
             f"Session: {report.report['sessionId']}\n"
             f"Leader: {report.report['evidence']['session']['leader']['runId']}\n"
+            f"{_report_decision_support_line(report.report)}"
             f"Markdown: {report.root_dir / 'report.md'}\n"
             "Authority: quantitative decision support; trading authority: none\n"
         ),
@@ -2520,6 +2541,7 @@ def _report_show(args: argparse.Namespace) -> CommandResult:
             f"Title: {report.analysis['title']}\n"
             f"Session: {report.report['sessionId']}\n"
             f"Findings: {len(report.analysis['findings'])}\n"
+            f"{_report_decision_support_line(report.report)}"
             f"Markdown: {report.root_dir / 'report.md'}\n"
         ),
         project_context(project),

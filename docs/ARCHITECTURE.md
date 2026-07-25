@@ -57,10 +57,11 @@ The V2 foundation now implements:
   aggregate and per-turn budgets, failure recovery, and immutable turn
   evidence.
 - strict delegated Research Requests, Session-derived Briefs, and immutable
-  evidence-bound JSON/Markdown Research Reports with no trading authority.
+  evidence-bound JSON/Markdown Research Reports with no trading authority,
+  including an optional exact leader-Run mechanical-decision snapshot.
 - immutable Project Research Dossiers that compose current Factor, Portfolio,
   and compatible optional RL lane Reports into one verified OpenAlice handoff
-  without re-evaluating raw Runs.
+  without re-evaluating raw Runs or recomputing later mechanical decisions.
 - one packaged local read-only Studio with a shared versioned snapshot,
   Workspace/Project overview, request → lane Reports → Dossier handoff, exact
   copyable CLI commands, explicit mutable Campaign progress, defensive HTTP

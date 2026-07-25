@@ -379,6 +379,12 @@ reports/report-<UTC timestamp>-<identity>/
 `report.md` is rendered deterministically for human/OpenAlice consumption.
 `report.json` is the machine handoff. Both declare
 `quantitative-decision-support` authority and `tradingAuthority: none`.
+New Reports bind `leaderDecisionSupport` to the exact leader Run/result hash.
+For Portfolio leaders it freezes the Core-verified historical mechanical
+decision and decision hash; Factor/RL leaders carry an explicit null Portfolio
+decision. Human `publish`/`show`, JSON summaries, and Studio identify the
+snapshot timestamp and execution gate. Legacy Reports omit the field and
+remain loadable without backfilling.
 Later Session research does not reinterpret an older report; its frozen
 Experiment/Campaign catalogs must remain chronological prefixes of the
 verified history. OpenAlice should publish the exact Markdown through its own
@@ -420,8 +426,10 @@ dossiers/dossier-<UTC timestamp>-<identity>/
 
 The Dossier freezes request, dataset, Research Program, lane Study, Report,
 leader Run, selection-integrity, Harness, source/dependency, omission, and
-analysis identities. It requires Portfolio and included RL evidence to use the
-same fixed mandate and renders the authorized/context-only asset boundary.
+analysis identities. It inherits any leader-decision-support snapshot from the
+exact included Report rather than recomputing a current decision. It requires
+Portfolio and included RL evidence to use the same fixed mandate and renders
+the authorized/context-only asset boundary.
 Later lane research does not invalidate an older point-in-time Dossier.
 `dossier.md` is the exact decision-support document that OpenAlice may publish
 through its own Inbox authority; AutoQuant has no trading or authenticated

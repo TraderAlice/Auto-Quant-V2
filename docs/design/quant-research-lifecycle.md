@@ -281,6 +281,15 @@ Runs, Experiments, Campaigns, artifacts, Harness, and dataset. It then
 deterministically renders `report.json` and `report.md`, hashes every file, and
 writes the manifest last.
 
+Every newly published Report also binds `leaderDecisionSupport` to the exact
+frozen leader Run id and result hash. Portfolio Reports include Core's exact
+point-in-time `mechanicalDecision`: historical timestamp, percentile state
+transitions, permitted next-state conditions, raw/governed targets,
+pretrade/executed weights, turnover band, risk/final execution gate, and
+decision hash. Other Study lanes record an explicit null Portfolio decision.
+Legacy Reports without this optional field remain loadable and are never
+backfilled from a later Run.
+
 Report authority is `quantitative-decision-support`. A report may recommend
 further research, monitoring, avoidance, or a conditional portfolio posture.
 It may not claim an order was placed, that OpenAlice approved a trade, or that
@@ -303,7 +312,9 @@ included only when its current Report pins the selected Factor source;
 otherwise the Dossier records the omission and reason. Agent-authored
 cross-lane findings cite exact included Report and finding ids. Core verifies
 coverage, freezes request/dataset/program/Study/Report/leader identities, and
-renders immutable JSON and Markdown. Later research does not reinterpret an
+renders immutable JSON and Markdown. A Dossier inherits a Portfolio Report's
+exact `leaderDecisionSupport`; it never recomputes the newest Run or calls the
+decision explorer during rendering. Later research does not reinterpret an
 older Dossier. The complete contract is
 [[docs/design/program-research-dossiers]].
 
