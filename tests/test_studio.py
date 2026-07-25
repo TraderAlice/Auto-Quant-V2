@@ -328,6 +328,8 @@ class StudioObservationTests(unittest.TestCase):
                     self.assertIn("Gross selection edge", javascript)
                     self.assertIn("factorOpportunity", javascript)
                     self.assertIn("contextualBaselines", javascript)
+                    self.assertIn("train-only frozen learner", javascript)
+                    self.assertIn("learningContract", javascript)
                     self.assertIn("SAME-PRETRADE · TRAIN ONLY", javascript)
                     self.assertIn("Family trials", javascript)
                     self.assertIn("Project-family trials", javascript)

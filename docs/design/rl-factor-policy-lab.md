@@ -136,10 +136,18 @@ V1 uses a fixed linear Q approximator:
 Q(state, action) = weight[action] · encoded_state
 ```
 
-It trains chronologically with epsilon-greedy Q-learning for a fixed number of
-episodes, learning rate, discount, and exploration schedule. Three declared
-seeds are always run. No seed is dropped because it performs poorly; any
-failed declared fold/seed trial fails the Run with structured trial evidence.
+It trains chronologically with epsilon-greedy Q-learning for 12 episodes,
+learning rate `0.02`, discount `0.30`, and epsilon `0.15 → 0.01`. These
+Harness-owned values were selected once from five predeclared configurations
+using only a 70/30 blocked tail inside each reference outer-train interval.
+The lexicographic development criterion maximized worst-seed and mean
+advantage versus a train-fit contextual ridge, then minimized within-fold seed
+dispersion and pairwise action mismatch. The configuration was frozen before
+outer validation; each Study Run does not retune it.
+
+Three declared seeds are always run. No seed is dropped because it performs
+poorly; any failed declared fold/seed trial fails the Run with structured trial
+evidence.
 
 Two expanding folds are fixed:
 

@@ -163,7 +163,13 @@ artifacts before showing a claim. It leads with validation value-add versus the
 fixed Judge's selected baseline rather than raw Sharpe. Humans may switch among
 fold/seed performance, complete training histories, and fixed-sleeve action
 allocation, and may reveal test as visibly audit-only evidence. All declared
-seeds and their executed-book compliance remain present; JavaScript never
+seeds and their executed-book compliance remain present. New Runs also expose
+that the Harness learner was frozen by a train-only blocked stability audit
+before validation; legacy Runs label the learner without inventing this
+provenance. The headline seed statistic is the maximum within-fold seed
+standard deviation; exact-consensus fold count is reconstructed from complete
+validation action paths, not score equality. It does not confuse cross-fold
+regime differences with seed instability. JavaScript never
 selects a seed, substitutes a baseline,
 trains a model, or interprets absent state. The exact headless `aq run rl`
 command is copyable from the disclosure footer.

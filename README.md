@@ -118,6 +118,10 @@ a governed stateful factor sleeve using the same request-bound Portfolio
 Mandate, mechanical signal policy, and one-sided risk governor. Evidence
 reports both
 RL-minus-best-baseline and RL-minus-candidate-factor.
+The Harness-owned episode budget, learning rate, discount, and exploration
+schedule are frozen from a predeclared train-only blocked stability audit;
+new Runs preserve that provenance, while legacy Runs remain readable without
+fabricated provenance.
 New Runs also preserve exact chosen-versus-runner-up linear-Q rationales and
 split/fold/seed-bounded action runs. This exposes one-bar churn, persistence,
 uncalibrated Q margins, and dominant margin contributions without calling

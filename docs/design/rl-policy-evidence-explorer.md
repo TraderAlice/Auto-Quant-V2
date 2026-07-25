@@ -63,7 +63,8 @@ match `RunResult`.
 
 The read layer verifies:
 
-1. configured folds, seeds, actions, features, episodes, and model dimensions;
+1. configured folds, seeds, actions, features, episodes, frozen train-only
+   learning-contract provenance, and model dimensions;
 2. one succeeded or failed trial for every declared fold/seed pair;
 3. exact training episode sequence, epsilon schedule, finite rewards, and
    action-count totals equal to training observations;

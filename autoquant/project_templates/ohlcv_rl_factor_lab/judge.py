@@ -69,6 +69,23 @@ INCREMENTAL_ATTRIBUTION_POLICY = {
     "selection_authority": "context-only",
     "trading_authority": "none",
 }
+LEARNING_CONTRACT = {
+    "method": "fixed-after-train-only-blocked-stability-audit-v1",
+    "development_selection_scope": (
+        "reference-fixture-outer-train-only-70/30-blocked"
+    ),
+    "candidate_configurations": 5,
+    "selection_order": [
+        "maximize-minimum-seed-advantage-vs-contextual-ridge",
+        "maximize-mean-seed-advantage-vs-contextual-ridge",
+        "minimize-within-fold-seed-dispersion",
+        "minimize-pairwise-action-mismatch",
+    ],
+    "runtime_policy": "harness-fixed-before-study-validation",
+    "validation_role": "post-freeze-selection-evidence",
+    "test_role": "visible-diagnostic",
+    "trading_authority": "none",
+}
 
 
 class JudgeFailure(ValueError):
@@ -2193,6 +2210,7 @@ def _evaluate() -> tuple[
             "incrementalAttributionMethod": (
                 INCREMENTAL_ATTRIBUTION_POLICY["method"]
             ),
+            "learningContract": LEARNING_CONTRACT,
         },
         "research_integrity": {
             "selection_split": "validation",
@@ -2201,6 +2219,7 @@ def _evaluate() -> tuple[
             "external_holdout_rule": (
                 "required-after-test-guided-iteration"
             ),
+            "learning_configuration": LEARNING_CONTRACT,
             "factor_dependency": {
                 "module": "factors.candidate",
                 "mode": "content-locked-study-dependency",
@@ -2243,6 +2262,12 @@ def _evaluate() -> tuple[
                 "independent full-path RL minus validation-selected "
                 "mechanical baseline; gross edge minus incremental cost "
                 "reconciles net active return"
+            ),
+            "learningConfiguration": (
+                "episodes, learning rate, discount, and exploration were "
+                "frozen by a reference-fixture outer-train-only blocked "
+                "stability audit before Study validation; validation and "
+                "test do not tune them"
             ),
             "executionRisk": (
                 "every selected sleeve is rechecked after drift; risk "

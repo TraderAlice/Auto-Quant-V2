@@ -89,11 +89,34 @@ class RlPolicyEvidenceExplorerTests(unittest.TestCase):
                     for iteration in item["history"]
                 )
             )
-            self.assertEqual(len(diagnostics["training"]), 24)
+            self.assertEqual(
+                len(diagnostics["training"]),
+                diagnostics["protocol"]["episodes"]
+                * diagnostics["summary"]["trialCount"],
+            )
             self.assertEqual(len(diagnostics["actionSummaries"]), 12)
             self.assertEqual(diagnostics["actionPath"]["sampledRows"], 64)
             self.assertEqual(diagnostics["actionPath"]["totalRows"], 780)
             self.assertFalse(diagnostics["protocol"]["testEntersSelection"])
+            self.assertEqual(
+                diagnostics["protocol"]["configuration"]["learningContract"][
+                    "method"
+                ],
+                "fixed-after-train-only-blocked-stability-audit-v1",
+            )
+            seed_stability = diagnostics["summary"][
+                "withinFoldSeedStability"
+            ]
+            self.assertEqual(seed_stability["folds"], 2)
+            self.assertGreaterEqual(
+                seed_stability["maximumStandardDeviation"],
+                seed_stability["meanStandardDeviation"],
+            )
+            self.assertLessEqual(seed_stability["exactConsensusFolds"], 2)
+            self.assertGreaterEqual(
+                seed_stability["maximumPairwiseActionMismatch"],
+                seed_stability["meanPairwiseActionMismatch"],
+            )
             self.assertEqual(
                 diagnostics["factorFusion"]["dependency"]["paths"],
                 [
@@ -270,6 +293,7 @@ class RlPolicyEvidenceExplorerTests(unittest.TestCase):
 
             result_path = run.root_dir / "result.json"
             report_path = run.root_dir / "artifacts" / "rl-report.json"
+            models_path = run.root_dir / "artifacts" / "policy-models.json"
             rationale_path = (
                 run.root_dir / "artifacts" / "policy-rationales.json"
             )
@@ -283,6 +307,14 @@ class RlPolicyEvidenceExplorerTests(unittest.TestCase):
             )
             legacy_result = json.loads(result_path.read_text(encoding="utf-8"))
             legacy_report = json.loads(report_path.read_text(encoding="utf-8"))
+            legacy_models = json.loads(models_path.read_text(encoding="utf-8"))
+            for value in (legacy_result, legacy_report):
+                value["metrics"]["configuration"].pop("learningContract")
+                value["metrics"]["research_integrity"].pop(
+                    "learning_configuration"
+                )
+            legacy_report["semantics"].pop("learningConfiguration")
+            legacy_models["configuration"].pop("learningContract")
             legacy_result["metrics"].pop("policy_rationale")
             legacy_result["metrics"].pop("factor_opportunity")
             legacy_result["metrics"].pop("incremental_attribution")
@@ -307,6 +339,10 @@ class RlPolicyEvidenceExplorerTests(unittest.TestCase):
                 json.dumps(legacy_report, indent=2, sort_keys=True) + "\n",
                 encoding="utf-8",
             )
+            models_path.write_text(
+                json.dumps(legacy_models, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
             rationale_path.unlink()
             opportunity_path.unlink()
             incremental_path.unlink()
@@ -315,6 +351,9 @@ class RlPolicyEvidenceExplorerTests(unittest.TestCase):
             self.assertFalse(legacy["policyBehavior"]["available"])
             self.assertFalse(legacy["factorOpportunity"]["available"])
             self.assertFalse(legacy["incrementalAttribution"]["available"])
+            self.assertIsNone(
+                legacy["protocol"]["configuration"].get("learningContract")
+            )
 
     def test_limits_and_rehashed_action_corruption_fail_structurally(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -337,6 +376,37 @@ class RlPolicyEvidenceExplorerTests(unittest.TestCase):
             models_path = (
                 run.root_dir / "artifacts" / "policy-models.json"
             )
+            result_path = run.root_dir / "result.json"
+            report_path = run.root_dir / "artifacts" / "rl-report.json"
+            original_result = result_path.read_text(encoding="utf-8")
+            original_report = report_path.read_text(encoding="utf-8")
+            result_value = json.loads(original_result)
+            report_value = json.loads(original_report)
+            for value in (result_value, report_value):
+                value["metrics"]["configuration"]["learningContract"][
+                    "development_selection_scope"
+                ] = "validation-guided"
+                value["metrics"]["research_integrity"][
+                    "learning_configuration"
+                ]["development_selection_scope"] = "validation-guided"
+            result_path.write_text(
+                json.dumps(result_value, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            report_path.write_text(
+                json.dumps(report_value, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            rehash_run(run.root_dir)
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "Learning configuration provenance differs",
+            ):
+                load_rl_diagnostics(project, run.result["id"])
+            result_path.write_text(original_result, encoding="utf-8")
+            report_path.write_text(original_report, encoding="utf-8")
+            rehash_run(run.root_dir)
+
             original_models = models_path.read_text(encoding="utf-8")
             models = json.loads(original_models)
             models["models"]["fold-1"]["contextualRidgeBaseline"][

@@ -445,6 +445,24 @@ class GovernedRlFactorPolicyLabTests(unittest.TestCase):
             metrics = first.result["metrics"]
             self.assertEqual(metrics["configuration"]["seeds"], [11, 29, 47])
             self.assertEqual(metrics["configuration"]["folds"], ["fold-1", "fold-2"])
+            self.assertEqual(metrics["configuration"]["episodes"], 12)
+            self.assertEqual(metrics["configuration"]["learningRate"], 0.02)
+            self.assertEqual(metrics["configuration"]["discount"], 0.30)
+            self.assertEqual(metrics["configuration"]["epsilonStart"], 0.15)
+            self.assertEqual(metrics["configuration"]["epsilonEnd"], 0.01)
+            learning_contract = metrics["configuration"]["learningContract"]
+            self.assertEqual(
+                learning_contract["method"],
+                "fixed-after-train-only-blocked-stability-audit-v1",
+            )
+            self.assertEqual(
+                learning_contract["runtime_policy"],
+                "harness-fixed-before-study-validation",
+            )
+            self.assertEqual(
+                metrics["research_integrity"]["learning_configuration"],
+                learning_contract,
+            )
             self.assertEqual(
                 metrics["rl"]["aggregate"]["validation_net_sharpe"][
                     "observations"
@@ -584,6 +602,12 @@ class GovernedRlFactorPolicyLabTests(unittest.TestCase):
                     "incrementalAttribution"
                 ]["selectionAuthority"],
                 "context-only",
+            )
+            self.assertEqual(
+                snapshot["projects"][0]["rlExplorer"]["protocol"][
+                    "configuration"
+                ]["learningContract"],
+                learning_contract,
             )
 
     def test_campaign_keeps_regime_encoder_and_rejects_nondeterminism(self) -> None:

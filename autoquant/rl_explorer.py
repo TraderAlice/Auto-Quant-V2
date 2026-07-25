@@ -7,6 +7,7 @@ import json
 import math
 from collections import Counter, defaultdict
 from datetime import date
+from itertools import combinations
 from pathlib import Path
 from typing import Any
 
@@ -65,6 +66,23 @@ INCREMENTAL_ATTRIBUTION_POLICY = {
     "baseline_selection": "validation-only-per-fold",
     "test_role": "visible-diagnostic",
     "selection_authority": "context-only",
+    "trading_authority": "none",
+}
+LEARNING_CONTRACT = {
+    "method": "fixed-after-train-only-blocked-stability-audit-v1",
+    "development_selection_scope": (
+        "reference-fixture-outer-train-only-70/30-blocked"
+    ),
+    "candidate_configurations": 5,
+    "selection_order": [
+        "maximize-minimum-seed-advantage-vs-contextual-ridge",
+        "maximize-mean-seed-advantage-vs-contextual-ridge",
+        "minimize-within-fold-seed-dispersion",
+        "minimize-pairwise-action-mismatch",
+    ],
+    "runtime_policy": "harness-fixed-before-study-validation",
+    "validation_role": "post-freeze-selection-evidence",
+    "test_role": "visible-diagnostic",
     "trading_authority": "none",
 }
 ACTION_COLUMNS = [
@@ -297,6 +315,13 @@ def _configuration(metrics: dict[str, Any]) -> dict[str, Any]:
             contextual_iterations,
             "metrics/configuration/contextualRidgeIterations",
             minimum=1,
+        )
+    learning_contract = value.get("learningContract")
+    if learning_contract is not None and learning_contract != LEARNING_CONTRACT:
+        _fail(
+            "metrics/configuration/learningContract",
+            "rl.learning-contract",
+            "Learning configuration provenance differs from the fixed contract",
         )
     return {
         **value,
@@ -3852,6 +3877,7 @@ def load_rl_diagnostics(
     candidate_test_sharpes: list[float] = []
     validation_advantages_vs_candidate: list[float] = []
     test_advantages_vs_candidate: list[float] = []
+    within_fold_validation_standard_deviations: list[float] = []
     for fold in configuration["folds"]:
         fold_value = fold_metrics[fold]
         if not isinstance(fold_value, dict):
@@ -3992,7 +4018,14 @@ def load_rl_diagnostics(
         fold_aggregate = fold_value.get("aggregate")
         if not isinstance(fold_aggregate, dict):
             _fail(f"metrics/rl/folds/{fold}/aggregate", "rl.aggregate", "Missing fold aggregate")
-        _reconcile_aggregate(fold_aggregate.get("validation_net_sharpe"), fold_validation, f"{fold}/validation")
+        fold_validation_summary = _reconcile_aggregate(
+            fold_aggregate.get("validation_net_sharpe"),
+            fold_validation,
+            f"{fold}/validation",
+        )
+        within_fold_validation_standard_deviations.append(
+            fold_validation_summary["standardDeviation"]
+        )
         _reconcile_aggregate(fold_aggregate.get("test_net_sharpe"), fold_test, f"{fold}/test")
         validation_advantage = sum(fold_validation) / len(fold_validation) - selected_validation["netSharpe"]
         test_advantage = sum(fold_test) / len(fold_test) - selected_test["netSharpe"]
@@ -4120,6 +4153,29 @@ def load_rl_diagnostics(
 
     training = _training(histories_value, configuration, ranges, run.result["inputHash"])
     action_rows = _action_rows(paths["policy-actions"], configuration, ranges)
+    within_fold_validation_action_mismatch: list[float] = []
+    for fold in configuration["folds"]:
+        paths_by_seed = [
+            tuple(
+                row["action"]
+                for row in action_rows
+                if row["fold"] == fold
+                and row["seed"] == seed
+                and row["split"] == "validation"
+            )
+            for seed in configuration["seeds"]
+        ]
+        pairwise = [
+            sum(
+                left_action != right_action
+                for left_action, right_action in zip(left, right)
+            )
+            / len(left)
+            for left, right in combinations(paths_by_seed, 2)
+        ]
+        within_fold_validation_action_mismatch.append(
+            sum(pairwise) / len(pairwise) if pairwise else 0.0
+        )
     trials_by_key = {(item["fold"], item["seed"]): item for item in trials}
     action_summaries, action_path = _action_projection(
         action_rows,
@@ -4277,6 +4333,16 @@ def load_rl_diagnostics(
         or research_integrity.get("test_enters_selection") is not False
     ):
         _fail("metrics/research_integrity", "rl.selection-integrity", "RL selection integrity is incomplete")
+    if (
+        configuration.get("learningContract") is not None
+        and research_integrity.get("learning_configuration")
+        != configuration["learningContract"]
+    ):
+        _fail(
+            "metrics/research_integrity/learning_configuration",
+            "rl.learning-contract",
+            "Research integrity does not preserve the frozen learning contract",
+        )
     return {
         "schemaVersion": SCHEMA_VERSION,
         "kind": RL_DIAGNOSTICS_KIND,
@@ -4335,6 +4401,27 @@ def load_rl_diagnostics(
             "meanValidationOneWayTurnover": mean_validation_turnover,
             "meanValidationCostDrag": mean_validation_cost,
             "rlAddedValidationValue": mean_validation_advantage > 0.0,
+            "withinFoldSeedStability": {
+                "meanStandardDeviation": (
+                    sum(within_fold_validation_standard_deviations)
+                    / len(within_fold_validation_standard_deviations)
+                ),
+                "maximumStandardDeviation": max(
+                    within_fold_validation_standard_deviations
+                ),
+                "exactConsensusFolds": sum(
+                    value <= 1e-12
+                    for value in within_fold_validation_action_mismatch
+                ),
+                "folds": len(within_fold_validation_standard_deviations),
+                "meanPairwiseActionMismatch": (
+                    sum(within_fold_validation_action_mismatch)
+                    / len(within_fold_validation_action_mismatch)
+                ),
+                "maximumPairwiseActionMismatch": max(
+                    within_fold_validation_action_mismatch
+                ),
+            },
         },
         "factorFusion": {
             "available": has_candidate_fusion,

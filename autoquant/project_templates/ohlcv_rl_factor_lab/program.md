@@ -65,7 +65,9 @@ The Judge owns:
   may override no-trade only through minimum proportional scale-down;
 - full-notional 10bps costs and benchmark;
 - next-bar reward and fixed quadratic risk penalty;
-- linear Q-learning, 4 episodes, learning rate, discount, and exploration;
+- linear Q-learning with 12 episodes, learning rate 0.02, discount 0.30,
+  and epsilon 0.15 → 0.01, frozen before Study validation by the fixed
+  train-only blocked stability audit;
 - seeds 11, 29, and 47;
 - two expanding chronological train/validation/test folds;
 - fixed-factor, training-selected expert, equal blend, and a deterministic

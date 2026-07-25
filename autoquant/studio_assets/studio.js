@@ -2945,8 +2945,12 @@ function renderRlExplorer(project) {
   const fusion = explorer.factorFusion;
   const advantage = summary.meanValidationAdvantageVsBestBaseline;
   const candidateAdvantage = fusion.meanValidationAdvantageVsCandidateFactor;
+  const learningContract = explorer.protocol.configuration.learningContract;
+  const seedStability = summary.withinFoldSeedStability;
   element("rl-meta").textContent =
-    `${explorer.run.id} · ${summary.trialCount} fold/seed trials · validation selection`;
+    `${explorer.run.id} · ${summary.trialCount} fold/seed trials · ${
+      learningContract ? "train-only frozen learner" : "legacy learner"
+    } · validation selection`;
   element("rl-mandate").innerHTML = mandateMarkup(explorer.portfolioMandate);
   const fusionCards = fusion.available
     ? [
@@ -2960,7 +2964,14 @@ function renderRlExplorer(project) {
     ["RL value-add", `${advantage > 0 ? "+" : ""}${metric(advantage)}`, "vs best validation baseline", advantage >= 0 ? "positive" : "negative"],
     ...fusionCards,
     ["Validation Sharpe", metric(summary.validation.mean), `minimum ${metric(summary.validation.minimum)}`, ""],
-    ["Seed / fold dispersion", metric(summary.validation.standardDeviation), `${summary.validation.observations} trials`, ""],
+    [
+      "Within-fold seed σ",
+      metric(seedStability.maximumStandardDeviation),
+      learningContract
+        ? `${seedStability.exactConsensusFolds}/${seedStability.folds} action consensus · frozen config`
+        : `${seedStability.exactConsensusFolds}/${seedStability.folds} action consensus · legacy config`,
+      "",
+    ],
     ["Failure rate", percent(summary.failureRate), "all declared trials", summary.failureRate ? "negative" : ""],
     ["Mean turnover", metric(summary.meanValidationOneWayTurnover), "one-way · validation", ""],
     ["Mean cost drag", percent(summary.meanValidationCostDrag), "validation", ""],
