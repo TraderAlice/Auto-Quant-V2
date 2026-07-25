@@ -876,6 +876,55 @@ def _render_markdown(report: dict[str, Any]) -> str:
                 "",
             ]
         )
+    incremental = leader_run["metrics"].get("incremental_attribution")
+    validation_incremental = (
+        incremental.get("validation")
+        if isinstance(incremental, dict)
+        else None
+    )
+    if isinstance(validation_incremental, dict):
+        largest_assets = sorted(
+            validation_incremental["by_asset"].items(),
+            key=lambda item: (
+                -abs(item[1]["total_gross_active_contribution"]),
+                item[0],
+            ),
+        )[:5]
+        lines.extend(
+            [
+                "## RL incremental value attribution",
+                "",
+                "- Method: "
+                "`selected-baseline-full-path-active-attribution-v1` "
+                "(independent RL and validation-selected baseline paths)",
+                "- Validation mean-trial-path gross edge / incremental cost / "
+                "net active return: "
+                f"`{validation_incremental['mean_trial_total_gross_active_return']}` / "
+                f"`{validation_incremental['mean_trial_total_incremental_cost']}` / "
+                f"`{validation_incremental['mean_trial_total_net_active_return']}`",
+                "- Validation mean-trial annualized active return / tracking "
+                "error / information ratio: "
+                f"`{validation_incremental['annualized_active_return']}` / "
+                f"`{validation_incremental['annualized_tracking_error']}` / "
+                f"`{validation_incremental['information_ratio']}`",
+                "- Validation active-day frequency / conditional win rate / "
+                "mean relative maximum drawdown / fifth-percentile active day: "
+                f"`{validation_incremental['active_decision_rate']}` / "
+                f"`{validation_incremental['conditional_active_win_rate']}` / "
+                f"`{validation_incremental['relative_maximum_drawdown']}` / "
+                f"`{validation_incremental['p05_net_active_return']}`",
+                "- Largest absolute asset gross contributions: "
+                + ", ".join(
+                    f"`{asset}` "
+                    f"({values['total_gross_active_contribution']})"
+                    for asset, values in largest_assets
+                ),
+                "- Gross edge minus incremental cost reconciles net active "
+                "return; asset contributions reconcile gross edge. Regime and "
+                "action-pair tables are descriptive diagnostics only.",
+                "",
+            ]
+        )
     factor_opportunity = leader_run["metrics"].get("factor_opportunity")
     validation_opportunity = (
         factor_opportunity.get("validation")

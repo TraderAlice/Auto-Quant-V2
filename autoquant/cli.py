@@ -1689,6 +1689,28 @@ def _run_rl(args: argparse.Namespace) -> CommandResult:
             f"{len(contextual)} folds\n"
         )
     )
+    incremental = diagnostics["incrementalAttribution"]
+    validation_incremental = (
+        incremental["validation"] if incremental["available"] else None
+    )
+    incremental_line = (
+        "Incremental attribution: legacy evidence unavailable\n"
+        if validation_incremental is None
+        else (
+            "Validation full-path active attribution: gross "
+            f"{validation_incremental['meanTrialTotalGrossActiveReturn']:.6g} · "
+            "incremental cost "
+            f"{validation_incremental['meanTrialTotalIncrementalCost']:.6g} · "
+            "net "
+            f"{validation_incremental['meanTrialTotalNetActiveReturn']:.6g} "
+            "(mean trial path) · "
+            "mean trial information ratio "
+            f"{validation_incremental['informationRatio']:.3f} · "
+            f"{validation_incremental['conditionalActiveWinRate']:.3%} "
+            "active-day wins on "
+            f"{validation_incremental['activeDecisionRate']:.3%} of days\n"
+        )
+    )
     return CommandResult(
         "run.rl",
         diagnostics,
@@ -1705,6 +1727,7 @@ def _run_rl(args: argparse.Namespace) -> CommandResult:
             f"{diagnostics['actionPath']['sampledRows']} points\n"
             f"{policy_behavior_line}"
             f"{contextual_line}"
+            f"{incremental_line}"
             f"{factor_opportunity_line}"
             f"{execution_risk_line}"
             "Test evidence is visible audit only; actions have no trading authority.\n"

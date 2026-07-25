@@ -123,6 +123,12 @@ primitive on the fold's train dates. Those train-only labels are regenerated
 from its declared behavior path and are not the immutable validation/test
 opportunity artifact described here.
 
+The separate [[docs/design/rl-incremental-value-attribution]] compares the
+selected RL and mechanical policies as independent full paths. It is the
+correct evidence for cumulative active return, cost, regime, action-pair, and
+asset contribution questions; this one-step audit remains the correct
+evidence for local action rank and regret.
+
 ## Public surfaces
 
 The strict RL Explorer is the canonical reader. It rehashes the artifact,

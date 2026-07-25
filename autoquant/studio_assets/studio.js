@@ -402,6 +402,19 @@ const researchDecisionBrief = (project) => {
     const standalone = Number(layers.validationMeanNetSharpe);
     const oracleHit = Number(layers.factorOpportunity?.validationOracleHitRate);
     const candidateUse = Number(layers.validationCandidateActionFrequency);
+    const active = project.rlExplorer?.incrementalAttribution?.validation;
+    const worstRegime = active?.byRegime
+      ?.slice()
+      .sort(
+        (left, right) =>
+          left.totalNetActiveReturn - right.totalNetActiveReturn,
+      )[0];
+    const worstPair = active?.byActionPair
+      ?.slice()
+      .sort(
+        (left, right) =>
+          left.totalNetActiveReturn - right.totalNetActiveReturn,
+      )[0];
     const adverse = Number.isFinite(advantage) && advantage < 0;
     return {
       tone: adverse ? "bad" : "good",
@@ -411,7 +424,9 @@ const researchDecisionBrief = (project) => {
         ? `Despite ${metric(standalone)} standalone validation Sharpe, the policy trails the validation-selected simpler baseline by ${metric(Math.abs(advantage))}.`
         : `The policy leads the validation-selected simpler baseline by ${metric(advantage)} with ${metric(standalone)} standalone validation Sharpe.`,
       next:
-        adverse && Number.isFinite(oracleHit) && oracleHit < 0.5
+        adverse && worstRegime && worstPair
+          ? `Stabilize ${worstRegime.dimension}/${worstRegime.bucket}: the policy choosing ${worstPair.policyAction} while the baseline chooses ${worstPair.baselineAction} is the largest full-path loss.`
+          : adverse && Number.isFinite(oracleHit) && oracleHit < 0.5
           ? `Rebuild the causal state and learning contract: the policy selects the local-best sleeve only ${percent(oracleHit)} of the time.`
           : adverse && Number.isFinite(candidateUse) && candidateUse === 0
             ? "Audit why the locked candidate sleeve is never selected before adding policy complexity."
@@ -2491,6 +2506,117 @@ function renderRlDetail(explorer) {
     <p class="book-disclosure">Actions select the content-locked candidate factor, fixed reference factors, or their governed blend. Final post-drift books are risk-checked before reward; all values remain historical research evidence, not orders or account positions.</p>`;
 }
 
+function renderRlIncremental(explorer) {
+  const root = element("rl-incremental");
+  const attribution = explorer.incrementalAttribution;
+  if (!attribution?.available) {
+    root.innerHTML = `
+      <div class="rl-behavior-empty">
+        Legacy Run: full-path incremental attribution was not recorded.
+      </div>`;
+    return;
+  }
+  const split = attribution[state.rlSplit];
+  const regimes = [...split.byRegime].sort(
+    (left, right) =>
+      left.dimension.localeCompare(right.dimension) ||
+      left.bucket.localeCompare(right.bucket),
+  );
+  const assets = [...split.byAsset].sort(
+    (left, right) =>
+      Math.abs(right.totalGrossActiveContribution) -
+        Math.abs(left.totalGrossActiveContribution) ||
+      left.asset.localeCompare(right.asset),
+  );
+  const actionPairs = [...split.byActionPair]
+    .sort(
+      (left, right) =>
+        right.decisions - left.decisions ||
+        left.key.localeCompare(right.key),
+    )
+    .slice(0, 8);
+  root.innerHTML = `
+    <div class="rl-incremental-stats">
+      <span>
+        <small>Gross selection edge</small>
+        <b class="${split.meanTrialTotalGrossActiveReturn >= 0 ? "positive" : "negative"}">${signedPercent(split.meanTrialTotalGrossActiveReturn)}</b>
+        <i>mean trial path</i>
+      </span>
+      <span>
+        <small>Incremental cost</small>
+        <b class="${split.meanTrialTotalIncrementalCost <= 0 ? "positive" : "negative"}">${signedPercent(split.meanTrialTotalIncrementalCost)}</b>
+        <i>mean trial path</i>
+      </span>
+      <span>
+        <small>Net active return</small>
+        <b class="${split.meanTrialTotalNetActiveReturn >= 0 ? "positive" : "negative"}">${signedPercent(split.meanTrialTotalNetActiveReturn)}</b>
+        <i>mean trial path</i>
+      </span>
+      <span>
+        <small>Mean trial IR</small>
+        <b class="${split.informationRatio >= 0 ? "positive" : "negative"}">${metric(split.informationRatio)}</b>
+      </span>
+      <span>
+        <small>Active-day win</small>
+        <b>${percent(split.conditionalActiveWinRate)}</b>
+        <i>${percent(split.activeDecisionRate)} active days</i>
+      </span>
+      <span>
+        <small>Mean relative max DD</small>
+        <b class="${split.relativeMaximumDrawdown < 0 ? "negative" : ""}">${percent(split.relativeMaximumDrawdown)}</b>
+      </span>
+    </div>
+    <div class="rl-incremental-grid">
+      <section>
+        <h3>Where the active return appears</h3>
+        <div class="rl-incremental-table regime-table" role="table" aria-label="RL active return by causal market regime">
+          <div class="heading" role="row">
+            <span>Regime</span><span>Days</span><span>Mean active</span><span>Win</span>
+          </div>
+          ${regimes.map((row) => `
+            <div role="row">
+              <span><b>${escapeHtml(row.dimension)}</b> · ${escapeHtml(row.bucket)}</span>
+              <span>${metric(row.decisions)}</span>
+              <span class="${row.meanNetActiveReturn >= 0 ? "positive" : "negative"}">${signedPercent(row.meanNetActiveReturn)}</span>
+              <span>${percent(row.conditionalActiveWinRate)}</span>
+            </div>`).join("")}
+        </div>
+      </section>
+      <section>
+        <h3>Asset gross contribution</h3>
+        <div class="rl-incremental-table asset-table" role="table" aria-label="RL active gross contribution by asset">
+          <div class="heading" role="row">
+            <span>Asset</span><span>Mean trial</span><span>Mean / day</span>
+          </div>
+          ${assets.map((row) => `
+            <div role="row">
+              <span><b>${escapeHtml(row.asset)}</b></span>
+              <span class="${row.meanTrialTotalGrossActiveContribution >= 0 ? "positive" : "negative"}">${signedPercent(row.meanTrialTotalGrossActiveContribution)}</span>
+              <span>${signedPercent(row.meanGrossActiveContribution)}</span>
+            </div>`).join("")}
+        </div>
+      </section>
+      <section>
+        <h3>Most frequent policy → baseline pairs</h3>
+        <div class="rl-incremental-table pair-table" role="table" aria-label="RL and baseline action pair attribution">
+          <div class="heading" role="row">
+            <span>Action pair</span><span>Days</span><span>Mean active</span><span>Win</span>
+          </div>
+          ${actionPairs.map((row) => `
+            <div role="row">
+              <span><b>${escapeHtml(row.policyAction)}</b> → ${escapeHtml(row.baselineAction)}</span>
+              <span>${metric(row.decisions)}</span>
+              <span class="${row.meanNetActiveReturn >= 0 ? "positive" : "negative"}">${signedPercent(row.meanNetActiveReturn)}</span>
+              <span>${percent(row.conditionalActiveWinRate)}</span>
+            </div>`).join("")}
+        </div>
+      </section>
+    </div>
+    <p class="book-disclosure">
+      Each policy carries its own holdings, drift, no-trade decisions, risk repair, turnover, and costs. Gross edge − incremental cost = net active return; asset contributions reconcile gross edge. Regime tables are descriptive diagnostics, not new selection objectives. ${state.rlSplit === "test" ? "TEST IS VISIBLE AUDIT ONLY." : "VALIDATION IS THE SELECTION SPLIT."}
+    </p>`;
+}
+
 function renderRlBehavior(explorer) {
   const root = element("rl-behavior");
   const behavior = explorer.policyBehavior;
@@ -2746,6 +2872,7 @@ function renderRlExplorer(project) {
   renderRlTrials(explorer);
   renderRlBaselines(explorer);
   renderRlDetail(explorer);
+  renderRlIncremental(explorer);
   renderRlBehavior(explorer);
   renderRlOpportunity(explorer);
   const command = project.commands?.find((item) => item.id === "run.rl");

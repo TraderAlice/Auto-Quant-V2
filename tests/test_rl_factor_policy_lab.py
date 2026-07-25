@@ -475,6 +475,7 @@ class GovernedRlFactorPolicyLabTests(unittest.TestCase):
                     "policy-actions",
                     "policy-rationales",
                     "policy-opportunities",
+                    "policy-incremental-attribution",
                 },
             )
             rationale = metrics["policy_rationale"]
@@ -528,6 +529,25 @@ class GovernedRlFactorPolicyLabTests(unittest.TestCase):
                 opportunity["validation"]["mean_selected_rank"],
                 5.0,
             )
+            incremental = metrics["incremental_attribution"]
+            self.assertEqual(
+                incremental["policy"]["comparison_path"],
+                "independent-full-rollouts",
+            )
+            self.assertEqual(incremental["validation"]["decisions"], 360)
+            self.assertEqual(incremental["validation"]["trial_paths"], 6)
+            self.assertTrue(
+                incremental["validation"]["reconciliation"]["passed"]
+            )
+            self.assertAlmostEqual(
+                incremental["validation"]["total_gross_active_return"]
+                - incremental["validation"]["total_incremental_cost"],
+                incremental["validation"]["total_net_active_return"],
+            )
+            self.assertEqual(
+                set(incremental["validation"]["by_asset"]),
+                set(study.definition.dataset.universe),
+            )
             first_models = next(
                 item
                 for item in first.result["artifacts"]
@@ -557,6 +577,12 @@ class GovernedRlFactorPolicyLabTests(unittest.TestCase):
             )
             self.assertEqual(
                 layers["factorOpportunity"]["selectionAuthority"],
+                "context-only",
+            )
+            self.assertEqual(
+                snapshot["projects"][0]["rlExplorer"][
+                    "incrementalAttribution"
+                ]["selectionAuthority"],
                 "context-only",
             )
 

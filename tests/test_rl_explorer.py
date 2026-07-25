@@ -210,6 +210,42 @@ class RlPolicyEvidenceExplorerTests(unittest.TestCase):
                     for item in diagnostics["trials"]
                 )
             )
+            incremental = diagnostics["incrementalAttribution"]
+            self.assertTrue(incremental["available"])
+            self.assertEqual(
+                incremental["policy"]["comparison_path"],
+                "independent-full-rollouts",
+            )
+            self.assertEqual(incremental["validation"]["decisions"], 360)
+            self.assertEqual(incremental["validation"]["trialPaths"], 6)
+            self.assertTrue(
+                incremental["validation"]["reconciliation"]["passed"]
+            )
+            self.assertAlmostEqual(
+                incremental["validation"][
+                    "meanTrialTotalGrossActiveReturn"
+                ]
+                - incremental["validation"][
+                    "meanTrialTotalIncrementalCost"
+                ],
+                incremental["validation"][
+                    "meanTrialTotalNetActiveReturn"
+                ],
+            )
+            self.assertEqual(
+                {
+                    item["asset"]
+                    for item in incremental["validation"]["byAsset"]
+                },
+                set(diagnostics["dataset"]["universe"]),
+            )
+            self.assertEqual(
+                {
+                    item["split"]
+                    for item in incremental["representativeDays"]
+                },
+                {"validation", "test"},
+            )
             self.assertTrue(
                 all(
                     sum(item["actionCounts"].values())
@@ -240,18 +276,29 @@ class RlPolicyEvidenceExplorerTests(unittest.TestCase):
             opportunity_path = (
                 run.root_dir / "artifacts" / "policy-opportunities.json"
             )
+            incremental_path = (
+                run.root_dir
+                / "artifacts"
+                / "policy-incremental-attribution.json"
+            )
             legacy_result = json.loads(result_path.read_text(encoding="utf-8"))
             legacy_report = json.loads(report_path.read_text(encoding="utf-8"))
             legacy_result["metrics"].pop("policy_rationale")
             legacy_result["metrics"].pop("factor_opportunity")
+            legacy_result["metrics"].pop("incremental_attribution")
             legacy_result["artifacts"] = [
                 item
                 for item in legacy_result["artifacts"]
                 if item["kind"]
-                not in {"policy-rationales", "policy-opportunities"}
+                not in {
+                    "policy-rationales",
+                    "policy-opportunities",
+                    "policy-incremental-attribution",
+                }
             ]
             legacy_report["metrics"].pop("policy_rationale")
             legacy_report["metrics"].pop("factor_opportunity")
+            legacy_report["metrics"].pop("incremental_attribution")
             result_path.write_text(
                 json.dumps(legacy_result, indent=2, sort_keys=True) + "\n",
                 encoding="utf-8",
@@ -262,10 +309,12 @@ class RlPolicyEvidenceExplorerTests(unittest.TestCase):
             )
             rationale_path.unlink()
             opportunity_path.unlink()
+            incremental_path.unlink()
             rehash_run(run.root_dir)
             legacy = load_rl_diagnostics(project, run.result["id"])
             self.assertFalse(legacy["policyBehavior"]["available"])
             self.assertFalse(legacy["factorOpportunity"]["available"])
+            self.assertFalse(legacy["incrementalAttribution"]["available"])
 
     def test_limits_and_rehashed_action_corruption_fail_structurally(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -352,6 +401,34 @@ class RlPolicyEvidenceExplorerTests(unittest.TestCase):
                 load_rl_diagnostics(project, run.result["id"])
             opportunities_path.write_text(
                 original_opportunities,
+                encoding="utf-8",
+            )
+            rehash_run(run.root_dir)
+
+            incremental_path = (
+                run.root_dir
+                / "artifacts"
+                / "policy-incremental-attribution.json"
+            )
+            original_incremental = incremental_path.read_text(
+                encoding="utf-8"
+            )
+            incremental = json.loads(original_incremental)
+            incremental["rows"][0]["assetGrossContribution"][
+                incremental["assets"][0]
+            ] += 0.01
+            incremental_path.write_text(
+                json.dumps(incremental, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            rehash_run(run.root_dir)
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "asset gross contribution",
+            ):
+                load_rl_diagnostics(project, run.result["id"])
+            incremental_path.write_text(
+                original_incremental,
                 encoding="utf-8",
             )
             rehash_run(run.root_dir)

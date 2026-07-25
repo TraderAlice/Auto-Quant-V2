@@ -99,6 +99,14 @@ alternate path. Validation/test opportunity evidence cannot enter training,
 KEEP/REVERT, or a trading decision. The fixed contextual baseline separately
 uses the same execution primitive only on train dates to fit action rewards;
 its model evidence declares that scope and every fixed iteration.
+Inspect the independent full-path attribution versus each fold's
+validation-selected mechanical baseline. Diagnose gross selection edge,
+incremental cost, net active return, tracking error, information ratio,
+relative drawdown, market-regime buckets, policy/baseline action pairs, and
+per-asset gross contribution. Gross edge minus incremental cost must reconcile
+net active return, and asset contributions must reconcile gross edge. These
+conditional tables are descriptive diagnostics, not extra selection
+objectives. Test remains visible audit only.
 Reconcile final-book risk coverage, pretrade breaches, risk-only overrides,
 executed breaches, and execution reasons across every declared policy path;
 these are implementation context and cannot select the editable encoder.

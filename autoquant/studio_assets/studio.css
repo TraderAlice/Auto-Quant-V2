@@ -1669,6 +1669,7 @@ main {
 .rl-trials-panel,
 .rl-baselines-panel,
 .rl-detail-panel,
+.rl-incremental-panel,
 .rl-behavior-panel,
 .rl-opportunity-panel {
   min-width: 0;
@@ -1678,8 +1679,118 @@ main {
 }
 
 .rl-behavior-panel,
+.rl-incremental-panel,
 .rl-opportunity-panel {
   margin-top: 10px;
+}
+
+.rl-incremental-stats {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.rl-incremental-stats > span {
+  min-width: 0;
+  padding: 12px 10px;
+  border-left: 1px solid var(--line);
+}
+
+.rl-incremental-stats > span:first-child {
+  border-left: 0;
+}
+
+.rl-incremental-stats small,
+.rl-incremental-stats b,
+.rl-incremental-stats i {
+  display: block;
+}
+
+.rl-incremental-stats small {
+  color: var(--faint);
+  font: 5px var(--mono);
+  text-transform: uppercase;
+}
+
+.rl-incremental-stats b {
+  margin-top: 7px;
+  color: #e9e7dc;
+  font: 8px var(--mono);
+}
+
+.rl-incremental-stats i {
+  margin-top: 4px;
+  color: var(--faint);
+  font: 5px var(--mono);
+  font-style: normal;
+}
+
+.rl-incremental-panel .positive,
+.rl-incremental-table .positive {
+  color: var(--acid);
+}
+
+.rl-incremental-panel .negative,
+.rl-incremental-table .negative {
+  color: var(--red);
+}
+
+.rl-incremental-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  padding-top: 14px;
+}
+
+.rl-incremental-grid h3 {
+  margin: 0 0 8px;
+  color: #a6ada0;
+  font: 6px var(--mono);
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.rl-incremental-table {
+  border-top: 1px solid var(--line);
+}
+
+.rl-incremental-table > div {
+  display: grid;
+  align-items: center;
+  min-height: 30px;
+  border-bottom: 1px solid var(--line);
+  color: #adb3a7;
+  font: 6px var(--mono);
+}
+
+.rl-incremental-table.regime-table > div,
+.rl-incremental-table.pair-table > div {
+  grid-template-columns: minmax(110px, 1.3fr) 0.45fr 0.75fr 0.55fr;
+}
+
+.rl-incremental-table.asset-table > div {
+  grid-template-columns: minmax(70px, 1fr) repeat(2, minmax(70px, 0.8fr));
+}
+
+.rl-incremental-table > div > span {
+  min-width: 0;
+  padding: 5px 7px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rl-incremental-table > div > span:first-child {
+  padding-left: 0;
+}
+
+.rl-incremental-table .heading {
+  min-height: 25px;
+  color: var(--faint);
+  font-size: 5px;
+  text-transform: uppercase;
 }
 
 .rl-behavior-stats {
@@ -4214,7 +4325,15 @@ main {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
+  .rl-incremental-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .rl-behavior-stats > span:nth-child(4) {
+    border-left: 0;
+  }
+
+  .rl-incremental-stats > span:nth-child(4) {
     border-left: 0;
   }
 
@@ -4222,7 +4341,15 @@ main {
     border-top: 1px solid var(--line);
   }
 
+  .rl-incremental-stats > span:nth-child(n + 4) {
+    border-top: 1px solid var(--line);
+  }
+
   .rl-behavior-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .rl-incremental-grid {
     grid-template-columns: 1fr;
   }
 
@@ -4573,17 +4700,21 @@ main {
   }
 
   .rl-behavior-stats,
+  .rl-incremental-stats,
   .rl-rationale-list {
     grid-template-columns: 1fr;
   }
 
   .rl-behavior-stats > span,
-  .rl-behavior-stats > span:nth-child(4) {
+  .rl-behavior-stats > span:nth-child(4),
+  .rl-incremental-stats > span,
+  .rl-incremental-stats > span:nth-child(4) {
     border-top: 1px solid var(--line);
     border-left: 0;
   }
 
-  .rl-behavior-stats > span:first-child {
+  .rl-behavior-stats > span:first-child,
+  .rl-incremental-stats > span:first-child {
     border-top: 0;
   }
 

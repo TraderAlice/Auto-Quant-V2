@@ -205,6 +205,10 @@ Successful Runs declare:
   for one bar from the selected policy path's exact shared pretrade book,
   including proposed/executed weights, trades, next returns, reward, local
   oracle rank/regret, and candidate-factor opportunity.
+- `policy-incremental-attribution.json`: the RL path paired with each fold's
+  validation-selected mechanical baseline, including exact gross edge,
+  incremental cost, net active return, market-state/action buckets, and
+  per-asset gross contribution.
 
 NumPy and pandas versions are recorded. Artifacts are immutable Run evidence.
 
@@ -250,6 +254,9 @@ failed seed.
     name.
 16. Contextual-baseline action labels share one train-only pretrade path per
     iteration; validation/test opportunity evidence never enters fitting.
+17. Full-path incremental attribution compares independently rolled books;
+    gross edge minus incremental cost equals net active return and per-asset
+    active contribution equals gross edge at every timestamp.
 
 ## Change checklist
 

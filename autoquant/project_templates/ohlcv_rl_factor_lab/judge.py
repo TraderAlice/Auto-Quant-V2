@@ -61,6 +61,14 @@ FACTOR_OPPORTUNITY_POLICY = {
     "selection_authority": "context-only",
     "trading_authority": "none",
 }
+INCREMENTAL_ATTRIBUTION_POLICY = {
+    "method": "selected-baseline-full-path-active-attribution-v1",
+    "comparison_path": "independent-full-rollouts",
+    "baseline_selection": "validation-only-per-fold",
+    "test_role": "visible-diagnostic",
+    "selection_authority": "context-only",
+    "trading_authority": "none",
+}
 
 
 class JudgeFailure(ValueError):
@@ -367,8 +375,9 @@ def _fixed_baselines(
     split: dict[str, pd.Index],
     mandate: dict[str, Any],
     risk_covariance_cache,
-) -> tuple[dict[str, Any], dict[str, Any], str]:
+) -> tuple[dict[str, Any], dict[str, Any], str, dict[str, Any]]:
     fixed: dict[str, Any] = {}
+    fixed_rollouts: dict[str, dict[str, Any]] = {}
     training_scores: dict[str, float] = {}
     for action in ACTIONS:
         training = rollout_policy(
@@ -384,9 +393,8 @@ def _fixed_baselines(
         training_scores[action] = float(
             rollout_metrics(training)["net"]["sharpe"]
         )
-        fixed[action] = {
-            name: rollout_metrics(
-                rollout_policy(
+        fixed_rollouts[action] = {
+            name: rollout_policy(
                     fixed_selector(action),
                     raw_states,
                     action_targets,
@@ -396,11 +404,14 @@ def _fixed_baselines(
                     mandate=mandate,
                     risk_covariance_cache=risk_covariance_cache,
                 )
-            )
             for name, index in (
                 ("validation", split["validation"]),
                 ("test", split["test"]),
             )
+        }
+        fixed[action] = {
+            name: rollout_metrics(rollout)
+            for name, rollout in fixed_rollouts[action].items()
         }
     selected_action = max(training_scores, key=training_scores.__getitem__)
     ridge_model = train_contextual_ridge(
@@ -412,9 +423,8 @@ def _fixed_baselines(
         mandate=mandate,
         risk_covariance_cache=risk_covariance_cache,
     )
-    ridge = {
-        name: rollout_metrics(
-            rollout_policy(
+    ridge_rollouts = {
+        name: rollout_policy(
                 ridge_selector(ridge_model),
                 raw_states,
                 action_targets,
@@ -424,11 +434,14 @@ def _fixed_baselines(
                 mandate=mandate,
                 risk_covariance_cache=risk_covariance_cache,
             )
-        )
         for name, index in (
             ("validation", split["validation"]),
             ("test", split["test"]),
         )
+    }
+    ridge = {
+        name: rollout_metrics(rollout)
+        for name, rollout in ridge_rollouts.items()
     }
     result = {
         "fixed_factor_or_blend": fixed,
@@ -451,7 +464,13 @@ def _fixed_baselines(
         "contextual-ridge": float(ridge["validation"]["net"]["sharpe"]),
     }
     best_name = max(validation_candidates, key=validation_candidates.__getitem__)
-    return result, ridge_model, best_name
+    if best_name.startswith("fixed:"):
+        selected_rollouts = fixed_rollouts[best_name.split(":", 1)[1]]
+    elif best_name == "best-training-expert":
+        selected_rollouts = fixed_rollouts[selected_action]
+    else:
+        selected_rollouts = ridge_rollouts
+    return result, ridge_model, best_name, selected_rollouts
 
 
 def _baseline_split(
@@ -657,6 +676,425 @@ def _rollout_opportunity_rows(
         }
         for row in rows
     ]
+
+
+def _rollout_incremental_rows(
+    fold: str,
+    seed: int,
+    split: str,
+    baseline_name: str,
+    policy_rollout,
+    baseline_rollout,
+    raw_states: pd.DataFrame,
+    closes: pd.DataFrame,
+    volatility_threshold: float,
+) -> list[dict[str, Any]]:
+    index = policy_rollout.actions.index
+    if (
+        not baseline_rollout.actions.index.equals(index)
+        or not policy_rollout.simulation.daily.index.equals(index)
+        or not baseline_rollout.simulation.daily.index.equals(index)
+        or not policy_rollout.simulation.weights.index.equals(index)
+        or not baseline_rollout.simulation.weights.index.equals(index)
+    ):
+        raise JudgeFailure(
+            "policy.incremental-identity",
+            "Policy and selected baseline paths do not share one chronology",
+        )
+    forward_returns = closes.shift(-1) / closes - 1.0
+    rows: list[dict[str, Any]] = []
+    previous_policy_action: str | None = None
+    previous_baseline_action: str | None = None
+    for timestamp in index:
+        policy_daily = policy_rollout.simulation.daily.loc[timestamp]
+        baseline_daily = baseline_rollout.simulation.daily.loc[timestamp]
+        policy_action = str(policy_rollout.actions.loc[timestamp])
+        baseline_action = str(baseline_rollout.actions.loc[timestamp])
+        forward = forward_returns.loc[timestamp].fillna(0.0)
+        contribution = (
+            policy_rollout.simulation.weights.loc[timestamp]
+            - baseline_rollout.simulation.weights.loc[timestamp]
+        ) * forward
+        gross_delta = float(
+            policy_daily["gross_return"] - baseline_daily["gross_return"]
+        )
+        incremental_cost = float(
+            policy_daily["cost"] - baseline_daily["cost"]
+        )
+        net_delta = float(
+            policy_daily["net_return"] - baseline_daily["net_return"]
+        )
+        contribution_error = abs(float(contribution.sum()) - gross_delta)
+        identity_error = abs(gross_delta - incremental_cost - net_delta)
+        if max(contribution_error, identity_error) > 1e-12:
+            raise JudgeFailure(
+                "policy.incremental-reconciliation",
+                "Incremental portfolio attribution does not reconcile",
+            )
+        raw = raw_states.loc[timestamp]
+        volume_value = float(raw["volume_regime"])
+        trend_value = float(raw["market_return_5"])
+        volatility_value = float(raw["market_volatility_20"])
+        row = {
+            "fold": fold,
+            "seed": seed,
+            "split": split,
+            "timestamp": timestamp.date().isoformat(),
+            "baselineName": baseline_name,
+            "policyAction": policy_action,
+            "baselineAction": baseline_action,
+            "policySwitched": (
+                previous_policy_action is not None
+                and policy_action != previous_policy_action
+            ),
+            "baselineSwitched": (
+                previous_baseline_action is not None
+                and baseline_action != previous_baseline_action
+            ),
+            "actionsDiffer": policy_action != baseline_action,
+            "volumeRegimeValue": volume_value,
+            "marketReturn5": trend_value,
+            "marketVolatility20": volatility_value,
+            "volumeRegime": (
+                "below-trend" if volume_value < 0.0 else "above-trend"
+            ),
+            "marketTrend": (
+                "negative" if trend_value < 0.0 else "nonnegative"
+            ),
+            "volatilityRegime": (
+                "low"
+                if volatility_value < volatility_threshold
+                else "high"
+            ),
+            "policyGrossReturn": float(policy_daily["gross_return"]),
+            "baselineGrossReturn": float(baseline_daily["gross_return"]),
+            "grossActiveReturn": gross_delta,
+            "policyNetReturn": float(policy_daily["net_return"]),
+            "baselineNetReturn": float(baseline_daily["net_return"]),
+            "incrementalCost": incremental_cost,
+            "netActiveReturn": net_delta,
+            "policyReward": float(policy_daily["reward"]),
+            "baselineReward": float(baseline_daily["reward"]),
+            "rewardDelta": float(
+                policy_daily["reward"] - baseline_daily["reward"]
+            ),
+            "policyOneWayTurnover": float(
+                policy_daily["one_way_turnover"]
+            ),
+            "baselineOneWayTurnover": float(
+                baseline_daily["one_way_turnover"]
+            ),
+            "oneWayTurnoverDelta": float(
+                policy_daily["one_way_turnover"]
+                - baseline_daily["one_way_turnover"]
+            ),
+            "assetGrossContribution": {
+                asset: float(contribution[asset])
+                for asset in closes.columns
+            },
+        }
+        numeric = [
+            value
+            for key, value in row.items()
+            if isinstance(value, (int, float))
+            and not isinstance(value, bool)
+            and key != "seed"
+        ]
+        if not all(math.isfinite(float(value)) for value in numeric):
+            raise JudgeFailure(
+                "policy.incremental-non-finite",
+                "Incremental attribution contains non-finite values",
+            )
+        rows.append(row)
+        previous_policy_action = policy_action
+        previous_baseline_action = baseline_action
+    return rows
+
+
+def _relative_path_statistics(
+    rows: list[dict[str, Any]],
+) -> dict[str, float]:
+    active = np.asarray(
+        [float(row["netActiveReturn"]) for row in rows],
+        dtype=float,
+    )
+    policy = np.asarray(
+        [float(row["policyNetReturn"]) for row in rows],
+        dtype=float,
+    )
+    baseline = np.asarray(
+        [float(row["baselineNetReturn"]) for row in rows],
+        dtype=float,
+    )
+    annualized_active_return = float(active.mean() * 252.0)
+    tracking_error = float(active.std(ddof=0) * math.sqrt(252.0))
+    relative_path = np.cumprod((1.0 + policy) / (1.0 + baseline))
+    running_peak = np.maximum.accumulate(
+        np.maximum(relative_path, 1.0)
+    )
+    relative_drawdown = relative_path / running_peak - 1.0
+    return {
+        "annualized_active_return": annualized_active_return,
+        "annualized_tracking_error": tracking_error,
+        "information_ratio": (
+            annualized_active_return / tracking_error
+            if tracking_error > 1e-15
+            else 0.0
+        ),
+        "relative_total_return": float(relative_path[-1] - 1.0),
+        "relative_maximum_drawdown": float(relative_drawdown.min()),
+    }
+
+
+def _incremental_bucket(
+    rows: list[dict[str, Any]],
+) -> dict[str, Any]:
+    net = [float(row["netActiveReturn"]) for row in rows]
+    active = [value for value in net if abs(value) > 1e-12]
+    return {
+        "decisions": len(rows),
+        "active_decisions": len(active),
+        "active_decision_rate": len(active) / len(rows),
+        "mean_gross_active_return": float(
+            np.mean([row["grossActiveReturn"] for row in rows])
+        ),
+        "total_gross_active_return": float(
+            sum(row["grossActiveReturn"] for row in rows)
+        ),
+        "total_incremental_cost": float(
+            sum(row["incrementalCost"] for row in rows)
+        ),
+        "mean_net_active_return": float(np.mean(net)),
+        "total_net_active_return": float(sum(net)),
+        "active_win_rate": float(np.mean([value > 0.0 for value in net])),
+        "conditional_active_win_rate": (
+            float(np.mean([value > 0.0 for value in active]))
+            if active
+            else 0.0
+        ),
+    }
+
+
+def _incremental_attribution_metrics(
+    rows: list[dict[str, Any]],
+    split: str,
+    assets: list[str],
+) -> dict[str, Any]:
+    selected = [row for row in rows if row["split"] == split]
+    if not selected:
+        raise JudgeFailure(
+            "policy.incremental-coverage",
+            "Incremental attribution split has no decisions",
+        )
+    groups: dict[tuple[str, int], list[dict[str, Any]]] = {}
+    for row in selected:
+        groups.setdefault((row["fold"], int(row["seed"])), []).append(row)
+    base = _incremental_bucket(selected)
+    net = [float(row["netActiveReturn"]) for row in selected]
+    path_stats = [_relative_path_statistics(group) for group in groups.values()]
+    by_asset = {
+        asset: {
+            "total_gross_active_contribution": float(
+                sum(row["assetGrossContribution"][asset] for row in selected)
+            ),
+            "mean_trial_total_gross_active_contribution": float(
+                sum(row["assetGrossContribution"][asset] for row in selected)
+                / len(groups)
+            ),
+            "mean_gross_active_contribution": float(
+                np.mean(
+                    [
+                        row["assetGrossContribution"][asset]
+                        for row in selected
+                    ]
+                )
+            ),
+        }
+        for asset in assets
+    }
+    regime_fields = {
+        "volume": "volumeRegime",
+        "trend": "marketTrend",
+        "volatility": "volatilityRegime",
+    }
+    by_regime: dict[str, dict[str, Any]] = {}
+    regime_counts: dict[str, int] = {}
+    for dimension, field in regime_fields.items():
+        buckets = sorted({str(row[field]) for row in selected})
+        regime_counts[dimension] = 0
+        for bucket in buckets:
+            group = [row for row in selected if row[field] == bucket]
+            by_regime[f"{dimension}:{bucket}"] = {
+                "dimension": dimension,
+                "bucket": bucket,
+                **_incremental_bucket(group),
+            }
+            regime_counts[dimension] += len(group)
+    by_action_pair: dict[str, dict[str, Any]] = {}
+    for policy_action, baseline_action in sorted(
+        {
+            (str(row["policyAction"]), str(row["baselineAction"]))
+            for row in selected
+        }
+    ):
+        group = [
+            row
+            for row in selected
+            if row["policyAction"] == policy_action
+            and row["baselineAction"] == baseline_action
+        ]
+        by_action_pair[f"{policy_action}->{baseline_action}"] = {
+            "policy_action": policy_action,
+            "baseline_action": baseline_action,
+            **_incremental_bucket(group),
+        }
+    by_switch_state: dict[str, dict[str, Any]] = {}
+    for policy_switched in (False, True):
+        for baseline_switched in (False, True):
+            group = [
+                row
+                for row in selected
+                if bool(row["policySwitched"]) == policy_switched
+                and bool(row["baselineSwitched"]) == baseline_switched
+            ]
+            if not group:
+                continue
+            key = (
+                ("policy-switch" if policy_switched else "policy-hold")
+                + "/"
+                + (
+                    "baseline-switch"
+                    if baseline_switched
+                    else "baseline-hold"
+                )
+            )
+            by_switch_state[key] = {
+                "policy_switched": policy_switched,
+                "baseline_switched": baseline_switched,
+                **_incremental_bucket(group),
+            }
+    trial_metrics = []
+    for (fold, seed), group in groups.items():
+        trial_metrics.append(
+            {
+                "fold": fold,
+                "seed": seed,
+                "baseline_name": str(group[0]["baselineName"]),
+                "observations": len(group),
+                **_incremental_bucket(group),
+                **_relative_path_statistics(group),
+            }
+        )
+    reconciliation = {
+        "row_count": len(selected),
+        "trial_path_count": len(groups),
+        "gross_cost_net_error": max(
+            abs(
+                float(row["grossActiveReturn"])
+                - float(row["incrementalCost"])
+                - float(row["netActiveReturn"])
+            )
+            for row in selected
+        ),
+        "asset_gross_error": max(
+            abs(
+                sum(row["assetGrossContribution"].values())
+                - float(row["grossActiveReturn"])
+            )
+            for row in selected
+        ),
+        "asset_total_error": abs(
+            sum(
+                value["total_gross_active_contribution"]
+                for value in by_asset.values()
+            )
+            - base["total_gross_active_return"]
+        ),
+        "action_pair_count_error": abs(
+            sum(value["decisions"] for value in by_action_pair.values())
+            - len(selected)
+        ),
+        "switch_state_count_error": abs(
+            sum(value["decisions"] for value in by_switch_state.values())
+            - len(selected)
+        ),
+        "regime_count_error": max(
+            abs(count - len(selected)) for count in regime_counts.values()
+        ),
+    }
+    reconciliation["passed"] = (
+        max(
+            float(value)
+            for key, value in reconciliation.items()
+            if key not in {"row_count", "trial_path_count"}
+        )
+        <= 1e-10
+    )
+    return {
+        "status": "available",
+        "decisions": len(selected),
+        "trial_paths": len(groups),
+        **base,
+        "mean_trial_total_gross_active_return": float(
+            np.mean(
+                [
+                    item["total_gross_active_return"]
+                    for item in trial_metrics
+                ]
+            )
+        ),
+        "mean_trial_total_incremental_cost": float(
+            np.mean(
+                [item["total_incremental_cost"] for item in trial_metrics]
+            )
+        ),
+        "mean_trial_total_net_active_return": float(
+            np.mean(
+                [item["total_net_active_return"] for item in trial_metrics]
+            )
+        ),
+        "annualized_active_return": float(
+            np.mean(
+                [item["annualized_active_return"] for item in path_stats]
+            )
+        ),
+        "annualized_tracking_error": float(
+            np.mean(
+                [item["annualized_tracking_error"] for item in path_stats]
+            )
+        ),
+        "information_ratio": float(
+            np.mean([item["information_ratio"] for item in path_stats])
+        ),
+        "relative_total_return": float(
+            np.mean([item["relative_total_return"] for item in path_stats])
+        ),
+        "relative_maximum_drawdown": float(
+            np.mean(
+                [item["relative_maximum_drawdown"] for item in path_stats]
+            )
+        ),
+        "p05_net_active_return": _linear_percentile(net, 0.05),
+        "median_net_active_return": float(np.median(net)),
+        "p95_net_active_return": _linear_percentile(net, 0.95),
+        "worst_net_active_return": float(min(net)),
+        "best_net_active_return": float(max(net)),
+        "actions_differ_rate": float(
+            np.mean([row["actionsDiffer"] for row in selected])
+        ),
+        "policy_switch_rate": float(
+            np.mean([row["policySwitched"] for row in selected])
+        ),
+        "baseline_switch_rate": float(
+            np.mean([row["baselineSwitched"] for row in selected])
+        ),
+        "by_asset": by_asset,
+        "by_regime": by_regime,
+        "by_action_pair": by_action_pair,
+        "by_switch_state": by_switch_state,
+        "trials": trial_metrics,
+        "reconciliation": reconciliation,
+    }
 
 
 def _linear_percentile(values: list[float], percentile: float) -> float:
@@ -1229,6 +1667,7 @@ def _evaluate() -> tuple[
     list[dict[str, Any]],
     dict[str, Any],
     dict[str, Any],
+    dict[str, Any],
 ]:
     study, data_root = _load_contract()
     mandate = _load_mandate()
@@ -1317,6 +1756,8 @@ def _evaluate() -> tuple[
     action_rows: list[dict[str, Any]] = []
     rationale_rows: list[dict[str, Any]] = []
     opportunity_rows: list[dict[str, Any]] = []
+    incremental_rows: list[dict[str, Any]] = []
+    incremental_thresholds: dict[str, dict[str, float]] = {}
     failures: list[dict[str, Any]] = []
     validation_sharpes: list[float] = []
     test_sharpes: list[float] = []
@@ -1329,7 +1770,12 @@ def _evaluate() -> tuple[
     validation_candidate_action_frequencies: list[float] = []
 
     for fold_name, split in folds.items():
-        baselines, ridge_model, best_baseline = _fixed_baselines(
+        (
+            baselines,
+            ridge_model,
+            best_baseline,
+            selected_baseline_rollouts,
+        ) = _fixed_baselines(
             raw_states,
             action_targets,
             closes,
@@ -1338,6 +1784,17 @@ def _evaluate() -> tuple[
             mandate,
             risk_covariance_cache,
         )
+        volatility_threshold = float(
+            raw_states.loc[split["train"], "market_volatility_20"].median()
+        )
+        if not math.isfinite(volatility_threshold):
+            raise JudgeFailure(
+                "policy.incremental-threshold",
+                "Train-frozen volatility threshold is non-finite",
+            )
+        incremental_thresholds[fold_name] = {
+            "marketVolatility20Median": volatility_threshold,
+        }
         baseline_metrics[fold_name] = {
             **baselines,
             "best_validation_policy": best_baseline,
@@ -1463,6 +1920,19 @@ def _evaluate() -> tuple[
                         risk_covariance_cache,
                     )
                 )
+                incremental_rows.extend(
+                    _rollout_incremental_rows(
+                        fold_name,
+                        seed,
+                        "validation",
+                        best_baseline,
+                        validation_rollout,
+                        selected_baseline_rollouts["validation"],
+                        raw_states,
+                        closes,
+                        volatility_threshold,
+                    )
+                )
                 action_rows.extend(
                     _rollout_action_rows(
                         fold_name,
@@ -1493,6 +1963,19 @@ def _evaluate() -> tuple[
                         volumes,
                         mandate,
                         risk_covariance_cache,
+                    )
+                )
+                incremental_rows.extend(
+                    _rollout_incremental_rows(
+                        fold_name,
+                        seed,
+                        "test",
+                        best_baseline,
+                        test_rollout,
+                        selected_baseline_rollouts["test"],
+                        raw_states,
+                        closes,
+                        volatility_threshold,
                     )
                 )
             except Exception as error:
@@ -1625,6 +2108,19 @@ def _evaluate() -> tuple[
             "test",
         ),
     }
+    incremental_attribution = {
+        "policy": INCREMENTAL_ATTRIBUTION_POLICY,
+        "validation": _incremental_attribution_metrics(
+            incremental_rows,
+            "validation",
+            list(closes.columns),
+        ),
+        "test": _incremental_attribution_metrics(
+            incremental_rows,
+            "test",
+            list(closes.columns),
+        ),
+    }
     metrics = {
         "validation_mean_net_sharpe": float(np.mean(validation_sharpes)),
         "portfolio_mandate": mandate,
@@ -1663,6 +2159,7 @@ def _evaluate() -> tuple[
         },
         "policy_rationale": policy_rationale,
         "factor_opportunity": factor_opportunity,
+        "incremental_attribution": incremental_attribution,
         "execution_risk": execution_risk,
         "constraint_audit": audits,
         "configuration": {
@@ -1693,6 +2190,9 @@ def _evaluate() -> tuple[
             ),
             "executionRiskPriority": "risk-compliance-first",
             "factorOpportunityMethod": FACTOR_OPPORTUNITY_POLICY["method"],
+            "incrementalAttributionMethod": (
+                INCREMENTAL_ATTRIBUTION_POLICY["method"]
+            ),
         },
         "research_integrity": {
             "selection_split": "validation",
@@ -1738,6 +2238,11 @@ def _evaluate() -> tuple[
                 "all fixed sleeves evaluated for one next bar from the "
                 "selected policy path's exact shared pretrade book; the "
                 "ex-post oracle is an audit upper bound only"
+            ),
+            "incrementalAttribution": (
+                "independent full-path RL minus validation-selected "
+                "mechanical baseline; gross edge minus incremental cost "
+                "reconciles net active return"
             ),
             "executionRisk": (
                 "every selected sleeve is rechecked after drift; risk "
@@ -1793,6 +2298,15 @@ def _evaluate() -> tuple[
         "policy": FACTOR_OPPORTUNITY_POLICY,
         "rows": opportunity_rows,
     }
+    incremental = {
+        "schemaVersion": 1,
+        "inputHash": os.environ["AUTOQUANT_INPUT_HASH"],
+        "method": INCREMENTAL_ATTRIBUTION_POLICY["method"],
+        "assets": list(closes.columns),
+        "policy": INCREMENTAL_ATTRIBUTION_POLICY,
+        "thresholds": incremental_thresholds,
+        "rows": incremental_rows,
+    }
     return (
         metrics,
         report,
@@ -1801,6 +2315,7 @@ def _evaluate() -> tuple[
         action_rows,
         rationales,
         opportunities,
+        incremental,
     )
 
 
@@ -1814,6 +2329,7 @@ def main() -> None:
             action_rows,
             rationales,
             opportunities,
+            incremental,
         ) = _evaluate()
         artifacts = Path(os.environ["AUTOQUANT_ARTIFACTS_DIR"])
         (artifacts / "rl-report.json").write_text(
@@ -1839,6 +2355,10 @@ def main() -> None:
         )
         (artifacts / "policy-opportunities.json").write_text(
             json.dumps(opportunities, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        (artifacts / "policy-incremental-attribution.json").write_text(
+            json.dumps(incremental, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
         )
         _write_output(
@@ -1896,6 +2416,15 @@ def main() -> None:
                             "Same-pretrade one-step governed action books, "
                             "rewards, local oracle rank/regret, and candidate "
                             "factor opportunity evidence"
+                        ),
+                    },
+                    {
+                        "kind": "policy-incremental-attribution",
+                        "path": "policy-incremental-attribution.json",
+                        "description": (
+                            "Full-path active return, cost, regime, action, "
+                            "and asset attribution versus each fold's "
+                            "validation-selected mechanical baseline"
                         ),
                     },
                 ],

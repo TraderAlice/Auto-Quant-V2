@@ -42,3 +42,10 @@ audit: selected-versus-local-best rank/regret, candidate locally-best and
 missed rates, and candidate-versus-balanced reward. The local best is ex-post
 hindsight, not an oracle strategy or promotion input. AutoQuant has no
 trading-account authority.
+
+For the selected mechanical comparator, inspect the full-path active
+attribution: gross edge, incremental cost, net active return, information
+ratio, relative drawdown, regime buckets, action-pair buckets, and asset
+contributions. State whether the adaptive loss comes from selecting worse
+books, paying more to move, or a narrow market/asset segment. Do not treat
+conditional validation diagnostics as new optimization objectives.

@@ -38,9 +38,13 @@ BASE_ARTIFACT_KINDS = {
 }
 POLICY_RATIONALE_ARTIFACT_KIND = "policy-rationales"
 POLICY_OPPORTUNITY_ARTIFACT_KIND = "policy-opportunities"
+POLICY_INCREMENTAL_ATTRIBUTION_ARTIFACT_KIND = (
+    "policy-incremental-attribution"
+)
 EXPECTED_ARTIFACT_KINDS = BASE_ARTIFACT_KINDS | {
     POLICY_RATIONALE_ARTIFACT_KIND,
     POLICY_OPPORTUNITY_ARTIFACT_KIND,
+    POLICY_INCREMENTAL_ATTRIBUTION_ARTIFACT_KIND,
 }
 FACTOR_OPPORTUNITY_METHOD = (
     "actual-pretrade-one-step-governed-action-audit-v1"
@@ -55,6 +59,14 @@ FACTOR_OPPORTUNITY_POLICY = {
 FACTOR_OPPORTUNITY_REWARD = (
     "net-return-after-10bps-cost-minus-0.10-times-gross-return-squared"
 )
+INCREMENTAL_ATTRIBUTION_POLICY = {
+    "method": "selected-baseline-full-path-active-attribution-v1",
+    "comparison_path": "independent-full-rollouts",
+    "baseline_selection": "validation-only-per-fold",
+    "test_role": "visible-diagnostic",
+    "selection_authority": "context-only",
+    "trading_authority": "none",
+}
 ACTION_COLUMNS = [
     "fold",
     "seed",
@@ -2796,6 +2808,805 @@ def _factor_opportunity_projection(
     }
 
 
+def _incremental_bucket(
+    rows: list[dict[str, Any]],
+) -> dict[str, Any]:
+    net = [float(row["netActiveReturn"]) for row in rows]
+    active = [value for value in net if abs(value) > 1e-12]
+    return {
+        "decisions": len(rows),
+        "active_decisions": len(active),
+        "active_decision_rate": len(active) / len(rows),
+        "mean_gross_active_return": sum(
+            float(row["grossActiveReturn"]) for row in rows
+        )
+        / len(rows),
+        "total_gross_active_return": sum(
+            float(row["grossActiveReturn"]) for row in rows
+        ),
+        "total_incremental_cost": sum(
+            float(row["incrementalCost"]) for row in rows
+        ),
+        "mean_net_active_return": sum(net) / len(net),
+        "total_net_active_return": sum(net),
+        "active_win_rate": sum(value > 0.0 for value in net) / len(net),
+        "conditional_active_win_rate": (
+            sum(value > 0.0 for value in active) / len(active)
+            if active
+            else 0.0
+        ),
+    }
+
+
+def _relative_path_statistics(
+    rows: list[dict[str, Any]],
+) -> dict[str, float]:
+    active = [float(row["netActiveReturn"]) for row in rows]
+    mean_active = sum(active) / len(active)
+    standard_deviation = math.sqrt(
+        sum((value - mean_active) ** 2 for value in active) / len(active)
+    )
+    annualized_active_return = mean_active * 252.0
+    tracking_error = standard_deviation * math.sqrt(252.0)
+    relative_path = 1.0
+    running_peak = 1.0
+    maximum_drawdown = 0.0
+    for row in rows:
+        policy_leg = 1.0 + float(row["policyNetReturn"])
+        baseline_leg = 1.0 + float(row["baselineNetReturn"])
+        if policy_leg <= 0.0 or baseline_leg <= 0.0:
+            _fail(
+                "policy-incremental-attribution",
+                "rl.incremental-relative-path",
+                "Relative-path wealth legs must remain positive",
+            )
+        relative_path *= policy_leg / baseline_leg
+        running_peak = max(running_peak, relative_path)
+        maximum_drawdown = min(
+            maximum_drawdown,
+            relative_path / running_peak - 1.0,
+        )
+    return {
+        "annualized_active_return": annualized_active_return,
+        "annualized_tracking_error": tracking_error,
+        "information_ratio": (
+            annualized_active_return / tracking_error
+            if tracking_error > 1e-15
+            else 0.0
+        ),
+        "relative_total_return": relative_path - 1.0,
+        "relative_maximum_drawdown": maximum_drawdown,
+    }
+
+
+def _incremental_metrics(
+    rows: list[dict[str, Any]],
+    split: str,
+    assets: list[str],
+) -> dict[str, Any]:
+    selected = [row for row in rows if row["split"] == split]
+    if not selected:
+        _fail(
+            f"policy-incremental-attribution/{split}",
+            "rl.incremental-coverage",
+            "Incremental attribution split has no decisions",
+        )
+    groups: dict[tuple[str, int], list[dict[str, Any]]] = defaultdict(list)
+    for row in selected:
+        groups[(row["fold"], row["seed"])].append(row)
+    base = _incremental_bucket(selected)
+    net = [float(row["netActiveReturn"]) for row in selected]
+    path_stats = [_relative_path_statistics(group) for group in groups.values()]
+    by_asset = {
+        asset: {
+            "total_gross_active_contribution": sum(
+                row["assetGrossContribution"][asset] for row in selected
+            ),
+            "mean_trial_total_gross_active_contribution": sum(
+                row["assetGrossContribution"][asset] for row in selected
+            )
+            / len(groups),
+            "mean_gross_active_contribution": sum(
+                row["assetGrossContribution"][asset] for row in selected
+            )
+            / len(selected),
+        }
+        for asset in assets
+    }
+    by_regime: dict[str, dict[str, Any]] = {}
+    regime_counts: dict[str, int] = {}
+    for dimension, field in {
+        "volume": "volumeRegime",
+        "trend": "marketTrend",
+        "volatility": "volatilityRegime",
+    }.items():
+        regime_counts[dimension] = 0
+        for bucket in sorted({str(row[field]) for row in selected}):
+            group = [row for row in selected if row[field] == bucket]
+            by_regime[f"{dimension}:{bucket}"] = {
+                "dimension": dimension,
+                "bucket": bucket,
+                **_incremental_bucket(group),
+            }
+            regime_counts[dimension] += len(group)
+    by_action_pair: dict[str, dict[str, Any]] = {}
+    for policy_action, baseline_action in sorted(
+        {
+            (str(row["policyAction"]), str(row["baselineAction"]))
+            for row in selected
+        }
+    ):
+        group = [
+            row
+            for row in selected
+            if row["policyAction"] == policy_action
+            and row["baselineAction"] == baseline_action
+        ]
+        by_action_pair[f"{policy_action}->{baseline_action}"] = {
+            "policy_action": policy_action,
+            "baseline_action": baseline_action,
+            **_incremental_bucket(group),
+        }
+    by_switch_state: dict[str, dict[str, Any]] = {}
+    for policy_switched in (False, True):
+        for baseline_switched in (False, True):
+            group = [
+                row
+                for row in selected
+                if row["policySwitched"] == policy_switched
+                and row["baselineSwitched"] == baseline_switched
+            ]
+            if not group:
+                continue
+            key = (
+                ("policy-switch" if policy_switched else "policy-hold")
+                + "/"
+                + (
+                    "baseline-switch"
+                    if baseline_switched
+                    else "baseline-hold"
+                )
+            )
+            by_switch_state[key] = {
+                "policy_switched": policy_switched,
+                "baseline_switched": baseline_switched,
+                **_incremental_bucket(group),
+            }
+    trials = [
+        {
+            "fold": fold,
+            "seed": seed,
+            "baseline_name": str(group[0]["baselineName"]),
+            "observations": len(group),
+            **_incremental_bucket(group),
+            **_relative_path_statistics(group),
+        }
+        for (fold, seed), group in groups.items()
+    ]
+    reconciliation = {
+        "row_count": len(selected),
+        "trial_path_count": len(groups),
+        "gross_cost_net_error": max(
+            abs(
+                row["grossActiveReturn"]
+                - row["incrementalCost"]
+                - row["netActiveReturn"]
+            )
+            for row in selected
+        ),
+        "asset_gross_error": max(
+            abs(
+                sum(row["assetGrossContribution"].values())
+                - row["grossActiveReturn"]
+            )
+            for row in selected
+        ),
+        "asset_total_error": abs(
+            sum(
+                value["total_gross_active_contribution"]
+                for value in by_asset.values()
+            )
+            - base["total_gross_active_return"]
+        ),
+        "action_pair_count_error": abs(
+            sum(value["decisions"] for value in by_action_pair.values())
+            - len(selected)
+        ),
+        "switch_state_count_error": abs(
+            sum(value["decisions"] for value in by_switch_state.values())
+            - len(selected)
+        ),
+        "regime_count_error": max(
+            abs(count - len(selected)) for count in regime_counts.values()
+        ),
+    }
+    reconciliation["passed"] = (
+        max(
+            float(value)
+            for key, value in reconciliation.items()
+            if key not in {"row_count", "trial_path_count"}
+        )
+        <= 1e-10
+    )
+    return {
+        "status": "available",
+        "decisions": len(selected),
+        "trial_paths": len(groups),
+        **base,
+        "mean_trial_total_gross_active_return": sum(
+            item["total_gross_active_return"] for item in trials
+        )
+        / len(trials),
+        "mean_trial_total_incremental_cost": sum(
+            item["total_incremental_cost"] for item in trials
+        )
+        / len(trials),
+        "mean_trial_total_net_active_return": sum(
+            item["total_net_active_return"] for item in trials
+        )
+        / len(trials),
+        "annualized_active_return": sum(
+            item["annualized_active_return"] for item in path_stats
+        )
+        / len(path_stats),
+        "annualized_tracking_error": sum(
+            item["annualized_tracking_error"] for item in path_stats
+        )
+        / len(path_stats),
+        "information_ratio": sum(
+            item["information_ratio"] for item in path_stats
+        )
+        / len(path_stats),
+        "relative_total_return": sum(
+            item["relative_total_return"] for item in path_stats
+        )
+        / len(path_stats),
+        "relative_maximum_drawdown": sum(
+            item["relative_maximum_drawdown"] for item in path_stats
+        )
+        / len(path_stats),
+        "p05_net_active_return": _linear_percentile(net, 0.05),
+        "median_net_active_return": _median(net),
+        "p95_net_active_return": _linear_percentile(net, 0.95),
+        "worst_net_active_return": min(net),
+        "best_net_active_return": max(net),
+        "actions_differ_rate": sum(
+            row["actionsDiffer"] for row in selected
+        )
+        / len(selected),
+        "policy_switch_rate": sum(
+            row["policySwitched"] for row in selected
+        )
+        / len(selected),
+        "baseline_switch_rate": sum(
+            row["baselineSwitched"] for row in selected
+        )
+        / len(selected),
+        "by_asset": by_asset,
+        "by_regime": by_regime,
+        "by_action_pair": by_action_pair,
+        "by_switch_state": by_switch_state,
+        "trials": trials,
+        "reconciliation": reconciliation,
+    }
+
+
+def _incremental_split_projection(
+    value: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "status": value["status"],
+        "decisions": value["decisions"],
+        "activeDecisions": value["active_decisions"],
+        "activeDecisionRate": value["active_decision_rate"],
+        "trialPaths": value["trial_paths"],
+        "meanGrossActiveReturn": value["mean_gross_active_return"],
+        "totalGrossActiveReturn": value["total_gross_active_return"],
+        "totalIncrementalCost": value["total_incremental_cost"],
+        "meanNetActiveReturn": value["mean_net_active_return"],
+        "totalNetActiveReturn": value["total_net_active_return"],
+        "meanTrialTotalGrossActiveReturn": value[
+            "mean_trial_total_gross_active_return"
+        ],
+        "meanTrialTotalIncrementalCost": value[
+            "mean_trial_total_incremental_cost"
+        ],
+        "meanTrialTotalNetActiveReturn": value[
+            "mean_trial_total_net_active_return"
+        ],
+        "annualizedActiveReturn": value["annualized_active_return"],
+        "annualizedTrackingError": value["annualized_tracking_error"],
+        "informationRatio": value["information_ratio"],
+        "relativeTotalReturn": value["relative_total_return"],
+        "relativeMaximumDrawdown": value["relative_maximum_drawdown"],
+        "activeWinRate": value["active_win_rate"],
+        "conditionalActiveWinRate": value[
+            "conditional_active_win_rate"
+        ],
+        "p05NetActiveReturn": value["p05_net_active_return"],
+        "medianNetActiveReturn": value["median_net_active_return"],
+        "p95NetActiveReturn": value["p95_net_active_return"],
+        "worstNetActiveReturn": value["worst_net_active_return"],
+        "bestNetActiveReturn": value["best_net_active_return"],
+        "actionsDifferRate": value["actions_differ_rate"],
+        "policySwitchRate": value["policy_switch_rate"],
+        "baselineSwitchRate": value["baseline_switch_rate"],
+        "byAsset": [
+            {
+                "asset": asset,
+                "totalGrossActiveContribution": item[
+                    "total_gross_active_contribution"
+                ],
+                "meanTrialTotalGrossActiveContribution": item[
+                    "mean_trial_total_gross_active_contribution"
+                ],
+                "meanGrossActiveContribution": item[
+                    "mean_gross_active_contribution"
+                ],
+            }
+            for asset, item in value["by_asset"].items()
+        ],
+        "byRegime": [
+            {
+                "key": key,
+                "dimension": item["dimension"],
+                "bucket": item["bucket"],
+                "decisions": item["decisions"],
+                "activeDecisions": item["active_decisions"],
+                "activeDecisionRate": item["active_decision_rate"],
+                "meanGrossActiveReturn": item[
+                    "mean_gross_active_return"
+                ],
+                "totalGrossActiveReturn": item[
+                    "total_gross_active_return"
+                ],
+                "totalIncrementalCost": item["total_incremental_cost"],
+                "meanNetActiveReturn": item["mean_net_active_return"],
+                "totalNetActiveReturn": item["total_net_active_return"],
+                "activeWinRate": item["active_win_rate"],
+                "conditionalActiveWinRate": item[
+                    "conditional_active_win_rate"
+                ],
+            }
+            for key, item in value["by_regime"].items()
+        ],
+        "byActionPair": [
+            {
+                "key": key,
+                "policyAction": item["policy_action"],
+                "baselineAction": item["baseline_action"],
+                "decisions": item["decisions"],
+                "activeDecisions": item["active_decisions"],
+                "meanNetActiveReturn": item["mean_net_active_return"],
+                "totalNetActiveReturn": item["total_net_active_return"],
+                "activeWinRate": item["active_win_rate"],
+                "conditionalActiveWinRate": item[
+                    "conditional_active_win_rate"
+                ],
+            }
+            for key, item in value["by_action_pair"].items()
+        ],
+        "bySwitchState": [
+            {
+                "key": key,
+                "policySwitched": item["policy_switched"],
+                "baselineSwitched": item["baseline_switched"],
+                "decisions": item["decisions"],
+                "activeDecisions": item["active_decisions"],
+                "meanNetActiveReturn": item["mean_net_active_return"],
+                "totalIncrementalCost": item["total_incremental_cost"],
+                "activeWinRate": item["active_win_rate"],
+                "conditionalActiveWinRate": item[
+                    "conditional_active_win_rate"
+                ],
+            }
+            for key, item in value["by_switch_state"].items()
+        ],
+        "trials": [
+            {
+                "fold": item["fold"],
+                "seed": item["seed"],
+                "baselineName": item["baseline_name"],
+                "observations": item["observations"],
+                "activeDecisions": item["active_decisions"],
+                "activeDecisionRate": item["active_decision_rate"],
+                "totalGrossActiveReturn": item[
+                    "total_gross_active_return"
+                ],
+                "totalIncrementalCost": item["total_incremental_cost"],
+                "totalNetActiveReturn": item["total_net_active_return"],
+                "activeWinRate": item["active_win_rate"],
+                "conditionalActiveWinRate": item[
+                    "conditional_active_win_rate"
+                ],
+                "annualizedActiveReturn": item[
+                    "annualized_active_return"
+                ],
+                "annualizedTrackingError": item[
+                    "annualized_tracking_error"
+                ],
+                "informationRatio": item["information_ratio"],
+                "relativeTotalReturn": item["relative_total_return"],
+                "relativeMaximumDrawdown": item[
+                    "relative_maximum_drawdown"
+                ],
+            }
+            for item in value["trials"]
+        ],
+        "reconciliation": value["reconciliation"],
+    }
+
+
+def _incremental_attribution_projection(
+    value: dict[str, Any] | None,
+    raw_metrics: Any,
+    action_rows: list[dict[str, Any]],
+    configuration: dict[str, Any],
+    assets: list[str],
+    input_hash: str,
+    selected_baselines: dict[tuple[str, int], str],
+) -> dict[str, Any]:
+    unavailable = {
+        "available": False,
+        "policy": None,
+        "selectionAuthority": "context-only",
+        "validation": None,
+        "test": None,
+        "representativeDays": [],
+    }
+    if value is None and raw_metrics is None:
+        return unavailable
+    if value is None or not isinstance(raw_metrics, dict):
+        _fail(
+            "RunResult/metrics/incremental_attribution",
+            "rl.incremental-attribution",
+            "Incremental metrics and artifact must exist together",
+        )
+    root_fields = {
+        "schemaVersion",
+        "inputHash",
+        "method",
+        "assets",
+        "policy",
+        "thresholds",
+        "rows",
+    }
+    if (
+        set(value) != root_fields
+        or value.get("schemaVersion") != SCHEMA_VERSION
+        or value.get("inputHash") != input_hash
+        or value.get("method") != INCREMENTAL_ATTRIBUTION_POLICY["method"]
+        or value.get("assets") != assets
+        or value.get("policy") != INCREMENTAL_ATTRIBUTION_POLICY
+        or set(raw_metrics) != {"policy", "validation", "test"}
+        or raw_metrics.get("policy") != INCREMENTAL_ATTRIBUTION_POLICY
+        or not isinstance(value.get("rows"), list)
+        or len(value["rows"]) != len(action_rows)
+    ):
+        _fail(
+            "policy-incremental-attribution",
+            "rl.incremental-identity",
+            "Incremental attribution identity differs from the fixed Run",
+        )
+    thresholds = value.get("thresholds")
+    if (
+        not isinstance(thresholds, dict)
+        or set(thresholds) != set(configuration["folds"])
+    ):
+        _fail(
+            "policy-incremental-attribution/thresholds",
+            "rl.incremental-thresholds",
+            "Incremental attribution thresholds differ from folds",
+        )
+    normalized_thresholds: dict[str, float] = {}
+    for fold in configuration["folds"]:
+        item = thresholds[fold]
+        if not isinstance(item, dict) or set(item) != {
+            "marketVolatility20Median"
+        }:
+            _fail(
+                f"policy-incremental-attribution/thresholds/{fold}",
+                "rl.incremental-thresholds",
+                "Volatility threshold shape is invalid",
+            )
+        normalized_thresholds[fold] = _finite(
+            item["marketVolatility20Median"],
+            f"policy-incremental-attribution/thresholds/{fold}",
+        )
+    row_fields = {
+        "fold",
+        "seed",
+        "split",
+        "timestamp",
+        "baselineName",
+        "policyAction",
+        "baselineAction",
+        "policySwitched",
+        "baselineSwitched",
+        "actionsDiffer",
+        "volumeRegimeValue",
+        "marketReturn5",
+        "marketVolatility20",
+        "volumeRegime",
+        "marketTrend",
+        "volatilityRegime",
+        "policyGrossReturn",
+        "baselineGrossReturn",
+        "grossActiveReturn",
+        "policyNetReturn",
+        "baselineNetReturn",
+        "incrementalCost",
+        "netActiveReturn",
+        "policyReward",
+        "baselineReward",
+        "rewardDelta",
+        "policyOneWayTurnover",
+        "baselineOneWayTurnover",
+        "oneWayTurnoverDelta",
+        "assetGrossContribution",
+    }
+    numeric_fields = {
+        "volumeRegimeValue",
+        "marketReturn5",
+        "marketVolatility20",
+        "policyGrossReturn",
+        "baselineGrossReturn",
+        "grossActiveReturn",
+        "policyNetReturn",
+        "baselineNetReturn",
+        "incrementalCost",
+        "netActiveReturn",
+        "policyReward",
+        "baselineReward",
+        "rewardDelta",
+        "policyOneWayTurnover",
+        "baselineOneWayTurnover",
+        "oneWayTurnoverDelta",
+    }
+    normalized: list[dict[str, Any]] = []
+    previous: dict[tuple[str, int, str], dict[str, Any]] = {}
+    for index, (raw, action_row) in enumerate(
+        zip(value["rows"], action_rows)
+    ):
+        path = f"policy-incremental-attribution/rows/{index}"
+        if not isinstance(raw, dict) or set(raw) != row_fields:
+            _fail(
+                path,
+                "rl.incremental-row",
+                "Incremental attribution row shape is invalid",
+            )
+        key = (
+            raw.get("fold"),
+            raw.get("seed"),
+            raw.get("split"),
+            raw.get("timestamp"),
+        )
+        action_key = (
+            action_row["fold"],
+            action_row["seed"],
+            action_row["split"],
+            action_row["timestamp"],
+        )
+        if key != action_key:
+            _fail(
+                path,
+                "rl.incremental-order",
+                "Incremental attribution chronology differs from actions",
+            )
+        fold, seed, split, _ = key
+        if (
+            raw.get("baselineName")
+            != selected_baselines.get((fold, seed))
+            or raw.get("policyAction") != action_row["action"]
+            or raw.get("policyAction") not in configuration["actions"]
+            or raw.get("baselineAction") not in configuration["actions"]
+            or not all(
+                isinstance(raw.get(field), bool)
+                for field in (
+                    "policySwitched",
+                    "baselineSwitched",
+                    "actionsDiffer",
+                )
+            )
+        ):
+            _fail(
+                path,
+                "rl.incremental-action",
+                "Incremental action or baseline identity is invalid",
+            )
+        numbers = {
+            field: _finite(raw.get(field), f"{path}/{field}")
+            for field in numeric_fields
+        }
+        contribution_raw = raw.get("assetGrossContribution")
+        if (
+            not isinstance(contribution_raw, dict)
+            or set(contribution_raw) != set(assets)
+        ):
+            _fail(
+                f"{path}/assetGrossContribution",
+                "rl.incremental-assets",
+                "Incremental asset contribution universe differs",
+            )
+        contributions = {
+            asset: _finite(
+                contribution_raw[asset],
+                f"{path}/assetGrossContribution/{asset}",
+            )
+            for asset in assets
+        }
+        expected_volume = (
+            "below-trend"
+            if numbers["volumeRegimeValue"] < 0.0
+            else "above-trend"
+        )
+        expected_trend = (
+            "negative"
+            if numbers["marketReturn5"] < 0.0
+            else "nonnegative"
+        )
+        expected_volatility = (
+            "low"
+            if numbers["marketVolatility20"]
+            < normalized_thresholds[fold]
+            else "high"
+        )
+        group_key = (fold, int(seed), split)
+        prior = previous.get(group_key)
+        expected_policy_switch = (
+            prior is not None
+            and prior["policyAction"] != raw["policyAction"]
+        )
+        expected_baseline_switch = (
+            prior is not None
+            and prior["baselineAction"] != raw["baselineAction"]
+        )
+        if (
+            raw.get("volumeRegime") != expected_volume
+            or raw.get("marketTrend") != expected_trend
+            or raw.get("volatilityRegime") != expected_volatility
+            or raw["actionsDiffer"]
+            != (raw["policyAction"] != raw["baselineAction"])
+            or raw["policySwitched"] != expected_policy_switch
+            or raw["baselineSwitched"] != expected_baseline_switch
+        ):
+            _fail(
+                path,
+                "rl.incremental-bucket",
+                "Incremental state/action bucket is inconsistent",
+            )
+        for field, action_field in (
+            ("policyGrossReturn", "grossReturn"),
+            ("policyNetReturn", "netReturn"),
+            ("policyReward", "reward"),
+            ("policyOneWayTurnover", "oneWayTurnover"),
+        ):
+            _close(
+                numbers[field],
+                action_row[action_field],
+                f"{path}/{field}",
+                "policy action ledger",
+                tolerance=1e-10,
+            )
+        _close(
+            numbers["grossActiveReturn"],
+            numbers["policyGrossReturn"] - numbers["baselineGrossReturn"],
+            f"{path}/grossActiveReturn",
+            "gross active return",
+            tolerance=1e-10,
+        )
+        _close(
+            numbers["incrementalCost"],
+            action_row["cost"]
+            - (
+                numbers["baselineGrossReturn"]
+                - numbers["baselineNetReturn"]
+            ),
+            f"{path}/incrementalCost",
+            "incremental cost",
+            tolerance=1e-10,
+        )
+        _close(
+            numbers["netActiveReturn"],
+            numbers["grossActiveReturn"] - numbers["incrementalCost"],
+            f"{path}/netActiveReturn",
+            "net active return",
+            tolerance=1e-10,
+        )
+        _close(
+            numbers["rewardDelta"],
+            numbers["policyReward"] - numbers["baselineReward"],
+            f"{path}/rewardDelta",
+            "reward delta",
+            tolerance=1e-10,
+        )
+        _close(
+            numbers["oneWayTurnoverDelta"],
+            numbers["policyOneWayTurnover"]
+            - numbers["baselineOneWayTurnover"],
+            f"{path}/oneWayTurnoverDelta",
+            "turnover delta",
+            tolerance=1e-10,
+        )
+        _close(
+            sum(contributions.values()),
+            numbers["grossActiveReturn"],
+            f"{path}/assetGrossContribution",
+            "asset gross contribution",
+            tolerance=1e-10,
+        )
+        normalized_row = {
+            "fold": fold,
+            "seed": int(seed),
+            "split": split,
+            "timestamp": raw["timestamp"],
+            "baselineName": raw["baselineName"],
+            "policyAction": raw["policyAction"],
+            "baselineAction": raw["baselineAction"],
+            "policySwitched": raw["policySwitched"],
+            "baselineSwitched": raw["baselineSwitched"],
+            "actionsDiffer": raw["actionsDiffer"],
+            "volumeRegime": raw["volumeRegime"],
+            "marketTrend": raw["marketTrend"],
+            "volatilityRegime": raw["volatilityRegime"],
+            "assetGrossContribution": contributions,
+            **numbers,
+        }
+        normalized.append(normalized_row)
+        previous[group_key] = normalized_row
+    validation = _incremental_metrics(normalized, "validation", assets)
+    test = _incremental_metrics(normalized, "test", assets)
+    _compare_policy_metrics(
+        raw_metrics["validation"],
+        validation,
+        "metrics/incremental_attribution/validation",
+    )
+    _compare_policy_metrics(
+        raw_metrics["test"],
+        test,
+        "metrics/incremental_attribution/test",
+    )
+    representative: list[dict[str, Any]] = []
+    for split in SPLITS:
+        ordered = sorted(
+            (row for row in normalized if row["split"] == split),
+            key=lambda row: (
+                row["netActiveReturn"],
+                row["fold"],
+                row["seed"],
+                row["timestamp"],
+            ),
+        )
+        for row in [*ordered[:6], *ordered[-6:]]:
+            representative.append(
+                {
+                    "fold": row["fold"],
+                    "seed": row["seed"],
+                    "split": row["split"],
+                    "timestamp": row["timestamp"],
+                    "baselineName": row["baselineName"],
+                    "policyAction": row["policyAction"],
+                    "baselineAction": row["baselineAction"],
+                    "grossActiveReturn": row["grossActiveReturn"],
+                    "incrementalCost": row["incrementalCost"],
+                    "netActiveReturn": row["netActiveReturn"],
+                    "policySwitched": row["policySwitched"],
+                    "baselineSwitched": row["baselineSwitched"],
+                    "volumeRegime": row["volumeRegime"],
+                    "marketTrend": row["marketTrend"],
+                    "volatilityRegime": row["volatilityRegime"],
+                }
+            )
+    return {
+        "available": True,
+        "policy": INCREMENTAL_ATTRIBUTION_POLICY,
+        "selectionAuthority": "context-only",
+        "validation": _incremental_split_projection(validation),
+        "test": _incremental_split_projection(test),
+        "representativeDays": representative,
+    }
+
+
 def _execution_risk_projection(
     metrics: dict[str, Any],
     action_summaries: list[dict[str, Any]],
@@ -3010,6 +3821,14 @@ def load_rl_diagnostics(
             "Policy opportunities",
         )
         if POLICY_OPPORTUNITY_ARTIFACT_KIND in paths
+        else None
+    )
+    incremental_value = (
+        _read_object(
+            paths[POLICY_INCREMENTAL_ATTRIBUTION_ARTIFACT_KIND],
+            "Policy incremental attribution",
+        )
+        if POLICY_INCREMENTAL_ATTRIBUTION_ARTIFACT_KIND in paths
         else None
     )
     fold_metrics = metrics.get("rl", {}).get("folds")
@@ -3325,6 +4144,18 @@ def load_rl_diagnostics(
         list(run.result["dataset"]["universe"]),
         run.result["inputHash"],
     )
+    incremental_attribution = _incremental_attribution_projection(
+        incremental_value,
+        metrics.get("incremental_attribution"),
+        action_rows,
+        configuration,
+        list(run.result["dataset"]["universe"]),
+        run.result["inputHash"],
+        {
+            (item["fold"], item["seed"]): item["selectedBaseline"]
+            for item in trials
+        },
+    )
     validation_candidate_action_frequency = None
     if has_candidate_fusion:
         validation_candidate_action_frequency = sum(
@@ -3473,6 +4304,7 @@ def load_rl_diagnostics(
         "portfolioMandate": mandate_projection,
         "policyBehavior": policy_behavior,
         "factorOpportunity": factor_opportunity,
+        "incrementalAttribution": incremental_attribution,
         "executedBookRisk": _execution_risk_projection(
             metrics,
             action_summaries,
@@ -3572,6 +4404,7 @@ RL_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "portfolioMandate",
         "policyBehavior",
         "factorOpportunity",
+        "incrementalAttribution",
         "executedBookRisk",
         "protocol",
         "summary",
@@ -3595,6 +4428,7 @@ RL_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "portfolioMandate": {"type": "object"},
         "policyBehavior": {"type": "object"},
         "factorOpportunity": {"type": "object"},
+        "incrementalAttribution": {"type": "object"},
         "executedBookRisk": {"type": "object"},
         "protocol": {"type": "object"},
         "summary": {"type": "object"},
