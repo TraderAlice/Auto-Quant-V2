@@ -141,6 +141,10 @@ The first explorer version provides:
 
 - verified Portfolio Mandate identity, construction, authorized/context-only
   assets, cash/cap, benchmark, and risk policy;
+- one current mechanical-decision chain with state-dependent entry,
+  exit, and reversal thresholds, same-cross-section percentile buffers,
+  raw/governed targets, drifted pretrade weights, proposed versus actual
+  trades, and exact no-trade/final-risk decisions;
 - net/gross/benchmark growth and net drawdown;
 - exposure, unused cash budget, turnover, cost, and split context;
 - a strictly reconstructed validation/test mechanical-parameter neighborhood
@@ -171,6 +175,10 @@ The first explorer version provides:
 10. Capacity values reconcile the complete ledger and remain contextual only.
 11. Daily and per-asset executed-risk evidence reconcile exactly; an available
     final-book breach is invalid evidence.
+12. Current trigger buffers are percentile-state diagnostics with peer ranks
+    held fixed, never price targets, forecasts, probabilities, or orders.
+13. Current proposed one-way turnover equals half the absolute
+    governed-target-to-pretrade vector before the execution gate is projected.
 
 ## Verification and change checklist
 

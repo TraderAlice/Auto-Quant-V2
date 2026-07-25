@@ -2718,12 +2718,219 @@ main > div[id] {
 }
 
 .portfolio-lifecycle-panel,
-.portfolio-parameter-panel {
+.portfolio-parameter-panel,
+.portfolio-decision-panel {
   min-width: 0;
   margin-top: 10px;
   padding: 15px;
   border: 1px solid var(--line);
   background: rgb(16 19 15 / 96%);
+}
+
+.mechanical-chain {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 8px;
+  border: 1px solid var(--line);
+  background: #0c0f0b;
+}
+
+.mechanical-chain > span {
+  position: relative;
+  min-width: 0;
+  min-height: 74px;
+  padding: 12px 13px;
+  border-left: 1px solid var(--line);
+}
+
+.mechanical-chain > span:first-child {
+  border-left: 0;
+  box-shadow: inset 2px 0 var(--cyan);
+}
+
+.mechanical-chain > span:not(:last-child)::after {
+  position: absolute;
+  z-index: 1;
+  top: 30px;
+  right: -5px;
+  width: 8px;
+  height: 8px;
+  border-top: 1px solid var(--line-strong);
+  border-right: 1px solid var(--line-strong);
+  background: #0c0f0b;
+  content: "";
+  transform: rotate(45deg);
+}
+
+.mechanical-chain small,
+.mechanical-chain b,
+.mechanical-chain i {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mechanical-chain small {
+  color: var(--faint);
+  font: 6px var(--mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.mechanical-chain b {
+  margin-top: 8px;
+  color: var(--paper);
+  font: 11px var(--mono);
+}
+
+.mechanical-chain i {
+  margin-top: 6px;
+  color: #747c70;
+  font: 6px var(--mono);
+  font-style: normal;
+}
+
+.mechanical-chain .warning b {
+  color: var(--amber);
+}
+
+.trigger-disclosure {
+  padding: 8px 10px;
+  color: #71796d;
+  border: 1px solid var(--line);
+  border-top: 0;
+  font: 6px/1.55 var(--mono);
+}
+
+.mechanical-table-scroll {
+  margin-top: 10px;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+}
+
+.mechanical-table {
+  min-width: 860px;
+}
+
+.mechanical-row {
+  display: grid;
+  grid-template-columns:
+    minmax(94px, 0.75fr)
+    minmax(84px, 0.7fr)
+    minmax(190px, 1.5fr)
+    minmax(128px, 1fr)
+    minmax(138px, 1fr)
+    minmax(120px, 0.9fr);
+  align-items: center;
+  gap: 10px;
+  min-height: 58px;
+  padding: 7px 11px;
+  border-top: 1px solid var(--line);
+  font: 7px var(--mono);
+}
+
+.mechanical-row:first-child {
+  border-top: 0;
+}
+
+.mechanical-row.heading {
+  min-height: 30px;
+  color: var(--faint);
+  background: #0c0f0b;
+  font-size: 6px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.mechanical-row > span {
+  min-width: 0;
+}
+
+.mechanical-row > span > b,
+.mechanical-row > span > small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mechanical-row > span > b {
+  color: #d8dccf;
+  font-size: 7px;
+}
+
+.mechanical-row > span > small {
+  margin-top: 5px;
+  color: var(--faint);
+  font-size: 5px;
+}
+
+.mechanical-row.context-only {
+  opacity: 0.58;
+  background: rgb(28 31 27 / 45%);
+}
+
+.mechanical-asset > b {
+  display: inline-block !important;
+  color: var(--paper) !important;
+  font-size: 9px !important;
+}
+
+.mechanical-asset > i {
+  display: inline-block;
+  margin-left: 6px;
+  color: var(--faint);
+  font-size: 5px;
+  font-style: normal;
+}
+
+.mechanical-asset > i.long {
+  color: var(--acid);
+}
+
+.mechanical-asset > i.short {
+  color: var(--red);
+}
+
+.trigger-stack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.trigger-condition {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 2px 7px;
+  min-width: 0;
+  padding: 5px 7px;
+  border: 1px solid var(--line);
+  background: #0c0f0b;
+  font-style: normal;
+}
+
+.trigger-condition b {
+  overflow: hidden;
+  color: #cbd0c2;
+  font: 6px var(--mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.trigger-condition code {
+  color: var(--cyan);
+  font: 6px var(--mono);
+}
+
+.trigger-condition small {
+  grid-column: 1 / -1;
+  color: var(--faint);
+  font: 5px var(--mono);
+}
+
+.trigger-condition.unavailable b {
+  color: var(--faint);
 }
 
 .parameter-stats {
@@ -4760,6 +4967,22 @@ main > div[id] {
 
   .portfolio-summary {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .mechanical-chain {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .mechanical-chain > span:nth-child(3) {
+    border-left: 0;
+  }
+
+  .mechanical-chain > span:nth-child(n + 3) {
+    border-top: 1px solid var(--line);
+  }
+
+  .mechanical-chain > span::after {
+    display: none;
   }
 
   .factor-summary,

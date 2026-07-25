@@ -178,6 +178,15 @@ coverage, and latest rebalance binding asset from the verified causal
 dollar-volume ledger. These are historical research weights and diagnostics,
 not live account risk, impact, or fill evidence.
 
+Before the performance path, the Portfolio explorer presents the latest
+verified decision in the same order as the mechanical policy: signal state,
+target plus covariance scaling, portfolio execution gate, and final historical
+book. Its per-asset table shows every state transition still permitted by the
+Mandate, the current percentile-point buffer to each boundary, raw/governed
+target, drifted/executed weight, and actual reason. The browser only formats
+Core's reconciled object. The buffer is explicitly not a price target or
+probability, and the panel is labelled `RESEARCH WEIGHTS · NO ORDER AUTHORITY`.
+
 For a request-driven canonical Program, the collaboration surface composes no
 evidence in the browser. Core supplies Dossier readiness, lane Report
 currentness, explicit optional omissions, blockers, latest immutable summary,

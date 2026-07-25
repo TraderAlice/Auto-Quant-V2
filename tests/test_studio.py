@@ -279,6 +279,14 @@ class StudioObservationTests(unittest.TestCase):
                     self.assertIn('id="handoff-board"', html)
                     self.assertIn('id="evidence-workbench"', html)
                     self.assertIn('id="evidence-lane-tabs"', html)
+                    self.assertIn(
+                        'id="portfolio-mechanical-decision"',
+                        html,
+                    )
+                    self.assertIn(
+                        "Current mechanical decision",
+                        html,
+                    )
                     self.assertIn('id="inspector-toggle"', html)
                     self.assertIn('id="rl-opportunity"', html)
                     self.assertIn('href="/assets/studio.css"', html)
@@ -294,6 +302,9 @@ class StudioObservationTests(unittest.TestCase):
                     self.assertIn(".program-assessment", css)
                     self.assertIn(".evidence-lane-tabs", css)
                     self.assertIn(".mandate-strip", css)
+                    self.assertIn(".mechanical-chain", css)
+                    self.assertIn(".mechanical-table", css)
+                    self.assertIn(".trigger-condition", css)
                     self.assertIn(".inspector-lane", css)
                     self.assertIn(".inspector-collapsed", css)
                     self.assertIn(".rl-opportunity-panel", css)
@@ -314,6 +325,15 @@ class StudioObservationTests(unittest.TestCase):
                     self.assertIn("validationBaselineAdvantage", javascript)
                     self.assertIn("data-evidence-lane", javascript)
                     self.assertIn("mandateMarkup", javascript)
+                    self.assertIn(
+                        "renderPortfolioMechanicalDecision",
+                        javascript,
+                    )
+                    self.assertIn(
+                        "Current cross-sectional percentile buffers",
+                        javascript,
+                    )
+                    self.assertIn("NO-TRADE HOLD", javascript)
                     self.assertIn("Authorized positions", javascript)
                     self.assertIn("syncEvidenceSelection", javascript)
                     self.assertIn("dossierState", javascript)

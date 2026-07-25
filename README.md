@@ -95,8 +95,12 @@ payoff, MFE/MAE, and intent-mismatch evidence without treating censored
 segments as completed trades. A fixed 5×3 entry/exit and no-trade parameter
 neighborhood then shows local Sharpe, turnover, cost, and transition stability
 without choosing a winning cell. Studio summarizes the verified policy,
-attribution, lifecycle, and parameter-neighborhood evidence. It emits research
-targets only and has no Broker or trading-account authority.
+attribution, lifecycle, and parameter-neighborhood evidence. Its current
+mechanical-decision ticket also shows every Mandate-permitted next
+entry/exit/reversal percentile boundary, the current same-cross-section buffer,
+raw/governed target, drifted/executed weight, and the exact no-trade or
+risk-repair reason. Those buffers are not price targets or forecasts. It emits
+research targets only and has no Broker or trading-account authority.
 
 Every reference Project uses validation-only KEEP/REVERT. Test metrics remain
 visible diagnostic evidence; after a Session iterates candidates, Core marks a

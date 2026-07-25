@@ -13,6 +13,7 @@ import jsonschema
 from autoquant.portfolio_explorer import (
     PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA,
     _liquidity_capacity_projection,
+    _next_signal_triggers,
     load_portfolio_diagnostics,
 )
 from autoquant.runs import execute_study
@@ -53,6 +54,88 @@ def rehash_run(run_root: Path) -> None:
 
 
 class PortfolioDecisionExplorerTests(unittest.TestCase):
+    def test_state_dependent_next_signal_triggers_are_explicit(self) -> None:
+        parameters = {
+            "long_entry_percentile": 0.75,
+            "long_exit_percentile": 0.55,
+            "short_exit_percentile": 0.45,
+            "short_entry_percentile": 0.25,
+        }
+        cases = [
+            (
+                "long-cash",
+                0,
+                0.70,
+                [("enter_long", ">=", 0.75, 0.05)],
+            ),
+            (
+                "long-cash",
+                1,
+                0.80,
+                [("exit_long", "<", 0.55, 0.25)],
+            ),
+            (
+                "short-cash",
+                0,
+                0.30,
+                [("enter_short", "<=", 0.25, 0.05)],
+            ),
+            (
+                "short-cash",
+                -1,
+                0.20,
+                [("exit_short", ">", 0.45, 0.25)],
+            ),
+            (
+                "dollar-neutral",
+                0,
+                0.60,
+                [
+                    ("enter_long", ">=", 0.75, 0.15),
+                    ("enter_short", "<=", 0.25, 0.35),
+                ],
+            ),
+            (
+                "dollar-neutral",
+                1,
+                0.80,
+                [
+                    ("exit_long", "<", 0.55, 0.25),
+                    ("reverse_long_to_short", "<=", 0.25, 0.55),
+                ],
+            ),
+        ]
+        for family, state, score, expected in cases:
+            with self.subTest(family=family, state=state):
+                observed = _next_signal_triggers(
+                    family=family,
+                    signal_state=state,
+                    score=score,
+                    parameters=parameters,
+                )
+                self.assertEqual(
+                    [
+                        (
+                            item["event"],
+                            item["comparator"],
+                            item["threshold"],
+                            round(item["distance"], 10),
+                        )
+                        for item in observed
+                    ],
+                    expected,
+                )
+        unavailable = _next_signal_triggers(
+            family="dollar-neutral",
+            signal_state=-1,
+            score=None,
+            parameters=parameters,
+        )
+        self.assertEqual(
+            [item["distance"] for item in unavailable],
+            [None, None],
+        )
+
     def test_liquidity_projection_excludes_the_purged_boundary_row(
         self,
     ) -> None:
@@ -319,6 +402,37 @@ class PortfolioDecisionExplorerTests(unittest.TestCase):
                 latest["grossExposure"],
                 places=9,
             )
+            decision = diagnostics["mechanicalDecision"]
+            self.assertEqual(decision["timestamp"], latest["timestamp"])
+            self.assertEqual(decision["tradingAuthority"], "none")
+            self.assertEqual(
+                decision["distanceSemantics"],
+                (
+                    "current-cross-sectional-percentile-points-"
+                    "with-peer-ranks-held-fixed"
+                ),
+            )
+            self.assertAlmostEqual(
+                decision["executionGate"]["proposedOneWayTurnover"],
+                0.5
+                * sum(
+                    abs(item["proposedTradeWeight"])
+                    for item in decision["positions"]
+                ),
+                places=9,
+            )
+            self.assertAlmostEqual(
+                decision["executionGate"]["executedGross"],
+                latest["grossExposure"],
+                places=9,
+            )
+            self.assertTrue(
+                all(
+                    item["nearestTrigger"] is not None
+                    for item in decision["positions"]
+                    if item["tradable"] and item["scoreAvailable"]
+                )
+            )
 
             first_asset = diagnostics["universe"][0]
             expected = run.result["metrics"]["attribution"]["validation"]["by_asset"][
@@ -362,6 +476,26 @@ class PortfolioDecisionExplorerTests(unittest.TestCase):
             with self.assertRaisesRegex(
                 AutoQuantValidationError,
                 "Parameter-neighborhood numeric value does not reconcile",
+            ):
+                load_portfolio_diagnostics(project, run.result["id"])
+
+    def test_rehashed_signal_threshold_change_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, project, run = make_lab(Path(directory))
+            path = run.root_dir / "result.json"
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            payload["metrics"]["signal_policy"]["parameters"][
+                "long_entry_percentile"
+            ] = 0.70
+            path.write_text(
+                json.dumps(payload, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            rehash_run(run.root_dir)
+
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "Signal-policy parameters differ from the fixed contract",
             ):
                 load_portfolio_diagnostics(project, run.result["id"])
 

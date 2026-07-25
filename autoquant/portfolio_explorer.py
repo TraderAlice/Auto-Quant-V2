@@ -18,8 +18,16 @@ from .mandates import (
     validate_portfolio_mandate,
 )
 from .project_templates.ohlcv_portfolio_lab.portfolio_core import (
+    GROSS_TARGET,
+    LONG_ENTRY_PERCENTILE,
+    LONG_EXIT_PERCENTILE,
+    MAX_ABS_WEIGHT,
+    NO_TRADE_ONE_WAY,
     POSITION_EPISODE_COLUMNS,
     PortfolioFailure,
+    SHORT_ENTRY_PERCENTILE,
+    SHORT_EXIT_PERCENTILE,
+    VOLATILITY_WINDOW,
     build_position_episodes,
     performance_metrics,
     position_episode_metrics,
@@ -45,6 +53,22 @@ MAX_EPISODE_ROWS = 100_000
 MAX_NEIGHBORHOOD_ROWS = 100_000
 MAX_UNIVERSE = 256
 MAX_RECENT_TRANSITIONS = 40
+MECHANICAL_DECISION_METHOD = (
+    "stateful-percentile-target-risk-execution-chain-v1"
+)
+PERCENTILE_DISTANCE_SEMANTICS = (
+    "current-cross-sectional-percentile-points-with-peer-ranks-held-fixed"
+)
+EXPECTED_SIGNAL_PARAMETERS = {
+    "long_entry_percentile": LONG_ENTRY_PERCENTILE,
+    "long_exit_percentile": LONG_EXIT_PERCENTILE,
+    "short_exit_percentile": SHORT_EXIT_PERCENTILE,
+    "short_entry_percentile": SHORT_ENTRY_PERCENTILE,
+    "volatility_window": VOLATILITY_WINDOW,
+    "gross_target": GROSS_TARGET,
+    "max_abs_weight": MAX_ABS_WEIGHT,
+    "no_trade_one_way": NO_TRADE_ONE_WAY,
+}
 BASE_ARTIFACT_KINDS = {
     "portfolio-report",
     "portfolio-daily",
@@ -2139,6 +2163,319 @@ def _attribution_projection(
     return output
 
 
+def _trigger_candidate(
+    event: str,
+    comparator: str,
+    threshold: float,
+    score: float | None,
+) -> dict[str, Any]:
+    if comparator not in {">=", ">", "<=", "<"}:
+        raise ValueError("Unknown trigger comparator")
+    if score is None:
+        distance = None
+    elif comparator in {">=", ">"}:
+        distance = max(0.0, threshold - score)
+    else:
+        distance = max(0.0, score - threshold)
+    return {
+        "event": event,
+        "comparator": comparator,
+        "threshold": threshold,
+        "distance": distance,
+    }
+
+
+def _next_signal_triggers(
+    *,
+    family: str,
+    signal_state: int,
+    score: float | None,
+    parameters: dict[str, Any],
+) -> list[dict[str, Any]]:
+    long_entry = parameters["long_entry_percentile"]
+    long_exit = parameters["long_exit_percentile"]
+    short_exit = parameters["short_exit_percentile"]
+    short_entry = parameters["short_entry_percentile"]
+    if family == "long-cash":
+        if signal_state not in {0, 1}:
+            _fail(
+                "mechanicalDecision/signalState",
+                "portfolio.mechanical-state",
+                "Long/cash evidence cannot carry short signal intent",
+            )
+        return [
+            _trigger_candidate(
+                "exit_long" if signal_state == 1 else "enter_long",
+                "<" if signal_state == 1 else ">=",
+                long_exit if signal_state == 1 else long_entry,
+                score,
+            )
+        ]
+    if family == "short-cash":
+        if signal_state not in {-1, 0}:
+            _fail(
+                "mechanicalDecision/signalState",
+                "portfolio.mechanical-state",
+                "Short/cash evidence cannot carry long signal intent",
+            )
+        return [
+            _trigger_candidate(
+                "exit_short" if signal_state == -1 else "enter_short",
+                ">" if signal_state == -1 else "<=",
+                short_exit if signal_state == -1 else short_entry,
+                score,
+            )
+        ]
+    if family != "dollar-neutral":
+        _fail(
+            "mechanicalDecision/family",
+            "portfolio.mechanical-family",
+            "Unknown mechanical construction family",
+        )
+    if signal_state == 1:
+        return [
+            _trigger_candidate("exit_long", "<", long_exit, score),
+            _trigger_candidate(
+                "reverse_long_to_short",
+                "<=",
+                short_entry,
+                score,
+            ),
+        ]
+    if signal_state == -1:
+        return [
+            _trigger_candidate("exit_short", ">", short_exit, score),
+            _trigger_candidate(
+                "reverse_short_to_long",
+                ">=",
+                long_entry,
+                score,
+            ),
+        ]
+    if signal_state == 0:
+        return [
+            _trigger_candidate("enter_long", ">=", long_entry, score),
+            _trigger_candidate("enter_short", "<=", short_entry, score),
+        ]
+    _fail(
+        "mechanicalDecision/signalState",
+        "portfolio.mechanical-state",
+        "Signal state must be -1, 0, or 1",
+    )
+
+
+def _mechanical_decision_projection(
+    daily: ParsedDaily,
+    universe: list[str],
+    decisions: dict[tuple[str, str], dict[str, Any]],
+    signal_policy: dict[str, Any],
+    mandate: dict[str, Any],
+) -> dict[str, Any]:
+    """Build one research-only current decision chain from verified evidence."""
+
+    parameters = signal_policy["parameters"]
+    timestamp = daily.dates[-1]
+    daily_row = daily.rows[-1]
+    family = mandate["family"]
+    positions: list[dict[str, Any]] = []
+    pre_governor_gross = 0.0
+    governed_target_gross = 0.0
+    pretrade_gross = 0.0
+    executed_gross = 0.0
+    computed_proposed_one_way = 0.0
+    state_changes = 0
+    unavailable_scores = 0
+    context_assets = 0
+    position_execution_reasons: set[str] = set()
+    inactive_events = {
+        "hold_long",
+        "hold_short",
+        "stay_flat",
+        "unavailable_flat",
+        "unavailable_reset",
+        "context_only",
+    }
+    for asset in universe:
+        item = decisions[(timestamp, asset)]
+        score = item["percentile_score"]
+        if score is not None and not 0.0 <= score <= 1.0:
+            _fail(
+                f"mechanicalDecision/positions/{asset}/score",
+                "portfolio.mechanical-score",
+                "Current percentile score must be within [0, 1]",
+            )
+        if not item["tradable"]:
+            context_assets += 1
+            if item["signal_state"] != 0:
+                _fail(
+                    f"mechanicalDecision/positions/{asset}/signalState",
+                    "portfolio.mechanical-context-state",
+                    "Context-only assets must remain flat",
+                )
+            trigger_candidates: list[dict[str, Any]] = []
+        else:
+            trigger_candidates = _next_signal_triggers(
+                family=family,
+                signal_state=item["signal_state"],
+                score=score,
+                parameters=parameters,
+            )
+        available_candidates = [
+            candidate
+            for candidate in trigger_candidates
+            if candidate["distance"] is not None
+        ]
+        nearest = (
+            min(
+                available_candidates,
+                key=lambda candidate: (
+                    candidate["distance"],
+                    trigger_candidates.index(candidate),
+                ),
+            )
+            if available_candidates
+            else None
+        )
+        proposed_trade = (
+            item["proposed_target_weight"] - item["pretrade_weight"]
+        )
+        pre_governor_gross += abs(item["pre_governor_target_weight"])
+        governed_target_gross += abs(item["proposed_target_weight"])
+        pretrade_gross += abs(item["pretrade_weight"])
+        executed_gross += abs(item["executed_weight"])
+        computed_proposed_one_way += 0.5 * abs(proposed_trade)
+        position_execution_reasons.add(item["execution_reason"])
+        state_changes += int(item["signal_event"] not in inactive_events)
+        unavailable_scores += int(item["tradable"] and score is None)
+        positions.append(
+            {
+                "asset": asset,
+                "tradable": item["tradable"],
+                "allocationStatus": item["allocation_status"],
+                "score": score,
+                "scoreAvailable": score is not None,
+                "signalState": item["signal_state"],
+                "signalEvent": item["signal_event"],
+                "nextTriggers": trigger_candidates,
+                "nearestTrigger": nearest,
+                "preGovernorTargetWeight": item[
+                    "pre_governor_target_weight"
+                ],
+                "targetWeight": item["proposed_target_weight"],
+                "pretradeWeight": item["pretrade_weight"],
+                "proposedTradeWeight": proposed_trade,
+                "executedWeight": item["executed_weight"],
+                "tradeWeight": item["trade_weight"],
+                "executionAction": item["execution_action"],
+                "executionReason": item["execution_reason"],
+            }
+        )
+    execution_available = (
+        daily_row["execution_risk_status"] != "legacy_unavailable"
+    )
+    if len(position_execution_reasons) != 1:
+        _fail(
+            "mechanicalDecision/executionGate/reason",
+            "portfolio.mechanical-execution-reason",
+            "Current asset execution reasons must agree",
+        )
+    position_execution_reason = next(iter(position_execution_reasons))
+    if (
+        execution_available
+        and position_execution_reason != daily_row["execution_reason"]
+    ):
+        _fail(
+            "mechanicalDecision/executionGate/reason",
+            "portfolio.mechanical-execution-reason",
+            "Current asset and portfolio execution reasons differ",
+        )
+    recorded_proposed_one_way = daily_row["proposed_one_way_turnover"]
+    if execution_available and not math.isclose(
+        computed_proposed_one_way,
+        recorded_proposed_one_way,
+        rel_tol=0.0,
+        abs_tol=1e-9,
+    ):
+        _fail(
+            "mechanicalDecision/executionGate/proposedOneWayTurnover",
+            "portfolio.mechanical-turnover",
+            "Current target-to-pretrade turnover does not reconcile",
+        )
+    no_trade_one_way = parameters["no_trade_one_way"]
+    proposed_one_way = (
+        recorded_proposed_one_way
+        if execution_available
+        else computed_proposed_one_way
+    )
+    return {
+        "method": MECHANICAL_DECISION_METHOD,
+        "timestamp": timestamp,
+        "authority": "quantitative-decision-support",
+        "tradingAuthority": "none",
+        "distanceSemantics": PERCENTILE_DISTANCE_SEMANTICS,
+        "signalGate": {
+            "family": family,
+            "stateChanges": state_changes,
+            "unavailableScores": unavailable_scores,
+            "contextAssets": context_assets,
+            "longEntryPercentile": parameters[
+                "long_entry_percentile"
+            ],
+            "longExitPercentile": parameters[
+                "long_exit_percentile"
+            ],
+            "shortExitPercentile": parameters[
+                "short_exit_percentile"
+            ],
+            "shortEntryPercentile": parameters[
+                "short_entry_percentile"
+            ],
+        },
+        "targetGate": {
+            "preGovernorGross": pre_governor_gross,
+            "governedTargetGross": governed_target_gross,
+            "pretradeGross": pretrade_gross,
+            "riskGovernorStatus": decisions[
+                (timestamp, universe[0])
+            ]["risk_governor_status"],
+            "riskGovernorScale": decisions[
+                (timestamp, universe[0])
+            ]["risk_governor_scale"],
+            "riskLimited": decisions[
+                (timestamp, universe[0])
+            ]["risk_governor_scale"]
+            < 1.0 - 1e-12,
+        },
+        "executionGate": {
+            "available": execution_available,
+            "noTradeOneWay": no_trade_one_way,
+            "proposedOneWayTurnover": proposed_one_way,
+            "bandShortfall": max(0.0, no_trade_one_way - proposed_one_way),
+            "bandExcess": max(0.0, proposed_one_way - no_trade_one_way),
+            "ordinaryRebalance": (
+                daily_row["ordinary_rebalance"]
+                if execution_available
+                else None
+            ),
+            "riskOverride": (
+                daily_row["risk_rebalance_override"]
+                if execution_available
+                else None
+            ),
+            "rebalanced": daily_row["rebalanced"],
+            "finalOneWayTurnover": daily_row["one_way_turnover"],
+            "executedGross": executed_gross,
+            "reason": (
+                daily_row["execution_reason"]
+                if execution_available
+                else position_execution_reason
+            ),
+            "status": daily_row["execution_risk_status"],
+        },
+        "positions": positions,
+    }
+
+
 def _current_book(
     daily: ParsedDaily,
     universe: list[str],
@@ -2296,7 +2633,55 @@ def _signal_policy_projection(result: dict[str, Any]) -> dict[str, Any]:
             "portfolio.signal-policy",
             "Signal-policy parameters must be an object",
         )
-    output: dict[str, Any] = {"parameters": parameters}
+    required_parameters = set(EXPECTED_SIGNAL_PARAMETERS)
+    if set(parameters) != required_parameters:
+        _fail(
+            "RunResult/metrics/signal_policy/parameters",
+            "portfolio.signal-policy-parameters",
+            "Signal-policy parameters differ from the fixed contract",
+        )
+    normalized_parameters = {
+        key: _finite(
+            parameters[key],
+            f"RunResult/metrics/signal_policy/parameters/{key}",
+        )
+        for key in required_parameters
+    }
+    if (
+        not 0.0
+        <= normalized_parameters["short_entry_percentile"]
+        <= normalized_parameters["short_exit_percentile"]
+        < normalized_parameters["long_exit_percentile"]
+        <= normalized_parameters["long_entry_percentile"]
+        <= 1.0
+        or normalized_parameters["volatility_window"] < 2
+        or not math.isclose(
+            normalized_parameters["volatility_window"],
+            round(normalized_parameters["volatility_window"]),
+            rel_tol=0.0,
+            abs_tol=1e-12,
+        )
+        or not 0.0 < normalized_parameters["gross_target"] <= 2.0
+        or not 0.0
+        < normalized_parameters["max_abs_weight"]
+        <= normalized_parameters["gross_target"]
+        or not 0.0 <= normalized_parameters["no_trade_one_way"] <= 1.0
+    ):
+        _fail(
+            "RunResult/metrics/signal_policy/parameters",
+            "portfolio.signal-policy-parameters",
+            "Signal-policy parameters are invalid",
+        )
+    normalized_parameters["volatility_window"] = int(
+        normalized_parameters["volatility_window"]
+    )
+    if normalized_parameters != EXPECTED_SIGNAL_PARAMETERS:
+        _fail(
+            "RunResult/metrics/signal_policy/parameters",
+            "portfolio.signal-policy-parameters",
+            "Signal-policy parameters differ from the fixed contract",
+        )
+    output: dict[str, Any] = {"parameters": normalized_parameters}
     for split_name in ("validation", "test"):
         split = policy.get(split_name)
         if not isinstance(split, dict):
@@ -3638,6 +4023,7 @@ def load_portfolio_diagnostics(
             "Portfolio Run must disclose selection integrity",
         )
     mandate = _mandate_projection(run, report, universe)
+    signal_policy = _signal_policy_projection(run.result)
     return {
         "schemaVersion": SCHEMA_VERSION,
         "kind": PORTFOLIO_DIAGNOSTICS_KIND,
@@ -3679,11 +4065,18 @@ def load_portfolio_diagnostics(
             universe,
             decisions,
         ),
+        "mechanicalDecision": _mechanical_decision_projection(
+            daily,
+            universe,
+            decisions,
+            signal_policy,
+            mandate,
+        ),
         "recentTransitions": _recent_transitions(
             ordered_decisions,
             universe,
         ),
-        "signalPolicy": _signal_policy_projection(run.result),
+        "signalPolicy": signal_policy,
         "riskGovernor": _risk_governor_projection(run.result, mandate),
         "executedBookRisk": _executed_book_risk_projection(
             run.result,
@@ -3841,6 +4234,95 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 "varianceContributionShare": {"type": "number"},
             },
         },
+        "mechanicalTrigger": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "event",
+                "comparator",
+                "threshold",
+                "distance",
+            ],
+            "properties": {
+                "event": {"type": "string", "minLength": 1},
+                "comparator": {"enum": [">=", ">", "<=", "<"]},
+                "threshold": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                },
+                "distance": {
+                    "anyOf": [
+                        {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1,
+                        },
+                        {"type": "null"},
+                    ]
+                },
+            },
+        },
+        "mechanicalPosition": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "asset",
+                "tradable",
+                "allocationStatus",
+                "score",
+                "scoreAvailable",
+                "signalState",
+                "signalEvent",
+                "nextTriggers",
+                "nearestTrigger",
+                "preGovernorTargetWeight",
+                "targetWeight",
+                "pretradeWeight",
+                "proposedTradeWeight",
+                "executedWeight",
+                "tradeWeight",
+                "executionAction",
+                "executionReason",
+            ],
+            "properties": {
+                "asset": {"type": "string", "minLength": 1},
+                "tradable": {"type": "boolean"},
+                "allocationStatus": {"type": "string", "minLength": 1},
+                "score": {
+                    "anyOf": [
+                        {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1,
+                        },
+                        {"type": "null"},
+                    ]
+                },
+                "scoreAvailable": {"type": "boolean"},
+                "signalState": {"enum": [-1, 0, 1]},
+                "signalEvent": {"type": "string", "minLength": 1},
+                "nextTriggers": {
+                    "type": "array",
+                    "maxItems": 2,
+                    "items": {"$ref": "#/$defs/mechanicalTrigger"},
+                },
+                "nearestTrigger": {
+                    "anyOf": [
+                        {"$ref": "#/$defs/mechanicalTrigger"},
+                        {"type": "null"},
+                    ]
+                },
+                "preGovernorTargetWeight": {"type": "number"},
+                "targetWeight": {"type": "number"},
+                "pretradeWeight": {"type": "number"},
+                "proposedTradeWeight": {"type": "number"},
+                "executedWeight": {"type": "number"},
+                "tradeWeight": {"type": "number"},
+                "executionAction": {"type": "string", "minLength": 1},
+                "executionReason": {"type": "string", "minLength": 1},
+            },
+        },
         "transition": {
             "type": "object",
             "additionalProperties": False,
@@ -3929,6 +4411,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "artifacts",
         "path",
         "currentBook",
+        "mechanicalDecision",
         "recentTransitions",
         "signalPolicy",
         "riskGovernor",
@@ -4315,6 +4798,189 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                     "minItems": 1,
                     "maxItems": MAX_UNIVERSE,
                     "items": {"$ref": "#/$defs/position"},
+                },
+            },
+        },
+        "mechanicalDecision": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "method",
+                "timestamp",
+                "authority",
+                "tradingAuthority",
+                "distanceSemantics",
+                "signalGate",
+                "targetGate",
+                "executionGate",
+                "positions",
+            ],
+            "properties": {
+                "method": {"const": MECHANICAL_DECISION_METHOD},
+                "timestamp": {"type": "string", "format": "date"},
+                "authority": {
+                    "const": "quantitative-decision-support"
+                },
+                "tradingAuthority": {"const": "none"},
+                "distanceSemantics": {
+                    "const": PERCENTILE_DISTANCE_SEMANTICS
+                },
+                "signalGate": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": [
+                        "family",
+                        "stateChanges",
+                        "unavailableScores",
+                        "contextAssets",
+                        "longEntryPercentile",
+                        "longExitPercentile",
+                        "shortExitPercentile",
+                        "shortEntryPercentile",
+                    ],
+                    "properties": {
+                        "family": {
+                            "enum": [
+                                "dollar-neutral",
+                                "long-cash",
+                                "short-cash",
+                            ]
+                        },
+                        "stateChanges": {
+                            "type": "integer",
+                            "minimum": 0,
+                        },
+                        "unavailableScores": {
+                            "type": "integer",
+                            "minimum": 0,
+                        },
+                        "contextAssets": {
+                            "type": "integer",
+                            "minimum": 0,
+                        },
+                        "longEntryPercentile": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1,
+                        },
+                        "longExitPercentile": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1,
+                        },
+                        "shortExitPercentile": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1,
+                        },
+                        "shortEntryPercentile": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1,
+                        },
+                    },
+                },
+                "targetGate": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": [
+                        "preGovernorGross",
+                        "governedTargetGross",
+                        "pretradeGross",
+                        "riskGovernorStatus",
+                        "riskGovernorScale",
+                        "riskLimited",
+                    ],
+                    "properties": {
+                        "preGovernorGross": {
+                            "type": "number",
+                            "minimum": 0,
+                        },
+                        "governedTargetGross": {
+                            "type": "number",
+                            "minimum": 0,
+                        },
+                        "pretradeGross": {
+                            "type": "number",
+                            "minimum": 0,
+                        },
+                        "riskGovernorStatus": {
+                            "type": "string",
+                            "minLength": 1,
+                        },
+                        "riskGovernorScale": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1,
+                        },
+                        "riskLimited": {"type": "boolean"},
+                    },
+                },
+                "executionGate": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": [
+                        "available",
+                        "noTradeOneWay",
+                        "proposedOneWayTurnover",
+                        "bandShortfall",
+                        "bandExcess",
+                        "ordinaryRebalance",
+                        "riskOverride",
+                        "rebalanced",
+                        "finalOneWayTurnover",
+                        "executedGross",
+                        "reason",
+                        "status",
+                    ],
+                    "properties": {
+                        "available": {"type": "boolean"},
+                        "noTradeOneWay": {
+                            "type": "number",
+                            "minimum": 0,
+                        },
+                        "proposedOneWayTurnover": {
+                            "type": "number",
+                            "minimum": 0,
+                        },
+                        "bandShortfall": {
+                            "type": "number",
+                            "minimum": 0,
+                        },
+                        "bandExcess": {
+                            "type": "number",
+                            "minimum": 0,
+                        },
+                        "ordinaryRebalance": {
+                            "type": ["boolean", "null"]
+                        },
+                        "riskOverride": {
+                            "type": ["boolean", "null"]
+                        },
+                        "rebalanced": {"type": "boolean"},
+                        "finalOneWayTurnover": {
+                            "type": "number",
+                            "minimum": 0,
+                        },
+                        "executedGross": {
+                            "type": "number",
+                            "minimum": 0,
+                        },
+                        "reason": {
+                            "type": "string",
+                            "minLength": 1,
+                        },
+                        "status": {
+                            "type": "string",
+                            "minLength": 1,
+                        },
+                    },
+                },
+                "positions": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": MAX_UNIVERSE,
+                    "items": {"$ref": "#/$defs/mechanicalPosition"},
                 },
             },
         },

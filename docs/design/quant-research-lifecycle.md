@@ -202,6 +202,13 @@ it does not claim spread, impact, or fills. The executable details are
 [[docs/design/executed-book-risk-compliance]], and
 [[docs/design/portfolio-liquidity-capacity]].
 
+The current Portfolio read model projects that same ledger as a four-stage
+decision chain: state-dependent percentile entry/exit/reversal boundaries,
+raw-to-governed target construction, target-to-pretrade turnover versus the
+no-trade band, and final historical execution. Per-asset trigger distances are
+current cross-sectional percentile-point buffers with peer ranks held fixed;
+they are not price targets, probabilities, forward orders, or UTA authority.
+
 Tolerance bands are a first-class implementation choice: research on
 rebalancing frames the problem as tracking-error versus transaction-cost
 control rather than blindly trading every calendar interval:

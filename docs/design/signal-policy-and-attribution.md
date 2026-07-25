@@ -7,6 +7,7 @@ Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]],
 [[docs/design/portfolio-construction-lab]],
 [[docs/design/request-bound-portfolio-mandates]],
 [[docs/design/executed-book-risk-compliance]],
+[[docs/design/portfolio-decision-explorer]],
 [[docs/design/rl-factor-policy-lab]],
 [[docs/design/research-selection-integrity]], and
 [[docs/design/quant-research-lifecycle]].
@@ -132,6 +133,49 @@ Signal intent can be flat while the execution band retains a small residual
 position. Keeping both fields is deliberate: it exposes implementation lag
 rather than rewriting history.
 
+## Current mechanical decision
+
+The bounded Portfolio diagnostics read model turns the latest verified ledger
+date into one research-only decision chain:
+
+```text
+current percentile + prior state
+→ current signal event and state
+→ next permitted state thresholds
+→ pre-governor and governed target
+→ drifted pretrade book
+→ proposed one-way turnover versus the fixed no-trade band
+→ ordinary rebalance or hold
+→ final risk repair when required
+→ historical executed research book
+```
+
+The next-trigger set is state and Mandate dependent. A flat long/cash asset
+shows only `enter_long >= long_entry`; a current long shows only
+`exit_long < long_exit`. Short/cash is symmetric. Dollar-neutral flat state
+shows both entry boundaries, while active long/short state shows the ordinary
+exit boundary and the farther direct-reversal boundary. Context-only assets
+show no trigger because they have no position authority.
+
+For an available current percentile, Core reports the non-negative distance to
+each boundary. Its exact semantics are
+`current-cross-sectional-percentile-points-with-peer-ranks-held-fixed`.
+This is an interpretation of the current rank-state buffer, not a price
+target, time estimate, probability, or forecast: the next bar changes the
+whole cross-section.
+
+Core separately reconciles:
+
+```text
+proposed one-way turnover
+  = 0.5 * sum(abs(governed target - drifted pretrade weight))
+```
+
+against the immutable execution record before exposing the decision. This
+keeps signal-state change, target resizing, risk scaling, the portfolio
+no-trade gate, and final risk override visibly separate. The object carries
+`quantitative-decision-support` authority and `tradingAuthority: none`.
+
 ## Attribution
 
 For every split, Core/Judge evidence groups the exact ledger by:
@@ -201,6 +245,11 @@ long backtest.
 9. Output is research target-weight evidence with no trading authority.
 10. Every available final executed-book forecast is within the exact mandate
     ceiling; risk may override no-trade but may only reduce exposure.
+11. A projected current trigger is derived only from the fixed current state,
+    construction family, and fixed thresholds; it cannot introduce another
+    signal or position permission.
+12. Current proposed turnover reconciles the exact governed-target and
+    pretrade vectors before the execution gate is shown.
 
 ## Known limits
 

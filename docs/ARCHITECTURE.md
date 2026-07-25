@@ -98,6 +98,10 @@ The V2 foundation now implements:
 - one predeclared local mechanical-parameter neighborhood that crosses five
   attainable signal entry/exit profiles with three no-trade bands, preserves
   exact validation/test paths, and has no selection or trading authority.
+- one current mechanical-decision read model that reconciles verified
+  percentile-state triggers, governed targets, drifted weights, proposed
+  turnover, no-trade, final-risk repair, and executed research weights without
+  creating price targets or order authority.
 - one governed RL Factor-Policy Lab that confines Agent changes to a causal
   state encoder while the Judge fixes factor-mixture actions, Q-learning,
   rewards, portfolio accounting, folds, seeds, baselines, and model evidence.

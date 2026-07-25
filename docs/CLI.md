@@ -168,6 +168,14 @@ The same projection reconciles daily and per-asset executed-book risk:
 forecast coverage, pretrade breaches, risk-only overrides, final breaches,
 and the current executed forecast. Available final breaches are invalid
 evidence, not warnings.
+The same object includes `mechanicalDecision`: the latest verified
+percentile-state trigger set allowed by the Mandate, current
+same-cross-section distance to each entry/exit/reversal boundary, raw and
+governed target, drifted pretrade and executed weight, plus proposed turnover
+versus the fixed portfolio no-trade band. Core recomputes and reconciles that
+turnover from the exact per-asset vectors. Distances are percentile points
+with peer ranks held fixed, not prices, forecasts, probabilities, or orders;
+the object carries `tradingAuthority: none`.
 For new Runs it also verifies `portfolio-position-episodes`, reconstructs
 every split-bounded executed-position episode from the decision ledger, and
 returns complete-episode holding/win/payoff, per-asset contribution/cost,

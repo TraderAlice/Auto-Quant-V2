@@ -96,6 +96,16 @@ research state, not account holdings or an instruction to trade. Use
 `aq run portfolio <path> --run ID --points N --json` for a specific historical
 Run or a different bounded point count.
 
+The Current Mechanical Decision panel precedes the path/book detail. Its four
+stages show current signal-state changes, raw-to-risk-governed gross target,
+proposed one-way turnover versus the fixed no-trade band, and whether the
+historical book changed. Each asset row shows current percentile/event, every
+next transition permitted by its state and Mandate, the percentile-point
+buffer to those boundaries, raw/governed target, drifted/executed weight, and
+the actual execution reason. The buffer holds peer ranks fixed only to explain
+current state; it is not a price target, trigger probability, order, or account
+position.
+
 For request-driven Portfolio evidence, the mandate strip distinguishes the
 research universe from assets authorized as positions. It shows direction,
 long/cash, short/cash, or dollar-neutral family, gross/cap, benchmark, and

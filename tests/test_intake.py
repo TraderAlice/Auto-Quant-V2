@@ -135,11 +135,35 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                 diagnostics["mandate"]["tradableAssets"],
                 ["AAPL", "MSFT"],
             )
+            decision = diagnostics["mechanicalDecision"]
+            self.assertEqual(decision["signalGate"]["family"], "long-cash")
+            self.assertEqual(decision["tradingAuthority"], "none")
+            decision_by_asset = {
+                item["asset"]: item for item in decision["positions"]
+            }
+            for asset in ("AAPL", "MSFT"):
+                position = decision_by_asset[asset]
+                self.assertIn(position["signalState"], {0, 1})
+                self.assertEqual(len(position["nextTriggers"]), 1)
+                self.assertIn(
+                    position["nextTriggers"][0]["event"],
+                    {"enter_long", "exit_long"},
+                )
             for position in diagnostics["currentBook"]["positions"]:
                 if position["asset"] in {"NVDA", "QQQ", "SPY"}:
                     self.assertFalse(position["tradable"])
                     self.assertEqual(position["targetWeight"], 0.0)
                     self.assertEqual(position["allocationStatus"], "context_only")
+                    decision_position = decision_by_asset[
+                        position["asset"]
+                    ]
+                    self.assertEqual(
+                        decision_position["nextTriggers"],
+                        [],
+                    )
+                    self.assertIsNone(
+                        decision_position["nearestTrigger"]
+                    )
             session = start_session(
                 project,
                 PORTFOLIO_STUDY_ID,

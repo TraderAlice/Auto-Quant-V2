@@ -32,6 +32,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/mechanical-decision-ticket]] | Made the current signal threshold, target sizing, risk adjustment, and execution gate inspectable from one verified Portfolio Run. | 2026-07-25 |
 | [[plans/governed-rl-factor-opportunity-audit]] | Exposed every governed RL decision's same-pretrade one-step factor opportunities without granting hindsight selection authority. | 2026-07-25 |
 | [[plans/portfolio-parameter-neighborhood]] | Made every mechanical Portfolio result disclose its local entry/exit and no-trade parameter stability without opening a hidden optimization channel. | 2026-07-25 |
 | [[plans/rl-policy-behavior-rationale]] | Explained governed-RL action persistence and every frozen linear chosen-versus-runner-up Q decision with exact reconciled evidence. | 2026-07-25 |

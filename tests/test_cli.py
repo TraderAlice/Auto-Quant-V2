@@ -160,6 +160,24 @@ class AgentCliTests(unittest.TestCase):
                 "autoquant-portfolio-diagnostics",
             )
             self.assertEqual(projected["data"]["path"]["sampledRows"], 48)
+            self.assertEqual(
+                projected["data"]["mechanicalDecision"][
+                    "tradingAuthority"
+                ],
+                "none",
+            )
+            self.assertEqual(
+                projected["data"]["mechanicalDecision"]["timestamp"],
+                projected["data"]["currentBook"]["timestamp"],
+            )
+            self.assertEqual(
+                len(
+                    projected["data"]["mechanicalDecision"][
+                        "positions"
+                    ]
+                ),
+                len(projected["data"]["universe"]),
+            )
             self.assertTrue(projected["data"]["riskGovernor"]["available"])
             self.assertTrue(
                 projected["data"]["executedBookRisk"]["available"]

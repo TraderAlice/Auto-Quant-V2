@@ -1903,6 +1903,118 @@ function mandateMarkup(mandate) {
     <code>${escapeHtml(lock)}</code>`;
 }
 
+function percentilePointDistance(value) {
+  return value == null ? "rank unavailable" : `${(value * 100).toFixed(1)}pp`;
+}
+
+function renderPortfolioMechanicalDecision(explorer) {
+  const decision = explorer.mechanicalDecision;
+  const signal = decision.signalGate;
+  const target = decision.targetGate;
+  const execution = decision.executionGate;
+  const executionLabel = !execution.available
+    ? "LEGACY GATE"
+    : execution.riskOverride
+      ? "RISK OVERRIDE"
+      : execution.ordinaryRebalance
+        ? "REBALANCE"
+        : "NO-TRADE HOLD";
+  const finalLabel = execution.rebalanced ? "BOOK CHANGED" : "BOOK HELD";
+  const signalLabel = signal.stateChanges
+    ? `${signal.stateChanges} state change${signal.stateChanges === 1 ? "" : "s"}`
+    : "State retained";
+  document.getElementById("portfolio-mechanical-decision").innerHTML = `
+    <div class="mechanical-chain" role="list" aria-label="Mechanical portfolio decision chain">
+      <span role="listitem">
+        <small>01 · Signal state</small>
+        <b>${escapeHtml(signalLabel)}</b>
+        <i>${signal.unavailableScores} unavailable · ${signal.contextAssets} context</i>
+      </span>
+      <span role="listitem" class="${target.riskLimited ? "warning" : ""}">
+        <small>02 · Target + risk</small>
+        <b>${metric(target.preGovernorGross)} → ${metric(target.governedTargetGross)} gross</b>
+        <i>${escapeHtml(target.riskGovernorStatus)} · scale ${metric(target.riskGovernorScale)}</i>
+      </span>
+      <span role="listitem" class="${execution.riskOverride ? "warning" : ""}">
+        <small>03 · Execution gate</small>
+        <b>${escapeHtml(executionLabel)}</b>
+        <i>${percent(execution.proposedOneWayTurnover)} proposed / ${percent(execution.noTradeOneWay)} band</i>
+      </span>
+      <span role="listitem">
+        <small>04 · Historical book</small>
+        <b>${escapeHtml(finalLabel)}</b>
+        <i>${percent(execution.finalOneWayTurnover)} traded · ${metric(execution.executedGross)} gross</i>
+      </span>
+    </div>
+    <div class="trigger-disclosure">
+      Current cross-sectional percentile buffers with peer ranks held fixed · not price targets,
+      probabilities, orders, or account positions · ${escapeHtml(execution.reason)}
+    </div>
+    <div class="mechanical-table-scroll">
+      <div class="mechanical-table" role="table" aria-label="Current per-asset mechanical signal triggers">
+        <div class="mechanical-row heading" role="row">
+          <span>Asset / state</span>
+          <span>Score / event</span>
+          <span>Next state trigger</span>
+          <span>Raw → target</span>
+          <span>Pretrade → executed</span>
+          <span>Action</span>
+        </div>
+        ${decision.positions
+          .map((position) => {
+            const stateLabel = position.tradable
+              ? signalStateLabel(position.signalState)
+              : "CONTEXT";
+            const side = !position.tradable
+              ? "context"
+              : position.signalState > 0
+                ? "long"
+                : position.signalState < 0
+                  ? "short"
+                  : "flat";
+            const triggers = position.nextTriggers.length
+              ? position.nextTriggers
+                  .map(
+                    (trigger) => `
+                      <i class="trigger-condition">
+                        <b>${escapeHtml(trigger.event)}</b>
+                        <code>${escapeHtml(trigger.comparator)} P${(trigger.threshold * 100).toFixed(0)}</code>
+                        <small>Δ ${escapeHtml(percentilePointDistance(trigger.distance))}</small>
+                      </i>`,
+                  )
+                  .join("")
+              : '<i class="trigger-condition unavailable"><b>not authorized</b><small>context only</small></i>';
+            return `
+              <div class="mechanical-row ${position.tradable ? "" : "context-only"}" role="row">
+                <span class="mechanical-asset">
+                  <b>${escapeHtml(position.asset)}</b>
+                  <i class="${side}">${escapeHtml(stateLabel)}</i>
+                  <small>${escapeHtml(position.allocationStatus)}</small>
+                </span>
+                <span>
+                  <b>${position.scoreAvailable ? `P${(position.score * 100).toFixed(0)}` : "N/A"}</b>
+                  <small>${escapeHtml(position.signalEvent)}</small>
+                </span>
+                <span class="trigger-stack">${triggers}</span>
+                <span>
+                  <b>${signedPercent(position.preGovernorTargetWeight)} → ${signedPercent(position.targetWeight)}</b>
+                  <small>${signedPercent(position.proposedTradeWeight)} proposed trade</small>
+                </span>
+                <span>
+                  <b>${signedPercent(position.pretradeWeight)} → ${signedPercent(position.executedWeight)}</b>
+                  <small>${signedPercent(position.tradeWeight)} actual trade</small>
+                </span>
+                <span>
+                  <b>${escapeHtml(position.executionAction)}</b>
+                  <small>${escapeHtml(position.executionReason)}</small>
+                </span>
+              </div>`;
+          })
+          .join("")}
+      </div>
+    </div>`;
+}
+
 function renderPortfolioBook(explorer) {
   const book = explorer.currentBook;
   const latestCapacity = explorer.liquidityCapacity?.latestTrade;
@@ -2068,6 +2180,7 @@ function renderPortfolioExplorer(project) {
     )
     .join("");
   renderPortfolioChart(explorer);
+  renderPortfolioMechanicalDecision(explorer);
   renderPortfolioBook(explorer);
   renderPortfolioAttribution(explorer);
   renderPortfolioTransitions(explorer);
