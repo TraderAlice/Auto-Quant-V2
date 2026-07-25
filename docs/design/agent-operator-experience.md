@@ -1,0 +1,197 @@
+# AI-first Agent operator experience
+
+Status: active design.
+
+Related: [[docs/design/agent-cli-contract]],
+[[docs/design/research-program-orchestration]],
+[[docs/design/research-session-loop]],
+[[docs/design/external-researcher-driver]],
+[[docs/design/studio-observation-surface]], and
+[[docs/design/study-run-evidence]].
+
+## Purpose
+
+AutoQuant is operated primarily by coding Agents. Humans provide the research
+request, define or approve authority, review evidence, and accept or reject the
+result. The default operating surface must therefore optimize for a new Agent
+to take one correct bounded action, while preserving a concise truthful review
+surface for humans.
+
+The interface is not a larger prompt. It is a verified Core work contract:
+
+```text
+Workspace / Project path
++ verified request and Project construction
++ current Study / Session / Run / Report state
++ scientific progression and conflicts
++ fixed authority and editable closures
+→ Agent Work Brief
+├── aq orient --json
+├── concise human terminal projection
+└── Studio decision brief
+```
+
+Existing detailed objects remain available for deep inspection. Orientation
+answers what the operator should do now and why.
+
+## Operator and reviewer roles
+
+The Agent is the principal research operator. It may:
+
+- inspect verified context and evidence;
+- start an explicitly offered bounded operation;
+- edit only the candidate closure inside an active Session worktree;
+- propose a falsifiable hypothesis;
+- evaluate through the fixed Judge;
+- inspect immutable verdict and diagnostic evidence.
+
+The Agent may not:
+
+- change the request, dataset snapshot, Study, Judge, objective, mandate, gate,
+  immutable history, or promotion rules;
+- treat visible-test diagnostics as selection evidence;
+- copy candidate source into the canonical Project outside the guarded
+  promotion operation;
+- infer trading authority from research weights, Reports, or Dossiers.
+
+The human is the intent owner and evidence reviewer. Human review does not
+create a second evaluator: Studio displays the same Core work brief and
+evidence that the Agent receives.
+
+## Agent Work Brief
+
+The V1 brief is compact, strict, and derived entirely from verified current
+state. It contains:
+
+- identity: Workspace/Project and optional delegated request;
+- objective: current research question and selected Study objective;
+- focus: lane, Study, coordination phase, scientific stage, and operating
+  mode;
+- evidence: current Run/Session/Report/Dossier identities needed to understand
+  the focus, without embedding raw histories or complete diagnostics;
+- blockers: stable reason codes, explanations, and whether they arise from
+  missing coordination evidence, scientific admission, staleness, or source
+  conflict;
+- authority: selection split, visible-test role, research authority, and
+  `tradingAuthority: none`;
+- filesystem contract: the exact operating root, candidate-editable patterns,
+  and protected authority categories;
+- primary action: one existing Core-generated command with exact `argv`,
+  working directory, operation effect, and expected evidence kind;
+- supporting read-only actions only when they materially help the primary
+  action.
+
+The brief does not copy the entire program projection. A caller may use the
+referenced detailed command when it needs full lane, Run, Session, or report
+history.
+
+## Operating modes
+
+Operating modes summarize existing state; they do not replace it.
+
+- `observe`: choose a Project or inspect a terminal/complete result.
+- `establish-baseline`: execute missing or stale immutable baseline evidence.
+- `edit-and-evaluate`: operate only inside an active Session worktree and
+  evaluate one hypothesis.
+- `publish-evidence`: freeze the current leader and evidence prefix in a
+  Report or Dossier.
+- `complete`: retain a reported baseline or finish required cross-lane
+  research without changing candidate source.
+- `promote`: apply an accepted non-baseline Session leader through the existing
+  guarded promotion operation.
+
+One brief has exactly one primary mode and at most one primary action.
+
+## Filesystem authority
+
+The distinction between ownership and current edit authority is explicit.
+
+Before a Session exists, a Study may declare `factors/**`, `strategies/**`, or
+`models/**` as its candidate source closure. This describes what a future
+Session may stage; it is not an instruction for a governed Agent to edit the
+canonical Project directly.
+
+During an active Session:
+
+- `operatingRoot` is the disposable Session Project;
+- editable paths are resolved beneath that root;
+- the canonical Project, request, data, Study, program, Judge, mandate,
+  dependency closures, Runs, Experiments, Reports, and Dossiers are protected;
+- the primary candidate action is `experiment evaluate` or a terminal evidence
+  operation already authorized by the Session state.
+
+No brief may advertise two writable roots.
+
+## Operator reason taxonomy
+
+Stable reason categories must distinguish:
+
+- `project-selection-required`;
+- `baseline-evidence-missing`;
+- `current-evidence-stale`;
+- `session-required`;
+- `session-active`;
+- `scientific-gate-blocked`;
+- `report-required`;
+- `shared-source-conflict`;
+- `promotion-ready`;
+- `baseline-completion-ready`;
+- `required-research-complete`.
+
+Implementation may add more specific codes, but it must not collapse
+scientific rejection into missing workflow state or describe an immutable
+negative result as an infrastructure failure.
+
+A Workspace with one Project or a declared default Project resolves normally.
+A multi-Project Workspace without an explicit/default selection returns
+`project-selection-required`, a bounded Project inventory, no writable root,
+and no mutating primary action. It never guesses which research question the
+Agent should operate.
+
+## CLI and Studio parity
+
+`aq orient` is read-only and uses the standard versioned CLI envelope.
+`nextActions` repeats the brief's exact primary/supporting actions using the
+existing action schema and declared effects.
+
+Studio receives the same brief and a Core hash. JavaScript may format or
+progressively disclose its fields. It must not independently choose the focus
+lane, derive a scientific stage from metric signs, invent filesystem
+authority, or substitute a different next action.
+
+## Feedback tiers
+
+Orientation must truthfully distinguish the feedback operations that already
+exist:
+
+- structural inspection and validation;
+- bounded baseline Run execution;
+- Session Experiment evaluation;
+- full repository engineering regression.
+
+It must not advise a Project Researcher to run the AutoQuant repository's full
+engineering suite, nor pretend that structural validation evaluates a factor.
+A future fast-research-check plan may add a cheaper causal/syntax feedback
+operation, but it must preserve the same fixed Study and evidence boundaries.
+
+## Invariants
+
+1. Orientation is read-only and cannot start research implicitly.
+2. Every claim is reconstructed from verified Core state.
+3. There is one operating root, one primary mode, and at most one primary
+   action.
+4. Existing lifecycle and scientific-gate objects remain authoritative.
+5. A work brief never grants broader edit authority than its active Study and
+   Session.
+6. Validation selects; visible test audits; neither role is rewritten for
+   convenience.
+7. CLI and Studio share the exact brief and hash.
+8. Every brief states that AutoQuant has no trading authority.
+
+## Known limitations
+
+- V1 orients one selected Project, not a portfolio of simultaneous Projects.
+- It does not measure Agent token use, reasoning quality, or provider cost.
+- It does not execute commands or guarantee that an external Agent follows
+  them.
+- It does not yet shorten factor/Judge feedback latency.

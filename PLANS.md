@@ -18,7 +18,9 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-There are no active plans.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/ai-first-agent-orientation]] | Let a new research Agent obtain one verified work brief with the current question, blocker, edit boundary, and exact next action, shared with human Studio review. | 2026-07-25 |
 
 ## Proposed plans
 

@@ -50,6 +50,9 @@ Read the relevant linked document before changing a subsystem:
   confinement: [[docs/design/workspace-project-boundaries]]
 - Versioned CLI envelopes, capability discovery, operation effects, artifacts,
   and next actions: [[docs/design/agent-cli-contract]]
+- AI-primary operator, human-reviewer roles, compact Agent Work Brief,
+  filesystem authority, and CLI/Studio orientation parity:
+  [[docs/design/agent-operator-experience]]
 - Fixed Study authority, editable/Judge source closures, bounded execution, and
   immutable RunResult evidence: [[docs/design/study-run-evidence]]
 - Transactional reference-Project construction, ordinary pandas factor API,
