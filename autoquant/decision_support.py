@@ -5,11 +5,12 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from .factor_explorer import load_factor_diagnostics
 from .portfolio_explorer import load_portfolio_diagnostics
 from .rl_explorer import load_rl_diagnostics
 from .runs import load_run
 from .studies import hash_json
-from .templates import PORTFOLIO_STUDY_ID, RL_STUDY_ID
+from .templates import OHLCV_STUDY_ID, PORTFOLIO_STUDY_ID, RL_STUDY_ID
 from .workspace import (
     AutoQuantValidationError,
     ProjectContext,
@@ -27,6 +28,20 @@ def build_leader_decision_support(
     """Rebuild the bounded decision snapshot for one exact leader Run."""
 
     run = load_run(project, run_id)
+    factor_diagnostics = (
+        load_factor_diagnostics(
+            project,
+            run_id,
+            point_limit=40,
+        )
+        if run.result["study"]["id"] == OHLCV_STUDY_ID
+        else None
+    )
+    factor_qualification = (
+        factor_diagnostics["factorQualification"]
+        if factor_diagnostics is not None
+        else None
+    )
     portfolio_diagnostics = (
         load_portfolio_diagnostics(
             project,
@@ -74,6 +89,12 @@ def build_leader_decision_support(
         "kind": LEADER_DECISION_SUPPORT_KIND,
         "runId": run.result["id"],
         "resultHash": run.manifest["resultHash"],
+        "factorQualificationHash": (
+            hash_json(factor_qualification)
+            if factor_qualification is not None
+            else None
+        ),
+        "factorQualification": factor_qualification,
         "portfolioMechanicalDecisionHash": (
             hash_json(mechanical_decision)
             if mechanical_decision is not None
@@ -128,6 +149,10 @@ def verify_leader_decision_support(
     expected = build_leader_decision_support(project, run_id)
     optional_pairs = (
         (
+            "factorQualificationHash",
+            "factorQualification",
+        ),
+        (
             "portfolioSizingAnatomyHash",
             "portfolioSizingAnatomy",
         ),
@@ -177,15 +202,55 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
             "reason": "legacy-report",
             "runId": None,
             "resultHash": None,
+            "factorQualificationHash": None,
             "portfolioMechanicalDecisionHash": None,
             "portfolioSizingAnatomyHash": None,
             "portfolioStrategyViabilityHash": None,
             "portfolioSignalMonetizationHash": None,
             "rlFactorFusionDiagnosisHash": None,
             "portfolio": None,
+            "factor": None,
             "rl": None,
         }
     decision = value.get("portfolioMechanicalDecision")
+    factor_qualification = value.get("factorQualification")
+    factor_summary = None
+    if (
+        isinstance(factor_qualification, dict)
+        and factor_qualification.get("available")
+    ):
+        validation = factor_qualification["validation"]
+        factor_summary = {
+            "method": factor_qualification["method"],
+            "stage": factor_qualification["diagnosis"]["stage"],
+            "iterationFocus": factor_qualification["diagnosis"][
+                "iterationFocus"
+            ],
+            "dominantStyle": factor_qualification["selection"][
+                "dominantStyle"
+            ],
+            "rawRankIc": validation["candidate"]["meanRankIc"],
+            "styleRankIc": validation["dominantStyle"]["meanRankIc"],
+            "styleNeutralRankIc": validation[
+                "styleNeutralCandidate"
+            ]["meanRankIc"],
+            "blendRankIc": validation["equalRankBlend"]["meanRankIc"],
+            "styleNeutralIcRetention": validation["incremental"][
+                "styleNeutralIcRetention"
+            ],
+            "styleNeutralIcDelta": validation["incremental"][
+                "styleNeutralIcDelta"
+            ],
+            "blendUpliftVsStyle": validation["incremental"][
+                "blendUpliftVsStyle"
+            ],
+            "weakestStyleNeutralFold": validation[
+                "weakestStyleNeutralFold"
+            ]["id"],
+            "weakestStyleNeutralFoldIc": validation[
+                "weakestStyleNeutralFold"
+            ]["meanRankIc"],
+        }
     rl_diagnosis = value.get("rlFactorFusionDiagnosis")
     rl_summary = None
     if isinstance(rl_diagnosis, dict) and rl_diagnosis.get("available"):
@@ -238,12 +303,15 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
             ]["key"],
         }
     if not isinstance(decision, dict):
-        if rl_summary is not None:
+        if factor_summary is not None or rl_summary is not None:
             return {
                 "available": True,
                 "reason": None,
                 "runId": value["runId"],
                 "resultHash": value["resultHash"],
+                "factorQualificationHash": value.get(
+                    "factorQualificationHash"
+                ),
                 "portfolioMechanicalDecisionHash": value.get(
                     "portfolioMechanicalDecisionHash"
                 ),
@@ -260,6 +328,7 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
                     "rlFactorFusionDiagnosisHash"
                 ),
                 "portfolio": None,
+                "factor": factor_summary,
                 "rl": rl_summary,
             }
         return {
@@ -267,6 +336,9 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
             "reason": "no-supported-leader-diagnosis",
             "runId": value.get("runId"),
             "resultHash": value.get("resultHash"),
+            "factorQualificationHash": value.get(
+                "factorQualificationHash"
+            ),
             "portfolioMechanicalDecisionHash": value.get(
                 "portfolioMechanicalDecisionHash"
             ),
@@ -283,6 +355,7 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
                 "rlFactorFusionDiagnosisHash"
             ),
             "portfolio": None,
+            "factor": None,
             "rl": None,
         }
     signal = decision["signalGate"]
@@ -384,6 +457,9 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
         "reason": None,
         "runId": value["runId"],
         "resultHash": value["resultHash"],
+        "factorQualificationHash": value.get(
+            "factorQualificationHash"
+        ),
         "portfolioMechanicalDecisionHash": value[
             "portfolioMechanicalDecisionHash"
         ],
@@ -416,6 +492,7 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
             "viability": viability_summary,
             "monetization": monetization_summary,
         },
+        "factor": None,
         "rl": None,
     }
 
@@ -444,6 +521,85 @@ def _trigger_label(trigger: dict[str, Any]) -> str:
         f"`{trigger['event']} {trigger['comparator']} P{threshold:.0f}` "
         f"({buffer})"
     )
+
+
+def factor_qualification_markdown_lines(
+    support: dict[str, Any],
+    *,
+    heading: str,
+    lane_name: str | None = None,
+) -> list[str]:
+    """Render the frozen raw-to-style-neutral qualification funnel."""
+
+    qualification = support.get("factorQualification")
+    if (
+        not isinstance(qualification, dict)
+        or not qualification.get("available")
+    ):
+        return []
+    diagnosis = qualification["diagnosis"]
+    selection = qualification["selection"]
+    prefix = f"{lane_name}: " if lane_name else ""
+    lines = [
+        heading,
+        "",
+        f"- {prefix}Validation diagnosis / next research focus: "
+        f"`{diagnosis['stage']}` / `{diagnosis['iterationFocus']}`",
+        f"- Interpretation: {diagnosis['explanation']}",
+        "- Dominant fixed style / selection rule: "
+        f"`{selection['dominantStyle']}` / train-only maximum absolute "
+        "mean daily rank overlap.",
+        "- Neutralization: same-timestamp cross-sectional centered-rank OLS; "
+        "forward targets do not enter the projection.",
+        "- Positive raw and residual layers require validation HAC t "
+        f"`>= {qualification['semantics']['diagnosticThresholds']['minimumPositiveHacTStatistic']}`; "
+        "Project-family selection-adjusted significance remains separately "
+        "required.",
+        f"- Qualification hash: `{support['factorQualificationHash']}`",
+        "- Authority: `research-prioritization-only`; validation sets the "
+        "diagnosis; test is visible audit only; Factor promotion, RL "
+        "admission, and trading authority remain `none`.",
+        "",
+        "| Split / role | Raw candidate IC | Dominant style IC | "
+        "Style-neutral IC / delta | Equal-blend IC / uplift vs style | "
+        "Weakest residual fold |",
+        "| --- | --- | --- | --- | --- | --- |",
+    ]
+    for split_name, key in (
+        ("validation", "validation"),
+        ("test", "testAudit"),
+    ):
+        split = qualification[key]
+        incremental = split["incremental"]
+        worst = split["weakestStyleNeutralFold"]
+        lines.append(
+            f"| `{split_name}` / `{split['role']}` | "
+            f"`{split['candidate']['meanRankIc']:+.4f}` | "
+            f"`{split['dominantStyle']['meanRankIc']:+.4f}` | "
+            f"`{split['styleNeutralCandidate']['meanRankIc']:+.4f}` / "
+            f"`{incremental['styleNeutralIcDelta']:+.4f}` | "
+            f"`{split['equalRankBlend']['meanRankIc']:+.4f}` / "
+            f"`{incremental['blendUpliftVsStyle']:+.4f}` | "
+            f"`{worst['id']}` / `{worst['meanRankIc']:+.4f}` |"
+        )
+    lines.extend(
+        [
+            "",
+            "| Train style candidate | Mean rank overlap | "
+            "Mean absolute overlap | Observations |",
+            "| --- | --- | --- | --- |",
+        ]
+    )
+    for candidate in selection["candidates"]:
+        mean = candidate["meanRankCorrelation"]
+        absolute = candidate["meanAbsoluteRankCorrelation"]
+        lines.append(
+            f"| `{candidate['style']}` | "
+            f"`{mean:+.4f}` | `{absolute:.4f}` | "
+            f"`{candidate['observations']}` |"
+        )
+    lines.append("")
+    return lines
 
 
 def mechanical_decision_markdown_lines(

@@ -141,6 +141,7 @@ def daily_rank_correlation(
     right: pd.DataFrame,
     *,
     minimum_assets: int = 4,
+    constant_left_value: float | None = None,
 ) -> pd.Series:
     values: dict[pd.Timestamp, float] = {}
     for timestamp in left.index.intersection(right.index):
@@ -152,7 +153,11 @@ def daily_rank_correlation(
         ).dropna()
         if len(pair) < minimum_assets:
             continue
-        if pair["left"].nunique() < 2 or pair["right"].nunique() < 2:
+        if pair["right"].nunique() < 2:
+            continue
+        if pair["left"].nunique() < 2:
+            if constant_left_value is not None:
+                values[timestamp] = float(constant_left_value)
             continue
         value = pair["left"].rank(method="average").corr(
             pair["right"].rank(method="average")
@@ -404,6 +409,58 @@ def style_proxy_panels(
             volumes / volumes.rolling(20, min_periods=20).mean() - 1.0
         ),
     }
+
+
+def cross_sectional_rank_residual(
+    candidate: pd.DataFrame,
+    style: pd.DataFrame,
+    *,
+    minimum_assets: int = 4,
+) -> pd.DataFrame:
+    """Remove one contemporaneous style exposure from candidate ranks."""
+
+    index = candidate.index.intersection(style.index)
+    columns = candidate.columns.intersection(style.columns)
+    output = pd.DataFrame(np.nan, index=index, columns=columns, dtype=float)
+    for timestamp in index:
+        pair = pd.DataFrame(
+            {
+                "candidate": candidate.loc[timestamp, columns],
+                "style": style.loc[timestamp, columns],
+            }
+        ).dropna()
+        if (
+            len(pair) < minimum_assets
+            or pair["candidate"].nunique() < 2
+            or pair["style"].nunique() < 2
+        ):
+            continue
+        candidate_rank = pair["candidate"].rank(method="average", pct=True)
+        style_rank = pair["style"].rank(method="average", pct=True)
+        candidate_centered = candidate_rank - float(candidate_rank.mean())
+        style_centered = style_rank - float(style_rank.mean())
+        denominator = float(np.dot(style_centered, style_centered))
+        if denominator <= 1e-15:
+            continue
+        beta = float(
+            np.dot(style_centered, candidate_centered) / denominator
+        )
+        output.loc[timestamp, pair.index] = (
+            candidate_centered - beta * style_centered
+        )
+    return output
+
+
+def equal_rank_blend(
+    candidate: pd.DataFrame,
+    style: pd.DataFrame,
+) -> pd.DataFrame:
+    """Return a same-timestamp equal blend of cross-sectional percentile ranks."""
+
+    candidate_rank = candidate.rank(axis=1, method="average", pct=True)
+    style_rank = style.rank(axis=1, method="average", pct=True)
+    available = candidate.notna() & style.notna()
+    return ((candidate_rank + style_rank) / 2.0).where(available)
 
 
 def per_asset_rank_correlation(

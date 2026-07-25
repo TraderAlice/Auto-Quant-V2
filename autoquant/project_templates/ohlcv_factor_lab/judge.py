@@ -18,10 +18,12 @@ from judges.factor_diagnostics import (
     STYLE_NAMES,
     causal_regime_labels,
     chronological_fold_masks,
+    cross_sectional_rank_residual,
     daily_pearson_correlation,
     daily_quantile_returns,
     daily_rank_correlation,
     descriptive_ic,
+    equal_rank_blend,
     forward_return_panels,
     per_asset_rank_correlation,
     purged_split_masks,
@@ -208,9 +210,145 @@ def _decay_summary(
     return result
 
 
+def _factor_qualification(
+    factor_panel: pd.DataFrame,
+    styles: dict[str, pd.DataFrame],
+    forward_panels: dict[int, pd.DataFrame],
+    split_masks: dict[int, dict[str, pd.Series]],
+    fold_masks: dict[str, pd.Series],
+    split_labels: pd.Series,
+    style_correlations: dict[str, dict[str, Any]],
+) -> tuple[dict[str, Any], pd.DataFrame]:
+    """Build train-selected style-neutral and blend evidence."""
+
+    candidates = {
+        name: {
+            "mean_rank_correlation": style_correlations["train"][name][
+                "mean_rank_correlation"
+            ],
+            "mean_absolute_rank_correlation": style_correlations["train"][
+                name
+            ]["mean_absolute_rank_correlation"],
+            "observations": style_correlations["train"][name][
+                "observations"
+            ],
+        }
+        for name in STYLE_NAMES
+    }
+    finite = [
+        (name, value["mean_rank_correlation"])
+        for name, value in candidates.items()
+        if value["mean_rank_correlation"] is not None
+    ]
+    if not finite:
+        raise JudgeFailure(
+            "factor.qualification-style",
+            "No finite train-only style overlap is available",
+        )
+    dominant_style = min(
+        finite,
+        key=lambda item: (-abs(float(item[1])), item[0]),
+    )[0]
+    style_panel = styles[dominant_style].reindex_like(factor_panel)
+    residual_panel = cross_sectional_rank_residual(
+        factor_panel,
+        style_panel,
+        minimum_assets=MIN_ASSETS_PER_DATE,
+    )
+    blend_panel = equal_rank_blend(factor_panel, style_panel)
+    panels = {
+        "candidate": factor_panel,
+        "dominant_style": style_panel,
+        "style_neutral_candidate": residual_panel,
+        "equal_rank_blend": blend_panel,
+    }
+    daily = {
+        signal: {
+            horizon: daily_rank_correlation(
+                panel,
+                forward_panels[horizon],
+                minimum_assets=MIN_ASSETS_PER_DATE,
+                constant_left_value=(
+                    0.0
+                    if signal == "style_neutral_candidate"
+                    else None
+                ),
+            )
+            for horizon in HORIZONS
+        }
+        for signal, panel in panels.items()
+    }
+    horizon_quality = {
+        str(horizon): {
+            split: {
+                signal: _split_metrics(
+                    _masked(
+                        daily[signal][horizon],
+                        split_masks[horizon][split],
+                    )
+                )
+                for signal in panels
+            }
+            for split in ("train", "validation", "test")
+        }
+        for horizon in HORIZONS
+    }
+    residual_folds = {
+        name: descriptive_ic(
+            _masked(daily["style_neutral_candidate"][1], mask)
+        )
+        for name, mask in fold_masks.items()
+    }
+    evidence = pd.DataFrame(
+        {
+            "split": split_labels,
+            "dominant_style": dominant_style,
+        },
+        index=factor_panel.index,
+    )
+    for horizon in HORIZONS:
+        eligible = (
+            split_masks[horizon]["train"]
+            | split_masks[horizon]["validation"]
+            | split_masks[horizon]["test"]
+        )
+        for signal in panels:
+            evidence[f"{signal}_rank_ic_h{horizon}"] = (
+                daily[signal][horizon]
+                .reindex(factor_panel.index)
+                .where(eligible)
+            )
+    evidence.index.name = "timestamp"
+    return {
+        "method": "train-selected-one-style-rank-neutralization-v1",
+        "selection": {
+            "split": "train",
+            "criterion": "maximum-absolute-mean-daily-rank-overlap",
+            "dominant_style": dominant_style,
+            "candidates": candidates,
+            "validation_enters_selection": False,
+            "test_enters_selection": False,
+        },
+        "semantics": {
+            "neutralization": (
+                "same-timestamp-cross-sectional-centered-rank-ols"
+            ),
+            "blend": "equal-weight-cross-sectional-percentile-ranks",
+            "target_enters_neutralization": False,
+            "selection_authority": "research-context-only",
+            "trading_authority": "none",
+        },
+        "horizon_quality": horizon_quality,
+        "stability": {
+            "style_neutral_chronological_folds": residual_folds,
+        },
+    }, evidence
+
+
 def _evaluate() -> tuple[
     dict[str, Any],
     dict[str, Any],
+    pd.DataFrame,
     pd.DataFrame,
     pd.DataFrame,
 ]:
@@ -352,6 +490,15 @@ def _evaluate() -> tuple[
             style_correlations[split][style] = _style_summary(
                 _masked(daily_style, split_masks[1][split])
             )
+    factor_qualification, qualification_evidence = _factor_qualification(
+        factor_panel,
+        styles,
+        forward_panels,
+        split_masks,
+        fold_masks,
+        base_split_labels,
+        style_correlations,
+    )
     per_asset_stability = {
         split: per_asset_rank_correlation(
             factor_panel,
@@ -377,6 +524,7 @@ def _evaluate() -> tuple[
             "per_asset": per_asset_stability,
         },
         "style_correlations": style_correlations,
+        "factor_qualification": factor_qualification,
         "split_protocol": {
             **split_protocol,
             "folds": fold_protocol,
@@ -433,6 +581,16 @@ def _evaluate() -> tuple[
                 "lagged rolling threshold"
             ),
             "styles": list(STYLE_NAMES),
+            "qualification": {
+                "method": factor_qualification["method"],
+                "styleSelection": "train-only",
+                "neutralization": factor_qualification["semantics"][
+                    "neutralization"
+                ],
+                "blend": factor_qualification["semantics"]["blend"],
+                "testRole": "visible audit only",
+                "tradingAuthority": "none",
+            },
             "testRole": (
                 "visible diagnostic evidence; never enters candidate selection"
             ),
@@ -485,12 +643,24 @@ def _evaluate() -> tuple[
                     }
                 )
     quantile_evidence = pd.DataFrame(quantile_rows)
-    return metrics, report, daily_evidence, quantile_evidence
+    return (
+        metrics,
+        report,
+        daily_evidence,
+        quantile_evidence,
+        qualification_evidence,
+    )
 
 
 def main() -> None:
     try:
-        metrics, report, daily_evidence, quantile_evidence = _evaluate()
+        (
+            metrics,
+            report,
+            daily_evidence,
+            quantile_evidence,
+            qualification_evidence,
+        ) = _evaluate()
         artifacts = Path(os.environ["AUTOQUANT_ARTIFACTS_DIR"])
         report_path = artifacts / "factor-report.json"
         report_path.write_text(
@@ -505,6 +675,11 @@ def main() -> None:
         quantile_evidence.to_csv(
             artifacts / "factor-quantiles.csv",
             index=False,
+            date_format="%Y-%m-%d",
+            float_format="%.12g",
+        )
+        qualification_evidence.to_csv(
+            artifacts / "factor-qualification.csv",
             date_format="%Y-%m-%d",
             float_format="%.12g",
         )
@@ -541,6 +716,14 @@ def main() -> None:
                         "description": (
                             "Timestamped fixed-tertile forward returns and "
                             "high-minus-low spread by split and horizon"
+                        ),
+                    },
+                    {
+                        "kind": "factor-qualification",
+                        "path": "factor-qualification.csv",
+                        "description": (
+                            "Train-selected style, candidate/style/residual/"
+                            "blend daily rank IC, and visible-test audit"
                         ),
                     }
                 ],

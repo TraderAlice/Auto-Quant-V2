@@ -105,6 +105,9 @@ Every successful reference Run publishes:
   purge-aware 1/5/10-bar daily rank/Pearson IC;
 - `factor-quantiles.csv`: timestamp, split, horizon, low/middle/high return,
   and high-minus-low spread.
+- `factor-qualification.csv`: timestamp, split, train-selected dominant style,
+  and candidate/style/style-neutral/equal-blend daily rank IC for fixed
+  1/5/10-bar horizons.
 
 The Run metric object contains the complete machine-readable summary. The
 bounded Core projection in [[docs/design/factor-evidence-explorer]] verifies

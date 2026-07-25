@@ -13,6 +13,7 @@ from typing import Any
 
 from .decision_support import (
     build_leader_decision_support,
+    factor_qualification_markdown_lines,
     mechanical_decision_markdown_lines,
     rl_factor_fusion_diagnosis_markdown_lines,
     signal_monetization_markdown_lines,
@@ -824,6 +825,12 @@ def _render_markdown(report: dict[str, Any]) -> str:
         lines.append("")
     leader_decision_support = evidence.get("leaderDecisionSupport")
     if isinstance(leader_decision_support, dict):
+        lines.extend(
+            factor_qualification_markdown_lines(
+                leader_decision_support,
+                heading="## Frozen leader-Run factor qualification",
+            )
+        )
         lines.extend(
             mechanical_decision_markdown_lines(
                 leader_decision_support,

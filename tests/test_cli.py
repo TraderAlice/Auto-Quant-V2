@@ -103,7 +103,12 @@ class AgentCliTests(unittest.TestCase):
             self.assertEqual(projected["data"]["icPath"]["sampledRows"], 48)
             self.assertEqual(
                 {item["kind"] for item in projected["artifacts"]},
-                {"factor-report", "factor-daily", "factor-quantiles"},
+                {
+                    "factor-report",
+                    "factor-daily",
+                    "factor-quantiles",
+                    "factor-qualification",
+                },
             )
 
     def test_cli_constructs_portfolio_lab_with_correct_next_actions(self) -> None:

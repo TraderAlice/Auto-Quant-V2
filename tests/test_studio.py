@@ -296,6 +296,10 @@ class StudioObservationTests(unittest.TestCase):
                         html,
                     )
                     self.assertIn(
+                        'id="factor-qualification"',
+                        html,
+                    )
+                    self.assertIn(
                         "Current mechanical decision",
                         html,
                     )
@@ -328,6 +332,11 @@ class StudioObservationTests(unittest.TestCase):
                     self.assertIn(".viability-chain", css)
                     self.assertIn(".monetization-chain", css)
                     self.assertIn(".monetization-deltas", css)
+                    self.assertIn(".factor-qualification-chain", css)
+                    self.assertIn(
+                        ".factor-qualification-diagnosis",
+                        css,
+                    )
                     self.assertIn(".inspector-lane", css)
                     self.assertIn(".inspector-collapsed", css)
                     self.assertIn(".rl-opportunity-panel", css)
@@ -364,6 +373,22 @@ class StudioObservationTests(unittest.TestCase):
                     )
                     self.assertIn(
                         "renderPortfolioSignalMonetization",
+                        javascript,
+                    )
+                    self.assertIn(
+                        "renderFactorQualification",
+                        javascript,
+                    )
+                    self.assertIn(
+                        "First missing qualification layer",
+                        javascript,
+                    )
+                    self.assertIn(
+                        "Raw IC lacks statistical support",
+                        javascript,
+                    )
+                    self.assertIn(
+                        "Frozen factor qualification",
                         javascript,
                     )
                     self.assertIn(

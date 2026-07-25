@@ -1483,6 +1483,25 @@ def _run_factor(args: argparse.Namespace) -> CommandResult:
     )
     summary = diagnostics["summary"]
     validation = summary["validation"]
+    qualification = diagnostics["factorQualification"]
+    qualification_line = ""
+    if qualification["available"]:
+        qualified = qualification["validation"]
+        incremental = qualified["incremental"]
+        qualification_line = (
+            "Factor qualification: "
+            f"{qualification['diagnosis']['stage']} · focus "
+            f"{qualification['diagnosis']['iterationFocus']} · "
+            f"dominant train style "
+            f"{qualification['selection']['dominantStyle']} · "
+            "raw/residual/blend validation IC "
+            f"{qualified['candidate']['meanRankIc']}/"
+            f"{qualified['styleNeutralCandidate']['meanRankIc']}/"
+            f"{qualified['equalRankBlend']['meanRankIc']} · "
+            "blend uplift vs style "
+            f"{incremental['blendUpliftVsStyle']} · "
+            "research prioritization only\n"
+        )
     return CommandResult(
         "run.factor",
         diagnostics,
@@ -1495,6 +1514,7 @@ def _run_factor(args: argparse.Namespace) -> CommandResult:
             f"{diagnostics['icPath']['sampledRows']} points\n"
             f"Mean coverage / rank turnover: {summary['meanCoverage']} / "
             f"{summary['meanRankTurnover']}\n"
+            f"{qualification_line}"
             "Test and longer-horizon evidence are diagnostic only.\n"
         ),
         project_context(project),

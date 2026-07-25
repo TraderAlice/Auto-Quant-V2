@@ -89,6 +89,51 @@ class FactorEvidenceExplorerTests(unittest.TestCase):
             self.assertEqual(len(diagnostics["stability"]["assets"]), 18)
             self.assertEqual(len(diagnostics["stability"]["styles"]), 12)
             self.assertEqual(len(diagnostics["coverage"]), 6)
+            qualification = diagnostics["factorQualification"]
+            self.assertTrue(qualification["available"])
+            self.assertEqual(
+                qualification["selection"]["split"],
+                "train",
+            )
+            self.assertFalse(
+                qualification["selection"]["validationEntersSelection"]
+            )
+            self.assertFalse(
+                qualification["semantics"]["testEntersDiagnosis"]
+            )
+            self.assertEqual(
+                qualification["validation"]["role"],
+                "selection",
+            )
+            self.assertEqual(
+                qualification["testAudit"]["role"],
+                "visible-audit",
+            )
+            self.assertEqual(
+                qualification["diagnosis"]["stage"],
+                "raw-statistical-evidence-weak",
+            )
+            self.assertAlmostEqual(
+                qualification["validation"]["candidate"]["meanRankIc"],
+                diagnostics["summary"]["validation"]["meanRankIc"],
+            )
+            self.assertAlmostEqual(
+                qualification["validation"]["styleNeutralCandidate"][
+                    "meanRankIc"
+                ]
+                - qualification["validation"]["candidate"]["meanRankIc"],
+                qualification["validation"]["incremental"][
+                    "styleNeutralIcDelta"
+                ],
+            )
+            self.assertEqual(
+                len(
+                    qualification["validation"][
+                        "styleNeutralChronologicalFolds"
+                    ]
+                ),
+                2,
+            )
 
             sampled_dates = {
                 item["timestamp"] for item in diagnostics["icPath"]["points"]
@@ -137,6 +182,66 @@ class FactorEvidenceExplorerTests(unittest.TestCase):
             self.assertIn(
                 "run.factor",
                 [item["id"] for item in observed["commands"]],
+            )
+
+            qualification_path = (
+                run.root_dir / "artifacts" / "factor-qualification.csv"
+            )
+            original_qualification = qualification_path.read_text(
+                encoding="utf-8"
+            )
+            qualification_rows = original_qualification.splitlines()
+            cells = qualification_rows[1].split(",")
+            header = qualification_rows[0].split(",")
+            candidate_index = header.index("candidate_rank_ic_h1")
+            cells[candidate_index] = "0.999"
+            qualification_rows[1] = ",".join(cells)
+            qualification_path.write_text(
+                "\n".join(qualification_rows) + "\n",
+                encoding="utf-8",
+            )
+            rehash_run(run.root_dir)
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "candidate daily rank IC",
+            ):
+                load_factor_diagnostics(project, run.result["id"])
+
+            qualification_path.write_text(
+                original_qualification,
+                encoding="utf-8",
+            )
+            result_path = run.root_dir / "result.json"
+            report_path = run.root_dir / "artifacts" / "factor-report.json"
+            legacy_result = json.loads(
+                result_path.read_text(encoding="utf-8")
+            )
+            legacy_report = json.loads(
+                report_path.read_text(encoding="utf-8")
+            )
+            legacy_result["metrics"].pop("factor_qualification")
+            legacy_result["artifacts"] = [
+                item
+                for item in legacy_result["artifacts"]
+                if item["kind"] != "factor-qualification"
+            ]
+            legacy_report["metrics"].pop("factor_qualification")
+            legacy_report["semantics"].pop("qualification")
+            result_path.write_text(
+                json.dumps(legacy_result, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            report_path.write_text(
+                json.dumps(legacy_report, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            qualification_path.unlink()
+            rehash_run(run.root_dir)
+            legacy = load_factor_diagnostics(project, run.result["id"])
+            self.assertFalse(legacy["factorQualification"]["available"])
+            jsonschema.validate(
+                legacy,
+                FACTOR_DIAGNOSTICS_JSON_SCHEMA,
             )
 
     def test_limits_and_non_factor_runs_fail_structurally(self) -> None:

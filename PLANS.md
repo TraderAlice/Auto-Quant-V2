@@ -32,6 +32,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/factor-qualification-funnel]] | Proved distinct incremental candidate-factor information before Portfolio and governed-RL research. | 2026-07-25 |
 | [[plans/rl-factor-fusion-diagnosis]] | Diagnosed whether candidate-factor opportunity becomes stable post-cost adaptive value versus a mechanical baseline. | 2026-07-25 |
 | [[plans/signal-to-portfolio-monetization]] | Explained how normalized signal intent becomes sized, governed, executed, and post-cost portfolio return. | 2026-07-25 |
 | [[plans/portfolio-strategy-viability]] | Diagnosed whether a mechanical strategy loses its edge at factor prediction, gross monetization, trading friction, or post-cost robustness. | 2026-07-25 |

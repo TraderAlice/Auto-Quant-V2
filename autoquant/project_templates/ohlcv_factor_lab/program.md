@@ -26,9 +26,10 @@ full-sample normalization, external data, and mutation of the input are not.
 3. Make one coherent code change inside the editable closure.
 4. Run the bounded Experiment command supplied by the Session.
 5. Inspect validation/test one-bar IC, HAC strength, 5/10-bar decay, tertile
-   monotonicity/spread, style overlap, asset/fold/regime stability, coverage,
-   turnover, errors, verdict, Project-family trial count, and family-wise
-   adjusted HAC significance.
+   monotonicity/spread, train-selected dominant style, style-neutral residual
+   IC, equal-blend uplift, residual fold stability, asset/regime stability,
+   coverage, turnover, errors, verdict, Project-family trial count, and
+   family-wise adjusted HAC significance.
 6. KEEP only when the fixed objective improves; otherwise accept restoration
    and form a different hypothesis.
 
@@ -48,6 +49,13 @@ rows whose targets would cross each boundary. Treat sparse regimes, one weak
 fold, one dominant asset, fast decay, or near-perfect overlap with a familiar
 OHLCV style as findings to explain—not fields to hide or alternate scores to
 optimize opportunistically.
+
+The dominant comparison style is chosen on train overlap only. Validation
+qualification asks whether raw and style-neutral IC are positive with fixed
+HAC t at least 1.96, whether an equal rank blend improves the selected style,
+and whether both residual folds remain positive. This prioritizes the next
+research lane; it does not change KEEP/REVERT, replace Project-family
+selection adjustment, or automatically admit the source into Portfolio or RL.
 
 Do not modify the Study, Judge, program, dataset, or AutoQuant Core to improve a
 candidate. Do not treat this synthetic benchmark as a real-market alpha claim.

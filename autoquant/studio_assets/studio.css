@@ -1444,6 +1444,223 @@ main > div[id] {
   font-style: normal;
 }
 
+.factor-qualification-panel {
+  min-width: 0;
+  margin-top: 10px;
+  padding: 15px;
+  border: 1px solid #30362d;
+  background:
+    linear-gradient(135deg, rgb(18 23 19 / 97%), rgb(13 16 13 / 98%));
+}
+
+.factor-qualification-diagnosis {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.72fr) minmax(0, 1.28fr);
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  background: #10130f;
+}
+
+.factor-qualification-diagnosis > span,
+.factor-qualification-diagnosis > p {
+  min-width: 0;
+  margin: 0;
+  padding: 13px 14px;
+}
+
+.factor-qualification-diagnosis > span {
+  border-right: 1px solid var(--line);
+  box-shadow: inset 3px 0 var(--red);
+}
+
+.factor-qualification-diagnosis.positive > span {
+  box-shadow: inset 3px 0 var(--cyan);
+}
+
+.factor-qualification-diagnosis small,
+.factor-qualification-diagnosis b,
+.factor-qualification-diagnosis i {
+  display: block;
+}
+
+.factor-qualification-diagnosis small,
+.factor-qualification-chain small,
+.factor-qualification-audit small,
+.factor-qualification-test small {
+  color: var(--faint);
+  font: 6px var(--mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.factor-qualification-diagnosis b {
+  margin-top: 8px;
+  color: var(--red);
+  font: 11px var(--mono);
+}
+
+.factor-qualification-diagnosis.positive b {
+  color: var(--cyan);
+}
+
+.factor-qualification-diagnosis i {
+  margin-top: 6px;
+  color: var(--amber);
+  font: 6px var(--mono);
+  font-style: normal;
+}
+
+.factor-qualification-diagnosis p {
+  align-self: center;
+  color: #949a8d;
+  font: 7px/1.65 var(--mono);
+}
+
+.factor-qualification-chain {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin-top: 9px;
+  border: 1px solid var(--line);
+  background: #0d100d;
+}
+
+.factor-qualification-chain > span {
+  position: relative;
+  min-width: 0;
+  padding: 13px 11px 12px;
+  border-left: 1px solid var(--line);
+}
+
+.factor-qualification-chain > span:first-child {
+  border-left: 0;
+}
+
+.factor-qualification-chain > span:not(:last-child)::after {
+  position: absolute;
+  z-index: 1;
+  top: 50%;
+  right: -4px;
+  width: 7px;
+  height: 7px;
+  border-top: 1px solid #4f574b;
+  border-right: 1px solid #4f574b;
+  background: #0d100d;
+  content: "";
+  transform: translateY(-50%) rotate(45deg);
+}
+
+.factor-qualification-chain b,
+.factor-qualification-chain i {
+  display: block;
+}
+
+.factor-qualification-chain b {
+  margin-top: 9px;
+  color: #dedfd5;
+  font: 9px var(--mono);
+}
+
+.factor-qualification-chain i {
+  min-height: 22px;
+  margin-top: 6px;
+  color: #747b70;
+  font: 5px/1.45 var(--mono);
+  font-style: normal;
+}
+
+.factor-qualification-chain > span.positive {
+  box-shadow: inset 0 2px var(--cyan);
+}
+
+.factor-qualification-chain > span.positive b {
+  color: var(--cyan);
+}
+
+.factor-qualification-chain > span.adverse {
+  box-shadow: inset 0 2px var(--red);
+}
+
+.factor-qualification-chain > span.adverse b {
+  color: var(--red);
+}
+
+.factor-qualification-chain > span.context {
+  box-shadow: inset 0 2px var(--amber);
+}
+
+.factor-qualification-chain > span.context b {
+  color: var(--amber);
+}
+
+.factor-qualification-chain > span.warning {
+  box-shadow: inset 0 2px var(--amber);
+}
+
+.factor-qualification-chain > span.warning b {
+  color: var(--amber);
+}
+
+.factor-qualification-audit {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 9px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.factor-qualification-audit > span {
+  min-width: 0;
+  padding: 10px;
+  border-left: 1px solid var(--line);
+}
+
+.factor-qualification-audit > span:first-child {
+  border-left: 0;
+}
+
+.factor-qualification-audit b {
+  display: block;
+  margin-top: 7px;
+  color: #d7d9cf;
+  font: 8px var(--mono);
+}
+
+.factor-qualification-test {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 9px;
+  padding: 10px 12px;
+  border: 1px dashed #5b4a26;
+  background: rgb(39 31 14 / 52%);
+  color: #8d836c;
+  font: 6px var(--mono);
+}
+
+.factor-qualification-test small {
+  margin-right: auto;
+  color: var(--amber);
+}
+
+.factor-qualification-test b {
+  color: #c8b67e;
+  font-weight: 500;
+}
+
+.factor-qualification-disclosure {
+  margin: 9px 0 0;
+  color: #676e63;
+  font: 6px/1.55 var(--mono);
+}
+
+.factor-qualification-empty {
+  margin-top: 12px;
+  padding: 14px;
+  color: #797f74;
+  border: 1px dashed var(--line);
+  font: 7px/1.55 var(--mono);
+}
+
 .factor-primary-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
@@ -5471,6 +5688,31 @@ main > div[id] {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
+  .factor-qualification-chain {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .factor-qualification-chain > span:nth-child(4) {
+    border-left: 0;
+  }
+
+  .factor-qualification-chain > span:nth-child(n + 4) {
+    border-top: 1px solid var(--line);
+  }
+
+  .factor-qualification-chain > span:nth-child(3)::after {
+    display: none;
+  }
+
+  .factor-qualification-test {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .factor-qualification-test small {
+    flex-basis: 100%;
+  }
+
   .factor-summary > span:nth-child(5) {
     border-left: 0;
   }
@@ -5853,6 +6095,49 @@ main > div[id] {
   .factor-summary,
   .rl-summary {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .factor-qualification-diagnosis {
+    grid-template-columns: 1fr;
+  }
+
+  .factor-qualification-diagnosis > span {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .factor-qualification-chain {
+    grid-template-columns: 1fr;
+  }
+
+  .factor-qualification-chain > span,
+  .factor-qualification-chain > span:nth-child(4) {
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+
+  .factor-qualification-chain > span:first-child {
+    border-top: 0;
+  }
+
+  .factor-qualification-chain > span::after {
+    display: none;
+  }
+
+  .factor-qualification-audit {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .factor-qualification-audit > span {
+    border-top: 1px solid var(--line);
+  }
+
+  .factor-qualification-audit > span:nth-child(-n + 2) {
+    border-top: 0;
+  }
+
+  .factor-qualification-audit > span:nth-child(odd) {
+    border-left: 0;
   }
 
   .factor-summary > span,

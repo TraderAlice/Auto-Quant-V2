@@ -10,6 +10,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from autoquant.factor_explorer import load_factor_diagnostics
 from autoquant.project_templates.ohlcv_factor_lab.factor_diagnostics import (
     HORIZONS,
     causal_regime_labels,
@@ -186,7 +187,12 @@ class OhlcvFactorLabTests(unittest.TestCase):
             )
             self.assertEqual(
                 {item["kind"] for item in run.result["artifacts"]},
-                {"factor-report", "factor-daily", "factor-quantiles"},
+                {
+                    "factor-report",
+                    "factor-daily",
+                    "factor-quantiles",
+                    "factor-qualification",
+                },
             )
             artifacts = {
                 item["kind"]: run.root_dir / item["path"]
@@ -222,6 +228,42 @@ class OhlcvFactorLabTests(unittest.TestCase):
                 metrics["quantile_analysis"]["1"]["validation"][
                     "high_minus_low"
                 ],
+                places=10,
+            )
+            qualification = metrics["factor_qualification"]
+            self.assertEqual(
+                qualification["selection"]["split"],
+                "train",
+            )
+            self.assertFalse(
+                qualification["selection"]["validation_enters_selection"]
+            )
+            self.assertFalse(
+                qualification["selection"]["test_enters_selection"]
+            )
+            qualification_daily = pd.read_csv(
+                artifacts["factor-qualification"]
+            )
+            self.assertAlmostEqual(
+                float(
+                    qualification_daily.loc[
+                        qualification_daily["split"].eq("validation"),
+                        "candidate_rank_ic_h1",
+                    ].dropna().mean()
+                ),
+                metrics["validation_mean_ic"],
+                places=10,
+            )
+            self.assertAlmostEqual(
+                float(
+                    qualification_daily.loc[
+                        qualification_daily["split"].eq("validation"),
+                        "style_neutral_candidate_rank_ic_h1",
+                    ].dropna().mean()
+                ),
+                qualification["horizon_quality"]["1"]["validation"][
+                    "style_neutral_candidate"
+                ]["mean_ic"],
                 places=10,
             )
 
@@ -265,6 +307,37 @@ class OhlcvFactorLabTests(unittest.TestCase):
                     "relative_volume_20"
                 ]["mean_rank_correlation"],
                 0.95,
+            )
+            qualification = kept_metrics["factor_qualification"]
+            self.assertEqual(
+                qualification["selection"]["dominant_style"],
+                "relative_volume_20",
+            )
+            self.assertAlmostEqual(
+                qualification["horizon_quality"]["1"]["validation"][
+                    "style_neutral_candidate"
+                ]["mean_ic"],
+                0.0,
+            )
+            self.assertAlmostEqual(
+                qualification["horizon_quality"]["1"]["validation"][
+                    "candidate"
+                ]["mean_ic"],
+                qualification["horizon_quality"]["1"]["validation"][
+                    "dominant_style"
+                ]["mean_ic"],
+            )
+            qualification_diagnosis = load_factor_diagnostics(
+                project,
+                kept.result["candidate"]["runId"],
+            )["factorQualification"]
+            self.assertEqual(
+                qualification_diagnosis["diagnosis"]["stage"],
+                "style-neutral-edge-absent",
+            )
+            self.assertEqual(
+                qualification_diagnosis["diagnosis"]["iterationFocus"],
+                "distinct-factor-information",
             )
             self.assertGreater(
                 min(

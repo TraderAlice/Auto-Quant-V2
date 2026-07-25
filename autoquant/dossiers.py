@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from .decision_support import (
+    factor_qualification_markdown_lines,
     mechanical_decision_markdown_lines,
     rl_factor_fusion_diagnosis_markdown_lines,
     signal_monetization_markdown_lines,
@@ -1162,6 +1163,13 @@ def _render_markdown(dossier: dict[str, Any]) -> str:
     for lane in evidence["lanes"]:
         support = lane["report"].get("leaderDecisionSupport")
         if isinstance(support, dict):
+            lines.extend(
+                factor_qualification_markdown_lines(
+                    support,
+                    heading="## Frozen factor qualification",
+                    lane_name=lane["name"],
+                )
+            )
             lines.extend(
                 mechanical_decision_markdown_lines(
                     support,

@@ -4,6 +4,7 @@ Status: V1 implemented.
 
 Related: [[docs/ARCHITECTURE]], [[docs/CLI]], [[docs/STUDIO]],
 [[docs/design/factor-diagnostics]],
+[[docs/design/factor-qualification-funnel]],
 [[docs/design/research-selection-integrity]],
 [[docs/design/session-decision-matrix]], and
 [[docs/design/quant-research-lifecycle]].
@@ -105,6 +106,15 @@ Core projects the fixed summary dictionaries as normalized rows:
 Rows retain observations, sufficiency flags where declared, and null values.
 Sparse evidence must remain visible rather than being pooled away.
 
+### Factor qualification
+
+New Runs add a train-selected one-style neutralization artifact. Core
+reconstructs candidate, selected-style, style-neutral residual, and equal-rank
+blend IC for every fixed split and horizon. Validation alone diagnoses raw
+edge, conventional HAC support, distinct residual edge, blend uplift, and
+residual chronological breadth. Test is a separate visible audit. Historical
+Runs project qualification as unavailable rather than inventing evidence.
+
 ## HCI
 
 The Factor Explorer answers four questions in one reading order:
@@ -148,6 +158,8 @@ Full artifacts are reconciled before these response bounds apply.
    substituted.
 7. CLI and Studio consume the same Core object.
 8. The projection has no Project mutation, Broker, order, or account authority.
+9. Qualification style selection uses train overlap only; validation/test
+   cannot change it or authorize Factor promotion or RL admission.
 
 ## Change checklist
 
@@ -163,6 +175,7 @@ Full artifacts are reconciled before these response bounds apply.
 - V1 supports the fixed cross-sectional OHLCV Factor Lab only.
 - HAC and style evidence are Judge-authored summaries; Core reconciles the
   underlying mean paths but does not reimplement every statistical estimator.
-- The explorer does not estimate capacity, portfolio performance, or
-  selection-adjusted significance.
+- The explorer does not estimate capacity or portfolio performance.
+- The fixed single-Run HAC threshold is diagnostic only; Project-family
+  selection-adjusted significance remains a separate Session-level surface.
 - Cross-Run comparison remains owned by the Session Decision Matrix.

@@ -209,6 +209,30 @@ class ProgramResearchDossierTests(unittest.TestCase):
                 "factor",
                 OHLCV_STUDY_ID,
             )
+            factor_support = factor_report.report["evidence"][
+                "leaderDecisionSupport"
+            ]
+            qualification = factor_support["factorQualification"]
+            assert qualification is not None
+            self.assertTrue(qualification["available"])
+            self.assertEqual(
+                factor_support["factorQualificationHash"],
+                hash_json(qualification),
+            )
+            self.assertEqual(
+                qualification["selection"]["split"],
+                "train",
+            )
+            self.assertFalse(
+                qualification["diagnosis"]["testEntersDiagnosis"]
+            )
+            factor_markdown = (
+                factor_report.root_dir / "report.md"
+            ).read_text(encoding="utf-8")
+            self.assertIn(
+                "## Frozen leader-Run factor qualification",
+                factor_markdown,
+            )
             portfolio_session, portfolio_report = self._publish_lane(
                 project,
                 request,
@@ -470,6 +494,10 @@ class ProgramResearchDossierTests(unittest.TestCase):
             )
             self.assertIn(
                 "## Executed-book risk compliance",
+                markdown,
+            )
+            self.assertIn(
+                "## Frozen factor qualification",
                 markdown,
             )
             self.assertIn("executed breaches", markdown)

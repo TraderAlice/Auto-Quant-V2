@@ -60,8 +60,19 @@ const percent = (value) => {
 const reportDecisionProof = (report) => {
   const support = report?.leaderDecisionSupport;
   const portfolio = support?.portfolio;
+  const factor = support?.factor;
   const rl = support?.rl;
   if (!support?.available) return "";
+  if (factor) {
+    return `
+      <div class="report-decision-proof">
+        <small>Frozen factor qualification</small>
+        <b>${escapeHtml(factor.stage)} · focus ${escapeHtml(factor.iterationFocus)}</b>
+        <span>${escapeHtml(factor.dominantStyle)} selected on train overlap · raw → neutral IC ${signedMetric(factor.rawRankIc)} → ${signedMetric(factor.styleNeutralRankIc)}</span>
+        <span>style → equal blend IC ${signedMetric(factor.styleRankIc)} → ${signedMetric(factor.blendRankIc)} · uplift ${signedMetric(factor.blendUpliftVsStyle)}</span>
+        <span>worst residual fold ${escapeHtml(factor.weakestStyleNeutralFold)} ${signedMetric(factor.weakestStyleNeutralFoldIc)} · validation diagnosis · authority none</span>
+      </div>`;
+  }
   if (rl) {
     return `
       <div class="report-decision-proof">
@@ -288,6 +299,23 @@ const laneReadout = (project, lane) => {
         detail: "No current immutable Factor Run is available",
       };
     }
+    const qualification = project.factorExplorer?.factorQualification;
+    if (qualification?.available) {
+      const stage = qualification.diagnosis.stage;
+      const positive = stage === "factor-qualification-positive";
+      const weak = stage.includes("statistical-evidence-weak");
+      return {
+        kind,
+        metric: "Validation rank IC",
+        value,
+        display: metric(value),
+        tone: positive ? "good" : weak ? "warning" : "bad",
+        verdict: positive
+          ? "FACTOR QUALIFIED FOR PORTFOLIO RESEARCH"
+          : stage.replaceAll("-", " ").toUpperCase(),
+        detail: qualification.diagnosis.explanation,
+      };
+    }
     return {
       kind,
       metric: "Validation rank IC",
@@ -375,6 +403,7 @@ const programAssessment = (project) => {
   if (!program) return null;
   const readouts = program.lanes.map((lane) => laneReadout(project, lane));
   const adverse = readouts.filter((item) => item.tone === "bad");
+  const cautions = readouts.filter((item) => item.tone === "warning");
   const missing = program.lanes.filter((lane) => !lane.latestRun || !lane.currentRun);
   const recommended = program.lanes.find(
     (lane) => lane.id === program.recommendedLaneId,
@@ -401,6 +430,16 @@ const programAssessment = (project) => {
       label: "ADVERSE EVIDENCE",
       title: recommended ? `Next: ${recommended.name}` : "Review the earliest adverse lane",
       detail: `${adverse.map((item) => item.verdict.toLowerCase()).join(" · ")}. These are observed relationships, not a browser-authored verdict.`,
+    };
+  }
+  if (cautions.length) {
+    return {
+      tone: "warning",
+      label: "RESEARCH QUALIFICATION INCOMPLETE",
+      title: recommended
+        ? `Resolve evidence quality before ${recommended.name}`
+        : "Resolve evidence quality before downstream complexity",
+      detail: `${cautions.map((item) => item.verdict.toLowerCase()).join(" · ")}. Positive sign alone is not sufficient evidence.`,
     };
   }
   return {
@@ -491,6 +530,33 @@ const researchDecisionBrief = (project) => {
   if (layers?.kind === "factor") {
     const value = Number(layers.validationMeanIc);
     const adverse = Number.isFinite(value) && value < 0;
+    const qualification = project.factorExplorer?.factorQualification;
+    if (qualification?.available) {
+      const diagnosis = qualification.diagnosis;
+      const stage = diagnosis.stage;
+      const positive = stage === "factor-qualification-positive";
+      const weak = stage.includes("statistical-evidence-weak");
+      const titles = {
+        "raw-predictive-edge-absent": "Raw factor direction is adverse",
+        "raw-statistical-evidence-weak": "Raw IC lacks statistical support",
+        "style-neutral-edge-absent": "Candidate edge is a known-style exposure",
+        "style-neutral-statistical-evidence-weak": "Distinct residual edge remains weak",
+        "blend-uplift-absent": "Candidate does not improve the style baseline",
+        "residual-temporal-instability": "Residual edge is not stable through time",
+        "factor-qualification-positive": "Factor can advance to Portfolio research",
+      };
+      return {
+        tone: positive ? "good" : weak ? "warning" : "bad",
+        label: positive
+          ? "DISTINCT FACTOR EVIDENCE OBSERVED"
+          : "DO NOT ADVANCE FACTOR COMPLEXITY",
+        title: titles[stage] ?? stage.replaceAll("-", " "),
+        detail: diagnosis.explanation,
+        next: `Research ${diagnosis.iterationFocus.replaceAll("-", " ")} before treating the candidate as Portfolio or RL input.`,
+        boundary: "train selects style · validation diagnoses · test audits",
+        origin,
+      };
+    }
     return {
       tone: adverse ? "bad" : "neutral",
       label: adverse ? "PREDICTIVE EVIDENCE FAILED" : "PREDICTIVE EVIDENCE OBSERVED",
@@ -1696,6 +1762,99 @@ function renderFactorStability(explorer) {
     </div>`;
 }
 
+function renderFactorQualification(explorer) {
+  const root = element("factor-qualification");
+  const qualification = explorer.factorQualification;
+  if (!qualification?.available) {
+    root.innerHTML = `
+      <div class="factor-qualification-empty">
+        Legacy Run: style-neutral and incremental blend evidence was not recorded.
+      </div>`;
+    return;
+  }
+  const diagnosis = qualification.diagnosis;
+  const validation = qualification.validation;
+  const test = qualification.testAudit;
+  const selected = qualification.selection.candidates.find(
+    (item) => item.style === qualification.selection.dominantStyle,
+  );
+  const residual = validation.styleNeutralCandidate;
+  const incremental = validation.incremental;
+  const worst = validation.weakestStyleNeutralFold;
+  const positive = diagnosis.stage === "factor-qualification-positive";
+  const minimumHacT =
+    qualification.semantics.diagnosticThresholds.minimumPositiveHacTStatistic;
+  const rawTone =
+    validation.candidate.meanRankIc <= 0
+      ? "adverse"
+      : validation.candidate.hacTStatistic >= minimumHacT
+        ? "positive"
+        : "warning";
+  const residualTone =
+    residual.meanRankIc <= 0
+      ? "adverse"
+      : residual.hacTStatistic >= minimumHacT
+        ? "positive"
+        : "warning";
+  root.innerHTML = `
+    <div class="factor-qualification-diagnosis ${positive ? "positive" : "adverse"}">
+      <span>
+        <small>First missing qualification layer</small>
+        <b>${escapeHtml(diagnosis.stage.replaceAll("-", " ").toUpperCase())}</b>
+        <i>next focus · ${escapeHtml(diagnosis.iterationFocus.replaceAll("-", " "))}</i>
+      </span>
+      <p>${escapeHtml(diagnosis.explanation)}</p>
+    </div>
+    <div class="factor-qualification-chain" role="list" aria-label="Validation factor qualification funnel">
+      <span class="${rawTone}" role="listitem">
+        <small>01 · Raw candidate edge</small>
+        <b>${signedMetric(validation.candidate.meanRankIc)} IC</b>
+        <i>HAC t ${signedMetric(validation.candidate.hacTStatistic)} · ${validation.candidate.observations} dates</i>
+      </span>
+      <span class="context" role="listitem">
+        <small>02 · Train-selected style</small>
+        <b>${escapeHtml(qualification.selection.dominantStyle.replaceAll("_", " "))}</b>
+        <i>${signedMetric(selected?.meanRankCorrelation)} mean rank overlap · train only</i>
+      </span>
+      <span class="${residualTone}" role="listitem">
+        <small>03 · Style-neutral edge</small>
+        <b>${signedMetric(residual.meanRankIc)} IC</b>
+        <i>HAC t ${signedMetric(residual.hacTStatistic)} · Δ raw ${signedMetric(incremental.styleNeutralIcDelta)}</i>
+      </span>
+      <span class="${incremental.blendUpliftVsStyle > 0 ? "positive" : "adverse"}" role="listitem">
+        <small>04 · Blend uplift vs style</small>
+        <b>${signedMetric(incremental.blendUpliftVsStyle)} IC</b>
+        <i>equal rank blend ${signedMetric(validation.equalRankBlend.meanRankIc)} IC</i>
+      </span>
+      <span class="${worst?.meanRankIc > 0 ? "positive" : "adverse"}" role="listitem">
+        <small>05 · Residual time breadth</small>
+        <b>${signedMetric(worst?.meanRankIc)} worst IC</b>
+        <i>${escapeHtml(worst?.id ?? "unavailable")} · ${worst?.observations ?? 0} dates</i>
+      </span>
+    </div>
+    <div class="factor-qualification-audit">
+      <span><small>Residual ICIR</small><b>${signedMetric(residual.rankIcir)}</b></span>
+      <span><small>Residual hit rate</small><b>${percent(residual.rankHitRate)}</b></span>
+      <span><small>Blend Δ vs candidate</small><b>${signedMetric(incremental.blendUpliftVsCandidate)}</b></span>
+      <span><small>Candidate rank turnover</small><b>${percent(explorer.summary.meanRankTurnover)}</b></span>
+    </div>
+    <div class="factor-qualification-test">
+      <small>TEST · VISIBLE AUDIT ONLY · NEVER ENTERS DIAGNOSIS</small>
+      <span>raw → residual IC <b>${signedMetric(test.candidate.meanRankIc)} → ${signedMetric(test.styleNeutralCandidate.meanRankIc)}</b></span>
+      <span>blend uplift vs style <b>${signedMetric(test.incremental.blendUpliftVsStyle)}</b></span>
+      <span>worst residual fold <b>${signedMetric(test.weakestStyleNeutralFold?.meanRankIc)}</b></span>
+    </div>
+    <p class="factor-qualification-disclosure">
+      Dominant style is selected by train-only overlap. Neutralization is a
+      same-timestamp cross-sectional rank projection and never sees forward
+      returns. Positive raw/residual evidence requires HAC t ≥
+      ${metric(qualification.semantics.diagnosticThresholds.minimumPositiveHacTStatistic)};
+      Project-family selection adjustment remains separate. This funnel
+      prioritizes research; it does not change Factor KEEP/REVERT, admit a
+      source into RL, or grant order/account authority.
+    </p>`;
+}
+
 function renderFactorExplorer(project) {
   const section = element("factor-explorer");
   const explorer = project.factorExplorer;
@@ -1727,6 +1886,7 @@ function renderFactorExplorer(project) {
         </span>`,
     )
     .join("");
+  renderFactorQualification(explorer);
   renderFactorChart(explorer);
   renderFactorHorizons(explorer);
   renderFactorStability(explorer);

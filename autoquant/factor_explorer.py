@@ -48,11 +48,24 @@ STYLES = {
     "realized_volatility_20",
     "relative_volume_20",
 }
-EXPECTED_ARTIFACT_KINDS = {
+BASE_ARTIFACT_KINDS = {
     "factor-report",
     "factor-daily",
     "factor-quantiles",
 }
+QUALIFICATION_ARTIFACT_KIND = "factor-qualification"
+EXPECTED_ARTIFACT_KINDS = {
+    *BASE_ARTIFACT_KINDS,
+    QUALIFICATION_ARTIFACT_KIND,
+}
+QUALIFICATION_METHOD = "train-selected-one-style-rank-neutralization-v1"
+QUALIFICATION_MIN_POSITIVE_HAC_T = 1.96
+QUALIFICATION_SIGNALS = (
+    "candidate",
+    "dominant_style",
+    "style_neutral_candidate",
+    "equal_rank_blend",
+)
 DAILY_COLUMNS = [
     "timestamp",
     "split",
@@ -71,6 +84,16 @@ QUANTILE_COLUMNS = [
     "middle",
     "high",
     "high_minus_low",
+]
+QUALIFICATION_COLUMNS = [
+    "timestamp",
+    "split",
+    "dominant_style",
+    *[
+        f"{signal}_rank_ic_h{horizon}"
+        for horizon in HORIZONS
+        for signal in QUALIFICATION_SIGNALS
+    ],
 ]
 
 
@@ -213,13 +236,23 @@ def _artifact_paths(
             )
         paths[kind] = path
         identities[kind] = {"path": relative, "sha256": content_hash}
-    missing = EXPECTED_ARTIFACT_KINDS - paths.keys()
+    missing = BASE_ARTIFACT_KINDS - paths.keys()
     if missing:
         _fail(
             run.root_dir,
             "factor.artifacts",
             "Run does not declare the fixed Factor artifact set: "
             + ", ".join(sorted(missing)),
+        )
+    qualification_metrics = run.result.get("metrics", {}).get(
+        "factor_qualification"
+    )
+    has_qualification_artifact = QUALIFICATION_ARTIFACT_KIND in paths
+    if (qualification_metrics is not None) != has_qualification_artifact:
+        _fail(
+            run.root_dir,
+            "factor.qualification-artifact",
+            "Factor qualification metrics and artifact must appear together",
         )
     return paths, identities
 
@@ -716,6 +749,229 @@ def _reconcile_quantiles(
             )
 
 
+def _parse_factor_qualification(
+    path: Path,
+    daily: ParsedDaily,
+    metrics: dict[str, Any],
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    qualification = metrics.get("factor_qualification")
+    if not isinstance(qualification, dict):
+        _fail(
+            "RunResult/metrics/factor_qualification",
+            "factor.qualification",
+            "Factor qualification metrics must be an object",
+        )
+    if qualification.get("method") != QUALIFICATION_METHOD:
+        _fail(
+            "RunResult/metrics/factor_qualification/method",
+            "factor.qualification-method",
+            "Unknown Factor qualification method",
+        )
+    selection = qualification.get("selection")
+    if not isinstance(selection, dict):
+        _fail(
+            "RunResult/metrics/factor_qualification/selection",
+            "factor.qualification-selection",
+            "Factor qualification selection must be an object",
+        )
+    dominant_style = selection.get("dominant_style")
+    if (
+        dominant_style not in STYLES
+        or selection.get("split") != "train"
+        or selection.get("criterion")
+        != "maximum-absolute-mean-daily-rank-overlap"
+        or selection.get("validation_enters_selection") is not False
+        or selection.get("test_enters_selection") is not False
+    ):
+        _fail(
+            "RunResult/metrics/factor_qualification/selection",
+            "factor.qualification-selection",
+            "Qualification style selection must be fixed and train-only",
+        )
+    candidates = selection.get("candidates")
+    if not isinstance(candidates, dict) or set(candidates) != STYLES:
+        _fail(
+            "RunResult/metrics/factor_qualification/selection/candidates",
+            "factor.qualification-selection",
+            "Qualification must declare every fixed style candidate",
+        )
+    normalized_candidates: list[dict[str, Any]] = []
+    for style in sorted(STYLES):
+        value = candidates[style]
+        if not isinstance(value, dict):
+            _fail(
+                f"factor_qualification/selection/candidates/{style}",
+                "factor.qualification-selection",
+                "Style selection evidence must be an object",
+            )
+        normalized_candidates.append(
+            {
+                "style": style,
+                "meanRankCorrelation": _optional_finite(
+                    value.get("mean_rank_correlation"),
+                    f"qualification/candidates/{style}/mean_rank_correlation",
+                ),
+                "meanAbsoluteRankCorrelation": _optional_finite(
+                    value.get("mean_absolute_rank_correlation"),
+                    f"qualification/candidates/{style}/"
+                    "mean_absolute_rank_correlation",
+                ),
+                "observations": _integer(
+                    value.get("observations"),
+                    f"qualification/candidates/{style}/observations",
+                ),
+            }
+        )
+    finite_candidates = [
+        item
+        for item in normalized_candidates
+        if item["meanRankCorrelation"] is not None
+    ]
+    if not finite_candidates:
+        _fail(
+            "factor_qualification/selection/candidates",
+            "factor.qualification-selection",
+            "Qualification style selection has no finite train evidence",
+        )
+    reconstructed_style = min(
+        finite_candidates,
+        key=lambda item: (
+            -abs(item["meanRankCorrelation"]),
+            item["style"],
+        ),
+    )["style"]
+    if reconstructed_style != dominant_style:
+        _fail(
+            "factor_qualification/selection/dominant_style",
+            "factor.qualification-selection",
+            "Dominant style does not match train-only overlap evidence",
+        )
+
+    raw_rows = _read_csv(
+        path,
+        columns=QUALIFICATION_COLUMNS,
+        maximum_rows=MAX_DAILY_ROWS,
+    )
+    if len(raw_rows) != len(daily.rows):
+        _fail(
+            path,
+            "factor.qualification-rows",
+            "Qualification rows must match daily Factor evidence",
+        )
+    rows: list[dict[str, Any]] = []
+    for row_number, (raw, daily_row) in enumerate(
+        zip(raw_rows, daily.rows, strict=True),
+        start=2,
+    ):
+        row_path = f"{path}:{row_number}"
+        timestamp = _session_date(raw["timestamp"], f"{row_path}/timestamp")
+        if (
+            timestamp != daily_row["timestamp"]
+            or raw["split"] != daily_row["split"]
+        ):
+            _fail(
+                row_path,
+                "factor.qualification-identity",
+                "Qualification timestamp/split must match daily evidence",
+            )
+        if raw["dominant_style"] != dominant_style:
+            _fail(
+                row_path,
+                "factor.qualification-style",
+                "Qualification artifact changed the train-selected style",
+            )
+        values = {
+            f"{signal}RankIcH{horizon}": (
+                None
+                if raw[f"{signal}_rank_ic_h{horizon}"] == ""
+                else _bounded(
+                    raw[f"{signal}_rank_ic_h{horizon}"],
+                    f"{row_path}/{signal}_rank_ic_h{horizon}",
+                    minimum=-1.0,
+                    maximum=1.0,
+                )
+            )
+            for horizon in HORIZONS
+            for signal in QUALIFICATION_SIGNALS
+        }
+        for horizon in HORIZONS:
+            _close(
+                values[f"candidateRankIcH{horizon}"],
+                daily_row[f"rankIcH{horizon}"],
+                f"{row_path}/candidate_rank_ic_h{horizon}",
+                "candidate daily rank IC",
+            )
+        rows.append(
+            {
+                "timestamp": timestamp,
+                "split": raw["split"],
+                "role": SPLIT_ROLES[raw["split"]],
+                "dominantStyle": dominant_style,
+                **values,
+            }
+        )
+
+    quality = qualification.get("horizon_quality")
+    if not isinstance(quality, dict) or set(quality) != {
+        str(item) for item in HORIZONS
+    }:
+        _fail(
+            "factor_qualification/horizon_quality",
+            "factor.qualification-quality",
+            "Qualification must declare every fixed horizon",
+        )
+    for horizon in HORIZONS:
+        horizon_value = quality[str(horizon)]
+        if (
+            not isinstance(horizon_value, dict)
+            or set(horizon_value) != set(SPLITS)
+        ):
+            _fail(
+                f"factor_qualification/horizon_quality/{horizon}",
+                "factor.qualification-quality",
+                "Qualification horizon must declare every split",
+            )
+        for split_name in SPLITS:
+            split_value = horizon_value[split_name]
+            if (
+                not isinstance(split_value, dict)
+                or set(split_value) != set(QUALIFICATION_SIGNALS)
+            ):
+                _fail(
+                    f"factor_qualification/{horizon}/{split_name}",
+                    "factor.qualification-quality",
+                    "Qualification split must declare every signal",
+                )
+            for signal in QUALIFICATION_SIGNALS:
+                expected = split_value[signal]
+                observed = [
+                    row[f"{signal}RankIcH{horizon}"]
+                    for row in rows
+                    if row["split"] == split_name
+                    and row[f"{signal}RankIcH{horizon}"] is not None
+                ]
+                if (
+                    not isinstance(expected, dict)
+                    or len(observed) != expected.get("observations")
+                ):
+                    _fail(
+                        f"factor_qualification/{horizon}/{split_name}/{signal}",
+                        "factor.reconciliation",
+                        "Qualification observations do not reconcile metrics",
+                    )
+                _close(
+                    _mean(observed),
+                    expected.get("mean_ic"),
+                    f"factor_qualification/{horizon}/{split_name}/{signal}",
+                    "qualification mean rank IC",
+                )
+    return rows, {
+        "dominantStyle": dominant_style,
+        "candidates": normalized_candidates,
+        "metrics": qualification,
+    }
+
+
 def _rank_summary(value: Any, path: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         _fail(path, "factor.ic-summary", "IC summary must be an object")
@@ -770,6 +1026,265 @@ def _ic_summary(value: Any, path: str) -> dict[str, Any]:
             pearson.get("icir"),
             f"{path}/pearson_ic/icir",
         ),
+    }
+
+
+def _factor_qualification_projection(
+    parsed: dict[str, Any] | None,
+) -> dict[str, Any]:
+    base = {
+        "method": QUALIFICATION_METHOD,
+        "authority": "research-prioritization-only",
+        "tradingAuthority": "none",
+    }
+    if parsed is None:
+        return {
+            **base,
+            "available": False,
+            "reason": "legacy-run-without-factor-qualification",
+        }
+    metrics = parsed["metrics"]
+    semantics = metrics.get("semantics")
+    if (
+        not isinstance(semantics, dict)
+        or semantics.get("neutralization")
+        != "same-timestamp-cross-sectional-centered-rank-ols"
+        or semantics.get("blend")
+        != "equal-weight-cross-sectional-percentile-ranks"
+        or semantics.get("target_enters_neutralization") is not False
+        or semantics.get("selection_authority")
+        != "research-context-only"
+        or semantics.get("trading_authority") != "none"
+    ):
+        _fail(
+            "factor_qualification/semantics",
+            "factor.qualification-semantics",
+            "Factor qualification semantics are invalid",
+        )
+    quality = metrics["horizon_quality"]
+    folds = metrics.get("stability", {}).get(
+        "style_neutral_chronological_folds"
+    )
+    expected_folds = {
+        f"{split}_{number}"
+        for split in SPLITS
+        for number in (1, 2)
+    }
+    if not isinstance(folds, dict) or set(folds) != expected_folds:
+        _fail(
+            "factor_qualification/stability",
+            "factor.qualification-stability",
+            "Qualification must declare two residual folds per split",
+        )
+
+    def split_projection(split: str) -> dict[str, Any]:
+        signal_values = quality["1"][split]
+        summaries = {
+            "candidate": _rank_summary(
+                signal_values["candidate"],
+                f"factor_qualification/1/{split}/candidate",
+            ),
+            "dominantStyle": _rank_summary(
+                signal_values["dominant_style"],
+                f"factor_qualification/1/{split}/dominant_style",
+            ),
+            "styleNeutralCandidate": _rank_summary(
+                signal_values["style_neutral_candidate"],
+                f"factor_qualification/1/{split}/style_neutral_candidate",
+            ),
+            "equalRankBlend": _rank_summary(
+                signal_values["equal_rank_blend"],
+                f"factor_qualification/1/{split}/equal_rank_blend",
+            ),
+        }
+        raw_ic = summaries["candidate"]["meanRankIc"]
+        residual_ic = summaries["styleNeutralCandidate"]["meanRankIc"]
+        style_ic = summaries["dominantStyle"]["meanRankIc"]
+        blend_ic = summaries["equalRankBlend"]["meanRankIc"]
+        if any(
+            value is None
+            for value in (raw_ic, residual_ic, style_ic, blend_ic)
+        ):
+            _fail(
+                f"factor_qualification/1/{split}",
+                "factor.qualification-evidence",
+                "One-bar qualification evidence must be sufficient",
+            )
+        fold_rows = [
+            {
+                "id": name,
+                "split": split,
+                "role": SPLIT_ROLES[split],
+                **_rank_summary(
+                    folds[name],
+                    f"factor_qualification/stability/{name}",
+                ),
+            }
+            for name in sorted(folds)
+            if name.startswith(f"{split}_")
+        ]
+        finite_folds = [
+            item for item in fold_rows if item["meanRankIc"] is not None
+        ]
+        worst_fold = (
+            min(finite_folds, key=lambda item: (item["meanRankIc"], item["id"]))
+            if finite_folds
+            else None
+        )
+        return {
+            "role": SPLIT_ROLES[split],
+            **summaries,
+            "incremental": {
+                "styleNeutralIcRetention": (
+                    residual_ic / raw_ic
+                    if abs(raw_ic) > 1e-12
+                    else None
+                ),
+                "styleNeutralIcDelta": residual_ic - raw_ic,
+                "blendUpliftVsStyle": blend_ic - style_ic,
+                "blendUpliftVsCandidate": blend_ic - raw_ic,
+            },
+            "styleNeutralChronologicalFolds": fold_rows,
+            "weakestStyleNeutralFold": worst_fold,
+        }
+
+    validation = split_projection("validation")
+    test = split_projection("test")
+    raw_ic = validation["candidate"]["meanRankIc"]
+    raw_hac_t = validation["candidate"]["hacTStatistic"]
+    residual_ic = validation["styleNeutralCandidate"]["meanRankIc"]
+    residual_hac_t = validation["styleNeutralCandidate"]["hacTStatistic"]
+    blend_uplift = validation["incremental"]["blendUpliftVsStyle"]
+    worst_residual = validation["weakestStyleNeutralFold"]
+    worst_residual_ic = (
+        worst_residual["meanRankIc"]
+        if worst_residual is not None
+        else None
+    )
+    if raw_ic <= 0.0:
+        stage = "raw-predictive-edge-absent"
+        focus = "candidate-hypothesis-and-timing"
+        explanation = (
+            "Validation raw candidate rank IC is non-positive; style "
+            "neutralization and blending cannot rescue the first missing edge."
+        )
+    elif (
+        raw_hac_t is None
+        or raw_hac_t < QUALIFICATION_MIN_POSITIVE_HAC_T
+    ):
+        stage = "raw-statistical-evidence-weak"
+        focus = "independent-sample-and-effect-size"
+        explanation = (
+            "Validation raw candidate rank IC is positive but its HAC "
+            f"t-statistic is below the fixed diagnostic threshold "
+            f"{QUALIFICATION_MIN_POSITIVE_HAC_T:.2f}; do not spend complexity "
+            "on neutralization, Portfolio, or RL yet."
+        )
+    elif residual_ic <= 0.0:
+        stage = "style-neutral-edge-absent"
+        focus = "distinct-factor-information"
+        explanation = (
+            "Validation raw rank IC is positive but becomes non-positive after "
+            "removing the train-selected dominant style exposure."
+        )
+    elif (
+        residual_hac_t is None
+        or residual_hac_t < QUALIFICATION_MIN_POSITIVE_HAC_T
+    ):
+        stage = "style-neutral-statistical-evidence-weak"
+        focus = "residual-sample-and-effect-size"
+        explanation = (
+            "Validation style-neutral rank IC is positive but its HAC "
+            f"t-statistic is below the fixed diagnostic threshold "
+            f"{QUALIFICATION_MIN_POSITIVE_HAC_T:.2f}; distinct edge remains "
+            "too weak for the next research lane."
+        )
+    elif blend_uplift <= 0.0:
+        stage = "blend-uplift-absent"
+        focus = "factor-combination-and-weighting"
+        explanation = (
+            "The style-neutral candidate retains positive validation IC, but "
+            "an equal rank blend does not improve the fixed style baseline."
+        )
+    elif worst_residual_ic is None or worst_residual_ic <= 0.0:
+        stage = "residual-temporal-instability"
+        focus = "temporal-regime-robustness"
+        explanation = (
+            "Aggregate validation style-neutral IC is positive, but at least "
+            "one fixed chronological residual fold is non-positive."
+        )
+    else:
+        stage = "factor-qualification-positive"
+        focus = "portfolio-monetization-and-rl-context"
+        explanation = (
+            "Validation raw, style-neutral, blend-uplift, and chronological "
+            "residual evidence are positive; proceed to bounded Portfolio "
+            "monetization before interpreting governed-RL value."
+        )
+    horizon_profile = [
+        {
+            "horizon": horizon,
+            **{
+                split: {
+                    "role": SPLIT_ROLES[split],
+                    **{
+                        {
+                            "candidate": "candidate",
+                            "dominant_style": "dominantStyle",
+                            "style_neutral_candidate": (
+                                "styleNeutralCandidate"
+                            ),
+                            "equal_rank_blend": "equalRankBlend",
+                        }[signal]: _rank_summary(
+                            quality[str(horizon)][split][signal],
+                            f"factor_qualification/{horizon}/{split}/{signal}",
+                        )
+                        for signal in QUALIFICATION_SIGNALS
+                    },
+                }
+                for split in SPLITS
+            },
+        }
+        for horizon in HORIZONS
+    ]
+    return {
+        **base,
+        "available": True,
+        "reason": None,
+        "selection": {
+            "split": "train",
+            "role": "comparison-style-selection-only",
+            "criterion": "maximum-absolute-mean-daily-rank-overlap",
+            "dominantStyle": parsed["dominantStyle"],
+            "candidates": parsed["candidates"],
+            "validationEntersSelection": False,
+            "testEntersSelection": False,
+        },
+        "semantics": {
+            "neutralization": semantics["neutralization"],
+            "blend": semantics["blend"],
+            "targetEntersNeutralization": False,
+            "diagnosisSplit": "validation",
+            "testEntersDiagnosis": False,
+            "factorPromotionAuthority": False,
+            "rlAdmissionAuthority": False,
+            "diagnosticThresholds": {
+                "minimumPositiveHacTStatistic": (
+                    QUALIFICATION_MIN_POSITIVE_HAC_T
+                ),
+                "selectionAdjustedSignificanceRequiredSeparately": True,
+            },
+        },
+        "diagnosis": {
+            "selectionSplit": "validation",
+            "testEntersDiagnosis": False,
+            "stage": stage,
+            "iterationFocus": focus,
+            "explanation": explanation,
+        },
+        "validation": validation,
+        "testAudit": test,
+        "horizonProfile": horizon_profile,
     }
 
 
@@ -1240,6 +1755,15 @@ def load_factor_diagnostics(
     _reconcile_daily(daily, metrics)
     quantiles = _parse_quantiles(paths["factor-quantiles"], daily)
     _reconcile_quantiles(quantiles, metrics)
+    qualification_parsed = (
+        _parse_factor_qualification(
+            paths[QUALIFICATION_ARTIFACT_KIND],
+            daily,
+            metrics,
+        )[1]
+        if QUALIFICATION_ARTIFACT_KIND in paths
+        else None
+    )
     ic_path, quantile_path = _paths(daily, quantiles, point_limit)
     semantics = report.get("semantics")
     declared_styles = (
@@ -1255,6 +1779,24 @@ def load_factor_diagnostics(
             paths["factor-report"],
             "factor.report-semantics",
             "Factor report must declare the fixed horizon and style semantics",
+        )
+    qualification_semantics = semantics.get("qualification")
+    if qualification_parsed is not None and (
+        not isinstance(qualification_semantics, dict)
+        or qualification_semantics.get("method") != QUALIFICATION_METHOD
+        or qualification_semantics.get("styleSelection") != "train-only"
+        or qualification_semantics.get("neutralization")
+        != "same-timestamp-cross-sectional-centered-rank-ols"
+        or qualification_semantics.get("blend")
+        != "equal-weight-cross-sectional-percentile-ranks"
+        or qualification_semantics.get("testRole")
+        != "visible audit only"
+        or qualification_semantics.get("tradingAuthority") != "none"
+    ):
+        _fail(
+            paths["factor-report"],
+            "factor.qualification-semantics",
+            "Factor report qualification semantics are invalid",
         )
     return {
         "schemaVersion": SCHEMA_VERSION,
@@ -1289,6 +1831,9 @@ def load_factor_diagnostics(
             "splits": protocol,
         },
         "summary": _summary(metrics),
+        "factorQualification": _factor_qualification_projection(
+            qualification_parsed
+        ),
         "horizonProfile": _horizon_profile(metrics),
         "quantileSummary": _quantile_summary(metrics),
         "stability": _stability(metrics, universe),
@@ -1303,11 +1848,236 @@ def load_factor_diagnostics(
     }
 
 
+_FACTOR_QUALIFICATION_SCHEMA: dict[str, Any] = {
+    "oneOf": [
+        {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "method",
+                "authority",
+                "tradingAuthority",
+                "available",
+                "reason",
+            ],
+            "properties": {
+                "method": {"const": QUALIFICATION_METHOD},
+                "authority": {"const": "research-prioritization-only"},
+                "tradingAuthority": {"const": "none"},
+                "available": {"const": False},
+                "reason": {
+                    "const": "legacy-run-without-factor-qualification"
+                },
+            },
+        },
+        {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "method",
+                "authority",
+                "tradingAuthority",
+                "available",
+                "reason",
+                "selection",
+                "semantics",
+                "diagnosis",
+                "validation",
+                "testAudit",
+                "horizonProfile",
+            ],
+            "properties": {
+                "method": {"const": QUALIFICATION_METHOD},
+                "authority": {"const": "research-prioritization-only"},
+                "tradingAuthority": {"const": "none"},
+                "available": {"const": True},
+                "reason": {"type": "null"},
+                "selection": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": [
+                        "split",
+                        "role",
+                        "criterion",
+                        "dominantStyle",
+                        "candidates",
+                        "validationEntersSelection",
+                        "testEntersSelection",
+                    ],
+                    "properties": {
+                        "split": {"const": "train"},
+                        "role": {
+                            "const": "comparison-style-selection-only"
+                        },
+                        "criterion": {
+                            "const": (
+                                "maximum-absolute-mean-daily-rank-overlap"
+                            )
+                        },
+                        "dominantStyle": {"enum": sorted(STYLES)},
+                        "candidates": {
+                            "type": "array",
+                            "minItems": len(STYLES),
+                            "maxItems": len(STYLES),
+                        },
+                        "validationEntersSelection": {"const": False},
+                        "testEntersSelection": {"const": False},
+                    },
+                },
+                "semantics": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": [
+                        "neutralization",
+                        "blend",
+                        "targetEntersNeutralization",
+                        "diagnosisSplit",
+                        "testEntersDiagnosis",
+                        "factorPromotionAuthority",
+                        "rlAdmissionAuthority",
+                        "diagnosticThresholds",
+                    ],
+                    "properties": {
+                        "neutralization": {
+                            "const": (
+                                "same-timestamp-cross-sectional-centered-"
+                                "rank-ols"
+                            )
+                        },
+                        "blend": {
+                            "const": (
+                                "equal-weight-cross-sectional-percentile-"
+                                "ranks"
+                            )
+                        },
+                        "targetEntersNeutralization": {"const": False},
+                        "diagnosisSplit": {"const": "validation"},
+                        "testEntersDiagnosis": {"const": False},
+                        "factorPromotionAuthority": {"const": False},
+                        "rlAdmissionAuthority": {"const": False},
+                        "diagnosticThresholds": {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "required": [
+                                "minimumPositiveHacTStatistic",
+                                "selectionAdjustedSignificanceRequiredSeparately",
+                            ],
+                            "properties": {
+                                "minimumPositiveHacTStatistic": {
+                                    "const": (
+                                        QUALIFICATION_MIN_POSITIVE_HAC_T
+                                    )
+                                },
+                                "selectionAdjustedSignificanceRequiredSeparately": {
+                                    "const": True
+                                },
+                            },
+                        },
+                    },
+                },
+                "diagnosis": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": [
+                        "selectionSplit",
+                        "testEntersDiagnosis",
+                        "stage",
+                        "iterationFocus",
+                        "explanation",
+                    ],
+                    "properties": {
+                        "selectionSplit": {"const": "validation"},
+                        "testEntersDiagnosis": {"const": False},
+                        "stage": {
+                            "enum": [
+                                "raw-predictive-edge-absent",
+                                "raw-statistical-evidence-weak",
+                                "style-neutral-edge-absent",
+                                "style-neutral-statistical-evidence-weak",
+                                "blend-uplift-absent",
+                                "residual-temporal-instability",
+                                "factor-qualification-positive",
+                            ]
+                        },
+                        "iterationFocus": {
+                            "enum": [
+                                "candidate-hypothesis-and-timing",
+                                "independent-sample-and-effect-size",
+                                "distinct-factor-information",
+                                "residual-sample-and-effect-size",
+                                "factor-combination-and-weighting",
+                                "temporal-regime-robustness",
+                                "portfolio-monetization-and-rl-context",
+                            ]
+                        },
+                        "explanation": {"type": "string", "minLength": 1},
+                    },
+                },
+                "validation": {"$ref": "#/$defs/qualificationSplit"},
+                "testAudit": {"$ref": "#/$defs/qualificationSplit"},
+                "horizonProfile": {
+                    "type": "array",
+                    "minItems": len(HORIZONS),
+                    "maxItems": len(HORIZONS),
+                },
+            },
+        },
+    ]
+}
+
+
 FACTOR_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "title": "AutoQuant bounded Factor diagnostics",
     "type": "object",
     "additionalProperties": False,
+    "$defs": {
+        "qualificationSplit": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "role",
+                "candidate",
+                "dominantStyle",
+                "styleNeutralCandidate",
+                "equalRankBlend",
+                "incremental",
+                "styleNeutralChronologicalFolds",
+                "weakestStyleNeutralFold",
+            ],
+            "properties": {
+                "role": {"enum": ["selection", "visible-audit"]},
+                "candidate": {"type": "object"},
+                "dominantStyle": {"type": "object"},
+                "styleNeutralCandidate": {"type": "object"},
+                "equalRankBlend": {"type": "object"},
+                "incremental": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": [
+                        "styleNeutralIcRetention",
+                        "styleNeutralIcDelta",
+                        "blendUpliftVsStyle",
+                        "blendUpliftVsCandidate",
+                    ],
+                    "properties": {
+                        "styleNeutralIcRetention": {
+                            "type": ["number", "null"]
+                        },
+                        "styleNeutralIcDelta": {"type": "number"},
+                        "blendUpliftVsStyle": {"type": "number"},
+                        "blendUpliftVsCandidate": {"type": "number"},
+                    },
+                },
+                "styleNeutralChronologicalFolds": {
+                    "type": "array",
+                    "minItems": 2,
+                    "maxItems": 2,
+                },
+                "weakestStyleNeutralFold": {"type": "object"},
+            },
+        }
+    },
     "required": [
         "schemaVersion",
         "kind",
@@ -1317,6 +2087,7 @@ FACTOR_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "artifacts",
         "protocol",
         "summary",
+        "factorQualification",
         "horizonProfile",
         "quantileSummary",
         "stability",
@@ -1336,7 +2107,7 @@ FACTOR_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "harness": {"type": "object"},
         "artifacts": {
             "type": "object",
-            "required": sorted(EXPECTED_ARTIFACT_KINDS),
+            "required": sorted(BASE_ARTIFACT_KINDS),
         },
         "protocol": {
             "type": "object",
@@ -1366,6 +2137,7 @@ FACTOR_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
             },
         },
         "summary": {"type": "object"},
+        "factorQualification": _FACTOR_QUALIFICATION_SCHEMA,
         "horizonProfile": {
             "type": "array",
             "minItems": len(HORIZONS),

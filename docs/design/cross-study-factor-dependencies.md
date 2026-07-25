@@ -5,6 +5,7 @@ Status: active design.
 Related: [[docs/design/study-run-evidence]],
 [[docs/design/research-program-orchestration]],
 [[docs/design/request-bound-portfolio-mandates]],
+[[docs/design/factor-qualification-funnel]],
 [[docs/design/portfolio-risk-governor]],
 [[docs/design/executed-book-risk-compliance]],
 [[docs/design/rl-factor-policy-lab]], and
@@ -100,6 +101,13 @@ The adaptive value-add claim is positive only when validation evidence beats
 the best baseline. “RL used the candidate” and “RL beat the candidate” are
 separate facts.
 
+The upstream Factor Report separately freezes the train-selected style,
+style-neutral residual IC, blend uplift, HAC evidence, and qualification
+diagnosis. This evidence explains whether the source deserves further research;
+it does not mutate the dependency closure or automatically grant RL admission.
+The Project Dossier preserves both factor qualification and RL factor-fusion
+diagnosis so OpenAlice can identify the first failed layer.
+
 ## Research Program behavior
 
 The canonical desk verifies that the `factors/**` subset of the RL dependency
@@ -128,3 +136,5 @@ Session.
    editable encoder code cannot alter or bypass it.
 9. Every selected post-drift sleeve is rechecked against the same ceiling, and
    any necessary repair is a scale-down-only execution decision.
+10. Factor qualification is frozen research context; it cannot silently admit,
+    reject, edit, or reweight the RL dependency.
