@@ -254,6 +254,20 @@ class ProgramResearchDossierTests(unittest.TestCase):
                 sizing["construction"]["family"],
                 "long-cash",
             )
+            viability = support["portfolioStrategyViability"]
+            assert viability is not None
+            self.assertEqual(
+                support["portfolioStrategyViabilityHash"],
+                hash_json(viability),
+            )
+            self.assertEqual(
+                viability["authority"],
+                "research-prioritization-only",
+            )
+            self.assertEqual(viability["tradingAuthority"], "none")
+            self.assertFalse(
+                viability["diagnosis"]["testEntersDiagnosis"]
+            )
             self.assertEqual(
                 {item["asset"] for item in decision["positions"]},
                 {"AAPL", "MSFT", "NVDA", "QQQ", "SPY"},
@@ -272,6 +286,14 @@ class ProgramResearchDossierTests(unittest.TestCase):
             )
             self.assertIn(
                 "## Frozen leader-Run position sizing anatomy",
+                portfolio_markdown,
+            )
+            self.assertIn(
+                "## Frozen leader-Run strategy viability",
+                portfolio_markdown,
+            )
+            self.assertIn(
+                "Gross Sharpe → net Sharpe",
                 portfolio_markdown,
             )
             self.assertIn(
@@ -400,6 +422,10 @@ class ProgramResearchDossierTests(unittest.TestCase):
             )
             self.assertIn(
                 "## Frozen portfolio sizing anatomy",
+                markdown,
+            )
+            self.assertIn(
+                "## Frozen portfolio strategy viability",
                 markdown,
             )
             self.assertIn(

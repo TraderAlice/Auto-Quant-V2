@@ -90,6 +90,12 @@ reconstructs the same-side proportional allocation and cap redistribution
 from those primitives. It is a read model of the fixed Judge—not a second
 optimizer—and is defined in [[docs/design/portfolio-decision-explorer]].
 
+The same read model reconstructs `strategyViability` from daily gross return,
+traded notional, cost, net return, and benchmark. It reconciles the fixed cost
+stress and separates absent factor edge, failed gross monetization, and
+cost-fragile implementation before suggesting a bounded research layer to
+inspect. The diagnosis never changes this Judge's objective or verdict.
+
 ## Drift, turnover, costs, and participation
 
 Before choosing the target at close `t`, the prior target is drifted by the

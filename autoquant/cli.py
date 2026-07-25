@@ -1538,6 +1538,25 @@ def _run_portfolio(args: argparse.Namespace) -> CommandResult:
         f"{sizing_risk['largestAbsoluteContributor']} · "
         "historical decision support only\n"
     )
+    viability = diagnostics["strategyViability"]
+    viability_validation = viability["validation"]
+    viability_friction = viability_validation["friction"]
+    break_even = viability_friction["breakEvenCost"]
+    break_even_label = (
+        f"{break_even['bps']} bps"
+        if break_even["bps"] is not None
+        else break_even["status"]
+    )
+    viability_summary = (
+        "Validation viability: "
+        f"{viability['diagnosis']['stage']} · focus "
+        f"{viability['diagnosis']['iterationFocus']} · rank IC "
+        f"{viability_validation['factorRankIc']} · gross/net Sharpe "
+        f"{viability_validation['gross']['sharpe']}/"
+        f"{viability_validation['net']['sharpe']} · annual turnover "
+        f"{viability_friction['annualizedOneWayTurnover']} · break-even "
+        f"{break_even_label} · research prioritization only\n"
+    )
     capacity = diagnostics["liquidityCapacity"]
     validation_capacity = capacity["validation"] if capacity["available"] else None
     capacity_summary = (
@@ -1619,6 +1638,7 @@ def _run_portfolio(args: argparse.Namespace) -> CommandResult:
             f"{summary['maximumDrawdownAt']}\n"
             f"Latest historical book: {book['timestamp']} · "
             f"gross {book['grossExposure']} · net {book['netExposure']}\n"
+            f"{viability_summary}"
             f"{sizing_summary}"
             f"Risk governor: {book['riskGovernorStatus']} · scale "
             f"{book['riskGovernorScale']} · annualized forecast "

@@ -226,6 +226,10 @@ mechanical decision—state transitions, next percentile conditions, weights,
 turnover/risk gate, sizing anatomy, and decision hashes. The anatomy explains
 conviction/inverse-volatility strength, proportional side budget,
 cap/water-fill redistribution, governed/executed weight, and component risk.
+The same frozen support diagnoses whether validation evidence fails at factor
+prediction, gross portfolio monetization, or trading friction, with cost
+break-even, delay, monthly breadth, best-day dependence, and underwater
+duration. Its next focus prioritizes research only.
 Project Dossiers inherit those exact Report bytes; neither artifact silently
 changes when a later Run appears.
 OpenAlice should publish the exact Markdown through its own Inbox so OpenAlice
@@ -279,7 +283,8 @@ evidence, and fixed Studies. For the latest successful Portfolio Run it also
 shows the request-bound mandate, authorized/context-only assets, bounded
 verified growth/drawdown, exposure/cash/turnover, the historical mechanical
 book, raw/governed targets, the conviction → inverse-volatility →
-cap/water-fill position-sizing anatomy, portfolio-volatility forecast/scale, signal
+cap/water-fill position-sizing anatomy, a validation-only factor → gross →
+friction → net viability diagnosis, portfolio-volatility forecast/scale, signal
 transitions, final executed-book risk compliance, split attribution, and
 validation/test liquidity-capacity envelopes with binding assets, plus
 validation/test mechanical position episodes and per-asset lifecycle

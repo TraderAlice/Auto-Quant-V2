@@ -478,6 +478,48 @@ class PortfolioDecisionExplorerTests(unittest.TestCase):
                     * position["riskGovernorScale"],
                     places=9,
                 )
+            viability = diagnostics["strategyViability"]
+            self.assertEqual(
+                viability["authority"],
+                "research-prioritization-only",
+            )
+            self.assertEqual(viability["tradingAuthority"], "none")
+            self.assertFalse(
+                viability["diagnosis"]["testEntersDiagnosis"]
+            )
+            self.assertEqual(viability["validation"]["role"], "selection")
+            self.assertEqual(viability["test"]["role"], "visible-audit")
+            self.assertEqual(
+                [item["costBps"] for item in viability["validation"]["costStress"]],
+                [0.0, 10.0, 25.0],
+            )
+            self.assertAlmostEqual(
+                viability["validation"]["costStress"][0]["netSharpe"],
+                viability["validation"]["gross"]["sharpe"],
+                places=9,
+            )
+            self.assertAlmostEqual(
+                viability["validation"]["costStress"][1]["netSharpe"],
+                viability["validation"]["net"]["sharpe"],
+                places=9,
+            )
+            self.assertGreater(
+                viability["validation"]["temporal"]["months"],
+                0,
+            )
+            expected_stage = (
+                "factor-edge-absent"
+                if viability["validation"]["factorRankIc"] <= 0.0
+                else "factor-not-monetized"
+                if viability["validation"]["gross"]["sharpe"] <= 0.0
+                else "cost-fragile"
+                if viability["validation"]["net"]["sharpe"] <= 0.0
+                else "post-cost-edge-positive"
+            )
+            self.assertEqual(
+                viability["diagnosis"]["stage"],
+                expected_stage,
+            )
 
             first_asset = diagnostics["universe"][0]
             expected = run.result["metrics"]["attribution"]["validation"]["by_asset"][
@@ -499,6 +541,26 @@ class PortfolioDecisionExplorerTests(unittest.TestCase):
                 diagnostics,
                 PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA,
             )
+
+    def test_rehashed_cost_stress_metric_tamper_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, project, run = make_lab(Path(directory))
+            path = run.root_dir / "result.json"
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            payload["metrics"]["robustness"]["cost_stress"]["25bps"][
+                "validation"
+            ]["sharpe"] += 1.0
+            path.write_text(
+                json.dumps(payload, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            rehash_run(run.root_dir)
+
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "Performance metric differs from the reconstructed ledger",
+            ):
+                load_portfolio_diagnostics(project, run.result["id"])
 
     def test_rehashed_current_risk_strength_tamper_is_rejected(
         self,

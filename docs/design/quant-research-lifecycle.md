@@ -218,6 +218,14 @@ Report snapshot rather than recomputing a newer book. This explains why assets
 receive unequal historical research weights while preserving
 `tradingAuthority: none`.
 
+The next fixed read model diagnoses whether validation evidence stops at
+factor prediction, gross portfolio monetization, or trading friction. It
+reconciles the daily gross-to-net path, cost curve and break-even, turnover
+efficiency, delay sensitivity, monthly breadth, best-day dependence, and
+underwater duration. Its iteration focus is research prioritization only.
+Visible test evidence remains audit-only and cannot redirect the diagnosis.
+Reports and Dossiers freeze the exact point-in-time diagnosis for OpenAlice.
+
 Tolerance bands are a first-class implementation choice: research on
 rebalancing frames the problem as tracking-error versus transaction-cost
 control rather than blindly trading every calendar interval:

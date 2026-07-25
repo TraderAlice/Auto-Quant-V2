@@ -71,6 +71,10 @@ The V2 foundation now implements:
   inverse volatility, same-side budget, caps/water-filling, covariance
   governance, historical execution, and component risk without becoming an
   optimizer or acquiring trading authority.
+- one validation-only Portfolio strategy-viability diagnosis that reconciles
+  factor, gross portfolio, friction, net performance, cost/delay stress, and
+  temporal dependence into a bounded next research focus without altering
+  selection or promotion.
 - one self-contained OHLCV Factor Lab reference Project with ordinary pandas
   factor code, deterministic local data, dataset-fixed purged horizons, a
   professional factor tear sheet, and a fixed no-lookahead audit.

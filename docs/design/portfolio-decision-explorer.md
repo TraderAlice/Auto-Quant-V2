@@ -144,6 +144,35 @@ against the immutable artifacts before exposing them.
 covariance-aware variance contribution of the executed book. Both are useful,
 but they are different quantities and are never substituted for one another.
 
+## Strategy viability diagnosis
+
+The explorer also answers where a backtest loses its edge. Core reconstructs
+validation and visible-test performance from the verified daily ledger,
+reconciles the Judge's gross/net and 0/base/25 bps stress metrics, and derives:
+
+- factor rank IC → gross portfolio Sharpe → post-cost Sharpe;
+- gross-to-net return/Sharpe wedge, annualized one-way turnover, additive cost,
+  and arithmetic return basis points per unit one-way turnover;
+- the non-negative per-traded-notional cost that would drive the frozen
+  compounded gross path to zero, or an explicit reason it does not exist;
+- extra-delay sensitivity, positive-month breadth, best/worst month, maximum
+  underwater duration, and performance without the best five days.
+
+Only validation determines the fixed diagnosis:
+
+```text
+rank IC <= 0                         → factor-edge-absent
+rank IC > 0 and gross Sharpe <= 0    → factor-not-monetized
+gross Sharpe > 0 and net Sharpe <= 0 → cost-fragile
+net Sharpe > 0                       → post-cost-edge-positive
+```
+
+The corresponding iteration focus has
+`research-prioritization-only` authority. Test remains visible audit and never
+changes the diagnosis, KEEP/REVERT, or promotion. Break-even cost and
+return-per-turnover are bar-path diagnostics, not spread, impact, or fill
+estimates.
+
 Validation and visible-test attribution preserve the exact RunResult
 per-asset annualized net contribution, average absolute weight, cost,
 turnover, and mean variance-contribution share. Negative covariance
@@ -175,6 +204,9 @@ The first explorer version provides:
 - one current sizing anatomy that reconciles conviction, trailing volatility,
   same-side strength share, proportional weight, cap/water-fill allocation,
   raw/governed/executed weight, and diagonal versus covariance-aware risk;
+- one validation-only strategy viability diagnosis with gross-to-net
+  implementation wedge, cost curve/break-even, delay sensitivity, temporal
+  breadth, best-day dependence, and explicit next research focus;
 - net/gross/benchmark growth and net drawdown;
 - exposure, unused cash budget, turnover, cost, and split context;
 - a strictly reconstructed validation/test mechanical-parameter neighborhood
@@ -213,6 +245,10 @@ The first explorer version provides:
     Mandate; arithmetic or identity mismatch invalidates the projection.
 15. Diagonal risk-budget and covariance component-risk shares retain distinct
     names and semantics.
+16. Strategy stage and iteration focus use validation only; test cannot enter
+    diagnosis.
+17. Gross/net performance and fixed cost stresses reconcile the immutable
+    daily gross, traded-notional, cost, net, and benchmark path.
 
 ## Verification and change checklist
 

@@ -45,6 +45,11 @@ def build_leader_decision_support(
         if portfolio_diagnostics is not None
         else None
     )
+    strategy_viability = (
+        portfolio_diagnostics["strategyViability"]
+        if portfolio_diagnostics is not None
+        else None
+    )
     return {
         "kind": LEADER_DECISION_SUPPORT_KIND,
         "runId": run.result["id"],
@@ -61,6 +66,12 @@ def build_leader_decision_support(
             else None
         ),
         "portfolioSizingAnatomy": sizing_anatomy,
+        "portfolioStrategyViabilityHash": (
+            hash_json(strategy_viability)
+            if strategy_viability is not None
+            else None
+        ),
+        "portfolioStrategyViability": strategy_viability,
     }
 
 
@@ -83,21 +94,35 @@ def verify_leader_decision_support(
             ]
         )
     expected = build_leader_decision_support(project, run_id)
-    legacy_expected = {
+    prior_sizing_expected = {
         key: item
         for key, item in expected.items()
+        if key
+        not in {
+            "portfolioStrategyViabilityHash",
+            "portfolioStrategyViability",
+        }
+    }
+    legacy_expected = {
+        key: item
+        for key, item in prior_sizing_expected.items()
         if key
         not in {
             "portfolioSizingAnatomyHash",
             "portfolioSizingAnatomy",
         }
     }
+    matches_prior_sizing = (
+        "portfolioStrategyViabilityHash" not in value
+        and "portfolioStrategyViability" not in value
+        and value == prior_sizing_expected
+    )
     matches_legacy = (
         "portfolioSizingAnatomyHash" not in value
         and "portfolioSizingAnatomy" not in value
         and value == legacy_expected
     )
-    if value != expected and not matches_legacy:
+    if value != expected and not matches_prior_sizing and not matches_legacy:
         raise AutoQuantValidationError(
             [
                 ValidationIssue(
@@ -121,6 +146,7 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
             "resultHash": None,
             "portfolioMechanicalDecisionHash": None,
             "portfolioSizingAnatomyHash": None,
+            "portfolioStrategyViabilityHash": None,
             "portfolio": None,
         }
     decision = value.get("portfolioMechanicalDecision")
@@ -135,6 +161,9 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
             ),
             "portfolioSizingAnatomyHash": value.get(
                 "portfolioSizingAnatomyHash"
+            ),
+            "portfolioStrategyViabilityHash": value.get(
+                "portfolioStrategyViabilityHash"
             ),
             "portfolio": None,
         }
@@ -164,6 +193,41 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
                 "componentRisk"
             ]["largestAbsoluteContributor"],
         }
+    viability = value.get("portfolioStrategyViability")
+    viability_summary = None
+    if isinstance(viability, dict):
+        validation = viability["validation"]
+        test = viability["test"]
+        friction = validation["friction"]
+        temporal = validation["temporal"]
+        viability_summary = {
+            "method": viability["method"],
+            "stage": viability["diagnosis"]["stage"],
+            "iterationFocus": viability["diagnosis"][
+                "iterationFocus"
+            ],
+            "factorRankIc": validation["factorRankIc"],
+            "grossSharpe": validation["gross"]["sharpe"],
+            "netSharpe": validation["net"]["sharpe"],
+            "grossToNetSharpeDelta": friction[
+                "grossToNetSharpeDelta"
+            ],
+            "baseCostBps": friction["baseCostBps"],
+            "breakEvenCost": friction["breakEvenCost"],
+            "annualizedOneWayTurnover": friction[
+                "annualizedOneWayTurnover"
+            ],
+            "positiveNetMonthRate": temporal[
+                "positiveNetMonthRate"
+            ],
+            "maximumUnderwaterBars": temporal[
+                "maximumUnderwaterBars"
+            ],
+            "netTotalReturnWithoutBestDays": temporal[
+                "netTotalReturnWithoutBestDays"
+            ],
+            "testNetSharpe": test["net"]["sharpe"],
+        }
     return {
         "available": True,
         "reason": None,
@@ -174,6 +238,9 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
         ],
         "portfolioSizingAnatomyHash": value.get(
             "portfolioSizingAnatomyHash"
+        ),
+        "portfolioStrategyViabilityHash": value.get(
+            "portfolioStrategyViabilityHash"
         ),
         "portfolio": {
             "timestamp": decision["timestamp"],
@@ -189,6 +256,7 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
             "positions": len(decision["positions"]),
             "tradingAuthority": decision["tradingAuthority"],
             "sizing": sizing_summary,
+            "viability": viability_summary,
         },
     }
 
@@ -406,4 +474,79 @@ def sizing_anatomy_markdown_lines(
             f"{component_risk} |"
         )
     lines.append("")
+    return lines
+
+
+def strategy_viability_markdown_lines(
+    support: dict[str, Any],
+    *,
+    heading: str,
+    lane_name: str | None = None,
+) -> list[str]:
+    """Render the frozen factor → gross → friction → net diagnosis."""
+
+    viability = support.get("portfolioStrategyViability")
+    if not isinstance(viability, dict):
+        return []
+    diagnosis = viability["diagnosis"]
+    prefix = f"{lane_name}: " if lane_name else ""
+    lines = [
+        heading,
+        "",
+        f"- {prefix}Validation diagnosis / next research focus: "
+        f"`{diagnosis['stage']}` / `{diagnosis['iterationFocus']}`",
+        f"- Interpretation: {diagnosis['explanation']}",
+        "- Diagnosis authority: `research-prioritization-only`; selection "
+        "split: `validation`; test enters diagnosis: `False`; trading "
+        "authority: `none`.",
+        f"- Viability hash: "
+        f"`{support['portfolioStrategyViabilityHash']}`",
+        "",
+        "| Split / role | Factor rank IC | Gross Sharpe → net Sharpe | "
+        "Annual turnover / cost | Break-even cost | Positive months / "
+        "max underwater | Without best 5 days |",
+        "| --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    for split_name in ("validation", "test"):
+        split = viability[split_name]
+        friction = split["friction"]
+        temporal = split["temporal"]
+        break_even = friction["breakEvenCost"]
+        break_even_label = (
+            f"{break_even['bps']:.2f} bps"
+            if break_even["bps"] is not None
+            else break_even["status"]
+        )
+        lines.append(
+            f"| {split_name} / `{split['role']}` | "
+            f"`{split['factorRankIc']:.4f}` | "
+            f"`{split['gross']['sharpe']:.4f}` → "
+            f"`{split['net']['sharpe']:.4f}` | "
+            f"`{friction['annualizedOneWayTurnover']:.4f}` / "
+            f"`{friction['totalCostDrag']:.2%}` | "
+            f"{break_even_label} | "
+            f"`{temporal['positiveNetMonthRate']:.2%}` / "
+            f"`{temporal['maximumUnderwaterBars']}` bars | "
+            f"`{temporal['netTotalReturnWithoutBestDays']:.2%}` |"
+        )
+    validation = viability["validation"]
+    stress = ", ".join(
+        f"{item['costBps']:.0f} bps → Sharpe {item['netSharpe']:.4f}"
+        for item in validation["costStress"]
+    )
+    delay = validation["extraDelay"]
+    lines.extend(
+        [
+            "",
+            f"- Validation cost curve: {stress}.",
+            f"- Validation extra-delay Sharpe / delta: "
+            f"`{delay['netSharpe']:.4f}` / "
+            f"`{delay['netSharpeDelta']:+.4f}`.",
+            "- Return-per-turnover is arithmetic return basis points per unit "
+            "of one-way portfolio replacement. Break-even cost is charged per "
+            "traded notional on the frozen gross path; neither is a fill or "
+            "impact estimate.",
+            "",
+        ]
+    )
     return lines

@@ -32,6 +32,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/portfolio-strategy-viability]] | Diagnosed whether a mechanical strategy loses its edge at factor prediction, gross monetization, trading friction, or post-cost robustness. | 2026-07-25 |
 | [[plans/portfolio-sizing-anatomy]] | Explained how signal conviction, inverse volatility, caps, water-filling, covariance risk, and execution produce each asset weight. | 2026-07-25 |
 | [[plans/report-bound-mechanical-decision-handoff]] | Froze one Portfolio leader Run's verified mechanical decision through lane Report, Project Dossier, and OpenAlice handoff. | 2026-07-25 |
 | [[plans/mechanical-decision-ticket]] | Made the current signal threshold, target sizing, risk adjustment, and execution gate inspectable from one verified Portfolio Run. | 2026-07-25 |

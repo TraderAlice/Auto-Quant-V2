@@ -288,6 +288,10 @@ class StudioObservationTests(unittest.TestCase):
                         html,
                     )
                     self.assertIn(
+                        'id="portfolio-strategy-viability"',
+                        html,
+                    )
+                    self.assertIn(
                         "Current mechanical decision",
                         html,
                     )
@@ -312,6 +316,8 @@ class StudioObservationTests(unittest.TestCase):
                     self.assertIn(".report-decision-proof", css)
                     self.assertIn(".sizing-summary", css)
                     self.assertIn(".sizing-table", css)
+                    self.assertIn(".viability-diagnosis", css)
+                    self.assertIn(".viability-chain", css)
                     self.assertIn(".inspector-lane", css)
                     self.assertIn(".inspector-collapsed", css)
                     self.assertIn(".rl-opportunity-panel", css)
@@ -338,6 +344,14 @@ class StudioObservationTests(unittest.TestCase):
                     )
                     self.assertIn(
                         "renderPortfolioSizingAnatomy",
+                        javascript,
+                    )
+                    self.assertIn(
+                        "renderPortfolioStrategyViability",
+                        javascript,
+                    )
+                    self.assertIn(
+                        "TEST · VISIBLE AUDIT ONLY",
                         javascript,
                     )
                     self.assertIn(

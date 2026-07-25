@@ -96,6 +96,16 @@ research state, not account holdings or an instruction to trade. Use
 `aq run portfolio <path> --run ID --points N --json` for a specific historical
 Run or a different bounded point count.
 
+The Strategy Viability panel leads the Portfolio detail with the ordinary
+quant-research question: where did the edge stop? Its validation-only chain
+shows factor rank IC, gross portfolio Sharpe, annual turnover/base and
+break-even cost, and post-cost Sharpe. The supporting strip shows the
+0/base/25 bps curve, positive-month breadth, maximum underwater bars,
+performance without the best five days, and extra-delay Sharpe delta. Test is
+shown separately as visible audit and never changes the stage or research
+focus. JavaScript receives the diagnosis from Core and does not infer or tune
+it.
+
 The Current Mechanical Decision panel precedes the path/book detail. Its four
 stages show current signal-state changes, raw-to-risk-governed gross target,
 proposed one-way turnover versus the fixed no-trade band, and whether the
@@ -226,11 +236,13 @@ When the latest Portfolio Report contains frozen leader-decision support,
 Studio shows a compact proof strip with the historical decision timestamp,
 state-change count, proposed turnover versus the no-trade band, final gate,
 cap count, component-risk HHI and largest contributor, and `authority none`.
+When present, the next line freezes the validation viability stage, research
+focus, and gross/net Sharpe.
 This is the Report summary projection, not a browser calculation or a live
 market/account state. Full per-asset conditions and weights stay in the
 canonical Report/Dossier Markdown and Portfolio explorer. Reports predating
-sizing anatomy show the mechanical proof they actually froze; legacy Reports
-show no invented strip.
+newer snapshots show only the proof they actually froze; legacy Reports show
+no invented strip.
 
 For a multi-Study Project, the hero and Inspector use comparable cross-lane
 validation readouts instead of promoting the latest Run's absolute headline.

@@ -129,6 +129,10 @@ non-file entries are rejected.
   strengths, proportional and cap/water-fill weights, governed/executed
   weights, and diagonal/covariance risk decomposition when the included
   Report contains that snapshot;
+- Portfolio strategy-viability identity, validation-only failure stage and
+  research focus, gross-to-net wedge, cost break-even/stress, delay
+  sensitivity, temporal breadth, best-day dependence, and underwater duration
+  when the included Report contains that snapshot;
 - Portfolio liquidity-capacity policy, validation envelope, coverage, and
   reference-NAV breach evidence when present;
 - Portfolio and governed-RL executed-book forecast coverage, pretrade breach,

@@ -183,6 +183,13 @@ diagonal versus covariance-aware risk contribution. Side summaries reconcile
 configured, funded, and unfunded budget. The human command prints the
 construction family, gross stages, cap count, component-risk concentration,
 and largest contributor; it does not choose or recommend weights.
+`strategyViability` reconstructs the validation factor → gross portfolio →
+friction → net chain and keeps visible test as audit only. It reports fixed
+cost stresses and non-negative break-even status, return per one-way turnover,
+extra-delay delta, monthly breadth, best-day dependence, and underwater
+duration. The human command prints the validation stage and next bounded
+research focus. This has `research-prioritization-only` authority and cannot
+change KEEP/REVERT or trading authority.
 For new Runs it also verifies `portfolio-position-episodes`, reconstructs
 every split-bounded executed-position episode from the decision ledger, and
 returns complete-episode holding/win/payoff, per-asset contribution/cost,
@@ -388,11 +395,12 @@ reports/report-<UTC timestamp>-<identity>/
 `quantitative-decision-support` authority and `tradingAuthority: none`.
 New Reports bind `leaderDecisionSupport` to the exact leader Run/result hash.
 For Portfolio leaders it freezes the Core-verified historical mechanical
-decision, sizing anatomy, and their hashes; Factor/RL leaders carry explicit
-null Portfolio evidence. Human `publish`/`show`, JSON summaries, and Studio
-identify the snapshot timestamp, execution gate, cap count, and component-risk
-concentration. Reports created before sizing anatomy remain loadable without
-backfilling; legacy Reports may omit the entire decision-support field.
+decision, sizing anatomy, strategy viability diagnosis, and their hashes;
+Factor/RL leaders carry explicit null Portfolio evidence. Human
+`publish`/`show`, JSON summaries, and Studio identify the snapshot timestamp,
+execution gate, cap count, component-risk concentration, and validation
+failure stage. Reports created before newer optional snapshots remain loadable
+without backfilling; legacy Reports may omit the entire decision-support field.
 Later Session research does not reinterpret an older report; its frozen
 Experiment/Campaign catalogs must remain chronological prefixes of the
 verified history. OpenAlice should publish the exact Markdown through its own

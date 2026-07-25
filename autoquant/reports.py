@@ -15,6 +15,7 @@ from .decision_support import (
     build_leader_decision_support,
     mechanical_decision_markdown_lines,
     sizing_anatomy_markdown_lines,
+    strategy_viability_markdown_lines,
     summarize_leader_decision_support,
     verify_leader_decision_support,
 )
@@ -831,6 +832,12 @@ def _render_markdown(report: dict[str, Any]) -> str:
             sizing_anatomy_markdown_lines(
                 leader_decision_support,
                 heading="## Frozen leader-Run position sizing anatomy",
+            )
+        )
+        lines.extend(
+            strategy_viability_markdown_lines(
+                leader_decision_support,
+                heading="## Frozen leader-Run strategy viability",
             )
         )
     policy_rationale = leader_run["metrics"].get("policy_rationale")

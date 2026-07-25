@@ -62,12 +62,14 @@ const reportDecisionProof = (report) => {
   const portfolio = support?.portfolio;
   if (!support?.available || !portfolio) return "";
   const sizing = portfolio.sizing;
+  const viability = portfolio.viability;
   return `
     <div class="report-decision-proof">
       <small>Frozen leader decision · ${escapeHtml(portfolio.timestamp)}</small>
       <b>${portfolio.stateChanges} state change${portfolio.stateChanges === 1 ? "" : "s"} · ${percent(portfolio.proposedOneWayTurnover)} proposed / ${percent(portfolio.noTradeOneWay)} band</b>
       <span>${escapeHtml(portfolio.family)} · ${escapeHtml(portfolio.reason)} · authority none</span>
       ${sizing ? `<span>${sizing.atCapAssets} at cap · component-risk HHI ${metric(sizing.componentRiskConcentrationHhi)} · largest ${escapeHtml(sizing.largestAbsoluteComponentRiskContributor ?? "unavailable")}</span>` : ""}
+      ${viability ? `<span>${escapeHtml(viability.stage)} · focus ${escapeHtml(viability.iterationFocus)} · gross/net Sharpe ${metric(viability.grossSharpe)} / ${metric(viability.netSharpe)}</span>` : ""}
     </div>`;
 };
 
@@ -177,6 +179,14 @@ const signedPercent = (value) => {
   }
   const number = Number(value) * 100;
   return `${number > 0 ? "+" : ""}${metric(number)}%`;
+};
+
+const signedMetric = (value) => {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return "—";
+  }
+  const number = Number(value);
+  return `${number > 0 ? "+" : ""}${metric(number)}`;
 };
 
 const valueTone = (value) => {
@@ -2120,6 +2130,88 @@ function renderPortfolioSizingAnatomy(explorer) {
     </div>`;
 }
 
+function renderPortfolioStrategyViability(explorer) {
+  const viability = explorer.strategyViability;
+  const diagnosis = viability.diagnosis;
+  const validation = viability.validation;
+  const test = viability.test;
+  const friction = validation.friction;
+  const temporal = validation.temporal;
+  const breakEven = friction.breakEvenCost;
+  const breakEvenLabel =
+    breakEven.bps == null
+      ? breakEven.status.replaceAll("-", " ")
+      : `${metric(breakEven.bps)} bps`;
+  const stageLabel = diagnosis.stage.replaceAll("-", " ").toUpperCase();
+  const stageTone =
+    diagnosis.stage === "post-cost-edge-positive" ? "positive" : "adverse";
+  const costCurve = validation.costStress
+    .map(
+      (item) => `
+        <span class="${item.netSharpe > 0 ? "positive" : "adverse"}">
+          <small>${metric(item.costBps)} BPS</small>
+          <b>${metric(item.netSharpe)}</b>
+          <i>${signedPercent(item.annualReturn)} annual</i>
+        </span>`,
+    )
+    .join("");
+  element("portfolio-strategy-viability").innerHTML = `
+    <div class="viability-diagnosis ${stageTone}">
+      <span>
+        <small>Where the edge stops</small>
+        <b>${escapeHtml(stageLabel)}</b>
+        <i>next focus · ${escapeHtml(diagnosis.iterationFocus.replaceAll("-", " "))}</i>
+      </span>
+      <p>${escapeHtml(diagnosis.explanation)}</p>
+    </div>
+    <div class="viability-chain" role="list" aria-label="Validation strategy viability chain">
+      <span class="${validation.factorRankIc > 0 ? "positive" : "adverse"}" role="listitem">
+        <small>01 · Factor prediction</small>
+        <b>Rank IC ${metric(validation.factorRankIc)}</b>
+        <i>validation · causal cross-section</i>
+      </span>
+      <span class="${validation.gross.sharpe > 0 ? "positive" : "adverse"}" role="listitem">
+        <small>02 · Gross monetization</small>
+        <b>Sharpe ${metric(validation.gross.sharpe)}</b>
+        <i>${signedPercent(validation.gross.annualReturn)} annual · before cost</i>
+      </span>
+      <span class="${friction.grossToNetSharpeDelta < 0 ? "warning" : ""}" role="listitem">
+        <small>03 · Trading friction</small>
+        <b>${metric(friction.annualizedOneWayTurnover)}× turnover</b>
+        <i>${metric(friction.baseCostBps)} bps base · break-even ${escapeHtml(breakEvenLabel)}</i>
+      </span>
+      <span class="${validation.net.sharpe > 0 ? "positive" : "adverse"}" role="listitem">
+        <small>04 · Post-cost evidence</small>
+        <b>Sharpe ${metric(validation.net.sharpe)}</b>
+        <i>${signedPercent(validation.net.annualReturn)} annual · Δ ${signedMetric(friction.grossToNetSharpeDelta)}</i>
+      </span>
+    </div>
+    <div class="viability-detail-grid">
+      <div class="viability-cost-curve">
+        <small>Validation cost curve</small>
+        <div>${costCurve}</div>
+      </div>
+      <div class="viability-temporal">
+        <span><small>Positive months</small><b>${percent(temporal.positiveNetMonthRate)}</b></span>
+        <span><small>Max underwater</small><b>${temporal.maximumUnderwaterBars} bars</b></span>
+        <span><small>Without best ${temporal.bestDayCount} days</small><b>${signedPercent(temporal.netTotalReturnWithoutBestDays)}</b></span>
+        <span><small>Extra-delay Sharpe Δ</small><b>${signedMetric(validation.extraDelay.netSharpeDelta)}</b></span>
+      </div>
+    </div>
+    <div class="viability-test-audit">
+      <small>TEST · VISIBLE AUDIT ONLY · NEVER ENTERS DIAGNOSIS</small>
+      <span>rank IC <b>${metric(test.factorRankIc)}</b></span>
+      <span>gross → net Sharpe <b>${metric(test.gross.sharpe)} → ${metric(test.net.sharpe)}</b></span>
+      <span>positive months <b>${percent(test.temporal.positiveNetMonthRate)}</b></span>
+      <span>without best ${test.temporal.bestDayCount} days <b>${signedPercent(test.temporal.netTotalReturnWithoutBestDays)}</b></span>
+    </div>
+    <p class="viability-disclosure">
+      Stage and research focus use validation only. Return-per-turnover and break-even cost are
+      descriptive diagnostics on the frozen bar-target-weight path—not spread, impact, fill,
+      selection, promotion, order, or account authority.
+    </p>`;
+}
+
 function renderPortfolioBook(explorer) {
   const book = explorer.currentBook;
   const latestCapacity = explorer.liquidityCapacity?.latestTrade;
@@ -2285,6 +2377,7 @@ function renderPortfolioExplorer(project) {
     )
     .join("");
   renderPortfolioChart(explorer);
+  renderPortfolioStrategyViability(explorer);
   renderPortfolioMechanicalDecision(explorer);
   renderPortfolioSizingAnatomy(explorer);
   renderPortfolioBook(explorer);

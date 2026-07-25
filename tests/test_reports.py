@@ -260,6 +260,12 @@ class ResearchHandoffTests(unittest.TestCase):
             self.assertIsNone(
                 decision_support["portfolioSizingAnatomy"]
             )
+            self.assertIsNone(
+                decision_support["portfolioStrategyViabilityHash"]
+            )
+            self.assertIsNone(
+                decision_support["portfolioStrategyViability"]
+            )
             self.assertEqual(
                 report.report["evidence"]["selectionIntegrity"][
                     "selectionSplit"
@@ -417,7 +423,39 @@ class ResearchHandoffTests(unittest.TestCase):
                 (loaded.root_dir / "report.md").read_text(encoding="utf-8"),
             )
 
-    def test_prior_decision_support_without_sizing_remains_loadable(
+    def test_prior_decision_support_without_viability_remains_loadable(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = self._project(directory)
+            session = start_session(
+                project,
+                "factor-quality",
+                request=research_request(),
+            )
+            report = publish_report(
+                project,
+                session.manifest["id"],
+                report_analysis(session.manifest["baseline"]["runId"]),
+            )
+            historical = json.loads(json.dumps(report.report))
+            support = historical["evidence"]["leaderDecisionSupport"]
+            support.pop("portfolioStrategyViabilityHash")
+            support.pop("portfolioStrategyViability")
+            _, report_id = fully_rehash_report(
+                report,
+                historical,
+                session.manifest["id"],
+            )
+
+            loaded = load_report(project, session, report_id)
+
+            self.assertNotIn(
+                "portfolioStrategyViability",
+                loaded.report["evidence"]["leaderDecisionSupport"],
+            )
+
+    def test_legacy_decision_support_without_sizing_remains_loadable(
         self,
     ) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -436,6 +474,8 @@ class ResearchHandoffTests(unittest.TestCase):
             support = historical["evidence"]["leaderDecisionSupport"]
             support.pop("portfolioSizingAnatomyHash")
             support.pop("portfolioSizingAnatomy")
+            support.pop("portfolioStrategyViabilityHash")
+            support.pop("portfolioStrategyViability")
             _, report_id = fully_rehash_report(
                 report,
                 historical,
