@@ -223,8 +223,11 @@ freezes `report.json` and deterministically renders `report.md`. Reports are
 quantitative decision support only and have no live-trading authority.
 Portfolio Reports additionally freeze the exact leader Run's historical
 mechanical decision—state transitions, next percentile conditions, weights,
-turnover/risk gate, and decision hash. Project Dossiers inherit those exact
-Report bytes; neither artifact silently changes when a later Run appears.
+turnover/risk gate, sizing anatomy, and decision hashes. The anatomy explains
+conviction/inverse-volatility strength, proportional side budget,
+cap/water-fill redistribution, governed/executed weight, and component risk.
+Project Dossiers inherit those exact Report bytes; neither artifact silently
+changes when a later Run appears.
 OpenAlice should publish the exact Markdown through its own Inbox so OpenAlice
 can stamp authoritative Workspace, Session, and document-revision provenance.
 
@@ -275,7 +278,8 @@ Researcher turns, verdict trajectories, lane Report/Dossier readiness, recent
 evidence, and fixed Studies. For the latest successful Portfolio Run it also
 shows the request-bound mandate, authorized/context-only assets, bounded
 verified growth/drawdown, exposure/cash/turnover, the historical mechanical
-book, raw/governed targets, portfolio-volatility forecast/scale, signal
+book, raw/governed targets, the conviction → inverse-volatility →
+cap/water-fill position-sizing anatomy, portfolio-volatility forecast/scale, signal
 transitions, final executed-book risk compliance, split attribution, and
 validation/test liquidity-capacity envelopes with binding assets, plus
 validation/test mechanical position episodes and per-asset lifecycle

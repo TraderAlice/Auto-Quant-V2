@@ -61,11 +61,13 @@ const reportDecisionProof = (report) => {
   const support = report?.leaderDecisionSupport;
   const portfolio = support?.portfolio;
   if (!support?.available || !portfolio) return "";
+  const sizing = portfolio.sizing;
   return `
     <div class="report-decision-proof">
       <small>Frozen leader decision · ${escapeHtml(portfolio.timestamp)}</small>
       <b>${portfolio.stateChanges} state change${portfolio.stateChanges === 1 ? "" : "s"} · ${percent(portfolio.proposedOneWayTurnover)} proposed / ${percent(portfolio.noTradeOneWay)} band</b>
       <span>${escapeHtml(portfolio.family)} · ${escapeHtml(portfolio.reason)} · authority none</span>
+      ${sizing ? `<span>${sizing.atCapAssets} at cap · component-risk HHI ${metric(sizing.componentRiskConcentrationHhi)} · largest ${escapeHtml(sizing.largestAbsoluteComponentRiskContributor ?? "unavailable")}</span>` : ""}
     </div>`;
 };
 
@@ -2028,6 +2030,96 @@ function renderPortfolioMechanicalDecision(explorer) {
     </div>`;
 }
 
+function renderPortfolioSizingAnatomy(explorer) {
+  const sizing = explorer.sizingAnatomy;
+  const construction = sizing.construction;
+  const component = sizing.componentRisk;
+  const sideCards = sizing.sides
+    .map(
+      (side) => `
+        <span class="${side.allocationFeasible ? "" : "warning"}">
+          <small>${escapeHtml(side.side)} side · ${side.activeAssets} active</small>
+          <b>${percent(side.fundedRawBudget)} / ${percent(side.configuredBudget)} funded</b>
+          <i>cap capacity ${percent(side.capCapacity)} · at cap ${side.atCapAssets.length ? escapeHtml(side.atCapAssets.join(", ")) : "none"}</i>
+        </span>`,
+    )
+    .join("");
+  element("portfolio-sizing-anatomy").innerHTML = `
+    <div class="sizing-summary">
+      ${sideCards}
+      <span>
+        <small>Risk governor</small>
+        <b>${metric(construction.riskGovernorScale)} scale</b>
+        <i>${percent(construction.rawGross)} raw → ${percent(construction.governedGross)} governed</i>
+      </span>
+      <span class="${component.available ? "" : "warning"}">
+        <small>Executed component risk</small>
+        <b>${component.available ? `HHI ${metric(component.absoluteConcentrationHhi)}` : "UNAVAILABLE"}</b>
+        <i>largest ${escapeHtml(component.largestAbsoluteContributor ?? "none")}</i>
+      </span>
+    </div>
+    <div class="sizing-disclosure">
+      Percentile-distance conviction ÷ causal trailing volatility. Proportional weights are
+      water-filled within each permitted side and the ${percent(construction.maxAbsWeight)} cap,
+      then scaled only down by portfolio covariance risk. Diagonal risk is a sizing heuristic;
+      component risk is the historical executed-book covariance decomposition. No order authority.
+    </div>
+    <div class="sizing-table-scroll">
+      <div class="sizing-table" role="table" aria-label="Current per-asset position sizing anatomy">
+        <div class="sizing-row heading" role="row">
+          <span>Asset / side</span>
+          <span>Score / conviction</span>
+          <span>Vol / strength</span>
+          <span>Side share</span>
+          <span>Proportional → raw</span>
+          <span>Governed → executed</span>
+          <span>Diagonal → component risk</span>
+        </div>
+        ${sizing.positions
+          .map((position) => {
+            const capLabel = position.atCap
+              ? '<i class="sizing-cap">AT CAP</i>'
+              : position.proportionalWeightExceedsCap
+                ? '<i class="sizing-cap">CAP APPLIED</i>'
+                : "";
+            return `
+              <div class="sizing-row ${position.tradable ? "" : "context-only"}" role="row">
+                <span>
+                  <b>${escapeHtml(position.asset)}</b>
+                  <small>${escapeHtml(position.side.toUpperCase())}</small>
+                </span>
+                <span>
+                  <b>${position.score == null ? "N/A" : `P${(position.score * 100).toFixed(0)}`} / ${metric(position.conviction)}</b>
+                  <small>percentile distance</small>
+                </span>
+                <span>
+                  <b>${position.trailingVolatility == null ? "N/A" : percent(position.trailingVolatility)}</b>
+                  <small>strength ${metric(position.riskStrength)}</small>
+                </span>
+                <span>
+                  <b>${percent(position.sameSideStrengthShare)}</b>
+                  <small>same-side risk strength</small>
+                </span>
+                <span>
+                  <b>${signedPercent(position.proportionalWeightBeforeCap)} → ${signedPercent(position.rawWeight)}</b>
+                  <small>Δ ${signedPercent(position.allocationDeltaFromProportional)}</small>
+                  ${capLabel}
+                </span>
+                <span>
+                  <b>${signedPercent(position.governedWeight)} → ${signedPercent(position.executedWeight)}</b>
+                  <small>risk scale ${metric(position.riskGovernorScale)}</small>
+                </span>
+                <span>
+                  <b>${signedPercent(position.diagonalRiskBudgetShare)} → ${position.componentRiskAvailable ? signedPercent(position.componentRiskShare) : "N/A"}</b>
+                  <small>heuristic → covariance</small>
+                </span>
+              </div>`;
+          })
+          .join("")}
+      </div>
+    </div>`;
+}
+
 function renderPortfolioBook(explorer) {
   const book = explorer.currentBook;
   const latestCapacity = explorer.liquidityCapacity?.latestTrade;
@@ -2194,6 +2286,7 @@ function renderPortfolioExplorer(project) {
     .join("");
   renderPortfolioChart(explorer);
   renderPortfolioMechanicalDecision(explorer);
+  renderPortfolioSizingAnatomy(explorer);
   renderPortfolioBook(explorer);
   renderPortfolioAttribution(explorer);
   renderPortfolioTransitions(explorer);

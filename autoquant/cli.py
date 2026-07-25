@@ -1522,6 +1522,22 @@ def _run_portfolio(args: argparse.Namespace) -> CommandResult:
     )
     summary = diagnostics["path"]["summary"]
     book = diagnostics["currentBook"]
+    sizing = diagnostics["sizingAnatomy"]
+    sizing_risk = sizing["componentRisk"]
+    sizing_summary = (
+        "Current sizing: "
+        f"{sizing['construction']['family']} · "
+        f"raw/governed/executed gross "
+        f"{sizing['construction']['rawGross']}/"
+        f"{sizing['construction']['governedGross']}/"
+        f"{sizing['construction']['executedGross']} · "
+        f"at-cap assets "
+        f"{sum(len(side['atCapAssets']) for side in sizing['sides'])} · "
+        "component-risk HHI "
+        f"{sizing_risk['absoluteConcentrationHhi']} · largest "
+        f"{sizing_risk['largestAbsoluteContributor']} · "
+        "historical decision support only\n"
+    )
     capacity = diagnostics["liquidityCapacity"]
     validation_capacity = capacity["validation"] if capacity["available"] else None
     capacity_summary = (
@@ -1603,6 +1619,7 @@ def _run_portfolio(args: argparse.Namespace) -> CommandResult:
             f"{summary['maximumDrawdownAt']}\n"
             f"Latest historical book: {book['timestamp']} · "
             f"gross {book['grossExposure']} · net {book['netExposure']}\n"
+            f"{sizing_summary}"
             f"Risk governor: {book['riskGovernorStatus']} · scale "
             f"{book['riskGovernorScale']} · annualized forecast "
             f"{book['riskForecastPreAnnualized']} → "

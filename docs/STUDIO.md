@@ -106,6 +106,16 @@ the actual execution reason. The buffer holds peer ranks fixed only to explain
 current state; it is not a price target, trigger probability, order, or account
 position.
 
+The Position Sizing Anatomy panel then explains the unequal historical
+weights. Side cards show configured and funded budget, active breadth,
+strength, cap capacity, capped names, and unfunded gross. The asset table
+follows score → conviction → trailing volatility → inverse-volatility
+strength → uncapped proportional weight → cap/water-fill raw weight →
+governed/executed weight. It keeps the simple diagonal risk-budget heuristic
+separate from covariance-aware component risk and identifies concentration in
+the executed book. Every value comes from the Core projection; JavaScript does
+not allocate, optimize, or recommend a position.
+
 For request-driven Portfolio evidence, the mandate strip distinguishes the
 research universe from assets authorized as positions. It shows direction,
 long/cash, short/cash, or dollar-neutral family, gross/cap, benchmark, and
@@ -215,10 +225,12 @@ composes Reports or authors the synthesis in JavaScript.
 When the latest Portfolio Report contains frozen leader-decision support,
 Studio shows a compact proof strip with the historical decision timestamp,
 state-change count, proposed turnover versus the no-trade band, final gate,
-and `authority none`. This is the Report summary projection, not a browser
-calculation or a live market/account state. Full per-asset conditions and
-weights stay in the canonical Report/Dossier Markdown and Portfolio explorer.
-Legacy Reports show no invented strip.
+cap count, component-risk HHI and largest contributor, and `authority none`.
+This is the Report summary projection, not a browser calculation or a live
+market/account state. Full per-asset conditions and weights stay in the
+canonical Report/Dossier Markdown and Portfolio explorer. Reports predating
+sizing anatomy show the mechanical proof they actually froze; legacy Reports
+show no invented strip.
 
 For a multi-Study Project, the hero and Inspector use comparable cross-lane
 validation readouts instead of promoting the latest Run's absolute headline.

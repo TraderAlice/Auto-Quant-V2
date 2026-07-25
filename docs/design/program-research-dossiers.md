@@ -125,6 +125,10 @@ non-file entries are rejected.
 - Portfolio leader timestamp, state transitions, next percentile conditions,
   raw/governed/pretrade/executed weights, turnover/risk gate, and decision
   hash when the included Report contains that snapshot;
+- Portfolio sizing-anatomy identity, side budgets, conviction/inverse-volatility
+  strengths, proportional and cap/water-fill weights, governed/executed
+  weights, and diagonal/covariance risk decomposition when the included
+  Report contains that snapshot;
 - Portfolio liquidity-capacity policy, validation envelope, coverage, and
   reference-NAV breach evidence when present;
 - Portfolio and governed-RL executed-book forecast coverage, pretrade breach,

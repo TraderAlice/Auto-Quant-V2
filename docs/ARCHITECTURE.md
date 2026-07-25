@@ -67,6 +67,10 @@ The V2 foundation now implements:
   copyable CLI commands, explicit mutable Campaign progress, defensive HTTP
   boundary, bounded verified Portfolio decision exploration, and responsive
   research-first presentation.
+- one verified Portfolio sizing-anatomy read model that explains conviction,
+  inverse volatility, same-side budget, caps/water-filling, covariance
+  governance, historical execution, and component risk without becoming an
+  optimizer or acquiring trading authority.
 - one self-contained OHLCV Factor Lab reference Project with ordinary pandas
   factor code, deterministic local data, dataset-fixed purged horizons, a
   professional factor tear sheet, and a fixed no-lookahead audit.

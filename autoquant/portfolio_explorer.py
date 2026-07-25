@@ -56,6 +56,9 @@ MAX_RECENT_TRANSITIONS = 40
 MECHANICAL_DECISION_METHOD = (
     "stateful-percentile-target-risk-execution-chain-v1"
 )
+SIZING_ANATOMY_METHOD = (
+    "conviction-inverse-volatility-capped-waterfill-anatomy-v1"
+)
 PERCENTILE_DISTANCE_SEMANTICS = (
     "current-cross-sectional-percentile-points-with-peer-ranks-held-fixed"
 )
@@ -2476,6 +2479,334 @@ def _mechanical_decision_projection(
     }
 
 
+def _sizing_anatomy_projection(
+    daily: ParsedDaily,
+    universe: list[str],
+    decisions: dict[tuple[str, str], dict[str, Any]],
+    mandate: dict[str, Any],
+    mechanical_decision: dict[str, Any],
+) -> dict[str, Any]:
+    """Explain the fixed current weight allocator from immutable ledger rows."""
+
+    timestamp = daily.dates[-1]
+    family = mandate["family"]
+    gross_limit = float(mandate["grossLimit"])
+    cap = float(mandate["maxAbsWeight"])
+    risk_scale = mechanical_decision["targetGate"]["riskGovernorScale"]
+    side_budgets = {
+        "long": (
+            gross_limit / 2.0
+            if family == "dollar-neutral"
+            else gross_limit
+            if family == "long-cash"
+            else 0.0
+        ),
+        "short": (
+            gross_limit / 2.0
+            if family == "dollar-neutral"
+            else gross_limit
+            if family == "short-cash"
+            else 0.0
+        ),
+    }
+    raw_by_asset = {
+        asset: decisions[(timestamp, asset)][
+            "pre_governor_target_weight"
+        ]
+        for asset in universe
+    }
+    side_rows: dict[str, dict[str, Any]] = {}
+    side_strengths: dict[str, float] = {}
+    proportional_budgets: dict[str, float] = {}
+    for side, state in (("long", 1), ("short", -1)):
+        active = [
+            asset
+            for asset in universe
+            if (
+                decisions[(timestamp, asset)]["tradable"]
+                and decisions[(timestamp, asset)]["signal_state"] == state
+                and decisions[(timestamp, asset)]["risk_strength"] > 0.0
+            )
+        ]
+        strength_total = sum(
+            decisions[(timestamp, asset)]["risk_strength"]
+            for asset in active
+        )
+        configured_budget = side_budgets[side]
+        cap_capacity = len(active) * cap
+        proportional_budget = (
+            min(configured_budget, cap_capacity)
+            if family != "dollar-neutral"
+            else configured_budget
+        )
+        funded_raw_budget = sum(
+            abs(raw_by_asset[asset])
+            for asset in universe
+            if (
+                raw_by_asset[asset] > 0.0
+                if side == "long"
+                else raw_by_asset[asset] < 0.0
+            )
+        )
+        at_cap_assets = [
+            asset
+            for asset in active
+            if abs(raw_by_asset[asset]) >= cap - 1e-9
+        ]
+        side_strengths[side] = strength_total
+        proportional_budgets[side] = proportional_budget
+        side_rows[side] = {
+            "side": side,
+            "permitted": configured_budget > 0.0,
+            "configuredBudget": configured_budget,
+            "proportionalBudget": proportional_budget,
+            "fundedRawBudget": funded_raw_budget,
+            "unfundedBudget": max(
+                0.0,
+                configured_budget - funded_raw_budget,
+            ),
+            "activeAssets": len(active),
+            "activeAssetIds": active,
+            "strengthTotal": strength_total,
+            "capCapacity": cap_capacity,
+            "atCapAssets": at_cap_assets,
+            "allocationFeasible": (
+                math.isclose(
+                    funded_raw_budget,
+                    configured_budget,
+                    rel_tol=0.0,
+                    abs_tol=1e-9,
+                )
+                if family == "dollar-neutral"
+                else math.isclose(
+                    funded_raw_budget,
+                    proportional_budget,
+                    rel_tol=0.0,
+                    abs_tol=1e-9,
+                )
+            ),
+        }
+
+    positions: list[dict[str, Any]] = []
+    component_risk_available = any(
+        decisions[(timestamp, asset)]["portfolio_variance"] > 1e-18
+        for asset in universe
+    )
+    component_shares: dict[str, float] = {}
+    for asset in universe:
+        item = decisions[(timestamp, asset)]
+        state = item["signal_state"]
+        side = (
+            "context"
+            if not item["tradable"]
+            else "long"
+            if state == 1
+            else "short"
+            if state == -1
+            else "flat"
+        )
+        score = item["percentile_score"]
+        conviction = item["conviction"]
+        trailing_volatility = item["trailing_volatility"]
+        strength = item["risk_strength"]
+        if state == 0 or not item["tradable"]:
+            expected_conviction = 0.0
+        elif score is None:
+            expected_conviction = 0.0
+        else:
+            expected_conviction = 2.0 * abs(score - 0.5)
+        if not math.isclose(
+            conviction,
+            expected_conviction,
+            rel_tol=0.0,
+            abs_tol=1e-9,
+        ):
+            _fail(
+                f"sizingAnatomy/positions/{asset}/conviction",
+                "portfolio.sizing-conviction",
+                "Sizing conviction differs from the fixed percentile rule",
+            )
+        expected_strength = (
+            conviction / trailing_volatility
+            if (
+                conviction > 0.0
+                and trailing_volatility is not None
+                and trailing_volatility > 0.0
+            )
+            else 0.0
+        )
+        if not math.isclose(
+            strength,
+            expected_strength,
+            rel_tol=1e-9,
+            abs_tol=1e-9,
+        ):
+            _fail(
+                f"sizingAnatomy/positions/{asset}/riskStrength",
+                "portfolio.sizing-strength",
+                "Risk strength differs from conviction / trailing volatility",
+            )
+        active_side = side if side in {"long", "short"} else None
+        strength_total = (
+            side_strengths[active_side]
+            if active_side is not None
+            else 0.0
+        )
+        strength_share = (
+            strength / strength_total
+            if strength_total > 1e-18
+            else 0.0
+        )
+        sign = 1.0 if active_side == "long" else -1.0
+        proportional_weight = (
+            sign
+            * proportional_budgets[active_side]
+            * strength_share
+            if active_side is not None
+            else 0.0
+        )
+        raw_weight = raw_by_asset[asset]
+        governed_weight = item["proposed_target_weight"]
+        if not math.isclose(
+            governed_weight,
+            raw_weight * risk_scale,
+            rel_tol=0.0,
+            abs_tol=1e-9,
+        ):
+            _fail(
+                f"sizingAnatomy/positions/{asset}/governedWeight",
+                "portfolio.sizing-governor",
+                "Governed target does not equal raw weight times risk scale",
+            )
+        component_share = (
+            item["variance_contribution_share"]
+            if component_risk_available
+            else 0.0
+        )
+        component_shares[asset] = component_share
+        positions.append(
+            {
+                "asset": asset,
+                "tradable": item["tradable"],
+                "side": side,
+                "signalState": state,
+                "score": score,
+                "conviction": conviction,
+                "trailingVolatility": trailing_volatility,
+                "riskStrength": strength,
+                "sameSideStrengthShare": strength_share,
+                "proportionalWeightBeforeCap": proportional_weight,
+                "maxAbsWeight": cap,
+                "proportionalWeightExceedsCap": (
+                    abs(proportional_weight) > cap + 1e-9
+                ),
+                "rawWeight": raw_weight,
+                "atCap": (
+                    abs(raw_weight) > 1e-12
+                    and abs(raw_weight) >= cap - 1e-9
+                ),
+                "allocationDeltaFromProportional": (
+                    raw_weight - proportional_weight
+                ),
+                "riskGovernorScale": risk_scale,
+                "governedWeight": governed_weight,
+                "executedWeight": item["executed_weight"],
+                "diagonalRiskBudgetShare": item[
+                    "diagonal_risk_budget_share"
+                ],
+                "componentRiskAvailable": component_risk_available,
+                "componentRiskShare": component_share,
+            }
+        )
+
+    raw_gross = sum(abs(item["rawWeight"]) for item in positions)
+    governed_gross = sum(
+        abs(item["governedWeight"]) for item in positions
+    )
+    executed_gross = sum(
+        abs(item["executedWeight"]) for item in positions
+    )
+    if not math.isclose(
+        raw_gross,
+        mechanical_decision["targetGate"]["preGovernorGross"],
+        rel_tol=0.0,
+        abs_tol=1e-9,
+    ) or not math.isclose(
+        governed_gross,
+        mechanical_decision["targetGate"]["governedTargetGross"],
+        rel_tol=0.0,
+        abs_tol=1e-9,
+    ):
+        _fail(
+            "sizingAnatomy/construction",
+            "portfolio.sizing-reconciliation",
+            "Sizing anatomy does not reconcile the mechanical target gate",
+        )
+    component_sum = sum(component_shares.values())
+    if component_risk_available and not math.isclose(
+        component_sum,
+        1.0,
+        rel_tol=0.0,
+        abs_tol=1e-9,
+    ):
+        _fail(
+            "sizingAnatomy/componentRiskShare",
+            "portfolio.sizing-component-risk",
+            "Executed component-risk shares do not sum to one",
+        )
+    absolute_component_total = sum(
+        abs(value) for value in component_shares.values()
+    )
+    normalized_absolute_component = {
+        asset: (
+            abs(value) / absolute_component_total
+            if absolute_component_total > 1e-18
+            else 0.0
+        )
+        for asset, value in component_shares.items()
+    }
+    largest_component_asset = (
+        max(
+            universe,
+            key=lambda asset: (
+                normalized_absolute_component[asset],
+                -universe.index(asset),
+            ),
+        )
+        if component_risk_available
+        else None
+    )
+    return {
+        "method": SIZING_ANATOMY_METHOD,
+        "timestamp": timestamp,
+        "historicalResearchWeights": True,
+        "authority": "quantitative-decision-support",
+        "tradingAuthority": "none",
+        "construction": {
+            "family": family,
+            "rule": "percentile-conviction-divided-by-trailing-volatility",
+            "grossLimit": gross_limit,
+            "maxAbsWeight": cap,
+            "riskGovernorScale": risk_scale,
+            "rawGross": raw_gross,
+            "governedGross": governed_gross,
+            "executedGross": executed_gross,
+            "unfundedGross": max(0.0, gross_limit - raw_gross),
+        },
+        "sides": [side_rows["long"], side_rows["short"]],
+        "componentRisk": {
+            "available": component_risk_available,
+            "shareSum": component_sum if component_risk_available else 0.0,
+            "absoluteConcentrationHhi": sum(
+                value * value
+                for value in normalized_absolute_component.values()
+            ),
+            "largestAbsoluteContributor": largest_component_asset,
+        },
+        "positions": positions,
+    }
+
+
 def _current_book(
     daily: ParsedDaily,
     universe: list[str],
@@ -4024,6 +4355,13 @@ def load_portfolio_diagnostics(
         )
     mandate = _mandate_projection(run, report, universe)
     signal_policy = _signal_policy_projection(run.result)
+    mechanical_decision = _mechanical_decision_projection(
+        daily,
+        universe,
+        decisions,
+        signal_policy,
+        mandate,
+    )
     return {
         "schemaVersion": SCHEMA_VERSION,
         "kind": PORTFOLIO_DIAGNOSTICS_KIND,
@@ -4065,12 +4403,13 @@ def load_portfolio_diagnostics(
             universe,
             decisions,
         ),
-        "mechanicalDecision": _mechanical_decision_projection(
+        "mechanicalDecision": mechanical_decision,
+        "sizingAnatomy": _sizing_anatomy_projection(
             daily,
             universe,
             decisions,
-            signal_policy,
             mandate,
+            mechanical_decision,
         ),
         "recentTransitions": _recent_transitions(
             ordered_decisions,
@@ -4398,6 +4737,125 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 },
             },
         },
+        "sizingSide": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "side",
+                "permitted",
+                "configuredBudget",
+                "proportionalBudget",
+                "fundedRawBudget",
+                "unfundedBudget",
+                "activeAssets",
+                "activeAssetIds",
+                "strengthTotal",
+                "capCapacity",
+                "atCapAssets",
+                "allocationFeasible",
+            ],
+            "properties": {
+                "side": {"enum": ["long", "short"]},
+                "permitted": {"type": "boolean"},
+                "configuredBudget": {"type": "number", "minimum": 0},
+                "proportionalBudget": {"type": "number", "minimum": 0},
+                "fundedRawBudget": {"type": "number", "minimum": 0},
+                "unfundedBudget": {"type": "number", "minimum": 0},
+                "activeAssets": {"type": "integer", "minimum": 0},
+                "activeAssetIds": {
+                    "type": "array",
+                    "maxItems": MAX_UNIVERSE,
+                    "items": {"type": "string", "minLength": 1},
+                    "uniqueItems": True,
+                },
+                "strengthTotal": {"type": "number", "minimum": 0},
+                "capCapacity": {"type": "number", "minimum": 0},
+                "atCapAssets": {
+                    "type": "array",
+                    "maxItems": MAX_UNIVERSE,
+                    "items": {"type": "string", "minLength": 1},
+                    "uniqueItems": True,
+                },
+                "allocationFeasible": {"type": "boolean"},
+            },
+        },
+        "sizingPosition": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "asset",
+                "tradable",
+                "side",
+                "signalState",
+                "score",
+                "conviction",
+                "trailingVolatility",
+                "riskStrength",
+                "sameSideStrengthShare",
+                "proportionalWeightBeforeCap",
+                "maxAbsWeight",
+                "proportionalWeightExceedsCap",
+                "rawWeight",
+                "atCap",
+                "allocationDeltaFromProportional",
+                "riskGovernorScale",
+                "governedWeight",
+                "executedWeight",
+                "diagonalRiskBudgetShare",
+                "componentRiskAvailable",
+                "componentRiskShare",
+            ],
+            "properties": {
+                "asset": {"type": "string", "minLength": 1},
+                "tradable": {"type": "boolean"},
+                "side": {
+                    "enum": ["long", "short", "flat", "context"]
+                },
+                "signalState": {"enum": [-1, 0, 1]},
+                "score": {
+                    "anyOf": [
+                        {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1,
+                        },
+                        {"type": "null"},
+                    ]
+                },
+                "conviction": {"type": "number", "minimum": 0},
+                "trailingVolatility": {
+                    "anyOf": [
+                        {"type": "number", "exclusiveMinimum": 0},
+                        {"type": "null"},
+                    ]
+                },
+                "riskStrength": {"type": "number", "minimum": 0},
+                "sameSideStrengthShare": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                },
+                "proportionalWeightBeforeCap": {"type": "number"},
+                "maxAbsWeight": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                },
+                "proportionalWeightExceedsCap": {"type": "boolean"},
+                "rawWeight": {"type": "number"},
+                "atCap": {"type": "boolean"},
+                "allocationDeltaFromProportional": {"type": "number"},
+                "riskGovernorScale": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                },
+                "governedWeight": {"type": "number"},
+                "executedWeight": {"type": "number"},
+                "diagonalRiskBudgetShare": {"type": "number"},
+                "componentRiskAvailable": {"type": "boolean"},
+                "componentRiskShare": {"type": "number"},
+            },
+        },
     },
     "type": "object",
     "additionalProperties": False,
@@ -4412,6 +4870,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "path",
         "currentBook",
         "mechanicalDecision",
+        "sizingAnatomy",
         "recentTransitions",
         "signalPolicy",
         "riskGovernor",
@@ -4981,6 +5440,124 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                     "minItems": 1,
                     "maxItems": MAX_UNIVERSE,
                     "items": {"$ref": "#/$defs/mechanicalPosition"},
+                },
+            },
+        },
+        "sizingAnatomy": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "method",
+                "timestamp",
+                "historicalResearchWeights",
+                "authority",
+                "tradingAuthority",
+                "construction",
+                "sides",
+                "componentRisk",
+                "positions",
+            ],
+            "properties": {
+                "method": {"const": SIZING_ANATOMY_METHOD},
+                "timestamp": {"type": "string", "format": "date"},
+                "historicalResearchWeights": {"const": True},
+                "authority": {
+                    "const": "quantitative-decision-support"
+                },
+                "tradingAuthority": {"const": "none"},
+                "construction": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": [
+                        "family",
+                        "rule",
+                        "grossLimit",
+                        "maxAbsWeight",
+                        "riskGovernorScale",
+                        "rawGross",
+                        "governedGross",
+                        "executedGross",
+                        "unfundedGross",
+                    ],
+                    "properties": {
+                        "family": {
+                            "enum": [
+                                "dollar-neutral",
+                                "long-cash",
+                                "short-cash",
+                            ]
+                        },
+                        "rule": {
+                            "const": (
+                                "percentile-conviction-divided-by-"
+                                "trailing-volatility"
+                            )
+                        },
+                        "grossLimit": {
+                            "type": "number",
+                            "exclusiveMinimum": 0,
+                        },
+                        "maxAbsWeight": {
+                            "type": "number",
+                            "exclusiveMinimum": 0,
+                        },
+                        "riskGovernorScale": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1,
+                        },
+                        "rawGross": {"type": "number", "minimum": 0},
+                        "governedGross": {
+                            "type": "number",
+                            "minimum": 0,
+                        },
+                        "executedGross": {
+                            "type": "number",
+                            "minimum": 0,
+                        },
+                        "unfundedGross": {
+                            "type": "number",
+                            "minimum": 0,
+                        },
+                    },
+                },
+                "sides": {
+                    "type": "array",
+                    "minItems": 2,
+                    "maxItems": 2,
+                    "prefixItems": [
+                        {"$ref": "#/$defs/sizingSide"},
+                        {"$ref": "#/$defs/sizingSide"},
+                    ],
+                    "items": False,
+                },
+                "componentRisk": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": [
+                        "available",
+                        "shareSum",
+                        "absoluteConcentrationHhi",
+                        "largestAbsoluteContributor",
+                    ],
+                    "properties": {
+                        "available": {"type": "boolean"},
+                        "shareSum": {"type": "number"},
+                        "absoluteConcentrationHhi": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1,
+                        },
+                        "largestAbsoluteContributor": {
+                            "type": ["string", "null"]
+                        },
+                    },
+                },
+                "positions": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": MAX_UNIVERSE,
+                    "items": {"$ref": "#/$defs/sizingPosition"},
                 },
             },
         },

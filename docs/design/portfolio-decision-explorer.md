@@ -117,6 +117,33 @@ execution actions in chronological order. They explain how fixed hysteresis,
 conviction/risk sizing, drift, and the no-trade band produced the visible
 book.
 
+The same verified ledger now yields one point-in-time `sizingAnatomy` read
+model. It makes unequal weights mechanically auditable without opening the
+allocator:
+
+```text
+percentile distance
+→ conviction
+→ conviction / trailing own volatility
+→ same-side proportional budget
+→ per-asset cap and deterministic water-fill
+→ covariance-governed target
+→ historical executed weight and component risk
+```
+
+Each side reports its configured budget, active assets, total risk strength,
+uncapped proportional budget, funded raw budget, cap capacity, capped names,
+and any budget left unfunded. Each position reports the same intermediate
+values plus its raw, governed, and executed weights. The projection verifies
+the fixed conviction formula, inverse-volatility arithmetic, cap/water-fill
+reconciliation, risk-governor scale, gross totals, and component-risk shares
+against the immutable artifacts before exposing them.
+
+`diagonalRiskBudgetShare` is the allocator's descriptive
+`abs(weight) × own volatility` heuristic. `componentRiskShare` is the
+covariance-aware variance contribution of the executed book. Both are useful,
+but they are different quantities and are never substituted for one another.
+
 Validation and visible-test attribution preserve the exact RunResult
 per-asset annualized net contribution, average absolute weight, cost,
 turnover, and mean variance-contribution share. Negative covariance
@@ -145,6 +172,9 @@ The first explorer version provides:
   exit, and reversal thresholds, same-cross-section percentile buffers,
   raw/governed targets, drifted pretrade weights, proposed versus actual
   trades, and exact no-trade/final-risk decisions;
+- one current sizing anatomy that reconciles conviction, trailing volatility,
+  same-side strength share, proportional weight, cap/water-fill allocation,
+  raw/governed/executed weight, and diagonal versus covariance-aware risk;
 - net/gross/benchmark growth and net drawdown;
 - exposure, unused cash budget, turnover, cost, and split context;
 - a strictly reconstructed validation/test mechanical-parameter neighborhood
@@ -179,6 +209,10 @@ The first explorer version provides:
     held fixed, never price targets, forecasts, probabilities, or orders.
 13. Current proposed one-way turnover equals half the absolute
     governed-target-to-pretrade vector before the execution gate is projected.
+14. Sizing anatomy is reconstructed only from the verified current ledger and
+    Mandate; arithmetic or identity mismatch invalidates the projection.
+15. Diagonal risk-budget and covariance component-risk shares retain distinct
+    names and semantics.
 
 ## Verification and change checklist
 

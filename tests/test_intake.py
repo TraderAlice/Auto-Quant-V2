@@ -137,6 +137,20 @@ class RequestDrivenIntakeTests(unittest.TestCase):
             )
             decision = diagnostics["mechanicalDecision"]
             self.assertEqual(decision["signalGate"]["family"], "long-cash")
+            sizing = diagnostics["sizingAnatomy"]
+            self.assertEqual(
+                sizing["construction"]["family"],
+                "long-cash",
+            )
+            self.assertEqual(sizing["sides"][1]["configuredBudget"], 0.0)
+            self.assertTrue(sizing["sides"][1]["allocationFeasible"])
+            self.assertTrue(
+                all(
+                    position["side"] == "context"
+                    for position in sizing["positions"]
+                    if not position["tradable"]
+                )
+            )
             self.assertEqual(decision["tradingAuthority"], "none")
             decision_by_asset = {
                 item["asset"]: item for item in decision["positions"]

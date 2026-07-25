@@ -82,6 +82,14 @@ silently changing net exposure. Exact state, threshold, conviction,
 risk-strength, and allocation semantics are
 [[docs/design/signal-policy-and-attribution]].
 
+The immutable decision ledger deliberately stores every primitive needed to
+audit that allocator: percentile score, conviction, trailing volatility,
+risk strength, raw target, governor scale, governed target, executed weight,
+and covariance component contribution. The bounded `sizingAnatomy` projection
+reconstructs the same-side proportional allocation and cap redistribution
+from those primitives. It is a read model of the fixed Judge—not a second
+optimizer—and is defined in [[docs/design/portfolio-decision-explorer]].
+
 ## Drift, turnover, costs, and participation
 
 Before choosing the target at close `t`, the prior target is drifted by the
@@ -182,7 +190,7 @@ Every successful Run declares:
 RunResult remains the immutable authority for artifact identities.
 
 `aq run portfolio` and Studio's latest-Run Portfolio Decision Explorer consume
-these five artifacts through the strict bounded projection defined in
+these artifacts through the strict bounded projection defined in
 [[docs/design/portfolio-decision-explorer]]. Full chronology is verified and
 reconciled before display sampling; the browser never reads artifact paths.
 

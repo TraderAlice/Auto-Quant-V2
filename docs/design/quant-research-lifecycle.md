@@ -209,6 +209,15 @@ no-trade band, and final historical execution. Per-asset trigger distances are
 current cross-sectional percentile-point buffers with peer ranks held fixed;
 they are not price targets, probabilities, forward orders, or UTA authority.
 
+It also reconstructs a point-in-time sizing anatomy: signal conviction divided
+by causal trailing own volatility, proportional same-side budget, cap and
+water-fill redistribution, covariance governor scale, historical executed
+weight, and component-risk contribution. Portfolio Reports freeze this exact
+Core object beside the mechanical decision, and Project Dossiers copy the
+Report snapshot rather than recomputing a newer book. This explains why assets
+receive unequal historical research weights while preserving
+`tradingAuthority: none`.
+
 Tolerance bands are a first-class implementation choice: research on
 rebalancing frames the problem as tracking-error versus transaction-cost
 control rather than blindly trading every calendar interval:

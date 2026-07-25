@@ -433,6 +433,51 @@ class PortfolioDecisionExplorerTests(unittest.TestCase):
                     if item["tradable"] and item["scoreAvailable"]
                 )
             )
+            sizing = diagnostics["sizingAnatomy"]
+            self.assertEqual(
+                sizing["timestamp"],
+                decision["timestamp"],
+            )
+            self.assertEqual(sizing["tradingAuthority"], "none")
+            self.assertAlmostEqual(
+                sizing["construction"]["rawGross"],
+                decision["targetGate"]["preGovernorGross"],
+                places=9,
+            )
+            self.assertAlmostEqual(
+                sizing["construction"]["governedGross"],
+                decision["targetGate"]["governedTargetGross"],
+                places=9,
+            )
+            self.assertAlmostEqual(
+                sum(
+                    item["componentRiskShare"]
+                    for item in sizing["positions"]
+                ),
+                1.0,
+                places=9,
+            )
+            for position in sizing["positions"]:
+                expected_strength = (
+                    position["conviction"]
+                    / position["trailingVolatility"]
+                    if (
+                        position["conviction"] > 0.0
+                        and position["trailingVolatility"] is not None
+                    )
+                    else 0.0
+                )
+                self.assertAlmostEqual(
+                    position["riskStrength"],
+                    expected_strength,
+                    places=8,
+                )
+                self.assertAlmostEqual(
+                    position["governedWeight"],
+                    position["rawWeight"]
+                    * position["riskGovernorScale"],
+                    places=9,
+                )
 
             first_asset = diagnostics["universe"][0]
             expected = run.result["metrics"]["attribution"]["validation"]["by_asset"][
@@ -454,6 +499,39 @@ class PortfolioDecisionExplorerTests(unittest.TestCase):
                 diagnostics,
                 PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA,
             )
+
+    def test_rehashed_current_risk_strength_tamper_is_rejected(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, project, run = make_lab(Path(directory))
+            path = run.root_dir / "artifacts" / "portfolio-decisions.csv"
+            with path.open(encoding="utf-8", newline="") as handle:
+                rows = list(csv.DictReader(handle))
+                fields = list(rows[0])
+            latest_timestamp = rows[-1]["timestamp"]
+            active = next(
+                row
+                for row in rows
+                if (
+                    row["timestamp"] == latest_timestamp
+                    and int(row["signal_state"]) != 0
+                )
+            )
+            active["risk_strength"] = str(
+                float(active["risk_strength"]) + 1.0
+            )
+            with path.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=fields)
+                writer.writeheader()
+                writer.writerows(rows)
+            rehash_run(run.root_dir)
+
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "Risk strength differs from conviction",
+            ):
+                load_portfolio_diagnostics(project, run.result["id"])
 
     def test_rehashed_parameter_neighborhood_mismatch_is_rejected(
         self,

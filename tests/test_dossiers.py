@@ -243,6 +243,17 @@ class ProgramResearchDossierTests(unittest.TestCase):
                 decision["signalGate"]["family"],
                 "long-cash",
             )
+            sizing = support["portfolioSizingAnatomy"]
+            assert sizing is not None
+            self.assertEqual(
+                support["portfolioSizingAnatomyHash"],
+                hash_json(sizing),
+            )
+            self.assertEqual(sizing["tradingAuthority"], "none")
+            self.assertEqual(
+                sizing["construction"]["family"],
+                "long-cash",
+            )
             self.assertEqual(
                 {item["asset"] for item in decision["positions"]},
                 {"AAPL", "MSFT", "NVDA", "QQQ", "SPY"},
@@ -257,6 +268,14 @@ class ProgramResearchDossierTests(unittest.TestCase):
             self.assertIn("## Portfolio mandate", portfolio_markdown)
             self.assertIn(
                 "## Frozen leader-Run mechanical decision",
+                portfolio_markdown,
+            )
+            self.assertIn(
+                "## Frozen leader-Run position sizing anatomy",
+                portfolio_markdown,
+            )
+            self.assertIn(
+                "Same-side strength",
                 portfolio_markdown,
             )
             self.assertIn("Next permitted state conditions", portfolio_markdown)
@@ -380,6 +399,10 @@ class ProgramResearchDossierTests(unittest.TestCase):
                 markdown,
             )
             self.assertIn(
+                "## Frozen portfolio sizing anatomy",
+                markdown,
+            )
+            self.assertIn(
                 f"`{decision['timestamp']}`",
                 markdown,
             )
@@ -471,8 +494,8 @@ class ProgramResearchDossierTests(unittest.TestCase):
 
             forged = json.loads(json.dumps(portfolio_report.report))
             forged["evidence"]["leaderDecisionSupport"][
-                "portfolioMechanicalDecision"
-            ]["tradingAuthority"] = "broker"
+                "portfolioSizingAnatomy"
+            ]["positions"][0]["riskStrength"] += 1.0
             _, forged_id = fully_rehash_report(
                 portfolio_report,
                 forged,

@@ -284,6 +284,10 @@ class StudioObservationTests(unittest.TestCase):
                         html,
                     )
                     self.assertIn(
+                        'id="portfolio-sizing-anatomy"',
+                        html,
+                    )
+                    self.assertIn(
                         "Current mechanical decision",
                         html,
                     )
@@ -306,6 +310,8 @@ class StudioObservationTests(unittest.TestCase):
                     self.assertIn(".mechanical-table", css)
                     self.assertIn(".trigger-condition", css)
                     self.assertIn(".report-decision-proof", css)
+                    self.assertIn(".sizing-summary", css)
+                    self.assertIn(".sizing-table", css)
                     self.assertIn(".inspector-lane", css)
                     self.assertIn(".inspector-collapsed", css)
                     self.assertIn(".rl-opportunity-panel", css)
@@ -328,6 +334,14 @@ class StudioObservationTests(unittest.TestCase):
                     self.assertIn("mandateMarkup", javascript)
                     self.assertIn(
                         "renderPortfolioMechanicalDecision",
+                        javascript,
+                    )
+                    self.assertIn(
+                        "renderPortfolioSizingAnatomy",
+                        javascript,
+                    )
+                    self.assertIn(
+                        "Diagonal risk is a sizing heuristic",
                         javascript,
                     )
                     self.assertIn(

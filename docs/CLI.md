@@ -176,6 +176,13 @@ versus the fixed portfolio no-trade band. Core recomputes and reconciles that
 turnover from the exact per-asset vectors. Distances are percentile points
 with peer ranks held fixed, not prices, forecasts, probabilities, or orders;
 the object carries `tradingAuthority: none`.
+It also includes `sizingAnatomy`: the current verified signal conviction,
+trailing own volatility, inverse-volatility strength, same-side proportional
+budget, cap/water-fill redistribution, raw/governed/executed weight, and
+diagonal versus covariance-aware risk contribution. Side summaries reconcile
+configured, funded, and unfunded budget. The human command prints the
+construction family, gross stages, cap count, component-risk concentration,
+and largest contributor; it does not choose or recommend weights.
 For new Runs it also verifies `portfolio-position-episodes`, reconstructs
 every split-bounded executed-position episode from the decision ledger, and
 returns complete-episode holding/win/payoff, per-asset contribution/cost,
@@ -381,10 +388,11 @@ reports/report-<UTC timestamp>-<identity>/
 `quantitative-decision-support` authority and `tradingAuthority: none`.
 New Reports bind `leaderDecisionSupport` to the exact leader Run/result hash.
 For Portfolio leaders it freezes the Core-verified historical mechanical
-decision and decision hash; Factor/RL leaders carry an explicit null Portfolio
-decision. Human `publish`/`show`, JSON summaries, and Studio identify the
-snapshot timestamp and execution gate. Legacy Reports omit the field and
-remain loadable without backfilling.
+decision, sizing anatomy, and their hashes; Factor/RL leaders carry explicit
+null Portfolio evidence. Human `publish`/`show`, JSON summaries, and Studio
+identify the snapshot timestamp, execution gate, cap count, and component-risk
+concentration. Reports created before sizing anatomy remain loadable without
+backfilling; legacy Reports may omit the entire decision-support field.
 Later Session research does not reinterpret an older report; its frozen
 Experiment/Campaign catalogs must remain chronological prefixes of the
 verified history. OpenAlice should publish the exact Markdown through its own

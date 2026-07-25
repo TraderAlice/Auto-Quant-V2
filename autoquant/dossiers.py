@@ -14,6 +14,7 @@ from typing import Any
 
 from .decision_support import (
     mechanical_decision_markdown_lines,
+    sizing_anatomy_markdown_lines,
     summarize_leader_decision_support,
 )
 from .intake import load_project_intake
@@ -1162,6 +1163,13 @@ def _render_markdown(dossier: dict[str, Any]) -> str:
                 mechanical_decision_markdown_lines(
                     support,
                     heading="## Frozen mechanical portfolio decision",
+                    lane_name=lane["name"],
+                )
+            )
+            lines.extend(
+                sizing_anatomy_markdown_lines(
+                    support,
+                    heading="## Frozen portfolio sizing anatomy",
                     lane_name=lane["name"],
                 )
             )

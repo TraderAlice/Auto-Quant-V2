@@ -26,13 +26,23 @@ def build_leader_decision_support(
     """Rebuild the bounded decision snapshot for one exact leader Run."""
 
     run = load_run(project, run_id)
-    mechanical_decision = (
+    portfolio_diagnostics = (
         load_portfolio_diagnostics(
             project,
             run_id,
             point_limit=40,
-        )["mechanicalDecision"]
+        )
         if run.result["study"]["id"] == PORTFOLIO_STUDY_ID
+        else None
+    )
+    mechanical_decision = (
+        portfolio_diagnostics["mechanicalDecision"]
+        if portfolio_diagnostics is not None
+        else None
+    )
+    sizing_anatomy = (
+        portfolio_diagnostics["sizingAnatomy"]
+        if portfolio_diagnostics is not None
         else None
     )
     return {
@@ -45,6 +55,12 @@ def build_leader_decision_support(
             else None
         ),
         "portfolioMechanicalDecision": mechanical_decision,
+        "portfolioSizingAnatomyHash": (
+            hash_json(sizing_anatomy)
+            if sizing_anatomy is not None
+            else None
+        ),
+        "portfolioSizingAnatomy": sizing_anatomy,
     }
 
 
@@ -67,7 +83,21 @@ def verify_leader_decision_support(
             ]
         )
     expected = build_leader_decision_support(project, run_id)
-    if value != expected:
+    legacy_expected = {
+        key: item
+        for key, item in expected.items()
+        if key
+        not in {
+            "portfolioSizingAnatomyHash",
+            "portfolioSizingAnatomy",
+        }
+    }
+    matches_legacy = (
+        "portfolioSizingAnatomyHash" not in value
+        and "portfolioSizingAnatomy" not in value
+        and value == legacy_expected
+    )
+    if value != expected and not matches_legacy:
         raise AutoQuantValidationError(
             [
                 ValidationIssue(
@@ -90,6 +120,7 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
             "runId": None,
             "resultHash": None,
             "portfolioMechanicalDecisionHash": None,
+            "portfolioSizingAnatomyHash": None,
             "portfolio": None,
         }
     decision = value.get("portfolioMechanicalDecision")
@@ -102,11 +133,37 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
             "portfolioMechanicalDecisionHash": value.get(
                 "portfolioMechanicalDecisionHash"
             ),
+            "portfolioSizingAnatomyHash": value.get(
+                "portfolioSizingAnatomyHash"
+            ),
             "portfolio": None,
         }
     signal = decision["signalGate"]
     target = decision["targetGate"]
     execution = decision["executionGate"]
+    sizing = value.get("portfolioSizingAnatomy")
+    sizing_summary = None
+    if isinstance(sizing, dict):
+        construction = sizing["construction"]
+        sizing_summary = {
+            "method": sizing["method"],
+            "rawGross": construction["rawGross"],
+            "governedGross": construction["governedGross"],
+            "executedGross": construction["executedGross"],
+            "unfundedGross": construction["unfundedGross"],
+            "atCapAssets": sum(
+                len(side["atCapAssets"]) for side in sizing["sides"]
+            ),
+            "componentRiskAvailable": sizing["componentRisk"][
+                "available"
+            ],
+            "componentRiskConcentrationHhi": sizing["componentRisk"][
+                "absoluteConcentrationHhi"
+            ],
+            "largestAbsoluteComponentRiskContributor": sizing[
+                "componentRisk"
+            ]["largestAbsoluteContributor"],
+        }
     return {
         "available": True,
         "reason": None,
@@ -115,6 +172,9 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
         "portfolioMechanicalDecisionHash": value[
             "portfolioMechanicalDecisionHash"
         ],
+        "portfolioSizingAnatomyHash": value.get(
+            "portfolioSizingAnatomyHash"
+        ),
         "portfolio": {
             "timestamp": decision["timestamp"],
             "family": signal["family"],
@@ -128,6 +188,7 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
             "reason": execution["reason"],
             "positions": len(decision["positions"]),
             "tradingAuthority": decision["tradingAuthority"],
+            "sizing": sizing_summary,
         },
     }
 
@@ -242,6 +303,107 @@ def mechanical_decision_markdown_lines(
             f"{_signed_percent(position['executedWeight'])} | "
             f"`{position['executionAction']}` / "
             f"`{position['executionReason']}` |"
+        )
+    lines.append("")
+    return lines
+
+
+def sizing_anatomy_markdown_lines(
+    support: dict[str, Any],
+    *,
+    heading: str,
+    lane_name: str | None = None,
+) -> list[str]:
+    """Render the frozen unequal-weight construction and risk anatomy."""
+
+    sizing = support.get("portfolioSizingAnatomy")
+    if not isinstance(sizing, dict):
+        return []
+    construction = sizing["construction"]
+    component = sizing["componentRisk"]
+    prefix = f"{lane_name}: " if lane_name else ""
+    lines = [
+        heading,
+        "",
+        f"- {prefix}Sizing method / timestamp: `{sizing['method']}` / "
+        f"`{sizing['timestamp']}`",
+        "- Fixed rule: percentile-distance conviction ÷ causal trailing "
+        "volatility, then same-side capped water-fill.",
+        f"- Raw / governed / executed gross; unfunded gross: "
+        f"`{construction['rawGross']}` / "
+        f"`{construction['governedGross']}` / "
+        f"`{construction['executedGross']}`; "
+        f"`{construction['unfundedGross']}`",
+        f"- Per-asset cap / covariance risk scale: "
+        f"`{construction['maxAbsWeight']}` / "
+        f"`{construction['riskGovernorScale']}`",
+        f"- Executed component-risk availability / absolute HHI / largest "
+        f"contributor: `{component['available']}` / "
+        f"`{component['absoluteConcentrationHhi']}` / "
+        f"`{component['largestAbsoluteContributor'] or 'none'}`",
+    ]
+    for side in sizing["sides"]:
+        lines.append(
+            f"- {side['side'].title()} side: "
+            f"`{side['activeAssets']}` active; "
+            f"`{side['fundedRawBudget']}` / "
+            f"`{side['configuredBudget']}` funded; "
+            f"cap capacity `{side['capCapacity']}`; at cap "
+            + (
+                ", ".join(f"`{asset}`" for asset in side["atCapAssets"])
+                if side["atCapAssets"]
+                else "none"
+            )
+            + f"; feasible `{side['allocationFeasible']}`"
+        )
+    lines.extend(
+        [
+            f"- Sizing hash: `{support['portfolioSizingAnatomyHash']}`",
+            "- Authority: `quantitative-decision-support`; trading authority: "
+            "`none`. Diagonal risk budget is a sizing heuristic; component "
+            "risk is a covariance decomposition of the historical executed "
+            "book. Neither is a live account risk forecast.",
+            "",
+            "| Asset / side | Score / conviction / trailing vol | "
+            "Same-side strength | Proportional → raw | Governor → executed | "
+            "Diagonal risk → component risk |",
+            "| --- | --- | --- | --- | --- | --- |",
+        ]
+    )
+    for position in sizing["positions"]:
+        score = (
+            f"P{position['score'] * 100.0:.0f}"
+            if position["score"] is not None
+            else "unavailable"
+        )
+        volatility = (
+            f"{position['trailingVolatility']:.2%}"
+            if position["trailingVolatility"] is not None
+            else "unavailable"
+        )
+        cap_note = (
+            " · at cap"
+            if position["atCap"]
+            else " · proportional exceeded cap"
+            if position["proportionalWeightExceedsCap"]
+            else ""
+        )
+        component_risk = (
+            f"{position['componentRiskShare']:+.2%}"
+            if position["componentRiskAvailable"]
+            else "unavailable"
+        )
+        lines.append(
+            f"| `{position['asset']}` / {position['side'].upper()} | "
+            f"{score} / `{position['conviction']:.4f}` / {volatility} | "
+            f"`{position['riskStrength']:.4f}` "
+            f"({position['sameSideStrengthShare']:.2%}) | "
+            f"{_signed_percent(position['proportionalWeightBeforeCap'])} → "
+            f"{_signed_percent(position['rawWeight'])}{cap_note} | "
+            f"{_signed_percent(position['governedWeight'])} → "
+            f"{_signed_percent(position['executedWeight'])} | "
+            f"{position['diagonalRiskBudgetShare']:+.2%} → "
+            f"{component_risk} |"
         )
     lines.append("")
     return lines
