@@ -18,7 +18,9 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-There are no active plans.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/causal-multi-interval-factor-inputs]] | Let one 1h decision clock consume completed 3h/4h/6h/12h/1d factor context through a content-locked causal pandas surface shared by Factor, Portfolio, and RL. | 2026-07-26 |
 
 ## Proposed plans
 

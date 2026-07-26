@@ -118,6 +118,9 @@ Read the relevant linked document before changing a subsystem:
 - Request-driven Project construction, external OHLCV package validation,
   normalized dataset snapshots, and pre-Session intake state:
   [[docs/design/research-intake-and-dataset-snapshots]]
+- Completed-bar multi-interval aggregation, causal as-of alignment, ordinary
+  pandas candidate surface, and shared Factor/Portfolio/RL input authority:
+  [[docs/design/causal-multi-interval-factor-inputs]]
 - One-request/multi-Study orchestration, shared factor-source sequencing, lane
   currentness, and research-program status:
   [[docs/design/research-program-orchestration]]
