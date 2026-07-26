@@ -29,17 +29,21 @@ declare presentation-only duplicates or imply that Core inferred column use.
 
 ## Iteration protocol
 
-1. Read the current candidate and immutable leader evidence.
-2. State one falsifiable hypothesis about price or volume behavior.
-3. Make one coherent code change inside the editable closure.
-4. Run the bounded Experiment command supplied by the Session.
-5. Inspect validation/test one-bar IC, HAC strength, 5/10-bar decay, tertile
+1. Run `aq orient . --json` and read the current immutable leader's
+   `researchAgenda`. Treat its ordered moves as validation-only scientific
+   priorities, not executable actions or permission to inspect test for
+   selection.
+2. Read the current candidate and immutable leader evidence.
+3. State one falsifiable hypothesis about price or volume behavior.
+4. Make one coherent code change inside the editable closure.
+5. Run the bounded Experiment command supplied by the Session.
+6. Inspect validation/test one-bar IC, HAC strength, 5/10-bar decay, tertile
    monotonicity/spread, train-selected dominant style, style-neutral residual
    IC, equal-blend uplift, declared-component raw/residual IC, pairwise
    redundancy, fixed diagnostic-blend leave-one-out delta, residual fold
    stability, asset/regime stability, coverage, turnover, errors, verdict,
    Project-family trial count, and family-wise adjusted HAC significance.
-6. KEEP only when the fixed objective improves; otherwise accept restoration
+7. KEEP only when the fixed objective improves; otherwise accept restoration
    and form a different hypothesis.
 
 The fixed objective is validation mean IC only. Test IC is visible diagnostic

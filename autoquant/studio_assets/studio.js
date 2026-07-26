@@ -566,6 +566,73 @@ function renderDecisionBrief(project) {
     </footer>`;
 }
 
+function renderResearchAgenda(project) {
+  const section = element("research-agenda");
+  const agenda = project.agentWorkBrief?.researchAgenda;
+  if (!agenda) {
+    section.hidden = true;
+    return;
+  }
+  section.hidden = false;
+  element("research-agenda-meta").textContent = agenda.diagnosis
+    ? `${agenda.status.replaceAll("-", " ")} · ${agenda.diagnosis.stage.replaceAll("-", " ")}`
+    : agenda.status.replaceAll("-", " ");
+  const board = element("research-agenda-board");
+  if (!agenda.moves.length) {
+    board.innerHTML = `
+      <div class="research-agenda-empty">
+        <b>No evidence-backed experiment is available.</b>
+        <p>${escapeHtml(agenda.reason ?? "Create current verified evidence before choosing a research move.")}</p>
+      </div>`;
+  } else {
+    board.innerHTML = agenda.moves
+      .map(
+        (move) => `
+          <article class="research-move">
+            <header>
+              <span>0${move.priority} · ${escapeHtml(agenda.laneId?.toUpperCase() ?? "STUDY")}</span>
+              <b>${escapeHtml(move.id)}</b>
+            </header>
+            <h3>${escapeHtml(move.title)}</h3>
+            <p class="research-move-hypothesis">${escapeHtml(move.hypothesis)}</p>
+            <p class="research-move-rationale">${escapeHtml(move.rationale)}</p>
+            <dl class="research-move-target">
+              <dt>Edit target</dt>
+              <dd>${escapeHtml(move.target.editablePaths.join(", ") || "freeze current source")}</dd>
+              <dt>Components</dt>
+              <dd>${escapeHtml(move.target.components.join(", ") || "stage-level")}</dd>
+            </dl>
+            <div class="research-move-evidence">
+              ${move.evidenceRefs
+                .map(
+                  (item) => `
+                    <span>
+                      <small>${escapeHtml(item.label)}</small>
+                      <b>${metric(item.value)}</b>
+                      <i>${escapeHtml(item.unit)} · ${escapeHtml(item.role)}</i>
+                    </span>`,
+                )
+                .join("")}
+            </div>
+            <div class="research-move-checks">
+              <span>
+                <small>Required validation checks</small>
+                <ul>${move.evaluation.requiredChecks.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+              </span>
+              <span>
+                <small>Stop conditions</small>
+                <ul>${move.evaluation.stopConditions.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+              </span>
+            </div>
+          </article>`,
+      )
+      .join("");
+  }
+  element("research-agenda-authority").textContent =
+    `${agenda.authority.selectionSplit} prioritizes · ${agenda.authority.testRole} · ` +
+    "no automatic execution · no automatic promotion · no trading authority";
+}
+
 const shortHash = (value) =>
   typeof value === "string" && value.length > 14
     ? `${value.slice(0, 8)}…${value.slice(-6)}`
@@ -4392,6 +4459,7 @@ function renderEmptyWorkspace(message = "Create a Project with aq project create
   element("handoff-board").innerHTML =
     '<div class="empty-panel handoff-empty">Delegated research requests will appear here.</div>';
   element("research-program-status").hidden = true;
+  element("research-agenda").hidden = true;
   element("evidence-workbench").hidden = true;
   element("factor-explorer").hidden = true;
   element("portfolio-explorer").hidden = true;
@@ -4464,6 +4532,7 @@ function render() {
       : "No Project description recorded.");
   document.title = `${project.name} — AutoQuant Studio`;
   renderDecisionBrief(project);
+  renderResearchAgenda(project);
   renderScoreboard(project);
   renderDiagnostics(project);
   renderHandoff(project);

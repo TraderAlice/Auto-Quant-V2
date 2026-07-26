@@ -89,6 +89,7 @@ from .orientation import (
     AGENT_WORK_BRIEF_JSON_SCHEMA,
     build_agent_work_brief,
 )
+from .research_agenda import RESEARCH_AGENDA_JSON_SCHEMA
 from .portfolio_explorer import (
     DEFAULT_PORTFOLIO_POINTS,
     MAX_PORTFOLIO_POINTS,
@@ -231,6 +232,7 @@ def build_parser() -> RaisingArgumentParser:
             "workspace",
             "project",
             "agent-work-brief",
+            "research-agenda",
             "study",
             "judge-output",
             "run-result",
@@ -329,7 +331,10 @@ def build_parser() -> RaisingArgumentParser:
 
     orient = subcommands.add_parser(
         "orient",
-        help="give a new research Agent one verified work brief",
+        help=(
+            "give a research Agent one verified work brief and bounded "
+            "evidence-driven experiment agenda"
+        ),
     )
     orient.add_argument("path")
     orient.add_argument("--project")
@@ -3143,6 +3148,8 @@ def _orient(args: argparse.Namespace) -> CommandResult:
     focus = brief["focus"]
     filesystem = brief["filesystem"]
     primary = brief["primaryAction"]
+    agenda = brief["researchAgenda"]
+    agenda_move = agenda["moves"][0] if agenda["moves"] else None
     writable = (
         ", ".join(filesystem["editablePaths"])
         if filesystem["writable"]
@@ -3162,6 +3169,21 @@ def _orient(args: argparse.Namespace) -> CommandResult:
         f"Protected: {', '.join(filesystem['protectedCategories'])}\n"
         f"Authority: {brief['authority']['selectionSplit']} selects · "
         f"{brief['authority']['testRole']} test · trading none\n"
+        f"Research agenda: {agenda['status']}"
+        + (
+            f" · {agenda['diagnosis']['stage']}"
+            if agenda["diagnosis"] is not None
+            else ""
+        )
+        + "\n"
+        + (
+            f"Experiment 1: {agenda_move['title']}\n"
+            f"Hypothesis: {agenda_move['hypothesis']}\n"
+            f"Edit target: "
+            f"{', '.join(agenda_move['target']['editablePaths']) or 'freeze current source'}\n"
+            if agenda_move is not None
+            else f"Agenda reason: {agenda['reason']}\n"
+        )
         + (
             f"Next: {primary['display']}\n"
             f"Effect: {primary['effect']} · produces "
@@ -3219,6 +3241,7 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
     if args.command_id == "schema":
         kinds = [
             "agent-work-brief",
+            "research-agenda",
             "campaign-progress",
             "campaign-result",
             "dossier-analysis",
@@ -3256,6 +3279,7 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             )
         schemas = {
             "agent-work-brief": AGENT_WORK_BRIEF_JSON_SCHEMA,
+            "research-agenda": RESEARCH_AGENDA_JSON_SCHEMA,
             "study": STUDY_JSON_SCHEMA,
             "judge-output": JUDGE_OUTPUT_JSON_SCHEMA,
             "run-result": RUN_RESULT_JSON_SCHEMA,

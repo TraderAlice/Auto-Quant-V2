@@ -103,6 +103,43 @@ class AgentCliTests(unittest.TestCase):
             result = execution["data"]
             self.assertEqual(result["status"], "succeeded")
             self.assertIn("sourceHashes", result["dataset"])
+
+            oriented_with_evidence = run_cli(
+                "orient",
+                str(project),
+                "--json",
+            )
+            self.assertEqual(
+                oriented_with_evidence.returncode,
+                0,
+                oriented_with_evidence.stderr,
+            )
+            evidence_brief = json_output(oriented_with_evidence)["data"]
+            self.assertEqual(
+                evidence_brief["researchAgenda"]["laneId"],
+                "factor",
+            )
+            self.assertIn(
+                evidence_brief["researchAgenda"]["status"],
+                {"available", "no-further-in-sample-tuning"},
+            )
+            self.assertGreaterEqual(
+                len(evidence_brief["researchAgenda"]["moves"]),
+                1,
+            )
+
+            human_orientation = run_cli("orient", str(project))
+            self.assertEqual(
+                human_orientation.returncode,
+                0,
+                human_orientation.stderr,
+            )
+            self.assertIn(
+                "Research agenda:",
+                human_orientation.stdout,
+            )
+            self.assertIn("Experiment 1:", human_orientation.stdout)
+            self.assertIn("Hypothesis:", human_orientation.stdout)
             self.assertIn(
                 "run.factor",
                 [item["id"] for item in execution["nextActions"]],
@@ -489,6 +526,7 @@ class AgentCliTests(unittest.TestCase):
                 "workspace",
                 "project",
                 "agent-work-brief",
+                "research-agenda",
                 "study",
                 "judge-output",
                 "run-result",
@@ -515,6 +553,14 @@ class AgentCliTests(unittest.TestCase):
                 "dossier-status",
                 "studio-snapshot",
             ],
+        )
+        agenda_schema = run_cli("schema", "research-agenda", "--json")
+        self.assertEqual(agenda_schema.returncode, 0, agenda_schema.stderr)
+        self.assertEqual(
+            json_output(agenda_schema)["data"]["schema"]["properties"]["kind"][
+                "const"
+            ],
+            "autoquant-evidence-driven-research-agenda",
         )
         response_schema = run_cli("schema", "researcher-response", "--json")
         self.assertEqual(response_schema.returncode, 0, response_schema.stderr)

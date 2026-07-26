@@ -74,6 +74,11 @@ The first viewport prioritizes:
   action; when fixed candidate preflight is available, this same object routes
   edit → bounded Check → formal Experiment and exposes the exact current Check
   id/status without granting selection or trading authority;
+- a Research Agenda directly beneath the decision surface, rendering the exact
+  Core-ordered Factor, Portfolio, or governed-RL experiment briefs from that
+  same hashed work brief, including hypothesis, editable target, optional
+  declared components, typed validation evidence, required checks, and stop
+  conditions; JavaScript never creates or reorders moves;
 - one selectable Factor, Portfolio, or RL evidence workbench at a time, keeping
   the complete bounded explorer available without rendering all three long
   reports into one page;
@@ -87,9 +92,11 @@ mutable; completed evidence is loaded and hash-verified by Core.
 Every valid Project snapshot includes `agentWorkBrief` and
 `agentWorkBriefHash`. The brief is the shared AI-operator/human-reviewer
 contract: Studio's Current Research Decision card and the CLI cannot disagree
-about the active question, reason, or next investigation. Detailed Cockpit and
-evidence panels remain richer read models and do not broaden its filesystem or
-trading authority.
+about the active question, reason, next lifecycle action, or bounded experiment
+order. Agenda moves remain diagnostic-only and cannot execute themselves.
+Detailed Cockpit and evidence panels remain richer read models and do not
+broaden its filesystem or trading authority. See
+[[docs/design/evidence-driven-research-agenda]].
 
 Run cards are diagnostic projections, not replacements for full evidence.
 Factor cards show strength, decay, monotonic spread, stability, style overlap,

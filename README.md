@@ -74,8 +74,15 @@ uv run aq orient ./quant-workspace --project us-leadership --json
 
 It returns the current research question, scientific/coordination reason,
 exact writable Session worktree closure, protected authority, and one primary
-command with its declared effect. Studio renders the same Core object and
-hash, so the AI operator and human reviewer share one current work contract.
+command with its declared effect. When current immutable evidence exists, the
+same hashed brief also contains up to three validation-only experiment briefs:
+the hypothesis to test, declared component or editable closure, typed evidence
+behind its priority, required checks, and stop conditions. Factor briefs can
+use explicit multi-interval component evidence; Portfolio briefs still edit
+only the factor under fixed mechanics; RL briefs still edit only the causal
+encoder under fixed actions and learning rules. Studio renders the same Core
+object and hash, so the AI operator and human reviewer share one current work
+contract and experiment order.
 
 The `ohlcv-factor-lab` starter is the first runnable V2 research Project. It
 uses ordinary pandas/NumPy factor code, a deterministic six-asset synthetic

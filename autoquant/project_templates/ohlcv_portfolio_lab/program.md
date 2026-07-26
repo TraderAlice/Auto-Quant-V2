@@ -18,6 +18,12 @@ def compute_factor(frame: pandas.DataFrame) -> pandas.Series:
 The factor receives one asset's chronological OHLCV rows. It must return one
 numeric aligned Series and may use only the current and prior rows.
 
+Before each edit, run `aq orient . --json` and read the current verified
+`researchAgenda`. Its move must still target `factors/**`: sizing, caps,
+Mandate, covariance risk, no-trade, and cost remain fixed evaluation pressure.
+The agenda is a validation-only experiment brief, not an executable action or
+permission to select from visible test audit.
+
 ## Fixed portfolio contract
 
 - `strategies/portfolio-mandate.json` fixes tradable versus context assets,

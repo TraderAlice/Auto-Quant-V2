@@ -49,6 +49,11 @@ The V2 foundation now implements:
   Studio, that compresses the current question, scientific blocker, exact
   Session worktree edit authority, protected boundaries, and primary action
   without adding a parallel lifecycle.
+- one evidence-driven research agenda inside that hashed brief, translating
+  verified Factor, Portfolio, or governed-RL failure layers into at most three
+  validation-only experiment briefs with explicit edit targets, evidence,
+  checks, and stop conditions but no automatic execution, promotion, or
+  trading authority.
 - strict Project-local Study contracts with separate human program, fixed
   Python Judge closure, Agent-editable strategy/factor/model closure, objective,
   and declarative or content-locked dataset identity;

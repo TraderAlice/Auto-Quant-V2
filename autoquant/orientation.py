@@ -9,6 +9,10 @@ from typing import Any
 from .checks import candidate_check_state
 from .dossiers import load_dossier_status
 from .intake import load_project_intake
+from .research_agenda import (
+    RESEARCH_AGENDA_JSON_SCHEMA,
+    build_research_agenda,
+)
 from .research_program import load_research_program
 from .runs import list_runs, load_run
 from .sessions import list_sessions, load_session, session_snapshot
@@ -17,7 +21,7 @@ from .workspace import SCHEMA_VERSION, ProjectContext
 
 
 AGENT_WORK_BRIEF_KIND = "autoquant-agent-work-brief"
-AGENT_WORK_BRIEF_METHOD = "verified-project-agent-orientation-v1"
+AGENT_WORK_BRIEF_METHOD = "verified-project-agent-orientation-v2"
 PROTECTED_CATEGORIES = [
     "request",
     "dataset",
@@ -890,6 +894,30 @@ def build_agent_work_brief(project: ProjectContext) -> dict[str, Any]:
             studies,
         )
     )
+    agenda_run_id = projected["evidence"]["runId"]
+    if program is not None:
+        agenda_lane = next(
+            (
+                lane
+                for lane in program["lanes"]
+                if lane["id"] == projected["focus"]["laneId"]
+            ),
+            None,
+        )
+        if agenda_lane is None or not agenda_lane["currentRun"]:
+            agenda_run_id = None
+    if (
+        projected["filesystem"]["writable"]
+        and projected["evidence"]["sessionId"] is not None
+        and projected["evidence"]["leaderRunId"] is not None
+    ):
+        agenda_run_id = projected["evidence"]["leaderRunId"]
+    research_agenda = build_research_agenda(
+        project,
+        agenda_run_id,
+        lane_id=projected["focus"]["laneId"],
+        editable_paths=projected["filesystem"]["declaredEditablePaths"],
+    )
     request = intake["request"] if intake is not None else None
     return {
         "schemaVersion": SCHEMA_VERSION,
@@ -916,6 +944,7 @@ def build_agent_work_brief(project: ProjectContext) -> dict[str, Any]:
                 else None
             ),
         },
+        "researchAgenda": research_agenda,
         **projected,
     }
 
@@ -971,6 +1000,7 @@ AGENT_WORK_BRIEF_JSON_SCHEMA: dict[str, Any] = {
         "reasons",
         "filesystem",
         "authority",
+        "researchAgenda",
         "primaryAction",
         "supportingActions",
         "review",
@@ -1128,6 +1158,7 @@ AGENT_WORK_BRIEF_JSON_SCHEMA: dict[str, Any] = {
                 "tradingAuthority": {"const": "none"},
             },
         },
+        "researchAgenda": RESEARCH_AGENDA_JSON_SCHEMA,
         "primaryAction": {
             "anyOf": [ACTION_SCHEMA, {"type": "null"}]
         },

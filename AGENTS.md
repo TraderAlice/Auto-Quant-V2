@@ -53,6 +53,9 @@ Read the relevant linked document before changing a subsystem:
 - AI-primary operator, human-reviewer roles, compact Agent Work Brief,
   filesystem authority, and CLI/Studio orientation parity:
   [[docs/design/agent-operator-experience]]
+- Verified Factor/Portfolio/RL evidence translated into bounded experiment
+  briefs without automatic execution, promotion, or trading authority:
+  [[docs/design/evidence-driven-research-agenda]]
 - Fixed seconds-scale candidate checks, immutable non-selection diagnostics,
   and edit/check/evaluate routing:
   [[docs/design/candidate-preflight-feedback]]

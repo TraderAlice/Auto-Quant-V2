@@ -43,6 +43,10 @@ class AgentOrientationTests(unittest.TestCase):
             baseline = build_agent_work_brief(project)
             jsonschema.validate(baseline, AGENT_WORK_BRIEF_JSON_SCHEMA)
             self.assertEqual(
+                baseline["researchAgenda"]["status"],
+                "unsupported-study",
+            )
+            self.assertEqual(
                 baseline["primaryAction"]["id"],
                 "session.start",
             )
@@ -126,6 +130,11 @@ class AgentOrientationTests(unittest.TestCase):
                 "baseline-evidence-missing",
             )
             self.assertEqual(brief["primaryAction"]["id"], "run.execute")
+            self.assertEqual(
+                brief["researchAgenda"]["status"],
+                "waiting-evidence",
+            )
+            self.assertEqual(brief["researchAgenda"]["moves"], [])
             self.assertEqual(
                 brief["authority"],
                 {

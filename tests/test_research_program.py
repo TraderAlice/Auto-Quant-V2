@@ -11,6 +11,10 @@ import jsonschema
 
 from autoquant.intake import prepare_project_intake
 from autoquant.orientation import build_agent_work_brief
+from autoquant.research_agenda import (
+    RESEARCH_AGENDA_JSON_SCHEMA,
+    build_research_agenda,
+)
 from autoquant.reports import publish_report
 from autoquant.research_program import (
     RESEARCH_PROGRAM_STATUS_JSON_SCHEMA,
@@ -223,6 +227,22 @@ class MultiStudyResearchProgramTests(unittest.TestCase):
             self.assertTrue(
                 all(run.result["status"] == "succeeded" for run in runs.values())
             )
+            for lane_id, study_id, editable_paths in (
+                ("factor", OHLCV_STUDY_ID, ["factors/**"]),
+                ("portfolio", PORTFOLIO_STUDY_ID, ["factors/**"]),
+                ("rl", RL_STUDY_ID, ["models/**"]),
+            ):
+                agenda = build_research_agenda(
+                    project,
+                    runs[study_id].result["id"],
+                    lane_id=lane_id,
+                    editable_paths=editable_paths,
+                )
+                jsonschema.validate(
+                    agenda,
+                    RESEARCH_AGENDA_JSON_SCHEMA,
+                )
+                self.assertGreaterEqual(len(agenda["moves"]), 1)
 
             baseline = load_research_program(project)
             assert baseline is not None
@@ -297,6 +317,15 @@ class MultiStudyResearchProgramTests(unittest.TestCase):
                 ["stale", "stale", "stale"],
             )
             self.assertEqual(stale["recommendedAction"]["id"], "run.execute")
+            stale_brief = build_agent_work_brief(project)
+            self.assertEqual(
+                stale_brief["researchAgenda"]["status"],
+                "waiting-evidence",
+            )
+            self.assertEqual(
+                stale_brief["researchAgenda"]["moves"],
+                [],
+            )
 
             self.assertEqual(
                 load_study(project, OHLCV_STUDY_ID).dataset_hash,

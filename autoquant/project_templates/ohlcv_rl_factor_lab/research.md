@@ -13,11 +13,16 @@ constraints, costs, risk, and path-consistent simple baselines.
 aq study inspect . --study ohlcv-rl-factor-policy --json
 aq run execute . --study ohlcv-rl-factor-policy --json
 aq session start . --study ohlcv-rl-factor-policy --json
+aq orient . --json
 ```
 
 Work only inside the returned Session worktree and edit `models/**`. State one
 falsifiable representation hypothesis, evaluate it, and inspect seed/fold,
 baseline, implementation, and model artifacts before accepting a KEEP.
+Use the verified `researchAgenda` to choose the next bounded representation
+hypothesis. It is validation-only prioritization, not an executable action:
+it cannot add factor sleeves, alter learning rules, promote a candidate, or
+use visible test/oracle evidence for selection.
 Use the pretrade-book summaries and per-sleeve target distances when a
 hypothesis concerns switching cost, stale holdings, or no-trade behavior;
 `previous_action` alone does not identify the current portfolio.

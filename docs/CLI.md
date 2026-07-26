@@ -15,6 +15,7 @@ aq capabilities --json
 aq schema
 aq schema project --json
 aq schema agent-work-brief --json
+aq schema research-agenda --json
 aq schema research-request --json
 aq schema ohlcv-dataset-package --json
 aq schema report-analysis --json
@@ -72,10 +73,18 @@ state into one strict `AgentWorkBrief`. The brief identifies the current
 question and focus, stable reason code, exact operating root, paths writable
 now versus only declared for a future Session, protected authority, and one
 primary command with working directory, effect, and expected evidence kind.
+V2 also includes `researchAgenda`: an explicit waiting/unsupported/frozen
+state or up to three deterministic experiment briefs derived from the current
+verified Factor, Portfolio, or governed-RL Run. Each move carries its
+hypothesis, editable paths, optional declared components, typed evidence
+references, validation checks, and stop conditions. Agenda moves are not
+`nextActions`; they cannot execute, promote, or trade, and visible test audit
+cannot affect their order.
 It is read-only. Before a Session exists it never advertises canonical Project
 source as the governed edit target; an active valid Session points only to its
 disposable worktree. Human output fits a short terminal readout, while JSON is
-the machine contract defined by `aq schema agent-work-brief --json`.
+the machine contract defined by `aq schema agent-work-brief --json`. See
+[[docs/design/evidence-driven-research-agenda]].
 
 `blank` is the default construction. `ohlcv-factor-lab` transactionally
 creates a complete, self-contained pandas factor research Project with local

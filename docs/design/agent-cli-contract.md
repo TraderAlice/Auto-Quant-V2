@@ -91,8 +91,12 @@ test audit fields in dominance.
 after resolving the selected Project and reconstructing its current Study,
 Run, Session, Report, Dossier, research-program, gate, and conflict state. Its
 filesystem contract grants candidate writes only inside a valid active Session
-worktree. Studio consumes the exact same object and Core hash rather than
-deriving a competing research decision in JavaScript.
+worktree. The V2 brief also carries zero to three bounded experiment briefs
+derived from the current verified Factor, Portfolio, or governed-RL diagnosis.
+Those agenda moves are diagnostic-only data, not CLI actions; they cannot
+execute, promote, or trade. Studio consumes the exact same object and Core
+hash rather than deriving a competing research decision or experiment order
+in JavaScript. See [[docs/design/evidence-driven-research-agenda]].
 
 ## CLI-to-Studio flow
 

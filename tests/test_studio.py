@@ -97,6 +97,14 @@ class StudioObservationTests(unittest.TestCase):
                 observed["agentWorkBrief"]["filesystem"]["operatingRoot"],
                 str(session.worktree_project.root_dir),
             )
+            self.assertEqual(
+                observed["agentWorkBrief"]["researchAgenda"]["status"],
+                "unsupported-study",
+            )
+            self.assertEqual(
+                observed["agentWorkBrief"]["researchAgenda"]["moves"],
+                [],
+            )
             self.assertEqual(observed["counts"]["activeSessions"], 1)
             self.assertEqual(observed["counts"]["dossiers"], 0)
             self.assertEqual(observed["counts"]["verdicts"]["KEEP"], 1)
@@ -320,6 +328,8 @@ class StudioObservationTests(unittest.TestCase):
                         html,
                     )
                     self.assertIn('id="factor-components"', html)
+                    self.assertIn('id="research-agenda"', html)
+                    self.assertIn('id="research-agenda-board"', html)
                     self.assertIn(
                         "Current mechanical decision",
                         html,
@@ -365,6 +375,8 @@ class StudioObservationTests(unittest.TestCase):
                     )
                     self.assertIn(".factor-component-diagnosis", css)
                     self.assertIn(".factor-component-table", css)
+                    self.assertIn(".research-agenda-board", css)
+                    self.assertIn(".research-move-evidence", css)
                     self.assertIn(
                         "content: attr(data-label)",
                         css,
@@ -396,6 +408,11 @@ class StudioObservationTests(unittest.TestCase):
                     self.assertIn("updateDeskNavActive", javascript)
                     self.assertIn("validationBaselineAdvantage", javascript)
                     self.assertIn("renderFactorComponents", javascript)
+                    self.assertIn("renderResearchAgenda", javascript)
+                    self.assertIn(
+                        "project.agentWorkBrief?.researchAgenda",
+                        javascript,
+                    )
                     self.assertIn(
                         'data-label="Validation raw IC"',
                         javascript,

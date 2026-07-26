@@ -1,12 +1,13 @@
 # AI-first Agent operator experience
 
-Status: implemented for the V1 Agent Work Brief and read-only orientation
-surface.
+Status: implemented for the V2 Agent Work Brief, evidence-driven research
+agenda, and read-only orientation surface.
 
 Related: [[docs/design/agent-cli-contract]],
 [[docs/design/research-program-orchestration]],
 [[docs/design/research-session-loop]],
 [[docs/design/external-researcher-driver]],
+[[docs/design/evidence-driven-research-agenda]],
 [[docs/design/studio-observation-surface]], and
 [[docs/design/study-run-evidence]].
 
@@ -25,6 +26,7 @@ Workspace / Project path
 + verified request and Project construction
 + current Study / Session / Run / Report state
 + scientific progression and conflicts
++ verified diagnosis and bounded experiment briefs
 + fixed authority and editable closures
 → Agent Work Brief
 ├── aq orient --json
@@ -61,7 +63,7 @@ evidence that the Agent receives.
 
 ## Agent Work Brief
 
-The V1 brief is compact, strict, and derived entirely from verified current
+The V2 brief is compact, strict, and derived entirely from verified current
 state. It contains:
 
 - identity: Workspace/Project and optional delegated request;
@@ -75,6 +77,10 @@ state. It contains:
   conflict;
 - authority: selection split, visible-test role, research authority, and
   `tradingAuthority: none`;
+- research agenda: zero to three deterministic Factor, Portfolio, or
+  governed-RL experiment briefs derived from the current immutable leader
+  evidence, each with editable targets, typed evidence references, validation
+  checks, and stop conditions;
 - filesystem contract: the exact operating root, candidate-editable patterns,
   and protected authority categories;
 - primary action: one existing Core-generated command with exact `argv`,
@@ -85,6 +91,21 @@ state. It contains:
 The brief does not copy the entire program projection. A caller may use the
 referenced detailed command when it needs full lane, Run, Session, or report
 history.
+
+The research agenda does not replace the primary action. It says which
+scientific change is worth testing after the lifecycle permits an edit;
+`primaryAction` still says whether the operator must establish a baseline,
+start a Session, run preflight, evaluate, publish, complete, or promote. Agenda
+moves have no operation effect and cannot execute themselves.
+
+Factor moves can prioritize explicitly declared components, but they never
+infer Python provenance or claim that a fixed diagnostic-blend removal is an
+arbitrary final-factor ablation. Portfolio moves can change only the factor
+closure; fixed Mandate, sizing, risk, execution, and cost rules remain
+evaluation pressure. RL moves can change only the causal encoder; fixed
+factors, actions, rewards, learning rules, and Portfolio mechanics remain
+protected. Positive validation evidence may intentionally produce a
+freeze-and-external-holdout move instead of another in-sample edit.
 
 ## Operating modes
 
@@ -156,8 +177,8 @@ existing action schema and declared effects.
 
 Studio receives the same brief and a Core hash. JavaScript may format or
 progressively disclose its fields. It must not independently choose the focus
-lane, derive a scientific stage from metric signs, invent filesystem
-authority, or substitute a different next action.
+lane, derive a scientific stage from metric signs, rank experiment briefs,
+invent filesystem authority, or substitute a different next action.
 
 ## Feedback tiers
 
@@ -165,14 +186,15 @@ Orientation must truthfully distinguish the feedback operations that already
 exist:
 
 - structural inspection and validation;
+- fixed seconds-scale candidate preflight;
 - bounded baseline Run execution;
 - Session Experiment evaluation;
 - full repository engineering regression.
 
 It must not advise a Project Researcher to run the AutoQuant repository's full
-engineering suite, nor pretend that structural validation evaluates a factor.
-A future fast-research-check plan may add a cheaper causal/syntax feedback
-operation, but it must preserve the same fixed Study and evidence boundaries.
+engineering suite, nor pretend that structural validation or preflight creates
+selection evidence. Preflight preserves the fixed Study boundary and formal
+Judge authority.
 
 ## Invariants
 
@@ -187,6 +209,10 @@ operation, but it must preserve the same fixed Study and evidence boundaries.
    convenience.
 7. CLI and Studio share the exact brief and hash.
 8. Every brief states that AutoQuant has no trading authority.
+9. Agenda ordering uses train context and validation evidence only; visible
+   test audit cannot change a move, its order, or its wording.
+10. Agenda moves never broaden the declared editable closure or become
+    executable lifecycle actions.
 
 ## Known limitations
 
@@ -194,4 +220,5 @@ operation, but it must preserve the same fixed Study and evidence boundaries.
 - It does not measure Agent token use, reasoning quality, or provider cost.
 - It does not execute commands or guarantee that an external Agent follows
   them.
-- It does not yet shorten factor/Judge feedback latency.
+- Recipes are fixed for the reference Factor, Portfolio, and governed-RL
+  objectives; unknown Study objectives are explicitly unsupported.
