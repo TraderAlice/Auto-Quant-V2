@@ -19,6 +19,14 @@ The returned Series must align exactly with the input index. Missing warm-up
 values are allowed. Future rows, centered windows, negative shifts, global
 full-sample normalization, external data, and mutation of the input are not.
 
+When a hypothesis has meaningful sub-signals, also export
+`FACTOR_COMPONENTS` and
+`compute_factor_components(frame) -> pandas.DataFrame`. Declare one causal
+column per falsifiable source component, including its label, claimed
+`base`/3h/4h/6h/12h/1d intervals, and hypothesis. The component table must
+remain aligned, deterministic, numeric, immutable, and prefix causal. Do not
+declare presentation-only duplicates or imply that Core inferred column use.
+
 ## Iteration protocol
 
 1. Read the current candidate and immutable leader evidence.
@@ -27,9 +35,10 @@ full-sample normalization, external data, and mutation of the input are not.
 4. Run the bounded Experiment command supplied by the Session.
 5. Inspect validation/test one-bar IC, HAC strength, 5/10-bar decay, tertile
    monotonicity/spread, train-selected dominant style, style-neutral residual
-   IC, equal-blend uplift, residual fold stability, asset/regime stability,
-   coverage, turnover, errors, verdict, Project-family trial count, and
-   family-wise adjusted HAC significance.
+   IC, equal-blend uplift, declared-component raw/residual IC, pairwise
+   redundancy, fixed diagnostic-blend leave-one-out delta, residual fold
+   stability, asset/regime stability, coverage, turnover, errors, verdict,
+   Project-family trial count, and family-wise adjusted HAC significance.
 6. KEEP only when the fixed objective improves; otherwise accept restoration
    and form a different hypothesis.
 
@@ -56,6 +65,12 @@ HAC t at least 1.96, whether an equal rank blend improves the selected style,
 and whether both residual folds remain positive. This prioritizes the next
 research lane; it does not change KEEP/REVERT, replace Project-family
 selection adjustment, or automatically admit the source into Portfolio or RL.
+
+Component leave-one-out applies only to the Judge's fixed equal-rank
+diagnostic blend. It is not an ablation of arbitrary `compute_factor` code.
+Component validation evidence may prioritize the next hypothesis, but it never
+changes `validation_mean_ic`, KEEP/REVERT, Portfolio mechanics, or the
+governed RL action set. Test component evidence remains visible audit only.
 
 Do not modify the Study, Judge, program, dataset, or AutoQuant Core to improve a
 candidate. Do not treat this synthetic benchmark as a real-market alpha claim.

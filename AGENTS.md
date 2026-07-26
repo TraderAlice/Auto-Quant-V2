@@ -121,6 +121,9 @@ Read the relevant linked document before changing a subsystem:
 - Completed-bar multi-interval aggregation, causal as-of alignment, ordinary
   pandas candidate surface, and shared Factor/Portfolio/RL input authority:
   [[docs/design/causal-multi-interval-factor-inputs]]
+- Explicit candidate component declarations, causal contract checks,
+  component redundancy/incremental diagnostics, and fixed-blend attribution:
+  [[docs/design/factor-component-attribution]]
 - One-request/multi-Study orchestration, shared factor-source sequencing, lane
   currentness, and research-program status:
   [[docs/design/research-program-orchestration]]

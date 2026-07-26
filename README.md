@@ -83,8 +83,12 @@ OHLCV fixture, dataset-fixed purge-aware chronological evaluation, dataset
 byte locks, and a fixed causality audit. Its professional tear sheet adds
 1/5/10-bar rank/Pearson IC and decay, HAC strength, fixed-tertile behavior,
 OHLCV-style overlap, and asset/fold/causal-regime stability with exact daily
-artifacts. Its baseline is intentionally fast and the fixture is a Harness
-benchmark—not a market alpha claim.
+artifacts. A candidate may also explicitly declare causal components. The
+Judge then reports component raw/residual IC, final-factor association,
+pairwise redundancy, and leave-one-out impact on one fixed equal-rank
+diagnostic blend; it never guesses Python column use or treats that blend as
+the arbitrary final factor. Its baseline is intentionally fast and the fixture
+is a Harness benchmark—not a market alpha claim.
 
 The `ohlcv-portfolio-lab` starter keeps the same ordinary pandas candidate API
 but fixes the downstream research contract: causal percentile
@@ -257,6 +261,10 @@ The same frozen support diagnoses whether validation evidence fails at factor
 prediction, gross portfolio monetization, or trading friction, with cost
 break-even, delay, monthly breadth, best-day dependence, and underwater
 duration. Its next focus prioritizes research only.
+Factor Reports similarly freeze the verified candidate-declared component
+diagnosis when available, including its non-exhaustive declaration,
+fixed-blend-only ablation semantics, and lack of Portfolio/RL/trading
+authority.
 Project Dossiers inherit those exact Report bytes; neither artifact silently
 changes when a later Run appears.
 OpenAlice should publish the exact Markdown through its own Inbox so OpenAlice

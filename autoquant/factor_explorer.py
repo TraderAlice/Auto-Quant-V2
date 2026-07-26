@@ -25,6 +25,7 @@ DEFAULT_FACTOR_POINTS = 180
 MIN_FACTOR_POINTS = 40
 MAX_FACTOR_POINTS = 400
 MAX_ARTIFACT_BYTES = 32 * 1024 * 1024
+MAX_COMPONENT_ARTIFACT_BYTES = 8 * 1024 * 1024
 MAX_DAILY_ROWS = 100_000
 MAX_QUANTILE_ROWS = 300_000
 MAX_UNIVERSE = 256
@@ -54,11 +55,15 @@ BASE_ARTIFACT_KINDS = {
     "factor-quantiles",
 }
 QUALIFICATION_ARTIFACT_KIND = "factor-qualification"
+COMPONENT_ARTIFACT_KIND = "factor-components"
 EXPECTED_ARTIFACT_KINDS = {
     *BASE_ARTIFACT_KINDS,
     QUALIFICATION_ARTIFACT_KIND,
+    COMPONENT_ARTIFACT_KIND,
 }
 QUALIFICATION_METHOD = "train-selected-one-style-rank-neutralization-v1"
+COMPONENT_METHOD = "candidate-declared-components-v1"
+MAX_COMPONENTS = 12
 QUALIFICATION_MIN_POSITIVE_HAC_T = 1.96
 QUALIFICATION_SIGNALS = (
     "candidate",
@@ -239,6 +244,16 @@ def _artifact_paths(
                 "factor.artifact-size",
                 f"Factor artifact exceeds {MAX_ARTIFACT_BYTES} bytes",
             )
+        if (
+            kind == COMPONENT_ARTIFACT_KIND
+            and path.stat().st_size > MAX_COMPONENT_ARTIFACT_BYTES
+        ):
+            _fail(
+                path,
+                "factor.component-artifact-size",
+                "Factor component artifact exceeds "
+                f"{MAX_COMPONENT_ARTIFACT_BYTES} bytes",
+            )
         content_hash = run.manifest["files"].get(relative)
         if not isinstance(content_hash, str):
             _fail(
@@ -265,6 +280,16 @@ def _artifact_paths(
             run.root_dir,
             "factor.qualification-artifact",
             "Factor qualification metrics and artifact must appear together",
+        )
+    component_metrics = run.result.get("metrics", {}).get(
+        "factor_components"
+    )
+    has_component_artifact = COMPONENT_ARTIFACT_KIND in paths
+    if (component_metrics is not None) != has_component_artifact:
+        _fail(
+            run.root_dir,
+            "factor.component-artifact",
+            "Factor component metrics and artifact must appear together",
         )
     return paths, identities
 
@@ -1300,6 +1325,875 @@ def _factor_qualification_projection(
     }
 
 
+def _association_summary(value: Any, path: str) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        _fail(
+            path,
+            "factor.component-association",
+            "Component association summary must be an object",
+        )
+    return {
+        "meanRankAssociation": (
+            _bounded(
+                value.get("mean_rank_correlation"),
+                f"{path}/mean_rank_correlation",
+                minimum=-1.0,
+                maximum=1.0,
+            )
+            if value.get("mean_rank_correlation") is not None
+            else None
+        ),
+        "meanAbsoluteRankAssociation": (
+            _bounded(
+                value.get("mean_absolute_rank_correlation"),
+                f"{path}/mean_absolute_rank_correlation",
+                minimum=0.0,
+                maximum=1.0,
+            )
+            if value.get("mean_absolute_rank_correlation") is not None
+            else None
+        ),
+        "observations": _integer(
+            value.get("observations"),
+            f"{path}/observations",
+        ),
+    }
+
+
+def _component_horizon_quality(value: Any, path: str) -> list[dict[str, Any]]:
+    if (
+        not isinstance(value, dict)
+        or set(value) != {str(item) for item in HORIZONS}
+    ):
+        _fail(
+            path,
+            "factor.component-horizons",
+            "Component quality must use fixed 1/5/10-bar horizons",
+        )
+    return [
+        {
+            "horizon": horizon,
+            **{
+                split: {
+                    "role": SPLIT_ROLES[split],
+                    **_rank_summary(
+                        value[str(horizon)].get(split),
+                        f"{path}/{horizon}/{split}",
+                    ),
+                }
+                for split in SPLITS
+            },
+        }
+        for horizon in HORIZONS
+    ]
+
+
+def _quality_split(
+    profile: list[dict[str, Any]],
+    split: str,
+    horizon: int = 1,
+) -> dict[str, Any]:
+    return next(
+        row[split] for row in profile if row["horizon"] == horizon
+    )
+
+
+def _factor_components_projection(
+    evidence: Any,
+    universe: list[str],
+) -> dict[str, Any]:
+    base = {
+        "method": COMPONENT_METHOD,
+        "authority": "research-prioritization-only",
+        "tradingAuthority": "none",
+    }
+    if evidence is None:
+        return {
+            **base,
+            "available": False,
+            "reason": "legacy-run-without-factor-components",
+        }
+    if not isinstance(evidence, dict) or set(evidence) != {
+        "method",
+        "declaration",
+        "semantics",
+        "trial_disclosure",
+        "components",
+        "pairwise",
+        "fixed_blend",
+        "validation_diagnosis",
+    }:
+        _fail(
+            "factor_components",
+            "factor.components-schema",
+            "Factor component evidence has an invalid top-level contract",
+        )
+    if evidence.get("method") != COMPONENT_METHOD:
+        _fail(
+            "factor_components/method",
+            "factor.components-method",
+            f"Expected component method {COMPONENT_METHOD}",
+        )
+    declaration = evidence.get("declaration")
+    if (
+        not isinstance(declaration, dict)
+        or set(declaration)
+        != {
+            "exhaustive_composition_claim",
+            "source_inference",
+            "components",
+        }
+        or declaration.get("exhaustive_composition_claim") is not False
+        or declaration.get("source_inference") is not False
+    ):
+        _fail(
+            "factor_components/declaration",
+            "factor.components-declaration",
+            "Component declaration must deny exhaustive composition and "
+            "source inference",
+        )
+    declared = declaration.get("components")
+    if (
+        not isinstance(declared, list)
+        or not 1 <= len(declared) <= MAX_COMPONENTS
+    ):
+        _fail(
+            "factor_components/declaration/components",
+            "factor.components-count",
+            f"Expected 1..{MAX_COMPONENTS} materialized components",
+        )
+    declared_by_id: dict[str, dict[str, Any]] = {}
+    for index, item in enumerate(declared):
+        path = f"factor_components/declaration/components/{index}"
+        if not isinstance(item, dict) or set(item) != {
+            "id",
+            "label",
+            "intervals",
+            "hypothesis",
+        }:
+            _fail(
+                path,
+                "factor.component-declaration",
+                "Component declaration fields are invalid",
+            )
+        component_id = item.get("id")
+        intervals = item.get("intervals")
+        if (
+            not isinstance(component_id, str)
+            or not component_id
+            or component_id in declared_by_id
+            or not isinstance(item.get("label"), str)
+            or not item["label"]
+            or not isinstance(item.get("hypothesis"), str)
+            or not item["hypothesis"]
+            or not isinstance(intervals, list)
+            or not intervals
+            or not all(isinstance(value, str) and value for value in intervals)
+        ):
+            _fail(
+                path,
+                "factor.component-declaration",
+                "Component declaration identity or metadata is invalid",
+            )
+        declared_by_id[component_id] = item
+
+    semantics = evidence.get("semantics")
+    expected_semantics = {
+        "prediction_target": "fixed-purged-forward-base-bar-return",
+        "nearest_peer_selection": "train-only-target-free",
+        "residualization": (
+            "same-timestamp-cross-sectional-centered-rank-ols"
+        ),
+        "diagnostic_blend": (
+            "equal-weight-cross-sectional-percentile-ranks-with-"
+            "common-component-availability"
+        ),
+        "ablation_target": "fixed-diagnostic-blend-not-candidate-factor",
+        "selection_authority": "research-prioritization-only",
+        "test_role": "visible-audit",
+        "promotion_authority": "none",
+        "portfolio_authority": "none",
+        "rl_action_authority": "none",
+        "trading_authority": "none",
+    }
+    if semantics != expected_semantics:
+        _fail(
+            "factor_components/semantics",
+            "factor.components-semantics",
+            "Factor component authority or timing semantics are invalid",
+        )
+
+    raw_components = evidence.get("components")
+    if (
+        not isinstance(raw_components, list)
+        or len(raw_components) != len(declared_by_id)
+    ):
+        _fail(
+            "factor_components/components",
+            "factor.components-count",
+            "Component evidence must match the declaration",
+        )
+    projected_components: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for index, raw in enumerate(raw_components):
+        path = f"factor_components/components/{index}"
+        if not isinstance(raw, dict) or set(raw) != {
+            "id",
+            "label",
+            "intervals",
+            "hypothesis",
+            "coverage_by_asset",
+            "mean_coverage",
+            "raw_horizon_quality",
+            "composite_association",
+            "nearest_peer",
+            "nearest_peer_residual",
+            "fixed_blend_ablation",
+            "validation_priority_inputs",
+        }:
+            _fail(
+                path,
+                "factor.component-schema",
+                "Component evidence fields are invalid",
+            )
+        component_id = raw.get("id")
+        if (
+            component_id not in declared_by_id
+            or component_id in seen
+            or {
+                key: raw.get(key)
+                for key in ("id", "label", "intervals", "hypothesis")
+            }
+            != declared_by_id.get(component_id)
+        ):
+            _fail(
+                path,
+                "factor.component-identity",
+                "Component evidence differs from its declaration",
+            )
+        seen.add(component_id)
+        coverage = raw.get("coverage_by_asset")
+        if not isinstance(coverage, dict) or set(coverage) != set(universe):
+            _fail(
+                f"{path}/coverage_by_asset",
+                "factor.component-coverage",
+                "Component coverage must match the Run universe",
+            )
+        coverage_rows = [
+            {
+                "asset": asset,
+                "coverage": _bounded(
+                    coverage[asset],
+                    f"{path}/coverage_by_asset/{asset}",
+                    minimum=0.0,
+                    maximum=1.0,
+                ),
+            }
+            for asset in universe
+        ]
+        mean_coverage = _bounded(
+            raw.get("mean_coverage"),
+            f"{path}/mean_coverage",
+            minimum=0.0,
+            maximum=1.0,
+        )
+        _close(
+            sum(item["coverage"] for item in coverage_rows)
+            / len(coverage_rows),
+            mean_coverage,
+            f"{path}/mean_coverage",
+            "mean component coverage",
+        )
+        raw_profile = _component_horizon_quality(
+            raw.get("raw_horizon_quality"),
+            f"{path}/raw_horizon_quality",
+        )
+        associations = raw.get("composite_association")
+        if not isinstance(associations, dict) or set(associations) != set(
+            SPLITS
+        ):
+            _fail(
+                f"{path}/composite_association",
+                "factor.component-association",
+                "Final-factor association must cover every split",
+            )
+        projected_association = {
+            split: {
+                "role": SPLIT_ROLES[split],
+                **_association_summary(
+                    associations[split],
+                    f"{path}/composite_association/{split}",
+                ),
+            }
+            for split in SPLITS
+        }
+        nearest = raw.get("nearest_peer")
+        if not isinstance(nearest, dict) or set(nearest) != {
+            "id",
+            "train_mean_absolute_rank_association",
+        }:
+            _fail(
+                f"{path}/nearest_peer",
+                "factor.component-peer",
+                "Nearest-peer evidence is invalid",
+            )
+        peer = nearest.get("id")
+        if peer is not None and (
+            peer not in declared_by_id or peer == component_id
+        ):
+            _fail(
+                f"{path}/nearest_peer/id",
+                "factor.component-peer",
+                "Nearest peer must be another declared component",
+            )
+        peer_association = (
+            _bounded(
+                nearest.get("train_mean_absolute_rank_association"),
+                f"{path}/nearest_peer/train_mean_absolute_rank_association",
+                minimum=0.0,
+                maximum=1.0,
+            )
+            if nearest.get("train_mean_absolute_rank_association")
+            is not None
+            else None
+        )
+        residual = raw.get("nearest_peer_residual")
+        if not isinstance(residual, dict) or set(residual) != {
+            "peer",
+            "selection",
+            "horizon_quality",
+        } or residual.get("peer") != peer:
+            _fail(
+                f"{path}/nearest_peer_residual",
+                "factor.component-residual",
+                "Nearest-peer residual evidence is invalid",
+            )
+        residual_profile = (
+            _component_horizon_quality(
+                residual.get("horizon_quality"),
+                f"{path}/nearest_peer_residual/horizon_quality",
+            )
+            if peer is not None
+            else None
+        )
+        ablation = raw.get("fixed_blend_ablation")
+        if not isinstance(ablation, dict) or set(ablation) != {
+            "available",
+            "reason",
+            "horizon_quality",
+            "removal_delta_mean_ic",
+        }:
+            _fail(
+                f"{path}/fixed_blend_ablation",
+                "factor.component-ablation",
+                "Fixed-blend ablation evidence is invalid",
+            )
+        ablation_profile = (
+            _component_horizon_quality(
+                ablation.get("horizon_quality"),
+                f"{path}/fixed_blend_ablation/horizon_quality",
+            )
+            if ablation.get("available") is True
+            else None
+        )
+        priority = raw.get("validation_priority_inputs")
+        if not isinstance(priority, dict) or set(priority) != {
+            "raw_mean_ic",
+            "nearest_peer_residual_mean_ic",
+            "removal_delta_mean_ic",
+        }:
+            _fail(
+                f"{path}/validation_priority_inputs",
+                "factor.component-priority",
+                "Validation component priority inputs are invalid",
+            )
+        raw_validation = _quality_split(raw_profile, "validation")[
+            "meanRankIc"
+        ]
+        _close(
+            raw_validation,
+            priority["raw_mean_ic"],
+            f"{path}/validation_priority_inputs/raw_mean_ic",
+            "validation raw component IC",
+        )
+        residual_validation = (
+            _quality_split(residual_profile, "validation")["meanRankIc"]
+            if residual_profile is not None
+            else None
+        )
+        _close(
+            residual_validation,
+            priority["nearest_peer_residual_mean_ic"],
+            f"{path}/validation_priority_inputs/"
+            "nearest_peer_residual_mean_ic",
+            "validation nearest-peer residual IC",
+        )
+        removal_deltas = ablation.get("removal_delta_mean_ic")
+        if ablation.get("available") is True and (
+            not isinstance(removal_deltas, dict)
+            or set(removal_deltas) != set(SPLITS)
+        ):
+            _fail(
+                f"{path}/fixed_blend_ablation/removal_delta_mean_ic",
+                "factor.component-ablation",
+                "Available ablation must disclose every split delta",
+            )
+        if ablation.get("available") is not True and (
+            ablation_profile is not None or removal_deltas is not None
+        ):
+            _fail(
+                f"{path}/fixed_blend_ablation",
+                "factor.component-ablation",
+                "Unavailable ablation cannot contain invented evidence",
+            )
+        projected_components.append(
+            {
+                **declared_by_id[component_id],
+                "meanCoverage": mean_coverage,
+                "coverageByAsset": coverage_rows,
+                "rawHorizonProfile": raw_profile,
+                "compositeAssociation": projected_association,
+                "nearestPeer": {
+                    "id": peer,
+                    "trainMeanAbsoluteRankAssociation": peer_association,
+                    "selection": residual.get("selection"),
+                },
+                "nearestPeerResidualHorizonProfile": residual_profile,
+                "fixedBlendAblation": {
+                    "available": ablation.get("available") is True,
+                    "reason": ablation.get("reason"),
+                    "horizonProfile": ablation_profile,
+                    "removalDeltaMeanIc": (
+                        {
+                            split: _optional_finite(
+                                ablation["removal_delta_mean_ic"][split],
+                                f"{path}/fixed_blend_ablation/"
+                                f"removal_delta_mean_ic/{split}",
+                            )
+                            for split in SPLITS
+                        }
+                        if ablation.get("available") is True
+                        and isinstance(
+                            ablation.get("removal_delta_mean_ic"), dict
+                        )
+                        else None
+                    ),
+                },
+                "validation": {
+                    "raw": _quality_split(raw_profile, "validation"),
+                    "compositeAssociation": projected_association[
+                        "validation"
+                    ],
+                    "nearestPeerResidual": (
+                        _quality_split(residual_profile, "validation")
+                        if residual_profile is not None
+                        else None
+                    ),
+                    "fixedBlendRemovalDeltaMeanIc": (
+                        _finite(
+                            priority[
+                                "removal_delta_mean_ic"
+                            ],
+                            f"{path}/validation_priority_inputs/"
+                            "removal_delta_mean_ic",
+                        )
+                        if priority[
+                            "removal_delta_mean_ic"
+                        ]
+                        is not None
+                        else None
+                    ),
+                },
+                "testAudit": {
+                    "role": "visible-audit",
+                    "raw": _quality_split(raw_profile, "test"),
+                    "compositeAssociation": projected_association["test"],
+                    "nearestPeerResidual": (
+                        _quality_split(residual_profile, "test")
+                        if residual_profile is not None
+                        else None
+                    ),
+                    "fixedBlendRemovalDeltaMeanIc": (
+                        _finite(
+                            ablation["removal_delta_mean_ic"]["test"],
+                            f"{path}/fixed_blend_ablation/"
+                            "removal_delta_mean_ic/test",
+                        )
+                        if ablation.get("available") is True
+                        else None
+                    ),
+                },
+            }
+        )
+    if seen != set(declared_by_id):
+        _fail(
+            "factor_components/components",
+            "factor.component-identity",
+            "Component evidence does not cover every declaration",
+        )
+
+    pairwise = evidence.get("pairwise")
+    expected_pairs = len(declared_by_id) * (len(declared_by_id) - 1) // 2
+    if not isinstance(pairwise, list) or len(pairwise) != expected_pairs:
+        _fail(
+            "factor_components/pairwise",
+            "factor.component-pairs",
+            "Pairwise evidence count does not reconcile components",
+        )
+    projected_pairs: list[dict[str, Any]] = []
+    pair_ids: set[frozenset[str]] = set()
+    for index, pair in enumerate(pairwise):
+        path = f"factor_components/pairwise/{index}"
+        if not isinstance(pair, dict) or set(pair) != {
+            "left",
+            "right",
+            "splits",
+        }:
+            _fail(
+                path,
+                "factor.component-pair",
+                "Pairwise component evidence is invalid",
+            )
+        left, right = pair.get("left"), pair.get("right")
+        identity = frozenset((left, right))
+        if (
+            left not in declared_by_id
+            or right not in declared_by_id
+            or left == right
+            or identity in pair_ids
+        ):
+            _fail(
+                path,
+                "factor.component-pair",
+                "Pairwise identity must be unique declared components",
+            )
+        pair_ids.add(identity)
+        splits = pair.get("splits")
+        if not isinstance(splits, dict) or set(splits) != set(SPLITS):
+            _fail(
+                f"{path}/splits",
+                "factor.component-pair",
+                "Pairwise evidence must cover every split",
+            )
+        projected_pairs.append(
+            {
+                "left": left,
+                "right": right,
+                **{
+                    split: {
+                        "role": SPLIT_ROLES[split],
+                        **_association_summary(
+                            splits[split],
+                            f"{path}/splits/{split}",
+                        ),
+                    }
+                    for split in SPLITS
+                },
+            }
+        )
+
+    fixed_blend = evidence.get("fixed_blend")
+    if not isinstance(fixed_blend, dict) or set(fixed_blend) != {
+        "horizon_quality"
+    }:
+        _fail(
+            "factor_components/fixed_blend",
+            "factor.component-blend",
+            "Fixed component blend evidence is invalid",
+        )
+    blend_profile = _component_horizon_quality(
+        fixed_blend["horizon_quality"],
+        "factor_components/fixed_blend/horizon_quality",
+    )
+    for row in projected_components:
+        ablation = row["fixedBlendAblation"]
+        if not ablation["available"]:
+            continue
+        for split in SPLITS:
+            leave_mean = _quality_split(
+                ablation["horizonProfile"],
+                split,
+            )["meanRankIc"]
+            full_mean = _quality_split(blend_profile, split)["meanRankIc"]
+            expected_delta = (
+                leave_mean - full_mean
+                if leave_mean is not None and full_mean is not None
+                else None
+            )
+            _close(
+                ablation["removalDeltaMeanIc"][split],
+                expected_delta,
+                f"factor_components/{row['id']}/ablation/{split}",
+                "fixed-blend removal delta",
+            )
+
+    disclosure = evidence.get("trial_disclosure")
+    if disclosure != {
+        "materialized_components": len(declared_by_id),
+        "pairwise_comparisons": expected_pairs,
+        "component_diagnostics_enter_promotion_score": False,
+    }:
+        _fail(
+            "factor_components/trial_disclosure",
+            "factor.component-trials",
+            "Component trial disclosure does not reconcile",
+        )
+    diagnosis = evidence.get("validation_diagnosis")
+    if not isinstance(diagnosis, dict) or set(diagnosis) != {
+        "strongest_raw_component",
+        "strongest_raw_mean_ic",
+        "strongest_residual_component",
+        "strongest_residual_mean_ic",
+        "removal_most_improves_fixed_blend",
+        "best_removal_delta_mean_ic",
+        "most_redundant_pair",
+        "authority",
+        "test_enters_diagnosis",
+    } or diagnosis.get("authority") != "research-prioritization-only" or (
+        diagnosis.get("test_enters_diagnosis") is not False
+    ):
+        _fail(
+            "factor_components/validation_diagnosis",
+            "factor.component-diagnosis",
+            "Validation component diagnosis is invalid",
+        )
+    raw_rows = [
+        row
+        for row in projected_components
+        if row["validation"]["raw"]["meanRankIc"] is not None
+    ]
+    strongest_raw = (
+        max(
+            raw_rows,
+            key=lambda row: (
+                float(row["validation"]["raw"]["meanRankIc"]),
+                row["id"],
+            ),
+        )
+        if raw_rows
+        else None
+    )
+    expected_raw_id = strongest_raw["id"] if strongest_raw is not None else None
+    expected_raw_ic = (
+        strongest_raw["validation"]["raw"]["meanRankIc"]
+        if strongest_raw is not None
+        else None
+    )
+    if diagnosis["strongest_raw_component"] != expected_raw_id:
+        _fail(
+            "factor_components/validation_diagnosis/"
+            "strongest_raw_component",
+            "factor.component-diagnosis",
+            "Strongest raw component does not reconcile validation evidence",
+        )
+    _close(
+        expected_raw_ic,
+        diagnosis["strongest_raw_mean_ic"],
+        "factor_components/validation_diagnosis/strongest_raw_mean_ic",
+        "strongest raw component IC",
+    )
+    residual_rows = [
+        row
+        for row in projected_components
+        if row["validation"]["nearestPeerResidual"] is not None
+    ]
+    strongest_residual = (
+        max(
+            residual_rows,
+            key=lambda row: (
+                float(
+                    row["validation"]["nearestPeerResidual"][
+                        "meanRankIc"
+                    ]
+                ),
+                row["id"],
+            ),
+        )
+        if residual_rows
+        else None
+    )
+    expected_residual_id = (
+        strongest_residual["id"] if strongest_residual is not None else None
+    )
+    expected_residual_ic = (
+        strongest_residual["validation"]["nearestPeerResidual"][
+            "meanRankIc"
+        ]
+        if strongest_residual is not None
+        else None
+    )
+    if diagnosis["strongest_residual_component"] != expected_residual_id:
+        _fail(
+            "factor_components/validation_diagnosis/"
+            "strongest_residual_component",
+            "factor.component-diagnosis",
+            "Strongest residual component does not reconcile",
+        )
+    _close(
+        expected_residual_ic,
+        diagnosis["strongest_residual_mean_ic"],
+        "factor_components/validation_diagnosis/"
+        "strongest_residual_mean_ic",
+        "strongest residual component IC",
+    )
+    removal_rows = [
+        row
+        for row in projected_components
+        if row["validation"]["fixedBlendRemovalDeltaMeanIc"] is not None
+    ]
+    best_removal = (
+        max(
+            removal_rows,
+            key=lambda row: (
+                float(
+                    row["validation"]["fixedBlendRemovalDeltaMeanIc"]
+                ),
+                row["id"],
+            ),
+        )
+        if removal_rows
+        else None
+    )
+    expected_removal_id = (
+        best_removal["id"] if best_removal is not None else None
+    )
+    expected_removal_delta = (
+        best_removal["validation"]["fixedBlendRemovalDeltaMeanIc"]
+        if best_removal is not None
+        else None
+    )
+    if diagnosis["removal_most_improves_fixed_blend"] != expected_removal_id:
+        _fail(
+            "factor_components/validation_diagnosis/"
+            "removal_most_improves_fixed_blend",
+            "factor.component-diagnosis",
+            "Best fixed-blend removal does not reconcile",
+        )
+    _close(
+        expected_removal_delta,
+        diagnosis["best_removal_delta_mean_ic"],
+        "factor_components/validation_diagnosis/"
+        "best_removal_delta_mean_ic",
+        "best fixed-blend removal delta",
+    )
+    finite_pair_rows = [
+        row
+        for row in projected_pairs
+        if row["train"]["meanAbsoluteRankAssociation"] is not None
+    ]
+    redundant_pair = (
+        max(
+            finite_pair_rows,
+            key=lambda row: (
+                float(
+                    row["train"]["meanAbsoluteRankAssociation"] or -1.0
+                ),
+                row["left"],
+                row["right"],
+            ),
+        )
+        if finite_pair_rows
+        else None
+    )
+    raw_redundant = diagnosis["most_redundant_pair"]
+    expected_redundant = (
+        {
+            "left": redundant_pair["left"],
+            "right": redundant_pair["right"],
+            "train_mean_absolute_rank_association": redundant_pair[
+                "train"
+            ]["meanAbsoluteRankAssociation"],
+        }
+        if redundant_pair is not None
+        else None
+    )
+    if raw_redundant != expected_redundant:
+        _fail(
+            "factor_components/validation_diagnosis/most_redundant_pair",
+            "factor.component-diagnosis",
+            "Most redundant pair does not reconcile train evidence",
+        )
+    return {
+        **base,
+        "available": True,
+        "reason": None,
+        "declaration": {
+            "sourceInference": False,
+            "exhaustiveCompositionClaim": False,
+            "components": declared,
+        },
+        "semantics": {
+            "predictionTarget": semantics["prediction_target"],
+            "nearestPeerSelection": semantics["nearest_peer_selection"],
+            "residualization": semantics["residualization"],
+            "diagnosticBlend": semantics["diagnostic_blend"],
+            "ablationTarget": semantics["ablation_target"],
+            "testRole": semantics["test_role"],
+            "promotionAuthority": semantics["promotion_authority"],
+            "portfolioAuthority": semantics["portfolio_authority"],
+            "rlActionAuthority": semantics["rl_action_authority"],
+        },
+        "trialDisclosure": {
+            "materializedComponents": len(declared_by_id),
+            "pairwiseComparisons": expected_pairs,
+            "entersPromotionScore": False,
+        },
+        "validationDiagnosis": {
+            "strongestRawComponent": diagnosis[
+                "strongest_raw_component"
+            ],
+            "strongestRawMeanIc": (
+                _finite(
+                    diagnosis["strongest_raw_mean_ic"],
+                    "factor_components/diagnosis/strongest_raw_mean_ic",
+                )
+                if diagnosis["strongest_raw_mean_ic"] is not None
+                else None
+            ),
+            "strongestResidualComponent": diagnosis[
+                "strongest_residual_component"
+            ],
+            "strongestResidualMeanIc": (
+                _finite(
+                    diagnosis["strongest_residual_mean_ic"],
+                    "factor_components/diagnosis/"
+                    "strongest_residual_mean_ic",
+                )
+                if diagnosis["strongest_residual_mean_ic"] is not None
+                else None
+            ),
+            "removalMostImprovesFixedBlend": diagnosis[
+                "removal_most_improves_fixed_blend"
+            ],
+            "bestRemovalDeltaMeanIc": (
+                _finite(
+                    diagnosis["best_removal_delta_mean_ic"],
+                    "factor_components/diagnosis/"
+                    "best_removal_delta_mean_ic",
+                )
+                if diagnosis["best_removal_delta_mean_ic"] is not None
+                else None
+            ),
+            "mostRedundantPair": (
+                {
+                    "left": raw_redundant["left"],
+                    "right": raw_redundant["right"],
+                    "trainMeanAbsoluteRankAssociation": raw_redundant[
+                        "train_mean_absolute_rank_association"
+                    ],
+                }
+                if raw_redundant is not None
+                else None
+            ),
+            "authority": diagnosis["authority"],
+            "testEntersDiagnosis": False,
+        },
+        "components": projected_components,
+        "pairwise": projected_pairs,
+        "fixedBlendHorizonProfile": blend_profile,
+    }
+
+
 def _summary(metrics: dict[str, Any]) -> dict[str, Any]:
     validation = _ic_summary(metrics.get("validation"), "metrics/validation")
     test = _ic_summary(metrics.get("test"), "metrics/test")
@@ -1776,6 +2670,35 @@ def load_factor_diagnostics(
         if QUALIFICATION_ARTIFACT_KIND in paths
         else None
     )
+    component_evidence = None
+    if COMPONENT_ARTIFACT_KIND in paths:
+        try:
+            component_artifact = json.loads(
+                paths[COMPONENT_ARTIFACT_KIND].read_text(encoding="utf-8")
+            )
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            _fail(
+                paths[COMPONENT_ARTIFACT_KIND],
+                "factor.component-json",
+                "Factor component artifact must be one UTF-8 JSON object",
+            )
+        if (
+            not isinstance(component_artifact, dict)
+            or set(component_artifact)
+            != {"schemaVersion", "inputHash", "evidence"}
+            or component_artifact.get("schemaVersion") != SCHEMA_VERSION
+            or component_artifact.get("inputHash")
+            != run.result["inputHash"]
+            or component_artifact.get("evidence")
+            != metrics.get("factor_components")
+        ):
+            _fail(
+                paths[COMPONENT_ARTIFACT_KIND],
+                "factor.component-reconciliation",
+                "Factor component artifact does not reconcile immutable Run "
+                "identity and metrics",
+            )
+        component_evidence = component_artifact["evidence"]
     ic_path, quantile_path = _paths(daily, quantiles, point_limit)
     semantics = report.get("semantics")
     declared_styles = (
@@ -1809,6 +2732,29 @@ def load_factor_diagnostics(
             paths["factor-report"],
             "factor.qualification-semantics",
             "Factor report qualification semantics are invalid",
+        )
+    component_semantics = semantics.get("components")
+    if component_evidence is not None and component_semantics != {
+        "method": COMPONENT_METHOD,
+        "declaration": "candidate-explicit-not-source-inferred",
+        "exhaustiveCompositionClaim": False,
+        "nearestPeerSelection": "train-only-target-free",
+        "ablationTarget": "fixed-diagnostic-blend-not-candidate-factor",
+        "testRole": "visible audit only",
+        "portfolioAuthority": "none",
+        "rlActionAuthority": "none",
+        "tradingAuthority": "none",
+    }:
+        _fail(
+            paths["factor-report"],
+            "factor.component-semantics",
+            "Factor report component semantics are invalid",
+        )
+    if component_evidence is None and component_semantics is not None:
+        _fail(
+            paths["factor-report"],
+            "factor.component-semantics",
+            "Legacy Factor report cannot declare unavailable component evidence",
         )
     return {
         "schemaVersion": SCHEMA_VERSION,
@@ -1845,6 +2791,10 @@ def load_factor_diagnostics(
         "summary": _summary(metrics),
         "factorQualification": _factor_qualification_projection(
             qualification_parsed
+        ),
+        "factorComponents": _factor_components_projection(
+            component_evidence,
+            universe,
         ),
         "horizonProfile": _horizon_profile(metrics),
         "quantileSummary": _quantile_summary(metrics),
@@ -2038,6 +2988,77 @@ _FACTOR_QUALIFICATION_SCHEMA: dict[str, Any] = {
 }
 
 
+_FACTOR_COMPONENTS_SCHEMA: dict[str, Any] = {
+    "oneOf": [
+        {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "method",
+                "authority",
+                "tradingAuthority",
+                "available",
+                "reason",
+            ],
+            "properties": {
+                "method": {"const": COMPONENT_METHOD},
+                "authority": {"const": "research-prioritization-only"},
+                "tradingAuthority": {"const": "none"},
+                "available": {"const": False},
+                "reason": {
+                    "const": "legacy-run-without-factor-components"
+                },
+            },
+        },
+        {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "method",
+                "authority",
+                "tradingAuthority",
+                "available",
+                "reason",
+                "declaration",
+                "semantics",
+                "trialDisclosure",
+                "validationDiagnosis",
+                "components",
+                "pairwise",
+                "fixedBlendHorizonProfile",
+            ],
+            "properties": {
+                "method": {"const": COMPONENT_METHOD},
+                "authority": {"const": "research-prioritization-only"},
+                "tradingAuthority": {"const": "none"},
+                "available": {"const": True},
+                "reason": {"type": "null"},
+                "declaration": {"type": "object"},
+                "semantics": {"type": "object"},
+                "trialDisclosure": {"type": "object"},
+                "validationDiagnosis": {"type": "object"},
+                "components": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": MAX_COMPONENTS,
+                },
+                "pairwise": {
+                    "type": "array",
+                    "maxItems": (
+                        MAX_COMPONENTS * (MAX_COMPONENTS - 1) // 2
+                    ),
+                },
+                "fixedBlendHorizonProfile": {
+                    "type": "array",
+                    "minItems": len(HORIZONS),
+                    "maxItems": len(HORIZONS),
+                },
+            },
+        },
+    ]
+}
+
+
 FACTOR_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "title": "AutoQuant bounded Factor diagnostics",
@@ -2100,6 +3121,7 @@ FACTOR_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "protocol",
         "summary",
         "factorQualification",
+        "factorComponents",
         "horizonProfile",
         "quantileSummary",
         "stability",
@@ -2150,6 +3172,7 @@ FACTOR_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         },
         "summary": {"type": "object"},
         "factorQualification": _FACTOR_QUALIFICATION_SCHEMA,
+        "factorComponents": _FACTOR_COMPONENTS_SCHEMA,
         "horizonProfile": {
             "type": "array",
             "minItems": len(HORIZONS),

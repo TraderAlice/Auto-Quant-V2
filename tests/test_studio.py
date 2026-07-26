@@ -319,6 +319,7 @@ class StudioObservationTests(unittest.TestCase):
                         'id="factor-qualification"',
                         html,
                     )
+                    self.assertIn('id="factor-components"', html)
                     self.assertIn(
                         "Current mechanical decision",
                         html,
@@ -362,6 +363,12 @@ class StudioObservationTests(unittest.TestCase):
                         ".factor-qualification-diagnosis",
                         css,
                     )
+                    self.assertIn(".factor-component-diagnosis", css)
+                    self.assertIn(".factor-component-table", css)
+                    self.assertIn(
+                        "content: attr(data-label)",
+                        css,
+                    )
                     self.assertIn(".inspector-lane", css)
                     self.assertIn(".inspector-collapsed", css)
                     self.assertIn(".rl-opportunity-panel", css)
@@ -388,6 +395,11 @@ class StudioObservationTests(unittest.TestCase):
                     self.assertIn("renderDeskContext", javascript)
                     self.assertIn("updateDeskNavActive", javascript)
                     self.assertIn("validationBaselineAdvantage", javascript)
+                    self.assertIn("renderFactorComponents", javascript)
+                    self.assertIn(
+                        'data-label="Validation raw IC"',
+                        javascript,
+                    )
                     self.assertIn("data-evidence-lane", javascript)
                     self.assertIn("mandateMarkup", javascript)
                     self.assertIn(

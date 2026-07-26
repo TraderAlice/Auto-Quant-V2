@@ -203,13 +203,20 @@ families, calculate corrections, or turn a diagnostic pass into a trading
 verdict. Governed RL explains why its dependent fold/seed aggregate has no
 valid single-path DSR.
 
-The Factor Evidence Explorer verifies and reconciles all three immutable
+The Factor Evidence Explorer verifies and reconciles the fixed immutable
 Factor artifacts before sampling a bounded timeline. Humans may switch between
 rank/Pearson IC and fixed-tertile paths, 1/5/10-bar horizons, validation and
 test audit, and fold/regime/asset/style stability. Those controls format the
 Core object; JavaScript never parses CSV, re-bins assets, selects a horizon, or
 turns diagnostic evidence into an acceptance gate. The exact headless
 `aq run factor` command is copyable from the disclosure footer.
+
+Declaring Runs also show a component panel sourced from the verified Core
+projection: validation raw IC, closest train peer and residual IC, fixed-blend
+removal delta, test audit, and strongest/redundant summaries. The panel labels
+metadata as candidate-declared and says that leave-one-out applies only to the
+fixed equal-rank diagnostic blend. It cannot infer pandas column use, alter the
+final-factor score, create RL actions, or authorize a position.
 
 The RL Policy Evidence Explorer verifies and reconciles the governed RL
 artifacts before showing a claim. It leads with validation value-add versus the

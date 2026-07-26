@@ -4,6 +4,7 @@ Status: V1 implemented.
 
 Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]],
 [[docs/design/ohlcv-factor-lab]],
+[[docs/design/factor-component-attribution]],
 [[docs/design/factor-evidence-explorer]],
 [[docs/design/portfolio-construction-lab]],
 [[docs/design/rl-factor-policy-lab]],
@@ -19,6 +20,9 @@ regime, style proxy, statistic, artifact, and acceptance rule.
 
 The protocol is a research tear sheet, not a trading simulator. It describes
 predictive evidence before sizing and execution assumptions are applied.
+When the candidate explicitly declares components, the separate governed
+contract in [[docs/design/factor-component-attribution]] adds component
+diagnostics without changing this document's final-factor objective.
 
 ## Timing and purged splits
 
@@ -108,11 +112,15 @@ Every successful reference Run publishes:
 - `factor-qualification.csv`: timestamp, split, train-selected dominant style,
   and candidate/style/style-neutral/equal-blend daily rank IC for fixed
   1/5/10-bar horizons.
+- optional `factor-components.json`: bounded candidate-declared component
+  quality, final-factor association, pairwise redundancy, nearest-peer
+  residual, and fixed diagnostic-blend leave-one-out evidence.
 
 The Run metric object contains the complete machine-readable summary. The
 bounded Core projection in [[docs/design/factor-evidence-explorer]] verifies
-and reconciles the three artifacts before CLI and Studio expose their path and
-stability evidence. Research Reports retain the full verified Run as authority.
+and reconciles the fixed artifacts before CLI and Studio expose their path,
+stability, and optional component evidence. Research Reports retain the full
+verified Run as authority.
 
 The reference Study keeps a 60-second hard Judge timeout. Normal warm source
 runs are much faster; the allowance covers cold pandas/NumPy import and
@@ -131,6 +139,8 @@ an unbounded backtest.
 7. Sparse slices are disclosed, not silently omitted or pooled.
 8. Daily artifacts reconcile to aggregate metrics.
 9. Synthetic evidence is a Harness regression, not a market claim.
+10. Optional component diagnostics never enter the final-factor promotion
+    score or dynamically alter Portfolio/RL authority.
 
 ## Known limits
 

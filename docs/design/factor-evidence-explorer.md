@@ -4,6 +4,7 @@ Status: V1 implemented.
 
 Related: [[docs/ARCHITECTURE]], [[docs/CLI]], [[docs/STUDIO]],
 [[docs/design/factor-diagnostics]],
+[[docs/design/factor-component-attribution]],
 [[docs/design/factor-qualification-funnel]],
 [[docs/design/research-selection-integrity]],
 [[docs/design/session-decision-matrix]], and
@@ -115,15 +116,32 @@ edge, conventional HAC support, distinct residual edge, blend uplift, and
 residual chronological breadth. Test is a separate visible audit. Historical
 Runs project qualification as unavailable rather than inventing evidence.
 
+### Candidate-declared components
+
+New declaring Runs add `factor-components.json`. Core requires the artifact and
+`metrics.factor_components` to appear together, verifies immutable identity,
+requires exact metric reconciliation, then validates component count,
+declarations, coverage, fixed horizons/splits, pair identities, residual peer,
+fixed-blend ablation deltas, diagnosis, and authority.
+
+The bounded projection shows validation raw IC, association with the final
+factor, train-selected nearest-peer redundancy, residual IC, fixed equal-rank
+blend removal delta, and visible-test audit for each component. Historical
+Runs project `factorComponents.available=false`. The UI explicitly says the
+declaration is a candidate claim and the ablation target is not the arbitrary
+final factor.
+
 ## HCI
 
-The Factor Explorer answers four questions in one reading order:
+The Factor Explorer answers five questions in one reading order:
 
 1. Is validation evidence economically and statistically non-trivial?
 2. Does it persist through time and across the fixed forward horizons?
 3. Is the high-minus-low behavior monotonic rather than one lucky aggregate?
 4. Is the signal stable across assets/regimes/folds and distinct from fixed
    OHLCV styles?
+5. Which explicitly declared source components add validation information,
+   duplicate a peer, or degrade the fixed diagnostic blend?
 
 Studio uses a compact summary followed by:
 
@@ -143,6 +161,7 @@ read-only and copy-only for CLI commands.
 - universe: 256 assets;
 - response points: 40–400;
 - fixed horizons: 1, 5, and 10 bars.
+- component artifact: 8 MiB; materialized components: 1–12.
 
 Full artifacts are reconciled before these response bounds apply.
 
@@ -160,6 +179,8 @@ Full artifacts are reconciled before these response bounds apply.
 8. The projection has no Project mutation, Broker, order, or account authority.
 9. Qualification style selection uses train overlap only; validation/test
    cannot change it or authorize Factor promotion or RL admission.
+10. Component declarations are explicit, never source-inferred; their
+    diagnostics do not change final-factor selection or downstream authority.
 
 ## Change checklist
 

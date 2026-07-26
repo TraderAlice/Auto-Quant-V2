@@ -1528,6 +1528,7 @@ def _run_factor(args: argparse.Namespace) -> CommandResult:
     summary = diagnostics["summary"]
     validation = summary["validation"]
     qualification = diagnostics["factorQualification"]
+    components = diagnostics["factorComponents"]
     qualification_line = ""
     if qualification["available"]:
         qualified = qualification["validation"]
@@ -1546,6 +1547,23 @@ def _run_factor(args: argparse.Namespace) -> CommandResult:
             f"{incremental['blendUpliftVsStyle']} · "
             "research prioritization only\n"
         )
+    component_line = ""
+    if components["available"]:
+        diagnosis = components["validationDiagnosis"]
+        component_line = (
+            "Declared components: "
+            f"{components['trialDisclosure']['materializedComponents']} · "
+            "strongest raw "
+            f"{diagnosis['strongestRawComponent']} "
+            f"({diagnosis['strongestRawMeanIc']}) · "
+            "strongest residual "
+            f"{diagnosis['strongestResidualComponent']} "
+            f"({diagnosis['strongestResidualMeanIc']}) · "
+            "best fixed-blend removal "
+            f"{diagnosis['removalMostImprovesFixedBlend']} "
+            f"({diagnosis['bestRemovalDeltaMeanIc']}) · "
+            "declared diagnostic evidence only\n"
+        )
     return CommandResult(
         "run.factor",
         diagnostics,
@@ -1559,6 +1577,7 @@ def _run_factor(args: argparse.Namespace) -> CommandResult:
             f"Mean coverage / rank turnover: {summary['meanCoverage']} / "
             f"{summary['meanRankTurnover']}\n"
             f"{qualification_line}"
+            f"{component_line}"
             "Test and longer-horizon evidence are diagnostic only.\n"
         ),
         project_context(project),

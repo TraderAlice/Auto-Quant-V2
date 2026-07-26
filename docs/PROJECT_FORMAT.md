@@ -384,6 +384,14 @@ runs/
 - objective and execution details;
 - nested metrics, immutable artifact references, and structured errors.
 
+Declaring Factor Runs add `metrics.factor_components` and
+`artifacts/factor-components.json`. Both appear together and describe only
+candidate-declared materialized components: fixed split/horizon IC,
+final-factor association, pairwise redundancy, train-selected nearest-peer
+residual IC, and leave-one-out impact on a fixed equal-rank diagnostic blend.
+Historical and non-declaring Runs omit both. The evidence has no
+final-factor-selection, Portfolio, RL-action, or trading authority.
+
 Portfolio and RL Run metrics include the complete normalized
 `portfolio_mandate`; their artifact ledgers record the mandate id and
 per-asset tradability. New Portfolio decision ledgers also record the

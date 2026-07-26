@@ -134,6 +134,28 @@ class FactorEvidenceExplorerTests(unittest.TestCase):
                 ),
                 2,
             )
+            components = diagnostics["factorComponents"]
+            self.assertTrue(components["available"])
+            self.assertEqual(
+                components["trialDisclosure"],
+                {
+                    "materializedComponents": 1,
+                    "pairwiseComparisons": 0,
+                    "entersPromotionScore": False,
+                },
+            )
+            self.assertEqual(
+                components["validationDiagnosis"][
+                    "strongestRawComponent"
+                ],
+                "base_momentum_10",
+            )
+            self.assertIsNone(
+                components["components"][0]["nearestPeer"]["id"]
+            )
+            self.assertFalse(
+                components["declaration"]["sourceInference"]
+            )
 
             sampled_dates = {
                 item["timestamp"] for item in diagnostics["icPath"]["points"]
@@ -211,6 +233,32 @@ class FactorEvidenceExplorerTests(unittest.TestCase):
                 original_qualification,
                 encoding="utf-8",
             )
+            component_path = (
+                run.root_dir / "artifacts" / "factor-components.json"
+            )
+            original_components = component_path.read_text(
+                encoding="utf-8"
+            )
+            tampered_components = json.loads(original_components)
+            tampered_components["evidence"]["components"][0][
+                "mean_coverage"
+            ] = 0.123
+            component_path.write_text(
+                json.dumps(tampered_components, indent=2, sort_keys=True)
+                + "\n",
+                encoding="utf-8",
+            )
+            rehash_run(run.root_dir)
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "does not reconcile immutable Run",
+            ):
+                load_factor_diagnostics(project, run.result["id"])
+
+            component_path.write_text(
+                original_components,
+                encoding="utf-8",
+            )
             result_path = run.root_dir / "result.json"
             report_path = run.root_dir / "artifacts" / "factor-report.json"
             legacy_result = json.loads(
@@ -220,13 +268,17 @@ class FactorEvidenceExplorerTests(unittest.TestCase):
                 report_path.read_text(encoding="utf-8")
             )
             legacy_result["metrics"].pop("factor_qualification")
+            legacy_result["metrics"].pop("factor_components")
             legacy_result["artifacts"] = [
                 item
                 for item in legacy_result["artifacts"]
-                if item["kind"] != "factor-qualification"
+                if item["kind"]
+                not in {"factor-qualification", "factor-components"}
             ]
             legacy_report["metrics"].pop("factor_qualification")
+            legacy_report["metrics"].pop("factor_components")
             legacy_report["semantics"].pop("qualification")
+            legacy_report["semantics"]["components"] = None
             result_path.write_text(
                 json.dumps(legacy_result, indent=2, sort_keys=True) + "\n",
                 encoding="utf-8",
@@ -236,9 +288,11 @@ class FactorEvidenceExplorerTests(unittest.TestCase):
                 encoding="utf-8",
             )
             qualification_path.unlink()
+            component_path.unlink()
             rehash_run(run.root_dir)
             legacy = load_factor_diagnostics(project, run.result["id"])
             self.assertFalse(legacy["factorQualification"]["available"])
+            self.assertFalse(legacy["factorComponents"]["available"])
             jsonschema.validate(
                 legacy,
                 FACTOR_DIAGNOSTICS_JSON_SCHEMA,

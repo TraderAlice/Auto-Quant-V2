@@ -10,6 +10,11 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from autoquant.factor_components import (
+    FactorComponentError,
+    FactorComponents,
+    compute_factor_components,
+)
 from autoquant.intervals import IntervalContractError, load_multi_interval_asset
 
 OUTPUT = Path(os.environ["AUTOQUANT_CHECK_OUTPUT"])
@@ -83,6 +88,16 @@ def _series(module: object, frame: pd.DataFrame) -> pd.Series:
     return result.astype(float)
 
 
+def _components(
+    module: object,
+    frame: pd.DataFrame,
+) -> FactorComponents | None:
+    try:
+        return compute_factor_components(module, frame)
+    except FactorComponentError as error:
+        raise CheckFailure(error.code, str(error)) from error
+
+
 def main() -> None:
     checks: list[dict[str, str]] = []
     try:
@@ -114,6 +129,25 @@ def main() -> None:
                     "factor.nondeterministic",
                     "compute_factor returned different values for one input",
                 ) from error
+            components = _components(module, frame.copy(deep=True))
+            repeated_components = _components(module, frame.copy(deep=True))
+            if (components is None) != (repeated_components is None):
+                raise CheckFailure(
+                    "factor.components-nondeterministic",
+                    "Component declaration availability changed for one input",
+                )
+            if components is not None and repeated_components is not None:
+                try:
+                    pd.testing.assert_frame_equal(
+                        components.values,
+                        repeated_components.values,
+                    )
+                except AssertionError as error:
+                    raise CheckFailure(
+                        "factor.components-nondeterministic",
+                        "compute_factor_components returned different values "
+                        "for one input",
+                    ) from error
             for cut in sorted({max(24, len(frame) // 2), len(frame) - 1}):
                 prefix = frame.iloc[:cut].copy()
                 prefix_result = _series(module, prefix)
@@ -128,13 +162,41 @@ def main() -> None:
                         "factor.lookahead",
                         "Earlier factor values changed when future rows were removed",
                     ) from error
+                prefix_components = _components(module, prefix)
+                if components is not None:
+                    if prefix_components is None:
+                        raise CheckFailure(
+                            "factor.components-nondeterministic",
+                            "Component declaration disappeared on a prefix",
+                        )
+                    if list(prefix_components.values.columns) != list(
+                        components.values.columns
+                    ):
+                        raise CheckFailure(
+                            "factor.components-columns",
+                            "Component columns changed when future rows were "
+                            "removed",
+                        )
+                    try:
+                        pd.testing.assert_frame_equal(
+                            components.values.iloc[:cut],
+                            prefix_components.values,
+                            check_names=False,
+                        )
+                    except AssertionError as error:
+                        raise CheckFailure(
+                            "factor.components-lookahead",
+                            "Earlier component values changed when future rows "
+                            "were removed",
+                        ) from error
         checks.append(
             {
                 "id": "factor-contract",
                 "status": "passed",
                 "message": (
                     "API, immutability, alignment, numeric, deterministic, "
-                    "and bounded prefix-causality checks passed"
+                    "component declaration, and bounded prefix-causality "
+                    "checks passed"
                 ),
             }
         )

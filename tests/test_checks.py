@@ -303,3 +303,68 @@ class CandidateCheckTests(unittest.TestCase):
                 jsonschema.validate(failure, CHECK_OUTPUT_JSON_SCHEMA)
                 self.assertEqual(failure["status"], "failed")
                 self.assertEqual(failure["errors"][0]["code"], expected_code)
+
+    def test_factor_preflight_rejects_partial_and_lookahead_components(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = initialize_workspace(Path(directory) / "workspace")
+            project = create_project(
+                workspace.root_dir,
+                "factor-components",
+                template="ohlcv-factor-lab",
+            )
+            session = start_session(
+                project,
+                TEMPLATE_STUDY_IDS["ohlcv-factor-lab"],
+            )
+            candidate = (
+                session.worktree_project.root_dir
+                / "factors"
+                / "candidate.py"
+            )
+            candidate.write_text(
+                "import pandas as pd\n\n"
+                "def compute_factor(frame):\n"
+                "    return frame['close'].pct_change()\n\n"
+                "def compute_factor_components(frame):\n"
+                "    return pd.DataFrame({'base': frame['close']}, "
+                "index=frame.index)\n",
+                encoding="utf-8",
+            )
+            partial = execute_candidate_check(
+                project,
+                session.manifest["id"],
+            )
+            self.assertEqual(partial.result["status"], "failed")
+            self.assertEqual(
+                partial.result["errors"][0]["code"],
+                "factor.components-api",
+            )
+
+            candidate.write_text(
+                "import pandas as pd\n\n"
+                "FACTOR_COMPONENTS = {\n"
+                "    'future_base': {\n"
+                "        'label': 'Future base close',\n"
+                "        'intervals': ['base'],\n"
+                "        'hypothesis': 'Invalid lookahead fixture.',\n"
+                "    },\n"
+                "}\n\n"
+                "def compute_factor(frame):\n"
+                "    return frame['close'].pct_change()\n\n"
+                "def compute_factor_components(frame):\n"
+                "    return pd.DataFrame({\n"
+                "        'future_base': frame['close'].shift(-1),\n"
+                "    }, index=frame.index)\n",
+                encoding="utf-8",
+            )
+            lookahead = execute_candidate_check(
+                project,
+                session.manifest["id"],
+            )
+            self.assertEqual(lookahead.result["status"], "failed")
+            self.assertEqual(
+                lookahead.result["errors"][0]["code"],
+                "factor.components-lookahead",
+            )

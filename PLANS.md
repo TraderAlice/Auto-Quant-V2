@@ -32,6 +32,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/governed-factor-component-evidence]] | Made candidate-declared multi-horizon factor components individually auditable without inferring source semantics or changing Portfolio/RL authority. | 2026-07-26 |
 | [[plans/causal-multi-interval-factor-inputs]] | Let one 1h decision clock consume completed 3h/4h/6h/12h/1d factor context through a content-locked causal pandas surface shared by Factor, Portfolio, and RL. | 2026-07-26 |
 | [[plans/fast-candidate-preflight]] | Gave research Agents a fixed seconds-scale candidate check before complete Judge evaluation without creating selection evidence. | 2026-07-26 |
 | [[plans/ai-first-agent-orientation]] | Gave a new research Agent one verified work brief with the current question, blocker, edit boundary, and exact next action, shared with human Studio review. | 2026-07-25 |

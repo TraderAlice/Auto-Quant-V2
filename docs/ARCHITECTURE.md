@@ -34,9 +34,10 @@ The V2 foundation now implements:
 - strict `autoquant-workspace.json` and `autoquant.json` manifests;
 - self-contained blank or reference-template Project creation and one-level
   Workspace discovery;
-- transactional request-driven Project intake from strict caller-supplied
-  daily-OHLCV packages, with normalized local bytes, explicit provider and
-  adjustment claims, source/snapshot hashes, and exact Study identity;
+- transactional request-driven Project intake from strict caller-supplied V1
+  daily or V2 continuous-UTC hourly OHLCV packages, with normalized local
+  bytes, completed higher intervals, explicit provider/adjustment claims,
+  source/snapshot hashes, and exact Study identity;
 - one canonical request-driven research desk that coordinates Factor,
   Portfolio, and governed RL Studies over the same dataset, exposes exact lane
   currentness/conflicts/next actions, and keeps method choice inside AutoQuant;
@@ -89,6 +90,11 @@ The V2 foundation now implements:
 - one bounded Factor evidence projection that reconciles immutable daily IC
   and quantile artifacts before exposing horizon, stability, style, coverage,
   and turnover evidence to CLI and Studio.
+- one optional explicit factor-component contract that checks declared
+  components for determinism and causality, then exposes predictive quality,
+  final-factor association, pairwise redundancy, nearest-peer residual IC, and
+  fixed-blend leave-one-out evidence without source inference or downstream
+  authority.
 - one self-contained OHLCV Portfolio Lab reference Project that mechanically
   translates the same causal factor API through explicit signal state into
   capped target weights, drift-aware execution, reconciled contribution/risk

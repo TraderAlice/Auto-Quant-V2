@@ -132,7 +132,11 @@ class AgentCliTests(unittest.TestCase):
                     "factor-daily",
                     "factor-quantiles",
                     "factor-qualification",
+                    "factor-components",
                 },
+            )
+            self.assertTrue(
+                projected["data"]["factorComponents"]["available"]
             )
 
     def test_cli_constructs_portfolio_lab_with_correct_next_actions(self) -> None:

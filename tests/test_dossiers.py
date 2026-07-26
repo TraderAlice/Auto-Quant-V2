@@ -254,6 +254,16 @@ class ProgramResearchDossierTests(unittest.TestCase):
                 factor_support["factorQualificationHash"],
                 hash_json(qualification),
             )
+            components = factor_support["factorComponents"]
+            assert components is not None
+            self.assertTrue(components["available"])
+            self.assertEqual(
+                factor_support["factorComponentsHash"],
+                hash_json(components),
+            )
+            self.assertFalse(
+                components["declaration"]["sourceInference"]
+            )
             self.assertEqual(
                 qualification["selection"]["split"],
                 "train",
@@ -266,6 +276,10 @@ class ProgramResearchDossierTests(unittest.TestCase):
             ).read_text(encoding="utf-8")
             self.assertIn(
                 "## Frozen leader-Run factor qualification",
+                factor_markdown,
+            )
+            self.assertIn(
+                "## Frozen leader-Run factor components",
                 factor_markdown,
             )
             portfolio_session, portfolio_report = self._publish_lane(
@@ -526,6 +540,7 @@ class ProgramResearchDossierTests(unittest.TestCase):
             )
             self.assertIn("Program evidence", markdown)
             self.assertIn("## Portfolio mandate", markdown)
+            self.assertIn("## Frozen factor components", markdown)
             self.assertIn(
                 "## Frozen mechanical portfolio decision",
                 markdown,

@@ -55,7 +55,8 @@ an exact evidence snapshot. A Dossier composes verified current lane Reports
 into the Project-level answer without re-evaluating raw Runs.
 
 The request can now create that construction site through strict external
-daily-OHLCV intake. The caller supplies a package; AutoQuant validates and
+V1 daily or V2 causal multi-interval OHLCV intake. The caller supplies a
+package; AutoQuant validates and
 normalizes it into Project-local content, records provider/calendar/adjustment
 claims, binds request/dataset/Study hashes, and exposes exact baseline and
 Session-start actions. Retrieval remains external authority. See
@@ -109,7 +110,11 @@ bar horizons, Newey-West mean-IC inference, tertile returns/monotonicity,
 causal market regimes, two folds per split, per-asset time-series rank
 correlation, and overlap with four fixed OHLCV styles. It publishes daily IC
 and quantile artifacts while retaining validation one-bar mean IC as the sole
-promotion objective. See [[docs/design/factor-diagnostics]].
+promotion objective. An optional explicit component contract adds raw,
+nearest-peer residual, redundancy, and fixed diagnostic-blend leave-one-out
+evidence without inferring Python column use or changing Portfolio/RL
+authority. See [[docs/design/factor-diagnostics]] and
+[[docs/design/factor-component-attribution]].
 
 ### Portfolio implementation
 

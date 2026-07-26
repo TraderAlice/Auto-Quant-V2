@@ -595,6 +595,38 @@ class ResearchHandoffTests(unittest.TestCase):
                 loaded.report["evidence"]["leaderDecisionSupport"],
             )
 
+    def test_prior_decision_support_without_factor_components_remains_loadable(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = self._project(directory)
+            session = start_session(
+                project,
+                "factor-quality",
+                request=research_request(),
+            )
+            report = publish_report(
+                project,
+                session.manifest["id"],
+                report_analysis(session.manifest["baseline"]["runId"]),
+            )
+            historical = json.loads(json.dumps(report.report))
+            support = historical["evidence"]["leaderDecisionSupport"]
+            support.pop("factorComponentsHash")
+            support.pop("factorComponents")
+            _, report_id = fully_rehash_report(
+                report,
+                historical,
+                session.manifest["id"],
+            )
+
+            loaded = load_report(project, session, report_id)
+
+            self.assertNotIn(
+                "factorComponents",
+                loaded.report["evidence"]["leaderDecisionSupport"],
+            )
+
     def test_legacy_decision_support_without_sizing_remains_loadable(
         self,
     ) -> None:

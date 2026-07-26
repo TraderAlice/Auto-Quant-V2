@@ -238,11 +238,15 @@ or trading authority.
 
 `run factor` is the corresponding bounded professional tear sheet for a
 successful fixed Factor Lab Run. Core verifies the immutable report, daily
-1/5/10-bar rank/Pearson IC, and fixed-tertile artifacts; reconciles every
-split/horizon aggregate; then deterministically samples 40–400 timestamp
-anchors. The response keeps horizon decay, quantiles, folds, causal regimes,
-assets, styles, coverage, and rank turnover machine-readable. Validation
-one-bar rank IC remains the only selection objective; test and all other
+1/5/10-bar rank/Pearson IC, fixed-tertile, style-qualification, and optional
+candidate-declared component artifacts; reconciles every split/horizon
+aggregate; then deterministically samples 40–400 timestamp anchors. The
+response keeps horizon decay, quantiles, folds, causal regimes, assets, styles,
+coverage, rank turnover, and component quality/redundancy/fixed-blend
+leave-one-out machine-readable. Component declarations are explicit candidate
+claims, never inferred column use; their ablation target is the fixed
+diagnostic blend rather than arbitrary `compute_factor`. Validation one-bar
+final-factor rank IC remains the only selection objective; test and all other
 layers are explicitly diagnostic.
 
 `run rl` projects one successful governed RL Factor-Policy Run. Core verifies

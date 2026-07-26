@@ -12,6 +12,11 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from autoquant.factor_components import (
+    FactorComponentError,
+    FactorComponents,
+    compute_factor_components,
+)
 from autoquant.intervals import (
     IntervalContractError,
     load_multi_interval_asset,
@@ -146,6 +151,36 @@ def _factor_series(module: Any, frame: pd.DataFrame, asset: str) -> pd.Series:
     return numeric
 
 
+def _component_values(
+    module: Any,
+    frame: pd.DataFrame,
+    asset: str,
+) -> FactorComponents | None:
+    try:
+        result = compute_factor_components(module, frame)
+    except FactorComponentError as error:
+        raise JudgeFailure(error.code, f"{asset}: {error}") from error
+    if result is None:
+        return None
+    try:
+        repeated = compute_factor_components(module, frame.copy(deep=True))
+    except FactorComponentError as error:
+        raise JudgeFailure(error.code, f"{asset}: {error}") from error
+    if repeated is None:
+        raise JudgeFailure(
+            "factor.components-nondeterministic",
+            f"{asset} component declaration disappeared for one fixed input",
+        )
+    try:
+        pd.testing.assert_frame_equal(result.values, repeated.values)
+    except AssertionError as error:
+        raise JudgeFailure(
+            "factor.components-nondeterministic",
+            f"{asset} components changed for one fixed input",
+        ) from error
+    return result
+
+
 def _audit_causality(
     module: Any,
     frame: pd.DataFrame,
@@ -173,12 +208,59 @@ def _audit_causality(
     return cuts
 
 
+def _audit_component_causality(
+    module: Any,
+    frame: pd.DataFrame,
+    full: FactorComponents,
+    asset: str,
+) -> list[int]:
+    cuts = sorted({len(frame) // 2, (len(frame) * 3) // 4, len(frame) - 2})
+    for cut in cuts:
+        prefix_frame = frame.iloc[: cut + 1].copy()
+        prefix = _component_values(module, prefix_frame, asset)
+        if prefix is None:
+            raise JudgeFailure(
+                "factor.components-nondeterministic",
+                f"{asset} component declaration disappeared on a prefix",
+            )
+        if list(prefix.values.columns) != list(full.values.columns):
+            raise JudgeFailure(
+                "factor.components-columns",
+                f"{asset} component columns change when future rows are withheld",
+            )
+        start = max(0, cut - 4)
+        expected = full.values.iloc[start : cut + 1].to_numpy(dtype=float)
+        actual = prefix.values.iloc[start : cut + 1].to_numpy(dtype=float)
+        if not np.isclose(
+            expected,
+            actual,
+            rtol=1e-10,
+            atol=1e-12,
+            equal_nan=True,
+        ).all():
+            raise JudgeFailure(
+                "factor.components-lookahead",
+                f"{asset} past component values change when future rows are "
+                "withheld",
+            )
+    return cuts
+
+
 def _split_metrics(values: pd.Series) -> dict[str, Any]:
     if len(values) < MIN_IC_DATES_PER_SPLIT:
         raise JudgeFailure(
             "judge.population",
             f"Chronological split has only {len(values)} valid IC dates",
         )
+    return descriptive_ic(
+        values,
+        minimum_observations=MIN_IC_DATES_PER_SPLIT,
+    )
+
+
+def _component_split_metrics(values: pd.Series) -> dict[str, Any]:
+    """Disclose sparse component evidence without failing a valid final factor."""
+
     return descriptive_ic(
         values,
         minimum_observations=MIN_IC_DATES_PER_SPLIT,
@@ -201,6 +283,476 @@ def _style_summary(values: pd.Series) -> dict[str, float | int | None]:
         "mean_rank_correlation": float(clean.mean()),
         "mean_absolute_rank_correlation": float(clean.abs().mean()),
         "observations": int(len(clean)),
+    }
+
+
+def _equal_rank_component_blend(
+    panels: dict[str, pd.DataFrame],
+    *,
+    common_available: pd.DataFrame | None = None,
+) -> pd.DataFrame:
+    names = list(panels)
+    first = panels[names[0]]
+    if common_available is None:
+        common_available = pd.DataFrame(
+            True,
+            index=first.index,
+            columns=first.columns,
+        )
+        for panel in panels.values():
+            common_available &= panel.notna()
+    ranks = [
+        panel.rank(axis=1, method="average", pct=True)
+        for panel in panels.values()
+    ]
+    return (sum(ranks) / float(len(ranks))).where(common_available)
+
+
+def _component_evidence(
+    declarations: list[dict[str, Any]],
+    component_panels: dict[str, pd.DataFrame],
+    factor_panel: pd.DataFrame,
+    forward_panels: dict[int, pd.DataFrame],
+    split_masks: dict[int, dict[str, pd.Series]],
+    coverage: dict[str, dict[str, float]],
+) -> dict[str, Any]:
+    """Build target-fixed diagnostics for candidate-declared components."""
+
+    names = list(component_panels)
+    raw_daily = {
+        name: {
+            horizon: daily_rank_correlation(
+                component_panels[name],
+                forward_panels[horizon],
+                minimum_assets=MIN_ASSETS_PER_DATE,
+            )
+            for horizon in HORIZONS
+        }
+        for name in names
+    }
+    raw_quality = {
+        name: {
+            str(horizon): {
+                split: _component_split_metrics(
+                    _masked(
+                        raw_daily[name][horizon],
+                        split_masks[horizon][split],
+                    )
+                )
+                for split in ("train", "validation", "test")
+            }
+            for horizon in HORIZONS
+        }
+        for name in names
+    }
+    composite_association_daily = {
+        name: daily_rank_correlation(
+            component_panels[name],
+            factor_panel,
+            minimum_assets=MIN_ASSETS_PER_DATE,
+        )
+        for name in names
+    }
+    composite_association = {
+        name: {
+            split: _style_summary(
+                _masked(
+                    composite_association_daily[name],
+                    split_masks[1][split],
+                )
+            )
+            for split in ("train", "validation", "test")
+        }
+        for name in names
+    }
+
+    pair_daily: dict[frozenset[str], pd.Series] = {}
+    pairwise: list[dict[str, Any]] = []
+    for left_index, left in enumerate(names):
+        for right in names[left_index + 1 :]:
+            daily = daily_rank_correlation(
+                component_panels[left],
+                component_panels[right],
+                minimum_assets=MIN_ASSETS_PER_DATE,
+            )
+            pair_daily[frozenset((left, right))] = daily
+            pairwise.append(
+                {
+                    "left": left,
+                    "right": right,
+                    "splits": {
+                        split: _style_summary(
+                            _masked(daily, split_masks[1][split])
+                        )
+                        for split in ("train", "validation", "test")
+                    },
+                }
+            )
+
+    nearest_peers: dict[str, str | None] = {}
+    for name in names:
+        candidates: list[tuple[str, float]] = []
+        for pair, daily in pair_daily.items():
+            if name not in pair:
+                continue
+            peer = next(item for item in pair if item != name)
+            summary = _style_summary(
+                _masked(daily, split_masks[1]["train"])
+            )
+            absolute = summary["mean_absolute_rank_correlation"]
+            if absolute is not None:
+                candidates.append((peer, float(absolute)))
+        nearest_peers[name] = (
+            min(candidates, key=lambda item: (-item[1], item[0]))[0]
+            if candidates
+            else None
+        )
+
+    residual_quality: dict[str, Any] = {}
+    for name in names:
+        peer = nearest_peers[name]
+        if peer is None:
+            residual_quality[name] = {
+                "peer": None,
+                "selection": (
+                    "unavailable-single-component"
+                    if len(names) == 1
+                    else "unavailable-no-finite-train-peer"
+                ),
+                "horizon_quality": None,
+            }
+            continue
+        residual = cross_sectional_rank_residual(
+            component_panels[name],
+            component_panels[peer],
+            minimum_assets=MIN_ASSETS_PER_DATE,
+        )
+        residual_daily = {
+            horizon: daily_rank_correlation(
+                residual,
+                forward_panels[horizon],
+                minimum_assets=MIN_ASSETS_PER_DATE,
+                constant_left_value=0.0,
+            )
+            for horizon in HORIZONS
+        }
+        residual_quality[name] = {
+            "peer": peer,
+            "selection": (
+                "maximum-absolute-mean-train-daily-rank-association"
+            ),
+            "horizon_quality": {
+                str(horizon): {
+                    split: _component_split_metrics(
+                        _masked(
+                            residual_daily[horizon],
+                            split_masks[horizon][split],
+                        )
+                    )
+                    for split in ("train", "validation", "test")
+                }
+                for horizon in HORIZONS
+            },
+        }
+
+    first = component_panels[names[0]]
+    common_available = pd.DataFrame(
+        True,
+        index=first.index,
+        columns=first.columns,
+    )
+    for panel in component_panels.values():
+        common_available &= panel.notna()
+    full_blend = _equal_rank_component_blend(
+        component_panels,
+        common_available=common_available,
+    )
+    full_blend_daily = {
+        horizon: daily_rank_correlation(
+            full_blend,
+            forward_panels[horizon],
+            minimum_assets=MIN_ASSETS_PER_DATE,
+        )
+        for horizon in HORIZONS
+    }
+    full_blend_quality = {
+        str(horizon): {
+            split: _component_split_metrics(
+                _masked(
+                    full_blend_daily[horizon],
+                    split_masks[horizon][split],
+                )
+            )
+            for split in ("train", "validation", "test")
+        }
+        for horizon in HORIZONS
+    }
+    ablations: dict[str, Any] = {}
+    for name in names:
+        remaining = {
+            candidate: panel
+            for candidate, panel in component_panels.items()
+            if candidate != name
+        }
+        if not remaining:
+            ablations[name] = {
+                "available": False,
+                "reason": "single-component",
+                "horizon_quality": None,
+                "removal_delta_mean_ic": None,
+            }
+            continue
+        leave_one_out = _equal_rank_component_blend(
+            remaining,
+            common_available=common_available,
+        )
+        leave_daily = {
+            horizon: daily_rank_correlation(
+                leave_one_out,
+                forward_panels[horizon],
+                minimum_assets=MIN_ASSETS_PER_DATE,
+            )
+            for horizon in HORIZONS
+        }
+        quality = {
+            str(horizon): {
+                split: _component_split_metrics(
+                    _masked(
+                        leave_daily[horizon],
+                        split_masks[horizon][split],
+                    )
+                )
+                for split in ("train", "validation", "test")
+            }
+            for horizon in HORIZONS
+        }
+        removal_delta: dict[str, float | None] = {}
+        for split in ("train", "validation", "test"):
+            leave_mean = quality["1"][split]["mean_ic"]
+            full_mean = full_blend_quality["1"][split]["mean_ic"]
+            removal_delta[split] = (
+                float(leave_mean) - float(full_mean)
+                if leave_mean is not None and full_mean is not None
+                else None
+            )
+        ablations[name] = {
+            "available": True,
+            "reason": None,
+            "horizon_quality": quality,
+            "removal_delta_mean_ic": removal_delta,
+        }
+
+    component_rows: list[dict[str, Any]] = []
+    metadata_by_name = {item["id"]: item for item in declarations}
+    for name in names:
+        raw_validation = raw_quality[name]["1"]["validation"]["mean_ic"]
+        residual = residual_quality[name]
+        residual_validation = (
+            residual["horizon_quality"]["1"]["validation"]["mean_ic"]
+            if residual["horizon_quality"] is not None
+            else None
+        )
+        removal_delta = (
+            ablations[name]["removal_delta_mean_ic"]["validation"]
+            if ablations[name]["available"]
+            else None
+        )
+        peer = nearest_peers[name]
+        train_redundancy = None
+        if peer is not None:
+            train_redundancy = _style_summary(
+                _masked(
+                    pair_daily[frozenset((name, peer))],
+                    split_masks[1]["train"],
+                )
+            )["mean_absolute_rank_correlation"]
+        component_rows.append(
+            {
+                **metadata_by_name[name],
+                "coverage_by_asset": coverage[name],
+                "mean_coverage": float(
+                    sum(coverage[name].values()) / len(coverage[name])
+                ),
+                "raw_horizon_quality": raw_quality[name],
+                "composite_association": composite_association[name],
+                "nearest_peer": {
+                    "id": peer,
+                    "train_mean_absolute_rank_association": train_redundancy,
+                },
+                "nearest_peer_residual": residual,
+                "fixed_blend_ablation": ablations[name],
+                "validation_priority_inputs": {
+                    "raw_mean_ic": raw_validation,
+                    "nearest_peer_residual_mean_ic": residual_validation,
+                    "removal_delta_mean_ic": removal_delta,
+                },
+            }
+        )
+
+    raw_candidates = [
+        row
+        for row in component_rows
+        if row["validation_priority_inputs"]["raw_mean_ic"] is not None
+    ]
+    strongest_raw = (
+        max(
+            raw_candidates,
+            key=lambda row: (
+                float(row["validation_priority_inputs"]["raw_mean_ic"]),
+                row["id"],
+            ),
+        )
+        if raw_candidates
+        else None
+    )
+    residual_candidates = [
+        row
+        for row in component_rows
+        if row["validation_priority_inputs"][
+            "nearest_peer_residual_mean_ic"
+        ] is not None
+    ]
+    strongest_residual = (
+        max(
+            residual_candidates,
+            key=lambda row: (
+                float(
+                    row["validation_priority_inputs"][
+                        "nearest_peer_residual_mean_ic"
+                    ]
+                ),
+                row["id"],
+            ),
+        )
+        if residual_candidates
+        else None
+    )
+    removable = [
+        row
+        for row in component_rows
+        if row["validation_priority_inputs"]["removal_delta_mean_ic"]
+        is not None
+    ]
+    best_removal = (
+        max(
+            removable,
+            key=lambda row: (
+                float(
+                    row["validation_priority_inputs"][
+                        "removal_delta_mean_ic"
+                    ]
+                ),
+                row["id"],
+            ),
+        )
+        if removable
+        else None
+    )
+    finite_pairs = [
+        row
+        for row in pairwise
+        if row["splits"]["train"]["mean_absolute_rank_correlation"]
+        is not None
+    ]
+    most_redundant = (
+        max(
+            finite_pairs,
+            key=lambda row: (
+                float(
+                    row["splits"]["train"][
+                        "mean_absolute_rank_correlation"
+                    ]
+                    or -1.0
+                ),
+                row["left"],
+                row["right"],
+            ),
+        )
+        if finite_pairs
+        else None
+    )
+    return {
+        "method": "candidate-declared-components-v1",
+        "declaration": {
+            "exhaustive_composition_claim": False,
+            "source_inference": False,
+            "components": declarations,
+        },
+        "semantics": {
+            "prediction_target": "fixed-purged-forward-base-bar-return",
+            "nearest_peer_selection": "train-only-target-free",
+            "residualization": (
+                "same-timestamp-cross-sectional-centered-rank-ols"
+            ),
+            "diagnostic_blend": (
+                "equal-weight-cross-sectional-percentile-ranks-with-"
+                "common-component-availability"
+            ),
+            "ablation_target": "fixed-diagnostic-blend-not-candidate-factor",
+            "selection_authority": "research-prioritization-only",
+            "test_role": "visible-audit",
+            "promotion_authority": "none",
+            "portfolio_authority": "none",
+            "rl_action_authority": "none",
+            "trading_authority": "none",
+        },
+        "trial_disclosure": {
+            "materialized_components": len(names),
+            "pairwise_comparisons": len(pairwise),
+            "component_diagnostics_enter_promotion_score": False,
+        },
+        "components": component_rows,
+        "pairwise": pairwise,
+        "fixed_blend": {
+            "horizon_quality": full_blend_quality,
+        },
+        "validation_diagnosis": {
+            "strongest_raw_component": (
+                strongest_raw["id"] if strongest_raw is not None else None
+            ),
+            "strongest_raw_mean_ic": (
+                strongest_raw["validation_priority_inputs"]["raw_mean_ic"]
+                if strongest_raw is not None
+                else None
+            ),
+            "strongest_residual_component": (
+                strongest_residual["id"]
+                if strongest_residual is not None
+                else None
+            ),
+            "strongest_residual_mean_ic": (
+                strongest_residual["validation_priority_inputs"][
+                    "nearest_peer_residual_mean_ic"
+                ]
+                if strongest_residual is not None
+                else None
+            ),
+            "removal_most_improves_fixed_blend": (
+                best_removal["id"] if best_removal is not None else None
+            ),
+            "best_removal_delta_mean_ic": (
+                best_removal["validation_priority_inputs"][
+                    "removal_delta_mean_ic"
+                ]
+                if best_removal is not None
+                else None
+            ),
+            "most_redundant_pair": (
+                {
+                    "left": most_redundant["left"],
+                    "right": most_redundant["right"],
+                    "train_mean_absolute_rank_association": (
+                        most_redundant["splits"]["train"][
+                            "mean_absolute_rank_correlation"
+                        ]
+                    ),
+                }
+                if most_redundant is not None
+                else None
+            ),
+            "authority": "research-prioritization-only",
+            "test_enters_diagnosis": False,
+        },
     }
 
 
@@ -372,6 +924,7 @@ def _evaluate() -> tuple[
     pd.DataFrame,
     pd.DataFrame,
     pd.DataFrame,
+    dict[str, Any] | None,
 ]:
     study, data_root = _load_contract()
     dataset = study["dataset"]
@@ -389,6 +942,11 @@ def _evaluate() -> tuple[
     volume_by_asset: dict[str, pd.Series] = {}
     audited: dict[str, list[int]] = {}
     coverage: dict[str, float] = {}
+    component_by_name_asset: dict[str, dict[str, pd.Series]] = {}
+    component_coverage: dict[str, dict[str, float]] = {}
+    component_declarations: list[dict[str, Any]] | None = None
+    component_columns: list[str] | None = None
+    component_audited: dict[str, list[int]] = {}
     for asset in universe:
         frame = _load_asset(
             data_root,
@@ -398,6 +956,35 @@ def _evaluate() -> tuple[
         )
         factor = _factor_series(module, frame, asset)
         audited[asset] = _audit_causality(module, frame, factor, asset)
+        components = _component_values(module, frame, asset)
+        if (components is None) != (component_columns is None) and (
+            component_columns is not None or asset != universe[0]
+        ):
+            raise JudgeFailure(
+                "factor.components-consistency",
+                "Component declaration availability differs across assets",
+            )
+        if components is not None:
+            columns = list(components.values.columns)
+            declarations = components.declaration()
+            if component_columns is None:
+                component_columns = columns
+                component_declarations = declarations
+            elif (
+                columns != component_columns
+                or declarations != component_declarations
+            ):
+                raise JudgeFailure(
+                    "factor.components-consistency",
+                    "Materialized component columns or metadata differ across "
+                    "assets",
+                )
+            component_audited[asset] = _audit_component_causality(
+                module,
+                frame,
+                components,
+                asset,
+            )
         timestamp = pd.DatetimeIndex(frame["timestamp"])
         factor.index = timestamp
         close = frame["close"].copy()
@@ -408,6 +995,14 @@ def _evaluate() -> tuple[
         close_by_asset[asset] = close
         volume_by_asset[asset] = volume
         coverage[asset] = float(factor.notna().mean())
+        if components is not None:
+            for name in components.values.columns:
+                values = components.values[name].copy()
+                values.index = timestamp
+                component_by_name_asset.setdefault(name, {})[asset] = values
+                component_coverage.setdefault(name, {})[asset] = float(
+                    values.notna().mean()
+                )
 
     factor_panel = pd.DataFrame(factor_by_asset).sort_index()
     close_panel = pd.DataFrame(close_by_asset).reindex(factor_panel.index)
@@ -416,6 +1011,21 @@ def _evaluate() -> tuple[
     split_masks, split_protocol, base_split_labels = purged_split_masks(timeline)
     fold_masks, fold_protocol = chronological_fold_masks(timeline)
     forward_panels = forward_return_panels(close_panel)
+    component_evidence = (
+        _component_evidence(
+            component_declarations,
+            {
+                name: pd.DataFrame(by_asset).reindex(factor_panel.index)
+                for name, by_asset in component_by_name_asset.items()
+            },
+            factor_panel,
+            forward_panels,
+            split_masks,
+            component_coverage,
+        )
+        if component_declarations is not None
+        else None
+    )
     daily_ic_by_horizon = {
         horizon: daily_rank_correlation(
             factor_panel,
@@ -563,6 +1173,8 @@ def _evaluate() -> tuple[
             ),
         },
     }
+    if component_evidence is not None:
+        metrics["factor_components"] = component_evidence
     if not all(
         math.isfinite(float(value))
         for value in (
@@ -612,11 +1224,29 @@ def _evaluate() -> tuple[
                 "testRole": "visible audit only",
                 "tradingAuthority": "none",
             },
+            "components": (
+                {
+                    "method": component_evidence["method"],
+                    "declaration": "candidate-explicit-not-source-inferred",
+                    "exhaustiveCompositionClaim": False,
+                    "nearestPeerSelection": "train-only-target-free",
+                    "ablationTarget": (
+                        "fixed-diagnostic-blend-not-candidate-factor"
+                    ),
+                    "testRole": "visible audit only",
+                    "portfolioAuthority": "none",
+                    "rlActionAuthority": "none",
+                    "tradingAuthority": "none",
+                }
+                if component_evidence is not None
+                else None
+            ),
             "testRole": (
                 "visible diagnostic evidence; never enters candidate selection"
             ),
         },
         "causalityAuditCuts": audited,
+        "componentCausalityAuditCuts": component_audited,
         "coverageByAsset": coverage,
         "splitProtocol": split_protocol,
         "foldProtocol": fold_protocol,
@@ -670,6 +1300,15 @@ def _evaluate() -> tuple[
         daily_evidence,
         quantile_evidence,
         qualification_evidence,
+        (
+            {
+                "schemaVersion": 1,
+                "inputHash": os.environ["AUTOQUANT_INPUT_HASH"],
+                "evidence": component_evidence,
+            }
+            if component_evidence is not None
+            else None
+        ),
     )
 
 
@@ -681,6 +1320,7 @@ def main() -> None:
             daily_evidence,
             quantile_evidence,
             qualification_evidence,
+            component_evidence,
         ) = _evaluate()
         artifacts = Path(os.environ["AUTOQUANT_ARTIFACTS_DIR"])
         report_path = artifacts / "factor-report.json"
@@ -715,6 +1355,56 @@ def main() -> None:
             artifacts / "factor-qualification.csv",
             float_format="%.17g",
         )
+        if component_evidence is not None:
+            (artifacts / "factor-components.json").write_text(
+                json.dumps(component_evidence, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+        output_artifacts = [
+            {
+                "kind": "factor-report",
+                "path": "factor-report.json",
+                "description": (
+                    "Factor semantics, purged split protocol, complete "
+                    "tear sheet, coverage, and causality audit"
+                ),
+            },
+            {
+                "kind": "factor-daily",
+                "path": "daily-factor-evidence.csv",
+                "description": (
+                    "Timestamped split, causal regime, and purge-aware "
+                    "1/5/10-bar rank and Pearson IC"
+                ),
+            },
+            {
+                "kind": "factor-quantiles",
+                "path": "factor-quantiles.csv",
+                "description": (
+                    "Timestamped fixed-tertile forward returns and "
+                    "high-minus-low spread by split and horizon"
+                ),
+            },
+            {
+                "kind": "factor-qualification",
+                "path": "factor-qualification.csv",
+                "description": (
+                    "Train-selected style, candidate/style/residual/"
+                    "blend daily rank IC, and visible-test audit"
+                ),
+            },
+        ]
+        if component_evidence is not None:
+            output_artifacts.append(
+                {
+                    "kind": "factor-components",
+                    "path": "factor-components.json",
+                    "description": (
+                        "Candidate-declared component quality, redundancy, "
+                        "nearest-peer residual, and fixed-blend ablation evidence"
+                    ),
+                }
+            )
         _write_output(
             {
                 "schema_version": 1,
@@ -725,40 +1415,7 @@ def main() -> None:
                     f"{metrics['validation_mean_ic']:.6f}"
                 ),
                 "metrics": metrics,
-                "artifacts": [
-                    {
-                        "kind": "factor-report",
-                        "path": "factor-report.json",
-                        "description": (
-                            "Factor semantics, purged split protocol, complete "
-                            "tear sheet, coverage, and causality audit"
-                        ),
-                    },
-                    {
-                        "kind": "factor-daily",
-                        "path": "daily-factor-evidence.csv",
-                        "description": (
-                            "Timestamped split, causal regime, and purge-aware "
-                            "1/5/10-bar rank and Pearson IC"
-                        ),
-                    },
-                    {
-                        "kind": "factor-quantiles",
-                        "path": "factor-quantiles.csv",
-                        "description": (
-                            "Timestamped fixed-tertile forward returns and "
-                            "high-minus-low spread by split and horizon"
-                        ),
-                    },
-                    {
-                        "kind": "factor-qualification",
-                        "path": "factor-qualification.csv",
-                        "description": (
-                            "Train-selected style, candidate/style/residual/"
-                            "blend daily rank IC, and visible-test audit"
-                        ),
-                    }
-                ],
+                "artifacts": output_artifacts,
                 "errors": [],
             }
         )

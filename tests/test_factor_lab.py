@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import math
 import shlex
 import sys
@@ -67,6 +68,58 @@ def compute_factor(frame: pd.DataFrame) -> pd.Series:
     return pd.Series(float("nan"), index=frame.index)
 """
 
+LOOKAHEAD_COMPONENT_FACTOR = """\
+from __future__ import annotations
+
+import pandas as pd
+
+
+FACTOR_COMPONENTS = {
+    "future_close": {
+        "label": "Future close",
+        "intervals": ["base"],
+        "hypothesis": "Invalid component causality fixture.",
+    },
+}
+
+
+def compute_factor_components(frame: pd.DataFrame) -> pd.DataFrame:
+    return pd.DataFrame(
+        {"future_close": frame["close"].shift(-1)},
+        index=frame.index,
+    )
+
+
+def compute_factor(frame: pd.DataFrame) -> pd.Series:
+    return frame["close"].pct_change()
+"""
+
+SPARSE_COMPONENT_FACTOR = """\
+from __future__ import annotations
+
+import pandas as pd
+
+
+FACTOR_COMPONENTS = {
+    "constant_context": {
+        "label": "Constant context",
+        "intervals": ["base"],
+        "hypothesis": "Sparse diagnostic fixture with no cross-sectional rank.",
+    },
+}
+
+
+def compute_factor_components(frame: pd.DataFrame) -> pd.DataFrame:
+    return pd.DataFrame(
+        {"constant_context": 1.0},
+        index=frame.index,
+    )
+
+
+def compute_factor(frame: pd.DataFrame) -> pd.Series:
+    return frame["volume"] / frame["volume"].rolling(20).mean() - 1.0
+"""
+
 
 def make_factor_lab(directory: str | Path):
     workspace = initialize_workspace(Path(directory) / "workspace", name="Factor Desk")
@@ -80,6 +133,55 @@ def make_factor_lab(directory: str | Path):
 
 
 class OhlcvFactorLabTests(unittest.TestCase):
+    def test_sparse_component_is_disclosed_without_failing_final_factor(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, project = make_factor_lab(directory)
+            (project.root_dir / "factors" / "candidate.py").write_text(
+                SPARSE_COMPONENT_FACTOR,
+                encoding="utf-8",
+            )
+
+            run = execute_study(project, OHLCV_STUDY_ID)
+            projected = load_factor_diagnostics(
+                project,
+                run.result["id"],
+            )["factorComponents"]
+
+            self.assertEqual(run.result["status"], "succeeded")
+            self.assertIsNone(
+                projected["components"][0]["validation"]["raw"][
+                    "meanRankIc"
+                ]
+            )
+            self.assertFalse(
+                projected["components"][0]["validation"]["raw"][
+                    "sufficient"
+                ]
+            )
+            self.assertIsNone(
+                projected["validationDiagnosis"][
+                    "strongestRawComponent"
+                ]
+            )
+
+    def test_complete_judge_rejects_component_lookahead(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, project = make_factor_lab(directory)
+            (project.root_dir / "factors" / "candidate.py").write_text(
+                LOOKAHEAD_COMPONENT_FACTOR,
+                encoding="utf-8",
+            )
+
+            run = execute_study(project, OHLCV_STUDY_ID)
+
+            self.assertEqual(run.result["status"], "failed")
+            self.assertEqual(
+                run.result["errors"][0]["code"],
+                "factor.components-lookahead",
+            )
+
     def test_template_constructs_content_locked_project_and_fast_baseline(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             workspace, project = make_factor_lab(directory)
@@ -192,6 +294,7 @@ class OhlcvFactorLabTests(unittest.TestCase):
                     "factor-daily",
                     "factor-quantiles",
                     "factor-qualification",
+                    "factor-components",
                 },
             )
             artifacts = {
@@ -254,6 +357,38 @@ class OhlcvFactorLabTests(unittest.TestCase):
                 metrics["validation_mean_ic"],
                 places=10,
             )
+            components = metrics["factor_components"]
+            self.assertEqual(
+                components["method"],
+                "candidate-declared-components-v1",
+            )
+            self.assertEqual(
+                components["trial_disclosure"],
+                {
+                    "materialized_components": 1,
+                    "pairwise_comparisons": 0,
+                    "component_diagnostics_enter_promotion_score": False,
+                },
+            )
+            self.assertEqual(
+                components["validation_diagnosis"][
+                    "strongest_raw_component"
+                ],
+                "base_momentum_10",
+            )
+            self.assertFalse(
+                components["declaration"]["exhaustive_composition_claim"]
+            )
+            self.assertFalse(
+                components["declaration"]["source_inference"]
+            )
+            component_artifact = json.loads(
+                artifacts["factor-components"].read_text(encoding="utf-8")
+            )
+            self.assertEqual(
+                component_artifact["evidence"],
+                components,
+            )
             self.assertAlmostEqual(
                 float(
                     qualification_daily.loc[
@@ -286,6 +421,7 @@ class OhlcvFactorLabTests(unittest.TestCase):
                 project,
                 kept.result["candidate"]["runId"],
             ).result["metrics"]
+            self.assertNotIn("factor_components", kept_metrics)
             self.assertGreater(
                 kept_metrics["validation"]["hac"]["t_statistic"],
                 10.0,

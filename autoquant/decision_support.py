@@ -42,6 +42,11 @@ def build_leader_decision_support(
         if factor_diagnostics is not None
         else None
     )
+    factor_components = (
+        factor_diagnostics["factorComponents"]
+        if factor_diagnostics is not None
+        else None
+    )
     portfolio_diagnostics = (
         load_portfolio_diagnostics(
             project,
@@ -100,6 +105,12 @@ def build_leader_decision_support(
             else None
         ),
         "factorQualification": factor_qualification,
+        "factorComponentsHash": (
+            hash_json(factor_components)
+            if factor_components is not None
+            else None
+        ),
+        "factorComponents": factor_components,
         "portfolioMechanicalDecisionHash": (
             hash_json(mechanical_decision)
             if mechanical_decision is not None
@@ -164,6 +175,10 @@ def verify_leader_decision_support(
             "factorQualification",
         ),
         (
+            "factorComponentsHash",
+            "factorComponents",
+        ),
+        (
             "portfolioSizingAnatomyHash",
             "portfolioSizingAnatomy",
         ),
@@ -218,6 +233,7 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
             "runId": None,
             "resultHash": None,
             "factorQualificationHash": None,
+            "factorComponentsHash": None,
             "portfolioMechanicalDecisionHash": None,
             "portfolioSizingAnatomyHash": None,
             "portfolioDiversificationStressHash": None,
@@ -230,6 +246,7 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
         }
     decision = value.get("portfolioMechanicalDecision")
     factor_qualification = value.get("factorQualification")
+    factor_components = value.get("factorComponents")
     factor_summary = None
     if (
         isinstance(factor_qualification, dict)
@@ -266,6 +283,37 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
             "weakestStyleNeutralFoldIc": validation[
                 "weakestStyleNeutralFold"
             ]["meanRankIc"],
+            "components": (
+                {
+                    "count": factor_components["trialDisclosure"][
+                        "materializedComponents"
+                    ],
+                    "pairwiseComparisons": factor_components[
+                        "trialDisclosure"
+                    ]["pairwiseComparisons"],
+                    "strongestRawComponent": factor_components[
+                        "validationDiagnosis"
+                    ]["strongestRawComponent"],
+                    "strongestRawMeanIc": factor_components[
+                        "validationDiagnosis"
+                    ]["strongestRawMeanIc"],
+                    "strongestResidualComponent": factor_components[
+                        "validationDiagnosis"
+                    ]["strongestResidualComponent"],
+                    "strongestResidualMeanIc": factor_components[
+                        "validationDiagnosis"
+                    ]["strongestResidualMeanIc"],
+                    "removalMostImprovesFixedBlend": factor_components[
+                        "validationDiagnosis"
+                    ]["removalMostImprovesFixedBlend"],
+                    "bestRemovalDeltaMeanIc": factor_components[
+                        "validationDiagnosis"
+                    ]["bestRemovalDeltaMeanIc"],
+                }
+                if isinstance(factor_components, dict)
+                and factor_components.get("available")
+                else None
+            ),
         }
     rl_diagnosis = value.get("rlFactorFusionDiagnosis")
     rl_summary = None
@@ -328,6 +376,9 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
                 "factorQualificationHash": value.get(
                     "factorQualificationHash"
                 ),
+                "factorComponentsHash": value.get(
+                    "factorComponentsHash"
+                ),
                 "portfolioMechanicalDecisionHash": value.get(
                     "portfolioMechanicalDecisionHash"
                 ),
@@ -357,6 +408,9 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
             "resultHash": value.get("resultHash"),
             "factorQualificationHash": value.get(
                 "factorQualificationHash"
+            ),
+            "factorComponentsHash": value.get(
+                "factorComponentsHash"
             ),
             "portfolioMechanicalDecisionHash": value.get(
                 "portfolioMechanicalDecisionHash"
@@ -518,6 +572,7 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
         "factorQualificationHash": value.get(
             "factorQualificationHash"
         ),
+        "factorComponentsHash": value.get("factorComponentsHash"),
         "portfolioMechanicalDecisionHash": value[
             "portfolioMechanicalDecisionHash"
         ],
@@ -659,6 +714,71 @@ def factor_qualification_markdown_lines(
             f"| `{candidate['style']}` | "
             f"`{mean:+.4f}` | `{absolute:.4f}` | "
             f"`{candidate['observations']}` |"
+        )
+    lines.append("")
+    return lines
+
+
+def factor_components_markdown_lines(
+    support: dict[str, Any],
+    *,
+    heading: str,
+    lane_name: str | None = None,
+) -> list[str]:
+    """Render the frozen candidate-declared component diagnosis."""
+
+    evidence = support.get("factorComponents")
+    if not isinstance(evidence, dict) or not evidence.get("available"):
+        return []
+    prefix = f"{lane_name}: " if lane_name else ""
+    diagnosis = evidence["validationDiagnosis"]
+
+    def metric(value: Any) -> str:
+        return "unavailable" if value is None else f"{float(value):+.4f}"
+
+    lines = [
+        heading,
+        "",
+        f"- {prefix}Method / component count / pairwise comparisons: "
+        f"`{evidence['method']}` / "
+        f"`{evidence['trialDisclosure']['materializedComponents']}` / "
+        f"`{evidence['trialDisclosure']['pairwiseComparisons']}`.",
+        "- Strongest validation raw component / IC: "
+        f"`{diagnosis['strongestRawComponent']}` / "
+        f"`{metric(diagnosis['strongestRawMeanIc'])}`.",
+        "- Strongest nearest-peer residual component / IC: "
+        f"`{diagnosis['strongestResidualComponent']}` / "
+        f"`{diagnosis['strongestResidualMeanIc']}`.",
+        "- Removal that most improves the fixed diagnostic blend / IC delta: "
+        f"`{diagnosis['removalMostImprovesFixedBlend']}` / "
+        f"`{diagnosis['bestRemovalDeltaMeanIc']}`.",
+        f"- Component evidence hash: `{support['factorComponentsHash']}`.",
+        "- Interpretation: components are candidate-declared, not inferred "
+        "from source and not claimed to exhaustively reconstruct the final "
+        "factor. Leave-one-out applies only to the fixed equal-rank diagnostic "
+        "blend.",
+        "- Authority: `research-prioritization-only`; validation diagnoses, "
+        "test is visible audit only, and Portfolio, RL-action, order, account, "
+        "and trading authority remain `none`.",
+        "",
+        "| Component | Claimed intervals | Coverage | Validation raw IC | "
+        "Nearest peer / residual IC | Fixed-blend removal Δ | Test raw IC |",
+        "| --- | --- | --- | --- | --- | --- | --- |",
+    ]
+    for component in evidence["components"]:
+        validation = component["validation"]
+        test = component["testAudit"]
+        peer = component["nearestPeer"]
+        residual = validation["nearestPeerResidual"]
+        lines.append(
+            f"| `{component['id']}` | "
+            f"`{', '.join(component['intervals'])}` | "
+            f"`{component['meanCoverage']:.2%}` | "
+            f"`{metric(validation['raw']['meanRankIc'])}` | "
+            f"`{peer['id']}` / "
+            f"`{metric(residual['meanRankIc'] if residual is not None else None)}` | "
+            f"`{validation['fixedBlendRemovalDeltaMeanIc']}` | "
+            f"`{metric(test['raw']['meanRankIc'])}` |"
         )
     lines.append("")
     return lines

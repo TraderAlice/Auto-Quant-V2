@@ -148,8 +148,10 @@ an asset, direction, and horizon; AutoQuant records the interval surface that
 was requested, materialized, locked, and supplied to each lane, then returns
 that evidence through RunResults, Reports, Studio, and the Project Dossier.
 Core does not claim to infer which supplied pandas columns arbitrary candidate
-code semantically used; that would require an explicit future declaration or
-instrumented candidate contract. No interval grants order, account,
+code semantically used. The optional explicit declaration and diagnostic
+contract is now defined by [[docs/design/factor-component-attribution]]; it
+records candidate claims without pretending to instrument column access. No
+interval grants order, account,
 promotion, or trading authority.
 
 ## Invariants

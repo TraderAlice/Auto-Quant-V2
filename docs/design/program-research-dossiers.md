@@ -186,6 +186,9 @@ are not given synthetic historical evidence.
 - executive synthesis;
 - a lane evidence table;
 - lane Report summaries and selection-integrity warnings;
+- frozen candidate-declared Factor component diagnosis when the Factor Report
+  contains it, including the component-evidence hash and fixed-blend-only
+  ablation disclosure;
 - cross-lane findings and conditional recommendations;
 - limitations, unresolved questions, and omitted gated or optional lanes;
 - reproducibility hashes and publication instructions.

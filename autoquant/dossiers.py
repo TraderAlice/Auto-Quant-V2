@@ -14,6 +14,7 @@ from typing import Any
 
 from .decision_support import (
     diversification_stress_markdown_lines,
+    factor_components_markdown_lines,
     factor_qualification_markdown_lines,
     mechanical_decision_markdown_lines,
     rl_factor_fusion_diagnosis_markdown_lines,
@@ -1242,6 +1243,13 @@ def _render_markdown(dossier: dict[str, Any]) -> str:
                 factor_qualification_markdown_lines(
                     support,
                     heading="## Frozen factor qualification",
+                    lane_name=lane["name"],
+                )
+            )
+            lines.extend(
+                factor_components_markdown_lines(
+                    support,
+                    heading="## Frozen factor components",
                     lane_name=lane["name"],
                 )
             )

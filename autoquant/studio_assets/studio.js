@@ -1827,6 +1827,89 @@ function renderFactorQualification(explorer) {
     </p>`;
 }
 
+function renderFactorComponents(explorer) {
+  const root = element("factor-components");
+  const evidence = explorer.factorComponents;
+  if (!evidence?.available) {
+    root.innerHTML = `
+      <div class="factor-qualification-empty">
+        Legacy Run: candidate-declared component evidence was not recorded.
+      </div>`;
+    return;
+  }
+  const diagnosis = evidence.validationDiagnosis;
+  const redundant = diagnosis.mostRedundantPair;
+  root.innerHTML = `
+    <div class="factor-component-diagnosis">
+      <span>
+        <small>Strongest raw component</small>
+        <b>${escapeHtml(diagnosis.strongestRawComponent)}</b>
+        <i>validation IC ${signedMetric(diagnosis.strongestRawMeanIc)}</i>
+      </span>
+      <span>
+        <small>Strongest nearest-peer residual</small>
+        <b>${escapeHtml(diagnosis.strongestResidualComponent ?? "unavailable")}</b>
+        <i>validation IC ${signedMetric(diagnosis.strongestResidualMeanIc)}</i>
+      </span>
+      <span>
+        <small>Removal most improves fixed blend</small>
+        <b>${escapeHtml(diagnosis.removalMostImprovesFixedBlend ?? "unavailable")}</b>
+        <i>validation Δ ${signedMetric(diagnosis.bestRemovalDeltaMeanIc)}</i>
+      </span>
+      <span>
+        <small>Most redundant train pair</small>
+        <b>${escapeHtml(redundant ? `${redundant.left} × ${redundant.right}` : "unavailable")}</b>
+        <i>|rank association| ${metric(redundant?.trainMeanAbsoluteRankAssociation)}</i>
+      </span>
+    </div>
+    <div class="factor-component-table">
+      <table class="factor-table" aria-label="Candidate-declared factor component evidence">
+        <thead>
+          <tr>
+            <th>Component / interval</th>
+            <th>Coverage</th>
+            <th>Validation raw IC</th>
+            <th>Nearest peer / residual IC</th>
+            <th>Fixed-blend removal Δ</th>
+            <th>Test raw IC</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${evidence.components
+            .map((component) => {
+              const validation = component.validation;
+              const residual = validation.nearestPeerResidual;
+              return `
+                <tr>
+                  <td data-label="Component / interval">
+                    <b>${escapeHtml(component.label)}</b>
+                    <small>${escapeHtml(component.id)} · ${escapeHtml(component.intervals.join(" + "))}</small>
+                  </td>
+                  <td data-label="Coverage">${percent(component.meanCoverage)}</td>
+                  <td data-label="Validation raw IC" class="${valueTone(validation.raw.meanRankIc)}">${signedMetric(validation.raw.meanRankIc)}</td>
+                  <td data-label="Nearest peer / residual IC">
+                    <b>${escapeHtml(component.nearestPeer.id ?? "unavailable")}</b>
+                    <small>${signedMetric(residual?.meanRankIc)} residual IC</small>
+                  </td>
+                  <td data-label="Fixed-blend removal Δ" class="${valueTone(-(validation.fixedBlendRemovalDeltaMeanIc ?? 0))}">
+                    ${signedMetric(validation.fixedBlendRemovalDeltaMeanIc)}
+                  </td>
+                  <td data-label="Test raw IC" class="${valueTone(component.testAudit.raw.meanRankIc)}">${signedMetric(component.testAudit.raw.meanRankIc)}</td>
+                </tr>`;
+            })
+            .join("")}
+        </tbody>
+      </table>
+    </div>
+    <p class="factor-qualification-disclosure">
+      These components and interval claims come from candidate metadata. They
+      are not inferred from Python access and are not assumed to reconstruct
+      the final factor. Removal deltas apply only to the fixed equal-rank
+      diagnostic blend. Validation prioritizes research; test is visible audit
+      only; Portfolio, RL-action, order, account, and trading authority remain none.
+    </p>`;
+}
+
 function renderFactorExplorer(project) {
   const section = element("factor-explorer");
   const explorer = project.factorExplorer;
@@ -1859,6 +1942,7 @@ function renderFactorExplorer(project) {
     )
     .join("");
   renderFactorQualification(explorer);
+  renderFactorComponents(explorer);
   renderFactorChart(explorer);
   renderFactorHorizons(explorer);
   renderFactorStability(explorer);

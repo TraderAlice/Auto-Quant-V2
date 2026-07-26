@@ -253,6 +253,47 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                     expected_surface,
                 )
                 jsonschema.validate(run.result, RUN_RESULT_JSON_SCHEMA)
+            factor_run = runs[0]
+            factor_components = factor_run.result["metrics"][
+                "factor_components"
+            ]
+            self.assertEqual(
+                factor_components["trial_disclosure"],
+                {
+                    "materialized_components": 4,
+                    "pairwise_comparisons": 6,
+                    "component_diagnostics_enter_promotion_score": False,
+                },
+            )
+            self.assertEqual(
+                [
+                    item["id"]
+                    for item in factor_components["declaration"][
+                        "components"
+                    ]
+                ],
+                [
+                    "base_momentum_10",
+                    "momentum_3h_4",
+                    "momentum_12h_2",
+                    "momentum_1d_3",
+                ],
+            )
+            factor_projection = load_factor_diagnostics(
+                project,
+                factor_run.result["id"],
+                point_limit=40,
+            )["factorComponents"]
+            self.assertTrue(factor_projection["available"])
+            self.assertEqual(
+                factor_projection["semantics"]["ablationTarget"],
+                "fixed-diagnostic-blend-not-candidate-factor",
+            )
+            self.assertFalse(
+                factor_projection["trialDisclosure"][
+                    "entersPromotionScore"
+                ]
+            )
             self.assertEqual(
                 {run.result["dataset"]["hash"] for run in runs},
                 {runs[0].result["dataset"]["hash"]},
