@@ -46,7 +46,7 @@ For train, validation, and visible-test dates, the Judge publishes:
 
 - total trade dates, available dates, and unavailable dates;
 - conservative/upper minimum, 10th-percentile, and median capital capacity;
-- breach rate of the fixed `$1,000,000` reference NAV;
+- breach rate of the Portfolio Mandate's caller/default reference NAV;
 - binding-asset counts at the conservative ceiling.
 
 Percentiles operate over per-date portfolio capacity, so one busy rebalance

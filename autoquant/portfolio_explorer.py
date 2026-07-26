@@ -18,7 +18,6 @@ from .mandates import (
     validate_portfolio_mandate,
 )
 from .project_templates.ohlcv_portfolio_lab.portfolio_core import (
-    BASE_COST_BPS,
     GROSS_TARGET,
     LONG_ENTRY_PERCENTILE,
     LONG_EXIT_PERCENTILE,
@@ -133,7 +132,6 @@ EXPECTED_ARTIFACT_KINDS = BASE_ARTIFACT_KINDS | {
 PARAMETER_NEIGHBORHOOD_METHOD = (
     "predeclared-signal-threshold-no-trade-neighborhood-v1"
 )
-PARAMETER_BASE_CONFIGURATION_ID = "base__band-005"
 PARAMETER_SIGNAL_PROFILES: tuple[dict[str, Any], ...] = (
     {
         "id": "broad-entry",
@@ -176,7 +174,6 @@ PARAMETER_SIGNAL_PROFILES: tuple[dict[str, Any], ...] = (
         "shortEntry": 0.05,
     },
 )
-PARAMETER_NO_TRADE_BANDS = (0.0, 0.05, 0.10)
 DAILY_NUMERIC_COLUMNS = (
     "gross_return",
     "net_return",
@@ -709,6 +706,7 @@ def _parse_decisions(
     universe: list[str],
     targets: dict[str, dict[str, float]],
     weights: dict[str, dict[str, float]],
+    reference_nav: float,
 ) -> tuple[list[dict[str, Any]], dict[tuple[str, str], dict[str, Any]]]:
     fields, raw_rows = _read_csv(
         path,
@@ -1000,7 +998,7 @@ def _parse_decisions(
             adv = liquidity_numeric["causal_adv_dollar_volume"]
             if status == "available" and trade > 1e-12:
                 expected_participation = (
-                    trade * LIQUIDITY_REFERENCE_NAV / adv
+                    trade * reference_nav / adv
                     if adv > 0
                     else math.inf
                 )
@@ -1536,6 +1534,22 @@ def _parameter_neighborhood_projection(
             "portfolio.parameter-neighborhood-availability",
             "Parameter-neighborhood metric and artifact must appear together",
         )
+    signal_parameters = result["metrics"].get("signal_policy", {}).get(
+        "parameters",
+        {},
+    )
+    base_band = _finite(
+        signal_parameters.get("no_trade_one_way"),
+        "RunResult/metrics/signal_policy/parameters/no_trade_one_way",
+    )
+    adverse_band = min(1.0, max(0.10, 2.0 * base_band))
+    no_trade_bands = tuple(
+        dict.fromkeys((0.0, base_band, adverse_band))
+    )
+    base_configuration_id = _parameter_configuration_id(
+        "base",
+        base_band,
+    )
     try:
         payload = json.loads(artifact_path.read_text(encoding="utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError):
@@ -1563,9 +1577,9 @@ def _parameter_neighborhood_projection(
         or payload["inputHash"] != result["inputHash"]
         or payload["method"] != PARAMETER_NEIGHBORHOOD_METHOD
         or payload["baseConfigurationId"]
-        != PARAMETER_BASE_CONFIGURATION_ID
+        != base_configuration_id
         or payload["signalProfiles"] != list(PARAMETER_SIGNAL_PROFILES)
-        or payload["noTradeBands"] != list(PARAMETER_NO_TRADE_BANDS)
+        or payload["noTradeBands"] != list(no_trade_bands)
     ):
         _fail(
             artifact_path,
@@ -1603,7 +1617,7 @@ def _parameter_neighborhood_projection(
     configuration_ids = [
         _parameter_configuration_id(profile["id"], band)
         for profile in PARAMETER_SIGNAL_PROFILES
-        for band in PARAMETER_NO_TRADE_BANDS
+        for band in no_trade_bands
     ]
     profile_by_configuration = {
         _parameter_configuration_id(profile["id"], band): (
@@ -1611,7 +1625,7 @@ def _parameter_neighborhood_projection(
             band,
         )
         for profile in PARAMETER_SIGNAL_PROFILES
-        for band in PARAMETER_NO_TRADE_BANDS
+        for band in no_trade_bands
     }
     daily_dates = set(daily.dates)
     expected_dates = {
@@ -1805,7 +1819,7 @@ def _parameter_neighborhood_projection(
 
     expected_metric: dict[str, Any] = {}
     for split in ("validation", "test"):
-        base = reconstructed[split][PARAMETER_BASE_CONFIGURATION_ID]
+        base = reconstructed[split][base_configuration_id]
         for configuration_id in configuration_ids:
             current = reconstructed[split][configuration_id]
             current["delta_vs_base"] = {
@@ -1902,7 +1916,7 @@ def _parameter_neighborhood_projection(
         }
     expected_policy = {
         "method": PARAMETER_NEIGHBORHOOD_METHOD,
-        "base_configuration_id": PARAMETER_BASE_CONFIGURATION_ID,
+        "base_configuration_id": base_configuration_id,
         "role": "robustness-only",
         "selection_authority": "context-only",
         "trading_authority": "none",
@@ -1918,7 +1932,7 @@ def _parameter_neighborhood_projection(
             }
             for profile in PARAMETER_SIGNAL_PROFILES
         ],
-        "no_trade_bands": list(PARAMETER_NO_TRADE_BANDS),
+        "no_trade_bands": list(no_trade_bands),
     }
     _compare_parameter_value(
         metric,
@@ -1956,7 +1970,7 @@ def _parameter_neighborhood_projection(
             },
         }
         _compare_parameter_value(
-            reconstructed[split][PARAMETER_BASE_CONFIGURATION_ID],
+            reconstructed[split][base_configuration_id],
             {
                 **base_reconciliation,
                 "delta_vs_base": {
@@ -2022,7 +2036,7 @@ def _parameter_neighborhood_projection(
                     ][1],
                     "isBase": (
                         configuration_id
-                        == PARAMETER_BASE_CONFIGURATION_ID
+                        == base_configuration_id
                     ),
                     "netSharpe": reconstructed[split][configuration_id][
                         "performance"
@@ -2054,13 +2068,13 @@ def _parameter_neighborhood_projection(
         "available": True,
         "policy": {
             "method": PARAMETER_NEIGHBORHOOD_METHOD,
-            "baseConfigurationId": PARAMETER_BASE_CONFIGURATION_ID,
+            "baseConfigurationId": base_configuration_id,
             "role": "robustness-only",
             "selectionAuthority": "context-only",
             "tradingAuthority": "none",
             "configurationCount": len(configuration_ids),
             "signalProfiles": list(PARAMETER_SIGNAL_PROFILES),
-            "noTradeBands": list(PARAMETER_NO_TRADE_BANDS),
+            "noTradeBands": list(no_trade_bands),
         },
         "validation": split_projection("validation"),
         "test": split_projection("test"),
@@ -2314,16 +2328,31 @@ def _strategy_viability_projection(
             "Daily implementation cost must use one fixed per-notional bps rate",
         )
     base_cost_bps = active_cost_bps[0]
-    if not math.isclose(
-        base_cost_bps,
-        BASE_COST_BPS,
-        rel_tol=0.0,
-        abs_tol=1e-9,
+    mandate = metrics.get("portfolio_mandate")
+    implementation_policy = (
+        mandate.get("implementationPolicy")
+        if isinstance(mandate, dict)
+        else None
+    )
+    declared_base_cost = (
+        implementation_policy.get("baseCostBps")
+        if isinstance(implementation_policy, dict)
+        else None
+    )
+    if (
+        not isinstance(declared_base_cost, (int, float))
+        or isinstance(declared_base_cost, bool)
+        or not math.isclose(
+            base_cost_bps,
+            float(declared_base_cost),
+            rel_tol=0.0,
+            abs_tol=1e-9,
+        )
     ):
         _fail(
             "portfolio-daily/cost",
             "portfolio.viability-cost",
-            "Daily implementation cost differs from the fixed Judge contract",
+            "Daily implementation cost differs from the Portfolio Mandate",
         )
 
     split_output: dict[str, Any] = {}
@@ -2428,8 +2457,10 @@ def _strategy_viability_projection(
                 "Factor split must be an object",
             )
         projected_stress: list[dict[str, Any]] = []
-        for cost_bps in (0.0, base_cost_bps, 25.0):
-            key = f"{int(round(cost_bps))}bps"
+        for cost_bps in dict.fromkeys(
+            (0.0, base_cost_bps, max(25.0, 2.0 * base_cost_bps))
+        ):
+            key = f"{cost_bps:g}bps"
             raw_stress = cost_stress.get(key, {}).get(split_name)
             if not isinstance(raw_stress, dict):
                 _fail(
@@ -3927,7 +3958,10 @@ def _recent_transitions(
     ]
 
 
-def _signal_policy_projection(result: dict[str, Any]) -> dict[str, Any]:
+def _signal_policy_projection(
+    result: dict[str, Any],
+    mandate: dict[str, Any],
+) -> dict[str, Any]:
     policy = result["metrics"].get("signal_policy")
     if not isinstance(policy, dict):
         _fail(
@@ -3984,7 +4018,15 @@ def _signal_policy_projection(result: dict[str, Any]) -> dict[str, Any]:
     normalized_parameters["volatility_window"] = int(
         normalized_parameters["volatility_window"]
     )
-    if normalized_parameters != EXPECTED_SIGNAL_PARAMETERS:
+    expected_parameters = {
+        **EXPECTED_SIGNAL_PARAMETERS,
+        "gross_target": mandate["grossLimit"],
+        "max_abs_weight": mandate["maxAbsWeight"],
+        "no_trade_one_way": mandate["implementationPolicy"][
+            "noTradeOneWay"
+        ],
+    }
+    if normalized_parameters != expected_parameters:
         _fail(
             "RunResult/metrics/signal_policy/parameters",
             "portfolio.signal-policy-parameters",
@@ -4053,6 +4095,16 @@ def _mandate_projection(
             "shortAllowed": True,
             "benchmark": "equal-weight-long-research-universe",
             "riskPolicy": None,
+            "policySource": "legacy-implicit",
+            "implementationPolicy": {
+                "baseCostBps": 10.0,
+                "noTradeOneWay": 0.05,
+                "referenceNav": 1_000_000.0,
+                "costModel": "linear-traded-notional-v1",
+                "capacityModel": (
+                    "trailing-dollar-volume-participation-v1"
+                ),
+            },
         }
     if not isinstance(raw, dict) or not isinstance(report_raw, dict):
         _fail(
@@ -4103,6 +4155,7 @@ def _mandate_projection(
         "id": mandate["id"],
         "sha256": mandate_hash,
         "sourceKind": source["kind"],
+        "policySource": source["portfolioPolicy"],
         "requestHash": source["requestHash"],
         "direction": source["direction"],
         "family": construction["family"],
@@ -4115,6 +4168,7 @@ def _mandate_projection(
         "shortAllowed": construction["shortAllowed"],
         "benchmark": construction["benchmark"],
         "riskPolicy": construction["riskPolicy"],
+        "implementationPolicy": mandate["implementationPolicy"],
     }
 
 
@@ -4999,6 +5053,7 @@ def _liquidity_capacity_projection(
     result: dict[str, Any],
     ordered_decisions: list[dict[str, Any]],
     splits: dict[str, Any],
+    reference_nav: float = LIQUIDITY_REFERENCE_NAV,
 ) -> dict[str, Any]:
     raw = result["metrics"].get("liquidity_capacity")
     has_ledger = any(
@@ -5025,7 +5080,7 @@ def _liquidity_capacity_projection(
         "method": "trailing-average-dollar-volume-capacity-v1",
         "adv_window": 20,
         "participation_limits": [0.01, 0.05],
-        "reference_nav": LIQUIDITY_REFERENCE_NAV,
+        "reference_nav": reference_nav,
         "selection_authority": "context-only",
         "trading_authority": "none",
     }
@@ -5092,7 +5147,7 @@ def _liquidity_capacity_projection(
                 "median_nav": _quantile(values, 0.50),
                 "reference_nav_breach_rate": (
                     sum(
-                        value + 1e-12 < LIQUIDITY_REFERENCE_NAV
+                        value + 1e-12 < reference_nav
                         for value in values
                     )
                     / len(values)
@@ -5799,6 +5854,10 @@ def load_portfolio_diagnostics(
             "portfolio.report-json",
             "Portfolio report must be a UTF-8 JSON object",
         )
+    mandate = _mandate_projection(run, report, universe)
+    reference_nav = float(
+        mandate["implementationPolicy"]["referenceNav"]
+    )
 
     daily = _parse_daily(paths["portfolio-daily"])
     target_dates, targets = _parse_weight_panel(
@@ -5830,6 +5889,7 @@ def load_portfolio_diagnostics(
         universe,
         targets,
         weights,
+        reference_nav,
     )
     splits, split_names = _split_contract(run.result)
     research_integrity = run.result["metrics"].get("research_integrity")
@@ -5839,8 +5899,7 @@ def load_portfolio_diagnostics(
             "portfolio.selection",
             "Portfolio Run must disclose selection integrity",
         )
-    mandate = _mandate_projection(run, report, universe)
-    signal_policy = _signal_policy_projection(run.result)
+    signal_policy = _signal_policy_projection(run.result, mandate)
     mechanical_decision = _mechanical_decision_projection(
         daily,
         universe,
@@ -5932,6 +5991,7 @@ def load_portfolio_diagnostics(
             run.result,
             ordered_decisions,
             splits,
+            reference_nav,
         ),
         "positionLifecycle": _position_lifecycle_projection(
             run.result,
@@ -7197,6 +7257,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 "id",
                 "sha256",
                 "sourceKind",
+                "policySource",
                 "requestHash",
                 "direction",
                 "family",
@@ -7209,6 +7270,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 "shortAllowed",
                 "benchmark",
                 "riskPolicy",
+                "implementationPolicy",
             ],
             "properties": {
                 "available": {"type": "boolean"},
@@ -7235,6 +7297,13 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                         "legacy-implicit",
                         "research-request",
                         "template-default",
+                    ]
+                },
+                "policySource": {
+                    "enum": [
+                        "legacy-implicit",
+                        "caller-supplied",
+                        "reference-default",
                     ]
                 },
                 "requestHash": {
@@ -7323,6 +7392,40 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                             },
                         },
                     ]
+                },
+                "implementationPolicy": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": [
+                        "baseCostBps",
+                        "noTradeOneWay",
+                        "referenceNav",
+                        "costModel",
+                        "capacityModel",
+                    ],
+                    "properties": {
+                        "baseCostBps": {
+                            "type": "number",
+                            "minimum": 0,
+                        },
+                        "noTradeOneWay": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1,
+                        },
+                        "referenceNav": {
+                            "type": "number",
+                            "exclusiveMinimum": 0,
+                        },
+                        "costModel": {
+                            "const": "linear-traded-notional-v1"
+                        },
+                        "capacityModel": {
+                            "const": (
+                                "trailing-dollar-volume-participation-v1"
+                            )
+                        },
+                    },
                 },
             },
         },

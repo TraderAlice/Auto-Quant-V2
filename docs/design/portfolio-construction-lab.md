@@ -5,6 +5,7 @@ Status: V2 implemented.
 Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]],
 [[docs/design/study-run-evidence]], [[docs/design/ohlcv-factor-lab]],
 [[docs/design/request-bound-portfolio-mandates]],
+[[docs/design/caller-owned-portfolio-research-policy]],
 [[docs/design/signal-policy-and-attribution]],
 [[docs/design/executed-book-risk-compliance]],
 [[docs/design/portfolio-liquidity-capacity]], and
@@ -41,8 +42,9 @@ The fixed Judge owns:
 - conviction and trailing inverse-volatility risk sizing;
 - causal trailing-covariance portfolio-volatility scale-down;
 - the fixed request-derived tradable/context universe, permitted direction,
-  cash, gross/net rules, benchmark, and per-asset cap;
-- no-trade tolerance, drift, turnover, costs, and volume participation;
+  cash, gross/net rules, benchmark, and caller/default per-asset cap;
+- caller/default no-trade tolerance, base cost, reference NAV, drift,
+  turnover, and volume participation;
 - dataset-fixed purged chronological splits, benchmark, metrics, contribution
   attribution, stresses, and primary score.
 
@@ -57,13 +59,13 @@ OHLCV known through close t
 → candidate factor(t) and cross-sectional percentile
 → request-permitted entry/hold/exit signal intent
 → conviction divided by trailing 20-bar realized volatility known at t
-→ allocate long/cash, short/cash, or +0.5/-0.5 dollar-neutral budget
-→ cap each absolute target weight at 0.30; unused directional budget is cash
+→ allocate long/cash, short/cash, or equal-sided dollar-neutral budget
+→ cap each absolute target at the Mandate cap; unused budget is cash
 → forecast annualized portfolio volatility from at most 60 return rows through t
-→ scale the complete target down to a 0.15 ceiling; never scale up
+→ scale the complete target down to the Mandate ceiling; never scale up
 → context-only assets remain flat with zero target
 → compare with the prior book drifted through return t
-→ retain the drifted book when one-way turnover is below 0.05
+→ retain the drifted book below the Mandate no-trade band
 → otherwise rebalance at close t
 → recheck the chosen final book under the same causal covariance ceiling
 → if excessive, bypass no-trade with minimum proportional scale-down
@@ -77,7 +79,7 @@ The request-derived Portfolio Mandate decides which assets and signs may
 become positions. Directional families water-fill permitted active strength
 up to the gross limit and retain unused budget in cash. Dollar-neutral
 families treat positive and negative scores separately and require both
-`+0.5/-0.5` sides to fund exactly; otherwise the target is flat rather than
+equal gross sides to fund exactly; otherwise the target is flat rather than
 silently changing net exposure. Exact state, threshold, conviction,
 risk-strength, and allocation semantics are
 [[docs/design/signal-policy-and-attribution]].
@@ -112,7 +114,7 @@ book.
 - `traded_notional = sum(abs(trade_weight))`;
 - cost is `traded_notional * one_way_cost_bps / 10_000`;
 - participation is absolute trade dollars divided by close times volume under
-  a fixed reference NAV.
+  the Mandate's research reference NAV.
 
 The factor-of-two distinction is explicit: turnover reports portfolio
 replacement fraction, while cost applies to every bought or sold dollar.

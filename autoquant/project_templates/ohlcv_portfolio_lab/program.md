@@ -33,18 +33,20 @@ permission to select from visible test audit.
 - size conviction by inverse trailing 20-bar volatility;
 - directional requests allocate only their permitted side and retain unused
   gross budget in cash;
-- long-short/relative-value require exact gross 1.0, long +0.5, short -0.5;
+- long-short/relative-value require the Portfolio Mandate's exact gross and
+  equal funded long/short sides;
 - context-only assets remain flat with zero target;
-- maximum absolute target weight 0.30;
+- maximum absolute target weight comes from the Portfolio Mandate;
 - forecast portfolio volatility from up to 60 complete trailing return rows
   through decision close `t`, with at least 20 observations;
-- uniformly scale raw targets down to a 15% annualized volatility ceiling and
-  never scale exposure up;
-- retain the drifted book below 0.05 one-way turnover;
+- uniformly scale raw targets down to the Portfolio Mandate's annualized
+  volatility ceiling and never scale exposure up;
+- retain the drifted book below the Portfolio Mandate's one-way no-trade
+  threshold;
 - recheck that chosen post-drift book against the same causal covariance
   ceiling; risk outranks no-trade and may apply only the minimum proportional
   scale-down;
-- cost every bought/sold dollar at 10 basis points;
+- cost every bought/sold dollar at the Portfolio Mandate's base cost;
 - estimate causal ADV from 20 `close × volume` observations through decision
   close and invert exact trade weights at 1%/5% participation;
 - signal at close `t` earns only close `t` to close `t+1`;

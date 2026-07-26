@@ -62,6 +62,9 @@ Read the relevant linked document before changing a subsystem:
 - Configurable decision-bar intervals and calendar-verified XNYS regular
   sessions:
   [[docs/design/configurable-session-interval-inputs]]
+- Caller-owned Portfolio risk and implementation assumptions shared by
+  Portfolio and governed RL:
+  [[docs/design/caller-owned-portfolio-research-policy]]
 - Fixed seconds-scale candidate checks, immutable non-selection diagnostics,
   and edit/check/evaluate routing:
   [[docs/design/candidate-preflight-feedback]]

@@ -35,10 +35,12 @@ next-bar accounting:
 | `fast-exit` | 0.75 | 0.75 | 0.25 | 0.25 | Base entry with no persistence |
 | `selective-fast-exit` | 0.95 | 0.75 | 0.25 | 0.05 | Joint selective-entry / fast-exit stress |
 
-Each profile is crossed with one-way no-trade bands `0.00`, `0.05`, and
-`0.10`. The 15 configuration identities and ordering are fixed Judge
-authority. `base__band-005` is the base configuration and must reproduce the
-ordinary Portfolio Run exactly.
+Each profile is crossed with three deterministic one-way no-trade bands:
+`0.00`, the exact Mandate base, and a bounded adverse local band
+`min(1.00, max(0.10, 2 × base))`. Duplicate bands collapse. Configuration
+identities and ordering remain fixed Judge authority; the dynamically named
+`base__band-*` cell at the exact base must reproduce the ordinary Portfolio
+Run exactly.
 
 The six-asset construction fixture has discrete cross-sectional percentile
 scores `0.0, 0.2, …, 1.0`. Threshold changes therefore cross the adjacent
@@ -109,7 +111,8 @@ The Portfolio Explorer:
 
 1. verifies the immutable Run and every declared artifact hash;
 2. requires metric and artifact availability to agree;
-3. requires exactly the fixed configuration set and split date coverage;
+3. derives and requires the exact Mandate-local configuration set and split
+   date coverage;
 4. rejects duplicate, missing, extra, unordered, or non-finite rows;
 5. reconstructs performance, turnover, cost, rebalance, and signal summaries;
 6. reconciles every configuration with RunResult metrics;

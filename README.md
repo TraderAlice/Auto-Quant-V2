@@ -53,8 +53,14 @@ Project-local bytes, and transactionally creates one coordinated Project with
 Factor, Portfolio, and governed RL Studies. It also derives one fixed
 Portfolio Mandate: requested assets and direction define position authority,
 while other panel assets remain research context. The Mandate also fixes a
-causal one-sided covariance volatility ceiling shared by Portfolio and RL. It
-does not download data or silently start research. `aq project program`
+causal one-sided covariance volatility ceiling shared by Portfolio and RL.
+An optional strict `portfolioPolicy` in the Research Request lets the caller
+lock gross, single-name cap, volatility ceiling, base cost, no-trade band,
+and research reference NAV; documented reference defaults are explicit when
+it is omitted. These are research assumptions, not Broker/account state or
+trading authority. See
+[[docs/design/caller-owned-portfolio-research-policy]]. Intake does not
+download data or silently start research. `aq project program`
 returns verified lane status,
 shared-source conflicts, evidence currentness, and the exact recommended
 headless command. The narrow single-lane templates remain available when a

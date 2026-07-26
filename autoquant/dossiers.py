@@ -1199,6 +1199,7 @@ def _render_markdown(dossier: dict[str, Any]) -> str:
         lines.extend(["", "## Portfolio mandate", ""])
         for mandate in mandates.values():
             construction = mandate["construction"]
+            implementation = mandate["implementationPolicy"]
             lines.extend(
                 [
                     f"- Mandate: `{mandate['id']}`",
@@ -1220,6 +1221,15 @@ def _render_markdown(dossier: dict[str, Any]) -> str:
                     f"`{construction['maxAbsWeight']}` / "
                     f"`{construction['cashAllowed']}`",
                     f"- Benchmark: `{construction['benchmark']}`",
+                    f"- Portfolio policy source: "
+                    f"`{mandate['source']['portfolioPolicy']}`",
+                    f"- Base cost / one-way no-trade band / reference NAV: "
+                    f"`{implementation['baseCostBps']}` bps / "
+                    f"`{implementation['noTradeOneWay']}` / "
+                    f"`{implementation['referenceNav']}`",
+                    "- These are content-locked research assumptions, not "
+                    "authenticated Broker fees, account capital, or trading "
+                    "authority.",
                 ]
             )
             risk_policy = construction.get("riskPolicy")

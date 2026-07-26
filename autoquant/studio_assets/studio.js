@@ -2319,12 +2319,17 @@ function mandateMarkup(mandate) {
   const riskLabel = risk
     ? `${percent(risk.annualizedVolatilityCeiling)} · scale-down only`
     : "legacy · none";
+  const implementation = mandate.implementationPolicy;
+  const implementationLabel = implementation
+    ? `${metric(implementation.baseCostBps)} bps · ${percent(implementation.noTradeOneWay)} band · NAV ${metric(implementation.referenceNav)}`
+    : "legacy defaults";
   return `
     <span class="mandate-direction">${escapeHtml(mandate.direction.toUpperCase())}</span>
     <span><small>Construction</small><b>${escapeHtml(mandate.family)}</b></span>
     <span class="mandate-assets"><small>Authorized positions</small><b>${escapeHtml(tradable)}</b><i>${escapeHtml(context)}</i></span>
     <span><small>Gross / cap</small><b>${metric(mandate.grossLimit)} / ${percent(mandate.maxAbsWeight)}</b></span>
     <span><small>Risk ceiling</small><b>${escapeHtml(riskLabel)}</b></span>
+    <span><small>Cost / rebalance / NAV</small><b>${escapeHtml(implementationLabel)}</b><i>${escapeHtml(mandate.policySource)}</i></span>
     <span><small>Benchmark</small><b>${escapeHtml(mandate.benchmark)}</b></span>
     <code>${escapeHtml(lock)}</code>`;
 }

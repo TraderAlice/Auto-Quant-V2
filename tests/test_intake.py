@@ -23,8 +23,14 @@ from autoquant.mandates import (
     load_portfolio_mandate,
 )
 from autoquant.intervals import load_multi_interval_asset
-from autoquant.portfolio_explorer import load_portfolio_diagnostics
-from autoquant.rl_explorer import load_rl_diagnostics
+from autoquant.portfolio_explorer import (
+    PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA,
+    load_portfolio_diagnostics,
+)
+from autoquant.rl_explorer import (
+    RL_DIAGNOSTICS_JSON_SCHEMA,
+    load_rl_diagnostics,
+)
 from autoquant.runs import RUN_RESULT_JSON_SCHEMA, execute_study
 from autoquant.sessions import start_session
 from autoquant.studio import build_studio_snapshot
@@ -49,6 +55,127 @@ from tests.intake_helpers import (
 
 
 class RequestDrivenIntakeTests(unittest.TestCase):
+    def test_caller_portfolio_policy_governs_portfolio_and_rl(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            policy = {
+                "grossLimit": 0.8,
+                "maxAbsWeight": 0.2,
+                "annualizedVolatilityCeiling": 0.12,
+                "baseCostBps": 17.5,
+                "noTradeOneWay": 0.04,
+                "referenceNav": 250_000.0,
+            }
+            request_path, package_path = write_intake_inputs(
+                root,
+                portfolio_policy=policy,
+            )
+            prepared = prepare_project_intake(
+                request_path,
+                package_path,
+                "ohlcv-research-desk",
+            )
+            project = create_project(
+                initialize_workspace(root / "workspace").root_dir,
+                "caller-policy-desk",
+                template=prepared.template,
+                template_intake=prepared,
+            )
+            mandate = load_portfolio_mandate(
+                project.root_dir / PORTFOLIO_MANDATE
+            )
+            self.assertEqual(
+                mandate["source"]["portfolioPolicy"],
+                "caller-supplied",
+            )
+            self.assertEqual(
+                mandate["implementationPolicy"]["baseCostBps"],
+                17.5,
+            )
+
+            portfolio_run = execute_study(project, PORTFOLIO_STUDY_ID)
+            rl_run = execute_study(project, RL_STUDY_ID)
+            for run in (portfolio_run, rl_run):
+                self.assertEqual(
+                    run.result["status"],
+                    "succeeded",
+                    run.result["errors"],
+                )
+                self.assertEqual(
+                    run.result["metrics"]["portfolio_mandate"],
+                    mandate,
+                )
+                jsonschema.validate(run.result, RUN_RESULT_JSON_SCHEMA)
+            portfolio_metrics = portfolio_run.result["metrics"]
+            self.assertEqual(
+                portfolio_metrics["signal_policy"]["parameters"],
+                {
+                    "long_entry_percentile": 0.75,
+                    "long_exit_percentile": 0.55,
+                    "short_exit_percentile": 0.45,
+                    "short_entry_percentile": 0.25,
+                    "volatility_window": 20,
+                    "gross_target": 0.8,
+                    "max_abs_weight": 0.2,
+                    "no_trade_one_way": 0.04,
+                },
+            )
+            self.assertEqual(
+                set(
+                    portfolio_metrics["robustness"]["cost_stress"]
+                ),
+                {"0bps", "17.5bps", "35bps"},
+            )
+            self.assertEqual(
+                portfolio_metrics["liquidity_capacity"]["policy"][
+                    "reference_nav"
+                ],
+                250_000.0,
+            )
+            portfolio_projection = load_portfolio_diagnostics(
+                project,
+                portfolio_run.result["id"],
+            )
+            self.assertEqual(
+                portfolio_projection["mandate"]["implementationPolicy"],
+                mandate["implementationPolicy"],
+            )
+            self.assertAlmostEqual(
+                portfolio_projection["strategyViability"]["validation"][
+                    "friction"
+                ]["baseCostBps"],
+                17.5,
+            )
+            jsonschema.validate(
+                portfolio_projection,
+                PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA,
+            )
+
+            self.assertEqual(
+                rl_run.result["metrics"]["configuration"]["costBps"],
+                17.5,
+            )
+            self.assertEqual(
+                rl_run.result["metrics"]["configuration"][
+                    "noTradeOneWay"
+                ],
+                0.04,
+            )
+            rl_projection = load_rl_diagnostics(
+                project,
+                rl_run.result["id"],
+            )
+            self.assertEqual(
+                rl_projection["portfolioMandate"][
+                    "implementationPolicy"
+                ],
+                mandate["implementationPolicy"],
+            )
+            jsonschema.validate(
+                rl_projection,
+                RL_DIAGNOSTICS_JSON_SCHEMA,
+            )
+
     def test_v3_continuous_base_interval_is_configurable_end_to_end(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

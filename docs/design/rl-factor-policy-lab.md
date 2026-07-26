@@ -5,6 +5,7 @@ Status: V1 implemented.
 Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]],
 [[docs/design/portfolio-construction-lab]],
 [[docs/design/request-bound-portfolio-mandates]],
+[[docs/design/caller-owned-portfolio-research-policy]],
 [[docs/design/executed-book-risk-compliance]],
 [[docs/design/rl-factor-opportunity-audit]], and
 [[docs/design/quant-research-lifecycle]].
@@ -89,7 +90,8 @@ panel or equal blend enters the fixed percentile/hysteresis state machine and
 is converted by the portfolio Core into request-permitted
 inverse-volatility-conviction targets. Each sleeve maintains its own causal
 intent history and shares the exact tradable/context assets, direction, cash,
-gross/net, cap, benchmark, and one-sided covariance volatility ceiling. RL
+gross/net, cap, benchmark, one-sided covariance volatility ceiling, base cost,
+no-trade band, and reference NAV. RL
 selects among those governed sleeves; it cannot alter entry/exit thresholds,
 sizing, risk scale, constraints, or costs.
 After drift and no-trade selection, the shared execution primitive rechecks
@@ -123,10 +125,10 @@ reward(t)
 - 0.10 × gross_portfolio_return(t→t+1)^2
 ```
 
-Net return already includes full traded-notional cost at 10 basis points. The
-quadratic term is a fixed local risk penalty; candidate code cannot rescale or
-remove it. Rewards, targets, actions, and next states are finite or the seed is
-recorded as failed.
+Net return already includes full traded-notional cost at the Portfolio
+Mandate's base cost. The quadratic term is a fixed local risk penalty;
+candidate code cannot rescale or remove it. Rewards, targets, actions, and
+next states are finite or the seed is recorded as failed.
 
 ## Training and evaluation
 

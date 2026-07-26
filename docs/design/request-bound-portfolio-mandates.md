@@ -1,9 +1,10 @@
 # Request-bound Portfolio Mandates
 
-Status: V1 implemented.
+Status: V2 implemented.
 
 Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]], [[docs/CLI]],
 [[docs/design/research-intake-and-dataset-snapshots]],
+[[docs/design/caller-owned-portfolio-research-policy]],
 [[docs/design/portfolio-construction-lab]],
 [[docs/design/signal-policy-and-attribution]],
 [[docs/design/executed-book-risk-compliance]],
@@ -39,6 +40,8 @@ The strict `autoquant-portfolio-mandate` records:
   short permission, and benchmark;
 - fixed trailing-covariance method, annualized volatility ceiling, lookback,
   minimum history, annualization, and no-scale-up rule;
+- fixed linear base cost, one-way no-trade band, research reference NAV, and
+  named accounting/capacity models;
 - `quantitative-decision-support` authority and `tradingAuthority: none`.
 
 The file is a fixed Study dependency, not candidate-editable source and not
@@ -68,6 +71,12 @@ so the historical reference benchmark remains explicit.
 Requested assets are intentionally conservative authorization. Other dataset
 assets may improve ranking, regime, style, or benchmark context, but they
 cannot become positions or implicit hedges without caller intent.
+
+The optional complete `request.portfolioPolicy` owns the numeric gross, cap,
+volatility, cost, rebalance, and reference-NAV assumptions. If omitted, Core
+records `reference-default` and values `1.0`, `0.30`, `0.15`, `10bps`, `0.05`,
+and `1,000,000`. Candidate Agents cannot edit either source. See
+[[docs/design/caller-owned-portfolio-research-policy]].
 
 ## Mechanical construction
 
@@ -126,6 +135,8 @@ Core projections expose:
 - direction and construction family;
 - authorized and context-only assets;
 - gross limit, per-asset cap, cash, short, and benchmark semantics;
+- caller/default policy source, base cost, no-trade band, reference NAV, and
+  accounting/capacity model identities;
 - constraint errors for gross, net rule, opposite-sign exposure,
   context-only exposure, and maximum weight;
 - current gross, net, and unused cash budget;
@@ -161,13 +172,12 @@ inventory.
 9. Historical implicit-neutral evidence remains loadable and labelled legacy.
 10. Risk compliance has priority over the no-trade band and cannot increase
     exposure.
+11. Portfolio and governed RL consume the same implementation policy.
 
 ## Known limits
 
-- V1 fixes gross limit `1.0`, per-asset cap `0.30`, and cash permission.
-- The request does not yet express named hedge assets, sector bounds,
-  caller-specific risk budgets, borrow availability, futures margin, or
-  leverage.
+- The request does not yet express named hedge assets, per-asset or sector
+  bounds, borrow availability, futures margin, or nonlinear impact.
 - Cash is an unused-gross-budget field, not financing or collateral
   accounting.
 - Position permissions are Project-local and do not represent OpenAlice

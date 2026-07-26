@@ -7,6 +7,7 @@ Related: [[docs/ARCHITECTURE]], [[docs/CLI]], [[docs/PROJECT_FORMAT]],
 [[docs/STUDIO]], [[docs/design/workspace-project-boundaries]],
 [[docs/design/study-run-evidence]],
 [[docs/design/request-bound-portfolio-mandates]],
+[[docs/design/caller-owned-portfolio-research-policy]],
 [[docs/design/portfolio-risk-governor]], and
 [[docs/design/quant-research-lifecycle]], and
 [[docs/design/causal-multi-interval-factor-inputs]].
@@ -171,11 +172,14 @@ Portfolio and governed-RL intake also writes the strict fixed
 `strategies/portfolio-mandate.json`. Core derives it from the exact normalized
 request and dataset universe: requested assets are tradable, remaining assets
 are context-only, and direction determines long/cash, short/cash, or
-dollar-neutral construction and benchmark. The same derivation fixes a
+dollar-neutral construction and benchmark. If the canonical request contains
+`portfolioPolicy`, the same derivation locks its gross, cap, volatility
+ceiling, linear cost, no-trade band, and reference NAV; otherwise it records
+documented reference defaults. The same derivation fixes a
 trailing-covariance volatility policy: 60-row window, 20-row minimum, 252
 periods for V1 daily data, 8760 for V2 continuous hourly data, or the verified
-V3 decision clock, 15% annualized
-ceiling, and no scale-up. Portfolio and RL Studies bind the same file as a
+V3 decision clock, the request/default annualized ceiling, and no scale-up.
+Portfolio and RL Studies bind the same file as a
 dependency. Intake reconstructs it on every load, so request or mandate
 tampering fails rather than changing the position or risk question silently.
 

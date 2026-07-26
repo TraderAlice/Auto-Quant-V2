@@ -11,9 +11,6 @@ import pandas as pd
 
 try:
     from judges.portfolio_core import (
-        BASE_COST_BPS,
-        NO_TRADE_ONE_WAY,
-        REFERENCE_NAV,
         RiskCovarianceCache,
         Simulation,
         build_risk_covariance_cache,
@@ -23,12 +20,10 @@ try:
         execute_risk_compliant_book,
         implementation_metrics,
         performance_metrics,
+        resolve_implementation_policy,
     )
 except ModuleNotFoundError:  # Package-level deterministic primitive tests.
     from autoquant.project_templates.ohlcv_portfolio_lab.portfolio_core import (
-        BASE_COST_BPS,
-        NO_TRADE_ONE_WAY,
-        REFERENCE_NAV,
         RiskCovarianceCache,
         Simulation,
         build_risk_covariance_cache,
@@ -38,6 +33,7 @@ except ModuleNotFoundError:  # Package-level deterministic primitive tests.
         execute_risk_compliant_book,
         implementation_metrics,
         performance_metrics,
+        resolve_implementation_policy,
     )
 
 
@@ -296,6 +292,7 @@ def _account_step(
     mandate: dict[str, object] | None = None,
     risk_covariance_cache: RiskCovarianceCache | None = None,
 ) -> tuple[pd.Series, pd.Series, pd.Series, dict[str, float | bool]]:
+    implementation = resolve_implementation_policy(mandate)
     pretrade = _pretrade_weights(
         previous_weights,
         close_returns,
@@ -308,14 +305,18 @@ def _account_step(
         close_returns,
         timestamp,
         mandate=mandate,
-        no_trade_one_way=NO_TRADE_ONE_WAY,
+        no_trade_one_way=implementation["no_trade_one_way"],
         risk_covariance_cache=risk_covariance_cache,
     )
     rebalanced = bool(execution_risk["rebalanced"])
     trade = current - pretrade
     traded_notional = float(trade.abs().sum())
     one_way_turnover = 0.5 * traded_notional
-    cost = traded_notional * BASE_COST_BPS / 10_000.0
+    cost = (
+        traded_notional
+        * implementation["base_cost_bps"]
+        / 10_000.0
+    )
     gross_return = float((current * forward_return).sum())
     net_return = gross_return - cost
     reward = net_return - RISK_AVERSION * gross_return**2
@@ -340,7 +341,9 @@ def _account_step(
             )
     dollar_volume = close * volume
     participation = (
-        trade.abs() * REFERENCE_NAV / dollar_volume.replace(0.0, np.nan)
+        trade.abs()
+        * implementation["reference_nav"]
+        / dollar_volume.replace(0.0, np.nan)
     ).fillna(0.0)
     row: dict[str, object] = {
         "gross_return": gross_return,

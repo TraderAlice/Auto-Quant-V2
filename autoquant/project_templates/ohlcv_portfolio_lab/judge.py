@@ -23,13 +23,10 @@ from autoquant.mandates import (
     load_portfolio_mandate,
 )
 from judges.portfolio_core import (
-    BASE_COST_BPS,
     LONG_ENTRY_PERCENTILE,
     LONG_EXIT_PERCENTILE,
     LIQUIDITY_ADV_WINDOW,
     LIQUIDITY_PARTICIPATION_LIMITS,
-    NO_TRADE_ONE_WAY,
-    REFERENCE_NAV,
     RISK_COVARIANCE_MINIMUM,
     RISK_COVARIANCE_WINDOW,
     SHORT_ENTRY_PERCENTILE,
@@ -46,6 +43,7 @@ from judges.portfolio_core import (
     implementation_metrics,
     liquidity_capacity_metrics,
     performance_metrics,
+    resolve_implementation_policy,
     position_episode_metrics,
     signal_policy_metrics,
     simulate_targets,
@@ -100,8 +98,6 @@ PARAMETER_SIGNAL_PROFILES: tuple[dict[str, Any], ...] = (
         "short_entry": 0.05,
     },
 )
-PARAMETER_NO_TRADE_BANDS = (0.0, NO_TRADE_ONE_WAY, 0.10)
-PARAMETER_BASE_CONFIGURATION_ID = "base__band-005"
 
 
 class JudgeFailure(ValueError):
@@ -409,6 +405,11 @@ def _parameter_neighborhood(
     base_simulation: Any,
     risk_covariance_cache: Any,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
+    implementation_policy = resolve_implementation_policy(mandate)
+    base_band = implementation_policy["no_trade_one_way"]
+    adverse_band = min(1.0, max(0.10, 2.0 * base_band))
+    bands = tuple(dict.fromkeys((0.0, base_band, adverse_band)))
+    base_configuration_id = _parameter_configuration_id("base", base_band)
     roles = {
         "validation": "selection-context",
         "test": "visible-audit",
@@ -430,12 +431,12 @@ def _parameter_neighborhood(
                 risk_covariance_cache=risk_covariance_cache,
             )
         )
-        for band in PARAMETER_NO_TRADE_BANDS:
+        for band in bands:
             configuration_id = _parameter_configuration_id(
                 str(profile["id"]),
                 band,
             )
-            is_base = configuration_id == PARAMETER_BASE_CONFIGURATION_ID
+            is_base = configuration_id == base_configuration_id
             simulation = (
                 base_simulation
                 if is_base
@@ -536,7 +537,7 @@ def _parameter_neighborhood(
             }
 
     for split in ("validation", "test"):
-        base = configurations[PARAMETER_BASE_CONFIGURATION_ID][split]
+        base = configurations[base_configuration_id][split]
         for configuration in configurations.values():
             current = configuration[split]
             current["delta_vs_base"] = {
@@ -577,7 +578,7 @@ def _parameter_neighborhood(
             dtype=float,
         )
         base_sharpe = float(
-            configurations[PARAMETER_BASE_CONFIGURATION_ID][split][
+            configurations[base_configuration_id][split][
                 "performance"
             ]["sharpe"]
         )
@@ -630,7 +631,7 @@ def _parameter_neighborhood(
 
     policy = {
         "method": PARAMETER_NEIGHBORHOOD_METHOD,
-        "base_configuration_id": PARAMETER_BASE_CONFIGURATION_ID,
+        "base_configuration_id": base_configuration_id,
         "role": "robustness-only",
         "selection_authority": "context-only",
         "trading_authority": "none",
@@ -646,7 +647,7 @@ def _parameter_neighborhood(
             }
             for profile in PARAMETER_SIGNAL_PROFILES
         ],
-        "no_trade_bands": list(PARAMETER_NO_TRADE_BANDS),
+        "no_trade_bands": list(bands),
     }
     metrics = {
         "policy": policy,
@@ -657,7 +658,7 @@ def _parameter_neighborhood(
         "schemaVersion": 1,
         "inputHash": os.environ["AUTOQUANT_INPUT_HASH"],
         "method": PARAMETER_NEIGHBORHOOD_METHOD,
-        "baseConfigurationId": PARAMETER_BASE_CONFIGURATION_ID,
+        "baseConfigurationId": base_configuration_id,
         "signalProfiles": [
             {
                 "id": profile["id"],
@@ -669,7 +670,7 @@ def _parameter_neighborhood(
             }
             for profile in PARAMETER_SIGNAL_PROFILES
         ],
-        "noTradeBands": list(PARAMETER_NO_TRADE_BANDS),
+        "noTradeBands": list(bands),
         "rows": rows,
     }
     return metrics, artifact
@@ -686,6 +687,7 @@ def _evaluate() -> tuple[
 ]:
     study, data_root = _load_contract()
     mandate = _load_mandate()
+    implementation_policy = resolve_implementation_policy(mandate)
     dataset = study["dataset"]
     universe = dataset["universe"]
     time_range = dataset["time_range"]
@@ -753,6 +755,7 @@ def _evaluate() -> tuple[
         base,
         close_panel,
         volume_panel,
+        mandate=mandate,
     )
     splits, split_protocol = _split_indices(
         pd.DatetimeIndex(factor_panel.index)
@@ -794,7 +797,7 @@ def _evaluate() -> tuple[
             "participation_limits": list(
                 LIQUIDITY_PARTICIPATION_LIMITS
             ),
-            "reference_nav": REFERENCE_NAV,
+            "reference_nav": implementation_policy["reference_nav"],
             "selection_authority": "context-only",
             "trading_authority": "none",
         },
@@ -802,6 +805,7 @@ def _evaluate() -> tuple[
             name: liquidity_capacity_metrics(
                 decision_ledger,
                 index,
+                reference_nav=implementation_policy["reference_nav"],
             )
             for name, index in splits.items()
         },
@@ -881,7 +885,11 @@ def _evaluate() -> tuple[
         portfolio_metrics["validation"]["net"]["sharpe"]
     )
     cost_stress: dict[str, Any] = {}
-    for cost_bps in (0.0, BASE_COST_BPS, 25.0):
+    base_cost_bps = implementation_policy["base_cost_bps"]
+    adverse_cost_bps = max(25.0, 2.0 * base_cost_bps)
+    for cost_bps in dict.fromkeys(
+        (0.0, base_cost_bps, adverse_cost_bps)
+    ):
         simulation = simulate_targets(
             targets,
             close_panel,
@@ -890,7 +898,7 @@ def _evaluate() -> tuple[
             mandate=mandate,
             risk_covariance_cache=risk_covariance_cache,
         )
-        key = f"{int(cost_bps)}bps"
+        key = f"{cost_bps:g}bps"
         cost_stress[key] = {
             split: performance_metrics(
                 simulation.daily.loc[index, "net_return"],
@@ -1079,7 +1087,9 @@ def _evaluate() -> tuple[
                 "volatility_window": VOLATILITY_WINDOW,
                 "gross_target": mandate["construction"]["grossLimit"],
                 "max_abs_weight": mandate["construction"]["maxAbsWeight"],
-                "no_trade_one_way": NO_TRADE_ONE_WAY,
+                "no_trade_one_way": implementation_policy[
+                    "no_trade_one_way"
+                ],
             },
             "train": policy_metrics["train"],
             "validation": policy_metrics["validation"],
@@ -1140,13 +1150,16 @@ def _evaluate() -> tuple[
             ),
             "portfolio": (
                 f"{mandate['construction']['family']} over authorized tradable "
-                "assets; gross limit 1.0; max abs weight 0.30; unused "
+                "assets; gross limit "
+                f"{mandate['construction']['grossLimit']}; max abs weight "
+                f"{mandate['construction']['maxAbsWeight']}; unused "
                 "directional budget and risk-governor reductions remain cash"
             ),
             "riskGovernor": (
                 "60-bar trailing covariance through close t; minimum 20 "
-                "observations; annualized volatility ceiling 0.15; scale-down "
-                "only"
+                "observations; annualized volatility ceiling "
+                f"{mandate['construction']['riskPolicy']['annualizedVolatilityCeiling']}; "
+                "scale-down only"
             ),
             "executionRisk": (
                 "the final post-drift book is rechecked through close t; "
@@ -1158,9 +1171,15 @@ def _evaluate() -> tuple[
                 "linear close/open cost allocated exactly; MFE/MAE is "
                 "daily cumulative additive return contribution"
             ),
-            "noTrade": "retain drifted book below 0.05 one-way turnover",
+            "noTrade": (
+                "retain drifted book below "
+                f"{implementation_policy['no_trade_one_way']} one-way turnover"
+            ),
             "turnover": "0.5 * sum(abs(trade weight))",
-            "cost": "sum(abs(trade weight)) * 10bps",
+            "cost": (
+                "sum(abs(trade weight)) * "
+                f"{base_cost_bps:g}bps"
+            ),
             "liquidityCapacity": (
                 "20-observation trailing average close-times-volume through "
                 "decision close; exact executed trade weights inverted at "
@@ -1171,7 +1190,10 @@ def _evaluate() -> tuple[
                 "dataset-fixed chronological 60/20/20 with one-bar "
                 "boundary purge"
             ),
-            "score": "validation net Sharpe at 10bps only",
+            "score": (
+                "validation net Sharpe at "
+                f"{base_cost_bps:g}bps only"
+            ),
             "testRole": (
                 "visible diagnostic evidence; never enters candidate selection"
             ),
@@ -1181,9 +1203,9 @@ def _evaluate() -> tuple[
             "volatilityWindow": VOLATILITY_WINDOW,
             "grossTarget": mandate["construction"]["grossLimit"],
             "maxAbsWeight": mandate["construction"]["maxAbsWeight"],
-            "noTradeOneWay": NO_TRADE_ONE_WAY,
-            "baseCostBps": BASE_COST_BPS,
-            "referenceNav": REFERENCE_NAV,
+            "noTradeOneWay": implementation_policy["no_trade_one_way"],
+            "baseCostBps": base_cost_bps,
+            "referenceNav": implementation_policy["reference_nav"],
             "longEntryPercentile": LONG_ENTRY_PERCENTILE,
             "longExitPercentile": LONG_EXIT_PERCENTILE,
             "shortExitPercentile": SHORT_EXIT_PERCENTILE,

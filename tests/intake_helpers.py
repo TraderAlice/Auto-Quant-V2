@@ -19,6 +19,7 @@ def write_intake_inputs(
     start: str = "2024-01-02",
     dataset_id: str = "bounded-us-equities",
     dataset_version: str = "2024-v1",
+    portfolio_policy: dict[str, float] | None = None,
 ) -> tuple[Path, Path]:
     source = root / "external-data"
     source.mkdir()
@@ -107,6 +108,11 @@ def write_intake_inputs(
             },
         ],
         "direction": "long",
+        **(
+            {"portfolioPolicy": portfolio_policy}
+            if portfolio_policy is not None
+            else {}
+        ),
         "horizon": "one to four weeks",
         "hypotheses": ["Relative activity may identify persistent leadership."],
         "constraints": ["No live trading authority."],

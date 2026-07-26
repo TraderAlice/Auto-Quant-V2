@@ -674,6 +674,7 @@ def _render_markdown(report: dict[str, Any]) -> str:
     ]
     if isinstance(mandate, dict):
         construction = mandate["construction"]
+        implementation = mandate["implementationPolicy"]
         lines.extend(
             [
                 "## Portfolio mandate",
@@ -699,6 +700,15 @@ def _render_markdown(report: dict[str, Any]) -> str:
                 f"- Shorting allowed / benchmark: "
                 f"`{construction['shortAllowed']}` / "
                 f"`{construction['benchmark']}`",
+                f"- Portfolio policy source: "
+                f"`{mandate['source']['portfolioPolicy']}`",
+                f"- Base cost / one-way no-trade band / reference NAV: "
+                f"`{implementation['baseCostBps']}` bps / "
+                f"`{implementation['noTradeOneWay']}` / "
+                f"`{implementation['referenceNav']}`",
+                "- These are content-locked research assumptions, not "
+                "authenticated Broker fees, account capital, or trading "
+                "authority.",
             ]
         )
         risk_policy = construction.get("riskPolicy")

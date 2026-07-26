@@ -320,6 +320,9 @@ def _portfolio_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
                     "family": metrics["portfolio_mandate"]["construction"][
                         "family"
                     ],
+                    "policySource": metrics["portfolio_mandate"]["source"][
+                        "portfolioPolicy"
+                    ],
                     "tradableAssets": metrics["portfolio_mandate"][
                         "tradableAssets"
                     ],
@@ -329,6 +332,9 @@ def _portfolio_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
                     "riskPolicy": metrics["portfolio_mandate"][
                         "construction"
                     ]["riskPolicy"],
+                    "implementationPolicy": metrics["portfolio_mandate"][
+                        "implementationPolicy"
+                    ],
                 }
                 if isinstance(metrics.get("portfolio_mandate"), dict)
                 else None
@@ -681,6 +687,9 @@ def _rl_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
                     "family": metrics["portfolio_mandate"]["construction"][
                         "family"
                     ],
+                    "policySource": metrics["portfolio_mandate"]["source"][
+                        "portfolioPolicy"
+                    ],
                     "tradableAssets": metrics["portfolio_mandate"][
                         "tradableAssets"
                     ],
@@ -690,6 +699,9 @@ def _rl_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
                     "riskPolicy": metrics["portfolio_mandate"][
                         "construction"
                     ]["riskPolicy"],
+                    "implementationPolicy": metrics["portfolio_mandate"][
+                        "implementationPolicy"
+                    ],
                 }
                 if isinstance(metrics.get("portfolio_mandate"), dict)
                 else None

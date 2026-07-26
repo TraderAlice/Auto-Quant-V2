@@ -113,7 +113,9 @@ The V2 foundation now implements:
 - one request-bound Portfolio Mandate that derives tradable/context assets,
   permitted direction, cash, gross/net, cap, benchmark, and one-sided
   covariance risk policy from caller intent and is shared exactly by Portfolio
-  and governed RL.
+  and governed RL. Optional caller-owned policy also locks gross, cap,
+  volatility ceiling, linear base cost, no-trade band, and reference NAV into
+  that same immutable dependency.
 - one causal portfolio risk governor that forecasts annualized volatility from
   trailing returns through the decision close, scales exposure down above the
   fixed ceiling, and publishes pre/post sizing evidence without adding
@@ -331,6 +333,8 @@ behind the Harness contract, not the owner of Workspace or Project semantics.
 - OHLCV Portfolio Lab design: [[docs/design/portfolio-construction-lab]]
 - Request-bound Portfolio Mandate design:
   [[docs/design/request-bound-portfolio-mandates]]
+- Caller-owned Portfolio research policy design:
+  [[docs/design/caller-owned-portfolio-research-policy]]
 - Portfolio decision explorer design:
   [[docs/design/portfolio-decision-explorer]]
 - Portfolio diversification-stress design:

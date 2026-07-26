@@ -98,8 +98,10 @@ only and never selects a parameter. New Portfolio and RL Projects bind a
 strict `portfolio-mandate`:
 delegated intake authorizes requested assets and direction while retaining
 other panel assets as research context only. The same Mandate fixes a causal
-60-bar covariance forecast and a 15% annualized volatility ceiling that may
-scale targets down but never up.
+60-bar covariance forecast and a scale-down-only annualized volatility
+ceiling. The optional Research Request `portfolioPolicy` also locks gross,
+cap, ceiling, base cost, no-trade band, and reference NAV; when absent,
+documented defaults are recorded explicitly.
 Portfolio accounting and RL rollout then recheck the final post-drift book;
 risk may bypass the no-trade band using the minimum proportional repair.
 `ohlcv-rl-factor-lab` adds a deterministic causal state encoder surface over
@@ -321,9 +323,11 @@ containing the disposable worktree, fixed program, editable closure, leader,
 authority status, and exact next commands. The caller edits only that worktree.
 
 With `--request`, Session start first validates the strict external question,
-assets, direction, horizon, hypotheses, constraints, deliverables, and
-caller-supplied origin context. Requested assets and asset classes must fit the
-selected Study. Core copies canonical `request.json` and derives `brief.json`
+assets, direction, optional complete `portfolioPolicy`, horizon, hypotheses,
+constraints, deliverables, and caller-supplied origin context. Requested
+assets and asset classes must fit the selected Study. Portfolio policy values
+are bounded research assumptions, not authenticated Broker/account state.
+Core copies canonical `request.json` and derives `brief.json`
 from that request plus the Project, Study, baseline, dataset, Judge, and Harness
 locks. Those files are verified on every Session load and are included in each
 external Researcher turn. Existing local Sessions without a request remain

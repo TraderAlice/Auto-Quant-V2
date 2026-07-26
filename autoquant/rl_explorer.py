@@ -57,9 +57,11 @@ FACTOR_OPPORTUNITY_POLICY = {
     "selection_authority": "context-only",
     "trading_authority": "none",
 }
-FACTOR_OPPORTUNITY_REWARD = (
-    "net-return-after-10bps-cost-minus-0.10-times-gross-return-squared"
-)
+def _factor_opportunity_reward(cost_bps: float) -> str:
+    return (
+        f"net-return-after-{cost_bps:g}bps-cost-minus-"
+        "0.10-times-gross-return-squared"
+    )
 INCREMENTAL_ATTRIBUTION_POLICY = {
     "method": "selected-baseline-full-path-active-attribution-v1",
     "comparison_path": "independent-full-rollouts",
@@ -2320,7 +2322,8 @@ def _factor_opportunity_projection(
         or value["method"] != FACTOR_OPPORTUNITY_METHOD
         or value["actions"] != configuration["actions"]
         or value["assets"] != assets
-        or value["reward"] != FACTOR_OPPORTUNITY_REWARD
+        or value["reward"]
+        != _factor_opportunity_reward(float(configuration["costBps"]))
         or value["policy"] != FACTOR_OPPORTUNITY_POLICY
         or not isinstance(value["rows"], list)
         or set(raw_metrics) != {"policy", "validation", "test"}
@@ -4624,6 +4627,16 @@ def load_rl_diagnostics(
             "shortAllowed": True,
             "benchmark": "equal-weight-long-research-universe",
             "riskPolicy": None,
+            "policySource": "legacy-implicit",
+            "implementationPolicy": {
+                "baseCostBps": 10.0,
+                "noTradeOneWay": 0.05,
+                "referenceNav": 1_000_000.0,
+                "costModel": "linear-traded-notional-v1",
+                "capacityModel": (
+                    "trailing-dollar-volume-participation-v1"
+                ),
+            },
         }
     else:
         if not isinstance(raw_mandate, dict) or not isinstance(
@@ -4668,11 +4681,26 @@ def load_rl_diagnostics(
             )
         source = mandate["source"]
         construction = mandate["construction"]
+        implementation = mandate["implementationPolicy"]
+        for configuration_key, policy_key in (
+            ("costBps", "baseCostBps"),
+            ("noTradeOneWay", "noTradeOneWay"),
+            ("referenceNav", "referenceNav"),
+        ):
+            if configuration.get(configuration_key) != implementation[
+                policy_key
+            ]:
+                _fail(
+                    f"metrics/configuration/{configuration_key}",
+                    "rl.implementation-policy",
+                    "RL configuration differs from the Portfolio Mandate",
+                )
         mandate_projection = {
             "available": True,
             "id": mandate["id"],
             "sha256": mandate_hash,
             "sourceKind": source["kind"],
+            "policySource": source["portfolioPolicy"],
             "requestHash": source["requestHash"],
             "direction": source["direction"],
             "family": construction["family"],
@@ -4685,6 +4713,7 @@ def load_rl_diagnostics(
             "shortAllowed": construction["shortAllowed"],
             "benchmark": construction["benchmark"],
             "riskPolicy": construction["riskPolicy"],
+            "implementationPolicy": implementation,
         }
     mean_validation_turnover = sum(
         item["validation"]["meanOneWayTurnover"] for item in trials

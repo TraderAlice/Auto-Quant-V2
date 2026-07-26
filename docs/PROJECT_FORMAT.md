@@ -71,12 +71,16 @@ comparison rule. See [[docs/design/ohlcv-factor-lab]],
 New Portfolio and governed-RL Projects also contain the fixed
 `strategies/portfolio-mandate.json`. For request intake it derives the
 tradable/context asset partition, direction, cash, gross/net, cap, and
-benchmark from the canonical request. It also fixes a 60-bar/20-observation
-covariance policy, 15% annualized volatility ceiling, 252-period
-annualization, and `scaleUp: false`; synthetic templates explicitly declare
-the all-universe research-neutral position contract with the same V2 risk
-policy. It is a Study dependency, not candidate code. See
-[[docs/design/request-bound-portfolio-mandates]].
+benchmark from the canonical request. An optional strict
+`request.portfolioPolicy` supplies gross, global cap, annualized volatility
+ceiling, base linear cost, one-way no-trade band, and research reference NAV.
+When omitted, Core records documented reference defaults rather than treating
+them as caller facts. The Mandate retains the fixed 60-bar/20-observation
+covariance method, clock-derived annualization, and `scaleUp: false`;
+synthetic templates explicitly declare the all-universe research-neutral
+contract. It is a Study dependency, not candidate code. See
+[[docs/design/request-bound-portfolio-mandates]] and
+[[docs/design/caller-owned-portfolio-research-policy]].
 
 The RL template confines candidates to a pure row-level state encoder under
 `models/**`. Its fixed Judge owns factor-mixture actions, Q-learning, reward,
@@ -503,6 +507,14 @@ Brief hash. `request.json` records the exact normalized caller input:
     {"symbol": "AAPL", "assetClass": "equity", "venue": "NASDAQ"}
   ],
   "direction": "long",
+  "portfolioPolicy": {
+    "grossLimit": 0.8,
+    "maxAbsWeight": 0.2,
+    "annualizedVolatilityCeiling": 0.12,
+    "baseCostBps": 15.0,
+    "noTradeOneWay": 0.04,
+    "referenceNav": 250000.0
+  },
   "horizon": "one to three months",
   "hypotheses": ["Trend quality remains stable out of sample."],
   "constraints": ["Use only the locked dataset and cost assumptions."],

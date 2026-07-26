@@ -26,10 +26,10 @@ from autoquant.mandates import (
 from judges.portfolio_core import (
     build_risk_covariance_cache,
     constraint_audit,
+    resolve_implementation_policy,
 )
 from judges.rl_core import (
     ACTIONS,
-    BASE_COST_BPS,
     CONTEXTUAL_RIDGE_ITERATIONS,
     DISCOUNT,
     EPISODES,
@@ -1713,6 +1713,7 @@ def _evaluate() -> tuple[
 ]:
     study, data_root = _load_contract()
     mandate = _load_mandate()
+    implementation_policy = resolve_implementation_policy(mandate)
     model_module = importlib.import_module("models.candidate")
     factor_module = importlib.import_module("factors.candidate")
     if not callable(getattr(factor_module, "compute_factor", None)):
@@ -2226,7 +2227,9 @@ def _evaluate() -> tuple[
             "contextualRidgeLabelScope": "train-only",
             "contextualRidgeAnchorAction": "balanced",
             "riskAversion": RISK_AVERSION,
-            "costBps": BASE_COST_BPS,
+            "costBps": implementation_policy["base_cost_bps"],
+            "noTradeOneWay": implementation_policy["no_trade_one_way"],
+            "referenceNav": implementation_policy["reference_nav"],
             "executionRiskMethod": (
                 "post-drift-executed-book-volatility-compliance-v1"
             ),
@@ -2273,7 +2276,11 @@ def _evaluate() -> tuple[
                 "equal-weight blend at close t"
             ),
             "return": "close t to close t+1",
-            "reward": "net return after 10bps cost minus 0.10 * gross_return^2",
+            "reward": (
+                "net return after "
+                f"{implementation_policy['base_cost_bps']:g}bps cost minus "
+                "0.10 * gross_return^2"
+            ),
             "policyRationale": (
                 "exact linear chosen-versus-runner-up Q-margin "
                 "decomposition; Q scores are uncalibrated and contextual"
@@ -2343,7 +2350,9 @@ def _evaluate() -> tuple[
         "actions": list(ACTIONS),
         "assets": list(closes.columns),
         "reward": (
-            "net-return-after-10bps-cost-minus-0.10-times-gross-return-squared"
+            "net-return-after-"
+            f"{implementation_policy['base_cost_bps']:g}bps-cost-minus-"
+            "0.10-times-gross-return-squared"
         ),
         "policy": FACTOR_OPPORTUNITY_POLICY,
         "rows": opportunity_rows,

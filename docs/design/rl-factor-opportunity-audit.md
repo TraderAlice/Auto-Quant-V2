@@ -45,7 +45,7 @@ candidate | activity | intraday | reversal | balanced
   → identical post-drift no-trade and volatility-risk compliance
   → exact executed counterfactual book and trade
   → close t to close t+1 gross return
-  → identical 10 bps cost and fixed reward
+  → identical Portfolio Mandate base cost and fixed reward
 ```
 
 Each alternative ends after that next bar. It does not replace the policy book

@@ -53,6 +53,16 @@ PORTFOLIO_RISK_POLICY = {
     "annualizationPeriods": 252,
     "scaleUp": False,
 }
+DEFAULT_PORTFOLIO_POLICY = {
+    "grossLimit": 1.0,
+    "maxAbsWeight": 0.30,
+    "annualizedVolatilityCeiling": 0.15,
+    "baseCostBps": 10.0,
+    "noTradeOneWay": 0.05,
+    "referenceNav": 1_000_000.0,
+}
+IMPLEMENTATION_COST_MODEL = "linear-traded-notional-v1"
+IMPLEMENTATION_CAPACITY_MODEL = "trailing-dollar-volume-participation-v1"
 MIN_ANNUALIZATION_PERIODS = 1
 MAX_ANNUALIZATION_PERIODS = 365 * 24 * 60
 SHA256 = "^[0-9a-f]{64}$"
@@ -65,6 +75,41 @@ def _valid_annualization_periods(value: Any) -> bool:
         and MIN_ANNUALIZATION_PERIODS
         <= value
         <= MAX_ANNUALIZATION_PERIODS
+    )
+
+
+def _valid_portfolio_policy(
+    value: dict[str, Any],
+    direction: str,
+) -> bool:
+    required = set(DEFAULT_PORTFOLIO_POLICY)
+    if set(value) != required:
+        return False
+    if any(
+        not isinstance(value[key], (int, float))
+        or isinstance(value[key], bool)
+        for key in required
+    ):
+        return False
+    gross = float(value["grossLimit"])
+    cap = float(value["maxAbsWeight"])
+    ceiling = float(value["annualizedVolatilityCeiling"])
+    cost = float(value["baseCostBps"])
+    no_trade = float(value["noTradeOneWay"])
+    nav = float(value["referenceNav"])
+    maximum_cap = (
+        gross / 2.0
+        if direction
+        in {"long-short", "relative-value", "research-only"}
+        else gross
+    )
+    return (
+        0 < gross <= 2
+        and 0 < cap <= maximum_cap
+        and 0 < ceiling <= 1
+        and 0 <= cost <= 1000
+        and 0 <= no_trade <= 1
+        and 0 < nav <= 1e12
     )
 
 
@@ -131,6 +176,8 @@ def _canonical_payload(
     research_universe: list[str],
     tradable_assets: list[str],
     annualization_periods: int,
+    portfolio_policy: dict[str, Any],
+    policy_source: str,
 ) -> dict[str, Any]:
     context_assets = [
         asset for asset in research_universe if asset not in set(tradable_assets)
@@ -142,23 +189,34 @@ def _canonical_payload(
             "kind": source_kind,
             "requestHash": request_hash,
             "direction": direction,
+            "portfolioPolicy": policy_source,
         },
         "researchUniverse": list(research_universe),
         "tradableAssets": list(tradable_assets),
         "contextAssets": context_assets,
         "construction": {
             "family": PORTFOLIO_FAMILIES[direction],
-            "grossLimit": 1.0,
+            "grossLimit": portfolio_policy["grossLimit"],
             "netRule": PORTFOLIO_NET_RULES[direction],
-            "maxAbsWeight": 0.30,
+            "maxAbsWeight": portfolio_policy["maxAbsWeight"],
             "cashAllowed": True,
             "shortAllowed": direction
             in {"short", "long-short", "relative-value", "research-only"},
             "benchmark": PORTFOLIO_BENCHMARKS[direction],
             "riskPolicy": {
                 **PORTFOLIO_RISK_POLICY,
+                "annualizedVolatilityCeiling": portfolio_policy[
+                    "annualizedVolatilityCeiling"
+                ],
                 "annualizationPeriods": annualization_periods,
             },
+        },
+        "implementationPolicy": {
+            "baseCostBps": portfolio_policy["baseCostBps"],
+            "noTradeOneWay": portfolio_policy["noTradeOneWay"],
+            "referenceNav": portfolio_policy["referenceNav"],
+            "costModel": IMPLEMENTATION_COST_MODEL,
+            "capacityModel": IMPLEMENTATION_CAPACITY_MODEL,
         },
         "authority": PORTFOLIO_MANDATE_AUTHORITY,
         "tradingAuthority": "none",
@@ -178,6 +236,7 @@ def build_portfolio_mandate(
     if not _valid_annualization_periods(annualization_periods):
         raise ValueError("unsupported annualization_periods")
     if request is None:
+        policy = dict(DEFAULT_PORTFOLIO_POLICY)
         payload = _canonical_payload(
             source_kind="template-default",
             request_hash=None,
@@ -185,6 +244,8 @@ def build_portfolio_mandate(
             research_universe=research_universe,
             tradable_assets=research_universe,
             annualization_periods=annualization_periods,
+            portfolio_policy=policy,
+            policy_source="reference-default",
         )
     else:
         direction = request.get("direction")
@@ -197,6 +258,14 @@ def build_portfolio_mandate(
                 "requested assets are outside the research universe: "
                 + ", ".join(missing)
             )
+        supplied_policy = request.get("portfolioPolicy")
+        policy = (
+            dict(DEFAULT_PORTFOLIO_POLICY)
+            if supplied_policy is None
+            else dict(supplied_policy)
+        )
+        if not _valid_portfolio_policy(policy, direction):
+            raise ValueError("request has an invalid portfolio policy")
         payload = _canonical_payload(
             source_kind="research-request",
             request_hash=hash_json(request),
@@ -206,6 +275,12 @@ def build_portfolio_mandate(
                 research_universe if direction == "research-only" else requested
             ),
             annualization_periods=annualization_periods,
+            portfolio_policy=policy,
+            policy_source=(
+                "reference-default"
+                if supplied_policy is None
+                else "caller-supplied"
+            ),
         )
     return {
         **payload,
@@ -228,6 +303,7 @@ def validate_portfolio_mandate(
         "tradableAssets",
         "contextAssets",
         "construction",
+        "implementationPolicy",
         "authority",
         "tradingAuthority",
     }
@@ -259,19 +335,26 @@ def validate_portfolio_mandate(
     direction: Any = None
     source_kind: Any = None
     request_hash: Any = None
+    policy_source: Any = None
     if not isinstance(source, dict):
         issues.append(_issue(f"{path}/source", "schema.type", "Source must be an object"))
     else:
         issues.extend(
             _strict_keys(
                 source,
-                {"kind", "requestHash", "direction"},
+                {
+                    "kind",
+                    "requestHash",
+                    "direction",
+                    "portfolioPolicy",
+                },
                 f"{path}/source",
             )
         )
         source_kind = source.get("kind")
         request_hash = source.get("requestHash")
         direction = source.get("direction")
+        policy_source = source.get("portfolioPolicy")
         if source_kind not in {"research-request", "template-default"}:
             issues.append(
                 _issue(
@@ -288,6 +371,14 @@ def validate_portfolio_mandate(
                     "Invalid mandate direction",
                 )
             )
+        if policy_source not in {"caller-supplied", "reference-default"}:
+            issues.append(
+                _issue(
+                    f"{path}/source/portfolioPolicy",
+                    "mandate.policy-source",
+                    "Invalid Portfolio policy source",
+                )
+            )
         if source_kind == "research-request" and not _valid_hash(request_hash):
             issues.append(
                 _issue(
@@ -297,7 +388,9 @@ def validate_portfolio_mandate(
                 )
             )
         if source_kind == "template-default" and (
-            request_hash is not None or direction != "research-only"
+            request_hash is not None
+            or direction != "research-only"
+            or policy_source != "reference-default"
         ):
             issues.append(
                 _issue(
@@ -344,6 +437,30 @@ def validate_portfolio_mandate(
         )
 
     construction = value.get("construction")
+    implementation = value.get("implementationPolicy")
+    normalized_policy: dict[str, Any] | None = None
+    if not isinstance(implementation, dict):
+        issues.append(
+            _issue(
+                f"{path}/implementationPolicy",
+                "schema.type",
+                "Implementation policy must be an object",
+            )
+        )
+    else:
+        issues.extend(
+            _strict_keys(
+                implementation,
+                {
+                    "baseCostBps",
+                    "noTradeOneWay",
+                    "referenceNav",
+                    "costModel",
+                    "capacityModel",
+                },
+                f"{path}/implementationPolicy",
+            )
+        )
     if not isinstance(construction, dict):
         issues.append(
             _issue(
@@ -385,6 +502,30 @@ def validate_portfolio_mandate(
                     )
                 )
                 annualization_periods = 252
+            if isinstance(implementation, dict):
+                normalized_policy = {
+                    "grossLimit": construction.get("grossLimit"),
+                    "maxAbsWeight": construction.get("maxAbsWeight"),
+                    "annualizedVolatilityCeiling": (
+                        risk_policy.get("annualizedVolatilityCeiling")
+                        if isinstance(risk_policy, dict)
+                        else None
+                    ),
+                    "baseCostBps": implementation.get("baseCostBps"),
+                    "noTradeOneWay": implementation.get("noTradeOneWay"),
+                    "referenceNav": implementation.get("referenceNav"),
+                }
+                if not _valid_portfolio_policy(
+                    normalized_policy,
+                    direction,
+                ):
+                    issues.append(
+                        _issue(
+                            path,
+                            "mandate.portfolio-policy",
+                            "Portfolio policy contains unsupported values",
+                        )
+                    )
             expected = _canonical_payload(
                 source_kind=(
                     source_kind
@@ -400,13 +541,27 @@ def validate_portfolio_mandate(
                 research_universe=research,
                 tradable_assets=tradable,
                 annualization_periods=annualization_periods,
-            )["construction"]
-            if construction != expected:
+                portfolio_policy=(
+                    normalized_policy
+                    if normalized_policy is not None
+                    else DEFAULT_PORTFOLIO_POLICY
+                ),
+                policy_source=(
+                    policy_source
+                    if policy_source
+                    in {"caller-supplied", "reference-default"}
+                    else "reference-default"
+                ),
+            )
+            if (
+                construction != expected["construction"]
+                or implementation != expected["implementationPolicy"]
+            ):
                 issues.append(
                     _issue(
-                        f"{path}/construction",
+                        path,
                         "mandate.construction",
-                        "Construction differs from the fixed direction contract",
+                        "Portfolio policy differs from the fixed request contract",
                     )
                 )
         if direction == "research-only" and tradable != research:
@@ -428,6 +583,7 @@ def validate_portfolio_mandate(
             "tradableAssets",
             "contextAssets",
             "construction",
+            "implementationPolicy",
             "authority",
             "tradingAuthority",
         )
@@ -492,6 +648,7 @@ PORTFOLIO_MANDATE_JSON_SCHEMA: dict[str, Any] = {
         "tradableAssets",
         "contextAssets",
         "construction",
+        "implementationPolicy",
         "authority",
         "tradingAuthority",
     ],
@@ -502,7 +659,12 @@ PORTFOLIO_MANDATE_JSON_SCHEMA: dict[str, Any] = {
         "source": {
             "type": "object",
             "additionalProperties": False,
-            "required": ["kind", "requestHash", "direction"],
+            "required": [
+                "kind",
+                "requestHash",
+                "direction",
+                "portfolioPolicy",
+            ],
             "properties": {
                 "kind": {"enum": ["research-request", "template-default"]},
                 "requestHash": {
@@ -512,6 +674,9 @@ PORTFOLIO_MANDATE_JSON_SCHEMA: dict[str, Any] = {
                     ]
                 },
                 "direction": {"enum": sorted(PORTFOLIO_MANDATE_DIRECTIONS)},
+                "portfolioPolicy": {
+                    "enum": ["caller-supplied", "reference-default"]
+                },
             },
         },
         "researchUniverse": {
@@ -548,9 +713,17 @@ PORTFOLIO_MANDATE_JSON_SCHEMA: dict[str, Any] = {
                 "family": {
                     "enum": ["long-cash", "short-cash", "dollar-neutral"]
                 },
-                "grossLimit": {"const": 1.0},
+                "grossLimit": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "maximum": 2,
+                },
                 "netRule": {"enum": ["long-only", "short-only", "zero"]},
-                "maxAbsWeight": {"const": 0.30},
+                "maxAbsWeight": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "maximum": 2,
+                },
                 "cashAllowed": {"const": True},
                 "shortAllowed": {"type": "boolean"},
                 "benchmark": {
@@ -576,7 +749,11 @@ PORTFOLIO_MANDATE_JSON_SCHEMA: dict[str, Any] = {
                         "method": {
                             "const": "trailing-covariance-volatility-ceiling-v1"
                         },
-                        "annualizedVolatilityCeiling": {"const": 0.15},
+                        "annualizedVolatilityCeiling": {
+                            "type": "number",
+                            "exclusiveMinimum": 0,
+                            "maximum": 1,
+                        },
                         "covarianceWindow": {"const": 60},
                         "minimumObservations": {"const": 20},
                         "annualizationPeriods": {
@@ -586,6 +763,38 @@ PORTFOLIO_MANDATE_JSON_SCHEMA: dict[str, Any] = {
                         },
                         "scaleUp": {"const": False},
                     },
+                },
+            },
+        },
+        "implementationPolicy": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "baseCostBps",
+                "noTradeOneWay",
+                "referenceNav",
+                "costModel",
+                "capacityModel",
+            ],
+            "properties": {
+                "baseCostBps": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1000,
+                },
+                "noTradeOneWay": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                },
+                "referenceNav": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "maximum": 1e12,
+                },
+                "costModel": {"const": IMPLEMENTATION_COST_MODEL},
+                "capacityModel": {
+                    "const": IMPLEMENTATION_CAPACITY_MODEL
                 },
             },
         },

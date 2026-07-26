@@ -7,6 +7,10 @@ import jsonschema
 import numpy as np
 import pandas as pd
 
+from autoquant.briefs import (
+    RESEARCH_REQUEST_JSON_SCHEMA,
+    validate_research_request,
+)
 from autoquant.mandates import (
     PORTFOLIO_MANDATE_JSON_SCHEMA,
     build_portfolio_mandate,
@@ -68,10 +72,76 @@ def panels() -> tuple[pd.DataFrame, pd.DataFrame]:
 
 
 class PortfolioMandateTests(unittest.TestCase):
+    def test_caller_policy_is_strict_and_content_locked_into_mandate(self) -> None:
+        raw = request("long", ["A", "B"])
+        raw["portfolioPolicy"] = {
+            "grossLimit": 0.8,
+            "maxAbsWeight": 0.2,
+            "annualizedVolatilityCeiling": 0.12,
+            "baseCostBps": 17.5,
+            "noTradeOneWay": 0.04,
+            "referenceNav": 250_000.0,
+        }
+        normalized = validate_research_request(raw)
+        jsonschema.validate(normalized, RESEARCH_REQUEST_JSON_SCHEMA)
+        mandate = build_portfolio_mandate(normalized, UNIVERSE)
+
+        self.assertEqual(
+            mandate["source"]["portfolioPolicy"],
+            "caller-supplied",
+        )
+        self.assertEqual(mandate["construction"]["grossLimit"], 0.8)
+        self.assertEqual(mandate["construction"]["maxAbsWeight"], 0.2)
+        self.assertEqual(
+            mandate["construction"]["riskPolicy"][
+                "annualizedVolatilityCeiling"
+            ],
+            0.12,
+        )
+        self.assertEqual(
+            mandate["implementationPolicy"],
+            {
+                "baseCostBps": 17.5,
+                "noTradeOneWay": 0.04,
+                "referenceNav": 250_000.0,
+                "costModel": "linear-traded-notional-v1",
+                "capacityModel": (
+                    "trailing-dollar-volume-participation-v1"
+                ),
+            },
+        )
+        self.assertEqual(validate_portfolio_mandate(mandate), mandate)
+        jsonschema.validate(mandate, PORTFOLIO_MANDATE_JSON_SCHEMA)
+
+        for key, invalid in (
+            ("grossLimit", float("nan")),
+            ("baseCostBps", 1001.0),
+            ("referenceNav", 0.0),
+        ):
+            with self.subTest(key=key):
+                changed = copy.deepcopy(raw)
+                changed["portfolioPolicy"][key] = invalid
+                with self.assertRaises(AutoQuantValidationError):
+                    validate_research_request(changed)
+
+        neutral = request("long-short", UNIVERSE)
+        neutral["portfolioPolicy"] = dict(raw["portfolioPolicy"])
+        neutral["portfolioPolicy"]["grossLimit"] = 0.6
+        neutral["portfolioPolicy"]["maxAbsWeight"] = 0.31
+        with self.assertRaisesRegex(
+            AutoQuantValidationError,
+            "side budget",
+        ):
+            validate_research_request(neutral)
+
     def test_request_mapping_is_strict_content_derived_and_schema_valid(self) -> None:
         mandate = build_portfolio_mandate(request("long", ["A", "B"]), UNIVERSE)
 
         self.assertEqual(mandate["source"]["direction"], "long")
+        self.assertEqual(
+            mandate["source"]["portfolioPolicy"],
+            "reference-default",
+        )
         self.assertEqual(mandate["construction"]["family"], "long-cash")
         self.assertEqual(mandate["tradableAssets"], ["A", "B"])
         self.assertEqual(mandate["contextAssets"], ["C", "D", "E"])

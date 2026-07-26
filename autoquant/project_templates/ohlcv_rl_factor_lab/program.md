@@ -57,13 +57,14 @@ The Judge owns:
   sleeves;
 - fixed percentile entry/exit hysteresis, inverse-volatility conviction,
   request-permitted long/cash, short/cash, or dollar-neutral target
-  construction, context-only exclusions, and 0.30 asset caps;
+  construction, context-only exclusions, and Portfolio Mandate asset caps;
 - the shared trailing 60-row covariance forecast, 20-observation minimum,
-  15% annualized volatility ceiling, and scale-down-only governance on every
-  action sleeve before RL selection and reward;
-- drift, 0.05 no-trade threshold, then shared final-book compliance where risk
-  may override no-trade only through minimum proportional scale-down;
-- full-notional 10bps costs and benchmark;
+  Portfolio Mandate annualized volatility ceiling, and scale-down-only
+  governance on every action sleeve before RL selection and reward;
+- drift, the Portfolio Mandate's no-trade threshold, then shared final-book
+  compliance where risk may override no-trade only through minimum
+  proportional scale-down;
+- full-notional Portfolio Mandate costs and benchmark;
 - next-bar reward and fixed quadratic risk penalty;
 - linear Q-learning with 12 episodes, learning rate 0.02, discount 0.30,
   and epsilon 0.15 → 0.01, frozen before Study validation by the fixed

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 from typing import Any
 
@@ -28,6 +29,14 @@ REQUEST_DIRECTIONS = {
 }
 SOURCE_SYSTEMS = {"openalice", "external", "local"}
 ASSET_CLASSES = {"equity", "fund", "future", "forex", "crypto", "index", "other"}
+PORTFOLIO_POLICY_FIELDS = {
+    "grossLimit",
+    "maxAbsWeight",
+    "annualizedVolatilityCeiling",
+    "baseCostBps",
+    "noTradeOneWay",
+    "referenceNav",
+}
 
 
 def _issue(path: Path | str, code: str, message: str) -> ValidationIssue:
@@ -38,14 +47,17 @@ def _strict_keys(
     value: dict[str, Any],
     required: set[str],
     path: Path | str,
+    *,
+    optional: set[str] | None = None,
 ) -> list[ValidationIssue]:
+    allowed = required | (optional or set())
     issues = [
         _issue(f"{path}/{key}", "schema.missing", f"Missing required field '{key}'")
         for key in sorted(required - value.keys())
     ]
     issues.extend(
         _issue(f"{path}/{key}", "schema.unknown", f"Unknown field '{key}'")
-        for key in sorted(value.keys() - required)
+        for key in sorted(value.keys() - allowed)
     )
     return issues
 
@@ -123,7 +135,12 @@ def validate_research_request(
         "deliverables",
         "source",
     }
-    issues = _strict_keys(value, required, path)
+    issues = _strict_keys(
+        value,
+        required,
+        path,
+        optional={"portfolioPolicy"},
+    )
     if value.get("schemaVersion") != SCHEMA_VERSION:
         issues.append(_issue(f"{path}/schemaVersion", "schema.version", "Expected V1"))
     if value.get("kind") != REQUEST_KIND:
@@ -138,6 +155,88 @@ def validate_research_request(
                 "Invalid requested direction",
             )
         )
+    policy = value.get("portfolioPolicy")
+    normalized_policy: dict[str, float] | None = None
+    if policy is not None:
+        if not isinstance(policy, dict):
+            issues.append(
+                _issue(
+                    f"{path}/portfolioPolicy",
+                    "schema.type",
+                    "portfolioPolicy must be an object or null",
+                )
+            )
+        else:
+            issues.extend(
+                _strict_keys(
+                    policy,
+                    PORTFOLIO_POLICY_FIELDS,
+                    f"{path}/portfolioPolicy",
+                )
+            )
+            numeric: dict[str, float] = {}
+            for key in sorted(PORTFOLIO_POLICY_FIELDS):
+                item = policy.get(key)
+                if (
+                    not isinstance(item, (int, float))
+                    or isinstance(item, bool)
+                    or not math.isfinite(float(item))
+                ):
+                    issues.append(
+                        _issue(
+                            f"{path}/portfolioPolicy/{key}",
+                            "request.portfolio-policy-number",
+                            f"{key} must be a finite number",
+                        )
+                    )
+                else:
+                    numeric[key] = float(item)
+            if len(numeric) == len(PORTFOLIO_POLICY_FIELDS):
+                bounds = (
+                    ("grossLimit", 0.0, 2.0, False),
+                    ("maxAbsWeight", 0.0, 2.0, False),
+                    (
+                        "annualizedVolatilityCeiling",
+                        0.0,
+                        1.0,
+                        False,
+                    ),
+                    ("baseCostBps", 0.0, 1000.0, True),
+                    ("noTradeOneWay", 0.0, 1.0, True),
+                    ("referenceNav", 0.0, 1e12, False),
+                )
+                for key, lower, upper, inclusive_lower in bounds:
+                    item = numeric[key]
+                    lower_ok = (
+                        item >= lower if inclusive_lower else item > lower
+                    )
+                    if not lower_ok or item > upper:
+                        issues.append(
+                            _issue(
+                                f"{path}/portfolioPolicy/{key}",
+                                "request.portfolio-policy-bound",
+                                f"{key} is outside its supported bound",
+                            )
+                        )
+                gross = numeric["grossLimit"]
+                cap = numeric["maxAbsWeight"]
+                direction = value.get("direction")
+                maximum_cap = (
+                    gross / 2.0
+                    if direction
+                    in {"long-short", "relative-value", "research-only"}
+                    else gross
+                )
+                if cap > maximum_cap:
+                    issues.append(
+                        _issue(
+                            f"{path}/portfolioPolicy/maxAbsWeight",
+                            "request.portfolio-policy-cap",
+                            "maxAbsWeight exceeds the permitted directional "
+                            "side budget",
+                        )
+                    )
+                normalized_policy = numeric
     for key, allow_empty in (
         ("hypotheses", True),
         ("constraints", True),
@@ -251,6 +350,11 @@ def validate_research_request(
             for asset in value["assets"]
         ],
         "direction": value["direction"],
+        **(
+            {"portfolioPolicy": normalized_policy}
+            if "portfolioPolicy" in value
+            else {}
+        ),
         "horizon": value["horizon"].strip(),
         "hypotheses": [item.strip() for item in value["hypotheses"]],
         "constraints": [item.strip() for item in value["constraints"]],
@@ -501,6 +605,48 @@ RESEARCH_REQUEST_JSON_SCHEMA: dict[str, Any] = {
             },
         },
         "direction": {"enum": sorted(REQUEST_DIRECTIONS)},
+        "portfolioPolicy": {
+            "anyOf": [
+                {"type": "null"},
+                {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": sorted(PORTFOLIO_POLICY_FIELDS),
+                    "properties": {
+                        "grossLimit": {
+                            "type": "number",
+                            "exclusiveMinimum": 0,
+                            "maximum": 2,
+                        },
+                        "maxAbsWeight": {
+                            "type": "number",
+                            "exclusiveMinimum": 0,
+                            "maximum": 2,
+                        },
+                        "annualizedVolatilityCeiling": {
+                            "type": "number",
+                            "exclusiveMinimum": 0,
+                            "maximum": 1,
+                        },
+                        "baseCostBps": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1000,
+                        },
+                        "noTradeOneWay": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1,
+                        },
+                        "referenceNav": {
+                            "type": "number",
+                            "exclusiveMinimum": 0,
+                            "maximum": 1e12,
+                        },
+                    },
+                },
+            ]
+        },
         "horizon": {"type": "string", "minLength": 1},
         "hypotheses": {
             "type": "array",

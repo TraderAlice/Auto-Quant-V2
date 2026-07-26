@@ -157,6 +157,11 @@ def _resolve_mandate(
             "tradable_assets": universe,
             "context_assets": [],
             "benchmark": "equal-weight-long-research-universe",
+            "implementation_policy": {
+                "base_cost_bps": BASE_COST_BPS,
+                "no_trade_one_way": NO_TRADE_ONE_WAY,
+                "reference_nav": REFERENCE_NAV,
+            },
             "risk_policy": None,
         }
     source = mandate.get("source")
@@ -193,6 +198,7 @@ def _resolve_mandate(
     max_abs_weight = construction.get("maxAbsWeight")
     benchmark = construction.get("benchmark")
     risk_policy = construction.get("riskPolicy")
+    implementation = mandate.get("implementationPolicy")
     if (
         direction
         not in {"long", "short", "long-short", "relative-value", "research-only"}
@@ -211,6 +217,28 @@ def _resolve_mandate(
             "equal-weight-short-tradable",
         }
         or not isinstance(risk_policy, dict)
+        or not isinstance(implementation, dict)
+        or set(implementation)
+        != {
+            "baseCostBps",
+            "noTradeOneWay",
+            "referenceNav",
+            "costModel",
+            "capacityModel",
+        }
+        or implementation.get("costModel")
+        != "linear-traded-notional-v1"
+        or implementation.get("capacityModel")
+        != "trailing-dollar-volume-participation-v1"
+        or not isinstance(implementation.get("baseCostBps"), (int, float))
+        or isinstance(implementation.get("baseCostBps"), bool)
+        or not 0 <= float(implementation["baseCostBps"]) <= 1000
+        or not isinstance(implementation.get("noTradeOneWay"), (int, float))
+        or isinstance(implementation.get("noTradeOneWay"), bool)
+        or not 0 <= float(implementation["noTradeOneWay"]) <= 1
+        or not isinstance(implementation.get("referenceNav"), (int, float))
+        or isinstance(implementation.get("referenceNav"), bool)
+        or not 0 < float(implementation["referenceNav"]) <= 1e12
         or set(risk_policy)
         != {
             "method",
@@ -259,6 +287,11 @@ def _resolve_mandate(
         "tradable_assets": list(tradable),
         "context_assets": list(context),
         "benchmark": str(benchmark),
+        "implementation_policy": {
+            "base_cost_bps": float(implementation["baseCostBps"]),
+            "no_trade_one_way": float(implementation["noTradeOneWay"]),
+            "reference_nav": float(implementation["referenceNav"]),
+        },
         "risk_policy": {
             "method": str(risk_policy["method"]),
             "annualized_volatility_ceiling": float(
@@ -274,6 +307,46 @@ def _resolve_mandate(
             "scale_up": False,
         },
     }
+
+
+def resolve_implementation_policy(
+    mandate: dict[str, object] | None,
+) -> dict[str, float]:
+    """Resolve fixed accounting assumptions without requiring an asset panel."""
+
+    if mandate is None:
+        return {
+            "base_cost_bps": BASE_COST_BPS,
+            "no_trade_one_way": NO_TRADE_ONE_WAY,
+            "reference_nav": REFERENCE_NAV,
+        }
+    implementation = mandate.get("implementationPolicy")
+    if not isinstance(implementation, dict):
+        raise PortfolioFailure(
+            "mandate.implementation",
+            "Portfolio Mandate implementation policy must be an object",
+        )
+    result = {
+        "base_cost_bps": implementation.get("baseCostBps"),
+        "no_trade_one_way": implementation.get("noTradeOneWay"),
+        "reference_nav": implementation.get("referenceNav"),
+    }
+    if (
+        not isinstance(result["base_cost_bps"], (int, float))
+        or isinstance(result["base_cost_bps"], bool)
+        or not 0 <= float(result["base_cost_bps"]) <= 1000
+        or not isinstance(result["no_trade_one_way"], (int, float))
+        or isinstance(result["no_trade_one_way"], bool)
+        or not 0 <= float(result["no_trade_one_way"]) <= 1
+        or not isinstance(result["reference_nav"], (int, float))
+        or isinstance(result["reference_nav"], bool)
+        or not 0 < float(result["reference_nav"]) <= 1e12
+    ):
+        raise PortfolioFailure(
+            "mandate.implementation",
+            "Portfolio Mandate implementation policy is invalid",
+        )
+    return {key: float(value) for key, value in result.items()}
 
 
 def _govern_portfolio_risk(
@@ -1051,9 +1124,9 @@ def simulate_targets(
     closes: pd.DataFrame,
     volumes: pd.DataFrame,
     *,
-    cost_bps: float = BASE_COST_BPS,
-    no_trade_one_way: float = NO_TRADE_ONE_WAY,
-    reference_nav: float = REFERENCE_NAV,
+    cost_bps: float | None = None,
+    no_trade_one_way: float | None = None,
+    reference_nav: float | None = None,
     extra_delay: int = 0,
     mandate: dict[str, object] | None = None,
     risk_covariance_cache: RiskCovarianceCache | None = None,
@@ -1070,6 +1143,22 @@ def simulate_targets(
             "portfolio.alignment",
             "Targets, closes, and volumes must share one panel shape",
         )
+    implementation = resolve_implementation_policy(mandate)
+    cost_bps = (
+        implementation["base_cost_bps"]
+        if cost_bps is None
+        else float(cost_bps)
+    )
+    no_trade_one_way = (
+        implementation["no_trade_one_way"]
+        if no_trade_one_way is None
+        else float(no_trade_one_way)
+    )
+    reference_nav = (
+        implementation["reference_nav"]
+        if reference_nav is None
+        else float(reference_nav)
+    )
     if cost_bps < 0 or not 0 <= no_trade_one_way <= 1 or reference_nav <= 0:
         raise PortfolioFailure(
             "portfolio.parameters",
@@ -1266,9 +1355,10 @@ def build_decision_ledger(
     closes: pd.DataFrame,
     volumes: pd.DataFrame,
     *,
-    cost_bps: float = BASE_COST_BPS,
-    reference_nav: float = REFERENCE_NAV,
+    cost_bps: float | None = None,
+    reference_nav: float | None = None,
     liquidity_adv_window: int = LIQUIDITY_ADV_WINDOW,
+    mandate: dict[str, object] | None = None,
 ) -> pd.DataFrame:
     """Join signal intent, target sizing, execution, and attribution evidence."""
 
@@ -1284,7 +1374,18 @@ def build_decision_ledger(
             "portfolio.alignment",
             "Construction, simulation, and closes are not aligned",
         )
-    if reference_nav <= 0 or liquidity_adv_window < 2:
+    implementation = resolve_implementation_policy(mandate)
+    cost_bps = (
+        implementation["base_cost_bps"]
+        if cost_bps is None
+        else float(cost_bps)
+    )
+    reference_nav = (
+        implementation["reference_nav"]
+        if reference_nav is None
+        else float(reference_nav)
+    )
+    if reference_nav <= 0 or cost_bps < 0 or liquidity_adv_window < 2:
         raise PortfolioFailure(
             "portfolio.parameters",
             "Invalid liquidity-capacity parameters",
