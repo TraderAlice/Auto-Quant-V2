@@ -432,7 +432,14 @@ class GovernedRlFactorPolicyLabTests(unittest.TestCase):
                     "strategies/portfolio-mandate.json",
                 },
             )
-            self.assertEqual(study.definition.judge.paths, ["judges/**"])
+            self.assertEqual(
+                study.definition.judge.paths,
+                [
+                    "judges/ohlcv_rl_factor.py",
+                    "judges/rl_core.py",
+                    "judges/portfolio_core.py",
+                ],
+            )
             self.assertEqual(study.definition.judge.timeout_seconds, 90)
             self.assertEqual(len(study.dataset_hashes), 7)
 

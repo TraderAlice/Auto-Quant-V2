@@ -10,6 +10,15 @@ from typing import Any, Sequence
 
 from .briefs import RESEARCH_REQUEST_JSON_SCHEMA, load_research_request
 from .capabilities import CLI_COMMANDS
+from .checks import (
+    CANDIDATE_CHECK_RESULT_JSON_SCHEMA,
+    CHECK_OUTPUT,
+    CHECK_OUTPUT_JSON_SCHEMA,
+    CHECK_RESULT,
+    PREFLIGHT_JSON_SCHEMA,
+    candidate_check_state,
+    execute_candidate_check,
+)
 from .decision_matrix import (
     DEFAULT_COMPARISON_TRIALS,
     MAX_COMPARISON_TRIALS,
@@ -232,6 +241,9 @@ def build_parser() -> RaisingArgumentParser:
             "session-decision-matrix",
             "session",
             "session-completion",
+            "candidate-preflight",
+            "candidate-check-output",
+            "candidate-check-result",
             "portfolio-mandate",
             "experiment",
             "researcher-response",
@@ -507,6 +519,16 @@ def build_parser() -> RaisingArgumentParser:
     session_show.add_argument("--session", required=True)
     session_show.set_defaults(command_id="session.show")
     _json_argument(session_show)
+
+    session_check = session_actions.add_parser(
+        "check",
+        help="run the fixed bounded preflight against the current candidate",
+    )
+    session_check.add_argument("path")
+    session_check.add_argument("--project")
+    session_check.add_argument("--session", required=True)
+    session_check.set_defaults(command_id="session.check")
+    _json_argument(session_check)
 
     session_compare = session_actions.add_parser(
         "compare",
@@ -1972,24 +1994,46 @@ def _session_next_actions(project, session) -> list[dict[str, Any]]:
         None,
     )
     if session.manifest["status"] == "active":
-        actions.append(
-            next_action(
-                "experiment.evaluate",
-                "After editing only the declared worktree closure, evaluate one hypothesis.",
-                [
-                    "aq",
-                    "experiment",
-                    "evaluate",
-                    str(project.root_dir),
-                    "--session",
-                    session.manifest["id"],
-                    "--hypothesis",
-                    "Describe the candidate change",
-                    "--json",
-                ],
-                "creates-artifact",
+        check_state = candidate_check_state(project, session)
+        if not check_state["supported"] or (
+            check_state["current"] is not None
+            and check_state["current"]["status"] == "passed"
+        ):
+            actions.append(
+                next_action(
+                    "experiment.evaluate",
+                    "Evaluate this exact candidate with the fixed formal Judge.",
+                    [
+                        "aq",
+                        "experiment",
+                        "evaluate",
+                        str(project.root_dir),
+                        "--session",
+                        session.manifest["id"],
+                        "--hypothesis",
+                        "Describe the candidate change",
+                        "--json",
+                    ],
+                    "creates-artifact",
+                )
             )
-        )
+        elif check_state["candidateChanged"] and check_state["current"] is None:
+            actions.append(
+                next_action(
+                    "session.check",
+                    "Run the fixed bounded preflight for this exact candidate.",
+                    [
+                        "aq",
+                        "session",
+                        "check",
+                        str(project.root_dir),
+                        "--session",
+                        session.manifest["id"],
+                        "--json",
+                    ],
+                    "creates-artifact",
+                )
+            )
         if (
             session.manifest["leader"]["runId"]
             != session.manifest["baseline"]["runId"]
@@ -2198,6 +2242,59 @@ def _session_show(args: argparse.Namespace) -> CommandResult:
             )
         ],
         _session_next_actions(project, session),
+    )
+
+
+def _session_check(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    check = execute_candidate_check(project, args.session)
+    result = check.result
+    actions = []
+    if result["status"] == "passed":
+        actions.append(
+            next_action(
+                "experiment.evaluate",
+                "Run the fixed Judge for selection evidence on this exact candidate.",
+                [
+                    "aq",
+                    "experiment",
+                    "evaluate",
+                    str(project.root_dir),
+                    "--session",
+                    args.session,
+                    "--hypothesis",
+                    "Describe the candidate change",
+                    "--json",
+                ],
+                "creates-artifact",
+            )
+        )
+    return CommandResult(
+        "session.check",
+        result,
+        (
+            f"Candidate Check: {result['id']}\n"
+            f"Status: {result['status']}\n"
+            f"Summary: {result['summary']}\n"
+            f"Duration: {result['durationMs']} ms\n"
+            "Authority: no selection, promotion, or trading authority\n"
+        ),
+        project_context(project),
+        [
+            artifact(
+                "candidate-check",
+                result["id"],
+                check.root_dir / CHECK_RESULT,
+                immutable=True,
+            ),
+            artifact(
+                "candidate-check-output",
+                f"{result['id']}:raw",
+                check.root_dir / CHECK_OUTPUT,
+                immutable=True,
+            ),
+        ],
+        actions,
     )
 
 
@@ -3117,6 +3214,9 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "rl-policy-diagnostics",
             "session-decision-matrix",
             "session-completion",
+            "candidate-check-output",
+            "candidate-check-result",
+            "candidate-preflight",
             "portfolio-mandate",
             "project",
             "report-analysis",
@@ -3147,6 +3247,9 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "session-decision-matrix": SESSION_DECISION_MATRIX_JSON_SCHEMA,
             "session": SESSION_JSON_SCHEMA,
             "session-completion": SESSION_COMPLETION_JSON_SCHEMA,
+            "candidate-preflight": PREFLIGHT_JSON_SCHEMA,
+            "candidate-check-output": CHECK_OUTPUT_JSON_SCHEMA,
+            "candidate-check-result": CANDIDATE_CHECK_RESULT_JSON_SCHEMA,
             "portfolio-mandate": PORTFOLIO_MANDATE_JSON_SCHEMA,
             "experiment": EXPERIMENT_JSON_SCHEMA,
             "researcher-response": RESEARCHER_RESPONSE_JSON_SCHEMA,
@@ -3208,6 +3311,8 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
         return _session_list(args)
     if args.command_id == "session.show":
         return _session_show(args)
+    if args.command_id == "session.check":
+        return _session_check(args)
     if args.command_id == "session.compare":
         return _session_compare(args)
     if args.command_id == "session.promote":

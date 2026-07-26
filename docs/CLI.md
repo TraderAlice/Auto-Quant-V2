@@ -24,6 +24,9 @@ aq schema portfolio-mandate --json
 aq schema rl-policy-diagnostics --json
 aq schema research-program-status --json
 aq schema session-decision-matrix --json
+aq schema candidate-preflight --json
+aq schema candidate-check-output --json
+aq schema candidate-check-result --json
 ```
 
 `capabilities --json` is the authoritative machine discovery surface. Each
@@ -269,6 +272,7 @@ aq session start <path> --study ID \
   [--project ID] [--json]
 aq session list <path> [--project ID] [--json]
 aq session show <path> --session ID [--project ID] [--json]
+aq session check <path> --session ID [--project ID] [--json]
 aq session compare <path> --session ID \
   [--trials 24] [--project ID] [--json]
 aq session promote <path> --session ID [--project ID] [--json]
@@ -300,6 +304,23 @@ from that request plus the Project, Study, baseline, dataset, Judge, and Harness
 locks. Those files are verified on every Session load and are included in each
 external Researcher turn. Existing local Sessions without a request remain
 valid.
+
+Reference Studies include an optional fixed `preflight.json`. After the caller
+edits a candidate, `session check` runs its short structural contract in an
+isolated source workspace. It publishes an immutable passed/failed
+CandidateCheck bound to the exact candidate, leader, Study input, dataset,
+preflight sources, and Harness. A Check contains no metric or verdict and has
+no selection, promotion, or trading authority. It never creates a Run or
+Experiment, advances the sequence, restores source, or changes the leader.
+Failure leaves the candidate in place for repair. A later edit makes the old
+Check stale.
+
+`aq orient` uses this feedback tier when present: unchanged candidate asks for
+an edit; a changed unchecked candidate points to `session.check`; a failed
+candidate asks for repair; and a passed exact candidate points to
+`experiment.evaluate`. Legacy Studies without a preflight continue directly
+to formal evaluation. Direct formal evaluation remains available because only
+the complete Judge owns selection evidence.
 
 `experiment evaluate` freezes the candidate into a canonical Run, compares the
 primary metric with the current leader, publishes immutable Experiment

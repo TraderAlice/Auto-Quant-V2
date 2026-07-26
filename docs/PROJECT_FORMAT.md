@@ -417,6 +417,13 @@ sessions/
     ├── request.json                 # delegated Sessions only
     ├── brief.json                   # delegated Sessions only
     ├── worktree/<project-id>/
+    ├── checks/
+    │   └── check-<UTC timestamp>-<identity>/
+    │       ├── raw-output.json
+    │       ├── stdout.txt
+    │       ├── stderr.txt
+    │       ├── result.json
+    │       └── manifest.json
     ├── experiments/
     │   └── exp-0001-<candidate identity>/
     │       ├── result.json
@@ -489,6 +496,24 @@ The worktree is a complete structural Project containing only the selected
 fixed Study/Judge inputs and candidate-editable source bytes. It has empty
 data, run, cache, and nested Session directories. Candidate Runs read the
 owning Project data directory and publish to the owning Project Run catalog.
+
+A Study may also contain an optional strict `preflight.json` beside
+`study.json`. It declares a fixed Python entrypoint, fixed source closure,
+arguments, and a 1–60 second timeout. The closure must remain under `judges/`,
+include its entrypoint, and not overlap editable paths. Preflight definition
+and source hashes must also remain disjoint from the formal Judge closure.
+Thus a legacy broad `judges/**` Study must deliberately narrow that inventory
+before opting in. The separate operational identity means later preflight
+improvements do not rewrite scientific Study or historical Run identity. A
+new Session copies and locks the manifest and source bytes as fixed authority.
+
+Each immutable CandidateCheck records only passed/failed structural feedback,
+execution details, exact candidate/leader/Study/dataset/preflight/Harness
+identity, and explicit `none` selection/promotion/trading authority. Its
+terminal manifest hashes normalized output, logs, and result. Checks contain
+no metrics or KEEP/REVERT/CRASH verdict and never affect Runs, Experiments,
+trial counts, leader pointers, or Project source. Currentness is reconstructed
+from hashes; editing a candidate makes earlier Checks stale.
 
 Each immutable Experiment `result.json` records its hypothesis, sequence,
 verdict, objective, leader and candidate Run/source/metric/value, normalized
@@ -621,6 +646,9 @@ aq schema run-result --json
 aq schema portfolio-mandate --json
 aq schema session --json
 aq schema session-completion --json
+aq schema candidate-preflight --json
+aq schema candidate-check-output --json
+aq schema candidate-check-result --json
 aq schema experiment --json
 aq schema researcher-response --json
 aq schema campaign-result --json
@@ -635,8 +663,8 @@ aq schema studio-snapshot --json
 
 The Python validators are authoritative executable behavior in
 `autoquant/workspace.py`, `autoquant/studies.py`, `autoquant/runs.py`,
-`autoquant/sessions.py`, `autoquant/research.py`, `autoquant/dossiers.py`, and
-`autoquant/studio.py`.
+`autoquant/sessions.py`, `autoquant/checks.py`, `autoquant/research.py`,
+`autoquant/dossiers.py`, and `autoquant/studio.py`.
 Delegated request/Brief parsing is in `autoquant/briefs.py`; immutable Report
 publication and verification are in `autoquant/reports.py`; Project Dossier
 composition and verification are in `autoquant/dossiers.py`.

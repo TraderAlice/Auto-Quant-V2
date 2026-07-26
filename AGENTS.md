@@ -53,6 +53,9 @@ Read the relevant linked document before changing a subsystem:
 - AI-primary operator, human-reviewer roles, compact Agent Work Brief,
   filesystem authority, and CLI/Studio orientation parity:
   [[docs/design/agent-operator-experience]]
+- Fixed seconds-scale candidate checks, immutable non-selection diagnostics,
+  and edit/check/evaluate routing:
+  [[docs/design/candidate-preflight-feedback]]
 - Fixed Study authority, editable/Judge source closures, bounded execution, and
   immutable RunResult evidence: [[docs/design/study-run-evidence]]
 - Transactional reference-Project construction, ordinary pandas factor API,

@@ -139,7 +139,7 @@ CLI_COMMANDS = [
     ),
     descriptor(
         "schema",
-        "aq schema [workspace|project|agent-work-brief|study|judge-output|run-result|factor-diagnostics|portfolio-diagnostics|research-program-status|rl-policy-diagnostics|session-decision-matrix|session|session-completion|portfolio-mandate|experiment|research-request|ohlcv-dataset-package|report-analysis|dossier-analysis|dossier-result|dossier-status|researcher-response|campaign-result|campaign-progress|studio-snapshot] [--json]",
+        "aq schema [workspace|project|agent-work-brief|study|judge-output|run-result|factor-diagnostics|portfolio-diagnostics|research-program-status|rl-policy-diagnostics|session-decision-matrix|session|session-completion|candidate-preflight|candidate-check-output|candidate-check-result|portfolio-mandate|experiment|research-request|ohlcv-dataset-package|report-analysis|dossier-analysis|dossier-result|dossier-status|researcher-response|campaign-result|campaign-progress|studio-snapshot] [--json]",
         "List or emit canonical AutoQuant JSON Schemas.",
         "read-only",
         [
@@ -163,6 +163,9 @@ CLI_COMMANDS = [
                     "session-decision-matrix",
                     "session",
                     "session-completion",
+                    "candidate-preflight",
+                    "candidate-check-output",
+                    "candidate-check-result",
                     "portfolio-mandate",
                     "experiment",
                     "researcher-response",
@@ -592,6 +595,13 @@ CLI_COMMANDS = [
         "aq session show <path> --session ID [--project ID] [--json]",
         "Inspect a Session Agent brief, authority, candidate, leader, and history.",
         "read-only",
+        [PATH_ARGUMENT, PROJECT_ARGUMENT, SESSION_ARGUMENT, JSON_ARGUMENT],
+    ),
+    descriptor(
+        "session.check",
+        "aq session check <path> --session ID [--project ID] [--json]",
+        "Run one fixed bounded preflight and publish immutable non-selection evidence for the exact candidate.",
+        "creates-artifact",
         [PATH_ARGUMENT, PROJECT_ARGUMENT, SESSION_ARGUMENT, JSON_ARGUMENT],
     ),
     descriptor(

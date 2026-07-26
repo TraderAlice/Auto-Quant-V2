@@ -71,7 +71,9 @@ The first viewport prioritizes:
 - a first-position decision brief rendered from the exact Core
   `AgentWorkBrief` and hash also returned by `aq orient`; JavaScript formats
   its review copy but does not choose the focus, edit root, reason, or next
-  action;
+  action; when fixed candidate preflight is available, this same object routes
+  edit → bounded Check → formal Experiment and exposes the exact current Check
+  id/status without granting selection or trading authority;
 - one selectable Factor, Portfolio, or RL evidence workbench at a time, keeping
   the complete bounded explorer available without rendering all three long
   reports into one page;

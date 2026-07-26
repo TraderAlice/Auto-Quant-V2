@@ -11,11 +11,13 @@ from importlib import resources
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from .checks import PREFLIGHT_KIND, PREFLIGHT_MANIFEST
 from .mandates import (
     PORTFOLIO_MANDATE,
     build_portfolio_mandate,
 )
 from .studies import (
+    StudyContext,
     StudyDataset,
     StudyDefinition,
     StudyJudge,
@@ -26,6 +28,7 @@ from .studies import (
     load_study,
 )
 from .workspace import (
+    SCHEMA_VERSION,
     AutoQuantValidationError,
     ProjectContext,
     ValidationIssue,
@@ -79,6 +82,39 @@ def _template_text(relative: str, *, template: str = "ohlcv_factor_lab") -> str:
         .joinpath(relative)
     )
     return source.read_text(encoding="utf-8")
+
+
+def _write_preflight_source(project: ProjectContext, lane: str) -> str:
+    relative = f"judges/preflight_{lane}.py"
+    path = project.root_dir / relative
+    path.write_text(
+        _template_text(f"{lane}.py", template="preflight"),
+        encoding="utf-8",
+    )
+    return relative
+
+
+def _write_preflight_manifest(
+    study: StudyContext,
+    *,
+    entrypoint: str,
+    timeout_seconds: int = 8,
+) -> None:
+    value = {
+        "schemaVersion": SCHEMA_VERSION,
+        "kind": PREFLIGHT_KIND,
+        "runner": {
+            "kind": "python",
+            "entrypoint": entrypoint,
+            "paths": [entrypoint],
+            "arguments": [],
+            "timeoutSeconds": timeout_seconds,
+        },
+    }
+    (study.root_dir / PREFLIGHT_MANIFEST).write_text(
+        json.dumps(value, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
 
 
 def _business_dates(start: date, observations: int) -> list[date]:
@@ -409,6 +445,7 @@ def _apply_ohlcv_factor_lab(
         "judges/factor_diagnostics.py",
         "factor_diagnostics.py",
     )
+    preflight_entrypoint = _write_preflight_source(project, "factor")
     (project.root_dir / project.manifest.research_program).write_text(
         _template_text("research.md"),
         encoding="utf-8",
@@ -428,7 +465,10 @@ def _apply_ohlcv_factor_lab(
         judge=StudyJudge(
             "python",
             "judges/ohlcv_factor.py",
-            ["judges/**"],
+            [
+                "judges/ohlcv_factor.py",
+                "judges/factor_diagnostics.py",
+            ],
             [],
             60,
         ),
@@ -447,6 +487,7 @@ def _apply_ohlcv_factor_lab(
         _template_text("program.md"),
         encoding="utf-8",
     )
+    _write_preflight_manifest(study, entrypoint=preflight_entrypoint)
     _externalize_intake_guidance(project, intake, study.program_path)
     study = load_study(project, OHLCV_STUDY_ID)
     _finalize_intake(project, intake, study, snapshot_hash)
@@ -496,6 +537,7 @@ def _apply_ohlcv_portfolio_lab(
         "portfolio_core.py",
         template=template,
     )
+    preflight_entrypoint = _write_preflight_source(project, "factor")
     (project.root_dir / project.manifest.research_program).write_text(
         _template_text("research.md", template=template),
         encoding="utf-8",
@@ -513,7 +555,10 @@ def _apply_ohlcv_portfolio_lab(
         judge=StudyJudge(
             "python",
             "judges/ohlcv_portfolio.py",
-            ["judges/**"],
+            [
+                "judges/ohlcv_portfolio.py",
+                "judges/portfolio_core.py",
+            ],
             [],
             60,
         ),
@@ -533,6 +578,7 @@ def _apply_ohlcv_portfolio_lab(
         _template_text("program.md", template=template),
         encoding="utf-8",
     )
+    _write_preflight_manifest(study, entrypoint=preflight_entrypoint)
     _externalize_intake_guidance(project, intake, study.program_path)
     study = load_study(project, PORTFOLIO_STUDY_ID)
     _finalize_intake(project, intake, study, snapshot_hash)
@@ -594,6 +640,7 @@ def _apply_ohlcv_rl_factor_lab(
         "portfolio_core.py",
         template="ohlcv_portfolio_lab",
     )
+    preflight_entrypoint = _write_preflight_source(project, "rl")
     (project.root_dir / project.manifest.research_program).write_text(
         _template_text("research.md", template=template),
         encoding="utf-8",
@@ -612,7 +659,11 @@ def _apply_ohlcv_rl_factor_lab(
         judge=StudyJudge(
             "python",
             "judges/ohlcv_rl_factor.py",
-            ["judges/**"],
+            [
+                "judges/ohlcv_rl_factor.py",
+                "judges/rl_core.py",
+                "judges/portfolio_core.py",
+            ],
             [],
             90,
         ),
@@ -636,6 +687,7 @@ def _apply_ohlcv_rl_factor_lab(
         _template_text("program.md", template=template),
         encoding="utf-8",
     )
+    _write_preflight_manifest(study, entrypoint=preflight_entrypoint)
     _externalize_intake_guidance(project, intake, study.program_path)
     study = load_study(project, RL_STUDY_ID)
     _finalize_intake(project, intake, study, snapshot_hash)
@@ -718,6 +770,8 @@ def _apply_ohlcv_research_desk(
         "rl_core.py",
         template="ohlcv_rl_factor_lab",
     )
+    factor_preflight = _write_preflight_source(project, "factor")
+    rl_preflight = _write_preflight_source(project, "rl")
     (project.root_dir / project.manifest.research_program).write_text(
         _template_text("research.md", template="ohlcv_research_desk"),
         encoding="utf-8",
@@ -834,6 +888,14 @@ def _apply_ohlcv_research_desk(
         study.program_path.write_text(
             _template_text("program.md", template=source_template),
             encoding="utf-8",
+        )
+        _write_preflight_manifest(
+            study,
+            entrypoint=(
+                rl_preflight
+                if definition.id == RL_STUDY_ID
+                else factor_preflight
+            ),
         )
         _externalize_intake_guidance(project, intake, study.program_path)
         studies.append(load_study(project, definition.id))

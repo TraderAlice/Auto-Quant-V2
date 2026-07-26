@@ -175,7 +175,13 @@ uv run aq session start ./quant-workspace \
   --request research-request.json \
   --json
 
-# Edit only the returned worktree/editablePaths, then judge one hypothesis.
+# Edit only the returned worktree/editablePaths. Reference Studies first offer
+# a fast fixed Check with no metric, verdict, or selection authority.
+uv run aq session check ./quant-workspace \
+  --session session-... \
+  --json
+
+# After the exact candidate passes, judge one hypothesis formally.
 uv run aq experiment evaluate ./quant-workspace \
   --session session-... \
   --hypothesis "Add volatility normalization" \
@@ -187,7 +193,8 @@ uv run aq session promote ./quant-workspace --session session-... --json
 
 REVERT and CRASH restore the exact Session leader. Promotion is separate,
 requires an unchanged Project base, and rolls back if its receipt cannot be
-committed.
+committed. Candidate Checks are optional operational feedback: they create no
+Run or Experiment, leave failures editable, and never replace the fixed Judge.
 
 The same loop can be driven by any explicit external coding-Agent command.
 AutoQuant sends a complete versioned brief on stdin, accepts only a strict

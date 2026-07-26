@@ -928,7 +928,13 @@ class OhlcvPortfolioLabTests(unittest.TestCase):
                 study.definition.dependencies,
                 {"paths": ["strategies/portfolio-mandate.json"]},
             )
-            self.assertEqual(study.definition.judge.paths, ["judges/**"])
+            self.assertEqual(
+                study.definition.judge.paths,
+                [
+                    "judges/ohlcv_portfolio.py",
+                    "judges/portfolio_core.py",
+                ],
+            )
             self.assertEqual(study.definition.judge.timeout_seconds, 60)
             self.assertEqual(len(study.dataset_hashes), 7)
 

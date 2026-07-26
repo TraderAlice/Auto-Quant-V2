@@ -338,6 +338,19 @@ def _materialize_worktree(
     ).as_posix()
     _copy_project_file(project, study_relative, worktree_root)
     _copy_project_file(project, program_relative, worktree_root)
+    # Preflight is operational feedback authority, not part of the scientific
+    # Study identity. Preserve it in the Session worktree when the Study opts in.
+    from .checks import PREFLIGHT_MANIFEST, load_candidate_preflight
+
+    preflight = load_candidate_preflight(project, study, optional=True)
+    if preflight is not None:
+        preflight_relative = (
+            Path(project.manifest.directories["studies"])
+            / study.definition.id
+            / PREFLIGHT_MANIFEST
+        ).as_posix()
+        _copy_project_file(project, preflight_relative, worktree_root)
+        copy_hashed_files(project, preflight.source_hashes, worktree_root)
     copy_hashed_files(project, study.judge_hashes, worktree_root)
     copy_hashed_files(project, study.editable_hashes, worktree_root)
     if study.dependency_hashes:
@@ -503,6 +516,7 @@ def start_session(
             _write_json(temporary / RESEARCH_REQUEST, normalized_request)
             _write_json(temporary / RESEARCH_BRIEF, brief)
         (temporary / "experiments").mkdir()
+        (temporary / "checks").mkdir()
         (temporary / "campaigns").mkdir()
         (temporary / "reports").mkdir()
         _write_json(temporary / SESSION_MANIFEST, manifest)

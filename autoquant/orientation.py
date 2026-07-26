@@ -6,6 +6,7 @@ import shlex
 from pathlib import Path
 from typing import Any
 
+from .checks import candidate_check_state
 from .dossiers import load_dossier_status
 from .intake import load_project_intake
 from .research_program import load_research_program
@@ -34,6 +35,7 @@ EXPECTED_EVIDENCE = {
     "run.execute": "immutable-run",
     "session.start": "research-session",
     "session.show": "session-observation",
+    "session.check": "candidate-check",
     "experiment.evaluate": "immutable-experiment",
     "session.promote": "promotion-receipt",
     "session.complete": "completion-receipt",
@@ -86,11 +88,17 @@ def _session_actions(
     session: Any,
     *,
     current_report: dict[str, Any] | None,
-) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, str]]]:
+) -> tuple[
+    dict[str, Any] | None,
+    list[dict[str, Any]],
+    list[dict[str, str]],
+    dict[str, Any],
+]:
     manifest = session.manifest
+    check_state = candidate_check_state(project, session)
     evaluation = _command(
         "experiment.evaluate",
-        "Edit only the Session worktree closure, then evaluate one hypothesis.",
+        "Evaluate this exact candidate with the fixed formal Judge.",
         [
             "aq",
             "experiment",
@@ -105,16 +113,79 @@ def _session_actions(
         "creates-artifact",
     )
     supporting: list[dict[str, Any]] = []
-    reasons = [
-        {
-            "code": "session-active",
-            "category": "coordination",
-            "message": (
-                "A governed Session owns candidate edits in its disposable "
-                "worktree."
-            ),
-        }
-    ]
+    if not check_state["supported"]:
+        primary: dict[str, Any] | None = evaluation
+        reasons = [
+            {
+                "code": "session-active",
+                "category": "coordination",
+                "message": (
+                    "A governed Session owns candidate edits in its disposable "
+                    "worktree."
+                ),
+            }
+        ]
+    elif not check_state["candidateChanged"]:
+        primary = None
+        reasons = [
+            {
+                "code": "candidate-edit-required",
+                "category": "coordination",
+                "message": (
+                    "Edit one declared candidate hypothesis in the Session "
+                    "worktree before producing evaluation evidence."
+                ),
+            }
+        ]
+    elif check_state["current"] is None:
+        primary = _command(
+            "session.check",
+            "Run the fixed bounded preflight for this exact candidate.",
+            [
+                "aq",
+                "session",
+                "check",
+                str(project.root_dir),
+                "--session",
+                manifest["id"],
+                "--json",
+            ],
+            "creates-artifact",
+        )
+        reasons = [
+            {
+                "code": "candidate-check-required",
+                "category": "evidence",
+                "message": (
+                    "The changed candidate has no current bounded preflight "
+                    "evidence."
+                ),
+            }
+        ]
+    elif check_state["current"]["status"] == "failed":
+        primary = None
+        reasons = [
+            {
+                "code": "candidate-check-failed",
+                "category": "evidence",
+                "message": (
+                    "The exact candidate failed bounded preflight; edit it "
+                    "before spending a formal Judge Run."
+                ),
+            }
+        ]
+    else:
+        primary = evaluation
+        reasons = [
+            {
+                "code": "candidate-check-passed",
+                "category": "evidence",
+                "message": (
+                    "The exact candidate passed bounded preflight and is ready "
+                    "for formal selection evidence."
+                ),
+            }
+        ]
     if manifest["leader"]["runId"] != manifest["baseline"]["runId"]:
         supporting.append(
             _command(
@@ -172,8 +243,10 @@ def _session_actions(
                 ),
             }
         )
-        return completion, [evaluation, *supporting], reasons
-    return evaluation, supporting, reasons
+        if not check_state["supported"]:
+            return completion, [evaluation, *supporting], reasons, check_state
+        supporting.append(completion)
+    return primary, supporting, reasons, check_state
 
 
 def _program_orientation(
@@ -202,6 +275,7 @@ def _program_orientation(
         focus_lane = program["lanes"][0]
 
     session = None
+    check_state: dict[str, Any] = {"current": None}
     session_authority_valid = True
     session_summary = focus_lane["latestSession"]
     if (
@@ -284,7 +358,7 @@ def _program_orientation(
                 ),
                 None,
             )
-            primary_raw, supporting_raw, reasons = _session_actions(
+            primary_raw, supporting_raw, reasons, check_state = _session_actions(
                 project,
                 session,
                 current_report=current_report,
@@ -378,19 +452,25 @@ def _program_orientation(
     latest_report = (
         focus_lane["reports"][-1] if focus_lane["reports"] else None
     )
-    operating_mode = (
-        "observe"
-        if primary is None or program["conflicts"]
-        else {
+    if (
+        writable
+        and reasons[0]["code"]
+        in {"candidate-edit-required", "candidate-check-failed"}
+    ):
+        operating_mode = "edit-and-evaluate"
+    elif primary is None or program["conflicts"]:
+        operating_mode = "observe"
+    else:
+        operating_mode = {
             "run.execute": "establish-baseline",
             "session.start": "edit-and-evaluate",
+            "session.check": "edit-and-evaluate",
             "experiment.evaluate": "edit-and-evaluate",
             "report.publish": "publish-evidence",
             "dossier.publish": "publish-evidence",
             "session.complete": "complete",
             "session.promote": "promote",
         }.get(primary["id"], "observe")
-    )
     review_status = (
         "blocked"
         if program["conflicts"]
@@ -431,6 +511,16 @@ def _program_orientation(
             "reportId": (
                 latest_report["id"] if latest_report is not None else None
             ),
+            "candidateCheckId": (
+                check_state["current"]["id"]
+                if check_state["current"] is not None
+                else None
+            ),
+            "candidateCheckStatus": (
+                check_state["current"]["status"]
+                if check_state["current"] is not None
+                else None
+            ),
         },
         "reasons": reasons,
         "filesystem": {
@@ -463,7 +553,13 @@ def _program_orientation(
             "next": (
                 primary["description"]
                 if primary is not None
-                else "Review the verified evidence and choose any optional follow-up explicitly."
+                else (
+                    "Edit one falsifiable candidate hypothesis in the declared worktree closure."
+                    if reasons[0]["code"] == "candidate-edit-required"
+                    else "Revise the candidate to address the failed bounded preflight."
+                    if reasons[0]["code"] == "candidate-check-failed"
+                    else "Review the verified evidence and choose any optional follow-up explicitly."
+                )
             ),
             "boundary": "validation selects · visible test audits · no trading authority",
         },
@@ -516,6 +612,8 @@ def _single_study_orientation(
                 "sessionStatus": None,
                 "leaderRunId": None,
                 "reportId": None,
+                "candidateCheckId": None,
+                "candidateCheckStatus": None,
             },
             "reasons": [
                 {
@@ -593,8 +691,9 @@ def _single_study_orientation(
         if active_session is not None
         else False
     )
+    check_state: dict[str, Any] = {"current": None}
     if active_session is not None and active_authority_valid:
-        primary_raw, supporting_raw, reasons = _session_actions(
+        primary_raw, supporting_raw, reasons, check_state = _session_actions(
             project,
             active_session,
             current_report=None,
@@ -687,7 +786,11 @@ def _single_study_orientation(
         editable = []
         mode = "edit-and-evaluate"
         phase = "baseline-ready"
-    primary = _action(primary_raw, working_directory=operating_root)
+    primary = (
+        _action(primary_raw, working_directory=operating_root)
+        if primary_raw is not None
+        else None
+    )
     return {
         "focus": {
             "laneId": None,
@@ -715,6 +818,16 @@ def _single_study_orientation(
                 else None
             ),
             "reportId": None,
+            "candidateCheckId": (
+                check_state["current"]["id"]
+                if check_state["current"] is not None
+                else None
+            ),
+            "candidateCheckStatus": (
+                check_state["current"]["status"]
+                if check_state["current"] is not None
+                else None
+            ),
         },
         "reasons": reasons,
         "filesystem": {
@@ -749,7 +862,15 @@ def _single_study_orientation(
             "label": reasons[0]["code"].replace("-", " ").upper(),
             "title": study.definition.name,
             "detail": reasons[0]["message"],
-            "next": primary["description"],
+            "next": (
+                primary["description"]
+                if primary is not None
+                else (
+                    "Edit one falsifiable candidate hypothesis in the declared worktree closure."
+                    if reasons[0]["code"] == "candidate-edit-required"
+                    else "Revise the candidate to address the failed bounded preflight."
+                )
+            ),
             "boundary": "fixed Study authority · no trading authority",
         },
     }
@@ -920,6 +1041,8 @@ AGENT_WORK_BRIEF_JSON_SCHEMA: dict[str, Any] = {
                 "sessionStatus",
                 "leaderRunId",
                 "reportId",
+                "candidateCheckId",
+                "candidateCheckStatus",
             ],
             "properties": {
                 key: {"type": ["string", "null"]}
@@ -930,6 +1053,8 @@ AGENT_WORK_BRIEF_JSON_SCHEMA: dict[str, Any] = {
                     "sessionStatus",
                     "leaderRunId",
                     "reportId",
+                    "candidateCheckId",
+                    "candidateCheckStatus",
                 )
             },
         },
