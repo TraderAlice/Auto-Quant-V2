@@ -8,6 +8,7 @@ Related: [[docs/ARCHITECTURE]], [[docs/CLI]], [[docs/PROJECT_FORMAT]],
 [[docs/design/study-run-evidence]],
 [[docs/design/request-bound-portfolio-mandates]],
 [[docs/design/caller-owned-portfolio-research-policy]],
+[[docs/design/request-bound-research-horizon]],
 [[docs/design/portfolio-risk-governor]], and
 [[docs/design/quant-research-lifecycle]], and
 [[docs/design/causal-multi-interval-factor-inputs]].
@@ -132,7 +133,9 @@ Before any Project is visible, Core:
 6. requires every asset to share the exact base timestamp panel;
 7. enforces template-specific breadth and history floors;
 8. requires each requested asset and non-null venue to exist in the package
-   and requires the request's single asset class to equal the package class.
+   and requires the request's single asset class to equal the package class;
+9. derives the request's exact numerical Horizon Mandate and rejects a largest
+   diagnostic target that leaves fewer than 20 purged rows in any split.
 
 Canonical Project data uses:
 
@@ -182,6 +185,15 @@ V3 decision clock, the request/default annualized ceiling, and no scale-up.
 Portfolio and RL Studies bind the same file as a
 dependency. Intake reconstructs it on every load, so request or mandate
 tampering fails rather than changing the position or risk question silently.
+
+Every intake also writes
+`strategies/research-horizon.json`. Optional strict
+`request.horizonPolicy` supplies one primary and one to five diagnostic
+forward-bar targets; otherwise the Mandate records reference defaults rather
+than caller facts. Factor selection and primary diagnostics use the primary
+target. All lanes bind the exact Mandate, and Reports/Dossiers disclose it.
+Portfolio and RL still use sequential next-bar accounting and do not relabel
+that accounting as a direct multi-bar forecast.
 
 Project-root `request.json` preserves the exact canonical caller request.
 Project-root `intake.json` points to and hashes the request, snapshot, and

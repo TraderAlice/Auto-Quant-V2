@@ -282,7 +282,9 @@ class OhlcvFactorLabTests(unittest.TestCase):
                 math.isfinite(layers["validationHacTStatistic"])
             )
             self.assertTrue(
-                math.isfinite(layers["validationHorizon5MeanIc"])
+                math.isfinite(
+                    layers["validationFarthestHorizonMeanIc"]
+                )
             )
             self.assertTrue(
                 math.isfinite(layers["validationPearsonIc"])

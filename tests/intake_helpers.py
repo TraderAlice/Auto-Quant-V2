@@ -20,6 +20,7 @@ def write_intake_inputs(
     dataset_id: str = "bounded-us-equities",
     dataset_version: str = "2024-v1",
     portfolio_policy: dict[str, float] | None = None,
+    horizon_policy: dict[str, object] | None = None,
 ) -> tuple[Path, Path]:
     source = root / "external-data"
     source.mkdir()
@@ -113,6 +114,11 @@ def write_intake_inputs(
             if portfolio_policy is not None
             else {}
         ),
+        **(
+            {"horizonPolicy": horizon_policy}
+            if horizon_policy is not None
+            else {}
+        ),
         "horizon": "one to four weeks",
         "hypotheses": ["Relative activity may identify persistent leadership."],
         "constraints": ["No live trading authority."],
@@ -138,6 +144,7 @@ def write_multi_interval_inputs(
     *,
     observations: int = 288,
     assets: tuple[str, ...] = ("BTC", "ETH", "SOL", "XRP", "ADA"),
+    horizon_policy: dict[str, object] | None = None,
 ) -> tuple[Path, Path]:
     source = root / "external-hourly-data"
     source.mkdir()
@@ -232,6 +239,11 @@ def write_multi_interval_inputs(
             },
         ],
         "direction": "long",
+        **(
+            {"horizonPolicy": horizon_policy}
+            if horizon_policy is not None
+            else {}
+        ),
         "horizon": "one day to four weeks",
         "hypotheses": [
             "Completed daily and intraday trends may add causal information."
@@ -259,6 +271,7 @@ def write_session_interval_inputs(
     *,
     sessions: int = 45,
     assets: tuple[str, ...] = INTAKE_ASSETS,
+    horizon_policy: dict[str, object] | None = None,
 ) -> tuple[Path, Path]:
     """Write deterministic 1h XNYS bars, including terminal partial bars."""
 
@@ -359,6 +372,11 @@ def write_session_interval_inputs(
             {"symbol": "MSFT", "assetClass": "equity", "venue": "XNYS"},
         ],
         "direction": "long",
+        **(
+            {"horizonPolicy": horizon_policy}
+            if horizon_policy is not None
+            else {}
+        ),
         "horizon": "one day to four weeks",
         "hypotheses": ["Completed session trends may add causal information."],
         "constraints": [
@@ -385,12 +403,14 @@ def write_configurable_continuous_inputs(
     root: Path,
     *,
     observations: int = 320,
+    horizon_policy: dict[str, object] | None = None,
 ) -> tuple[Path, Path]:
     """Adapt the deterministic crypto fixture to a V3 15-minute base."""
 
     request_path, package_path = write_multi_interval_inputs(
         root,
         observations=observations,
+        horizon_policy=horizon_policy,
     )
     package = json.loads(package_path.read_text(encoding="utf-8"))
     timestamps = pd.date_range(

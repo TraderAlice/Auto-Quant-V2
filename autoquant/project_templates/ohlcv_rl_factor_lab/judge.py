@@ -19,6 +19,10 @@ from autoquant.intervals import (
     load_multi_interval_asset,
     timestamp_label,
 )
+from autoquant.horizons import (
+    RESEARCH_HORIZON,
+    load_research_horizon,
+)
 from autoquant.mandates import (
     PORTFOLIO_MANDATE,
     load_portfolio_mandate,
@@ -134,6 +138,17 @@ def _load_mandate() -> dict[str, Any]:
         raise JudgeFailure(
             "mandate.invalid",
             f"Invalid fixed Portfolio Mandate: {error}",
+        ) from error
+
+
+def _load_horizon() -> dict[str, Any]:
+    path = Path(os.environ["AUTOQUANT_PROJECT_ROOT"]) / RESEARCH_HORIZON
+    try:
+        return load_research_horizon(path)
+    except Exception as error:
+        raise JudgeFailure(
+            "horizon.invalid",
+            f"Invalid fixed Horizon Mandate: {error}",
         ) from error
 
 
@@ -1713,6 +1728,7 @@ def _evaluate() -> tuple[
 ]:
     study, data_root = _load_contract()
     mandate = _load_mandate()
+    research_horizon = _load_horizon()
     implementation_policy = resolve_implementation_policy(mandate)
     model_module = importlib.import_module("models.candidate")
     factor_module = importlib.import_module("factors.candidate")
@@ -2167,6 +2183,7 @@ def _evaluate() -> tuple[
     metrics = {
         "validation_mean_net_sharpe": float(np.mean(validation_sharpes)),
         "portfolio_mandate": mandate,
+        "research_horizon": research_horizon,
         "rl": {
             "aggregate": {
                 "validation_net_sharpe": _aggregate(validation_sharpes),
@@ -2207,6 +2224,7 @@ def _evaluate() -> tuple[
         "constraint_audit": audits,
         "configuration": {
             "portfolioMandateId": mandate["id"],
+            "researchHorizonId": research_horizon["id"],
             "actions": list(ACTIONS),
             "factorExperts": list(EXPERTS),
             "rawStateFields": list(POLICY_STATE_COLUMNS),
@@ -2268,6 +2286,7 @@ def _evaluate() -> tuple[
             "timeRange": dataset["time_range"],
         },
         "portfolioMandate": mandate,
+        "researchHorizon": research_horizon,
         "semantics": {
             "simulation": "governed-factor-mixture-q-policy",
             "state": "fixed causal scalars known through close t",
@@ -2276,6 +2295,10 @@ def _evaluate() -> tuple[
                 "equal-weight blend at close t"
             ),
             "return": "close t to close t+1",
+            "researchHorizonRole": (
+                "fixed question identity and disclosure; one-step RL rewards "
+                "are not direct multi-bar forecasts"
+            ),
             "reward": (
                 "net return after "
                 f"{implementation_policy['base_cost_bps']:g}bps cost minus "

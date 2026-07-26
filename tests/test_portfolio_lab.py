@@ -926,7 +926,12 @@ class OhlcvPortfolioLabTests(unittest.TestCase):
             self.assertEqual(study.definition.editable["paths"], ["factors/**"])
             self.assertEqual(
                 study.definition.dependencies,
-                {"paths": ["strategies/portfolio-mandate.json"]},
+                {
+                    "paths": [
+                        "strategies/portfolio-mandate.json",
+                        "strategies/research-horizon.json",
+                    ]
+                },
             )
             self.assertEqual(
                 study.definition.judge.paths,

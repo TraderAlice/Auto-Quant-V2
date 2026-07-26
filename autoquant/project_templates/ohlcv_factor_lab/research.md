@@ -9,8 +9,9 @@ not evidence about real markets.
 
 - The Agent edits only `factors/candidate.py`.
 - The fixed Study is `ohlcv-factor-quality`.
-- The fixed Judge computes purge-aware 1/5/10-bar returns, chronological
-  splits, HAC/decay/tertile/style/stability diagnostics, a train-selected
+- The fixed Judge reads the immutable Horizon Mandate and computes
+  purge-aware primary/diagnostic forward-bar returns, chronological splits,
+  HAC/decay/tertile/style/stability diagnostics, a train-selected
   style-neutral qualification funnel, optional candidate-declared component
   quality/redundancy/fixed-blend ablation, and the causality audit.
 - Dataset bytes under `data/ohlcv/**` participate in Study and Run identity.

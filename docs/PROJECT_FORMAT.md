@@ -47,8 +47,9 @@ evaluation, one RL state encoder, three fixed Studies, and a strict
 [[docs/design/research-program-orchestration]].
 
 The factor template evaluates causal cross-sectional predictive evidence with
-dataset-fixed purged 1/5/10-bar rank/Pearson IC, HAC inference, fixed-tertile
-behavior, OHLCV-style overlap, and asset/fold/causal-regime stability. The
+dataset-fixed purged request-bound forward-bar rank/Pearson IC, HAC inference,
+fixed-tertile behavior, OHLCV-style overlap, and
+asset/fold/causal-regime stability. The
 portfolio template fixes the next layer: factor normalization, target weights,
 explicit entry/hold/exit/reversal intent, gross/net and per-asset constraints,
 drift, no-trade behavior, turnover, costs, benchmark, a causal covariance
@@ -69,7 +70,9 @@ comparison rule. See [[docs/design/ohlcv-factor-lab]],
 [[docs/design/mechanical-position-lifecycle-evidence]].
 
 New Portfolio and governed-RL Projects also contain the fixed
-`strategies/portfolio-mandate.json`. For request intake it derives the
+`strategies/portfolio-mandate.json`; every research template also contains
+the fixed `strategies/research-horizon.json`. For request intake the former
+derives the
 tradable/context asset partition, direction, cash, gross/net, cap, and
 benchmark from the canonical request. An optional strict
 `request.portfolioPolicy` supplies gross, global cap, annualized volatility
@@ -81,6 +84,13 @@ synthetic templates explicitly declare the all-universe research-neutral
 contract. It is a Study dependency, not candidate code. See
 [[docs/design/request-bound-portfolio-mandates]] and
 [[docs/design/caller-owned-portfolio-research-policy]].
+
+The Horizon Mandate derives the primary and bounded diagnostic forward-bar
+targets from optional strict `request.horizonPolicy`, or records the reference
+default primary `1` and diagnostics `[1, 5, 10]`. Factor selection uses the
+primary target. Portfolio and RL bind the same research question while
+retaining sequential one-bar accounting. See
+[[docs/design/request-bound-research-horizon]].
 
 The RL template confines candidates to a pure row-level state encoder under
 `models/**`. Its fixed Judge owns factor-mixture actions, Q-learning, reward,
@@ -516,6 +526,10 @@ Brief hash. `request.json` records the exact normalized caller input:
     "referenceNav": 250000.0
   },
   "horizon": "one to three months",
+  "horizonPolicy": {
+    "primaryForwardBars": 21,
+    "diagnosticForwardBars": [5, 21, 63]
+  },
   "hypotheses": ["Trend quality remains stable out of sample."],
   "constraints": ["Use only the locked dataset and cost assumptions."],
   "deliverables": ["factor evidence", "risk limitations"],

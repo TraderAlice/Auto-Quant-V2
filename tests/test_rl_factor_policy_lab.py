@@ -422,6 +422,7 @@ class GovernedRlFactorPolicyLabTests(unittest.TestCase):
                     "paths": [
                         "factors/**",
                         "strategies/portfolio-mandate.json",
+                        "strategies/research-horizon.json",
                     ]
                 },
             )
@@ -430,6 +431,7 @@ class GovernedRlFactorPolicyLabTests(unittest.TestCase):
                 {
                     "factors/candidate.py",
                     "strategies/portfolio-mandate.json",
+                    "strategies/research-horizon.json",
                 },
             )
             self.assertEqual(

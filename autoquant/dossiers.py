@@ -632,6 +632,11 @@ def _portfolio_mandate_id(result: dict[str, Any]) -> str | None:
     return mandate.get("id") if isinstance(mandate, dict) else None
 
 
+def _research_horizon_id(result: dict[str, Any]) -> str | None:
+    horizon = result.get("metrics", {}).get("research_horizon")
+    return horizon.get("id") if isinstance(horizon, dict) else None
+
+
 def _program_lane_admission(
     program: dict[str, Any],
     lane_id: str,
@@ -766,6 +771,9 @@ def _readiness(
                     "portfolioMandateId": _portfolio_mandate_id(
                         leader_run.result
                     ),
+                    "researchHorizonId": _research_horizon_id(
+                        leader_run.result
+                    ),
                     "datasetHash": leader_run.result["dataset"]["hash"],
                     "objective": leader_run.result["objective"],
                 }
@@ -825,6 +833,20 @@ def _readiness(
                 "dossier.portfolio-mandate-mismatch",
                 "RL Report does not use the included Portfolio Report mandate",
                 "rl",
+            )
+        )
+    ready_horizon_ids = {
+        lane["leaderRun"]["researchHorizonId"]
+        for lane in lane_states
+        if lane["status"] == "ready" and lane["leaderRun"] is not None
+    }
+    if ready_horizon_ids and (
+        len(ready_horizon_ids) != 1 or None in ready_horizon_ids
+    ):
+        top_blockers.append(
+            _blocker(
+                "dossier.research-horizon-mismatch",
+                "Included lane Reports do not use one exact Horizon Mandate",
             )
         )
 
@@ -1130,6 +1152,15 @@ def _render_markdown(dossier: dict[str, Any]) -> str:
     analysis = dossier["analysis"]
     evidence = dossier["evidence"]
     request = evidence["request"]
+    supplied_horizon_policy = request.get("horizonPolicy")
+    request_horizon_policy = (
+        supplied_horizon_policy
+        if isinstance(supplied_horizon_policy, dict)
+        else {
+            "primaryForwardBars": 1,
+            "diagnosticForwardBars": [1, 5, 10],
+        }
+    )
     source = request["source"]
     assets = ", ".join(
         f"{item['symbol']} ({item['assetClass']}"
@@ -1156,6 +1187,21 @@ def _render_markdown(dossier: dict[str, Any]) -> str:
         f"**Assets:** {assets}",
         "",
         f"**Direction / horizon:** {request['direction']} / {request['horizon']}",
+        "",
+        (
+            "**Numerical forward horizon:** "
+            f"primary `{request_horizon_policy['primaryForwardBars']}` "
+            "decision bars; diagnostics "
+            + ", ".join(
+                f"`{item}`"
+                for item in request_horizon_policy["diagnosticForwardBars"]
+            )
+            + (
+                " bars (`caller-supplied`)"
+                if isinstance(supplied_horizon_policy, dict)
+                else " bars (`reference-default`)"
+            )
+        ),
         "",
         f"**Caller-supplied source:** {source_identity}",
         "",
@@ -1191,10 +1237,36 @@ def _render_markdown(dossier: dict[str, Any]) -> str:
             f"{family_summary}{adjustment_summary} |"
         )
     mandates: dict[str, dict[str, Any]] = {}
+    horizons: dict[str, dict[str, Any]] = {}
     for lane in evidence["lanes"]:
         mandate = lane["leaderRun"]["metrics"].get("portfolio_mandate")
         if isinstance(mandate, dict) and isinstance(mandate.get("id"), str):
             mandates[mandate["id"]] = mandate
+        horizon = lane["leaderRun"]["metrics"].get("research_horizon")
+        if isinstance(horizon, dict) and isinstance(horizon.get("id"), str):
+            horizons[horizon["id"]] = horizon
+    if horizons:
+        lines.extend(["", "## Numerical research horizon", ""])
+        for horizon in horizons.values():
+            lines.extend(
+                [
+                    f"- Horizon Mandate: `{horizon['id']}`",
+                    f"- Human horizon: `{horizon['source']['horizon']}`",
+                    f"- Primary forward target: "
+                    f"`{horizon['primaryForwardBars']}` decision bars",
+                    "- Diagnostic forward targets: "
+                    + ", ".join(
+                        f"`{item}`"
+                        for item in horizon["diagnosticForwardBars"]
+                    )
+                    + " decision bars",
+                    f"- Policy source: "
+                    f"`{horizon['source']['horizonPolicy']}`",
+                    "- Portfolio and RL retain sequential one-bar accounting; "
+                    "this Horizon Mandate does not claim a forced holding "
+                    "period or direct multi-bar execution.",
+                ]
+            )
     if mandates:
         lines.extend(["", "## Portfolio mandate", ""])
         for mandate in mandates.values():

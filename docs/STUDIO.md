@@ -216,9 +216,10 @@ valid single-path DSR.
 
 The Factor Evidence Explorer verifies and reconciles the fixed immutable
 Factor artifacts before sampling a bounded timeline. Humans may switch between
-rank/Pearson IC and fixed-tertile paths, 1/5/10-bar horizons, validation and
-test audit, and fold/regime/asset/style stability. Those controls format the
-Core object; JavaScript never parses CSV, re-bins assets, selects a horizon, or
+rank/Pearson IC and fixed-tertile paths, request-bound diagnostic forward
+horizons, validation and test audit, and fold/regime/asset/style stability.
+The primary horizon is marked explicitly. Those controls format the Core
+object; JavaScript never parses CSV, re-bins assets, selects a horizon, or
 turns diagnostic evidence into an acceptance gate. The exact headless
 `aq run factor` command is copyable from the disclosure footer.
 

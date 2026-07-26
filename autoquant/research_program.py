@@ -40,7 +40,7 @@ CANONICAL_LANES: tuple[dict[str, Any], ...] = (
         "role": "causal-predictive-evidence",
         "dependsOn": [],
         "editablePaths": ["factors/**"],
-        "dependencyPaths": [],
+        "dependencyPaths": ["strategies/research-horizon.json"],
         "optional": False,
     },
     {
@@ -50,7 +50,10 @@ CANONICAL_LANES: tuple[dict[str, Any], ...] = (
         "role": "mechanical-portfolio-evidence",
         "dependsOn": ["factor"],
         "editablePaths": ["factors/**"],
-        "dependencyPaths": ["strategies/portfolio-mandate.json"],
+        "dependencyPaths": [
+            "strategies/portfolio-mandate.json",
+            "strategies/research-horizon.json",
+        ],
         "optional": False,
     },
     {
@@ -63,6 +66,7 @@ CANONICAL_LANES: tuple[dict[str, Any], ...] = (
         "dependencyPaths": [
             "factors/**",
             "strategies/portfolio-mandate.json",
+            "strategies/research-horizon.json",
         ],
         "optional": True,
     },
@@ -71,6 +75,7 @@ INTEGRATION = {
     "factorToPortfolio": "shared-candidate-source",
     "rlFactorDependency": "content-locked-candidate-source",
     "portfolioMandate": "request-bound-shared-fixed-dependency",
+    "researchHorizon": "request-bound-shared-fixed-dependency",
     "tradingAuthority": "none",
 }
 

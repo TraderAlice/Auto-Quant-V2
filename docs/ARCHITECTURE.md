@@ -116,6 +116,11 @@ The V2 foundation now implements:
   and governed RL. Optional caller-owned policy also locks gross, cap,
   volatility ceiling, linear base cost, no-trade band, and reference NAV into
   that same immutable dependency.
+- one request-bound Horizon Mandate that binds a human research horizon to one
+  exact primary target and a bounded diagnostic set on the locked dataset
+  decision clock. Factor selection uses the primary bar; Portfolio and RL
+  retain sequential one-bar accounting while sharing the same question
+  identity.
 - one causal portfolio risk governor that forecasts annualized volatility from
   trailing returns through the decision close, scales exposure down above the
   fixed ceiling, and publishes pre/post sizing evidence without adding
@@ -160,6 +165,8 @@ governed RL lane is defined in [[docs/design/rl-factor-policy-lab]]. The
 factor tear-sheet protocol is defined in [[docs/design/factor-diagnostics]].
 Bounded immutable Factor artifact projection is defined in
 [[docs/design/factor-evidence-explorer]].
+Caller-owned numerical target semantics are defined in
+[[docs/design/request-bound-research-horizon]].
 Mechanical signal state and attribution are defined in
 [[docs/design/signal-policy-and-attribution]].
 Portfolio-level covariance forecasting and scale-down semantics are defined in

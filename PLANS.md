@@ -34,6 +34,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/request-bound-research-horizon]] | Made the caller's numerical forward horizon govern Factor selection and remain explicit across Portfolio, RL, Studio, and handoff evidence. | 2026-07-27 |
 | [[plans/caller-owned-portfolio-research-policy]] | Let each OpenAlice/local request lock the risk, cost, rebalance, and reference-capital assumptions shared by Portfolio and governed RL. | 2026-07-27 |
 | [[plans/configurable-session-interval-inputs]] | Made the base K-line interval explicit and added calendar-verified XNYS intraday/session aggregation shared by Factor, Portfolio, and RL. | 2026-07-27 |
 | [[plans/frozen-external-holdout-challenge]] | Bound a completed research Dossier's exact leaders to a strictly later compatible Project and published one frozen external-period challenge. | 2026-07-26 |

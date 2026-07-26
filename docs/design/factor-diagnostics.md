@@ -40,15 +40,16 @@ For every split and horizon, the Judge drops the final `h` signal rows of the
 split so the target bar remains inside that split. This is an explicit purge,
 not a random split or an inferred embargo.
 
-The promotion objective remains validation one-bar mean rank IC. Longer
-horizons and all test metrics are diagnostics only.
+The promotion objective remains validation mean rank IC at the Horizon
+Mandate's primary bar. Non-primary horizons and all test metrics are
+diagnostics only.
 
 ## Fixed evidence
 
 ### Horizon quality and inference
 
-For horizons 1, 5, and 10 bars, each split reports daily cross-sectional
-Spearman rank IC and Pearson IC:
+For every Horizon Mandate diagnostic bar, each split reports daily
+cross-sectional Spearman rank IC and Pearson IC:
 
 - mean, population dispersion, ICIR, hit rate, and observations;
 - Newey-West/HAC t-statistic with fixed lag `min(5, n - 1)`;
@@ -73,7 +74,7 @@ stable deciles or quintiles would create mostly singleton bins.
 
 ### Stability
 
-The one-bar IC is sliced without changing the objective:
+The primary-horizon IC is sliced without changing the objective:
 
 - two fixed chronological folds inside each train/validation/test split;
 - causal `up/down × calm/stressed` market regimes;
@@ -106,12 +107,12 @@ Every successful reference Run publishes:
 - `factor-report.json`: semantics, split protocol, aggregate diagnostics,
   causality cuts, and coverage;
 - `daily-factor-evidence.csv`: timestamp, fixed split, causal regime, and
-  purge-aware 1/5/10-bar daily rank/Pearson IC;
+  purge-aware request-bound daily rank/Pearson IC;
 - `factor-quantiles.csv`: timestamp, split, horizon, low/middle/high return,
   and high-minus-low spread.
 - `factor-qualification.csv`: timestamp, split, train-selected dominant style,
   and candidate/style/style-neutral/equal-blend daily rank IC for fixed
-  1/5/10-bar horizons.
+  request-bound horizons.
 - optional `factor-components.json`: bounded candidate-declared component
   quality, final-factor association, pairwise redundancy, nearest-peer
   residual, and fixed diagnostic-blend leave-one-out evidence.
@@ -132,7 +133,7 @@ an unbounded backtest.
 1. Candidate code controls only factor values.
 2. Split dates are dataset-fixed and candidate-independent.
 3. A target bar never crosses its split boundary.
-4. Validation one-bar mean rank IC is the only promotion objective.
+4. Validation primary-horizon mean rank IC is the only promotion objective.
 5. Test, horizon, slice, style, and significance metrics never become hidden
    acceptance rules.
 6. Regime labels are causal at the signal close.

@@ -22,6 +22,10 @@ from autoquant.intervals import (
     load_multi_interval_asset,
     timestamp_label,
 )
+from autoquant.horizons import (
+    RESEARCH_HORIZON,
+    load_research_horizon,
+)
 from judges.factor_diagnostics import (
     HORIZONS,
     REGIME_NAMES,
@@ -45,6 +49,7 @@ from judges.factor_diagnostics import (
 REQUIRED_COLUMNS = ("timestamp", "open", "high", "low", "close", "volume")
 MIN_ASSETS_PER_DATE = 4
 MIN_IC_DATES_PER_SPLIT = 20
+PRIMARY_HORIZON = 1
 
 
 class JudgeFailure(ValueError):
@@ -68,6 +73,17 @@ def _load_contract() -> tuple[dict[str, Any], Path]:
     if not data_root.is_dir():
         raise JudgeFailure("dataset.root", "AUTOQUANT_DATA_ROOT is not a directory")
     return study, data_root
+
+
+def _load_horizon() -> dict[str, Any]:
+    path = Path(os.environ["AUTOQUANT_PROJECT_ROOT"]) / RESEARCH_HORIZON
+    try:
+        return load_research_horizon(path)
+    except Exception as error:
+        raise JudgeFailure(
+            "horizon.contract",
+            f"Invalid fixed Horizon Mandate: {error}",
+        ) from error
 
 
 def _load_asset(data_root: Path, asset: str, start: str, end: str) -> pd.DataFrame:
@@ -358,7 +374,7 @@ def _component_evidence(
             split: _style_summary(
                 _masked(
                     composite_association_daily[name],
-                    split_masks[1][split],
+                    split_masks[PRIMARY_HORIZON][split],
                 )
             )
             for split in ("train", "validation", "test")
@@ -382,7 +398,10 @@ def _component_evidence(
                     "right": right,
                     "splits": {
                         split: _style_summary(
-                            _masked(daily, split_masks[1][split])
+                            _masked(
+                                daily,
+                                split_masks[PRIMARY_HORIZON][split],
+                            )
                         )
                         for split in ("train", "validation", "test")
                     },
@@ -397,7 +416,10 @@ def _component_evidence(
                 continue
             peer = next(item for item in pair if item != name)
             summary = _style_summary(
-                _masked(daily, split_masks[1]["train"])
+                _masked(
+                    daily,
+                    split_masks[PRIMARY_HORIZON]["train"],
+                )
             )
             absolute = summary["mean_absolute_rank_correlation"]
             if absolute is not None:
@@ -528,8 +550,9 @@ def _component_evidence(
         }
         removal_delta: dict[str, float | None] = {}
         for split in ("train", "validation", "test"):
-            leave_mean = quality["1"][split]["mean_ic"]
-            full_mean = full_blend_quality["1"][split]["mean_ic"]
+            primary = str(PRIMARY_HORIZON)
+            leave_mean = quality[primary][split]["mean_ic"]
+            full_mean = full_blend_quality[primary][split]["mean_ic"]
             removal_delta[split] = (
                 float(leave_mean) - float(full_mean)
                 if leave_mean is not None and full_mean is not None
@@ -545,10 +568,11 @@ def _component_evidence(
     component_rows: list[dict[str, Any]] = []
     metadata_by_name = {item["id"]: item for item in declarations}
     for name in names:
-        raw_validation = raw_quality[name]["1"]["validation"]["mean_ic"]
+        primary = str(PRIMARY_HORIZON)
+        raw_validation = raw_quality[name][primary]["validation"]["mean_ic"]
         residual = residual_quality[name]
         residual_validation = (
-            residual["horizon_quality"]["1"]["validation"]["mean_ic"]
+            residual["horizon_quality"][primary]["validation"]["mean_ic"]
             if residual["horizon_quality"] is not None
             else None
         )
@@ -563,7 +587,7 @@ def _component_evidence(
             train_redundancy = _style_summary(
                 _masked(
                     pair_daily[frozenset((name, peer))],
-                    split_masks[1]["train"],
+                    split_masks[PRIMARY_HORIZON]["train"],
                 )
             )["mean_absolute_rank_correlation"]
         component_rows.append(
@@ -765,15 +789,19 @@ def _decay_summary(
             horizon: horizon_metrics[horizon][split]["mean_ic"]
             for horizon in (str(item) for item in HORIZONS)
         }
-        one_bar = means["1"]
+        primary = means[str(PRIMARY_HORIZON)]
         ratios: dict[str, float | None] = {}
-        for horizon in ("5", "10"):
+        for horizon in (str(item) for item in HORIZONS):
+            if horizon == str(PRIMARY_HORIZON):
+                continue
             value = means[horizon]
-            ratios[f"horizon_{horizon}_to_1"] = (
-                float(value) / float(one_bar)
+            ratios[
+                f"horizon_{horizon}_to_{PRIMARY_HORIZON}"
+            ] = (
+                float(value) / float(primary)
                 if value is not None
-                and one_bar is not None
-                and abs(float(one_bar)) > 1e-12
+                and primary is not None
+                and abs(float(primary)) > 1e-12
                 else None
             )
         result[split] = {
@@ -868,7 +896,10 @@ def _factor_qualification(
     }
     residual_folds = {
         name: descriptive_ic(
-            _masked(daily["style_neutral_candidate"][1], mask)
+            _masked(
+                daily["style_neutral_candidate"][PRIMARY_HORIZON],
+                mask,
+            )
         )
         for name, mask in fold_masks.items()
     }
@@ -926,7 +957,11 @@ def _evaluate() -> tuple[
     pd.DataFrame,
     dict[str, Any] | None,
 ]:
+    global HORIZONS, PRIMARY_HORIZON
     study, data_root = _load_contract()
+    research_horizon = _load_horizon()
+    HORIZONS = tuple(research_horizon["diagnosticForwardBars"])
+    PRIMARY_HORIZON = int(research_horizon["primaryForwardBars"])
     dataset = study["dataset"]
     universe = dataset["universe"]
     time_range = dataset["time_range"]
@@ -1008,9 +1043,15 @@ def _evaluate() -> tuple[
     close_panel = pd.DataFrame(close_by_asset).reindex(factor_panel.index)
     volume_panel = pd.DataFrame(volume_by_asset).reindex(factor_panel.index)
     timeline = pd.DatetimeIndex(factor_panel.index)
-    split_masks, split_protocol, base_split_labels = purged_split_masks(timeline)
-    fold_masks, fold_protocol = chronological_fold_masks(timeline)
-    forward_panels = forward_return_panels(close_panel)
+    split_masks, split_protocol, base_split_labels = purged_split_masks(
+        timeline,
+        HORIZONS,
+    )
+    fold_masks, fold_protocol = chronological_fold_masks(
+        timeline,
+        PRIMARY_HORIZON,
+    )
+    forward_panels = forward_return_panels(close_panel, HORIZONS)
     component_evidence = (
         _component_evidence(
             component_declarations,
@@ -1062,7 +1103,7 @@ def _evaluate() -> tuple[
         }
         for horizon in HORIZONS
     }
-    splits = horizon_metrics["1"]
+    splits = horizon_metrics[str(PRIMARY_HORIZON)]
     validation_mean_ic = float(splits["validation"]["mean_ic"])
 
     quantile_daily = {
@@ -1087,9 +1128,9 @@ def _evaluate() -> tuple[
         for horizon in HORIZONS
     }
 
-    one_bar_ic = daily_ic_by_horizon[1]
+    primary_ic = daily_ic_by_horizon[PRIMARY_HORIZON]
     chronological_folds = {
-        name: descriptive_ic(_masked(one_bar_ic, mask))
+        name: descriptive_ic(_masked(primary_ic, mask))
         for name, mask in fold_masks.items()
     }
     regimes = causal_regime_labels(close_panel)
@@ -1097,8 +1138,8 @@ def _evaluate() -> tuple[
         split: {
             regime: descriptive_ic(
                 _masked(
-                    one_bar_ic,
-                    split_masks[1][split]
+                    primary_ic,
+                    split_masks[PRIMARY_HORIZON][split]
                     & regimes.eq(regime).fillna(False),
                 )
             )
@@ -1119,7 +1160,10 @@ def _evaluate() -> tuple[
         )
         for split in style_correlations:
             style_correlations[split][style] = _style_summary(
-                _masked(daily_style, split_masks[1][split])
+                _masked(
+                    daily_style,
+                    split_masks[PRIMARY_HORIZON][split],
+                )
             )
     factor_qualification, qualification_evidence = _factor_qualification(
         factor_panel,
@@ -1133,8 +1177,8 @@ def _evaluate() -> tuple[
     per_asset_stability = {
         split: per_asset_rank_correlation(
             factor_panel,
-            forward_panels[1],
-            split_masks[1][split],
+            forward_panels[PRIMARY_HORIZON],
+            split_masks[PRIMARY_HORIZON][split],
         )
         for split in ("train", "validation", "test")
     }
@@ -1143,6 +1187,7 @@ def _evaluate() -> tuple[
     turnover = float(ranked.diff().abs().mean(axis=1).dropna().mean())
     metrics = {
         "validation_mean_ic": validation_mean_ic,
+        "research_horizon": research_horizon,
         "train": splits["train"],
         "validation": splits["validation"],
         "test": splits["test"],
@@ -1163,7 +1208,7 @@ def _evaluate() -> tuple[
         "mean_coverage": float(sum(coverage.values()) / len(coverage)),
         "mean_rank_turnover": turnover,
         "assets": int(len(universe)),
-        "ic_dates": int(len(one_bar_ic)),
+        "ic_dates": int(len(primary_ic)),
         "research_integrity": {
             "selection_split": "validation",
             "test_role": "visible-diagnostic",
@@ -1193,17 +1238,22 @@ def _evaluate() -> tuple[
             "universe": universe,
             "timeRange": time_range,
         },
+        "researchHorizon": research_horizon,
         "semantics": {
-            "target": "next-bar close-to-close return",
+            "target": research_horizon["targetSemantics"],
             "measure": (
                 "per-date cross-sectional Spearman rank IC and Pearson IC"
             ),
             "horizons": list(HORIZONS),
+            "primaryHorizon": PRIMARY_HORIZON,
             "split": (
                 "dataset-fixed chronological 60/20/20 with horizon-specific "
                 "boundary purge"
             ),
-            "score": "validation one-bar mean rank IC only",
+            "score": (
+                "validation mean rank IC at the fixed primary "
+                f"{PRIMARY_HORIZON}-bar horizon only"
+            ),
             "inference": (
                 "Newey-West/Bartlett HAC mean t-statistic with maximum lag 5 "
                 "and two-sided normal-approximation p-value"
@@ -1374,7 +1424,7 @@ def main() -> None:
                 "path": "daily-factor-evidence.csv",
                 "description": (
                     "Timestamped split, causal regime, and purge-aware "
-                    "1/5/10-bar rank and Pearson IC"
+                    "request-bound forward-bar rank and Pearson IC"
                 ),
             },
             {
@@ -1411,7 +1461,7 @@ def main() -> None:
                 "status": "succeeded",
                 "summary": (
                     "Causal purge-aware factor tear sheet completed; "
-                    "validation one-bar mean rank IC="
+                    f"validation {PRIMARY_HORIZON}-bar mean rank IC="
                     f"{metrics['validation_mean_ic']:.6f}"
                 ),
                 "metrics": metrics,

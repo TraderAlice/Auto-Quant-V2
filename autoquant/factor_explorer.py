@@ -5,10 +5,16 @@ from __future__ import annotations
 import csv
 import json
 import math
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .horizons import (
+    RESEARCH_HORIZON,
+    RESEARCH_HORIZON_JSON_SCHEMA,
+    validate_research_horizon,
+)
 from .intervals import timestamp_label
 from .runs import RunContext, load_run
 from .workspace import (
@@ -30,6 +36,7 @@ MAX_DAILY_ROWS = 100_000
 MAX_QUANTILE_ROWS = 300_000
 MAX_UNIVERSE = 256
 HORIZONS = (1, 5, 10)
+PRIMARY_HORIZON = 1
 SPLITS = ("train", "validation", "test")
 SPLIT_ROLES = {
     "train": "training",
@@ -100,6 +107,67 @@ QUALIFICATION_COLUMNS = [
         for signal in QUALIFICATION_SIGNALS
     ],
 ]
+_HORIZON_CONFIGURATION_LOCK = threading.RLock()
+
+
+def _configure_horizons(
+    run: RunContext,
+    report: dict[str, Any],
+) -> dict[str, Any]:
+    """Bind module-local artifact parsers to this immutable Run policy."""
+
+    global HORIZONS, PRIMARY_HORIZON, DAILY_COLUMNS
+    global QUALIFICATION_COLUMNS
+    raw = run.result["metrics"].get("research_horizon")
+    report_raw = report.get("researchHorizon")
+    if not isinstance(raw, dict) or report_raw != raw:
+        _fail(
+            "RunResult/metrics/research_horizon",
+            "factor.research-horizon",
+            "Factor Run and report must contain one identical Horizon Mandate",
+        )
+    try:
+        horizon = validate_research_horizon(
+            raw,
+            "RunResult/metrics/research_horizon",
+        )
+    except AutoQuantValidationError:
+        raise
+    dependencies = run.result.get("dependencies")
+    if (
+        not isinstance(dependencies, dict)
+        or RESEARCH_HORIZON not in dependencies.get("paths", [])
+        or RESEARCH_HORIZON
+        not in dependencies.get("sourceHashes", {})
+    ):
+        _fail(
+            "RunResult/dependencies",
+            "factor.research-horizon-dependency",
+            "Factor Run does not bind its fixed Horizon Mandate",
+        )
+    HORIZONS = tuple(horizon["diagnosticForwardBars"])
+    PRIMARY_HORIZON = int(horizon["primaryForwardBars"])
+    DAILY_COLUMNS = [
+        "timestamp",
+        "split",
+        "regime",
+        *[
+            f"{measure}_ic_h{item}"
+            for item in HORIZONS
+            for measure in ("rank", "pearson")
+        ],
+    ]
+    QUALIFICATION_COLUMNS = [
+        "timestamp",
+        "split",
+        "dominant_style",
+        *[
+            f"{signal}_rank_ic_h{item}"
+            for item in HORIZONS
+            for signal in QUALIFICATION_SIGNALS
+        ],
+    ]
+    return horizon
 
 
 def _issue(path: Path | str, code: str, message: str) -> ValidationIssue:
@@ -350,7 +418,7 @@ def _split_protocol(metrics: dict[str, Any]) -> dict[str, Any]:
         _fail(
             "RunResult/metrics/split_protocol",
             "factor.split-protocol",
-            "Expected fixed train/validation/test and 1/5/10-bar protocol",
+            "Expected the request-bound train/validation/test horizon protocol",
         )
     normalized_splits: dict[str, Any] = {}
     prior_end: str | None = None
@@ -543,7 +611,7 @@ def _reconcile_daily(
         _fail(
             "RunResult/metrics/horizon_quality",
             "factor.horizon-quality",
-            "Factor Run must declare fixed 1/5/10-bar quality",
+            "Factor Run must declare every request-bound horizon",
         )
     for horizon in HORIZONS:
         raw_horizon = quality[str(horizon)]
@@ -601,6 +669,20 @@ def _reconcile_daily(
                 f"{split_name}/{horizon}/pearson",
                 "mean Pearson IC",
             )
+    primary = quality[str(PRIMARY_HORIZON)]
+    for split_name in SPLITS:
+        if metrics.get(split_name) != primary[split_name]:
+            _fail(
+                f"RunResult/metrics/{split_name}",
+                "factor.primary-horizon",
+                "Headline split evidence differs from the fixed primary horizon",
+            )
+    _close(
+        metrics.get("validation_mean_ic"),
+        primary["validation"].get("mean_ic"),
+        "RunResult/metrics/validation_mean_ic",
+        "primary validation mean rank IC",
+    )
 
 
 def _parse_quantiles(
@@ -1115,23 +1197,24 @@ def _factor_qualification_projection(
         )
 
     def split_projection(split: str) -> dict[str, Any]:
-        signal_values = quality["1"][split]
+        primary = str(PRIMARY_HORIZON)
+        signal_values = quality[primary][split]
         summaries = {
             "candidate": _rank_summary(
                 signal_values["candidate"],
-                f"factor_qualification/1/{split}/candidate",
+                f"factor_qualification/{primary}/{split}/candidate",
             ),
             "dominantStyle": _rank_summary(
                 signal_values["dominant_style"],
-                f"factor_qualification/1/{split}/dominant_style",
+                f"factor_qualification/{primary}/{split}/dominant_style",
             ),
             "styleNeutralCandidate": _rank_summary(
                 signal_values["style_neutral_candidate"],
-                f"factor_qualification/1/{split}/style_neutral_candidate",
+                f"factor_qualification/{primary}/{split}/style_neutral_candidate",
             ),
             "equalRankBlend": _rank_summary(
                 signal_values["equal_rank_blend"],
-                f"factor_qualification/1/{split}/equal_rank_blend",
+                f"factor_qualification/{primary}/{split}/equal_rank_blend",
             ),
         }
         raw_ic = summaries["candidate"]["meanRankIc"]
@@ -1143,9 +1226,9 @@ def _factor_qualification_projection(
             for value in (raw_ic, residual_ic, style_ic, blend_ic)
         ):
             _fail(
-                f"factor_qualification/1/{split}",
+                f"factor_qualification/{primary}/{split}",
                 "factor.qualification-evidence",
-                "One-bar qualification evidence must be sufficient",
+                "Primary-horizon qualification evidence must be sufficient",
             )
         fold_rows = [
             {
@@ -1368,7 +1451,7 @@ def _component_horizon_quality(value: Any, path: str) -> list[dict[str, Any]]:
         _fail(
             path,
             "factor.component-horizons",
-            "Component quality must use fixed 1/5/10-bar horizons",
+            "Component quality must use every request-bound horizon",
         )
     return [
         {
@@ -1391,8 +1474,10 @@ def _component_horizon_quality(value: Any, path: str) -> list[dict[str, Any]]:
 def _quality_split(
     profile: list[dict[str, Any]],
     split: str,
-    horizon: int = 1,
+    horizon: int | None = None,
 ) -> dict[str, Any]:
+    if horizon is None:
+        horizon = PRIMARY_HORIZON
     return next(
         row[split] for row in profile if row["horizon"] == horizon
     )
@@ -2582,7 +2667,7 @@ def _coverage(report: dict[str, Any], universe: list[str]) -> list[dict[str, Any
     ]
 
 
-def load_factor_diagnostics(
+def _load_factor_diagnostics_unlocked(
     project: ProjectContext,
     run_id: str,
     *,
@@ -2643,6 +2728,7 @@ def load_factor_diagnostics(
             "factor.report-metrics",
             "Factor report metrics differ from immutable RunResult",
         )
+    research_horizon = _configure_horizons(run, report)
     report_dataset = report.get("dataset")
     if (
         not isinstance(report_dataset, dict)
@@ -2707,6 +2793,7 @@ def load_factor_diagnostics(
     if (
         not isinstance(semantics, dict)
         or semantics.get("horizons") != list(HORIZONS)
+        or semantics.get("primaryHorizon") != PRIMARY_HORIZON
         or not isinstance(declared_styles, list)
         or set(declared_styles) != STYLES
     ):
@@ -2779,12 +2866,14 @@ def load_factor_diagnostics(
             "universe": universe,
         },
         "harness": run.result["harness"],
+        "researchHorizon": research_horizon,
         "artifacts": artifacts,
         "protocol": {
             "selectionSplit": "validation",
             "testRole": "visible-diagnostic",
             "testEntersSelection": False,
             "horizons": list(HORIZONS),
+            "primaryHorizon": PRIMARY_HORIZON,
             "semantics": semantics,
             "splits": protocol,
         },
@@ -2803,11 +2892,31 @@ def load_factor_diagnostics(
         "icPath": ic_path,
         "quantilePath": quantile_path,
         "warning": (
-            "Validation one-bar rank IC is the fixed selection objective. "
-            "Test, longer-horizon, quantile, stability, and style evidence are "
-            "diagnostic and do not change the immutable verdict."
+            f"Validation {PRIMARY_HORIZON}-bar rank IC is the fixed selection "
+            "objective. Test, non-primary-horizon, quantile, stability, and "
+            "style evidence are diagnostic and do not change the immutable "
+            "verdict."
         ),
     }
+
+
+def load_factor_diagnostics(
+    project: ProjectContext,
+    run_id: str,
+    *,
+    point_limit: int = DEFAULT_FACTOR_POINTS,
+) -> dict[str, Any]:
+    """Verify and project one immutable Factor Run into a bounded read model."""
+
+    # The artifact parsers use column names derived from the per-Run Horizon
+    # Mandate. Keep each complete projection under one lock because Studio may
+    # serve Runs with different horizon policies concurrently.
+    with _HORIZON_CONFIGURATION_LOCK:
+        return _load_factor_diagnostics_unlocked(
+            project,
+            run_id,
+            point_limit=point_limit,
+        )
 
 
 _FACTOR_QUALIFICATION_SCHEMA: dict[str, Any] = {
@@ -2979,8 +3088,8 @@ _FACTOR_QUALIFICATION_SCHEMA: dict[str, Any] = {
                 "testAudit": {"$ref": "#/$defs/qualificationSplit"},
                 "horizonProfile": {
                     "type": "array",
-                    "minItems": len(HORIZONS),
-                    "maxItems": len(HORIZONS),
+                    "minItems": 1,
+                    "maxItems": 5,
                 },
             },
         },
@@ -3050,8 +3159,8 @@ _FACTOR_COMPONENTS_SCHEMA: dict[str, Any] = {
                 },
                 "fixedBlendHorizonProfile": {
                     "type": "array",
-                    "minItems": len(HORIZONS),
-                    "maxItems": len(HORIZONS),
+                    "minItems": 1,
+                    "maxItems": 5,
                 },
             },
         },
@@ -3117,6 +3226,7 @@ FACTOR_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "run",
         "dataset",
         "harness",
+        "researchHorizon",
         "artifacts",
         "protocol",
         "summary",
@@ -3139,6 +3249,7 @@ FACTOR_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
             "required": ["id", "version", "hash", "timeRange", "universe"],
         },
         "harness": {"type": "object"},
+        "researchHorizon": RESEARCH_HORIZON_JSON_SCHEMA,
         "artifacts": {
             "type": "object",
             "required": sorted(BASE_ARTIFACT_KINDS),
@@ -3150,6 +3261,7 @@ FACTOR_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 "testRole",
                 "testEntersSelection",
                 "horizons",
+                "primaryHorizon",
                 "semantics",
                 "splits",
             ],
@@ -3159,12 +3271,19 @@ FACTOR_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 "testEntersSelection": {"const": False},
                 "horizons": {
                     "type": "array",
-                    "prefixItems": [
-                        {"const": 1},
-                        {"const": 5},
-                        {"const": 10},
-                    ],
-                    "items": False,
+                    "minItems": 1,
+                    "maxItems": 5,
+                    "uniqueItems": True,
+                    "items": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 252,
+                    },
+                },
+                "primaryHorizon": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 252,
                 },
                 "semantics": {"type": "object"},
                 "splits": {"type": "object"},
@@ -3175,13 +3294,13 @@ FACTOR_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "factorComponents": _FACTOR_COMPONENTS_SCHEMA,
         "horizonProfile": {
             "type": "array",
-            "minItems": len(HORIZONS),
-            "maxItems": len(HORIZONS),
+            "minItems": 1,
+            "maxItems": 5,
         },
         "quantileSummary": {
             "type": "array",
-            "minItems": len(HORIZONS) * len(SPLITS),
-            "maxItems": len(HORIZONS) * len(SPLITS),
+            "minItems": len(SPLITS),
+            "maxItems": 5 * len(SPLITS),
         },
         "stability": {"type": "object"},
         "coverage": {

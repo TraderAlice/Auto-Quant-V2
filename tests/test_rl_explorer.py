@@ -122,6 +122,7 @@ class RlPolicyEvidenceExplorerTests(unittest.TestCase):
                 [
                     "factors/**",
                     "strategies/portfolio-mandate.json",
+                    "strategies/research-horizon.json",
                 ],
             )
             self.assertTrue(diagnostics["portfolioMandate"]["available"])

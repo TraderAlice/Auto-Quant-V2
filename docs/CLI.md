@@ -255,15 +255,17 @@ or trading authority.
 
 `run factor` is the corresponding bounded professional tear sheet for a
 successful fixed Factor Lab Run. Core verifies the immutable report, daily
-1/5/10-bar rank/Pearson IC, fixed-tertile, style-qualification, and optional
+request-bound forward-bar rank/Pearson IC, fixed-tertile,
+style-qualification, and optional
 candidate-declared component artifacts; reconciles every split/horizon
 aggregate; then deterministically samples 40–400 timestamp anchors. The
 response keeps horizon decay, quantiles, folds, causal regimes, assets, styles,
 coverage, rank turnover, and component quality/redundancy/fixed-blend
 leave-one-out machine-readable. Component declarations are explicit candidate
 claims, never inferred column use; their ablation target is the fixed
-diagnostic blend rather than arbitrary `compute_factor`. Validation one-bar
-final-factor rank IC remains the only selection objective; test and all other
+diagnostic blend rather than arbitrary `compute_factor`. Validation
+primary-horizon final-factor rank IC remains the only selection objective;
+test and all other
 layers are explicitly diagnostic.
 
 `run rl` projects one successful governed RL Factor-Policy Run. Core verifies
@@ -323,10 +325,13 @@ containing the disposable worktree, fixed program, editable closure, leader,
 authority status, and exact next commands. The caller edits only that worktree.
 
 With `--request`, Session start first validates the strict external question,
-assets, direction, optional complete `portfolioPolicy`, horizon, hypotheses,
-constraints, deliverables, and caller-supplied origin context. Requested
-assets and asset classes must fit the selected Study. Portfolio policy values
-are bounded research assumptions, not authenticated Broker/account state.
+assets, direction, optional complete `portfolioPolicy`, human horizon,
+optional complete numerical `horizonPolicy`, hypotheses, constraints,
+deliverables, and caller-supplied origin context. Requested assets and asset
+classes must fit the selected Study. Portfolio policy values are bounded
+research assumptions, not authenticated Broker/account state. Horizon policy
+values are decision-bar counts on the locked dataset base clock; Core does not
+infer them from prose.
 Core copies canonical `request.json` and derives `brief.json`
 from that request plus the Project, Study, baseline, dataset, Judge, and Harness
 locks. Those files are verified on every Session load and are included in each
@@ -366,7 +371,8 @@ unchanged. A completed Session cannot run Experiments/Campaigns, publish later
 Reports, promote, or complete again.
 
 For the Factor Lab, `run execute/show --json` and Experiment output preserve
-the full purge-aware factor tear sheet: 1/5/10-bar horizon quality, HAC
+the full purge-aware factor tear sheet: request-bound forward-horizon quality,
+HAC
 inference, fixed-tertile behavior, style overlap, and asset/fold/causal-regime
 stability. Studio is a concise projection; exact daily IC/regime and quantile
 rows remain Run artifacts.

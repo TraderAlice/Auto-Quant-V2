@@ -50,6 +50,12 @@ const metric = (value) => {
   return number.toLocaleString(undefined, { maximumFractionDigits: 4 });
 };
 
+const horizonPolicyText = (request) => {
+  const policy = request?.horizonPolicy;
+  if (!policy) return "reference default · primary 1 · diagnostics 1/5/10 bars";
+  return `primary ${policy.primaryForwardBars} · diagnostics ${policy.diagnosticForwardBars.join("/")} bars`;
+};
+
 const percent = (value) => {
   if (value === null || value === undefined || Number.isNaN(Number(value))) {
     return "—";
@@ -971,7 +977,7 @@ function renderScoreboard(project) {
       ["Validation net Sharpe", metric(layers.portfolio.validationNetSharpe), "selection · baseline", valueTone(layers.portfolio.validationNetSharpe)],
       ["Validation rank IC", metric(layers.factor.validationRankIc), "causal factor", valueTone(layers.factor.validationRankIc)],
       ["Test max drawdown", percent(layers.portfolio.testMaximumDrawdown), "visible audit only", valueTone(layers.portfolio.testMaximumDrawdown)],
-      ["25 bps stress", metric(layers.robustness.test25bpsSharpe), "test stress · audit", valueTone(layers.robustness.test25bpsSharpe)],
+      [`${metric(layers.robustness.adverseCostBps)} bps stress`, metric(layers.robustness.testAdverseCostSharpe), "test stress · audit", valueTone(layers.robustness.testAdverseCostSharpe)],
     ];
   } else if (layers?.kind === "rl-policy") {
     const opportunity = layers.factorOpportunity;
@@ -1247,7 +1253,7 @@ function renderHandoff(project) {
         <dl class="handoff-kv">
           <dt>Assets</dt><dd>${escapeHtml(request.assets.map((item) => item.symbol).join(", "))}</dd>
           <dt>Direction</dt><dd>${escapeHtml(request.direction)}</dd>
-          <dt>Horizon</dt><dd>${escapeHtml(request.horizon)}</dd>
+          <dt>Horizon</dt><dd>${escapeHtml(request.horizon)} · ${escapeHtml(horizonPolicyText(request))}</dd>
         </dl>
         <span class="context-note">Caller-supplied context · ${escapeHtml(request.source.system)} / ${escapeHtml(request.source.workspaceId ?? "unspecified")}</span>
       </article>
@@ -1304,7 +1310,7 @@ function renderHandoff(project) {
           <dl class="handoff-kv">
             <dt>Requested assets</dt><dd>${escapeHtml(request.assets.map((item) => item.symbol).join(", "))}</dd>
             <dt>Direction</dt><dd>${escapeHtml(request.direction)}</dd>
-            <dt>Horizon</dt><dd>${escapeHtml(request.horizon)}</dd>
+            <dt>Horizon</dt><dd>${escapeHtml(request.horizon)} · ${escapeHtml(horizonPolicyText(request))}</dd>
           </dl>
           <span class="context-note">Caller-supplied context · ${escapeHtml(source.system)} / ${escapeHtml(source.workspaceId ?? "unspecified")}</span>
         </article>
@@ -1327,7 +1333,7 @@ function renderHandoff(project) {
           <div class="handoff-metrics">
             <span class="${valueTone(portfolio.factor.validationRankIc)}"><b>${metric(portfolio.factor.validationRankIc)}</b><small>validation IC</small></span>
             <span class="${valueTone(portfolio.portfolio.testMaximumDrawdown)}"><b>${percent(portfolio.portfolio.testMaximumDrawdown)}</b><small>test max DD</small></span>
-            <span class="${valueTone(portfolio.robustness.test25bpsSharpe)}"><b>${metric(portfolio.robustness.test25bpsSharpe)}</b><small>25bps audit</small></span>
+            <span class="${valueTone(portfolio.robustness.testAdverseCostSharpe)}"><b>${metric(portfolio.robustness.testAdverseCostSharpe)}</b><small>${metric(portfolio.robustness.adverseCostBps)}bps audit</small></span>
           </div>` : ""}
           <span class="status-chip ${baselineTone === "bad" ? "revert" : "active"}">${baseline ? (baselineTone === "bad" ? "negative baseline" : "baseline verified") : "ready"}</span>
           ${copyCommandButton(next, holdout ? (holdout.state === "completed" ? "Copy holdout show command" : "Copy holdout run command") : program ? "Copy recommended command" : "Copy start command")}
@@ -1357,7 +1363,7 @@ function renderHandoff(project) {
       <dl class="handoff-kv">
         <dt>Assets</dt><dd>${escapeHtml(assets)}</dd>
         <dt>Direction</dt><dd>${escapeHtml(request.direction)}</dd>
-        <dt>Horizon</dt><dd>${escapeHtml(request.horizon)}</dd>
+        <dt>Horizon</dt><dd>${escapeHtml(request.horizon)} · ${escapeHtml(horizonPolicyText(request))}</dd>
       </dl>
       <span class="context-note">Caller-supplied context · ${escapeHtml(source.system)} / ${escapeHtml(source.workspaceId ?? "unspecified")}</span>
     </article>
@@ -1807,6 +1813,7 @@ function renderFactorChart(explorer) {
 
 function renderFactorHorizons(explorer) {
   const rows = explorer.horizonProfile;
+  const primary = explorer.researchHorizon.primaryForwardBars;
   element("factor-horizons").innerHTML = `
     <table class="factor-table horizon-table" aria-label="Fixed factor horizon profile">
       <thead>
@@ -1822,7 +1829,7 @@ function renderFactorHorizons(explorer) {
           .map(
             (row) => `
               <tr>
-                <th>${row.horizon} bar${row.horizon === 1 ? "" : "s"}</th>
+                <th>${row.horizon} bar${row.horizon === 1 ? "" : "s"}${row.horizon === primary ? " · PRIMARY" : ""}</th>
                 <td><b>${metric(row.train.meanRankIc)}</b><small>IC · ${row.train.observations} obs</small></td>
                 <td class="selection-cell"><b>${metric(row.validation.meanRankIc)}</b><small>IC · t ${metric(row.validation.hacTStatistic)}</small></td>
                 <td class="audit-cell"><b>${metric(row.test.meanRankIc)}</b><small>AUDIT · ${row.test.observations} obs</small></td>
@@ -2089,11 +2096,35 @@ function renderFactorExplorer(project) {
     return;
   }
   section.hidden = false;
+  const supportedHorizons =
+    explorer.researchHorizon.diagnosticForwardBars.map(String);
+  if (!supportedHorizons.includes(state.factorHorizon)) {
+    state.factorHorizon = String(
+      explorer.researchHorizon.primaryForwardBars,
+    );
+  }
+  element("factor-horizon-controls").innerHTML =
+    explorer.researchHorizon.diagnosticForwardBars
+      .map(
+        (horizon) => `
+          <button type="button" role="tab"
+            aria-selected="${String(String(horizon) === state.factorHorizon)}"
+            data-factor-horizon="${horizon}">
+            ${horizon}${horizon === explorer.researchHorizon.primaryForwardBars ? " bar · primary" : ""}
+          </button>`,
+      )
+      .join("");
+  document.querySelectorAll("[data-factor-horizon]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.factorHorizon = button.dataset.factorHorizon;
+      renderFactorChart(explorer);
+    });
+  });
   const summary = explorer.summary;
   const validation = summary.validation;
   const test = summary.testAudit;
   element("factor-meta").textContent =
-    `${explorer.run.id} · ${explorer.dataset.universe.length} assets · validation selection`;
+    `${explorer.run.id} · ${explorer.dataset.universe.length} assets · ${explorer.researchHorizon.primaryForwardBars}-bar validation selection`;
   element("factor-summary").innerHTML = [
     ["Validation rank IC", metric(validation.meanRankIc), `${validation.observations} observations`],
     ["HAC t / p", `${metric(validation.hacTStatistic)} / ${metric(validation.hacNormalPValue)}`, "normal approximation"],
@@ -4220,7 +4251,7 @@ function runMetricLayers(item) {
         ${attribution ? `<span><b>${attribution.validationReconciliationPassed ? "pass" : "fail"}</b><i>attribution</i></span>` : ""}
         <span><b>${metric(layers.portfolio.testNetSharpe)}</b><i>test audit</i></span>
         <span><b>${metric(layers.implementation.testAnnualizedTurnover)}</b><i>ann. turn</i></span>
-        <span><b>${metric(layers.robustness.test25bpsSharpe)}</b><i>25bps</i></span>
+        <span><b>${metric(layers.robustness.testAdverseCostSharpe)}</b><i>${metric(layers.robustness.adverseCostBps)}bps stress</i></span>
       </div>`;
   }
   if (layers.kind === "rl-policy") {
@@ -4235,12 +4266,15 @@ function runMetricLayers(item) {
       </div>`;
   }
   if (layers.kind === "factor") {
+    const horizon = layers.researchHorizon;
+    const primary = horizon?.primaryForwardBars ?? 1;
+    const farthest = layers.farthestForwardBars ?? primary;
     return `
       <div class="catalog-evidence" aria-label="Factor evidence">
-        <span><b>${metric(layers.validationMeanIc)}</b><i>validation 1b IC</i></span>
+        <span><b>${metric(layers.validationMeanIc)}</b><i>validation ${primary}b IC</i></span>
         <span><b>${metric(layers.validationPearsonIc)}</b><i>Pearson IC</i></span>
         <span><b>${metric(layers.validationHacTStatistic)}</b><i>HAC t-stat</i></span>
-        <span><b>${metric(layers.validationHorizon5MeanIc)}</b><i>validation 5b IC</i></span>
+        <span><b>${metric(layers.validationFarthestHorizonMeanIc)}</b><i>validation ${farthest}b IC</i></span>
         <span><b>${metric(layers.validationQuantileSpread)}</b><i>tertile spread</i></span>
         <span><b>${metric(layers.validationWorstFoldMeanIc)}</b><i>worst fold IC</i></span>
         <span><b>${metric(layers.validationMaximumAbsoluteStyleCorrelation)}</b><i>max style |ρ|</i></span>
@@ -4348,7 +4382,7 @@ function renderInspector(project) {
             <dt>Requested</dt><dd>${escapeHtml(request.assets.map((item) => item.symbol).join(", "))}</dd>
             <dt>Research universe</dt><dd>${escapeHtml(dataset.universe.join(", "))}</dd>
             <dt>Direction</dt><dd>${escapeHtml(request.direction)}</dd>
-            <dt>Horizon</dt><dd>${escapeHtml(request.horizon)}</dd>
+            <dt>Horizon</dt><dd>${escapeHtml(request.horizon)} · ${escapeHtml(horizonPolicyText(request))}</dd>
           </dl>
         </section>
         <section class="inspector-section">
@@ -4454,7 +4488,7 @@ function renderInspector(project) {
       <p>${escapeHtml(delegation.request.question)}</p>
       <dl class="inspector-kv">
         <dt>Direction</dt><dd>${escapeHtml(delegation.request.direction)}</dd>
-        <dt>Horizon</dt><dd>${escapeHtml(delegation.request.horizon)}</dd>
+        <dt>Horizon</dt><dd>${escapeHtml(delegation.request.horizon)} · ${escapeHtml(horizonPolicyText(delegation.request))}</dd>
         <dt>Brief</dt><dd title="${escapeHtml(delegation.brief.id)}">${escapeHtml(delegation.brief.id)}</dd>
         <dt>Origin</dt><dd>caller-supplied</dd>
       </dl>

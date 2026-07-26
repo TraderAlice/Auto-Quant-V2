@@ -548,6 +548,7 @@ class AgentCliTests(unittest.TestCase):
                 "candidate-check-output",
                 "candidate-check-result",
                 "portfolio-mandate",
+                "research-horizon",
                 "experiment",
                 "researcher-response",
                 "campaign-result",
@@ -714,6 +715,22 @@ class AgentCliTests(unittest.TestCase):
                 "kind"
             ]["const"],
             "autoquant-portfolio-mandate",
+        )
+        horizon_schema = run_cli(
+            "schema",
+            "research-horizon",
+            "--json",
+        )
+        self.assertEqual(
+            horizon_schema.returncode,
+            0,
+            horizon_schema.stderr,
+        )
+        self.assertEqual(
+            json_output(horizon_schema)["data"]["schema"]["properties"][
+                "kind"
+            ]["const"],
+            "autoquant-research-horizon",
         )
 
     def test_cli_intakes_request_and_dataset_into_ready_project(self) -> None:

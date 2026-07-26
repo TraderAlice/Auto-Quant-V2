@@ -37,8 +37,9 @@ declare presentation-only duplicates or imply that Core inferred column use.
 3. State one falsifiable hypothesis about price or volume behavior.
 4. Make one coherent code change inside the editable closure.
 5. Run the bounded Experiment command supplied by the Session.
-6. Inspect validation/test one-bar IC, HAC strength, 5/10-bar decay, tertile
-   monotonicity/spread, train-selected dominant style, style-neutral residual
+6. Inspect validation/test primary-horizon IC, HAC strength, diagnostic
+   horizon decay, tertile monotonicity/spread, train-selected dominant style,
+   style-neutral residual
    IC, equal-blend uplift, declared-component raw/residual IC, pairwise
    redundancy, fixed diagnostic-blend leave-one-out delta, residual fold
    stability, asset/regime stability, coverage, turnover, errors, verdict,
@@ -57,11 +58,11 @@ Judge, data, dependencies, and objective. Treat the Bonferroni-HAC result as a
 selection-risk diagnostic, not permission to hide failed attempts or override
 the immutable verdict.
 
-The Judge fixes dataset-derived split dates and purges the last 1/5/10 signal
-rows whose targets would cross each boundary. Treat sparse regimes, one weak
-fold, one dominant asset, fast decay, or near-perfect overlap with a familiar
-OHLCV style as findings to explain—not fields to hide or alternate scores to
-optimize opportunistically.
+The Judge fixes dataset-derived split dates and purges each declared diagnostic
+horizon before a boundary. Treat sparse regimes, one weak fold, one dominant
+asset, fast decay, or near-perfect overlap with a familiar OHLCV style as
+findings to explain—not fields to hide or alternate scores to optimize
+opportunistically.
 
 The dominant comparison style is chosen on train overlap only. Validation
 qualification asks whether raw and style-neutral IC are positive with fixed

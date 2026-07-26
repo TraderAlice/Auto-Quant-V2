@@ -15,6 +15,13 @@ import pandas as pd
 
 from .briefs import load_research_request, validate_research_request
 from .data import normalize_ohlcv
+from .horizons import (
+    RESEARCH_HORIZON,
+    build_research_horizon,
+    load_research_horizon,
+    normalize_horizon_policy,
+    validate_horizon_capacity,
+)
 from .intervals import (
     AGGREGATION_METHOD,
     BASE_INTERVAL,
@@ -1063,6 +1070,15 @@ def prepare_project_intake(
                     f"Requested venue for {item['symbol']} differs from dataset",
                 )
             )
+    if expected_dates is not None:
+        try:
+            validate_horizon_capacity(
+                normalize_horizon_policy(request.get("horizonPolicy")),
+                len(expected_dates),
+                "request/horizonPolicy",
+            )
+        except AutoQuantValidationError as error:
+            issues.extend(error.issues)
     if issues:
         raise AutoQuantValidationError(issues)
     assert expected_dates is not None
@@ -2053,6 +2069,45 @@ def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
                     mandate_path,
                     "intake.portfolio-mandate",
                     "Portfolio Mandate differs from the normalized request",
+                )
+            )
+    horizon_studies = {
+        "ohlcv-factor-lab": ("ohlcv-factor-quality",),
+        "ohlcv-portfolio-lab": ("ohlcv-portfolio-quality",),
+        "ohlcv-rl-factor-lab": ("ohlcv-rl-factor-policy",),
+        "ohlcv-research-desk": (
+            "ohlcv-factor-quality",
+            "ohlcv-portfolio-quality",
+            "ohlcv-rl-factor-policy",
+        ),
+    }.get(manifest.get("template"), ())
+    requires_horizon = False
+    for horizon_study_id in horizon_studies:
+        horizon_study = load_study(project, horizon_study_id)
+        if (
+            horizon_study.definition.dependencies is not None
+            and RESEARCH_HORIZON
+            in horizon_study.definition.dependencies["paths"]
+        ):
+            requires_horizon = True
+        else:
+            issues.append(
+                _issue(
+                    horizon_study.manifest_path,
+                    "intake.research-horizon-dependency",
+                    "Study does not bind the fixed research horizon",
+                )
+            )
+    horizon_path = project.root_dir / RESEARCH_HORIZON
+    if requires_horizon or horizon_path.exists() or horizon_path.is_symlink():
+        horizon = load_research_horizon(horizon_path)
+        expected_horizon = build_research_horizon(request)
+        if horizon != expected_horizon:
+            issues.append(
+                _issue(
+                    horizon_path,
+                    "intake.research-horizon",
+                    "Horizon Mandate differs from the normalized request",
                 )
             )
     if issues:

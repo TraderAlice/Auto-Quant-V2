@@ -309,8 +309,14 @@ def _portfolio_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
     if not all(isinstance(metrics.get(key), dict) for key in required):
         return None
     try:
+        cost_stress = metrics["robustness"]["cost_stress"]
+        adverse_cost_key = max(
+            cost_stress,
+            key=lambda item: float(item.removesuffix("bps")),
+        )
         layers = {
             "kind": "portfolio",
+            "researchHorizon": metrics.get("research_horizon"),
             "mandate": (
                 {
                     "id": metrics["portfolio_mandate"]["id"],
@@ -368,9 +374,12 @@ def _portfolio_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
                 ],
             },
             "robustness": {
-                "test25bpsSharpe": metrics["robustness"]["cost_stress"]["25bps"][
+                "testAdverseCostSharpe": cost_stress[adverse_cost_key][
                     "test"
                 ]["sharpe"],
+                "adverseCostBps": float(
+                    adverse_cost_key.removesuffix("bps")
+                ),
                 "testExtraDelaySharpe": metrics["robustness"]["extra_delay"][
                     "test"
                 ]["sharpe"],
@@ -576,6 +585,7 @@ def _factor_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
     try:
         layers = {
             "kind": "factor",
+            "researchHorizon": metrics.get("research_horizon"),
             "validationMeanIc": metrics["validation"]["mean_ic"],
             "validationPearsonIc": (
                 metrics["validation"].get("pearson_ic", {}).get("mean_ic")
@@ -594,7 +604,8 @@ def _factor_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
         layers.update(
             {
                 "validationHacTStatistic": None,
-                "validationHorizon5MeanIc": None,
+                "validationFarthestHorizonMeanIc": None,
+                "farthestForwardBars": None,
                 "validationQuantileSpread": None,
                 "validationQuantileMonotonicity": None,
                 "validationWorstFoldMeanIc": None,
@@ -606,14 +617,27 @@ def _factor_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
         if isinstance(hac, dict):
             layers["validationHacTStatistic"] = hac.get("t_statistic")
         if isinstance(horizon_quality, dict):
-            layers["validationHorizon5MeanIc"] = (
-                horizon_quality.get("5", {})
-                .get("validation", {})
-                .get("mean_ic")
+            diagnostic_bars = metrics.get("research_horizon", {}).get(
+                "diagnosticForwardBars",
+                [],
             )
+            if diagnostic_bars:
+                farthest = int(diagnostic_bars[-1])
+                layers["farthestForwardBars"] = farthest
+                layers["validationFarthestHorizonMeanIc"] = (
+                    horizon_quality.get(str(farthest), {})
+                    .get("validation", {})
+                    .get("mean_ic")
+                )
         if isinstance(quantiles, dict):
+            primary = str(
+                metrics.get("research_horizon", {}).get(
+                    "primaryForwardBars",
+                    1,
+                )
+            )
             validation_quantiles = (
-                quantiles.get("1", {}).get("validation", {})
+                quantiles.get(primary, {}).get("validation", {})
             )
             layers["validationQuantileSpread"] = validation_quantiles.get(
                 "high_minus_low"
@@ -678,6 +702,7 @@ def _rl_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
         comparison = metrics["comparison"]
         return {
             "kind": "rl-policy",
+            "researchHorizon": metrics.get("research_horizon"),
             "mandate": (
                 {
                     "id": metrics["portfolio_mandate"]["id"],

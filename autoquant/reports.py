@@ -628,6 +628,7 @@ def _render_markdown(report: dict[str, Any]) -> str:
         item for item in evidence["runs"] if item["id"] == leader["runId"]
     )
     mandate = leader_run["metrics"].get("portfolio_mandate")
+    research_horizon = leader_run["metrics"].get("research_horizon")
     integrity = evidence["selectionIntegrity"]
     source = request["source"]
     source_identity = (
@@ -655,6 +656,19 @@ def _render_markdown(report: dict[str, Any]) -> str:
         f"**Assets:** {assets}",
         "",
         f"**Direction / horizon:** {request['direction']} / {request['horizon']}",
+        "",
+        (
+            "**Numerical forward horizon:** "
+            f"primary `{research_horizon['primaryForwardBars']}` decision "
+            "bars; diagnostics "
+            + ", ".join(
+                f"`{item}`"
+                for item in research_horizon["diagnosticForwardBars"]
+            )
+            + f" bars (`{research_horizon['source']['horizonPolicy']}`)"
+            if isinstance(research_horizon, dict)
+            else "**Numerical forward horizon:** unavailable"
+        ),
         "",
         f"**Caller-supplied source:** {source_identity}",
         "",

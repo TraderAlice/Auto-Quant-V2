@@ -12,6 +12,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from .checks import PREFLIGHT_KIND, PREFLIGHT_MANIFEST
+from .horizons import (
+    RESEARCH_HORIZON,
+    build_research_horizon,
+)
 from .mandates import (
     PORTFOLIO_MANDATE,
     build_portfolio_mandate,
@@ -328,6 +332,20 @@ def _write_portfolio_mandate(
     return mandate
 
 
+def _write_research_horizon(
+    project: ProjectContext,
+    intake: PreparedIntake | None,
+) -> dict[str, object]:
+    horizon = build_research_horizon(
+        intake.request if intake is not None else None
+    )
+    (project.root_dir / RESEARCH_HORIZON).write_text(
+        json.dumps(horizon, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return horizon
+
+
 def _intake_dataset(
     project: ProjectContext,
     intake: PreparedIntake,
@@ -445,6 +463,7 @@ def _apply_ohlcv_factor_lab(
             intake,
             OHLCV_STUDY_ID,
         )
+    _write_research_horizon(project, intake)
     _write_template_source(project, "factors/candidate.py", "candidate.py")
     _write_template_source(project, "judges/ohlcv_factor.py", "judge.py")
     _write_template_source(
@@ -488,6 +507,7 @@ def _apply_ohlcv_factor_lab(
             StudyTimeRange(str(dataset["start"]), _time_range_value(end)),
             ["ohlcv/**"],
         ),
+        dependencies={"paths": [RESEARCH_HORIZON]},
     )
     study = create_study(project, definition)
     study.program_path.write_text(
@@ -526,6 +546,7 @@ def _apply_ohlcv_portfolio_lab(
         intake,
         list(dataset["universe"]),
     )
+    _write_research_horizon(project, intake)
     _write_template_source(
         project,
         "factors/candidate.py",
@@ -578,7 +599,9 @@ def _apply_ohlcv_portfolio_lab(
             StudyTimeRange(str(dataset["start"]), _time_range_value(end)),
             ["ohlcv/**"],
         ),
-        dependencies={"paths": [PORTFOLIO_MANDATE]},
+        dependencies={
+            "paths": [PORTFOLIO_MANDATE, RESEARCH_HORIZON]
+        },
     )
     study = create_study(project, definition)
     study.program_path.write_text(
@@ -617,6 +640,7 @@ def _apply_ohlcv_rl_factor_lab(
         intake,
         list(dataset["universe"]),
     )
+    _write_research_horizon(project, intake)
     _write_template_source(
         project,
         "models/candidate.py",
@@ -687,7 +711,13 @@ def _apply_ohlcv_rl_factor_lab(
             StudyTimeRange(str(dataset["start"]), _time_range_value(end)),
             ["ohlcv/**"],
         ),
-        dependencies={"paths": ["factors/**", PORTFOLIO_MANDATE]},
+        dependencies={
+            "paths": [
+                "factors/**",
+                PORTFOLIO_MANDATE,
+                RESEARCH_HORIZON,
+            ]
+        },
     )
     study = create_study(project, definition)
     study.program_path.write_text(
@@ -727,6 +757,7 @@ def _apply_ohlcv_research_desk(
         intake,
         list(dataset["universe"]),
     )
+    _write_research_horizon(project, intake)
 
     # Write every fixed/editable source before creating any Study identity.
     _write_template_source(
@@ -818,6 +849,7 @@ def _apply_ohlcv_research_desk(
                     0.01,
                 ),
                 dataset=shared_dataset,
+                dependencies={"paths": [RESEARCH_HORIZON]},
             ),
             "ohlcv_factor_lab",
         ),
@@ -849,7 +881,9 @@ def _apply_ohlcv_research_desk(
                     0.05,
                 ),
                 dataset=shared_dataset,
-                dependencies={"paths": [PORTFOLIO_MANDATE]},
+                dependencies={
+                    "paths": [PORTFOLIO_MANDATE, RESEARCH_HORIZON]
+                },
             ),
             "ohlcv_portfolio_lab",
         ),
@@ -883,7 +917,11 @@ def _apply_ohlcv_research_desk(
                 ),
                 dataset=shared_dataset,
                 dependencies={
-                    "paths": ["factors/**", PORTFOLIO_MANDATE]
+                    "paths": [
+                        "factors/**",
+                        PORTFOLIO_MANDATE,
+                        RESEARCH_HORIZON,
+                    ]
                 },
             ),
             "ohlcv_rl_factor_lab",

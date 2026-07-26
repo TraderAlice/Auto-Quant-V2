@@ -96,8 +96,9 @@ The Judge owns target construction and evaluation:
    values already emitted by the full-history computation.
 4. Fix 60/20/20 boundaries from the dataset timeline, independently of
    candidate warm-up and coverage.
-5. Compute 1/5/10-bar close-to-close returns and purge signal rows whose target
-   would cross a split boundary.
+5. Load the immutable Horizon Mandate, compute its primary and diagnostic
+   close-to-close forward returns, and purge signal rows whose target would
+   cross a split boundary.
 6. Measure per-timestamp cross-sectional Spearman information coefficient.
 7. Aggregate chronological train, validation, test, HAC, decay, fixed-tertile,
    fixed-style, per-asset, fold, and causal-regime diagnostics.
@@ -105,9 +106,10 @@ The Judge owns target construction and evaluation:
    research-integrity declaration, a JSON tear sheet, and exact daily CSV
    evidence.
 
-The primary score is validation mean IC only. Test IC is visible diagnostic
-evidence and never enters candidate selection. Exact aggregation, minimum
-population, and integrity rules live in the fixed Judge source and are
+The primary score is validation mean IC at
+`primaryForwardBars` only. Test IC and every non-primary horizon are visible
+diagnostic evidence and never enter candidate selection. Exact aggregation,
+minimum population, and integrity rules live in the fixed Judge source and are
 content-hashed with every Run. See
 [[docs/design/research-selection-integrity]]. Diagnostic definitions and
 artifact reconciliation are fixed by [[docs/design/factor-diagnostics]].

@@ -105,12 +105,13 @@ and where it fails.
 - quantile monotonicity and top-minus-bottom spread;
 - stability by asset, chronological fold, and declared market regime.
 
-The implemented reference Factor Lab now fixes dataset-derived purged 1/5/10
-bar horizons, Newey-West mean-IC inference, tertile returns/monotonicity,
+The implemented reference Factor Lab now fixes dataset-derived purged
+request-bound bar horizons, Newey-West mean-IC inference, tertile
+returns/monotonicity,
 causal market regimes, two folds per split, per-asset time-series rank
 correlation, and overlap with four fixed OHLCV styles. It publishes daily IC
-and quantile artifacts while retaining validation one-bar mean IC as the sole
-promotion objective. An optional explicit component contract adds raw,
+and quantile artifacts while retaining validation primary-horizon mean IC as
+the sole promotion objective. An optional explicit component contract adds raw,
 nearest-peer residual, redundancy, and fixed diagnostic-blend leave-one-out
 evidence without inferring Python column use or changing Portfolio/RL
 authority. See [[docs/design/factor-diagnostics]] and

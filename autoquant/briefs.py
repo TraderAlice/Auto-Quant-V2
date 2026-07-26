@@ -7,6 +7,12 @@ import math
 from pathlib import Path
 from typing import Any
 
+from .horizons import (
+    MAX_DIAGNOSTIC_HORIZONS,
+    MAX_FORWARD_BARS,
+    MIN_DIAGNOSTIC_HORIZONS,
+    MIN_FORWARD_BARS,
+)
 from .studies import hash_json
 from .workspace import (
     SCHEMA_VERSION,
@@ -139,7 +145,7 @@ def validate_research_request(
         value,
         required,
         path,
-        optional={"portfolioPolicy"},
+        optional={"portfolioPolicy", "horizonPolicy"},
     )
     if value.get("schemaVersion") != SCHEMA_VERSION:
         issues.append(_issue(f"{path}/schemaVersion", "schema.version", "Expected V1"))
@@ -237,6 +243,93 @@ def validate_research_request(
                         )
                     )
                 normalized_policy = numeric
+    horizon_policy = value.get("horizonPolicy")
+    normalized_horizon_policy: dict[str, Any] | None = None
+    if horizon_policy is not None:
+        horizon_path = f"{path}/horizonPolicy"
+        if not isinstance(horizon_policy, dict):
+            issues.append(
+                _issue(
+                    horizon_path,
+                    "schema.type",
+                    "horizonPolicy must be an object or null",
+                )
+            )
+        else:
+            issues.extend(
+                _strict_keys(
+                    horizon_policy,
+                    {"primaryForwardBars", "diagnosticForwardBars"},
+                    horizon_path,
+                )
+            )
+            primary = horizon_policy.get("primaryForwardBars")
+            diagnostics = horizon_policy.get("diagnosticForwardBars")
+            if (
+                not isinstance(primary, int)
+                or isinstance(primary, bool)
+                or not MIN_FORWARD_BARS
+                <= primary
+                <= MAX_FORWARD_BARS
+            ):
+                issues.append(
+                    _issue(
+                        f"{horizon_path}/primaryForwardBars",
+                        "request.horizon-primary",
+                        "primaryForwardBars must be a supported positive "
+                        "integer",
+                    )
+                )
+            if (
+                not isinstance(diagnostics, list)
+                or not MIN_DIAGNOSTIC_HORIZONS
+                <= len(diagnostics)
+                <= MAX_DIAGNOSTIC_HORIZONS
+            ):
+                issues.append(
+                    _issue(
+                        f"{horizon_path}/diagnosticForwardBars",
+                        "request.horizon-diagnostics",
+                        "diagnosticForwardBars must contain one to five bars",
+                    )
+                )
+            elif any(
+                not isinstance(item, int)
+                or isinstance(item, bool)
+                or not MIN_FORWARD_BARS
+                <= item
+                <= MAX_FORWARD_BARS
+                for item in diagnostics
+            ):
+                issues.append(
+                    _issue(
+                        f"{horizon_path}/diagnosticForwardBars",
+                        "request.horizon-diagnostic",
+                        "Every diagnostic forward bar must be a supported "
+                        "positive integer",
+                    )
+                )
+            elif diagnostics != sorted(set(diagnostics)):
+                issues.append(
+                    _issue(
+                        f"{horizon_path}/diagnosticForwardBars",
+                        "request.horizon-order",
+                        "Diagnostic forward bars must be sorted and unique",
+                    )
+                )
+            elif isinstance(primary, int) and primary not in diagnostics:
+                issues.append(
+                    _issue(
+                        f"{horizon_path}/primaryForwardBars",
+                        "request.horizon-primary-missing",
+                        "Primary forward bars must appear in diagnostics",
+                    )
+                )
+            else:
+                normalized_horizon_policy = {
+                    "primaryForwardBars": primary,
+                    "diagnosticForwardBars": list(diagnostics),
+                }
     for key, allow_empty in (
         ("hypotheses", True),
         ("constraints", True),
@@ -353,6 +446,11 @@ def validate_research_request(
         **(
             {"portfolioPolicy": normalized_policy}
             if "portfolioPolicy" in value
+            else {}
+        ),
+        **(
+            {"horizonPolicy": normalized_horizon_policy}
+            if "horizonPolicy" in value
             else {}
         ),
         "horizon": value["horizon"].strip(),
@@ -642,6 +740,37 @@ RESEARCH_REQUEST_JSON_SCHEMA: dict[str, Any] = {
                             "type": "number",
                             "exclusiveMinimum": 0,
                             "maximum": 1e12,
+                        },
+                    },
+                },
+            ]
+        },
+        "horizonPolicy": {
+            "anyOf": [
+                {"type": "null"},
+                {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": [
+                        "primaryForwardBars",
+                        "diagnosticForwardBars",
+                    ],
+                    "properties": {
+                        "primaryForwardBars": {
+                            "type": "integer",
+                            "minimum": MIN_FORWARD_BARS,
+                            "maximum": MAX_FORWARD_BARS,
+                        },
+                        "diagnosticForwardBars": {
+                            "type": "array",
+                            "minItems": MIN_DIAGNOSTIC_HORIZONS,
+                            "maxItems": MAX_DIAGNOSTIC_HORIZONS,
+                            "uniqueItems": True,
+                            "items": {
+                                "type": "integer",
+                                "minimum": MIN_FORWARD_BARS,
+                                "maximum": MAX_FORWARD_BARS,
+                            },
                         },
                     },
                 },

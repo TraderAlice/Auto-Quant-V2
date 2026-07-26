@@ -52,7 +52,8 @@ has no arbitrary file route, and returns no candidate source.
 ### Identity and protocol
 
 The projection preserves Run, Study, objective, dataset, Harness, artifact
-hashes, fixed horizons, target semantics, style dictionary, and split roles:
+hashes, the fixed Horizon Mandate, target semantics, style dictionary, and
+split roles:
 
 - train — construction/training evidence;
 - validation — the only selection split;
@@ -75,14 +76,15 @@ threshold.
 ### IC path and horizon profile
 
 The complete daily artifact is checked for strict dates, declared split,
-causal regime, and nullable finite rank/Pearson IC at fixed 1/5/10-bar
-horizons. For every split/horizon, Core recomputes observation counts and means
-and reconciles them to Run metrics.
+causal regime, and nullable finite rank/Pearson IC at the exact Horizon
+Mandate bars. For every split/horizon, Core recomputes observation counts and
+means and reconciles them to Run metrics.
 
 The response then samples one shared timestamp index. It preserves first/last,
-split boundaries, regime transitions, and the maximum absolute one-bar IC.
-Every point retains split, role, regime, and all six fixed IC values so chart
-tabs never change the evidence population.
+split boundaries, regime transitions, and the maximum absolute
+primary-horizon IC. Every point retains split, role, regime, and both IC
+statistics for every declared diagnostic bar so chart tabs never change the
+evidence population.
 
 ### Quantiles
 
@@ -136,7 +138,7 @@ final factor.
 The Factor Explorer answers five questions in one reading order:
 
 1. Is validation evidence economically and statistically non-trivial?
-2. Does it persist through time and across the fixed forward horizons?
+2. Does it persist through time and across the request-bound forward horizons?
 3. Is the high-minus-low behavior monotonic rather than one lucky aggregate?
 4. Is the signal stable across assets/regimes/folds and distinct from fixed
    OHLCV styles?
@@ -146,7 +148,7 @@ The Factor Explorer answers five questions in one reading order:
 Studio uses a compact summary followed by:
 
 - IC path / quantile-path tabs;
-- 1 / 5 / 10-bar horizon controls;
+- Horizon-Mandate diagnostic-bar controls with the primary marked;
 - validation / test-audit controls;
 - horizon profile and fold/regime/asset/style stability tables.
 
@@ -160,7 +162,7 @@ read-only and copy-only for CLI commands.
 - quantile rows: 300,000;
 - universe: 256 assets;
 - response points: 40–400;
-- fixed horizons: 1, 5, and 10 bars.
+- one to five request-bound horizons, each between 1 and 252 decision bars;
 - component artifact: 8 MiB; materialized components: 1–12.
 
 Full artifacts are reconciled before these response bounds apply.
@@ -170,8 +172,9 @@ Full artifacts are reconciled before these response bounds apply.
 1. No artifact is read before immutable Run verification.
 2. Exactly one fixed Factor artifact set is accepted.
 3. Full daily/quantile evidence reconciles before deterministic sampling.
-4. Validation one-bar mean rank IC remains the only selection objective.
-5. Test, longer horizon, quantile, stability, and style evidence are
+4. Validation primary-horizon mean rank IC remains the only selection
+   objective.
+5. Test, non-primary horizon, quantile, stability, and style evidence are
    diagnostic only.
 6. Missing/sparse values remain null with observations; zero is never
    substituted.

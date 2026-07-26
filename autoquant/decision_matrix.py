@@ -111,6 +111,46 @@ def _factor_max_style(metrics: dict[str, Any]) -> float | None:
     return max(finite) if finite else None
 
 
+def _factor_horizon_key(
+    metrics: dict[str, Any],
+    *,
+    farthest: bool = False,
+) -> str | None:
+    horizon = metrics.get("research_horizon")
+    if not isinstance(horizon, dict):
+        return None
+    primary = horizon.get("primaryForwardBars")
+    diagnostics = horizon.get("diagnosticForwardBars")
+    if (
+        not isinstance(primary, int)
+        or isinstance(primary, bool)
+        or not isinstance(diagnostics, list)
+        or not diagnostics
+        or any(
+            not isinstance(item, int) or isinstance(item, bool)
+            for item in diagnostics
+        )
+    ):
+        return None
+    return str(max(diagnostics) if farthest else primary)
+
+
+def _factor_horizon_metric(
+    section: str,
+    split: str,
+    metric: str,
+    *,
+    farthest: bool = False,
+) -> Extractor:
+    def extract(metrics: dict[str, Any]) -> float | None:
+        horizon = _factor_horizon_key(metrics, farthest=farthest)
+        if horizon is None:
+            return None
+        return _finite(_nested(metrics, section, horizon, split, metric))
+
+    return extract
+
+
 def _rl_seed_values(
     metrics: dict[str, Any],
     split: str,
@@ -644,14 +684,19 @@ def _factor_specs() -> tuple[list[MetricSpec], str]:
                 _path("validation", "hac", "t_statistic"),
             ),
             MetricSpec(
-                "validationHorizon5MeanIc",
-                "5-bar mean IC",
+                "validationFarthestHorizonMeanIc",
+                "Farthest-horizon mean IC",
                 "decay",
                 "validation",
                 "number",
                 "higher",
                 True,
-                _path("horizon_quality", "5", "validation", "mean_ic"),
+                _factor_horizon_metric(
+                    "horizon_quality",
+                    "validation",
+                    "mean_ic",
+                    farthest=True,
+                ),
             ),
             MetricSpec(
                 "validationQuantileSpread",
@@ -661,9 +706,8 @@ def _factor_specs() -> tuple[list[MetricSpec], str]:
                 "percent",
                 "higher",
                 True,
-                _path(
+                _factor_horizon_metric(
                     "quantile_analysis",
-                    "1",
                     "validation",
                     "high_minus_low",
                 ),

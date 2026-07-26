@@ -13,6 +13,11 @@ from typing import Any
 import pandas as pd
 
 from .intervals import annualization_periods, timestamp_label
+from .horizons import (
+    RESEARCH_HORIZON,
+    RESEARCH_HORIZON_JSON_SCHEMA,
+    validate_research_horizon,
+)
 from .mandates import (
     PORTFOLIO_MANDATE,
     validate_portfolio_mandate,
@@ -4172,6 +4177,36 @@ def _mandate_projection(
     }
 
 
+def _research_horizon_projection(
+    run: RunContext,
+    report: dict[str, Any],
+) -> dict[str, Any]:
+    raw = run.result["metrics"].get("research_horizon")
+    if not isinstance(raw, dict) or report.get("researchHorizon") != raw:
+        _fail(
+            "RunResult/metrics/research_horizon",
+            "portfolio.research-horizon",
+            "Portfolio Run and report must contain one identical Horizon Mandate",
+        )
+    horizon = validate_research_horizon(
+        raw,
+        "RunResult/metrics/research_horizon",
+    )
+    dependencies = run.result.get("dependencies")
+    if (
+        not isinstance(dependencies, dict)
+        or RESEARCH_HORIZON not in dependencies.get("paths", [])
+        or RESEARCH_HORIZON
+        not in dependencies.get("sourceHashes", {})
+    ):
+        _fail(
+            "RunResult/dependencies",
+            "portfolio.research-horizon-dependency",
+            "Portfolio Run does not bind its fixed Horizon Mandate",
+        )
+    return horizon
+
+
 def _risk_governor_projection(
     result: dict[str, Any],
     mandate: dict[str, Any],
@@ -5855,6 +5890,7 @@ def load_portfolio_diagnostics(
             "Portfolio report must be a UTF-8 JSON object",
         )
     mandate = _mandate_projection(run, report, universe)
+    research_horizon = _research_horizon_projection(run, report)
     reference_nav = float(
         mandate["implementationPolicy"]["referenceNav"]
     )
@@ -5924,6 +5960,7 @@ def load_portfolio_diagnostics(
         },
         "universe": universe,
         "mandate": mandate,
+        "researchHorizon": research_horizon,
         "selection": {
             "selectionSplit": research_integrity.get("selection_split"),
             "testRole": research_integrity.get("test_role"),
@@ -7191,6 +7228,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "run",
         "universe",
         "mandate",
+        "researchHorizon",
         "selection",
         "artifacts",
         "path",
@@ -7212,6 +7250,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
     "properties": {
         "schemaVersion": {"const": SCHEMA_VERSION},
         "kind": {"const": PORTFOLIO_DIAGNOSTICS_KIND},
+        "researchHorizon": RESEARCH_HORIZON_JSON_SCHEMA,
         "run": {
             "type": "object",
             "additionalProperties": False,

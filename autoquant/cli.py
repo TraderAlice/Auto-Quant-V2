@@ -95,6 +95,7 @@ from .holdouts import (
     run_holdout,
 )
 from .mandates import PORTFOLIO_MANDATE_JSON_SCHEMA
+from .horizons import RESEARCH_HORIZON_JSON_SCHEMA
 from .orientation import (
     AGENT_WORK_BRIEF_JSON_SCHEMA,
     build_agent_work_brief,
@@ -260,6 +261,7 @@ def build_parser() -> RaisingArgumentParser:
             "candidate-check-output",
             "candidate-check-result",
             "portfolio-mandate",
+            "research-horizon",
             "experiment",
             "researcher-response",
             "campaign-result",
@@ -3504,6 +3506,7 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "candidate-check-result",
             "candidate-preflight",
             "portfolio-mandate",
+            "research-horizon",
             "project",
             "report-analysis",
             "research-request",
@@ -3541,6 +3544,7 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "candidate-check-output": CHECK_OUTPUT_JSON_SCHEMA,
             "candidate-check-result": CANDIDATE_CHECK_RESULT_JSON_SCHEMA,
             "portfolio-mandate": PORTFOLIO_MANDATE_JSON_SCHEMA,
+            "research-horizon": RESEARCH_HORIZON_JSON_SCHEMA,
             "experiment": EXPERIMENT_JSON_SCHEMA,
             "researcher-response": RESEARCHER_RESPONSE_JSON_SCHEMA,
             "campaign-result": CAMPAIGN_RESULT_JSON_SCHEMA,

@@ -58,7 +58,9 @@ An optional strict `portfolioPolicy` in the Research Request lets the caller
 lock gross, single-name cap, volatility ceiling, base cost, no-trade band,
 and research reference NAV; documented reference defaults are explicit when
 it is omitted. These are research assumptions, not Broker/account state or
-trading authority. See
+trading authority. An optional strict `horizonPolicy` likewise locks the
+primary and diagnostic forward targets in decision bars; the dataset base
+interval supplies the meaning of one bar. See
 [[docs/design/caller-owned-portfolio-research-policy]]. Intake does not
 download data or silently start research. `aq project program`
 returns verified lane status,
@@ -101,7 +103,8 @@ The `ohlcv-factor-lab` starter is the first runnable V2 research Project. It
 uses ordinary pandas/NumPy factor code, a deterministic six-asset synthetic
 OHLCV fixture, dataset-fixed purge-aware chronological evaluation, dataset
 byte locks, and a fixed causality audit. Its professional tear sheet adds
-1/5/10-bar rank/Pearson IC and decay, HAC strength, fixed-tertile behavior,
+request-bound forward-bar rank/Pearson IC and decay, HAC strength,
+fixed-tertile behavior,
 OHLCV-style overlap, and asset/fold/causal-regime stability with exact daily
 artifacts. A candidate may also explicitly declare causal components. The
 Judge then reports component raw/residual IC, final-factor association,

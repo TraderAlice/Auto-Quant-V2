@@ -91,13 +91,14 @@ misdescribe the code.
 
 ## Fixed evidence
 
-All predictive targets and split masks are the same purged 1/5/10-base-bar
-contract used by the final factor.
+All predictive targets and split masks are the same purged request-bound
+decision-bar contract used by the final factor.
 
 For every materialized component, the Judge records:
 
 - coverage;
-- train, validation, and test-audit rank IC summaries at 1/5/10 bars;
+- train, validation, and test-audit rank IC summaries at every declared
+  diagnostic bar;
 - same-date cross-sectional rank association with the final factor;
 - the closest other component selected only by maximum absolute train rank
   association;
@@ -131,7 +132,8 @@ Validation may determine a bounded research-prioritization diagnosis such as:
 - gather more evidence for sparse or unstable components.
 
 This diagnosis has no acceptance or trading authority. The only Factor
-promotion objective remains final-factor validation one-bar mean rank IC.
+promotion objective remains final-factor validation primary-horizon mean
+rank IC.
 Test evidence is visible audit only. The number of materialized components and
 pairwise comparisons is disclosed because a larger declared surface increases
 researcher degrees of freedom; Project-family candidate trial adjustment

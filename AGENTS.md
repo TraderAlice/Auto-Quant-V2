@@ -65,6 +65,9 @@ Read the relevant linked document before changing a subsystem:
 - Caller-owned Portfolio risk and implementation assumptions shared by
   Portfolio and governed RL:
   [[docs/design/caller-owned-portfolio-research-policy]]
+- Request-bound numerical forward horizon shared by Factor, Portfolio, and
+  governed RL:
+  [[docs/design/request-bound-research-horizon]]
 - Fixed seconds-scale candidate checks, immutable non-selection diagnostics,
   and edit/check/evaluate routing:
   [[docs/design/candidate-preflight-feedback]]

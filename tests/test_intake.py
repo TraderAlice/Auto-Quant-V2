@@ -11,7 +11,14 @@ import pandas as pd
 
 from autoquant.briefs import load_research_request
 from autoquant.checks import execute_candidate_check
-from autoquant.factor_explorer import load_factor_diagnostics
+from autoquant.factor_explorer import (
+    FACTOR_DIAGNOSTICS_JSON_SCHEMA,
+    load_factor_diagnostics,
+)
+from autoquant.horizons import (
+    RESEARCH_HORIZON,
+    load_research_horizon,
+)
 from autoquant.intake import (
     OHLCV_DATASET_PACKAGE_JSON_SCHEMA,
     load_project_intake,
@@ -55,6 +62,105 @@ from tests.intake_helpers import (
 
 
 class RequestDrivenIntakeTests(unittest.TestCase):
+    def test_intake_rejects_horizon_without_purged_split_capacity(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            request_path, package_path = write_intake_inputs(
+                root,
+                observations=260,
+                horizon_policy={
+                    "primaryForwardBars": 21,
+                    "diagnosticForwardBars": [5, 21, 63],
+                },
+            )
+            with self.assertRaises(AutoQuantValidationError) as captured:
+                prepare_project_intake(
+                    request_path,
+                    package_path,
+                    "ohlcv-factor-lab",
+                )
+            self.assertIn(
+                "horizon.insufficient-history",
+                {item.code for item in captured.exception.issues},
+            )
+
+    def test_caller_horizon_governs_factor_selection_and_artifacts(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            policy = {
+                "primaryForwardBars": 5,
+                "diagnosticForwardBars": [1, 5, 20],
+            }
+            request_path, package_path = write_intake_inputs(
+                root,
+                horizon_policy=policy,
+            )
+            prepared = prepare_project_intake(
+                request_path,
+                package_path,
+                "ohlcv-factor-lab",
+            )
+            project = create_project(
+                initialize_workspace(root / "workspace").root_dir,
+                "caller-horizon-factor",
+                template=prepared.template,
+                template_intake=prepared,
+            )
+            horizon = load_research_horizon(
+                project.root_dir / RESEARCH_HORIZON
+            )
+            self.assertEqual(horizon["primaryForwardBars"], 5)
+            self.assertEqual(horizon["diagnosticForwardBars"], [1, 5, 20])
+            self.assertEqual(
+                horizon["source"]["horizonPolicy"],
+                "caller-supplied",
+            )
+            study = load_study(project, OHLCV_STUDY_ID)
+            self.assertEqual(
+                study.definition.dependencies,
+                {"paths": [RESEARCH_HORIZON]},
+            )
+
+            run = execute_study(project, OHLCV_STUDY_ID)
+            self.assertEqual(
+                run.result["status"],
+                "succeeded",
+                run.result["errors"],
+            )
+            metrics = run.result["metrics"]
+            self.assertEqual(metrics["research_horizon"], horizon)
+            self.assertEqual(
+                metrics["validation"],
+                metrics["horizon_quality"]["5"]["validation"],
+            )
+            self.assertAlmostEqual(
+                metrics["validation_mean_ic"],
+                metrics["horizon_quality"]["5"]["validation"]["mean_ic"],
+            )
+            self.assertEqual(
+                set(metrics["split_protocol"]["horizons"]),
+                {"1", "5", "20"},
+            )
+
+            projection = load_factor_diagnostics(
+                project,
+                run.result["id"],
+            )
+            self.assertEqual(projection["researchHorizon"], horizon)
+            self.assertEqual(
+                [item["horizon"] for item in projection["horizonProfile"]],
+                [1, 5, 20],
+            )
+            self.assertEqual(projection["protocol"]["primaryHorizon"], 5)
+            jsonschema.validate(
+                projection,
+                FACTOR_DIAGNOSTICS_JSON_SCHEMA,
+            )
+
     def test_caller_portfolio_policy_governs_portfolio_and_rl(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -180,7 +286,11 @@ class RequestDrivenIntakeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             request_path, package_path = write_configurable_continuous_inputs(
-                root
+                root,
+                horizon_policy={
+                    "primaryForwardBars": 5,
+                    "diagnosticForwardBars": [1, 5, 10],
+                },
             )
             prepared = prepare_project_intake(
                 request_path,
@@ -220,6 +330,12 @@ class RequestDrivenIntakeTests(unittest.TestCase):
             self.assertEqual(
                 run.result["dataset"]["intervalSurface"],
                 prepared.interval_surface,
+            )
+            self.assertEqual(
+                run.result["metrics"]["research_horizon"][
+                    "primaryForwardBars"
+                ],
+                5,
             )
             jsonschema.validate(run.result, RUN_RESULT_JSON_SCHEMA)
 
@@ -709,7 +825,12 @@ class RequestDrivenIntakeTests(unittest.TestCase):
             )
             self.assertEqual(
                 study.definition.dependencies,
-                {"paths": [PORTFOLIO_MANDATE]},
+                {
+                    "paths": [
+                        PORTFOLIO_MANDATE,
+                        RESEARCH_HORIZON,
+                    ]
+                },
             )
             self.assertEqual(study.definition.dataset.universe, intake["dataset"]["universe"])
             self.assertEqual(

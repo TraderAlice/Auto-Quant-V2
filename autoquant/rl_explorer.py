@@ -10,6 +10,11 @@ from itertools import combinations
 from pathlib import Path
 from typing import Any
 
+from .horizons import (
+    RESEARCH_HORIZON,
+    RESEARCH_HORIZON_JSON_SCHEMA,
+    validate_research_horizon,
+)
 from .intervals import annualization_periods, timestamp_label
 from .mandates import (
     PORTFOLIO_MANDATE,
@@ -4715,6 +4720,33 @@ def load_rl_diagnostics(
             "riskPolicy": construction["riskPolicy"],
             "implementationPolicy": implementation,
         }
+    raw_horizon = metrics.get("research_horizon")
+    if (
+        not isinstance(raw_horizon, dict)
+        or report.get("researchHorizon") != raw_horizon
+    ):
+        _fail(
+            "RunResult/metrics/research_horizon",
+            "rl.research-horizon",
+            "RL Run and report must contain one identical Horizon Mandate",
+        )
+    research_horizon = validate_research_horizon(
+        raw_horizon,
+        "RunResult/metrics/research_horizon",
+    )
+    if (
+        not isinstance(dependencies, dict)
+        or RESEARCH_HORIZON not in dependencies.get("paths", [])
+        or RESEARCH_HORIZON
+        not in dependencies.get("sourceHashes", {})
+        or configuration.get("researchHorizonId")
+        != research_horizon["id"]
+    ):
+        _fail(
+            "RunResult/dependencies",
+            "rl.research-horizon-dependency",
+            "RL Run does not bind its fixed Horizon Mandate",
+        )
     mean_validation_turnover = sum(
         item["validation"]["meanOneWayTurnover"] for item in trials
     ) / len(trials)
@@ -4797,6 +4829,7 @@ def load_rl_diagnostics(
         "harness": run.result["harness"],
         "artifacts": artifacts,
         "portfolioMandate": mandate_projection,
+        "researchHorizon": research_horizon,
         "policyBehavior": policy_behavior,
         "factorOpportunity": factor_opportunity,
         "incrementalAttribution": incremental_attribution,
@@ -5266,6 +5299,7 @@ RL_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "harness",
         "artifacts",
         "portfolioMandate",
+        "researchHorizon",
         "policyBehavior",
         "factorOpportunity",
         "incrementalAttribution",
@@ -5291,6 +5325,7 @@ RL_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "harness": {"type": "object"},
         "artifacts": {"type": "object"},
         "portfolioMandate": {"type": "object"},
+        "researchHorizon": RESEARCH_HORIZON_JSON_SCHEMA,
         "policyBehavior": {"type": "object"},
         "factorOpportunity": {"type": "object"},
         "incrementalAttribution": {"type": "object"},

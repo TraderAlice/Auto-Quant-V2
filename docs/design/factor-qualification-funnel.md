@@ -58,7 +58,7 @@ forward-return model and never sees the target.
 
 ## Evidence
 
-For fixed 1 / 5 / 10-bar targets and train / validation / visible-test splits,
+For every Horizon Mandate target and train / validation / visible-test split,
 the immutable Run records daily rank IC and descriptive/HAC summaries for all
 four signals. It also records:
 
