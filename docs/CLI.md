@@ -520,6 +520,42 @@ Later lane research does not invalidate an older point-in-time Dossier.
 through its own Inbox authority; AutoQuant has no trading or authenticated
 OpenAlice provenance authority.
 
+## Frozen external holdout commands
+
+```bash
+aq holdout bind <source> <target> \
+  --dossier ID \
+  [--source-project ID] \
+  [--target-project ID] \
+  [--json]
+aq holdout status <path> [--project ID] [--json]
+aq holdout run <path> [--project ID] [--json]
+aq holdout show <path> [--project ID] [--json]
+aq schema holdout-binding --json
+aq schema holdout-result --json
+aq schema holdout-status --json
+```
+
+`holdout bind` accepts a current immutable source Dossier and a separate fresh
+`ohlcv-research-desk` Project already constructed from caller-supplied later
+data. V1 requires the exact request, universe, market/adjustment/interval
+contract, a different dataset identity, no prior target research history, and
+`target.start > source.end`.
+
+Core imports exact Factor and optional RL source bytes from the Dossier leader
+Runs, freezes their hashes and portable Dossier evidence under `holdout/`, and
+binds the target Study/Judge/dataset identities. A bound target rejects
+`session start`, Research Campaigns, and generic `run execute`; only
+`holdout run` may execute the Dossier-included lanes. Interrupted partial lane
+execution is resumable, but each lane can publish at most one Run and repeated
+terminal invocation returns the same immutable result.
+
+The result compares the original objective with the strictly later-period
+objective and observed delta for each lane. It is an
+`external-temporal-audit`, not another selection round: there is no universal
+pass threshold, automatic promotion, production approval, Broker action, or
+trading authority.
+
 ## Studio commands
 
 ```bash
@@ -538,7 +574,8 @@ explicitly mutable in-progress Campaign telemetry. Delegated requests, Research
 Briefs, immutable Reports, and Core-generated copyable CLI commands are in the
 same read model. For canonical multi-Study Projects the snapshot also includes
 Dossier readiness, blockers, explicit optional-lane omissions, immutable
-Dossier summaries, and the exact publish/show command.
+Dossier summaries, frozen external-holdout binding/result state, and the exact
+publish, run, or show command.
 
 `studio serve` is a foreground `long-running-server` operation. It serves the
 packaged read-only browser presentation and the same snapshot contract. It

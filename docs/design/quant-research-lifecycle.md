@@ -356,6 +356,24 @@ decision explorer during rendering. Later research does not reinterpret an
 older Dossier. The complete contract is
 [[docs/design/program-research-dossiers]].
 
+When a current Dossier warrants a temporal challenge, AutoQuant can bind its
+exact leader Run source closures into a separate, compatible, strictly later
+intake Project:
+
+```text
+Project Dossier
+→ frozen external-holdout binding
+→ one existing-Judge Run per included lane
+→ immutable external-period result
+→ OpenAlice review
+```
+
+This transition is self-contained and non-iterative. It prohibits Sessions,
+generic Runs, Campaigns, promotion, and any trading authority in the target.
+The result reports objective survival or decay but does not invent one
+cross-lane production threshold. See
+[[docs/design/frozen-external-holdout-challenge]].
+
 ## Human-computer interaction
 
 The CLI and JSON schemas are the primary control surface because Agents must be

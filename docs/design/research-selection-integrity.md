@@ -120,5 +120,7 @@ the immutable KEEP/REVERT/CRASH chain.
 
 ## Known gaps
 
-- There is no blind/encrypted test execution or one-time reveal operation.
+- The frozen external challenge enforces one Core result over a caller-supplied
+  later Project, but there is still no blind/encrypted dataset or secret
+  one-time reveal service.
 - External data governance remains an OpenAlice/organization responsibility.

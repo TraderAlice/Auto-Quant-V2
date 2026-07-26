@@ -463,6 +463,10 @@ class AgentCliTests(unittest.TestCase):
                 "dossier.publish",
                 "dossier.list",
                 "dossier.show",
+                "holdout.bind",
+                "holdout.status",
+                "holdout.run",
+                "holdout.show",
                 "studio.snapshot",
                 "studio.serve",
             ],
@@ -527,6 +531,9 @@ class AgentCliTests(unittest.TestCase):
                 "project",
                 "agent-work-brief",
                 "research-agenda",
+                "holdout-binding",
+                "holdout-result",
+                "holdout-status",
                 "study",
                 "judge-output",
                 "run-result",
@@ -561,6 +568,14 @@ class AgentCliTests(unittest.TestCase):
                 "const"
             ],
             "autoquant-evidence-driven-research-agenda",
+        )
+        holdout_schema = run_cli("schema", "holdout-result", "--json")
+        self.assertEqual(holdout_schema.returncode, 0, holdout_schema.stderr)
+        self.assertEqual(
+            json_output(holdout_schema)["data"]["schema"]["properties"]["kind"][
+                "const"
+            ],
+            "autoquant-frozen-holdout-result",
         )
         response_schema = run_cli("schema", "researcher-response", "--json")
         self.assertEqual(response_schema.returncode, 0, response_schema.stderr)

@@ -230,6 +230,8 @@ author analysis, publish, select evidence, or send an Inbox document.
 
 ## Known gaps
 
-- Dossiers are Project-local; cross-Project aggregation is not implemented.
+- General cross-Project aggregation is not implemented. The narrow frozen
+  temporal-challenge import is defined by
+  [[docs/design/frozen-external-holdout-challenge]].
 - Core does not generate qualitative synthesis.
 - OpenAlice Inbox publication remains outside AutoQuant.

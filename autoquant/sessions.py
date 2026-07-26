@@ -394,6 +394,9 @@ def start_session(
     *,
     request: dict[str, Any] | None = None,
 ) -> SessionContext:
+    from .holdouts import assert_iterative_research_allowed
+
+    assert_iterative_research_allowed(project)
     normalized_request = (
         validate_research_request(request, "request")
         if request is not None

@@ -15,10 +15,13 @@ def write_intake_inputs(
     *,
     observations: int = 260,
     assets: tuple[str, ...] = INTAKE_ASSETS,
+    start: str = "2024-01-02",
+    dataset_id: str = "bounded-us-equities",
+    dataset_version: str = "2024-v1",
 ) -> tuple[Path, Path]:
     source = root / "external-data"
     source.mkdir()
-    dates = pd.bdate_range("2024-01-02", periods=observations)
+    dates = pd.bdate_range(start, periods=observations)
     time = np.arange(observations, dtype=float)
     asset_entries = []
     for number, symbol in enumerate(assets):
@@ -61,8 +64,8 @@ def write_intake_inputs(
     package = {
         "schemaVersion": 1,
         "kind": "autoquant-ohlcv-dataset-package",
-        "id": "bounded-us-equities",
-        "version": "2024-v1",
+        "id": dataset_id,
+        "version": dataset_version,
         "assetClass": "equity",
         "frequency": "1d",
         "market": {

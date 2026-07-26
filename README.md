@@ -316,6 +316,26 @@ downstream compute.
 AutoQuant still has no trading authority; OpenAlice owns Inbox publication and
 authenticated collaboration provenance.
 
+A positive Dossier can now be frozen into a separate, strictly later
+caller-intaken Project instead of treating “get a fresh holdout” as prose:
+
+```bash
+uv run aq holdout bind ./source-project ./later-project \
+  --dossier dossier-... \
+  --json
+uv run aq holdout run ./later-project --json
+uv run aq holdout show ./later-project --json
+```
+
+The binding imports exact Factor and optional RL source bytes from the
+Dossier's immutable leader Runs, requires the same request, universe,
+calendar/interval surface, and non-overlapping later coverage, then disables
+Sessions and ordinary Run execution. The existing fixed Factor, Portfolio, and
+governed-RL Judges execute each included lane at most once. The immutable
+result records source-versus-later objectives and deltas but deliberately has
+no universal pass threshold, automatic promotion, or trading authority. The
+target remains verifiable after the source Project is detached.
+
 Humans can watch the same Workspace through the lightweight local Studio:
 
 ```bash

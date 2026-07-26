@@ -56,6 +56,9 @@ Read the relevant linked document before changing a subsystem:
 - Verified Factor/Portfolio/RL evidence translated into bounded experiment
   briefs without automatic execution, promotion, or trading authority:
   [[docs/design/evidence-driven-research-agenda]]
+- Exact Dossier leaders frozen into a strictly later compatible Project for
+  one non-iterative external-period challenge:
+  [[docs/design/frozen-external-holdout-challenge]]
 - Fixed seconds-scale candidate checks, immutable non-selection diagnostics,
   and edit/check/evaluate routing:
   [[docs/design/candidate-preflight-feedback]]

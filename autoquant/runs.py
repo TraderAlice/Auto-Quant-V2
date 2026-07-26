@@ -699,7 +699,14 @@ def execute_study(
     *,
     execution_project: ProjectContext | None = None,
     data_root: Path | None = None,
+    holdout_authorized: bool = False,
 ) -> RunContext:
+    from .holdouts import assert_run_authorized
+
+    assert_run_authorized(
+        project,
+        holdout_authorized=holdout_authorized,
+    )
     source_project = execution_project or project
     if source_project.manifest.id != project.manifest.id:
         raise AutoQuantValidationError(

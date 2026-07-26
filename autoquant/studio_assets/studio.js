@@ -633,6 +633,75 @@ function renderResearchAgenda(project) {
     "no automatic execution · no automatic promotion · no trading authority";
 }
 
+function renderExternalHoldout(project) {
+  const section = element("external-holdout");
+  const holdout = project.externalHoldout;
+  if (!holdout) {
+    section.hidden = true;
+    return;
+  }
+  section.hidden = false;
+  const binding = holdout.binding;
+  const result = holdout.result;
+  element("external-holdout-meta").textContent =
+    `${holdout.state.toUpperCase()} · ${binding.laneIds.length} FROZEN ${binding.laneIds.length === 1 ? "LANE" : "LANES"}`;
+  const laneCards = result
+    ? result.lanes
+        .map(
+          (lane) => `
+            <article class="holdout-lane">
+              <header>
+                <span>${escapeHtml(lane.id.toUpperCase())}</span>
+                <b>${escapeHtml(lane.status)}</b>
+              </header>
+              <dl>
+                <div>
+                  <dt>Source period</dt>
+                  <dd>${metric(lane.source.value)}</dd>
+                </div>
+                <div>
+                  <dt>Later period</dt>
+                  <dd>${metric(lane.holdout.value)}</dd>
+                </div>
+                <div>
+                  <dt>Observed Δ</dt>
+                  <dd>${lane.delta === null ? "—" : signedMetric(lane.delta)}</dd>
+                </div>
+              </dl>
+              <p>${escapeHtml(lane.source.objective.metric)} · immutable Run ${escapeHtml(shortHash(lane.holdout.runId))}</p>
+            </article>`,
+        )
+        .join("")
+    : `
+        <article class="holdout-pending">
+          <small>BOUND / NOT EXECUTED</small>
+          <h3>The candidate is frozen before later-period evaluation.</h3>
+          <p>Run the exact bound lane set once. Candidate Sessions, automatic selection, and promotion are disabled.</p>
+          <code>${escapeHtml(project.agentWorkBrief?.primaryAction?.display ?? "aq holdout run … --json")}</code>
+        </article>`;
+  element("external-holdout-board").innerHTML = `
+    <article class="holdout-identity">
+      <small>SOURCE EVIDENCE</small>
+      <h3>${escapeHtml(binding.sourceProjectId)} · ${escapeHtml(shortHash(binding.sourceDossierId))}</h3>
+      <p>${escapeHtml(binding.sourceDataset.id)}@${escapeHtml(binding.sourceDataset.version)}</p>
+      <b>${escapeHtml(binding.nonOverlap.sourceEnd)}</b>
+    </article>
+    <div class="holdout-arrow" aria-label="strictly later, non-overlapping period">
+      <span>STRICTLY LATER</span>
+      <i aria-hidden="true">→</i>
+    </div>
+    <article class="holdout-identity">
+      <small>TARGET EVIDENCE</small>
+      <h3>${escapeHtml(binding.targetDataset.id)}@${escapeHtml(binding.targetDataset.version)}</h3>
+      <p>${escapeHtml(binding.targetDataset.assetClass)} · ${binding.targetDataset.universe.length} assets</p>
+      <b>${escapeHtml(binding.nonOverlap.targetStart)}</b>
+    </article>
+    <div class="holdout-lanes">${laneCards}</div>`;
+  element("external-holdout-authority").textContent =
+    result?.interpretation?.claim ??
+    "External temporal audit · candidate frozen · no selection · no automatic promotion · no trading authority";
+}
+
 const shortHash = (value) =>
   typeof value === "string" && value.length > 14
     ? `${value.slice(0, 8)}…${value.slice(-6)}`
@@ -718,6 +787,7 @@ function renderProjects() {
 
 const deskSectionDefinitions = [
   { id: "research-overview", label: "Decision" },
+  { id: "external-holdout", label: "Holdout" },
   { id: "research-program-status", label: "Research chain" },
   { id: "research-handoff", label: "Handoff" },
   { id: "evidence-workbench", label: "Evidence" },
@@ -731,6 +801,9 @@ const deskSectionMeta = (project, id) => {
   const program = project.researchProgramStatus;
   const selected = selectedSession(project);
   if (id === "research-overview") return "NOW";
+  if (id === "external-holdout") {
+    return String(project.externalHoldout?.state ?? "—").toUpperCase();
+  }
   if (id === "research-program-status") {
     return `${program?.summary?.lanes ?? 0} LANES`;
   }
@@ -825,6 +898,27 @@ function renderDeskContext(project) {
 
 function renderScoreboard(project) {
   const counts = project.counts;
+  const holdout = project.externalHoldout;
+  if (holdout) {
+    const result = holdout.result;
+    const values = [
+      ["Holdout state", holdout.state, "frozen external audit", holdout.state === "completed" ? "good" : "live"],
+      ["Frozen lanes", holdout.binding.laneIds.length, holdout.binding.laneIds.join(" · "), ""],
+      ["Source end", holdout.binding.nonOverlap.sourceEnd, holdout.binding.sourceDataset.id, ""],
+      ["Later start", holdout.binding.nonOverlap.targetStart, result ? `${result.status} · no universal threshold` : "not yet executed", ""],
+    ];
+    element("scoreboard").innerHTML = values
+      .map(
+        ([label, value, note, className]) => `
+          <div class="score-cell ${className}">
+            <small>${escapeHtml(label)}</small>
+            <strong>${escapeHtml(value)}</strong>
+            <span>${escapeHtml(note)}</span>
+          </div>`,
+      )
+      .join("");
+    return;
+  }
   const program = project.researchProgramStatus;
   if (program) {
     const readouts = Object.fromEntries(
@@ -1004,7 +1098,9 @@ function renderSessions(project) {
           </button>`;
       })
       .join("") ||
-    '<div class="empty-panel">No Sessions yet. Start one with <code>aq session start</code>.</div>';
+    (project.externalHoldout
+      ? '<div class="empty-panel">Sessions are disabled in this frozen external-audit Project.</div>'
+      : '<div class="empty-panel">No Sessions yet. Start one with <code>aq session start</code>.</div>');
   document.querySelectorAll("[data-session]").forEach((button) => {
     button.addEventListener("click", () => {
       state.sessionId = button.dataset.session;
@@ -1065,6 +1161,7 @@ function bindCopyCommands() {
 }
 
 function dossierState(project) {
+  if (project.externalHoldout) return null;
   const status = project.dossierStatus;
   if (!status) return null;
   const latest = status.latestDossier;
@@ -1181,19 +1278,24 @@ function renderHandoff(project) {
       const dataset = intake.dataset;
       const source = request.source;
       const program = project.researchProgramStatus;
+      const holdout = project.externalHoldout;
       const lane = projectFocusLane(project);
       const next =
+        holdout?.nextAction ??
         program?.recommendedAction ??
         intake.commands.find((item) => item.id === "session.start");
       const baseline = projectFocusRun(project);
       const layers = baseline?.metricLayers;
       const portfolio = layers?.kind === "portfolio" ? layers : null;
       const baselineTone = valueTone(baseline?.primaryValue);
-      element("handoff-flow").textContent =
-        "REQUEST → DATASET → BASELINE → ITERATE";
-      element("handoff-meta").textContent = baseline
-        ? `${baseline.primaryMetric} ${metric(baseline.primaryValue)} · Session not started`
-        : "Content locked · baseline pending";
+      element("handoff-flow").textContent = holdout
+        ? "FROZEN SOURCE → LATER DATA → EXTERNAL AUDIT"
+        : "REQUEST → DATASET → BASELINE → ITERATE";
+      element("handoff-meta").textContent = holdout
+        ? `${holdout.state.toUpperCase()} · ${holdout.binding.laneIds.length} immutable lanes`
+        : baseline
+          ? `${baseline.primaryMetric} ${metric(baseline.primaryValue)} · Session not started`
+          : "Content locked · baseline pending";
       element("handoff-board").innerHTML = `
         <article class="handoff-card request-card">
           <small>01 · Research mandate</small>
@@ -1218,9 +1320,9 @@ function renderHandoff(project) {
           <span class="context-note">${escapeHtml(dataset.provider.name)} · ${escapeHtml(dataset.priceAdjustment)} · ${escapeHtml(dataset.timeRange.start)} → ${escapeHtml(dataset.timeRange.end)} · provider claims</span>
         </article>
         <article class="handoff-card report-card ${baseline ? "ready" : ""}">
-          <small>03 · ${lane ? escapeHtml(lane.name) : "Baseline"} &amp; next action</small>
-          <h3>${baseline ? `${escapeHtml(baseline.primaryMetric)} = ${metric(baseline.primaryValue)}` : escapeHtml(intake.study.name)}</h3>
-          <p>${baseline ? "The immutable baseline is descriptive evidence, not a recommendation. Start a governed Session to test candidates against validation-only selection." : "Start a governed Session to run a fresh baseline and freeze this request into its derived Brief."}</p>
+          <small>03 · ${holdout ? "Frozen external audit" : `${lane ? escapeHtml(lane.name) : "Baseline"} &amp; next action`}</small>
+          <h3>${holdout ? `${holdout.binding.laneIds.length} source lanes bound to later data` : baseline ? `${escapeHtml(baseline.primaryMetric)} = ${metric(baseline.primaryValue)}` : escapeHtml(intake.study.name)}</h3>
+          <p>${holdout ? "The exact source candidates are frozen. Only the one-shot holdout command is authorized; no Session, retuning, selection, promotion, or trading action is implied." : baseline ? "The immutable baseline is descriptive evidence, not a recommendation. Start a governed Session to test candidates against validation-only selection." : "Start a governed Session to run a fresh baseline and freeze this request into its derived Brief."}</p>
           ${portfolio ? `
           <div class="handoff-metrics">
             <span class="${valueTone(portfolio.factor.validationRankIc)}"><b>${metric(portfolio.factor.validationRankIc)}</b><small>validation IC</small></span>
@@ -1228,7 +1330,7 @@ function renderHandoff(project) {
             <span class="${valueTone(portfolio.robustness.test25bpsSharpe)}"><b>${metric(portfolio.robustness.test25bpsSharpe)}</b><small>25bps audit</small></span>
           </div>` : ""}
           <span class="status-chip ${baselineTone === "bad" ? "revert" : "active"}">${baseline ? (baselineTone === "bad" ? "negative baseline" : "baseline verified") : "ready"}</span>
-          ${copyCommandButton(next, program ? "Copy recommended command" : "Copy start command")}
+          ${copyCommandButton(next, holdout ? (holdout.state === "completed" ? "Copy holdout show command" : "Copy holdout run command") : program ? "Copy recommended command" : "Copy start command")}
         </article>`;
       return;
     }
@@ -1300,6 +1402,7 @@ function renderResearchProgram(project) {
   section.hidden = false;
   const summary = program.summary;
   const recommended = program.recommendedAction;
+  const holdout = project.externalHoldout;
   const assessment = programAssessment(project);
   const dossier = dossierState(project);
   const gatesPassed = program.progression.gates.filter(
@@ -1344,7 +1447,7 @@ function renderResearchProgram(project) {
   element("research-program-lanes").innerHTML = program.lanes
     .map((lane, index) => {
       const session = lane.latestSession;
-      const selected = lane.id === program.recommendedLaneId;
+      const selected = !holdout && lane.id === program.recommendedLaneId;
       const kind = laneKind(lane);
       const readout = laneReadout(project, lane);
       const evidenceSelected = kind === state.evidenceLane;
@@ -1384,6 +1487,7 @@ function renderResearchProgram(project) {
           <div class="program-lane-foot">
             <span class="program-phase ${lane.phase}">${escapeHtml(programPhaseLabel(lane.phase))}</span>
             ${selected ? "<b>NEXT RESEARCH LANE</b>" : ""}
+            ${holdout ? "<b>FROZEN SOURCE LANE</b>" : ""}
             ${admission.status.includes("optional") && !selected ? "<b>OPTIONAL · NOT REQUIRED</b>" : ""}
           </div>
           <div class="program-lane-actions">
@@ -1397,10 +1501,10 @@ function renderResearchProgram(project) {
     .join("");
   element("research-program-footer").innerHTML = `
     <span>
-      <b>${program.conflicts.length ? "Shared-source conflict" : "Integration boundary"}</b>
-      ${escapeHtml(program.progression.explanation)} · ${escapeHtml(program.warnings.join(" · "))} · Dossier composition is Core-verified and has no trading authority.
+      <b>${holdout ? "Frozen external-audit boundary" : program.conflicts.length ? "Shared-source conflict" : "Integration boundary"}</b>
+      ${holdout ? "Candidate iteration is disabled in this Project. The cards remain historical source context; only the bound one-shot holdout action is authorized." : `${escapeHtml(program.progression.explanation)} · ${escapeHtml(program.warnings.join(" · "))} · Dossier composition is Core-verified and has no trading authority.`}
     </span>
-    ${copyCommandButton(dossier?.command ?? recommended, dossier ? "Copy Dossier next action" : "Copy recommended command")}`;
+    ${copyCommandButton(holdout?.nextAction ?? dossier?.command ?? recommended, holdout ? (holdout.state === "completed" ? "Copy holdout show command" : "Copy holdout run command") : dossier ? "Copy Dossier next action" : "Copy recommended command")}`;
 }
 
 const evidenceLanes = [
@@ -4025,7 +4129,9 @@ function renderTrajectory(project) {
     : "No Experiments";
   if (!experiments.length) {
     element("trajectory-chart").innerHTML =
-      '<div class="empty-panel">Candidate verdicts will appear here.</div>';
+      project.externalHoldout
+        ? '<div class="empty-panel">Candidate iteration is disabled; the external audit preserves no mutable trajectory.</div>'
+        : '<div class="empty-panel">Candidate verdicts will appear here.</div>';
     return;
   }
   const numeric = experiments
@@ -4218,12 +4324,14 @@ function renderInspector(project) {
       const request = intake.request;
       const dataset = intake.dataset;
       const program = project.researchProgramStatus;
+      const holdout = project.externalHoldout;
       const lane = projectFocusLane(project);
       const portfolio =
         baseline?.metricLayers?.kind === "portfolio"
           ? baseline.metricLayers
           : null;
       const next =
+        holdout?.nextAction ??
         program?.recommendedAction ??
         intake.commands.find((item) => item.id === "session.start");
       element("inspector-content").innerHTML = `
@@ -4251,8 +4359,8 @@ function renderInspector(project) {
           </dl>
         </section>
         <section class="inspector-section">
-          <small>${lane ? "Recommended lane evidence" : "Immutable baseline"}</small>
-          <h3>${escapeHtml(lane?.name ?? baseline?.studyId ?? intake.study.name)}</h3>
+          <small>${holdout ? "Frozen external audit" : lane ? "Recommended lane evidence" : "Immutable baseline"}</small>
+          <h3>${holdout ? `${holdout.binding.laneIds.length} bound source lanes` : escapeHtml(lane?.name ?? baseline?.studyId ?? intake.study.name)}</h3>
           ${baseline ? `<span class="status-chip ${valueTone(baseline.primaryValue) === "bad" ? "revert" : "published"}">${escapeHtml(baseline.status)}</span>` : '<span class="status-chip active">pending</span>'}
           <dl class="inspector-kv">
             <dt>${escapeHtml(baseline?.primaryMetric ?? "Primary metric")}</dt><dd>${metric(baseline?.primaryValue)}</dd>
@@ -4262,13 +4370,14 @@ function renderInspector(project) {
             <dt>Cost drag</dt><dd>${percent(portfolio.implementation.testCostDrag)}</dd>` : ""}
             <dt>Selection</dt><dd>validation only</dd>
           </dl>
-          ${copyCommandButton(next, program ? "Copy recommended command" : "Copy start command")}
+          ${holdout ? "<p>Only the immutable holdout Run is authorized. Candidate iteration and ordinary Sessions are disabled.</p>" : ""}
+          ${copyCommandButton(next, holdout ? (holdout.state === "completed" ? "Copy holdout show command" : "Copy holdout run command") : program ? "Copy recommended command" : "Copy start command")}
         </section>
         ${dossierInspectorSection(project)}
-        <details class="program-details">
+        ${holdout ? "" : `<details class="program-details">
           <summary>Research program</summary>
           <pre class="program-copy">${escapeHtml(project.researchProgram.text)}</pre>
-        </details>`;
+        </details>`}`;
       return;
     }
     const program = project.researchProgramStatus;
@@ -4460,6 +4569,7 @@ function renderEmptyWorkspace(message = "Create a Project with aq project create
     '<div class="empty-panel handoff-empty">Delegated research requests will appear here.</div>';
   element("research-program-status").hidden = true;
   element("research-agenda").hidden = true;
+  element("external-holdout").hidden = true;
   element("evidence-workbench").hidden = true;
   element("factor-explorer").hidden = true;
   element("portfolio-explorer").hidden = true;
@@ -4517,7 +4627,11 @@ function render() {
   }
   syncEvidenceSelection(project);
   element("project-state").textContent = project.valid
-    ? project.counts.runningCampaigns
+    ? project.externalHoldout
+      ? project.externalHoldout.state === "completed"
+        ? "EXTERNAL HOLDOUT COMPLETE"
+        : "FROZEN EXTERNAL HOLDOUT"
+      : project.counts.runningCampaigns
       ? "RESEARCHER IN PROGRESS"
       : project.intake && project.counts.sessions === 0
         ? "CONTENT-LOCKED INTAKE READY"
@@ -4533,6 +4647,7 @@ function render() {
   document.title = `${project.name} — AutoQuant Studio`;
   renderDecisionBrief(project);
   renderResearchAgenda(project);
+  renderExternalHoldout(project);
   renderScoreboard(project);
   renderDiagnostics(project);
   renderHandoff(project);

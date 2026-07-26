@@ -84,6 +84,16 @@ from .intake import (
     load_project_intake,
     prepare_project_intake,
 )
+from .holdouts import (
+    HOLDOUT_BINDING_JSON_SCHEMA,
+    HOLDOUT_RESULT_JSON_SCHEMA,
+    HOLDOUT_STATUS_JSON_SCHEMA,
+    bind_holdout,
+    load_holdout_binding,
+    load_holdout_result,
+    load_holdout_status,
+    run_holdout,
+)
 from .mandates import PORTFOLIO_MANDATE_JSON_SCHEMA
 from .orientation import (
     AGENT_WORK_BRIEF_JSON_SCHEMA,
@@ -233,6 +243,9 @@ def build_parser() -> RaisingArgumentParser:
             "project",
             "agent-work-brief",
             "research-agenda",
+            "holdout-binding",
+            "holdout-result",
+            "holdout-status",
             "study",
             "judge-output",
             "run-result",
@@ -741,6 +754,53 @@ def build_parser() -> RaisingArgumentParser:
     dossier_show.add_argument("--dossier", required=True)
     dossier_show.set_defaults(command_id="dossier.show")
     _json_argument(dossier_show)
+
+    holdout = subcommands.add_parser(
+        "holdout",
+        help="bind and run one frozen external-period Dossier challenge",
+    )
+    holdout_actions = holdout.add_subparsers(
+        dest="holdout_action",
+        required=True,
+    )
+    holdout_bind = holdout_actions.add_parser(
+        "bind",
+        help="freeze a current Dossier into a fresh later Project",
+    )
+    holdout_bind.add_argument("source")
+    holdout_bind.add_argument("target")
+    holdout_bind.add_argument("--source-project")
+    holdout_bind.add_argument("--target-project")
+    holdout_bind.add_argument("--dossier", required=True)
+    holdout_bind.set_defaults(command_id="holdout.bind")
+    _json_argument(holdout_bind)
+
+    holdout_status = holdout_actions.add_parser(
+        "status",
+        help="verify and inspect frozen holdout state",
+    )
+    holdout_status.add_argument("path")
+    holdout_status.add_argument("--project")
+    holdout_status.set_defaults(command_id="holdout.status")
+    _json_argument(holdout_status)
+
+    holdout_run = holdout_actions.add_parser(
+        "run",
+        help="execute the bound external-period challenge exactly once",
+    )
+    holdout_run.add_argument("path")
+    holdout_run.add_argument("--project")
+    holdout_run.set_defaults(command_id="holdout.run")
+    _json_argument(holdout_run)
+
+    holdout_show = holdout_actions.add_parser(
+        "show",
+        help="verify the immutable external-period challenge result",
+    )
+    holdout_show.add_argument("path")
+    holdout_show.add_argument("--project")
+    holdout_show.set_defaults(command_id="holdout.show")
+    _json_argument(holdout_show)
 
     studio = subcommands.add_parser(
         "studio",
@@ -3007,6 +3067,187 @@ def _dossier_show(args: argparse.Namespace) -> CommandResult:
     )
 
 
+def _holdout_binding_artifacts(binding) -> list[dict[str, Any]]:
+    return [
+        artifact(
+            "holdout-binding",
+            binding.binding["id"],
+            binding.root_dir / "binding.json",
+            immutable=True,
+        ),
+        artifact(
+            "source-dossier",
+            binding.binding["source"]["dossier"]["id"],
+            binding.root_dir / "source-dossier.json",
+            immutable=True,
+        ),
+    ]
+
+
+def _holdout_result_artifacts(
+    project,
+    result,
+) -> list[dict[str, Any]]:
+    return [
+        artifact(
+            "holdout-result",
+            result.result["id"],
+            result.root_dir / "result.json",
+            immutable=True,
+        ),
+        *[
+            artifact(
+                "run",
+                lane["holdout"]["runId"],
+                (
+                    project.root_dir
+                    / project.manifest.directories["runs"]
+                    / lane["holdout"]["runId"]
+                ),
+                immutable=True,
+            )
+            for lane in result.result["lanes"]
+        ],
+    ]
+
+
+def _holdout_bind(args: argparse.Namespace) -> CommandResult:
+    source = load_project(
+        resolve_project_directory(args.source, args.source_project)
+    )
+    target = load_project(
+        resolve_project_directory(args.target, args.target_project)
+    )
+    binding = bind_holdout(source, args.dossier, target)
+    return CommandResult(
+        "holdout.bind",
+        {
+            "manifest": binding.manifest,
+            "binding": binding.binding,
+        },
+        (
+            f"Frozen external holdout: {binding.binding['id']}\n"
+            f"Source: {source.manifest.id} · Dossier {args.dossier}\n"
+            f"Target: {target.manifest.id}\n"
+            f"Period: {binding.binding['nonOverlap']['sourceEnd']} → "
+            f"{binding.binding['nonOverlap']['targetStart']}\n"
+            f"Lanes: "
+            + ", ".join(
+                lane["id"] for lane in binding.binding["source"]["lanes"]
+            )
+            + "\nCandidate frozen: yes · selection: disabled · trading: none\n"
+        ),
+        project_context(target),
+        _holdout_binding_artifacts(binding),
+        [
+            next_action(
+                "holdout.run",
+                "Execute the exact frozen external-period challenge once.",
+                ["aq", "holdout", "run", str(target.root_dir), "--json"],
+                "creates-artifact",
+            )
+        ],
+    )
+
+
+def _holdout_status(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    status = load_holdout_status(project)
+    action = status["nextAction"]
+    return CommandResult(
+        "holdout.status",
+        status,
+        (
+            f"External holdout: {status['state']}\n"
+            + (
+                f"Binding: {status['binding']['id']}\n"
+                f"Source: {status['binding']['sourceProjectId']} · "
+                f"{status['binding']['sourceDossierId']}\n"
+                f"Lanes: {', '.join(status['binding']['laneIds'])}\n"
+                if status["binding"] is not None
+                else "No frozen binding\n"
+            )
+            + (
+                f"Result: {status['result']['id']} · "
+                f"{status['result']['status']}\n"
+                if status["result"] is not None
+                else ""
+            )
+            + "Authority: external temporal audit · selection disabled · trading none\n"
+        ),
+        project_context(project),
+        next_actions=(
+            [
+                next_action(
+                    action["id"],
+                    action["description"],
+                    action["argv"],
+                    action["effect"],
+                )
+            ]
+            if action is not None
+            else []
+        ),
+    )
+
+
+def _holdout_run(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    result = run_holdout(project)
+    lines = [
+        f"External holdout result: {result.result['id']}",
+        f"Status: {result.result['status']}",
+    ]
+    for lane in result.result["lanes"]:
+        lines.append(
+            f"  {lane['id']}  source={lane['source']['value']}  "
+            f"holdout={lane['holdout']['value']}  delta={lane['delta']}"
+        )
+    lines.append("Authority: external temporal audit · no production threshold · trading none")
+    return CommandResult(
+        "holdout.run",
+        {
+            "manifest": result.manifest,
+            "result": result.result,
+        },
+        "\n".join(lines) + "\n",
+        project_context(project),
+        _holdout_result_artifacts(project, result),
+        [
+            next_action(
+                "holdout.show",
+                "Verify the immutable external-period challenge result.",
+                ["aq", "holdout", "show", str(project.root_dir), "--json"],
+                "read-only",
+            )
+        ],
+    )
+
+
+def _holdout_show(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    binding = load_holdout_binding(project)
+    result = load_holdout_result(project)
+    return CommandResult(
+        "holdout.show",
+        {
+            "binding": binding.binding,
+            "manifest": result.manifest,
+            "result": result.result,
+        },
+        (
+            f"Immutable external holdout: {result.result['id']}\n"
+            f"Binding: {binding.binding['id']}\n"
+            f"Status: {result.result['status']}\n"
+            f"Lanes: {', '.join(lane['id'] for lane in result.result['lanes'])}\n"
+            "Interpretation: frozen later-period audit; no universal pass "
+            "threshold or trading authority\n"
+        ),
+        project_context(project),
+        _holdout_result_artifacts(project, result),
+    )
+
+
 def _studio_snapshot(args: argparse.Namespace) -> CommandResult:
     snapshot = build_studio_snapshot(args.path, project_id=args.project)
     source = snapshot["source"]
@@ -3242,6 +3483,9 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
         kinds = [
             "agent-work-brief",
             "research-agenda",
+            "holdout-binding",
+            "holdout-result",
+            "holdout-status",
             "campaign-progress",
             "campaign-result",
             "dossier-analysis",
@@ -3280,6 +3524,9 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
         schemas = {
             "agent-work-brief": AGENT_WORK_BRIEF_JSON_SCHEMA,
             "research-agenda": RESEARCH_AGENDA_JSON_SCHEMA,
+            "holdout-binding": HOLDOUT_BINDING_JSON_SCHEMA,
+            "holdout-result": HOLDOUT_RESULT_JSON_SCHEMA,
+            "holdout-status": HOLDOUT_STATUS_JSON_SCHEMA,
             "study": STUDY_JSON_SCHEMA,
             "judge-output": JUDGE_OUTPUT_JSON_SCHEMA,
             "run-result": RUN_RESULT_JSON_SCHEMA,
@@ -3388,6 +3635,14 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
         return _dossier_list(args)
     if args.command_id == "dossier.show":
         return _dossier_show(args)
+    if args.command_id == "holdout.bind":
+        return _holdout_bind(args)
+    if args.command_id == "holdout.status":
+        return _holdout_status(args)
+    if args.command_id == "holdout.run":
+        return _holdout_run(args)
+    if args.command_id == "holdout.show":
+        return _holdout_show(args)
     if args.command_id == "studio.snapshot":
         return _studio_snapshot(args)
     if args.command_id == "studio.serve":

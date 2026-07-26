@@ -106,6 +106,10 @@ evaluation pressure. RL moves can change only the causal encoder; fixed
 factors, actions, rewards, learning rules, and Portfolio mechanics remain
 protected. Positive validation evidence may intentionally produce a
 freeze-and-external-holdout move instead of another in-sample edit.
+Once such a Dossier is bound into a later Project, the work brief switches to
+`external-audit`, exposes no editable paths, routes only to `holdout.run`, and
+marks the research agenda unavailable because candidate selection is frozen.
+After the terminal result it returns to `observe`.
 
 ## Operating modes
 
@@ -117,6 +121,8 @@ Operating modes summarize existing state; they do not replace it.
   evaluate one hypothesis.
 - `publish-evidence`: freeze the current leader and evidence prefix in a
   Report or Dossier.
+- `external-audit`: execute the exact Dossier-bound source once on the
+  strictly later Project; no candidate edit or selection is permitted.
 - `complete`: retain a reported baseline or finish required cross-lane
   research without changing candidate source.
 - `promote`: apply an accepted non-baseline Session leader through the existing

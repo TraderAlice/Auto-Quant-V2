@@ -330,6 +330,8 @@ class StudioObservationTests(unittest.TestCase):
                     self.assertIn('id="factor-components"', html)
                     self.assertIn('id="research-agenda"', html)
                     self.assertIn('id="research-agenda-board"', html)
+                    self.assertIn('id="external-holdout"', html)
+                    self.assertIn('id="external-holdout-board"', html)
                     self.assertIn(
                         "Current mechanical decision",
                         html,
@@ -376,6 +378,8 @@ class StudioObservationTests(unittest.TestCase):
                     self.assertIn(".factor-component-diagnosis", css)
                     self.assertIn(".factor-component-table", css)
                     self.assertIn(".research-agenda-board", css)
+                    self.assertIn(".holdout-board", css)
+                    self.assertIn(".holdout-lane", css)
                     self.assertIn(".research-move-evidence", css)
                     self.assertIn(
                         "content: attr(data-label)",
@@ -411,6 +415,22 @@ class StudioObservationTests(unittest.TestCase):
                     self.assertIn("renderResearchAgenda", javascript)
                     self.assertIn(
                         "project.agentWorkBrief?.researchAgenda",
+                        javascript,
+                    )
+                    self.assertIn(
+                        "project.externalHoldout",
+                        javascript,
+                    )
+                    self.assertIn(
+                        "renderExternalHoldout(project)",
+                        javascript,
+                    )
+                    self.assertIn(
+                        "Sessions are disabled in this frozen external-audit Project.",
+                        javascript,
+                    )
+                    self.assertIn(
+                        "FROZEN SOURCE → LATER DATA → EXTERNAL AUDIT",
                         javascript,
                     )
                     self.assertIn(

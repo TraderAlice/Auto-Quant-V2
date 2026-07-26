@@ -658,6 +658,37 @@ publication opportunity without invalidating an older Dossier. Authority is
 `quantitative-decision-support`; `tradingAuthority` is always `none`. See
 [[docs/design/program-research-dossiers]].
 
+## Frozen external holdout
+
+A fresh request-driven research-desk Project can bind one current source
+Dossier before any target Run or Session exists:
+
+```text
+holdout/
+├── binding.json
+├── source-dossier.json
+├── imported-sources/
+│   ├── factors/...
+│   └── models/...              # only when RL is included
+├── manifest.json
+└── result/                     # after the one-shot challenge
+    ├── result.json
+    └── manifest.json
+```
+
+The binding hashes the portable Dossier, exact imported Run source bytes,
+source and target datasets, non-overlap proof, target Studies, and frozen
+authority. Those imported bytes also replace the corresponding target
+candidate closures, then become non-editable operationally. A bound Project
+rejects Sessions, Campaigns, and generic Runs.
+
+`holdout run` publishes one ordinary immutable Run for every Dossier-included
+lane and then a terminal result that reconciles those Runs with the binding.
+Partial lane execution can resume, but duplicate or unrelated Runs invalidate
+publication. The result records source/later objective values and deltas with
+`selectionAllowed: false` and `tradingAuthority: none`. See
+[[docs/design/frozen-external-holdout-challenge]].
+
 ## Canonical schemas
 
 Machine-readable JSON Schemas are available without loading a Project:
@@ -675,6 +706,9 @@ aq schema session-completion --json
 aq schema candidate-preflight --json
 aq schema candidate-check-output --json
 aq schema candidate-check-result --json
+aq schema holdout-binding --json
+aq schema holdout-result --json
+aq schema holdout-status --json
 aq schema experiment --json
 aq schema researcher-response --json
 aq schema campaign-result --json

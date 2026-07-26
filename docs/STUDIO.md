@@ -79,6 +79,10 @@ The first viewport prioritizes:
   same hashed work brief, including hypothesis, editable target, optional
   declared components, typed validation evidence, required checks, and stop
   conditions; JavaScript never creates or reorders moves;
+- a frozen external-holdout panel when present, showing the exact source
+  Dossier, source-end/strictly-later-start boundary, imported lane set, and
+  source-versus-later objective/delta cells from Core; it never colors a lane
+  as a production pass or converts the audit into trading authority;
 - one selectable Factor, Portfolio, or RL evidence workbench at a time, keeping
   the complete bounded explorer available without rendering all three long
   reports into one page;
@@ -352,6 +356,8 @@ Studio is not an evaluator. It calls the same Core loaders used by CLI:
 - Session authority issues remain visible;
 - mutable progress cannot create a metric or verdict;
 - the browser cannot author analysis or publish a Research Report or Dossier;
+- the browser cannot bind, execute, or reinterpret a frozen holdout; it only
+  renders Core status and copyable CLI authority;
 - no browser interaction changes a Project.
 
 The durable boundary and known gaps are in

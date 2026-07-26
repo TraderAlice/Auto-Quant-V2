@@ -9,9 +9,11 @@ from typing import Any
 from .checks import candidate_check_state
 from .dossiers import load_dossier_status
 from .intake import load_project_intake
+from .holdouts import HOLDOUT_STATUS_JSON_SCHEMA, load_holdout_status
 from .research_agenda import (
     RESEARCH_AGENDA_JSON_SCHEMA,
     build_research_agenda,
+    waiting_research_agenda,
 )
 from .research_program import load_research_program
 from .runs import list_runs, load_run
@@ -21,7 +23,7 @@ from .workspace import SCHEMA_VERSION, ProjectContext
 
 
 AGENT_WORK_BRIEF_KIND = "autoquant-agent-work-brief"
-AGENT_WORK_BRIEF_METHOD = "verified-project-agent-orientation-v2"
+AGENT_WORK_BRIEF_METHOD = "verified-project-agent-orientation-v3"
 PROTECTED_CATEGORIES = [
     "request",
     "dataset",
@@ -880,14 +882,108 @@ def _single_study_orientation(
     }
 
 
+def _holdout_orientation(
+    project: ProjectContext,
+    holdout: dict[str, Any],
+) -> dict[str, Any]:
+    completed = holdout["state"] == "completed"
+    action = holdout["nextAction"]
+    result = holdout["result"]
+    run_id = (
+        result["lanes"][-1]["holdout"]["runId"]
+        if result is not None and result["lanes"]
+        else None
+    )
+    primary = (
+        _action(action, working_directory=project.root_dir)
+        if action is not None
+        else None
+    )
+    reason = {
+        "code": (
+            "external-holdout-complete"
+            if completed
+            else "external-holdout-bound"
+        ),
+        "category": "evidence",
+        "message": (
+            "The frozen research object has completed its strictly later "
+            "external-period audit."
+            if completed
+            else "The exact Dossier leaders are frozen and ready for one "
+            "strictly later external-period audit."
+        ),
+    }
+    return {
+        "focus": {
+            "laneId": "external-holdout",
+            "laneName": "Frozen external holdout",
+            "studyId": None,
+            "studyName": None,
+            "coordinationPhase": holdout["state"],
+            "scientificStage": reason["code"],
+            "operatingMode": "observe" if completed else "external-audit",
+        },
+        "evidence": {
+            "runId": run_id,
+            "runStatus": result["status"] if result is not None else None,
+            "sessionId": None,
+            "sessionStatus": None,
+            "leaderRunId": None,
+            "reportId": None,
+            "candidateCheckId": None,
+            "candidateCheckStatus": None,
+        },
+        "reasons": [reason],
+        "filesystem": {
+            "operatingRoot": str(project.root_dir),
+            "writable": False,
+            "editablePaths": [],
+            "declaredEditablePaths": [],
+            "protectedCategories": [
+                *PROTECTED_CATEGORIES,
+                "holdout-binding",
+                "imported-sources",
+            ],
+        },
+        "authority": {
+            "researchAuthority": "frozen-external-temporal-audit",
+            "selectionSplit": "none",
+            "testRole": "external-period-audit",
+            "testEntersSelection": False,
+            "tradingAuthority": "none",
+        },
+        "primaryAction": primary,
+        "supportingActions": [],
+        "review": {
+            "status": "complete" if completed else "pending",
+            "label": reason["code"].replace("-", " ").upper(),
+            "title": "Frozen external-period challenge",
+            "detail": reason["message"],
+            "next": (
+                primary["description"]
+                if primary is not None
+                else "Review the immutable result with the requesting workbench."
+            ),
+            "boundary": (
+                "candidate frozen · no selection · no automatic promotion · "
+                "no trading authority"
+            ),
+        },
+    }
+
+
 def build_agent_work_brief(project: ProjectContext) -> dict[str, Any]:
     """Build one compact orientation contract from verified Project state."""
 
     intake = load_project_intake(project)
+    holdout = load_holdout_status(project, optional=True)
     program = load_research_program(project, optional=True)
     studies = list_studies(project)
     projected = (
-        _program_orientation(project, program)
+        _holdout_orientation(project, holdout)
+        if holdout is not None
+        else _program_orientation(project, program)
         if program is not None
         else _single_study_orientation(
             project,
@@ -912,11 +1008,21 @@ def build_agent_work_brief(project: ProjectContext) -> dict[str, Any]:
         and projected["evidence"]["leaderRunId"] is not None
     ):
         agenda_run_id = projected["evidence"]["leaderRunId"]
-    research_agenda = build_research_agenda(
-        project,
-        agenda_run_id,
-        lane_id=projected["focus"]["laneId"],
-        editable_paths=projected["filesystem"]["declaredEditablePaths"],
+    research_agenda = (
+        waiting_research_agenda(
+            "external-holdout",
+            reason=(
+                "Candidate research is frozen in an external-period challenge; "
+                "no further selection move is authorized here."
+            ),
+        )
+        if holdout is not None
+        else build_research_agenda(
+            project,
+            agenda_run_id,
+            lane_id=projected["focus"]["laneId"],
+            editable_paths=projected["filesystem"]["declaredEditablePaths"],
+        )
     )
     request = intake["request"] if intake is not None else None
     return {
@@ -945,6 +1051,7 @@ def build_agent_work_brief(project: ProjectContext) -> dict[str, Any]:
             ),
         },
         "researchAgenda": research_agenda,
+        "externalHoldout": holdout,
         **projected,
     }
 
@@ -1001,6 +1108,7 @@ AGENT_WORK_BRIEF_JSON_SCHEMA: dict[str, Any] = {
         "filesystem",
         "authority",
         "researchAgenda",
+        "externalHoldout",
         "primaryAction",
         "supportingActions",
         "review",
@@ -1055,6 +1163,7 @@ AGENT_WORK_BRIEF_JSON_SCHEMA: dict[str, Any] = {
                         "establish-baseline",
                         "edit-and-evaluate",
                         "publish-evidence",
+                        "external-audit",
                         "complete",
                         "promote",
                     ]
@@ -1159,6 +1268,12 @@ AGENT_WORK_BRIEF_JSON_SCHEMA: dict[str, Any] = {
             },
         },
         "researchAgenda": RESEARCH_AGENDA_JSON_SCHEMA,
+        "externalHoldout": {
+            "oneOf": [
+                HOLDOUT_STATUS_JSON_SCHEMA,
+                {"type": "null"},
+            ]
+        },
         "primaryAction": {
             "anyOf": [ACTION_SCHEMA, {"type": "null"}]
         },

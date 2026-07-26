@@ -24,6 +24,7 @@ from .factor_explorer import (
     load_factor_diagnostics,
 )
 from .intake import load_project_intake
+from .holdouts import load_holdout_status
 from .orientation import build_agent_work_brief
 from .portfolio_explorer import (
     DEFAULT_PORTFOLIO_POINTS,
@@ -856,6 +857,39 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
         if isinstance(agent_work_brief_raw, dict)
         else None
     )
+    external_holdout_raw, issues = _read_category(
+        "external-holdout",
+        lambda: load_holdout_status(project, optional=True),
+    )
+    diagnostics.extend(issues)
+    external_holdout = (
+        external_holdout_raw
+        if isinstance(external_holdout_raw, dict)
+        else None
+    )
+    if external_holdout is not None:
+        holdout_action = external_holdout["nextAction"]
+        if intake is not None:
+            intake["commands"] = (
+                [holdout_action] if holdout_action is not None else []
+            )
+        if research_program_status is not None:
+            research_program_status = {
+                **research_program_status,
+                "recommendedLaneId": None,
+                "recommendedAction": holdout_action,
+                "lanes": [
+                    {
+                        **lane,
+                        "commands": [
+                            command
+                            for command in lane["commands"]
+                            if command["effect"] == "read-only"
+                        ],
+                    }
+                    for lane in research_program_status["lanes"]
+                ],
+            }
     dossier_bundle, issues = _read_category(
         "dossiers",
         lambda: {
@@ -870,6 +904,11 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
     else:
         dossier_status = None
         dossiers = []
+    if external_holdout is not None and dossier_status is not None:
+        dossier_status = {
+            **dossier_status,
+            "nextAction": external_holdout["nextAction"],
+        }
     studies = [item.to_dict() for item in studies_raw]
     runs: list[dict[str, Any]] = []
     for item in runs_raw:
@@ -1107,8 +1146,17 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
                 "read-only",
             )
         )
-    if dossier_status is not None and dossier_status["nextAction"] is not None:
+    if (
+        external_holdout is None
+        and dossier_status is not None
+        and dossier_status["nextAction"] is not None
+    ):
         commands.append(dossier_status["nextAction"])
+    if (
+        external_holdout is not None
+        and external_holdout["nextAction"] is not None
+    ):
+        commands.append(external_holdout["nextAction"])
     return {
         "id": project.manifest.id,
         "name": project.manifest.name,
@@ -1125,6 +1173,7 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
             if agent_work_brief is not None
             else None
         ),
+        "externalHoldout": external_holdout,
         "dossierStatus": dossier_status,
         "dossiers": dossiers,
         "intake": intake,
@@ -1586,6 +1635,7 @@ STUDIO_SNAPSHOT_JSON_SCHEMA: dict[str, Any] = {
                 "researchProgramStatus",
                 "agentWorkBrief",
                 "agentWorkBriefHash",
+                "externalHoldout",
                 "dossierStatus",
                 "dossiers",
                 "intake",
@@ -1621,6 +1671,7 @@ STUDIO_SNAPSHOT_JSON_SCHEMA: dict[str, Any] = {
                     "type": ["string", "null"],
                     "pattern": "^[0-9a-f]{64}$",
                 },
+                "externalHoldout": {"type": ["object", "null"]},
                 "dossierStatus": {"type": ["object", "null"]},
                 "dossiers": {"type": "array"},
                 "intake": {"type": ["object", "null"]},

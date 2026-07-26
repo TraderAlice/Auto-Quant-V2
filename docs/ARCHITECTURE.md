@@ -54,6 +54,10 @@ The V2 foundation now implements:
   validation-only experiment briefs with explicit edit targets, evidence,
   checks, and stop conditions but no automatic execution, promotion, or
   trading authority.
+- one frozen external-holdout transition that imports exact current Dossier
+  leader sources into a separate compatible strictly later Project, disables
+  iterative selection, executes each included lane once, and publishes
+  immutable source-versus-later evidence without a production threshold.
 - strict Project-local Study contracts with separate human program, fixed
   Python Judge closure, Agent-editable strategy/factor/model closure, objective,
   and declarative or content-locked dataset identity;
@@ -305,6 +309,8 @@ behind the Harness contract, not the owner of Workspace or Project semantics.
   `autoquant/reports.py`
 - Immutable Project Research Dossier composition and verification:
   `autoquant/dossiers.py`
+- Frozen cross-Project external-period binding and result verification:
+  `autoquant/holdouts.py`
 - Verified Studio snapshot and local HTTP server: `autoquant/studio.py`
 - Verified Portfolio Run diagnostic projection:
   `autoquant/portfolio_explorer.py`

@@ -908,6 +908,160 @@ main > div[id] {
   font-size: 8px;
 }
 
+.holdout-section {
+  margin-top: 28px;
+}
+
+.holdout-board {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 88px minmax(0, 1fr);
+  gap: 10px;
+  align-items: stretch;
+}
+
+.holdout-identity,
+.holdout-pending,
+.holdout-lane {
+  min-width: 0;
+  border: 1px solid var(--line);
+  background:
+    linear-gradient(145deg, rgb(18 23 19 / 97%), rgb(11 14 12 / 99%));
+}
+
+.holdout-identity {
+  padding: 15px;
+}
+
+.holdout-identity small,
+.holdout-pending small {
+  color: var(--acid);
+  font: 6px var(--mono);
+  letter-spacing: 0.12em;
+}
+
+.holdout-identity h3,
+.holdout-pending h3 {
+  margin: 11px 0 6px;
+  color: #e5e9dd;
+  font-size: 12px;
+}
+
+.holdout-identity p,
+.holdout-pending p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 7px;
+  line-height: 1.55;
+}
+
+.holdout-identity b {
+  display: block;
+  margin-top: 14px;
+  color: #aeb6a9;
+  font: 8px var(--mono);
+}
+
+.holdout-arrow {
+  display: grid;
+  place-content: center;
+  color: var(--faint);
+  text-align: center;
+}
+
+.holdout-arrow span {
+  font: 5px var(--mono);
+  letter-spacing: 0.1em;
+}
+
+.holdout-arrow i {
+  margin-top: 8px;
+  color: var(--acid);
+  font: 18px var(--mono);
+  font-style: normal;
+}
+
+.holdout-lanes {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.holdout-pending {
+  grid-column: 1 / -1;
+  padding: 15px;
+  border-top-color: var(--acid);
+}
+
+.holdout-pending code {
+  display: block;
+  margin-top: 12px;
+  padding: 9px;
+  color: #9da796;
+  border: 1px solid #293125;
+  background: #090c09;
+  font: 6px/1.5 var(--mono);
+  overflow-wrap: anywhere;
+}
+
+.holdout-lane {
+  padding: 13px;
+}
+
+.holdout-lane header {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--acid);
+  font: 6px var(--mono);
+  letter-spacing: 0.1em;
+}
+
+.holdout-lane header b {
+  color: var(--faint);
+  font-weight: 400;
+}
+
+.holdout-lane dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  margin: 12px 0 0;
+  background: var(--line);
+}
+
+.holdout-lane dl div {
+  min-width: 0;
+  padding: 9px;
+  background: #0c100d;
+}
+
+.holdout-lane dt {
+  color: var(--faint);
+  font: 5px var(--mono);
+}
+
+.holdout-lane dd {
+  margin: 6px 0 0;
+  color: #dce1d6;
+  font: 9px var(--mono);
+}
+
+.holdout-lane p,
+.holdout-authority {
+  color: #6c7469;
+  font: 6px/1.55 var(--mono);
+}
+
+.holdout-lane p {
+  margin: 10px 0 0;
+}
+
+.holdout-authority {
+  margin: 9px 0 0;
+  text-align: right;
+}
+
 .handoff-section,
 .pulse-section,
 .catalog-section {
@@ -6178,6 +6332,19 @@ main > div[id] {
 @media (max-width: 920px) {
   .research-agenda-board {
     grid-template-columns: 1fr;
+  }
+
+  .holdout-board,
+  .holdout-lanes {
+    grid-template-columns: 1fr;
+  }
+
+  .holdout-arrow {
+    min-height: 46px;
+  }
+
+  .holdout-arrow i {
+    transform: rotate(90deg);
   }
 
   .studio-shell {
