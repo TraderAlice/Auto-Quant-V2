@@ -1,6 +1,7 @@
 # Causal multi-interval factor inputs
 
-Status: V2 implemented for continuous UTC 1h input.
+Status: V2 compatibility contract implemented. Configurable/session expansion
+is specified in [[docs/design/configurable-session-interval-inputs]].
 
 Related: [[docs/design/research-intake-and-dataset-snapshots]],
 [[docs/design/ohlcv-factor-lab]],
@@ -166,8 +167,9 @@ promotion, or trading authority.
 
 ## Known limitations
 
-- Initial support is continuous UTC 1h only.
-- No tick, L2, forming-bar, or session-calendar synthesis.
+- This V2 schema remains continuous UTC 1h only; V3 adds bounded configurable
+  continuous and XNYS regular-session inputs.
+- No tick, L2, forming-bar, extended-hours, or halt synthesis.
 - Cross-provider high-period bars are not trusted over deterministic
   aggregation from the locked base.
 - A larger interval set increases multiple-testing risk; existing

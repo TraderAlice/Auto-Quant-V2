@@ -53,8 +53,19 @@ PORTFOLIO_RISK_POLICY = {
     "annualizationPeriods": 252,
     "scaleUp": False,
 }
-SUPPORTED_ANNUALIZATION_PERIODS = {252, 24 * 365}
+MIN_ANNUALIZATION_PERIODS = 1
+MAX_ANNUALIZATION_PERIODS = 365 * 24 * 60
 SHA256 = "^[0-9a-f]{64}$"
+
+
+def _valid_annualization_periods(value: Any) -> bool:
+    return (
+        isinstance(value, int)
+        and not isinstance(value, bool)
+        and MIN_ANNUALIZATION_PERIODS
+        <= value
+        <= MAX_ANNUALIZATION_PERIODS
+    )
 
 
 def _issue(path: Path | str, code: str, message: str) -> ValidationIssue:
@@ -164,7 +175,7 @@ def build_portfolio_mandate(
 
     if not research_universe or len(research_universe) != len(set(research_universe)):
         raise ValueError("research_universe must contain unique assets")
-    if annualization_periods not in SUPPORTED_ANNUALIZATION_PERIODS:
+    if not _valid_annualization_periods(annualization_periods):
         raise ValueError("unsupported annualization_periods")
     if request is None:
         payload = _canonical_payload(
@@ -365,7 +376,7 @@ def validate_portfolio_mandate(
                 if isinstance(risk_policy, dict)
                 else None
             )
-            if annualization_periods not in SUPPORTED_ANNUALIZATION_PERIODS:
+            if not _valid_annualization_periods(annualization_periods):
                 issues.append(
                     _issue(
                         f"{path}/construction/riskPolicy/annualizationPeriods",
@@ -569,7 +580,9 @@ PORTFOLIO_MANDATE_JSON_SCHEMA: dict[str, Any] = {
                         "covarianceWindow": {"const": 60},
                         "minimumObservations": {"const": 20},
                         "annualizationPeriods": {
-                            "enum": sorted(SUPPORTED_ANNUALIZATION_PERIODS)
+                            "type": "integer",
+                            "minimum": MIN_ANNUALIZATION_PERIODS,
+                            "maximum": MAX_ANNUALIZATION_PERIODS,
                         },
                         "scaleUp": {"const": False},
                     },

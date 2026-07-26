@@ -32,6 +32,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/configurable-session-interval-inputs]] | Made the base K-line interval explicit and added calendar-verified XNYS intraday/session aggregation shared by Factor, Portfolio, and RL. | 2026-07-27 |
 | [[plans/frozen-external-holdout-challenge]] | Bound a completed research Dossier's exact leaders to a strictly later compatible Project and published one frozen external-period challenge. | 2026-07-26 |
 | [[plans/evidence-driven-research-agenda]] | Turned verified Factor, Portfolio, and governed-RL diagnoses into bounded validation-only experiment briefs for AI researchers. | 2026-07-26 |
 | [[plans/governed-factor-component-evidence]] | Made candidate-declared multi-horizon factor components individually auditable without inferring source semantics or changing Portfolio/RL authority. | 2026-07-26 |

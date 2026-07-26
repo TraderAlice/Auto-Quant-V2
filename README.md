@@ -66,6 +66,13 @@ those bars from the locked base, joins them only after their close, and gives
 all three research lanes the same ordinary pandas frame. RunResults and the
 OpenAlice-facing evidence surfaces disclose the exact interval contract.
 
+V3 makes the base cadence configurable (`1m` through `12h`, subject to exact
+feature divisibility) and adds XNYS regular-session input for US equities.
+XNYS packages currently accept `1m`/`5m`/`15m`/`30m`/`1h` bases, verify
+holidays, DST, and scheduled early closes, and interpret `1d` as one completed
+exchange session. V1 and V2 contracts remain unchanged. See
+[[docs/design/configurable-session-interval-inputs]].
+
 For a new coding Agent, start with one read-only command:
 
 ```bash

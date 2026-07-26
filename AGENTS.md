@@ -59,6 +59,9 @@ Read the relevant linked document before changing a subsystem:
 - Exact Dossier leaders frozen into a strictly later compatible Project for
   one non-iterative external-period challenge:
   [[docs/design/frozen-external-holdout-challenge]]
+- Configurable decision-bar intervals and calendar-verified XNYS regular
+  sessions:
+  [[docs/design/configurable-session-interval-inputs]]
 - Fixed seconds-scale candidate checks, immutable non-selection diagnostics,
   and edit/check/evaluate routing:
   [[docs/design/candidate-preflight-feedback]]

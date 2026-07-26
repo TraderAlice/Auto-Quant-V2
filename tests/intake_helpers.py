@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import exchange_calendars as xcals
 import numpy as np
 import pandas as pd
 
@@ -242,6 +243,175 @@ def write_multi_interval_inputs(
     request_path = root / "request.json"
     request_path.write_text(
         json.dumps(request, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return request_path, package_path
+
+
+def write_session_interval_inputs(
+    root: Path,
+    *,
+    sessions: int = 45,
+    assets: tuple[str, ...] = INTAKE_ASSETS,
+) -> tuple[Path, Path]:
+    """Write deterministic 1h XNYS bars, including terminal partial bars."""
+
+    source = root / "external-xnys-hourly-data"
+    source.mkdir()
+    calendar = xcals.get_calendar(
+        "XNYS",
+        start="2026-09-28",
+        end="2026-12-15",
+    )
+    schedule = calendar.schedule.iloc[:sessions]
+    timestamps: list[pd.Timestamp] = []
+    for row in schedule.itertuples():
+        bar_close = row.open + pd.Timedelta(hours=1)
+        while bar_close < row.close:
+            timestamps.append(bar_close)
+            bar_close += pd.Timedelta(hours=1)
+        timestamps.append(row.close)
+    time = np.arange(len(timestamps), dtype=float)
+    asset_entries = []
+    for number, symbol in enumerate(assets):
+        log_returns = (
+            0.00006
+            + 0.0018 * np.sin(time / (11.0 + number))
+            + 0.0009 * np.cos(time / (23.0 + number))
+        )
+        close = (95.0 + number * 24.0) * np.exp(np.cumsum(log_returns))
+        open_price = close * np.exp(-0.0008 * np.sin(time / (5.0 + number)))
+        spread = 0.0018 + 0.0004 * np.cos(time / (9.0 + number))
+        frame = pd.DataFrame(
+            {
+                "timestamp": [
+                    stamp.isoformat().replace("+00:00", "Z")
+                    for stamp in timestamps
+                ],
+                "open": open_price,
+                "high": np.maximum(open_price, close) * (1.0 + spread),
+                "low": np.minimum(open_price, close) * (1.0 - spread),
+                "close": close,
+                "volume": (
+                    1_500_000.0
+                    * (1.0 + number * 0.12)
+                    * np.exp(0.22 * np.sin(time / (15.0 + number)))
+                ),
+            }
+        )
+        filename = f"{symbol}.csv"
+        frame.to_csv(source / filename, index=False)
+        asset_entries.append(
+            {
+                "symbol": symbol,
+                "venue": "XNYS",
+                "currency": "USD",
+                "path": filename,
+            }
+        )
+    package = {
+        "schemaVersion": 3,
+        "kind": "autoquant-ohlcv-dataset-package",
+        "id": "bounded-xnys-hourly",
+        "version": "2026-v1",
+        "assetClass": "equity",
+        "baseInterval": "1h",
+        "featureIntervals": ["3h", "1d"],
+        "timestampSemantics": "bar-close",
+        "aggregation": {
+            "method": "complete-xnys-regular-session-bar-close-v1",
+            "anchor": "market-open",
+            "terminalBucketPolicy": "complete-at-session-close",
+        },
+        "market": {
+            "clock": "session",
+            "calendar": "XNYS",
+            "timezone": "America/New_York",
+        },
+        "priceAdjustment": "provider-adjusted",
+        "provider": {
+            "name": "deterministic-xnys-test-provider",
+            "retrievedAt": "2026-07-27T00:00:00Z",
+            "sourceUri": None,
+            "terms": "test fixture only",
+        },
+        "assets": asset_entries,
+    }
+    package_path = source / "dataset.json"
+    package_path.write_text(
+        json.dumps(package, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    request = {
+        "schemaVersion": 1,
+        "kind": "autoquant-research-request",
+        "title": "US intraday leadership durability",
+        "question": "Do completed session bars improve equity ranking?",
+        "decisionContext": "OpenAlice is reviewing a conditional equity posture.",
+        "assets": [
+            {"symbol": "AAPL", "assetClass": "equity", "venue": "XNYS"},
+            {"symbol": "MSFT", "assetClass": "equity", "venue": "XNYS"},
+        ],
+        "direction": "long",
+        "horizon": "one day to four weeks",
+        "hypotheses": ["Completed session trends may add causal information."],
+        "constraints": [
+            "Use regular-session completed bars and no live trading authority."
+        ],
+        "deliverables": ["Multi-interval factor and portfolio evidence"],
+        "source": {
+            "system": "openalice",
+            "workspaceId": "workspace-xnys",
+            "sessionId": "session-xnys-interval",
+            "artifactPath": "research/xnys-multi-horizon.md",
+            "artifactRevision": "sha256:test-xnys-interval-request",
+        },
+    }
+    request_path = root / "request.json"
+    request_path.write_text(
+        json.dumps(request, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return request_path, package_path
+
+
+def write_configurable_continuous_inputs(
+    root: Path,
+    *,
+    observations: int = 320,
+) -> tuple[Path, Path]:
+    """Adapt the deterministic crypto fixture to a V3 15-minute base."""
+
+    request_path, package_path = write_multi_interval_inputs(
+        root,
+        observations=observations,
+    )
+    package = json.loads(package_path.read_text(encoding="utf-8"))
+    timestamps = pd.date_range(
+        "2026-01-01T00:15:00Z",
+        periods=observations,
+        freq="15min",
+    )
+    for asset in package["assets"]:
+        path = package_path.parent / asset["path"]
+        frame = pd.read_csv(path)
+        frame["timestamp"] = timestamps.strftime("%Y-%m-%dT%H:%M:%SZ")
+        frame.to_csv(path, index=False)
+    package.update(
+        {
+            "schemaVersion": 3,
+            "id": "bounded-crypto-fifteen-minute",
+            "baseInterval": "15m",
+            "featureIntervals": ["30m", "1h", "4h"],
+            "aggregation": {
+                "method": "complete-continuous-utc-midnight-bar-close-v2",
+                "anchor": "00:00",
+                "terminalBucketPolicy": "omit-incomplete",
+            },
+        }
+    )
+    package_path.write_text(
+        json.dumps(package, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
     return request_path, package_path

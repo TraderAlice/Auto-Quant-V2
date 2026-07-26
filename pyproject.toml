@@ -10,6 +10,7 @@ dependencies = [
     "numpy>=1.26",
     "matplotlib>=3.8",
     "jupyter>=1.0",
+    "exchange-calendars==4.13.2",
 ]
 
 [project.scripts]

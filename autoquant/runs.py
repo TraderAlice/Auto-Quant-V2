@@ -19,7 +19,19 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from .intervals import IntervalContractError, interval_surface
+from .intervals import (
+    AGGREGATION_METHOD,
+    BASE_INTERVAL,
+    CONTINUOUS_AGGREGATION_METHOD,
+    CONTINUOUS_TERMINAL_POLICY,
+    SESSION_TERMINAL_POLICY,
+    SUPPORTED_BASE_INTERVALS,
+    SUPPORTED_FEATURE_INTERVALS,
+    SUPPORTED_INTERVALS,
+    XNYS_AGGREGATION_METHOD,
+    IntervalContractError,
+    canonical_interval_surface,
+)
 from .studies import (
     SCHEMA_VERSION,
     StudyContext,
@@ -170,7 +182,7 @@ def _dataset_interval_surface(
     study: StudyContext,
     data_root: Path,
 ) -> dict[str, Any] | None:
-    """Project the fixed V2 interval authority into immutable Run evidence."""
+    """Project canonical multi-interval authority into immutable Run evidence."""
 
     relative = "ohlcv/snapshot.json"
     if relative not in study.dataset_hashes:
@@ -188,8 +200,9 @@ def _dataset_interval_surface(
                 )
             ]
         ) from error
-    if not isinstance(snapshot, dict) or snapshot.get("schemaVersion") != 2:
+    if not isinstance(snapshot, dict) or snapshot.get("schemaVersion") not in {2, 3}:
         return None
+    schema_version = snapshot["schemaVersion"]
     surface = snapshot.get("intervalSurface")
     if not isinstance(surface, dict):
         raise AutoQuantValidationError(
@@ -197,12 +210,15 @@ def _dataset_interval_surface(
                 _issue(
                     snapshot_path,
                     "run.interval-surface",
-                    "V2 dataset snapshot is missing intervalSurface",
+                    "Multi-interval dataset snapshot is missing intervalSurface",
                 )
             ]
         )
     try:
-        expected = interval_surface(surface.get("featureIntervals", [])).to_dict()
+        expected = canonical_interval_surface(
+            surface,
+            schema_version=schema_version,
+        )
     except IntervalContractError as error:
         raise AutoQuantValidationError(
             [_issue(snapshot_path, error.code, str(error))]
@@ -213,7 +229,7 @@ def _dataset_interval_surface(
                 _issue(
                     snapshot_path,
                     "run.interval-surface",
-                    "V2 dataset intervalSurface differs from fixed authority",
+                    "Dataset intervalSurface differs from canonical authority",
                 )
             ]
         )
@@ -1144,9 +1160,12 @@ def _validate_run_result(
                 )
             else:
                 try:
-                    expected = interval_surface(
-                        surface.get("featureIntervals", [])
-                    ).to_dict()
+                    expected = canonical_interval_surface(
+                        surface,
+                        schema_version=(
+                            3 if "calendar" in surface else 2
+                        ),
+                    )
                     if surface != expected:
                         issues.append(
                             _issue(
@@ -1535,35 +1554,100 @@ RUN_RESULT_JSON_SCHEMA: dict[str, Any] = {
                     },
                 },
                 "intervalSurface": {
-                    "type": "object",
-                    "additionalProperties": False,
-                    "required": [
-                        "baseInterval",
-                        "featureIntervals",
-                        "timestampSemantics",
-                        "marketClock",
-                        "timezone",
-                        "anchor",
-                        "aggregationMethod",
-                    ],
-                    "properties": {
-                        "baseInterval": {"const": "1h"},
-                        "featureIntervals": {
-                            "type": "array",
-                            "minItems": 1,
-                            "uniqueItems": True,
-                            "items": {
-                                "enum": ["3h", "4h", "6h", "12h", "1d"]
+                    "oneOf": [
+                        {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "required": [
+                                "baseInterval",
+                                "featureIntervals",
+                                "timestampSemantics",
+                                "marketClock",
+                                "timezone",
+                                "anchor",
+                                "aggregationMethod",
+                            ],
+                            "properties": {
+                                "baseInterval": {"const": BASE_INTERVAL},
+                                "featureIntervals": {
+                                    "type": "array",
+                                    "minItems": 1,
+                                    "uniqueItems": True,
+                                    "items": {
+                                        "enum": list(
+                                            SUPPORTED_FEATURE_INTERVALS
+                                        )
+                                    },
+                                },
+                                "timestampSemantics": {
+                                    "const": "bar-close"
+                                },
+                                "marketClock": {
+                                    "const": "continuous"
+                                },
+                                "timezone": {"const": "UTC"},
+                                "anchor": {"const": "00:00"},
+                                "aggregationMethod": {
+                                    "const": AGGREGATION_METHOD
+                                },
                             },
                         },
-                        "timestampSemantics": {"const": "bar-close"},
-                        "marketClock": {"const": "continuous"},
-                        "timezone": {"const": "UTC"},
-                        "anchor": {"const": "00:00"},
-                        "aggregationMethod": {
-                            "const": "complete-utc-midnight-bar-close-v1"
+                        {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "required": [
+                                "baseInterval",
+                                "featureIntervals",
+                                "timestampSemantics",
+                                "marketClock",
+                                "calendar",
+                                "timezone",
+                                "anchor",
+                                "aggregationMethod",
+                                "terminalBucketPolicy",
+                            ],
+                            "properties": {
+                                "baseInterval": {
+                                    "enum": list(SUPPORTED_BASE_INTERVALS)
+                                },
+                                "featureIntervals": {
+                                    "type": "array",
+                                    "minItems": 1,
+                                    "uniqueItems": True,
+                                    "items": {
+                                        "enum": list(SUPPORTED_INTERVALS)
+                                    },
+                                },
+                                "timestampSemantics": {
+                                    "const": "bar-close"
+                                },
+                                "marketClock": {
+                                    "enum": ["continuous", "session"]
+                                },
+                                "calendar": {
+                                    "enum": ["24/7", "XNYS"]
+                                },
+                                "timezone": {
+                                    "enum": ["UTC", "America/New_York"]
+                                },
+                                "anchor": {
+                                    "enum": ["00:00", "market-open"]
+                                },
+                                "aggregationMethod": {
+                                    "enum": [
+                                        CONTINUOUS_AGGREGATION_METHOD,
+                                        XNYS_AGGREGATION_METHOD,
+                                    ]
+                                },
+                                "terminalBucketPolicy": {
+                                    "enum": [
+                                        CONTINUOUS_TERMINAL_POLICY,
+                                        SESSION_TERMINAL_POLICY,
+                                    ]
+                                },
+                            },
                         },
-                    },
+                    ],
                 },
                 "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
             },

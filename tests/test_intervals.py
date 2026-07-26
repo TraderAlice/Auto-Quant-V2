@@ -8,9 +8,13 @@ from autoquant.intervals import (
     AGGREGATION_METHOD,
     IntervalContractError,
     aggregate_completed_ohlcv,
+    aggregate_xnys_session_ohlcv,
+    build_configurable_multi_interval_frame,
     build_multi_interval_frame,
+    configurable_interval_surface,
     interval_surface,
     normalize_feature_intervals,
+    validate_xnys_session_ohlcv,
 )
 
 
@@ -21,6 +25,22 @@ def hourly_fixture(periods: int = 72) -> pd.DataFrame:
         freq="1h",
     )
     sequence = pd.Series(range(periods), dtype=float)
+    opens = 100.0 + sequence
+    closes = opens + 0.5
+    return pd.DataFrame(
+        {
+            "timestamp": timestamps,
+            "open": opens,
+            "high": closes + 1.0,
+            "low": opens - 1.0,
+            "close": closes,
+            "volume": 1_000.0 + sequence,
+        }
+    )
+
+
+def close_fixture(timestamps: list[str]) -> pd.DataFrame:
+    sequence = pd.Series(range(len(timestamps)), dtype=float)
     opens = 100.0 + sequence
     closes = opens + 0.5
     return pd.DataFrame(
@@ -124,6 +144,144 @@ class MultiIntervalCoreTests(unittest.TestCase):
         bad.loc[0, "high"] = bad.loc[0, "open"] - 2.0
         with self.assertRaisesRegex(IntervalContractError, "bar geometry"):
             build_multi_interval_frame(bad, ["3h"])
+
+    def test_v3_continuous_base_interval_is_explicit_and_causal(self) -> None:
+        timestamps = pd.date_range(
+            "2026-01-01T00:15:00Z",
+            periods=32,
+            freq="15min",
+        )
+        base = close_fixture(
+            [value.isoformat().replace("+00:00", "Z") for value in timestamps]
+        )
+        surface = configurable_interval_surface(
+            "15m",
+            ["30m", "1h", "4h"],
+            {
+                "clock": "continuous",
+                "calendar": "24/7",
+                "timezone": "UTC",
+            },
+        ).to_dict()
+        self.assertEqual(surface["baseInterval"], "15m")
+        self.assertEqual(
+            surface["featureIntervals"],
+            ["30m", "1h", "4h"],
+        )
+        joined = build_configurable_multi_interval_frame(base, surface)
+        self.assertEqual(joined.loc[1, "bar_close__30m"], timestamps[1])
+        self.assertEqual(joined.loc[2, "age_bars__30m"], 1)
+        self.assertTrue(pd.isna(joined.loc[14, "bar_close__4h"]))
+        self.assertEqual(joined.loc[15, "bar_close__4h"], timestamps[15])
+        prefix = build_configurable_multi_interval_frame(
+            base.iloc[:20].copy(),
+            surface,
+        )
+        pd.testing.assert_frame_equal(
+            joined.iloc[:20].reset_index(drop=True),
+            prefix,
+        )
+        with self.assertRaisesRegex(IntervalContractError, "exact multiple"):
+            configurable_interval_surface(
+                "4h",
+                ["6h"],
+                {
+                    "clock": "continuous",
+                    "calendar": "24/7",
+                    "timezone": "UTC",
+                },
+            )
+
+    def test_xnys_sessions_follow_dst_and_complete_at_market_close(self) -> None:
+        before_dst = [
+            "2026-03-06T15:30:00Z",
+            "2026-03-06T16:30:00Z",
+            "2026-03-06T17:30:00Z",
+            "2026-03-06T18:30:00Z",
+            "2026-03-06T19:30:00Z",
+            "2026-03-06T20:30:00Z",
+            "2026-03-06T21:00:00Z",
+        ]
+        after_dst = [
+            "2026-03-09T14:30:00Z",
+            "2026-03-09T15:30:00Z",
+            "2026-03-09T16:30:00Z",
+            "2026-03-09T17:30:00Z",
+            "2026-03-09T18:30:00Z",
+            "2026-03-09T19:30:00Z",
+            "2026-03-09T20:00:00Z",
+        ]
+        base = close_fixture([*before_dst, *after_dst])
+        validated = validate_xnys_session_ohlcv(base, "1h")
+        self.assertEqual(len(validated), 14)
+        daily = aggregate_xnys_session_ohlcv(base, "1h", "1d")
+        self.assertEqual(
+            daily["timestamp"].tolist(),
+            [
+                pd.Timestamp("2026-03-06T21:00:00Z"),
+                pd.Timestamp("2026-03-09T20:00:00Z"),
+            ],
+        )
+        three_hour = aggregate_xnys_session_ohlcv(base, "1h", "3h")
+        self.assertEqual(
+            three_hour["timestamp"].tolist(),
+            [
+                pd.Timestamp("2026-03-06T17:30:00Z"),
+                pd.Timestamp("2026-03-06T20:30:00Z"),
+                pd.Timestamp("2026-03-06T21:00:00Z"),
+                pd.Timestamp("2026-03-09T16:30:00Z"),
+                pd.Timestamp("2026-03-09T19:30:00Z"),
+                pd.Timestamp("2026-03-09T20:00:00Z"),
+            ],
+        )
+
+    def test_xnys_early_close_and_exact_panel_are_enforced(self) -> None:
+        early_close = close_fixture(
+            [
+                "2026-11-27T15:30:00Z",
+                "2026-11-27T16:30:00Z",
+                "2026-11-27T17:30:00Z",
+                "2026-11-27T18:00:00Z",
+            ]
+        )
+        daily = aggregate_xnys_session_ohlcv(
+            early_close,
+            "1h",
+            "1d",
+        )
+        self.assertEqual(len(daily), 1)
+        self.assertEqual(
+            daily.iloc[0]["timestamp"],
+            pd.Timestamp("2026-11-27T18:00:00Z"),
+        )
+        missing = early_close.drop(index=1).reset_index(drop=True)
+        with self.assertRaisesRegex(
+            IntervalContractError,
+            "exact complete XNYS",
+        ):
+            validate_xnys_session_ohlcv(missing, "1h")
+        premarket = pd.concat(
+            [
+                close_fixture(["2026-11-27T14:00:00Z"]),
+                early_close,
+            ],
+            ignore_index=True,
+        )
+        with self.assertRaisesRegex(IntervalContractError, "outside"):
+            validate_xnys_session_ohlcv(premarket, "1h")
+        with self.assertRaisesRegex(
+            IntervalContractError,
+            "must be selected",
+        ):
+            configurable_interval_surface(
+                "1h",
+                ["12h"],
+                {
+                    "clock": "session",
+                    "calendar": "XNYS",
+                    "timezone": "America/New_York",
+                },
+            )
 
 
 if __name__ == "__main__":

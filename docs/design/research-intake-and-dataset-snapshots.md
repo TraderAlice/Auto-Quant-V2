@@ -1,6 +1,7 @@
 # Request-driven research intake and OHLCV dataset snapshots
 
-Status: V1 daily and V2 continuous multi-interval intake implemented.
+Status: V1 daily, V2 continuous-1h, and V3 configurable/session intake
+implemented.
 
 Related: [[docs/ARCHITECTURE]], [[docs/CLI]], [[docs/PROJECT_FORMAT]],
 [[docs/STUDIO]], [[docs/design/workspace-project-boundaries]],
@@ -106,8 +107,13 @@ V2 accepts a strict continuous UTC base instead:
 
 V2 asset/provider/adjustment fields are the same as V1. Each asset path names
 the one authoritative 1h file; AutoQuant derives every declared higher
-interval from it. Session-market intraday data remains unsupported until an
-exchange-calendar, DST, early-close, and partial-bucket contract exists.
+interval from it.
+
+V3 keeps that package shape, adds `terminalBucketPolicy`, permits bounded
+configurable base intervals, and supports either continuous UTC or XNYS
+regular-session authority. The exact XNYS calendar, DST, early-close, and
+terminal partial-bar contract is in
+[[docs/design/configurable-session-interval-inputs]].
 
 ## Validation and normalization
 
@@ -119,7 +125,7 @@ Before any Project is visible, Core:
 3. reads CSV, Parquet, or Feather;
 4. for V1, accepts a conventional timestamp alias, requires finite positive
    daily OHLCV and no weekend session rows, then orders canonical output;
-5. for V2, requires explicit timezone-aware hourly bar-close timestamps,
+5. for V2/V3, requires explicit timezone-aware base-bar-close timestamps,
    exact UTC-hour boundaries, consecutive rows with no gaps, strict OHLCV
    geometry, and complete UTC-midnight-anchored aggregation groups;
 6. requires every asset to share the exact base timestamp panel;
@@ -167,7 +173,8 @@ request and dataset universe: requested assets are tradable, remaining assets
 are context-only, and direction determines long/cash, short/cash, or
 dollar-neutral construction and benchmark. The same derivation fixes a
 trailing-covariance volatility policy: 60-row window, 20-row minimum, 252
-periods for V1 daily data or 8760 for V2 continuous hourly data, 15% annualized
+periods for V1 daily data, 8760 for V2 continuous hourly data, or the verified
+V3 decision clock, 15% annualized
 ceiling, and no scale-up. Portfolio and RL Studies bind the same file as a
 dependency. Intake reconstructs it on every load, so request or mandate
 tampering fails rather than changing the position or risk question silently.
@@ -245,7 +252,7 @@ Studio remains read-only and does not duplicate validation or construction.
 8. AutoQuant retains no Broker or trading-account authority.
 9. Research-universe assets outside the request remain context-only unless the
    request explicitly authorizes them.
-10. V2 materialized higher bars must reconcile to locked 1h bytes, and all
+10. V2/V3 materialized higher bars must reconcile to locked base bytes, and all
     three research lanes consume the same causally aligned surface.
 
 ## Verification and change checklist
@@ -270,7 +277,8 @@ When changing this boundary:
 ## Known limits
 
 - V1 handles one aligned daily session panel; V2 handles one continuous UTC
-  1h panel with exact 3h/4h/6h/12h/1d derived bars.
+  1h panel with exact 3h/4h/6h/12h/1d derived bars; V3 handles bounded
+  configurable continuous bases and XNYS regular sessions.
 - Session-market intraday aggregation is not yet supported.
 - Symbols are restricted to path-safe identifiers.
 - It does not prove point-in-time universe membership, delisting coverage,

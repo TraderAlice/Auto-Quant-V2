@@ -18,12 +18,23 @@ from .data import normalize_ohlcv
 from .intervals import (
     AGGREGATION_METHOD,
     BASE_INTERVAL,
+    CONTINUOUS_AGGREGATION_METHOD,
+    CONTINUOUS_TERMINAL_POLICY,
     IntervalContractError,
+    SESSION_TERMINAL_POLICY,
+    SUPPORTED_BASE_INTERVALS,
     SUPPORTED_FEATURE_INTERVALS,
+    SUPPORTED_INTERVALS,
+    XNYS_AGGREGATION_METHOD,
+    aggregate_interval_ohlcv,
     aggregate_completed_ohlcv,
+    annualization_periods as infer_annualization_periods,
+    canonical_interval_surface,
+    configurable_interval_surface,
     interval_surface,
     load_multi_interval_asset,
     normalize_feature_intervals,
+    validate_base_ohlcv,
     validate_continuous_hourly_ohlcv,
 )
 from .mandates import (
@@ -224,13 +235,27 @@ class PreparedIntake:
 
     @property
     def multi_interval(self) -> bool:
-        return self.package["schemaVersion"] == 2
+        return self.package["schemaVersion"] in {2, 3}
 
     @property
     def interval_surface(self) -> dict[str, Any] | None:
         if not self.multi_interval:
             return None
-        return interval_surface(self.package["featureIntervals"]).to_dict()
+        if self.package["schemaVersion"] == 2:
+            return interval_surface(
+                self.package["featureIntervals"]
+            ).to_dict()
+        return configurable_interval_surface(
+            self.package["baseInterval"],
+            self.package["featureIntervals"],
+            self.package["market"],
+        ).to_dict()
+
+    @property
+    def annualization_periods(self) -> int:
+        if not self.multi_interval:
+            return 252
+        return infer_annualization_periods(self.assets[0].frame["timestamp"])
 
 
 def _validate_v1_package_manifest(
@@ -701,10 +726,167 @@ def _validate_v2_package_manifest(
     }
 
 
+def _validate_v3_package_manifest(
+    value: dict[str, Any],
+    path: Path,
+) -> dict[str, Any]:
+    required = {
+        "schemaVersion",
+        "kind",
+        "id",
+        "version",
+        "assetClass",
+        "baseInterval",
+        "featureIntervals",
+        "timestampSemantics",
+        "aggregation",
+        "market",
+        "priceAdjustment",
+        "provider",
+        "assets",
+    }
+    issues = _strict_keys(value, required, path)
+    if value.get("schemaVersion") != 3:
+        issues.append(_issue(path, "schema.version", "Expected V3 dataset package"))
+    if value.get("kind") != DATASET_PACKAGE_KIND:
+        issues.append(
+            _issue(
+                f"{path}/kind",
+                "dataset.kind",
+                f"Expected {DATASET_PACKAGE_KIND}",
+            )
+        )
+    market = value.get("market")
+    if not isinstance(market, dict):
+        issues.append(
+            _issue(f"{path}/market", "schema.type", "Market must be an object")
+        )
+        market = {}
+    else:
+        issues.extend(
+            _strict_keys(
+                market,
+                {"clock", "calendar", "timezone"},
+                f"{path}/market",
+            )
+        )
+    try:
+        surface = configurable_interval_surface(
+            value.get("baseInterval"),
+            value.get("featureIntervals", []),
+            market,
+        ).to_dict()
+    except IntervalContractError as error:
+        issues.append(
+            _issue(f"{path}/featureIntervals", error.code, str(error))
+        )
+        surface = None
+    if value.get("timestampSemantics") != "bar-close":
+        issues.append(
+            _issue(
+                f"{path}/timestampSemantics",
+                "dataset.timestamp-semantics",
+                "V3 timestamps must mean bar-close",
+            )
+        )
+    aggregation = value.get("aggregation")
+    if not isinstance(aggregation, dict):
+        issues.append(
+            _issue(
+                f"{path}/aggregation",
+                "schema.type",
+                "aggregation must be an object",
+            )
+        )
+        aggregation = {}
+    else:
+        issues.extend(
+            _strict_keys(
+                aggregation,
+                {"method", "anchor", "terminalBucketPolicy"},
+                f"{path}/aggregation",
+            )
+        )
+    if surface is not None:
+        expected_aggregation = {
+            "method": surface["aggregationMethod"],
+            "anchor": surface["anchor"],
+            "terminalBucketPolicy": surface["terminalBucketPolicy"],
+        }
+        if aggregation != expected_aggregation:
+            issues.append(
+                _issue(
+                    f"{path}/aggregation",
+                    "dataset.aggregation",
+                    "V3 aggregation must match its canonical interval surface",
+                )
+            )
+    common_projection = {
+        **{
+            key: value.get(key)
+            for key in (
+                "kind",
+                "id",
+                "version",
+                "assetClass",
+                "priceAdjustment",
+                "provider",
+                "assets",
+            )
+        },
+        "schemaVersion": 2,
+        "baseInterval": BASE_INTERVAL,
+        "featureIntervals": ["3h"],
+        "timestampSemantics": "bar-close",
+        "aggregation": {
+            "method": AGGREGATION_METHOD,
+            "anchor": "00:00",
+        },
+        "market": {
+            "clock": "continuous",
+            "calendar": "24/7",
+            "timezone": "UTC",
+        },
+    }
+    normalized_common = None
+    try:
+        normalized_common = _validate_v2_package_manifest(
+            common_projection,
+            path,
+        )
+    except AutoQuantValidationError as error:
+        issues.extend(error.issues)
+    if issues:
+        raise AutoQuantValidationError(issues)
+    assert normalized_common is not None and surface is not None
+    return {
+        **value,
+        "id": normalized_common["id"],
+        "version": normalized_common["version"],
+        "assetClass": normalized_common["assetClass"],
+        "baseInterval": surface["baseInterval"],
+        "featureIntervals": surface["featureIntervals"],
+        "aggregation": {
+            "method": surface["aggregationMethod"],
+            "anchor": surface["anchor"],
+            "terminalBucketPolicy": surface["terminalBucketPolicy"],
+        },
+        "market": {
+            "clock": surface["marketClock"],
+            "calendar": surface["calendar"],
+            "timezone": surface["timezone"],
+        },
+        "provider": normalized_common["provider"],
+        "assets": normalized_common["assets"],
+    }
+
+
 def _validate_package_manifest(
     value: dict[str, Any],
     path: Path,
 ) -> dict[str, Any]:
+    if value.get("schemaVersion") == 3:
+        return _validate_v3_package_manifest(value, path)
     if value.get("schemaVersion") == 2:
         return _validate_v2_package_manifest(value, path)
     return _validate_v1_package_manifest(value, path)
@@ -742,6 +924,15 @@ def prepare_project_intake(
     prepared: list[PreparedAsset] = []
     issues: list[ValidationIssue] = []
     expected_dates: list[Any] | None = None
+    package_surface = (
+        configurable_interval_surface(
+            package["baseInterval"],
+            package["featureIntervals"],
+            package["market"],
+        ).to_dict()
+        if package["schemaVersion"] == 3
+        else None
+    )
     for index, asset in enumerate(package["assets"]):
         source = confined_path(
             manifest_path.parent,
@@ -754,16 +945,32 @@ def prepare_project_intake(
             )
             continue
         interval_frames = None
-        if package["schemaVersion"] == 2:
+        if package["schemaVersion"] in {2, 3}:
             try:
-                frame = validate_continuous_hourly_ohlcv(
-                    _read_source(source),
-                    label=asset["symbol"],
+                frame = (
+                    validate_continuous_hourly_ohlcv(
+                        _read_source(source),
+                        label=asset["symbol"],
+                    )
+                    if package["schemaVersion"] == 2
+                    else validate_base_ohlcv(
+                        _read_source(source),
+                        package_surface,
+                        label=asset["symbol"],
+                    )
                 )
                 interval_frames = {
-                    BASE_INTERVAL: frame,
+                    package["baseInterval"]: frame,
                     **{
-                        interval: aggregate_completed_ohlcv(frame, interval)
+                        interval: (
+                            aggregate_completed_ohlcv(frame, interval)
+                            if package["schemaVersion"] == 2
+                            else aggregate_interval_ohlcv(
+                                frame,
+                                package_surface,
+                                interval,
+                            )
+                        )
                         for interval in package["featureIntervals"]
                     },
                 }
@@ -781,7 +988,7 @@ def prepare_project_intake(
         elif dates != expected_dates:
             panel = (
                 "exact base timestamp panel"
-                if package["schemaVersion"] == 2
+                if package["schemaVersion"] in {2, 3}
                 else "exact daily timestamp panel"
             )
             issues.append(
@@ -814,7 +1021,11 @@ def prepare_project_intake(
         )
     observations = len(expected_dates or [])
     if observations < minimum_observations:
-        unit = "base 1h" if package["schemaVersion"] == 2 else "daily"
+        unit = (
+            f"base {package['baseInterval']}"
+            if package["schemaVersion"] in {2, 3}
+            else "daily"
+        )
         issues.append(
             _issue(
                 manifest_path,
@@ -967,7 +1178,7 @@ def materialize_intake_dataset(
         "assets": asset_records,
     }
     if intake.multi_interval:
-        snapshot["schemaVersion"] = 2
+        snapshot["schemaVersion"] = intake.package["schemaVersion"]
         snapshot["intervalSurface"] = intake.interval_surface
     else:
         snapshot["frequency"] = intake.package["frequency"]
@@ -975,7 +1186,12 @@ def materialize_intake_dataset(
     _write_json(snapshot_path, snapshot)
     interval_line = (
         "- Interval surface: `"
-        + " / ".join([BASE_INTERVAL, *intake.package["featureIntervals"]])
+        + " / ".join(
+            [
+                intake.package["baseInterval"],
+                *intake.package["featureIntervals"],
+            ]
+        )
         + "`\n"
         if intake.multi_interval
         else f"- Frequency: `{snapshot['frequency']}`\n"
@@ -1261,9 +1477,11 @@ def _validate_v1_snapshot(
     return issues
 
 
-def _validate_v2_snapshot(
+def _validate_multi_interval_snapshot(
     snapshot: dict[str, Any],
     path: Path,
+    *,
+    schema_version: int,
 ) -> list[ValidationIssue]:
     required = {
         "schemaVersion",
@@ -1286,11 +1504,15 @@ def _validate_v2_snapshot(
     }
     issues = _strict_keys(snapshot, required, path)
     if (
-        snapshot.get("schemaVersion") != 2
+        snapshot.get("schemaVersion") != schema_version
         or snapshot.get("kind") != DATASET_SNAPSHOT_KIND
     ):
         issues.append(
-            _issue(path, "intake.snapshot-schema", "Invalid V2 dataset snapshot")
+            _issue(
+                path,
+                "intake.snapshot-schema",
+                f"Invalid V{schema_version} dataset snapshot",
+            )
         )
     for key in ("id", "version", "assetClass", "template", "studyId"):
         issues.extend(_non_empty(snapshot.get(key), f"{path}/{key}"))
@@ -1316,52 +1538,72 @@ def _validate_v2_snapshot(
         )
         surface = {}
     else:
+        surface_keys = {
+            "baseInterval",
+            "featureIntervals",
+            "timestampSemantics",
+            "marketClock",
+            "timezone",
+            "anchor",
+            "aggregationMethod",
+        }
+        if schema_version == 3:
+            surface_keys |= {"calendar", "terminalBucketPolicy"}
         issues.extend(
             _strict_keys(
                 surface,
-                {
-                    "baseInterval",
-                    "featureIntervals",
-                    "timestampSemantics",
-                    "marketClock",
-                    "timezone",
-                    "anchor",
-                    "aggregationMethod",
-                },
+                surface_keys,
                 f"{path}/intervalSurface",
             )
         )
     try:
-        expected_surface = interval_surface(
-            surface.get("featureIntervals", [])
-        ).to_dict()
+        expected_surface = canonical_interval_surface(
+            surface,
+            schema_version=schema_version,
+        )
         if surface != expected_surface:
             issues.append(
                 _issue(
                     f"{path}/intervalSurface",
                     "intake.snapshot-interval-surface",
-                    "Snapshot interval surface differs from fixed V2 authority",
+                    "Snapshot interval surface differs from fixed authority",
                 )
             )
     except IntervalContractError as error:
         issues.append(
             _issue(f"{path}/intervalSurface", error.code, str(error))
         )
-        expected_surface = interval_surface([]).to_dict()
+        expected_surface = (
+            interval_surface([]).to_dict()
+            if schema_version == 2
+            else {
+                "baseInterval": snapshot.get("baseInterval", BASE_INTERVAL),
+                "featureIntervals": [],
+            }
+        )
     expected_intervals = [
         expected_surface["baseInterval"],
         *expected_surface["featureIntervals"],
     ]
-    if snapshot.get("market") != {
-        "clock": "continuous",
-        "calendar": "24/7",
-        "timezone": "UTC",
-    }:
+    expected_market = (
+        {
+            "clock": "continuous",
+            "calendar": "24/7",
+            "timezone": "UTC",
+        }
+        if schema_version == 2
+        else {
+            "clock": expected_surface.get("marketClock"),
+            "calendar": expected_surface.get("calendar"),
+            "timezone": expected_surface.get("timezone"),
+        }
+    )
+    if snapshot.get("market") != expected_market:
         issues.append(
             _issue(
                 f"{path}/market",
                 "intake.snapshot-market",
-                "V2 snapshot market must be continuous 24/7 UTC",
+                f"V{schema_version} snapshot market differs from interval authority",
             )
         )
     provider = snapshot.get("provider")
@@ -1538,10 +1780,34 @@ def _validate_v2_snapshot(
     return issues
 
 
+def _validate_v2_snapshot(
+    snapshot: dict[str, Any],
+    path: Path,
+) -> list[ValidationIssue]:
+    return _validate_multi_interval_snapshot(
+        snapshot,
+        path,
+        schema_version=2,
+    )
+
+
+def _validate_v3_snapshot(
+    snapshot: dict[str, Any],
+    path: Path,
+) -> list[ValidationIssue]:
+    return _validate_multi_interval_snapshot(
+        snapshot,
+        path,
+        schema_version=3,
+    )
+
+
 def _validate_snapshot(
     snapshot: dict[str, Any],
     path: Path,
 ) -> list[ValidationIssue]:
+    if snapshot.get("schemaVersion") == 3:
+        return _validate_v3_snapshot(snapshot, path)
     if snapshot.get("schemaVersion") == 2:
         return _validate_v2_snapshot(snapshot, path)
     return _validate_v1_snapshot(snapshot, path)
@@ -1642,7 +1908,7 @@ def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
             continue
         normalized_rows = (
             asset.get("intervals", [])
-            if snapshot.get("schemaVersion") == 2
+            if snapshot.get("schemaVersion") in {2, 3}
             else [asset]
         )
         for row in normalized_rows:
@@ -1670,7 +1936,7 @@ def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
                     )
                 )
         if (
-            snapshot.get("schemaVersion") == 2
+            snapshot.get("schemaVersion") in {2, 3}
             and isinstance(asset.get("symbol"), str)
             and isinstance(snapshot.get("timeRange"), dict)
         ):
@@ -1753,12 +2019,33 @@ def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
     mandate_path = project.root_dir / PORTFOLIO_MANDATE
     if requires_mandate or mandate_path.exists() or mandate_path.is_symlink():
         mandate = load_portfolio_mandate(mandate_path)
+        annualization = 252
+        if snapshot.get("schemaVersion") in {2, 3} and snapshot.get("assets"):
+            first_asset = snapshot["assets"][0]
+            if isinstance(first_asset, dict):
+                base_interval = snapshot["intervalSurface"]["baseInterval"]
+                base_record = next(
+                    (
+                        row
+                        for row in first_asset.get("intervals", [])
+                        if row.get("interval") == base_interval
+                    ),
+                    None,
+                )
+                if isinstance(base_record, dict):
+                    normalized_path = confined_path(
+                        project.root_dir
+                        / project.manifest.directories["data"],
+                        base_record.get("normalizedPath", ""),
+                        f"{snapshot_path}/assets/0/intervals",
+                    )
+                    annualization = infer_annualization_periods(
+                        _read_source(normalized_path)["timestamp"]
+                    )
         expected_mandate = build_portfolio_mandate(
             request,
             list(snapshot.get("universe", [])),
-            annualization_periods=(
-                24 * 365 if snapshot.get("schemaVersion") == 2 else 252
-            ),
+            annualization_periods=annualization,
         )
         if mandate != expected_mandate:
             issues.append(
@@ -1912,22 +2199,100 @@ OHLCV_DATASET_PACKAGE_V2_JSON_SCHEMA: dict[str, Any] = {
         "assets": OHLCV_DATASET_PACKAGE_V1_JSON_SCHEMA["properties"]["assets"],
     },
 }
+OHLCV_DATASET_PACKAGE_V3_JSON_SCHEMA: dict[str, Any] = {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "AutoQuant configurable session-aware OHLCV dataset package",
+    "type": "object",
+    "additionalProperties": False,
+    "required": [
+        "schemaVersion",
+        "kind",
+        "id",
+        "version",
+        "assetClass",
+        "baseInterval",
+        "featureIntervals",
+        "timestampSemantics",
+        "aggregation",
+        "market",
+        "priceAdjustment",
+        "provider",
+        "assets",
+    ],
+    "properties": {
+        "schemaVersion": {"const": 3},
+        "kind": {"const": DATASET_PACKAGE_KIND},
+        "id": {"type": "string", "minLength": 1},
+        "version": {"type": "string", "minLength": 1},
+        "assetClass": {"type": "string", "minLength": 1},
+        "baseInterval": {"enum": list(SUPPORTED_BASE_INTERVALS)},
+        "featureIntervals": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": True,
+            "items": {"enum": list(SUPPORTED_INTERVALS)},
+        },
+        "timestampSemantics": {"const": "bar-close"},
+        "aggregation": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["method", "anchor", "terminalBucketPolicy"],
+            "properties": {
+                "method": {
+                    "enum": [
+                        CONTINUOUS_AGGREGATION_METHOD,
+                        XNYS_AGGREGATION_METHOD,
+                    ]
+                },
+                "anchor": {"enum": ["00:00", "market-open"]},
+                "terminalBucketPolicy": {
+                    "enum": [
+                        CONTINUOUS_TERMINAL_POLICY,
+                        SESSION_TERMINAL_POLICY,
+                    ]
+                },
+            },
+        },
+        "market": {
+            "oneOf": [
+                {
+                    "const": {
+                        "clock": "continuous",
+                        "calendar": "24/7",
+                        "timezone": "UTC",
+                    }
+                },
+                {
+                    "const": {
+                        "clock": "session",
+                        "calendar": "XNYS",
+                        "timezone": "America/New_York",
+                    }
+                },
+            ]
+        },
+        "priceAdjustment": {"enum": sorted(PRICE_ADJUSTMENTS)},
+        "provider": OHLCV_DATASET_PACKAGE_V1_JSON_SCHEMA["properties"]["provider"],
+        "assets": OHLCV_DATASET_PACKAGE_V1_JSON_SCHEMA["properties"]["assets"],
+    },
+}
 OHLCV_DATASET_PACKAGE_JSON_SCHEMA: dict[str, Any] = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "title": "AutoQuant external OHLCV dataset package",
     "type": "object",
     "properties": {
-        "schemaVersion": {"enum": [1, 2]},
+        "schemaVersion": {"enum": [1, 2, 3]},
         "kind": {"const": DATASET_PACKAGE_KIND},
         "frequency": {"const": "1d"},
-        "baseInterval": {"const": BASE_INTERVAL},
+        "baseInterval": {"enum": list(SUPPORTED_BASE_INTERVALS)},
         "featureIntervals": {
             "type": "array",
-            "items": {"enum": list(SUPPORTED_FEATURE_INTERVALS)},
+            "items": {"enum": list(SUPPORTED_INTERVALS)},
         },
     },
     "oneOf": [
         OHLCV_DATASET_PACKAGE_V1_JSON_SCHEMA,
         OHLCV_DATASET_PACKAGE_V2_JSON_SCHEMA,
+        OHLCV_DATASET_PACKAGE_V3_JSON_SCHEMA,
     ],
 }

@@ -132,6 +132,14 @@ assets, research universe, coverage, source hashes, and canonical hashes. V2
 also fixes base/features, bar-close semantics, continuous UTC clock, midnight
 anchor, aggregation method, and per-interval inventories. Fixed loading
 recomputes derived files from 1h before causal backward-as-of alignment.
+
+V3 uses the same directory shape but the first directory is the declared base
+interval and the derived set is package-specific. Its interval surface also
+locks `calendar` and `terminalBucketPolicy`. Continuous V3 accepts bounded
+base cadences below `1d`; XNYS V3 accepts regular-session bases through `1h`
+and verifies exact scheduled closes before materializing session-anchored
+features. The loader always recomputes every derived file from the locked base
+and rejects a rehashed mismatch.
 `intake.json` binds request, snapshot, primary construction Study, dataset, and
 the Study input identity at handoff. Editable source may evolve; its current
 hash determines whether existing Run evidence is stale rather than corrupting

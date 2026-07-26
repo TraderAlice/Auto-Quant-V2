@@ -9,7 +9,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from .intervals import SUPPORTED_FEATURE_INTERVALS
+from .intervals import SUPPORTED_INTERVALS
 
 
 COMPONENT_NAME = re.compile(r"^[a-z][a-z0-9_]{0,47}$")
@@ -21,7 +21,7 @@ MAX_HYPOTHESIS_LENGTH = 240
 BASE_INTERVAL_CLAIM = "base"
 VALID_INTERVAL_CLAIMS = {
     BASE_INTERVAL_CLAIM,
-    *SUPPORTED_FEATURE_INTERVALS,
+    *SUPPORTED_INTERVALS,
 }
 
 
@@ -124,7 +124,7 @@ def _metadata(module: Any) -> dict[str, dict[str, Any]] | None:
                 "factor.component-intervals",
                 f"{name} intervals must contain 1..{MAX_INTERVAL_CLAIMS} "
                 "unique values from base, "
-                + ", ".join(SUPPORTED_FEATURE_INTERVALS),
+                + ", ".join(SUPPORTED_INTERVALS),
             )
         normalized[name] = {
             "label": label.strip(),
@@ -195,7 +195,7 @@ def compute_factor_components(
         )
     available_intervals = {
         interval
-        for interval in SUPPORTED_FEATURE_INTERVALS
+        for interval in SUPPORTED_INTERVALS
         if f"close__{interval}" in frame.columns
     }
     for name in columns:

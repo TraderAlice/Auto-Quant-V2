@@ -125,13 +125,19 @@ namespaced value joins backward only after its close. It records the interval
 surface, provider, retrieval, calendar, terms, and price-adjustment claims;
 hashes source and normalized bytes; replaces the synthetic Study dataset
 identity; and atomically publishes the Project. It does not download data,
-authenticate provider claims, fill missing bars, or synthesize session-market
-intraday calendars.
+authenticate provider claims, or fill missing bars.
+
+V3 accepts a bounded configurable base interval and either continuous UTC or
+XNYS regular-session authority. Continuous features must be larger exact
+multiples of the base. XNYS uses exchange-scheduled opens/closes, including
+DST, holidays, and early closes; `1d` is one exchange session and a final
+short intraday bucket completes at the scheduled close. Extended hours and
+unscheduled halts remain unsupported.
 
 The JSON result contains Project-level `request.json`, `intake.json`,
 `data/ohlcv/snapshot.json`, three verified Study identities, and exact next
 actions for inspecting the program and advancing its recommended lane.
-V2 RunResults copy the locked `dataset.intervalSurface`, and Reports, Studio,
+V2/V3 RunResults copy the locked `dataset.intervalSurface`, and Reports, Studio,
 and Dossiers project that same evidence rather than inferring intervals from
 filenames.
 `project program --json` is the stable Agent read model for lane phase, current

@@ -40,10 +40,145 @@ from autoquant.workspace import (
     initialize_workspace,
     load_workspace,
 )
-from tests.intake_helpers import write_intake_inputs, write_multi_interval_inputs
+from tests.intake_helpers import (
+    write_configurable_continuous_inputs,
+    write_intake_inputs,
+    write_multi_interval_inputs,
+    write_session_interval_inputs,
+)
 
 
 class RequestDrivenIntakeTests(unittest.TestCase):
+    def test_v3_continuous_base_interval_is_configurable_end_to_end(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            request_path, package_path = write_configurable_continuous_inputs(
+                root
+            )
+            prepared = prepare_project_intake(
+                request_path,
+                package_path,
+                "ohlcv-factor-lab",
+            )
+            self.assertEqual(prepared.package["baseInterval"], "15m")
+            self.assertEqual(prepared.annualization_periods, 365 * 24 * 4)
+            self.assertEqual(
+                prepared.interval_surface,
+                {
+                    "baseInterval": "15m",
+                    "featureIntervals": ["30m", "1h", "4h"],
+                    "timestampSemantics": "bar-close",
+                    "marketClock": "continuous",
+                    "calendar": "24/7",
+                    "timezone": "UTC",
+                    "anchor": "00:00",
+                    "aggregationMethod": (
+                        "complete-continuous-utc-midnight-bar-close-v2"
+                    ),
+                    "terminalBucketPolicy": "omit-incomplete",
+                },
+            )
+            project = create_project(
+                initialize_workspace(root / "workspace").root_dir,
+                "fifteen-minute-factor",
+                template=prepared.template,
+                template_intake=prepared,
+            )
+            run = execute_study(project, OHLCV_STUDY_ID)
+            self.assertEqual(
+                run.result["status"],
+                "succeeded",
+                run.result["errors"],
+            )
+            self.assertEqual(
+                run.result["dataset"]["intervalSurface"],
+                prepared.interval_surface,
+            )
+            jsonschema.validate(run.result, RUN_RESULT_JSON_SCHEMA)
+
+    def test_v3_xnys_session_surface_runs_across_research_desk(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            request_path, package_path = write_session_interval_inputs(root)
+            package = json.loads(package_path.read_text(encoding="utf-8"))
+            jsonschema.Draft202012Validator(
+                OHLCV_DATASET_PACKAGE_JSON_SCHEMA,
+                format_checker=jsonschema.FormatChecker(),
+            ).validate(package)
+            prepared = prepare_project_intake(
+                request_path,
+                package_path,
+                "ohlcv-research-desk",
+            )
+            self.assertEqual(prepared.package["schemaVersion"], 3)
+            self.assertEqual(prepared.annualization_periods, 252 * 7)
+            self.assertEqual(
+                prepared.interval_surface,
+                {
+                    "baseInterval": "1h",
+                    "featureIntervals": ["3h", "1d"],
+                    "timestampSemantics": "bar-close",
+                    "marketClock": "session",
+                    "calendar": "XNYS",
+                    "timezone": "America/New_York",
+                    "anchor": "market-open",
+                    "aggregationMethod": (
+                        "complete-xnys-regular-session-bar-close-v1"
+                    ),
+                    "terminalBucketPolicy": "complete-at-session-close",
+                },
+            )
+            project = create_project(
+                initialize_workspace(root / "workspace").root_dir,
+                "xnys-research-desk",
+                template=prepared.template,
+                template_intake=prepared,
+            )
+            intake = load_project_intake(project)
+            self.assertIsNotNone(intake)
+            mandate = load_portfolio_mandate(
+                project.root_dir / PORTFOLIO_MANDATE
+            )
+            self.assertEqual(
+                mandate["construction"]["riskPolicy"][
+                    "annualizationPeriods"
+                ],
+                252 * 7,
+            )
+            runs = [
+                execute_study(project, study_id)
+                for study_id in (
+                    OHLCV_STUDY_ID,
+                    PORTFOLIO_STUDY_ID,
+                    RL_STUDY_ID,
+                )
+            ]
+            for run in runs:
+                self.assertEqual(
+                    run.result["status"],
+                    "succeeded",
+                    run.result["errors"],
+                )
+                self.assertEqual(
+                    run.result["dataset"]["intervalSurface"],
+                    prepared.interval_surface,
+                )
+                jsonschema.validate(run.result, RUN_RESULT_JSON_SCHEMA)
+            self.assertEqual(
+                runs[1].result["metrics"]["portfolio"]["validation"]["net"][
+                    "annualization_periods"
+                ],
+                252 * 7,
+            )
+            observed = build_studio_snapshot(root / "workspace")[
+                "projects"
+            ][0]
+            self.assertTrue(observed["valid"], observed["diagnostics"])
+            self.assertEqual(
+                observed["intake"]["dataset"]["intervalSurface"],
+                prepared.interval_surface,
+            )
+
     def test_v2_multi_interval_package_prepares_complete_locked_surface(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             request_path, package_path = write_multi_interval_inputs(

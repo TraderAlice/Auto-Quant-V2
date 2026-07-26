@@ -318,9 +318,7 @@ def _write_portfolio_mandate(
         intake.request if intake is not None else None,
         universe,
         annualization_periods=(
-            24 * 365
-            if intake is not None and intake.multi_interval
-            else 252
+            intake.annualization_periods if intake is not None else 252
         ),
     )
     (project.root_dir / PORTFOLIO_MANDATE).write_text(
