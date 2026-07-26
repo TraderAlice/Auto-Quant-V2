@@ -13,6 +13,12 @@ from typing import Any, Callable
 import numpy as np
 import pandas as pd
 
+from autoquant.intervals import (
+    IntervalContractError,
+    annualization_periods,
+    load_multi_interval_asset,
+    timestamp_label,
+)
 from autoquant.mandates import (
     PORTFOLIO_MANDATE,
     load_portfolio_mandate,
@@ -132,6 +138,22 @@ def _load_mandate() -> dict[str, Any]:
 
 
 def _load_asset(data_root: Path, asset: str, start: str, end: str) -> pd.DataFrame:
+    try:
+        multi_interval = load_multi_interval_asset(
+            data_root,
+            asset,
+            start=start,
+            end=end,
+        )
+    except IntervalContractError as error:
+        raise JudgeFailure(error.code, str(error)) from error
+    if multi_interval is not None:
+        if len(multi_interval) < MIN_OBSERVATIONS:
+            raise JudgeFailure(
+                "dataset.observations",
+                f"{asset} has fewer than {MIN_OBSERVATIONS} base observations",
+            )
+        return multi_interval
     source = (data_root / "ohlcv" / f"{asset}.csv").resolve()
     if data_root not in source.parents or not source.is_file():
         raise JudgeFailure("dataset.asset", f"Missing confined OHLCV file for {asset}")
@@ -516,7 +538,7 @@ def _rollout_action_rows(
                 "fold": fold,
                 "seed": seed,
                 "split": split,
-                "timestamp": timestamp.date().isoformat(),
+                "timestamp": timestamp_label(timestamp),
                 "action": rollout.actions.loc[timestamp],
                 "reward": float(daily["reward"]),
                 "gross_return": float(daily["gross_return"]),
@@ -618,7 +640,7 @@ def _rollout_rationale_rows(
             "fold": fold,
             "seed": seed,
             "split": split,
-            "timestamp": timestamp.date().isoformat(),
+            "timestamp": timestamp_label(timestamp),
             "previousAction": previous_action,
             "selectedAction": selected_action,
             "runnerUpAction": runner_up_action,
@@ -689,7 +711,7 @@ def _rollout_opportunity_rows(
             "fold": fold,
             "seed": seed,
             "split": split,
-            "timestamp": row["timestamp"].date().isoformat(),
+            "timestamp": timestamp_label(row["timestamp"]),
         }
         for row in rows
     ]
@@ -756,7 +778,7 @@ def _rollout_incremental_rows(
             "fold": fold,
             "seed": seed,
             "split": split,
-            "timestamp": timestamp.date().isoformat(),
+            "timestamp": timestamp_label(timestamp),
             "baselineName": baseline_name,
             "policyAction": policy_action,
             "baselineAction": baseline_action,
@@ -843,8 +865,11 @@ def _relative_path_statistics(
         [float(row["baselineNetReturn"]) for row in rows],
         dtype=float,
     )
-    annualized_active_return = float(active.mean() * 252.0)
-    tracking_error = float(active.std(ddof=0) * math.sqrt(252.0))
+    periods = annualization_periods(
+        pd.to_datetime([row["timestamp"] for row in rows])
+    )
+    annualized_active_return = float(active.mean() * periods)
+    tracking_error = float(active.std(ddof=0) * math.sqrt(periods))
     relative_path = np.cumprod((1.0 + policy) / (1.0 + baseline))
     running_peak = np.maximum.accumulate(
         np.maximum(relative_path, 1.0)
@@ -2012,8 +2037,8 @@ def _evaluate() -> tuple[
             fold_metrics[fold_name] = {
                 "ranges": {
                     name: {
-                        "start": index[0].date().isoformat(),
-                        "end": index[-1].date().isoformat(),
+                        "start": timestamp_label(index[0]),
+                        "end": timestamp_label(index[-1]),
                         "observations": len(index),
                     }
                     for name, index in split.items()
@@ -2040,8 +2065,8 @@ def _evaluate() -> tuple[
         fold_metrics[fold_name] = {
             "ranges": {
                 name: {
-                    "start": index[0].date().isoformat(),
-                    "end": index[-1].date().isoformat(),
+                    "start": timestamp_label(index[0]),
+                    "end": timestamp_label(index[-1]),
                     "observations": len(index),
                 }
                 for name, index in split.items()
@@ -2372,7 +2397,7 @@ def main() -> None:
         pd.DataFrame(action_rows).to_csv(
             artifacts / "policy-actions.csv",
             index=False,
-            float_format="%.12g",
+            float_format="%.17g",
         )
         (artifacts / "policy-rationales.json").write_text(
             json.dumps(rationales, indent=2, sort_keys=True) + "\n",

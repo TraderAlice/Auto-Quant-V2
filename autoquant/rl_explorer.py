@@ -6,11 +6,11 @@ import csv
 import json
 import math
 from collections import Counter, defaultdict
-from datetime import date
 from itertools import combinations
 from pathlib import Path
 from typing import Any
 
+from .intervals import annualization_periods, timestamp_label
 from .mandates import (
     PORTFOLIO_MANDATE,
     validate_portfolio_mandate,
@@ -148,13 +148,25 @@ def _integer(value: Any, path: Path | str, *, minimum: int = 0) -> int:
 
 def _session_date(value: Any, path: Path | str) -> str:
     if not isinstance(value, str):
-        _fail(path, "rl.timestamp", "Timestamp must be an ISO session date")
+        _fail(
+            path,
+            "rl.timestamp",
+            "Timestamp must be an ISO date or UTC date-time",
+        )
     try:
-        parsed = date.fromisoformat(value)
-    except ValueError:
-        _fail(path, "rl.timestamp", "Timestamp must be an ISO session date")
-    if parsed.isoformat() != value:
-        _fail(path, "rl.timestamp", "Timestamp must be an ISO session date")
+        normalized = timestamp_label(value)
+    except (TypeError, ValueError):
+        _fail(
+            path,
+            "rl.timestamp",
+            "Timestamp must be an ISO date or UTC date-time",
+        )
+    if normalized != value:
+        _fail(
+            path,
+            "rl.timestamp",
+            "Timestamp must be a canonical ISO date or UTC date-time",
+        )
     return value
 
 
@@ -2874,8 +2886,11 @@ def _relative_path_statistics(
     standard_deviation = math.sqrt(
         sum((value - mean_active) ** 2 for value in active) / len(active)
     )
-    annualized_active_return = mean_active * 252.0
-    tracking_error = standard_deviation * math.sqrt(252.0)
+    periods = annualization_periods(
+        [row["timestamp"] for row in rows]
+    )
+    annualized_active_return = mean_active * periods
+    tracking_error = standard_deviation * math.sqrt(periods)
     relative_path = 1.0
     running_peak = 1.0
     maximum_drawdown = 0.0

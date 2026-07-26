@@ -99,8 +99,8 @@ exact reason. See [[docs/design/research-selection-integrity]] and
 [[docs/design/selection-adjusted-research-evidence]].
 
 `aq project intake` uses one of these same fixed templates but replaces the
-construction fixture with a validated caller-supplied daily-OHLCV snapshot.
-The resulting Project adds:
+construction fixture with a validated caller-supplied OHLCV snapshot. V1
+stores a daily session panel:
 
 ```text
 request.json
@@ -112,8 +112,26 @@ data/ohlcv/
 └── snapshot.json
 ```
 
+V2 stores one authoritative continuous UTC 1h panel plus deterministic
+completed-bar aggregates:
+
+```text
+data/ohlcv/
+├── 1h/<SYMBOL>.csv
+├── 3h/<SYMBOL>.csv
+├── 4h/<SYMBOL>.csv
+├── 6h/<SYMBOL>.csv
+├── 12h/<SYMBOL>.csv
+├── 1d/<SYMBOL>.csv
+├── README.md
+└── snapshot.json
+```
+
 `snapshot.json` preserves package/provider/market/adjustment claims, requested
-assets, research universe, coverage, source hashes, and canonical hashes.
+assets, research universe, coverage, source hashes, and canonical hashes. V2
+also fixes base/features, bar-close semantics, continuous UTC clock, midnight
+anchor, aggregation method, and per-interval inventories. Fixed loading
+recomputes derived files from 1h before causal backward-as-of alignment.
 `intake.json` binds request, snapshot, primary construction Study, dataset, and
 the Study input identity at handoff. Editable source may evolve; its current
 hash determines whether existing Run evidence is stale rather than corrupting
@@ -360,8 +378,8 @@ runs/
 - Harness id/version/commit/dirty/source/Python identity;
 - Project, Study, subject/version, and editable source identity;
 - optional fixed dependency paths, aggregate hash, and source-file hashes;
-- dataset id/version, asset class, universe, date range, dataset hash, and
-  optional content-locked source hashes;
+- dataset id/version, asset class, universe, date range, dataset hash, optional
+  content-locked source hashes, and the V2 interval surface when present;
 - Judge entrypoint and fixed source hashes;
 - objective and execution details;
 - nested metrics, immutable artifact references, and structured errors.

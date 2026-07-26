@@ -173,6 +173,9 @@ collision.
    produces a derived artifact or new Run rather than changing them.
 8. A dependency-bearing RunResult records paths, aggregate hash, and
    `sourceHashes`; `inputs/dependency-sources/` preserves those exact bytes.
+9. A V2 multi-interval RunResult records the canonical
+   `dataset.intervalSurface`; Reports, Studio, and Dossiers preserve that
+   content-locked disclosure.
 
 ## Non-goals
 

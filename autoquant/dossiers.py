@@ -933,6 +933,15 @@ def _readiness(
                 "assetClass": intake["dataset"]["assetClass"],
                 "universe": intake["dataset"]["universe"],
                 "timeRange": intake["dataset"]["timeRange"],
+                **(
+                    {
+                        "intervalSurface": intake["dataset"][
+                            "intervalSurface"
+                        ]
+                    }
+                    if "intervalSurface" in intake["dataset"]
+                    else {}
+                ),
                 "datasetHash": intake["manifest"]["datasetHash"],
                 "snapshotHash": intake["manifest"]["datasetSnapshotHash"],
             }

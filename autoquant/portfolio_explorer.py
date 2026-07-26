@@ -7,12 +7,12 @@ import json
 import math
 from bisect import bisect_right
 from dataclasses import dataclass
-from datetime import date
 from pathlib import Path
 from typing import Any
 
 import pandas as pd
 
+from .intervals import annualization_periods, timestamp_label
 from .mandates import (
     PORTFOLIO_MANDATE,
     validate_portfolio_mandate,
@@ -54,6 +54,18 @@ MAX_EPISODE_ROWS = 100_000
 MAX_NEIGHBORHOOD_ROWS = 100_000
 MAX_UNIVERSE = 256
 MAX_RECENT_TRANSITIONS = 40
+TIMESTAMP_JSON_SCHEMA = {
+    "anyOf": [
+        {"type": "string", "format": "date"},
+        {"type": "string", "format": "date-time"},
+    ]
+}
+NULLABLE_TIMESTAMP_JSON_SCHEMA = {
+    "anyOf": [
+        {"type": "null"},
+        *TIMESTAMP_JSON_SCHEMA["anyOf"],
+    ]
+}
 MECHANICAL_DECISION_METHOD = (
     "stateful-percentile-target-risk-execution-chain-v1"
 )
@@ -327,13 +339,25 @@ def _optional_finite(value: Any, path: Path | str) -> float | None:
 
 def _session_date(value: Any, path: Path | str) -> str:
     if not isinstance(value, str):
-        _fail(path, "portfolio.timestamp", "Timestamp must be an ISO session date")
+        _fail(
+            path,
+            "portfolio.timestamp",
+            "Timestamp must be an ISO date or UTC date-time",
+        )
     try:
-        parsed = date.fromisoformat(value)
-    except ValueError:
-        _fail(path, "portfolio.timestamp", "Timestamp must be an ISO session date")
-    if parsed.isoformat() != value:
-        _fail(path, "portfolio.timestamp", "Timestamp must be an ISO session date")
+        normalized = timestamp_label(value)
+    except (TypeError, ValueError):
+        _fail(
+            path,
+            "portfolio.timestamp",
+            "Timestamp must be an ISO date or UTC date-time",
+        )
+    if normalized != value:
+        _fail(
+            path,
+            "portfolio.timestamp",
+            "Timestamp must be a canonical ISO date or UTC date-time",
+        )
     return value
 
 
@@ -1753,7 +1777,8 @@ def _parameter_neighborhood_projection(
                     frame["oneWayTurnover"].mean()
                 ),
                 "annualized_one_way_turnover": float(
-                    frame["oneWayTurnover"].mean() * 252
+                    frame["oneWayTurnover"].mean()
+                    * annualization_periods(frame.index)
                 ),
                 "total_cost_drag": float(frame["cost"].sum()),
                 "rebalance_rate": float(frame["rebalanced"].mean()),
@@ -2317,12 +2342,14 @@ def _strategy_viability_projection(
             )
         benchmark_returns = pd.Series(
             [row["benchmark_return"] for row in rows],
+            index=pd.to_datetime([row["timestamp"] for row in rows]),
             dtype=float,
         )
         reconstructed = {
             "gross": performance_metrics(
                 pd.Series(
                     [row["gross_return"] for row in rows],
+                    index=benchmark_returns.index,
                     dtype=float,
                 ),
                 benchmark_returns,
@@ -2330,6 +2357,7 @@ def _strategy_viability_projection(
             "net": performance_metrics(
                 pd.Series(
                     [row["net_return"] for row in rows],
+                    index=benchmark_returns.index,
                     dtype=float,
                 ),
                 benchmark_returns,
@@ -2364,7 +2392,9 @@ def _strategy_viability_projection(
             "annualized_one_way_turnover": (
                 sum(row["one_way_turnover"] for row in rows)
                 / len(rows)
-                * 252.0
+                * annualization_periods(
+                    [row["timestamp"] for row in rows]
+                )
             ),
             "total_cost_drag": sum(row["cost"] for row in rows),
             "rebalance_rate": (
@@ -2414,6 +2444,7 @@ def _strategy_viability_projection(
                         - row["traded_notional"] * cost_bps / 10_000.0
                         for row in rows
                     ],
+                    index=benchmark_returns.index,
                     dtype=float,
                 ),
                 benchmark_returns,
@@ -2830,7 +2861,8 @@ def _signal_monetization_projection(
             )
 
         dates = coverage["decisionDates"]
-        annualize = lambda value: value / dates * 252.0
+        periods = annualization_periods(selected_dates)
+        annualize = lambda value: value / dates * periods
         stages = [
             {
                 "id": stage_id,
@@ -4481,7 +4513,7 @@ def _diversification_stress_projection(
     )
     root_annualization = math.sqrt(annualization)
     reconstructed_returns = pd.DataFrame(
-        index=pd.to_datetime(daily.dates, format="%Y-%m-%d"),
+        index=pd.to_datetime(daily.dates, format="ISO8601"),
         columns=universe,
         dtype=float,
     )
@@ -5525,7 +5557,7 @@ def _position_lifecycle_projection(
     ledger = pd.DataFrame(ordered_decisions)
     ledger["timestamp"] = pd.to_datetime(
         ledger["timestamp"],
-        format="%Y-%m-%d",
+        format="ISO8601",
     )
     roles = {
         "train": "training",
@@ -5541,7 +5573,7 @@ def _position_lifecycle_projection(
                 timestamp
                 for timestamp in pd.to_datetime(
                     daily.dates,
-                    format="%Y-%m-%d",
+                    format="ISO8601",
                 )
                 if pd.Timestamp(split["start"])
                 <= timestamp
@@ -5680,22 +5712,16 @@ def _position_lifecycle_projection(
                 "role": row["role"],
                 "asset": row["asset"],
                 "side": row["side"],
-                "entryTimestamp": pd.Timestamp(
-                    row["entry_timestamp"]
-                ).date().isoformat(),
+                "entryTimestamp": timestamp_label(row["entry_timestamp"]),
                 "lastEarningTimestamp": (
                     None
                     if pd.isna(row["last_earning_timestamp"])
-                    else pd.Timestamp(
-                        row["last_earning_timestamp"]
-                    ).date().isoformat()
+                    else timestamp_label(row["last_earning_timestamp"])
                 ),
                 "exitTimestamp": (
                     None
                     if pd.isna(row["exit_timestamp"])
-                    else pd.Timestamp(
-                        row["exit_timestamp"]
-                    ).date().isoformat()
+                    else timestamp_label(row["exit_timestamp"])
                 ),
                 "entryAction": row["entry_action"],
                 "exitAction": row["exit_action"],
@@ -5945,9 +5971,9 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
             "additionalProperties": False,
             "required": ["start", "end", "signalEnd", "role"],
             "properties": {
-                "start": {"type": "string", "format": "date"},
-                "end": {"type": "string", "format": "date"},
-                "signalEnd": {"type": "string", "format": "date"},
+                "start": TIMESTAMP_JSON_SCHEMA,
+                "end": TIMESTAMP_JSON_SCHEMA,
+                "signalEnd": TIMESTAMP_JSON_SCHEMA,
                 "role": {"type": "string", "minLength": 1},
             },
         },
@@ -5973,7 +5999,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 "weights",
             ],
             "properties": {
-                "timestamp": {"type": "string", "format": "date"},
+                "timestamp": TIMESTAMP_JSON_SCHEMA,
                 "split": {"enum": ["train", "validation", "test"]},
                 "netGrowth": {"type": "number"},
                 "grossGrowth": {"type": "number"},
@@ -6164,7 +6190,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 "regime",
             ],
             "properties": {
-                "timestamp": {"type": "string", "format": "date"},
+                "timestamp": TIMESTAMP_JSON_SCHEMA,
                 "asset": {"type": "string", "minLength": 1},
                 "priorSignalState": {"enum": [-1, 0, 1]},
                 "signalState": {"enum": [-1, 0, 1]},
@@ -6375,7 +6401,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 "largestAbsoluteComponentRiskContributor",
             ],
             "properties": {
-                "timestamp": {"type": "string", "format": "date"},
+                "timestamp": TIMESTAMP_JSON_SCHEMA,
                 "activeAssets": {"type": "integer", "minimum": 1},
                 "covarianceObservations": {
                     "type": "integer",
@@ -6827,14 +6853,12 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                             "type": "integer",
                             "minimum": 0,
                         },
-                        "maximumUnderwaterStart": {
-                            "type": ["string", "null"],
-                            "format": "date",
-                        },
-                        "maximumUnderwaterEnd": {
-                            "type": ["string", "null"],
-                            "format": "date",
-                        },
+                        "maximumUnderwaterStart": (
+                            NULLABLE_TIMESTAMP_JSON_SCHEMA
+                        ),
+                        "maximumUnderwaterEnd": (
+                            NULLABLE_TIMESTAMP_JSON_SCHEMA
+                        ),
                         "currentUnderwaterBars": {
                             "type": "integer",
                             "minimum": 0,
@@ -7384,10 +7408,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                         "grossTotalReturn": {"type": "number"},
                         "benchmarkTotalReturn": {"type": "number"},
                         "maximumDrawdown": {"type": "number"},
-                        "maximumDrawdownAt": {
-                            "type": "string",
-                            "format": "date",
-                        },
+                        "maximumDrawdownAt": TIMESTAMP_JSON_SCHEMA,
                         "totalOneWayTurnover": {
                             "type": "number",
                             "minimum": 0,
@@ -7396,10 +7417,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                             "type": "number",
                             "minimum": 0,
                         },
-                        "maximumOneWayTurnoverAt": {
-                            "type": "string",
-                            "format": "date",
-                        },
+                        "maximumOneWayTurnoverAt": TIMESTAMP_JSON_SCHEMA,
                         "totalCost": {"type": "number", "minimum": 0},
                         "rebalanceDays": {"type": "integer", "minimum": 0},
                     },
@@ -7440,7 +7458,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 "positions",
             ],
             "properties": {
-                "timestamp": {"type": "string", "format": "date"},
+                "timestamp": TIMESTAMP_JSON_SCHEMA,
                 "historicalResearchWeights": {"const": True},
                 "grossExposure": {"type": "number", "minimum": 0},
                 "netExposure": {"type": "number"},
@@ -7521,7 +7539,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
             ],
             "properties": {
                 "method": {"const": MECHANICAL_DECISION_METHOD},
-                "timestamp": {"type": "string", "format": "date"},
+                "timestamp": TIMESTAMP_JSON_SCHEMA,
                 "authority": {
                     "const": "quantitative-decision-support"
                 },
@@ -7704,7 +7722,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
             ],
             "properties": {
                 "method": {"const": SIZING_ANATOMY_METHOD},
-                "timestamp": {"type": "string", "format": "date"},
+                "timestamp": TIMESTAMP_JSON_SCHEMA,
                 "historicalResearchWeights": {"const": True},
                 "authority": {
                     "const": "quantitative-decision-support"
@@ -7900,10 +7918,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                         "positions",
                     ],
                     "properties": {
-                        "timestamp": {
-                            "type": "string",
-                            "format": "date",
-                        },
+                        "timestamp": TIMESTAMP_JSON_SCHEMA,
                         "state": {
                             "enum": [
                                 "available",

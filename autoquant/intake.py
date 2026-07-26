@@ -15,6 +15,17 @@ import pandas as pd
 
 from .briefs import load_research_request, validate_research_request
 from .data import normalize_ohlcv
+from .intervals import (
+    AGGREGATION_METHOD,
+    BASE_INTERVAL,
+    IntervalContractError,
+    SUPPORTED_FEATURE_INTERVALS,
+    aggregate_completed_ohlcv,
+    interval_surface,
+    load_multi_interval_asset,
+    normalize_feature_intervals,
+    validate_continuous_hourly_ohlcv,
+)
 from .mandates import (
     PORTFOLIO_MANDATE,
     build_portfolio_mandate,
@@ -193,6 +204,7 @@ class PreparedAsset:
     source_path: Path
     source_hash: str
     frame: pd.DataFrame
+    interval_frames: dict[str, pd.DataFrame] | None = None
 
 
 @dataclass(frozen=True)
@@ -210,8 +222,18 @@ class PreparedIntake:
     def universe(self) -> list[str]:
         return [asset.symbol for asset in self.assets]
 
+    @property
+    def multi_interval(self) -> bool:
+        return self.package["schemaVersion"] == 2
 
-def _validate_package_manifest(
+    @property
+    def interval_surface(self) -> dict[str, Any] | None:
+        if not self.multi_interval:
+            return None
+        return interval_surface(self.package["featureIntervals"]).to_dict()
+
+
+def _validate_v1_package_manifest(
     value: dict[str, Any],
     path: Path,
 ) -> dict[str, Any]:
@@ -433,6 +455,261 @@ def _validate_package_manifest(
     }
 
 
+def _validate_v2_package_manifest(
+    value: dict[str, Any],
+    path: Path,
+) -> dict[str, Any]:
+    required = {
+        "schemaVersion",
+        "kind",
+        "id",
+        "version",
+        "assetClass",
+        "baseInterval",
+        "featureIntervals",
+        "timestampSemantics",
+        "aggregation",
+        "market",
+        "priceAdjustment",
+        "provider",
+        "assets",
+    }
+    issues = _strict_keys(value, required, path)
+    if value.get("schemaVersion") != 2:
+        issues.append(_issue(path, "schema.version", "Expected V2 dataset package"))
+    if value.get("kind") != DATASET_PACKAGE_KIND:
+        issues.append(
+            _issue(
+                f"{path}/kind",
+                "dataset.kind",
+                f"Expected {DATASET_PACKAGE_KIND}",
+            )
+        )
+    for key in ("id", "version", "assetClass"):
+        issues.extend(_non_empty(value.get(key), f"{path}/{key}"))
+    if value.get("baseInterval") != BASE_INTERVAL:
+        issues.append(
+            _issue(
+                f"{path}/baseInterval",
+                "dataset.base-interval",
+                "V2 intake currently requires baseInterval '1h'",
+            )
+        )
+    try:
+        feature_intervals = normalize_feature_intervals(
+            value.get("featureIntervals", [])
+        )
+        if not feature_intervals:
+            raise IntervalContractError(
+                "interval.empty",
+                "featureIntervals must contain at least one higher interval",
+            )
+    except IntervalContractError as error:
+        issues.append(
+            _issue(
+                f"{path}/featureIntervals",
+                error.code,
+                str(error),
+            )
+        )
+        feature_intervals = ()
+    if value.get("timestampSemantics") != "bar-close":
+        issues.append(
+            _issue(
+                f"{path}/timestampSemantics",
+                "dataset.timestamp-semantics",
+                "V2 timestamps must mean bar-close",
+            )
+        )
+    aggregation = value.get("aggregation")
+    if not isinstance(aggregation, dict):
+        issues.append(
+            _issue(
+                f"{path}/aggregation",
+                "schema.type",
+                "aggregation must be an object",
+            )
+        )
+        aggregation = {}
+    else:
+        issues.extend(
+            _strict_keys(
+                aggregation,
+                {"method", "anchor"},
+                f"{path}/aggregation",
+            )
+        )
+    if aggregation.get("method") != AGGREGATION_METHOD:
+        issues.append(
+            _issue(
+                f"{path}/aggregation/method",
+                "dataset.aggregation",
+                f"V2 aggregation method must be {AGGREGATION_METHOD}",
+            )
+        )
+    if aggregation.get("anchor") != "00:00":
+        issues.append(
+            _issue(
+                f"{path}/aggregation/anchor",
+                "dataset.anchor",
+                "V2 continuous aggregation anchor must be UTC 00:00",
+            )
+        )
+    market = value.get("market")
+    if not isinstance(market, dict):
+        issues.append(_issue(f"{path}/market", "schema.type", "Market must be an object"))
+        market = {}
+    else:
+        issues.extend(
+            _strict_keys(
+                market,
+                {"clock", "calendar", "timezone"},
+                f"{path}/market",
+            )
+        )
+    expected_market = {
+        "clock": "continuous",
+        "calendar": "24/7",
+        "timezone": "UTC",
+    }
+    if market != expected_market:
+        issues.append(
+            _issue(
+                f"{path}/market",
+                "dataset.market-clock",
+                "V2 currently requires continuous 24/7 UTC market authority",
+            )
+        )
+    if value.get("priceAdjustment") not in PRICE_ADJUSTMENTS:
+        issues.append(
+            _issue(
+                f"{path}/priceAdjustment",
+                "dataset.adjustment",
+                "Unsupported priceAdjustment",
+            )
+        )
+
+    provider = value.get("provider")
+    if not isinstance(provider, dict):
+        issues.append(_issue(f"{path}/provider", "schema.type", "Provider must be an object"))
+        provider = {}
+    else:
+        issues.extend(
+            _strict_keys(
+                provider,
+                {"name", "retrievedAt", "sourceUri", "terms"},
+                f"{path}/provider",
+            )
+        )
+    for key in ("name", "retrievedAt", "terms"):
+        issues.extend(_non_empty(provider.get(key), f"{path}/provider/{key}"))
+    if isinstance(provider.get("retrievedAt"), str):
+        try:
+            retrieved_at = datetime.fromisoformat(
+                provider["retrievedAt"].replace("Z", "+00:00")
+            )
+            if retrieved_at.tzinfo is None:
+                raise ValueError("timezone required")
+        except ValueError:
+            issues.append(
+                _issue(
+                    f"{path}/provider/retrievedAt",
+                    "dataset.retrieved-at",
+                    "retrievedAt must be timezone-aware ISO-8601",
+                )
+            )
+    source_uri = provider.get("sourceUri")
+    if source_uri is not None:
+        issues.extend(_non_empty(source_uri, f"{path}/provider/sourceUri"))
+
+    assets = value.get("assets")
+    if not isinstance(assets, list) or not assets:
+        issues.append(_issue(f"{path}/assets", "schema.array", "Assets must be non-empty"))
+        assets = []
+    symbols: list[str] = []
+    source_paths: list[str] = []
+    for index, asset in enumerate(assets):
+        asset_path = f"{path}/assets/{index}"
+        if not isinstance(asset, dict):
+            issues.append(_issue(asset_path, "schema.type", "Asset must be an object"))
+            continue
+        issues.extend(
+            _strict_keys(
+                asset,
+                {"symbol", "venue", "currency", "path"},
+                asset_path,
+            )
+        )
+        for key in ("symbol", "venue", "currency", "path"):
+            issues.extend(_non_empty(asset.get(key), f"{asset_path}/{key}"))
+        symbol = asset.get("symbol")
+        relative = asset.get("path")
+        if isinstance(symbol, str):
+            if not SAFE_SYMBOL.fullmatch(symbol):
+                issues.append(
+                    _issue(f"{asset_path}/symbol", "dataset.symbol", "Invalid symbol")
+                )
+            symbols.append(symbol)
+        if isinstance(relative, str):
+            try:
+                confined_path(path.parent, relative, f"{asset_path}/path")
+            except AutoQuantValidationError as error:
+                issues.extend(error.issues)
+            if Path(relative).suffix.lower() not in SUPPORTED_SOURCE_SUFFIXES:
+                issues.append(
+                    _issue(
+                        f"{asset_path}/path",
+                        "dataset.format",
+                        "Asset path must end in .csv, .parquet, or .feather",
+                    )
+                )
+            source_paths.append(relative)
+    if len(symbols) != len(set(symbols)):
+        issues.append(_issue(f"{path}/assets", "dataset.duplicate-symbol", "Symbols must be unique"))
+    if len(source_paths) != len(set(source_paths)):
+        issues.append(_issue(f"{path}/assets", "dataset.duplicate-path", "Paths must be unique"))
+    if issues:
+        raise AutoQuantValidationError(issues)
+    return {
+        **value,
+        "id": value["id"].strip(),
+        "version": value["version"].strip(),
+        "assetClass": value["assetClass"].strip(),
+        "featureIntervals": list(feature_intervals),
+        "aggregation": {
+            "method": aggregation["method"],
+            "anchor": aggregation["anchor"],
+        },
+        "market": expected_market,
+        "provider": {
+            "name": provider["name"].strip(),
+            "retrievedAt": provider["retrievedAt"].strip(),
+            "sourceUri": (
+                provider["sourceUri"].strip()
+                if isinstance(provider["sourceUri"], str)
+                else None
+            ),
+            "terms": provider["terms"].strip(),
+        },
+        "assets": [
+            {
+                key: asset[key].strip()
+                for key in ("symbol", "venue", "currency", "path")
+            }
+            for asset in assets
+        ],
+    }
+
+
+def _validate_package_manifest(
+    value: dict[str, Any],
+    path: Path,
+) -> dict[str, Any]:
+    if value.get("schemaVersion") == 2:
+        return _validate_v2_package_manifest(value, path)
+    return _validate_v1_package_manifest(value, path)
+
+
 def prepare_project_intake(
     request_path: str | Path,
     package_path: str | Path,
@@ -464,7 +741,7 @@ def prepare_project_intake(
     )
     prepared: list[PreparedAsset] = []
     issues: list[ValidationIssue] = []
-    expected_dates: list[str] | None = None
+    expected_dates: list[Any] | None = None
     for index, asset in enumerate(package["assets"]):
         source = confined_path(
             manifest_path.parent,
@@ -476,16 +753,42 @@ def prepare_project_intake(
                 _issue(source, "dataset.source-missing", f"Missing asset source: {source}")
             )
             continue
-        frame = _canonical_frame(source, market_clock=package["market"]["clock"])
+        interval_frames = None
+        if package["schemaVersion"] == 2:
+            try:
+                frame = validate_continuous_hourly_ohlcv(
+                    _read_source(source),
+                    label=asset["symbol"],
+                )
+                interval_frames = {
+                    BASE_INTERVAL: frame,
+                    **{
+                        interval: aggregate_completed_ohlcv(frame, interval)
+                        for interval in package["featureIntervals"]
+                    },
+                }
+            except IntervalContractError as error:
+                issues.append(_issue(source, error.code, str(error)))
+                continue
+        else:
+            frame = _canonical_frame(
+                source,
+                market_clock=package["market"]["clock"],
+            )
         dates = frame["timestamp"].tolist()
         if expected_dates is None:
             expected_dates = dates
         elif dates != expected_dates:
+            panel = (
+                "exact base timestamp panel"
+                if package["schemaVersion"] == 2
+                else "exact daily timestamp panel"
+            )
             issues.append(
                 _issue(
                     source,
                     "dataset.panel-misaligned",
-                    "Every asset must share the exact daily timestamp panel",
+                    f"Every asset must share the {panel}",
                 )
             )
         prepared.append(
@@ -497,6 +800,7 @@ def prepare_project_intake(
                 source_path=source,
                 source_hash=hash_file(source),
                 frame=frame,
+                interval_frames=interval_frames,
             )
         )
     minimum_assets, minimum_observations = INTAKE_TEMPLATE_REQUIREMENTS[template]
@@ -510,11 +814,12 @@ def prepare_project_intake(
         )
     observations = len(expected_dates or [])
     if observations < minimum_observations:
+        unit = "base 1h" if package["schemaVersion"] == 2 else "daily"
         issues.append(
             _issue(
                 manifest_path,
                 "dataset.observations",
-                f"{template} requires at least {minimum_observations} daily rows",
+                f"{template} requires at least {minimum_observations} {unit} rows",
             )
         )
 
@@ -550,6 +855,11 @@ def prepare_project_intake(
     if issues:
         raise AutoQuantValidationError(issues)
     assert expected_dates is not None
+    start = expected_dates[0]
+    end = expected_dates[-1]
+    if isinstance(start, pd.Timestamp):
+        start = start.isoformat().replace("+00:00", "Z")
+        end = end.isoformat().replace("+00:00", "Z")
     return PreparedIntake(
         template=template,
         request=request,
@@ -557,8 +867,8 @@ def prepare_project_intake(
         package=package,
         package_path=manifest_path,
         assets=tuple(prepared),
-        start=expected_dates[0],
-        end=expected_dates[-1],
+        start=str(start),
+        end=str(end),
     )
 
 
@@ -573,34 +883,75 @@ def materialize_intake_dataset(
     output.mkdir()
     asset_records: list[dict[str, Any]] = []
     for asset in intake.assets:
-        target = output / f"{asset.symbol}.csv"
-        asset.frame.to_csv(
-            target,
-            index=False,
-            lineterminator="\n",
-            float_format="%.12g",
-        )
-        asset_records.append(
-            {
-                "symbol": asset.symbol,
-                "venue": asset.venue,
-                "currency": asset.currency,
-                "sourcePath": asset.source_relative_path,
-                "sourceHash": asset.source_hash,
-                "normalizedPath": f"ohlcv/{asset.symbol}.csv",
-                "normalizedHash": hash_file(target),
-                "observations": len(asset.frame),
-                "start": intake.start,
-                "end": intake.end,
-            }
-        )
+        common = {
+            "symbol": asset.symbol,
+            "venue": asset.venue,
+            "currency": asset.currency,
+            "sourcePath": asset.source_relative_path,
+            "sourceHash": asset.source_hash,
+            "start": intake.start,
+            "end": intake.end,
+        }
+        if intake.multi_interval:
+            assert asset.interval_frames is not None
+            interval_records = []
+            for interval, raw_frame in asset.interval_frames.items():
+                target_directory = output / interval
+                target_directory.mkdir(exist_ok=True)
+                target = target_directory / f"{asset.symbol}.csv"
+                frame = raw_frame.copy()
+                frame["timestamp"] = frame["timestamp"].map(
+                    lambda value: pd.Timestamp(value)
+                    .isoformat()
+                    .replace("+00:00", "Z")
+                )
+                frame.to_csv(
+                    target,
+                    index=False,
+                    lineterminator="\n",
+                    float_format="%.12g",
+                )
+                interval_records.append(
+                    {
+                        "interval": interval,
+                        "normalizedPath": f"ohlcv/{interval}/{asset.symbol}.csv",
+                        "normalizedHash": hash_file(target),
+                        "observations": len(frame),
+                        "start": (
+                            str(frame["timestamp"].iloc[0])
+                            if len(frame)
+                            else None
+                        ),
+                        "end": (
+                            str(frame["timestamp"].iloc[-1])
+                            if len(frame)
+                            else None
+                        ),
+                    }
+                )
+            asset_records.append({**common, "intervals": interval_records})
+        else:
+            target = output / f"{asset.symbol}.csv"
+            asset.frame.to_csv(
+                target,
+                index=False,
+                lineterminator="\n",
+                float_format="%.12g",
+            )
+            asset_records.append(
+                {
+                    **common,
+                    "normalizedPath": f"ohlcv/{asset.symbol}.csv",
+                    "normalizedHash": hash_file(target),
+                    "observations": len(asset.frame),
+                }
+            )
     snapshot = {
         "schemaVersion": SCHEMA_VERSION,
         "kind": DATASET_SNAPSHOT_KIND,
         "id": intake.package["id"],
         "version": intake.package["version"],
         "assetClass": intake.package["assetClass"],
-        "frequency": intake.package["frequency"],
         "market": intake.package["market"],
         "priceAdjustment": intake.package["priceAdjustment"],
         "provider": intake.package["provider"],
@@ -615,23 +966,34 @@ def materialize_intake_dataset(
         "studyId": study_id,
         "assets": asset_records,
     }
+    if intake.multi_interval:
+        snapshot["schemaVersion"] = 2
+        snapshot["intervalSurface"] = intake.interval_surface
+    else:
+        snapshot["frequency"] = intake.package["frequency"]
     snapshot_path = output / "snapshot.json"
     _write_json(snapshot_path, snapshot)
-    (output / "README.md").write_text(
-        (
-            "# Content-locked external OHLCV snapshot\n\n"
-            f"- Dataset: `{snapshot['id']}@{snapshot['version']}`\n"
-            f"- Provider claim: `{snapshot['provider']['name']}`\n"
-            f"- Price adjustment claim: `{snapshot['priceAdjustment']}`\n"
-            f"- Calendar claim: `{snapshot['market']['calendar']}`\n"
-            f"- Coverage: `{intake.start}` through `{intake.end}`\n"
-            f"- Universe: {', '.join(intake.universe)}\n\n"
-            "The fixed Study hashes every file in this directory. Provider, "
-            "calendar, adjustment, venue, and terms values are caller-supplied "
-            "claims, not authenticated by AutoQuant.\n"
-        ),
-        encoding="utf-8",
+    interval_line = (
+        "- Interval surface: `"
+        + " / ".join([BASE_INTERVAL, *intake.package["featureIntervals"]])
+        + "`\n"
+        if intake.multi_interval
+        else f"- Frequency: `{snapshot['frequency']}`\n"
     )
+    readme = (
+        "# Content-locked external OHLCV snapshot\n\n"
+        f"- Dataset: `{snapshot['id']}@{snapshot['version']}`\n"
+        f"- Provider claim: `{snapshot['provider']['name']}`\n"
+        f"- Price adjustment claim: `{snapshot['priceAdjustment']}`\n"
+        f"- Calendar claim: `{snapshot['market']['calendar']}`\n"
+        f"{interval_line}"
+        f"- Coverage: `{intake.start}` through `{intake.end}`\n"
+        f"- Universe: {', '.join(intake.universe)}\n\n"
+        "The fixed Study hashes every file in this directory. Provider, "
+        "calendar, adjustment, venue, and terms values are caller-supplied "
+        "claims, not authenticated by AutoQuant.\n"
+    )
+    (output / "README.md").write_text(readme, encoding="utf-8")
     _write_json(project.root_dir / PROJECT_REQUEST, intake.request)
     return snapshot, hash_file(snapshot_path)
 
@@ -660,7 +1022,7 @@ def finalize_project_intake(
     return manifest
 
 
-def _validate_snapshot(
+def _validate_v1_snapshot(
     snapshot: dict[str, Any],
     path: Path,
 ) -> list[ValidationIssue]:
@@ -899,6 +1261,292 @@ def _validate_snapshot(
     return issues
 
 
+def _validate_v2_snapshot(
+    snapshot: dict[str, Any],
+    path: Path,
+) -> list[ValidationIssue]:
+    required = {
+        "schemaVersion",
+        "kind",
+        "id",
+        "version",
+        "assetClass",
+        "intervalSurface",
+        "market",
+        "priceAdjustment",
+        "provider",
+        "packageManifestHash",
+        "requestHash",
+        "requestedAssets",
+        "universe",
+        "timeRange",
+        "template",
+        "studyId",
+        "assets",
+    }
+    issues = _strict_keys(snapshot, required, path)
+    if (
+        snapshot.get("schemaVersion") != 2
+        or snapshot.get("kind") != DATASET_SNAPSHOT_KIND
+    ):
+        issues.append(
+            _issue(path, "intake.snapshot-schema", "Invalid V2 dataset snapshot")
+        )
+    for key in ("id", "version", "assetClass", "template", "studyId"):
+        issues.extend(_non_empty(snapshot.get(key), f"{path}/{key}"))
+    for key in ("packageManifestHash", "requestHash"):
+        if not _valid_hash(snapshot.get(key)):
+            issues.append(_issue(f"{path}/{key}", "schema.hash", f"Invalid {key}"))
+    if snapshot.get("priceAdjustment") not in PRICE_ADJUSTMENTS:
+        issues.append(
+            _issue(
+                f"{path}/priceAdjustment",
+                "intake.snapshot-adjustment",
+                "Snapshot priceAdjustment is unsupported",
+            )
+        )
+    surface = snapshot.get("intervalSurface")
+    if not isinstance(surface, dict):
+        issues.append(
+            _issue(
+                f"{path}/intervalSurface",
+                "schema.type",
+                "intervalSurface must be an object",
+            )
+        )
+        surface = {}
+    else:
+        issues.extend(
+            _strict_keys(
+                surface,
+                {
+                    "baseInterval",
+                    "featureIntervals",
+                    "timestampSemantics",
+                    "marketClock",
+                    "timezone",
+                    "anchor",
+                    "aggregationMethod",
+                },
+                f"{path}/intervalSurface",
+            )
+        )
+    try:
+        expected_surface = interval_surface(
+            surface.get("featureIntervals", [])
+        ).to_dict()
+        if surface != expected_surface:
+            issues.append(
+                _issue(
+                    f"{path}/intervalSurface",
+                    "intake.snapshot-interval-surface",
+                    "Snapshot interval surface differs from fixed V2 authority",
+                )
+            )
+    except IntervalContractError as error:
+        issues.append(
+            _issue(f"{path}/intervalSurface", error.code, str(error))
+        )
+        expected_surface = interval_surface([]).to_dict()
+    expected_intervals = [
+        expected_surface["baseInterval"],
+        *expected_surface["featureIntervals"],
+    ]
+    if snapshot.get("market") != {
+        "clock": "continuous",
+        "calendar": "24/7",
+        "timezone": "UTC",
+    }:
+        issues.append(
+            _issue(
+                f"{path}/market",
+                "intake.snapshot-market",
+                "V2 snapshot market must be continuous 24/7 UTC",
+            )
+        )
+    provider = snapshot.get("provider")
+    if not isinstance(provider, dict):
+        issues.append(_issue(f"{path}/provider", "schema.type", "Provider must be an object"))
+    else:
+        issues.extend(
+            _strict_keys(
+                provider,
+                {"name", "retrievedAt", "sourceUri", "terms"},
+                f"{path}/provider",
+            )
+        )
+        for key in ("name", "retrievedAt", "terms"):
+            issues.extend(_non_empty(provider.get(key), f"{path}/provider/{key}"))
+
+    requested_assets = snapshot.get("requestedAssets")
+    universe = snapshot.get("universe")
+    for key, value in (
+        ("requestedAssets", requested_assets),
+        ("universe", universe),
+    ):
+        if (
+            not isinstance(value, list)
+            or not value
+            or not all(isinstance(item, str) and item for item in value)
+            or len(value) != len(set(value))
+        ):
+            issues.append(
+                _issue(
+                    f"{path}/{key}",
+                    "schema.array",
+                    f"{key} must contain unique non-empty strings",
+                )
+            )
+    requested_assets = requested_assets if isinstance(requested_assets, list) else []
+    universe = universe if isinstance(universe, list) else []
+    if not set(requested_assets).issubset(universe):
+        issues.append(
+            _issue(
+                f"{path}/requestedAssets",
+                "intake.snapshot-requested-assets",
+                "Requested assets must be a subset of the research universe",
+            )
+        )
+    time_range = snapshot.get("timeRange")
+    if not isinstance(time_range, dict):
+        issues.append(_issue(f"{path}/timeRange", "schema.type", "timeRange must be an object"))
+        time_range = {}
+    else:
+        issues.extend(_strict_keys(time_range, {"start", "end"}, f"{path}/timeRange"))
+    for key in ("start", "end"):
+        issues.extend(_non_empty(time_range.get(key), f"{path}/timeRange/{key}"))
+
+    assets = snapshot.get("assets")
+    if not isinstance(assets, list) or not assets:
+        issues.append(_issue(f"{path}/assets", "schema.array", "Snapshot assets must be non-empty"))
+        assets = []
+    symbols: list[str] = []
+    for asset_index, asset in enumerate(assets):
+        asset_path = f"{path}/assets/{asset_index}"
+        if not isinstance(asset, dict):
+            issues.append(_issue(asset_path, "schema.type", "Asset must be an object"))
+            continue
+        issues.extend(
+            _strict_keys(
+                asset,
+                {
+                    "symbol",
+                    "venue",
+                    "currency",
+                    "sourcePath",
+                    "sourceHash",
+                    "start",
+                    "end",
+                    "intervals",
+                },
+                asset_path,
+            )
+        )
+        for key in ("symbol", "venue", "currency", "sourcePath", "start", "end"):
+            issues.extend(_non_empty(asset.get(key), f"{asset_path}/{key}"))
+        if not _valid_hash(asset.get("sourceHash")):
+            issues.append(_issue(f"{asset_path}/sourceHash", "schema.hash", "Invalid sourceHash"))
+        symbol = asset.get("symbol")
+        if isinstance(symbol, str):
+            symbols.append(symbol)
+        if (
+            asset.get("start") != time_range.get("start")
+            or asset.get("end") != time_range.get("end")
+        ):
+            issues.append(
+                _issue(
+                    asset_path,
+                    "intake.snapshot-coverage",
+                    "Base asset coverage must match snapshot timeRange",
+                )
+            )
+        rows = asset.get("intervals")
+        if not isinstance(rows, list) or not rows:
+            issues.append(
+                _issue(f"{asset_path}/intervals", "schema.array", "Missing interval inventory")
+            )
+            rows = []
+        observed_intervals: list[str] = []
+        for row_index, row in enumerate(rows):
+            row_path = f"{asset_path}/intervals/{row_index}"
+            if not isinstance(row, dict):
+                issues.append(_issue(row_path, "schema.type", "Interval row must be an object"))
+                continue
+            issues.extend(
+                _strict_keys(
+                    row,
+                    {
+                        "interval",
+                        "normalizedPath",
+                        "normalizedHash",
+                        "observations",
+                        "start",
+                        "end",
+                    },
+                    row_path,
+                )
+            )
+            for key in ("interval", "normalizedPath", "start", "end"):
+                issues.extend(_non_empty(row.get(key), f"{row_path}/{key}"))
+            if not _valid_hash(row.get("normalizedHash")):
+                issues.append(
+                    _issue(f"{row_path}/normalizedHash", "schema.hash", "Invalid normalizedHash")
+                )
+            observations = row.get("observations")
+            if (
+                not isinstance(observations, int)
+                or isinstance(observations, bool)
+                or observations < 1
+            ):
+                issues.append(
+                    _issue(
+                        f"{row_path}/observations",
+                        "schema.integer",
+                        "observations must be a positive integer",
+                    )
+                )
+            observed_intervals.append(row.get("interval"))
+            if (
+                isinstance(symbol, str)
+                and isinstance(row.get("interval"), str)
+                and row.get("normalizedPath")
+                != f"ohlcv/{row['interval']}/{symbol}.csv"
+            ):
+                issues.append(
+                    _issue(
+                        f"{row_path}/normalizedPath",
+                        "intake.snapshot-interval-path",
+                        "Interval path must match its canonical asset inventory",
+                    )
+                )
+        if observed_intervals != expected_intervals:
+            issues.append(
+                _issue(
+                    f"{asset_path}/intervals",
+                    "intake.snapshot-interval-inventory",
+                    "Asset interval inventory must match intervalSurface order",
+                )
+            )
+    if symbols != universe:
+        issues.append(
+            _issue(
+                f"{path}/assets",
+                "intake.snapshot-universe",
+                "Snapshot asset order must exactly match the research universe",
+            )
+        )
+    return issues
+
+
+def _validate_snapshot(
+    snapshot: dict[str, Any],
+    path: Path,
+) -> list[ValidationIssue]:
+    if snapshot.get("schemaVersion") == 2:
+        return _validate_v2_snapshot(snapshot, path)
+    return _validate_v1_snapshot(snapshot, path)
+
+
 def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
     """Verify and project optional request-driven Project intake state."""
 
@@ -992,23 +1640,55 @@ def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
     for asset in snapshot.get("assets", []):
         if not isinstance(asset, dict):
             continue
-        normalized_path = confined_path(
-            project.root_dir / project.manifest.directories["data"],
-            asset.get("normalizedPath", ""),
-            f"{snapshot_path}/assets/normalizedPath",
+        normalized_rows = (
+            asset.get("intervals", [])
+            if snapshot.get("schemaVersion") == 2
+            else [asset]
         )
-        if not normalized_path.is_file():
-            issues.append(
-                _issue(normalized_path, "intake.data-missing", "Normalized asset is missing")
+        for row in normalized_rows:
+            if not isinstance(row, dict):
+                continue
+            normalized_path = confined_path(
+                project.root_dir / project.manifest.directories["data"],
+                row.get("normalizedPath", ""),
+                f"{snapshot_path}/assets/normalizedPath",
             )
-        elif hash_file(normalized_path) != asset.get("normalizedHash"):
-            issues.append(
-                _issue(
-                    normalized_path,
-                    "intake.data-hash",
-                    "Normalized asset hash mismatch",
+            if not normalized_path.is_file():
+                issues.append(
+                    _issue(
+                        normalized_path,
+                        "intake.data-missing",
+                        "Normalized asset is missing",
+                    )
                 )
-            )
+            elif hash_file(normalized_path) != row.get("normalizedHash"):
+                issues.append(
+                    _issue(
+                        normalized_path,
+                        "intake.data-hash",
+                        "Normalized asset hash mismatch",
+                    )
+                )
+        if (
+            snapshot.get("schemaVersion") == 2
+            and isinstance(asset.get("symbol"), str)
+            and isinstance(snapshot.get("timeRange"), dict)
+        ):
+            try:
+                load_multi_interval_asset(
+                    project.root_dir / project.manifest.directories["data"],
+                    asset["symbol"],
+                    start=snapshot["timeRange"].get("start", ""),
+                    end=snapshot["timeRange"].get("end", ""),
+                )
+            except (IntervalContractError, TypeError, ValueError) as error:
+                issues.append(
+                    _issue(
+                        snapshot_path,
+                        getattr(error, "code", "interval.reconciliation"),
+                        str(error),
+                    )
+                )
     study = load_study(project, manifest.get("studyId", ""))
     if study.study_hash != manifest.get("studyHash"):
         issues.append(
@@ -1076,6 +1756,9 @@ def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
         expected_mandate = build_portfolio_mandate(
             request,
             list(snapshot.get("universe", [])),
+            annualization_periods=(
+                24 * 365 if snapshot.get("schemaVersion") == 2 else 252
+            ),
         )
         if mandate != expected_mandate:
             issues.append(
@@ -1102,7 +1785,7 @@ def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
     }
 
 
-OHLCV_DATASET_PACKAGE_JSON_SCHEMA: dict[str, Any] = {
+OHLCV_DATASET_PACKAGE_V1_JSON_SCHEMA: dict[str, Any] = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "title": "AutoQuant external OHLCV dataset package",
     "type": "object",
@@ -1172,4 +1855,79 @@ OHLCV_DATASET_PACKAGE_JSON_SCHEMA: dict[str, Any] = {
             },
         },
     },
+}
+
+OHLCV_DATASET_PACKAGE_V2_JSON_SCHEMA: dict[str, Any] = {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "AutoQuant causal multi-interval OHLCV dataset package",
+    "type": "object",
+    "additionalProperties": False,
+    "required": [
+        "schemaVersion",
+        "kind",
+        "id",
+        "version",
+        "assetClass",
+        "baseInterval",
+        "featureIntervals",
+        "timestampSemantics",
+        "aggregation",
+        "market",
+        "priceAdjustment",
+        "provider",
+        "assets",
+    ],
+    "properties": {
+        "schemaVersion": {"const": 2},
+        "kind": {"const": DATASET_PACKAGE_KIND},
+        "id": {"type": "string", "minLength": 1},
+        "version": {"type": "string", "minLength": 1},
+        "assetClass": {"type": "string", "minLength": 1},
+        "baseInterval": {"const": BASE_INTERVAL},
+        "featureIntervals": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": True,
+            "items": {"enum": list(SUPPORTED_FEATURE_INTERVALS)},
+        },
+        "timestampSemantics": {"const": "bar-close"},
+        "aggregation": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["method", "anchor"],
+            "properties": {
+                "method": {"const": AGGREGATION_METHOD},
+                "anchor": {"const": "00:00"},
+            },
+        },
+        "market": {
+            "const": {
+                "clock": "continuous",
+                "calendar": "24/7",
+                "timezone": "UTC",
+            }
+        },
+        "priceAdjustment": {"enum": sorted(PRICE_ADJUSTMENTS)},
+        "provider": OHLCV_DATASET_PACKAGE_V1_JSON_SCHEMA["properties"]["provider"],
+        "assets": OHLCV_DATASET_PACKAGE_V1_JSON_SCHEMA["properties"]["assets"],
+    },
+}
+OHLCV_DATASET_PACKAGE_JSON_SCHEMA: dict[str, Any] = {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "AutoQuant external OHLCV dataset package",
+    "type": "object",
+    "properties": {
+        "schemaVersion": {"enum": [1, 2]},
+        "kind": {"const": DATASET_PACKAGE_KIND},
+        "frequency": {"const": "1d"},
+        "baseInterval": {"const": BASE_INTERVAL},
+        "featureIntervals": {
+            "type": "array",
+            "items": {"enum": list(SUPPORTED_FEATURE_INTERVALS)},
+        },
+    },
+    "oneOf": [
+        OHLCV_DATASET_PACKAGE_V1_JSON_SCHEMA,
+        OHLCV_DATASET_PACKAGE_V2_JSON_SCHEMA,
+    ],
 }

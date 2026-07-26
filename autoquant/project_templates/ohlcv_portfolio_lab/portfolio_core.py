@@ -8,8 +8,7 @@ from dataclasses import dataclass
 import numpy as np
 import pandas as pd
 
-
-ANNUAL_PERIODS = 252
+from autoquant.intervals import annualization_periods
 VOLATILITY_WINDOW = 20
 GROSS_TARGET = 1.0
 SIDE_BUDGET = GROSS_TARGET / 2.0
@@ -2385,6 +2384,7 @@ def signal_policy_metrics(
             "Signal policy split has no decision rows",
         )
     timestamps = int(selected["timestamp"].nunique())
+    annual_periods = annualization_periods(index)
     events = {
         str(key): int(value)
         for key, value in selected["signal_event"].value_counts().items()
@@ -2483,7 +2483,7 @@ def signal_policy_metrics(
         ),
         "mean_target_one_way_turnover": float(target_turnover.mean()),
         "annualized_target_one_way_turnover": float(
-            target_turnover.mean() * ANNUAL_PERIODS
+            target_turnover.mean() * annual_periods
         ),
         "average_gross_proposed_target": float(
             selected.groupby("timestamp")["proposed_target_weight"]
@@ -2516,6 +2516,7 @@ def attribution_metrics(
             "Attribution split has no decision rows",
         )
     timestamps = int(selected["timestamp"].nunique())
+    annual_periods = annualization_periods(index)
 
     def aggregate(group: pd.DataFrame) -> dict[str, float | int]:
         return {
@@ -2526,7 +2527,7 @@ def attribution_metrics(
             "annualized_gross_contribution": float(
                 group["gross_return_contribution"].sum()
                 / timestamps
-                * ANNUAL_PERIODS
+                * annual_periods
             ),
             "total_cost_contribution": float(
                 group["cost_contribution"].sum()
@@ -2537,7 +2538,7 @@ def attribution_metrics(
             "annualized_net_contribution": float(
                 group["net_return_contribution"].sum()
                 / timestamps
-                * ANNUAL_PERIODS
+                * annual_periods
             ),
             "total_one_way_turnover_contribution": float(
                 group["one_way_turnover_contribution"].sum()
@@ -2676,7 +2677,7 @@ def performance_metrics(
     returns: pd.Series,
     benchmark: pd.Series,
     *,
-    annual_periods: int = ANNUAL_PERIODS,
+    annual_periods: int | None = None,
 ) -> dict[str, float | int]:
     pair = pd.DataFrame(
         {"returns": returns, "benchmark": benchmark}
@@ -2688,6 +2689,11 @@ def performance_metrics(
         )
     values = pair["returns"].astype(float)
     benchmark_values = pair["benchmark"].astype(float)
+    annual_periods = (
+        annualization_periods(values.index)
+        if annual_periods is None
+        else annual_periods
+    )
     mean = float(values.mean())
     std = float(values.std(ddof=0))
     standardized = (
@@ -2780,10 +2786,15 @@ def implementation_metrics(
     simulation: Simulation,
     index: pd.Index,
     *,
-    annual_periods: int = ANNUAL_PERIODS,
+    annual_periods: int | None = None,
 ) -> dict[str, float]:
     daily = simulation.daily.loc[index]
     weights = simulation.weights.loc[index]
+    annual_periods = (
+        annualization_periods(daily.index)
+        if annual_periods is None
+        else annual_periods
+    )
     result = {
         "mean_one_way_turnover": float(daily["one_way_turnover"].mean()),
         "annualized_one_way_turnover": float(

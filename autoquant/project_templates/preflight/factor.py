@@ -10,6 +10,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from autoquant.intervals import IntervalContractError, load_multi_interval_asset
 
 OUTPUT = Path(os.environ["AUTOQUANT_CHECK_OUTPUT"])
 PROJECT = Path(os.environ["AUTOQUANT_PROJECT_ROOT"])
@@ -91,7 +92,19 @@ def main() -> None:
             raise CheckFailure("data.universe", "Study universe is empty")
         module = importlib.import_module("factors.candidate")
         for symbol in universe:
-            frame = pd.read_csv(DATA / "ohlcv" / f"{symbol}.csv").iloc[:256].copy()
+            time_range = study["dataset"]["time_range"]
+            try:
+                frame = load_multi_interval_asset(
+                    DATA,
+                    symbol,
+                    start=time_range["start"],
+                    end=time_range["end"],
+                )
+            except IntervalContractError as error:
+                raise CheckFailure(error.code, str(error)) from error
+            if frame is None:
+                frame = pd.read_csv(DATA / "ohlcv" / f"{symbol}.csv")
+            frame = frame.iloc[:256].copy()
             first = _series(module, frame.copy(deep=True))
             second = _series(module, frame.copy(deep=True))
             try:

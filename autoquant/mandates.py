@@ -53,6 +53,7 @@ PORTFOLIO_RISK_POLICY = {
     "annualizationPeriods": 252,
     "scaleUp": False,
 }
+SUPPORTED_ANNUALIZATION_PERIODS = {252, 24 * 365}
 SHA256 = "^[0-9a-f]{64}$"
 
 
@@ -118,6 +119,7 @@ def _canonical_payload(
     direction: str,
     research_universe: list[str],
     tradable_assets: list[str],
+    annualization_periods: int,
 ) -> dict[str, Any]:
     context_assets = [
         asset for asset in research_universe if asset not in set(tradable_assets)
@@ -142,7 +144,10 @@ def _canonical_payload(
             "shortAllowed": direction
             in {"short", "long-short", "relative-value", "research-only"},
             "benchmark": PORTFOLIO_BENCHMARKS[direction],
-            "riskPolicy": dict(PORTFOLIO_RISK_POLICY),
+            "riskPolicy": {
+                **PORTFOLIO_RISK_POLICY,
+                "annualizationPeriods": annualization_periods,
+            },
         },
         "authority": PORTFOLIO_MANDATE_AUTHORITY,
         "tradingAuthority": "none",
@@ -152,11 +157,15 @@ def _canonical_payload(
 def build_portfolio_mandate(
     request: dict[str, Any] | None,
     research_universe: list[str],
+    *,
+    annualization_periods: int = 252,
 ) -> dict[str, Any]:
     """Derive one fixed mandate from a normalized request or template default."""
 
     if not research_universe or len(research_universe) != len(set(research_universe)):
         raise ValueError("research_universe must contain unique assets")
+    if annualization_periods not in SUPPORTED_ANNUALIZATION_PERIODS:
+        raise ValueError("unsupported annualization_periods")
     if request is None:
         payload = _canonical_payload(
             source_kind="template-default",
@@ -164,6 +173,7 @@ def build_portfolio_mandate(
             direction="research-only",
             research_universe=research_universe,
             tradable_assets=research_universe,
+            annualization_periods=annualization_periods,
         )
     else:
         direction = request.get("direction")
@@ -184,6 +194,7 @@ def build_portfolio_mandate(
             tradable_assets=(
                 research_universe if direction == "research-only" else requested
             ),
+            annualization_periods=annualization_periods,
         )
     return {
         **payload,
@@ -348,6 +359,21 @@ def validate_portfolio_mandate(
             )
         )
         if direction in PORTFOLIO_MANDATE_DIRECTIONS:
+            risk_policy = construction.get("riskPolicy")
+            annualization_periods = (
+                risk_policy.get("annualizationPeriods")
+                if isinstance(risk_policy, dict)
+                else None
+            )
+            if annualization_periods not in SUPPORTED_ANNUALIZATION_PERIODS:
+                issues.append(
+                    _issue(
+                        f"{path}/construction/riskPolicy/annualizationPeriods",
+                        "mandate.annualization",
+                        "Annualization periods must match a supported market clock",
+                    )
+                )
+                annualization_periods = 252
             expected = _canonical_payload(
                 source_kind=(
                     source_kind
@@ -362,6 +388,7 @@ def validate_portfolio_mandate(
                 direction=direction,
                 research_universe=research,
                 tradable_assets=tradable,
+                annualization_periods=annualization_periods,
             )["construction"]
             if construction != expected:
                 issues.append(
@@ -541,7 +568,9 @@ PORTFOLIO_MANDATE_JSON_SCHEMA: dict[str, Any] = {
                         "annualizedVolatilityCeiling": {"const": 0.15},
                         "covarianceWindow": {"const": 60},
                         "minimumObservations": {"const": 20},
-                        "annualizationPeriods": {"const": 252},
+                        "annualizationPeriods": {
+                            "enum": sorted(SUPPORTED_ANNUALIZATION_PERIODS)
+                        },
                         "scaleUp": {"const": False},
                     },
                 },

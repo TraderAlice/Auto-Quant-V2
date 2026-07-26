@@ -19,6 +19,7 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+from .intervals import IntervalContractError, interval_surface
 from .studies import (
     SCHEMA_VERSION,
     StudyContext,
@@ -163,6 +164,60 @@ def harness_identity() -> dict[str, Any]:
         "sourceHash": _harness_source_hash(),
         "python": platform.python_version(),
     }
+
+
+def _dataset_interval_surface(
+    study: StudyContext,
+    data_root: Path,
+) -> dict[str, Any] | None:
+    """Project the fixed V2 interval authority into immutable Run evidence."""
+
+    relative = "ohlcv/snapshot.json"
+    if relative not in study.dataset_hashes:
+        return None
+    snapshot_path = confined_path(data_root, relative, "run/dataset-snapshot")
+    try:
+        snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError) as error:
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    snapshot_path,
+                    "run.dataset-snapshot",
+                    f"Cannot read the locked dataset snapshot: {error}",
+                )
+            ]
+        ) from error
+    if not isinstance(snapshot, dict) or snapshot.get("schemaVersion") != 2:
+        return None
+    surface = snapshot.get("intervalSurface")
+    if not isinstance(surface, dict):
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    snapshot_path,
+                    "run.interval-surface",
+                    "V2 dataset snapshot is missing intervalSurface",
+                )
+            ]
+        )
+    try:
+        expected = interval_surface(surface.get("featureIntervals", [])).to_dict()
+    except IntervalContractError as error:
+        raise AutoQuantValidationError(
+            [_issue(snapshot_path, error.code, str(error))]
+        ) from error
+    if surface != expected:
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    snapshot_path,
+                    "run.interval-surface",
+                    "V2 dataset intervalSurface differs from fixed authority",
+                )
+            ]
+        )
+    return expected
 
 
 def _validate_json_value(value: Any, path: str) -> list[ValidationIssue]:
@@ -688,6 +743,10 @@ def execute_study(
             ]
         )
     study = load_study(source_project, study_id, data_root=resolved_data_root)
+    dataset_interval_surface = _dataset_interval_surface(
+        study,
+        resolved_data_root,
+    )
     if execution_project is not None:
         owning_study = load_study(project, study_id, data_root=resolved_data_root)
         fixed_identity = {
@@ -799,6 +858,11 @@ def execute_study(
             "dataset": {
                 **study.definition.to_dict()["dataset"],
                 "hash": study.dataset_hash,
+                **(
+                    {"intervalSurface": dataset_interval_surface}
+                    if dataset_interval_surface is not None
+                    else {}
+                ),
                 **(
                     {"sourceHashes": study.dataset_hashes}
                     if study.definition.dataset.paths is not None
@@ -1003,7 +1067,11 @@ def _validate_run_result(
         issues.extend(
             _strict_keys(
                 dataset,
-                dataset_required | (dataset.keys() & {"paths", "sourceHashes"}),
+                dataset_required
+                | (
+                    dataset.keys()
+                    & {"paths", "sourceHashes", "intervalSurface"}
+                ),
                 f"{path}/dataset",
             )
         )
@@ -1057,6 +1125,37 @@ def _validate_run_result(
                         "Dataset sourceHashes must map relative paths to SHA-256 hashes",
                     )
                 )
+        surface = dataset.get("intervalSurface")
+        if surface is not None:
+            if not isinstance(surface, dict):
+                issues.append(
+                    _issue(
+                        f"{path}/dataset/intervalSurface",
+                        "schema.type",
+                        "intervalSurface must be an object",
+                    )
+                )
+            else:
+                try:
+                    expected = interval_surface(
+                        surface.get("featureIntervals", [])
+                    ).to_dict()
+                    if surface != expected:
+                        issues.append(
+                            _issue(
+                                f"{path}/dataset/intervalSurface",
+                                "run.interval-surface",
+                                "Run intervalSurface differs from fixed authority",
+                            )
+                        )
+                except IntervalContractError as error:
+                    issues.append(
+                        _issue(
+                            f"{path}/dataset/intervalSurface",
+                            error.code,
+                            str(error),
+                        )
+                    )
 
     dependencies = result.get("dependencies")
     if dependencies is not None:
@@ -1426,6 +1525,37 @@ RUN_RESULT_JSON_SCHEMA: dict[str, Any] = {
                     "additionalProperties": {
                         "type": "string",
                         "pattern": "^[0-9a-f]{64}$",
+                    },
+                },
+                "intervalSurface": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": [
+                        "baseInterval",
+                        "featureIntervals",
+                        "timestampSemantics",
+                        "marketClock",
+                        "timezone",
+                        "anchor",
+                        "aggregationMethod",
+                    ],
+                    "properties": {
+                        "baseInterval": {"const": "1h"},
+                        "featureIntervals": {
+                            "type": "array",
+                            "minItems": 1,
+                            "uniqueItems": True,
+                            "items": {
+                                "enum": ["3h", "4h", "6h", "12h", "1d"]
+                            },
+                        },
+                        "timestampSemantics": {"const": "bar-close"},
+                        "marketClock": {"const": "continuous"},
+                        "timezone": {"const": "UTC"},
+                        "anchor": {"const": "00:00"},
+                        "aggregationMethod": {
+                            "const": "complete-utc-midnight-bar-close-v1"
+                        },
                     },
                 },
                 "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},

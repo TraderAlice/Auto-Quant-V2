@@ -317,6 +317,11 @@ def _write_portfolio_mandate(
     mandate = build_portfolio_mandate(
         intake.request if intake is not None else None,
         universe,
+        annualization_periods=(
+            24 * 365
+            if intake is not None and intake.multi_interval
+            else 252
+        ),
     )
     (project.root_dir / PORTFOLIO_MANDATE).write_text(
         json.dumps(mandate, indent=2, sort_keys=True) + "\n",
@@ -329,12 +334,12 @@ def _intake_dataset(
     project: ProjectContext,
     intake: PreparedIntake,
     study_id: str,
-) -> tuple[date, dict[str, object], str]:
+) -> tuple[str, dict[str, object], str]:
     from .intake import materialize_intake_dataset
 
     _, snapshot_hash = materialize_intake_dataset(project, intake, study_id)
     return (
-        date.fromisoformat(intake.end),
+        intake.end,
         {
             "id": intake.package["id"],
             "version": intake.package["version"],
@@ -344,6 +349,10 @@ def _intake_dataset(
         },
         snapshot_hash,
     )
+
+
+def _time_range_value(value: date | str) -> str:
+    return value if isinstance(value, str) else value.isoformat()
 
 
 def _finalize_intake(
@@ -478,7 +487,7 @@ def _apply_ohlcv_factor_lab(
             str(dataset["version"]),
             str(dataset["asset_class"]),
             list(dataset["universe"]),
-            StudyTimeRange(str(dataset["start"]), end.isoformat()),
+            StudyTimeRange(str(dataset["start"]), _time_range_value(end)),
             ["ohlcv/**"],
         ),
     )
@@ -568,7 +577,7 @@ def _apply_ohlcv_portfolio_lab(
             str(dataset["version"]),
             str(dataset["asset_class"]),
             list(dataset["universe"]),
-            StudyTimeRange(str(dataset["start"]), end.isoformat()),
+            StudyTimeRange(str(dataset["start"]), _time_range_value(end)),
             ["ohlcv/**"],
         ),
         dependencies={"paths": [PORTFOLIO_MANDATE]},
@@ -677,7 +686,7 @@ def _apply_ohlcv_rl_factor_lab(
             str(dataset["version"]),
             str(dataset["asset_class"]),
             list(dataset["universe"]),
-            StudyTimeRange(str(dataset["start"]), end.isoformat()),
+            StudyTimeRange(str(dataset["start"]), _time_range_value(end)),
             ["ohlcv/**"],
         ),
         dependencies={"paths": ["factors/**", PORTFOLIO_MANDATE]},
@@ -782,7 +791,7 @@ def _apply_ohlcv_research_desk(
         str(dataset["version"]),
         str(dataset["asset_class"]),
         list(dataset["universe"]),
-        StudyTimeRange(str(dataset["start"]), end.isoformat()),
+        StudyTimeRange(str(dataset["start"]), _time_range_value(end)),
         ["ohlcv/**"],
     )
     definitions = (

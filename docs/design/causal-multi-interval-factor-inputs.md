@@ -1,6 +1,6 @@
 # Causal multi-interval factor inputs
 
-Status: active design.
+Status: V2 implemented for continuous UTC 1h input.
 
 Related: [[docs/design/research-intake-and-dataset-snapshots]],
 [[docs/design/ohlcv-factor-lab]],
@@ -79,8 +79,8 @@ For one complete group:
 - timestamp = last base bar close.
 
 Missing, duplicate, out-of-order, or non-hourly base timestamps invalidate the
-dataset. A group spanning a gap is omitted and disclosed; it is never treated
-as a complete aggregate.
+dataset. V2 rejects a gapped base panel before aggregation; it never silently
+omits the affected group or manufactures continuity.
 
 Session-market intraday support is deliberately later. It needs exchange
 calendar identity, local session open/close, early closes, DST behavior, and a
@@ -117,7 +117,7 @@ V1 daily packages remain strict and unchanged. V2 adds explicit:
 - aggregation method/version;
 - base source inventory;
 - normalized per-interval output inventory and hashes;
-- completeness/gap disclosure by asset and interval.
+- per-asset observation and coverage disclosure by interval.
 
 Materialized layout:
 
@@ -144,10 +144,13 @@ multi-horizon state or factor sleeves derived from the same rows; its fixed
 baselines receive the same opportunity set.
 
 Intervals are research inputs, not trade instructions. OpenAlice may request
-an asset, direction, and horizon; AutoQuant records which interval surface was
-available and used, then returns evidence and limitations through lane Reports
-and the Project Dossier. No interval grants order, account, promotion, or
-trading authority.
+an asset, direction, and horizon; AutoQuant records the interval surface that
+was requested, materialized, locked, and supplied to each lane, then returns
+that evidence through RunResults, Reports, Studio, and the Project Dossier.
+Core does not claim to infer which supplied pandas columns arbitrary candidate
+code semantically used; that would require an explicit future declaration or
+instrumented candidate contract. No interval grants order, account,
+promotion, or trading authority.
 
 ## Invariants
 

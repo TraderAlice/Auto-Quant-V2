@@ -1,13 +1,14 @@
 # Request-driven research intake and OHLCV dataset snapshots
 
-Status: V1 implemented.
+Status: V1 daily and V2 continuous multi-interval intake implemented.
 
 Related: [[docs/ARCHITECTURE]], [[docs/CLI]], [[docs/PROJECT_FORMAT]],
 [[docs/STUDIO]], [[docs/design/workspace-project-boundaries]],
 [[docs/design/study-run-evidence]],
 [[docs/design/request-bound-portfolio-mandates]],
 [[docs/design/portfolio-risk-governor]], and
-[[docs/design/quant-research-lifecycle]].
+[[docs/design/quant-research-lifecycle]], and
+[[docs/design/causal-multi-interval-factor-inputs]].
 
 ## Scope
 
@@ -25,6 +26,8 @@ to OpenAlice.
 
 - Package validation, normalization, snapshot materialization, and intake
   verification: `autoquant/intake.py`
+- Completed-bar aggregation, reconciliation, and causal alignment:
+  `autoquant/intervals.py`
 - Transactional Project construction: `autoquant/workspace.py` and
   `autoquant/templates.py`
 - Public command/schema/capability projection: `autoquant/cli.py` and
@@ -74,11 +77,37 @@ The manifest is caller-supplied context. Provider, adjustment, venue, calendar,
 and terms fields are preserved and hashed but are not authenticated by
 AutoQuant.
 
-V1 deliberately supports only `1d` session data. The current Factor,
-Portfolio, and RL reference Judges annualize at 252 and assume one aligned
-daily panel. Continuous markets, intraday sessions, exchange holidays, mixed
-asset classes, and distinct listing histories require later explicit
-contracts.
+V1 deliberately supports only `1d` session data. Factor, Portfolio, and RL
+annualize that clock at 252 and consume one aligned daily panel.
+
+V2 accepts a strict continuous UTC base instead:
+
+```json
+{
+  "schemaVersion": 2,
+  "kind": "autoquant-ohlcv-dataset-package",
+  "id": "crypto-hourly",
+  "version": "2026-07-26",
+  "assetClass": "crypto",
+  "baseInterval": "1h",
+  "featureIntervals": ["3h", "4h", "6h", "12h", "1d"],
+  "timestampSemantics": "bar-close",
+  "aggregation": {
+    "method": "complete-utc-midnight-bar-close-v1",
+    "anchor": "00:00"
+  },
+  "market": {
+    "clock": "continuous",
+    "calendar": "24/7",
+    "timezone": "UTC"
+  }
+}
+```
+
+V2 asset/provider/adjustment fields are the same as V1. Each asset path names
+the one authoritative 1h file; AutoQuant derives every declared higher
+interval from it. Session-market intraday data remains unsupported until an
+exchange-calendar, DST, early-close, and partial-bucket contract exists.
 
 ## Validation and normalization
 
@@ -87,14 +116,15 @@ Before any Project is visible, Core:
 1. validates strict manifest and Research Request schemas;
 2. confines every asset path beneath the package directory and rejects
    symlinks, duplicates, and unsafe symbols;
-3. reads CSV, Parquet, or Feather and accepts `date`, `datetime`, `timestamp`,
-   or `time` as the timestamp field;
-4. requires finite positive OHLCV, coherent high/low bounds, unique
-   timestamps, and no weekend rows for the session clock, then orders the
-   canonical daily output;
-5. requires every asset to share the exact timestamp panel;
-6. enforces template-specific breadth and history floors;
-7. requires each requested asset and non-null venue to exist in the package
+3. reads CSV, Parquet, or Feather;
+4. for V1, accepts a conventional timestamp alias, requires finite positive
+   daily OHLCV and no weekend session rows, then orders canonical output;
+5. for V2, requires explicit timezone-aware hourly bar-close timestamps,
+   exact UTC-hour boundaries, consecutive rows with no gaps, strict OHLCV
+   geometry, and complete UTC-midnight-anchored aggregation groups;
+6. requires every asset to share the exact base timestamp panel;
+7. enforces template-specific breadth and history floors;
+8. requires each requested asset and non-null venue to exist in the package
    and requires the request's single asset class to equal the package class.
 
 Canonical Project data uses:
@@ -107,15 +137,24 @@ with one `YYYY-MM-DD` row per session and one `<symbol>.csv` per asset. There is
 no implicit forward fill, timestamp intersection, survivorship repair, or
 corporate-action transformation.
 
+V2 uses `data/ohlcv/<interval>/<symbol>.csv`. The fixed loader recomputes every
+materialized 3h/4h/6h/12h/1d file from 1h bytes and rejects a mismatch even if
+the derived file and snapshot hashes were both rewritten. It then exposes the
+base columns plus `bar_close__<interval>`, namespaced OHLCV, and
+`age_bars__<interval>` through the ordinary `compute_factor(frame)` pandas
+API. Backward-as-of alignment permits only source closes at or before the
+decision close.
+
 ## Snapshot and identity
 
 The resulting `data/ohlcv/snapshot.json` records:
 
-- package id, version, class, frequency, market, adjustment, and provider;
+- package id, version, class, clock/interval surface, market, adjustment, and
+  provider;
 - request hash and requested assets;
 - exact research universe and common time range;
-- source path/hash and normalized path/hash for every asset;
-- observations and coverage for every asset;
+- source path/hash and normalized interval path/hash for every asset;
+- observations and coverage for every asset and materialized interval;
 - template and fixed Study id.
 
 The Study declares `ohlcv/**`, so canonical CSV, snapshot, and README bytes all
@@ -128,10 +167,10 @@ request and dataset universe: requested assets are tradable, remaining assets
 are context-only, and direction determines long/cash, short/cash, or
 dollar-neutral construction and benchmark. The same derivation fixes a
 trailing-covariance volatility policy: 60-row window, 20-row minimum, 252
-annualization periods, 15% annualized ceiling, and no scale-up. Portfolio and
-RL Studies bind the same file as a dependency. Intake reconstructs it on every
-load, so request or mandate tampering fails rather than changing the position
-or risk question silently.
+periods for V1 daily data or 8760 for V2 continuous hourly data, 15% annualized
+ceiling, and no scale-up. Portfolio and RL Studies bind the same file as a
+dependency. Intake reconstructs it on every load, so request or mandate
+tampering fails rather than changing the position or risk question silently.
 
 Project-root `request.json` preserves the exact canonical caller request.
 Project-root `intake.json` points to and hashes the request, snapshot, and
@@ -206,6 +245,8 @@ Studio remains read-only and does not duplicate validation or construction.
 8. AutoQuant retains no Broker or trading-account authority.
 9. Research-universe assets outside the request remain context-only unless the
    request explicitly authorizes them.
+10. V2 materialized higher bars must reconcile to locked 1h bytes, and all
+    three research lanes consume the same causally aligned surface.
 
 ## Verification and change checklist
 
@@ -228,7 +269,9 @@ When changing this boundary:
 
 ## Known limits
 
-- V1 handles one aligned daily session panel and one declared asset class.
+- V1 handles one aligned daily session panel; V2 handles one continuous UTC
+  1h panel with exact 3h/4h/6h/12h/1d derived bars.
+- Session-market intraday aggregation is not yet supported.
 - Symbols are restricted to path-safe identifiers.
 - It does not prove point-in-time universe membership, delisting coverage,
   corporate-action correctness, or vendor licensing.

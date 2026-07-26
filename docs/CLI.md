@@ -108,18 +108,23 @@ exact current candidate bytes and the same fixed Portfolio Mandate as the
 Portfolio lane, so factor or mandate changes stale its Run evidence.
 
 `project intake` defaults to this research-desk template. It validates the
-strict request and a caller-supplied,
-path-confined daily session-OHLCV package before creating anything. Every asset
-must share the exact timestamp panel; template-specific breadth/history floors
-apply. Core canonicalizes CSV into the Project, records provider, retrieval,
-calendar, terms, and price-adjustment claims, hashes source and normalized
-bytes, replaces the synthetic Study dataset identity, and atomically publishes
-the Project. V1 does not download data, authenticate provider claims, fill
-missing sessions, or support intraday/continuous/mixed-class packages.
+strict request and a caller-supplied, path-confined OHLCV package before
+creating anything. V1 accepts one exact daily session panel. V2 accepts a
+continuous UTC 1h bar-close panel and deterministically materializes completed
+3h/4h/6h/12h/1d context. Core never exposes a forming higher bar: each
+namespaced value joins backward only after its close. It records the interval
+surface, provider, retrieval, calendar, terms, and price-adjustment claims;
+hashes source and normalized bytes; replaces the synthetic Study dataset
+identity; and atomically publishes the Project. It does not download data,
+authenticate provider claims, fill missing bars, or synthesize session-market
+intraday calendars.
 
 The JSON result contains Project-level `request.json`, `intake.json`,
 `data/ohlcv/snapshot.json`, three verified Study identities, and exact next
 actions for inspecting the program and advancing its recommended lane.
+V2 RunResults copy the locked `dataset.intervalSurface`, and Reports, Studio,
+and Dossiers project that same evidence rather than inferring intervals from
+filenames.
 `project program --json` is the stable Agent read model for lane phase, current
 Run evidence, Sessions, Reports, shared-source conflicts, scientific
 `progression` gates, and next action. Phase is coordination state only.

@@ -37,7 +37,7 @@ contexts, artifacts, operation effects, and executable next actions under
 [`docs/CLI.md`](docs/CLI.md).
 
 For an actual delegated question, construct a Project from a strict request and
-caller-supplied daily-OHLCV package instead of editing a synthetic template:
+caller-supplied OHLCV package instead of editing a synthetic template:
 
 ```bash
 uv run aq schema ohlcv-dataset-package --json
@@ -59,6 +59,12 @@ returns verified lane status,
 shared-source conflicts, evidence currentness, and the exact recommended
 headless command. The narrow single-lane templates remain available when a
 caller intentionally selects one method.
+
+Daily V1 packages remain valid. A V2 package may declare a continuous UTC 1h
+base with completed 3h/4h/6h/12h/1d context. AutoQuant derives and reconciles
+those bars from the locked base, joins them only after their close, and gives
+all three research lanes the same ordinary pandas frame. RunResults and the
+OpenAlice-facing evidence surfaces disclose the exact interval contract.
 
 For a new coding Agent, start with one read-only command:
 

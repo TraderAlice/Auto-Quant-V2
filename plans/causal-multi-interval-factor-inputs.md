@@ -1,6 +1,6 @@
 # Add causal multi-interval factor inputs
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-07-26`
 - Related design: [[docs/design/causal-multi-interval-factor-inputs]],
   [[docs/design/research-intake-and-dataset-snapshots]],
@@ -62,20 +62,21 @@ leak incomplete information. The Harness must own those semantics.
 
 ## Acceptance
 
-- [ ] V1 daily packages, snapshots, Studies, and historical Runs remain valid.
-- [ ] A strict V2 package locks base/derived interval and bar-close semantics.
-- [ ] Derived OHLCV exactly reconciles to complete base-bar groups.
-- [ ] At decision close `t`, every joined high-period source close is `<= t`;
+- [x] V1 daily packages, snapshots, Studies, and historical Runs remain valid
+      in focused regression.
+- [x] A strict V2 package locks base/derived interval and bar-close semantics.
+- [x] Derived OHLCV exactly reconciles to complete base-bar groups.
+- [x] At decision close `t`, every joined high-period source close is `<= t`;
       a bar ending after `t` is unavailable, not partially filled.
-- [ ] Candidate code still uses ordinary pandas `compute_factor(frame)`.
-- [ ] Factor, Portfolio, and governed RL consume byte-identical aligned factor
+- [x] Candidate code still uses ordinary pandas `compute_factor(frame)`.
+- [x] Factor, Portfolio, and governed RL consume byte-identical aligned factor
       inputs and disclose their interval surface.
-- [ ] Prefix/future-withholding tests reject representative cross-interval
+- [x] Prefix/future-withholding tests reject representative cross-interval
       leakage and pass a causal multi-horizon baseline.
-- [ ] OpenAlice intake/report handoff records what intervals were requested,
-      available, used, and unavailable without turning them into trading
-      authority.
-- [ ] Bounded CLI, schema, package, docs, Studio, and full regression pass
+- [x] OpenAlice intake/report handoff records the intervals requested,
+      materialized, locked, and supplied without turning them into trading
+      authority. Arbitrary pandas column use is deliberately not inferred.
+- [x] Bounded CLI, schema, package, docs, Studio, and full regression pass
       before commit and push.
 
 ## Work
@@ -84,10 +85,10 @@ leak incomplete information. The Harness must own those semantics.
       timestamp assumptions.
 - [x] Choose one shared causally joined pandas frame instead of an engine- or
       lane-specific multi-timeframe strategy API.
-- [ ] Implement strict interval/clock primitives and aggregation fixtures.
-- [ ] Extend intake/package/snapshot contracts compatibly.
-- [ ] Integrate the shared aligned frame into Factor, Portfolio, and RL.
-- [ ] Add evidence disclosure, Studio projection, tests, docs, and release
+- [x] Implement strict interval/clock primitives and aggregation fixtures.
+- [x] Extend intake/package/snapshot contracts compatibly.
+- [x] Integrate the shared aligned frame into Factor, Portfolio, and RL.
+- [x] Add evidence disclosure, Studio projection, tests, docs, and release
       verification.
 
 ## Findings and decisions
@@ -104,16 +105,47 @@ leak incomplete information. The Harness must own those semantics.
 - 2026-07-26 — All lanes share one aligned surface. RL may learn how to weight
   multi-horizon factor sleeves, but cannot receive privileged timestamps or a
   different feature history.
+- 2026-07-26 — Do not pretend arbitrary pandas column use is observable.
+  Evidence records the surface supplied to the candidate. A future semantic
+  usage declaration, if needed, must be explicit and fixed rather than guessed
+  from source text.
+- 2026-07-26 — Portfolio and RL use 8760 annualization periods on the exact
+  continuous 1h clock; V1 daily behavior remains 252.
+- 2026-07-26 — Materialized higher bars are cache/evidence, not independent
+  authority. Intake and every Judge reaggregate from the locked 1h file and
+  reject even rehashed divergence.
 
 ## Verification
 
-Pending.
+- `tests.test_intervals`: 5 deterministic aggregation/alignment tests pass.
+- V2 rehashed-derived-bar tamper test passes in 0.53 seconds.
+- One 420-hour, five-asset research desk passed CandidateCheck, executed
+  Factor, Portfolio, and governed RL, loaded all three evidence Explorers, and
+  rendered a valid Studio snapshot on one dataset hash and interval surface in
+  71.35 seconds; Portfolio/RL annualization is 8760.
+- `uv run python scripts/check_doc_links.py`: 665 links resolve.
+- `uv build`: source distribution and wheel built; the wheel contains interval
+  Core and both multi-horizon candidate templates.
+- `uv run python -m unittest discover -s tests -v`: 190 tests passed in
+  1114.337 seconds.
 
 ## Progress log
 
 - 2026-07-26 — Plan activated after user feedback requested 1h decisions with
   3h/4h/6h/12h/1d factor context.
+- 2026-07-26 — Implemented strict V2 package/snapshot materialization,
+  completed-bar aggregation, causal alignment, shared Judge loading,
+  RunResult disclosure, and continuous-hourly annualization.
+- 2026-07-26 — Initial multi-horizon baseline failed prefix causality because
+  it attached a carried high-period value to the last observed row. Rebinding
+  returns by exact `bar_close__<interval>` removed sample-length dependence and
+  passed the fixed audit.
 
 ## Completion
 
-Pending.
+Completed on 2026-07-26. V1 daily intake remains readable and behaviorally
+compatible. V2 now fixes a continuous UTC 1h authority, deterministic
+completed-bar aggregation, causal namespaced pandas alignment, shared
+Factor/Portfolio/RL use, 8760-period risk and performance semantics, immutable
+RunResult/OpenAlice disclosure, and bounded tamper/leak/Studio evidence. A
+future session-market intraday contract remains intentionally separate.

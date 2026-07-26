@@ -9,7 +9,7 @@ import os
 import re
 import shutil
 from dataclasses import asdict, dataclass
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -579,9 +579,17 @@ def parse_study_definition(raw: dict[str, Any], path: Path) -> StudyDefinition:
     )
     if start and end:
         try:
-            start_date = date.fromisoformat(start)
-            end_date = date.fromisoformat(end)
-            if start_date > end_date:
+            if len(start) == 10 and len(end) == 10:
+                start_value: date | datetime = date.fromisoformat(start)
+                end_value: date | datetime = date.fromisoformat(end)
+            elif len(start) != 10 and len(end) != 10:
+                start_value = datetime.fromisoformat(start.replace("Z", "+00:00"))
+                end_value = datetime.fromisoformat(end.replace("Z", "+00:00"))
+                if start_value.tzinfo is None or end_value.tzinfo is None:
+                    raise ValueError("timezone-aware timestamps required")
+            else:
+                raise ValueError("mixed date and timestamp precision")
+            if start_value > end_value:
                 issues.append(
                     _issue(
                         f"{path}/dataset/time_range",
@@ -594,7 +602,8 @@ def parse_study_definition(raw: dict[str, Any], path: Path) -> StudyDefinition:
                 _issue(
                     f"{path}/dataset/time_range",
                     "dataset.time-range",
-                    "Dataset time range must use YYYY-MM-DD dates",
+                    "Dataset time range must use either YYYY-MM-DD dates or "
+                    "timezone-aware ISO-8601 timestamps at one precision",
                 )
             )
 
@@ -1302,8 +1311,18 @@ STUDY_JSON_SCHEMA: dict[str, Any] = {
                     "additionalProperties": False,
                     "required": ["start", "end"],
                     "properties": {
-                        "start": {"type": "string", "format": "date"},
-                        "end": {"type": "string", "format": "date"},
+                        "start": {
+                            "anyOf": [
+                                {"type": "string", "format": "date"},
+                                {"type": "string", "format": "date-time"},
+                            ]
+                        },
+                        "end": {
+                            "anyOf": [
+                                {"type": "string", "format": "date"},
+                                {"type": "string", "format": "date-time"},
+                            ]
+                        },
                     },
                 },
                 "paths": {

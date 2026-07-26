@@ -12,6 +12,12 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from autoquant.intervals import (
+    IntervalContractError,
+    annualization_periods,
+    load_multi_interval_asset,
+    timestamp_label,
+)
 from autoquant.mandates import (
     PORTFOLIO_MANDATE,
     load_portfolio_mandate,
@@ -133,6 +139,22 @@ def _load_mandate() -> dict[str, Any]:
 
 
 def _load_asset(data_root: Path, asset: str, start: str, end: str) -> pd.DataFrame:
+    try:
+        multi_interval = load_multi_interval_asset(
+            data_root,
+            asset,
+            start=start,
+            end=end,
+        )
+    except IntervalContractError as error:
+        raise JudgeFailure(error.code, str(error)) from error
+    if multi_interval is not None:
+        if len(multi_interval) < 120:
+            raise JudgeFailure(
+                "dataset.observations",
+                f"{asset} has fewer than 120 base observations in the Study range",
+            )
+        return multi_interval
     source = (data_root / "ohlcv" / f"{asset}.csv").resolve()
     if data_root not in source.parents or not source.is_file():
         raise JudgeFailure("dataset.asset", f"Missing confined OHLCV file for {asset}")
@@ -329,10 +351,10 @@ def _split_indices(
             )
         splits[name] = pd.DatetimeIndex(eligible)
         protocol["splits"][name] = {
-            "start": index[start].date().isoformat(),
-            "end": index[stop - 1].date().isoformat(),
-            "signalEnd": index[stop - 2].date().isoformat(),
-            "targetEnd": index[stop - 1].date().isoformat(),
+            "start": timestamp_label(index[start]),
+            "end": timestamp_label(index[stop - 1]),
+            "signalEnd": timestamp_label(index[stop - 2]),
+            "targetEnd": timestamp_label(index[stop - 1]),
             "eligibleSignalRows": len(eligible),
             "purgedBoundaryRows": 1,
         }
@@ -468,7 +490,7 @@ def _parameter_neighborhood(
                             "noTradeOneWay": band,
                             "split": split,
                             "role": roles[split],
-                            "timestamp": timestamp.date().isoformat(),
+                            "timestamp": timestamp_label(timestamp),
                             "netReturn": float(
                                 daily.loc[timestamp, "net_return"]
                             ),
@@ -1037,7 +1059,7 @@ def _evaluate() -> tuple[
     contribution = (
         base.weights.loc[test_index]
         * forward_returns.loc[test_index]
-    ).mean() * 252
+    ).mean() * annualization_periods(test_index)
     per_asset_contribution = {
         asset: float(value)
         for asset, value in contribution.items()
@@ -1210,31 +1232,51 @@ def main() -> None:
             encoding="utf-8",
         )
         daily = simulation.daily.copy()
+        daily.index = [timestamp_label(value) for value in daily.index]
         daily.index.name = "timestamp"
-        daily.to_csv(artifacts / "daily-portfolio.csv", float_format="%.12g")
+        daily.to_csv(artifacts / "daily-portfolio.csv", float_format="%.17g")
         proposed_targets = construction.targets.copy()
+        proposed_targets.index = [
+            timestamp_label(value) for value in proposed_targets.index
+        ]
         proposed_targets.index.name = "timestamp"
         proposed_targets.to_csv(
             artifacts / "proposed-target-weights.csv",
-            float_format="%.12g",
+            float_format="%.17g",
         )
         executed_weights = simulation.weights.copy()
+        executed_weights.index = [
+            timestamp_label(value) for value in executed_weights.index
+        ]
         executed_weights.index.name = "timestamp"
         executed_weights.to_csv(
             artifacts / "executed-weights.csv",
-            float_format="%.12g",
+            float_format="%.17g",
         )
-        decision_ledger.to_csv(
+        decision_artifact = decision_ledger.copy()
+        decision_artifact["timestamp"] = decision_artifact["timestamp"].map(
+            timestamp_label
+        )
+        decision_artifact.to_csv(
             artifacts / "portfolio-decisions.csv",
             index=False,
-            date_format="%Y-%m-%d",
-            float_format="%.12g",
+            float_format="%.17g",
         )
-        position_episodes.to_csv(
+        episode_artifact = position_episodes.copy()
+        for column in (
+            "entry_timestamp",
+            "last_earning_timestamp",
+            "exit_timestamp",
+        ):
+            episode_artifact[column] = episode_artifact[column].map(
+                lambda value: (
+                    value if pd.isna(value) else timestamp_label(value)
+                )
+            )
+        episode_artifact.to_csv(
             artifacts / "position-episodes.csv",
             index=False,
-            date_format="%Y-%m-%d",
-            float_format="%.12g",
+            float_format="%.17g",
         )
         (artifacts / "portfolio-parameter-neighborhood.json").write_text(
             json.dumps(

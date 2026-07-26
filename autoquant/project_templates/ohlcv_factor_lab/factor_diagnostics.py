@@ -8,6 +8,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from autoquant.intervals import timestamp_label
 
 HORIZONS = (1, 5, 10)
 SPLIT_NAMES = ("train", "validation", "test")
@@ -57,8 +58,8 @@ def purged_split_masks(
             raise ValueError(f"Chronological split {name} is empty")
         base_labels.iloc[start:stop] = name
         protocol["splits"][name] = {
-            "start": index[start].date().isoformat(),
-            "end": index[stop - 1].date().isoformat(),
+            "start": timestamp_label(index[start]),
+            "end": timestamp_label(index[stop - 1]),
             "rows": stop - start,
         }
 
@@ -78,11 +79,11 @@ def purged_split_masks(
             masks[horizon][name] = mask
             signal_positions = positions[eligible]
             horizon_protocol[name] = {
-                "signalStart": index[signal_positions[0]].date().isoformat(),
-                "signalEnd": index[signal_positions[-1]].date().isoformat(),
-                "targetEnd": index[signal_positions[-1] + horizon]
-                .date()
-                .isoformat(),
+                "signalStart": timestamp_label(index[signal_positions[0]]),
+                "signalEnd": timestamp_label(index[signal_positions[-1]]),
+                "targetEnd": timestamp_label(
+                    index[signal_positions[-1] + horizon]
+                ),
                 "eligibleSignalRows": int(eligible.sum()),
                 "purgedBoundaryRows": horizon,
             }
@@ -116,10 +117,10 @@ def chronological_fold_masks(
             selected = positions[eligible]
             protocol[name] = {
                 "split": split,
-                "start": index[fold_start].date().isoformat(),
-                "end": index[fold_stop - 1].date().isoformat(),
-                "signalEnd": index[selected[-1]].date().isoformat(),
-                "targetEnd": index[selected[-1] + horizon].date().isoformat(),
+                "start": timestamp_label(index[fold_start]),
+                "end": timestamp_label(index[fold_stop - 1]),
+                "signalEnd": timestamp_label(index[selected[-1]]),
+                "targetEnd": timestamp_label(index[selected[-1] + horizon]),
                 "eligibleSignalRows": int(eligible.sum()),
                 "purgedBoundaryRows": horizon,
             }

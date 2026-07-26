@@ -6,10 +6,10 @@ import csv
 import json
 import math
 from dataclasses import dataclass
-from datetime import date
 from pathlib import Path
 from typing import Any
 
+from .intervals import timestamp_label
 from .runs import RunContext, load_run
 from .workspace import (
     SCHEMA_VERSION,
@@ -150,13 +150,25 @@ def _integer(value: Any, path: Path | str, *, minimum: int = 0) -> int:
 
 def _session_date(value: Any, path: Path | str) -> str:
     if not isinstance(value, str):
-        _fail(path, "factor.timestamp", "Timestamp must be an ISO session date")
+        _fail(
+            path,
+            "factor.timestamp",
+            "Timestamp must be an ISO date or UTC date-time",
+        )
     try:
-        parsed = date.fromisoformat(value)
-    except ValueError:
-        _fail(path, "factor.timestamp", "Timestamp must be an ISO session date")
-    if parsed.isoformat() != value:
-        _fail(path, "factor.timestamp", "Timestamp must be an ISO session date")
+        normalized = timestamp_label(value)
+    except (TypeError, ValueError):
+        _fail(
+            path,
+            "factor.timestamp",
+            "Timestamp must be an ISO date or UTC date-time",
+        )
+    if normalized != value:
+        _fail(
+            path,
+            "factor.timestamp",
+            "Timestamp must be a canonical ISO date or UTC date-time",
+        )
     return value
 
 

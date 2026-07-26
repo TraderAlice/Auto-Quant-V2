@@ -6,19 +6,26 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import jsonschema
 import pandas as pd
 
 from autoquant.briefs import load_research_request
+from autoquant.checks import execute_candidate_check
+from autoquant.factor_explorer import load_factor_diagnostics
 from autoquant.intake import (
+    OHLCV_DATASET_PACKAGE_JSON_SCHEMA,
     load_project_intake,
+    materialize_intake_dataset,
     prepare_project_intake,
 )
 from autoquant.mandates import (
     PORTFOLIO_MANDATE,
     load_portfolio_mandate,
 )
+from autoquant.intervals import load_multi_interval_asset
 from autoquant.portfolio_explorer import load_portfolio_diagnostics
-from autoquant.runs import execute_study
+from autoquant.rl_explorer import load_rl_diagnostics
+from autoquant.runs import RUN_RESULT_JSON_SCHEMA, execute_study
 from autoquant.sessions import start_session
 from autoquant.studio import build_studio_snapshot
 from autoquant.studies import hash_file, load_study
@@ -33,10 +40,314 @@ from autoquant.workspace import (
     initialize_workspace,
     load_workspace,
 )
-from tests.intake_helpers import write_intake_inputs
+from tests.intake_helpers import write_intake_inputs, write_multi_interval_inputs
 
 
 class RequestDrivenIntakeTests(unittest.TestCase):
+    def test_v2_multi_interval_package_prepares_complete_locked_surface(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            request_path, package_path = write_multi_interval_inputs(
+                Path(directory)
+            )
+            jsonschema.Draft202012Validator(
+                OHLCV_DATASET_PACKAGE_JSON_SCHEMA,
+                format_checker=jsonschema.FormatChecker(),
+            ).validate(json.loads(package_path.read_text(encoding="utf-8")))
+            prepared = prepare_project_intake(
+                request_path,
+                package_path,
+                "ohlcv-research-desk",
+            )
+            self.assertTrue(prepared.multi_interval)
+            self.assertEqual(
+                prepared.interval_surface,
+                {
+                    "baseInterval": "1h",
+                    "featureIntervals": ["3h", "4h", "6h", "12h", "1d"],
+                    "timestampSemantics": "bar-close",
+                    "marketClock": "continuous",
+                    "timezone": "UTC",
+                    "anchor": "00:00",
+                    "aggregationMethod": "complete-utc-midnight-bar-close-v1",
+                },
+            )
+            self.assertEqual(prepared.start, "2026-01-01T01:00:00Z")
+            self.assertEqual(prepared.end, "2026-01-13T00:00:00Z")
+            first = prepared.assets[0]
+            self.assertIsNotNone(first.interval_frames)
+            assert first.interval_frames is not None
+            self.assertEqual(
+                list(first.interval_frames),
+                ["1h", "3h", "4h", "6h", "12h", "1d"],
+            )
+            self.assertEqual(len(first.interval_frames["1h"]), 288)
+            self.assertEqual(len(first.interval_frames["1d"]), 12)
+            workspace = initialize_workspace(Path(directory) / "workspace")
+            project = create_project(workspace.root_dir, "hourly-lock")
+            snapshot, snapshot_hash = materialize_intake_dataset(
+                project,
+                prepared,
+                OHLCV_STUDY_ID,
+            )
+            self.assertEqual(snapshot["schemaVersion"], 2)
+            self.assertEqual(
+                snapshot["intervalSurface"],
+                prepared.interval_surface,
+            )
+            self.assertEqual(len(snapshot_hash), 64)
+            self.assertEqual(
+                [item["interval"] for item in snapshot["assets"][0]["intervals"]],
+                ["1h", "3h", "4h", "6h", "12h", "1d"],
+            )
+            self.assertTrue(
+                (project.root_dir / "data" / "ohlcv" / "1d" / "BTC.csv").is_file()
+            )
+            aligned = load_multi_interval_asset(
+                project.root_dir / "data",
+                "BTC",
+                start=prepared.start,
+                end=prepared.end,
+            )
+            self.assertIsNotNone(aligned)
+            assert aligned is not None
+            self.assertIn("close__1d", aligned.columns)
+            self.assertLessEqual(
+                aligned["bar_close__1d"].dropna().max(),
+                aligned["timestamp"].max(),
+            )
+
+    def test_v2_rehashed_derived_bar_cannot_bypass_reconciliation(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            request_path, package_path = write_multi_interval_inputs(root)
+            workspace = initialize_workspace(root / "workspace")
+            prepared = prepare_project_intake(
+                request_path,
+                package_path,
+                "ohlcv-factor-lab",
+            )
+            project = create_project(
+                workspace.root_dir,
+                "tampered-multi-interval",
+                template=prepared.template,
+                template_intake=prepared,
+            )
+            data_path = project.root_dir / "data" / "ohlcv" / "12h" / "BTC.csv"
+            frame = pd.read_csv(data_path)
+            frame.loc[0, "close"] *= 1.01
+            frame.to_csv(
+                data_path,
+                index=False,
+                lineterminator="\n",
+                float_format="%.12g",
+            )
+
+            snapshot_path = project.root_dir / "data" / "ohlcv" / "snapshot.json"
+            snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
+            btc = next(
+                item for item in snapshot["assets"] if item["symbol"] == "BTC"
+            )
+            row = next(
+                item for item in btc["intervals"] if item["interval"] == "12h"
+            )
+            row["normalizedHash"] = hash_file(data_path)
+            snapshot_path.write_text(
+                json.dumps(snapshot, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+
+            study = load_study(project, OHLCV_STUDY_ID)
+            intake_path = project.root_dir / "intake.json"
+            intake = json.loads(intake_path.read_text(encoding="utf-8"))
+            intake.update(
+                {
+                    "datasetSnapshotHash": hash_file(snapshot_path),
+                    "datasetHash": study.dataset_hash,
+                    "studyHash": study.study_hash,
+                    "studyInputHash": study.input_hash,
+                }
+            )
+            intake_path.write_text(
+                json.dumps(intake, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "does not reconcile to 1h bars",
+            ):
+                load_project_intake(project)
+
+    def test_v2_research_desk_runs_one_shared_surface_across_all_lanes(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            request_path, package_path = write_multi_interval_inputs(
+                root,
+                observations=420,
+            )
+            workspace = initialize_workspace(root / "workspace")
+            prepared = prepare_project_intake(
+                request_path,
+                package_path,
+                "ohlcv-research-desk",
+            )
+            project = create_project(
+                workspace.root_dir,
+                "multi-interval-desk",
+                template=prepared.template,
+                template_intake=prepared,
+            )
+
+            intake = load_project_intake(project)
+            self.assertIsNotNone(intake)
+            mandate = load_portfolio_mandate(
+                project.root_dir / PORTFOLIO_MANDATE
+            )
+            self.assertEqual(
+                mandate["construction"]["riskPolicy"][
+                    "annualizationPeriods"
+                ],
+                24 * 365,
+            )
+            session = start_session(
+                project,
+                OHLCV_STUDY_ID,
+                request=load_research_request(
+                    project.root_dir / "request.json"
+                ),
+            )
+            candidate_path = (
+                session.worktree_project.root_dir
+                / "factors"
+                / "candidate.py"
+            )
+            candidate_path.write_text(
+                candidate_path.read_text(encoding="utf-8")
+                + "\n# bounded V2 preflight candidate\n",
+                encoding="utf-8",
+            )
+            preflight = execute_candidate_check(
+                project,
+                session.manifest["id"],
+            )
+            self.assertEqual(preflight.result["status"], "passed")
+
+            runs = [
+                execute_study(project, study_id)
+                for study_id in (
+                    OHLCV_STUDY_ID,
+                    PORTFOLIO_STUDY_ID,
+                    RL_STUDY_ID,
+                )
+            ]
+            expected_surface = prepared.interval_surface
+            self.assertIsNotNone(expected_surface)
+            for run in runs:
+                self.assertEqual(
+                    run.result["status"],
+                    "succeeded",
+                    run.result["errors"],
+                )
+                self.assertEqual(
+                    run.result["dataset"]["intervalSurface"],
+                    expected_surface,
+                )
+                jsonschema.validate(run.result, RUN_RESULT_JSON_SCHEMA)
+            self.assertEqual(
+                {run.result["dataset"]["hash"] for run in runs},
+                {runs[0].result["dataset"]["hash"]},
+            )
+            self.assertEqual(
+                runs[1].result["metrics"]["portfolio"]["validation"]["net"][
+                    "annualization_periods"
+                ],
+                24 * 365,
+            )
+            self.assertEqual(
+                runs[2].result["metrics"]["portfolio_mandate"]["construction"][
+                    "riskPolicy"
+                ]["annualizationPeriods"],
+                24 * 365,
+            )
+            factor_diagnostics = load_factor_diagnostics(
+                project,
+                runs[0].result["id"],
+            )
+            portfolio_diagnostics = load_portfolio_diagnostics(
+                project,
+                runs[1].result["id"],
+            )
+            rl_diagnostics = load_rl_diagnostics(
+                project,
+                runs[2].result["id"],
+            )
+            self.assertTrue(
+                factor_diagnostics["protocol"]["splits"]["splits"][
+                    "validation"
+                ]["end"].endswith("Z")
+            )
+            self.assertTrue(
+                portfolio_diagnostics["currentBook"]["timestamp"].endswith(
+                    "Z"
+                )
+            )
+            self.assertEqual(
+                rl_diagnostics["portfolioMandate"]["riskPolicy"][
+                    "annualizationPeriods"
+                ],
+                24 * 365,
+            )
+            studio = build_studio_snapshot(workspace.root_dir)
+            observed = studio["projects"][0]
+            self.assertTrue(observed["valid"], observed["diagnostics"])
+            self.assertEqual(observed["diagnostics"], [])
+            self.assertEqual(
+                observed["intake"]["dataset"]["intervalSurface"],
+                expected_surface,
+            )
+
+    def test_v2_rejects_forming_semantics_clock_and_hourly_gaps(self) -> None:
+        for mutate, expected in (
+            (
+                lambda package: package.update(
+                    {"timestampSemantics": "bar-open"}
+                ),
+                "must mean bar-close",
+            ),
+            (
+                lambda package: package["market"].update(
+                    {"clock": "session"}
+                ),
+                "continuous 24/7 UTC",
+            ),
+        ):
+            with self.subTest(expected=expected), tempfile.TemporaryDirectory() as directory:
+                request_path, package_path = write_multi_interval_inputs(
+                    Path(directory)
+                )
+                package = json.loads(package_path.read_text(encoding="utf-8"))
+                mutate(package)
+                package_path.write_text(json.dumps(package), encoding="utf-8")
+                with self.assertRaisesRegex(AutoQuantValidationError, expected):
+                    prepare_project_intake(
+                        request_path,
+                        package_path,
+                        "ohlcv-factor-lab",
+                    )
+
+        with tempfile.TemporaryDirectory() as directory:
+            request_path, package_path = write_multi_interval_inputs(Path(directory))
+            package = json.loads(package_path.read_text(encoding="utf-8"))
+            source = package_path.parent / package["assets"][0]["path"]
+            frame = pd.read_csv(source).drop(index=10)
+            frame.to_csv(source, index=False)
+            with self.assertRaisesRegex(AutoQuantValidationError, "without gaps"):
+                prepare_project_intake(
+                    request_path,
+                    package_path,
+                    "ohlcv-factor-lab",
+                )
+
     def test_portfolio_intake_locks_request_data_study_and_session(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

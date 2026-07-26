@@ -12,6 +12,11 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from autoquant.intervals import (
+    IntervalContractError,
+    load_multi_interval_asset,
+    timestamp_label,
+)
 from judges.factor_diagnostics import (
     HORIZONS,
     REGIME_NAMES,
@@ -61,6 +66,22 @@ def _load_contract() -> tuple[dict[str, Any], Path]:
 
 
 def _load_asset(data_root: Path, asset: str, start: str, end: str) -> pd.DataFrame:
+    try:
+        multi_interval = load_multi_interval_asset(
+            data_root,
+            asset,
+            start=start,
+            end=end,
+        )
+    except IntervalContractError as error:
+        raise JudgeFailure(error.code, str(error)) from error
+    if multi_interval is not None:
+        if len(multi_interval) < 120:
+            raise JudgeFailure(
+                "dataset.observations",
+                f"{asset} has fewer than 120 base observations in the Study range",
+            )
+        return multi_interval
     source = (data_root / "ohlcv" / f"{asset}.csv").resolve()
     if data_root not in source.parents or not source.is_file():
         raise JudgeFailure("dataset.asset", f"Missing confined OHLCV file for {asset}")
@@ -667,21 +688,32 @@ def main() -> None:
             json.dumps(report, indent=2, sort_keys=True) + "\n",
             encoding="utf-8",
         )
-        daily_evidence.to_csv(
-            artifacts / "daily-factor-evidence.csv",
-            date_format="%Y-%m-%d",
-            float_format="%.12g",
+        daily_artifact = daily_evidence.copy()
+        daily_artifact.index = [
+            timestamp_label(value) for value in daily_artifact.index
+        ]
+        daily_artifact.index.name = "timestamp"
+        quantile_artifact = quantile_evidence.copy()
+        quantile_artifact["timestamp"] = quantile_artifact["timestamp"].map(
+            timestamp_label
         )
-        quantile_evidence.to_csv(
+        qualification_artifact = qualification_evidence.copy()
+        qualification_artifact.index = [
+            timestamp_label(value) for value in qualification_artifact.index
+        ]
+        qualification_artifact.index.name = "timestamp"
+        daily_artifact.to_csv(
+            artifacts / "daily-factor-evidence.csv",
+            float_format="%.17g",
+        )
+        quantile_artifact.to_csv(
             artifacts / "factor-quantiles.csv",
             index=False,
-            date_format="%Y-%m-%d",
-            float_format="%.12g",
+            float_format="%.17g",
         )
-        qualification_evidence.to_csv(
+        qualification_artifact.to_csv(
             artifacts / "factor-qualification.csv",
-            date_format="%Y-%m-%d",
-            float_format="%.12g",
+            float_format="%.17g",
         )
         _write_output(
             {
