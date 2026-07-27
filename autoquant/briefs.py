@@ -43,8 +43,12 @@ PORTFOLIO_POLICY_NUMERIC_FIELDS = {
     "noTradeOneWay",
     "referenceNav",
 }
+PORTFOLIO_POLICY_INTEGER_FIELDS = {
+    "decisionEveryBars",
+}
 PORTFOLIO_POLICY_FIELDS = {
     *PORTFOLIO_POLICY_NUMERIC_FIELDS,
+    *PORTFOLIO_POLICY_INTEGER_FIELDS,
     "assetMaxAbsWeights",
 }
 
@@ -323,9 +327,24 @@ def validate_research_request(
                             )
                         else:
                             asset_caps[normalized_symbol] = float(item)
+            decision_every_bars = policy.get("decisionEveryBars")
+            valid_decision_every_bars = (
+                isinstance(decision_every_bars, int)
+                and not isinstance(decision_every_bars, bool)
+                and 1 <= decision_every_bars <= 252
+            )
+            if not valid_decision_every_bars:
+                issues.append(
+                    _issue(
+                        f"{path}/portfolioPolicy/decisionEveryBars",
+                        "request.decision-cadence",
+                        "decisionEveryBars must be an integer from 1 to 252",
+                    )
+                )
             if (
                 len(numeric) == len(PORTFOLIO_POLICY_NUMERIC_FIELDS)
                 and asset_caps is not None
+                and valid_decision_every_bars
             ):
                 bounds = (
                     ("grossLimit", 0.0, 2.0, False),
@@ -373,6 +392,7 @@ def validate_research_request(
                     )
                 normalized_policy = {
                     **numeric,
+                    "decisionEveryBars": decision_every_bars,
                     "assetMaxAbsWeights": {
                         symbol: asset_caps[symbol]
                         for symbol in sorted(asset_caps)
@@ -944,6 +964,11 @@ RESEARCH_REQUEST_JSON_SCHEMA: dict[str, Any] = {
                             "type": "number",
                             "exclusiveMinimum": 0,
                             "maximum": 1e12,
+                        },
+                        "decisionEveryBars": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 252,
                         },
                     },
                 },

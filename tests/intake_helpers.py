@@ -278,23 +278,37 @@ def write_session_interval_inputs(
     sessions: int = 45,
     assets: tuple[str, ...] = INTAKE_ASSETS,
     horizon_policy: dict[str, object] | None = None,
+    portfolio_policy: dict[str, object] | None = None,
+    base_interval: str = "1h",
+    calendar_start: str = "2026-09-28",
 ) -> tuple[Path, Path]:
-    """Write deterministic 1h XNYS bars, including terminal partial bars."""
+    """Write deterministic XNYS bars, including terminal partial bars."""
 
-    source = root / "external-xnys-hourly-data"
+    interval_delta = {
+        "15m": pd.Timedelta(minutes=15),
+        "1h": pd.Timedelta(hours=1),
+    }.get(base_interval)
+    if interval_delta is None:
+        raise ValueError("test XNYS fixture supports 15m or 1h bases")
+    feature_intervals = (
+        ["1h", "3h", "1d"]
+        if base_interval == "15m"
+        else ["3h", "1d"]
+    )
+    source = root / f"external-xnys-{base_interval}-data"
     source.mkdir()
     calendar = xcals.get_calendar(
         "XNYS",
-        start="2026-09-28",
+        start=calendar_start,
         end="2026-12-15",
     )
     schedule = calendar.schedule.iloc[:sessions]
     timestamps: list[pd.Timestamp] = []
     for row in schedule.itertuples():
-        bar_close = row.open + pd.Timedelta(hours=1)
+        bar_close = row.open + interval_delta
         while bar_close < row.close:
             timestamps.append(bar_close)
-            bar_close += pd.Timedelta(hours=1)
+            bar_close += interval_delta
         timestamps.append(row.close)
     time = np.arange(len(timestamps), dtype=float)
     asset_entries = []
@@ -337,11 +351,11 @@ def write_session_interval_inputs(
     package = {
         "schemaVersion": 3,
         "kind": "autoquant-ohlcv-dataset-package",
-        "id": "bounded-xnys-hourly",
+        "id": f"bounded-xnys-{base_interval}",
         "version": "2026-v1",
         "assetClass": "equity",
-        "baseInterval": "1h",
-        "featureIntervals": ["3h", "1d"],
+        "baseInterval": base_interval,
+        "featureIntervals": feature_intervals,
         "timestampSemantics": "bar-close",
         "aggregation": {
             "method": "complete-xnys-regular-session-bar-close-v1",
@@ -378,6 +392,11 @@ def write_session_interval_inputs(
             {"symbol": "MSFT", "assetClass": "equity", "venue": "XNYS"},
         ],
         "direction": "long",
+        **(
+            {"portfolioPolicy": portfolio_policy}
+            if portfolio_policy is not None
+            else {}
+        ),
         **(
             {"horizonPolicy": horizon_policy}
             if horizon_policy is not None

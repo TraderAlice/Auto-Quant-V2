@@ -555,6 +555,12 @@ def _rollout_action_rows(
                 "split": split,
                 "timestamp": timestamp_label(timestamp),
                 "action": rollout.actions.loc[timestamp],
+                "decision_eligible": bool(
+                    daily["decision_eligible"]
+                ),
+                "decision_every_bars": int(
+                    daily["decision_every_bars"]
+                ),
                 "reward": float(daily["reward"]),
                 "gross_return": float(daily["gross_return"]),
                 "net_return": float(daily["net_return"]),
@@ -603,6 +609,8 @@ def _rollout_rationale_rows(
     rows: list[dict[str, Any]] = []
     previous_action = "balanced"
     for timestamp in rollout.actions.index:
+        daily = rollout.simulation.daily.loc[timestamp]
+        decision_eligible = bool(daily["decision_eligible"])
         state = {
             field: float(rollout.states.loc[timestamp, field])
             for field in POLICY_STATE_COLUMNS
@@ -623,13 +631,24 @@ def _rollout_rationale_rows(
             range(len(ACTIONS)),
             key=lambda index: (-float(q_values[index]), index),
         )
-        selected_index, runner_up_index = ranked[:2]
+        actual_action = str(rollout.actions.loc[timestamp])
+        if decision_eligible:
+            selected_index, runner_up_index = ranked[:2]
+            selection_reason = "q-argmax"
+        else:
+            selected_index = ACTIONS.index(actual_action)
+            runner_up_index = next(
+                index
+                for index in ranked
+                if index != selected_index
+            )
+            selection_reason = "decision-schedule-hold"
         selected_action = ACTIONS[selected_index]
         runner_up_action = ACTIONS[runner_up_index]
-        if selected_action != rollout.actions.loc[timestamp]:
+        if selected_action != actual_action:
             raise JudgeFailure(
                 "policy.rationale-action",
-                "Rationale argmax differs from the policy rollout",
+                "Rationale availability differs from the policy rollout",
             )
         contributions = (
             weights[selected_index] - weights[runner_up_index]
@@ -656,6 +675,9 @@ def _rollout_rationale_rows(
             "seed": seed,
             "split": split,
             "timestamp": timestamp_label(timestamp),
+            "decisionEligible": decision_eligible,
+            "decisionEveryBars": int(daily["decision_every_bars"]),
+            "selectionReason": selection_reason,
             "previousAction": previous_action,
             "selectedAction": selected_action,
             "runnerUpAction": runner_up_action,
@@ -672,7 +694,7 @@ def _rollout_rationale_rows(
                 for index, action in enumerate(ACTIONS)
             },
             "actionMargin": margin,
-            "tieForBest": margin <= 1e-12,
+            "tieForBest": abs(margin) <= 1e-12,
             "marginContributions": {
                 name: float(contributions[index])
                 for index, name in enumerate(feature_names)
@@ -2248,6 +2270,9 @@ def _evaluate() -> tuple[
             "costBps": implementation_policy["base_cost_bps"],
             "noTradeOneWay": implementation_policy["no_trade_one_way"],
             "referenceNav": implementation_policy["reference_nav"],
+            "decisionEveryBars": implementation_policy[
+                "decision_every_bars"
+            ],
             "executionRiskMethod": (
                 "post-drift-executed-book-volatility-compliance-v1"
             ),

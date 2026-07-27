@@ -69,6 +69,7 @@ DEFAULT_PORTFOLIO_POLICY = {
     "baseCostBps": 10.0,
     "noTradeOneWay": 0.05,
     "referenceNav": 1_000_000.0,
+    "decisionEveryBars": 1,
 }
 IMPLEMENTATION_COST_MODEL = "linear-traded-notional-v1"
 IMPLEMENTATION_CAPACITY_MODEL = "trailing-dollar-volume-participation-v1"
@@ -94,7 +95,10 @@ def _valid_portfolio_policy(
     required = set(DEFAULT_PORTFOLIO_POLICY)
     if set(value) != required:
         return False
-    numeric_fields = required - {"assetMaxAbsWeights"}
+    numeric_fields = required - {
+        "assetMaxAbsWeights",
+        "decisionEveryBars",
+    }
     if any(
         not isinstance(value[key], (int, float))
         or isinstance(value[key], bool)
@@ -123,6 +127,7 @@ def _valid_portfolio_policy(
     cost = float(value["baseCostBps"])
     no_trade = float(value["noTradeOneWay"])
     nav = float(value["referenceNav"])
+    cadence = value["decisionEveryBars"]
     maximum_cap = (
         gross / 2.0
         if direction
@@ -136,6 +141,9 @@ def _valid_portfolio_policy(
         and 0 <= cost <= 1000
         and 0 <= no_trade <= 1
         and 0 < nav <= 1e12
+        and isinstance(cadence, int)
+        and not isinstance(cadence, bool)
+        and 1 <= cadence <= 252
         and all(
             0 < float(asset_cap) <= cap
             for asset_cap in asset_caps.values()
@@ -308,6 +316,12 @@ def _canonical_payload(
             "baseCostBps": portfolio_policy["baseCostBps"],
             "noTradeOneWay": portfolio_policy["noTradeOneWay"],
             "referenceNav": portfolio_policy["referenceNav"],
+            "decisionPolicy": {
+                "source": policy_source,
+                "kind": "every-bars",
+                "bars": portfolio_policy["decisionEveryBars"],
+                "anchor": "dataset-start",
+            },
             "costModel": IMPLEMENTATION_COST_MODEL,
             "capacityModel": IMPLEMENTATION_CAPACITY_MODEL,
         },
@@ -602,6 +616,7 @@ def validate_portfolio_mandate(
                     "baseCostBps",
                     "noTradeOneWay",
                     "referenceNav",
+                    "decisionPolicy",
                     "costModel",
                     "capacityModel",
                 },
@@ -742,6 +757,14 @@ def validate_portfolio_mandate(
                     "baseCostBps": implementation.get("baseCostBps"),
                     "noTradeOneWay": implementation.get("noTradeOneWay"),
                     "referenceNav": implementation.get("referenceNav"),
+                    "decisionEveryBars": (
+                        implementation.get("decisionPolicy", {}).get("bars")
+                        if isinstance(
+                            implementation.get("decisionPolicy"),
+                            dict,
+                        )
+                        else None
+                    ),
                 }
                 complete_caps = construction.get(
                     "assetMaxAbsWeights"
@@ -1066,6 +1089,7 @@ PORTFOLIO_MANDATE_JSON_SCHEMA: dict[str, Any] = {
                 "baseCostBps",
                 "noTradeOneWay",
                 "referenceNav",
+                "decisionPolicy",
                 "costModel",
                 "capacityModel",
             ],
@@ -1084,6 +1108,31 @@ PORTFOLIO_MANDATE_JSON_SCHEMA: dict[str, Any] = {
                     "type": "number",
                     "exclusiveMinimum": 0,
                     "maximum": 1e12,
+                },
+                "decisionPolicy": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": [
+                        "source",
+                        "kind",
+                        "bars",
+                        "anchor",
+                    ],
+                    "properties": {
+                        "source": {
+                            "enum": [
+                                "caller-supplied",
+                                "reference-default",
+                            ]
+                        },
+                        "kind": {"const": "every-bars"},
+                        "bars": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 252,
+                        },
+                        "anchor": {"const": "dataset-start"},
+                    },
                 },
                 "costModel": {"const": IMPLEMENTATION_COST_MODEL},
                 "capacityModel": {

@@ -101,6 +101,8 @@ ACTION_COLUMNS = [
     "split",
     "timestamp",
     "action",
+    "decision_eligible",
+    "decision_every_bars",
     "reward",
     "gross_return",
     "net_return",
@@ -360,6 +362,11 @@ def _configuration(metrics: dict[str, Any]) -> dict[str, Any]:
         "discount": _finite(value.get("discount"), "configuration/discount"),
         "riskAversion": _finite(value.get("riskAversion"), "configuration/riskAversion"),
         "costBps": _finite(value.get("costBps"), "configuration/costBps"),
+        "decisionEveryBars": _integer(
+            value.get("decisionEveryBars"),
+            "configuration/decisionEveryBars",
+            minimum=1,
+        ),
     }
 
 
@@ -867,6 +874,7 @@ def _action_rows(
             rows: list[dict[str, Any]] = []
             seen: set[tuple[str, int, str, str]] = set()
             last_dates: dict[tuple[str, int, str], str] = {}
+            previous_actions: dict[tuple[str, int, str], str] = {}
             for row_number, row in enumerate(reader, start=2):
                 if None in row or any(value is None for value in row.values()):
                     _fail(f"{path}:{row_number}", "rl.csv-width", "Action row width differs from header")
@@ -891,6 +899,35 @@ def _action_rows(
                     _fail(f"{path}:{row_number}", "rl.action-order", "Action timestamps must be unique and ordered")
                 seen.add(key)
                 last_dates[group] = timestamp
+                if row["decision_eligible"] not in {"True", "False"}:
+                    _fail(
+                        f"{path}:{row_number}/decision_eligible",
+                        "rl.decision-cadence",
+                        "Decision eligibility must be a boolean",
+                    )
+                decision_eligible = row["decision_eligible"] == "True"
+                decision_every_bars = _csv_nonnegative_integer(
+                    row["decision_every_bars"],
+                    f"{path}:{row_number}/decision_every_bars",
+                )
+                if (
+                    decision_every_bars
+                    != configuration["decisionEveryBars"]
+                    or decision_every_bars < 1
+                ):
+                    _fail(
+                        f"{path}:{row_number}/decision_every_bars",
+                        "rl.decision-cadence",
+                        "Action cadence differs from configuration",
+                    )
+                previous_action = previous_actions.get(group, "balanced")
+                if not decision_eligible and action != previous_action:
+                    _fail(
+                        f"{path}:{row_number}/action",
+                        "rl.decision-schedule-hold",
+                        "An ineligible bar changed the governed RL action",
+                    )
+                previous_actions[group] = action
                 rows.append(
                     {
                         "fold": fold,
@@ -898,6 +935,8 @@ def _action_rows(
                         "split": split,
                         "timestamp": timestamp,
                         "action": action,
+                        "decisionEligible": decision_eligible,
+                        "decisionEveryBars": decision_every_bars,
                         "reward": _finite(row["reward"], f"{path}:{row_number}/reward"),
                         "grossReturn": _finite(row["gross_return"], f"{path}:{row_number}/gross_return"),
                         "netReturn": _finite(row["net_return"], f"{path}:{row_number}/net_return"),
@@ -1002,6 +1041,7 @@ def _action_rows(
                             "target_risk_repair",
                             "rebalance_threshold_met",
                             "portfolio_no_trade_band",
+                            "decision_schedule_hold",
                         }
                         or min(
                             rows[-1][
@@ -1021,6 +1061,11 @@ def _action_rows(
                             rows[-1]["riskRebalanceOverride"]
                             and rows[-1]["executionReason"]
                             != "risk_ceiling_override"
+                        )
+                        or (
+                            not rows[-1]["decisionEligible"]
+                            and rows[-1]["oneWayTurnover"] > 1e-12
+                            and not rows[-1]["riskRebalanceOverride"]
                         )
                         or (
                             rows[-1]["executionRiskForecastAvailable"]
@@ -1691,6 +1736,9 @@ def _policy_behavior_projection(
         "seed",
         "split",
         "timestamp",
+        "decisionEligible",
+        "decisionEveryBars",
+        "selectionReason",
         "previousAction",
         "selectedAction",
         "runnerUpAction",
@@ -1736,6 +1784,16 @@ def _policy_behavior_projection(
         if (
             raw.get("previousAction") != expected_previous
             or raw.get("selectedAction") != action_row["action"]
+            or raw.get("decisionEligible")
+            != action_row["decisionEligible"]
+            or raw.get("decisionEveryBars")
+            != action_row["decisionEveryBars"]
+            or raw.get("selectionReason")
+            != (
+                "q-argmax"
+                if action_row["decisionEligible"]
+                else "decision-schedule-hold"
+            )
             or raw.get("selectedAction") not in configuration["actions"]
             or raw.get("runnerUpAction") not in configuration["actions"]
             or raw.get("selectedAction") == raw.get("runnerUpAction")
@@ -1807,7 +1865,17 @@ def _policy_behavior_projection(
                 action_index,
             ),
         )
-        selected_index, runner_index = ranked[:2]
+        if action_row["decisionEligible"]:
+            selected_index, runner_index = ranked[:2]
+        else:
+            selected_index = configuration["actions"].index(
+                raw["selectedAction"]
+            )
+            runner_index = next(
+                index
+                for index in ranked
+                if index != selected_index
+            )
         if (
             raw["selectedAction"]
             != configuration["actions"][selected_index]
@@ -1872,7 +1940,7 @@ def _policy_behavior_projection(
         if (
             raw.get("dominantMarginFeature") != dominant_feature
             or not isinstance(raw.get("tieForBest"), bool)
-            or raw.get("tieForBest") != (margin <= 1e-12)
+            or raw.get("tieForBest") != (abs(margin) <= 1e-12)
         ):
             _fail(
                 path,
@@ -2354,6 +2422,8 @@ def _factor_opportunity_projection(
         "seed",
         "split",
         "timestamp",
+        "decisionEligible",
+        "decisionEveryBars",
         "selectedAction",
         "oracleAction",
         "selectedRank",
@@ -2420,6 +2490,10 @@ def _factor_opportunity_projection(
             )
         if (
             raw.get("selectedAction") != selected_action_row["action"]
+            or raw.get("decisionEligible")
+            != selected_action_row["decisionEligible"]
+            or raw.get("decisionEveryBars")
+            != selected_action_row["decisionEveryBars"]
             or raw.get("selectedAction") not in configuration["actions"]
             or raw.get("oracleAction") not in configuration["actions"]
             or not isinstance(raw.get("oracleHit"), bool)
@@ -2646,7 +2720,13 @@ def _factor_opportunity_projection(
             ),
         )
         selected_action = raw["selectedAction"]
-        oracle_action = ranked[0]
+        decision_eligible = raw["decisionEligible"]
+        oracle_action = ranked[0] if decision_eligible else selected_action
+        selected_rank = (
+            ranked.index(selected_action) + 1
+            if decision_eligible
+            else 1
+        )
         selected_reward = _finite(
             raw.get("selectedReward"),
             f"{path}/selectedReward",
@@ -2669,7 +2749,7 @@ def _factor_opportunity_projection(
         )
         if (
             raw.get("oracleAction") != oracle_action
-            or raw.get("selectedRank") != ranked.index(selected_action) + 1
+            or raw.get("selectedRank") != selected_rank
             or raw["oracleHit"] != (selected_action == oracle_action)
             or regret < -1e-12
         ):
@@ -4650,6 +4730,12 @@ def load_rl_diagnostics(
                 "baseCostBps": 10.0,
                 "noTradeOneWay": 0.05,
                 "referenceNav": 1_000_000.0,
+                "decisionPolicy": {
+                    "source": "reference-default",
+                    "kind": "every-bars",
+                    "bars": 1,
+                    "anchor": "dataset-start",
+                },
                 "costModel": "linear-traded-notional-v1",
                 "capacityModel": (
                     "trailing-dollar-volume-participation-v1"
@@ -4713,6 +4799,14 @@ def load_rl_diagnostics(
                     "rl.implementation-policy",
                     "RL configuration differs from the Portfolio Mandate",
                 )
+        if configuration.get("decisionEveryBars") != implementation[
+            "decisionPolicy"
+        ]["bars"]:
+            _fail(
+                "metrics/configuration/decisionEveryBars",
+                "rl.decision-cadence",
+                "RL decision cadence differs from the Portfolio Mandate",
+            )
         mandate_projection = {
             "available": True,
             "id": mandate["id"],
@@ -4844,6 +4938,29 @@ def load_rl_diagnostics(
         "artifacts": artifacts,
         "portfolioMandate": mandate_projection,
         "researchHorizon": research_horizon,
+        "decisionCadence": {
+            **mandate_projection["implementationPolicy"][
+                "decisionPolicy"
+            ],
+            "observations": len(action_rows),
+            "eligibleBars": sum(
+                row["decisionEligible"] for row in action_rows
+            ),
+            "eligibleRate": (
+                sum(row["decisionEligible"] for row in action_rows)
+                / len(action_rows)
+            ),
+            "scheduledHoldBars": sum(
+                not row["decisionEligible"]
+                and not row["riskRebalanceOverride"]
+                for row in action_rows
+            ),
+            "riskOnlyOverrideBars": sum(
+                not row["decisionEligible"]
+                and row["riskRebalanceOverride"]
+                for row in action_rows
+            ),
+        },
         "policyBehavior": policy_behavior,
         "factorOpportunity": factor_opportunity,
         "incrementalAttribution": incremental_attribution,
@@ -5314,6 +5431,7 @@ RL_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "artifacts",
         "portfolioMandate",
         "researchHorizon",
+        "decisionCadence",
         "policyBehavior",
         "factorOpportunity",
         "incrementalAttribution",
@@ -5340,6 +5458,38 @@ RL_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "artifacts": {"type": "object"},
         "portfolioMandate": {"type": "object"},
         "researchHorizon": RESEARCH_HORIZON_JSON_SCHEMA,
+        "decisionCadence": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "source",
+                "kind",
+                "bars",
+                "anchor",
+                "observations",
+                "eligibleBars",
+                "eligibleRate",
+                "scheduledHoldBars",
+                "riskOnlyOverrideBars",
+            ],
+            "properties": {
+                "source": {
+                    "enum": ["caller-supplied", "reference-default"]
+                },
+                "kind": {"const": "every-bars"},
+                "bars": {"type": "integer", "minimum": 1, "maximum": 252},
+                "anchor": {"const": "dataset-start"},
+                "observations": {"type": "integer", "minimum": 1},
+                "eligibleBars": {"type": "integer", "minimum": 0},
+                "eligibleRate": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                },
+                "scheduledHoldBars": {"type": "integer", "minimum": 0},
+                "riskOnlyOverrideBars": {"type": "integer", "minimum": 0},
+            },
+        },
         "policyBehavior": {"type": "object"},
         "factorOpportunity": {"type": "object"},
         "incrementalAttribution": {"type": "object"},

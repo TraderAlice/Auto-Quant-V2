@@ -317,6 +317,13 @@ def _portfolio_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
         layers = {
             "kind": "portfolio",
             "researchHorizon": metrics.get("research_horizon"),
+            "decisionCadence": (
+                metrics["portfolio_mandate"]["implementationPolicy"][
+                    "decisionPolicy"
+                ]
+                if isinstance(metrics.get("portfolio_mandate"), dict)
+                else None
+            ),
             "mandate": (
                 {
                     "id": metrics["portfolio_mandate"]["id"],
@@ -598,6 +605,13 @@ def _factor_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
         layers = {
             "kind": "factor",
             "researchHorizon": metrics.get("research_horizon"),
+            "decisionCadence": (
+                metrics["portfolio_mandate"]["implementationPolicy"][
+                    "decisionPolicy"
+                ]
+                if isinstance(metrics.get("portfolio_mandate"), dict)
+                else None
+            ),
             "validationMeanIc": metrics["validation"]["mean_ic"],
             "validationPearsonIc": (
                 metrics["validation"].get("pearson_ic", {}).get("mean_ic")

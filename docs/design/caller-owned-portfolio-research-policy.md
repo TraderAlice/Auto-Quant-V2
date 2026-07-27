@@ -42,7 +42,8 @@ can still request support. When present it contains every field:
   "annualizedVolatilityCeiling": 0.12,
   "baseCostBps": 15.0,
   "noTradeOneWay": 0.04,
-  "referenceNav": 250000.0
+  "referenceNav": 250000.0,
+  "decisionEveryBars": 4
 }
 ```
 
@@ -57,9 +58,10 @@ Bounds are deliberately finite:
 - `baseCostBps`: `[0, 1000]`;
 - `noTradeOneWay`: `[0, 1]`;
 - `referenceNav`: `(0, 1e12]`.
+- `decisionEveryBars`: integer `[1, 252]`.
 
 When omitted, Core inserts the documented reference defaults `1.0`, `0.30`,
-an empty override map, `0.15`, `10`, `0.05`, and `1,000,000`.
+an empty override map, `0.15`, `10`, `0.05`, `1,000,000`, and `1`.
 
 ## Mandate contract
 
@@ -71,6 +73,12 @@ The derived Mandate retains construction fields and adds a strict
   "baseCostBps": 15.0,
   "noTradeOneWay": 0.04,
   "referenceNav": 250000.0,
+  "decisionPolicy": {
+    "source": "caller-supplied",
+    "kind": "every-bars",
+    "bars": 4,
+    "anchor": "dataset-start"
+  },
   "costModel": "linear-traded-notional-v1",
   "capacityModel": "trailing-dollar-volume-participation-v1"
 }
@@ -88,6 +96,8 @@ Portfolio and governed RL both use:
 - annualized volatility ceiling during proposed and executed-book risk
   governance;
 - no-trade band during post-drift rebalance decisions;
+- decision cadence during signal-state transitions, target construction,
+  ordinary execution, and governed-RL action availability;
 - base cost in net return, reward, attribution, and action opportunities;
 - reference NAV in participation and capacity evidence.
 
@@ -116,4 +126,4 @@ default assumptions and retain `tradingAuthority: none`.
 - Reference NAV only scales OHLCV participation; it does not change percentage
   weights or create account state.
 - Signal thresholds and Portfolio/RL algorithms remain fixed Harness
-  authority.
+  authority. See [[docs/design/caller-owned-decision-cadence]].

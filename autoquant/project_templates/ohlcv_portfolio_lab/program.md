@@ -39,6 +39,9 @@ permission to select from visible test audit.
   equal funded long/short sides;
 - context-only assets remain flat with zero target;
 - maximum absolute target weight comes from the Portfolio Mandate;
+- the Portfolio Mandate's decision schedule is anchored to the locked
+  dataset start: signal state and governed targets may advance only on
+  eligible base bars, and remain frozen between them;
 - forecast portfolio volatility from up to 60 complete trailing return rows
   through decision close `t`, with at least 20 observations;
 - uniformly scale raw targets down to the Portfolio Mandate's annualized
@@ -48,6 +51,9 @@ permission to select from visible test audit.
 - recheck that chosen post-drift book against the same causal covariance
   ceiling; risk outranks no-trade and may apply only the minimum proportional
   scale-down;
+- an ineligible decision bar forbids ordinary rebalancing, but the same
+  every-bar risk check may still flatten or proportionally scale down an
+  unsafe drifted book;
 - cost every bought/sold dollar at the Portfolio Mandate's base cost;
 - estimate causal ADV from 20 `close × volume` observations through decision
   close and invert exact trade weights at 1%/5% participation;

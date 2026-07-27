@@ -39,7 +39,8 @@ A supplied complete `portfolioPolicy` adds:
   "annualizedVolatilityCeiling": 0.12,
   "baseCostBps": 15.0,
   "noTradeOneWay": 0.04,
-  "referenceNav": 250000.0
+  "referenceNav": 250000.0,
+  "decisionEveryBars": 4
 }
 ```
 

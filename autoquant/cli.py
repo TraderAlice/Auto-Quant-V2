@@ -197,6 +197,8 @@ def _report_decision_support_line(report: dict[str, Any]) -> str:
             "Frozen leader decision: "
             f"{portfolio['timestamp']}  "
             f"state_changes={portfolio['stateChanges']}  "
+            f"decision_eligible={portfolio['decisionEligible']}  "
+            f"decision_every_bars={portfolio['decisionEveryBars']}  "
             f"proposed_turnover={portfolio['proposedOneWayTurnover']}  "
             f"no_trade_band={portfolio['noTradeOneWay']}  "
             f"gate={portfolio['reason']}  trading_authority=none\n"

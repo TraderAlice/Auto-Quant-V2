@@ -178,7 +178,8 @@ are context-only, and direction determines long/cash, short/cash, or
 dollar-neutral construction and benchmark. If the canonical request contains
 `portfolioPolicy`, the same derivation locks its gross, global fallback and
 named requested-asset caps, volatility ceiling, linear cost, no-trade band,
-and reference NAV; otherwise it records documented reference defaults. The
+reference NAV, and ordinary Portfolio/RL decision cadence; otherwise it
+records documented reference defaults. The
 same derivation fixes a
 trailing-covariance volatility policy: 60-row window, 20-row minimum, 252
 periods for V1 daily data, 8760 for V2 continuous hourly data, or the verified

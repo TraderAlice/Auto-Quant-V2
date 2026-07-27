@@ -15,6 +15,7 @@ try:
         Simulation,
         build_risk_covariance_cache,
         construct_signal_policy,
+        decision_schedule_mask,
         drift_weights,
         execution_risk_metrics,
         execute_risk_compliant_book,
@@ -28,6 +29,7 @@ except ModuleNotFoundError:  # Package-level deterministic primitive tests.
         Simulation,
         build_risk_covariance_cache,
         construct_signal_policy,
+        decision_schedule_mask,
         drift_weights,
         execution_risk_metrics,
         execute_risk_compliant_book,
@@ -289,6 +291,7 @@ def _account_step(
     volume: pd.Series,
     *,
     first: bool,
+    ordinary_rebalance_allowed: bool = True,
     mandate: dict[str, object] | None = None,
     risk_covariance_cache: RiskCovarianceCache | None = None,
 ) -> tuple[pd.Series, pd.Series, pd.Series, dict[str, float | bool]]:
@@ -306,6 +309,7 @@ def _account_step(
         timestamp,
         mandate=mandate,
         no_trade_one_way=implementation["no_trade_one_way"],
+        ordinary_rebalance_allowed=ordinary_rebalance_allowed,
         risk_covariance_cache=risk_covariance_cache,
     )
     rebalanced = bool(execution_risk["rebalanced"])
@@ -364,6 +368,10 @@ def _account_step(
         "max_abs_weight": float(current.abs().max()),
         "concentration_hhi": float(current.pow(2).sum()),
         "rebalanced": rebalanced,
+        "decision_eligible": ordinary_rebalance_allowed,
+        "decision_every_bars": int(
+            implementation["decision_every_bars"]
+        ),
         "execution_reason": str(execution_risk["execution_reason"]),
         "execution_risk_status": str(execution_risk["status"]),
         "execution_risk_forecast_available": bool(
@@ -438,6 +446,19 @@ def rollout_policy(
     forward_returns = closes.shift(-1) / closes - 1.0
     previous_weights = pd.Series(0.0, index=closes.columns, dtype=float)
     previous_action = "balanced"
+    decision_every_bars = int(
+        resolve_implementation_policy(mandate)["decision_every_bars"]
+    )
+    complete_index = next(iter(action_targets.values())).index
+    decision_mask = decision_schedule_mask(
+        complete_index,
+        decision_every_bars,
+    ).reindex(index)
+    if decision_mask.isna().any():
+        raise PolicyFailure(
+            "policy.decision-cadence",
+            "Policy split is outside the complete decision schedule",
+        )
     daily_rows: list[dict[str, object]] = []
     weight_rows: list[pd.Series] = []
     trade_rows: list[pd.Series] = []
@@ -446,6 +467,7 @@ def rollout_policy(
     state_rows: list[dict[str, float]] = []
     for position, timestamp in enumerate(index):
         first = position == 0
+        decision_eligible = bool(decision_mask.loc[timestamp])
         pretrade = _pretrade_weights(
             previous_weights,
             close_returns,
@@ -461,7 +483,11 @@ def rollout_policy(
                 for action in ACTIONS
             },
         )
-        action = selector(state)
+        action = (
+            selector(state)
+            if decision_eligible
+            else previous_action
+        )
         if action not in ACTIONS:
             raise PolicyFailure(
                 "policy.action",
@@ -476,6 +502,7 @@ def rollout_policy(
             closes.loc[timestamp],
             volumes.loc[timestamp],
             first=first,
+            ordinary_rebalance_allowed=decision_eligible,
             mandate=mandate,
             risk_covariance_cache=risk_covariance_cache,
         )
@@ -536,8 +563,22 @@ def one_step_action_opportunities(
     close_returns = closes.pct_change(fill_method=None)
     forward_returns = closes.shift(-1) / closes - 1.0
     zero = pd.Series(0.0, index=closes.columns, dtype=float)
+    decision_every_bars = int(
+        resolve_implementation_policy(mandate)["decision_every_bars"]
+    )
+    complete_index = next(iter(action_targets.values())).index
+    decision_mask = decision_schedule_mask(
+        complete_index,
+        decision_every_bars,
+    ).reindex(index)
+    if decision_mask.isna().any():
+        raise PolicyFailure(
+            "policy.decision-cadence",
+            "Opportunity split is outside the complete decision schedule",
+        )
     rows: list[dict[str, object]] = []
     for position, timestamp in enumerate(index):
+        decision_eligible = bool(decision_mask.loc[timestamp])
         previous_weights = (
             zero
             if position == 0
@@ -561,6 +602,7 @@ def one_step_action_opportunities(
                 closes.loc[timestamp],
                 volumes.loc[timestamp],
                 first=position == 0,
+                ordinary_rebalance_allowed=decision_eligible,
                 mandate=mandate,
                 risk_covariance_cache=cache,
             )
@@ -656,7 +698,12 @@ def one_step_action_opportunities(
                 ACTIONS.index(action),
             ),
         )
-        oracle = ranked[0]
+        if decision_eligible:
+            oracle = ranked[0]
+            selected_rank = ranked.index(selected) + 1
+        else:
+            oracle = selected
+            selected_rank = 1
         selected_reward = float(selected_evidence["reward"])
         oracle_reward = float(action_evidence[oracle]["reward"])
         regret = oracle_reward - selected_reward
@@ -670,9 +717,11 @@ def one_step_action_opportunities(
         rows.append(
             {
                 "timestamp": timestamp,
+                "decisionEligible": decision_eligible,
+                "decisionEveryBars": decision_every_bars,
                 "selectedAction": selected,
                 "oracleAction": oracle,
-                "selectedRank": ranked.index(selected) + 1,
+                "selectedRank": selected_rank,
                 "oracleHit": selected == oracle,
                 "selectedReward": selected_reward,
                 "oracleReward": oracle_reward,
@@ -716,6 +765,19 @@ def train_q_policy(
     weights = rng.normal(0.0, 1e-5, size=(len(ACTIONS), feature_count))
     close_returns = closes.pct_change(fill_method=None)
     forward_returns = closes.shift(-1) / closes - 1.0
+    decision_every_bars = int(
+        resolve_implementation_policy(mandate)["decision_every_bars"]
+    )
+    complete_index = next(iter(action_targets.values())).index
+    decision_mask = decision_schedule_mask(
+        complete_index,
+        decision_every_bars,
+    ).reindex(train_index)
+    if decision_mask.isna().any():
+        raise PolicyFailure(
+            "policy.decision-cadence",
+            "Training split is outside the complete decision schedule",
+        )
     history: list[dict[str, object]] = []
     for episode in range(EPISODES):
         fraction = episode / max(1, EPISODES - 1)
@@ -726,6 +788,7 @@ def train_q_policy(
         action_counts = {action: 0 for action in ACTIONS}
         for position, timestamp in enumerate(train_index):
             first = position == 0
+            decision_eligible = bool(decision_mask.loc[timestamp])
             pretrade = _pretrade_weights(
                 previous_weights,
                 close_returns,
@@ -743,7 +806,9 @@ def train_q_policy(
             )
             encoded = encoder(state)
             q_values = weights @ encoded
-            if rng.random() < epsilon:
+            if not decision_eligible:
+                action_number = ACTIONS.index(previous_action)
+            elif rng.random() < epsilon:
                 action_number = int(rng.integers(0, len(ACTIONS)))
             else:
                 action_number = int(np.argmax(q_values))
@@ -757,6 +822,7 @@ def train_q_policy(
                 closes.loc[timestamp],
                 volumes.loc[timestamp],
                 first=first,
+                ordinary_rebalance_allowed=decision_eligible,
                 mandate=mandate,
                 risk_covariance_cache=risk_covariance_cache,
             )
@@ -784,9 +850,15 @@ def train_q_policy(
                     },
                 )
                 next_encoded = encoder(next_state)
-                target = reward + DISCOUNT * float(
-                    np.max(weights @ next_encoded)
+                next_q_values = weights @ next_encoded
+                bootstrap = (
+                    float(np.max(next_q_values))
+                    if bool(decision_mask.loc[next_timestamp])
+                    else float(
+                        next_q_values[ACTIONS.index(action)]
+                    )
                 )
+                target = reward + DISCOUNT * bootstrap
             error = float(np.clip(target - q_values[action_number], -0.10, 0.10))
             weights[action_number] += LEARNING_RATE * error * encoded
             if not np.isfinite(weights).all():

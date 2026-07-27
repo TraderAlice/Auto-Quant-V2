@@ -118,6 +118,7 @@ EXPECTED_SIGNAL_PARAMETERS = {
     "gross_target": GROSS_TARGET,
     "max_abs_weight": MAX_ABS_WEIGHT,
     "no_trade_one_way": NO_TRADE_ONE_WAY,
+    "decision_every_bars": 1,
 }
 BASE_ARTIFACT_KINDS = {
     "portfolio-report",
@@ -199,6 +200,8 @@ DECISION_REQUIRED_COLUMNS = {
     "prior_signal_state",
     "signal_state",
     "signal_event",
+    "decision_eligible",
+    "decision_every_bars",
     "conviction",
     "trailing_volatility",
     "risk_strength",
@@ -506,7 +509,13 @@ class ParsedDaily:
 
 
 def _parse_daily(path: Path) -> ParsedDaily:
-    required = {"timestamp", "rebalanced", *DAILY_NUMERIC_COLUMNS}
+    required = {
+        "timestamp",
+        "rebalanced",
+        "decision_eligible",
+        "decision_every_bars",
+        *DAILY_NUMERIC_COLUMNS,
+    }
     fields, raw_rows = _read_csv(
         path,
         required=required,
@@ -573,6 +582,25 @@ def _parse_daily(path: Path) -> ParsedDaily:
                 f"{path}:{index}/rebalanced",
                 "portfolio.boolean",
                 "rebalanced must be True or False",
+            )
+        if raw["decision_eligible"] not in {"True", "False"}:
+            _fail(
+                f"{path}:{index}/decision_eligible",
+                "portfolio.boolean",
+                "decision_eligible must be True or False",
+            )
+        try:
+            decision_every_bars = int(raw["decision_every_bars"])
+        except ValueError:
+            decision_every_bars = 0
+        if (
+            str(decision_every_bars) != raw["decision_every_bars"]
+            or not 1 <= decision_every_bars <= 252
+        ):
+            _fail(
+                f"{path}:{index}/decision_every_bars",
+                "portfolio.decision-cadence",
+                "decision_every_bars must be an integer from 1 to 252",
             )
         if has_execution_risk:
             execution_numeric = {
@@ -645,6 +673,28 @@ def _parse_daily(path: Path) -> ParsedDaily:
                     "execution_risk_status"
                 ],
             }
+            if (
+                not (raw["decision_eligible"] == "True")
+                and (
+                    execution_boolean["ordinary_rebalance"]
+                    or (
+                        raw["rebalanced"] == "True"
+                        and not execution_boolean[
+                            "risk_rebalance_override"
+                        ]
+                    )
+                    or raw["execution_reason"]
+                    not in {
+                        "decision_schedule_hold",
+                        "risk_ceiling_override",
+                    }
+                )
+            ):
+                _fail(
+                    f"{path}:{index}",
+                    "portfolio.decision-schedule-hold",
+                    "An ineligible bar contains an ordinary rebalance",
+                )
         else:
             execution_values = {
                 **{
@@ -664,6 +714,10 @@ def _parse_daily(path: Path) -> ParsedDaily:
                 **values,
                 "cash_weight": cash_weight,
                 "rebalanced": raw["rebalanced"] == "True",
+                "decision_eligible": (
+                    raw["decision_eligible"] == "True"
+                ),
+                "decision_every_bars": decision_every_bars,
                 **execution_values,
             }
         )
@@ -793,6 +847,26 @@ def _parse_decisions(
                     "Signal states must be -1, 0, or 1",
                 )
             states[field] = state
+        if raw["decision_eligible"] not in {"True", "False"}:
+            _fail(
+                f"{row_path}/decision_eligible",
+                "portfolio.boolean",
+                "decision_eligible must be True or False",
+            )
+        decision_eligible = raw["decision_eligible"] == "True"
+        try:
+            decision_every_bars = int(raw["decision_every_bars"])
+        except ValueError:
+            decision_every_bars = 0
+        if (
+            str(decision_every_bars) != raw["decision_every_bars"]
+            or not 1 <= decision_every_bars <= 252
+        ):
+            _fail(
+                f"{row_path}/decision_every_bars",
+                "portfolio.decision-cadence",
+                "decision_every_bars must be an integer from 1 to 252",
+            )
         optional = {
             field: _optional_finite(raw[field], f"{row_path}/{field}")
             for field in DECISION_OPTIONAL_FLOATS
@@ -1094,6 +1168,8 @@ def _parse_decisions(
             **liquidity_numeric,
             **execution_risk_numeric,
             **execution_risk_booleans,
+            "decision_eligible": decision_eligible,
+            "decision_every_bars": decision_every_bars,
             "signal_event": raw["signal_event"],
             "allocation_status": raw["allocation_status"],
             "target_action": raw["target_action"],
@@ -1136,6 +1212,31 @@ def _parse_decisions(
                 else "legacy-dollar-neutral"
             ),
         }
+        if not decision_eligible:
+            scheduled_signal = (
+                parsed["signal_event"] == "decision_schedule_hold"
+                and parsed["allocation_status"]
+                == "decision_schedule_hold"
+                if parsed["tradable"]
+                else parsed["signal_event"] == "context_only"
+                and parsed["allocation_status"] == "context_only"
+            )
+            if (
+                parsed["prior_signal_state"]
+                != parsed["signal_state"]
+                or abs(parsed["target_delta"]) > 1e-12
+                or not scheduled_signal
+                or parsed["ordinary_rebalance"]
+                or (
+                    abs(parsed["trade_weight"]) > 1e-12
+                    and not parsed["risk_rebalance_override"]
+                )
+            ):
+                _fail(
+                    row_path,
+                    "portfolio.decision-schedule-hold",
+                    "An ineligible decision row changed signal, target, or ordinary book",
+                )
         decisions[key] = parsed
         ordered.append(parsed)
     missing = expected - decisions.keys()
@@ -1204,6 +1305,8 @@ def _parse_decisions(
                 item["ordinary_rebalance"],
                 item["risk_rebalance_override"],
                 item["execution_reason"],
+                item["decision_eligible"],
+                item["decision_every_bars"],
             )
             for item in rows
         }
@@ -1229,6 +1332,8 @@ def _parse_decisions(
             expected_daily["ordinary_rebalance"],
             expected_daily["risk_rebalance_override"],
             expected_daily["execution_reason"],
+            expected_daily["decision_eligible"],
+            expected_daily["decision_every_bars"],
         )
         if execution_signature[0] != "legacy_unavailable":
             for actual, expected_value in zip(
@@ -3494,6 +3599,11 @@ def _mechanical_decision_projection(
         },
         "executionGate": {
             "available": execution_available,
+            "decisionEligible": daily_row["decision_eligible"],
+            "decisionEveryBars": daily_row["decision_every_bars"],
+            "decisionSource": mandate["implementationPolicy"][
+                "decisionPolicy"
+            ]["source"],
             "noTradeOneWay": no_trade_one_way,
             "proposedOneWayTurnover": proposed_one_way,
             "bandShortfall": max(0.0, no_trade_one_way - proposed_one_way),
@@ -4049,6 +4159,13 @@ def _signal_policy_projection(
         < normalized_parameters["max_abs_weight"]
         <= normalized_parameters["gross_target"]
         or not 0.0 <= normalized_parameters["no_trade_one_way"] <= 1.0
+        or not 1.0 <= normalized_parameters["decision_every_bars"] <= 252.0
+        or not math.isclose(
+            normalized_parameters["decision_every_bars"],
+            round(normalized_parameters["decision_every_bars"]),
+            rel_tol=0.0,
+            abs_tol=1e-12,
+        )
     ):
         _fail(
             "RunResult/metrics/signal_policy/parameters",
@@ -4058,6 +4175,9 @@ def _signal_policy_projection(
     normalized_parameters["volatility_window"] = int(
         normalized_parameters["volatility_window"]
     )
+    normalized_parameters["decision_every_bars"] = int(
+        normalized_parameters["decision_every_bars"]
+    )
     expected_parameters = {
         **EXPECTED_SIGNAL_PARAMETERS,
         "gross_target": mandate["grossLimit"],
@@ -4065,6 +4185,9 @@ def _signal_policy_projection(
         "no_trade_one_way": mandate["implementationPolicy"][
             "noTradeOneWay"
         ],
+        "decision_every_bars": mandate["implementationPolicy"][
+            "decisionPolicy"
+        ]["bars"],
     }
     if normalized_parameters != expected_parameters:
         _fail(
@@ -4151,6 +4274,12 @@ def _mandate_projection(
                 "baseCostBps": 10.0,
                 "noTradeOneWay": 0.05,
                 "referenceNav": 1_000_000.0,
+                "decisionPolicy": {
+                    "source": "reference-default",
+                    "kind": "every-bars",
+                    "bars": 1,
+                    "anchor": "dataset-start",
+                },
                 "costModel": "linear-traded-notional-v1",
                 "capacityModel": (
                     "trailing-dollar-volume-participation-v1"
@@ -5943,6 +6072,18 @@ def load_portfolio_diagnostics(
     )
 
     daily = _parse_daily(paths["portfolio-daily"])
+    decision_every_bars = int(
+        mandate["implementationPolicy"]["decisionPolicy"]["bars"]
+    )
+    if any(
+        row["decision_every_bars"] != decision_every_bars
+        for row in daily.rows
+    ):
+        _fail(
+            paths["portfolio-daily"],
+            "portfolio.decision-cadence",
+            "Daily decision cadence differs from the Portfolio Mandate",
+        )
     target_dates, targets = _parse_weight_panel(
         paths["portfolio-targets"],
         universe,
@@ -6008,6 +6149,27 @@ def load_portfolio_diagnostics(
         "universe": universe,
         "mandate": mandate,
         "researchHorizon": research_horizon,
+        "decisionCadence": {
+            **mandate["implementationPolicy"]["decisionPolicy"],
+            "observations": len(daily.rows),
+            "eligibleBars": sum(
+                row["decision_eligible"] for row in daily.rows
+            ),
+            "eligibleRate": (
+                sum(row["decision_eligible"] for row in daily.rows)
+                / len(daily.rows)
+            ),
+            "scheduledHoldBars": sum(
+                not row["decision_eligible"]
+                and not row["risk_rebalance_override"]
+                for row in daily.rows
+            ),
+            "riskOnlyOverrideBars": sum(
+                not row["decision_eligible"]
+                and row["risk_rebalance_override"]
+                for row in daily.rows
+            ),
+        },
         "selection": {
             "selectionSplit": research_integrity.get("selection_split"),
             "testRole": research_integrity.get("test_role"),
@@ -7276,6 +7438,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "universe",
         "mandate",
         "researchHorizon",
+        "decisionCadence",
         "selection",
         "artifacts",
         "path",
@@ -7298,6 +7461,38 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "schemaVersion": {"const": SCHEMA_VERSION},
         "kind": {"const": PORTFOLIO_DIAGNOSTICS_KIND},
         "researchHorizon": RESEARCH_HORIZON_JSON_SCHEMA,
+        "decisionCadence": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "source",
+                "kind",
+                "bars",
+                "anchor",
+                "observations",
+                "eligibleBars",
+                "eligibleRate",
+                "scheduledHoldBars",
+                "riskOnlyOverrideBars",
+            ],
+            "properties": {
+                "source": {
+                    "enum": ["caller-supplied", "reference-default"]
+                },
+                "kind": {"const": "every-bars"},
+                "bars": {"type": "integer", "minimum": 1, "maximum": 252},
+                "anchor": {"const": "dataset-start"},
+                "observations": {"type": "integer", "minimum": 1},
+                "eligibleBars": {"type": "integer", "minimum": 0},
+                "eligibleRate": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1,
+                },
+                "scheduledHoldBars": {"type": "integer", "minimum": 0},
+                "riskOnlyOverrideBars": {"type": "integer", "minimum": 0},
+            },
+        },
         "run": {
             "type": "object",
             "additionalProperties": False,
@@ -7538,6 +7733,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                         "baseCostBps",
                         "noTradeOneWay",
                         "referenceNav",
+                        "decisionPolicy",
                         "costModel",
                         "capacityModel",
                     ],
@@ -7554,6 +7750,31 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                         "referenceNav": {
                             "type": "number",
                             "exclusiveMinimum": 0,
+                        },
+                        "decisionPolicy": {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "required": [
+                                "source",
+                                "kind",
+                                "bars",
+                                "anchor",
+                            ],
+                            "properties": {
+                                "source": {
+                                    "enum": [
+                                        "caller-supplied",
+                                        "reference-default",
+                                    ]
+                                },
+                                "kind": {"const": "every-bars"},
+                                "bars": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 252,
+                                },
+                                "anchor": {"const": "dataset-start"},
+                            },
                         },
                         "costModel": {
                             "const": "linear-traded-notional-v1"
@@ -7884,6 +8105,9 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                     "additionalProperties": False,
                     "required": [
                         "available",
+                        "decisionEligible",
+                        "decisionEveryBars",
+                        "decisionSource",
                         "noTradeOneWay",
                         "proposedOneWayTurnover",
                         "bandShortfall",
@@ -7898,6 +8122,18 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                     ],
                     "properties": {
                         "available": {"type": "boolean"},
+                        "decisionEligible": {"type": "boolean"},
+                        "decisionEveryBars": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 252,
+                        },
+                        "decisionSource": {
+                            "enum": [
+                                "caller-supplied",
+                                "reference-default",
+                            ]
+                        },
                         "noTradeOneWay": {
                             "type": "number",
                             "minimum": 0,

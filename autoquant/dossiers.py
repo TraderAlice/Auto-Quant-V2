@@ -1272,6 +1272,7 @@ def _render_markdown(dossier: dict[str, Any]) -> str:
         for mandate in mandates.values():
             construction = mandate["construction"]
             implementation = mandate["implementationPolicy"]
+            decision_policy = implementation["decisionPolicy"]
             benchmark = construction["benchmark"]
             benchmark_label = (
                 f"{benchmark['asset']} long"
@@ -1324,6 +1325,12 @@ def _render_markdown(dossier: dict[str, Any]) -> str:
                     f"`{implementation['baseCostBps']}` bps / "
                     f"`{implementation['noTradeOneWay']}` / "
                     f"`{implementation['referenceNav']}`",
+                    f"- Decision cadence / anchor / source: every "
+                    f"`{decision_policy['bars']}` base bars / "
+                    f"`{decision_policy['anchor']}` / "
+                    f"`{decision_policy['source']}`",
+                    "- Off-schedule bars hold signal intent and ordinary "
+                    "positions; only mandatory risk scale-down may trade.",
                     "- These are content-locked research assumptions, not "
                     "authenticated Broker fees, account capital, or trading "
                     "authority.",

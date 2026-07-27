@@ -16,6 +16,7 @@ MAX_ABS_WEIGHT = 0.30
 NO_TRADE_ONE_WAY = 0.05
 BASE_COST_BPS = 10.0
 REFERENCE_NAV = 1_000_000.0
+DECISION_EVERY_BARS = 1
 LONG_ENTRY_PERCENTILE = 0.75
 LONG_EXIT_PERCENTILE = 0.55
 SHORT_EXIT_PERCENTILE = 0.45
@@ -278,6 +279,7 @@ def _resolve_mandate(
                 "base_cost_bps": BASE_COST_BPS,
                 "no_trade_one_way": NO_TRADE_ONE_WAY,
                 "reference_nav": REFERENCE_NAV,
+                "decision_every_bars": DECISION_EVERY_BARS,
             },
             "risk_policy": None,
         }
@@ -359,6 +361,7 @@ def _resolve_mandate(
             "baseCostBps",
             "noTradeOneWay",
             "referenceNav",
+            "decisionPolicy",
             "costModel",
             "capacityModel",
         }
@@ -375,6 +378,23 @@ def _resolve_mandate(
         or not isinstance(implementation.get("referenceNav"), (int, float))
         or isinstance(implementation.get("referenceNav"), bool)
         or not 0 < float(implementation["referenceNav"]) <= 1e12
+        or not isinstance(implementation.get("decisionPolicy"), dict)
+        or set(implementation["decisionPolicy"])
+        != {"source", "kind", "bars", "anchor"}
+        or implementation["decisionPolicy"].get("source")
+        != source.get("portfolioPolicy")
+        or implementation["decisionPolicy"].get("kind") != "every-bars"
+        or not isinstance(
+            implementation["decisionPolicy"].get("bars"),
+            int,
+        )
+        or isinstance(
+            implementation["decisionPolicy"].get("bars"),
+            bool,
+        )
+        or not 1 <= implementation["decisionPolicy"]["bars"] <= 252
+        or implementation["decisionPolicy"].get("anchor")
+        != "dataset-start"
         or set(risk_policy)
         != {
             "method",
@@ -439,6 +459,9 @@ def _resolve_mandate(
             "base_cost_bps": float(implementation["baseCostBps"]),
             "no_trade_one_way": float(implementation["noTradeOneWay"]),
             "reference_nav": float(implementation["referenceNav"]),
+            "decision_every_bars": int(
+                implementation["decisionPolicy"]["bars"]
+            ),
         },
         "risk_policy": {
             "method": str(risk_policy["method"]),
@@ -459,7 +482,7 @@ def _resolve_mandate(
 
 def resolve_implementation_policy(
     mandate: dict[str, object] | None,
-) -> dict[str, float]:
+) -> dict[str, float | int]:
     """Resolve fixed accounting assumptions without requiring an asset panel."""
 
     if mandate is None:
@@ -467,6 +490,7 @@ def resolve_implementation_policy(
             "base_cost_bps": BASE_COST_BPS,
             "no_trade_one_way": NO_TRADE_ONE_WAY,
             "reference_nav": REFERENCE_NAV,
+            "decision_every_bars": DECISION_EVERY_BARS,
         }
     implementation = mandate.get("implementationPolicy")
     if not isinstance(implementation, dict):
@@ -478,6 +502,11 @@ def resolve_implementation_policy(
         "base_cost_bps": implementation.get("baseCostBps"),
         "no_trade_one_way": implementation.get("noTradeOneWay"),
         "reference_nav": implementation.get("referenceNav"),
+        "decision_every_bars": (
+            implementation.get("decisionPolicy", {}).get("bars")
+            if isinstance(implementation.get("decisionPolicy"), dict)
+            else None
+        ),
     }
     if (
         not isinstance(result["base_cost_bps"], (int, float))
@@ -489,12 +518,47 @@ def resolve_implementation_policy(
         or not isinstance(result["reference_nav"], (int, float))
         or isinstance(result["reference_nav"], bool)
         or not 0 < float(result["reference_nav"]) <= 1e12
+        or not isinstance(result["decision_every_bars"], int)
+        or isinstance(result["decision_every_bars"], bool)
+        or not 1 <= result["decision_every_bars"] <= 252
     ):
         raise PortfolioFailure(
             "mandate.implementation",
             "Portfolio Mandate implementation policy is invalid",
         )
-    return {key: float(value) for key, value in result.items()}
+    return {
+        "base_cost_bps": float(result["base_cost_bps"]),
+        "no_trade_one_way": float(result["no_trade_one_way"]),
+        "reference_nav": float(result["reference_nav"]),
+        "decision_every_bars": int(result["decision_every_bars"]),
+    }
+
+
+def decision_schedule_mask(
+    index: pd.Index,
+    decision_every_bars: int,
+) -> pd.Series:
+    """Return the immutable complete-panel dataset-start decision mask."""
+
+    if (
+        not isinstance(decision_every_bars, int)
+        or isinstance(decision_every_bars, bool)
+        or not 1 <= decision_every_bars <= 252
+        or not index.is_unique
+    ):
+        raise PortfolioFailure(
+            "portfolio.decision-cadence",
+            "Decision cadence requires a unique index and 1-252 bars",
+        )
+    return pd.Series(
+        [
+            position % decision_every_bars == 0
+            for position in range(len(index))
+        ],
+        index=index,
+        dtype=bool,
+        name="decision_eligible",
+    )
 
 
 def _govern_portfolio_risk(
@@ -668,6 +732,7 @@ def execute_risk_compliant_book(
     *,
     mandate: dict[str, object] | None,
     no_trade_one_way: float = NO_TRADE_ONE_WAY,
+    ordinary_rebalance_allowed: bool = True,
     risk_covariance_cache: RiskCovarianceCache | None = None,
 ) -> tuple[pd.Series, dict[str, object]]:
     """Choose the final book, with risk compliance outranking no-trade."""
@@ -677,6 +742,7 @@ def execute_risk_compliant_book(
         or list(close_returns.columns) != list(pretrade.index)
         or timestamp not in close_returns.index
         or not 0 <= no_trade_one_way <= 1
+        or not isinstance(ordinary_rebalance_allowed, bool)
     ):
         raise PortfolioFailure(
             "portfolio.execution-risk",
@@ -709,7 +775,8 @@ def execute_risk_compliant_book(
     proposed_delta = runtime_proposed - pretrade
     proposed_one_way = 0.5 * float(proposed_delta.abs().sum())
     ordinary_rebalance = (
-        proposed_one_way + 1e-12 >= no_trade_one_way
+        ordinary_rebalance_allowed
+        and proposed_one_way + 1e-12 >= no_trade_one_way
     )
     ordinary_book = runtime_proposed if ordinary_rebalance else pretrade
     current, execution_risk = _govern_portfolio_risk(
@@ -740,6 +807,8 @@ def execute_risk_compliant_book(
         reason = "target_risk_repair"
     elif ordinary_rebalance:
         reason = "rebalance_threshold_met"
+    elif not ordinary_rebalance_allowed:
+        reason = "decision_schedule_hold"
     else:
         reason = "portfolio_no_trade_band"
 
@@ -779,6 +848,7 @@ def execute_risk_compliant_book(
         "risk_repair_scale": float(execution_risk["scale"]),
         "proposed_one_way": proposed_one_way,
         "ordinary_rebalance": ordinary_rebalance,
+        "decision_eligible": ordinary_rebalance_allowed,
         "risk_rebalance_override": risk_override,
         "rebalanced": rebalanced,
         "execution_reason": reason,
@@ -1035,8 +1105,16 @@ def construct_signal_policy(
     prior_states = pd.Series(0, index=factors.columns, dtype=int)
     prior_targets = pd.Series(0.0, index=factors.columns, dtype=float)
     ledger_rows: list[dict[str, object]] = []
+    decision_every_bars = int(
+        resolved["implementation_policy"]["decision_every_bars"]
+    )
+    decision_mask = decision_schedule_mask(
+        factors.index,
+        decision_every_bars,
+    )
 
     for timestamp in factors.index:
+        decision_eligible = bool(decision_mask.loc[timestamp])
         row_factor = factors.loc[timestamp].astype(float)
         row_volatility = volatility.loc[timestamp].astype(float)
         valid = (
@@ -1171,6 +1249,52 @@ def construct_signal_policy(
             enabled=apply_risk_governor,
             risk_covariance_cache=risk_covariance_cache,
         )
+        if not decision_eligible:
+            current_states = prior_states.copy()
+            events = {
+                str(asset): (
+                    "decision_schedule_hold"
+                    if str(asset) in tradable_assets
+                    else "context_only"
+                )
+                for asset in factors.columns
+            }
+            convictions = pd.Series(
+                0.0,
+                index=factors.columns,
+                dtype=float,
+            )
+            strengths = pd.Series(
+                0.0,
+                index=factors.columns,
+                dtype=float,
+            )
+            for asset in factors.columns:
+                score = scores.loc[asset]
+                state = int(current_states.loc[asset])
+                volatility_value = row_volatility.loc[asset]
+                if (
+                    str(asset) in tradable_assets
+                    and state != 0
+                    and math.isfinite(score)
+                    and math.isfinite(volatility_value)
+                ):
+                    conviction = 2.0 * abs(float(score) - 0.5)
+                    convictions.loc[asset] = conviction
+                    strengths.loc[asset] = (
+                        conviction / float(volatility_value)
+                    )
+            pre_governor_targets = prior_targets.copy()
+            _, risk_governor = _govern_portfolio_risk(
+                pre_governor_targets,
+                returns,
+                timestamp,
+                resolved,
+                enabled=False,
+                risk_covariance_cache=risk_covariance_cache,
+            )
+            current_targets = prior_targets.copy()
+            allocation_status = "decision_schedule_hold"
         diagonal_risk = current_targets.abs() * row_volatility.fillna(0.0)
         diagonal_total = float(diagonal_risk.sum())
         diagonal_share = (
@@ -1201,6 +1325,8 @@ def construct_signal_policy(
                     "prior_signal_state": int(prior_states.loc[asset]),
                     "signal_state": int(current_states.loc[asset]),
                     "signal_event": events[str(asset)],
+                    "decision_eligible": decision_eligible,
+                    "decision_every_bars": decision_every_bars,
                     "tradable": str(asset) in tradable_assets,
                     "permitted_direction": family,
                     "mandate_id": str(resolved["id"]),
@@ -1312,6 +1438,7 @@ def simulate_targets(
         if reference_nav is None
         else float(reference_nav)
     )
+    decision_every_bars = int(implementation["decision_every_bars"])
     if cost_bps < 0 or not 0 <= no_trade_one_way <= 1 or reference_nav <= 0:
         raise PortfolioFailure(
             "portfolio.parameters",
@@ -1327,6 +1454,10 @@ def simulate_targets(
         dtype=float,
     )
     proposed_targets = targets.shift(extra_delay).fillna(0.0)
+    decision_mask = decision_schedule_mask(
+        targets.index,
+        decision_every_bars,
+    ).shift(extra_delay, fill_value=False)
     close_returns = closes.pct_change(fill_method=None)
     forward_returns = closes.shift(-1) / closes - 1.0
     executed = pd.DataFrame(0.0, index=targets.index, columns=targets.columns)
@@ -1336,6 +1467,7 @@ def simulate_targets(
     prior = pd.Series(0.0, index=targets.columns, dtype=float)
 
     for row_number, timestamp in enumerate(targets.index):
+        decision_eligible = bool(decision_mask.loc[timestamp])
         pretrade = (
             pd.Series(0.0, index=targets.columns, dtype=float)
             if row_number == 0
@@ -1349,6 +1481,7 @@ def simulate_targets(
             timestamp,
             mandate=mandate,
             no_trade_one_way=no_trade_one_way,
+            ordinary_rebalance_allowed=decision_eligible,
             risk_covariance_cache=risk_covariance_cache,
         )
         rebalance = bool(execution_risk["rebalanced"])
@@ -1401,6 +1534,8 @@ def simulate_targets(
                 "max_abs_weight": float(current.abs().max()),
                 "concentration_hhi": float(current.pow(2).sum()),
                 "rebalanced": rebalance,
+                "decision_eligible": decision_eligible,
+                "decision_every_bars": decision_every_bars,
                 "execution_reason": str(
                     execution_risk["execution_reason"]
                 ),
@@ -2656,6 +2791,13 @@ def signal_policy_metrics(
             ceiling=("risk_volatility_ceiling_annualized", "first"),
         )
     )
+    cadence_by_timestamp = (
+        selected.groupby("timestamp", sort=True)
+        .agg(
+            eligible=("decision_eligible", "first"),
+            every_bars=("decision_every_bars", "first"),
+        )
+    )
     active_risk = risk_by_timestamp[
         ~risk_by_timestamp["status"].isin({"flat", "legacy_none"})
     ]
@@ -2676,6 +2818,18 @@ def signal_policy_metrics(
     result: dict[str, object] = {
         "decision_rows": int(len(selected)),
         "timestamps": timestamps,
+        "decision_eligible_timestamps": int(
+            cadence_by_timestamp["eligible"].sum()
+        ),
+        "decision_eligible_rate": float(
+            cadence_by_timestamp["eligible"].mean()
+        ),
+        "decision_every_bars": int(
+            cadence_by_timestamp["every_bars"].iloc[0]
+        ),
+        "scheduled_hold_timestamps": int(
+            (~cadence_by_timestamp["eligible"]).sum()
+        ),
         "signal_transitions": transitions,
         "state_change_rate": float(transitions / len(selected)),
         "entries": int(

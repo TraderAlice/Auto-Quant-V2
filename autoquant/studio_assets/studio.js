@@ -2351,8 +2351,14 @@ function mandateMarkup(mandate) {
     ? `${percent(risk.annualizedVolatilityCeiling)} · scale-down only`
     : "legacy · none";
   const implementation = mandate.implementationPolicy;
+  const decision = implementation?.decisionPolicy;
+  const decisionLabel = decision
+    ? decision.bars === 1
+      ? "every base bar"
+      : `every ${decision.bars} base bars`
+    : "legacy every-bar";
   const implementationLabel = implementation
-    ? `${metric(implementation.baseCostBps)} bps · ${percent(implementation.noTradeOneWay)} band · NAV ${metric(implementation.referenceNav)}`
+    ? `${metric(implementation.baseCostBps)} bps · ${percent(implementation.noTradeOneWay)} band · ${decisionLabel} · NAV ${metric(implementation.referenceNav)}`
     : "legacy defaults";
   const namedCaps = Object.entries(mandate.assetMaxAbsWeights ?? {})
     .filter(
@@ -2391,6 +2397,8 @@ function renderPortfolioMechanicalDecision(explorer) {
     ? "LEGACY GATE"
     : execution.riskOverride
       ? "RISK OVERRIDE"
+      : !execution.decisionEligible
+        ? "SCHEDULED HOLD"
       : execution.ordinaryRebalance
         ? "REBALANCE"
         : "NO-TRADE HOLD";
@@ -2413,7 +2421,7 @@ function renderPortfolioMechanicalDecision(explorer) {
       <span role="listitem" class="${execution.riskOverride ? "warning" : ""}">
         <small>03 · Execution gate</small>
         <b>${escapeHtml(executionLabel)}</b>
-        <i>${percent(execution.proposedOneWayTurnover)} proposed / ${percent(execution.noTradeOneWay)} band</i>
+        <i>${execution.decisionEligible ? "eligible" : "ineligible"} · every ${execution.decisionEveryBars} base bar${execution.decisionEveryBars === 1 ? "" : "s"} · ${percent(execution.proposedOneWayTurnover)} proposed / ${percent(execution.noTradeOneWay)} band</i>
       </span>
       <span role="listitem">
         <small>04 · Historical book</small>

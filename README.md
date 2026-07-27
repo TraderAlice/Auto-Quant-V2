@@ -56,7 +56,8 @@ while other panel assets remain research context. The Mandate also fixes a
 causal one-sided covariance volatility ceiling shared by Portfolio and RL.
 An optional strict `portfolioPolicy` in the Research Request lets the caller
 lock gross, a default single-name cap, named per-asset cap overrides,
-volatility ceiling, base cost, no-trade band, and research reference NAV;
+volatility ceiling, base cost, no-trade band, research reference NAV, and the
+number of base bars between ordinary Portfolio/RL decisions;
 documented reference defaults are explicit when it is omitted. These are
 research assumptions, not Broker/account state or trading authority. An
 optional strict `benchmarkPolicy` lets the caller evaluate the exact same
@@ -66,6 +67,7 @@ optional strict `horizonPolicy` likewise locks the
 primary and diagnostic forward targets in decision bars; the dataset base
 interval supplies the meaning of one bar. See
 [[docs/design/caller-owned-portfolio-research-policy]],
+[[docs/design/caller-owned-decision-cadence]],
 [[docs/design/caller-owned-benchmark-reference]], and
 [[docs/design/request-bound-research-horizon]]. Intake does not
 download data or silently start research. `aq project program`

@@ -73,6 +73,93 @@ def panels() -> tuple[pd.DataFrame, pd.DataFrame]:
 
 
 class PortfolioMandateTests(unittest.TestCase):
+    def test_caller_decision_cadence_freezes_signals_and_ordinary_trades(self) -> None:
+        factors, closes = panels()
+        raw = request("long", ["A", "B"])
+        raw["portfolioPolicy"] = {
+            "grossLimit": 0.8,
+            "maxAbsWeight": 0.3,
+            "assetMaxAbsWeights": {},
+            "annualizedVolatilityCeiling": 1.0,
+            "baseCostBps": 10.0,
+            "noTradeOneWay": 0.0,
+            "referenceNav": 1_000_000.0,
+            "decisionEveryBars": 4,
+        }
+        mandate = build_portfolio_mandate(
+            validate_research_request(raw),
+            UNIVERSE,
+        )
+        construction = construct_signal_policy(
+            factors,
+            closes,
+            mandate=mandate,
+        )
+        expected = pd.Series(
+            [position % 4 == 0 for position in range(len(factors))],
+            index=factors.index,
+        )
+        observed = (
+            construction.ledger.groupby("timestamp")[
+                "decision_eligible"
+            ].first()
+        )
+        pd.testing.assert_series_equal(
+            observed,
+            expected,
+            check_names=False,
+            check_freq=False,
+        )
+        scheduled_holds = construction.ledger[
+            (~construction.ledger["decision_eligible"])
+            & construction.ledger["tradable"]
+        ]
+        self.assertTrue(
+            (
+                scheduled_holds["prior_signal_state"]
+                == scheduled_holds["signal_state"]
+            ).all()
+        )
+        self.assertTrue(
+            np.allclose(scheduled_holds["target_delta"], 0.0)
+        )
+        self.assertTrue(
+            (
+                scheduled_holds["signal_event"]
+                == "decision_schedule_hold"
+            ).all()
+        )
+
+        volumes = pd.DataFrame(
+            1_000_000.0,
+            index=closes.index,
+            columns=closes.columns,
+        )
+        simulation = simulate_targets(
+            construction.targets,
+            closes,
+            volumes,
+            mandate=mandate,
+        )
+        off_schedule = simulation.daily[
+            ~simulation.daily["decision_eligible"]
+        ]
+        self.assertTrue((~off_schedule["ordinary_rebalance"]).all())
+        self.assertTrue(
+            np.allclose(off_schedule["traded_notional"], 0.0)
+        )
+        self.assertTrue(
+            (
+                off_schedule["execution_reason"]
+                == "decision_schedule_hold"
+            ).all()
+        )
+
+        tampered = copy.deepcopy(mandate)
+        tampered["implementationPolicy"]["decisionPolicy"]["bars"] = 3
+        with self.assertRaises(AutoQuantValidationError):
+            validate_portfolio_mandate(tampered)
+
     def test_caller_policy_is_strict_and_content_locked_into_mandate(self) -> None:
         raw = request("long", ["A", "B"])
         raw["portfolioPolicy"] = {
@@ -83,6 +170,7 @@ class PortfolioMandateTests(unittest.TestCase):
             "baseCostBps": 17.5,
             "noTradeOneWay": 0.04,
             "referenceNav": 250_000.0,
+            "decisionEveryBars": 4,
         }
         normalized = validate_research_request(raw)
         jsonschema.validate(normalized, RESEARCH_REQUEST_JSON_SCHEMA)
@@ -110,6 +198,12 @@ class PortfolioMandateTests(unittest.TestCase):
                 "baseCostBps": 17.5,
                 "noTradeOneWay": 0.04,
                 "referenceNav": 250_000.0,
+                "decisionPolicy": {
+                    "source": "caller-supplied",
+                    "kind": "every-bars",
+                    "bars": 4,
+                    "anchor": "dataset-start",
+                },
                 "costModel": "linear-traded-notional-v1",
                 "capacityModel": (
                     "trailing-dollar-volume-participation-v1"
@@ -123,6 +217,7 @@ class PortfolioMandateTests(unittest.TestCase):
             ("grossLimit", float("nan")),
             ("baseCostBps", 1001.0),
             ("referenceNav", 0.0),
+            ("decisionEveryBars", 0),
         ):
             with self.subTest(key=key):
                 changed = copy.deepcopy(raw)
@@ -280,6 +375,7 @@ class PortfolioMandateTests(unittest.TestCase):
             "baseCostBps": 10.0,
             "noTradeOneWay": 0.05,
             "referenceNav": 1_000_000.0,
+            "decisionEveryBars": 1,
         }
         raw["benchmarkPolicy"] = {
             "kind": "asset",

@@ -70,6 +70,9 @@ Read the relevant linked document before changing a subsystem:
 - Caller-owned cash or named-asset benchmark references shared by Portfolio
   and governed RL:
   [[docs/design/caller-owned-benchmark-reference]]
+- Caller-owned Portfolio/RL decision cadence, scheduled mechanical holds, and
+  continuously available risk-only repair:
+  [[docs/design/caller-owned-decision-cadence]]
 - Request-bound numerical forward horizon shared by Factor, Portfolio, and
   governed RL:
   [[docs/design/request-bound-research-horizon]]

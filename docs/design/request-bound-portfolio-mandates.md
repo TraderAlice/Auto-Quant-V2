@@ -84,11 +84,14 @@ and a complete fixed weight vector. See
 
 The optional complete `request.portfolioPolicy` owns the numeric gross,
 global fallback and named per-asset caps, volatility, cost, rebalance, and
-reference-NAV assumptions. If omitted, Core records `reference-default` and
+reference-NAV assumptions, including the every-N-base-bars ordinary decision
+cadence. If omitted, Core records `reference-default` and
 values `1.0`, `0.30`, no named overrides, `0.15`, `10bps`, `0.05`, and
-`1,000,000`. Candidate Agents cannot edit either source. See
+`1,000,000`, with an every-bar cadence. Candidate Agents cannot edit either
+source. See
 [[docs/design/caller-owned-portfolio-research-policy]] and
-[[docs/design/caller-owned-asset-position-caps]].
+[[docs/design/caller-owned-asset-position-caps]], and
+[[docs/design/caller-owned-decision-cadence]].
 
 ## Mechanical construction
 

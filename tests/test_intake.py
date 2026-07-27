@@ -176,6 +176,7 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                 "baseCostBps": 17.5,
                 "noTradeOneWay": 0.04,
                 "referenceNav": 250_000.0,
+                "decisionEveryBars": 4,
             }
             request_path, package_path = write_intake_inputs(
                 root,
@@ -206,6 +207,15 @@ class RequestDrivenIntakeTests(unittest.TestCase):
             self.assertEqual(
                 mandate["implementationPolicy"]["baseCostBps"],
                 17.5,
+            )
+            self.assertEqual(
+                mandate["implementationPolicy"]["decisionPolicy"],
+                {
+                    "source": "caller-supplied",
+                    "kind": "every-bars",
+                    "bars": 4,
+                    "anchor": "dataset-start",
+                },
             )
             self.assertEqual(
                 mandate["construction"]["assetMaxAbsWeights"],
@@ -263,6 +273,33 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                     strict=True,
                 )
             )
+            source_positions = {
+                str(date): position
+                for position, date in enumerate(spy["date"])
+            }
+            for _, row in daily.iterrows():
+                decision_date = str(row["timestamp"])[:10]
+                expected_eligible = (
+                    source_positions[decision_date] % 4 == 0
+                )
+                self.assertEqual(
+                    bool(row["decision_eligible"]),
+                    expected_eligible,
+                )
+                self.assertEqual(int(row["decision_every_bars"]), 4)
+                if not expected_eligible:
+                    self.assertFalse(bool(row["ordinary_rebalance"]))
+                    self.assertTrue(
+                        abs(float(row["traded_notional"])) <= 1e-12
+                        or bool(row["risk_rebalance_override"])
+                    )
+                    self.assertIn(
+                        row["execution_reason"],
+                        {
+                            "decision_schedule_hold",
+                            "risk_ceiling_override",
+                        },
+                    )
             self.assertEqual(len(daily), len(spy) - 1)
             for row_number in (0, 50, len(daily) - 2):
                 decision_date = str(
@@ -284,6 +321,7 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                     "gross_target": 0.8,
                     "max_abs_weight": 0.2,
                     "no_trade_one_way": 0.04,
+                    "decision_every_bars": 4,
                 },
             )
             self.assertEqual(
@@ -329,6 +367,13 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                 ]["baseCostBps"],
                 17.5,
             )
+            self.assertEqual(
+                {
+                    key: portfolio_projection["decisionCadence"][key]
+                    for key in ("source", "kind", "bars", "anchor")
+                },
+                mandate["implementationPolicy"]["decisionPolicy"],
+            )
             jsonschema.validate(
                 portfolio_projection,
                 PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA,
@@ -344,6 +389,46 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                 ],
                 0.04,
             )
+            self.assertEqual(
+                rl_run.result["metrics"]["configuration"][
+                    "decisionEveryBars"
+                ],
+                4,
+            )
+            action_rows = pd.read_csv(
+                rl_run.root_dir / "artifacts" / "policy-actions.csv"
+            )
+            for _, group in action_rows.groupby(
+                ["fold", "seed", "split"],
+                sort=False,
+            ):
+                previous_action = "balanced"
+                for _, row in group.iterrows():
+                    decision_date = str(row["timestamp"])[:10]
+                    expected_eligible = (
+                        source_positions[decision_date] % 4 == 0
+                    )
+                    self.assertEqual(
+                        bool(row["decision_eligible"]),
+                        expected_eligible,
+                    )
+                    self.assertEqual(
+                        int(row["decision_every_bars"]),
+                        4,
+                    )
+                    if not expected_eligible:
+                        self.assertEqual(
+                            row["action"],
+                            previous_action,
+                        )
+                        self.assertFalse(
+                            bool(row["risk_rebalance_override"])
+                        )
+                        self.assertEqual(
+                            row["execution_reason"],
+                            "decision_schedule_hold",
+                        )
+                    previous_action = row["action"]
             rl_projection = load_rl_diagnostics(
                 project,
                 rl_run.result["id"],
@@ -363,6 +448,13 @@ class RequestDrivenIntakeTests(unittest.TestCase):
             self.assertEqual(
                 rl_projection["portfolioMandate"]["benchmark"],
                 mandate["construction"]["benchmark"],
+            )
+            self.assertEqual(
+                {
+                    key: rl_projection["decisionCadence"][key]
+                    for key in ("source", "kind", "bars", "anchor")
+                },
+                mandate["implementationPolicy"]["decisionPolicy"],
             )
             for audit in rl_run.result["metrics"][
                 "constraint_audit"
@@ -385,6 +477,10 @@ class RequestDrivenIntakeTests(unittest.TestCase):
             self.assertEqual(
                 portfolio_summary["metricLayers"]["mandate"]["benchmark"],
                 mandate["construction"]["benchmark"],
+            )
+            self.assertEqual(
+                portfolio_summary["metricLayers"]["decisionCadence"],
+                mandate["implementationPolicy"]["decisionPolicy"],
             )
 
             delegated_request = load_research_request(
@@ -446,6 +542,15 @@ class RequestDrivenIntakeTests(unittest.TestCase):
             )
             self.assertIn(
                 "Context-only research assets: `NVDA`, `QQQ`, `SPY`",
+                report_markdown,
+            )
+            self.assertIn(
+                "Decision cadence / anchor / source: every `4` base bars / "
+                "`dataset-start` / `caller-supplied`",
+                report_markdown,
+            )
+            self.assertIn(
+                "only mandatory risk scale-down may trade",
                 report_markdown,
             )
 
@@ -587,6 +692,142 @@ class RequestDrivenIntakeTests(unittest.TestCase):
             self.assertEqual(
                 observed["intake"]["dataset"]["intervalSurface"],
                 prepared.interval_surface,
+            )
+
+    def test_v3_xnys_fifteen_minute_caller_cadence_governs_portfolio_and_rl(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            policy = {
+                "grossLimit": 0.8,
+                "maxAbsWeight": 0.3,
+                "assetMaxAbsWeights": {},
+                "annualizedVolatilityCeiling": 0.20,
+                "baseCostBps": 12.0,
+                "noTradeOneWay": 0.0,
+                "referenceNav": 500_000.0,
+                "decisionEveryBars": 4,
+            }
+            request_path, package_path = write_session_interval_inputs(
+                root,
+                sessions=20,
+                base_interval="15m",
+                calendar_start="2026-11-09",
+                portfolio_policy=policy,
+            )
+            prepared = prepare_project_intake(
+                request_path,
+                package_path,
+                "ohlcv-research-desk",
+            )
+            self.assertEqual(
+                prepared.interval_surface,
+                {
+                    "baseInterval": "15m",
+                    "featureIntervals": ["1h", "3h", "1d"],
+                    "timestampSemantics": "bar-close",
+                    "marketClock": "session",
+                    "calendar": "XNYS",
+                    "timezone": "America/New_York",
+                    "anchor": "market-open",
+                    "aggregationMethod": (
+                        "complete-xnys-regular-session-bar-close-v1"
+                    ),
+                    "terminalBucketPolicy": "complete-at-session-close",
+                },
+            )
+            self.assertEqual(prepared.annualization_periods, 252 * 26)
+            project = create_project(
+                initialize_workspace(root / "workspace").root_dir,
+                "xnys-fifteen-minute-cadence",
+                template=prepared.template,
+                template_intake=prepared,
+            )
+            mandate = load_portfolio_mandate(
+                project.root_dir / PORTFOLIO_MANDATE
+            )
+            self.assertEqual(
+                mandate["implementationPolicy"]["decisionPolicy"]["bars"],
+                4,
+            )
+            portfolio_run = execute_study(project, PORTFOLIO_STUDY_ID)
+            rl_run = execute_study(project, RL_STUDY_ID)
+            for run in (portfolio_run, rl_run):
+                self.assertEqual(
+                    run.result["status"],
+                    "succeeded",
+                    run.result["errors"],
+                )
+                self.assertEqual(
+                    run.result["dataset"]["intervalSurface"],
+                    prepared.interval_surface,
+                )
+                self.assertEqual(
+                    run.result["metrics"]["portfolio_mandate"],
+                    mandate,
+                )
+                jsonschema.validate(run.result, RUN_RESULT_JSON_SCHEMA)
+
+            source = pd.read_csv(
+                package_path.parent / "AAPL.csv"
+            )
+            source_positions = {
+                str(timestamp): position
+                for position, timestamp in enumerate(source["timestamp"])
+            }
+            daily = pd.read_csv(
+                portfolio_run.root_dir
+                / "artifacts"
+                / "daily-portfolio.csv"
+            )
+            for _, row in daily.iterrows():
+                timestamp = str(row["timestamp"]).replace("+00:00", "Z")
+                expected_eligible = (
+                    source_positions[timestamp] % 4 == 0
+                )
+                self.assertEqual(
+                    bool(row["decision_eligible"]),
+                    expected_eligible,
+                )
+                if not expected_eligible:
+                    self.assertFalse(bool(row["ordinary_rebalance"]))
+                    self.assertTrue(
+                        abs(float(row["traded_notional"])) <= 1e-12
+                        or bool(row["risk_rebalance_override"])
+                    )
+            portfolio_projection = load_portfolio_diagnostics(
+                project,
+                portfolio_run.result["id"],
+            )
+            rl_projection = load_rl_diagnostics(
+                project,
+                rl_run.result["id"],
+            )
+            self.assertEqual(
+                portfolio_projection["mandate"][
+                    "implementationPolicy"
+                ]["decisionPolicy"]["bars"],
+                4,
+            )
+            self.assertEqual(
+                portfolio_projection["decisionCadence"]["eligibleBars"],
+                int(daily["decision_eligible"].sum()),
+            )
+            self.assertEqual(
+                rl_projection["portfolioMandate"][
+                    "implementationPolicy"
+                ]["decisionPolicy"]["bars"],
+                4,
+            )
+            self.assertEqual(rl_projection["decisionCadence"]["bars"], 4)
+            jsonschema.validate(
+                portfolio_projection,
+                PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA,
+            )
+            jsonschema.validate(
+                rl_projection,
+                RL_DIAGNOSTICS_JSON_SCHEMA,
             )
 
     def test_v2_multi_interval_package_prepares_complete_locked_surface(self) -> None:

@@ -599,6 +599,9 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
             "proposedOneWayTurnover": execution[
                 "proposedOneWayTurnover"
             ],
+            "decisionEligible": execution["decisionEligible"],
+            "decisionEveryBars": execution["decisionEveryBars"],
+            "decisionSource": execution["decisionSource"],
             "noTradeOneWay": execution["noTradeOneWay"],
             "rebalanced": execution["rebalanced"],
             "reason": execution["reason"],
@@ -827,6 +830,10 @@ def mechanical_decision_markdown_lines(
         f"- Proposed one-way turnover / no-trade band: "
         f"`{execution['proposedOneWayTurnover']}` / "
         f"`{execution['noTradeOneWay']}`",
+        f"- Decision eligible / cadence / source: "
+        f"`{execution['decisionEligible']}` / every "
+        f"`{execution['decisionEveryBars']}` base bars / "
+        f"`{execution['decisionSource']}`",
         f"- Ordinary rebalance / risk override / final rebalance: "
         f"`{ordinary}` / `{risk_override}` / `{execution['rebalanced']}` "
         f"(`{execution['reason']}`)",
