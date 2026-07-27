@@ -19,7 +19,7 @@ Research Request.horizonPolicy
 → content-addressed research-horizon.json
 → Factor primary target and diagnostic forward returns
 → Portfolio/RL question identity and disclosure
-→ Report / Dossier / OpenAlice handoff
+→ Report / Dossier / optional host delivery
 ```
 
 Candidate Agents cannot edit this chain.

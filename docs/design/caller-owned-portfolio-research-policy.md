@@ -10,10 +10,11 @@ Related: [[docs/design/request-bound-portfolio-mandates]],
 
 ## Purpose
 
-AutoQuant is a quantitative-support workbench. A collaborating OpenAlice
-workbench owns the question and may know the intended risk, deployable
-research capital, and implementation assumptions. AutoQuant owns fixed,
-reproducible evaluation under those supplied assumptions.
+AutoQuant is a quantitative workbench. A local operator or collaborating Agent
+owns the question and may know the intended risk, deployable research capital,
+and implementation assumptions. AutoQuant owns fixed, reproducible evaluation
+under those supplied assumptions. An OpenAlice coworker is one first-party
+example of that caller, not a required runtime.
 
 The boundary is:
 

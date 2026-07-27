@@ -1,9 +1,10 @@
-# Quantitative research lifecycle and OpenAlice handoff
+# Agent-native quantitative research lifecycle
 
 Status: request-driven Project intake, delegation/report, portfolio, and
 governed RL lanes implemented.
 
-Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]], [[docs/CLI]],
+Related: [[docs/design/agent-native-quant-workbench]],
+[[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]], [[docs/CLI]],
 [[docs/design/study-run-evidence]], [[docs/design/research-session-loop]],
 [[docs/design/external-researcher-driver]],
 [[docs/design/studio-observation-surface]],
@@ -17,42 +18,45 @@ Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]], [[docs/CLI]],
 
 ## Scope
 
-This document owns the end-to-end product direction for AutoQuant as
-OpenAlice's quantitative research workbench:
+This document owns the end-to-end quantitative lifecycle inside the AutoQuant
+workbench:
 
-- external request and final report boundaries;
+- local/delegated request and durable deliverable boundaries;
 - the evidence a working quantitative researcher needs;
 - the causal translation from factor signals to a portfolio;
 - the first governed role for reinforcement learning;
 - the division of responsibility between Core, Agent CLI, and Studio.
 
 Detailed executable contracts remain in the subsystem documents linked above.
-AutoQuant is a decision-support laboratory. It does not own broker state,
-orders, or an OpenAlice Unified Trading Account.
+AutoQuant is a complete Agent-native research desk. It may research portfolio,
+order, and protection behavior under fixed historical assumptions, but it does
+not own Broker state, live accounts, approvals, or order submission.
 
 ## Workbench collaboration
 
 The durable lifecycle is:
 
 ```text
-OpenAlice or local caller
-→ strict Research Request
+local question or delegated coworker request
+→ optional strict Research Request
 → self-contained Project and fixed Study
 → governed Session with derived Research Brief
 → bounded Runs, Experiments, and Campaigns
 → immutable lane Research Reports
 → immutable Project Research Dossier
-→ OpenAlice Inbox publication with authoritative provenance
-→ human/Agent decision and separately authorized forward execution
+→ local review, Agent-to-Agent delivery, or optional host publication
+→ continued research or separately authorized forward execution
 ```
 
 A Project is the construction site for one evolving research problem. A Study
 is one fixed evaluation question inside it. A Session is one active line of
 candidate research against that fixed authority and ends by either promoting
 an improved KEEP or completing against an exact baseline-retaining Report. A Run is one immutable
-execution. A Report is one lane's content-hashed decision-support handoff over
-an exact evidence snapshot. A Dossier composes verified current lane Reports
-into the Project-level answer without re-evaluating raw Runs.
+execution. A Report is one lane's content-hashed deliverable over an exact
+evidence snapshot. A Dossier composes verified current lane Reports into the
+Project-level answer without re-evaluating raw Runs. Neither artifact is
+required to communicate through a private service protocol; another Agent or
+human can read the same files directly.
 
 The request can now create that construction site through strict external
 V1 daily or V2 causal multi-interval OHLCV intake. The caller supplies a
@@ -62,12 +66,12 @@ claims, binds request/dataset/Study hashes, and exposes exact baseline and
 Session-start actions. Retrieval remains external authority. See
 [[docs/design/research-intake-and-dataset-snapshots]].
 
-OpenAlice's Workspace and Session ids in a request are caller-supplied context.
-AutoQuant preserves and hashes them but cannot authenticate them. OpenAlice
-stamps its own authoritative Session origin and exact document revision when
-the report is delivered to Inbox. This prevents an AutoQuant process from
-forging collaboration provenance while still preserving the request/report
-chain.
+Host Workspace and Session ids in a request are caller-supplied context.
+AutoQuant preserves and hashes supported OpenAlice origin fields but cannot
+authenticate them. A host stamps its own authoritative origin and document
+revision when it delivers the report through its collaboration surface. This
+prevents AutoQuant from forging host provenance while preserving the
+request/report chain. Standalone work requires no host origin.
 
 ## Request and brief authority
 
@@ -77,8 +81,8 @@ A Research Request carries:
 - requested assets and directional hypothesis;
 - intended decision horizon;
 - hypotheses, constraints, and requested deliverables;
-- optional caller-supplied OpenAlice Workspace, Session, document path, and
-  document revision.
+- optional caller-supplied host context; the current schema supports OpenAlice
+  Workspace, Session, document path, and document revision fields.
 
 Starting a delegated Session validates and normalizes the request, then derives
 a Brief from the exact request plus the selected Project, Study, baseline, and
@@ -182,10 +186,14 @@ after the declared execution lag. OHLCV cannot prove queue position, spread
 dynamics, or L2 fills, so results must say `bar-target-weight simulation`
 rather than imply exchange-level precision.
 
-Target weights are the correct handoff for AutoQuant because OpenAlice may use
-the findings as one input to a later decision. Live order types, TPSL,
-available balance, venue rules, and account mutations remain forward-looking
-OpenAlice/UTA concerns.
+Target weights are a necessary portfolio research output because they answer
+how much exposure the evidence deserves. The current implemented reference
+lane realizes them through bar-target-weight simulation. The active
+order-native design will add fixed historical Order/TPSL realization so a
+Quant Agent can separate prediction, sizing, fills, and protection without
+claiming Broker precision. Live balance, venue capability, approval, and
+account mutation remain external authority. See
+[[docs/design/order-native-portfolio-decisions]].
 
 The first reference contract fixes `0.75/0.25` entry and `0.55/0.45` exit
 percentiles, absolute target cap `0.30`, a `0.05` one-way turnover no-trade
@@ -239,7 +247,8 @@ reconciles the daily gross-to-net path, cost curve and break-even, turnover
 efficiency, delay sensitivity, monthly breadth, best-day dependence, and
 underwater duration. Its iteration focus is research prioritization only.
 Visible test evidence remains audit-only and cannot redirect the diagnosis.
-Reports and Dossiers freeze the exact point-in-time diagnosis for OpenAlice.
+Reports and Dossiers freeze the exact point-in-time diagnosis for any later
+reviewer or collaborating Agent.
 
 For the `factor-not-monetized` case, the read model further decomposes
 normalized equal signal intent into fixed pre-governor sizing, governed target,
@@ -333,7 +342,7 @@ backfilled from a later Run.
 
 Report authority is `quantitative-decision-support`. A report may recommend
 further research, monitoring, avoidance, or a conditional portfolio posture.
-It may not claim an order was placed, that OpenAlice approved a trade, or that
+It may not claim a live order was placed, that a host approved a trade, or that
 caller-supplied origin fields were authenticated.
 
 ## Project research dossier
@@ -345,7 +354,7 @@ lane Reports:
 Run / Experiment / Campaign
 → delegated Session Report
 → Project Research Dossier
-→ OpenAlice Inbox
+→ local review or optional host delivery
 ```
 
 Factor and Portfolio Reports are required. Governed RL is optional and is
@@ -368,7 +377,7 @@ Project Dossier
 → frozen external-holdout binding
 → one existing-Judge Run per included lane
 → immutable external-period result
-→ OpenAlice review
+→ reviewer or coworker decision
 ```
 
 This transition is self-contained and non-iterative. It prohibits Sessions,
@@ -403,6 +412,10 @@ must never invent a metric, approve a candidate, publish a report, or become a
 second evaluator. Human guidance enters through explicit request/analysis
 artifacts so AI work remains attributable and reproducible.
 
+An external host may start the Agent Session and carry the final deliverable,
+but it does not replace this interface. The same `aq orient`, Project files,
+commands, and verified evidence must support a standalone Agent.
+
 The implemented Session Decision Matrix is the first multi-candidate HCI
 surface under this rule. Core verifies and normalizes a bounded immutable trial
 chain; CLI and Studio present the same metric descriptors, preference
@@ -422,7 +435,7 @@ statistics or selection authority.
 
 1. Request-driven Project and market-data intake:
    [[plans/request-driven-market-data-intake]].
-2. Delegation and report handoff:
+2. Delegation and report delivery:
    [[plans/openalice-research-handoff]].
 3. Causal signal-to-portfolio accounting and professional evidence:
    [[plans/portfolio-construction-lab]].
@@ -440,7 +453,7 @@ next phase changes its assumptions.
 
 1. Caller intent never overrides fixed evaluation authority.
 2. Every published claim points to verified immutable evidence.
-3. AutoQuant has no live-trading or OpenAlice provenance authority.
+3. AutoQuant has no live-trading or authenticated host-provenance authority.
 4. Signal timing, portfolio accounting, costs, and RL rewards are causal and
    fixed by the Judge.
 5. Aggregate metrics never hide required per-asset, fold, regime, or seed
@@ -458,7 +471,7 @@ next phase changes its assumptions.
 - When adding an RL adapter, freeze seeds, budgets, dependency identity,
   baselines, model artifacts, and failure reporting.
 - Never expose a field that could be mistaken for broker confirmation or
-  authenticated OpenAlice origin.
+  authenticated host origin.
 - Keep routine validation bounded; large datasets or training require an
   explicit plan budget.
 
@@ -468,6 +481,7 @@ next phase changes its assumptions.
   verification, and point-in-time universe evidence remain future data work.
 - Candidate-factor dependencies are Project-local source closures; immutable
   promoted Report artifacts are not yet a general cross-Project model input.
-- Cross-Project report aggregation and OpenAlice-side invocation/Inbox
-  publication remain future collaboration work; AutoQuant now owns the exact
-  request-driven Project command and report artifacts at its boundary.
+- Cross-Project report aggregation remains future work. Optional host-side
+  Workspace creation, coworker assignment, and delivery are separate
+  collaboration concerns; AutoQuant owns the exact Project commands and report
+  artifacts at its boundary.

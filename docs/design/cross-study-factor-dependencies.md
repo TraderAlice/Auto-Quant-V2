@@ -106,7 +106,8 @@ style-neutral residual IC, blend uplift, HAC evidence, and qualification
 diagnosis. This evidence explains whether the source deserves further research;
 it does not mutate the dependency closure or automatically grant RL admission.
 The Project Dossier preserves both factor qualification and RL factor-fusion
-diagnosis so OpenAlice can identify the first failed layer.
+diagnosis so any later reviewer or collaborating Agent can identify the first
+failed layer.
 
 ## Research Program behavior
 

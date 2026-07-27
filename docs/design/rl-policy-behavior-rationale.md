@@ -84,7 +84,7 @@ model. Older Runs without both metric and artifact remain readable with
 
 Behavior/rationale evidence uses `selection_authority=context-only` and
 `trading_authority=none`. It cannot alter validation mean net Sharpe, baseline
-choice, KEEP/REVERT, non-dominance, or OpenAlice execution.
+choice, KEEP/REVERT, non-dominance, or external live execution.
 
 ## Invariants
 

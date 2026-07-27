@@ -1,7 +1,10 @@
 # AutoQuant Studio
 
 AutoQuant Studio is the local, read-only human observation surface for the
-same verified research state exposed by Core and `aq`.
+same verified research state exposed by Core and `aq`. It helps a human review
+the desk where coding Agents work; it is neither the primary Agent control
+surface nor an OpenAlice-specific report viewer. Standalone and hosted
+Workspaces render the same Core snapshot.
 
 ## Open a Workspace
 
@@ -256,10 +259,11 @@ weights and the immutable action ledger. It is not probability, confidence,
 causal importance, or promotion/trading authority; legacy Runs state that the
 evidence is unavailable.
 
-The handoff cards and Inspector distinguish caller-supplied OpenAlice context
-from authenticated provenance. Copy buttons only write an exact Core-generated
-CLI string to the local clipboard. They do not invoke the command or mutate the
-Project.
+The delivery cards and Inspector distinguish optional caller-supplied host
+context from authenticated provenance. The current schema can preserve
+OpenAlice origin fields, but Studio does not require them for local work. Copy
+buttons only write an exact Core-generated CLI string to the local clipboard.
+They do not invoke the command or mutate the Project.
 
 When a delegated lane has a current Report and retains its baseline, Studio
 shows Core's exact `session complete --report ...` command. The browser only
@@ -268,7 +272,7 @@ and Program conflicts fall away, and its Report/Dossier evidence remains
 immutable and visible. A KEEP lane exposes promotion instead; Studio never
 chooses between source adoption and baseline retention.
 
-For a canonical request-driven Research Program, the handoff board is
+For a canonical request-driven Research Program, the delivery board is
 Project-level even when a Session is selected. It shows current lane Report
 coverage, dynamically required blockers, gated/optional omission, and whether
 the immutable Dossier is blocked, ready for Agent synthesis, or already
@@ -280,7 +284,7 @@ current Factor focus, Portfolio locked by Factor evidence, and RL locked by the
 simple Portfolio baseline without deriving pass/fail from metric signs. A weak
 Factor can therefore produce a published one-lane early-stop Dossier while the
 downstream workbenches remain read-only. Once both required gates pass, the
-handoff is complete and governed RL is presented as an optional complexity
+deliverable is complete and governed RL is presented as an optional complexity
 challenge rather than mandatory program completion.
 
 When the latest Portfolio Report contains frozen leader-decision support,
@@ -306,9 +310,9 @@ Core.
 Selecting Factor, Portfolio, or Adaptive Policy evidence also aligns the
 Inspector to that lane's latest Session and Report. This prevents a Portfolio
 chart from appearing beside RL Session authority while preserving the
-Project-level Dossier handoff above it.
+Project-level Dossier delivery above it.
 
-For a request-driven Project with no Session, the handoff board shows
+For a request-driven Project with no Session, the delivery board shows
 `research mandate → dataset → immutable baseline → iterate`. The hero promotes
 the latest verified Run's decision metrics over generic object counts, and the
 Inspector presents request scope, dataset authority, baseline evidence, and a

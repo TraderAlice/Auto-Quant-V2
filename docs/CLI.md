@@ -481,8 +481,8 @@ reports/report-<UTC timestamp>-<identity>/
 └── manifest.json
 ```
 
-`report.md` is rendered deterministically for human/OpenAlice consumption.
-`report.json` is the machine handoff. Both declare
+`report.md` is rendered deterministically for human or Agent review.
+`report.json` is the machine-readable evidence projection. Both declare
 `quantitative-decision-support` authority and `tradingAuthority: none`.
 New Reports bind `leaderDecisionSupport` to the exact leader Run/result hash.
 For Portfolio leaders it freezes the Core-verified historical mechanical
@@ -496,9 +496,10 @@ remain loadable without backfilling; legacy Reports may omit the entire
 decision-support field.
 Later Session research does not reinterpret an older report; its frozen
 Experiment/Campaign catalogs must remain chronological prefixes of the
-verified history. OpenAlice should publish the exact Markdown through its own
-Inbox boundary, where OpenAlice—not AutoQuant—stamps authoritative Workspace,
-Session, and document-revision provenance.
+verified history. The artifact is complete for standalone review or direct
+Agent-to-Agent delivery. When OpenAlice publishes the exact Markdown through
+Inbox, OpenAlice—not AutoQuant—stamps authoritative Workspace, Session, and
+document-revision provenance.
 
 ## Project Research Dossier commands
 
@@ -515,7 +516,7 @@ aq dossier show <path> \
 ```
 
 A Session Report is one lane's point-in-time answer. A Project Research
-Dossier is the cross-lane return artifact. `dossier status` uses the canonical
+Dossier is the cross-lane deliverable. `dossier status` uses the canonical
 Research Program to require Factor, dynamically require Portfolio only after a
 positive frozen Factor qualification, and admit governed RL only after
 positive frozen Portfolio post-cost evidence. RL remains optional. Missing
@@ -542,9 +543,10 @@ exact included Report rather than recomputing a current decision. It requires
 Portfolio and included RL evidence to use the same fixed mandate and renders
 the authorized/context-only asset boundary.
 Later lane research does not invalidate an older point-in-time Dossier.
-`dossier.md` is the exact decision-support document that OpenAlice may publish
-through its own Inbox authority; AutoQuant has no trading or authenticated
-OpenAlice provenance authority.
+`dossier.md` is the exact decision-support document for local review,
+Agent-to-Agent delivery, or optional host publication. When OpenAlice is the
+host, it may publish that file through its own Inbox authority; AutoQuant has
+no trading or authenticated host-provenance authority.
 
 ## Frozen external holdout commands
 
@@ -716,9 +718,10 @@ uv run aq capabilities --json
 This CLI owns Workspace/Project lifecycle, fixed Study and immutable Run
 evidence, the governed Session/Experiment edit/evaluate/promotion loop, and
 bounded provider-neutral Researcher Campaigns. `aq` is the only current command
-family; the repository-root Classic/Freqtrade arena is retired. Delegated
-request/Brief/Report handoff is Project-local and has no OpenAlice provenance
-or live-trading authority. The local Studio projects the current read model.
+family; the repository-root Classic/Freqtrade arena is retired. Local or
+delegated request/Brief/Report state is Project-local and has no authenticated
+host provenance or live-trading authority. The local Studio projects the
+current read model.
 Richer robust comparison and Studio mutation operations remain separate future
 surfaces. See [[docs/design/retired-flat-freqtrade-harness]].
 

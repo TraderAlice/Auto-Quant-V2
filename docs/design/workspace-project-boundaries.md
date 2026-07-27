@@ -4,7 +4,8 @@ Status: implemented for V1 discovery, blank/template construction, and
 request-driven self-contained Projects.
 
 Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]], and
-[[docs/design/agent-cli-contract]].
+[[docs/design/agent-cli-contract]], and
+[[docs/design/agent-native-quant-workbench]].
 
 ## Scope
 
@@ -16,6 +17,8 @@ own Study, Run, evaluation, research-loop, dataset-format, or Studio semantics.
 
 - An AutoQuant Workspace is a directory containing
   `autoquant-workspace.json` and one configured immediate Projects directory.
+- It is a persistent quantitative desk that can be cloned and operated
+  standalone or materialized by a host Workspace Template.
 - A Project is a directory containing `autoquant.json`, its human research
   program, and every research surface it owns, including fixed Judges and
   immutable Run/Experiment evidence and durable research Sessions.
@@ -26,6 +29,9 @@ own Study, Run, evaluation, research-loop, dataset-format, or Studio semantics.
   quantitative domain configuration.
 - The first created Project becomes the default. Later changes to the default
   are explicit Workspace mutations.
+- A new research request normally creates or continues a Project. It does not
+  require a fresh Workspace unless environment or ownership isolation is
+  intentional.
 
 ## Source of truth
 
@@ -56,6 +62,8 @@ own Study, Run, evaluation, research-loop, dataset-format, or Studio semantics.
 9. Project data and cache contents are ignored by their own `.gitignore`
    files. Neither location is durable system truth.
 10. Changing one Project does not change another Project's files or identity.
+11. Host-specific metadata may surround a Workspace but cannot redefine
+    Project discovery, quantitative identity, or evaluation semantics.
 
 ## File-to-operation flow
 

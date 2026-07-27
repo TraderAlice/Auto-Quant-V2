@@ -4,17 +4,20 @@ Status: active, pre-alpha.
 
 ## Purpose
 
-AutoQuant V2 is being built as a long-running quantitative-research workbench
-rather than a one-off strategy repository. Design decisions and current work
-must remain discoverable while implementation evolves. `AGENTS.md` routes
-contributors to both systems: files in `docs/design/` are the subsystem-level
-source of design intent, while [[PLANS]] and `plans/` describe bounded work and
-its execution state.
+AutoQuant V2 is being built as a long-running Agent-native quantitative
+workbench rather than a one-off strategy repository or an OpenAlice-specific
+backend. Design decisions and current work must remain discoverable while
+implementation evolves and while coding Agents replace or hand work to one
+another. `AGENTS.md` routes contributors to both systems: files in
+`docs/design/` are the subsystem-level source of design intent, while
+[[PLANS]] and `plans/` describe bounded work and its execution state.
 
-The high-level architecture remains in [[docs/ARCHITECTURE]]. Canonical
-Workspace/Project formats and executable commands remain in
-[[docs/PROJECT_FORMAT]] and [[docs/CLI]]. Design documents explain invariants,
-ownership, trade-offs, and how public contracts are implemented.
+The canonical product identity and standalone/hosted composition remain in
+[[docs/design/agent-native-quant-workbench]]. High-level architecture remains
+in [[docs/ARCHITECTURE]]. Canonical Workspace/Project formats and executable
+commands remain in [[docs/PROJECT_FORMAT]] and [[docs/CLI]]. Design documents
+explain invariants, ownership, trade-offs, and how public contracts are
+implemented.
 
 ## Work plans
 
@@ -107,6 +110,8 @@ look current.
 - Is non-trivial work represented by a current entry in [[PLANS]]?
 - Does the plan status match its checklist, evidence, and completion record?
 - Does every affected subsystem have an indexed design document?
+- Does the change preserve the standalone/hosted parity and Agent-first
+  requirements in [[docs/design/agent-native-quant-workbench]]?
 - Do described invariants match the current schemas, code, and runtime?
 - Can an engineer find relevant tests and CLI commands from the document?
 - Are fixtures and result identities generated from the current model?

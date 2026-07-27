@@ -302,5 +302,9 @@ long backtest.
 - Diagonal inverse-vol sizing and trailing covariance attribution do not model
   a production optimizer or covariance-estimation uncertainty.
 - Linear costs and OHLCV participation remain coarse implementation proxies.
-- Stop-loss/take-profit and order execution belong to forward OpenAlice/UTA
-  decision and execution layers, not this historical research contract.
+- This implemented contract still realizes targets through coarse historical
+  target-weight accounting. The active
+  [[docs/design/order-native-portfolio-decisions]] design will move simulated
+  stop-loss/take-profit and bar-order realization into fixed AutoQuant
+  research authority. Authenticated submission and live execution remain
+  external.

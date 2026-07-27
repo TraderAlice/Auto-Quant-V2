@@ -1,7 +1,8 @@
 # Studio research decision brief
 
-AutoQuant Studio is a research handoff surface, not a trading terminal. Its
-first viewport therefore prioritizes the decision boundary over raw performance.
+AutoQuant Studio is the human observation surface for an Agent-operated
+research desk, not a trading terminal. Its first viewport therefore prioritizes
+the current research decision over raw performance.
 
 ## Readout order
 
@@ -28,14 +29,14 @@ The decision brief is a browser rendering of immutable Core evidence:
 - it does not promote a strategy;
 - it does not create Broker, capital, account, or order authority.
 
-When no OpenAlice request is attached, the Project is explicitly identified as
-local research in the brief and the empty handoff board is omitted. When a
-request, report, or Dossier exists, the full request-to-return contract remains
-visible.
+When no delegated request is attached, the Project is explicitly identified as
+local research in the brief and an empty delivery board is omitted. When a
+request, report, or Dossier exists, the full request-to-deliverable contract
+remains visible. OpenAlice provenance, when present, is optional host context
+and does not change the quantitative read model.
 
 ## Density
 
 A one-lane Project should not visually imply two missing lanes. Its selector is
 rendered as a compact row. Multi-lane research programs retain the comparative
 lane grid.
-

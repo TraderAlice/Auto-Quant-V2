@@ -1,24 +1,61 @@
 # AutoQuant V2
 
-AutoQuant is an AI-native quantitative research workbench. A long-lived
-Workspace contains self-contained Projects; each Project owns its research
-question, caller-supplied OHLCV, factor or model source, fixed Studies and
-Judges, governed Sessions, immutable Runs, and decision-support artifacts.
+AutoQuant turns quantitative research into a versioned, testable,
+Agent-operable engineering workflow.
+
+It is a complete AI-native quantitative workbench, not only a backtest
+library, strategy generator, or integration backend. A coding Agent can enter
+the filesystem, understand the current question and evidence, take one bounded
+action, edit only an authorized research surface, evaluate through fixed
+contracts, resume after interruption, and leave durable work for the next
+Agent or human reviewer.
 
 The working model is:
 
 ```text
-Workspace
+long-lived Workspace
 └── Project
-    ├── request + content-locked dataset
-    ├── Factor / Portfolio / governed-RL Studies
-    ├── Agent Sessions and bounded Experiments
-    ├── immutable Runs, Reports, and Dossiers
-    └── read-only Studio projections
+    ├── question or delegated request
+    ├── content-locked data and fixed Studies
+    ├── bounded Agent Research Sessions
+    ├── factors, portfolios, ML/RL policies, and simulations
+    ├── immutable Runs and evidence
+    └── Reports, Dossiers, and read-only Studio projections
 ```
 
-AutoQuant produces historical quantitative evidence, not orders. It has no
-Broker, account, OpenAlice UTA, or live-trading authority.
+One Workspace may hold multiple self-contained Projects. A Project is one
+evolving body of research; a Study locks one evaluation question; a Research
+Session is a bounded editable investigation; a Run is an immutable
+measurement.
+
+## Standalone or an OpenAlice desk
+
+AutoQuant has one product shape in both environments:
+
+```text
+standalone clone                    OpenAlice Trading Harness
+└── AutoQuant Workspace             └── AutoQuant Workspace desk
+    └── Quant Agent                     └── Quant coworker
+        └── Projects                        └── Projects
+```
+
+Standalone, a human or Agent clones AutoQuant and operates it directly.
+Inside OpenAlice, the same workbench can be materialized as a specialized
+Workspace desk. An Agent at another desk can delegate a quantitative task to a
+coworker at the AutoQuant desk and receive a report when the work is useful.
+There is no separate OpenAlice edition and no private service API defining the
+research lifecycle.
+
+AutoQuant owns quantitative research and historical simulation. An optional
+host owns cross-Workspace communication and authenticated provenance. Brokers,
+live accounts, approvals, and real order submission remain outside AutoQuant;
+in OpenAlice that authority belongs to UTA. AutoQuant may model target
+portfolios, orders, and TPSL when required for valid research without claiming
+live-trading authority.
+
+See the canonical
+[Agent-native workbench model](docs/design/agent-native-quant-workbench.md)
+and [architecture](docs/ARCHITECTURE.md).
 
 ## Quick start
 
@@ -116,7 +153,7 @@ uv run aq research run ./quant-workspace \
   --json
 ```
 
-## Evidence and handoff
+## Evidence and deliverables
 
 Factor Runs publish purge-aware IC, decay, quantile, style, regime, and
 component evidence. Portfolio Runs apply one fixed causal signal-to-position
@@ -125,8 +162,8 @@ execution, costs, capacity, lifecycle, and robustness diagnostics. Governed RL
 may select only among fixed factor sleeves built through that same Portfolio
 Mandate; it cannot rewrite the action, reward, risk, or execution contracts.
 
-Agents publish lane Reports, and the canonical Factor → Portfolio → optional
-RL program can compose them into one immutable Project Dossier for OpenAlice:
+Agents may publish lane Reports, and the canonical Factor → Portfolio →
+optional RL program can compose them into one immutable Project Dossier:
 
 ```bash
 uv run aq report publish ./quant-workspace \
@@ -140,9 +177,11 @@ uv run aq dossier publish ./quant-workspace \
   --json
 ```
 
-OpenAlice may publish the exact handoff Markdown through its own Inbox and
-attach authenticated collaboration provenance. AutoQuant deliberately does
-not impersonate that authority.
+A Report or Dossier is a durable evidence-bound Project artifact, not a
+mandatory RPC response. It may be reviewed locally, handed to another Agent,
+or delivered through a host. When OpenAlice is the host, it may publish the
+exact Markdown through Inbox and attach authenticated collaboration
+provenance; AutoQuant deliberately does not impersonate that authority.
 
 ## Studio
 

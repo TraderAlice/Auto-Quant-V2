@@ -145,7 +145,8 @@ read-only and returns no source files or arbitrary artifact content.
 5. A descriptive comparison never changes an immutable verdict.
 6. Failed trials remain explicit and cannot become successful metric rows.
 7. CLI and Studio use the same Core object.
-8. The matrix has no live account, order, or OpenAlice provenance authority.
+8. The matrix has no live account, order, or authenticated host-provenance
+   authority.
 
 ## Change checklist
 

@@ -3,6 +3,7 @@
 Status: implemented.
 
 Related: [[docs/design/quant-research-lifecycle]],
+[[docs/design/agent-native-quant-workbench]],
 [[docs/design/research-program-orchestration]],
 [[docs/design/request-bound-portfolio-mandates]],
 [[docs/design/portfolio-risk-governor]],
@@ -17,9 +18,9 @@ This document owns the immutable Project-level answer produced by a canonical
 multi-Study Research Program. A Research Dossier synthesizes lane Reports for
 one content-locked Research Request and dataset.
 
-It does not own lane evaluation, candidate selection, Agent research,
-OpenAlice Inbox publication, authenticated origin, account state, orders, or
-trading authority.
+It does not own lane evaluation, candidate selection, Agent research, optional
+host delivery, authenticated origin, account state, live orders, or trading
+authority.
 
 ## Composition boundary
 
@@ -29,7 +30,7 @@ The evidence hierarchy is:
 Run / Experiment / Campaign
 → delegated Session Report
 → Project Research Dossier
-→ OpenAlice Inbox publication
+→ local review or optional host delivery
 ```
 
 A lane Report already freezes and verifies the request, Brief, Session leader,
@@ -161,7 +162,7 @@ non-file entries are rejected.
   risk-only override, and zero-final-breach evidence when present;
 - omitted gated or optional lanes and their admission state;
 - normalized cross-lane analysis and its hash;
-- OpenAlice handoff boundary.
+- optional host-delivery boundary.
 
 The manifest is written last after hashing the other three files. Loading
 verifies file hashes, canonical Markdown, normalized analysis, derived id,
@@ -173,7 +174,7 @@ It does not recompute a latest mechanical decision from the Run catalog.
 Legacy Reports/Dossiers without the optional snapshot remain verifiable and
 are not given synthetic historical evidence.
 
-## Markdown and OpenAlice
+## Markdown and delivery
 
 `dossier.md` is the human handoff document. It includes:
 
@@ -193,10 +194,13 @@ are not given synthetic historical evidence.
 - limitations, unresolved questions, and omitted gated or optional lanes;
 - reproducibility hashes and publication instructions.
 
-AutoQuant preserves caller-supplied OpenAlice Workspace/Session/document
-context but cannot authenticate it. The Dossier states that OpenAlice must
+AutoQuant preserves supported caller-supplied OpenAlice
+Workspace/Session/document context but cannot authenticate it. A Dossier is
+complete and useful without that context. When OpenAlice is the host, it may
 publish the exact Markdown through Inbox and stamp its own authoritative
-Workspace, Session, and document revision.
+Workspace, Session, and document revision. Another host or a standalone
+operator may deliver the same immutable artifact through its own collaboration
+surface.
 
 ## CLI and Studio
 
@@ -225,8 +229,8 @@ author analysis, publish, select evidence, or send an Inbox document.
 5. Browser and CLI consume the same Core readiness/list/load functions.
 6. Dossier authority is decision support only; trading authority is always
    none.
-7. OpenAlice provenance becomes authoritative only when OpenAlice publishes
-   the exact handoff artifact.
+7. Host provenance becomes authoritative only when that host publishes or
+   attributes the exact artifact.
 
 ## Known gaps
 
@@ -234,4 +238,4 @@ author analysis, publish, select evidence, or send an Inbox document.
   temporal-challenge import is defined by
   [[docs/design/frozen-external-holdout-challenge]].
 - Core does not generate qualitative synthesis.
-- OpenAlice Inbox publication remains outside AutoQuant.
+- Optional host delivery and Inbox publication remain outside AutoQuant.

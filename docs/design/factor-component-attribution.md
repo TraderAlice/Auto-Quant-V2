@@ -149,7 +149,7 @@ candidate.py declaration + component DataFrame
 → hash verification and semantic reconciliation
 → Factor Explorer / Studio
 → frozen Factor Report
-→ frozen Project Dossier for OpenAlice
+→ frozen Project Dossier for later review
 ```
 
 The artifact is bounded structured evidence, not executable source. Historical
@@ -166,7 +166,7 @@ experiment or a human handoff, but it cannot:
 - bypass covariance, execution, cost, or capacity rules;
 - create dynamic RL experts or actions;
 - promote a candidate;
-- publish to OpenAlice Inbox.
+- publish through an optional host Inbox.
 
 If a future design wants components to become governed RL sleeves, it must
 predeclare that action authority independently and compare against the same
@@ -193,8 +193,7 @@ fixed baselines. This contract does not grant it implicitly.
 6. Validation diagnoses; test only audits.
 7. Final-factor `validation_mean_ic` remains the sole promotion objective.
 8. CLI, Studio, Report, and Dossier consume one verified bounded Core object.
-9. Portfolio, RL, OpenAlice, Broker, order, and account authority remain
-   unchanged.
+9. Portfolio, RL, host, Broker, order, and account authority remain unchanged.
 
 ## Known limits
 

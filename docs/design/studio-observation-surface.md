@@ -192,9 +192,9 @@ For a request-driven canonical Program, the collaboration surface composes no
 evidence in the browser. Core supplies Dossier readiness, lane Report
 currentness, explicit optional omissions, blockers, latest immutable summary,
 and exact next command. The visible flow is
-`request → lane Reports → Project Dossier → OpenAlice`. A selected Session may
-change the evidence Inspector, but it does not demote the overall handoff back
-to a single-lane Report.
+`request → lane Reports → Project Dossier → reviewer or collaborating Agent`.
+A selected Session may change the evidence Inspector, but it does not demote
+the overall delivery state back to a single-lane Report.
 
 ## Invariants
 

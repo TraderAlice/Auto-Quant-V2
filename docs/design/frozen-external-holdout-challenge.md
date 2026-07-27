@@ -119,15 +119,16 @@ Core does not manufacture a universal pass threshold. Factor IC, Portfolio
 Sharpe, and RL aggregate objectives have different uncertainty and baseline
 semantics. Existing lane diagnostics remain the evidence; the holdout result
 compares the predeclared objective and labels the outcome, but final
-interpretation belongs in a later report/Dossier or the requesting OpenAlice
-workbench.
+interpretation belongs in a later Report/Dossier or the requesting reviewer.
 
-## OpenAlice boundary
+## Caller boundary
 
-OpenAlice supplies the later dataset and target Project identity, then receives
-the immutable challenge result as quantitative decision support. AutoQuant
-does not authenticate the caller, place an order, choose position size in a
-live account, or treat external-period survival as permission to trade.
+A local operator or collaborating Agent supplies the later dataset and target
+Project identity, then receives the immutable challenge result as quantitative
+decision support. OpenAlice is one possible host for that exchange. AutoQuant
+does not authenticate the caller, place a live order, choose position size in
+an authenticated account, or treat external-period survival as permission to
+trade.
 
 ## Compatibility
 

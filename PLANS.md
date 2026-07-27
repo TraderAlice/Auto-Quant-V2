@@ -26,12 +26,15 @@ There are no proposed plans.
 
 ## Paused plans
 
-There are no paused plans.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/order-native-portfolio-decisions]] | Return evidence-backed target weights together with bounded Order/TPSL realization plans shared by mechanical and RL research. Paused until the workbench product model is canonical. | 2026-07-27 |
 
 ## Completed plans
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/agent-native-workbench-documentation]] | Define AutoQuant as an independent Agent-native quantitative workbench that materializes unchanged as an OpenAlice Workspace desk. | 2026-07-27 |
 | [[plans/retire-flat-freqtrade-harness]] | Remove the executable Auto-Quant Classic/Freqtrade compatibility arena and make V2 Projects the only current architecture. | 2026-07-27 |
 | [[plans/caller-owned-asset-position-roles]] | Let callers assign long-only, short-only, two-sided, or context-only research duties to individual assets and make Portfolio/RL share them. | 2026-07-27 |
 | [[plans/market-clock-decision-anchors]] | Bound caller-owned Portfolio/RL cadence to either the complete dataset or each verified XNYS market session. | 2026-07-27 |

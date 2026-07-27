@@ -4,10 +4,15 @@ Status: active, pre-alpha.
 
 ## Purpose
 
-AutoQuant V2 is a standardized quantitative-research Harness organized as a
-long-lived Workspace containing self-contained Projects. When AutoQuant
-receives a research request, work begins in a Project rather than by cloning
-and mutating the Harness itself.
+AutoQuant V2 is an Agent-native quantitative research workbench. It converts
+quantitative work into a file-backed, versioned, testable workflow that a
+coding Agent can discover, execute, verify, resume, and hand to another Agent
+or human.
+
+The workbench is organized as a long-lived Workspace containing
+self-contained Projects. When AutoQuant receives a local question or delegated
+request, work begins in a Project rather than by cloning and mutating the
+Harness itself.
 
 The target model is:
 
@@ -26,6 +31,13 @@ Workspace
 The Workspace is the stable quantitative workbench. A Project is the concrete
 construction site for one evolving body of research. A Run is a bounded,
 immutable execution under pinned Project and Harness inputs.
+
+The same AutoQuant artifact runs standalone or as a specialized Workspace desk
+inside OpenAlice or another host Harness. Hosting may add Agent Session
+orchestration, communication, scheduling, provenance, and shared tools around
+the desk. It does not create a separate AutoQuant mode or own quantitative
+truth. The canonical product model is
+[[docs/design/agent-native-quant-workbench]].
 
 ## Current implementation state
 
@@ -71,17 +83,19 @@ The V2 foundation now implements:
 - provider-neutral external Researcher Campaigns with strict briefs/responses,
   aggregate and per-turn budgets, failure recovery, and immutable turn
   evidence.
-- strict delegated Research Requests, Session-derived Briefs, and immutable
-  evidence-bound JSON/Markdown Research Reports with no trading authority,
-  including an optional exact leader-Run mechanical-decision snapshot.
+- strict local or delegated Research Requests, Session-derived Briefs, and
+  immutable evidence-bound JSON/Markdown Research Reports with no trading
+  authority, including an optional exact leader-Run mechanical-decision
+  snapshot.
 - immutable Project Research Dossiers that compose current Factor, Portfolio,
-  and compatible optional RL lane Reports into one verified OpenAlice handoff
-  without re-evaluating raw Runs or recomputing later mechanical decisions.
+  and compatible optional RL lane Reports into one verified Project
+  deliverable without re-evaluating raw Runs or recomputing later mechanical
+  decisions.
 - one packaged local read-only Studio with a shared versioned snapshot,
-  Workspace/Project overview, request → lane Reports → Dossier handoff, exact
-  copyable CLI commands, explicit mutable Campaign progress, defensive HTTP
-  boundary, bounded verified Portfolio decision exploration, and responsive
-  research-first presentation.
+  Workspace/Project overview, request → lane Reports → Dossier delivery,
+  exact copyable CLI commands, explicit mutable Campaign progress, defensive
+  HTTP boundary, bounded verified Portfolio decision exploration, and
+  responsive research-first presentation.
 - one verified Portfolio sizing-anatomy read model that explains conviction,
   inverse volatility, same-side budget, caps/water-filling, covariance
   governance, historical execution, and component risk without becoming an
@@ -200,8 +214,9 @@ Multi-Study Project coordination and lane currentness are defined in
 [[docs/design/research-program-orchestration]].
 Scientific admission between Factor, Portfolio, and optional governed RL is
 defined in [[docs/design/evidence-gated-research-progression]].
-The end-to-end OpenAlice handoff, professional evidence stack, and HCI
-boundary are defined in [[docs/design/quant-research-lifecycle]].
+The end-to-end Agent-native research lifecycle, professional evidence stack,
+deliverables, and HCI boundary are defined in
+[[docs/design/quant-research-lifecycle]].
 Project-level lane composition is defined in
 [[docs/design/program-research-dossiers]].
 
@@ -215,6 +230,14 @@ location. Git history remains its archive. See
 [[docs/design/retired-flat-freqtrade-harness]].
 
 ## Ownership boundaries
+
+### AutoQuant repository and Workbench own
+
+- the standalone package, runtime dependencies, schemas, CLI, Studio, and
+  Workspace Template material;
+- one quantitative Core contract shared by standalone and hosted operation;
+- Agent orientation and bounded quantitative operations;
+- workbench version identity and deliberate managed-asset upgrades.
 
 ### Workspace and Harness own
 
@@ -242,12 +265,34 @@ assets whose changes silently alter multiple Projects. Disposable caches may
 be shared only when their content identity is explicit and Projects remain
 reproducible without treating the cache as authoritative state.
 
+### Optional host Harness owns
+
+- materializing or discovering the Workspace desk;
+- starting, resuming, and attributing native coding-Agent Sessions;
+- cross-Workspace task assignment, scheduling, communication, and delivery;
+- host-authenticated identity, credentials, Inbox, and shared tool injection.
+
+OpenAlice is the first-party host example. AutoQuant cannot require or
+impersonate these capabilities. A standalone Workspace remains complete
+without them.
+
+### Live trading authority owns
+
+- Broker credentials and connectivity;
+- authenticated accounts, balances, positions, and venue capabilities;
+- approval, submission, cancellation, and live reconciliation.
+
+In OpenAlice this authority belongs to UTA. AutoQuant can research portfolios,
+orders, and protection under historical assumptions without acquiring any of
+these powers.
+
 ## Execution flow
 
 The intended public loop is:
 
 ```text
-files
+local question or delegated request
+→ files
 → strict validation
 → pinned Project + Harness identity
 → bounded prepare
@@ -257,7 +302,7 @@ files
 → keep, revert, branch, or promote
 → evidence-bound lane Report
 → Project Research Dossier
-→ OpenAlice Inbox publication
+→ local review or optional host delivery
 ```
 
 Backtesting, factor discovery, and ML experiments are different Project
@@ -279,6 +324,12 @@ cannot own Workspace, Project, or evidence semantics.
   floors.
 - CLI and Studio are projections of the same Core operations and evidence.
   The Studio must not become a second evaluator.
+- Standalone and hosted Workspaces use the same Core, schemas, CLI, Project
+  formats, evaluation semantics, and evidence.
+- Project truth remains recoverable from files and immutable artifacts without
+  requiring private Agent conversation history.
+- Reports and Dossiers are durable deliverables, not mandatory integration
+  RPCs.
 - The Harness has no live Broker or trading-account authority. Forward
   execution remains outside AutoQuant.
 - Routine validation is fast, deterministic, and bounded. Long research loops
@@ -287,6 +338,8 @@ cannot own Workspace, Project, or evidence semantics.
 ## Non-goals
 
 - A universal strategy DSL.
+- An OpenAlice-only backend or separate hosted edition.
+- A private model loop, chat system, cross-Workspace scheduler, or Inbox.
 - Choosing a different backtest engine for every asset class.
 - Live order routing or replacing OpenAlice's trading-account abstractions.
 - A mutable global dataset directory that makes Project results
@@ -356,7 +409,9 @@ cannot own Workspace, Project, or evidence semantics.
 - External Researcher driver design:
   [[docs/design/external-researcher-driver]]
 - Studio observation design: [[docs/design/studio-observation-surface]]
-- Quantitative research lifecycle and OpenAlice handoff:
+- Agent-native workbench product model:
+  [[docs/design/agent-native-quant-workbench]]
+- Quantitative research lifecycle and durable delivery:
   [[docs/design/quant-research-lifecycle]]
 - Studio operator guide: [[docs/STUDIO]]
 - Retired Classic/Freqtrade boundary:
@@ -383,6 +438,8 @@ These commands must not start autonomous research or a long backtest.
 
 - Update this document when Workspace/Project ownership or execution lifecycle
   changes.
+- Check every host-facing change against standalone/hosted parity in
+  [[docs/design/agent-native-quant-workbench]].
 - Update [[docs/PROJECT_FORMAT]] and [[docs/CLI]] when the current runtime,
   data, or result contract changes.
 - Add focused tests for every new schema, confinement rule, identity, or state
@@ -400,5 +457,6 @@ These commands must not start autonomous research or a long backtest.
   verification, and point-in-time universe contracts are not implemented.
 - Studio is read-only and does not yet provide confirmed Core operations.
 - ML is a supported architectural direction but has no execution contract yet.
-- OpenAlice-side automatic Project creation and Inbox publication are not
-  implemented; AutoQuant emits exact report artifacts for that authority.
+- Optional host-side automatic Project creation, coworker assignment, and
+  delivery are not implemented here; AutoQuant emits exact report artifacts
+  that a host or Agent may carry through its own collaboration surface.

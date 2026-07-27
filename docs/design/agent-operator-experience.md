@@ -4,6 +4,7 @@ Status: implemented for the V2 Agent Work Brief, evidence-driven research
 agenda, and read-only orientation surface.
 
 Related: [[docs/design/agent-cli-contract]],
+[[docs/design/agent-native-quant-workbench]],
 [[docs/design/research-program-orchestration]],
 [[docs/design/research-session-loop]],
 [[docs/design/external-researcher-driver]],
@@ -13,11 +14,12 @@ Related: [[docs/design/agent-cli-contract]],
 
 ## Purpose
 
-AutoQuant is operated primarily by coding Agents. Humans provide the research
-request, define or approve authority, review evidence, and accept or reject the
-result. The default operating surface must therefore optimize for a new Agent
-to take one correct bounded action, while preserving a concise truthful review
-surface for humans.
+AutoQuant is operated primarily by coding Agents. A human, a local Agent, or a
+coworker in a host such as OpenAlice may supply the question. Humans define or
+approve intent, review evidence, and accept or reject the result. The default
+operating surface must therefore optimize for a new Agent to sit at an existing
+Workspace desk and take one correct bounded action, while preserving a concise
+truthful review surface for humans.
 
 The interface is not a larger prompt. It is a verified Core work contract:
 
@@ -36,6 +38,11 @@ Workspace / Project path
 
 Existing detailed objects remain available for deep inspection. Orientation
 answers what the operator should do now and why.
+
+The brief must work without an external orchestrator. Host Session identity,
+cross-Workspace communication, and authenticated provenance may add context,
+but Project files and Core evidence remain sufficient to orient a replacement
+Agent. Standalone and hosted operation use the same brief contract.
 
 ## Operator and reviewer roles
 
@@ -60,6 +67,10 @@ The Agent may not:
 The human is the intent owner and evidence reviewer. Human review does not
 create a second evaluator: Studio displays the same Core work brief and
 evidence that the Agent receives.
+
+An external coworker may delegate or discuss a task, but does not become the
+quantitative evaluator. Its message is caller context until AutoQuant binds it
+to a Project request and fixed research authority.
 
 ## Agent Work Brief
 
@@ -219,6 +230,10 @@ Judge authority.
    test audit cannot change a move, its order, or its wording.
 10. Agenda moves never broaden the declared editable closure or become
     executable lifecycle actions.
+11. A standalone Agent and a host-started Agent receive the same quantitative
+    orientation for the same Workspace state.
+12. Required orientation survives replacement of the native Agent Session;
+    private chat history is never the only source of Project truth.
 
 ## Known limitations
 

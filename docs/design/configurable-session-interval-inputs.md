@@ -156,5 +156,5 @@ Daily V1 behavior remains 252.
 - No futures/FX calendars or sessions crossing UTC dates.
 - Schedule rules are only as authoritative as the pinned calendar version and
   caller/provider claims.
-- This feature changes research input cadence, not OpenAlice Broker execution
+- This feature changes research input cadence, not live Broker execution
   authority.

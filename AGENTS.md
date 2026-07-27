@@ -1,15 +1,32 @@
 # AutoQuant V2 contributor guide
 
-AutoQuant V2 is a pre-alpha, AI-native quantitative research workbench. Domain
-correctness, reproducible evidence, and a coherent project model take priority
-over backward compatibility while V2 is taking shape. Auto-Quant Classic files
-were retired from the current tree; Git history is their archive and current
-code must not load or reinterpret them under V2 semantics.
+AutoQuant V2 is a pre-alpha, Agent-native quantitative research workbench. Its
+job is to turn quantitative research into a file-backed, versioned, testable
+workflow that coding Agents can operate and humans can inspect.
+
+The same repository must work independently and unchanged as a specialized
+Workspace desk inside OpenAlice or another Agent Harness. Host-specific
+Session orchestration, communication, provenance, and live trading are optional
+surrounding capabilities; they do not define AutoQuant Core.
+
+Domain correctness, reproducible evidence, Agent operability, and a coherent
+project model take priority over backward compatibility while V2 is taking
+shape. Auto-Quant Classic files were retired from the current tree; Git history
+is their archive and current code must not load or reinterpret them under V2
+semantics.
 
 Use Python 3.11 and `uv` for repository code and scripts. Keep projects
 self-contained: a Workspace owns project discovery and a standardized Harness,
 while each Project owns its research question, source inputs, strategies or
 models, Runs, and durable artifacts.
+
+Before adding a host integration or public surface, ask:
+
+1. Can a coding Agent use the same capability in a standalone Workspace?
+2. Is durable truth recoverable from files, manifests, Git, and immutable
+   evidence rather than private conversation context?
+3. Does the change preserve one Core contract across CLI, JSON, Studio, and
+   any host projection?
 
 ## Plan workflow
 
@@ -42,6 +59,9 @@ defined in [[docs/design/documentation-system]].
 
 Read the relevant linked document before changing a subsystem:
 
+- Product identity, standalone/hosted parity, desk composition, Agent-first
+  requirements, and ownership boundaries:
+  [[docs/design/agent-native-quant-workbench]]
 - Documentation ownership and update protocol:
   [[docs/design/documentation-system]]
 - System direction, Workspace/Project ownership, and runtime boundaries:
@@ -78,6 +98,9 @@ Read the relevant linked document before changing a subsystem:
   [[docs/design/caller-owned-decision-cadence]]
 - Caller-owned dataset/session decision anchors bound to verified market-clock
   authority: [[docs/design/market-clock-decision-anchors]]
+- Target-weight portfolio construction, Order/TPSL realization, conservative
+  OHLC bar execution, and optional host delivery:
+  [[docs/design/order-native-portfolio-decisions]]
 - Request-bound numerical forward horizon shared by Factor, Portfolio, and
   governed RL:
   [[docs/design/request-bound-research-horizon]]
@@ -164,11 +187,12 @@ Read the relevant linked document before changing a subsystem:
 - Read-only Workspace observation, local HTTP, browser presentation, and
   mutable-versus-immutable research state:
   [[docs/design/studio-observation-surface]]
-- OpenAlice request/report collaboration, professional quantitative evidence,
-  causal portfolio construction, governed RL, and human/Agent interaction:
+- Agent-native request/report collaboration, professional quantitative
+  evidence, causal portfolio construction, governed RL, and human/Agent
+  interaction:
   [[docs/design/quant-research-lifecycle]]
 - Project-level synthesis of verified lane Reports into one immutable
-  OpenAlice handoff: [[docs/design/program-research-dossiers]]
+  deliverable: [[docs/design/program-research-dossiers]]
 - Studio operator and public read-model guide: [[docs/STUDIO]]
 - Canonical Workspace and Project file schemas: [[docs/PROJECT_FORMAT]]
 - Human and machine-readable command behavior: [[docs/CLI]]

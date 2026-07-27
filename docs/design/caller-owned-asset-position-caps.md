@@ -129,5 +129,5 @@ named overrides. They retain `quantitative-decision-support` and
   [[docs/design/caller-owned-asset-position-roles]].
 - Caps are caller constraints, not estimates of optimal Kelly size, liquidity,
   expected return, or confidence.
-- OpenAlice still owns account authorization and reconciliation against actual
-  UTA positions.
+- Any live-trading authority still owns account authorization and
+  reconciliation against actual positions.

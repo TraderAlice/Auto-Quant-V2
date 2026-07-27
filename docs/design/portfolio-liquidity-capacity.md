@@ -70,9 +70,9 @@ projecting:
 - policy limitations and selection authority.
 
 CLI, Reports, Dossiers, and Studio consume the same Core evidence. Capacity is
-historical research evidence only. OpenAlice may use it to frame a later
-capital or execution review, but AutoQuant cannot infer account size or place
-orders.
+historical research evidence only. A local reviewer or collaborating Agent may
+use it to frame a later capital or execution review, but AutoQuant cannot infer
+authenticated account size or place live orders.
 
 ## Selection role
 

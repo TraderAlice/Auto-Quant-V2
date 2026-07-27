@@ -172,7 +172,7 @@ the identical object through CLI JSON.
    Study; no mutable implicit cross-Study reads are allowed.
 8. Portfolio and RL consume one request-derived position mandate; research
    context never becomes an implicit tradable universe.
-9. AutoQuant has no OpenAlice provenance or live-trading authority.
+9. AutoQuant has no authenticated host provenance or live-trading authority.
 10. Only `active` Sessions participate in writer/writer and writer/reader
    conflicts; a verified completed or promoted lane is terminal coordination
    history.

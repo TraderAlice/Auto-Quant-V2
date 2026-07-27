@@ -17,8 +17,9 @@ request-bound Portfolio and governed-RL research. It converts a signal-policy
 target into a lower-or-equal-risk target using only covariance information
 available through the decision close.
 
-It does not choose expected returns, optimize a frontier, infer OpenAlice
-account risk tolerance, add leverage, place orders, or model Broker/UTA margin.
+It does not choose expected returns, optimize a frontier, infer authenticated
+account risk tolerance, add leverage, place live orders, or model Broker/UTA
+margin.
 
 ## Fixed risk policy
 

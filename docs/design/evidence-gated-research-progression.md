@@ -59,9 +59,10 @@ Portfolio Explorer. Governed RL is admitted only when:
 
 Factor prediction without gross monetization, cost-fragile evidence, negative
 post-cost evidence, legacy/unavailable evidence, or a missing current Report
-keeps research in Portfolio. After both required gates pass, OpenAlice can
-receive the Factor+Portfolio Dossier without running RL. RL is a separately
-chosen optional challenge against the simpler policy.
+keeps research in Portfolio. After both required gates pass, a local reviewer
+or collaborating Agent can receive the Factor+Portfolio Dossier without
+running RL. RL is a separately chosen optional challenge against the simpler
+policy.
 
 ## Program projection
 

@@ -3,8 +3,11 @@
 Status: V1 Workspace and Project manifests implemented.
 
 AutoQuant uses a long-lived Workspace containing immediate, self-contained
-Projects. The Workspace is the standardized Harness workbench; each Project is
-the construction site for one evolving body of quantitative research.
+Projects. The Workspace is the persistent quantitative desk; each Project is
+the construction site for one evolving body of research. The same format is
+used by a standalone clone and by a Workspace materialized inside OpenAlice or
+another host Harness. Host metadata does not change Project identity or
+quantitative semantics. See [[docs/design/agent-native-quant-workbench]].
 
 ## Workspace
 

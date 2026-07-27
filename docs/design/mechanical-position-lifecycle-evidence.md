@@ -90,8 +90,8 @@ portfolio construction. It uses `selection_authority=context-only` and does
 not affect validation net Sharpe, KEEP/REVERT, non-dominance, or RL reward.
 
 All episodes are historical target-weight research. “Entry” and “exit” name
-state transitions in the simulator; they are not orders, fills, account lots,
-or OpenAlice trading approval.
+state transitions in the simulator; they are not live orders, Broker fills,
+account lots, or external trading approval.
 
 ## Legacy evidence
 

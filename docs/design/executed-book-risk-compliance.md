@@ -91,8 +91,8 @@ mechanical path, but zero breaches do not make one candidate better than
 another.
 
 All resulting weights remain historical target-weight research evidence.
-Nothing in this contract authorizes orders, capital allocation, or OpenAlice
-UTA mutation.
+Nothing in this contract authorizes live orders, authenticated capital
+allocation, or external trading-account mutation.
 
 ## Legacy evidence
 

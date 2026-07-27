@@ -116,12 +116,12 @@ the train-selected comparison is `relative_volume_20` and style-neutral
 residual IC is zero. The funnel therefore diagnoses
 `style-neutral-edge-absent` without mutating the existing Session verdict.
 
-## OpenAlice and RL boundary
+## Caller and RL boundary
 
-An OpenAlice request gives the Project its assets, direction, horizon, and
-decision context. Qualification answers whether a proposed model contains
+A local or delegated request gives the Project its assets, direction, horizon,
+and decision context. Qualification answers whether a proposed model contains
 distinct historical information worth carrying into the next research lane.
-It does not answer whether OpenAlice should buy an asset.
+It does not answer whether any caller should buy an asset.
 
 Governed RL may consume the content-locked candidate source only as a research
 dependency. The Factor qualification hash and diagnosis belong in immutable

@@ -144,7 +144,7 @@ entry/hold/exit, sizing, cost, and risk contracts. Governed RL sees causal
 multi-horizon state or factor sleeves derived from the same rows; its fixed
 baselines receive the same opportunity set.
 
-Intervals are research inputs, not trade instructions. OpenAlice may request
+Intervals are research inputs, not trade instructions. A caller may request
 an asset, direction, and horizon; AutoQuant records the interval surface that
 was requested, materialized, locked, and supplied to each lane, then returns
 that evidence through RunResults, Reports, Studio, and the Project Dossier.

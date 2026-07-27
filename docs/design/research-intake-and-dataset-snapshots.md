@@ -22,8 +22,8 @@ identity, transactional construction, CLI discovery, and pre-Session Studio
 observation.
 
 It does not fetch market data, authenticate provider claims, compute corporate
-actions, create live subscriptions, start an autonomous Campaign, or publish
-to OpenAlice.
+actions, create live subscriptions, start an autonomous Campaign, or deliver
+the result through an optional host.
 
 ## Authoritative locations
 
@@ -312,5 +312,5 @@ When changing this boundary:
 - Symbols are restricted to path-safe identifiers.
 - It does not prove point-in-time universe membership, delisting coverage,
   corporate-action correctness, or vendor licensing.
-- Provider retrieval and OpenAlice Inbox publication remain external
+- Provider retrieval and optional host/Inbox delivery remain external
   authority.
