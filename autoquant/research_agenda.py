@@ -358,7 +358,7 @@ def factor_research_agenda(
         "iterationFocus": diagnosis["iterationFocus"],
         "explanation": diagnosis["explanation"],
     }
-    if diagnosis["stage"] == "factor-qualification-positive":
+    if diagnosis["qualifiesForPortfolio"] is True:
         return _agenda(
             status="no-further-in-sample-tuning",
             lane_id="factor",
@@ -368,6 +368,24 @@ def factor_research_agenda(
             reason=(
                 "Qualified validation evidence should advance to mechanical "
                 "Portfolio research rather than invite another factor edit."
+            ),
+        )
+    claim = qualification.get("claim")
+    if (
+        isinstance(claim, dict)
+        and claim.get("claim") == "known-style-validation"
+        and diagnosis["stage"] == "raw-statistical-evidence-weak"
+    ):
+        return _agenda(
+            status="no-further-in-sample-tuning",
+            lane_id="factor",
+            run={"id": run["id"], "inputHash": run["inputHash"]},
+            diagnosis=diagnosis_projection,
+            moves=[_factor_independent_sample_move(diagnostics)],
+            reason=(
+                "The predeclared known-style implementation is identified, "
+                "but dependence-aware validation evidence is weak; freeze "
+                "source and obtain genuinely independent evidence."
             ),
         )
 
@@ -388,7 +406,21 @@ def factor_research_agenda(
             else component_diagnosis["strongestResidualComponent"]
         )
         preferred = _component_by_id(components, preferred_id)
-        if preferred is not None:
+        preferred_is_final = (
+            preferred is not None
+            and preferred.get("compositeAssociation", {})
+            .get("validation", {})
+            .get("meanAbsoluteRankAssociation")
+            is not None
+            and preferred["compositeAssociation"]["validation"][
+                "meanAbsoluteRankAssociation"
+            ]
+            >= 0.999
+        )
+        if preferred is not None and not (
+            stage == "raw-statistical-evidence-weak"
+            and preferred_is_final
+        ):
             use_residual = (
                 stage
                 not in {
@@ -459,7 +491,12 @@ def factor_research_agenda(
         ]
         removal_delta = component_diagnosis["bestRemovalDeltaMeanIc"]
         removal = _component_by_id(components, removal_id)
-        if removal is not None and removal_delta is not None and removal_delta > 0:
+        if (
+            stage == "blend-uplift-absent"
+            and removal is not None
+            and removal_delta is not None
+            and removal_delta > 0
+        ):
             moves.append(
                 _move(
                     priority=len(moves) + 1,
@@ -503,6 +540,13 @@ def factor_research_agenda(
 
         redundant = component_diagnosis["mostRedundantPair"]
         if (
+            stage
+            in {
+                "style-neutral-edge-absent",
+                "style-neutral-statistical-evidence-weak",
+                "blend-uplift-absent",
+            }
+            and
             redundant is not None
             and redundant["trainMeanAbsoluteRankAssociation"] >= 0.8
         ):
@@ -553,6 +597,110 @@ def factor_research_agenda(
                 )
             )
 
+        primary_horizon = diagnostics.get("researchHorizon", {}).get(
+            "primaryForwardBars",
+            1,
+        )
+        context_candidates: list[tuple[float, int, dict[str, Any], dict[str, float]]] = []
+        for index, component in enumerate(components["components"]):
+            if component.get("role") != "timestamp-context":
+                continue
+            context = component.get("validation", {}).get("context")
+            if not isinstance(context, dict):
+                continue
+            profile = next(
+                (
+                    row
+                    for row in context.get(
+                        "conditionalFactorHorizonProfile",
+                        [],
+                    )
+                    if row.get("horizon") == primary_horizon
+                ),
+                None,
+            )
+            if not isinstance(profile, dict):
+                continue
+            state_ics = {
+                state: profile.get(state, {}).get("meanRankIc")
+                for state in ("low", "middle", "high")
+                if profile.get(state, {}).get("meanRankIc") is not None
+            }
+            if len(state_ics) < 2:
+                continue
+            gap = max(state_ics.values()) - min(state_ics.values())
+            context_candidates.append(
+                (float(gap), index, component, state_ics)
+            )
+        if (
+            stage
+            in {
+                "residual-temporal-instability",
+                "known-style-temporal-instability",
+            }
+            and context_candidates
+        ):
+            gap, index, context_component, state_ics = max(
+                context_candidates,
+                key=lambda item: (item[0], item[2]["id"]),
+            )
+            if gap > 0.0:
+                strongest_state = max(state_ics, key=state_ics.get)
+                weakest_state = min(state_ics, key=state_ics.get)
+                context_move = _move(
+                        priority=min(
+                            len(moves) + 1,
+                            MAX_RESEARCH_MOVES,
+                        ),
+                        move_id="factor-test-context-interaction",
+                        title=(
+                            "Test one fixed interaction with "
+                            f"{context_component['label']}"
+                        ),
+                        hypothesis=(
+                            f"The complete candidate preserves more next-bar "
+                            f"rank information in `{strongest_state}` than "
+                            f"`{weakest_state}` "
+                            f"{context_component['id']} states, and one "
+                            "predeclared causal interaction improves the "
+                            "unchanged validation objective."
+                        ),
+                        rationale=(
+                            "Train-only tertiles fix the context states and "
+                            "validation shows the largest declared conditional "
+                            f"factor-IC range ({gap:+.4f}). This is a regime "
+                            "hypothesis, not standalone cross-sectional IC or "
+                            "permission to tune state thresholds."
+                        ),
+                        editable_paths=editable_paths,
+                        components=[context_component["id"]],
+                        evidence_refs=[
+                            _evidence(
+                                f"/factorComponents/components/{index}/"
+                                "validation/context/"
+                                "conditionalFactorHorizonProfile",
+                                "Validation conditional factor IC range",
+                                gap,
+                                "rank-ic-range",
+                            )
+                        ],
+                        objective_metric="validation_mean_ic",
+                        required_checks=[
+                            "Predeclare one causal interaction using the existing context value.",
+                            "Keep the fixed train-tertile thresholds unchanged.",
+                            "Judge the complete final factor on the unchanged validation objective.",
+                        ],
+                        stop_conditions=[
+                            "Stop if context varies across assets at one timestamp.",
+                            "Stop if the apparent range is supported by fewer than two finite states.",
+                            "Do not choose or tune the interaction from visible test-audit evidence.",
+                        ],
+                    )
+                if len(moves) >= MAX_RESEARCH_MOVES:
+                    moves[-1] = context_move
+                else:
+                    moves.append(context_move)
+
     if not moves:
         moves.append(
             _factor_stage_move(
@@ -568,6 +716,57 @@ def factor_research_agenda(
         diagnosis=diagnosis_projection,
         moves=moves,
         reason=None,
+    )
+
+
+def _factor_independent_sample_move(
+    diagnostics: dict[str, Any],
+) -> dict[str, Any]:
+    qualification = diagnostics["factorQualification"]
+    validation = qualification["validation"]
+    return _move(
+        priority=1,
+        move_id="factor-freeze-and-independent-sample",
+        title="Freeze the known style and obtain independent evidence",
+        hypothesis=(
+            "The request-predeclared known style retains positive raw rank "
+            "information with dependence-aware support in a genuinely new "
+            "period or independently versioned dataset."
+        ),
+        rationale=(
+            "The candidate already matches the request-predeclared style, and "
+            "both validation folds are positive, but aggregate HAC evidence "
+            "is below the fixed threshold. Editing this implementation or "
+            "adding blend/context complexity would change the question or "
+            "spend more in-sample selection budget."
+        ),
+        editable_paths=[],
+        components=[],
+        evidence_refs=[
+            _evidence(
+                "/factorQualification/validation/candidate/meanRankIc",
+                "Validation raw rank IC",
+                validation["candidate"]["meanRankIc"],
+                "rank-ic",
+            ),
+            _evidence(
+                "/factorQualification/validation/candidate/hacTStatistic",
+                "Validation raw HAC t-statistic",
+                validation["candidate"]["hacTStatistic"],
+                "t-statistic",
+            ),
+        ],
+        objective_metric="validation_mean_ic",
+        required_checks=[
+            "Keep the current candidate source and request-bound claim unchanged.",
+            "Create a new intake/Study identity for a fresh period or independent dataset.",
+            "Apply the same raw HAC and chronological-fold contract without using the current test audit for selection.",
+        ],
+        stop_conditions=[
+            "Do not relabel the known style as a novel factor.",
+            "Do not tune the candidate, context thresholds, or horizon on current validation/test evidence.",
+            "Do not advance to Portfolio while the Core-owned claim gate remains blocked.",
+        ],
     )
 
 

@@ -74,7 +74,7 @@ const reportDecisionProof = (report) => {
       <div class="report-decision-proof">
         <small>Frozen factor qualification</small>
         <b>${escapeHtml(factor.stage)} · focus ${escapeHtml(factor.iterationFocus)}</b>
-        <span>${escapeHtml(factor.dominantStyle)} selected on train overlap · raw → neutral IC ${signedMetric(factor.rawRankIc)} → ${signedMetric(factor.styleNeutralRankIc)}</span>
+        <span>${escapeHtml(factor.claim)}${factor.knownStyle ? ` · ${escapeHtml(factor.knownStyle)}` : ""} · ${escapeHtml(factor.dominantStyle)} comparison · raw → neutral IC ${signedMetric(factor.rawRankIc)} → ${signedMetric(factor.styleNeutralRankIc)}</span>
         <span>style → equal blend IC ${signedMetric(factor.styleRankIc)} → ${signedMetric(factor.blendRankIc)} · uplift ${signedMetric(factor.blendUpliftVsStyle)}</span>
         <span>worst residual fold ${escapeHtml(factor.weakestStyleNeutralFold)} ${signedMetric(factor.weakestStyleNeutralFoldIc)} · validation diagnosis · authority none</span>
       </div>`;
@@ -1930,8 +1930,12 @@ function renderFactorQualification(explorer) {
   );
   const residual = validation.styleNeutralCandidate;
   const incremental = validation.incremental;
-  const worst = validation.weakestStyleNeutralFold;
-  const positive = diagnosis.stage === "factor-qualification-positive";
+  const knownStyleClaim =
+    qualification.claim.claim === "known-style-validation";
+  const worst = knownStyleClaim
+    ? validation.weakestCandidateFold
+    : validation.weakestStyleNeutralFold;
+  const positive = diagnosis.qualifiesForPortfolio === true;
   const minimumHacT =
     qualification.semantics.diagnosticThresholds.minimumPositiveHacTStatistic;
   const rawTone =
@@ -1962,14 +1966,14 @@ function renderFactorQualification(explorer) {
         <i>HAC t ${signedMetric(validation.candidate.hacTStatistic)} · ${validation.candidate.observations} dates</i>
       </span>
       <span class="context" role="listitem">
-        <small>02 · Train-selected style</small>
+        <small>02 · ${knownStyleClaim ? "Request-predeclared style identity" : "Train-selected style"}</small>
         <b>${escapeHtml(qualification.selection.dominantStyle.replaceAll("_", " "))}</b>
         <i>${signedMetric(selected?.meanRankCorrelation)} mean rank overlap · train only</i>
       </span>
-      <span class="${residualTone}" role="listitem">
-        <small>03 · Style-neutral edge</small>
-        <b>${signedMetric(residual.meanRankIc)} IC</b>
-        <i>HAC t ${signedMetric(residual.hacTStatistic)} · Δ raw ${signedMetric(incremental.styleNeutralIcDelta)}</i>
+      <span class="${knownStyleClaim ? rawTone : residualTone}" role="listitem">
+        <small>03 · ${knownStyleClaim ? "Known-style raw evidence" : "Style-neutral edge"}</small>
+        <b>${signedMetric(knownStyleClaim ? validation.candidate.meanRankIc : residual.meanRankIc)} IC</b>
+        <i>${knownStyleClaim ? `identity ≥ ${metric(qualification.semantics.diagnosticThresholds.minimumKnownStyleRankIdentity)}` : `HAC t ${signedMetric(residual.hacTStatistic)} · Δ raw ${signedMetric(incremental.styleNeutralIcDelta)}`}</i>
       </span>
       <span class="${incremental.blendUpliftVsStyle > 0 ? "positive" : "adverse"}" role="listitem">
         <small>04 · Blend uplift vs style</small>
@@ -1977,7 +1981,7 @@ function renderFactorQualification(explorer) {
         <i>equal rank blend ${signedMetric(validation.equalRankBlend.meanRankIc)} IC</i>
       </span>
       <span class="${worst?.meanRankIc > 0 ? "positive" : "adverse"}" role="listitem">
-        <small>05 · Residual time breadth</small>
+        <small>05 · ${knownStyleClaim ? "Candidate time breadth" : "Residual time breadth"}</small>
         <b>${signedMetric(worst?.meanRankIc)} worst IC</b>
         <i>${escapeHtml(worst?.id ?? "unavailable")} · ${worst?.observations ?? 0} dates</i>
       </span>
@@ -1995,7 +1999,10 @@ function renderFactorQualification(explorer) {
       <span>worst residual fold <b>${signedMetric(test.weakestStyleNeutralFold?.meanRankIc)}</b></span>
     </div>
     <p class="factor-qualification-disclosure">
-      Dominant style is selected by train-only overlap. Neutralization is a
+      This Run is bound to the <b>${escapeHtml(qualification.claim.claim)}</b>
+      claim${qualification.claim.knownStyle ? ` for <b>${escapeHtml(qualification.claim.knownStyle)}</b>` : ""}.
+      ${knownStyleClaim ? "The comparison style is fixed by the request." : "Dominant style is selected by train-only overlap."}
+      Neutralization is a
       same-timestamp cross-sectional rank projection and never sees forward
       returns. Positive raw/residual evidence requires HAC t ≥
       ${metric(qualification.semantics.diagnosticThresholds.minimumPositiveHacTStatistic)};
@@ -2057,6 +2064,28 @@ function renderFactorComponents(explorer) {
             .map((component) => {
               const validation = component.validation;
               const residual = validation.nearestPeerResidual;
+              if (component.role === "timestamp-context") {
+                const context = validation.context;
+                const occupancy = context.stateOccupancy;
+                return `
+                  <tr>
+                    <td data-label="Component / interval">
+                      <b>${escapeHtml(component.label)}</b>
+                      <small>${escapeHtml(component.id)} · timestamp context · ${escapeHtml(component.intervals.join(" + "))}</small>
+                    </td>
+                    <td data-label="Coverage">${percent(component.meanCoverage)}</td>
+                    <td data-label="Validation context">
+                      <b>L/M/H ${percent(occupancy.low.rate)} / ${percent(occupancy.middle.rate)} / ${percent(occupancy.high.rate)}</b>
+                      <small>transition ${percent(context.transitions.rate)}</small>
+                    </td>
+                    <td data-label="Conditional evidence">
+                      <b>conditional factor IC</b>
+                      <small>train-tertile states; target-free thresholds</small>
+                    </td>
+                    <td data-label="Fixed-blend removal Δ">not applicable</td>
+                    <td data-label="Test context">visible audit</td>
+                  </tr>`;
+              }
               return `
                 <tr>
                   <td data-label="Component / interval">

@@ -158,13 +158,18 @@ Promotion is allowed only when:
 - the current leader Run is successful and matches the Session leader hashes;
 - fixed Study/Judge/Harness locks remain current;
 - the owning Project editable source still equals its Session-start hash;
+- for delegated work, one explicitly selected immutable Report freezes the
+  exact current request, leader, Experiment prefix, and Campaign prefix;
 - no promotion receipt already exists.
 
 Promotion backs up the confined Project editable closure, applies exact leader
 files including deletions, reloads the Study to verify the accepted source
 hash, and restores the backup on any failure. Only then does it write the
 promotion receipt and mark the Session promoted. A stale promotion changes
-nothing.
+nothing. The content-derived promotion receipt binds the full leader pointer
+and, for a delegated Session, the selected Report
+manifest/result/evidence identity. Local non-delegated Sessions retain
+report-free promotion because there is no caller handoff contract to satisfy.
 
 V1 promotion is process-atomic with verified rollback, not a cross-filesystem
 transaction. Concurrent writers outside AutoQuant remain prohibited during
@@ -189,7 +194,7 @@ aq session start <path> --study <id> --request request.json --json
 → aq experiment evaluate <path> --session <id> --hypothesis "..." --json
 → inspect verdict/history/nextActions
 → repeat; or publish a Report and either:
-  - aq session promote <path> --session <id> --json
+  - aq session promote <path> --session <id> --report <id> --json
   - aq session complete <path> --session <id> --report <id> --json
 ```
 
@@ -223,6 +228,8 @@ Later Experiments do not mutate an earlier Report.
 13. `promoted` and `completed` are mutually exclusive terminal states.
 14. Completion is baseline-only, Report-bound, and never mutates Project
     source.
+15. Delegated KEEP promotion is Report-bound; local non-delegated promotion
+    cannot invent a Report.
 
 ## Known gaps
 

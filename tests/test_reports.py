@@ -20,6 +20,7 @@ from autoquant.sessions import (
     complete_session,
     evaluate_experiment,
     load_session,
+    promote_session,
     session_snapshot,
     start_session,
 )
@@ -192,6 +193,50 @@ class ResearchHandoffTests(unittest.TestCase):
             self.assertEqual(
                 turn_input["delegation"]["request"]["question"],
                 research_request()["question"],
+            )
+
+    def test_delegated_keep_promotion_requires_exact_current_report(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = self._project(directory)
+            session = start_session(
+                project,
+                "factor-quality",
+                request=research_request(),
+            )
+            candidate = (
+                session.worktree_project.root_dir
+                / "factors"
+                / "candidate.py"
+            )
+            candidate.write_text("SCORE = 2.0\n", encoding="utf-8")
+            experiment = evaluate_experiment(
+                project,
+                session.manifest["id"],
+                "Improve the delegated candidate.",
+            )
+            self.assertEqual(experiment.result["verdict"], "KEEP")
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "requires an exact current Research Report",
+            ):
+                promote_session(project, session.manifest["id"])
+
+            report = publish_report(
+                project,
+                session.manifest["id"],
+                report_analysis(experiment.result["candidate"]["runId"]),
+            )
+            receipt = promote_session(
+                project,
+                session.manifest["id"],
+                report.report["id"],
+            )
+            self.assertEqual(receipt["report"]["id"], report.report["id"])
+            self.assertEqual(
+                load_session(project, session.manifest["id"]).manifest[
+                    "status"
+                ],
+                "promoted",
             )
 
     def test_request_scope_and_tampering_are_rejected(self) -> None:

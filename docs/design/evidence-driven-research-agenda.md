@@ -130,19 +130,26 @@ cannot introduce an unreferenced selection claim.
 Factor agendas consume `factorQualification` and optional
 `factorComponents`.
 
-Priority rules are:
+Priority rules follow the first missing qualification layer:
 
-1. When usable nearest-peer residual evidence exists, isolate the declared
+1. When a predeclared known-style implementation is identified but raw HAC
+   evidence is weak, freeze source and request genuinely independent evidence;
+   do not manufacture an in-sample code change.
+2. When the current layer can be answered by component selection and usable
+   nearest-peer residual evidence exists, isolate the declared
    component with the strongest validation residual and test one candidate
    centered on its declared hypothesis.
-2. When removing a component improves the fixed equal-rank diagnostic blend,
+3. At the blend layer, when removing a component improves the fixed equal-rank diagnostic blend,
    challenge that component's inclusion in one newly declared candidate. The
    move must say that this is not an ablation of arbitrary
    `compute_factor(...)`.
-3. When a train-selected pair is materially redundant, test one predeclared
+4. At a distinctness/blend layer, when a train-selected pair is materially redundant, test one predeclared
    causal residual or choose one representative. Train chooses the peer only;
    validation judges the new candidate.
-4. Otherwise use the qualification stage to propose one sign/timing,
+5. At a chronological-instability layer, a timestamp-context component may
+   support one fixed interaction hypothesis using train-fixed states and
+   validation conditional IC.
+6. Otherwise use the qualification stage to propose one sign/timing,
    effect-size, style-distinctiveness, blend, or temporal-robustness
    hypothesis.
 

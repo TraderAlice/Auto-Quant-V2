@@ -446,11 +446,20 @@ runs/
 - objective and execution details;
 - nested metrics, immutable artifact references, and structured errors.
 
+Factor Studies bind `strategies/factor-claim.json` as a fixed dependency. It
+records either a `novel-factor` claim or a caller-predeclared
+`known-style-validation` claim and known OHLCV style. The Judge and Explorer
+reconstruct the same claim from request/intake evidence; strategy code cannot
+silently relabel a familiar style as novel.
+
 Declaring Factor Runs add `metrics.factor_components` and
 `artifacts/factor-components.json`. Both appear together and describe only
-candidate-declared materialized components: fixed split/horizon IC,
-final-factor association, pairwise redundancy, train-selected nearest-peer
-residual IC, and leave-one-out impact on a fixed equal-rank diagnostic blend.
+candidate-declared materialized components. Cross-sectional scores receive
+fixed split/horizon IC, final-factor association, pairwise redundancy,
+train-selected nearest-peer residual IC, and leave-one-out impact on a fixed
+equal-rank diagnostic blend. Timestamp contexts receive train-tertile
+occupancy, transitions, and conditional final-factor IC; they never receive
+invented standalone cross-sectional IC.
 Historical and non-declaring Runs omit both. The evidence has no
 final-factor-selection, Portfolio, RL-action, or trading authority.
 

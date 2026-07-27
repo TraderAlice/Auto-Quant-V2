@@ -95,11 +95,13 @@ class PanelFactorRuntimeTests(unittest.TestCase):
             FACTOR_COMPONENTS={
                 "asset_momentum": {
                     "label": "Two-bar asset momentum",
+                    "role": "cross-sectional-score",
                     "intervals": ["base"],
                     "hypothesis": "Recent asset momentum persists.",
                 },
                 "cross_sectional_rank": {
                     "label": "Contemporaneous momentum rank",
+                    "role": "cross-sectional-score",
                     "intervals": ["base"],
                     "hypothesis": "Relative strength persists cross-sectionally.",
                 },
@@ -117,6 +119,79 @@ class PanelFactorRuntimeTests(unittest.TestCase):
         self.assertEqual(
             list(evaluated.components.values.columns),
             ["asset_momentum", "cross_sectional_rank"],
+        )
+
+    def test_timestamp_context_is_shared_per_timestamp(self) -> None:
+        panel = build_factor_panel(make_frames())
+
+        def components(candidate_panel: pd.DataFrame) -> pd.DataFrame:
+            returns = candidate_panel.groupby(
+                "asset",
+                sort=False,
+            )["close"].pct_change(fill_method=None)
+            market = returns.groupby(
+                candidate_panel["timestamp"],
+                sort=False,
+            ).transform("mean")
+            return pd.DataFrame(
+                {"market_return_context": market},
+                index=candidate_panel.index,
+            )
+
+        metadata = {
+            "market_return_context": {
+                "label": "Market return context",
+                "role": "timestamp-context",
+                "intervals": ["base"],
+                "hypothesis": "Factor efficacy varies with market direction.",
+            },
+        }
+        evaluated = evaluate_factor(
+            SimpleNamespace(
+                FACTOR_COMPONENTS=metadata,
+                compute_factor_components=components,
+                compute_factor=lambda candidate_panel: candidate_panel.groupby(
+                    "asset",
+                    sort=False,
+                )["close"].pct_change(2, fill_method=None),
+            ),
+            panel,
+        )
+        assert evaluated.components is not None
+        context = evaluated.components.values["market_return_context"]
+        observed = pd.DataFrame(
+            {
+                "timestamp": panel["timestamp"],
+                "value": context,
+            }
+        ).dropna()
+        self.assertTrue(
+            observed.groupby("timestamp")["value"].nunique().eq(1).all()
+        )
+
+        with self.assertRaises(FactorRuntimeError) as caught:
+            evaluate_factor(
+                SimpleNamespace(
+                    FACTOR_COMPONENTS=metadata,
+                    compute_factor_components=lambda candidate_panel: (
+                        pd.DataFrame(
+                            {
+                                "market_return_context": candidate_panel[
+                                    "close"
+                                ]
+                            },
+                            index=candidate_panel.index,
+                        )
+                    ),
+                    compute_factor=lambda candidate_panel: candidate_panel[
+                        "close"
+                    ],
+                ),
+                panel,
+            )
+        self.assertEqual(
+            caught.exception.code,
+            "factor.component-context-variation",
         )
 
     def test_future_panel_access_is_rejected(self) -> None:

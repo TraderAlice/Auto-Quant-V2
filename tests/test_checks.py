@@ -348,6 +348,7 @@ class CandidateCheckTests(unittest.TestCase):
                 "FACTOR_COMPONENTS = {\n"
                 "    'future_base': {\n"
                 "        'label': 'Future base close',\n"
+                "        'role': 'cross-sectional-score',\n"
                 "        'intervals': ['base'],\n"
                 "        'hypothesis': 'Invalid lookahead fixture.',\n"
                 "    },\n"

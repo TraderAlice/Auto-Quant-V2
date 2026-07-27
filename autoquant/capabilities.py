@@ -139,7 +139,7 @@ CLI_COMMANDS = [
     ),
     descriptor(
         "schema",
-        "aq schema [workspace|project|agent-work-brief|research-agenda|holdout-binding|holdout-result|holdout-status|study|judge-output|run-result|factor-diagnostics|portfolio-diagnostics|research-program-status|rl-policy-diagnostics|session-decision-matrix|session|session-completion|candidate-preflight|candidate-check-output|candidate-check-result|portfolio-mandate|research-horizon|experiment|research-request|ohlcv-dataset-package|report-analysis|dossier-analysis|dossier-result|dossier-status|researcher-response|campaign-result|campaign-progress|studio-snapshot] [--json]",
+        "aq schema [workspace|project|agent-work-brief|research-agenda|holdout-binding|holdout-result|holdout-status|study|judge-output|run-result|factor-claim|factor-diagnostics|portfolio-diagnostics|research-program-status|rl-policy-diagnostics|session-decision-matrix|session|session-completion|candidate-preflight|candidate-check-output|candidate-check-result|portfolio-mandate|research-horizon|experiment|research-request|ohlcv-dataset-package|report-analysis|dossier-analysis|dossier-result|dossier-status|researcher-response|campaign-result|campaign-progress|studio-snapshot] [--json]",
         "List or emit canonical AutoQuant JSON Schemas.",
         "read-only",
         [
@@ -161,6 +161,7 @@ CLI_COMMANDS = [
                     "judge-output",
                     "run-result",
                     "factor-diagnostics",
+                    "factor-claim",
                     "portfolio-diagnostics",
                     "research-program-status",
                     "rl-policy-diagnostics",
@@ -633,10 +634,22 @@ CLI_COMMANDS = [
     ),
     descriptor(
         "session.promote",
-        "aq session promote <path> --session ID [--project ID] [--json]",
-        "Hash-check and promote the exact current KEEP into an unchanged Project base.",
+        "aq session promote <path> --session ID [--report ID] [--project ID] [--json]",
+        "Hash-check and promote the exact current KEEP into an unchanged Project base; delegated work requires a current immutable Report.",
         "mutates-project",
-        [PATH_ARGUMENT, PROJECT_ARGUMENT, SESSION_ARGUMENT, JSON_ARGUMENT],
+        [
+            PATH_ARGUMENT,
+            PROJECT_ARGUMENT,
+            SESSION_ARGUMENT,
+            argument(
+                "report",
+                "option",
+                "string",
+                False,
+                "Exact current immutable Report required for delegated promotion.",
+            ),
+            JSON_ARGUMENT,
+        ],
     ),
     descriptor(
         "session.complete",

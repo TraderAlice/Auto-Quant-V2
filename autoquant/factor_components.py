@@ -23,6 +23,10 @@ VALID_INTERVAL_CLAIMS = {
     BASE_INTERVAL_CLAIM,
     *SUPPORTED_INTERVALS,
 }
+COMPONENT_ROLES = {
+    "cross-sectional-score",
+    "timestamp-context",
+}
 
 
 class FactorComponentError(ValueError):
@@ -45,6 +49,7 @@ class FactorComponents:
             {
                 "id": name,
                 "label": self.metadata[name]["label"],
+                "role": self.metadata[name]["role"],
                 "intervals": list(self.metadata[name]["intervals"]),
                 "hypothesis": self.metadata[name]["hypothesis"],
             }
@@ -82,13 +87,21 @@ def _metadata(module: Any) -> dict[str, dict[str, Any]] | None:
             )
         if not isinstance(value, dict) or set(value) != {
             "label",
+            "role",
             "intervals",
             "hypothesis",
         }:
             raise FactorComponentError(
                 "factor.component-metadata",
-                f"{name} metadata must contain exactly label, intervals, and "
-                "hypothesis",
+                f"{name} metadata must contain exactly label, role, intervals, "
+                "and hypothesis",
+            )
+        role = value["role"]
+        if role not in COMPONENT_ROLES:
+            raise FactorComponentError(
+                "factor.component-role",
+                f"{name} role must be one of "
+                + ", ".join(sorted(COMPONENT_ROLES)),
             )
         label = value["label"]
         hypothesis = value["hypothesis"]
@@ -128,6 +141,7 @@ def _metadata(module: Any) -> dict[str, dict[str, Any]] | None:
             )
         normalized[name] = {
             "label": label.strip(),
+            "role": role,
             "intervals": list(intervals),
             "hypothesis": hypothesis.strip(),
         }
@@ -232,4 +246,23 @@ def compute_factor_components(
                 f"{name} has no finite observation",
             )
         numeric[name] = values
+        if metadata[name]["role"] == "timestamp-context":
+            observed = pd.DataFrame(
+                {
+                    "timestamp": panel["timestamp"].to_numpy(),
+                    "value": values.to_numpy(),
+                }
+            ).dropna(subset=["value"])
+            if (
+                not observed.empty
+                and observed.groupby(
+                    "timestamp",
+                    sort=False,
+                )["value"].nunique(dropna=True).gt(1).any()
+            ):
+                raise FactorComponentError(
+                    "factor.component-context-variation",
+                    f"{name} declares timestamp-context but varies across "
+                    "assets at one timestamp",
+                )
     return FactorComponents(values=numeric, metadata=metadata)

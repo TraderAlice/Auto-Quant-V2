@@ -140,6 +140,8 @@ class FactorEvidenceExplorerTests(unittest.TestCase):
                 components["trialDisclosure"],
                 {
                     "materializedComponents": 1,
+                    "crossSectionalScoreComponents": 1,
+                    "timestampContextComponents": 0,
                     "pairwiseComparisons": 0,
                     "entersPromotionScore": False,
                 },

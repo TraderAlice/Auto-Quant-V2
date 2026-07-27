@@ -13,20 +13,19 @@ Related: [[docs/design/factor-diagnostics]],
 
 AutoQuant must not send every syntactically valid candidate factor directly
 into portfolio construction or RL. A quant researcher first needs to know
-whether the signal predicts, whether it is merely a known OHLCV style in
-disguise, and whether adding it to a simple style baseline contributes
-incremental information.
+whether the request is validating a predeclared known style or claiming novel
+information. That distinction is frozen in `strategies/factor-claim.json`
+before candidate iteration; it cannot be inferred after seeing results.
 
 The qualification funnel is research evidence, not an automatic promotion or
 trading gate:
 
 ```text
-candidate source
-→ raw cross-sectional IC
-→ train-selected dominant known style
-→ contemporaneous style-neutral residual IC
-→ equal-blend uplift versus the known style
+request-bound factor claim
+→ candidate source
+→ claim-specific validation funnel
 → chronological stability
+→ Project-family selection adjustment
 → Portfolio monetization
 → optional governed-RL consumption
 ```
@@ -40,9 +39,16 @@ The Factor Judge owns four fixed OHLCV style proxies:
 - 20-bar realized volatility;
 - 20-bar relative volume.
 
-The dominant comparison style is selected once using only the training split:
-maximum absolute mean daily cross-sectional rank overlap with the candidate.
-Validation and test never choose the comparison.
+For `novel-factor`, the dominant comparison style is selected once using only
+the training split: maximum absolute mean daily cross-sectional rank overlap
+with the candidate. Validation and test never choose the comparison.
+
+For `known-style-validation`, the caller must predeclare one of the four
+styles. The Judge fixes that comparison even if another style overlaps more.
+The candidate must match it with at least `0.95` mean train rank correlation.
+This makes “we implemented and validated reversal” a coherent claim instead
+of forcing an impossible requirement that reversal also be novel versus
+reversal.
 
 At every timestamp, the Judge ranks the candidate and selected style across the
 current asset universe and centers both rank vectors. It computes:
@@ -69,12 +75,13 @@ four signals. It also records:
 - exact method, timing, split roles, and authority.
 
 Core reconstructs every mean and observation count from the immutable daily
-qualification artifact before exposing a diagnosis.
+qualification artifact before exposing a diagnosis. Candidate and residual
+chronological folds are both preserved.
 
 ## Diagnosis
 
-Only validation can set the next research focus. The first demonstrated failure
-is classified as:
+Only validation can set the next research focus. The novel-factor funnel's
+first demonstrated failure is classified as:
 
 1. `raw-predictive-edge-absent`;
 2. `raw-statistical-evidence-weak`;
@@ -83,6 +90,14 @@ is classified as:
 5. `blend-uplift-absent`;
 6. `residual-temporal-instability`;
 7. `factor-qualification-positive`.
+
+The known-style funnel uses:
+
+1. `known-style-identity-mismatch`;
+2. `raw-predictive-edge-absent`;
+3. `raw-statistical-evidence-weak`;
+4. `known-style-temporal-instability`;
+5. `known-style-validation-positive`.
 
 Positive raw and residual IC require a fixed positive HAC t-statistic of at
 least `1.96` before the funnel advances. This is a conventional diagnostic
@@ -134,13 +149,15 @@ Report/Dossier evidence so an operator can distinguish:
 
 ## Invariants
 
-1. The dominant style is selected on train only.
-2. Neutralization uses only same-timestamp factor/style observations.
-3. Forward returns never enter style selection or neutralization.
-4. Validation alone determines the research diagnosis.
-5. Test is visible audit only.
-6. Raw, residual, style, and blend IC remain separate; no composite score hides
+1. The research claim and optional known style are fixed by request intake.
+2. A novel claim selects its dominant style on train only; a known-style claim
+   uses the request-predeclared comparison.
+3. Neutralization uses only same-timestamp factor/style observations.
+4. Forward returns never enter style selection or neutralization.
+5. Validation alone determines the research diagnosis.
+6. Test is visible audit only.
+7. Raw, residual, style, and blend IC remain separate; no composite score hides
    a failed layer.
-7. Legacy Runs without qualification evidence remain immutable and readable.
-8. Qualification grants no KEEP/REVERT, RL, Broker, order, account, capital, or
+8. Legacy Runs without qualification evidence remain immutable and readable.
+9. Qualification grants no KEEP/REVERT, RL, Broker, order, account, capital, or
    trading authority.

@@ -116,11 +116,14 @@ The V2 foundation now implements:
 - one bounded Factor evidence projection that reconciles immutable daily IC
   and quantile artifacts before exposing horizon, stability, style, coverage,
   and turnover evidence to CLI and Studio.
+- one request-bound Factor claim dependency that distinguishes novel-factor
+  discovery from predeclared known-style validation before candidate search.
 - one optional explicit factor-component contract that checks declared
-  components for determinism and causality, then exposes predictive quality,
-  final-factor association, pairwise redundancy, nearest-peer residual IC, and
-  fixed-blend leave-one-out evidence without source inference or downstream
-  authority.
+  score and timestamp-context components for determinism and causality. Scores
+  expose predictive quality, association, redundancy, residual IC, and
+  fixed-blend leave-one-out; contexts expose train-fixed states, occupancy,
+  transitions, and conditional final-factor IC without source inference or
+  downstream authority.
 - one self-contained OHLCV Portfolio Lab reference Project that mechanically
   translates the same causal factor API through explicit signal state into
   capped target weights, drift-aware execution, reconciled contribution/risk

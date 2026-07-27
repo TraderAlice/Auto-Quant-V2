@@ -209,7 +209,8 @@ Read the relevant linked document before changing a subsystem:
   selection-adjusted Factor/Portfolio evidence:
   [[docs/design/selection-adjusted-research-evidence]]
 - Purged forward horizons, factor significance/decay/quantiles, fixed style
-  overlap, and asset/fold/causal-regime stability:
+  overlap, request-bound novel/known-style claims, claim-specific
+  qualification, and asset/fold/causal-regime stability:
   [[docs/design/factor-diagnostics]]
 - Verified Factor artifacts, bounded IC/quantile paths, horizon profile, and
   Studio tear-sheet projection:
@@ -244,16 +245,17 @@ Read the relevant linked document before changing a subsystem:
 - Completed-bar multi-interval aggregation, causal as-of alignment, ordinary
   pandas candidate surface, and shared Factor/Portfolio/RL input authority:
   [[docs/design/causal-multi-interval-factor-inputs]]
-- Explicit candidate component declarations, causal contract checks,
-  component redundancy/incremental diagnostics, and fixed-blend attribution:
+- Explicit score/context component declarations, causal contract checks,
+  component redundancy/incremental diagnostics, context-state conditionals,
+  and fixed-blend attribution:
   [[docs/design/factor-component-attribution]]
 - One-request/multi-Study orchestration, shared factor-source sequencing, lane
   currentness, and research-program status:
   [[docs/design/research-program-orchestration]]
 - Read-only cross-Study source dependencies and governed Factor-to-RL fusion:
   [[docs/design/cross-study-factor-dependencies]]
-- Resumable Agent worktrees, KEEP/REVERT/CRASH Experiments, and guarded source
-  promotion: [[docs/design/research-session-loop]]
+- Resumable Agent worktrees, KEEP/REVERT/CRASH Experiments, and Report-bound
+  delegated source promotion: [[docs/design/research-session-loop]]
 - Provider-neutral external Researcher turns, budgets, restoration, and
   immutable Campaign evidence: [[docs/design/external-researcher-driver]]
 - Read-only Workspace observation, local HTTP, browser presentation, and

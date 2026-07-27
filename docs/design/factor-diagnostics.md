@@ -110,12 +110,13 @@ Every successful reference Run publishes:
   purge-aware request-bound daily rank/Pearson IC;
 - `factor-quantiles.csv`: timestamp, split, horizon, low/middle/high return,
   and high-minus-low spread.
-- `factor-qualification.csv`: timestamp, split, train-selected dominant style,
+- `factor-qualification.csv`: timestamp, split, request-fixed or train-selected
+  comparison style,
   and candidate/style/style-neutral/equal-blend daily rank IC for fixed
   request-bound horizons.
 - optional `factor-components.json`: bounded candidate-declared component
-  quality, final-factor association, pairwise redundancy, nearest-peer
-  residual, and fixed diagnostic-blend leave-one-out evidence.
+  roles; score quality/association/redundancy/residual/fixed-blend evidence;
+  and timestamp-context occupancy, transitions, and conditional factor IC.
 
 The Run metric object contains the complete machine-readable summary. The
 bounded Core projection in [[docs/design/factor-evidence-explorer]] verifies

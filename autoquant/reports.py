@@ -81,6 +81,7 @@ class ReportSummary:
     executive_summary: str
     authority: str
     leader_decision_support: dict[str, Any]
+    selection_integrity: dict[str, Any]
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -96,6 +97,7 @@ class ReportSummary:
             "executiveSummary": self.executive_summary,
             "authority": self.authority,
             "leaderDecisionSupport": self.leader_decision_support,
+            "selectionIntegrity": self.selection_integrity,
         }
 
 
@@ -1856,6 +1858,9 @@ def list_reports(
                         "leaderDecisionSupport"
                     )
                 ),
+                selection_integrity=report.report["evidence"][
+                    "selectionIntegrity"
+                ],
             )
         )
     return summaries

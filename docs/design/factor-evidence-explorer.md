@@ -111,12 +111,12 @@ Sparse evidence must remain visible rather than being pooled away.
 
 ### Factor qualification
 
-New Runs add a train-selected one-style neutralization artifact. Core
-reconstructs candidate, selected-style, style-neutral residual, and equal-rank
-blend IC for every fixed split and horizon. Validation alone diagnoses raw
-edge, conventional HAC support, distinct residual edge, blend uplift, and
-residual chronological breadth. Test is a separate visible audit. Historical
-Runs project qualification as unavailable rather than inventing evidence.
+New Runs bind a request-derived Factor claim and add a claim-aware one-style
+artifact. A novel claim selects its comparison on train; a known-style claim
+uses the caller-predeclared style. Core reconstructs candidate, style,
+style-neutral residual, equal-rank blend, and candidate/residual chronological
+fold evidence for every fixed split and horizon. Validation applies the
+claim-specific funnel. Test is a separate visible audit.
 
 ### Candidate-declared components
 
@@ -126,9 +126,11 @@ requires exact metric reconciliation, then validates component count,
 declarations, coverage, fixed horizons/splits, pair identities, residual peer,
 fixed-blend ablation deltas, diagnosis, and authority.
 
-The bounded projection shows validation raw IC, association with the final
-factor, train-selected nearest-peer redundancy, residual IC, fixed equal-rank
-blend removal delta, and visible-test audit for each component. Historical
+The bounded projection separates cross-sectional scores from timestamp
+context. Scores show validation raw IC, association with the final factor,
+train-selected nearest-peer redundancy, residual IC, fixed equal-rank blend
+removal delta, and visible-test audit. Context shows train-fixed state
+occupancy, transitions, and conditional final-factor IC. Historical
 Runs project `factorComponents.available=false`. The UI explicitly says the
 declaration is a candidate claim and the ablation target is not the arbitrary
 final factor.

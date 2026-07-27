@@ -26,10 +26,16 @@ full-sample normalization, external data, and mutation of the input are not.
 When a hypothesis has meaningful sub-signals, also export
 `FACTOR_COMPONENTS` and
 `compute_factor_components(panel) -> pandas.DataFrame`. Declare one causal
-column per falsifiable source component, including its label, claimed
-`base`/3h/4h/6h/12h/1d intervals, and hypothesis. The component table must
-remain aligned, deterministic, numeric, immutable, and prefix causal. Do not
-declare presentation-only duplicates or imply that Core inferred column use.
+column per falsifiable source component, including its label, role, claimed
+`base`/3h/4h/6h/12h/1d intervals, and hypothesis. Use
+`cross-sectional-score` for values meant to rank assets and
+`timestamp-context` for one market/regime value shared by every asset at a
+timestamp. Context components must be exactly cross-sectionally constant;
+Core evaluates their train-tertile occupancy, transitions, and conditional
+final-factor IC instead of inventing meaningless standalone cross-sectional
+IC. The component table must remain aligned, deterministic, numeric,
+immutable, and prefix causal. Do not declare presentation-only duplicates or
+imply that Core inferred column use.
 
 ## Iteration protocol
 
@@ -37,7 +43,10 @@ declare presentation-only duplicates or imply that Core inferred column use.
    `researchAgenda`. Treat its ordered moves as validation-only scientific
    priorities, not executable actions or permission to inspect test for
    selection.
-2. Read the current candidate and immutable leader evidence.
+2. Read `strategies/factor-claim.json`, the current candidate, and immutable
+   leader evidence. The request-bound `novel-factor` or
+   `known-style-validation` claim is fixed evidence authority, not editable
+   strategy metadata.
 3. State one falsifiable hypothesis about price or volume behavior.
 4. Make one coherent code change inside the editable closure.
 5. Run the bounded Experiment command supplied by the Session.
@@ -68,12 +77,16 @@ asset, fast decay, or near-perfect overlap with a familiar OHLCV style as
 findings to explain—not fields to hide or alternate scores to optimize
 opportunistically.
 
-The dominant comparison style is chosen on train overlap only. Validation
-qualification asks whether raw and style-neutral IC are positive with fixed
-HAC t at least 1.96, whether an equal rank blend improves the selected style,
-and whether both residual folds remain positive. This prioritizes the next
-research lane; it does not change KEEP/REVERT, replace Project-family
-selection adjustment, or automatically admit the source into Portfolio or RL.
+For a `novel-factor` claim, the dominant comparison style is chosen on train
+overlap only. Validation asks whether raw and style-neutral IC are positive
+with fixed HAC t at least 1.96, whether an equal rank blend improves the
+selected style, and whether both residual folds remain positive. For a
+`known-style-validation` claim, the request fixes the comparison style before
+research; validation instead requires at least 0.95 train rank identity,
+positive statistically supported raw IC, and positive raw IC in both fixed
+chronological folds. This prioritizes the next research lane; it does not
+change KEEP/REVERT, replace Project-family selection adjustment, or
+automatically admit the source into Portfolio or RL.
 
 Component leave-one-out applies only to the Judge's fixed equal-rank
 diagnostic blend. It is not an ablation of arbitrary `compute_factor` code.

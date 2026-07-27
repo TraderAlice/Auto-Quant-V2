@@ -10,6 +10,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .factor_claims import (
+    FACTOR_CLAIM_JSON_SCHEMA,
+    validate_factor_claim,
+)
 from .horizons import (
     RESEARCH_HORIZON,
     RESEARCH_HORIZON_JSON_SCHEMA,
@@ -68,8 +72,8 @@ EXPECTED_ARTIFACT_KINDS = {
     QUALIFICATION_ARTIFACT_KIND,
     COMPONENT_ARTIFACT_KIND,
 }
-QUALIFICATION_METHOD = "train-selected-one-style-rank-neutralization-v1"
-COMPONENT_METHOD = "candidate-declared-components-v1"
+QUALIFICATION_METHOD = "request-claim-aware-one-style-rank-neutralization-v2"
+COMPONENT_METHOD = "candidate-declared-components-v2"
 MAX_COMPONENTS = 12
 QUALIFICATION_MIN_POSITIVE_HAC_T = 1.96
 QUALIFICATION_SIGNALS = (
@@ -886,6 +890,16 @@ def _parse_factor_qualification(
             "factor.qualification-method",
             "Unknown Factor qualification method",
         )
+    claim = validate_factor_claim(
+        qualification.get("claim"),
+        "RunResult/metrics/factor_qualification/claim",
+    )
+    if metrics.get("factor_claim") != claim:
+        _fail(
+            "RunResult/metrics/factor_claim",
+            "factor.qualification-claim",
+            "Factor qualification claim differs from the fixed Run claim",
+        )
     selection = qualification.get("selection")
     if not isinstance(selection, dict):
         _fail(
@@ -898,7 +912,11 @@ def _parse_factor_qualification(
         dominant_style not in STYLES
         or selection.get("split") != "train"
         or selection.get("criterion")
-        != "maximum-absolute-mean-daily-rank-overlap"
+        != (
+            "request-predeclared-known-style"
+            if claim["claim"] == "known-style-validation"
+            else "maximum-absolute-mean-daily-rank-overlap"
+        )
         or selection.get("validation_enters_selection") is not False
         or selection.get("test_enters_selection") is not False
     ):
@@ -952,13 +970,17 @@ def _parse_factor_qualification(
             "factor.qualification-selection",
             "Qualification style selection has no finite train evidence",
         )
-    reconstructed_style = min(
-        finite_candidates,
-        key=lambda item: (
-            -abs(item["meanRankCorrelation"]),
-            item["style"],
-        ),
-    )["style"]
+    reconstructed_style = (
+        claim["knownStyle"]
+        if claim["claim"] == "known-style-validation"
+        else min(
+            finite_candidates,
+            key=lambda item: (
+                -abs(item["meanRankCorrelation"]),
+                item["style"],
+            ),
+        )["style"]
+    )
     if reconstructed_style != dominant_style:
         _fail(
             "factor_qualification/selection/dominant_style",
@@ -1085,6 +1107,7 @@ def _parse_factor_qualification(
                     "qualification mean rank IC",
                 )
     return rows, {
+        "claim": claim,
         "dominantStyle": dominant_style,
         "candidates": normalized_candidates,
         "metrics": qualification,
@@ -1163,6 +1186,7 @@ def _factor_qualification_projection(
             "reason": "legacy-run-without-factor-qualification",
         }
     metrics = parsed["metrics"]
+    claim = parsed["claim"]
     semantics = metrics.get("semantics")
     if (
         not isinstance(semantics, dict)
@@ -1181,19 +1205,32 @@ def _factor_qualification_projection(
             "Factor qualification semantics are invalid",
         )
     quality = metrics["horizon_quality"]
-    folds = metrics.get("stability", {}).get(
-        "style_neutral_chronological_folds"
+    stability = metrics.get("stability", {})
+    candidate_folds = (
+        stability.get("candidate_chronological_folds")
+        if isinstance(stability, dict)
+        else None
+    )
+    residual_folds = (
+        stability.get("style_neutral_chronological_folds")
+        if isinstance(stability, dict)
+        else None
     )
     expected_folds = {
         f"{split}_{number}"
         for split in SPLITS
         for number in (1, 2)
     }
-    if not isinstance(folds, dict) or set(folds) != expected_folds:
+    if (
+        not isinstance(candidate_folds, dict)
+        or set(candidate_folds) != expected_folds
+        or not isinstance(residual_folds, dict)
+        or set(residual_folds) != expected_folds
+    ):
         _fail(
             "factor_qualification/stability",
             "factor.qualification-stability",
-            "Qualification must declare two residual folds per split",
+            "Qualification must declare two candidate and residual folds per split",
         )
 
     def split_projection(split: str) -> dict[str, Any]:
@@ -1230,25 +1267,56 @@ def _factor_qualification_projection(
                 "factor.qualification-evidence",
                 "Primary-horizon qualification evidence must be sufficient",
             )
-        fold_rows = [
+        candidate_fold_rows = [
             {
                 "id": name,
                 "split": split,
                 "role": SPLIT_ROLES[split],
                 **_rank_summary(
-                    folds[name],
+                    candidate_folds[name],
                     f"factor_qualification/stability/{name}",
                 ),
             }
-            for name in sorted(folds)
+            for name in sorted(candidate_folds)
             if name.startswith(f"{split}_")
         ]
-        finite_folds = [
-            item for item in fold_rows if item["meanRankIc"] is not None
+        residual_fold_rows = [
+            {
+                "id": name,
+                "split": split,
+                "role": SPLIT_ROLES[split],
+                **_rank_summary(
+                    residual_folds[name],
+                    f"factor_qualification/stability/{name}",
+                ),
+            }
+            for name in sorted(residual_folds)
+            if name.startswith(f"{split}_")
         ]
-        worst_fold = (
-            min(finite_folds, key=lambda item: (item["meanRankIc"], item["id"]))
-            if finite_folds
+        finite_candidate_folds = [
+            item
+            for item in candidate_fold_rows
+            if item["meanRankIc"] is not None
+        ]
+        finite_residual_folds = [
+            item
+            for item in residual_fold_rows
+            if item["meanRankIc"] is not None
+        ]
+        worst_candidate_fold = (
+            min(
+                finite_candidate_folds,
+                key=lambda item: (item["meanRankIc"], item["id"]),
+            )
+            if finite_candidate_folds
+            else None
+        )
+        worst_residual_fold = (
+            min(
+                finite_residual_folds,
+                key=lambda item: (item["meanRankIc"], item["id"]),
+            )
+            if finite_residual_folds
             else None
         )
         return {
@@ -1264,8 +1332,10 @@ def _factor_qualification_projection(
                 "blendUpliftVsStyle": blend_ic - style_ic,
                 "blendUpliftVsCandidate": blend_ic - raw_ic,
             },
-            "styleNeutralChronologicalFolds": fold_rows,
-            "weakestStyleNeutralFold": worst_fold,
+            "candidateChronologicalFolds": candidate_fold_rows,
+            "weakestCandidateFold": worst_candidate_fold,
+            "styleNeutralChronologicalFolds": residual_fold_rows,
+            "weakestStyleNeutralFold": worst_residual_fold,
         }
 
     validation = split_projection("validation")
@@ -1281,7 +1351,32 @@ def _factor_qualification_projection(
         if worst_residual is not None
         else None
     )
-    if raw_ic <= 0.0:
+    worst_candidate = validation["weakestCandidateFold"]
+    worst_candidate_ic = (
+        worst_candidate["meanRankIc"]
+        if worst_candidate is not None
+        else None
+    )
+    selected_candidate = next(
+        item
+        for item in parsed["candidates"]
+        if item["style"] == parsed["dominantStyle"]
+    )
+    identity_correlation = selected_candidate["meanRankCorrelation"]
+    if (
+        claim["claim"] == "known-style-validation"
+        and (
+            identity_correlation is None
+            or identity_correlation < 0.95
+        )
+    ):
+        stage = "known-style-identity-mismatch"
+        focus = "known-style-implementation-identity"
+        explanation = (
+            "The candidate does not match the request-predeclared known style "
+            "with the fixed minimum 0.95 train mean rank correlation."
+        )
+    elif raw_ic <= 0.0:
         stage = "raw-predictive-edge-absent"
         focus = "candidate-hypothesis-and-timing"
         explanation = (
@@ -1299,6 +1394,27 @@ def _factor_qualification_projection(
             f"t-statistic is below the fixed diagnostic threshold "
             f"{QUALIFICATION_MIN_POSITIVE_HAC_T:.2f}; do not spend complexity "
             "on neutralization, Portfolio, or RL yet."
+        )
+    elif (
+        claim["claim"] == "known-style-validation"
+        and (
+            worst_candidate_ic is None
+            or worst_candidate_ic <= 0.0
+        )
+    ):
+        stage = "known-style-temporal-instability"
+        focus = "temporal-regime-robustness"
+        explanation = (
+            "Aggregate known-style validation IC is positive, but at least "
+            "one fixed chronological candidate fold is non-positive."
+        )
+    elif claim["claim"] == "known-style-validation":
+        stage = "known-style-validation-positive"
+        focus = "portfolio-monetization-and-rl-context"
+        explanation = (
+            "The candidate matches the predeclared known style and has "
+            "positive statistically supported validation IC in every fixed "
+            "chronological fold; proceed to bounded Portfolio monetization."
         )
     elif residual_ic <= 0.0:
         stage = "style-neutral-edge-absent"
@@ -1374,7 +1490,11 @@ def _factor_qualification_projection(
         "selection": {
             "split": "train",
             "role": "comparison-style-selection-only",
-            "criterion": "maximum-absolute-mean-daily-rank-overlap",
+            "criterion": (
+                "request-predeclared-known-style"
+                if claim["claim"] == "known-style-validation"
+                else "maximum-absolute-mean-daily-rank-overlap"
+            ),
             "dominantStyle": parsed["dominantStyle"],
             "candidates": parsed["candidates"],
             "validationEntersSelection": False,
@@ -1392,15 +1512,22 @@ def _factor_qualification_projection(
                 "minimumPositiveHacTStatistic": (
                     QUALIFICATION_MIN_POSITIVE_HAC_T
                 ),
+                "minimumKnownStyleRankIdentity": 0.95,
                 "selectionAdjustedSignificanceRequiredSeparately": True,
             },
         },
+        "claim": claim,
         "diagnosis": {
             "selectionSplit": "validation",
             "testEntersDiagnosis": False,
             "stage": stage,
             "iterationFocus": focus,
             "explanation": explanation,
+            "qualifiesForPortfolio": stage
+            in {
+                "factor-qualification-positive",
+                "known-style-validation-positive",
+            },
         },
         "validation": validation,
         "testAudit": test,
@@ -1483,6 +1610,210 @@ def _quality_split(
     )
 
 
+def _context_distribution_projection(value: Any, path: str) -> dict[str, Any]:
+    if not isinstance(value, dict) or set(value) != {
+        "observations",
+        "mean",
+        "standard_deviation",
+        "minimum",
+        "quartile_25",
+        "median",
+        "quartile_75",
+        "maximum",
+    }:
+        _fail(path, "factor.component-context", "Invalid context distribution")
+    observations = _integer(value["observations"], f"{path}/observations")
+    return {
+        "observations": observations,
+        **{
+            {
+                "mean": "mean",
+                "standard_deviation": "standardDeviation",
+                "minimum": "minimum",
+                "quartile_25": "quartile25",
+                "median": "median",
+                "quartile_75": "quartile75",
+                "maximum": "maximum",
+            }[key]: (
+                _optional_finite(value[key], f"{path}/{key}")
+                if value[key] is not None
+                else None
+            )
+            for key in (
+                "mean",
+                "standard_deviation",
+                "minimum",
+                "quartile_25",
+                "median",
+                "quartile_75",
+                "maximum",
+            )
+        },
+    }
+
+
+def _timestamp_context_projection(value: Any, path: str) -> dict[str, Any]:
+    if not isinstance(value, dict) or set(value) != {
+        "method",
+        "state_selection",
+        "splits",
+        "authority",
+        "test_enters_diagnosis",
+        "trading_authority",
+    }:
+        _fail(path, "factor.component-context", "Invalid timestamp-context evidence")
+    selection = value.get("state_selection")
+    if (
+        value.get("method") != "train-tertile-timestamp-context-v1"
+        or value.get("authority") != "research-prioritization-only"
+        or value.get("test_enters_diagnosis") is not False
+        or value.get("trading_authority") != "none"
+        or not isinstance(selection, dict)
+        or set(selection)
+        != {
+            "split",
+            "target_enters_thresholds",
+            "lower",
+            "upper",
+            "labels",
+        }
+        or selection.get("split") != "train"
+        or selection.get("target_enters_thresholds") is not False
+        or selection.get("labels") != ["low", "middle", "high"]
+    ):
+        _fail(path, "factor.component-context", "Invalid context-state semantics")
+    lower = _finite(selection.get("lower"), f"{path}/state_selection/lower")
+    upper = _finite(selection.get("upper"), f"{path}/state_selection/upper")
+    if lower > upper:
+        _fail(path, "factor.component-context", "Context thresholds are unordered")
+    raw_splits = value.get("splits")
+    if not isinstance(raw_splits, dict) or set(raw_splits) != set(SPLITS):
+        _fail(path, "factor.component-context", "Context evidence must cover every split")
+    projected_splits: dict[str, Any] = {}
+    for split in SPLITS:
+        raw = raw_splits[split]
+        split_path = f"{path}/splits/{split}"
+        if not isinstance(raw, dict) or set(raw) != {
+            "distribution",
+            "state_occupancy",
+            "transitions",
+            "conditional_factor_horizon_quality",
+        }:
+            _fail(split_path, "factor.component-context", "Invalid context split evidence")
+        distribution = _context_distribution_projection(
+            raw["distribution"],
+            f"{split_path}/distribution",
+        )
+        occupancy = raw["state_occupancy"]
+        if not isinstance(occupancy, dict) or set(occupancy) != {
+            "low",
+            "middle",
+            "high",
+        }:
+            _fail(split_path, "factor.component-context", "Invalid state occupancy")
+        projected_occupancy: dict[str, Any] = {}
+        total = 0
+        for state in ("low", "middle", "high"):
+            item = occupancy[state]
+            if not isinstance(item, dict) or set(item) != {
+                "observations",
+                "rate",
+            }:
+                _fail(split_path, "factor.component-context", "Invalid occupancy row")
+            count = _integer(
+                item["observations"],
+                f"{split_path}/state_occupancy/{state}/observations",
+            )
+            rate = (
+                _bounded(
+                    item["rate"],
+                    f"{split_path}/state_occupancy/{state}/rate",
+                    minimum=0.0,
+                    maximum=1.0,
+                )
+                if item["rate"] is not None
+                else None
+            )
+            total += count
+            projected_occupancy[state] = {
+                "observations": count,
+                "rate": rate,
+            }
+        if total != distribution["observations"]:
+            _fail(split_path, "factor.component-context", "Occupancy does not reconcile")
+        transitions = raw["transitions"]
+        if not isinstance(transitions, dict) or set(transitions) != {
+            "observations",
+            "changes",
+            "rate",
+        }:
+            _fail(split_path, "factor.component-context", "Invalid transitions")
+        transition_observations = _integer(
+            transitions["observations"],
+            f"{split_path}/transitions/observations",
+        )
+        changes = _integer(
+            transitions["changes"],
+            f"{split_path}/transitions/changes",
+        )
+        rate = (
+            _bounded(
+                transitions["rate"],
+                f"{split_path}/transitions/rate",
+                minimum=0.0,
+                maximum=1.0,
+            )
+            if transitions["rate"] is not None
+            else None
+        )
+        if changes > transition_observations:
+            _fail(split_path, "factor.component-context", "Transition count is impossible")
+        conditional = raw["conditional_factor_horizon_quality"]
+        if (
+            not isinstance(conditional, dict)
+            or set(conditional) != {str(item) for item in HORIZONS}
+        ):
+            _fail(split_path, "factor.component-context", "Invalid conditional horizons")
+        conditional_profile = [
+            {
+                "horizon": horizon,
+                **{
+                    state: _rank_summary(
+                        conditional[str(horizon)][state],
+                        f"{split_path}/conditional/{horizon}/{state}",
+                    )
+                    for state in ("low", "middle", "high")
+                },
+            }
+            for horizon in HORIZONS
+        ]
+        projected_splits[split] = {
+            "role": SPLIT_ROLES[split],
+            "distribution": distribution,
+            "stateOccupancy": projected_occupancy,
+            "transitions": {
+                "observations": transition_observations,
+                "changes": changes,
+                "rate": rate,
+            },
+            "conditionalFactorHorizonProfile": conditional_profile,
+        }
+    return {
+        "method": value["method"],
+        "stateSelection": {
+            "split": "train",
+            "targetEntersThresholds": False,
+            "lower": lower,
+            "upper": upper,
+            "labels": ["low", "middle", "high"],
+        },
+        "splits": projected_splits,
+        "authority": value["authority"],
+        "testEntersDiagnosis": False,
+        "tradingAuthority": "none",
+    }
+
+
 def _factor_components_projection(
     evidence: Any,
     universe: list[str],
@@ -1553,6 +1884,7 @@ def _factor_components_projection(
         if not isinstance(item, dict) or set(item) != {
             "id",
             "label",
+            "role",
             "intervals",
             "hypothesis",
         }:
@@ -1569,6 +1901,8 @@ def _factor_components_projection(
             or component_id in declared_by_id
             or not isinstance(item.get("label"), str)
             or not item["label"]
+            or item.get("role")
+            not in {"cross-sectional-score", "timestamp-context"}
             or not isinstance(item.get("hypothesis"), str)
             or not item["hypothesis"]
             or not isinstance(intervals, list)
@@ -1594,6 +1928,13 @@ def _factor_components_projection(
             "common-component-availability"
         ),
         "ablation_target": "fixed-diagnostic-blend-not-candidate-factor",
+        "component_roles": [
+            "cross-sectional-score",
+            "timestamp-context",
+        ],
+        "timestamp_context": (
+            "train-tertile-occupancy-transition-and-conditional-factor-ic"
+        ),
         "selection_authority": "research-prioritization-only",
         "test_role": "visible-audit",
         "promotion_authority": "none",
@@ -1625,6 +1966,7 @@ def _factor_components_projection(
         if not isinstance(raw, dict) or set(raw) != {
             "id",
             "label",
+            "role",
             "intervals",
             "hypothesis",
             "coverage_by_asset",
@@ -1634,6 +1976,7 @@ def _factor_components_projection(
             "nearest_peer",
             "nearest_peer_residual",
             "fixed_blend_ablation",
+            "timestamp_context",
             "validation_priority_inputs",
         }:
             _fail(
@@ -1647,7 +1990,13 @@ def _factor_components_projection(
             or component_id in seen
             or {
                 key: raw.get(key)
-                for key in ("id", "label", "intervals", "hypothesis")
+                for key in (
+                    "id",
+                    "label",
+                    "role",
+                    "intervals",
+                    "hypothesis",
+                )
             }
             != declared_by_id.get(component_id)
         ):
@@ -1689,6 +2038,96 @@ def _factor_components_projection(
             f"{path}/mean_coverage",
             "mean component coverage",
         )
+        role = declared_by_id[component_id]["role"]
+        if role == "timestamp-context":
+            nearest = raw.get("nearest_peer")
+            residual = raw.get("nearest_peer_residual")
+            ablation = raw.get("fixed_blend_ablation")
+            priority = raw.get("validation_priority_inputs")
+            if (
+                raw.get("raw_horizon_quality") is not None
+                or raw.get("composite_association") is not None
+                or not isinstance(nearest, dict)
+                or nearest
+                != {
+                    "id": None,
+                    "train_mean_absolute_rank_association": None,
+                }
+                or not isinstance(residual, dict)
+                or residual
+                != {
+                    "peer": None,
+                    "selection": "not-applicable-timestamp-context",
+                    "horizon_quality": None,
+                }
+                or not isinstance(ablation, dict)
+                or ablation
+                != {
+                    "available": False,
+                    "reason": "not-applicable-timestamp-context",
+                    "horizon_quality": None,
+                    "removal_delta_mean_ic": None,
+                }
+                or priority
+                != {
+                    "raw_mean_ic": None,
+                    "nearest_peer_residual_mean_ic": None,
+                    "removal_delta_mean_ic": None,
+                }
+            ):
+                _fail(
+                    path,
+                    "factor.component-context",
+                    "Timestamp context cannot contain score-only diagnostics",
+                )
+            context = _timestamp_context_projection(
+                raw.get("timestamp_context"),
+                f"{path}/timestamp_context",
+            )
+            projected_components.append(
+                {
+                    **declared_by_id[component_id],
+                    "meanCoverage": mean_coverage,
+                    "coverageByAsset": coverage_rows,
+                    "rawHorizonProfile": None,
+                    "compositeAssociation": None,
+                    "nearestPeer": {
+                        "id": None,
+                        "trainMeanAbsoluteRankAssociation": None,
+                        "selection": "not-applicable-timestamp-context",
+                    },
+                    "nearestPeerResidualHorizonProfile": None,
+                    "fixedBlendAblation": {
+                        "available": False,
+                        "reason": "not-applicable-timestamp-context",
+                        "horizonProfile": None,
+                        "removalDeltaMeanIc": None,
+                    },
+                    "timestampContext": context,
+                    "validation": {
+                        "raw": None,
+                        "compositeAssociation": None,
+                        "nearestPeerResidual": None,
+                        "fixedBlendRemovalDeltaMeanIc": None,
+                        "context": context["splits"]["validation"],
+                    },
+                    "testAudit": {
+                        "role": "visible-audit",
+                        "raw": None,
+                        "compositeAssociation": None,
+                        "nearestPeerResidual": None,
+                        "fixedBlendRemovalDeltaMeanIc": None,
+                        "context": context["splits"]["test"],
+                    },
+                }
+            )
+            continue
+        if raw.get("timestamp_context") is not None:
+            _fail(
+                f"{path}/timestamp_context",
+                "factor.component-context",
+                "Cross-sectional scores cannot contain context-state evidence",
+            )
         raw_profile = _component_horizon_quality(
             raw.get("raw_horizon_quality"),
             f"{path}/raw_horizon_quality",
@@ -1864,6 +2303,7 @@ def _factor_components_projection(
                         else None
                     ),
                 },
+                "timestampContext": None,
                 "validation": {
                     "raw": _quality_split(raw_profile, "validation"),
                     "compositeAssociation": projected_association[
@@ -1888,6 +2328,7 @@ def _factor_components_projection(
                         is not None
                         else None
                     ),
+                    "context": None,
                 },
                 "testAudit": {
                     "role": "visible-audit",
@@ -1907,6 +2348,7 @@ def _factor_components_projection(
                         if ablation.get("available") is True
                         else None
                     ),
+                    "context": None,
                 },
             }
         )
@@ -1918,7 +2360,13 @@ def _factor_components_projection(
         )
 
     pairwise = evidence.get("pairwise")
-    expected_pairs = len(declared_by_id) * (len(declared_by_id) - 1) // 2
+    score_ids = {
+        component_id
+        for component_id, item in declared_by_id.items()
+        if item["role"] == "cross-sectional-score"
+    }
+    context_ids = set(declared_by_id) - score_ids
+    expected_pairs = len(score_ids) * (len(score_ids) - 1) // 2
     if not isinstance(pairwise, list) or len(pairwise) != expected_pairs:
         _fail(
             "factor_components/pairwise",
@@ -1942,8 +2390,8 @@ def _factor_components_projection(
         left, right = pair.get("left"), pair.get("right")
         identity = frozenset((left, right))
         if (
-            left not in declared_by_id
-            or right not in declared_by_id
+            left not in score_ids
+            or right not in score_ids
             or left == right
             or identity in pair_ids
         ):
@@ -1979,6 +2427,8 @@ def _factor_components_projection(
 
     fixed_blend = evidence.get("fixed_blend")
     if not isinstance(fixed_blend, dict) or set(fixed_blend) != {
+        "available",
+        "reason",
         "horizon_quality"
     }:
         _fail(
@@ -1986,10 +2436,35 @@ def _factor_components_projection(
             "factor.component-blend",
             "Fixed component blend evidence is invalid",
         )
-    blend_profile = _component_horizon_quality(
-        fixed_blend["horizon_quality"],
-        "factor_components/fixed_blend/horizon_quality",
+    blend_profile = (
+        _component_horizon_quality(
+            fixed_blend["horizon_quality"],
+            "factor_components/fixed_blend/horizon_quality",
+        )
+        if fixed_blend.get("available") is True
+        else None
     )
+    if (
+        (fixed_blend.get("available") is True)
+        != bool(score_ids)
+        or (
+            score_ids
+            and fixed_blend.get("reason") is not None
+        )
+        or (
+            not score_ids
+            and (
+                fixed_blend.get("reason")
+                != "no-cross-sectional-score-components"
+                or fixed_blend.get("horizon_quality") is not None
+            )
+        )
+    ):
+        _fail(
+            "factor_components/fixed_blend",
+            "factor.component-blend",
+            "Fixed blend availability does not reconcile score components",
+        )
     for row in projected_components:
         ablation = row["fixedBlendAblation"]
         if not ablation["available"]:
@@ -2015,6 +2490,8 @@ def _factor_components_projection(
     disclosure = evidence.get("trial_disclosure")
     if disclosure != {
         "materialized_components": len(declared_by_id),
+        "cross_sectional_score_components": len(score_ids),
+        "timestamp_context_components": len(context_ids),
         "pairwise_comparisons": expected_pairs,
         "component_diagnostics_enter_promotion_score": False,
     }:
@@ -2045,7 +2522,8 @@ def _factor_components_projection(
     raw_rows = [
         row
         for row in projected_components
-        if row["validation"]["raw"]["meanRankIc"] is not None
+        if row["role"] == "cross-sectional-score"
+        and row["validation"]["raw"]["meanRankIc"] is not None
     ]
     strongest_raw = (
         max(
@@ -2213,6 +2691,8 @@ def _factor_components_projection(
             "residualization": semantics["residualization"],
             "diagnosticBlend": semantics["diagnostic_blend"],
             "ablationTarget": semantics["ablation_target"],
+            "componentRoles": semantics["component_roles"],
+            "timestampContext": semantics["timestamp_context"],
             "testRole": semantics["test_role"],
             "promotionAuthority": semantics["promotion_authority"],
             "portfolioAuthority": semantics["portfolio_authority"],
@@ -2220,6 +2700,8 @@ def _factor_components_projection(
         },
         "trialDisclosure": {
             "materializedComponents": len(declared_by_id),
+            "crossSectionalScoreComponents": len(score_ids),
+            "timestampContextComponents": len(context_ids),
             "pairwiseComparisons": expected_pairs,
             "entersPromotionScore": False,
         },
@@ -2275,7 +2757,11 @@ def _factor_components_projection(
         },
         "components": projected_components,
         "pairwise": projected_pairs,
-        "fixedBlendHorizonProfile": blend_profile,
+        "fixedBlend": {
+            "available": blend_profile is not None,
+            "reason": fixed_blend["reason"],
+            "horizonProfile": blend_profile,
+        },
     }
 
 
@@ -2806,7 +3292,15 @@ def _load_factor_diagnostics_unlocked(
     if qualification_parsed is not None and (
         not isinstance(qualification_semantics, dict)
         or qualification_semantics.get("method") != QUALIFICATION_METHOD
-        or qualification_semantics.get("styleSelection") != "train-only"
+        or qualification_semantics.get("claim")
+        != qualification_parsed["claim"]
+        or qualification_semantics.get("styleSelection")
+        != (
+            "request-predeclared"
+            if qualification_parsed["claim"]["claim"]
+            == "known-style-validation"
+            else "train-only"
+        )
         or qualification_semantics.get("neutralization")
         != "same-timestamp-cross-sectional-centered-rank-ols"
         or qualification_semantics.get("blend")
@@ -2824,9 +3318,16 @@ def _load_factor_diagnostics_unlocked(
     if component_evidence is not None and component_semantics != {
         "method": COMPONENT_METHOD,
         "declaration": "candidate-explicit-not-source-inferred",
+        "roles": [
+            "cross-sectional-score",
+            "timestamp-context",
+        ],
         "exhaustiveCompositionClaim": False,
         "nearestPeerSelection": "train-only-target-free",
         "ablationTarget": "fixed-diagnostic-blend-not-candidate-factor",
+        "timestampContext": (
+            "train-tertile-occupancy-transition-and-conditional-factor-ic"
+        ),
         "testRole": "visible audit only",
         "portfolioAuthority": "none",
         "rlActionAuthority": "none",
@@ -2950,6 +3451,7 @@ _FACTOR_QUALIFICATION_SCHEMA: dict[str, Any] = {
                 "tradingAuthority",
                 "available",
                 "reason",
+                "claim",
                 "selection",
                 "semantics",
                 "diagnosis",
@@ -2963,6 +3465,7 @@ _FACTOR_QUALIFICATION_SCHEMA: dict[str, Any] = {
                 "tradingAuthority": {"const": "none"},
                 "available": {"const": True},
                 "reason": {"type": "null"},
+                "claim": FACTOR_CLAIM_JSON_SCHEMA,
                 "selection": {
                     "type": "object",
                     "additionalProperties": False,
@@ -2981,9 +3484,10 @@ _FACTOR_QUALIFICATION_SCHEMA: dict[str, Any] = {
                             "const": "comparison-style-selection-only"
                         },
                         "criterion": {
-                            "const": (
-                                "maximum-absolute-mean-daily-rank-overlap"
-                            )
+                            "enum": [
+                                "maximum-absolute-mean-daily-rank-overlap",
+                                "request-predeclared-known-style",
+                            ]
                         },
                         "dominantStyle": {"enum": sorted(STYLES)},
                         "candidates": {
@@ -3031,6 +3535,7 @@ _FACTOR_QUALIFICATION_SCHEMA: dict[str, Any] = {
                             "additionalProperties": False,
                             "required": [
                                 "minimumPositiveHacTStatistic",
+                                "minimumKnownStyleRankIdentity",
                                 "selectionAdjustedSignificanceRequiredSeparately",
                             ],
                             "properties": {
@@ -3038,6 +3543,9 @@ _FACTOR_QUALIFICATION_SCHEMA: dict[str, Any] = {
                                     "const": (
                                         QUALIFICATION_MIN_POSITIVE_HAC_T
                                     )
+                                },
+                                "minimumKnownStyleRankIdentity": {
+                                    "const": 0.95
                                 },
                                 "selectionAdjustedSignificanceRequiredSeparately": {
                                     "const": True
@@ -3055,6 +3563,7 @@ _FACTOR_QUALIFICATION_SCHEMA: dict[str, Any] = {
                         "stage",
                         "iterationFocus",
                         "explanation",
+                        "qualifiesForPortfolio",
                     ],
                     "properties": {
                         "selectionSplit": {"const": "validation"},
@@ -3068,6 +3577,9 @@ _FACTOR_QUALIFICATION_SCHEMA: dict[str, Any] = {
                                 "blend-uplift-absent",
                                 "residual-temporal-instability",
                                 "factor-qualification-positive",
+                                "known-style-identity-mismatch",
+                                "known-style-temporal-instability",
+                                "known-style-validation-positive",
                             ]
                         },
                         "iterationFocus": {
@@ -3079,9 +3591,11 @@ _FACTOR_QUALIFICATION_SCHEMA: dict[str, Any] = {
                                 "factor-combination-and-weighting",
                                 "temporal-regime-robustness",
                                 "portfolio-monetization-and-rl-context",
+                                "known-style-implementation-identity",
                             ]
                         },
                         "explanation": {"type": "string", "minLength": 1},
+                        "qualifiesForPortfolio": {"type": "boolean"},
                     },
                 },
                 "validation": {"$ref": "#/$defs/qualificationSplit"},
@@ -3134,7 +3648,7 @@ _FACTOR_COMPONENTS_SCHEMA: dict[str, Any] = {
                 "validationDiagnosis",
                 "components",
                 "pairwise",
-                "fixedBlendHorizonProfile",
+                "fixedBlend",
             ],
             "properties": {
                 "method": {"const": COMPONENT_METHOD},
@@ -3142,14 +3656,73 @@ _FACTOR_COMPONENTS_SCHEMA: dict[str, Any] = {
                 "tradingAuthority": {"const": "none"},
                 "available": {"const": True},
                 "reason": {"type": "null"},
-                "declaration": {"type": "object"},
-                "semantics": {"type": "object"},
-                "trialDisclosure": {"type": "object"},
+                "declaration": {
+                    "type": "object",
+                    "required": [
+                        "sourceInference",
+                        "exhaustiveCompositionClaim",
+                        "components",
+                    ],
+                },
+                "semantics": {
+                    "type": "object",
+                    "required": [
+                        "predictionTarget",
+                        "nearestPeerSelection",
+                        "residualization",
+                        "diagnosticBlend",
+                        "ablationTarget",
+                        "componentRoles",
+                        "timestampContext",
+                        "testRole",
+                        "promotionAuthority",
+                        "portfolioAuthority",
+                        "rlActionAuthority",
+                    ],
+                },
+                "trialDisclosure": {
+                    "type": "object",
+                    "required": [
+                        "materializedComponents",
+                        "crossSectionalScoreComponents",
+                        "timestampContextComponents",
+                        "pairwiseComparisons",
+                        "entersPromotionScore",
+                    ],
+                },
                 "validationDiagnosis": {"type": "object"},
                 "components": {
                     "type": "array",
                     "minItems": 1,
                     "maxItems": MAX_COMPONENTS,
+                    "items": {
+                        "type": "object",
+                        "required": [
+                            "id",
+                            "label",
+                            "role",
+                            "intervals",
+                            "hypothesis",
+                            "meanCoverage",
+                            "coverageByAsset",
+                            "rawHorizonProfile",
+                            "compositeAssociation",
+                            "nearestPeer",
+                            "nearestPeerResidualHorizonProfile",
+                            "fixedBlendAblation",
+                            "timestampContext",
+                            "validation",
+                            "testAudit",
+                        ],
+                        "properties": {
+                            "role": {
+                                "enum": [
+                                    "cross-sectional-score",
+                                    "timestamp-context",
+                                ]
+                            }
+                        },
+                    },
                 },
                 "pairwise": {
                     "type": "array",
@@ -3157,10 +3730,24 @@ _FACTOR_COMPONENTS_SCHEMA: dict[str, Any] = {
                         MAX_COMPONENTS * (MAX_COMPONENTS - 1) // 2
                     ),
                 },
-                "fixedBlendHorizonProfile": {
-                    "type": "array",
-                    "minItems": 1,
-                    "maxItems": 5,
+                "fixedBlend": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["available", "reason", "horizonProfile"],
+                    "properties": {
+                        "available": {"type": "boolean"},
+                        "reason": {"type": ["string", "null"]},
+                        "horizonProfile": {
+                            "anyOf": [
+                                {"type": "null"},
+                                {
+                                    "type": "array",
+                                    "minItems": 1,
+                                    "maxItems": 5,
+                                },
+                            ]
+                        },
+                    },
                 },
             },
         },
@@ -3184,6 +3771,8 @@ FACTOR_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 "styleNeutralCandidate",
                 "equalRankBlend",
                 "incremental",
+                "candidateChronologicalFolds",
+                "weakestCandidateFold",
                 "styleNeutralChronologicalFolds",
                 "weakestStyleNeutralFold",
             ],
@@ -3216,6 +3805,12 @@ FACTOR_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                     "minItems": 2,
                     "maxItems": 2,
                 },
+                "candidateChronologicalFolds": {
+                    "type": "array",
+                    "minItems": 2,
+                    "maxItems": 2,
+                },
+                "weakestCandidateFold": {"type": "object"},
                 "weakestStyleNeutralFold": {"type": "object"},
             },
         }

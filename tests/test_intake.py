@@ -15,6 +15,7 @@ from autoquant.factor_explorer import (
     FACTOR_DIAGNOSTICS_JSON_SCHEMA,
     load_factor_diagnostics,
 )
+from autoquant.factor_claims import FACTOR_CLAIM, load_factor_claim
 from autoquant.horizons import (
     RESEARCH_HORIZON,
     load_research_horizon,
@@ -63,6 +64,112 @@ from tests.intake_helpers import (
 
 
 class RequestDrivenIntakeTests(unittest.TestCase):
+    def test_request_predeclares_and_locks_known_style_claim(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            request_path, package_path = write_intake_inputs(
+                root,
+                factor_policy={
+                    "claim": "known-style-validation",
+                    "knownStyle": "reversal_5",
+                },
+            )
+            prepared = prepare_project_intake(
+                request_path,
+                package_path,
+                "ohlcv-factor-lab",
+            )
+            project = create_project(
+                initialize_workspace(root / "workspace").root_dir,
+                "known-style-factor",
+                template=prepared.template,
+                template_intake=prepared,
+            )
+            claim = load_factor_claim(project.root_dir / FACTOR_CLAIM)
+            self.assertEqual(claim["claim"], "known-style-validation")
+            self.assertEqual(claim["knownStyle"], "reversal_5")
+            self.assertEqual(
+                claim["source"]["factorPolicy"],
+                "caller-supplied",
+            )
+            (project.root_dir / "factors" / "candidate.py").write_text(
+                "from __future__ import annotations\n\n"
+                "import pandas as pd\n\n"
+                "def compute_factor(panel: pd.DataFrame) -> pd.Series:\n"
+                "    return -panel.groupby('asset', sort=False)['close']"
+                ".pct_change(5, fill_method=None)\n",
+                encoding="utf-8",
+            )
+            run = execute_study(project, OHLCV_STUDY_ID)
+            self.assertEqual(run.result["status"], "succeeded")
+            self.assertEqual(run.result["metrics"]["factor_claim"], claim)
+            projection = load_factor_diagnostics(project, run.result["id"])
+            jsonschema.validate(
+                projection,
+                FACTOR_DIAGNOSTICS_JSON_SCHEMA,
+            )
+            self.assertEqual(
+                projection["factorQualification"]["claim"],
+                claim,
+            )
+            self.assertEqual(
+                projection["factorQualification"]["selection"]["criterion"],
+                "request-predeclared-known-style",
+            )
+            selected = next(
+                item
+                for item in projection["factorQualification"]["selection"][
+                    "candidates"
+                ]
+                if item["style"] == "reversal_5"
+            )
+            self.assertAlmostEqual(
+                selected["meanRankCorrelation"],
+                1.0,
+            )
+            self.assertNotEqual(
+                projection["factorQualification"]["diagnosis"]["stage"],
+                "known-style-identity-mismatch",
+            )
+
+            claim_path = project.root_dir / FACTOR_CLAIM
+            changed = json.loads(claim_path.read_text(encoding="utf-8"))
+            changed["knownStyle"] = "momentum_20"
+            claim_path.write_text(
+                json.dumps(changed, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            with self.assertRaises(AutoQuantValidationError):
+                load_project_intake(project)
+
+    def test_factor_policy_rejects_ambiguous_claims(self) -> None:
+        cases = (
+            {
+                "claim": "novel-factor",
+                "knownStyle": "reversal_5",
+            },
+            {
+                "claim": "known-style-validation",
+                "knownStyle": None,
+            },
+        )
+        for index, policy in enumerate(cases):
+            with self.subTest(policy=policy), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                request_path, package_path = write_intake_inputs(root)
+                request = json.loads(request_path.read_text(encoding="utf-8"))
+                request["factorPolicy"] = policy
+                request_path.write_text(
+                    json.dumps(request, indent=2, sort_keys=True) + "\n",
+                    encoding="utf-8",
+                )
+                with self.assertRaises(AutoQuantValidationError):
+                    prepare_project_intake(
+                        request_path,
+                        package_path,
+                        "ohlcv-factor-lab",
+                    )
+
     def test_intake_rejects_horizon_without_purged_split_capacity(
         self,
     ) -> None:
@@ -123,7 +230,12 @@ class RequestDrivenIntakeTests(unittest.TestCase):
             study = load_study(project, OHLCV_STUDY_ID)
             self.assertEqual(
                 study.definition.dependencies,
-                {"paths": [RESEARCH_HORIZON]},
+                {
+                    "paths": [
+                        "strategies/factor-claim.json",
+                        RESEARCH_HORIZON,
+                    ]
+                },
             )
 
             run = execute_study(project, OHLCV_STUDY_ID)
@@ -1303,6 +1415,8 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                 factor_components["trial_disclosure"],
                 {
                     "materialized_components": 4,
+                    "cross_sectional_score_components": 4,
+                    "timestamp_context_components": 0,
                     "pairwise_comparisons": 6,
                     "component_diagnostics_enter_promotion_score": False,
                 },

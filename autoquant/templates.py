@@ -12,6 +12,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from .checks import PREFLIGHT_KIND, PREFLIGHT_MANIFEST
+from .factor_claims import (
+    FACTOR_CLAIM,
+    build_factor_claim,
+)
 from .horizons import (
     RESEARCH_HORIZON,
     build_research_horizon,
@@ -346,6 +350,20 @@ def _write_research_horizon(
     return horizon
 
 
+def _write_factor_claim(
+    project: ProjectContext,
+    intake: PreparedIntake | None,
+) -> dict[str, object]:
+    claim = build_factor_claim(
+        intake.request if intake is not None else None
+    )
+    (project.root_dir / FACTOR_CLAIM).write_text(
+        json.dumps(claim, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return claim
+
+
 def _intake_dataset(
     project: ProjectContext,
     intake: PreparedIntake,
@@ -464,6 +482,7 @@ def _apply_ohlcv_factor_lab(
             OHLCV_STUDY_ID,
         )
     _write_research_horizon(project, intake)
+    _write_factor_claim(project, intake)
     _write_template_source(project, "factors/candidate.py", "candidate.py")
     _write_template_source(project, "judges/ohlcv_factor.py", "judge.py")
     _write_template_source(
@@ -507,7 +526,7 @@ def _apply_ohlcv_factor_lab(
             StudyTimeRange(str(dataset["start"]), _time_range_value(end)),
             ["ohlcv/**"],
         ),
-        dependencies={"paths": [RESEARCH_HORIZON]},
+        dependencies={"paths": [FACTOR_CLAIM, RESEARCH_HORIZON]},
     )
     study = create_study(project, definition)
     study.program_path.write_text(
@@ -758,6 +777,7 @@ def _apply_ohlcv_research_desk(
         list(dataset["universe"]),
     )
     _write_research_horizon(project, intake)
+    _write_factor_claim(project, intake)
 
     # Write every fixed/editable source before creating any Study identity.
     _write_template_source(
@@ -849,7 +869,7 @@ def _apply_ohlcv_research_desk(
                     0.01,
                 ),
                 dataset=shared_dataset,
-                dependencies={"paths": [RESEARCH_HORIZON]},
+                dependencies={"paths": [FACTOR_CLAIM, RESEARCH_HORIZON]},
             ),
             "ohlcv_factor_lab",
         ),

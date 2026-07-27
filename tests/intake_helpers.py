@@ -22,6 +22,7 @@ def write_intake_inputs(
     portfolio_policy: dict[str, object] | None = None,
     benchmark_policy: dict[str, object] | None = None,
     horizon_policy: dict[str, object] | None = None,
+    factor_policy: dict[str, object] | None = None,
     request_assets: tuple[str, ...] = ("AAPL", "MSFT"),
     asset_position_roles: dict[str, str] | None = None,
 ) -> tuple[Path, Path]:
@@ -126,6 +127,11 @@ def write_intake_inputs(
         **(
             {"horizonPolicy": horizon_policy}
             if horizon_policy is not None
+            else {}
+        ),
+        **(
+            {"factorPolicy": factor_policy}
+            if factor_policy is not None
             else {}
         ),
         "horizon": "one to four weeks",

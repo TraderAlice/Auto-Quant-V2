@@ -7,6 +7,10 @@ import math
 from pathlib import Path
 from typing import Any
 
+from .factor_claims import (
+    KNOWN_FACTOR_STYLES,
+    normalize_factor_policy,
+)
 from .horizons import (
     MAX_DIAGNOSTIC_HORIZONS,
     MAX_FORWARD_BARS,
@@ -165,6 +169,7 @@ def validate_research_request(
             "portfolioPolicy",
             "benchmarkPolicy",
             "horizonPolicy",
+            "factorPolicy",
         },
     )
     if value.get("schemaVersion") != SCHEMA_VERSION:
@@ -181,6 +186,20 @@ def validate_research_request(
                 "Invalid requested direction",
             )
         )
+    factor_policy = value.get("factorPolicy")
+    normalized_factor_policy: dict[str, Any] | None = None
+    if "factorPolicy" in value:
+        try:
+            normalized_factor_policy = normalize_factor_policy(factor_policy)
+        except AutoQuantValidationError as error:
+            issues.extend(
+                _issue(
+                    f"{path}/{issue.path}",
+                    issue.code,
+                    issue.message,
+                )
+                for issue in error.issues
+            )
     benchmark_policy = value.get("benchmarkPolicy")
     normalized_benchmark_policy: dict[str, Any] | None = None
     if "benchmarkPolicy" in value:
@@ -789,6 +808,11 @@ def validate_research_request(
             if "horizonPolicy" in value
             else {}
         ),
+        **(
+            {"factorPolicy": normalized_factor_policy}
+            if "factorPolicy" in value
+            else {}
+        ),
         "horizon": value["horizon"].strip(),
         "hypotheses": [item.strip() for item in value["hypotheses"]],
         "constraints": [item.strip() for item in value["constraints"]],
@@ -1042,6 +1066,30 @@ RESEARCH_REQUEST_JSON_SCHEMA: dict[str, Any] = {
             },
         },
         "direction": {"enum": sorted(REQUEST_DIRECTIONS)},
+        "factorPolicy": {
+            "oneOf": [
+                {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["claim", "knownStyle"],
+                    "properties": {
+                        "claim": {"const": "novel-factor"},
+                        "knownStyle": {"type": "null"},
+                    },
+                },
+                {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["claim", "knownStyle"],
+                    "properties": {
+                        "claim": {"const": "known-style-validation"},
+                        "knownStyle": {
+                            "enum": sorted(KNOWN_FACTOR_STYLES),
+                        },
+                    },
+                },
+            ]
+        },
         "benchmarkPolicy": {
             "oneOf": [
                 {

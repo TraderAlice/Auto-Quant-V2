@@ -42,7 +42,8 @@ score.
 
 Factor is always required. Portfolio becomes required only when the frozen
 Factor Report proves that its exact leader reached
-`factor-qualification-positive`. Governed RL is always optional and becomes
+a request-bound claim-positive stage with passing family-wise selection
+adjustment. Governed RL is always optional and becomes
 admissible only after the frozen Portfolio Report proves
 `post-cost-edge-positive`.
 

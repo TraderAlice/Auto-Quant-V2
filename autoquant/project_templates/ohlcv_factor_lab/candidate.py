@@ -8,6 +8,7 @@ import pandas as pd
 FACTOR_COMPONENTS = {
     "base_momentum_10": {
         "label": "10-base-bar momentum",
+        "role": "cross-sectional-score",
         "intervals": ["base"],
         "hypothesis": (
             "Recent relative strength persists over the next base bar."
@@ -15,6 +16,7 @@ FACTOR_COMPONENTS = {
     },
     "momentum_3h_4": {
         "label": "Four completed 3-hour bars momentum",
+        "role": "cross-sectional-score",
         "intervals": ["3h"],
         "hypothesis": (
             "Short intraday trend persists beyond the latest completed "
@@ -23,6 +25,7 @@ FACTOR_COMPONENTS = {
     },
     "momentum_12h_2": {
         "label": "Two completed 12-hour bars momentum",
+        "role": "cross-sectional-score",
         "intervals": ["12h"],
         "hypothesis": (
             "Half-day trend filters noisy base-bar momentum."
@@ -30,6 +33,7 @@ FACTOR_COMPONENTS = {
     },
     "momentum_1d_3": {
         "label": "Three completed daily bars momentum",
+        "role": "cross-sectional-score",
         "intervals": ["1d"],
         "hypothesis": (
             "Multi-day relative strength persists at the next base close."

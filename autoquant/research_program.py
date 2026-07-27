@@ -30,7 +30,7 @@ RESEARCH_DESK_TEMPLATE = "ohlcv-research-desk"
 RESEARCH_PROGRESSION_METHOD = (
     "report-bound-factor-portfolio-rl-admission-v1"
 )
-FACTOR_QUALIFICATION_POSITIVE = "factor-qualification-positive"
+FACTOR_CLAIM_POSITIVE = "factor-claim-positive"
 PORTFOLIO_VIABILITY_POSITIVE = "post-cost-edge-positive"
 CANONICAL_LANES: tuple[dict[str, Any], ...] = (
     {
@@ -40,7 +40,10 @@ CANONICAL_LANES: tuple[dict[str, Any], ...] = (
         "role": "causal-predictive-evidence",
         "dependsOn": [],
         "editablePaths": ["factors/**"],
-        "dependencyPaths": ["strategies/research-horizon.json"],
+        "dependencyPaths": [
+            "strategies/factor-claim.json",
+            "strategies/research-horizon.json",
+        ],
         "optional": False,
     },
     {
@@ -76,6 +79,7 @@ INTEGRATION = {
     "rlFactorDependency": "content-locked-candidate-source",
     "portfolioMandate": "request-bound-shared-fixed-dependency",
     "researchHorizon": "request-bound-shared-fixed-dependency",
+    "factorClaim": "request-bound-factor-evaluation-authority",
     "tradingAuthority": "none",
 }
 
@@ -287,7 +291,7 @@ def _factor_to_portfolio_gate(
             gate_id="factor-to-portfolio",
             upstream_lane_id="factor",
             downstream_lane_id="portfolio",
-            required_stage=FACTOR_QUALIFICATION_POSITIVE,
+            required_stage=FACTOR_CLAIM_POSITIVE,
             status="waiting-current-evidence",
             run_id=run["id"] if run is not None else None,
             report_id=None,
@@ -309,7 +313,7 @@ def _factor_to_portfolio_gate(
             gate_id="factor-to-portfolio",
             upstream_lane_id="factor",
             downstream_lane_id="portfolio",
-            required_stage=FACTOR_QUALIFICATION_POSITIVE,
+            required_stage=FACTOR_CLAIM_POSITIVE,
             status="blocked-legacy-evidence",
             run_id=run["id"],
             report_id=None,
@@ -321,12 +325,12 @@ def _factor_to_portfolio_gate(
             ),
         )
     diagnosis = qualification["diagnosis"]
-    if diagnosis["stage"] != FACTOR_QUALIFICATION_POSITIVE:
+    if diagnosis["qualifiesForPortfolio"] is not True:
         return _gate(
             gate_id="factor-to-portfolio",
             upstream_lane_id="factor",
             downstream_lane_id="portfolio",
-            required_stage=FACTOR_QUALIFICATION_POSITIVE,
+            required_stage=FACTOR_CLAIM_POSITIVE,
             status="blocked-upstream-evidence",
             run_id=run["id"],
             report_id=None,
@@ -340,7 +344,7 @@ def _factor_to_portfolio_gate(
             gate_id="factor-to-portfolio",
             upstream_lane_id="factor",
             downstream_lane_id="portfolio",
-            required_stage=FACTOR_QUALIFICATION_POSITIVE,
+            required_stage=FACTOR_CLAIM_POSITIVE,
             status="waiting-current-report",
             run_id=run["id"],
             report_id=None,
@@ -351,19 +355,44 @@ def _factor_to_portfolio_gate(
                 "waits for an immutable Report freezing this exact leader Run."
             ),
         )
+    adjustment = report["selectionIntegrity"].get(
+        "selectionAdjustment"
+    )
+    if (
+        not isinstance(adjustment, dict)
+        or adjustment.get("status") != "available"
+        or adjustment.get("passes") is not True
+    ):
+        return _gate(
+            gate_id="factor-to-portfolio",
+            upstream_lane_id="factor",
+            downstream_lane_id="portfolio",
+            required_stage=FACTOR_CLAIM_POSITIVE,
+            status="blocked-selection-adjusted-evidence",
+            run_id=run["id"],
+            report_id=report["id"],
+            diagnosis_stage=diagnosis["stage"],
+            iteration_focus="independent-sample-and-effect-size",
+            explanation=(
+                "The current Factor claim passes its fixed validation funnel, "
+                "but the Report's Project-family selection adjustment does "
+                "not pass at 95%; use independent evidence before Portfolio."
+            ),
+        )
     return _gate(
         gate_id="factor-to-portfolio",
         upstream_lane_id="factor",
         downstream_lane_id="portfolio",
-        required_stage=FACTOR_QUALIFICATION_POSITIVE,
+        required_stage=FACTOR_CLAIM_POSITIVE,
         status="passed",
         run_id=run["id"],
         report_id=report["id"],
         diagnosis_stage=diagnosis["stage"],
         iteration_focus="portfolio-monetization",
         explanation=(
-            "The current reported Factor leader has distinct validation "
-            "evidence and admits bounded mechanical Portfolio research."
+            "The current reported Factor leader passes its declared claim "
+            "and Project-family selection adjustment, admitting bounded "
+            "mechanical Portfolio research."
         ),
     )
 
@@ -1102,6 +1131,7 @@ RESEARCH_PROGRAM_STATUS_JSON_SCHEMA: dict[str, Any] = {
                                     "waiting-current-evidence",
                                     "blocked-legacy-evidence",
                                     "blocked-upstream-evidence",
+                                    "blocked-selection-adjusted-evidence",
                                     "blocked-prerequisite",
                                     "waiting-current-report",
                                     "passed",

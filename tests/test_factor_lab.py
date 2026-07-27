@@ -81,6 +81,7 @@ import pandas as pd
 FACTOR_COMPONENTS = {
     "future_close": {
         "label": "Future close",
+        "role": "cross-sectional-score",
         "intervals": ["base"],
         "hypothesis": "Invalid component causality fixture.",
     },
@@ -114,6 +115,7 @@ import pandas as pd
 FACTOR_COMPONENTS = {
     "constant_context": {
         "label": "Constant context",
+        "role": "timestamp-context",
         "intervals": ["base"],
         "hypothesis": "Sparse diagnostic fixture with no cross-sectional rank.",
     },
@@ -164,16 +166,24 @@ class OhlcvFactorLabTests(unittest.TestCase):
             )["factorComponents"]
 
             self.assertEqual(run.result["status"], "succeeded")
-            self.assertIsNone(
-                projected["components"][0]["validation"]["raw"][
-                    "meanRankIc"
-                ]
+            component = projected["components"][0]
+            self.assertEqual(component["role"], "timestamp-context")
+            self.assertIsNone(component["validation"]["raw"])
+            self.assertEqual(
+                component["timestampContext"]["method"],
+                "train-tertile-timestamp-context-v1",
             )
-            self.assertFalse(
-                projected["components"][0]["validation"]["raw"][
-                    "sufficient"
-                ]
+            self.assertEqual(
+                component["validation"]["context"]["distribution"]["mean"],
+                1.0,
             )
+            self.assertEqual(
+                component["validation"]["context"]["stateOccupancy"]["low"][
+                    "rate"
+                ],
+                1.0,
+            )
+            self.assertFalse(projected["fixedBlend"]["available"])
             self.assertIsNone(
                 projected["validationDiagnosis"][
                     "strongestRawComponent"
@@ -376,12 +386,14 @@ class OhlcvFactorLabTests(unittest.TestCase):
             components = metrics["factor_components"]
             self.assertEqual(
                 components["method"],
-                "candidate-declared-components-v1",
+                "candidate-declared-components-v2",
             )
             self.assertEqual(
                 components["trial_disclosure"],
                 {
                     "materialized_components": 1,
+                    "cross_sectional_score_components": 1,
+                    "timestamp_context_components": 0,
                     "pairwise_comparisons": 0,
                     "component_diagnostics_enter_promotion_score": False,
                 },

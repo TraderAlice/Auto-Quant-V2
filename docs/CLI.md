@@ -20,6 +20,7 @@ aq schema research-request --json
 aq schema ohlcv-dataset-package --json
 aq schema report-analysis --json
 aq schema factor-diagnostics --json
+aq schema factor-claim --json
 aq schema portfolio-diagnostics --json
 aq schema portfolio-mandate --json
 aq schema rl-policy-diagnostics --json
@@ -168,8 +169,11 @@ filenames.
 `project program --json` is the stable Agent read model for lane phase, current
 Run evidence, Sessions, Reports, shared-source conflicts, scientific
 `progression` gates, and next action. Phase is coordination state only.
-Portfolio requires a reported `factor-qualification-positive` leader; optional
-RL requires a reported `post-cost-edge-positive` Portfolio leader. A terminal
+Portfolio requires a reported claim-positive Factor leader—either
+`factor-qualification-positive` for a novel claim or
+`known-style-validation-positive` for a request-predeclared known style—and a
+passing Project-family selection adjustment. Optional RL requires a reported
+`post-cost-edge-positive` Portfolio leader. A terminal
 upstream Session that remains blocked exposes a fresh `session start` command
 instead of advancing by phase alone. See
 [[docs/design/research-intake-and-dataset-snapshots]] and
@@ -395,6 +399,18 @@ unpromoted KEEP, stale authority, or terminal Session. It writes immutable
 `completion.json`, marks the Session `completed`, and leaves Project source
 unchanged. A completed Session cannot run Experiments/Campaigns, publish later
 Reports, promote, or complete again.
+
+`session promote` is the source-changing terminal path for a KEEP. A delegated
+Session must first publish a Report that freezes the exact current request,
+leader, Experiment prefix, and Campaign prefix, then pass that Report id:
+
+```bash
+aq session promote . <session-id> --report <report-id>
+```
+
+Core records the Report identity in the immutable promotion receipt. A stale
+or partial Report cannot authorize source mutation. Non-delegated local
+Sessions retain the report-free promotion path.
 
 For the Factor Lab, `run execute/show --json` and Experiment output preserve
 the full purge-aware factor tear sheet: request-bound forward-horizon quality,

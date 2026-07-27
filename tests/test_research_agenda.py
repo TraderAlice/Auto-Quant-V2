@@ -31,6 +31,11 @@ def factor_diagnostics(
                 "stage": stage,
                 "iterationFocus": "distinct-factor-information",
                 "explanation": "Verified factor qualification diagnosis.",
+                "qualifiesForPortfolio": stage
+                in {
+                    "factor-qualification-positive",
+                    "known-style-validation-positive",
+                },
             },
             "validation": {
                 "candidate": {
@@ -190,7 +195,6 @@ class EvidenceDrivenResearchAgendaTests(unittest.TestCase):
             [item["id"] for item in agenda["moves"]],
             [
                 "factor-isolate-residual-component",
-                "factor-challenge-fixed-blend-inclusion",
                 "factor-orthogonalize-redundant-components",
             ],
         )
@@ -201,10 +205,6 @@ class EvidenceDrivenResearchAgendaTests(unittest.TestCase):
         self.assertEqual(
             agenda["moves"][0]["target"]["editablePaths"],
             ["factors/**"],
-        )
-        self.assertIn(
-            "not an ablation",
-            agenda["moves"][1]["rationale"],
         )
         self.assertFalse(agenda["authority"]["testEntersPrioritization"])
 
@@ -217,6 +217,58 @@ class EvidenceDrivenResearchAgendaTests(unittest.TestCase):
             agenda,
             factor_research_agenda(changed_test, ["factors/**"]),
         )
+
+        blend_agenda = factor_research_agenda(
+            factor_diagnostics(stage="blend-uplift-absent"),
+            ["factors/**"],
+        )
+        blend_move = next(
+            move
+            for move in blend_agenda["moves"]
+            if move["id"] == "factor-challenge-fixed-blend-inclusion"
+        )
+        self.assertIn("not an ablation", blend_move["rationale"])
+
+    def test_factor_timestamp_context_creates_one_fixed_interaction_move(
+        self,
+    ) -> None:
+        diagnostics = factor_diagnostics(
+            stage="known-style-temporal-instability",
+        )
+        diagnostics["researchHorizon"] = {"primaryForwardBars": 1}
+        diagnostics["factorComponents"]["components"].append(
+            {
+                "id": "market_stress",
+                "label": "Market stress",
+                "role": "timestamp-context",
+                "hypothesis": "Factor efficacy varies with market stress.",
+                "validation": {
+                    "nearestPeerResidual": None,
+                    "context": {
+                        "conditionalFactorHorizonProfile": [
+                            {
+                                "horizon": 1,
+                                "low": {"meanRankIc": -0.05},
+                                "middle": {"meanRankIc": 0.02},
+                                "high": {"meanRankIc": 0.16},
+                            }
+                        ]
+                    },
+                },
+            }
+        )
+        agenda = factor_research_agenda(diagnostics, ["factors/**"])
+        context_move = next(
+            move
+            for move in agenda["moves"]
+            if move["id"] == "factor-test-context-interaction"
+        )
+        self.assertEqual(
+            context_move["target"]["components"],
+            ["market_stress"],
+        )
+        self.assertIn("Train-only tertiles", context_move["rationale"])
+        self.assertNotIn("test", context_move["evidenceRefs"][0]["path"])
 
     def test_factor_legacy_components_fall_back_and_positive_edge_freezes(self) -> None:
         diagnostics = factor_diagnostics(stage="raw-predictive-edge-absent")
@@ -242,6 +294,30 @@ class EvidenceDrivenResearchAgendaTests(unittest.TestCase):
         )
         self.assertEqual(
             positive["moves"][0]["target"]["editablePaths"],
+            [],
+        )
+
+        known_weak = factor_diagnostics(
+            stage="raw-statistical-evidence-weak",
+        )
+        known_weak["factorQualification"]["claim"] = {
+            "claim": "known-style-validation",
+            "knownStyle": "reversal_5",
+        }
+        frozen = factor_research_agenda(
+            known_weak,
+            ["factors/**"],
+        )
+        self.assertEqual(
+            frozen["status"],
+            "no-further-in-sample-tuning",
+        )
+        self.assertEqual(
+            frozen["moves"][0]["id"],
+            "factor-freeze-and-independent-sample",
+        )
+        self.assertEqual(
+            frozen["moves"][0]["target"]["editablePaths"],
             [],
         )
 

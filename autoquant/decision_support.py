@@ -255,7 +255,12 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
         validation = factor_qualification["validation"]
         factor_summary = {
             "method": factor_qualification["method"],
+            "claim": factor_qualification["claim"]["claim"],
+            "knownStyle": factor_qualification["claim"]["knownStyle"],
             "stage": factor_qualification["diagnosis"]["stage"],
+            "qualifiesForPortfolio": factor_qualification["diagnosis"][
+                "qualifiesForPortfolio"
+            ],
             "iterationFocus": factor_qualification["diagnosis"][
                 "iterationFocus"
             ],
@@ -288,6 +293,12 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
                     "count": factor_components["trialDisclosure"][
                         "materializedComponents"
                     ],
+                    "crossSectionalScoreCount": factor_components[
+                        "trialDisclosure"
+                    ]["crossSectionalScoreComponents"],
+                    "timestampContextCount": factor_components[
+                        "trialDisclosure"
+                    ]["timestampContextComponents"],
                     "pairwiseComparisons": factor_components[
                         "trialDisclosure"
                     ]["pairwiseComparisons"],
@@ -661,6 +672,8 @@ def factor_qualification_markdown_lines(
         return []
     diagnosis = qualification["diagnosis"]
     selection = qualification["selection"]
+    claim = qualification["claim"]
+    known_style_claim = claim["claim"] == "known-style-validation"
     prefix = f"{lane_name}: " if lane_name else ""
     lines = [
         heading,
@@ -668,9 +681,11 @@ def factor_qualification_markdown_lines(
         f"- {prefix}Validation diagnosis / next research focus: "
         f"`{diagnosis['stage']}` / `{diagnosis['iterationFocus']}`",
         f"- Interpretation: {diagnosis['explanation']}",
-        "- Dominant fixed style / selection rule: "
-        f"`{selection['dominantStyle']}` / train-only maximum absolute "
-        "mean daily rank overlap.",
+        f"- Request-bound claim / known style: `{claim['claim']}` / "
+        f"`{claim['knownStyle']}`.",
+        "- Comparison style / selection rule: "
+        f"`{selection['dominantStyle']}` / "
+        f"`{selection['criterion']}`.",
         "- Neutralization: same-timestamp cross-sectional centered-rank OLS; "
         "forward targets do not enter the projection.",
         "- Positive raw and residual layers require validation HAC t "
@@ -684,7 +699,7 @@ def factor_qualification_markdown_lines(
         "",
         "| Split / role | Raw candidate IC | Dominant style IC | "
         "Style-neutral IC / delta | Equal-blend IC / uplift vs style | "
-        "Weakest residual fold |",
+        f"Weakest {'candidate' if known_style_claim else 'residual'} fold |",
         "| --- | --- | --- | --- | --- | --- |",
     ]
     for split_name, key in (
@@ -693,7 +708,11 @@ def factor_qualification_markdown_lines(
     ):
         split = qualification[key]
         incremental = split["incremental"]
-        worst = split["weakestStyleNeutralFold"]
+        worst = (
+            split["weakestCandidateFold"]
+            if known_style_claim
+            else split["weakestStyleNeutralFold"]
+        )
         lines.append(
             f"| `{split_name}` / `{split['role']}` | "
             f"`{split['candidate']['meanRankIc']:+.4f}` | "
@@ -748,6 +767,9 @@ def factor_components_markdown_lines(
         f"`{evidence['method']}` / "
         f"`{evidence['trialDisclosure']['materializedComponents']}` / "
         f"`{evidence['trialDisclosure']['pairwiseComparisons']}`.",
+        "- Cross-sectional score / timestamp-context components: "
+        f"`{evidence['trialDisclosure']['crossSectionalScoreComponents']}` / "
+        f"`{evidence['trialDisclosure']['timestampContextComponents']}`.",
         "- Strongest validation raw component / IC: "
         f"`{diagnosis['strongestRawComponent']}` / "
         f"`{metric(diagnosis['strongestRawMeanIc'])}`.",
@@ -766,24 +788,39 @@ def factor_components_markdown_lines(
         "test is visible audit only, and Portfolio, RL-action, order, account, "
         "and trading authority remain `none`.",
         "",
-        "| Component | Claimed intervals | Coverage | Validation raw IC | "
+        "| Component | Role | Claimed intervals | Coverage | Validation evidence | "
         "Nearest peer / residual IC | Fixed-blend removal Δ | Test raw IC |",
-        "| --- | --- | --- | --- | --- | --- | --- |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for component in evidence["components"]:
         validation = component["validation"]
         test = component["testAudit"]
         peer = component["nearestPeer"]
         residual = validation["nearestPeerResidual"]
+        if component["role"] == "timestamp-context":
+            context = validation["context"]
+            occupancy = context["stateOccupancy"]
+            validation_evidence = (
+                "state occupancy "
+                f"L/M/H={occupancy['low']['rate']!s}/"
+                f"{occupancy['middle']['rate']!s}/"
+                f"{occupancy['high']['rate']!s}; "
+                f"transition={context['transitions']['rate']!s}"
+            )
+            test_raw = "context audit"
+        else:
+            validation_evidence = metric(validation["raw"]["meanRankIc"])
+            test_raw = metric(test["raw"]["meanRankIc"])
         lines.append(
             f"| `{component['id']}` | "
+            f"`{component['role']}` | "
             f"`{', '.join(component['intervals'])}` | "
             f"`{component['meanCoverage']:.2%}` | "
-            f"`{metric(validation['raw']['meanRankIc'])}` | "
+            f"`{validation_evidence}` | "
             f"`{peer['id']}` / "
             f"`{metric(residual['meanRankIc'] if residual is not None else None)}` | "
             f"`{validation['fixedBlendRemovalDeltaMeanIc']}` | "
-            f"`{metric(test['raw']['meanRankIc'])}` |"
+            f"`{test_raw}` |"
         )
     lines.append("")
     return lines

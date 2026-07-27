@@ -14,6 +14,11 @@ import numpy as np
 import pandas as pd
 
 from .briefs import load_research_request, validate_research_request
+from .factor_claims import (
+    FACTOR_CLAIM,
+    build_factor_claim,
+    load_factor_claim,
+)
 from .ohlcv import normalize_ohlcv
 from .horizons import (
     RESEARCH_HORIZON,
@@ -2162,6 +2167,43 @@ def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
                     horizon_path,
                     "intake.research-horizon",
                     "Horizon Mandate differs from the normalized request",
+                )
+            )
+    factor_claim_studies = {
+        "ohlcv-factor-lab": ("ohlcv-factor-quality",),
+        "ohlcv-research-desk": ("ohlcv-factor-quality",),
+    }.get(manifest.get("template"), ())
+    requires_factor_claim = False
+    for factor_study_id in factor_claim_studies:
+        factor_study = load_study(project, factor_study_id)
+        if (
+            factor_study.definition.dependencies is not None
+            and FACTOR_CLAIM
+            in factor_study.definition.dependencies["paths"]
+        ):
+            requires_factor_claim = True
+        else:
+            issues.append(
+                _issue(
+                    factor_study.manifest_path,
+                    "intake.factor-claim-dependency",
+                    "Factor Study does not bind the fixed Factor claim",
+                )
+            )
+    factor_claim_path = project.root_dir / FACTOR_CLAIM
+    if (
+        requires_factor_claim
+        or factor_claim_path.exists()
+        or factor_claim_path.is_symlink()
+    ):
+        factor_claim = load_factor_claim(factor_claim_path)
+        expected_factor_claim = build_factor_claim(request)
+        if factor_claim != expected_factor_claim:
+            issues.append(
+                _issue(
+                    factor_claim_path,
+                    "intake.factor-claim",
+                    "Factor claim differs from the normalized request",
                 )
             )
     if issues:

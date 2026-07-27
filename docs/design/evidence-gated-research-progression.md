@@ -41,8 +41,12 @@ Core reconstructs the current successful Factor Run through the strict Factor
 Explorer. Portfolio is admitted only when:
 
 1. qualification evidence is available;
-2. validation diagnosis is `factor-qualification-positive`; and
-3. the current lane has an immutable Report freezing that exact leader Run.
+2. the request-bound validation diagnosis is claim-positive
+   (`factor-qualification-positive` or
+   `known-style-validation-positive`);
+3. the frozen Report's Project-family selection adjustment is available and
+   passes at 95%; and
+4. the current lane has an immutable Report freezing that exact leader Run.
 
 Missing, legacy, stale, weak, redundant, non-incremental, or unstable Factor
 evidence keeps the program focused on Factor.

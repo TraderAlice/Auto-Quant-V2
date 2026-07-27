@@ -558,6 +558,7 @@ class AgentCliTests(unittest.TestCase):
                 "judge-output",
                 "run-result",
                 "factor-diagnostics",
+                "factor-claim",
                 "portfolio-diagnostics",
                 "research-program-status",
                 "rl-policy-diagnostics",

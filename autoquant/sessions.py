@@ -936,6 +936,15 @@ def load_session(project: ProjectContext, session_id: str) -> SessionContext:
             raise AutoQuantValidationError(
                 [_issue(manifest_path, "session.run-pointer", f"Invalid {key} Run pointer")]
             )
+    context = SessionContext(
+        root,
+        manifest_path,
+        manifest,
+        worktree,
+        baseline,
+        leader,
+        delegation,
+    )
     receipt_path = root / PROMOTION_RECEIPT
     completion_path = root / COMPLETION_RECEIPT
     if manifest["status"] == "active" and (
@@ -965,32 +974,145 @@ def load_session(project: ProjectContext, session_id: str) -> SessionContext:
                 ]
             )
         receipt = _read_json(receipt_path, "promotion")
-        receipt_required = {
-            "schemaVersion",
-            "id",
-            "sessionId",
-            "projectId",
-            "studyId",
-            "leaderRunId",
-            "beforeSourceHash",
-            "afterSourceHash",
-            "sourceHashes",
-            "promotedAt",
-        }
-        receipt_issues = _strict_keys(receipt, receipt_required, receipt_path)
-        if (
-            receipt.get("schemaVersion") != SCHEMA_VERSION
-            or receipt.get("sessionId") != session_id
-            or receipt.get("projectId") != project.manifest.id
-            or receipt.get("studyId") != manifest["studyId"]
-            or receipt.get("leaderRunId") != manifest["leader"]["runId"]
-            or receipt.get("beforeSourceHash") != manifest["baseProjectSourceHash"]
-            or receipt.get("afterSourceHash") != manifest["leader"]["sourceHash"]
-            or receipt.get("sourceHashes") != _run_source_hashes(leader)
-        ):
-            receipt_issues.append(
-                _issue(receipt_path, "promotion.receipt", "Promotion receipt differs from Session leader")
-            )
+        if receipt.get("kind") is None:
+            # Exact V1 receipt support keeps already-published Project evidence
+            # readable; all newly written receipts use the Report-bound form.
+            receipt_required = {
+                "schemaVersion",
+                "id",
+                "sessionId",
+                "projectId",
+                "studyId",
+                "leaderRunId",
+                "beforeSourceHash",
+                "afterSourceHash",
+                "sourceHashes",
+                "promotedAt",
+            }
+            receipt_issues = _strict_keys(receipt, receipt_required, receipt_path)
+            if (
+                receipt.get("schemaVersion") != SCHEMA_VERSION
+                or receipt.get("id") != f"promotion-{session_id}"
+                or receipt.get("sessionId") != session_id
+                or receipt.get("projectId") != project.manifest.id
+                or receipt.get("studyId") != manifest["studyId"]
+                or receipt.get("leaderRunId") != manifest["leader"]["runId"]
+                or receipt.get("beforeSourceHash") != manifest["baseProjectSourceHash"]
+                or receipt.get("afterSourceHash") != manifest["leader"]["sourceHash"]
+                or receipt.get("sourceHashes") != _run_source_hashes(leader)
+            ):
+                receipt_issues.append(
+                    _issue(
+                        receipt_path,
+                        "promotion.receipt",
+                        "Legacy promotion receipt differs from Session leader",
+                    )
+                )
+        else:
+            receipt_required = {
+                "schemaVersion",
+                "kind",
+                "id",
+                "sessionId",
+                "projectId",
+                "studyId",
+                "disposition",
+                "leader",
+                "beforeSourceHash",
+                "afterSourceHash",
+                "sourceHashes",
+                "report",
+                "promotedAt",
+                "authority",
+                "tradingAuthority",
+            }
+            receipt_issues = _strict_keys(receipt, receipt_required, receipt_path)
+            receipt_body = {
+                key: value
+                for key, value in receipt.items()
+                if key != "id"
+            }
+            promoted_at = receipt.get("promotedAt")
+            expected_id = None
+            if isinstance(promoted_at, str):
+                try:
+                    stamp = datetime.fromisoformat(promoted_at).strftime(
+                        "%Y%m%dT%H%M%S%fZ"
+                    )
+                    expected_id = (
+                        f"promotion-{stamp}-{hash_json(receipt_body)[:12]}"
+                    )
+                except ValueError:
+                    pass
+            if (
+                receipt.get("schemaVersion") != SCHEMA_VERSION
+                or receipt.get("kind") != "autoquant-session-promotion"
+                or receipt.get("id") != expected_id
+                or receipt.get("sessionId") != session_id
+                or receipt.get("projectId") != project.manifest.id
+                or receipt.get("studyId") != manifest["studyId"]
+                or receipt.get("disposition") != "leader-promoted"
+                or receipt.get("leader") != manifest["leader"]
+                or receipt.get("beforeSourceHash") != manifest["baseProjectSourceHash"]
+                or receipt.get("afterSourceHash") != manifest["leader"]["sourceHash"]
+                or receipt.get("sourceHashes") != _run_source_hashes(leader)
+                or receipt.get("promotedAt") != manifest["updatedAt"]
+                or receipt.get("authority") != "quantitative-decision-support"
+                or receipt.get("tradingAuthority") != "none"
+            ):
+                receipt_issues.append(
+                    _issue(
+                        receipt_path,
+                        "promotion.receipt",
+                        "Promotion receipt differs from the terminal Session",
+                    )
+                )
+            report_projection = receipt.get("report")
+            if delegation is None:
+                if report_projection is not None:
+                    receipt_issues.append(
+                        _issue(
+                            f"{receipt_path}/report",
+                            "promotion.report-unexpected",
+                            "Non-delegated promotion cannot bind a Report",
+                        )
+                    )
+            elif not isinstance(report_projection, dict):
+                receipt_issues.append(
+                    _issue(
+                        f"{receipt_path}/report",
+                        "promotion.report-required",
+                        "Delegated promotion must bind a Report",
+                    )
+                )
+            else:
+                report_id = report_projection.get("id")
+                if not isinstance(report_id, str):
+                    receipt_issues.append(
+                        _issue(
+                            f"{receipt_path}/report/id",
+                            "promotion.report-id",
+                            "Invalid promotion Report id",
+                        )
+                    )
+                else:
+                    try:
+                        _, expected_projection = _current_terminal_report(
+                            project,
+                            context,
+                            report_id,
+                            operation="promotion",
+                        )
+                        if report_projection != expected_projection:
+                            receipt_issues.append(
+                                _issue(
+                                    f"{receipt_path}/report",
+                                    "promotion.report-receipt",
+                                    "Promotion Report differs from immutable evidence",
+                                )
+                            )
+                    except AutoQuantValidationError as error:
+                        receipt_issues.extend(error.issues)
         if receipt_issues:
             raise AutoQuantValidationError(receipt_issues)
     if manifest["status"] == "completed":
@@ -1005,15 +1127,7 @@ def load_session(project: ProjectContext, session_id: str) -> SessionContext:
                 ]
             )
         _validate_completion_receipt(project, root, manifest)
-    return SessionContext(
-        root,
-        manifest_path,
-        manifest,
-        worktree,
-        baseline,
-        leader,
-        delegation,
-    )
+    return context
 
 
 def list_sessions(project: ProjectContext) -> list[SessionSummary]:
@@ -1942,7 +2056,84 @@ def list_experiments(
     return summaries
 
 
-def promote_session(project: ProjectContext, session_id: str) -> dict[str, Any]:
+def _current_terminal_report(
+    project: ProjectContext,
+    session: SessionContext,
+    report_id: str,
+    *,
+    operation: str,
+) -> tuple[Any, dict[str, Any]]:
+    """Verify one Report freezes the complete current delegated Session."""
+
+    if session.delegation is None:
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    session.manifest_path,
+                    f"{operation}.request-required",
+                    f"{operation.title()} Reports require a delegated Session brief",
+                )
+            ]
+        )
+    from .reports import REPORT_MANIFEST, load_report
+    from .research import list_campaign_progress, list_campaigns
+
+    progress = list_campaign_progress(session)
+    if progress:
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    session.root_dir,
+                    f"{operation}.campaign-running",
+                    f"Cannot {operation} while a Researcher Campaign is running",
+                )
+            ]
+        )
+    report = load_report(project, session, report_id)
+    frozen_session = report.report["evidence"]["session"]
+    frozen_experiments = [
+        item["id"] for item in report.report["evidence"]["experiments"]
+    ]
+    current_experiments = [
+        item.id for item in list_experiments(project, session)
+    ]
+    frozen_campaigns = [
+        item["id"] for item in report.report["evidence"]["campaigns"]
+    ]
+    current_campaigns = [
+        item.id for item in list_campaigns(project, session)
+    ]
+    if (
+        frozen_session["leader"] != session.manifest["leader"]
+        or report.report["request"] != session.delegation["request"]
+        or frozen_experiments != current_experiments
+        or frozen_campaigns != current_campaigns
+    ):
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    report.root_dir,
+                    f"{operation}.report-current",
+                    "Selected Report does not freeze the complete current "
+                    "Session evidence and delegated request",
+                )
+            ]
+        )
+    projection = {
+        "id": report.report["id"],
+        "manifestHash": hash_file(report.root_dir / REPORT_MANIFEST),
+        "reportHash": report.manifest["reportHash"],
+        "evidenceHash": report.report["evidenceHash"],
+        "publishedAt": report.report["publishedAt"],
+    }
+    return report, projection
+
+
+def promote_session(
+    project: ProjectContext,
+    session_id: str,
+    report_id: str | None = None,
+) -> dict[str, Any]:
     session = load_session(project, session_id)
     if session.manifest["status"] != "active":
         raise AutoQuantValidationError(
@@ -1951,6 +2142,35 @@ def promote_session(project: ProjectContext, session_id: str) -> dict[str, Any]:
     if session.manifest["leader"]["runId"] == session.manifest["baseline"]["runId"]:
         raise AutoQuantValidationError(
             [_issue(session.manifest_path, "promotion.no-keep", "Session has no KEEP to promote")]
+        )
+    report_projection: dict[str, Any] | None = None
+    if session.delegation is not None:
+        if report_id is None:
+            raise AutoQuantValidationError(
+                [
+                    _issue(
+                        session.manifest_path,
+                        "promotion.report-required",
+                        "Delegated KEEP promotion requires an exact current "
+                        "Research Report; publish it first and pass --report",
+                    )
+                ]
+            )
+        _, report_projection = _current_terminal_report(
+            project,
+            session,
+            report_id,
+            operation="promotion",
+        )
+    elif report_id is not None:
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    session.manifest_path,
+                    "promotion.report-unexpected",
+                    "Non-delegated Sessions cannot bind a Research Report",
+                )
+            ]
         )
     validate_session_authority(project, session)
     canonical = load_study(project, session.manifest["studyId"])
@@ -1971,18 +2191,31 @@ def promote_session(project: ProjectContext, session_id: str) -> dict[str, Any]:
         )
     leader_hashes = _run_source_hashes(session.leader_run)
     before_hashes = canonical.editable_hashes
-    promoted_at = datetime.now(timezone.utc).isoformat()
-    receipt = {
+    promoted = datetime.now(timezone.utc)
+    promoted_at = promoted.isoformat()
+    receipt_body = {
         "schemaVersion": SCHEMA_VERSION,
-        "id": f"promotion-{session_id}",
+        "kind": "autoquant-session-promotion",
         "sessionId": session_id,
         "projectId": project.manifest.id,
         "studyId": session.manifest["studyId"],
-        "leaderRunId": session.manifest["leader"]["runId"],
+        "disposition": "leader-promoted",
+        "leader": session.manifest["leader"],
         "beforeSourceHash": session.manifest["baseProjectSourceHash"],
         "afterSourceHash": session.manifest["leader"]["sourceHash"],
         "sourceHashes": leader_hashes,
+        "report": report_projection,
         "promotedAt": promoted_at,
+        "authority": "quantitative-decision-support",
+        "tradingAuthority": "none",
+    }
+    identity = hash_json(receipt_body)
+    receipt = {
+        **receipt_body,
+        "id": (
+            f"promotion-{promoted.strftime('%Y%m%dT%H%M%S%fZ')}-"
+            f"{identity[:12]}"
+        ),
     }
     with tempfile.TemporaryDirectory(prefix=f"aq-promote-{session_id}-") as directory:
         backup = Path(directory) / "backup"
@@ -2070,50 +2303,12 @@ def complete_session(
                 )
             ]
         )
-    from .reports import REPORT_MANIFEST, load_report
-    from .research import list_campaign_progress, list_campaigns
-
-    progress = list_campaign_progress(session)
-    if progress:
-        raise AutoQuantValidationError(
-            [
-                _issue(
-                    session.root_dir,
-                    "completion.campaign-running",
-                    "Cannot complete while a Researcher Campaign is running",
-                )
-            ]
-        )
-    report = load_report(project, session, report_id)
-    frozen_session = report.report["evidence"]["session"]
-    frozen_experiments = [
-        item["id"] for item in report.report["evidence"]["experiments"]
-    ]
-    current_experiments = [
-        item.id for item in list_experiments(project, session)
-    ]
-    frozen_campaigns = [
-        item["id"] for item in report.report["evidence"]["campaigns"]
-    ]
-    current_campaigns = [
-        item.id for item in list_campaigns(project, session)
-    ]
-    if (
-        frozen_session["leader"] != session.manifest["leader"]
-        or report.report["request"] != session.delegation["request"]
-        or frozen_experiments != current_experiments
-        or frozen_campaigns != current_campaigns
-    ):
-        raise AutoQuantValidationError(
-            [
-                _issue(
-                    report.root_dir,
-                    "completion.report-current",
-                    "Selected Report does not freeze the complete current "
-                    "Session evidence and delegated request",
-                )
-            ]
-        )
+    report, report_projection = _current_terminal_report(
+        project,
+        session,
+        report_id,
+        operation="completion",
+    )
     receipt_path = session.root_dir / COMPLETION_RECEIPT
     promotion_path = session.root_dir / PROMOTION_RECEIPT
     if (
@@ -2132,13 +2327,6 @@ def complete_session(
             ]
         )
     completed = datetime.now(timezone.utc)
-    report_projection = {
-        "id": report.report["id"],
-        "manifestHash": hash_file(report.root_dir / REPORT_MANIFEST),
-        "reportHash": report.manifest["reportHash"],
-        "evidenceHash": report.report["evidenceHash"],
-        "publishedAt": report.report["publishedAt"],
-    }
     identity = hash_json(
         {
             "sessionId": session_id,

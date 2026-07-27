@@ -125,8 +125,9 @@ Scientific progression is projected separately under `progression`:
 
 - Factor is always the first required evidence lane.
 - Portfolio is admitted only when the current successful Factor Run has
-  strictly reconstructed diagnostics at `factor-qualification-positive` and a
-  current immutable Report freezes that exact leader.
+  strictly reconstructed diagnostics at a request-bound claim-positive stage
+  and a passing Project-family selection adjustment, and a current immutable
+  Report freezes that exact leader.
 - Governed RL is admitted only when the Factor gate remains passed and the
   current successful Portfolio Run has strictly reconstructed diagnostics at
   `post-cost-edge-positive`, again frozen by a current Report.

@@ -102,9 +102,10 @@ The adaptive value-add claim is positive only when validation evidence beats
 the best baseline. “RL used the candidate” and “RL beat the candidate” are
 separate facts.
 
-The upstream Factor Report separately freezes the train-selected style,
-style-neutral residual IC, blend uplift, HAC evidence, and qualification
-diagnosis. This evidence explains whether the source deserves further research;
+The upstream Factor Report separately freezes the request-bound claim,
+request-fixed or train-selected comparison style, raw/style-neutral/blend
+evidence, HAC evidence, and claim-specific qualification diagnosis. This
+evidence explains whether the source deserves further research;
 it does not mutate the dependency closure or automatically grant RL admission.
 The Project Dossier preserves both factor qualification and RL factor-fusion
 diagnosis so any later reviewer or collaborating Agent can identify the first

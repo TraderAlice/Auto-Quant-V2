@@ -44,6 +44,7 @@ from .factor_explorer import (
     MIN_FACTOR_POINTS,
     load_factor_diagnostics,
 )
+from .factor_claims import FACTOR_CLAIM_JSON_SCHEMA
 from .cli_contract import (
     artifact,
     error_envelope,
@@ -256,6 +257,7 @@ def build_parser() -> RaisingArgumentParser:
             "judge-output",
             "run-result",
             "factor-diagnostics",
+            "factor-claim",
             "portfolio-diagnostics",
             "research-program-status",
             "rl-policy-diagnostics",
@@ -582,6 +584,12 @@ def build_parser() -> RaisingArgumentParser:
     session_promote.add_argument("path")
     session_promote.add_argument("--project")
     session_promote.add_argument("--session", required=True)
+    session_promote.add_argument(
+        "--report",
+        help=(
+            "exact current Report required when promoting a delegated KEEP"
+        ),
+    )
     session_promote.set_defaults(command_id="session.promote")
     _json_argument(session_promote)
 
@@ -1658,7 +1666,8 @@ def _run_factor(args: argparse.Namespace) -> CommandResult:
             "Factor qualification: "
             f"{qualification['diagnosis']['stage']} · focus "
             f"{qualification['diagnosis']['iterationFocus']} · "
-            f"dominant train style "
+            f"claim {qualification['claim']['claim']} · "
+            f"comparison style "
             f"{qualification['selection']['dominantStyle']} · "
             "raw/residual/blend validation IC "
             f"{qualified['candidate']['meanRankIc']}/"
@@ -2178,22 +2187,36 @@ def _session_next_actions(project, session) -> list[dict[str, Any]]:
             session.manifest["leader"]["runId"]
             != session.manifest["baseline"]["runId"]
         ):
-            actions.append(
-                next_action(
-                    "session.promote",
-                    "Promote the exact current KEEP if the Project base is unchanged.",
-                    [
-                        "aq",
-                        "session",
-                        "promote",
-                        str(project.root_dir),
-                        "--session",
-                        session.manifest["id"],
-                        "--json",
-                    ],
-                    "mutates-project",
+            if session.delegation is None or current_report is not None:
+                promote_argv = [
+                    "aq",
+                    "session",
+                    "promote",
+                    str(project.root_dir),
+                    "--session",
+                    session.manifest["id"],
+                ]
+                if current_report is not None:
+                    promote_argv.extend(
+                        ["--report", current_report.id]
+                    )
+                promote_argv.append("--json")
+                actions.append(
+                    next_action(
+                        "session.promote",
+                        (
+                            "Promote the exact current KEEP with its immutable "
+                            "Report if the Project base is unchanged."
+                            if current_report is not None
+                            else (
+                                "Promote the exact current KEEP if the Project "
+                                "base is unchanged."
+                            )
+                        ),
+                        promote_argv,
+                        "mutates-project",
+                    )
                 )
-            )
         if (
             current_report is not None
             and session.manifest["leader"] == session.manifest["baseline"]
@@ -2468,7 +2491,7 @@ def _session_compare(args: argparse.Namespace) -> CommandResult:
 
 def _session_promote(args: argparse.Namespace) -> CommandResult:
     project = _selected_project(args)
-    receipt = promote_session(project, args.session)
+    receipt = promote_session(project, args.session, args.report)
     session = load_session(project, args.session)
     receipt_path = session.root_dir / "promotion.json"
     return CommandResult(
@@ -2479,6 +2502,11 @@ def _session_promote(args: argparse.Namespace) -> CommandResult:
             f"Study: {session.manifest['studyId']}\n"
             f"Source: {receipt['beforeSourceHash']} -> "
             f"{receipt['afterSourceHash']}\n"
+            + (
+                f"Report: {receipt['report']['id']}\n"
+                if receipt.get("report") is not None
+                else ""
+            )
         ),
         project_context(project),
         [
@@ -2853,6 +2881,8 @@ def _report_publish(args: argparse.Namespace) -> CommandResult:
                     str(project.root_dir),
                     "--session",
                     session.manifest["id"],
+                    "--report",
+                    report.report["id"],
                     "--json",
                 ],
                 "mutates-project",
@@ -3562,6 +3592,7 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "dossier-status",
             "experiment",
             "factor-diagnostics",
+            "factor-claim",
             "judge-output",
             "ohlcv-dataset-package",
             "portfolio-diagnostics",
@@ -3601,6 +3632,7 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "judge-output": JUDGE_OUTPUT_JSON_SCHEMA,
             "run-result": RUN_RESULT_JSON_SCHEMA,
             "factor-diagnostics": FACTOR_DIAGNOSTICS_JSON_SCHEMA,
+            "factor-claim": FACTOR_CLAIM_JSON_SCHEMA,
             "portfolio-diagnostics": PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA,
             "research-program-status": RESEARCH_PROGRAM_STATUS_JSON_SCHEMA,
             "rl-policy-diagnostics": RL_DIAGNOSTICS_JSON_SCHEMA,

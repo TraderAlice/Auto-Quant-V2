@@ -41,8 +41,15 @@ A candidate may additionally export:
 FACTOR_COMPONENTS = {
     "momentum_1h_10": {
         "label": "10-hour momentum",
+        "role": "cross-sectional-score",
         "intervals": ["base"],
         "hypothesis": "Recent relative strength persists over the next bar.",
+    },
+    "market_stress": {
+        "label": "Market stress",
+        "role": "timestamp-context",
+        "intervals": ["base"],
+        "hypothesis": "The final factor behaves differently in stressed markets.",
     },
 }
 
@@ -61,9 +68,16 @@ columns actually returned for the Run.
 Each materialized component declares:
 
 - a concise human label;
+- one semantic role: `cross-sectional-score` or `timestamp-context`;
 - the supplied intervals it claims to use (`base` resolves to the current
   decision interval);
 - one falsifiable hypothesis sentence.
+
+`cross-sectional-score` values may vary by asset at the same timestamp.
+`timestamp-context` values must be identical across all finite assets at that
+timestamp. A market-wide regime repeated down the panel is therefore explicit
+context, rather than a zero-variance cross-sectional score that silently
+produces useless IC.
 
 The declaration is research metadata, not proof of runtime column access.
 Candidate source and metadata are already content-locked in the Run subject.
@@ -95,7 +109,7 @@ misdescribe the code.
 All predictive targets and split masks are the same purged request-bound
 decision-bar contract used by the final factor.
 
-For every materialized component, the Judge records:
+For every materialized cross-sectional score, the Judge records:
 
 - coverage;
 - train, validation, and test-audit rank IC summaries at every declared
@@ -108,8 +122,15 @@ For every materialized component, the Judge records:
   equal-weight cross-sectional percentile-rank blend.
 
 Every component pair also records mean and mean-absolute same-date rank
-association by split. Ties are deterministic by component name. Sparse cells
+association by split. Pairwise, residual, blend, and leave-one-out evidence is
+score-only. Ties are deterministic by component name. Sparse cells
 retain observations and null statistics.
+
+For every timestamp context, train target-free tertiles define fixed
+`low` / `middle` / `high` states. The Judge records each split's distribution,
+state occupancy, transition rate, and final-factor IC conditional on state at
+every request-bound horizon. Validation may guide a regime hypothesis; test
+remains visible audit and never selects thresholds or a candidate.
 
 The fixed blend is a diagnostic reference:
 
@@ -175,7 +196,7 @@ fixed baselines. This contract does not grant it implicitly.
 
 ## Bounds
 
-- materialized components: 1–12;
+- materialized components: 1–12, partitioned into score and context roles;
 - metadata entries: 1–24;
 - interval claims per component: 1–6;
 - component artifact: 8 MiB;
@@ -190,11 +211,12 @@ fixed baselines. This contract does not grant it implicitly.
 3. Component targets, purges, splits, and final-factor population are fixed by
    the Judge.
 4. Nearest-peer selection is train-only and target-free.
-5. Fixed-blend ablation is not candidate-factor attribution.
-6. Validation diagnoses; test only audits.
-7. Final-factor `validation_mean_ic` remains the sole promotion objective.
-8. CLI, Studio, Report, and Dossier consume one verified bounded Core object.
-9. Portfolio, RL, host, Broker, order, and account authority remain unchanged.
+5. Timestamp-context states use train-only, target-free thresholds.
+6. Fixed-blend ablation is not candidate-factor attribution.
+7. Validation diagnoses; test only audits.
+8. Final-factor `validation_mean_ic` remains the sole promotion objective.
+9. CLI, Studio, Report, and Dossier consume one verified bounded Core object.
+10. Portfolio, RL, host, Broker, order, and account authority remain unchanged.
 
 ## Known limits
 

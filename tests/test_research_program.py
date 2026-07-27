@@ -72,6 +72,15 @@ def _report_analysis(run) -> dict:
     }
 
 
+def _passing_factor_selection_integrity() -> dict:
+    return {
+        "selectionAdjustment": {
+            "status": "available",
+            "passes": True,
+        }
+    }
+
+
 class MultiStudyResearchProgramTests(unittest.TestCase):
     def test_reverted_candidate_does_not_replace_current_lane_evidence(
         self,
@@ -429,7 +438,13 @@ class MultiStudyResearchProgramTests(unittest.TestCase):
                     "latestRun": {"id": "run-factor"},
                     "currentRun": True,
                     "reports": [
-                        {"id": "report-factor", "leaderRunId": "run-factor"}
+                        {
+                            "id": "report-factor",
+                            "leaderRunId": "run-factor",
+                            "selectionIntegrity": (
+                                _passing_factor_selection_integrity()
+                            ),
+                        }
                     ],
                     "latestSession": {"status": "completed"},
                 },
@@ -458,6 +473,7 @@ class MultiStudyResearchProgramTests(unittest.TestCase):
                         "stage": "factor-qualification-positive",
                         "iterationFocus": "portfolio-monetization-and-rl-context",
                         "explanation": "Distinct factor evidence is positive.",
+                        "qualifiesForPortfolio": True,
                     },
                 }
             }
@@ -515,7 +531,13 @@ class MultiStudyResearchProgramTests(unittest.TestCase):
                     "latestRun": {"id": "run-factor"},
                     "currentRun": True,
                     "reports": [
-                        {"id": "report-factor", "leaderRunId": "run-factor"}
+                        {
+                            "id": "report-factor",
+                            "leaderRunId": "run-factor",
+                            "selectionIntegrity": (
+                                _passing_factor_selection_integrity()
+                            ),
+                        }
                     ],
                     "latestSession": {"status": "completed"},
                 },
@@ -548,6 +570,7 @@ class MultiStudyResearchProgramTests(unittest.TestCase):
                                 "stage": "factor-qualification-positive",
                                 "iterationFocus": "portfolio-monetization",
                                 "explanation": "Factor evidence is positive.",
+                                "qualifiesForPortfolio": True,
                             },
                         }
                     },
@@ -584,3 +607,57 @@ class MultiStudyResearchProgramTests(unittest.TestCase):
             )
             self.assertEqual(progression["focusLaneId"], "portfolio")
             self.assertIsNone(progression["optionalLaneId"])
+
+    def test_claim_positive_factor_still_requires_family_adjustment(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = initialize_workspace(Path(directory) / "workspace")
+            project = create_project(
+                workspace.root_dir,
+                "adjustment-gated-desk",
+                template="ohlcv-research-desk",
+            )
+            lane = {
+                "latestRun": {"id": "run-factor"},
+                "currentRun": True,
+                "reports": [
+                    {
+                        "id": "report-factor",
+                        "leaderRunId": "run-factor",
+                        "selectionIntegrity": {
+                            "selectionAdjustment": {
+                                "status": "available",
+                                "passes": False,
+                            }
+                        },
+                    }
+                ],
+            }
+            with mock.patch.object(
+                research_program_module,
+                "load_factor_diagnostics",
+                return_value={
+                    "factorQualification": {
+                        "available": True,
+                        "diagnosis": {
+                            "stage": "known-style-validation-positive",
+                            "iterationFocus": "portfolio-monetization",
+                            "explanation": "Known style evidence is positive.",
+                            "qualifiesForPortfolio": True,
+                        },
+                    }
+                },
+            ):
+                gate = research_program_module._factor_to_portfolio_gate(
+                    project,
+                    lane,
+                )
+            self.assertEqual(
+                gate["status"],
+                "blocked-selection-adjusted-evidence",
+            )
+            self.assertEqual(
+                gate["diagnosisStage"],
+                "known-style-validation-positive",
+            )
