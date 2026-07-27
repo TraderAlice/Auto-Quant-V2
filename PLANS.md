@@ -18,8 +18,6 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-| Plan | Outcome | Updated |
-| --- | --- | --- |
 There are no active plans.
 
 ## Proposed plans
@@ -34,6 +32,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/caller-owned-asset-position-caps]] | Let callers assign different maximum research weights to requested assets and make Portfolio/RL share, audit, and explain those exact limits. | 2026-07-27 |
 | [[plans/request-bound-research-horizon]] | Made the caller's numerical forward horizon govern Factor selection and remain explicit across Portfolio, RL, Studio, and handoff evidence. | 2026-07-27 |
 | [[plans/caller-owned-portfolio-research-policy]] | Let each OpenAlice/local request lock the risk, cost, rebalance, and reference-capital assumptions shared by Portfolio and governed RL. | 2026-07-27 |
 | [[plans/configurable-session-interval-inputs]] | Made the base K-line interval explicit and added calendar-verified XNYS intraday/session aggregation shared by Factor, Portfolio, and RL. | 2026-07-27 |

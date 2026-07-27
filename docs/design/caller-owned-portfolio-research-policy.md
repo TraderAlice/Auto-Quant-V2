@@ -35,6 +35,10 @@ can still request support. When present it contains every field:
 {
   "grossLimit": 0.8,
   "maxAbsWeight": 0.2,
+  "assetMaxAbsWeights": {
+    "AAPL": 0.12,
+    "NVDA": 0.08
+  },
   "annualizedVolatilityCeiling": 0.12,
   "baseCostBps": 15.0,
   "noTradeOneWay": 0.04,
@@ -47,13 +51,15 @@ Bounds are deliberately finite:
 - `grossLimit`: `(0, 2]`;
 - `maxAbsWeight`: `(0, grossLimit]`, and no more than one side budget for
   dollar-neutral mandates;
+- `assetMaxAbsWeights`: a possibly empty map of requested assets to finite
+  caps in `(0, maxAbsWeight]`;
 - `annualizedVolatilityCeiling`: `(0, 1]`;
 - `baseCostBps`: `[0, 1000]`;
 - `noTradeOneWay`: `[0, 1]`;
 - `referenceNav`: `(0, 1e12]`.
 
 When omitted, Core inserts the documented reference defaults `1.0`, `0.30`,
-`0.15`, `10`, `0.05`, and `1,000,000`.
+an empty override map, `0.15`, `10`, `0.05`, and `1,000,000`.
 
 ## Mandate contract
 
@@ -103,7 +109,9 @@ default assumptions and retain `tradingAuthority: none`.
 
 ## Known limits
 
-- One global cap cannot express different single-name limits or named hedges.
+- Per-asset maximum caps do not express named hedges, minimum allocations, or
+  correlated group limits; see
+  [[docs/design/caller-owned-asset-position-caps]].
 - Linear bps cost is not spread, impact, borrow, funding, or tax.
 - Reference NAV only scales OHLCV participation; it does not change percentage
   weights or create account state.

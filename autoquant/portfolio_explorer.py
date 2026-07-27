@@ -2638,7 +2638,10 @@ def _signal_monetization_projection(
 
     family = mandate["family"]
     gross_limit = float(mandate["grossLimit"])
-    cap = float(mandate["maxAbsWeight"])
+    asset_caps = {
+        asset: float(mandate["assetMaxAbsWeights"][asset])
+        for asset in universe
+    }
     daily_by_date = {row["timestamp"]: row for row in daily.rows}
     by_date: dict[str, list[dict[str, Any]]] = {}
     for item in ordered_decisions:
@@ -2648,6 +2651,34 @@ def _signal_monetization_projection(
         rows: list[dict[str, Any]],
     ) -> dict[str, float]:
         weights = {asset: 0.0 for asset in universe}
+
+        def capped_equal_side(
+            assets: list[str],
+            budget: float,
+            sign: float,
+        ) -> bool:
+            capacity = sum(asset_caps[asset] for asset in assets)
+            if not assets or capacity + 1e-12 < budget:
+                return False
+            remaining = list(assets)
+            remaining_budget = budget
+            while remaining:
+                equal_weight = remaining_budget / len(remaining)
+                capped = [
+                    asset
+                    for asset in remaining
+                    if asset_caps[asset] < equal_weight - 1e-12
+                ]
+                if not capped:
+                    for asset in remaining:
+                        weights[asset] = sign * equal_weight
+                    return True
+                for asset in capped:
+                    weights[asset] = sign * asset_caps[asset]
+                    remaining.remove(asset)
+                    remaining_budget -= asset_caps[asset]
+            return abs(remaining_budget) <= 1e-9
+
         longs = [
             item["asset"]
             for item in rows
@@ -2661,24 +2692,22 @@ def _signal_monetization_projection(
         if family == "dollar-neutral":
             side_budget = gross_limit / 2.0
             if (
-                not longs
-                or not shorts
-                or len(longs) * cap < side_budget - 1e-12
-                or len(shorts) * cap < side_budget - 1e-12
+                not capped_equal_side(longs, side_budget, 1.0)
+                or not capped_equal_side(shorts, side_budget, -1.0)
             ):
-                return weights
-            for asset in longs:
-                weights[asset] = side_budget / len(longs)
-            for asset in shorts:
-                weights[asset] = -side_budget / len(shorts)
+                return {asset: 0.0 for asset in universe}
         elif family == "long-cash" and longs:
-            budget = min(gross_limit, len(longs) * cap)
-            for asset in longs:
-                weights[asset] = budget / len(longs)
+            budget = min(
+                gross_limit,
+                sum(asset_caps[asset] for asset in longs),
+            )
+            capped_equal_side(longs, budget, 1.0)
         elif family == "short-cash" and shorts:
-            budget = min(gross_limit, len(shorts) * cap)
-            for asset in shorts:
-                weights[asset] = -budget / len(shorts)
+            budget = min(
+                gross_limit,
+                sum(asset_caps[asset] for asset in shorts),
+            )
+            capped_equal_side(shorts, budget, -1.0)
         return weights
 
     stage_ids = (
@@ -2787,8 +2816,8 @@ def _signal_monetization_projection(
                 errors["maximumEqualIntentCapExcess"],
                 max(
                     (
-                        max(0.0, abs(value) - cap)
-                        for value in intent_weights.values()
+                        max(0.0, abs(value) - asset_caps[asset])
+                        for asset, value in intent_weights.items()
                     ),
                     default=0.0,
                 ),
@@ -3506,6 +3535,10 @@ def _sizing_anatomy_projection(
     family = mandate["family"]
     gross_limit = float(mandate["grossLimit"])
     cap = float(mandate["maxAbsWeight"])
+    asset_caps = {
+        asset: float(mandate["assetMaxAbsWeights"][asset])
+        for asset in universe
+    }
     risk_scale = mechanical_decision["targetGate"]["riskGovernorScale"]
     side_budgets = {
         "long": (
@@ -3547,7 +3580,7 @@ def _sizing_anatomy_projection(
             for asset in active
         )
         configured_budget = side_budgets[side]
-        cap_capacity = len(active) * cap
+        cap_capacity = sum(asset_caps[asset] for asset in active)
         proportional_budget = (
             min(configured_budget, cap_capacity)
             if family != "dollar-neutral"
@@ -3565,7 +3598,7 @@ def _sizing_anatomy_projection(
         at_cap_assets = [
             asset
             for asset in active
-            if abs(raw_by_asset[asset]) >= cap - 1e-9
+            if abs(raw_by_asset[asset]) >= asset_caps[asset] - 1e-9
         ]
         side_strengths[side] = strength_total
         proportional_budgets[side] = proportional_budget
@@ -3680,6 +3713,7 @@ def _sizing_anatomy_projection(
             else 0.0
         )
         raw_weight = raw_by_asset[asset]
+        asset_cap = asset_caps[asset]
         governed_weight = item["proposed_target_weight"]
         if not math.isclose(
             governed_weight,
@@ -3710,14 +3744,14 @@ def _sizing_anatomy_projection(
                 "riskStrength": strength,
                 "sameSideStrengthShare": strength_share,
                 "proportionalWeightBeforeCap": proportional_weight,
-                "maxAbsWeight": cap,
+                "maxAbsWeight": asset_cap,
                 "proportionalWeightExceedsCap": (
-                    abs(proportional_weight) > cap + 1e-9
+                    abs(proportional_weight) > asset_cap + 1e-9
                 ),
                 "rawWeight": raw_weight,
                 "atCap": (
                     abs(raw_weight) > 1e-12
-                    and abs(raw_weight) >= cap - 1e-9
+                    and abs(raw_weight) >= asset_cap - 1e-9
                 ),
                 "allocationDeltaFromProportional": (
                     raw_weight - proportional_weight
@@ -3801,6 +3835,7 @@ def _sizing_anatomy_projection(
             "rule": "percentile-conviction-divided-by-trailing-volatility",
             "grossLimit": gross_limit,
             "maxAbsWeight": cap,
+            "assetMaxAbsWeights": asset_caps,
             "riskGovernorScale": risk_scale,
             "rawGross": raw_gross,
             "governedGross": governed_gross,
@@ -4096,6 +4131,9 @@ def _mandate_projection(
             "contextAssets": [],
             "grossLimit": 1.0,
             "maxAbsWeight": 0.30,
+            "assetMaxAbsWeights": {
+                asset: 0.30 for asset in universe
+            },
             "cashAllowed": True,
             "shortAllowed": True,
             "benchmark": "equal-weight-long-research-universe",
@@ -4169,6 +4207,7 @@ def _mandate_projection(
         "contextAssets": mandate["contextAssets"],
         "grossLimit": construction["grossLimit"],
         "maxAbsWeight": construction["maxAbsWeight"],
+        "assetMaxAbsWeights": construction["assetMaxAbsWeights"],
         "cashAllowed": construction["cashAllowed"],
         "shortAllowed": construction["shortAllowed"],
         "benchmark": construction["benchmark"],
@@ -6719,7 +6758,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 "proportionalWeightBeforeCap": {"type": "number"},
                 "maxAbsWeight": {
                     "type": "number",
-                    "exclusiveMinimum": 0,
+                    "minimum": 0,
                 },
                 "proportionalWeightExceedsCap": {"type": "boolean"},
                 "rawWeight": {"type": "number"},
@@ -7305,6 +7344,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 "contextAssets",
                 "grossLimit",
                 "maxAbsWeight",
+                "assetMaxAbsWeights",
                 "cashAllowed",
                 "shortAllowed",
                 "benchmark",
@@ -7391,6 +7431,15 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 "maxAbsWeight": {
                     "type": "number",
                     "exclusiveMinimum": 0,
+                },
+                "assetMaxAbsWeights": {
+                    "type": "object",
+                    "minProperties": 1,
+                    "maxProperties": MAX_UNIVERSE,
+                    "additionalProperties": {
+                        "type": "number",
+                        "minimum": 0,
+                    },
                 },
                 "cashAllowed": {"type": "boolean"},
                 "shortAllowed": {"type": "boolean"},
@@ -7878,6 +7927,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                         "rule",
                         "grossLimit",
                         "maxAbsWeight",
+                        "assetMaxAbsWeights",
                         "riskGovernorScale",
                         "rawGross",
                         "governedGross",
@@ -7905,6 +7955,15 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                         "maxAbsWeight": {
                             "type": "number",
                             "exclusiveMinimum": 0,
+                        },
+                        "assetMaxAbsWeights": {
+                            "type": "object",
+                            "minProperties": 1,
+                            "maxProperties": MAX_UNIVERSE,
+                            "additionalProperties": {
+                                "type": "number",
+                                "minimum": 0,
+                            },
                         },
                         "riskGovernorScale": {
                             "type": "number",

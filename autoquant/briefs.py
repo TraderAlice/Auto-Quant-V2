@@ -35,13 +35,17 @@ REQUEST_DIRECTIONS = {
 }
 SOURCE_SYSTEMS = {"openalice", "external", "local"}
 ASSET_CLASSES = {"equity", "fund", "future", "forex", "crypto", "index", "other"}
-PORTFOLIO_POLICY_FIELDS = {
+PORTFOLIO_POLICY_NUMERIC_FIELDS = {
     "grossLimit",
     "maxAbsWeight",
     "annualizedVolatilityCeiling",
     "baseCostBps",
     "noTradeOneWay",
     "referenceNav",
+}
+PORTFOLIO_POLICY_FIELDS = {
+    *PORTFOLIO_POLICY_NUMERIC_FIELDS,
+    "assetMaxAbsWeights",
 }
 
 
@@ -162,7 +166,7 @@ def validate_research_request(
             )
         )
     policy = value.get("portfolioPolicy")
-    normalized_policy: dict[str, float] | None = None
+    normalized_policy: dict[str, Any] | None = None
     if policy is not None:
         if not isinstance(policy, dict):
             issues.append(
@@ -181,7 +185,7 @@ def validate_research_request(
                 )
             )
             numeric: dict[str, float] = {}
-            for key in sorted(PORTFOLIO_POLICY_FIELDS):
+            for key in sorted(PORTFOLIO_POLICY_NUMERIC_FIELDS):
                 item = policy.get(key)
                 if (
                     not isinstance(item, (int, float))
@@ -197,7 +201,68 @@ def validate_research_request(
                     )
                 else:
                     numeric[key] = float(item)
-            if len(numeric) == len(PORTFOLIO_POLICY_FIELDS):
+            raw_asset_caps = policy.get("assetMaxAbsWeights")
+            asset_caps: dict[str, float] | None = None
+            if not isinstance(raw_asset_caps, dict):
+                issues.append(
+                    _issue(
+                        f"{path}/portfolioPolicy/assetMaxAbsWeights",
+                        "request.asset-cap-map",
+                        "assetMaxAbsWeights must be an object",
+                    )
+                )
+            else:
+                asset_caps = {}
+                if len(raw_asset_caps) > 256:
+                    issues.append(
+                        _issue(
+                            f"{path}/portfolioPolicy/assetMaxAbsWeights",
+                            "request.asset-cap-count",
+                            "assetMaxAbsWeights may contain at most 256 assets",
+                        )
+                    )
+                for symbol, item in raw_asset_caps.items():
+                    cap_path = (
+                        f"{path}/portfolioPolicy/"
+                        f"assetMaxAbsWeights/{symbol}"
+                    )
+                    if not isinstance(symbol, str) or not symbol.strip():
+                        issues.append(
+                            _issue(
+                                cap_path,
+                                "request.asset-cap-symbol",
+                                "Asset cap symbols must be non-empty strings",
+                            )
+                        )
+                    elif (
+                        not isinstance(item, (int, float))
+                        or isinstance(item, bool)
+                        or not math.isfinite(float(item))
+                    ):
+                        issues.append(
+                            _issue(
+                                cap_path,
+                                "request.asset-cap-number",
+                                "Asset caps must be finite numbers",
+                            )
+                        )
+                    else:
+                        normalized_symbol = symbol.strip()
+                        if normalized_symbol in asset_caps:
+                            issues.append(
+                                _issue(
+                                    cap_path,
+                                    "request.duplicate-asset-cap",
+                                    "Asset cap symbols must be unique after "
+                                    "whitespace normalization",
+                                )
+                            )
+                        else:
+                            asset_caps[normalized_symbol] = float(item)
+            if (
+                len(numeric) == len(PORTFOLIO_POLICY_NUMERIC_FIELDS)
+                and asset_caps is not None
+            ):
                 bounds = (
                     ("grossLimit", 0.0, 2.0, False),
                     ("maxAbsWeight", 0.0, 2.0, False),
@@ -242,7 +307,13 @@ def validate_research_request(
                             "side budget",
                         )
                     )
-                normalized_policy = numeric
+                normalized_policy = {
+                    **numeric,
+                    "assetMaxAbsWeights": {
+                        symbol: asset_caps[symbol]
+                        for symbol in sorted(asset_caps)
+                    },
+                }
     horizon_policy = value.get("horizonPolicy")
     normalized_horizon_policy: dict[str, Any] | None = None
     if horizon_policy is not None:
@@ -381,6 +452,36 @@ def validate_research_request(
         issues.append(
             _issue(f"{path}/assets", "request.duplicate-asset", "Assets must be unique")
         )
+    if normalized_policy is not None:
+        requested_symbols = {
+            identity[1]
+            for identity in asset_identities
+            if isinstance(identity[1], str)
+        }
+        global_cap = normalized_policy["maxAbsWeight"]
+        for symbol, asset_cap in normalized_policy[
+            "assetMaxAbsWeights"
+        ].items():
+            cap_path = (
+                f"{path}/portfolioPolicy/assetMaxAbsWeights/{symbol}"
+            )
+            if symbol not in requested_symbols:
+                issues.append(
+                    _issue(
+                        cap_path,
+                        "request.asset-cap-unrequested",
+                        "Per-asset caps may name requested assets only",
+                    )
+                )
+            if not 0 < asset_cap <= global_cap:
+                issues.append(
+                    _issue(
+                        cap_path,
+                        "request.asset-cap-bound",
+                        "Per-asset caps must be positive and no greater "
+                        "than maxAbsWeight",
+                    )
+                )
 
     source = value.get("source")
     if not isinstance(source, dict):
@@ -720,6 +821,15 @@ RESEARCH_REQUEST_JSON_SCHEMA: dict[str, Any] = {
                             "type": "number",
                             "exclusiveMinimum": 0,
                             "maximum": 2,
+                        },
+                        "assetMaxAbsWeights": {
+                            "type": "object",
+                            "maxProperties": 256,
+                            "additionalProperties": {
+                                "type": "number",
+                                "exclusiveMinimum": 0,
+                                "maximum": 2,
+                            },
                         },
                         "annualizedVolatilityCeiling": {
                             "type": "number",

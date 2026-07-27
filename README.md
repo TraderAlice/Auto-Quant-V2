@@ -55,10 +55,11 @@ Portfolio Mandate: requested assets and direction define position authority,
 while other panel assets remain research context. The Mandate also fixes a
 causal one-sided covariance volatility ceiling shared by Portfolio and RL.
 An optional strict `portfolioPolicy` in the Research Request lets the caller
-lock gross, single-name cap, volatility ceiling, base cost, no-trade band,
-and research reference NAV; documented reference defaults are explicit when
-it is omitted. These are research assumptions, not Broker/account state or
-trading authority. An optional strict `horizonPolicy` likewise locks the
+lock gross, a default single-name cap, named per-asset cap overrides,
+volatility ceiling, base cost, no-trade band, and research reference NAV;
+documented reference defaults are explicit when it is omitted. These are
+research assumptions, not Broker/account state or trading authority. An
+optional strict `horizonPolicy` likewise locks the
 primary and diagnostic forward targets in decision bars; the dataset base
 interval supplies the meaning of one bar. See
 [[docs/design/caller-owned-portfolio-research-policy]]. Intake does not

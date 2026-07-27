@@ -4628,6 +4628,10 @@ def load_rl_diagnostics(
             "contextAssets": [],
             "grossLimit": 1.0,
             "maxAbsWeight": 0.30,
+            "assetMaxAbsWeights": {
+                asset: 0.30
+                for asset in run.result["dataset"]["universe"]
+            },
             "cashAllowed": True,
             "shortAllowed": True,
             "benchmark": "equal-weight-long-research-universe",
@@ -4714,6 +4718,7 @@ def load_rl_diagnostics(
             "contextAssets": mandate["contextAssets"],
             "grossLimit": construction["grossLimit"],
             "maxAbsWeight": construction["maxAbsWeight"],
+            "assetMaxAbsWeights": construction["assetMaxAbsWeights"],
             "cashAllowed": construction["cashAllowed"],
             "shortAllowed": construction["shortAllowed"],
             "benchmark": construction["benchmark"],

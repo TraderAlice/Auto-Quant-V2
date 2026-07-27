@@ -689,6 +689,14 @@ def _render_markdown(report: dict[str, Any]) -> str:
     if isinstance(mandate, dict):
         construction = mandate["construction"]
         implementation = mandate["implementationPolicy"]
+        named_caps = {
+            asset: value
+            for asset, value in construction[
+                "assetMaxAbsWeights"
+            ].items()
+            if asset in mandate["tradableAssets"]
+            and value != construction["maxAbsWeight"]
+        }
         lines.extend(
             [
                 "## Portfolio mandate",
@@ -707,10 +715,19 @@ def _render_markdown(report: dict[str, Any]) -> str:
                     if mandate["contextAssets"]
                     else "none"
                 ),
-                f"- Gross limit / per-asset cap / cash allowed: "
+                f"- Gross limit / default per-asset cap / cash allowed: "
                 f"`{construction['grossLimit']}` / "
                 f"`{construction['maxAbsWeight']}` / "
                 f"`{construction['cashAllowed']}`",
+                "- Named per-asset cap overrides: "
+                + (
+                    ", ".join(
+                        f"`{asset}`=`{value}`"
+                        for asset, value in named_caps.items()
+                    )
+                    if named_caps
+                    else "none"
+                ),
                 f"- Shorting allowed / benchmark: "
                 f"`{construction['shortAllowed']}` / "
                 f"`{construction['benchmark']}`",

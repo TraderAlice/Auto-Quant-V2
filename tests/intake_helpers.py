@@ -19,7 +19,7 @@ def write_intake_inputs(
     start: str = "2024-01-02",
     dataset_id: str = "bounded-us-equities",
     dataset_version: str = "2024-v1",
-    portfolio_policy: dict[str, float] | None = None,
+    portfolio_policy: dict[str, object] | None = None,
     horizon_policy: dict[str, object] | None = None,
 ) -> tuple[Path, Path]:
     source = root / "external-data"

@@ -1272,6 +1272,14 @@ def _render_markdown(dossier: dict[str, Any]) -> str:
         for mandate in mandates.values():
             construction = mandate["construction"]
             implementation = mandate["implementationPolicy"]
+            named_caps = {
+                asset: value
+                for asset, value in construction[
+                    "assetMaxAbsWeights"
+                ].items()
+                if asset in mandate["tradableAssets"]
+                and value != construction["maxAbsWeight"]
+            }
             lines.extend(
                 [
                     f"- Mandate: `{mandate['id']}`",
@@ -1288,10 +1296,19 @@ def _render_markdown(dossier: dict[str, Any]) -> str:
                         if mandate["contextAssets"]
                         else "none"
                     ),
-                    f"- Gross limit / per-asset cap / cash: "
+                    f"- Gross limit / default per-asset cap / cash: "
                     f"`{construction['grossLimit']}` / "
                     f"`{construction['maxAbsWeight']}` / "
                     f"`{construction['cashAllowed']}`",
+                    "- Named per-asset cap overrides: "
+                    + (
+                        ", ".join(
+                            f"`{asset}`=`{value}`"
+                            for asset, value in named_caps.items()
+                        )
+                        if named_caps
+                        else "none"
+                    ),
                     f"- Benchmark: `{construction['benchmark']}`",
                     f"- Portfolio policy source: "
                     f"`{mandate['source']['portfolioPolicy']}`",

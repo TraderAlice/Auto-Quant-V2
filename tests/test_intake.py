@@ -167,6 +167,10 @@ class RequestDrivenIntakeTests(unittest.TestCase):
             policy = {
                 "grossLimit": 0.8,
                 "maxAbsWeight": 0.2,
+                "assetMaxAbsWeights": {
+                    "AAPL": 0.12,
+                    "MSFT": 0.08,
+                },
                 "annualizedVolatilityCeiling": 0.12,
                 "baseCostBps": 17.5,
                 "noTradeOneWay": 0.04,
@@ -197,6 +201,16 @@ class RequestDrivenIntakeTests(unittest.TestCase):
             self.assertEqual(
                 mandate["implementationPolicy"]["baseCostBps"],
                 17.5,
+            )
+            self.assertEqual(
+                mandate["construction"]["assetMaxAbsWeights"],
+                {
+                    "AAPL": 0.12,
+                    "MSFT": 0.08,
+                    "NVDA": 0.0,
+                    "QQQ": 0.0,
+                    "SPY": 0.0,
+                },
             )
 
             portfolio_run = execute_study(project, PORTFOLIO_STUDY_ID)
@@ -246,6 +260,19 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                 portfolio_projection["mandate"]["implementationPolicy"],
                 mandate["implementationPolicy"],
             )
+            self.assertEqual(
+                portfolio_projection["mandate"]["assetMaxAbsWeights"],
+                mandate["construction"]["assetMaxAbsWeights"],
+            )
+            for position in portfolio_projection["sizingAnatomy"][
+                "positions"
+            ]:
+                self.assertEqual(
+                    position["maxAbsWeight"],
+                    mandate["construction"]["assetMaxAbsWeights"][
+                        position["asset"]
+                    ],
+                )
             self.assertAlmostEqual(
                 portfolio_projection["strategyViability"]["validation"][
                     "friction"
@@ -277,6 +304,20 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                 ],
                 mandate["implementationPolicy"],
             )
+            self.assertEqual(
+                rl_projection["portfolioMandate"][
+                    "assetMaxAbsWeights"
+                ],
+                mandate["construction"]["assetMaxAbsWeights"],
+            )
+            for audit in rl_run.result["metrics"][
+                "constraint_audit"
+            ].values():
+                self.assertTrue(audit["passed"])
+                self.assertEqual(
+                    audit["asset_max_abs_weights"],
+                    mandate["construction"]["assetMaxAbsWeights"],
+                )
             jsonschema.validate(
                 rl_projection,
                 RL_DIAGNOSTICS_JSON_SCHEMA,

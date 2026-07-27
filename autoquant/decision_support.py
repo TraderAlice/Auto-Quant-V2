@@ -899,9 +899,16 @@ def sizing_anatomy_markdown_lines(
         f"`{construction['governedGross']}` / "
         f"`{construction['executedGross']}`; "
         f"`{construction['unfundedGross']}`",
-        f"- Per-asset cap / covariance risk scale: "
+        f"- Default per-asset cap / covariance risk scale: "
         f"`{construction['maxAbsWeight']}` / "
         f"`{construction['riskGovernorScale']}`",
+        "- Effective per-asset caps: "
+        + ", ".join(
+            f"`{asset}`=`{value}`"
+            for asset, value in construction[
+                "assetMaxAbsWeights"
+            ].items()
+        ),
         f"- Executed component-risk availability / absolute HHI / largest "
         f"contributor: `{component['available']}` / "
         f"`{component['absoluteConcentrationHhi']}` / "

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 from typing import Any
 
@@ -56,6 +57,7 @@ PORTFOLIO_RISK_POLICY = {
 DEFAULT_PORTFOLIO_POLICY = {
     "grossLimit": 1.0,
     "maxAbsWeight": 0.30,
+    "assetMaxAbsWeights": {},
     "annualizedVolatilityCeiling": 0.15,
     "baseCostBps": 10.0,
     "noTradeOneWay": 0.05,
@@ -85,10 +87,27 @@ def _valid_portfolio_policy(
     required = set(DEFAULT_PORTFOLIO_POLICY)
     if set(value) != required:
         return False
+    numeric_fields = required - {"assetMaxAbsWeights"}
     if any(
         not isinstance(value[key], (int, float))
         or isinstance(value[key], bool)
-        for key in required
+        or not math.isfinite(float(value[key]))
+        for key in numeric_fields
+    ):
+        return False
+    asset_caps = value["assetMaxAbsWeights"]
+    if (
+        not isinstance(asset_caps, dict)
+        or len(asset_caps) > 256
+        or any(
+            not isinstance(symbol, str)
+            or not symbol.strip()
+            or symbol != symbol.strip()
+            or not isinstance(item, (int, float))
+            or isinstance(item, bool)
+            or not math.isfinite(float(item))
+            for symbol, item in asset_caps.items()
+        )
     ):
         return False
     gross = float(value["grossLimit"])
@@ -110,6 +129,10 @@ def _valid_portfolio_policy(
         and 0 <= cost <= 1000
         and 0 <= no_trade <= 1
         and 0 < nav <= 1e12
+        and all(
+            0 < float(asset_cap) <= cap
+            for asset_cap in asset_caps.values()
+        )
     )
 
 
@@ -182,6 +205,15 @@ def _canonical_payload(
     context_assets = [
         asset for asset in research_universe if asset not in set(tradable_assets)
     ]
+    overrides = portfolio_policy["assetMaxAbsWeights"]
+    asset_caps = {
+        asset: (
+            float(overrides.get(asset, portfolio_policy["maxAbsWeight"]))
+            if asset in set(tradable_assets)
+            else 0.0
+        )
+        for asset in research_universe
+    }
     return {
         "schemaVersion": SCHEMA_VERSION,
         "kind": PORTFOLIO_MANDATE_KIND,
@@ -199,6 +231,7 @@ def _canonical_payload(
             "grossLimit": portfolio_policy["grossLimit"],
             "netRule": PORTFOLIO_NET_RULES[direction],
             "maxAbsWeight": portfolio_policy["maxAbsWeight"],
+            "assetMaxAbsWeights": asset_caps,
             "cashAllowed": True,
             "shortAllowed": direction
             in {"short", "long-short", "relative-value", "research-only"},
@@ -266,6 +299,14 @@ def build_portfolio_mandate(
         )
         if not _valid_portfolio_policy(policy, direction):
             raise ValueError("request has an invalid portfolio policy")
+        unknown_caps = sorted(
+            set(policy["assetMaxAbsWeights"]) - set(requested)
+        )
+        if unknown_caps:
+            raise ValueError(
+                "per-asset caps name unrequested assets: "
+                + ", ".join(unknown_caps)
+            )
         payload = _canonical_payload(
             source_kind="research-request",
             request_hash=hash_json(request),
@@ -478,6 +519,7 @@ def validate_portfolio_mandate(
                     "grossLimit",
                     "netRule",
                     "maxAbsWeight",
+                    "assetMaxAbsWeights",
                     "cashAllowed",
                     "shortAllowed",
                     "benchmark",
@@ -506,6 +548,7 @@ def validate_portfolio_mandate(
                 normalized_policy = {
                     "grossLimit": construction.get("grossLimit"),
                     "maxAbsWeight": construction.get("maxAbsWeight"),
+                    "assetMaxAbsWeights": {},
                     "annualizedVolatilityCeiling": (
                         risk_policy.get("annualizedVolatilityCeiling")
                         if isinstance(risk_policy, dict)
@@ -515,6 +558,19 @@ def validate_portfolio_mandate(
                     "noTradeOneWay": implementation.get("noTradeOneWay"),
                     "referenceNav": implementation.get("referenceNav"),
                 }
+                complete_caps = construction.get(
+                    "assetMaxAbsWeights"
+                )
+                if (
+                    isinstance(complete_caps, dict)
+                    and set(complete_caps) == set(research)
+                ):
+                    normalized_policy["assetMaxAbsWeights"] = {
+                        asset: complete_caps[asset]
+                        for asset in tradable
+                        if complete_caps[asset]
+                        != construction.get("maxAbsWeight")
+                    }
                 if not _valid_portfolio_policy(
                     normalized_policy,
                     direction,
@@ -704,6 +760,7 @@ PORTFOLIO_MANDATE_JSON_SCHEMA: dict[str, Any] = {
                 "grossLimit",
                 "netRule",
                 "maxAbsWeight",
+                "assetMaxAbsWeights",
                 "cashAllowed",
                 "shortAllowed",
                 "benchmark",
@@ -723,6 +780,15 @@ PORTFOLIO_MANDATE_JSON_SCHEMA: dict[str, Any] = {
                     "type": "number",
                     "exclusiveMinimum": 0,
                     "maximum": 2,
+                },
+                "assetMaxAbsWeights": {
+                    "type": "object",
+                    "maxProperties": 256,
+                    "additionalProperties": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 2,
+                    },
                 },
                 "cashAllowed": {"const": True},
                 "shortAllowed": {"type": "boolean"},

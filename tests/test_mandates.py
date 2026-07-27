@@ -77,6 +77,7 @@ class PortfolioMandateTests(unittest.TestCase):
         raw["portfolioPolicy"] = {
             "grossLimit": 0.8,
             "maxAbsWeight": 0.2,
+            "assetMaxAbsWeights": {"A": 0.1, "B": 0.15},
             "annualizedVolatilityCeiling": 0.12,
             "baseCostBps": 17.5,
             "noTradeOneWay": 0.04,
@@ -92,6 +93,10 @@ class PortfolioMandateTests(unittest.TestCase):
         )
         self.assertEqual(mandate["construction"]["grossLimit"], 0.8)
         self.assertEqual(mandate["construction"]["maxAbsWeight"], 0.2)
+        self.assertEqual(
+            mandate["construction"]["assetMaxAbsWeights"],
+            {"A": 0.1, "B": 0.15, "C": 0.0, "D": 0.0, "E": 0.0},
+        )
         self.assertEqual(
             mandate["construction"]["riskPolicy"][
                 "annualizedVolatilityCeiling"
@@ -134,6 +139,20 @@ class PortfolioMandateTests(unittest.TestCase):
         ):
             validate_research_request(neutral)
 
+        for caps, message in (
+            ({"Z": 0.1}, "requested assets"),
+            ({"A": 0.0}, "positive"),
+            ({"A": 0.21}, "maxAbsWeight"),
+        ):
+            with self.subTest(caps=caps):
+                changed = copy.deepcopy(raw)
+                changed["portfolioPolicy"]["assetMaxAbsWeights"] = caps
+                with self.assertRaisesRegex(
+                    AutoQuantValidationError,
+                    message,
+                ):
+                    validate_research_request(changed)
+
     def test_request_mapping_is_strict_content_derived_and_schema_valid(self) -> None:
         mandate = build_portfolio_mandate(request("long", ["A", "B"]), UNIVERSE)
 
@@ -143,6 +162,10 @@ class PortfolioMandateTests(unittest.TestCase):
             "reference-default",
         )
         self.assertEqual(mandate["construction"]["family"], "long-cash")
+        self.assertEqual(
+            mandate["construction"]["assetMaxAbsWeights"],
+            {"A": 0.3, "B": 0.3, "C": 0.0, "D": 0.0, "E": 0.0},
+        )
         self.assertEqual(mandate["tradableAssets"], ["A", "B"])
         self.assertEqual(mandate["contextAssets"], ["C", "D", "E"])
         self.assertEqual(
@@ -233,6 +256,62 @@ class PortfolioMandateTests(unittest.TestCase):
                 self.assertTrue(
                     (context_rows["allocation_status"] == "context_only").all()
                 )
+
+    def test_asset_caps_govern_each_target_and_survive_audit(self) -> None:
+        factors, closes = panels()
+        raw = request("long", ["A", "B"])
+        raw["portfolioPolicy"] = {
+            "grossLimit": 0.8,
+            "maxAbsWeight": 0.3,
+            "assetMaxAbsWeights": {"A": 0.1, "B": 0.2},
+            "annualizedVolatilityCeiling": 1.0,
+            "baseCostBps": 10.0,
+            "noTradeOneWay": 0.05,
+            "referenceNav": 1_000_000.0,
+        }
+        mandate = build_portfolio_mandate(
+            validate_research_request(raw),
+            UNIVERSE,
+        )
+
+        construction = construct_signal_policy(
+            factors,
+            closes,
+            mandate=mandate,
+        )
+        active = construction.targets[
+            construction.targets.abs().sum(axis=1) > 1e-12
+        ]
+
+        self.assertFalse(active.empty)
+        self.assertLessEqual(float(active["A"].abs().max()), 0.1 + 1e-9)
+        self.assertLessEqual(float(active["B"].abs().max()), 0.2 + 1e-9)
+        self.assertLessEqual(
+            float(active.abs().sum(axis=1).max()),
+            0.3 + 1e-9,
+        )
+        audit = constraint_audit(
+            construction.targets,
+            mandate=mandate,
+        )
+        self.assertTrue(audit["passed"])
+        self.assertAlmostEqual(
+            audit["maximum_asset_cap_excess"],
+            0.0,
+            places=12,
+        )
+        self.assertEqual(
+            audit["asset_max_abs_weights"],
+            {"A": 0.1, "B": 0.2, "C": 0.0, "D": 0.0, "E": 0.0},
+        )
+
+        tampered = copy.deepcopy(mandate)
+        tampered["construction"]["assetMaxAbsWeights"]["A"] = 0.11
+        with self.assertRaisesRegex(
+            AutoQuantValidationError,
+            "derived",
+        ):
+            validate_portfolio_mandate(tampered)
 
     def test_underfunded_relative_value_stays_flat_instead_of_trading_peers(self) -> None:
         factors, closes = panels()

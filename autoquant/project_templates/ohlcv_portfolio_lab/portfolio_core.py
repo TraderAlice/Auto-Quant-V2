@@ -88,14 +88,30 @@ def _allocate_capped_side(
     strengths: pd.Series,
     *,
     budget: float = SIDE_BUDGET,
-    cap: float = MAX_ABS_WEIGHT,
+    cap: float | pd.Series = MAX_ABS_WEIGHT,
 ) -> pd.Series:
-    """Proportionally water-fill one non-negative side under a hard cap."""
+    """Proportionally water-fill one non-negative side under named caps."""
 
     clean = strengths.astype(float)
     clean = clean[np.isfinite(clean.to_numpy()) & (clean > 0)]
     output = pd.Series(0.0, index=strengths.index, dtype=float)
-    if clean.empty or len(clean) * cap + 1e-12 < budget:
+    caps = (
+        pd.Series(float(cap), index=strengths.index, dtype=float)
+        if isinstance(cap, (int, float)) and not isinstance(cap, bool)
+        else cap.reindex(strengths.index).astype(float)
+        if isinstance(cap, pd.Series)
+        else pd.Series(dtype=float)
+    )
+    if (
+        not caps.index.equals(strengths.index)
+        or not np.isfinite(caps.to_numpy()).all()
+        or (caps < 0).any()
+    ):
+        raise PortfolioFailure(
+            "portfolio.asset-caps",
+            "Per-asset caps must be aligned, finite, and non-negative",
+        )
+    if clean.empty or float(caps.loc[clean.index].sum()) + 1e-12 < budget:
         return output
     remaining = list(clean.index)
     remaining_budget = float(budget)
@@ -105,15 +121,17 @@ def _allocate_capped_side(
         if total <= 0:
             return pd.Series(0.0, index=strengths.index, dtype=float)
         proposed = values / total * remaining_budget
-        capped = proposed[proposed > cap + 1e-12]
+        capped = proposed[
+            proposed > caps.loc[proposed.index] + 1e-12
+        ]
         if capped.empty:
             output.loc[remaining] = proposed
             remaining_budget = 0.0
             break
         for asset in capped.index:
-            output.loc[asset] = cap
+            output.loc[asset] = caps.loc[asset]
             remaining.remove(asset)
-            remaining_budget -= cap
+            remaining_budget -= float(caps.loc[asset])
         if remaining_budget < -1e-10:
             raise PortfolioFailure(
                 "portfolio.allocation",
@@ -128,7 +146,7 @@ def _allocate_capped_up_to(
     strengths: pd.Series,
     *,
     limit: float,
-    cap: float,
+    cap: float | pd.Series,
 ) -> pd.Series:
     """Allocate available directional conviction and leave unused budget in cash."""
 
@@ -136,7 +154,14 @@ def _allocate_capped_up_to(
     clean = clean[np.isfinite(clean.to_numpy()) & (clean > 0)]
     if clean.empty:
         return pd.Series(0.0, index=strengths.index, dtype=float)
-    budget = min(float(limit), len(clean) * float(cap))
+    caps = (
+        pd.Series(float(cap), index=strengths.index, dtype=float)
+        if isinstance(cap, (int, float)) and not isinstance(cap, bool)
+        else cap.reindex(strengths.index).astype(float)
+        if isinstance(cap, pd.Series)
+        else pd.Series(dtype=float)
+    )
+    budget = min(float(limit), float(caps.loc[clean.index].sum()))
     return _allocate_capped_side(strengths, budget=budget, cap=cap)
 
 
@@ -154,6 +179,9 @@ def _resolve_mandate(
             "family": "dollar-neutral",
             "gross_limit": GROSS_TARGET,
             "max_abs_weight": MAX_ABS_WEIGHT,
+            "asset_max_abs_weights": {
+                asset: MAX_ABS_WEIGHT for asset in universe
+            },
             "tradable_assets": universe,
             "context_assets": [],
             "benchmark": "equal-weight-long-research-universe",
@@ -196,6 +224,9 @@ def _resolve_mandate(
     family = construction.get("family")
     gross_limit = construction.get("grossLimit")
     max_abs_weight = construction.get("maxAbsWeight")
+    asset_max_abs_weights = construction.get(
+        "assetMaxAbsWeights"
+    )
     benchmark = construction.get("benchmark")
     risk_policy = construction.get("riskPolicy")
     implementation = mandate.get("implementationPolicy")
@@ -209,6 +240,23 @@ def _resolve_mandate(
         or not isinstance(max_abs_weight, (int, float))
         or isinstance(max_abs_weight, bool)
         or not 0 < float(max_abs_weight) <= float(gross_limit)
+        or not isinstance(asset_max_abs_weights, dict)
+        or set(asset_max_abs_weights) != set(universe)
+        or any(
+            not isinstance(asset_max_abs_weights[asset], (int, float))
+            or isinstance(asset_max_abs_weights[asset], bool)
+            or not math.isfinite(
+                float(asset_max_abs_weights[asset])
+            )
+            or (
+                not 0
+                < float(asset_max_abs_weights[asset])
+                <= float(max_abs_weight)
+                if asset in tradable
+                else abs(float(asset_max_abs_weights[asset])) > 1e-12
+            )
+            for asset in universe
+        )
         or benchmark
         not in {
             "cash",
@@ -284,6 +332,10 @@ def _resolve_mandate(
         "family": str(family),
         "gross_limit": float(gross_limit),
         "max_abs_weight": float(max_abs_weight),
+        "asset_max_abs_weights": {
+            asset: float(asset_max_abs_weights[asset])
+            for asset in universe
+        },
         "tradable_assets": list(tradable),
         "context_assets": list(context),
         "benchmark": str(benchmark),
@@ -844,6 +896,11 @@ def construct_signal_policy(
     resolved = _resolve_mandate(factors.columns, mandate)
     gross_target = float(resolved["gross_limit"])
     max_abs_weight = float(resolved["max_abs_weight"])
+    asset_caps = pd.Series(
+        resolved["asset_max_abs_weights"],
+        index=factors.columns,
+        dtype=float,
+    )
     family = str(resolved["family"])
     tradable_assets = set(resolved["tradable_assets"])
     if (
@@ -937,12 +994,12 @@ def construct_signal_policy(
             long_weights = _allocate_capped_side(
                 strengths.where(current_states.eq(1), 0.0),
                 budget=side_budget,
-                cap=max_abs_weight,
+                cap=asset_caps,
             )
             short_weights = _allocate_capped_side(
                 strengths.where(current_states.eq(-1), 0.0),
                 budget=side_budget,
-                cap=max_abs_weight,
+                cap=asset_caps,
             )
             allocated = (
                 abs(float(long_weights.sum()) - side_budget) <= 1e-9
@@ -966,7 +1023,7 @@ def construct_signal_policy(
             current_targets = _allocate_capped_up_to(
                 strengths.where(current_states.eq(1), 0.0),
                 limit=gross_target,
-                cap=max_abs_weight,
+                cap=asset_caps,
             )
             allocation_status = (
                 "insufficient_cross_section"
@@ -986,7 +1043,7 @@ def construct_signal_policy(
             current_targets = -_allocate_capped_up_to(
                 strengths.where(current_states.eq(-1), 0.0),
                 limit=gross_target,
-                cap=max_abs_weight,
+                cap=asset_caps,
             )
             allocation_status = (
                 "insufficient_cross_section"
@@ -2933,6 +2990,11 @@ def constraint_audit(
     resolved = _resolve_mandate(targets.columns, mandate)
     gross_target = float(resolved["gross_limit"])
     max_abs_weight = float(resolved["max_abs_weight"])
+    asset_caps = pd.Series(
+        resolved["asset_max_abs_weights"],
+        index=targets.columns,
+        dtype=float,
+    )
     family = str(resolved["family"])
     tradable = list(resolved["tradable_assets"])
     context = list(resolved["context_assets"])
@@ -2958,6 +3020,11 @@ def constraint_audit(
             "maximum_context_weight": 0.0,
             "maximum_tradable_gross": 0.0,
             "maximum_abs_target_weight": 0.0,
+            "maximum_asset_cap_excess": 0.0,
+            "asset_max_abs_weights": {
+                asset: float(asset_caps.loc[asset])
+                for asset in targets.columns
+            },
         }
     gross = active.abs().sum(axis=1)
     net = active.sum(axis=1)
@@ -2980,6 +3047,10 @@ def constraint_audit(
     else:
         raise PortfolioFailure("mandate.family", "Unknown mandate family")
     maximum_weight = float(active.abs().max().max())
+    cap_excess = active.abs().subtract(asset_caps, axis="columns")
+    maximum_asset_cap_excess = float(
+        cap_excess.clip(lower=0.0).max().max()
+    )
     context_weight = (
         float(active[context].abs().max().max())
         if context
@@ -2992,6 +3063,7 @@ def constraint_audit(
         and opposite_exposure <= 1e-8
         and context_weight <= 1e-8
         and maximum_weight <= max_abs_weight + 1e-8
+        and maximum_asset_cap_excess <= 1e-8
     )
     return {
         "passed": passed,
@@ -3008,4 +3080,9 @@ def constraint_audit(
         "maximum_context_weight": context_weight,
         "maximum_tradable_gross": tradable_gross,
         "maximum_abs_target_weight": maximum_weight,
+        "maximum_asset_cap_excess": maximum_asset_cap_excess,
+        "asset_max_abs_weights": {
+            asset: float(asset_caps.loc[asset])
+            for asset in targets.columns
+        },
     }

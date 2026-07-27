@@ -65,6 +65,8 @@ Read the relevant linked document before changing a subsystem:
 - Caller-owned Portfolio risk and implementation assumptions shared by
   Portfolio and governed RL:
   [[docs/design/caller-owned-portfolio-research-policy]]
+- Caller-owned per-asset target caps shared by Portfolio and governed RL:
+  [[docs/design/caller-owned-asset-position-caps]]
 - Request-bound numerical forward horizon shared by Factor, Portfolio, and
   governed RL:
   [[docs/design/request-bound-research-horizon]]

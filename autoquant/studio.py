@@ -326,6 +326,15 @@ def _portfolio_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
                     "family": metrics["portfolio_mandate"]["construction"][
                         "family"
                     ],
+                    "grossLimit": metrics["portfolio_mandate"][
+                        "construction"
+                    ]["grossLimit"],
+                    "maxAbsWeight": metrics["portfolio_mandate"][
+                        "construction"
+                    ]["maxAbsWeight"],
+                    "assetMaxAbsWeights": metrics["portfolio_mandate"][
+                        "construction"
+                    ]["assetMaxAbsWeights"],
                     "policySource": metrics["portfolio_mandate"]["source"][
                         "portfolioPolicy"
                     ],
@@ -712,6 +721,15 @@ def _rl_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
                     "family": metrics["portfolio_mandate"]["construction"][
                         "family"
                     ],
+                    "grossLimit": metrics["portfolio_mandate"][
+                        "construction"
+                    ]["grossLimit"],
+                    "maxAbsWeight": metrics["portfolio_mandate"][
+                        "construction"
+                    ]["maxAbsWeight"],
+                    "assetMaxAbsWeights": metrics["portfolio_mandate"][
+                        "construction"
+                    ]["assetMaxAbsWeights"],
                     "policySource": metrics["portfolio_mandate"]["source"][
                         "portfolioPolicy"
                     ],

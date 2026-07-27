@@ -75,8 +75,9 @@ the fixed `strategies/research-horizon.json`. For request intake the former
 derives the
 tradable/context asset partition, direction, cash, gross/net, cap, and
 benchmark from the canonical request. An optional strict
-`request.portfolioPolicy` supplies gross, global cap, annualized volatility
-ceiling, base linear cost, one-way no-trade band, and research reference NAV.
+`request.portfolioPolicy` supplies gross, a global fallback cap, requested-
+asset cap overrides, annualized volatility ceiling, base linear cost, one-way
+no-trade band, and research reference NAV.
 When omitted, Core records documented reference defaults rather than treating
 them as caller facts. The Mandate retains the fixed 60-bar/20-observation
 covariance method, clock-derived annualization, and `scaleUp: false`;
@@ -520,6 +521,7 @@ Brief hash. `request.json` records the exact normalized caller input:
   "portfolioPolicy": {
     "grossLimit": 0.8,
     "maxAbsWeight": 0.2,
+    "assetMaxAbsWeights": {"AAPL": 0.12},
     "annualizedVolatilityCeiling": 0.12,
     "baseCostBps": 15.0,
     "noTradeOneWay": 0.04,

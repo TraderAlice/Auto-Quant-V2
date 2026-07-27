@@ -72,16 +72,18 @@ Requested assets are intentionally conservative authorization. Other dataset
 assets may improve ranking, regime, style, or benchmark context, but they
 cannot become positions or implicit hedges without caller intent.
 
-The optional complete `request.portfolioPolicy` owns the numeric gross, cap,
-volatility, cost, rebalance, and reference-NAV assumptions. If omitted, Core
-records `reference-default` and values `1.0`, `0.30`, `0.15`, `10bps`, `0.05`,
-and `1,000,000`. Candidate Agents cannot edit either source. See
-[[docs/design/caller-owned-portfolio-research-policy]].
+The optional complete `request.portfolioPolicy` owns the numeric gross,
+global fallback and named per-asset caps, volatility, cost, rebalance, and
+reference-NAV assumptions. If omitted, Core records `reference-default` and
+values `1.0`, `0.30`, no named overrides, `0.15`, `10bps`, `0.05`, and
+`1,000,000`. Candidate Agents cannot edit either source. See
+[[docs/design/caller-owned-portfolio-research-policy]] and
+[[docs/design/caller-owned-asset-position-caps]].
 
 ## Mechanical construction
 
 All families share the same causal percentile, hysteresis, conviction,
-inverse-volatility strength, per-asset cap, one-sided covariance target risk
+inverse-volatility strength, caller-owned per-asset cap, one-sided covariance target risk
 governor, drift, no-trade band, final executed-book risk compliance, and
 next-bar accounting.
 

@@ -2354,11 +2354,19 @@ function mandateMarkup(mandate) {
   const implementationLabel = implementation
     ? `${metric(implementation.baseCostBps)} bps · ${percent(implementation.noTradeOneWay)} band · NAV ${metric(implementation.referenceNav)}`
     : "legacy defaults";
+  const namedCaps = Object.entries(mandate.assetMaxAbsWeights ?? {})
+    .filter(
+      ([asset, value]) =>
+        mandate.tradableAssets.includes(asset) &&
+        Math.abs(value - mandate.maxAbsWeight) > 1e-12,
+    )
+    .map(([asset, value]) => `${asset} ${percent(value)}`)
+    .join(" · ");
   return `
     <span class="mandate-direction">${escapeHtml(mandate.direction.toUpperCase())}</span>
     <span><small>Construction</small><b>${escapeHtml(mandate.family)}</b></span>
     <span class="mandate-assets"><small>Authorized positions</small><b>${escapeHtml(tradable)}</b><i>${escapeHtml(context)}</i></span>
-    <span><small>Gross / cap</small><b>${metric(mandate.grossLimit)} / ${percent(mandate.maxAbsWeight)}</b></span>
+    <span><small>Gross / default cap</small><b>${metric(mandate.grossLimit)} / ${percent(mandate.maxAbsWeight)}</b><i>${escapeHtml(namedCaps || "all tradable assets use default")}</i></span>
     <span><small>Risk ceiling</small><b>${escapeHtml(riskLabel)}</b></span>
     <span><small>Cost / rebalance / NAV</small><b>${escapeHtml(implementationLabel)}</b><i>${escapeHtml(mandate.policySource)}</i></span>
     <span><small>Benchmark</small><b>${escapeHtml(mandate.benchmark)}</b></span>
@@ -2507,7 +2515,8 @@ function renderPortfolioSizingAnatomy(explorer) {
     </div>
     <div class="sizing-disclosure">
       Percentile-distance conviction ÷ causal trailing volatility. Proportional weights are
-      water-filled within each permitted side and the ${percent(construction.maxAbsWeight)} cap,
+      water-filled within each permitted side and caller-owned per-asset caps
+      (default ${percent(construction.maxAbsWeight)}),
       then scaled only down by portfolio covariance risk. Diagonal risk is a sizing heuristic;
       component risk is the historical executed-book covariance decomposition. No order authority.
     </div>
@@ -2549,7 +2558,7 @@ function renderPortfolioSizingAnatomy(explorer) {
                 </span>
                 <span>
                   <b>${signedPercent(position.proportionalWeightBeforeCap)} → ${signedPercent(position.rawWeight)}</b>
-                  <small>Δ ${signedPercent(position.allocationDeltaFromProportional)}</small>
+                  <small>cap ${percent(position.maxAbsWeight)} · Δ ${signedPercent(position.allocationDeltaFromProportional)}</small>
                   ${capLabel}
                 </span>
                 <span>
