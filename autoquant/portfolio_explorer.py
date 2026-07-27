@@ -204,6 +204,9 @@ DECISION_REQUIRED_COLUMNS = {
     "decision_every_bars",
     "decision_anchor",
     "decision_session",
+    "position_role",
+    "long_gross_limit",
+    "short_gross_limit",
     "conviction",
     "trailing_volatility",
     "risk_strength",
@@ -792,6 +795,7 @@ def _parse_decisions(
     targets: dict[str, dict[str, float]],
     weights: dict[str, dict[str, float]],
     reference_nav: float,
+    mandate: dict[str, Any],
 ) -> tuple[list[dict[str, Any]], dict[tuple[str, str], dict[str, Any]]]:
     fields, raw_rows = _read_csv(
         path,
@@ -912,6 +916,43 @@ def _parse_decisions(
                 f"{row_path}/decision_session",
                 "portfolio.decision-session",
                 "decision_session is inconsistent with the anchor",
+            )
+        position_role = raw["position_role"]
+        if (
+            position_role
+            != mandate["assetPositionRoles"].get(asset)
+        ):
+            _fail(
+                f"{row_path}/position_role",
+                "portfolio.asset-position-role",
+                "Decision position role differs from the Portfolio Mandate",
+            )
+        long_gross_limit = _finite(
+            raw["long_gross_limit"],
+            f"{row_path}/long_gross_limit",
+        )
+        short_gross_limit = _finite(
+            raw["short_gross_limit"],
+            f"{row_path}/short_gross_limit",
+        )
+        if (
+            not math.isclose(
+                long_gross_limit,
+                float(mandate["longGrossLimit"]),
+                rel_tol=0.0,
+                abs_tol=1e-12,
+            )
+            or not math.isclose(
+                short_gross_limit,
+                float(mandate["shortGrossLimit"]),
+                rel_tol=0.0,
+                abs_tol=1e-12,
+            )
+        ):
+            _fail(
+                row_path,
+                "portfolio.asset-position-side-limit",
+                "Decision side limits differ from the Portfolio Mandate",
             )
         optional = {
             field: _optional_finite(raw[field], f"{row_path}/{field}")
@@ -1218,6 +1259,9 @@ def _parse_decisions(
             "decision_every_bars": decision_every_bars,
             "decision_anchor": decision_anchor,
             "decision_session": decision_session,
+            "position_role": position_role,
+            "long_gross_limit": long_gross_limit,
+            "short_gross_limit": short_gross_limit,
             "signal_event": raw["signal_event"],
             "allocation_status": raw["allocation_status"],
             "target_action": raw["target_action"],
@@ -2865,6 +2909,19 @@ def _signal_monetization_projection(
                 sum(asset_caps[asset] for asset in shorts),
             )
             capped_equal_side(shorts, budget, -1.0)
+        elif family == "asset-role":
+            long_budget = min(
+                float(mandate["longGrossLimit"]),
+                sum(asset_caps[asset] for asset in longs),
+            )
+            short_budget = min(
+                float(mandate["shortGrossLimit"]),
+                sum(asset_caps[asset] for asset in shorts),
+            )
+            if long_budget > 1e-12:
+                capped_equal_side(longs, long_budget, 1.0)
+            if short_budget > 1e-12:
+                capped_equal_side(shorts, short_budget, -1.0)
         return weights
 
     stage_ids = (
@@ -3391,6 +3448,7 @@ def _trigger_candidate(
 def _next_signal_triggers(
     *,
     family: str,
+    position_role: str | None = None,
     signal_state: int,
     score: float | None,
     parameters: dict[str, Any],
@@ -3399,7 +3457,16 @@ def _next_signal_triggers(
     long_exit = parameters["long_exit_percentile"]
     short_exit = parameters["short_exit_percentile"]
     short_entry = parameters["short_entry_percentile"]
-    if family == "long-cash":
+    effective_family = (
+        {
+            "long-only": "long-cash",
+            "short-only": "short-cash",
+            "two-sided": "dollar-neutral",
+        }.get(position_role)
+        if family == "asset-role"
+        else family
+    )
+    if effective_family == "long-cash":
         if signal_state not in {0, 1}:
             _fail(
                 "mechanicalDecision/signalState",
@@ -3414,7 +3481,7 @@ def _next_signal_triggers(
                 score,
             )
         ]
-    if family == "short-cash":
+    if effective_family == "short-cash":
         if signal_state not in {-1, 0}:
             _fail(
                 "mechanicalDecision/signalState",
@@ -3429,7 +3496,7 @@ def _next_signal_triggers(
                 score,
             )
         ]
-    if family != "dollar-neutral":
+    if effective_family != "dollar-neutral":
         _fail(
             "mechanicalDecision/family",
             "portfolio.mechanical-family",
@@ -3519,6 +3586,7 @@ def _mechanical_decision_projection(
         else:
             trigger_candidates = _next_signal_triggers(
                 family=family,
+                position_role=mandate["assetPositionRoles"][asset],
                 signal_state=item["signal_state"],
                 score=score,
                 parameters=parameters,
@@ -3553,6 +3621,7 @@ def _mechanical_decision_projection(
         positions.append(
             {
                 "asset": asset,
+                "positionRole": item["position_role"],
                 "tradable": item["tradable"],
                 "allocationStatus": item["allocation_status"],
                 "score": score,
@@ -3706,6 +3775,9 @@ def _sizing_anatomy_projection(
     risk_scale = mechanical_decision["targetGate"]["riskGovernorScale"]
     side_budgets = {
         "long": (
+            float(mandate["longGrossLimit"])
+            if family == "asset-role"
+            else
             gross_limit / 2.0
             if family == "dollar-neutral"
             else gross_limit
@@ -3713,6 +3785,9 @@ def _sizing_anatomy_projection(
             else 0.0
         ),
         "short": (
+            float(mandate["shortGrossLimit"])
+            if family == "asset-role"
+            else
             gross_limit / 2.0
             if family == "dollar-neutral"
             else gross_limit
@@ -4000,6 +4075,9 @@ def _sizing_anatomy_projection(
             "grossLimit": gross_limit,
             "maxAbsWeight": cap,
             "assetMaxAbsWeights": asset_caps,
+            "assetPositionRoles": mandate["assetPositionRoles"],
+            "longGrossLimit": float(mandate["longGrossLimit"]),
+            "shortGrossLimit": float(mandate["shortGrossLimit"]),
             "riskGovernorScale": risk_scale,
             "rawGross": raw_gross,
             "governedGross": governed_gross,
@@ -4303,6 +4381,7 @@ def _mandate_projection(
             "requestHash": None,
             "direction": "research-only",
             "family": "dollar-neutral",
+            "positionRolesSource": "legacy-implicit",
             "researchUniverse": universe,
             "tradableAssets": universe,
             "contextAssets": [],
@@ -4311,6 +4390,11 @@ def _mandate_projection(
             "assetMaxAbsWeights": {
                 asset: 0.30 for asset in universe
             },
+            "assetPositionRoles": {
+                asset: "two-sided" for asset in universe
+            },
+            "longGrossLimit": 0.5,
+            "shortGrossLimit": 0.5,
             "cashAllowed": True,
             "shortAllowed": True,
             "benchmark": {
@@ -4393,12 +4477,16 @@ def _mandate_projection(
         "requestHash": source["requestHash"],
         "direction": source["direction"],
         "family": construction["family"],
+        "positionRolesSource": source["assetPositionRoles"],
         "researchUniverse": mandate["researchUniverse"],
         "tradableAssets": mandate["tradableAssets"],
         "contextAssets": mandate["contextAssets"],
         "grossLimit": construction["grossLimit"],
         "maxAbsWeight": construction["maxAbsWeight"],
         "assetMaxAbsWeights": construction["assetMaxAbsWeights"],
+        "assetPositionRoles": construction["assetPositionRoles"],
+        "longGrossLimit": construction["longGrossLimit"],
+        "shortGrossLimit": construction["shortGrossLimit"],
         "cashAllowed": construction["cashAllowed"],
         "shortAllowed": construction["shortAllowed"],
         "benchmark": construction["benchmark"],
@@ -6191,6 +6279,7 @@ def load_portfolio_diagnostics(
         targets,
         weights,
         reference_nav,
+        mandate,
     )
     splits, split_names = _split_contract(run.result)
     research_integrity = run.result["metrics"].get("research_integrity")
@@ -6446,6 +6535,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                         "dollar-neutral",
                         "long-cash",
                         "short-cash",
+                        "asset-role",
                     ]
                 },
                 "allocationStatus": {"type": "string", "minLength": 1},
@@ -6498,6 +6588,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
             "additionalProperties": False,
             "required": [
                 "asset",
+                "positionRole",
                 "tradable",
                 "allocationStatus",
                 "score",
@@ -6517,6 +6608,14 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
             ],
             "properties": {
                 "asset": {"type": "string", "minLength": 1},
+                "positionRole": {
+                    "enum": [
+                        "long-only",
+                        "short-only",
+                        "two-sided",
+                        "context-only",
+                    ]
+                },
                 "tradable": {"type": "boolean"},
                 "allocationStatus": {"type": "string", "minLength": 1},
                 "score": {
@@ -6587,6 +6686,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                         "dollar-neutral",
                         "long-cash",
                         "short-cash",
+                        "asset-role",
                     ]
                 },
                 "allocationStatus": {"type": "string", "minLength": 1},
@@ -7626,12 +7726,16 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 "requestHash",
                 "direction",
                 "family",
+                "positionRolesSource",
                 "researchUniverse",
                 "tradableAssets",
                 "contextAssets",
                 "grossLimit",
                 "maxAbsWeight",
                 "assetMaxAbsWeights",
+                "assetPositionRoles",
+                "longGrossLimit",
+                "shortGrossLimit",
                 "cashAllowed",
                 "shortAllowed",
                 "benchmark",
@@ -7695,6 +7799,14 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                         "dollar-neutral",
                         "long-cash",
                         "short-cash",
+                        "asset-role",
+                    ]
+                },
+                "positionRolesSource": {
+                    "enum": [
+                        "legacy-implicit",
+                        "caller-supplied",
+                        "direction-derived",
                     ]
                 },
                 "researchUniverse": {
@@ -7728,6 +7840,21 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                         "minimum": 0,
                     },
                 },
+                "assetPositionRoles": {
+                    "type": "object",
+                    "minProperties": 1,
+                    "maxProperties": MAX_UNIVERSE,
+                    "additionalProperties": {
+                        "enum": [
+                            "long-only",
+                            "short-only",
+                            "two-sided",
+                            "context-only",
+                        ]
+                    },
+                },
+                "longGrossLimit": {"type": "number", "minimum": 0},
+                "shortGrossLimit": {"type": "number", "minimum": 0},
                 "cashAllowed": {"type": "boolean"},
                 "shortAllowed": {"type": "boolean"},
                 "benchmark": {
@@ -7752,6 +7879,8 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                                 "equal-weight-long-research-universe",
                                 "equal-weight-long-tradable",
                                 "equal-weight-short-tradable",
+                                "equal-weight-long-capable",
+                                "equal-weight-short-capable",
                                 "single-asset-long",
                             ]
                         },
@@ -8117,6 +8246,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                                 "dollar-neutral",
                                 "long-cash",
                                 "short-cash",
+                                "asset-role",
                             ]
                         },
                         "stateChanges": {
@@ -8312,6 +8442,9 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                         "grossLimit",
                         "maxAbsWeight",
                         "assetMaxAbsWeights",
+                        "assetPositionRoles",
+                        "longGrossLimit",
+                        "shortGrossLimit",
                         "riskGovernorScale",
                         "rawGross",
                         "governedGross",
@@ -8324,6 +8457,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                                 "dollar-neutral",
                                 "long-cash",
                                 "short-cash",
+                                "asset-role",
                             ]
                         },
                         "rule": {
@@ -8348,6 +8482,27 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                                 "type": "number",
                                 "minimum": 0,
                             },
+                        },
+                        "assetPositionRoles": {
+                            "type": "object",
+                            "minProperties": 1,
+                            "maxProperties": MAX_UNIVERSE,
+                            "additionalProperties": {
+                                "enum": [
+                                    "long-only",
+                                    "short-only",
+                                    "two-sided",
+                                    "context-only",
+                                ]
+                            },
+                        },
+                        "longGrossLimit": {
+                            "type": "number",
+                            "minimum": 0,
+                        },
+                        "shortGrossLimit": {
+                            "type": "number",
+                            "minimum": 0,
                         },
                         "riskGovernorScale": {
                             "type": "number",

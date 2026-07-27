@@ -22,6 +22,8 @@ def write_intake_inputs(
     portfolio_policy: dict[str, object] | None = None,
     benchmark_policy: dict[str, object] | None = None,
     horizon_policy: dict[str, object] | None = None,
+    request_assets: tuple[str, ...] = ("AAPL", "MSFT"),
+    asset_position_roles: dict[str, str] | None = None,
 ) -> tuple[Path, Path]:
     source = root / "external-data"
     source.mkdir()
@@ -99,15 +101,16 @@ def write_intake_inputs(
         "decisionContext": "OpenAlice is reviewing a medium-term equity posture.",
         "assets": [
             {
-                "symbol": "AAPL",
+                "symbol": symbol,
                 "assetClass": "equity",
                 "venue": "US-COMPOSITE",
-            },
-            {
-                "symbol": "MSFT",
-                "assetClass": "equity",
-                "venue": "US-COMPOSITE",
-            },
+                **(
+                    {"positionRole": asset_position_roles[symbol]}
+                    if asset_position_roles is not None
+                    else {}
+                ),
+            }
+            for symbol in request_assets
         ],
         "direction": "long",
         **(

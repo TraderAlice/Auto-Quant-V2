@@ -35,6 +35,12 @@ REQUEST_DIRECTIONS = {
 }
 SOURCE_SYSTEMS = {"openalice", "external", "local"}
 ASSET_CLASSES = {"equity", "fund", "future", "forex", "crypto", "index", "other"}
+ASSET_POSITION_ROLES = {
+    "long-only",
+    "short-only",
+    "two-sided",
+    "context-only",
+}
 PORTFOLIO_POLICY_NUMERIC_FIELDS = {
     "grossLimit",
     "maxAbsWeight",
@@ -391,10 +397,38 @@ def validate_research_request(
                 gross = numeric["grossLimit"]
                 cap = numeric["maxAbsWeight"]
                 direction = value.get("direction")
+                raw_assets = value.get("assets")
+                explicit_roles = (
+                    [item.get("positionRole") for item in raw_assets]
+                    if isinstance(raw_assets, list)
+                    and raw_assets
+                    and all(isinstance(item, dict) for item in raw_assets)
+                    and all("positionRole" in item for item in raw_assets)
+                    else []
+                )
+                has_long = any(
+                    role in {"long-only", "two-sided"}
+                    for role in explicit_roles
+                )
+                has_short = any(
+                    role in {"short-only", "two-sided"}
+                    for role in explicit_roles
+                )
                 maximum_cap = (
                     gross / 2.0
-                    if direction
-                    in {"long-short", "relative-value", "research-only"}
+                    if (
+                        has_long
+                        and has_short
+                        or (
+                            not explicit_roles
+                            and direction
+                            in {
+                                "long-short",
+                                "relative-value",
+                                "research-only",
+                            }
+                        )
+                    )
                     else gross
                 )
                 if cap > maximum_cap:
@@ -522,6 +556,8 @@ def validate_research_request(
         )
         assets = []
     asset_identities: list[tuple[Any, Any, Any]] = []
+    declared_position_roles = 0
+    position_capable_roles = 0
     for index, asset in enumerate(assets):
         asset_path = f"{path}/assets/{index}"
         if not isinstance(asset, dict):
@@ -532,6 +568,7 @@ def validate_research_request(
                 asset,
                 {"symbol", "assetClass", "venue"},
                 asset_path,
+                optional={"positionRole"},
             )
         )
         issues.extend(_non_empty(asset.get("symbol"), f"{asset_path}/symbol"))
@@ -546,6 +583,20 @@ def validate_research_request(
         venue = asset.get("venue")
         if venue is not None:
             issues.extend(_non_empty(venue, f"{asset_path}/venue"))
+        if "positionRole" in asset:
+            declared_position_roles += 1
+            role = asset.get("positionRole")
+            if role not in ASSET_POSITION_ROLES:
+                issues.append(
+                    _issue(
+                        f"{asset_path}/positionRole",
+                        "request.asset-position-role",
+                        "positionRole must be long-only, short-only, "
+                        "two-sided, or context-only",
+                    )
+                )
+            elif role != "context-only":
+                position_capable_roles += 1
         asset_identities.append(
             (asset.get("assetClass"), asset.get("symbol"), venue)
         )
@@ -553,11 +604,76 @@ def validate_research_request(
         issues.append(
             _issue(f"{path}/assets", "request.duplicate-asset", "Assets must be unique")
         )
+    if declared_position_roles not in {0, len(assets)}:
+        issues.append(
+            _issue(
+                f"{path}/assets",
+                "request.partial-asset-position-roles",
+                "If one requested asset declares positionRole, every "
+                "requested asset must declare one",
+            )
+        )
+    if declared_position_roles == len(assets) and position_capable_roles == 0:
+        issues.append(
+            _issue(
+                f"{path}/assets",
+                "request.no-position-capable-asset",
+                "An explicit role contract requires at least one "
+                "position-capable asset",
+            )
+        )
+    if declared_position_roles == len(assets):
+        valid_roles = {
+            asset.get("positionRole")
+            for asset in assets
+            if isinstance(asset, dict)
+        }
+        has_long_role = bool(
+            valid_roles & {"long-only", "two-sided"}
+        )
+        has_short_role = bool(
+            valid_roles & {"short-only", "two-sided"}
+        )
+        direction = value.get("direction")
+        if direction == "long" and not has_long_role:
+            issues.append(
+                _issue(
+                    f"{path}/assets",
+                    "request.direction-role-conflict",
+                    "A long request requires at least one long-capable asset",
+                )
+            )
+        if direction == "short" and not has_short_role:
+            issues.append(
+                _issue(
+                    f"{path}/assets",
+                    "request.direction-role-conflict",
+                    "A short request requires at least one short-capable asset",
+                )
+            )
+        if (
+            direction in {"long-short", "relative-value"}
+            and not (has_long_role and has_short_role)
+        ):
+            issues.append(
+                _issue(
+                    f"{path}/assets",
+                    "request.direction-role-conflict",
+                    "A two-sided request requires both long-capable and "
+                    "short-capable assets",
+                )
+            )
     if normalized_policy is not None:
         requested_symbols = {
             identity[1]
             for identity in asset_identities
             if isinstance(identity[1], str)
+        }
+        requested_roles = {
+            asset.get("symbol"): asset.get("positionRole")
+            for asset in assets
+            if isinstance(asset, dict)
+            and isinstance(asset.get("symbol"), str)
         }
         global_cap = normalized_policy["maxAbsWeight"]
         for symbol, asset_cap in normalized_policy[
@@ -572,6 +688,14 @@ def validate_research_request(
                         cap_path,
                         "request.asset-cap-unrequested",
                         "Per-asset caps may name requested assets only",
+                    )
+                )
+            elif requested_roles.get(symbol) == "context-only":
+                issues.append(
+                    _issue(
+                        cap_path,
+                        "request.asset-cap-context-only",
+                        "A context-only asset cannot receive a position cap",
                     )
                 )
             if not 0 < asset_cap <= global_cap:
@@ -640,6 +764,11 @@ def validate_research_request(
                     asset["venue"].strip()
                     if isinstance(asset["venue"], str)
                     else None
+                ),
+                **(
+                    {"positionRole": asset["positionRole"]}
+                    if "positionRole" in asset
+                    else {}
                 ),
             }
             for asset in value["assets"]
@@ -905,6 +1034,9 @@ RESEARCH_REQUEST_JSON_SCHEMA: dict[str, Any] = {
                             {"type": "null"},
                             {"type": "string", "minLength": 1},
                         ]
+                    },
+                    "positionRole": {
+                        "enum": sorted(ASSET_POSITION_ROLES),
                     },
                 },
             },

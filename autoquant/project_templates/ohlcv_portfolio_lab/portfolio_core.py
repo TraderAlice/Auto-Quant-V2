@@ -171,6 +171,7 @@ def _valid_benchmark_contract(
     benchmark: object,
     universe: list[str],
     tradable: list[str],
+    asset_position_roles: dict[str, str],
 ) -> bool:
     if (
         not isinstance(benchmark, dict)
@@ -183,6 +184,8 @@ def _valid_benchmark_contract(
             "equal-weight-long-research-universe",
             "equal-weight-long-tradable",
             "equal-weight-short-tradable",
+            "equal-weight-long-capable",
+            "equal-weight-short-capable",
             "single-asset-long",
         }
         or not isinstance(benchmark.get("weights"), dict)
@@ -214,6 +217,32 @@ def _valid_benchmark_contract(
         expected = {
             asset: (
                 sign / len(tradable) if asset in tradable_set else 0.0
+            )
+            for asset in universe
+        }
+        valid_asset = benchmark_asset is None
+    elif kind in {
+        "equal-weight-long-capable",
+        "equal-weight-short-capable",
+    }:
+        long_side = kind == "equal-weight-long-capable"
+        capable = [
+            asset
+            for asset in tradable
+            if asset_position_roles[asset]
+            in (
+                {"long-only", "two-sided"}
+                if long_side
+                else {"short-only", "two-sided"}
+            )
+        ]
+        if not capable:
+            return False
+        sign = 1.0 if long_side else -1.0
+        capable_set = set(capable)
+        expected = {
+            asset: (
+                sign / len(capable) if asset in capable_set else 0.0
             )
             for asset in universe
         }
@@ -265,6 +294,11 @@ def _resolve_mandate(
             "asset_max_abs_weights": {
                 asset: MAX_ABS_WEIGHT for asset in universe
             },
+            "asset_position_roles": {
+                asset: "two-sided" for asset in universe
+            },
+            "long_gross_limit": GROSS_TARGET / 2.0,
+            "short_gross_limit": GROSS_TARGET / 2.0,
             "tradable_assets": universe,
             "context_assets": [],
             "benchmark": {
@@ -320,13 +354,21 @@ def _resolve_mandate(
     asset_max_abs_weights = construction.get(
         "assetMaxAbsWeights"
     )
+    asset_position_roles = construction.get("assetPositionRoles")
+    long_gross_limit = construction.get("longGrossLimit")
+    short_gross_limit = construction.get("shortGrossLimit")
     benchmark = construction.get("benchmark")
     risk_policy = construction.get("riskPolicy")
     implementation = mandate.get("implementationPolicy")
     if (
         direction
         not in {"long", "short", "long-short", "relative-value", "research-only"}
-        or family not in {"long-cash", "short-cash", "dollar-neutral"}
+        or family not in {
+            "long-cash",
+            "short-cash",
+            "dollar-neutral",
+            "asset-role",
+        }
         or not isinstance(gross_limit, (int, float))
         or isinstance(gross_limit, bool)
         or not 0 < float(gross_limit) <= 2
@@ -350,10 +392,38 @@ def _resolve_mandate(
             )
             for asset in universe
         )
+        or not isinstance(asset_position_roles, dict)
+        or set(asset_position_roles) != set(universe)
+        or any(
+            asset_position_roles[asset]
+            not in {
+                "long-only",
+                "short-only",
+                "two-sided",
+                "context-only",
+            }
+            or (
+                asset_position_roles[asset] == "context-only"
+                if asset in tradable
+                else asset_position_roles[asset] != "context-only"
+            )
+            for asset in universe
+        )
+        or not isinstance(long_gross_limit, (int, float))
+        or isinstance(long_gross_limit, bool)
+        or not math.isfinite(float(long_gross_limit))
+        or not 0 <= float(long_gross_limit) <= float(gross_limit)
+        or not isinstance(short_gross_limit, (int, float))
+        or isinstance(short_gross_limit, bool)
+        or not math.isfinite(float(short_gross_limit))
+        or not 0 <= float(short_gross_limit) <= float(gross_limit)
+        or float(long_gross_limit) + float(short_gross_limit)
+        > float(gross_limit) + 1e-12
         or not _valid_benchmark_contract(
             benchmark,
             universe,
             tradable,
+            asset_position_roles,
         )
         or benchmark["source"] != source.get("benchmarkPolicy")
         or not isinstance(risk_policy, dict)
@@ -450,6 +520,12 @@ def _resolve_mandate(
             asset: float(asset_max_abs_weights[asset])
             for asset in universe
         },
+        "asset_position_roles": {
+            asset: str(asset_position_roles[asset])
+            for asset in universe
+        },
+        "long_gross_limit": float(long_gross_limit),
+        "short_gross_limit": float(short_gross_limit),
         "tradable_assets": list(tradable),
         "context_assets": list(context),
         "benchmark": {
@@ -1070,6 +1146,39 @@ def _directional_signal_transition(
     raise PortfolioFailure("mandate.family", "Unknown Portfolio Mandate family")
 
 
+def _position_role_signal_transition(
+    previous: int,
+    score: float | None,
+    *,
+    role: str,
+    long_entry: float,
+    long_exit: float,
+    short_exit: float,
+    short_entry: float,
+) -> tuple[int, str]:
+    family = {
+        "long-only": "long-cash",
+        "short-only": "short-cash",
+        "two-sided": "dollar-neutral",
+    }.get(role)
+    if family is None:
+        if role == "context-only":
+            return 0, "context_only"
+        raise PortfolioFailure(
+            "mandate.asset-position-role",
+            "Unknown asset position role",
+        )
+    return _directional_signal_transition(
+        previous,
+        score,
+        family=family,
+        long_entry=long_entry,
+        long_exit=long_exit,
+        short_exit=short_exit,
+        short_entry=short_entry,
+    )
+
+
 def _weight_action(previous: float, current: float) -> str:
     tolerance = 1e-12
     previous_zero = abs(previous) <= tolerance
@@ -1123,6 +1232,12 @@ def construct_signal_policy(
         index=factors.columns,
         dtype=float,
     )
+    asset_position_roles = {
+        str(asset): str(role)
+        for asset, role in resolved["asset_position_roles"].items()
+    }
+    long_gross_limit = float(resolved["long_gross_limit"])
+    short_gross_limit = float(resolved["short_gross_limit"])
     family = str(resolved["family"])
     tradable_assets = set(resolved["tradable_assets"])
     if (
@@ -1210,10 +1325,10 @@ def construct_signal_policy(
                 continue
             raw_score = scores.loc[asset]
             score = float(raw_score) if math.isfinite(raw_score) else None
-            state, event = _directional_signal_transition(
+            state, event = _position_role_signal_transition(
                 int(prior_states.loc[asset]),
                 score,
-                family=family,
+                role=asset_position_roles[str(asset)],
                 long_entry=long_entry,
                 long_exit=long_exit,
                 short_exit=short_exit,
@@ -1255,6 +1370,44 @@ def construct_signal_policy(
                     "insufficient_cross_section"
                     if not sufficient
                     else "insufficient_side_breadth"
+                )
+            )
+        elif family == "asset-role":
+            long_weights = _allocate_capped_up_to(
+                strengths.where(current_states.eq(1), 0.0),
+                limit=long_gross_limit,
+                cap=asset_caps,
+            )
+            short_weights = _allocate_capped_up_to(
+                strengths.where(current_states.eq(-1), 0.0),
+                limit=short_gross_limit,
+                cap=asset_caps,
+            )
+            current_targets = long_weights - short_weights
+            used_long = float(long_weights.sum())
+            used_short = float(short_weights.sum())
+            allocation_status = (
+                "insufficient_cross_section"
+                if not sufficient
+                else (
+                    "no_permitted_signal"
+                    if used_long + used_short <= 1e-12
+                    else (
+                        "allocated"
+                        if math.isclose(
+                            used_long,
+                            long_gross_limit,
+                            rel_tol=0.0,
+                            abs_tol=1e-9,
+                        )
+                        and math.isclose(
+                            used_short,
+                            short_gross_limit,
+                            rel_tol=0.0,
+                            abs_tol=1e-9,
+                        )
+                        else "allocated_with_cash"
+                    )
                 )
             )
         elif family == "long-cash":
@@ -1397,6 +1550,9 @@ def construct_signal_policy(
                     ),
                     "tradable": str(asset) in tradable_assets,
                     "permitted_direction": family,
+                    "position_role": asset_position_roles[str(asset)],
+                    "long_gross_limit": long_gross_limit,
+                    "short_gross_limit": short_gross_limit,
                     "mandate_id": str(resolved["id"]),
                     "conviction": float(convictions.loc[asset]),
                     "trailing_volatility": (
@@ -3322,6 +3478,12 @@ def constraint_audit(
         dtype=float,
     )
     family = str(resolved["family"])
+    asset_position_roles = {
+        str(asset): str(role)
+        for asset, role in resolved["asset_position_roles"].items()
+    }
+    long_gross_limit = float(resolved["long_gross_limit"])
+    short_gross_limit = float(resolved["short_gross_limit"])
     tradable = list(resolved["tradable_assets"])
     context = list(resolved["context_assets"])
     active = targets[targets.abs().sum(axis=1) > 1e-12]
@@ -3351,6 +3513,9 @@ def constraint_audit(
                 asset: float(asset_caps.loc[asset])
                 for asset in targets.columns
             },
+            "asset_position_roles": asset_position_roles,
+            "long_gross_limit": long_gross_limit,
+            "short_gross_limit": short_gross_limit,
         }
     gross = active.abs().sum(axis=1)
     net = active.sum(axis=1)
@@ -3370,6 +3535,30 @@ def constraint_audit(
         gross_error = float((gross - gross_target).clip(lower=0.0).max())
         net_rule_error = float((net + gross).abs().max())
         opposite_exposure = float(active.clip(lower=0.0).sum(axis=1).max())
+    elif family == "asset-role":
+        long_exposure = active.clip(lower=0.0).sum(axis=1)
+        short_exposure = (-active.clip(upper=0.0)).sum(axis=1)
+        gross_error = float(
+            pd.concat(
+                [
+                    (long_exposure - long_gross_limit).clip(lower=0.0),
+                    (short_exposure - short_gross_limit).clip(lower=0.0),
+                    (gross - gross_target).clip(lower=0.0),
+                ],
+                axis=1,
+            ).max().max()
+        )
+        forbidden: list[float] = []
+        for asset in active.columns:
+            role = asset_position_roles[str(asset)]
+            if role == "long-only":
+                forbidden.append(float((-active[asset].clip(upper=0.0)).max()))
+            elif role == "short-only":
+                forbidden.append(float(active[asset].clip(lower=0.0).max()))
+            elif role == "context-only":
+                forbidden.append(float(active[asset].abs().max()))
+        opposite_exposure = max(forbidden, default=0.0)
+        net_rule_error = 0.0
     else:
         raise PortfolioFailure("mandate.family", "Unknown mandate family")
     maximum_weight = float(active.abs().max().max())
@@ -3411,4 +3600,7 @@ def constraint_audit(
             asset: float(asset_caps.loc[asset])
             for asset in targets.columns
         },
+        "asset_position_roles": asset_position_roles,
+        "long_gross_limit": long_gross_limit,
+        "short_gross_limit": short_gross_limit,
     }

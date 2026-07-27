@@ -566,6 +566,176 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                 report_markdown,
             )
 
+    def test_caller_asset_roles_are_shared_by_portfolio_and_rl(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            roles = {
+                "AAPL": "long-only",
+                "MSFT": "long-only",
+                "SPY": "short-only",
+                "QQQ": "context-only",
+            }
+            policy = {
+                "grossLimit": 0.8,
+                "maxAbsWeight": 0.2,
+                "assetMaxAbsWeights": {"SPY": 0.15},
+                "annualizedVolatilityCeiling": 0.2,
+                "baseCostBps": 12.0,
+                "noTradeOneWay": 0.0,
+                "referenceNav": 500_000.0,
+                "decisionEveryBars": 1,
+                "decisionAnchor": "dataset-start",
+            }
+            request_path, package_path = write_intake_inputs(
+                root,
+                request_assets=tuple(roles),
+                asset_position_roles=roles,
+                portfolio_policy=policy,
+            )
+            request = json.loads(request_path.read_text(encoding="utf-8"))
+            request["direction"] = "relative-value"
+            request_path.write_text(
+                json.dumps(request, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            prepared = prepare_project_intake(
+                request_path,
+                package_path,
+                "ohlcv-research-desk",
+            )
+            project = create_project(
+                initialize_workspace(root / "workspace").root_dir,
+                "asset-role-desk",
+                template=prepared.template,
+                template_intake=prepared,
+            )
+            mandate = load_portfolio_mandate(
+                project.root_dir / PORTFOLIO_MANDATE
+            )
+            self.assertEqual(
+                mandate["source"]["assetPositionRoles"],
+                "caller-supplied",
+            )
+            self.assertEqual(mandate["construction"]["family"], "asset-role")
+            self.assertEqual(
+                mandate["construction"]["assetPositionRoles"],
+                {
+                    **roles,
+                    "NVDA": "context-only",
+                },
+            )
+            self.assertEqual(mandate["construction"]["longGrossLimit"], 0.4)
+            self.assertEqual(mandate["construction"]["shortGrossLimit"], 0.4)
+
+            portfolio_run = execute_study(project, PORTFOLIO_STUDY_ID)
+            rl_run = execute_study(project, RL_STUDY_ID)
+            for run in (portfolio_run, rl_run):
+                self.assertEqual(
+                    run.result["status"],
+                    "succeeded",
+                    run.result["errors"],
+                )
+                self.assertEqual(
+                    run.result["metrics"]["portfolio_mandate"],
+                    mandate,
+                )
+            decisions = pd.read_csv(
+                portfolio_run.root_dir
+                / "artifacts"
+                / "portfolio-decisions.csv"
+            )
+            self.assertTrue(
+                (
+                    decisions.loc[
+                        decisions["asset"].isin(["AAPL", "MSFT"]),
+                        "proposed_target_weight",
+                    ]
+                    >= -1e-12
+                ).all()
+            )
+            self.assertTrue(
+                (
+                    decisions.loc[
+                        decisions["asset"] == "SPY",
+                        "proposed_target_weight",
+                    ]
+                    <= 1e-12
+                ).all()
+            )
+            self.assertTrue(
+                (
+                    decisions.loc[
+                        decisions["asset"].isin(["QQQ", "NVDA"]),
+                        "proposed_target_weight",
+                    ].abs()
+                    <= 1e-12
+                ).all()
+            )
+            projection = load_portfolio_diagnostics(
+                project,
+                portfolio_run.result["id"],
+            )
+            self.assertEqual(
+                projection["mandate"]["assetPositionRoles"],
+                mandate["construction"]["assetPositionRoles"],
+            )
+            self.assertEqual(
+                projection["mandate"]["positionRolesSource"],
+                "caller-supplied",
+            )
+            self.assertEqual(
+                {
+                    item["asset"]: item["positionRole"]
+                    for item in projection["mechanicalDecision"]["positions"]
+                },
+                mandate["construction"]["assetPositionRoles"],
+            )
+            jsonschema.validate(
+                projection,
+                PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA,
+            )
+            rl_projection = load_rl_diagnostics(
+                project,
+                rl_run.result["id"],
+            )
+            self.assertEqual(
+                rl_projection["portfolioMandate"][
+                    "assetPositionRoles"
+                ],
+                mandate["construction"]["assetPositionRoles"],
+            )
+            self.assertEqual(
+                rl_projection["portfolioMandate"][
+                    "positionRolesSource"
+                ],
+                "caller-supplied",
+            )
+            for audit in rl_run.result["metrics"][
+                "constraint_audit"
+            ].values():
+                self.assertTrue(audit["passed"])
+                self.assertEqual(
+                    audit["asset_position_roles"],
+                    mandate["construction"]["assetPositionRoles"],
+                )
+            studio = build_studio_snapshot(project.root_dir)
+            observed = {
+                item["id"]: item
+                for item in studio["projects"][0]["runs"]
+            }
+            for run in (portfolio_run, rl_run):
+                layer = observed[run.result["id"]]["metricLayers"][
+                    "mandate"
+                ]
+                self.assertEqual(
+                    layer["assetPositionRoles"],
+                    mandate["construction"]["assetPositionRoles"],
+                )
+                self.assertEqual(
+                    layer["positionRolesSource"],
+                    "caller-supplied",
+                )
+
     def test_v3_continuous_base_interval_is_configurable_end_to_end(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

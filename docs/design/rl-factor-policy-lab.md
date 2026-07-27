@@ -198,7 +198,7 @@ Run metrics contain:
   candidate-action-frequency comparison;
 - reward, timing, action, fold, seed, and training-budget configuration.
 - the complete fixed Portfolio Mandate and a constraint audit for every action
-  sleeve.
+  sleeve, including its per-asset sign roles and long/short gross-side limits.
 
 Successful Runs declare:
 

@@ -4746,6 +4746,7 @@ def load_rl_diagnostics(
             "requestHash": None,
             "direction": "research-only",
             "family": "dollar-neutral",
+            "positionRolesSource": "legacy-implicit",
             "researchUniverse": run.result["dataset"]["universe"],
             "tradableAssets": run.result["dataset"]["universe"],
             "contextAssets": [],
@@ -4755,6 +4756,12 @@ def load_rl_diagnostics(
                 asset: 0.30
                 for asset in run.result["dataset"]["universe"]
             },
+            "assetPositionRoles": {
+                asset: "two-sided"
+                for asset in run.result["dataset"]["universe"]
+            },
+            "longGrossLimit": 0.5,
+            "shortGrossLimit": 0.5,
             "cashAllowed": True,
             "shortAllowed": True,
             "benchmark": {
@@ -4867,12 +4874,16 @@ def load_rl_diagnostics(
             "requestHash": source["requestHash"],
             "direction": source["direction"],
             "family": construction["family"],
+            "positionRolesSource": source["assetPositionRoles"],
             "researchUniverse": mandate["researchUniverse"],
             "tradableAssets": mandate["tradableAssets"],
             "contextAssets": mandate["contextAssets"],
             "grossLimit": construction["grossLimit"],
             "maxAbsWeight": construction["maxAbsWeight"],
             "assetMaxAbsWeights": construction["assetMaxAbsWeights"],
+            "assetPositionRoles": construction["assetPositionRoles"],
+            "longGrossLimit": construction["longGrossLimit"],
+            "shortGrossLimit": construction["shortGrossLimit"],
             "cashAllowed": construction["cashAllowed"],
             "shortAllowed": construction["shortAllowed"],
             "benchmark": construction["benchmark"],

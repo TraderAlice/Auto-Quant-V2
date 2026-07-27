@@ -32,6 +32,7 @@ There are no paused plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/caller-owned-asset-position-roles]] | Let callers assign long-only, short-only, two-sided, or context-only research duties to individual assets and make Portfolio/RL share them. | 2026-07-27 |
 | [[plans/market-clock-decision-anchors]] | Bound caller-owned Portfolio/RL cadence to either the complete dataset or each verified XNYS market session. | 2026-07-27 |
 | [[plans/caller-owned-decision-cadence]] | Separated caller-owned Portfolio/RL decision cadence from the locked base K-line cadence while preserving continuous risk compliance. | 2026-07-27 |
 | [[plans/caller-owned-benchmark-reference]] | Let delegated research questions choose cash or one named opportunity-cost asset and make Portfolio/RL share and explain that exact benchmark. | 2026-07-27 |

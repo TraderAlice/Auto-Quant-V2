@@ -920,6 +920,16 @@ def sizing_anatomy_markdown_lines(
                 "assetMaxAbsWeights"
             ].items()
         ),
+        "- Asset position roles: "
+        + ", ".join(
+            f"`{asset}`=`{role}`"
+            for asset, role in construction[
+                "assetPositionRoles"
+            ].items()
+        ),
+        f"- Long / short gross-side limits: "
+        f"`{construction['longGrossLimit']}` / "
+        f"`{construction['shortGrossLimit']}`",
         f"- Executed component-risk availability / absolute HHI / largest "
         f"contributor: `{component['available']}` / "
         f"`{component['absoluteConcentrationHhi']}` / "

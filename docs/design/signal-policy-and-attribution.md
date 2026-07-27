@@ -58,6 +58,8 @@ The fixed Portfolio Mandate limits this state machine:
 - `long-cash` uses only long entry/hold/exit events;
 - `short-cash` uses only short entry/hold/exit events;
 - dollar-neutral uses the full two-sided transition set;
+- `asset-role` selects long-only, short-only, or the full two-sided
+  transition set independently for each asset;
 - context-only assets always emit `context_only` and remain flat.
 
 Missing or insufficient cross-sectional evidence resets permitted intent to

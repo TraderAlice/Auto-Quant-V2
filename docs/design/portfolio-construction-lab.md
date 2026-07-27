@@ -250,8 +250,9 @@ reconciled before display sampling; the browser never reads artifact paths.
 
 ## Known gaps
 
-- V2 has fixed request-mapped long/cash, short/cash, and dollar-neutral
-  families, not arbitrary optimizer constraints or a strategy DSL.
+- V2 has fixed request-mapped long/cash, short/cash, dollar-neutral, and
+  explicit per-asset-role families, not arbitrary optimizer constraints or a
+  strategy DSL.
 - Costs are linear and the capacity envelope is a trailing-dollar-volume
   participation proxy; spread, impact, borrow, funding, and futures margin are
   absent.

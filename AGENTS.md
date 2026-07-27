@@ -67,6 +67,9 @@ Read the relevant linked document before changing a subsystem:
   [[docs/design/caller-owned-portfolio-research-policy]]
 - Caller-owned per-asset target caps shared by Portfolio and governed RL:
   [[docs/design/caller-owned-asset-position-caps]]
+- Caller-owned per-asset long, short, two-sided, and context-only position
+  permissions shared by Portfolio and governed RL:
+  [[docs/design/caller-owned-asset-position-roles]]
 - Caller-owned cash or named-asset benchmark references shared by Portfolio
   and governed RL:
   [[docs/design/caller-owned-benchmark-reference]]

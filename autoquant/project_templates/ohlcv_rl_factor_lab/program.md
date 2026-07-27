@@ -56,8 +56,9 @@ The Judge owns:
 - candidate, activity, intraday, reversal, and equal-blend governed signal
   sleeves;
 - fixed percentile entry/exit hysteresis, inverse-volatility conviction,
-  request-permitted long/cash, short/cash, or dollar-neutral target
-  construction, context-only exclusions, and Portfolio Mandate asset caps;
+  request-permitted long/cash, short/cash, dollar-neutral, or explicit
+  per-asset-role target construction, context-only exclusions, locked side
+  limits, and Portfolio Mandate asset caps;
 - the shared trailing 60-row covariance forecast, 20-observation minimum,
   Portfolio Mandate annualized volatility ceiling, and scale-down-only
   governance on every action sleeve before RL selection and reward;

@@ -57,8 +57,9 @@ identity when present, and ordered Project observations. Each Project contains:
   Session-start command when present;
 - latest verified baseline decision metrics, with selection versus visible
   audit/stress roles preserved rather than collapsed into one score;
-- verified Portfolio Mandate direction, construction, authorized/context-only
-  assets, cash/cap, benchmark, and fixed identity when available;
+- verified Portfolio Mandate direction, construction, complete asset-role
+  vector, authorized/context-only assets, long/short side limits, cash/cap,
+  benchmark, and fixed identity when available;
 - latest verified governed RL baseline, fold/seed, training, action, and
   implementation projection when available;
 - verified Study and Run summaries;

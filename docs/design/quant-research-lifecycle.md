@@ -191,7 +191,9 @@ The first reference contract fixes `0.75/0.25` entry and `0.55/0.45` exit
 percentiles, absolute target cap `0.30`, a `0.05` one-way turnover no-trade
 band, and full traded-notional cost. A content-locked Portfolio Mandate maps
 the caller's direction to requested-assets-only long/cash, short/cash, or
-dollar-neutral construction; wider peer data remains context-only. Synthetic
+dollar-neutral construction. A complete caller asset-role vector can instead
+assign long-only, short-only, two-sided, and context-only duties with fixed
+gross-side limits; wider peer data remains context-only. Synthetic
 fixtures explicitly retain the historical all-universe research-neutral
 contract. The exact ledger connects mandate, tradability, signal intent,
 pre-governor/governed target, covariance forecast/scale, pre-trade drift,

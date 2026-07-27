@@ -111,7 +111,8 @@ The V2 foundation now implements:
   attribution, causal OHLCV liquidity-capacity envelopes, and
   policy/cost/delay stresses without trading authority.
 - one request-bound Portfolio Mandate that derives tradable/context assets,
-  permitted direction, cash, gross/net, cap, benchmark, and one-sided
+  direction-default or caller-supplied per-asset position roles, side limits,
+  cash, gross/net, cap, benchmark, and one-sided
   covariance risk policy from caller intent and is shared exactly by Portfolio
   and governed RL. Optional caller-owned policy also locks gross, cap,
   volatility ceiling, linear base cost, no-trade band, and reference NAV into

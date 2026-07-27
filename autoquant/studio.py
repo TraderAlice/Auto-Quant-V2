@@ -342,6 +342,18 @@ def _portfolio_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
                     "assetMaxAbsWeights": metrics["portfolio_mandate"][
                         "construction"
                     ]["assetMaxAbsWeights"],
+                    "assetPositionRoles": metrics["portfolio_mandate"][
+                        "construction"
+                    ]["assetPositionRoles"],
+                    "positionRolesSource": metrics["portfolio_mandate"][
+                        "source"
+                    ]["assetPositionRoles"],
+                    "longGrossLimit": metrics["portfolio_mandate"][
+                        "construction"
+                    ]["longGrossLimit"],
+                    "shortGrossLimit": metrics["portfolio_mandate"][
+                        "construction"
+                    ]["shortGrossLimit"],
                     "benchmark": metrics["portfolio_mandate"][
                         "construction"
                     ]["benchmark"],
@@ -747,6 +759,18 @@ def _rl_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
                     "assetMaxAbsWeights": metrics["portfolio_mandate"][
                         "construction"
                     ]["assetMaxAbsWeights"],
+                    "assetPositionRoles": metrics["portfolio_mandate"][
+                        "construction"
+                    ]["assetPositionRoles"],
+                    "positionRolesSource": metrics["portfolio_mandate"][
+                        "source"
+                    ]["assetPositionRoles"],
+                    "longGrossLimit": metrics["portfolio_mandate"][
+                        "construction"
+                    ]["longGrossLimit"],
+                    "shortGrossLimit": metrics["portfolio_mandate"][
+                        "construction"
+                    ]["shortGrossLimit"],
                     "benchmark": metrics["portfolio_mandate"][
                         "construction"
                     ]["benchmark"],

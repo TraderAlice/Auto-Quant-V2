@@ -1295,6 +1295,17 @@ def _render_markdown(dossier: dict[str, Any]) -> str:
                     f"`{construction['family']}`",
                     "- Authorized positions: "
                     + ", ".join(f"`{item}`" for item in mandate["tradableAssets"]),
+                    "- Asset position roles: "
+                    + ", ".join(
+                        f"`{asset}`=`{role}`"
+                        for asset, role in construction[
+                            "assetPositionRoles"
+                        ].items()
+                    ),
+                    f"- Role source / long-side limit / short-side limit: "
+                    f"`{mandate['source']['assetPositionRoles']}` / "
+                    f"`{construction['longGrossLimit']}` / "
+                    f"`{construction['shortGrossLimit']}`",
                     "- Context-only assets: "
                     + (
                         ", ".join(

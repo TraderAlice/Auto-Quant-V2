@@ -2368,6 +2368,13 @@ function mandateMarkup(mandate) {
     )
     .map(([asset, value]) => `${asset} ${percent(value)}`)
     .join(" · ");
+  const roleLabel = Object.entries(mandate.assetPositionRoles ?? {})
+    .map(([asset, role]) => `${asset} ${role}`)
+    .join(" · ");
+  const sideLimits =
+    mandate.longGrossLimit == null || mandate.shortGrossLimit == null
+      ? "legacy"
+      : `L ${metric(mandate.longGrossLimit)} · S ${metric(mandate.shortGrossLimit)}`;
   const benchmark = mandate.benchmark;
   const benchmarkLabel =
     benchmark.kind === "single-asset-long"
@@ -2377,6 +2384,7 @@ function mandateMarkup(mandate) {
     <span class="mandate-direction">${escapeHtml(mandate.direction.toUpperCase())}</span>
     <span><small>Construction</small><b>${escapeHtml(mandate.family)}</b></span>
     <span class="mandate-assets"><small>Authorized positions</small><b>${escapeHtml(tradable)}</b><i>${escapeHtml(context)}</i></span>
+    <span><small>Asset roles / side limits</small><b>${escapeHtml(sideLimits)}</b><i>${escapeHtml(roleLabel || "legacy implicit")}</i></span>
     <span><small>Gross / default cap</small><b>${metric(mandate.grossLimit)} / ${percent(mandate.maxAbsWeight)}</b><i>${escapeHtml(namedCaps || "all tradable assets use default")}</i></span>
     <span><small>Risk ceiling</small><b>${escapeHtml(riskLabel)}</b></span>
     <span><small>Cost / rebalance / NAV</small><b>${escapeHtml(implementationLabel)}</b><i>${escapeHtml(mandate.policySource)}</i></span>

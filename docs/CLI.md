@@ -97,7 +97,9 @@ neighborhood with exact validation/test paths; the neighborhood is context
 only and never selects a parameter. New Portfolio and RL Projects bind a
 strict `portfolio-mandate`:
 delegated intake authorizes requested assets and direction while retaining
-other panel assets as research context only. The same Mandate fixes a causal
+other panel assets as research context only. A complete optional asset-role
+vector can instead assign long-only, short-only, two-sided, or context-only
+duties plus fixed long/short side limits. The same Mandate fixes a causal
 60-bar covariance forecast and a scale-down-only annualized volatility
 ceiling. The optional Research Request `portfolioPolicy` also locks gross, a
 default cap, requested-asset cap overrides, ceiling, base cost, no-trade band,
@@ -330,10 +332,13 @@ containing the disposable worktree, fixed program, editable closure, leader,
 authority status, and exact next commands. The caller edits only that worktree.
 
 With `--request`, Session start first validates the strict external question,
-assets, direction, optional complete `portfolioPolicy`, human horizon,
+assets, optional complete per-asset `positionRole` declarations, direction,
+optional complete `portfolioPolicy`, human horizon,
 optional complete numerical `horizonPolicy`, hypotheses, constraints,
-deliverables, and caller-supplied origin context. Requested assets and asset
-classes must fit the selected Study. Portfolio policy values are bounded
+deliverables, and caller-supplied origin context. If one requested asset
+declares a position role, all must declare one as long-only, short-only,
+two-sided, or context-only. Requested assets and asset classes must fit the
+selected Study. Portfolio policy values are bounded
 research assumptions, not authenticated Broker/account state. Horizon policy
 values are decision-bar counts on the locked dataset base clock; Core does not
 infer them from prose.

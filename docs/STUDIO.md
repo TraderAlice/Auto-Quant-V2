@@ -162,8 +162,9 @@ assigns scenario probability, selects a Run, or resizes a position.
 
 For request-driven Portfolio evidence, the mandate strip distinguishes the
 research universe from assets authorized as positions. It shows direction,
-long/cash, short/cash, or dollar-neutral family, gross/cap, benchmark, and
-locked identity. It also shows the fixed annualized volatility ceiling. The
+long/cash, short/cash, dollar-neutral, or explicit asset-role family, each
+asset's position role, long/short side limits, gross/cap, benchmark, and locked
+identity. It also shows the fixed annualized volatility ceiling. The
 current book discloses raw target → governed target, forecast volatility →
 governed volatility, scale, and status; the validation summary shows how often
 the ceiling bound. It separately shows whether the final executed path breached

@@ -173,9 +173,11 @@ creates a different Study/Run identity and stales an existing Session.
 
 Portfolio and governed-RL intake also writes the strict fixed
 `strategies/portfolio-mandate.json`. Core derives it from the exact normalized
-request and dataset universe: requested assets are tradable, remaining assets
-are context-only, and direction determines long/cash, short/cash, or
-dollar-neutral construction and benchmark. If the canonical request contains
+request and dataset universe: direction supplies the default role for
+requested assets, or one complete caller role vector marks each requested
+asset long-only, short-only, two-sided, or context-only. Remaining dataset
+assets are context-only. Core derives the construction family, gross-side
+limits, and a role-aware default benchmark. If the canonical request contains
 `portfolioPolicy`, the same derivation locks its gross, global fallback and
 named requested-asset caps, volatility ceiling, linear cost, no-trade band,
 reference NAV, and ordinary Portfolio/RL decision cadence; otherwise it

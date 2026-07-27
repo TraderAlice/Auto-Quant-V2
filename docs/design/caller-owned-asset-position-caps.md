@@ -123,8 +123,10 @@ named overrides. They retain `quantitative-decision-support` and
 
 ## Known limits
 
-- This contract does not express minimum allocations, forced positions, named
-  hedges, sector/factor exposure, or correlated group limits.
+- This contract does not express minimum allocations, forced positions,
+  hedge ratios, sector/factor exposure, or correlated group limits. Named sign
+  permissions are separately owned by
+  [[docs/design/caller-owned-asset-position-roles]].
 - Caps are caller constraints, not estimates of optimal Kelly size, liquidity,
   expected return, or confidence.
 - OpenAlice still owns account authorization and reconciliation against actual

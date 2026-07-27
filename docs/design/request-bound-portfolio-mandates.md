@@ -5,6 +5,7 @@ Status: V3 implemented.
 Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]], [[docs/CLI]],
 [[docs/design/research-intake-and-dataset-snapshots]],
 [[docs/design/caller-owned-portfolio-research-policy]],
+[[docs/design/caller-owned-asset-position-roles]],
 [[docs/design/caller-owned-benchmark-reference]],
 [[docs/design/portfolio-construction-lab]],
 [[docs/design/signal-policy-and-attribution]],
@@ -37,7 +38,8 @@ The strict `autoquant-portfolio-mandate` records:
 - whether it came from a normalized Research Request or a synthetic template;
 - the exact request hash and requested direction;
 - research, tradable, and context-only asset sets;
-- construction family, gross limit, net rule, per-asset cap, cash permission,
+- construction family, complete per-asset position-role vector, long/short
+  gross-side limits, gross limit, net rule, per-asset cap, cash permission,
   short permission, and a complete structured benchmark contract;
 - fixed trailing-covariance method, annualized volatility ceiling, lookback,
   minimum history, annualization, and no-scale-up rule;
@@ -75,6 +77,20 @@ Requested assets are intentionally conservative authorization. Other dataset
 assets may improve ranking, regime, style, or benchmark context, but they
 cannot become positions or implicit hedges without caller intent.
 
+If every requested asset supplies `positionRole`, Core uses the explicit
+`asset-role` family rather than applying one sign permission to every name.
+Roles are `long-only`, `short-only`, `two-sided`, and `context-only`. When
+both long- and short-capable assets exist, each side may use up to half the
+gross limit; a single capable side may use the full gross limit. Side limits
+are maximums, not forced allocations, and unused capacity remains cash.
+Direction still describes the research question and must be compatible with
+the explicit capabilities.
+
+Direction-default benchmarks remain unchanged for requests without roles.
+Explicit long/short requests use an equal-weight reference over only the
+corresponding role-capable assets; two-sided/relative-value requests default
+to cash. A caller benchmark continues to override only evaluation.
+
 Optional strict `request.benchmarkPolicy` replaces only the evaluation
 reference with cash or one named dataset-universe asset. A named benchmark may
 be context-only; it does not change `tradableAssets`, position caps, signal
@@ -108,6 +124,11 @@ Directional families modify only permitted position state and budget:
   use it;
 - context-only assets always have flat intent, zero target, and
   `allocation_status=context_only`.
+
+The `asset-role` family selects that same state machine independently per
+asset. Each active side is capped-water-filled only up to its fixed gross-side
+limit. A missing or under-capacity hedge side does not flatten or resize the
+other side and does not create a neutrality claim.
 
 Dollar-neutral families require exact funded long and short sides under the
 fixed gross/net/cap rules. Insufficient requested breadth remains flat and
@@ -148,6 +169,7 @@ record its identity and per-asset tradability.
 Core projections expose:
 
 - direction and construction family;
+- role source, complete asset-role vector, and long/short gross-side limits;
 - authorized and context-only assets;
 - gross limit, per-asset cap, cash, short, and structured benchmark semantics;
 - caller/default policy source, base cost, no-trade band, reference NAV, and
@@ -192,8 +214,11 @@ inventory.
 
 ## Known limits
 
-- The request does not yet express named hedge assets, sector bounds, borrow
-  availability, futures margin, or nonlinear impact.
+- Named assets may be authorized for a hedge sign, but AutoQuant does not
+  infer or guarantee beta, factor, sector, currency, duration, or delta
+  neutrality.
+- The request does not express borrow availability, futures margin, financing,
+  group bounds, forced positions, or nonlinear impact.
 - Cash is an unused-gross-budget field, not financing or collateral
   accounting.
 - Position permissions are Project-local and do not represent OpenAlice

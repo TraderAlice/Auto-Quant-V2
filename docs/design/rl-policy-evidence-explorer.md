@@ -90,8 +90,9 @@ issue. Studio then shows a Project diagnostic instead of partial RL evidence.
 `aq run rl` returns `autoquant-rl-policy-diagnostics` with:
 
 - immutable Run, dataset, Harness, artifact, and protocol identity;
-- fixed Portfolio Mandate direction, construction, authorized/context-only
-  assets, cash/cap, and benchmark;
+- fixed Portfolio Mandate direction, construction, complete asset-role vector,
+  authorized/context-only assets, long/short side limits, cash/cap, and
+  benchmark;
 - a headline validation/test audit summary;
 - one row per fold/seed trial;
 - one row per declared baseline and fold;

@@ -74,6 +74,126 @@ def panels() -> tuple[pd.DataFrame, pd.DataFrame]:
 
 
 class PortfolioMandateTests(unittest.TestCase):
+    def test_caller_asset_roles_govern_mixed_signs_and_context(self) -> None:
+        factors, closes = panels()
+        raw = request("relative-value", UNIVERSE)
+        roles = {
+            "A": "long-only",
+            "B": "long-only",
+            "C": "context-only",
+            "D": "short-only",
+            "E": "short-only",
+        }
+        for asset in raw["assets"]:
+            asset["positionRole"] = roles[asset["symbol"]]
+        raw["portfolioPolicy"] = {
+            "grossLimit": 0.8,
+            "maxAbsWeight": 0.3,
+            "assetMaxAbsWeights": {"A": 0.25, "D": 0.2},
+            "annualizedVolatilityCeiling": 1.0,
+            "baseCostBps": 10.0,
+            "noTradeOneWay": 0.0,
+            "referenceNav": 1_000_000.0,
+            "decisionEveryBars": 1,
+            "decisionAnchor": "dataset-start",
+        }
+        normalized = validate_research_request(raw)
+        mandate = build_portfolio_mandate(normalized, UNIVERSE)
+
+        self.assertEqual(
+            mandate["source"]["assetPositionRoles"],
+            "caller-supplied",
+        )
+        self.assertEqual(mandate["construction"]["family"], "asset-role")
+        self.assertEqual(
+            mandate["construction"]["netRule"],
+            "bounded-by-side-limits",
+        )
+        self.assertEqual(mandate["construction"]["longGrossLimit"], 0.4)
+        self.assertEqual(mandate["construction"]["shortGrossLimit"], 0.4)
+        self.assertEqual(
+            mandate["construction"]["assetPositionRoles"],
+            roles,
+        )
+        self.assertNotIn("C", mandate["tradableAssets"])
+        self.assertIn("C", mandate["contextAssets"])
+        self.assertEqual(
+            validate_portfolio_mandate(mandate),
+            mandate,
+        )
+        jsonschema.validate(mandate, PORTFOLIO_MANDATE_JSON_SCHEMA)
+
+        construction = construct_signal_policy(
+            factors,
+            closes,
+            mandate=mandate,
+            apply_risk_governor=False,
+        )
+        active = construction.targets[
+            construction.targets.abs().sum(axis=1) > 1e-12
+        ]
+        self.assertFalse(active.empty)
+        self.assertTrue((active[["A", "B"]] >= -1e-12).all().all())
+        self.assertTrue((active[["D", "E"]] <= 1e-12).all().all())
+        self.assertTrue((active["C"].abs() <= 1e-12).all())
+        self.assertTrue(
+            (
+                active.clip(lower=0.0).sum(axis=1)
+                <= mandate["construction"]["longGrossLimit"] + 1e-12
+            ).all()
+        )
+        self.assertTrue(
+            (
+                (-active.clip(upper=0.0)).sum(axis=1)
+                <= mandate["construction"]["shortGrossLimit"] + 1e-12
+            ).all()
+        )
+        audit = constraint_audit(
+            construction.targets,
+            mandate=mandate,
+        )
+        self.assertTrue(audit["passed"])
+        self.assertEqual(audit["asset_position_roles"], roles)
+        latest = construction.ledger[
+            construction.ledger["timestamp"]
+            == construction.ledger["timestamp"].max()
+        ].set_index("asset")
+        self.assertEqual(latest.loc["A", "position_role"], "long-only")
+        self.assertEqual(latest.loc["D", "position_role"], "short-only")
+        self.assertEqual(latest.loc["C", "signal_event"], "context_only")
+
+        partial = request("long", ["A", "B"])
+        partial["assets"][0]["positionRole"] = "long-only"
+        with self.assertRaises(AutoQuantValidationError):
+            validate_research_request(partial)
+
+        long_with_hedge = copy.deepcopy(raw)
+        long_with_hedge["direction"] = "long"
+        long_mandate = build_portfolio_mandate(
+            validate_research_request(long_with_hedge),
+            UNIVERSE,
+        )
+        self.assertEqual(
+            long_mandate["construction"]["benchmark"],
+            {
+                "source": "direction-default",
+                "kind": "equal-weight-long-capable",
+                "asset": None,
+                "weights": {
+                    "A": 0.5,
+                    "B": 0.5,
+                    "C": 0.0,
+                    "D": 0.0,
+                    "E": 0.0,
+                },
+            },
+        )
+
+        tampered = copy.deepcopy(mandate)
+        tampered["construction"]["assetPositionRoles"]["A"] = "short-only"
+        with self.assertRaises(AutoQuantValidationError):
+            validate_portfolio_mandate(tampered)
+
     def test_caller_decision_cadence_freezes_signals_and_ordinary_trades(self) -> None:
         factors, closes = panels()
         raw = request("long", ["A", "B"])

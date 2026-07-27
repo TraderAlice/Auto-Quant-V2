@@ -38,13 +38,19 @@ For `asset`, `symbol` must be a non-empty dataset-universe symbol. It may be
 one of the requested tradable assets or a context-only asset. For `cash`,
 `symbol` must be null.
 
-When omitted, Core records `direction-default` and retains the existing
-direction-derived reference:
+When omitted, Core records `direction-default`. Requests without explicit
+asset roles retain the direction-derived reference:
 
 - long: equal-weight long tradable;
 - short: equal-weight short tradable;
 - long-short and relative-value: cash;
 - research-only: equal-weight long research universe.
+
+An explicit asset-role request instead filters the default reference by sign
+permission: long uses equal-weight long-capable assets, short uses
+equal-weight short-capable assets, long-short/relative-value uses cash, and
+research-only prefers long-capable assets (or short-capable when no long role
+exists). A short-only hedge therefore never enters an implicit long reference.
 
 ## Mandate contract
 

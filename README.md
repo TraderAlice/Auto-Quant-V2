@@ -51,8 +51,10 @@ Intake validates and normalizes the complete aligned panel, confines every
 source path, preserves provider/calendar/adjustment claims, hashes source and
 Project-local bytes, and transactionally creates one coordinated Project with
 Factor, Portfolio, and governed RL Studies. It also derives one fixed
-Portfolio Mandate: requested assets and direction define position authority,
-while other panel assets remain research context. The Mandate also fixes a
+Portfolio Mandate: requested assets and direction define the default position
+authority, while an optional complete per-asset role vector can instead mark
+each requested asset long-only, short-only, two-sided, or context-only. Other
+panel assets remain research context. The Mandate also fixes a
 causal one-sided covariance volatility ceiling shared by Portfolio and RL.
 An optional strict `portfolioPolicy` in the Research Request lets the caller
 lock gross, a default single-name cap, named per-asset cap overrides,
@@ -126,7 +128,8 @@ is a Harness benchmark—not a market alpha claim.
 The `ohlcv-portfolio-lab` starter keeps the same ordinary pandas candidate API
 but fixes the downstream research contract: causal percentile
 entry/hold/exit/reversal state, inverse-volatility conviction sizing,
-request-mapped long/cash, short/cash, or dollar-neutral capped targets,
+request-mapped long/cash, short/cash, dollar-neutral, or explicit per-asset
+role capped targets,
 then a trailing-covariance portfolio forecast that only scales exposure down
 above a fixed 15% annualized ceiling. It also fixes drift-aware rebalance,
 turnover, costs, volume participation, and dataset-fixed purged splits.

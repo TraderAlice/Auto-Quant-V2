@@ -39,6 +39,19 @@ PORTFOLIO_NET_RULES = {
     "relative-value": "zero",
     "research-only": "zero",
 }
+ASSET_POSITION_ROLES = {
+    "long-only",
+    "short-only",
+    "two-sided",
+    "context-only",
+}
+DERIVED_ASSET_POSITION_ROLES = {
+    "long": "long-only",
+    "short": "short-only",
+    "long-short": "two-sided",
+    "relative-value": "two-sided",
+    "research-only": "two-sided",
+}
 PORTFOLIO_BENCHMARKS = {
     "long": "equal-weight-long-tradable",
     "short": "equal-weight-short-tradable",
@@ -51,6 +64,8 @@ BENCHMARK_KINDS = {
     "equal-weight-long-research-universe",
     "equal-weight-long-tradable",
     "equal-weight-short-tradable",
+    "equal-weight-long-capable",
+    "equal-weight-short-capable",
     "single-asset-long",
 }
 PORTFOLIO_RISK_POLICY = {
@@ -92,6 +107,7 @@ def _valid_annualization_periods(value: Any) -> bool:
 def _valid_portfolio_policy(
     value: dict[str, Any],
     direction: str,
+    asset_position_roles: list[str] | None = None,
 ) -> bool:
     required = set(DEFAULT_PORTFOLIO_POLICY)
     if set(value) != required:
@@ -131,12 +147,17 @@ def _valid_portfolio_policy(
     nav = float(value["referenceNav"])
     cadence = value["decisionEveryBars"]
     anchor = value["decisionAnchor"]
-    maximum_cap = (
-        gross / 2.0
-        if direction
-        in {"long-short", "relative-value", "research-only"}
-        else gross
+    has_long = (
+        any(role in {"long-only", "two-sided"} for role in asset_position_roles)
+        if asset_position_roles is not None
+        else direction in {"long", "long-short", "relative-value", "research-only"}
     )
+    has_short = (
+        any(role in {"short-only", "two-sided"} for role in asset_position_roles)
+        if asset_position_roles is not None
+        else direction in {"short", "long-short", "relative-value", "research-only"}
+    )
+    maximum_cap = gross / 2.0 if has_long and has_short else gross
     return (
         0 < gross <= 2
         and 0 < cap <= maximum_cap
@@ -223,8 +244,17 @@ def _canonical_payload(
     policy_source: str,
     benchmark_policy: dict[str, Any] | None,
     benchmark_source: str,
+    asset_position_roles: dict[str, str],
+    asset_position_roles_source: str,
 ) -> dict[str, Any]:
-    tradable_set = set(tradable_assets)
+    tradable_set = {
+        asset
+        for asset in tradable_assets
+        if asset_position_roles[asset] != "context-only"
+    }
+    tradable_assets = [
+        asset for asset in research_universe if asset in tradable_set
+    ]
     context_assets = [
         asset for asset in research_universe if asset not in tradable_set
     ]
@@ -237,8 +267,30 @@ def _canonical_payload(
         )
         for asset in research_universe
     }
+    explicit_roles = asset_position_roles_source == "caller-supplied"
+    long_capable = [
+        asset
+        for asset in tradable_assets
+        if asset_position_roles[asset] in {"long-only", "two-sided"}
+    ]
+    short_capable = [
+        asset
+        for asset in tradable_assets
+        if asset_position_roles[asset] in {"short-only", "two-sided"}
+    ]
     if benchmark_policy is None:
-        benchmark_kind = PORTFOLIO_BENCHMARKS[direction]
+        if not explicit_roles:
+            benchmark_kind = PORTFOLIO_BENCHMARKS[direction]
+        elif direction == "long":
+            benchmark_kind = "equal-weight-long-capable"
+        elif direction == "short":
+            benchmark_kind = "equal-weight-short-capable"
+        elif direction in {"long-short", "relative-value"}:
+            benchmark_kind = "cash"
+        elif long_capable:
+            benchmark_kind = "equal-weight-long-capable"
+        else:
+            benchmark_kind = "equal-weight-short-capable"
         benchmark_asset = None
     elif benchmark_policy["kind"] == "cash":
         benchmark_kind = "cash"
@@ -271,6 +323,18 @@ def _canonical_payload(
             )
             for asset in research_universe
         }
+    elif benchmark_kind == "equal-weight-long-capable":
+        equal_weight = 1.0 / len(long_capable)
+        benchmark_weights = {
+            asset: equal_weight if asset in long_capable else 0.0
+            for asset in research_universe
+        }
+    elif benchmark_kind == "equal-weight-short-capable":
+        equal_weight = -1.0 / len(short_capable)
+        benchmark_weights = {
+            asset: equal_weight if asset in short_capable else 0.0
+            for asset in research_universe
+        }
     elif (
         benchmark_kind == "single-asset-long"
         and benchmark_asset in research_universe
@@ -281,6 +345,25 @@ def _canonical_payload(
         }
     else:
         raise ValueError("benchmark policy is outside the research universe")
+    has_long = any(
+        asset_position_roles[asset] in {"long-only", "two-sided"}
+        for asset in tradable_assets
+    )
+    has_short = any(
+        asset_position_roles[asset] in {"short-only", "two-sided"}
+        for asset in tradable_assets
+    )
+    if has_long and has_short:
+        long_gross_limit = float(portfolio_policy["grossLimit"]) / 2.0
+        short_gross_limit = float(portfolio_policy["grossLimit"]) / 2.0
+    elif has_long:
+        long_gross_limit = float(portfolio_policy["grossLimit"])
+        short_gross_limit = 0.0
+    elif has_short:
+        long_gross_limit = 0.0
+        short_gross_limit = float(portfolio_policy["grossLimit"])
+    else:
+        raise ValueError("portfolio mandate requires a position-capable asset")
     return {
         "schemaVersion": SCHEMA_VERSION,
         "kind": PORTFOLIO_MANDATE_KIND,
@@ -290,19 +373,33 @@ def _canonical_payload(
             "direction": direction,
             "portfolioPolicy": policy_source,
             "benchmarkPolicy": benchmark_source,
+            "assetPositionRoles": asset_position_roles_source,
         },
         "researchUniverse": list(research_universe),
         "tradableAssets": list(tradable_assets),
         "contextAssets": context_assets,
         "construction": {
-            "family": PORTFOLIO_FAMILIES[direction],
+            "family": (
+                "asset-role"
+                if explicit_roles
+                else PORTFOLIO_FAMILIES[direction]
+            ),
             "grossLimit": portfolio_policy["grossLimit"],
-            "netRule": PORTFOLIO_NET_RULES[direction],
+            "longGrossLimit": long_gross_limit,
+            "shortGrossLimit": short_gross_limit,
+            "netRule": (
+                "bounded-by-side-limits"
+                if explicit_roles
+                else PORTFOLIO_NET_RULES[direction]
+            ),
             "maxAbsWeight": portfolio_policy["maxAbsWeight"],
             "assetMaxAbsWeights": asset_caps,
+            "assetPositionRoles": {
+                asset: asset_position_roles[asset]
+                for asset in research_universe
+            },
             "cashAllowed": True,
-            "shortAllowed": direction
-            in {"short", "long-short", "relative-value", "research-only"},
+            "shortAllowed": has_short,
             "benchmark": {
                 "source": benchmark_source,
                 "kind": benchmark_kind,
@@ -360,6 +457,10 @@ def build_portfolio_mandate(
             policy_source="reference-default",
             benchmark_policy=None,
             benchmark_source="direction-default",
+            asset_position_roles={
+                asset: "two-sided" for asset in research_universe
+            },
+            asset_position_roles_source="direction-derived",
         )
     else:
         direction = request.get("direction")
@@ -372,13 +473,60 @@ def build_portfolio_mandate(
                 "requested assets are outside the research universe: "
                 + ", ".join(missing)
             )
+        explicit_roles = all(
+            "positionRole" in item for item in request["assets"]
+        )
+        requested_roles = {
+            item["symbol"]: (
+                item["positionRole"]
+                if explicit_roles
+                else DERIVED_ASSET_POSITION_ROLES[direction]
+            )
+            for item in request["assets"]
+        }
+        has_long_role = any(
+            role in {"long-only", "two-sided"}
+            for role in requested_roles.values()
+        )
+        has_short_role = any(
+            role in {"short-only", "two-sided"}
+            for role in requested_roles.values()
+        )
+        if (
+            direction == "long"
+            and not has_long_role
+            or direction == "short"
+            and not has_short_role
+            or direction in {"long-short", "relative-value"}
+            and not (has_long_role and has_short_role)
+        ):
+            raise ValueError("request direction conflicts with asset position roles")
+        asset_position_roles = {
+            asset: (
+                "two-sided"
+                if direction == "research-only" and not explicit_roles
+                else requested_roles.get(asset, "context-only")
+            )
+            for asset in research_universe
+        }
+        tradable_assets = [
+            asset
+            for asset in research_universe
+            if asset_position_roles[asset] != "context-only"
+        ]
+        if not tradable_assets:
+            raise ValueError("request has no position-capable assets")
         supplied_policy = request.get("portfolioPolicy")
         policy = (
             dict(DEFAULT_PORTFOLIO_POLICY)
             if supplied_policy is None
             else dict(supplied_policy)
         )
-        if not _valid_portfolio_policy(policy, direction):
+        if not _valid_portfolio_policy(
+            policy,
+            direction,
+            list(requested_roles.values()) if explicit_roles else None,
+        ):
             raise ValueError("request has an invalid portfolio policy")
         unknown_caps = sorted(
             set(policy["assetMaxAbsWeights"]) - set(requested)
@@ -417,7 +565,9 @@ def build_portfolio_mandate(
             direction=direction,
             research_universe=research_universe,
             tradable_assets=(
-                research_universe if direction == "research-only" else requested
+                research_universe
+                if direction == "research-only" and not explicit_roles
+                else tradable_assets
             ),
             annualization_periods=annualization_periods,
             portfolio_policy=policy,
@@ -431,6 +581,12 @@ def build_portfolio_mandate(
                 "direction-default"
                 if supplied_benchmark is None
                 else "caller-supplied"
+            ),
+            asset_position_roles=asset_position_roles,
+            asset_position_roles_source=(
+                "caller-supplied"
+                if explicit_roles
+                else "direction-derived"
             ),
         )
     return {
@@ -488,6 +644,7 @@ def validate_portfolio_mandate(
     request_hash: Any = None
     policy_source: Any = None
     benchmark_source: Any = None
+    asset_position_roles_source: Any = None
     if not isinstance(source, dict):
         issues.append(_issue(f"{path}/source", "schema.type", "Source must be an object"))
     else:
@@ -500,6 +657,7 @@ def validate_portfolio_mandate(
                     "direction",
                     "portfolioPolicy",
                     "benchmarkPolicy",
+                    "assetPositionRoles",
                 },
                 f"{path}/source",
             )
@@ -509,6 +667,7 @@ def validate_portfolio_mandate(
         direction = source.get("direction")
         policy_source = source.get("portfolioPolicy")
         benchmark_source = source.get("benchmarkPolicy")
+        asset_position_roles_source = source.get("assetPositionRoles")
         if source_kind not in {"research-request", "template-default"}:
             issues.append(
                 _issue(
@@ -544,6 +703,17 @@ def validate_portfolio_mandate(
                     "Invalid benchmark policy source",
                 )
             )
+        if asset_position_roles_source not in {
+            "caller-supplied",
+            "direction-derived",
+        }:
+            issues.append(
+                _issue(
+                    f"{path}/source/assetPositionRoles",
+                    "mandate.asset-position-roles-source",
+                    "Invalid asset position roles source",
+                )
+            )
         if source_kind == "research-request" and not _valid_hash(request_hash):
             issues.append(
                 _issue(
@@ -557,6 +727,7 @@ def validate_portfolio_mandate(
             or direction != "research-only"
             or policy_source != "reference-default"
             or benchmark_source != "direction-default"
+            or asset_position_roles_source != "direction-derived"
         ):
             issues.append(
                 _issue(
@@ -643,9 +814,12 @@ def validate_portfolio_mandate(
                 {
                     "family",
                     "grossLimit",
+                    "longGrossLimit",
+                    "shortGrossLimit",
                     "netRule",
                     "maxAbsWeight",
                     "assetMaxAbsWeights",
+                    "assetPositionRoles",
                     "cashAllowed",
                     "shortAllowed",
                     "benchmark",
@@ -656,6 +830,32 @@ def validate_portfolio_mandate(
         )
         if direction in PORTFOLIO_MANDATE_DIRECTIONS:
             risk_policy = construction.get("riskPolicy")
+            complete_roles = construction.get("assetPositionRoles")
+            valid_complete_roles = (
+                isinstance(complete_roles, dict)
+                and set(complete_roles) == set(research)
+                and all(
+                    complete_roles[asset] in ASSET_POSITION_ROLES
+                    for asset in research
+                )
+                and all(
+                    (
+                        complete_roles[asset] != "context-only"
+                        if asset in tradable
+                        else complete_roles[asset] == "context-only"
+                    )
+                    for asset in research
+                )
+            )
+            if not valid_complete_roles:
+                issues.append(
+                    _issue(
+                        f"{path}/construction/assetPositionRoles",
+                        "mandate.asset-position-roles",
+                        "Position roles must exactly classify tradable and "
+                        "context assets",
+                    )
+                )
             benchmark = construction.get("benchmark")
             normalized_benchmark_policy: dict[str, Any] | None = None
             if not isinstance(benchmark, dict):
@@ -797,6 +997,12 @@ def validate_portfolio_mandate(
                 if not _valid_portfolio_policy(
                     normalized_policy,
                     direction,
+                    (
+                        [complete_roles[asset] for asset in tradable]
+                        if asset_position_roles_source == "caller-supplied"
+                        and valid_complete_roles
+                        else None
+                    ),
                 ):
                     issues.append(
                         _issue(
@@ -843,6 +1049,27 @@ def validate_portfolio_mandate(
                     in {"caller-supplied", "direction-default"}
                     else "direction-default"
                 ),
+                asset_position_roles=(
+                    {
+                        asset: complete_roles[asset]
+                        for asset in research
+                    }
+                    if valid_complete_roles
+                    else {
+                        asset: (
+                            DERIVED_ASSET_POSITION_ROLES[direction]
+                            if asset in tradable
+                            else "context-only"
+                        )
+                        for asset in research
+                    }
+                ),
+                asset_position_roles_source=(
+                    asset_position_roles_source
+                    if asset_position_roles_source
+                    in {"caller-supplied", "direction-derived"}
+                    else "direction-derived"
+                ),
             )
             if (
                 construction != expected["construction"]
@@ -855,7 +1082,11 @@ def validate_portfolio_mandate(
                         "Portfolio policy differs from the fixed request contract",
                     )
                 )
-        if direction == "research-only" and tradable != research:
+        if (
+            direction == "research-only"
+            and asset_position_roles_source == "direction-derived"
+            and tradable != research
+        ):
             issues.append(
                 _issue(
                     f"{path}/tradableAssets",
@@ -956,6 +1187,7 @@ PORTFOLIO_MANDATE_JSON_SCHEMA: dict[str, Any] = {
                 "direction",
                 "portfolioPolicy",
                 "benchmarkPolicy",
+                "assetPositionRoles",
             ],
             "properties": {
                 "kind": {"enum": ["research-request", "template-default"]},
@@ -971,6 +1203,9 @@ PORTFOLIO_MANDATE_JSON_SCHEMA: dict[str, Any] = {
                 },
                 "benchmarkPolicy": {
                     "enum": ["caller-supplied", "direction-default"]
+                },
+                "assetPositionRoles": {
+                    "enum": ["caller-supplied", "direction-derived"]
                 },
             },
         },
@@ -997,9 +1232,12 @@ PORTFOLIO_MANDATE_JSON_SCHEMA: dict[str, Any] = {
             "required": [
                 "family",
                 "grossLimit",
+                "longGrossLimit",
+                "shortGrossLimit",
                 "netRule",
                 "maxAbsWeight",
                 "assetMaxAbsWeights",
+                "assetPositionRoles",
                 "cashAllowed",
                 "shortAllowed",
                 "benchmark",
@@ -1007,14 +1245,36 @@ PORTFOLIO_MANDATE_JSON_SCHEMA: dict[str, Any] = {
             ],
             "properties": {
                 "family": {
-                    "enum": ["long-cash", "short-cash", "dollar-neutral"]
+                    "enum": [
+                        "long-cash",
+                        "short-cash",
+                        "dollar-neutral",
+                        "asset-role",
+                    ]
                 },
                 "grossLimit": {
                     "type": "number",
                     "exclusiveMinimum": 0,
                     "maximum": 2,
                 },
-                "netRule": {"enum": ["long-only", "short-only", "zero"]},
+                "longGrossLimit": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 2,
+                },
+                "shortGrossLimit": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 2,
+                },
+                "netRule": {
+                    "enum": [
+                        "long-only",
+                        "short-only",
+                        "zero",
+                        "bounded-by-side-limits",
+                    ]
+                },
                 "maxAbsWeight": {
                     "type": "number",
                     "exclusiveMinimum": 0,
@@ -1027,6 +1287,13 @@ PORTFOLIO_MANDATE_JSON_SCHEMA: dict[str, Any] = {
                         "type": "number",
                         "minimum": 0,
                         "maximum": 2,
+                    },
+                },
+                "assetPositionRoles": {
+                    "type": "object",
+                    "maxProperties": 256,
+                    "additionalProperties": {
+                        "enum": sorted(ASSET_POSITION_ROLES),
                     },
                 },
                 "cashAllowed": {"const": True},

@@ -215,8 +215,9 @@ portfolio-explorer claims; other verified Project categories remain visible.
 
 The first explorer version provides:
 
-- verified Portfolio Mandate identity, construction, authorized/context-only
-  assets, cash/cap, benchmark, and risk policy;
+- verified Portfolio Mandate identity, construction, complete asset-role
+  vector, authorized/context-only assets, long/short side limits, cash/cap,
+  benchmark, and risk policy;
 - one current mechanical-decision chain with state-dependent entry,
   exit, and reversal thresholds, same-cross-section percentile buffers,
   raw/governed targets, drifted pretrade weights, proposed versus actual
@@ -292,7 +293,8 @@ The first explorer version provides:
 
 ## Known limits
 
-- V1 projects fixed long/cash, short/cash, and dollar-neutral mandate families.
+- V1 projects fixed long/cash, short/cash, dollar-neutral, and explicit
+  per-asset-role mandate families.
 - Studio embeds only the latest successful Portfolio Run per Project.
 - The chart is a bounded read model, not a tick/order replay.
 - Cross-Run comparison, parameter surfaces, covariance matrices, impact, and

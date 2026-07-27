@@ -37,6 +37,9 @@ permission to select from visible test audit.
   gross budget in cash;
 - long-short/relative-value require the Portfolio Mandate's exact gross and
   equal funded long/short sides;
+- an explicit asset-role Mandate applies long-only, short-only, two-sided, or
+  context-only signal state per asset, allocates each active side only up to
+  its locked gross-side limit, and leaves unused side capacity cash;
 - context-only assets remain flat with zero target;
 - maximum absolute target weight comes from the Portfolio Mandate;
 - the Portfolio Mandate's decision schedule uses its locked dataset-start or

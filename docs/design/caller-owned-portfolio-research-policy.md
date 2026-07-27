@@ -122,9 +122,10 @@ default assumptions and retain `tradingAuthority: none`.
 
 ## Known limits
 
-- Per-asset maximum caps do not express named hedges, minimum allocations, or
+- Per-asset maximum caps do not express hedge ratios, minimum allocations, or
   correlated group limits; see
-  [[docs/design/caller-owned-asset-position-caps]].
+  [[docs/design/caller-owned-asset-position-caps]] and
+  [[docs/design/caller-owned-asset-position-roles]].
 - Linear bps cost is not spread, impact, borrow, funding, or tax.
 - Reference NAV only scales OHLCV participation; it does not change percentage
   weights or create account state.

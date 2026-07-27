@@ -521,7 +521,18 @@ Brief hash. `request.json` records the exact normalized caller input:
   "question": "Does current evidence support a conditional long view?",
   "decisionContext": "OpenAlice is preparing an investment discussion.",
   "assets": [
-    {"symbol": "AAPL", "assetClass": "equity", "venue": "NASDAQ"}
+    {
+      "symbol": "AAPL",
+      "assetClass": "equity",
+      "venue": "NASDAQ",
+      "positionRole": "long-only"
+    },
+    {
+      "symbol": "SPY",
+      "assetClass": "fund",
+      "venue": "ARCX",
+      "positionRole": "short-only"
+    }
   ],
   "direction": "long",
   "benchmarkPolicy": {"kind": "asset", "symbol": "SPY"},
@@ -555,7 +566,10 @@ Brief hash. `request.json` records the exact normalized caller input:
 ```
 
 Origin fields are caller-supplied content, not authenticated OpenAlice
-provenance. Requested symbols and asset classes must fit the selected Study.
+provenance. `positionRole` is optional only as a complete vector: when any
+requested asset declares it, every requested asset must declare `long-only`,
+`short-only`, `two-sided`, or `context-only`. Requested symbols and asset
+classes must fit the selected Study.
 `brief.json` is derived from that request plus Project/Session/Study identity,
 baseline, objective, dataset, Judge, and Harness locks. Its authority is
 `research-prioritization`; trading authority is `none`. Every Session load
