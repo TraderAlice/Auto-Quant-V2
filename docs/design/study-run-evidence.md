@@ -15,8 +15,7 @@ bounded Python Judge execution, structured Judge output, immutable RunResult
 publication, and Run verification.
 
 It does not own autonomous Researcher invocation, KEEP/REVERT/CRASH
-Experiments, source promotion, Freqtrade adaptation, market-data ingestion,
-or Studio presentation.
+Experiments, source promotion, market-data ingestion, or Studio presentation.
 
 ## Authority model
 
@@ -212,7 +211,6 @@ uv run python -m unittest tests.test_studies tests.test_runs tests.test_cli -v
 
 - Corporate-action, exchange-calendar, adjustment, symbol-master, and external
   object-store metadata have no standard content contract yet.
-- There is no Freqtrade Study adapter.
 - V1 baseline/candidate comparison uses only one primary metric; richer robust
   gates remain future work.
 - There are no streamed progress events.

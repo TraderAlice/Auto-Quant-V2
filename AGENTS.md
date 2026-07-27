@@ -2,9 +2,9 @@
 
 AutoQuant V2 is a pre-alpha, AI-native quantitative research workbench. Domain
 correctness, reproducible evidence, and a coherent project model take priority
-over backward compatibility while V2 is taking shape. Preserve the archived
-V0 experiments as historical evidence; do not silently reinterpret them under
-new Harness semantics.
+over backward compatibility while V2 is taking shape. Auto-Quant Classic files
+were retired from the current tree; Git history is their archive and current
+code must not load or reinterpret them under V2 semantics.
 
 Use Python 3.11 and `uv` for repository code and scripts. Keep projects
 self-contained: a Workspace owns project discovery and a standardized Harness,
@@ -172,9 +172,8 @@ Read the relevant linked document before changing a subsystem:
 - Studio operator and public read-model guide: [[docs/STUDIO]]
 - Canonical Workspace and Project file schemas: [[docs/PROJECT_FORMAT]]
 - Human and machine-readable command behavior: [[docs/CLI]]
-- Current Freqtrade/OHLCV Harness manifest and profile contract:
-  [[docs/harness]]
-- Historical research snapshots: [[versions/README]]
+- Retired repository-root Freqtrade Harness boundary:
+  [[docs/design/retired-flat-freqtrade-harness]]
 
 Add new active design documents to this map when a subsystem gains its own
 invariants. Keep this list as a routing surface, not a historical catalog.

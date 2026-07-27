@@ -788,13 +788,14 @@ Delegated request/Brief parsing is in `autoquant/briefs.py`; immutable Report
 publication and verification are in `autoquant/reports.py`; Project Dossier
 composition and verification are in `autoquant/dossiers.py`.
 
-## Compatibility surface
+## Repository boundary
 
-The repository-root `harness.json`, `user_data/strategies/`, `data/`,
-`prepare.py`, and `run.py` remain the V0.5 flat compatibility Harness documented
-in [[docs/harness]]. They are not a generated V2 Project. Migrating that
-research arena will be a separately planned change that preserves historical
-snapshots.
+The source repository contains the standardized V2 Harness implementation and
+reference Project templates. Caller research state is created only inside a
+Workspace or direct Project. There is no repository-root strategy arena,
+mutable dataset, free-form result journal, or alternate Freqtrade entry point.
+The retired boundary is recorded in
+[[docs/design/retired-flat-freqtrade-harness]].
 
 ## Verification
 

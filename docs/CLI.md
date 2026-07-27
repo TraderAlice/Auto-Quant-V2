@@ -715,12 +715,12 @@ uv run aq capabilities --json
 
 This CLI owns Workspace/Project lifecycle, fixed Study and immutable Run
 evidence, the governed Session/Experiment edit/evaluate/promotion loop, and
-bounded provider-neutral Researcher Campaigns. The legacy `prepare.py` and
-`run.py` commands remain the V0.5 compatibility Harness. Delegated
+bounded provider-neutral Researcher Campaigns. `aq` is the only current command
+family; the repository-root Classic/Freqtrade arena is retired. Delegated
 request/Brief/Report handoff is Project-local and has no OpenAlice provenance
 or live-trading authority. The local Studio projects the current read model.
 Richer robust comparison and Studio mutation operations remain separate future
-surfaces.
+surfaces. See [[docs/design/retired-flat-freqtrade-harness]].
 
 ## Verification
 

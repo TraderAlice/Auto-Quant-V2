@@ -5,13 +5,16 @@ description = "AI-native quantitative research workbench and autonomous code-opt
 readme = "README.md"
 requires-python = ">=3.11,<3.13"
 dependencies = [
-    "freqtrade==2026.3",
     "pandas>=2.2",
     "numpy>=1.26",
-    "matplotlib>=3.8",
-    "jupyter>=1.0",
     "exchange-calendars==4.13.2",
 ]
+
+[project.optional-dependencies]
+columnar = ["pyarrow>=16"]
+
+[dependency-groups]
+dev = ["jsonschema>=4.23"]
 
 [project.scripts]
 aq = "autoquant.cli:main"

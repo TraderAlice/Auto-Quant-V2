@@ -209,18 +209,10 @@ The implementation boundary for Session comparison is
 `autoquant/decision_matrix.py`; CLI and Studio consume that Core read model
 without reimplementing metric choice or verdict semantics.
 
-The repository also contains the V0.5 development Harness inherited from
-Auto-Quant Classic:
-
-- `harness.json` declares Freqtrade 2026.3 and two OHLCV asset profiles;
-- `autoquant/`, `prepare.py`, and `run.py` adapt data and execution;
-- `user_data/strategies/` is the current Agent-editable research surface;
-- `versions/` preserves completed historical experiments;
-- repository-local `data/`, `results.tsv`, and `run.log` are ignored state.
-
-This flat arena is a compatibility implementation, not a V2 Project. Its active
-contract is documented in [[docs/harness]]. Structural V2 work must migrate it
-through explicit plans while preserving historical evidence.
+The repository-root V0.5 Freqtrade arena inherited from Auto-Quant Classic is
+retired. It is not an alternate execution path, package dependency, or data
+location. Git history remains its archive. See
+[[docs/design/retired-flat-freqtrade-harness]].
 
 ## Ownership boundaries
 
@@ -270,8 +262,8 @@ files
 
 Backtesting, factor discovery, and ML experiments are different Project
 programs over this same lifecycle. They do not require separate Workspace
-models. Domain runtimes such as Freqtrade are implementation dependencies
-behind the Harness contract, not the owner of Workspace or Project semantics.
+models. A domain runtime may later sit behind a fixed Project Judge, but it
+cannot own Workspace, Project, or evidence semantics.
 
 ## Invariants
 
@@ -304,8 +296,7 @@ behind the Harness contract, not the owner of Workspace or Project semantics.
 
 ## Authoritative locations
 
-- Current executable Harness manifest: `harness.json`
-- Current Harness code: `autoquant/`, `prepare.py`, and `run.py`
+- Current Harness package and public command: `autoquant/` and `aq`
 - Workspace/Project implementation: `autoquant/workspace.py`
 - Agent CLI implementation: `autoquant/cli.py`, `autoquant/cli_contract.py`,
   and `autoquant/capabilities.py`
@@ -368,10 +359,10 @@ behind the Harness contract, not the owner of Workspace or Project semantics.
 - Quantitative research lifecycle and OpenAlice handoff:
   [[docs/design/quant-research-lifecycle]]
 - Studio operator guide: [[docs/STUDIO]]
-- Current public Harness contract: [[docs/harness]]
+- Retired Classic/Freqtrade boundary:
+  [[docs/design/retired-flat-freqtrade-harness]]
 - Planning and documentation governance:
   [[docs/design/documentation-system]]
-- Historical immutable snapshots: [[versions/README]]
 
 As Workspace/Project schemas and CLI contracts are implemented, their
 canonical references must be added here and to `AGENTS.md`.
@@ -384,8 +375,6 @@ Use the bounded repository checks:
 uv run python scripts/check_doc_links.py
 uv run python -m unittest discover -s tests -v
 uv run aq capabilities --json
-uv run prepare.py --list-profiles
-uv run run.py --list-profiles
 ```
 
 These commands must not start autonomous research or a long backtest.
@@ -394,8 +383,8 @@ These commands must not start autonomous research or a long backtest.
 
 - Update this document when Workspace/Project ownership or execution lifecycle
   changes.
-- Update [[docs/harness]] when the current manifest, runtime, data, or result
-  contract changes.
+- Update [[docs/PROJECT_FORMAT]] and [[docs/CLI]] when the current runtime,
+  data, or result contract changes.
 - Add focused tests for every new schema, confinement rule, identity, or state
   transition.
 - Update both CLI and Studio projections when an operation or artifact becomes
@@ -409,7 +398,6 @@ These commands must not start autonomous research or a long backtest.
   implemented.
 - Network ingestion, corporate-action computation, exchange-holiday
   verification, and point-in-time universe contracts are not implemented.
-- The V0.5 Freqtrade runner is not adapted into the Study/Run contract.
 - Studio is read-only and does not yet provide confirmed Core operations.
 - ML is a supported architectural direction but has no execution contract yet.
 - OpenAlice-side automatic Project creation and Inbox publication are not

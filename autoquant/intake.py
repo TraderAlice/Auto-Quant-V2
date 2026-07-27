@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 
 from .briefs import load_research_request, validate_research_request
-from .data import normalize_ohlcv
+from .ohlcv import normalize_ohlcv
 from .horizons import (
     RESEARCH_HORIZON,
     build_research_horizon,
@@ -151,10 +151,23 @@ def _read_source(path: Path) -> pd.DataFrame:
     suffix = path.suffix.lower()
     if suffix == ".csv":
         return pd.read_csv(path)
-    if suffix == ".parquet":
-        return pd.read_parquet(path)
-    if suffix == ".feather":
-        return pd.read_feather(path)
+    try:
+        if suffix == ".parquet":
+            return pd.read_parquet(path)
+        if suffix == ".feather":
+            return pd.read_feather(path)
+    except ImportError as error:
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    path,
+                    "dataset.columnar-runtime",
+                    "Parquet and Feather intake require the optional "
+                    "'columnar' dependency; run `uv sync --extra columnar` "
+                    "or supply CSV",
+                )
+            ]
+        ) from error
     raise AutoQuantValidationError(
         [
             _issue(

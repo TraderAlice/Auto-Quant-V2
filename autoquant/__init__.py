@@ -1,11 +1,5 @@
-"""Auto-Quant harness primitives.
+"""AutoQuant V2 Workspace, Project, research, and evidence primitives."""
 
-The autonomous research loop still lives in ``program.md``.  This package
-contains the stable, non-strategy parts that make the loop portable across
-asset profiles.
-"""
-
-from .profiles import AssetProfile, HarnessInterfaces, HarnessManifest, load_manifest
 from .workspace import (
     PROJECT_MANIFEST,
     WORKSPACE_MANIFEST,
@@ -20,9 +14,6 @@ from .workspace import (
 )
 
 __all__ = [
-    "AssetProfile",
-    "HarnessInterfaces",
-    "HarnessManifest",
     "PROJECT_MANIFEST",
     "ProjectContext",
     "ProjectManifest",
@@ -32,6 +23,5 @@ __all__ = [
     "create_project",
     "initialize_workspace",
     "list_workspace_projects",
-    "load_manifest",
     "resolve_project_directory",
 ]

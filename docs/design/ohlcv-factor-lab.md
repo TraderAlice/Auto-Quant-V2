@@ -146,8 +146,8 @@ receive a new dataset identity.
 6. Candidate selection uses validation only; visible test evidence requires a
    new external holdout after test-guided iteration.
 7. Data file hashes are preserved in new immutable Run evidence.
-8. Routine validation remains bounded and does not invoke Freqtrade or a
-   multi-year backtest.
+8. Routine validation remains bounded and does not invoke a multi-year
+   backtest.
 
 ## Known limits
 

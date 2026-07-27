@@ -1,22 +1,5 @@
-# results journal — untracked by design so experience survives `git reset`
-results.tsv
-# but DO track frozen snapshots under versions/
-!versions/**/results.tsv
-
-# run logs — every experiment writes run.log, never commit
-run.log
+# Runtime logs
 *.log
-# but DO track frozen run-log snapshots under versions/
-!versions/**/run.log
-!versions/**/*.log
-
-# FreqTrade-generated output
-/data/
-user_data/data/
-user_data/backtest_results/
-user_data/logs/
-user_data/hyperopt_results/
-user_data/notebooks/.ipynb_checkpoints/
 
 # Python / uv
 __pycache__/
@@ -31,6 +14,3 @@ __pycache__/
 .vscode/
 .idea/
 *.swp
-
-# Jupyter
-.ipynb_checkpoints/

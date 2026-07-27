@@ -11,10 +11,10 @@ contributors to both systems: files in `docs/design/` are the subsystem-level
 source of design intent, while [[PLANS]] and `plans/` describe bounded work and
 its execution state.
 
-The high-level architecture remains in [[docs/ARCHITECTURE]]. The current
-executable Harness contract remains in [[docs/harness]]. Design documents
-explain invariants, ownership, trade-offs, and how public contracts are
-implemented.
+The high-level architecture remains in [[docs/ARCHITECTURE]]. Canonical
+Workspace/Project formats and executable commands remain in
+[[docs/PROJECT_FORMAT]] and [[docs/CLI]]. Design documents explain invariants,
+ownership, trade-offs, and how public contracts are implemented.
 
 ## Work plans
 
@@ -51,7 +51,7 @@ Use wiki-style links for design routing:
 
 ```text
 [[docs/ARCHITECTURE]]
-[[docs/harness]]
+[[docs/CLI]]
 ```
 
 Paths are repository-root relative and omit `.md`. An optional display label
