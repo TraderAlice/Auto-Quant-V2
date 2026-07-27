@@ -27,7 +27,9 @@ permission to select from visible test audit.
 ## Fixed portfolio contract
 
 - `strategies/portfolio-mandate.json` fixes tradable versus context assets,
-  permitted direction, cash, gross/net, cap, and benchmark;
+  permitted direction, cash, gross/net, cap, and a structured benchmark;
+- benchmark return uses only the Mandate's complete fixed weight vector; a
+  context-only benchmark asset never gains position authority;
 - factor rank becomes only a mandate-permitted percentile state;
 - enter long/short at `0.75 / 0.25` and exit at `0.55 / 0.45`;
 - size conviction by inverse trailing 20-bar volatility;

@@ -4136,7 +4136,15 @@ def _mandate_projection(
             },
             "cashAllowed": True,
             "shortAllowed": True,
-            "benchmark": "equal-weight-long-research-universe",
+            "benchmark": {
+                "source": "direction-default",
+                "kind": "equal-weight-long-research-universe",
+                "asset": None,
+                "weights": {
+                    asset: 1.0 / len(universe)
+                    for asset in universe
+                },
+            },
             "riskPolicy": None,
             "policySource": "legacy-implicit",
             "implementationPolicy": {
@@ -7443,7 +7451,49 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 },
                 "cashAllowed": {"type": "boolean"},
                 "shortAllowed": {"type": "boolean"},
-                "benchmark": {"type": "string", "minLength": 1},
+                "benchmark": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": [
+                        "source",
+                        "kind",
+                        "asset",
+                        "weights",
+                    ],
+                    "properties": {
+                        "source": {
+                            "enum": [
+                                "caller-supplied",
+                                "direction-default",
+                            ]
+                        },
+                        "kind": {
+                            "enum": [
+                                "cash",
+                                "equal-weight-long-research-universe",
+                                "equal-weight-long-tradable",
+                                "equal-weight-short-tradable",
+                                "single-asset-long",
+                            ]
+                        },
+                        "asset": {
+                            "anyOf": [
+                                {"type": "null"},
+                                {"type": "string", "minLength": 1},
+                            ]
+                        },
+                        "weights": {
+                            "type": "object",
+                            "minProperties": 1,
+                            "maxProperties": MAX_UNIVERSE,
+                            "additionalProperties": {
+                                "type": "number",
+                                "minimum": -1,
+                                "maximum": 1,
+                            },
+                        },
+                    },
+                },
                 "riskPolicy": {
                     "anyOf": [
                         {"type": "null"},

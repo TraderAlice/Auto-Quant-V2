@@ -4634,7 +4634,16 @@ def load_rl_diagnostics(
             },
             "cashAllowed": True,
             "shortAllowed": True,
-            "benchmark": "equal-weight-long-research-universe",
+            "benchmark": {
+                "source": "direction-default",
+                "kind": "equal-weight-long-research-universe",
+                "asset": None,
+                "weights": {
+                    asset: 1.0
+                    / len(run.result["dataset"]["universe"])
+                    for asset in run.result["dataset"]["universe"]
+                },
+            },
             "riskPolicy": None,
             "policySource": "legacy-implicit",
             "implementationPolicy": {

@@ -59,10 +59,15 @@ lock gross, a default single-name cap, named per-asset cap overrides,
 volatility ceiling, base cost, no-trade band, and research reference NAV;
 documented reference defaults are explicit when it is omitted. These are
 research assumptions, not Broker/account state or trading authority. An
+optional strict `benchmarkPolicy` lets the caller evaluate the exact same
+Portfolio and governed-RL books against cash or one locked dataset asset such
+as SPY; benchmark membership never grants position authority. An
 optional strict `horizonPolicy` likewise locks the
 primary and diagnostic forward targets in decision bars; the dataset base
 interval supplies the meaning of one bar. See
-[[docs/design/caller-owned-portfolio-research-policy]]. Intake does not
+[[docs/design/caller-owned-portfolio-research-policy]],
+[[docs/design/caller-owned-benchmark-reference]], and
+[[docs/design/request-bound-research-horizon]]. Intake does not
 download data or silently start research. `aq project program`
 returns verified lane status,
 shared-source conflicts, evidence currentness, and the exact recommended

@@ -179,8 +179,8 @@ are not given synthetic historical evidence.
 
 - caller question, decision context, assets, direction, and horizon;
 - authorized positions, context-only research assets, construction family,
-  cash/cap, benchmark, and portfolio-risk ceiling from the frozen Portfolio
-  Mandate;
+  cash/cap, structured benchmark source/asset, and portfolio-risk ceiling from
+  the frozen Portfolio Mandate;
 - conservative OHLCV participation capacity, coverage, and explicit
   no-impact/no-fill interpretation from the frozen Portfolio evidence;
 - executive synthesis;

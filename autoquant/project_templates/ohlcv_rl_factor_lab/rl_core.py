@@ -325,20 +325,25 @@ def _account_step(
     else:
         construction = mandate["construction"]
         benchmark = construction["benchmark"]
-        tradable = list(mandate["tradableAssets"])
-        if benchmark == "cash":
-            benchmark_return = 0.0
-        elif benchmark == "equal-weight-long-research-universe":
-            benchmark_return = float(forward_return.mean())
-        elif benchmark == "equal-weight-long-tradable":
-            benchmark_return = float(forward_return.loc[tradable].mean())
-        elif benchmark == "equal-weight-short-tradable":
-            benchmark_return = -float(forward_return.loc[tradable].mean())
-        else:
+        weights = benchmark.get("weights")
+        if (
+            not isinstance(weights, dict)
+            or set(weights) != set(forward_return.index)
+        ):
             raise PolicyFailure(
                 "mandate.benchmark",
-                "Unknown Portfolio Mandate benchmark",
+                "Portfolio Mandate benchmark weights are invalid",
             )
+        benchmark_return = float(
+            (
+                pd.Series(
+                    weights,
+                    index=forward_return.index,
+                    dtype=float,
+                )
+                * forward_return
+            ).sum()
+        )
     dollar_volume = close * volume
     participation = (
         trade.abs()

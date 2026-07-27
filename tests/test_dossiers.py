@@ -192,7 +192,13 @@ def early_stop_dossier_analysis(factor_report_id: str) -> dict:
 class ProgramResearchDossierTests(unittest.TestCase):
     def _project(self, directory: str):
         root = Path(directory)
-        request_path, package_path = write_intake_inputs(root)
+        request_path, package_path = write_intake_inputs(
+            root,
+            benchmark_policy={
+                "kind": "asset",
+                "symbol": "SPY",
+            },
+        )
         workspace = initialize_workspace(root / "workspace", name="Quant Desk")
         prepared = prepare_project_intake(
             request_path,
@@ -540,6 +546,19 @@ class ProgramResearchDossierTests(unittest.TestCase):
             )
             self.assertIn("Program evidence", markdown)
             self.assertIn("## Portfolio mandate", markdown)
+            self.assertIn("- Benchmark: `SPY long`", markdown)
+            self.assertIn(
+                "`caller-supplied` / evaluation-only",
+                markdown,
+            )
+            self.assertIn(
+                "Authorized positions: `AAPL`, `MSFT`",
+                markdown,
+            )
+            self.assertIn(
+                "Context-only assets: `NVDA`, `QQQ`, `SPY`",
+                markdown,
+            )
             self.assertIn("## Frozen factor components", markdown)
             self.assertIn(
                 "## Frozen mechanical portfolio decision",

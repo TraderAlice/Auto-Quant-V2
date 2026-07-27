@@ -20,6 +20,7 @@ from autoquant.project_templates.ohlcv_portfolio_lab.portfolio_core import (
     PortfolioFailure,
     constraint_audit,
     construct_signal_policy,
+    simulate_targets,
 )
 from autoquant.workspace import AutoQuantValidationError
 
@@ -170,7 +171,18 @@ class PortfolioMandateTests(unittest.TestCase):
         self.assertEqual(mandate["contextAssets"], ["C", "D", "E"])
         self.assertEqual(
             mandate["construction"]["benchmark"],
-            "equal-weight-long-tradable",
+            {
+                "source": "direction-default",
+                "kind": "equal-weight-long-tradable",
+                "asset": None,
+                "weights": {
+                    "A": 0.5,
+                    "B": 0.5,
+                    "C": 0.0,
+                    "D": 0.0,
+                    "E": 0.0,
+                },
+            },
         )
         self.assertEqual(
             mandate["construction"]["riskPolicy"],
@@ -269,6 +281,10 @@ class PortfolioMandateTests(unittest.TestCase):
             "noTradeOneWay": 0.05,
             "referenceNav": 1_000_000.0,
         }
+        raw["benchmarkPolicy"] = {
+            "kind": "asset",
+            "symbol": "E",
+        }
         mandate = build_portfolio_mandate(
             validate_research_request(raw),
             UNIVERSE,
@@ -304,6 +320,22 @@ class PortfolioMandateTests(unittest.TestCase):
             audit["asset_max_abs_weights"],
             {"A": 0.1, "B": 0.2, "C": 0.0, "D": 0.0, "E": 0.0},
         )
+        self.assertEqual(
+            mandate["construction"]["benchmark"],
+            {
+                "source": "caller-supplied",
+                "kind": "single-asset-long",
+                "asset": "E",
+                "weights": {
+                    "A": 0.0,
+                    "B": 0.0,
+                    "C": 0.0,
+                    "D": 0.0,
+                    "E": 1.0,
+                },
+            },
+        )
+        self.assertIn("E", mandate["contextAssets"])
 
         tampered = copy.deepcopy(mandate)
         tampered["construction"]["assetMaxAbsWeights"]["A"] = 0.11
@@ -312,6 +344,119 @@ class PortfolioMandateTests(unittest.TestCase):
             "derived",
         ):
             validate_portfolio_mandate(tampered)
+
+        unknown = copy.deepcopy(raw)
+        unknown["benchmarkPolicy"]["symbol"] = "Z"
+        with self.assertRaisesRegex(ValueError, "benchmark"):
+            build_portfolio_mandate(
+                validate_research_request(unknown),
+                UNIVERSE,
+            )
+
+        malformed = copy.deepcopy(raw)
+        malformed["benchmarkPolicy"] = {
+            "kind": "cash",
+            "symbol": "SPY",
+        }
+        with self.assertRaisesRegex(
+            AutoQuantValidationError,
+            "Cash benchmark symbol",
+        ):
+            validate_research_request(malformed)
+
+    def test_named_benchmark_changes_only_relative_evaluation(self) -> None:
+        factors, closes = panels()
+        volumes = pd.DataFrame(
+            1_000_000.0,
+            index=closes.index,
+            columns=closes.columns,
+        )
+        default_request = request("long", ["A", "B"])
+        named_request = copy.deepcopy(default_request)
+        named_request["benchmarkPolicy"] = {
+            "kind": "asset",
+            "symbol": "E",
+        }
+        default_mandate = build_portfolio_mandate(
+            validate_research_request(default_request),
+            UNIVERSE,
+        )
+        named_mandate = build_portfolio_mandate(
+            validate_research_request(named_request),
+            UNIVERSE,
+        )
+        default_construction = construct_signal_policy(
+            factors,
+            closes,
+            mandate=default_mandate,
+        )
+        named_construction = construct_signal_policy(
+            factors,
+            closes,
+            mandate=named_mandate,
+        )
+        pd.testing.assert_frame_equal(
+            default_construction.targets,
+            named_construction.targets,
+        )
+
+        default_simulation = simulate_targets(
+            default_construction.targets,
+            closes,
+            volumes,
+            mandate=default_mandate,
+        )
+        named_simulation = simulate_targets(
+            named_construction.targets,
+            closes,
+            volumes,
+            mandate=named_mandate,
+        )
+        pd.testing.assert_series_equal(
+            default_simulation.daily["gross_return"],
+            named_simulation.daily["gross_return"],
+        )
+        pd.testing.assert_series_equal(
+            default_simulation.daily["net_return"],
+            named_simulation.daily["net_return"],
+        )
+        expected = (
+            closes["E"].shift(-1) / closes["E"] - 1.0
+        ).reindex(named_simulation.daily.index)
+        pd.testing.assert_series_equal(
+            named_simulation.daily["benchmark_return"],
+            expected.rename("benchmark_return"),
+            check_freq=False,
+        )
+
+        tampered = copy.deepcopy(named_mandate)
+        tampered["construction"]["benchmark"]["weights"]["E"] = 0.9
+        with self.assertRaisesRegex(
+            AutoQuantValidationError,
+            "benchmark|fixed request contract",
+        ):
+            validate_portfolio_mandate(tampered)
+
+        cash_request = copy.deepcopy(default_request)
+        cash_request["benchmarkPolicy"] = {
+            "kind": "cash",
+            "symbol": None,
+        }
+        cash_mandate = build_portfolio_mandate(
+            validate_research_request(cash_request),
+            UNIVERSE,
+        )
+        self.assertEqual(
+            cash_mandate["construction"]["benchmark"],
+            {
+                "source": "caller-supplied",
+                "kind": "cash",
+                "asset": None,
+                "weights": {
+                    asset: 0.0 for asset in UNIVERSE
+                },
+            },
+        )
 
     def test_underfunded_relative_value_stays_flat_instead_of_trading_peers(self) -> None:
         factors, closes = panels()
@@ -366,7 +511,14 @@ class PortfolioMandateTests(unittest.TestCase):
         self.assertEqual(mandate["construction"]["family"], "dollar-neutral")
         self.assertEqual(
             mandate["construction"]["benchmark"],
-            "equal-weight-long-research-universe",
+            {
+                "source": "direction-default",
+                "kind": "equal-weight-long-research-universe",
+                "asset": None,
+                "weights": {
+                    asset: 0.2 for asset in UNIVERSE
+                },
+            },
         )
 
 

@@ -2362,6 +2362,11 @@ function mandateMarkup(mandate) {
     )
     .map(([asset, value]) => `${asset} ${percent(value)}`)
     .join(" · ");
+  const benchmark = mandate.benchmark;
+  const benchmarkLabel =
+    benchmark.kind === "single-asset-long"
+      ? `${benchmark.asset} · long reference`
+      : benchmark.kind;
   return `
     <span class="mandate-direction">${escapeHtml(mandate.direction.toUpperCase())}</span>
     <span><small>Construction</small><b>${escapeHtml(mandate.family)}</b></span>
@@ -2369,7 +2374,7 @@ function mandateMarkup(mandate) {
     <span><small>Gross / default cap</small><b>${metric(mandate.grossLimit)} / ${percent(mandate.maxAbsWeight)}</b><i>${escapeHtml(namedCaps || "all tradable assets use default")}</i></span>
     <span><small>Risk ceiling</small><b>${escapeHtml(riskLabel)}</b></span>
     <span><small>Cost / rebalance / NAV</small><b>${escapeHtml(implementationLabel)}</b><i>${escapeHtml(mandate.policySource)}</i></span>
-    <span><small>Benchmark</small><b>${escapeHtml(mandate.benchmark)}</b></span>
+    <span><small>Benchmark</small><b>${escapeHtml(benchmarkLabel)}</b><i>${escapeHtml(benchmark.source)} · evaluation only</i></span>
     <code>${escapeHtml(lock)}</code>`;
 }
 

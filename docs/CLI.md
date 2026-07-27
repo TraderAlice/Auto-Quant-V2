@@ -102,6 +102,9 @@ other panel assets as research context only. The same Mandate fixes a causal
 ceiling. The optional Research Request `portfolioPolicy` also locks gross, a
 default cap, requested-asset cap overrides, ceiling, base cost, no-trade band,
 and reference NAV; when absent, documented defaults are recorded explicitly.
+Optional `benchmarkPolicy` separately locks cash or one named dataset asset as
+the evaluation reference shared by Portfolio and governed RL. A context-only
+benchmark remains non-tradable and carries no order authority.
 Portfolio accounting and RL rollout then recheck the final post-drift book;
 risk may bypass the no-trade band using the minimum proportional repair.
 `ohlcv-rl-factor-lab` adds a deterministic causal state encoder surface over

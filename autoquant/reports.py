@@ -689,6 +689,12 @@ def _render_markdown(report: dict[str, Any]) -> str:
     if isinstance(mandate, dict):
         construction = mandate["construction"]
         implementation = mandate["implementationPolicy"]
+        benchmark = construction["benchmark"]
+        benchmark_label = (
+            f"{benchmark['asset']} long"
+            if benchmark["kind"] == "single-asset-long"
+            else benchmark["kind"]
+        )
         named_caps = {
             asset: value
             for asset, value in construction[
@@ -730,7 +736,9 @@ def _render_markdown(report: dict[str, Any]) -> str:
                 ),
                 f"- Shorting allowed / benchmark: "
                 f"`{construction['shortAllowed']}` / "
-                f"`{construction['benchmark']}`",
+                f"`{benchmark_label}`",
+                f"- Benchmark source / authority: "
+                f"`{benchmark['source']}` / evaluation-only",
                 f"- Portfolio policy source: "
                 f"`{mandate['source']['portfolioPolicy']}`",
                 f"- Base cost / one-way no-trade band / reference NAV: "

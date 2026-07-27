@@ -46,6 +46,13 @@ PORTFOLIO_BENCHMARKS = {
     "relative-value": "cash",
     "research-only": "equal-weight-long-research-universe",
 }
+BENCHMARK_KINDS = {
+    "cash",
+    "equal-weight-long-research-universe",
+    "equal-weight-long-tradable",
+    "equal-weight-short-tradable",
+    "single-asset-long",
+}
 PORTFOLIO_RISK_POLICY = {
     "method": "trailing-covariance-volatility-ceiling-v1",
     "annualizedVolatilityCeiling": 0.15,
@@ -201,19 +208,66 @@ def _canonical_payload(
     annualization_periods: int,
     portfolio_policy: dict[str, Any],
     policy_source: str,
+    benchmark_policy: dict[str, Any] | None,
+    benchmark_source: str,
 ) -> dict[str, Any]:
+    tradable_set = set(tradable_assets)
     context_assets = [
-        asset for asset in research_universe if asset not in set(tradable_assets)
+        asset for asset in research_universe if asset not in tradable_set
     ]
     overrides = portfolio_policy["assetMaxAbsWeights"]
     asset_caps = {
         asset: (
             float(overrides.get(asset, portfolio_policy["maxAbsWeight"]))
-            if asset in set(tradable_assets)
+            if asset in tradable_set
             else 0.0
         )
         for asset in research_universe
     }
+    if benchmark_policy is None:
+        benchmark_kind = PORTFOLIO_BENCHMARKS[direction]
+        benchmark_asset = None
+    elif benchmark_policy["kind"] == "cash":
+        benchmark_kind = "cash"
+        benchmark_asset = None
+    else:
+        benchmark_kind = "single-asset-long"
+        benchmark_asset = benchmark_policy["symbol"]
+    if benchmark_kind == "cash":
+        benchmark_weights = {
+            asset: 0.0 for asset in research_universe
+        }
+    elif benchmark_kind == "equal-weight-long-research-universe":
+        equal_weight = 1.0 / len(research_universe)
+        benchmark_weights = {
+            asset: equal_weight for asset in research_universe
+        }
+    elif benchmark_kind == "equal-weight-long-tradable":
+        equal_weight = 1.0 / len(tradable_assets)
+        benchmark_weights = {
+            asset: (
+                equal_weight if asset in tradable_set else 0.0
+            )
+            for asset in research_universe
+        }
+    elif benchmark_kind == "equal-weight-short-tradable":
+        equal_weight = -1.0 / len(tradable_assets)
+        benchmark_weights = {
+            asset: (
+                equal_weight if asset in tradable_set else 0.0
+            )
+            for asset in research_universe
+        }
+    elif (
+        benchmark_kind == "single-asset-long"
+        and benchmark_asset in research_universe
+    ):
+        benchmark_weights = {
+            asset: 1.0 if asset == benchmark_asset else 0.0
+            for asset in research_universe
+        }
+    else:
+        raise ValueError("benchmark policy is outside the research universe")
     return {
         "schemaVersion": SCHEMA_VERSION,
         "kind": PORTFOLIO_MANDATE_KIND,
@@ -222,6 +276,7 @@ def _canonical_payload(
             "requestHash": request_hash,
             "direction": direction,
             "portfolioPolicy": policy_source,
+            "benchmarkPolicy": benchmark_source,
         },
         "researchUniverse": list(research_universe),
         "tradableAssets": list(tradable_assets),
@@ -235,7 +290,12 @@ def _canonical_payload(
             "cashAllowed": True,
             "shortAllowed": direction
             in {"short", "long-short", "relative-value", "research-only"},
-            "benchmark": PORTFOLIO_BENCHMARKS[direction],
+            "benchmark": {
+                "source": benchmark_source,
+                "kind": benchmark_kind,
+                "asset": benchmark_asset,
+                "weights": benchmark_weights,
+            },
             "riskPolicy": {
                 **PORTFOLIO_RISK_POLICY,
                 "annualizedVolatilityCeiling": portfolio_policy[
@@ -279,6 +339,8 @@ def build_portfolio_mandate(
             annualization_periods=annualization_periods,
             portfolio_policy=policy,
             policy_source="reference-default",
+            benchmark_policy=None,
+            benchmark_source="direction-default",
         )
     else:
         direction = request.get("direction")
@@ -307,6 +369,29 @@ def build_portfolio_mandate(
                 "per-asset caps name unrequested assets: "
                 + ", ".join(unknown_caps)
             )
+        supplied_benchmark = request.get("benchmarkPolicy")
+        if supplied_benchmark is not None:
+            if (
+                not isinstance(supplied_benchmark, dict)
+                or set(supplied_benchmark) != {"kind", "symbol"}
+                or supplied_benchmark.get("kind") not in {"cash", "asset"}
+                or (
+                    supplied_benchmark.get("kind") == "cash"
+                    and supplied_benchmark.get("symbol") is not None
+                )
+                or (
+                    supplied_benchmark.get("kind") == "asset"
+                    and (
+                        not isinstance(
+                            supplied_benchmark.get("symbol"),
+                            str,
+                        )
+                        or supplied_benchmark["symbol"]
+                        not in research_universe
+                    )
+                )
+            ):
+                raise ValueError("request has an invalid benchmark policy")
         payload = _canonical_payload(
             source_kind="research-request",
             request_hash=hash_json(request),
@@ -320,6 +405,12 @@ def build_portfolio_mandate(
             policy_source=(
                 "reference-default"
                 if supplied_policy is None
+                else "caller-supplied"
+            ),
+            benchmark_policy=supplied_benchmark,
+            benchmark_source=(
+                "direction-default"
+                if supplied_benchmark is None
                 else "caller-supplied"
             ),
         )
@@ -377,6 +468,7 @@ def validate_portfolio_mandate(
     source_kind: Any = None
     request_hash: Any = None
     policy_source: Any = None
+    benchmark_source: Any = None
     if not isinstance(source, dict):
         issues.append(_issue(f"{path}/source", "schema.type", "Source must be an object"))
     else:
@@ -388,6 +480,7 @@ def validate_portfolio_mandate(
                     "requestHash",
                     "direction",
                     "portfolioPolicy",
+                    "benchmarkPolicy",
                 },
                 f"{path}/source",
             )
@@ -396,6 +489,7 @@ def validate_portfolio_mandate(
         request_hash = source.get("requestHash")
         direction = source.get("direction")
         policy_source = source.get("portfolioPolicy")
+        benchmark_source = source.get("benchmarkPolicy")
         if source_kind not in {"research-request", "template-default"}:
             issues.append(
                 _issue(
@@ -420,6 +514,17 @@ def validate_portfolio_mandate(
                     "Invalid Portfolio policy source",
                 )
             )
+        if benchmark_source not in {
+            "caller-supplied",
+            "direction-default",
+        }:
+            issues.append(
+                _issue(
+                    f"{path}/source/benchmarkPolicy",
+                    "mandate.benchmark-source",
+                    "Invalid benchmark policy source",
+                )
+            )
         if source_kind == "research-request" and not _valid_hash(request_hash):
             issues.append(
                 _issue(
@@ -432,6 +537,7 @@ def validate_portfolio_mandate(
             request_hash is not None
             or direction != "research-only"
             or policy_source != "reference-default"
+            or benchmark_source != "direction-default"
         ):
             issues.append(
                 _issue(
@@ -530,6 +636,85 @@ def validate_portfolio_mandate(
         )
         if direction in PORTFOLIO_MANDATE_DIRECTIONS:
             risk_policy = construction.get("riskPolicy")
+            benchmark = construction.get("benchmark")
+            normalized_benchmark_policy: dict[str, Any] | None = None
+            if not isinstance(benchmark, dict):
+                issues.append(
+                    _issue(
+                        f"{path}/construction/benchmark",
+                        "mandate.benchmark",
+                        "Benchmark must be a structured object",
+                    )
+                )
+            else:
+                issues.extend(
+                    _strict_keys(
+                        benchmark,
+                        {"source", "kind", "asset", "weights"},
+                        f"{path}/construction/benchmark",
+                    )
+                )
+                benchmark_kind = benchmark.get("kind")
+                benchmark_asset = benchmark.get("asset")
+                benchmark_weights = benchmark.get("weights")
+                if (
+                    benchmark.get("source") != benchmark_source
+                    or benchmark_kind not in BENCHMARK_KINDS
+                    or not isinstance(benchmark_weights, dict)
+                    or set(benchmark_weights) != set(research)
+                    or any(
+                        not isinstance(item, (int, float))
+                        or isinstance(item, bool)
+                        or not math.isfinite(float(item))
+                        for item in benchmark_weights.values()
+                    )
+                ):
+                    issues.append(
+                        _issue(
+                            f"{path}/construction/benchmark",
+                            "mandate.benchmark-contract",
+                            "Benchmark source, kind, or complete weights are invalid",
+                        )
+                    )
+                elif benchmark_source == "caller-supplied":
+                    if (
+                        benchmark_kind == "cash"
+                        and benchmark_asset is None
+                        and all(
+                            abs(float(item)) <= 1e-12
+                            for item in benchmark_weights.values()
+                        )
+                    ):
+                        normalized_benchmark_policy = {
+                            "kind": "cash",
+                            "symbol": None,
+                        }
+                    elif (
+                        benchmark_kind == "single-asset-long"
+                        and isinstance(benchmark_asset, str)
+                        and benchmark_asset in research
+                        and all(
+                            math.isclose(
+                                float(benchmark_weights[asset]),
+                                1.0 if asset == benchmark_asset else 0.0,
+                                rel_tol=0.0,
+                                abs_tol=1e-12,
+                            )
+                            for asset in research
+                        )
+                    ):
+                        normalized_benchmark_policy = {
+                            "kind": "asset",
+                            "symbol": benchmark_asset,
+                        }
+                    else:
+                        issues.append(
+                            _issue(
+                                f"{path}/construction/benchmark",
+                                "mandate.caller-benchmark",
+                                "Caller benchmark must be cash or one unlevered long asset",
+                            )
+                        )
             annualization_periods = (
                 risk_policy.get("annualizationPeriods")
                 if isinstance(risk_policy, dict)
@@ -607,6 +792,18 @@ def validate_portfolio_mandate(
                     if policy_source
                     in {"caller-supplied", "reference-default"}
                     else "reference-default"
+                ),
+                benchmark_policy=(
+                    normalized_benchmark_policy
+                    if benchmark_source == "caller-supplied"
+                    and normalized_benchmark_policy is not None
+                    else None
+                ),
+                benchmark_source=(
+                    benchmark_source
+                    if benchmark_source
+                    in {"caller-supplied", "direction-default"}
+                    else "direction-default"
                 ),
             )
             if (
@@ -720,6 +917,7 @@ PORTFOLIO_MANDATE_JSON_SCHEMA: dict[str, Any] = {
                 "requestHash",
                 "direction",
                 "portfolioPolicy",
+                "benchmarkPolicy",
             ],
             "properties": {
                 "kind": {"enum": ["research-request", "template-default"]},
@@ -732,6 +930,9 @@ PORTFOLIO_MANDATE_JSON_SCHEMA: dict[str, Any] = {
                 "direction": {"enum": sorted(PORTFOLIO_MANDATE_DIRECTIONS)},
                 "portfolioPolicy": {
                     "enum": ["caller-supplied", "reference-default"]
+                },
+                "benchmarkPolicy": {
+                    "enum": ["caller-supplied", "direction-default"]
                 },
             },
         },
@@ -793,12 +994,38 @@ PORTFOLIO_MANDATE_JSON_SCHEMA: dict[str, Any] = {
                 "cashAllowed": {"const": True},
                 "shortAllowed": {"type": "boolean"},
                 "benchmark": {
-                    "enum": [
-                        "cash",
-                        "equal-weight-long-research-universe",
-                        "equal-weight-long-tradable",
-                        "equal-weight-short-tradable",
-                    ]
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": [
+                        "source",
+                        "kind",
+                        "asset",
+                        "weights",
+                    ],
+                    "properties": {
+                        "source": {
+                            "enum": [
+                                "caller-supplied",
+                                "direction-default",
+                            ]
+                        },
+                        "kind": {"enum": sorted(BENCHMARK_KINDS)},
+                        "asset": {
+                            "anyOf": [
+                                {"type": "null"},
+                                {"type": "string", "minLength": 1},
+                            ]
+                        },
+                        "weights": {
+                            "type": "object",
+                            "maxProperties": 256,
+                            "additionalProperties": {
+                                "type": "number",
+                                "minimum": -1,
+                                "maximum": 1,
+                            },
+                        },
+                    },
                 },
                 "riskPolicy": {
                     "type": "object",

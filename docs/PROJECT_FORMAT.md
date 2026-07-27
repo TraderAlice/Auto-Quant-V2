@@ -74,7 +74,11 @@ New Portfolio and governed-RL Projects also contain the fixed
 the fixed `strategies/research-horizon.json`. For request intake the former
 derives the
 tradable/context asset partition, direction, cash, gross/net, cap, and
-benchmark from the canonical request. An optional strict
+structured benchmark from the canonical request. Optional strict
+`request.benchmarkPolicy` selects cash or one named dataset asset as the
+evaluation reference; omission records a direction-derived default. The
+benchmark asset may remain context-only and never receives position authority.
+An optional strict
 `request.portfolioPolicy` supplies gross, a global fallback cap, requested-
 asset cap overrides, annualized volatility ceiling, base linear cost, one-way
 no-trade band, and research reference NAV.
@@ -518,6 +522,7 @@ Brief hash. `request.json` records the exact normalized caller input:
     {"symbol": "AAPL", "assetClass": "equity", "venue": "NASDAQ"}
   ],
   "direction": "long",
+  "benchmarkPolicy": {"kind": "asset", "symbol": "SPY"},
   "portfolioPolicy": {
     "grossLimit": 0.8,
     "maxAbsWeight": 0.2,

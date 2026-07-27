@@ -165,6 +165,87 @@ def _allocate_capped_up_to(
     return _allocate_capped_side(strengths, budget=budget, cap=cap)
 
 
+def _valid_benchmark_contract(
+    benchmark: object,
+    universe: list[str],
+    tradable: list[str],
+) -> bool:
+    if (
+        not isinstance(benchmark, dict)
+        or set(benchmark) != {"source", "kind", "asset", "weights"}
+        or benchmark.get("source")
+        not in {"caller-supplied", "direction-default"}
+        or benchmark.get("kind")
+        not in {
+            "cash",
+            "equal-weight-long-research-universe",
+            "equal-weight-long-tradable",
+            "equal-weight-short-tradable",
+            "single-asset-long",
+        }
+        or not isinstance(benchmark.get("weights"), dict)
+        or set(benchmark["weights"]) != set(universe)
+        or any(
+            not isinstance(benchmark["weights"][asset], (int, float))
+            or isinstance(benchmark["weights"][asset], bool)
+            or not math.isfinite(float(benchmark["weights"][asset]))
+            for asset in universe
+        )
+    ):
+        return False
+    kind = benchmark["kind"]
+    benchmark_asset = benchmark["asset"]
+    if kind == "cash":
+        expected = {asset: 0.0 for asset in universe}
+        valid_asset = benchmark_asset is None
+    elif kind == "equal-weight-long-research-universe":
+        expected = {
+            asset: 1.0 / len(universe) for asset in universe
+        }
+        valid_asset = benchmark_asset is None
+    elif kind in {
+        "equal-weight-long-tradable",
+        "equal-weight-short-tradable",
+    }:
+        sign = 1.0 if kind == "equal-weight-long-tradable" else -1.0
+        tradable_set = set(tradable)
+        expected = {
+            asset: (
+                sign / len(tradable) if asset in tradable_set else 0.0
+            )
+            for asset in universe
+        }
+        valid_asset = benchmark_asset is None
+    else:
+        valid_asset = (
+            isinstance(benchmark_asset, str)
+            and benchmark_asset in universe
+        )
+        expected = {
+            asset: 1.0 if asset == benchmark_asset else 0.0
+            for asset in universe
+        }
+    if kind == "cash":
+        source_matches = True
+    elif kind == "single-asset-long":
+        source_matches = benchmark["source"] == "caller-supplied"
+    else:
+        source_matches = benchmark["source"] == "direction-default"
+    return (
+        valid_asset
+        and source_matches
+        and all(
+            math.isclose(
+                float(benchmark["weights"][asset]),
+                expected[asset],
+                rel_tol=0.0,
+                abs_tol=1e-12,
+            )
+            for asset in universe
+        )
+    )
+
+
 def _resolve_mandate(
     columns: pd.Index,
     mandate: dict[str, object] | None,
@@ -184,7 +265,15 @@ def _resolve_mandate(
             },
             "tradable_assets": universe,
             "context_assets": [],
-            "benchmark": "equal-weight-long-research-universe",
+            "benchmark": {
+                "source": "direction-default",
+                "kind": "equal-weight-long-research-universe",
+                "asset": None,
+                "weights": {
+                    asset: 1.0 / len(universe)
+                    for asset in universe
+                },
+            },
             "implementation_policy": {
                 "base_cost_bps": BASE_COST_BPS,
                 "no_trade_one_way": NO_TRADE_ONE_WAY,
@@ -257,13 +346,12 @@ def _resolve_mandate(
             )
             for asset in universe
         )
-        or benchmark
-        not in {
-            "cash",
-            "equal-weight-long-research-universe",
-            "equal-weight-long-tradable",
-            "equal-weight-short-tradable",
-        }
+        or not _valid_benchmark_contract(
+            benchmark,
+            universe,
+            tradable,
+        )
+        or benchmark["source"] != source.get("benchmarkPolicy")
         or not isinstance(risk_policy, dict)
         or not isinstance(implementation, dict)
         or set(implementation)
@@ -338,7 +426,15 @@ def _resolve_mandate(
         },
         "tradable_assets": list(tradable),
         "context_assets": list(context),
-        "benchmark": str(benchmark),
+        "benchmark": {
+            "source": str(benchmark["source"]),
+            "kind": str(benchmark["kind"]),
+            "asset": benchmark["asset"],
+            "weights": {
+                asset: float(benchmark["weights"][asset])
+                for asset in universe
+            },
+        },
         "implementation_policy": {
             "base_cost_bps": float(implementation["baseCostBps"]),
             "no_trade_one_way": float(implementation["noTradeOneWay"]),
@@ -1224,8 +1320,12 @@ def simulate_targets(
     if not isinstance(extra_delay, int) or extra_delay < 0:
         raise PortfolioFailure("portfolio.delay", "extra_delay must be non-negative")
     resolved = _resolve_mandate(targets.columns, mandate)
-    tradable_assets = list(resolved["tradable_assets"])
-    benchmark_kind = str(resolved["benchmark"])
+    benchmark = resolved["benchmark"]
+    benchmark_weights = pd.Series(
+        benchmark["weights"],
+        index=targets.columns,
+        dtype=float,
+    )
     proposed_targets = targets.shift(extra_delay).fillna(0.0)
     close_returns = closes.pct_change(fill_method=None)
     forward_returns = closes.shift(-1) / closes - 1.0
@@ -1259,19 +1359,9 @@ def simulate_targets(
         next_returns = forward_returns.loc[timestamp].fillna(0.0).astype(float)
         gross_return = float((current * next_returns).sum())
         net_return = gross_return - cost
-        if benchmark_kind == "cash":
-            benchmark_return = 0.0
-        elif benchmark_kind == "equal-weight-long-research-universe":
-            benchmark_return = float(next_returns.mean())
-        elif benchmark_kind == "equal-weight-long-tradable":
-            benchmark_return = float(next_returns.loc[tradable_assets].mean())
-        elif benchmark_kind == "equal-weight-short-tradable":
-            benchmark_return = -float(next_returns.loc[tradable_assets].mean())
-        else:
-            raise PortfolioFailure(
-                "mandate.benchmark",
-                "Unknown Portfolio Mandate benchmark",
-            )
+        benchmark_return = float(
+            (benchmark_weights * next_returns).sum()
+        )
         dollar_volume = (
             closes.loc[timestamp].astype(float)
             * volumes.loc[timestamp].astype(float)

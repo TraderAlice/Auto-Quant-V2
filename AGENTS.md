@@ -67,6 +67,9 @@ Read the relevant linked document before changing a subsystem:
   [[docs/design/caller-owned-portfolio-research-policy]]
 - Caller-owned per-asset target caps shared by Portfolio and governed RL:
   [[docs/design/caller-owned-asset-position-caps]]
+- Caller-owned cash or named-asset benchmark references shared by Portfolio
+  and governed RL:
+  [[docs/design/caller-owned-benchmark-reference]]
 - Request-bound numerical forward horizon shared by Factor, Portfolio, and
   governed RL:
   [[docs/design/request-bound-research-horizon]]

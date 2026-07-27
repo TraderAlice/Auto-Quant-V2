@@ -20,6 +20,7 @@ def write_intake_inputs(
     dataset_id: str = "bounded-us-equities",
     dataset_version: str = "2024-v1",
     portfolio_policy: dict[str, object] | None = None,
+    benchmark_policy: dict[str, object] | None = None,
     horizon_policy: dict[str, object] | None = None,
 ) -> tuple[Path, Path]:
     source = root / "external-data"
@@ -109,6 +110,11 @@ def write_intake_inputs(
             },
         ],
         "direction": "long",
+        **(
+            {"benchmarkPolicy": benchmark_policy}
+            if benchmark_policy is not None
+            else {}
+        ),
         **(
             {"portfolioPolicy": portfolio_policy}
             if portfolio_policy is not None

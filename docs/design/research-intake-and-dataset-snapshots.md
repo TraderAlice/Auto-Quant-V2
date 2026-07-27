@@ -187,6 +187,14 @@ Portfolio and RL Studies bind the same file as a
 dependency. Intake reconstructs it on every load, so request or mandate
 tampering fails rather than changing the position or risk question silently.
 
+If the request contains `benchmarkPolicy`, the same derivation locks cash or
+one named dataset-universe asset into a complete benchmark weight vector.
+The asset may remain context-only; benchmark membership never expands
+position authority. Omission records the direction-derived benchmark rather
+than treating it as caller intent. Portfolio and governed RL use the identical
+vector for every relative metric. See
+[[docs/design/caller-owned-benchmark-reference]].
+
 Every intake also writes
 `strategies/research-horizon.json`. Optional strict
 `request.horizonPolicy` supplies one primary and one to five diagnostic

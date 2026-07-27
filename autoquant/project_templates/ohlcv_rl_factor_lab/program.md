@@ -64,7 +64,8 @@ The Judge owns:
 - drift, the Portfolio Mandate's no-trade threshold, then shared final-book
   compliance where risk may override no-trade only through minimum
   proportional scale-down;
-- full-notional Portfolio Mandate costs and benchmark;
+- full-notional Portfolio Mandate costs and one identical structured
+  benchmark weight vector across every action sleeve;
 - next-bar reward and fixed quadratic risk penalty;
 - linear Q-learning with 12 episodes, learning rate 0.02, discount 0.30,
   and epsilon 0.15 → 0.01, frozen before Study validation by the fixed

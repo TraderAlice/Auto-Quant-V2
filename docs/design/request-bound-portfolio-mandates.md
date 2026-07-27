@@ -1,10 +1,11 @@
 # Request-bound Portfolio Mandates
 
-Status: V2 implemented.
+Status: V3 implemented.
 
 Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]], [[docs/CLI]],
 [[docs/design/research-intake-and-dataset-snapshots]],
 [[docs/design/caller-owned-portfolio-research-policy]],
+[[docs/design/caller-owned-benchmark-reference]],
 [[docs/design/portfolio-construction-lab]],
 [[docs/design/signal-policy-and-attribution]],
 [[docs/design/executed-book-risk-compliance]],
@@ -37,7 +38,7 @@ The strict `autoquant-portfolio-mandate` records:
 - the exact request hash and requested direction;
 - research, tradable, and context-only asset sets;
 - construction family, gross limit, net rule, per-asset cap, cash permission,
-  short permission, and benchmark;
+  short permission, and a complete structured benchmark contract;
 - fixed trailing-covariance method, annualized volatility ceiling, lookback,
   minimum history, annualization, and no-scale-up rule;
 - fixed linear base cost, one-way no-trade band, research reference NAV, and
@@ -54,7 +55,9 @@ research-neutral behavior; it is never reinterpreted as request-bound.
 
 ## Request mapping
 
-Core derives one deterministic contract from the normalized request:
+Core derives one deterministic position contract from the normalized request.
+When `request.benchmarkPolicy` is omitted, it also derives this explicit
+default benchmark:
 
 | Request direction | Tradable assets | Family | Net rule | Benchmark |
 | --- | --- | --- | --- | --- |
@@ -71,6 +74,13 @@ so the historical reference benchmark remains explicit.
 Requested assets are intentionally conservative authorization. Other dataset
 assets may improve ranking, regime, style, or benchmark context, but they
 cannot become positions or implicit hedges without caller intent.
+
+Optional strict `request.benchmarkPolicy` replaces only the evaluation
+reference with cash or one named dataset-universe asset. A named benchmark may
+be context-only; it does not change `tradableAssets`, position caps, signal
+states, or construction family. The Mandate materializes source, kind, asset,
+and a complete fixed weight vector. See
+[[docs/design/caller-owned-benchmark-reference]].
 
 The optional complete `request.portfolioPolicy` owns the numeric gross,
 global fallback and named per-asset caps, volatility, cost, rebalance, and
@@ -112,7 +122,7 @@ those sleeves; it cannot:
 - trade a context-only asset;
 - take a sign forbidden by the request;
 - change cash, gross, net, or cap semantics;
-- substitute a different benchmark;
+- substitute a different benchmark or benchmark weight;
 - learn around a failed mandate constraint.
 
 After RL selects a sleeve, the common accounting path drifts the prior book,
@@ -136,7 +146,7 @@ Core projections expose:
 
 - direction and construction family;
 - authorized and context-only assets;
-- gross limit, per-asset cap, cash, short, and benchmark semantics;
+- gross limit, per-asset cap, cash, short, and structured benchmark semantics;
 - caller/default policy source, base cost, no-trade band, reference NAV, and
   accounting/capacity model identities;
 - constraint errors for gross, net rule, opposite-sign exposure,
@@ -168,7 +178,8 @@ inventory.
 4. Relative-value and long-short evidence cannot silently relax zero net.
 5. Portfolio and governed RL use the same exact mandate in one Project.
 6. Candidate factor/model code cannot edit or choose the mandate.
-7. Benchmarks follow the declared position question.
+7. Benchmarks follow the declared opportunity-cost question and never grant
+   position authority.
 8. Every surface discloses that weights are historical research evidence with
    no trading authority.
 9. Historical implicit-neutral evidence remains loadable and labelled legacy.
@@ -178,8 +189,8 @@ inventory.
 
 ## Known limits
 
-- The request does not yet express named hedge assets, per-asset or sector
-  bounds, borrow availability, futures margin, or nonlinear impact.
+- The request does not yet express named hedge assets, sector bounds, borrow
+  availability, futures margin, or nonlinear impact.
 - Cash is an unused-gross-budget field, not financing or collateral
   accounting.
 - Position permissions are Project-local and do not represent OpenAlice

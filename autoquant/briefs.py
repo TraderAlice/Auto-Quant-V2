@@ -149,7 +149,11 @@ def validate_research_request(
         value,
         required,
         path,
-        optional={"portfolioPolicy", "horizonPolicy"},
+        optional={
+            "portfolioPolicy",
+            "benchmarkPolicy",
+            "horizonPolicy",
+        },
     )
     if value.get("schemaVersion") != SCHEMA_VERSION:
         issues.append(_issue(f"{path}/schemaVersion", "schema.version", "Expected V1"))
@@ -165,6 +169,66 @@ def validate_research_request(
                 "Invalid requested direction",
             )
         )
+    benchmark_policy = value.get("benchmarkPolicy")
+    normalized_benchmark_policy: dict[str, Any] | None = None
+    if "benchmarkPolicy" in value:
+        benchmark_path = f"{path}/benchmarkPolicy"
+        if not isinstance(benchmark_policy, dict):
+            issues.append(
+                _issue(
+                    benchmark_path,
+                    "schema.type",
+                    "benchmarkPolicy must be an object",
+                )
+            )
+        else:
+            issues.extend(
+                _strict_keys(
+                    benchmark_policy,
+                    {"kind", "symbol"},
+                    benchmark_path,
+                )
+            )
+            benchmark_kind = benchmark_policy.get("kind")
+            benchmark_symbol = benchmark_policy.get("symbol")
+            if benchmark_kind not in {"cash", "asset"}:
+                issues.append(
+                    _issue(
+                        f"{benchmark_path}/kind",
+                        "request.benchmark-kind",
+                        "Benchmark kind must be cash or asset",
+                    )
+                )
+            elif benchmark_kind == "cash":
+                if benchmark_symbol is not None:
+                    issues.append(
+                        _issue(
+                            f"{benchmark_path}/symbol",
+                            "request.cash-benchmark-symbol",
+                            "Cash benchmark symbol must be null",
+                        )
+                    )
+                else:
+                    normalized_benchmark_policy = {
+                        "kind": "cash",
+                        "symbol": None,
+                    }
+            elif (
+                not isinstance(benchmark_symbol, str)
+                or not benchmark_symbol.strip()
+            ):
+                issues.append(
+                    _issue(
+                        f"{benchmark_path}/symbol",
+                        "request.asset-benchmark-symbol",
+                        "Asset benchmark symbol must be non-empty",
+                    )
+                )
+            else:
+                normalized_benchmark_policy = {
+                    "kind": "asset",
+                    "symbol": benchmark_symbol.strip(),
+                }
     policy = value.get("portfolioPolicy")
     normalized_policy: dict[str, Any] | None = None
     if policy is not None:
@@ -545,6 +609,11 @@ def validate_research_request(
         ],
         "direction": value["direction"],
         **(
+            {"benchmarkPolicy": normalized_benchmark_policy}
+            if "benchmarkPolicy" in value
+            else {}
+        ),
+        **(
             {"portfolioPolicy": normalized_policy}
             if "portfolioPolicy" in value
             else {}
@@ -804,6 +873,31 @@ RESEARCH_REQUEST_JSON_SCHEMA: dict[str, Any] = {
             },
         },
         "direction": {"enum": sorted(REQUEST_DIRECTIONS)},
+        "benchmarkPolicy": {
+            "oneOf": [
+                {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["kind", "symbol"],
+                    "properties": {
+                        "kind": {"const": "cash"},
+                        "symbol": {"type": "null"},
+                    },
+                },
+                {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["kind", "symbol"],
+                    "properties": {
+                        "kind": {"const": "asset"},
+                        "symbol": {
+                            "type": "string",
+                            "minLength": 1,
+                        },
+                    },
+                },
+            ]
+        },
         "portfolioPolicy": {
             "anyOf": [
                 {"type": "null"},

@@ -1272,6 +1272,12 @@ def _render_markdown(dossier: dict[str, Any]) -> str:
         for mandate in mandates.values():
             construction = mandate["construction"]
             implementation = mandate["implementationPolicy"]
+            benchmark = construction["benchmark"]
+            benchmark_label = (
+                f"{benchmark['asset']} long"
+                if benchmark["kind"] == "single-asset-long"
+                else benchmark["kind"]
+            )
             named_caps = {
                 asset: value
                 for asset, value in construction[
@@ -1309,7 +1315,9 @@ def _render_markdown(dossier: dict[str, Any]) -> str:
                         if named_caps
                         else "none"
                     ),
-                    f"- Benchmark: `{construction['benchmark']}`",
+                    f"- Benchmark: `{benchmark_label}`",
+                    f"- Benchmark source / authority: "
+                    f"`{benchmark['source']}` / evaluation-only",
                     f"- Portfolio policy source: "
                     f"`{mandate['source']['portfolioPolicy']}`",
                     f"- Base cost / one-way no-trade band / reference NAV: "

@@ -38,6 +38,7 @@ from autoquant.rl_explorer import (
     RL_DIAGNOSTICS_JSON_SCHEMA,
     load_rl_diagnostics,
 )
+from autoquant.reports import publish_report
 from autoquant.runs import RUN_RESULT_JSON_SCHEMA, execute_study
 from autoquant.sessions import start_session
 from autoquant.studio import build_studio_snapshot
@@ -179,6 +180,10 @@ class RequestDrivenIntakeTests(unittest.TestCase):
             request_path, package_path = write_intake_inputs(
                 root,
                 portfolio_policy=policy,
+                benchmark_policy={
+                    "kind": "asset",
+                    "symbol": "SPY",
+                },
             )
             prepared = prepare_project_intake(
                 request_path,
@@ -212,6 +217,21 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                     "SPY": 0.0,
                 },
             )
+            self.assertEqual(
+                mandate["construction"]["benchmark"],
+                {
+                    "source": "caller-supplied",
+                    "kind": "single-asset-long",
+                    "asset": "SPY",
+                    "weights": {
+                        "AAPL": 0.0,
+                        "MSFT": 0.0,
+                        "NVDA": 0.0,
+                        "QQQ": 0.0,
+                        "SPY": 1.0,
+                    },
+                },
+            )
 
             portfolio_run = execute_study(project, PORTFOLIO_STUDY_ID)
             rl_run = execute_study(project, RL_STUDY_ID)
@@ -227,6 +247,32 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                 )
                 jsonschema.validate(run.result, RUN_RESULT_JSON_SCHEMA)
             portfolio_metrics = portfolio_run.result["metrics"]
+            daily = pd.read_csv(
+                portfolio_run.root_dir
+                / "artifacts"
+                / "daily-portfolio.csv"
+            )
+            spy = pd.read_csv(root / "external-data" / "SPY.csv")
+            expected_spy_returns = (
+                spy["close"].shift(-1) / spy["close"] - 1.0
+            ).fillna(0.0)
+            expected_by_date = dict(
+                zip(
+                    spy["date"],
+                    expected_spy_returns,
+                    strict=True,
+                )
+            )
+            self.assertEqual(len(daily), len(spy) - 1)
+            for row_number in (0, 50, len(daily) - 2):
+                decision_date = str(
+                    daily.loc[row_number, "timestamp"]
+                )[:10]
+                self.assertAlmostEqual(
+                    daily.loc[row_number, "benchmark_return"],
+                    expected_by_date[decision_date],
+                    places=10,
+                )
             self.assertEqual(
                 portfolio_metrics["signal_policy"]["parameters"],
                 {
@@ -263,6 +309,10 @@ class RequestDrivenIntakeTests(unittest.TestCase):
             self.assertEqual(
                 portfolio_projection["mandate"]["assetMaxAbsWeights"],
                 mandate["construction"]["assetMaxAbsWeights"],
+            )
+            self.assertEqual(
+                portfolio_projection["mandate"]["benchmark"],
+                mandate["construction"]["benchmark"],
             )
             for position in portfolio_projection["sizingAnatomy"][
                 "positions"
@@ -310,6 +360,10 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                 ],
                 mandate["construction"]["assetMaxAbsWeights"],
             )
+            self.assertEqual(
+                rl_projection["portfolioMandate"]["benchmark"],
+                mandate["construction"]["benchmark"],
+            )
             for audit in rl_run.result["metrics"][
                 "constraint_audit"
             ].values():
@@ -321,6 +375,78 @@ class RequestDrivenIntakeTests(unittest.TestCase):
             jsonschema.validate(
                 rl_projection,
                 RL_DIAGNOSTICS_JSON_SCHEMA,
+            )
+            studio_snapshot = build_studio_snapshot(project.root_dir)
+            portfolio_summary = next(
+                item
+                for item in studio_snapshot["projects"][0]["runs"]
+                if item["id"] == portfolio_run.result["id"]
+            )
+            self.assertEqual(
+                portfolio_summary["metricLayers"]["mandate"]["benchmark"],
+                mandate["construction"]["benchmark"],
+            )
+
+            delegated_request = load_research_request(
+                project.root_dir / "request.json"
+            )
+            session = start_session(
+                project,
+                PORTFOLIO_STUDY_ID,
+                request=delegated_request,
+            )
+            baseline_id = session.manifest["baseline"]["runId"]
+            evidence_ref = {
+                "kind": "run",
+                "id": baseline_id,
+                "artifactPath": "artifacts/portfolio-report.json",
+            }
+            report = publish_report(
+                project,
+                session.manifest["id"],
+                {
+                    "schemaVersion": 1,
+                    "kind": "autoquant-research-report-analysis",
+                    "title": "AAPL and MSFT versus SPY",
+                    "executiveSummary": (
+                        "The fixed research book is evaluated against SPY "
+                        "without granting SPY position authority."
+                    ),
+                    "findings": [
+                        {
+                            "id": "caller-benchmark",
+                            "claim": "SPY is the fixed opportunity-cost reference.",
+                            "confidence": "high",
+                            "evidenceRefs": [evidence_ref],
+                        }
+                    ],
+                    "recommendations": [
+                        {
+                            "action": "Review relative and absolute evidence.",
+                            "rationale": "The benchmark changes evaluation only.",
+                            "conditions": ["No trading authority is implied."],
+                            "evidenceRefs": [evidence_ref],
+                        }
+                    ],
+                    "limitations": ["Synthetic deterministic fixture."],
+                    "unresolvedQuestions": ["Does the edge survive new data?"],
+                },
+            )
+            report_markdown = (
+                report.root_dir / "report.md"
+            ).read_text(encoding="utf-8")
+            self.assertIn("`SPY long`", report_markdown)
+            self.assertIn(
+                "`caller-supplied` / evaluation-only",
+                report_markdown,
+            )
+            self.assertIn(
+                "Authorized positions: `AAPL`, `MSFT`",
+                report_markdown,
+            )
+            self.assertIn(
+                "Context-only research assets: `NVDA`, `QQQ`, `SPY`",
+                report_markdown,
             )
 
     def test_v3_continuous_base_interval_is_configurable_end_to_end(self) -> None:

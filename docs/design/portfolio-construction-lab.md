@@ -6,6 +6,7 @@ Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]],
 [[docs/design/study-run-evidence]], [[docs/design/ohlcv-factor-lab]],
 [[docs/design/request-bound-portfolio-mandates]],
 [[docs/design/caller-owned-portfolio-research-policy]],
+[[docs/design/caller-owned-benchmark-reference]],
 [[docs/design/signal-policy-and-attribution]],
 [[docs/design/executed-book-risk-compliance]],
 [[docs/design/portfolio-liquidity-capacity]], and
@@ -42,7 +43,8 @@ The fixed Judge owns:
 - conviction and trailing inverse-volatility risk sizing;
 - causal trailing-covariance portfolio-volatility scale-down;
 - the fixed request-derived tradable/context universe, permitted direction,
-  cash, gross/net rules, benchmark, and caller/default per-asset cap;
+  cash, gross/net rules, caller/default structured benchmark, and
+  caller/default per-asset cap;
 - caller/default no-trade tolerance, base cost, reference NAV, drift,
   turnover, and volume participation;
 - dataset-fixed purged chronological splits, benchmark, metrics, contribution
@@ -171,16 +173,21 @@ claim. See [[docs/design/research-selection-integrity]].
 
 ## Benchmark
 
-The fixed benchmark follows the Portfolio Mandate:
+The fixed benchmark follows the Portfolio Mandate. If the caller supplies
+`benchmarkPolicy`, it is cash or one unlevered long dataset asset such as SPY.
+Otherwise Core records the direction-derived default:
 
 - long: equal-weight long requested/tradable assets;
 - short: equal-weight short requested/tradable assets;
 - long-short and relative-value: cash;
 - synthetic research-only: equal-weight long research universe.
 
-It is not a tradable recommendation. Beta, active return, tracking error, and
-information ratio use the exact same chronological dates as the evaluated
-portfolio.
+The Mandate materializes one complete full-universe weight vector, and every
+bar uses its dot product with next-bar asset returns. A context-only benchmark
+never becomes a position. It is not a tradable recommendation. Beta, active
+return, tracking error, and information ratio use the exact same chronological
+dates as the evaluated portfolio. See
+[[docs/design/caller-owned-benchmark-reference]].
 
 ## Artifacts
 
