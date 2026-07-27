@@ -69,31 +69,36 @@ Session rather than silently changing its evaluation population.
 The Agent may edit only `factors/candidate.py`. It exports:
 
 ```python
-def compute_factor(frame: pandas.DataFrame) -> pandas.Series:
+def compute_factor(panel: pandas.DataFrame) -> pandas.Series:
     ...
 ```
 
-`frame` contains one asset's chronological `timestamp`, `open`, `high`, `low`,
-`close`, and `volume` observations. The returned Series must:
+`panel` contains the complete Study universe in chronological long form. Each
+row has `asset`, `timestamp`, `open`, `high`, `low`, `close`, and `volume`,
+plus configured completed higher-interval columns. Candidate code may use
+within-asset history and same-timestamp cross-asset context. The returned
+Series must:
 
 - have the same index and length as the input;
 - contain numeric values or missing warm-up values;
-- derive each value only from that row and prior rows;
+- derive each value only from its timestamp and prior timestamps;
 - avoid mutating the input;
 - avoid reading Project data, Judge output, or environment-owned evaluation
   state directly.
 
 The API deliberately uses ordinary pandas and NumPy expressions. AutoQuant
-does not wrap them in a legacy event/line abstraction.
+does not wrap them in a legacy event/line abstraction. The canonical details
+are in [[docs/design/panel-native-factor-api]].
 
 ## Fixed Judge semantics
 
 The Judge owns target construction and evaluation:
 
 1. Load and strictly validate each declared OHLCV CSV.
-2. Compute the candidate factor independently per asset.
-3. Audit causality by recomputing selected historical prefixes and comparing
-   values already emitted by the full-history computation.
+2. Combine the complete universe into one canonical long-form panel and
+   compute the candidate once.
+3. Audit causality by recomputing selected whole-panel timestamp prefixes and
+   comparing values already emitted by the full-history computation.
 4. Fix 60/20/20 boundaries from the dataset timeline, independently of
    candidate warm-up and coverage.
 5. Load the immutable Horizon Mandate, compute its primary and diagnostic
@@ -158,5 +163,6 @@ receive a new dataset identity.
   not remove multiple-testing risk or become extra promotion objectives.
 - The Judge does not model fees, fills, position limits, corporate actions, or
   exchange calendars.
-- One factor function is evaluated at a time; ensembles and model fitting are
-  future Project templates, not implicit complexity in this one.
+- One scalar panel factor function is evaluated at a time. Formal
+  fit/freeze/predict model lifecycles remain separate governed ML work rather
+  than implicit state inside this function.

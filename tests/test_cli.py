@@ -60,6 +60,13 @@ class AgentCliTests(unittest.TestCase):
                 ["project", "research-brief"],
             )
             self.assertEqual(
+                envelope["data"]["frameworkNeedsPath"],
+                str(
+                    Path(envelope["data"]["projectDir"])
+                    / "framework-needs.md"
+                ),
+            )
+            self.assertEqual(
                 [action["id"] for action in envelope["nextActions"]],
                 ["study.inspect", "run.execute"],
             )
@@ -384,7 +391,12 @@ class AgentCliTests(unittest.TestCase):
             envelope = json_output(created)
             self.assertEqual(
                 [item["kind"] for item in envelope["artifacts"]],
-                ["project", "research-brief", "research-program"],
+                [
+                    "project",
+                    "research-brief",
+                    "framework-needs",
+                    "research-program",
+                ],
             )
             self.assertEqual(
                 [action["id"] for action in envelope["nextActions"]],
@@ -781,6 +793,7 @@ class AgentCliTests(unittest.TestCase):
                 [
                     "project",
                     "research-brief",
+                    "framework-needs",
                     "research-request",
                     "dataset-snapshot",
                     "project-intake",
@@ -826,6 +839,7 @@ class AgentCliTests(unittest.TestCase):
                 [
                     "project",
                     "research-brief",
+                    "framework-needs",
                     "research-request",
                     "dataset-snapshot",
                     "project-intake",
@@ -880,10 +894,21 @@ class AgentCliTests(unittest.TestCase):
                     "research-brief",
                 )
                 self.assertEqual(
+                    created_json["artifacts"][2]["kind"],
+                    "framework-needs",
+                )
+                self.assertEqual(
                     created_json["data"]["researchBriefPath"],
                     str(
                         Path(created_json["data"]["projectDir"])
                         / "research.md"
+                    ),
+                )
+                self.assertEqual(
+                    created_json["data"]["frameworkNeedsPath"],
+                    str(
+                        Path(created_json["data"]["projectDir"])
+                        / "framework-needs.md"
                     ),
                 )
                 self.assertEqual(

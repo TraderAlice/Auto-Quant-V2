@@ -71,18 +71,34 @@ uv run aq project create ./quant-workspace research-desk \
   --description "Coordinate factor, portfolio, and RL evidence" \
   --template ohlcv-research-desk \
   --json
-# A Quant Agent now reads and completes the returned researchBriefPath.
+# A Quant Agent now completes researchBriefPath and records any real
+# framework gap at frameworkNeedsPath.
 uv run aq project program ./quant-workspace --project research-desk
 uv run aq validate ./quant-workspace
 uv run aq orient ./quant-workspace --project research-desk --json
 ```
 
 `project create` is the normal construction entry point. It creates
-`research.md`, the Project manifest, and the Project-local strategy, factor,
-model, Judge, Study, Session, data, Run, and cache surfaces. Before quantitative
-work, the Agent rewrites `research.md` in English, asks the delegating Agent or
-user about every material ambiguity, and continues only when the question is
-bounded and testable. The caller may converse in any language.
+`research.md`, `framework-needs.md`, the Project manifest, and the Project-local
+strategy, factor, model, Judge, Study, Session, data, Run, and cache surfaces.
+Before quantitative work, the Agent rewrites `research.md` in English, asks the
+delegating Agent or user about every material ambiguity, and continues only
+when the question is bounded and testable. Real reusable Workbench gaps go in
+`framework-needs.md`, not the research brief. The caller may converse in any
+language.
+
+Factor candidates receive the complete Study universe as one ordinary
+long-form pandas DataFrame:
+
+```python
+def compute_factor(panel: pd.DataFrame) -> pd.Series:
+    within_asset = panel.groupby("asset")["close"].pct_change(20)
+    return within_asset.groupby(panel["timestamp"]).rank(pct=True)
+```
+
+This supports causal rolling features and same-timestamp cross-asset context
+without a factor DSL. Factor, Portfolio, governed RL, and preflight use the
+same panel runtime and whole-panel timestamp-prefix causality audit.
 
 `aq` emits compact human output by default and a versioned machine envelope
 under `--json`. See [CLI.md](docs/CLI.md) and

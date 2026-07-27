@@ -415,7 +415,7 @@ class FrozenExternalHoldoutTests(unittest.TestCase):
             )
             bind_holdout(source, dossier.dossier["id"], target)
             (target.root_dir / "factors/candidate.py").write_text(
-                "def compute_factor(frame):\n    return frame['close']\n",
+                "def compute_factor(panel):\n    return panel['close']\n",
                 encoding="utf-8",
             )
             with self.assertRaises(AutoQuantValidationError) as tamper_error:

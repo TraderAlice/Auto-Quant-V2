@@ -154,6 +154,7 @@ from .studies import (
     load_study,
 )
 from .workspace import (
+    FRAMEWORK_NEEDS,
     PROJECT_MANIFEST,
     WORKSPACE_MANIFEST,
     create_project,
@@ -953,6 +954,7 @@ def _project_create(args: argparse.Namespace) -> CommandResult:
             ),
         ]
     research_path = project.root_dir / project.manifest.research_program
+    framework_needs_path = project.root_dir / FRAMEWORK_NEEDS
     artifacts = [
         artifact(
             "project",
@@ -964,6 +966,12 @@ def _project_create(args: argparse.Namespace) -> CommandResult:
             "research-brief",
             project.manifest.id,
             research_path,
+            immutable=False,
+        ),
+        artifact(
+            "framework-needs",
+            project.manifest.id,
+            framework_needs_path,
             immutable=False,
         ),
     ]
@@ -982,6 +990,7 @@ def _project_create(args: argparse.Namespace) -> CommandResult:
             "projectDir": str(project.root_dir),
             "manifest": project.manifest.to_dict(),
             "researchBriefPath": str(research_path),
+            "frameworkNeedsPath": str(framework_needs_path),
             "template": args.template,
         },
         (
@@ -989,6 +998,7 @@ def _project_create(args: argparse.Namespace) -> CommandResult:
             f"{project.root_dir}\n"
             f"Before quantitative work, clarify the English research brief at "
             f"{research_path}\n"
+            f"Record real Workbench gaps at {framework_needs_path}\n"
         ),
         project_context(project),
         artifacts,
@@ -1015,6 +1025,7 @@ def _project_intake(args: argparse.Namespace) -> CommandResult:
     study_id = intake["study"]["id"]
     request_path = project.root_dir / PROJECT_REQUEST
     research_path = project.root_dir / project.manifest.research_program
+    framework_needs_path = project.root_dir / FRAMEWORK_NEEDS
     program = load_research_program(project, optional=True)
     if program is not None:
         next_actions = [
@@ -1106,6 +1117,12 @@ def _project_intake(args: argparse.Namespace) -> CommandResult:
             immutable=False,
         ),
         artifact(
+            "framework-needs",
+            project.manifest.id,
+            framework_needs_path,
+            immutable=False,
+        ),
+        artifact(
             "research-request",
             prepared.request_hash,
             request_path,
@@ -1139,12 +1156,14 @@ def _project_intake(args: argparse.Namespace) -> CommandResult:
             "projectDir": str(project.root_dir),
             "manifest": project.manifest.to_dict(),
             "researchBriefPath": str(research_path),
+            "frameworkNeedsPath": str(framework_needs_path),
             "intake": intake,
         },
         (
             f"Created request-driven Project '{project.manifest.id}'\n"
             f"Before quantitative work, update the English research brief at "
             f"{research_path}\n"
+            f"Record real Workbench gaps at {framework_needs_path}\n"
             f"Request: {prepared.request['title']}\n"
             f"Dataset: {prepared.package['id']}@{prepared.package['version']} · "
             f"{len(prepared.assets)} assets · {prepared.start}..{prepared.end}\n"
@@ -3393,6 +3412,7 @@ def _inspect(args: argparse.Namespace) -> CommandResult:
         f"AutoQuant Project: {project.manifest.name} ({project.manifest.id})\n"
         f"Root: {project.root_dir}\n"
         f"Research: {project.manifest.research_program}\n"
+        f"Workbench needs: {FRAMEWORK_NEEDS}\n"
         + "\n".join(directory_lines)
         + "\n"
     )
@@ -3407,7 +3427,19 @@ def _inspect(args: argparse.Namespace) -> CommandResult:
                 project.manifest.id,
                 project.root_dir / PROJECT_MANIFEST,
                 immutable=False,
-            )
+            ),
+            artifact(
+                "research-brief",
+                project.manifest.id,
+                project.root_dir / project.manifest.research_program,
+                immutable=False,
+            ),
+            artifact(
+                "framework-needs",
+                project.manifest.id,
+                project.root_dir / FRAMEWORK_NEEDS,
+                immutable=False,
+            ),
         ],
         [
             next_action(

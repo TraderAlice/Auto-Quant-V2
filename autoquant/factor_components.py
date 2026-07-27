@@ -60,7 +60,7 @@ def _metadata(module: Any) -> dict[str, dict[str, Any]] | None:
     if raw is None or not callable(function):
         raise FactorComponentError(
             "factor.components-api",
-            "FACTOR_COMPONENTS and callable compute_factor_components(frame) "
+            "FACTOR_COMPONENTS and callable compute_factor_components(panel) "
             "must be exported together",
         )
     if (
@@ -136,7 +136,7 @@ def _metadata(module: Any) -> dict[str, dict[str, Any]] | None:
 
 def compute_factor_components(
     module: Any,
-    frame: pd.DataFrame,
+    panel: pd.DataFrame,
 ) -> FactorComponents | None:
     """Execute and validate one optional component declaration."""
 
@@ -144,29 +144,29 @@ def compute_factor_components(
     if metadata is None:
         return None
     function = getattr(module, "compute_factor_components")
-    before = frame.copy(deep=True)
+    before = panel.copy(deep=True)
     try:
-        result = function(frame)
+        result = function(panel)
     except Exception as error:
         raise FactorComponentError(
             "factor.components-execution",
             "compute_factor_components raised "
             f"{type(error).__name__}: {error}",
         ) from error
-    if not frame.equals(before):
+    if not panel.equals(before):
         raise FactorComponentError(
             "factor.components-mutation",
-            "compute_factor_components mutated its input",
+            "compute_factor_components mutated its input panel",
         )
     if not isinstance(result, pd.DataFrame):
         raise FactorComponentError(
             "factor.components-type",
             "compute_factor_components must return pandas.DataFrame",
         )
-    if not result.index.equals(frame.index) or len(result) != len(frame):
+    if not result.index.equals(panel.index) or len(result) != len(panel):
         raise FactorComponentError(
             "factor.components-alignment",
-            "Component DataFrame must preserve the input length and index",
+            "Component DataFrame must preserve the exact panel length and index",
         )
     if (
         result.shape[1] < 1
@@ -196,7 +196,7 @@ def compute_factor_components(
     available_intervals = {
         interval
         for interval in SUPPORTED_INTERVALS
-        if f"close__{interval}" in frame.columns
+        if f"close__{interval}" in panel.columns
     }
     for name in columns:
         unavailable = [
@@ -208,7 +208,7 @@ def compute_factor_components(
         if unavailable:
             raise FactorComponentError(
                 "factor.component-interval-unavailable",
-                f"{name} claims intervals absent from the supplied frame: "
+                f"{name} claims intervals absent from the supplied panel: "
                 + ", ".join(unavailable),
             )
     numeric = pd.DataFrame(index=result.index)

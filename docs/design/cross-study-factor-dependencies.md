@@ -62,17 +62,18 @@ unchanged.
 The fixed RL Judge imports the dependency's ordinary pandas API:
 
 ```python
-def compute_factor(frame: pd.DataFrame) -> pd.Series:
+def compute_factor(panel: pd.DataFrame) -> pd.Series:
     ...
 ```
 
 The Judge independently verifies:
 
-- input frame is not mutated;
+- complete-universe input panel is not mutated;
 - output is an aligned numeric Series;
 - infinity is rejected and warm-up NaN is allowed;
 - repeated calls are deterministic;
-- historical values remain identical when future rows are withheld.
+- historical values remain identical when future timestamps are withheld from
+  the whole panel.
 
 The resulting cross-sectional panel becomes a `candidate` sleeve under the
 same mechanical signal-state, sizing, constraint, drift, and cost contract as

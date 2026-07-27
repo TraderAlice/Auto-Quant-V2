@@ -11,17 +11,21 @@ held-out chronological periods?
 Edit only `factors/candidate.py` and preserve:
 
 ```python
-def compute_factor(frame: pandas.DataFrame) -> pandas.Series:
+def compute_factor(panel: pandas.DataFrame) -> pandas.Series:
     ...
 ```
 
-The returned Series must align exactly with the input index. Missing warm-up
-values are allowed. Future rows, centered windows, negative shifts, global
+`panel` is the complete Study universe in long form, with one row per
+`asset`/`timestamp` and base plus available completed higher-interval OHLCV.
+Use ordinary `groupby("asset")` for rolling time-series features and
+`groupby("timestamp")` for contemporaneous cross-sectional context. The
+returned Series must align exactly with the input index. Missing warm-up values
+are allowed. Future timestamps, centered windows, negative shifts, global
 full-sample normalization, external data, and mutation of the input are not.
 
 When a hypothesis has meaningful sub-signals, also export
 `FACTOR_COMPONENTS` and
-`compute_factor_components(frame) -> pandas.DataFrame`. Declare one causal
+`compute_factor_components(panel) -> pandas.DataFrame`. Declare one causal
 column per falsifiable source component, including its label, claimed
 `base`/3h/4h/6h/12h/1d intervals, and hypothesis. The component table must
 remain aligned, deterministic, numeric, immutable, and prefix causal. Do not

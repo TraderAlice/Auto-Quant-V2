@@ -14,9 +14,9 @@ Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]],
 ## Scope
 
 This document owns the fixed research diagnostics between a candidate's causal
-factor Series and later portfolio/RL work. Candidate code remains a plain
-per-asset pandas function. The Judge owns every target, horizon, split, bin,
-regime, style proxy, statistic, artifact, and acceptance rule.
+factor Series and later portfolio/RL work. Candidate code remains one plain
+complete-universe panel pandas function. The Judge owns every target, horizon,
+split, bin, regime, style proxy, statistic, artifact, and acceptance rule.
 
 The protocol is a research tear sheet, not a trading simulator. It describes
 predictive evidence before sizing and execution assumptions are applied.

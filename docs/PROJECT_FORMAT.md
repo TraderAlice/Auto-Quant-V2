@@ -177,6 +177,7 @@ identity. See
 factor-lab/
 ├── autoquant.json
 ├── research.md
+├── framework-needs.md
 ├── strategies/
 │   └── portfolio-mandate.json  # Portfolio/RL templates only
 ├── factors/
@@ -278,6 +279,20 @@ the brief is understood, strict request, dataset, Study, and Judge manifests
 lock the machine-executed contract. They do not replace the brief. The fixed
 Research Lab contract then binds editable source closure, budgets, benchmarks,
 Sessions, Experiments, and promotion policy.
+
+## Project-derived Workbench needs
+
+`framework-needs.md` is the second required Project-root Markdown surface. It
+does not describe the investment question. A Quant Agent uses it only when
+real Project work exposes a missing, misleading, or unnecessarily hostile
+AutoQuant capability.
+
+The file records research context, attempted work, concrete evidence, the
+smallest useful Core improvement currently visible, and any workaround plus
+its scientific cost. It remains flexible English Markdown. Workbench
+developers reproduce and classify the observation before promoting reusable
+work into repository design and an indexed plan. No parser treats the file as
+machine authority. See [[docs/design/project-derived-workbench-needs]].
 
 ## Study
 

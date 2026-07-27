@@ -31,7 +31,7 @@ components. Core never parses Python source or guesses column provenance.
 The only required API remains:
 
 ```python
-def compute_factor(frame: pandas.DataFrame) -> pandas.Series:
+def compute_factor(panel: pandas.DataFrame) -> pandas.Series:
     ...
 ```
 
@@ -46,12 +46,13 @@ FACTOR_COMPONENTS = {
     },
 }
 
-def compute_factor_components(frame: pandas.DataFrame) -> pandas.DataFrame:
+def compute_factor_components(panel: pandas.DataFrame) -> pandas.DataFrame:
     ...
 ```
 
 The DataFrame contains one to twelve candidate-declared numeric Series on the
-same index as `frame`. Its ordered columns must be unique safe identifiers and
+same complete-universe panel index. Its ordered columns must be unique safe
+identifiers and
 must be entries in `FACTOR_COMPONENTS`. Metadata may describe more components
 than one dataset materializes so one source file can remain compatible with a
 daily V1 Project and a multi-interval V2 Project. Evidence records only the

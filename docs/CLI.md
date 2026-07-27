@@ -68,11 +68,13 @@ manifest. A direct Project path rejects `--project`; a Workspace path selects
 the explicit id or its default.
 
 `project create` is the normal new-assignment scaffold. It creates a
-self-contained Project with a root `research.md` and all declared Project
-directories. Its JSON envelope returns `researchBriefPath` and a mutable
-`research-brief` artifact. Before following the available inspect, baseline,
-or Session actions, the Quant Agent rewrites that file in English and
-clarifies material caller-owned ambiguity with the delegating Agent or user.
+self-contained Project with root `research.md`, `framework-needs.md`, and all
+declared Project directories. Its JSON envelope returns `researchBriefPath`,
+`frameworkNeedsPath`, and corresponding mutable artifacts. Before following
+the available inspect, baseline, or Session actions, the Quant Agent rewrites
+the research brief in English and clarifies material caller-owned ambiguity
+with the delegating Agent or user. Real reusable Workbench gaps encountered
+during research are recorded separately in `framework-needs.md`.
 The caller may converse in any language. `--template blank` is appropriate
 while the method is unclear; a specialized template is appropriate only when
 the understood question already fits its fixed contract.

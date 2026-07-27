@@ -13,6 +13,13 @@ from typing import Any, Callable
 import numpy as np
 import pandas as pd
 
+from autoquant.factor_runtime import (
+    FactorRuntimeError,
+    build_factor_panel,
+    evaluate_factor,
+    factor_contract,
+    values_to_wide,
+)
 from autoquant.intervals import (
     IntervalContractError,
     annualization_periods,
@@ -300,78 +307,6 @@ def _candidate_encoder(
         return first_array
 
     return names, encode
-
-
-def _factor_series(module: Any, frame: pd.DataFrame, asset: str) -> pd.Series:
-    before = frame.copy(deep=True)
-    try:
-        first = module.compute_factor(frame)
-        second = module.compute_factor(frame)
-    except Exception as error:
-        raise JudgeFailure(
-            "factor.execution",
-            f"compute_factor raised for {asset}: {type(error).__name__}: {error}",
-        ) from error
-    if not frame.equals(before):
-        raise JudgeFailure("factor.mutation", f"compute_factor mutated {asset} input")
-    if not isinstance(first, pd.Series) or not isinstance(second, pd.Series):
-        raise JudgeFailure("factor.type", "compute_factor must return pandas.Series")
-    if (
-        len(first) != len(frame)
-        or not first.index.equals(frame.index)
-        or len(second) != len(frame)
-        or not second.index.equals(frame.index)
-    ):
-        raise JudgeFailure(
-            "factor.alignment",
-            "Factor Series must preserve the input length and index",
-        )
-    try:
-        first_numeric = pd.to_numeric(first, errors="raise").astype(float)
-        second_numeric = pd.to_numeric(second, errors="raise").astype(float)
-    except (TypeError, ValueError) as error:
-        raise JudgeFailure("factor.numeric", f"Factor must be numeric: {error}") from error
-    if (
-        np.isinf(first_numeric.to_numpy()).any()
-        or np.isinf(second_numeric.to_numpy()).any()
-    ):
-        raise JudgeFailure("factor.non-finite", "Factor cannot contain infinity")
-    if not np.isclose(
-        first_numeric.to_numpy(dtype=float),
-        second_numeric.to_numpy(dtype=float),
-        rtol=1e-10,
-        atol=1e-12,
-        equal_nan=True,
-    ).all():
-        raise JudgeFailure(
-            "factor.nondeterministic",
-            "compute_factor returned different values for one fixed input",
-        )
-    return first_numeric
-
-
-def _audit_factor_causality(
-    module: Any,
-    frame: pd.DataFrame,
-    full: pd.Series,
-    asset: str,
-) -> list[int]:
-    cuts = sorted({len(frame) // 2, (len(frame) * 3) // 4, len(frame) - 2})
-    for cut in cuts:
-        prefix = _factor_series(module, frame.iloc[: cut + 1].copy(), asset)
-        start = max(0, cut - 4)
-        if not np.isclose(
-            full.iloc[start : cut + 1].to_numpy(dtype=float),
-            prefix.iloc[start : cut + 1].to_numpy(dtype=float),
-            rtol=1e-10,
-            atol=1e-12,
-            equal_nan=True,
-        ).all():
-            raise JudgeFailure(
-                "factor.lookahead",
-                f"{asset} past factor values change when future rows are withheld",
-            )
-    return cuts
 
 
 def _panels(
@@ -1758,26 +1693,22 @@ def _evaluate() -> tuple[
     implementation_policy = resolve_implementation_policy(mandate)
     model_module = importlib.import_module("models.candidate")
     factor_module = importlib.import_module("factors.candidate")
-    if not callable(getattr(factor_module, "compute_factor", None)):
-        raise JudgeFailure(
-            "factor.api",
-            "factors.candidate must export callable compute_factor(frame)",
-        )
     feature_names, encoder = _candidate_encoder(model_module)
     frames, opens, closes, volumes = _panels(study, data_root)
-    candidate_by_asset: dict[str, pd.Series] = {}
-    factor_causality_cuts: dict[str, list[int]] = {}
-    for asset, frame in frames.items():
-        factor = _factor_series(factor_module, frame, asset)
-        factor_causality_cuts[asset] = _audit_factor_causality(
+    universe = study["dataset"]["universe"]
+    try:
+        factor_panel = build_factor_panel(frames, universe=universe)
+        factor_evaluation = evaluate_factor(
             factor_module,
-            frame,
-            factor,
-            asset,
+            factor_panel,
         )
-        factor.index = pd.DatetimeIndex(frame["timestamp"])
-        candidate_by_asset[asset] = factor
-    candidate_panel = pd.DataFrame(candidate_by_asset)
+        candidate_panel = values_to_wide(
+            factor_panel,
+            factor_evaluation.values,
+            universe=universe,
+        )
+    except FactorRuntimeError as error:
+        raise JudgeFailure(error.code, str(error)) from error
     action_targets = build_action_targets(
         _factor_panels(opens, closes, volumes, candidate_panel),
         closes,
@@ -2208,6 +2139,7 @@ def _evaluate() -> tuple[
     }
     metrics = {
         "validation_mean_net_sharpe": float(np.mean(validation_sharpes)),
+        "factor_api": factor_contract(factor_evaluation),
         "portfolio_mandate": mandate,
         "research_horizon": research_horizon,
         "rl": {
@@ -2299,7 +2231,9 @@ def _evaluate() -> tuple[
             "factor_dependency": {
                 "module": "factors.candidate",
                 "mode": "content-locked-study-dependency",
-                "causalityAuditCuts": factor_causality_cuts,
+                "causalityAuditCuts": list(
+                    factor_evaluation.causality_cuts
+                ),
             },
         },
     }

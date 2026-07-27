@@ -49,6 +49,9 @@ Agent. Standalone and hosted operation use the same brief contract.
 The Agent is the principal research operator. It may:
 
 - inspect verified context and evidence;
+- record a concrete Project-observed Workbench gap in `framework-needs.md`
+  at the canonical Project coordination surface, outside an active candidate
+  edit/evaluate operation, without changing fixed research authority;
 - start an explicitly offered bounded operation;
 - edit only the candidate closure inside an active Session worktree;
 - propose a falsifiable hypothesis;

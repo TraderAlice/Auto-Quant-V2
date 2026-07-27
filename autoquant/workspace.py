@@ -14,6 +14,7 @@ from typing import Any
 
 WORKSPACE_MANIFEST = "autoquant-workspace.json"
 PROJECT_MANIFEST = "autoquant.json"
+FRAMEWORK_NEEDS = "framework-needs.md"
 SCHEMA_VERSION = 1
 PROJECT_ID = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 PROJECT_DIRECTORY_KEYS = (
@@ -393,6 +394,16 @@ def load_project(directory: str | Path, *, expected_id: str | None = None) -> Pr
                 f"Missing Project research program: {research_path}",
             )
         )
+    framework_needs_path = root / FRAMEWORK_NEEDS
+    if framework_needs_path.is_symlink() or not framework_needs_path.is_file():
+        issues.append(
+            _issue(
+                framework_needs_path,
+                "project.framework-needs",
+                f"Missing Project Workbench-needs file: "
+                f"{framework_needs_path}",
+            )
+        )
     for key, relative in manifest.directories.items():
         directory_path = _confined_path(
             root,
@@ -646,6 +657,36 @@ to make a candidate win.
 """
 
 
+def _framework_needs(name: str) -> str:
+    return f"""# {name} — Workbench needs
+
+This English Markdown file records AutoQuant framework gaps encountered while
+performing this Project's real research. Keep the investment question and
+research progress in `research.md`; use this file only when the Workbench
+cannot faithfully express, evaluate, inspect, or hand off a needed hypothesis.
+
+Do not file speculative feature wishes. Record concrete research context,
+what was attempted, the missing or misleading capability, supporting evidence,
+the smallest useful Core improvement you can currently see, and any temporary
+workaround plus its scientific cost.
+
+During a governed Session, the worktree copy is protected orientation
+material. Record a need in this canonical Project file before entering or
+after returning from the bounded candidate edit/evaluate operation; it is
+never part of an Experiment diff.
+
+## Open needs
+
+No Project-derived Workbench needs have been recorded.
+
+## Promoted, resolved, or declined
+
+Move an item here when it is linked to a repository plan, fixed and retested,
+or deliberately declined with a reason. Preserve the original observation as
+durable provenance.
+"""
+
+
 def create_project(
     workspace_directory: str | Path,
     project_id: str,
@@ -699,6 +740,10 @@ def create_project(
         _atomic_write_json(temporary / PROJECT_MANIFEST, manifest.to_dict())
         (temporary / manifest.research_program).write_text(
             _research_program(display_name, description),
+            encoding="utf-8",
+        )
+        (temporary / FRAMEWORK_NEEDS).write_text(
+            _framework_needs(display_name),
             encoding="utf-8",
         )
         for relative in manifest.directories.values():
@@ -796,6 +841,10 @@ def inspect_project(project: ProjectContext) -> dict[str, Any]:
         "researchProgram": {
             "path": str(project.root_dir / project.manifest.research_program),
             "relativePath": project.manifest.research_program,
+        },
+        "frameworkNeeds": {
+            "path": str(project.root_dir / FRAMEWORK_NEEDS),
+            "relativePath": FRAMEWORK_NEEDS,
         },
         "directories": directories,
     }

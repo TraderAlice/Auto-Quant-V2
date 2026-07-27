@@ -108,9 +108,11 @@ The V2 foundation now implements:
   factor, gross portfolio, friction, net performance, cost/delay stress, and
   temporal dependence into a bounded next research focus without altering
   selection or promotion.
-- one self-contained OHLCV Factor Lab reference Project with ordinary pandas
-  factor code, deterministic local data, dataset-fixed purged horizons, a
-  professional factor tear sheet, and a fixed no-lookahead audit.
+- one self-contained OHLCV Factor Lab reference Project with a
+  complete-universe long-form pandas factor API, deterministic local data,
+  dataset-fixed purged horizons, a professional factor tear sheet, and one
+  shared whole-panel no-lookahead runtime used by Factor, Portfolio, governed
+  RL, and preflight.
 - one bounded Factor evidence projection that reconciles immutable daily IC
   and quantile artifacts before exposing horizon, stability, style, coverage,
   and turnover evidence to CLI and Studio.
@@ -259,6 +261,7 @@ location. Git history remains its archive. See
 - exact delegated request/Brief context and immutable Research Reports;
 - immutable Run evidence and reviewed candidates;
 - project-specific notebooks, reports, and presentation assets.
+- Project-observed reusable Workbench gaps in `framework-needs.md`.
 
 A Workspace discovers Projects but does not provide mutable shared research
 assets whose changes silently alter multiple Projects. Disposable caches may
@@ -380,6 +383,10 @@ cannot own Workspace, Project, or evidence semantics.
 - Agent CLI design: [[docs/design/agent-cli-contract]]
 - Study/Run evidence design: [[docs/design/study-run-evidence]]
 - OHLCV Factor Lab design: [[docs/design/ohlcv-factor-lab]]
+- Panel-native shared factor runtime:
+  [[docs/design/panel-native-factor-api]]
+- Project-derived Workbench needs:
+  [[docs/design/project-derived-workbench-needs]]
 - Factor evidence explorer design:
   [[docs/design/factor-evidence-explorer]]
 - OHLCV Portfolio Lab design: [[docs/design/portfolio-construction-lab]]

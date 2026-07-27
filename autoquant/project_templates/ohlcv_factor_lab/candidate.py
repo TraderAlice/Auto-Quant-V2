@@ -39,50 +39,67 @@ FACTOR_COMPONENTS = {
 
 
 def _completed_bar_return(
-    frame: pd.DataFrame,
+    panel: pd.DataFrame,
     interval: str,
     periods: int,
 ) -> pd.Series:
     close_column = f"close__{interval}"
     bar_column = f"bar_close__{interval}"
-    if close_column not in frame or bar_column not in frame:
-        return pd.Series(float("nan"), index=frame.index, dtype=float)
-    completed = (
-        frame.loc[frame[bar_column].notna(), [bar_column, close_column]]
-        .drop_duplicates(bar_column, keep="first")
-        .set_index(bar_column)[close_column]
+    if close_column not in panel or bar_column not in panel:
+        return pd.Series(float("nan"), index=panel.index, dtype=float)
+    completed = panel.loc[
+        panel[bar_column].notna(),
+        ["asset", bar_column, close_column],
+    ].drop_duplicates(["asset", bar_column], keep="first")
+    completed["return"] = completed.groupby(
+        "asset",
+        sort=False,
+    )[close_column].pct_change(periods, fill_method=None)
+    lookup = completed.set_index(
+        ["asset", bar_column],
+    )["return"]
+    keys = pd.MultiIndex.from_frame(
+        panel.loc[:, ["asset", bar_column]],
     )
-    values = completed.pct_change(periods)
-    return frame[bar_column].map(values).astype(float)
+    return pd.Series(
+        lookup.reindex(keys).to_numpy(dtype=float),
+        index=panel.index,
+        dtype=float,
+    )
 
 
-def compute_factor_components(frame: pd.DataFrame) -> pd.DataFrame:
+def compute_factor_components(panel: pd.DataFrame) -> pd.DataFrame:
     """Declare the causal source components materialized by this dataset."""
 
     components = {
-        "base_momentum_10": frame["close"].pct_change(10),
+        "base_momentum_10": panel.groupby(
+            "asset",
+            sort=False,
+        )["close"].pct_change(10, fill_method=None),
     }
     for name, interval, periods in (
         ("momentum_3h_4", "3h", 4),
         ("momentum_12h_2", "12h", 2),
         ("momentum_1d_3", "1d", 3),
     ):
-        if f"close__{interval}" in frame:
+        if f"close__{interval}" in panel:
             components[name] = _completed_bar_return(
-                frame,
+                panel,
                 interval,
                 periods,
             )
-    return pd.DataFrame(components, index=frame.index)
+    return pd.DataFrame(components, index=panel.index)
 
 
-def compute_factor(frame: pd.DataFrame) -> pd.Series:
-    """Return causal multi-horizon momentum when completed bars are available.
+def compute_factor(panel: pd.DataFrame) -> pd.Series:
+    """Return causal cross-sectionally centered multi-horizon momentum.
 
     The fixed Judge owns targets, chronological splits, and evaluation. Change
     only this function while testing one falsifiable factor hypothesis at a
     time.
     """
 
-    components = compute_factor_components(frame)
-    return components.mean(axis=1, skipna=True)
+    components = compute_factor_components(panel)
+    raw = components.mean(axis=1, skipna=True)
+    market_center = raw.groupby(panel["timestamp"], sort=False).transform("mean")
+    return (raw - market_center).rename("relative_multi_horizon_momentum")

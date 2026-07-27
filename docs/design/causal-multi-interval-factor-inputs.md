@@ -21,7 +21,7 @@ content-locked 1h base bars
 → fixed complete-bar aggregation
 → 3h / 4h / 6h / 12h / 1d bars with close timestamps
 → backward-as-of causal alignment onto each 1h decision close
-→ ordinary pandas frame
+→ ordinary long-form pandas panel over the complete universe
 → Factor → mechanical Portfolio → governed RL
 ```
 
@@ -30,14 +30,14 @@ content-locked 1h base bars
 The editable API remains:
 
 ```python
-def compute_factor(frame: pandas.DataFrame) -> pandas.Series:
+def compute_factor(panel: pandas.DataFrame) -> pandas.Series:
     ...
 ```
 
-Base interval columns retain their familiar names:
+The panel adds `asset` and retains familiar base interval columns:
 
 ```text
-timestamp open high low close volume
+asset timestamp open high low close volume
 ```
 
 Each higher interval contributes namespaced columns:
@@ -160,7 +160,8 @@ promotion, or trading authority.
 1. One Project owns one content-locked interval surface.
 2. Timestamps mean bar close; forming bars are invisible.
 3. Higher bars use complete base groups only.
-4. Candidate code receives ordinary pandas, not provider or engine objects.
+4. Candidate code receives the complete universe in ordinary long-form pandas,
+   not provider or engine objects.
 5. Factor, Portfolio, RL, and fixed baselines share the same aligned history.
 6. Validation selects; visible test only audits interval hypotheses.
 7. V1 daily Projects and immutable evidence remain readable.

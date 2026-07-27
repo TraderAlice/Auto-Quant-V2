@@ -103,8 +103,9 @@ class MultiStudyResearchProgramTests(unittest.TestCase):
             candidate.write_text(
                 "from __future__ import annotations\n\n"
                 "import pandas as pd\n\n"
-                "def compute_factor(frame: pd.DataFrame) -> pd.Series:\n"
-                "    return -frame[\"close\"].pct_change(10)\n",
+                "def compute_factor(panel: pd.DataFrame) -> pd.Series:\n"
+                "    return -panel.groupby(\"asset\", sort=False)"
+                "[\"close\"].pct_change(10, fill_method=None)\n",
                 encoding="utf-8",
             )
             rejected = evaluate_experiment(
@@ -226,6 +227,27 @@ class MultiStudyResearchProgramTests(unittest.TestCase):
             }
             self.assertTrue(
                 all(run.result["status"] == "succeeded" for run in runs.values())
+            )
+            factor_contracts = [
+                runs[study_id].result["metrics"]["factor_api"]
+                for study_id in (
+                    OHLCV_STUDY_ID,
+                    PORTFOLIO_STUDY_ID,
+                    RL_STUDY_ID,
+                )
+            ]
+            self.assertTrue(
+                all(
+                    contract["kind"] == "panel-v1"
+                    and contract["input"] == "long-form-complete-universe"
+                    and contract["cross_asset_context"] == "same-timestamp"
+                    and contract["causality_audit"]
+                    == "whole-panel-timestamp-prefix"
+                    for contract in factor_contracts
+                )
+            )
+            self.assertTrue(
+                all(contract == factor_contracts[0] for contract in factor_contracts)
             )
             for lane_id, study_id, editable_paths in (
                 ("factor", OHLCV_STUDY_ID, ["factors/**"]),

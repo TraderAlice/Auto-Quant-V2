@@ -167,9 +167,10 @@ V2 uses `data/ohlcv/<interval>/<symbol>.csv`. The fixed loader recomputes every
 materialized 3h/4h/6h/12h/1d file from 1h bytes and rejects a mismatch even if
 the derived file and snapshot hashes were both rewritten. It then exposes the
 base columns plus `bar_close__<interval>`, namespaced OHLCV, and
-`age_bars__<interval>` through the ordinary `compute_factor(frame)` pandas
-API. Backward-as-of alignment permits only source closes at or before the
-decision close.
+`age_bars__<interval>` through the ordinary complete-universe
+`compute_factor(panel)` pandas API. Backward-as-of alignment permits only
+source closes at or before the decision close. See
+[[docs/design/panel-native-factor-api]].
 
 ## Snapshot and identity
 

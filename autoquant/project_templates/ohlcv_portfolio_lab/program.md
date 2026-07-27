@@ -2,8 +2,8 @@
 
 ## Question
 
-Can one causal per-asset factor become a stable cross-asset portfolio after
-fixed sizing, position caps, drift-aware turnover, costs, and chronological
+Can one causal panel factor become a stable cross-asset portfolio after fixed
+sizing, position caps, drift-aware turnover, costs, and chronological
 out-of-sample evaluation?
 
 ## Editable closure
@@ -11,12 +11,14 @@ out-of-sample evaluation?
 Edit only `factors/**`. Keep the API:
 
 ```python
-def compute_factor(frame: pandas.DataFrame) -> pandas.Series:
+def compute_factor(panel: pandas.DataFrame) -> pandas.Series:
     ...
 ```
 
-The factor receives one asset's chronological OHLCV rows. It must return one
-numeric aligned Series and may use only the current and prior rows.
+The factor receives the complete Study universe as long-form OHLCV rows with
+`asset` and `timestamp`. It may combine within-asset history and
+contemporaneous cross-asset context, must return one numeric aligned Series,
+and may not use any future timestamp.
 
 Before each edit, run `aq orient . --json` and read the current verified
 `researchAgenda`. Its move must still target `factors/**`: sizing, caps,

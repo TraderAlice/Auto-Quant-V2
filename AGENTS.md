@@ -69,6 +69,33 @@ quotes, and evidence in their original form when needed. The delegating or
 user-facing Agent owns conversation locale and may translate the resulting
 evidence for the user; callers are never required to speak English.
 
+## Research work and Workbench work
+
+Keep two connected lines of work distinct:
+
+1. The Project research line answers the assignment. Maintain its question,
+   hypotheses, evidence, and progress in `research.md`, candidate source,
+   Sessions, Runs, Reports, and Dossiers.
+2. The Workbench improvement line changes AutoQuant when real Project work
+   exposes a reusable framework gap. Record the observed gap in the
+   canonical Project-root `framework-needs.md` before proposing a Core
+   solution. During a governed candidate operation, its Session worktree copy
+   is protected orientation material; update the canonical note before
+   entering or after returning from the operation.
+
+Do not turn `research.md` into a framework backlog, and do not modify fixed
+Harness/Judge authority to work around a missing capability. A useful
+`framework-needs.md` item states the attempted research, concrete missing or
+misleading behavior, evidence, smallest useful Core improvement, and any
+temporary workaround plus its scientific cost. Keep speculative feature wishes
+out of the file.
+
+When acting as a Workbench developer, reproduce and generalize a Project need,
+then promote accepted reusable work into an indexed repository plan and the
+appropriate `docs/design/` contract. When the fix lands, preserve the original
+Project note and record the version and research retry outcome. See
+[[docs/design/project-derived-workbench-needs]].
+
 ## Plan workflow
 
 Read [[PLANS]] before starting non-trivial work. A plan is required when work
@@ -114,6 +141,10 @@ Read the relevant linked document before changing a subsystem:
 - AI-primary operator, human-reviewer roles, compact Agent Work Brief,
   filesystem authority, and CLI/Studio orientation parity:
   [[docs/design/agent-operator-experience]]
+- Project-observed capability gaps and their promotion into Workbench design
+  and plans: [[docs/design/project-derived-workbench-needs]]
+- Complete-universe ordinary-pandas factor input, cross-asset computation, and
+  shared causality runtime: [[docs/design/panel-native-factor-api]]
 - Verified Factor/Portfolio/RL evidence translated into bounded experiment
   briefs without automatic execution, promotion, or trading authority:
   [[docs/design/evidence-driven-research-agenda]]

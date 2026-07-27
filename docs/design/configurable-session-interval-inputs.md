@@ -106,10 +106,11 @@ complete-xnys-regular-session-bar-close-v1
 The API stays unchanged:
 
 ```python
-def compute_factor(frame: pandas.DataFrame) -> pandas.Series:
+def compute_factor(panel: pandas.DataFrame) -> pandas.Series:
     ...
 ```
 
+The complete universe is supplied in long form with `asset` and `timestamp`.
 Base OHLCV keeps unqualified names. Each feature interval contributes:
 
 ```text

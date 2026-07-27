@@ -33,6 +33,7 @@ from .studies import (
     path_matches_pattern,
 )
 from .workspace import (
+    FRAMEWORK_NEEDS,
     PROJECT_MANIFEST,
     SCHEMA_VERSION,
     AutoQuantValidationError,
@@ -323,6 +324,7 @@ def _materialize_worktree(
         project.manifest.research_program,
         worktree_root,
     )
+    _copy_project_file(project, FRAMEWORK_NEEDS, worktree_root)
     for relative in project.manifest.directories.values():
         (worktree_root / relative).mkdir(parents=True)
 

@@ -12,10 +12,12 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from autoquant.factor_components import (
-    FactorComponentError,
-    FactorComponents,
-    compute_factor_components,
+from autoquant.factor_runtime import (
+    FactorRuntimeError,
+    build_factor_panel,
+    evaluate_factor,
+    factor_contract,
+    values_to_wide,
 )
 from autoquant.intervals import (
     IntervalContractError,
@@ -144,122 +146,6 @@ def _load_asset(data_root: Path, asset: str, start: str, end: str) -> pd.DataFra
             f"{asset} has fewer than 120 observations in the Study range",
         )
     return selected.reset_index(drop=True)
-
-
-def _factor_series(module: Any, frame: pd.DataFrame, asset: str) -> pd.Series:
-    before = frame.copy(deep=True)
-    result = module.compute_factor(frame)
-    if not frame.equals(before):
-        raise JudgeFailure("factor.mutation", f"compute_factor mutated {asset} input")
-    if not isinstance(result, pd.Series):
-        raise JudgeFailure("factor.type", "compute_factor must return pandas.Series")
-    if len(result) != len(frame) or not result.index.equals(frame.index):
-        raise JudgeFailure(
-            "factor.alignment",
-            "Factor Series must preserve the input length and index",
-        )
-    try:
-        numeric = pd.to_numeric(result, errors="raise").astype(float)
-    except (TypeError, ValueError) as error:
-        raise JudgeFailure("factor.numeric", f"Factor must be numeric: {error}") from error
-    if np.isinf(numeric.to_numpy()).any():
-        raise JudgeFailure("factor.non-finite", "Factor cannot contain infinity")
-    return numeric
-
-
-def _component_values(
-    module: Any,
-    frame: pd.DataFrame,
-    asset: str,
-) -> FactorComponents | None:
-    try:
-        result = compute_factor_components(module, frame)
-    except FactorComponentError as error:
-        raise JudgeFailure(error.code, f"{asset}: {error}") from error
-    if result is None:
-        return None
-    try:
-        repeated = compute_factor_components(module, frame.copy(deep=True))
-    except FactorComponentError as error:
-        raise JudgeFailure(error.code, f"{asset}: {error}") from error
-    if repeated is None:
-        raise JudgeFailure(
-            "factor.components-nondeterministic",
-            f"{asset} component declaration disappeared for one fixed input",
-        )
-    try:
-        pd.testing.assert_frame_equal(result.values, repeated.values)
-    except AssertionError as error:
-        raise JudgeFailure(
-            "factor.components-nondeterministic",
-            f"{asset} components changed for one fixed input",
-        ) from error
-    return result
-
-
-def _audit_causality(
-    module: Any,
-    frame: pd.DataFrame,
-    full: pd.Series,
-    asset: str,
-) -> list[int]:
-    cuts = sorted({len(frame) // 2, (len(frame) * 3) // 4, len(frame) - 2})
-    for cut in cuts:
-        prefix_frame = frame.iloc[: cut + 1].copy()
-        prefix = _factor_series(module, prefix_frame, asset)
-        start = max(0, cut - 4)
-        expected = full.iloc[start : cut + 1].to_numpy(dtype=float)
-        actual = prefix.iloc[start : cut + 1].to_numpy(dtype=float)
-        if not np.isclose(
-            expected,
-            actual,
-            rtol=1e-10,
-            atol=1e-12,
-            equal_nan=True,
-        ).all():
-            raise JudgeFailure(
-                "factor.lookahead",
-                f"{asset} past factor values change when future rows are withheld",
-            )
-    return cuts
-
-
-def _audit_component_causality(
-    module: Any,
-    frame: pd.DataFrame,
-    full: FactorComponents,
-    asset: str,
-) -> list[int]:
-    cuts = sorted({len(frame) // 2, (len(frame) * 3) // 4, len(frame) - 2})
-    for cut in cuts:
-        prefix_frame = frame.iloc[: cut + 1].copy()
-        prefix = _component_values(module, prefix_frame, asset)
-        if prefix is None:
-            raise JudgeFailure(
-                "factor.components-nondeterministic",
-                f"{asset} component declaration disappeared on a prefix",
-            )
-        if list(prefix.values.columns) != list(full.values.columns):
-            raise JudgeFailure(
-                "factor.components-columns",
-                f"{asset} component columns change when future rows are withheld",
-            )
-        start = max(0, cut - 4)
-        expected = full.values.iloc[start : cut + 1].to_numpy(dtype=float)
-        actual = prefix.values.iloc[start : cut + 1].to_numpy(dtype=float)
-        if not np.isclose(
-            expected,
-            actual,
-            rtol=1e-10,
-            atol=1e-12,
-            equal_nan=True,
-        ).all():
-            raise JudgeFailure(
-                "factor.components-lookahead",
-                f"{asset} past component values change when future rows are "
-                "withheld",
-            )
-    return cuts
 
 
 def _split_metrics(values: pd.Series) -> dict[str, Any]:
@@ -966,22 +852,9 @@ def _evaluate() -> tuple[
     universe = dataset["universe"]
     time_range = dataset["time_range"]
     module = importlib.import_module("factors.candidate")
-    if not callable(getattr(module, "compute_factor", None)):
-        raise JudgeFailure(
-            "factor.api",
-            "factors.candidate must export callable compute_factor(frame)",
-        )
-
-    factor_by_asset: dict[str, pd.Series] = {}
+    frames: dict[str, pd.DataFrame] = {}
     close_by_asset: dict[str, pd.Series] = {}
     volume_by_asset: dict[str, pd.Series] = {}
-    audited: dict[str, list[int]] = {}
-    coverage: dict[str, float] = {}
-    component_by_name_asset: dict[str, dict[str, pd.Series]] = {}
-    component_coverage: dict[str, dict[str, float]] = {}
-    component_declarations: list[dict[str, Any]] | None = None
-    component_columns: list[str] | None = None
-    component_audited: dict[str, list[int]] = {}
     for asset in universe:
         frame = _load_asset(
             data_root,
@@ -989,57 +862,31 @@ def _evaluate() -> tuple[
             time_range["start"],
             time_range["end"],
         )
-        factor = _factor_series(module, frame, asset)
-        audited[asset] = _audit_causality(module, frame, factor, asset)
-        components = _component_values(module, frame, asset)
-        if (components is None) != (component_columns is None) and (
-            component_columns is not None or asset != universe[0]
-        ):
-            raise JudgeFailure(
-                "factor.components-consistency",
-                "Component declaration availability differs across assets",
-            )
-        if components is not None:
-            columns = list(components.values.columns)
-            declarations = components.declaration()
-            if component_columns is None:
-                component_columns = columns
-                component_declarations = declarations
-            elif (
-                columns != component_columns
-                or declarations != component_declarations
-            ):
-                raise JudgeFailure(
-                    "factor.components-consistency",
-                    "Materialized component columns or metadata differ across "
-                    "assets",
-                )
-            component_audited[asset] = _audit_component_causality(
-                module,
-                frame,
-                components,
-                asset,
-            )
+        frames[asset] = frame
         timestamp = pd.DatetimeIndex(frame["timestamp"])
-        factor.index = timestamp
         close = frame["close"].copy()
         close.index = timestamp
         volume = frame["volume"].copy()
         volume.index = timestamp
-        factor_by_asset[asset] = factor
         close_by_asset[asset] = close
         volume_by_asset[asset] = volume
-        coverage[asset] = float(factor.notna().mean())
-        if components is not None:
-            for name in components.values.columns:
-                values = components.values[name].copy()
-                values.index = timestamp
-                component_by_name_asset.setdefault(name, {})[asset] = values
-                component_coverage.setdefault(name, {})[asset] = float(
-                    values.notna().mean()
-                )
 
-    factor_panel = pd.DataFrame(factor_by_asset).sort_index()
+    try:
+        panel = build_factor_panel(frames, universe=universe)
+        factor_evaluation = evaluate_factor(module, panel)
+        factor_panel = values_to_wide(
+            panel,
+            factor_evaluation.values,
+            universe=universe,
+        )
+    except FactorRuntimeError as error:
+        raise JudgeFailure(error.code, str(error)) from error
+    coverage = {
+        asset: float(
+            factor_evaluation.values.loc[panel["asset"] == asset].notna().mean()
+        )
+        for asset in universe
+    }
     close_panel = pd.DataFrame(close_by_asset).reindex(factor_panel.index)
     volume_panel = pd.DataFrame(volume_by_asset).reindex(factor_panel.index)
     timeline = pd.DatetimeIndex(factor_panel.index)
@@ -1052,13 +899,42 @@ def _evaluate() -> tuple[
         PRIMARY_HORIZON,
     )
     forward_panels = forward_return_panels(close_panel, HORIZONS)
+    components = factor_evaluation.components
+    component_declarations = (
+        components.declaration() if components is not None else None
+    )
+    component_panels = (
+        {
+            name: values_to_wide(
+                panel,
+                components.values[name],
+                universe=universe,
+            )
+            for name in components.values.columns
+        }
+        if components is not None
+        else {}
+    )
+    component_coverage = (
+        {
+            name: {
+                asset: float(
+                    components.values.loc[
+                        panel["asset"] == asset,
+                        name,
+                    ].notna().mean()
+                )
+                for asset in universe
+            }
+            for name in components.values.columns
+        }
+        if components is not None
+        else {}
+    )
     component_evidence = (
         _component_evidence(
             component_declarations,
-            {
-                name: pd.DataFrame(by_asset).reindex(factor_panel.index)
-                for name, by_asset in component_by_name_asset.items()
-            },
+            component_panels,
             factor_panel,
             forward_panels,
             split_masks,
@@ -1187,6 +1063,7 @@ def _evaluate() -> tuple[
     turnover = float(ranked.diff().abs().mean(axis=1).dropna().mean())
     metrics = {
         "validation_mean_ic": validation_mean_ic,
+        "factor_api": factor_contract(factor_evaluation),
         "research_horizon": research_horizon,
         "train": splits["train"],
         "validation": splits["validation"],
@@ -1295,8 +1172,12 @@ def _evaluate() -> tuple[
                 "visible diagnostic evidence; never enters candidate selection"
             ),
         },
-        "causalityAuditCuts": audited,
-        "componentCausalityAuditCuts": component_audited,
+        "causalityAuditCuts": list(factor_evaluation.causality_cuts),
+        "componentCausalityAuditCuts": (
+            list(factor_evaluation.causality_cuts)
+            if components is not None
+            else []
+        ),
         "coverageByAsset": coverage,
         "splitProtocol": split_protocol,
         "foldProtocol": fold_protocol,

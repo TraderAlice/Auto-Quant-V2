@@ -222,8 +222,8 @@ CLI_COMMANDS = [
     descriptor(
         "project.create",
         "aq project create <workspace-dir> <project-id> [options]",
-        "Create one self-contained Project and its English Markdown research "
-        "brief before quantitative work begins.",
+        "Create one self-contained Project with English research and "
+        "Project-derived Workbench-needs Markdown surfaces.",
         "creates-artifact",
         [
             argument(

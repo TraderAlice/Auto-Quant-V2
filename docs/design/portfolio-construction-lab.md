@@ -27,14 +27,16 @@ allocation across OpenAlice users, or a universal portfolio optimizer.
 The Agent edits one ordinary pandas function:
 
 ```python
-def compute_factor(frame: pandas.DataFrame) -> pandas.Series:
+def compute_factor(panel: pandas.DataFrame) -> pandas.Series:
     ...
 ```
 
-It receives one asset's chronological OHLCV frame and returns an aligned
-numeric Series. It may create NaNs during warmup but may not mutate input,
-return infinity, change alignment, or depend on future rows. Prefix
-re-evaluation at multiple cuts audits causality.
+It receives the complete Study universe as one long-form OHLCV panel and
+returns an aligned numeric Series. It may use within-asset history and
+same-timestamp cross-asset context. It may create NaNs during warmup but may
+not mutate input, return infinity, change alignment, or depend on future
+timestamps. Whole-panel prefix re-evaluation at multiple timestamp cuts audits
+causality. See [[docs/design/panel-native-factor-api]].
 
 The fixed Judge owns:
 

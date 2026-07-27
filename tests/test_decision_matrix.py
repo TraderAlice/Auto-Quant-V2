@@ -26,8 +26,11 @@ from __future__ import annotations
 import pandas as pd
 
 
-def compute_factor(frame: pd.DataFrame) -> pd.Series:
-    return frame["volume"] / frame["volume"].rolling(20, min_periods=20).mean() - 1.0
+def compute_factor(panel: pd.DataFrame) -> pd.Series:
+    average = panel.groupby("asset", sort=False)["volume"].transform(
+        lambda values: values.rolling(20, min_periods=20).mean()
+    )
+    return panel["volume"] / average - 1.0
 """
 
 
@@ -37,8 +40,9 @@ from __future__ import annotations
 import pandas as pd
 
 
-def compute_factor(frame: pd.DataFrame) -> pd.Series:
-    return frame["close"].shift(-1) / frame["close"] - 1.0
+def compute_factor(panel: pd.DataFrame) -> pd.Series:
+    future = panel.groupby("asset", sort=False)["close"].shift(-1)
+    return future / panel["close"] - 1.0
 """
 
 

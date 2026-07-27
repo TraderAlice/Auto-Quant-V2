@@ -34,6 +34,7 @@ There are no proposed plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/panel-native-factor-system]] | Gave Agents one causal ordinary-pandas panel factor API plus a Project-derived Workbench-needs feedback line. | 2026-07-27 |
 | [[plans/clarified-english-research-briefs]] | Require an Agent-maintained English Markdown research brief and material-ambiguity clarification before quantitative work begins. | 2026-07-27 |
 | [[plans/agent-native-workbench-documentation]] | Define AutoQuant as an independent Agent-native quantitative workbench that materializes unchanged as an OpenAlice Workspace desk. | 2026-07-27 |
 | [[plans/retire-flat-freqtrade-harness]] | Remove the executable Auto-Quant Classic/Freqtrade compatibility arena and make V2 Projects the only current architecture. | 2026-07-27 |

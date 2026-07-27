@@ -81,6 +81,14 @@ class WorkspaceProjectTests(unittest.TestCase):
                 "ask the delegating Agent or user",
                 normalized_research,
             )
+            framework_needs = (
+                project.root_dir / "framework-needs.md"
+            ).read_text(encoding="utf-8")
+            self.assertIn("## Open needs", framework_needs)
+            self.assertIn(
+                "Do not file speculative feature wishes",
+                framework_needs,
+            )
             for relative in project.manifest.directories.values():
                 self.assertTrue((project.root_dir / relative).is_dir(), relative)
             self.assertEqual(
@@ -116,6 +124,21 @@ class WorkspaceProjectTests(unittest.TestCase):
                     "ask the delegating Agent or user",
                     normalized_research,
                 )
+
+    def test_framework_needs_is_required_real_project_state(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = initialize_workspace(directory)
+            project = create_project(workspace.root_dir, "needs-audit")
+            needs = project.root_dir / "framework-needs.md"
+            needs.unlink()
+
+            with self.assertRaises(AutoQuantValidationError) as caught:
+                load_project(project.root_dir)
+
+            self.assertIn(
+                "project.framework-needs",
+                {issue.code for issue in caught.exception.issues},
+            )
 
     def test_workspace_projects_directory_cannot_escape_or_be_a_symlink(
         self,

@@ -106,6 +106,12 @@ question or request
 → continue, hand off, or stop
 ```
 
+When real research exposes a missing reusable capability, the Quant Agent
+records it separately in Project-root `framework-needs.md`. Workbench
+development may then reproduce and promote that evidence into a repository
+design and plan without turning the investment assignment into a framework
+backlog. See [[docs/design/project-derived-workbench-needs]].
+
 The loop does not require a browser or an external orchestrator. `aq` and
 Project files are sufficient. Studio observes the same Core state for humans
 and Agents; it does not own a parallel lifecycle.
@@ -169,6 +175,15 @@ The default loop must offer fast deterministic validation, candidate checks,
 small fixtures, and explicit execution budgets. An Agent should not need a
 five-year backtest to learn that a column is missing, a path escaped, a factor
 looks ahead, or a candidate violated its editable closure.
+
+### Project-derived evolution
+
+The Workbench improves from observed research friction rather than speculative
+feature accumulation. Every new Project exposes `framework-needs.md` for
+English Agent-maintained evidence about missing expression, evaluation,
+inspection, or handoff capabilities. The note is not machine authority;
+accepted reusable changes still require repository design, planning, tests,
+and release evidence.
 
 ### Resumability and handoff
 

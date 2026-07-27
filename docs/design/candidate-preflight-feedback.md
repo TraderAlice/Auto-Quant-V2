@@ -158,13 +158,13 @@ or infer readiness in JavaScript.
 The OHLCV Factor and Portfolio reference checks use a bounded subset of the
 fixed dataset and verify:
 
-- import and callable `compute_factor(frame)` API;
-- input frame immutability;
+- import and callable `compute_factor(panel)` API;
+- complete-universe panel identity and input immutability;
 - output Series type, length, and index;
 - numeric conversion, finite non-null observations, and no infinity;
 - deterministic repeated output;
-- exact recent-value equality when future rows are withheld at fixed prefix
-  cuts.
+- exact emitted-value equality when future timestamps are withheld from the
+  whole panel at fixed prefix cuts.
 
 The governed RL reference check verifies:
 

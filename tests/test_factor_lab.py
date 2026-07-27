@@ -43,8 +43,11 @@ from __future__ import annotations
 import pandas as pd
 
 
-def compute_factor(frame: pd.DataFrame) -> pd.Series:
-    return frame["volume"] / frame["volume"].rolling(20, min_periods=20).mean() - 1.0
+def compute_factor(panel: pd.DataFrame) -> pd.Series:
+    average = panel.groupby("asset", sort=False)["volume"].transform(
+        lambda values: values.rolling(20, min_periods=20).mean()
+    )
+    return panel["volume"] / average - 1.0
 """
 
 
@@ -54,8 +57,9 @@ from __future__ import annotations
 import pandas as pd
 
 
-def compute_factor(frame: pd.DataFrame) -> pd.Series:
-    return frame["close"].shift(-1) / frame["close"] - 1.0
+def compute_factor(panel: pd.DataFrame) -> pd.Series:
+    future = panel.groupby("asset", sort=False)["close"].shift(-1)
+    return future / panel["close"] - 1.0
 """
 
 EMPTY_FACTOR = """\
@@ -64,8 +68,8 @@ from __future__ import annotations
 import pandas as pd
 
 
-def compute_factor(frame: pd.DataFrame) -> pd.Series:
-    return pd.Series(float("nan"), index=frame.index)
+def compute_factor(panel: pd.DataFrame) -> pd.Series:
+    return pd.Series(float("nan"), index=panel.index)
 """
 
 LOOKAHEAD_COMPONENT_FACTOR = """\
@@ -83,15 +87,22 @@ FACTOR_COMPONENTS = {
 }
 
 
-def compute_factor_components(frame: pd.DataFrame) -> pd.DataFrame:
+def compute_factor_components(panel: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(
-        {"future_close": frame["close"].shift(-1)},
-        index=frame.index,
+        {
+            "future_close": panel.groupby(
+                "asset",
+                sort=False,
+            )["close"].shift(-1)
+        },
+        index=panel.index,
     )
 
 
-def compute_factor(frame: pd.DataFrame) -> pd.Series:
-    return frame["close"].pct_change()
+def compute_factor(panel: pd.DataFrame) -> pd.Series:
+    return panel.groupby("asset", sort=False)["close"].pct_change(
+        fill_method=None
+    )
 """
 
 SPARSE_COMPONENT_FACTOR = """\
@@ -109,15 +120,18 @@ FACTOR_COMPONENTS = {
 }
 
 
-def compute_factor_components(frame: pd.DataFrame) -> pd.DataFrame:
+def compute_factor_components(panel: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(
         {"constant_context": 1.0},
-        index=frame.index,
+        index=panel.index,
     )
 
 
-def compute_factor(frame: pd.DataFrame) -> pd.Series:
-    return frame["volume"] / frame["volume"].rolling(20).mean() - 1.0
+def compute_factor(panel: pd.DataFrame) -> pd.Series:
+    average = panel.groupby("asset", sort=False)["volume"].transform(
+        lambda values: values.rolling(20).mean()
+    )
+    return panel["volume"] / average - 1.0
 """
 
 
@@ -612,7 +626,7 @@ class OhlcvFactorLabTests(unittest.TestCase):
             self.assertEqual(run.result["metrics"], {})
             self.assertEqual(
                 run.result["errors"][0]["code"],
-                "judge.population",
+                "factor.empty",
             )
 
     def test_purged_horizons_never_cross_fixed_split_boundaries(self) -> None:
@@ -765,8 +779,11 @@ candidate = Path(os.environ["AUTOQUANT_WORKTREE"]) / "factors/candidate.py"
 candidate.write_text('''from __future__ import annotations
 import pandas as pd
 
-def compute_factor(frame: pd.DataFrame) -> pd.Series:
-    return frame["volume"] / frame["volume"].rolling(20, min_periods=20).mean() - 1.0
+def compute_factor(panel: pd.DataFrame) -> pd.Series:
+    average = panel.groupby("asset", sort=False)["volume"].transform(
+        lambda values: values.rolling(20, min_periods=20).mean()
+    )
+    return panel["volume"] / average - 1.0
 ''')
 print(json.dumps({
     "schema_version": 1,

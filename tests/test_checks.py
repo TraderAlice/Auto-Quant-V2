@@ -263,16 +263,16 @@ class CandidateCheckTests(unittest.TestCase):
                     candidate = project.root_dir / "factors" / "candidate.py"
                     candidate.write_text(
                         "import pandas as pd\n\n"
-                        "def compute_factor(frame):\n"
-                        "    return pd.Series(frame['close'].iloc[-1], "
-                        "index=frame.index)\n",
+                        "def compute_factor(panel):\n"
+                        "    return pd.Series(panel['close'].iloc[-1], "
+                        "index=panel.index)\n",
                         encoding="utf-8",
                     )
                     expected_code = "factor.lookahead"
                 elif template == "ohlcv-portfolio-lab":
                     candidate = project.root_dir / "factors" / "candidate.py"
                     candidate.write_text(
-                        "def compute_factor(frame):\n"
+                        "def compute_factor(panel):\n"
                         "    return ['not', 'a', 'series']\n",
                         encoding="utf-8",
                     )
@@ -325,11 +325,12 @@ class CandidateCheckTests(unittest.TestCase):
             )
             candidate.write_text(
                 "import pandas as pd\n\n"
-                "def compute_factor(frame):\n"
-                "    return frame['close'].pct_change()\n\n"
-                "def compute_factor_components(frame):\n"
-                "    return pd.DataFrame({'base': frame['close']}, "
-                "index=frame.index)\n",
+                "def compute_factor(panel):\n"
+                "    return panel.groupby('asset', sort=False)"
+                "['close'].pct_change(fill_method=None)\n\n"
+                "def compute_factor_components(panel):\n"
+                "    return pd.DataFrame({'base': panel['close']}, "
+                "index=panel.index)\n",
                 encoding="utf-8",
             )
             partial = execute_candidate_check(
@@ -351,12 +352,14 @@ class CandidateCheckTests(unittest.TestCase):
                 "        'hypothesis': 'Invalid lookahead fixture.',\n"
                 "    },\n"
                 "}\n\n"
-                "def compute_factor(frame):\n"
-                "    return frame['close'].pct_change()\n\n"
-                "def compute_factor_components(frame):\n"
+                "def compute_factor(panel):\n"
+                "    return panel.groupby('asset', sort=False)"
+                "['close'].pct_change(fill_method=None)\n\n"
+                "def compute_factor_components(panel):\n"
                 "    return pd.DataFrame({\n"
-                "        'future_base': frame['close'].shift(-1),\n"
-                "    }, index=frame.index)\n",
+                "        'future_base': panel.groupby('asset', sort=False)"
+                "['close'].shift(-1),\n"
+                "    }, index=panel.index)\n",
                 encoding="utf-8",
             )
             lookahead = execute_candidate_check(
