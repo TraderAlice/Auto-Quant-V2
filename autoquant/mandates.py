@@ -70,6 +70,7 @@ DEFAULT_PORTFOLIO_POLICY = {
     "noTradeOneWay": 0.05,
     "referenceNav": 1_000_000.0,
     "decisionEveryBars": 1,
+    "decisionAnchor": "dataset-start",
 }
 IMPLEMENTATION_COST_MODEL = "linear-traded-notional-v1"
 IMPLEMENTATION_CAPACITY_MODEL = "trailing-dollar-volume-participation-v1"
@@ -98,6 +99,7 @@ def _valid_portfolio_policy(
     numeric_fields = required - {
         "assetMaxAbsWeights",
         "decisionEveryBars",
+        "decisionAnchor",
     }
     if any(
         not isinstance(value[key], (int, float))
@@ -128,6 +130,7 @@ def _valid_portfolio_policy(
     no_trade = float(value["noTradeOneWay"])
     nav = float(value["referenceNav"])
     cadence = value["decisionEveryBars"]
+    anchor = value["decisionAnchor"]
     maximum_cap = (
         gross / 2.0
         if direction
@@ -144,6 +147,8 @@ def _valid_portfolio_policy(
         and isinstance(cadence, int)
         and not isinstance(cadence, bool)
         and 1 <= cadence <= 252
+        and isinstance(anchor, str)
+        and anchor in {"dataset-start", "session-start"}
         and all(
             0 < float(asset_cap) <= cap
             for asset_cap in asset_caps.values()
@@ -320,7 +325,7 @@ def _canonical_payload(
                 "source": policy_source,
                 "kind": "every-bars",
                 "bars": portfolio_policy["decisionEveryBars"],
-                "anchor": "dataset-start",
+                "anchor": portfolio_policy["decisionAnchor"],
             },
             "costModel": IMPLEMENTATION_COST_MODEL,
             "capacityModel": IMPLEMENTATION_CAPACITY_MODEL,
@@ -765,6 +770,16 @@ def validate_portfolio_mandate(
                         )
                         else None
                     ),
+                    "decisionAnchor": (
+                        implementation.get("decisionPolicy", {}).get(
+                            "anchor"
+                        )
+                        if isinstance(
+                            implementation.get("decisionPolicy"),
+                            dict,
+                        )
+                        else None
+                    ),
                 }
                 complete_caps = construction.get(
                     "assetMaxAbsWeights"
@@ -1131,7 +1146,9 @@ PORTFOLIO_MANDATE_JSON_SCHEMA: dict[str, Any] = {
                             "minimum": 1,
                             "maximum": 252,
                         },
-                        "anchor": {"const": "dataset-start"},
+                        "anchor": {
+                            "enum": ["dataset-start", "session-start"]
+                        },
                     },
                 },
                 "costModel": {"const": IMPLEMENTATION_COST_MODEL},

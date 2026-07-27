@@ -73,6 +73,8 @@ Read the relevant linked document before changing a subsystem:
 - Caller-owned Portfolio/RL decision cadence, scheduled mechanical holds, and
   continuously available risk-only repair:
   [[docs/design/caller-owned-decision-cadence]]
+- Caller-owned dataset/session decision anchors bound to verified market-clock
+  authority: [[docs/design/market-clock-decision-anchors]]
 - Request-bound numerical forward horizon shared by Factor, Portfolio, and
   governed RL:
   [[docs/design/request-bound-research-horizon]]

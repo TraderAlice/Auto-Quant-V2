@@ -199,6 +199,8 @@ def _report_decision_support_line(report: dict[str, Any]) -> str:
             f"state_changes={portfolio['stateChanges']}  "
             f"decision_eligible={portfolio['decisionEligible']}  "
             f"decision_every_bars={portfolio['decisionEveryBars']}  "
+            f"decision_anchor={portfolio['decisionAnchor']}  "
+            f"decision_session={portfolio['decisionSession']}  "
             f"proposed_turnover={portfolio['proposedOneWayTurnover']}  "
             f"no_trade_band={portfolio['noTradeOneWay']}  "
             f"gate={portfolio['reason']}  trading_authority=none\n"

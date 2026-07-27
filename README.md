@@ -57,7 +57,8 @@ causal one-sided covariance volatility ceiling shared by Portfolio and RL.
 An optional strict `portfolioPolicy` in the Research Request lets the caller
 lock gross, a default single-name cap, named per-asset cap overrides,
 volatility ceiling, base cost, no-trade band, research reference NAV, and the
-number of base bars between ordinary Portfolio/RL decisions;
+number of base bars between ordinary Portfolio/RL decisions plus whether that
+schedule starts once at the dataset or restarts for each verified XNYS session;
 documented reference defaults are explicit when it is omitted. These are
 research assumptions, not Broker/account state or trading authority. An
 optional strict `benchmarkPolicy` lets the caller evaluate the exact same
@@ -68,6 +69,7 @@ primary and diagnostic forward targets in decision bars; the dataset base
 interval supplies the meaning of one bar. See
 [[docs/design/caller-owned-portfolio-research-policy]],
 [[docs/design/caller-owned-decision-cadence]],
+[[docs/design/market-clock-decision-anchors]],
 [[docs/design/caller-owned-benchmark-reference]], and
 [[docs/design/request-bound-research-horizon]]. Intake does not
 download data or silently start research. `aq project program`

@@ -20,6 +20,7 @@ from autoquant.project_templates.ohlcv_portfolio_lab.portfolio_core import (
     PortfolioFailure,
     constraint_audit,
     construct_signal_policy,
+    decision_schedule_mask,
     simulate_targets,
 )
 from autoquant.workspace import AutoQuantValidationError
@@ -85,6 +86,7 @@ class PortfolioMandateTests(unittest.TestCase):
             "noTradeOneWay": 0.0,
             "referenceNav": 1_000_000.0,
             "decisionEveryBars": 4,
+            "decisionAnchor": "dataset-start",
         }
         mandate = build_portfolio_mandate(
             validate_research_request(raw),
@@ -159,6 +161,36 @@ class PortfolioMandateTests(unittest.TestCase):
         tampered["implementationPolicy"]["decisionPolicy"]["bars"] = 3
         with self.assertRaises(AutoQuantValidationError):
             validate_portfolio_mandate(tampered)
+        tampered = copy.deepcopy(mandate)
+        tampered["implementationPolicy"]["decisionPolicy"][
+            "anchor"
+        ] = "session-start"
+        with self.assertRaises(AutoQuantValidationError):
+            validate_portfolio_mandate(tampered)
+
+    def test_session_start_anchor_restarts_the_bar_ordinal(self) -> None:
+        index = pd.DatetimeIndex(
+            [
+                "2026-11-24T14:45:00Z",
+                "2026-11-24T15:00:00Z",
+                "2026-11-24T15:15:00Z",
+                "2026-11-24T15:30:00Z",
+                "2026-11-27T14:45:00Z",
+                "2026-11-27T15:00:00Z",
+                "2026-11-27T15:15:00Z",
+            ]
+        )
+        observed = decision_schedule_mask(
+            index,
+            4,
+            decision_anchor="session-start",
+        )
+        expected = pd.Series(
+            [True, False, False, False, True, False, False],
+            index=index,
+            name="decision_eligible",
+        )
+        pd.testing.assert_series_equal(observed, expected)
 
     def test_caller_policy_is_strict_and_content_locked_into_mandate(self) -> None:
         raw = request("long", ["A", "B"])
@@ -171,6 +203,7 @@ class PortfolioMandateTests(unittest.TestCase):
             "noTradeOneWay": 0.04,
             "referenceNav": 250_000.0,
             "decisionEveryBars": 4,
+            "decisionAnchor": "dataset-start",
         }
         normalized = validate_research_request(raw)
         jsonschema.validate(normalized, RESEARCH_REQUEST_JSON_SCHEMA)
@@ -218,6 +251,7 @@ class PortfolioMandateTests(unittest.TestCase):
             ("baseCostBps", 1001.0),
             ("referenceNav", 0.0),
             ("decisionEveryBars", 0),
+            ("decisionAnchor", "market-close"),
         ):
             with self.subTest(key=key):
                 changed = copy.deepcopy(raw)
@@ -376,6 +410,7 @@ class PortfolioMandateTests(unittest.TestCase):
             "noTradeOneWay": 0.05,
             "referenceNav": 1_000_000.0,
             "decisionEveryBars": 1,
+            "decisionAnchor": "dataset-start",
         }
         raw["benchmarkPolicy"] = {
             "kind": "asset",

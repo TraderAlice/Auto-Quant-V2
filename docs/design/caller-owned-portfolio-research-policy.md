@@ -43,7 +43,8 @@ can still request support. When present it contains every field:
   "baseCostBps": 15.0,
   "noTradeOneWay": 0.04,
   "referenceNav": 250000.0,
-  "decisionEveryBars": 4
+  "decisionEveryBars": 4,
+  "decisionAnchor": "session-start"
 }
 ```
 
@@ -59,6 +60,8 @@ Bounds are deliberately finite:
 - `noTradeOneWay`: `[0, 1]`;
 - `referenceNav`: `(0, 1e12]`.
 - `decisionEveryBars`: integer `[1, 252]`.
+- `decisionAnchor`: `dataset-start` or `session-start`; the latter requires
+  verified V3 intraday XNYS input.
 
 When omitted, Core inserts the documented reference defaults `1.0`, `0.30`,
 an empty override map, `0.15`, `10`, `0.05`, `1,000,000`, and `1`.
@@ -77,7 +80,7 @@ The derived Mandate retains construction fields and adds a strict
     "source": "caller-supplied",
     "kind": "every-bars",
     "bars": 4,
-    "anchor": "dataset-start"
+    "anchor": "session-start"
   },
   "costModel": "linear-traded-notional-v1",
   "capacityModel": "trailing-dollar-volume-participation-v1"
@@ -127,3 +130,5 @@ default assumptions and retain `tradingAuthority: none`.
   weights or create account state.
 - Signal thresholds and Portfolio/RL algorithms remain fixed Harness
   authority. See [[docs/design/caller-owned-decision-cadence]].
+- Decision spacing and its market-clock anchor are separate caller authority.
+  See [[docs/design/market-clock-decision-anchors]].

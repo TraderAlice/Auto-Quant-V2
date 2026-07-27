@@ -17,7 +17,7 @@ to reconsider its research position; AutoQuant owns deterministic mechanics
 and evidence on every intervening base bar.
 
 ```text
-Research Request.portfolioPolicy.decisionEveryBars
+Research Request.portfolioPolicy.decisionEveryBars + decisionAnchor
 → content-addressed Portfolio Mandate decision schedule
 → mechanical signal / target eligibility
 → Portfolio execution and governed-RL action availability
@@ -32,7 +32,8 @@ A complete caller `portfolioPolicy` includes:
 
 ```json
 {
-  "decisionEveryBars": 4
+  "decisionEveryBars": 4,
+  "decisionAnchor": "session-start"
 }
 ```
 
@@ -47,14 +48,16 @@ The Mandate materializes:
     "source": "caller-supplied",
     "kind": "every-bars",
     "bars": 4,
-    "anchor": "dataset-start"
+    "anchor": "session-start"
   }
 }
 ```
 
-The anchor is the first timestamp of the complete locked base panel, not the
-start of an evaluation split, Session, or Run. The schedule therefore remains
-identical across train, validation, test, Portfolio, RL seeds, and replays.
+`dataset-start` uses the first timestamp of the complete locked base panel.
+`session-start` restarts at the first completed bar of every verified XNYS
+regular session and is rejected for other inputs. Neither evaluation splits,
+Study Sessions, nor Runs can reset or reinterpret the schedule. See
+[[docs/design/market-clock-decision-anchors]].
 
 ## Mechanical signal and execution semantics
 
@@ -112,7 +115,8 @@ the documented reference default. They retain
 
 ## Invariants
 
-1. One complete dataset-anchored mask is shared by every lane and split.
+1. One complete locked-panel mask with the caller's exact anchor is shared by
+   every lane and split.
 2. Signal state and ordinary targets do not change on ineligible bars.
 3. Ordinary trades never occur on ineligible bars.
 4. Risk repair may only reduce or flatten an off-schedule book.
@@ -122,8 +126,8 @@ the documented reference default. They retain
 
 ## Known limits
 
-- V1 does not express XNYS session-close, weekday, clock-time, event, or
-  calendar-reset schedules. `decisionEveryBars` counts the exact locked base
-  bars continuously from dataset start, including across session boundaries.
+- V1 expresses dataset-start and verified XNYS session-start only; it does not
+  express session-close, weekday, clock-time, event, or arbitrary phase-offset
+  schedules.
 - Cadence is a research assumption, not a live scheduler, exchange order, TPSL,
   or OpenAlice UTA authorization.

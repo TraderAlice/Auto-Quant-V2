@@ -16,6 +16,7 @@ try:
         build_risk_covariance_cache,
         construct_signal_policy,
         decision_schedule_mask,
+        decision_schedule_sessions,
         drift_weights,
         execution_risk_metrics,
         execute_risk_compliant_book,
@@ -30,6 +31,7 @@ except ModuleNotFoundError:  # Package-level deterministic primitive tests.
         build_risk_covariance_cache,
         construct_signal_policy,
         decision_schedule_mask,
+        decision_schedule_sessions,
         drift_weights,
         execution_risk_metrics,
         execute_risk_compliant_book,
@@ -296,6 +298,7 @@ def _account_step(
     risk_covariance_cache: RiskCovarianceCache | None = None,
 ) -> tuple[pd.Series, pd.Series, pd.Series, dict[str, float | bool]]:
     implementation = resolve_implementation_policy(mandate)
+    decision_anchor = str(implementation["decision_anchor"])
     pretrade = _pretrade_weights(
         previous_weights,
         close_returns,
@@ -371,6 +374,13 @@ def _account_step(
         "decision_eligible": ordinary_rebalance_allowed,
         "decision_every_bars": int(
             implementation["decision_every_bars"]
+        ),
+        "decision_anchor": decision_anchor,
+        "decision_session": str(
+            decision_schedule_sessions(
+                pd.Index([timestamp]),
+                decision_anchor,
+            ).iloc[0]
         ),
         "execution_reason": str(execution_risk["execution_reason"]),
         "execution_risk_status": str(execution_risk["status"]),
@@ -449,10 +459,14 @@ def rollout_policy(
     decision_every_bars = int(
         resolve_implementation_policy(mandate)["decision_every_bars"]
     )
+    decision_anchor = str(
+        resolve_implementation_policy(mandate)["decision_anchor"]
+    )
     complete_index = next(iter(action_targets.values())).index
     decision_mask = decision_schedule_mask(
         complete_index,
         decision_every_bars,
+        decision_anchor=decision_anchor,
     ).reindex(index)
     if decision_mask.isna().any():
         raise PolicyFailure(
@@ -566,10 +580,14 @@ def one_step_action_opportunities(
     decision_every_bars = int(
         resolve_implementation_policy(mandate)["decision_every_bars"]
     )
+    decision_anchor = str(
+        resolve_implementation_policy(mandate)["decision_anchor"]
+    )
     complete_index = next(iter(action_targets.values())).index
     decision_mask = decision_schedule_mask(
         complete_index,
         decision_every_bars,
+        decision_anchor=decision_anchor,
     ).reindex(index)
     if decision_mask.isna().any():
         raise PolicyFailure(
@@ -719,6 +737,13 @@ def one_step_action_opportunities(
                 "timestamp": timestamp,
                 "decisionEligible": decision_eligible,
                 "decisionEveryBars": decision_every_bars,
+                "decisionAnchor": decision_anchor,
+                "decisionSession": str(
+                    decision_schedule_sessions(
+                        pd.Index([timestamp]),
+                        decision_anchor,
+                    ).iloc[0]
+                ),
                 "selectedAction": selected,
                 "oracleAction": oracle,
                 "selectedRank": selected_rank,
@@ -768,10 +793,14 @@ def train_q_policy(
     decision_every_bars = int(
         resolve_implementation_policy(mandate)["decision_every_bars"]
     )
+    decision_anchor = str(
+        resolve_implementation_policy(mandate)["decision_anchor"]
+    )
     complete_index = next(iter(action_targets.values())).index
     decision_mask = decision_schedule_mask(
         complete_index,
         decision_every_bars,
+        decision_anchor=decision_anchor,
     ).reindex(train_index)
     if decision_mask.isna().any():
         raise PolicyFailure(

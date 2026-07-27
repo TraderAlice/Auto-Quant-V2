@@ -82,7 +82,8 @@ An optional strict
 `request.portfolioPolicy` supplies gross, a global fallback cap, requested-
 asset cap overrides, annualized volatility ceiling, base linear cost, one-way
 no-trade band, research reference NAV, and every-N-base-bars ordinary
-Portfolio/RL decision cadence.
+Portfolio/RL decision cadence with a dataset-start or verified XNYS
+session-start anchor.
 When omitted, Core records documented reference defaults rather than treating
 them as caller facts. The Mandate retains the fixed 60-bar/20-observation
 covariance method, clock-derived annualization, and `scaleUp: false`;
@@ -532,7 +533,8 @@ Brief hash. `request.json` records the exact normalized caller input:
     "baseCostBps": 15.0,
     "noTradeOneWay": 0.04,
     "referenceNav": 250000.0,
-    "decisionEveryBars": 4
+    "decisionEveryBars": 4,
+    "decisionAnchor": "session-start"
   },
   "horizon": "one to three months",
   "horizonPolicy": {

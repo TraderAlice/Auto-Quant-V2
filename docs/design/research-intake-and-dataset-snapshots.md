@@ -305,7 +305,8 @@ When changing this boundary:
 - V1 handles one aligned daily session panel; V2 handles one continuous UTC
   1h panel with exact 3h/4h/6h/12h/1d derived bars; V3 handles bounded
   configurable continuous bases and XNYS regular sessions.
-- Session-market intraday aggregation is not yet supported.
+- V3 XNYS regular-session intraday aggregation is supported; extended hours,
+  unscheduled halts, and other exchange calendars are not.
 - Symbols are restricted to path-safe identifiers.
 - It does not prove point-in-time universe membership, delisting coverage,
   corporate-action correctness, or vendor licensing.

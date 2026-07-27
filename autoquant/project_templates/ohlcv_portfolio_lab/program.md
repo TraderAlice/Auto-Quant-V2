@@ -39,9 +39,9 @@ permission to select from visible test audit.
   equal funded long/short sides;
 - context-only assets remain flat with zero target;
 - maximum absolute target weight comes from the Portfolio Mandate;
-- the Portfolio Mandate's decision schedule is anchored to the locked
-  dataset start: signal state and governed targets may advance only on
-  eligible base bars, and remain frozen between them;
+- the Portfolio Mandate's decision schedule uses its locked dataset-start or
+  verified XNYS session-start anchor: signal state and governed targets may
+  advance only on eligible base bars, and remain frozen between them;
 - forecast portfolio volatility from up to 60 complete trailing return rows
   through decision close `t`, with at least 20 observations;
 - uniformly scale raw targets down to the Portfolio Mandate's annualized

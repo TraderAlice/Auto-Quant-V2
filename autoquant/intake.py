@@ -940,6 +940,26 @@ def prepare_project_intake(
         if package["schemaVersion"] == 3
         else None
     )
+    portfolio_policy = request.get("portfolioPolicy")
+    if (
+        isinstance(portfolio_policy, dict)
+        and portfolio_policy.get("decisionAnchor") == "session-start"
+        and (
+            package["schemaVersion"] != 3
+            or not isinstance(package_surface, dict)
+            or package_surface.get("marketClock") != "session"
+            or package_surface.get("calendar") != "XNYS"
+            or package_surface.get("baseInterval") == "1d"
+        )
+    ):
+        issues.append(
+            _issue(
+                "request/portfolioPolicy/decisionAnchor",
+                "request.dataset-decision-anchor",
+                "session-start requires a V3 intraday XNYS "
+                "regular-session package",
+            )
+        )
     for index, asset in enumerate(package["assets"]):
         source = confined_path(
             manifest_path.parent,
@@ -1884,6 +1904,27 @@ def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
     )
     snapshot = _read_json(snapshot_path, "dataset snapshot")
     issues.extend(_validate_snapshot(snapshot, snapshot_path))
+    surface = snapshot.get("intervalSurface")
+    portfolio_policy = request.get("portfolioPolicy")
+    if (
+        isinstance(portfolio_policy, dict)
+        and portfolio_policy.get("decisionAnchor") == "session-start"
+        and (
+            snapshot.get("schemaVersion") != 3
+            or not isinstance(surface, dict)
+            or surface.get("marketClock") != "session"
+            or surface.get("calendar") != "XNYS"
+            or surface.get("baseInterval") == "1d"
+        )
+    ):
+        issues.append(
+            _issue(
+                f"{request_path}/portfolioPolicy/decisionAnchor",
+                "request.dataset-decision-anchor",
+                "session-start requires a V3 intraday XNYS "
+                "regular-session package",
+            )
+        )
     if hash_json(request) != manifest.get("requestHash"):
         issues.append(_issue(request_path, "intake.request-hash", "Request hash mismatch"))
     if hash_file(snapshot_path) != manifest.get("datasetSnapshotHash"):

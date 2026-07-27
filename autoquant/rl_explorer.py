@@ -103,6 +103,8 @@ ACTION_COLUMNS = [
     "action",
     "decision_eligible",
     "decision_every_bars",
+    "decision_anchor",
+    "decision_session",
     "reward",
     "gross_return",
     "net_return",
@@ -347,6 +349,16 @@ def _configuration(metrics: dict[str, Any]) -> dict[str, Any]:
             "rl.learning-contract",
             "Learning configuration provenance differs from the fixed contract",
         )
+    decision_anchor = value.get("decisionAnchor")
+    if (
+        not isinstance(decision_anchor, str)
+        or decision_anchor not in {"dataset-start", "session-start"}
+    ):
+        _fail(
+            "configuration/decisionAnchor",
+            "rl.decision-anchor",
+            "Decision anchor must be dataset-start or session-start",
+        )
     return {
         **value,
         "actions": actions,
@@ -367,6 +379,7 @@ def _configuration(metrics: dict[str, Any]) -> dict[str, Any]:
             "configuration/decisionEveryBars",
             minimum=1,
         ),
+        "decisionAnchor": decision_anchor,
     }
 
 
@@ -920,6 +933,22 @@ def _action_rows(
                         "rl.decision-cadence",
                         "Action cadence differs from configuration",
                     )
+                decision_anchor = row["decision_anchor"]
+                decision_session = row["decision_session"]
+                expected_session = (
+                    "dataset"
+                    if configuration["decisionAnchor"] == "dataset-start"
+                    else timestamp[:10]
+                )
+                if (
+                    decision_anchor != configuration["decisionAnchor"]
+                    or decision_session != expected_session
+                ):
+                    _fail(
+                        f"{path}:{row_number}/decision_anchor",
+                        "rl.decision-anchor",
+                        "Action anchor/session differs from configuration",
+                    )
                 previous_action = previous_actions.get(group, "balanced")
                 if not decision_eligible and action != previous_action:
                     _fail(
@@ -937,6 +966,8 @@ def _action_rows(
                         "action": action,
                         "decisionEligible": decision_eligible,
                         "decisionEveryBars": decision_every_bars,
+                        "decisionAnchor": decision_anchor,
+                        "decisionSession": decision_session,
                         "reward": _finite(row["reward"], f"{path}:{row_number}/reward"),
                         "grossReturn": _finite(row["gross_return"], f"{path}:{row_number}/gross_return"),
                         "netReturn": _finite(row["net_return"], f"{path}:{row_number}/net_return"),
@@ -1738,6 +1769,8 @@ def _policy_behavior_projection(
         "timestamp",
         "decisionEligible",
         "decisionEveryBars",
+        "decisionAnchor",
+        "decisionSession",
         "selectionReason",
         "previousAction",
         "selectedAction",
@@ -1788,6 +1821,10 @@ def _policy_behavior_projection(
             != action_row["decisionEligible"]
             or raw.get("decisionEveryBars")
             != action_row["decisionEveryBars"]
+            or raw.get("decisionAnchor")
+            != action_row["decisionAnchor"]
+            or raw.get("decisionSession")
+            != action_row["decisionSession"]
             or raw.get("selectionReason")
             != (
                 "q-argmax"
@@ -2424,6 +2461,8 @@ def _factor_opportunity_projection(
         "timestamp",
         "decisionEligible",
         "decisionEveryBars",
+        "decisionAnchor",
+        "decisionSession",
         "selectedAction",
         "oracleAction",
         "selectedRank",
@@ -2494,6 +2533,10 @@ def _factor_opportunity_projection(
             != selected_action_row["decisionEligible"]
             or raw.get("decisionEveryBars")
             != selected_action_row["decisionEveryBars"]
+            or raw.get("decisionAnchor")
+            != selected_action_row["decisionAnchor"]
+            or raw.get("decisionSession")
+            != selected_action_row["decisionSession"]
             or raw.get("selectedAction") not in configuration["actions"]
             or raw.get("oracleAction") not in configuration["actions"]
             or not isinstance(raw.get("oracleHit"), bool)
@@ -4807,6 +4850,14 @@ def load_rl_diagnostics(
                 "rl.decision-cadence",
                 "RL decision cadence differs from the Portfolio Mandate",
             )
+        if configuration.get("decisionAnchor") != implementation[
+            "decisionPolicy"
+        ]["anchor"]:
+            _fail(
+                "metrics/configuration/decisionAnchor",
+                "rl.decision-anchor",
+                "RL decision anchor differs from the Portfolio Mandate",
+            )
         mandate_projection = {
             "available": True,
             "id": mandate["id"],
@@ -4943,6 +4994,17 @@ def load_rl_diagnostics(
                 "decisionPolicy"
             ],
             "observations": len(action_rows),
+            "scheduleGroups": len(
+                {
+                    (
+                        row["fold"],
+                        row["seed"],
+                        row["split"],
+                        row["decisionSession"],
+                    )
+                    for row in action_rows
+                }
+            ),
             "eligibleBars": sum(
                 row["decisionEligible"] for row in action_rows
             ),
@@ -5467,6 +5529,7 @@ RL_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 "bars",
                 "anchor",
                 "observations",
+                "scheduleGroups",
                 "eligibleBars",
                 "eligibleRate",
                 "scheduledHoldBars",
@@ -5478,8 +5541,11 @@ RL_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 },
                 "kind": {"const": "every-bars"},
                 "bars": {"type": "integer", "minimum": 1, "maximum": 252},
-                "anchor": {"const": "dataset-start"},
+                "anchor": {
+                    "enum": ["dataset-start", "session-start"]
+                },
                 "observations": {"type": "integer", "minimum": 1},
+                "scheduleGroups": {"type": "integer", "minimum": 1},
                 "eligibleBars": {"type": "integer", "minimum": 0},
                 "eligibleRate": {
                     "type": "number",

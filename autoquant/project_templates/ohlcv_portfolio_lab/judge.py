@@ -1234,6 +1234,7 @@ def _evaluate() -> tuple[
             "decisionEveryBars": implementation_policy[
                 "decision_every_bars"
             ],
+            "decisionAnchor": implementation_policy["decision_anchor"],
             "longEntryPercentile": LONG_ENTRY_PERCENTILE,
             "longExitPercentile": LONG_EXIT_PERCENTILE,
             "shortExitPercentile": SHORT_EXIT_PERCENTILE,

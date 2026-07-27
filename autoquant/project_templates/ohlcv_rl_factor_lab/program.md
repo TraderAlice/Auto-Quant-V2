@@ -61,10 +61,11 @@ The Judge owns:
 - the shared trailing 60-row covariance forecast, 20-observation minimum,
   Portfolio Mandate annualized volatility ceiling, and scale-down-only
   governance on every action sleeve before RL selection and reward;
-- the Portfolio Mandate's dataset-start-anchored decision schedule: RL may
-  choose a sleeve only on eligible base bars and must hold its prior sleeve
-  between them; an off-schedule Q update bootstraps only through that held
-  action rather than a choice the policy was not allowed to make;
+- the Portfolio Mandate's locked dataset-start or verified XNYS session-start
+  decision schedule: RL may choose a sleeve only on eligible base bars and
+  must hold its prior sleeve between them; an off-schedule Q update bootstraps
+  only through that held action rather than a choice the policy was not
+  allowed to make;
 - drift, the Portfolio Mandate's no-trade threshold, then shared final-book
   compliance where risk may override no-trade only through minimum
   proportional scale-down;

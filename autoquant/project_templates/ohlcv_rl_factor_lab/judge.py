@@ -561,6 +561,8 @@ def _rollout_action_rows(
                 "decision_every_bars": int(
                     daily["decision_every_bars"]
                 ),
+                "decision_anchor": str(daily["decision_anchor"]),
+                "decision_session": str(daily["decision_session"]),
                 "reward": float(daily["reward"]),
                 "gross_return": float(daily["gross_return"]),
                 "net_return": float(daily["net_return"]),
@@ -677,6 +679,8 @@ def _rollout_rationale_rows(
             "timestamp": timestamp_label(timestamp),
             "decisionEligible": decision_eligible,
             "decisionEveryBars": int(daily["decision_every_bars"]),
+            "decisionAnchor": str(daily["decision_anchor"]),
+            "decisionSession": str(daily["decision_session"]),
             "selectionReason": selection_reason,
             "previousAction": previous_action,
             "selectedAction": selected_action,
@@ -2273,6 +2277,7 @@ def _evaluate() -> tuple[
             "decisionEveryBars": implementation_policy[
                 "decision_every_bars"
             ],
+            "decisionAnchor": implementation_policy["decision_anchor"],
             "executionRiskMethod": (
                 "post-drift-executed-book-volatility-compliance-v1"
             ),

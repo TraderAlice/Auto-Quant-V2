@@ -40,7 +40,8 @@ A supplied complete `portfolioPolicy` adds:
   "baseCostBps": 15.0,
   "noTradeOneWay": 0.04,
   "referenceNav": 250000.0,
-  "decisionEveryBars": 4
+  "decisionEveryBars": 4,
+  "decisionAnchor": "dataset-start"
 }
 ```
 

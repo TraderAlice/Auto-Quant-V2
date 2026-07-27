@@ -177,6 +177,7 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                 "noTradeOneWay": 0.04,
                 "referenceNav": 250_000.0,
                 "decisionEveryBars": 4,
+                "decisionAnchor": "dataset-start",
             }
             request_path, package_path = write_intake_inputs(
                 root,
@@ -287,6 +288,8 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                     expected_eligible,
                 )
                 self.assertEqual(int(row["decision_every_bars"]), 4)
+                self.assertEqual(row["decision_anchor"], "dataset-start")
+                self.assertEqual(row["decision_session"], "dataset")
                 if not expected_eligible:
                     self.assertFalse(bool(row["ordinary_rebalance"]))
                     self.assertTrue(
@@ -395,6 +398,10 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                 ],
                 4,
             )
+            self.assertEqual(
+                rl_run.result["metrics"]["configuration"]["decisionAnchor"],
+                "dataset-start",
+            )
             action_rows = pd.read_csv(
                 rl_run.root_dir / "artifacts" / "policy-actions.csv"
             )
@@ -416,6 +423,11 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                         int(row["decision_every_bars"]),
                         4,
                     )
+                    self.assertEqual(
+                        row["decision_anchor"],
+                        "dataset-start",
+                    )
+                    self.assertEqual(row["decision_session"], "dataset")
                     if not expected_eligible:
                         self.assertEqual(
                             row["action"],
@@ -611,6 +623,37 @@ class RequestDrivenIntakeTests(unittest.TestCase):
             )
             jsonschema.validate(run.result, RUN_RESULT_JSON_SCHEMA)
 
+    def test_session_start_anchor_requires_xnys_intraday_input(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            request_path, package_path = write_configurable_continuous_inputs(
+                Path(directory)
+            )
+            request = json.loads(request_path.read_text(encoding="utf-8"))
+            request["portfolioPolicy"] = {
+                "grossLimit": 0.8,
+                "maxAbsWeight": 0.3,
+                "assetMaxAbsWeights": {},
+                "annualizedVolatilityCeiling": 0.20,
+                "baseCostBps": 12.0,
+                "noTradeOneWay": 0.0,
+                "referenceNav": 500_000.0,
+                "decisionEveryBars": 4,
+                "decisionAnchor": "session-start",
+            }
+            request_path.write_text(
+                json.dumps(request, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "session-start requires a V3 intraday XNYS",
+            ):
+                prepare_project_intake(
+                    request_path,
+                    package_path,
+                    "ohlcv-research-desk",
+                )
+
     def test_v3_xnys_session_surface_runs_across_research_desk(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -708,6 +751,7 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                 "noTradeOneWay": 0.0,
                 "referenceNav": 500_000.0,
                 "decisionEveryBars": 4,
+                "decisionAnchor": "session-start",
             }
             request_path, package_path = write_session_interval_inputs(
                 root,
@@ -772,10 +816,21 @@ class RequestDrivenIntakeTests(unittest.TestCase):
             source = pd.read_csv(
                 package_path.parent / "AAPL.csv"
             )
-            source_positions = {
-                str(timestamp): position
-                for position, timestamp in enumerate(source["timestamp"])
-            }
+            source["session"] = pd.to_datetime(
+                source["timestamp"],
+                utc=True,
+            ).dt.strftime("%Y-%m-%d")
+            source["session_ordinal"] = source.groupby(
+                "session",
+                sort=False,
+            ).cumcount()
+            source_positions = dict(
+                zip(
+                    source["timestamp"],
+                    source["session_ordinal"],
+                    strict=True,
+                )
+            )
             daily = pd.read_csv(
                 portfolio_run.root_dir
                 / "artifacts"
@@ -789,6 +844,11 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                 self.assertEqual(
                     bool(row["decision_eligible"]),
                     expected_eligible,
+                )
+                self.assertEqual(row["decision_anchor"], "session-start")
+                self.assertEqual(
+                    row["decision_session"],
+                    timestamp[:10],
                 )
                 if not expected_eligible:
                     self.assertFalse(bool(row["ordinary_rebalance"]))
@@ -821,6 +881,32 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                 4,
             )
             self.assertEqual(rl_projection["decisionCadence"]["bars"], 4)
+            action_rows = pd.read_csv(
+                rl_run.root_dir / "artifacts" / "policy-actions.csv"
+            )
+            for _, row in action_rows.iterrows():
+                timestamp = str(row["timestamp"]).replace("+00:00", "Z")
+                self.assertEqual(
+                    bool(row["decision_eligible"]),
+                    source_positions[timestamp] % 4 == 0,
+                )
+                self.assertEqual(row["decision_anchor"], "session-start")
+                self.assertEqual(row["decision_session"], timestamp[:10])
+            first_source_rows = source.groupby(
+                "session",
+                sort=False,
+            ).head(1)
+            first_timestamps = set(first_source_rows["timestamp"])
+            observed_portfolio = {
+                str(row["timestamp"]).replace("+00:00", "Z")
+                for _, row in daily[
+                    daily["decision_eligible"]
+                ].iterrows()
+            }
+            self.assertTrue(
+                first_timestamps - {source.iloc[-1]["timestamp"]}
+                <= observed_portfolio
+            )
             jsonschema.validate(
                 portfolio_projection,
                 PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA,

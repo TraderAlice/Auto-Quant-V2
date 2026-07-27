@@ -50,7 +50,9 @@ PORTFOLIO_POLICY_FIELDS = {
     *PORTFOLIO_POLICY_NUMERIC_FIELDS,
     *PORTFOLIO_POLICY_INTEGER_FIELDS,
     "assetMaxAbsWeights",
+    "decisionAnchor",
 }
+DECISION_ANCHORS = {"dataset-start", "session-start"}
 
 
 def _issue(path: Path | str, code: str, message: str) -> ValidationIssue:
@@ -341,10 +343,24 @@ def validate_research_request(
                         "decisionEveryBars must be an integer from 1 to 252",
                     )
                 )
+            decision_anchor = policy.get("decisionAnchor")
+            valid_decision_anchor = (
+                isinstance(decision_anchor, str)
+                and decision_anchor in DECISION_ANCHORS
+            )
+            if not valid_decision_anchor:
+                issues.append(
+                    _issue(
+                        f"{path}/portfolioPolicy/decisionAnchor",
+                        "request.decision-anchor",
+                        "decisionAnchor must be dataset-start or session-start",
+                    )
+                )
             if (
                 len(numeric) == len(PORTFOLIO_POLICY_NUMERIC_FIELDS)
                 and asset_caps is not None
                 and valid_decision_every_bars
+                and valid_decision_anchor
             ):
                 bounds = (
                     ("grossLimit", 0.0, 2.0, False),
@@ -393,6 +409,7 @@ def validate_research_request(
                 normalized_policy = {
                     **numeric,
                     "decisionEveryBars": decision_every_bars,
+                    "decisionAnchor": decision_anchor,
                     "assetMaxAbsWeights": {
                         symbol: asset_caps[symbol]
                         for symbol in sorted(asset_caps)
@@ -969,6 +986,9 @@ RESEARCH_REQUEST_JSON_SCHEMA: dict[str, Any] = {
                             "type": "integer",
                             "minimum": 1,
                             "maximum": 252,
+                        },
+                        "decisionAnchor": {
+                            "enum": sorted(DECISION_ANCHORS),
                         },
                     },
                 },
