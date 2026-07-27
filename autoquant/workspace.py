@@ -584,9 +584,50 @@ def _research_program(name: str, description: str) -> str:
     purpose = description.strip() or "Describe the quantitative research question here."
     return f"""# {name}
 
+## Research brief and clarification
+
+Before downloading data, editing research code, training a model, or running a
+backtest, rewrite the assignment in this file as a bounded English research
+brief. The caller may use any language; English is the internal working
+language of the AutoQuant desk.
+
+Use researcher judgment for methods, but do not invent caller-owned intent. If
+an ambiguity could materially change the decision being supported, universe,
+horizon or cadence, direction, risk constraints, benchmark, evaluation
+meaning, or expected deliverable, record it under **Open questions** and ask
+the delegating Agent or user. Repeat until the question is falsifiable and
+safe to turn into fixed Study authority.
+
 ## Research question
 
 {purpose}
+
+## Decision context and motivation
+
+Describe the decision this research should inform and why the answer matters.
+
+## Scope, evidence, and constraints
+
+Record the known asset scope, horizon or cadence, available data and evidence,
+material constraints, evaluation meaning, and any relevant source context.
+
+## Assumptions
+
+Distinguish provisional researcher assumptions from confirmed caller intent.
+
+## Open questions
+
+Record material questions and their answers. Do not begin quantitative work
+while a caller-owned ambiguity here could change the Study.
+
+## Proposed bounded route
+
+Describe the initial research approach, fast checks, evaluation boundary, and
+the evidence needed to support or reject the hypothesis.
+
+## Completion and deliverable
+
+State what a useful answer should contain and who will consume it.
 
 ## Evidence contract
 
@@ -597,10 +638,11 @@ def _research_program(name: str, description: str) -> str:
 
 ## Agent instructions
 
-Work only inside this Project. Propose one falsifiable change at a time, run the
-bounded Project evaluation contract, inspect structured evidence, and KEEP,
-REVERT, or BRANCH explicitly. Do not change the Harness or locked Judge to make
-a candidate win.
+Keep this brief current as the research evolves. Once it is clear enough to
+start, work only inside this Project. Propose one falsifiable change at a time,
+run the bounded Project evaluation contract, inspect structured evidence, and
+KEEP, REVERT, or BRANCH explicitly. Do not change the Harness or locked Judge
+to make a candidate win.
 """
 
 

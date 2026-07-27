@@ -69,11 +69,20 @@ uv run aq workspace init ./quant-workspace --name "Quant Research Desk"
 uv run aq project create ./quant-workspace research-desk \
   --name "Research Desk" \
   --description "Coordinate factor, portfolio, and RL evidence" \
-  --template ohlcv-research-desk
+  --template ohlcv-research-desk \
+  --json
+# A Quant Agent now reads and completes the returned researchBriefPath.
 uv run aq project program ./quant-workspace --project research-desk
 uv run aq validate ./quant-workspace
 uv run aq orient ./quant-workspace --project research-desk --json
 ```
+
+`project create` is the normal construction entry point. It creates
+`research.md`, the Project manifest, and the Project-local strategy, factor,
+model, Judge, Study, Session, data, Run, and cache surfaces. Before quantitative
+work, the Agent rewrites `research.md` in English, asks the delegating Agent or
+user about every material ambiguity, and continues only when the question is
+bounded and testable. The caller may converse in any language.
 
 `aq` emits compact human output by default and a versioned machine envelope
 under `--json`. See [CLI.md](docs/CLI.md) and
@@ -87,7 +96,12 @@ uv sync --extra columnar
 
 ## Start from a real research request
 
-The caller supplies a strict research request and an OHLCV package. Intake
+A caller may begin with an ordinary conversational assignment. The Quant Agent
+first turns it into the Project's English Markdown research brief; strict JSON
+does not replace that clarification step.
+
+Once intent is understood and a matching OHLCV package is available, the Agent
+can derive the strict request and use the atomic intake fast path below. Intake
 validates and normalizes the complete panel, checks its market-clock and
 interval contract, confines all paths, copies the data into the Project, and
 locks every source byte before creating Studies.

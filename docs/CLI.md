@@ -67,6 +67,16 @@ aq inspect <project-or-workspace-dir> [--project ID] [--json]
 manifest. A direct Project path rejects `--project`; a Workspace path selects
 the explicit id or its default.
 
+`project create` is the normal new-assignment scaffold. It creates a
+self-contained Project with a root `research.md` and all declared Project
+directories. Its JSON envelope returns `researchBriefPath` and a mutable
+`research-brief` artifact. Before following the available inspect, baseline,
+or Session actions, the Quant Agent rewrites that file in English and
+clarifies material caller-owned ambiguity with the delegating Agent or user.
+The caller may converse in any language. `--template blank` is appropriate
+while the method is unclear; a specialized template is appropriate only when
+the understood question already fits its fixed contract.
+
 `orient` is the AI-first entry point. It compacts already verified Project,
 Study, research-program, Session, Run, Report, Dossier, gate, and conflict
 state into one strict `AgentWorkBrief`. The brief identifies the current
@@ -125,9 +135,13 @@ also reports active factor-writer/RL-reader conflicts. The RL Study binds the
 exact current candidate bytes and the same fixed Portfolio Mandate as the
 Portfolio lane, so factor or mandate changes stale its Run evidence.
 
-`project intake` defaults to this research-desk template. It validates the
-strict request and a caller-supplied, path-confined OHLCV package before
-creating anything. V1 accepts one exact daily session panel. V2 accepts a
+`project intake` is the atomic fast path after research intent has been
+clarified and translated into a strict request. It defaults to this
+research-desk template and validates the request and a caller-supplied,
+path-confined OHLCV package before creating anything. The generated
+`research.md` remains the Agent-maintained narrative source; `request.json`
+locks the understood execution assumptions and does not replace it. V1
+accepts one exact daily session panel. V2 accepts a
 continuous UTC 1h bar-close panel and deterministically materializes completed
 3h/4h/6h/12h/1d context. Core never exposes a forming higher bar: each
 namespaced value joins backward only after its close. It records the interval

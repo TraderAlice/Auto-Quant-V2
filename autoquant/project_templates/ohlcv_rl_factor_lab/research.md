@@ -1,5 +1,21 @@
 # Governed RL Factor-Policy Lab
 
+## Research brief and clarification
+
+Before downloading data, editing `models/**`, training, or running an
+evaluation, rewrite the incoming assignment in this file as a bounded English
+research brief. Make the decision to support, question, motivation, universe,
+horizon or cadence, evidence, material constraints, evaluation meaning,
+expected deliverable, assumptions, open questions, and proposed route
+explicit.
+
+Use researcher judgment for representation and diagnostic methods, but do not
+invent caller-owned intent. If an ambiguity could materially change the
+research, record it here and ask the delegating Agent or user. Repeat until the
+question is falsifiable and safe to bind into fixed Study authority. The
+caller may use any language; English is the internal working language of the
+AutoQuant desk.
+
 ## Purpose
 
 Research causal state representations for a fixed factor-mixture policy and

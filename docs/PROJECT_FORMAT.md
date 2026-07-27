@@ -250,19 +250,34 @@ of durable research truth.
 
 ## Research program
 
-`research.md` is human-owned guidance for the Project. The generated starter
-requires:
+`research.md` is the Agent-maintained narrative authority for the Project's
+question and working context. It is the first file to update after
+`aq project create`, before data downloads, research-code edits, model
+training, or backtests. The generated starter requires:
 
-- a clear research question;
+- a clear decision to support, research question, and motivation;
+- asset scope, horizon or cadence, available evidence, material constraints,
+  evaluation meaning, and expected deliverable;
+- explicit researcher assumptions and unresolved caller questions;
+- repeated clarification with the delegating Agent or user whenever an
+  ambiguity could materially change the Study;
 - fixed evaluation inputs and acceptance rules while comparing candidates;
 - explicit Harness, dataset, universe, and time-range evidence;
 - one falsifiable code change at a time;
 - explicit KEEP, REVERT, or BRANCH decisions;
 - no candidate authority over the Harness or locked Judge.
 
-The current file is guidance only. A later Research Lab contract will bind the
-editable source closure, budgets, benchmarks, Sessions, Experiments, and
-promotion policy.
+The brief and other AutoQuant-internal working materials use English so a
+replacement Quant Agent receives one consistent desk language. This does not
+constrain the caller's language: the delegating or user-facing Agent owns
+conversation locale and may translate evidence. Proper nouns, identifiers,
+source quotations, and raw evidence may remain in their original form.
+
+The Markdown is intentionally flexible rather than a rigid intake schema. Once
+the brief is understood, strict request, dataset, Study, and Judge manifests
+lock the machine-executed contract. They do not replace the brief. The fixed
+Research Lab contract then binds editable source closure, budgets, benchmarks,
+Sessions, Experiments, and promotion policy.
 
 ## Study
 

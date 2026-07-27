@@ -28,6 +28,47 @@ Before adding a host integration or public surface, ask:
 3. Does the change preserve one Core contract across CLI, JSON, Studio, and
    any host projection?
 
+## Starting a quantitative assignment
+
+Do not begin with data downloads, candidate edits, model training, or
+backtests. First establish the assignment as an English Markdown research
+brief that another Agent can recover from the filesystem.
+
+1. Inspect the Workspace and existing Projects. Continue the Project when the
+   assignment belongs to its evolving research question; do not create a new
+   Project merely because a new coworker or conversation arrived.
+2. When the assignment is genuinely new, create its construction site with
+   `aq project create <workspace> <project-id>`. Use `--template blank` while
+   the appropriate research method is still unclear. Select a specialized
+   template only when the understood question already fits that contract.
+3. Before quantitative work, read and update the Project-root `research.md`.
+   Rewrite the incoming assignment in English and preserve useful source
+   context, including a verbatim caller statement when precision requires it.
+4. Make the research decision, question, motivation, asset scope, horizon or
+   cadence, available evidence, material constraints, evaluation meaning,
+   expected deliverable, assumptions, open questions, and proposed bounded
+   route clear enough for a replacement Agent to continue.
+5. Separate caller-owned intent from researcher-owned method. Use informed
+   judgment to choose factors, diagnostics, models, and implementation details.
+   Do not invent the decision being supported, risk appetite, universe,
+   direction, horizon, benchmark, hard constraints, or what would count as a
+   useful answer.
+6. If a missing or ambiguous caller-owned fact could materially change the
+   study, stop and ask the delegating Agent or user. Record the question and
+   answer in `research.md`, then ask again if the answer exposes another
+   material ambiguity. Continue until the assignment is bounded, falsifiable,
+   and safe to translate into fixed evaluation authority.
+7. Only then bind datasets, requests, Studies, Judges, or other strict
+   manifests and begin the bounded research loop. Those machine contracts
+   freeze an understood question; they do not replace the Markdown brief.
+
+English is the working language inside the AutoQuant desk: use it for
+`research.md`, plans, research notes, code and comments, experiment hypotheses,
+and internal Reports or Dossiers. Preserve proper nouns, identifiers, source
+quotes, and evidence in their original form when needed. The delegating or
+user-facing Agent owns conversation locale and may translate the resulting
+evidence for the user; callers are never required to speak English.
+
 ## Plan workflow
 
 Read [[PLANS]] before starting non-trivial work. A plan is required when work

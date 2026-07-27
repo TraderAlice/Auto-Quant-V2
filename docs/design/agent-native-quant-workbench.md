@@ -92,7 +92,9 @@ The normal loop begins with either a local question or a delegated request:
 
 ```text
 question or request
-→ choose/create Project
+→ choose an existing Project or create a Project scaffold
+→ write the English Markdown research brief
+→ clarify material caller-owned ambiguity
 → inspect verified orientation
 → lock dataset and Study authority
 → establish baseline evidence
@@ -117,6 +119,27 @@ reusable dataset and Judge, or a source of evidence for another Project.
 
 AutoQuant is designed for a coding Agent as the primary operator and a human
 as intent owner, reviewer, and collaborator.
+
+### Clarify before quantifying
+
+`aq project create` gives a new assignment a durable construction site and
+returns its Project-root `research.md`. Before data acquisition, candidate
+edits, training, or evaluation, the Quant Agent rewrites the assignment there
+as a bounded English research brief.
+
+The brief records the decision to support, research question, motivation,
+scope, horizon or cadence, known evidence, material constraints, evaluation
+meaning, deliverable, assumptions, open questions, and proposed route. This is
+guidance for an intelligent operator, not a rigid form. The Agent owns
+methodological judgment but may not invent caller-owned intent. Material
+ambiguity is returned to the delegating Agent or user as many times as needed
+before fixed research authority is created.
+
+English is the internal workbench language so replacement Agents share one
+stable working surface. Host or user-facing Agents retain the caller's natural
+conversation locale and may translate evidence. A strict request or manifest
+is created only after clarification and locks execution semantics; it does not
+replace the Markdown narrative.
 
 ### Immediate orientation
 

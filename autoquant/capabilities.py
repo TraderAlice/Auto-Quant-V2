@@ -222,7 +222,8 @@ CLI_COMMANDS = [
     descriptor(
         "project.create",
         "aq project create <workspace-dir> <project-id> [options]",
-        "Create one complete self-contained quantitative research Project.",
+        "Create one self-contained Project and its English Markdown research "
+        "brief before quantitative work begins.",
         "creates-artifact",
         [
             argument(
@@ -252,7 +253,7 @@ CLI_COMMANDS = [
                 "option",
                 "string",
                 False,
-                "Initial quantitative research question.",
+                "Initial assignment seed for the Agent-maintained research brief.",
                 default="Empty",
             ),
             argument(
@@ -270,7 +271,8 @@ CLI_COMMANDS = [
     descriptor(
         "project.intake",
         "aq project intake <workspace-dir> <project-id> --request FILE --dataset FILE [options]",
-        "Create a content-locked research Project from a request and OHLCV package.",
+        "Create a content-locked research Project after clarified intent has "
+        "been translated into a strict request and OHLCV package.",
         "creates-artifact",
         [
             argument(

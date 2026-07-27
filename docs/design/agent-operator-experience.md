@@ -72,6 +72,32 @@ An external coworker may delegate or discuss a task, but does not become the
 quantitative evaluator. Its message is caller context until AutoQuant binds it
 to a Project request and fixed research authority.
 
+## Assignment clarification before orientation
+
+The verified Agent Work Brief orients work after enough Project authority
+exists to derive current state. It does not replace the earlier act of
+understanding an assignment.
+
+For a genuinely new question, the Quant Agent uses `aq project create` to
+establish a self-contained construction site, then reads and updates the
+returned Project-root `research.md` in English. Before downloading data,
+editing research source, training, or evaluating, the Agent must make the
+decision context, question, scope, horizon, evidence, caller-owned constraints,
+evaluation meaning, deliverable, assumptions, unresolved questions, and
+proposed route explicit.
+
+The Agent chooses research methods using domain judgment. It asks the
+delegating Agent or user whenever missing intent could materially change the
+universe, direction, horizon, risk interpretation, benchmark, evaluation, or
+usefulness of the answer. Clarification repeats until the question is bounded
+and falsifiable. Conversation may use the caller's language; Project working
+materials use English, and the user-facing Agent may translate the final
+evidence.
+
+Strict requests and manifests are derived after this step. They make understood
+authority machine-verifiable but are not an automatic intake parser or a
+substitute for the living Markdown brief.
+
 ## Agent Work Brief
 
 The V2 brief is compact, strict, and derived entirely from verified current

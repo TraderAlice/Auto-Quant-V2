@@ -25,6 +25,22 @@ It does not fetch market data, authenticate provider claims, compute corporate
 actions, create live subscriptions, start an autonomous Campaign, or deliver
 the result through an optional host.
 
+## Before strict intake
+
+An external assignment may arrive as ordinary conversation in any language.
+Before this document's machine intake boundary applies, the Quant Agent creates
+or continues a Project and maintains an English Project-root `research.md`.
+The Agent clarifies material caller-owned intent until the decision, question,
+scope, horizon, constraints, evaluation meaning, and deliverable are bounded
+and testable.
+
+The strict Research Request is a later derived execution contract. It freezes
+the understood inputs used by Studies, Sessions, Runs, Reports, and Dossiers;
+it is not the user-facing submission format and does not replace the Markdown
+brief. `aq project intake` is therefore an atomic fast path when the clarified
+request and compatible data package already exist, not an automatic
+natural-language classifier.
+
 ## Authoritative locations
 
 - Package validation, normalization, snapshot materialization, and intake

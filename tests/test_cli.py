@@ -52,6 +52,14 @@ class AgentCliTests(unittest.TestCase):
             envelope = json_output(created)
             self.assertEqual(envelope["data"]["template"], "ohlcv-factor-lab")
             self.assertEqual(
+                envelope["data"]["researchBriefPath"],
+                str(Path(envelope["data"]["projectDir"]) / "research.md"),
+            )
+            self.assertEqual(
+                [item["kind"] for item in envelope["artifacts"][:2]],
+                ["project", "research-brief"],
+            )
+            self.assertEqual(
                 [action["id"] for action in envelope["nextActions"]],
                 ["study.inspect", "run.execute"],
             )
@@ -376,7 +384,7 @@ class AgentCliTests(unittest.TestCase):
             envelope = json_output(created)
             self.assertEqual(
                 [item["kind"] for item in envelope["artifacts"]],
-                ["project", "research-program"],
+                ["project", "research-brief", "research-program"],
             )
             self.assertEqual(
                 [action["id"] for action in envelope["nextActions"]],
@@ -772,6 +780,7 @@ class AgentCliTests(unittest.TestCase):
                 [item["kind"] for item in envelope["artifacts"]],
                 [
                     "project",
+                    "research-brief",
                     "research-request",
                     "dataset-snapshot",
                     "project-intake",
@@ -816,6 +825,7 @@ class AgentCliTests(unittest.TestCase):
                 [item["kind"] for item in envelope["artifacts"]],
                 [
                     "project",
+                    "research-brief",
                     "research-request",
                     "dataset-snapshot",
                     "project-intake",
@@ -865,6 +875,17 @@ class AgentCliTests(unittest.TestCase):
                     project_id,
                 )
                 self.assertEqual(created_json["artifacts"][0]["kind"], "project")
+                self.assertEqual(
+                    created_json["artifacts"][1]["kind"],
+                    "research-brief",
+                )
+                self.assertEqual(
+                    created_json["data"]["researchBriefPath"],
+                    str(
+                        Path(created_json["data"]["projectDir"])
+                        / "research.md"
+                    ),
+                )
                 self.assertEqual(
                     [action["id"] for action in created_json["nextActions"]],
                     ["validate", "inspect"],

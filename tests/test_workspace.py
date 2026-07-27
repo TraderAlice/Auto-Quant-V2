@@ -3,8 +3,10 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
+from importlib import resources
 from pathlib import Path
 
+from autoquant.templates import PROJECT_TEMPLATE_IDS
 from autoquant.workspace import (
     PROJECT_MANIFEST,
     WORKSPACE_MANIFEST,
@@ -68,6 +70,17 @@ class WorkspaceProjectTests(unittest.TestCase):
                 "Study session-market behavior",
                 (project.root_dir / "research.md").read_text(),
             )
+            research = (project.root_dir / "research.md").read_text()
+            normalized_research = " ".join(research.split())
+            self.assertIn("## Research brief and clarification", research)
+            self.assertIn(
+                "English is the internal working language of the AutoQuant desk",
+                normalized_research,
+            )
+            self.assertIn(
+                "ask the delegating Agent or user",
+                normalized_research,
+            )
             for relative in project.manifest.directories.values():
                 self.assertTrue((project.root_dir / relative).is_dir(), relative)
             self.assertEqual(
@@ -78,6 +91,31 @@ class WorkspaceProjectTests(unittest.TestCase):
                 (project.root_dir / ".autoquant" / ".gitignore").read_text(),
                 "*\n!.gitignore\n",
             )
+
+    def test_every_builtin_template_requires_the_same_research_start_gate(
+        self,
+    ) -> None:
+        template_root = resources.files("autoquant").joinpath("project_templates")
+        for template in PROJECT_TEMPLATE_IDS:
+            if template == "blank":
+                continue
+            with self.subTest(template=template):
+                research = (
+                    template_root
+                    .joinpath(template.replace("-", "_"))
+                    .joinpath("research.md")
+                    .read_text(encoding="utf-8")
+                )
+                normalized_research = " ".join(research.split())
+                self.assertIn("## Research brief and clarification", research)
+                self.assertIn(
+                    "English is the internal working language of the AutoQuant desk",
+                    normalized_research,
+                )
+                self.assertIn(
+                    "ask the delegating Agent or user",
+                    normalized_research,
+                )
 
     def test_workspace_projects_directory_cannot_escape_or_be_a_symlink(
         self,

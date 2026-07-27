@@ -880,7 +880,8 @@ def _project_create(args: argparse.Namespace) -> CommandResult:
         next_actions = [
             next_action(
                 "project.program",
-                "Inspect the coordinated Factor, Portfolio, and RL lanes.",
+                "After clarifying research.md, inspect the coordinated Factor, "
+                "Portfolio, and RL lanes.",
                 [
                     "aq",
                     "project",
@@ -906,7 +907,8 @@ def _project_create(args: argparse.Namespace) -> CommandResult:
         next_actions = [
             next_action(
                 "study.inspect",
-                "Inspect the fixed reference Study and content identity.",
+                "After clarifying research.md, inspect the fixed reference "
+                "Study and content identity.",
                 [
                     "aq",
                     "study",
@@ -920,7 +922,8 @@ def _project_create(args: argparse.Namespace) -> CommandResult:
             ),
             next_action(
                 "run.execute",
-                "Execute the bounded reference baseline.",
+                "After clarifying research.md, execute the bounded reference "
+                "baseline.",
                 [
                     "aq",
                     "run",
@@ -937,24 +940,32 @@ def _project_create(args: argparse.Namespace) -> CommandResult:
         next_actions = [
             next_action(
                 "validate",
-                "Validate the newly created Project.",
+                "After clarifying research.md, validate the new Project.",
                 ["aq", "validate", str(project.root_dir), "--json"],
                 "read-only",
             ),
             next_action(
                 "inspect",
-                "Inspect the Project construction surfaces.",
+                "After clarifying research.md, inspect the Project construction "
+                "surfaces.",
                 ["aq", "inspect", str(project.root_dir), "--json"],
                 "read-only",
             ),
         ]
+    research_path = project.root_dir / project.manifest.research_program
     artifacts = [
         artifact(
             "project",
             project.manifest.id,
             project.root_dir / PROJECT_MANIFEST,
             immutable=False,
-        )
+        ),
+        artifact(
+            "research-brief",
+            project.manifest.id,
+            research_path,
+            immutable=False,
+        ),
     ]
     if program is not None:
         artifacts.append(
@@ -970,9 +981,15 @@ def _project_create(args: argparse.Namespace) -> CommandResult:
         {
             "projectDir": str(project.root_dir),
             "manifest": project.manifest.to_dict(),
+            "researchBriefPath": str(research_path),
             "template": args.template,
         },
-        f"Created AutoQuant Project '{project.manifest.id}' at {project.root_dir}\n",
+        (
+            f"Created AutoQuant Project '{project.manifest.id}' at "
+            f"{project.root_dir}\n"
+            f"Before quantitative work, clarify the English research brief at "
+            f"{research_path}\n"
+        ),
         project_context(project),
         artifacts,
         next_actions,
@@ -997,12 +1014,14 @@ def _project_intake(args: argparse.Namespace) -> CommandResult:
     assert intake is not None
     study_id = intake["study"]["id"]
     request_path = project.root_dir / PROJECT_REQUEST
+    research_path = project.root_dir / project.manifest.research_program
     program = load_research_program(project, optional=True)
     if program is not None:
         next_actions = [
             next_action(
                 "project.program",
-                "Inspect the coordinated Factor, Portfolio, and RL research lanes.",
+                "After updating research.md, inspect the coordinated Factor, "
+                "Portfolio, and RL research lanes.",
                 [
                     "aq",
                     "project",
@@ -1018,7 +1037,7 @@ def _project_intake(args: argparse.Namespace) -> CommandResult:
             next_actions.append(
                 next_action(
                     action["id"],
-                    action["description"],
+                    "After updating research.md, " + action["description"],
                     action["argv"],
                     action["effect"],
                 )
@@ -1027,7 +1046,8 @@ def _project_intake(args: argparse.Namespace) -> CommandResult:
         next_actions = [
             next_action(
                 "study.inspect",
-                "Inspect the fixed Study and content-locked market snapshot.",
+                "After updating research.md, inspect the fixed Study and "
+                "content-locked market snapshot.",
                 [
                     "aq",
                     "study",
@@ -1041,7 +1061,8 @@ def _project_intake(args: argparse.Namespace) -> CommandResult:
             ),
             next_action(
                 "run.execute",
-                "Execute the bounded real-data baseline.",
+                "After updating research.md, execute the bounded real-data "
+                "baseline.",
                 [
                     "aq",
                     "run",
@@ -1055,7 +1076,8 @@ def _project_intake(args: argparse.Namespace) -> CommandResult:
             ),
             next_action(
                 "session.start",
-                "Start delegated research with the preserved request.",
+                "After updating research.md, start delegated research with the "
+                "preserved request.",
                 [
                     "aq",
                     "session",
@@ -1075,6 +1097,12 @@ def _project_intake(args: argparse.Namespace) -> CommandResult:
             "project",
             project.manifest.id,
             project.root_dir / PROJECT_MANIFEST,
+            immutable=False,
+        ),
+        artifact(
+            "research-brief",
+            project.manifest.id,
+            research_path,
             immutable=False,
         ),
         artifact(
@@ -1110,10 +1138,13 @@ def _project_intake(args: argparse.Namespace) -> CommandResult:
         {
             "projectDir": str(project.root_dir),
             "manifest": project.manifest.to_dict(),
+            "researchBriefPath": str(research_path),
             "intake": intake,
         },
         (
             f"Created request-driven Project '{project.manifest.id}'\n"
+            f"Before quantitative work, update the English research brief at "
+            f"{research_path}\n"
             f"Request: {prepared.request['title']}\n"
             f"Dataset: {prepared.package['id']}@{prepared.package['version']} · "
             f"{len(prepared.assets)} assets · {prepared.start}..{prepared.end}\n"
