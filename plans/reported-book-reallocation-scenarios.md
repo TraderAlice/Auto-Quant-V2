@@ -80,7 +80,7 @@ and descriptive-authority boundary.
 
 ## Work
 
-- [ ] Preserve a `0.6.0` failure reproduction showing the current single-book
+- [x] Preserve a `0.6.0` failure reproduction showing the current single-book
   Lab cannot answer the bounded comparison.
 - [ ] Define the smallest strict request and derived snapshot/scenario contract.
 - [ ] Implement fixed Judge artifacts, Run schema, strict Explorer, CLI,
@@ -100,15 +100,33 @@ and descriptive-authority boundary.
 - 2026-07-28 — The Workbench may rank only the caller-supplied scenarios by
   declared descriptive metrics. It must not search nearby weights or relabel
   the result as an optimum.
+- 2026-07-28 — Project `us-megacap-book-reallocation-v060-gap` validates and
+  authorizes AAPL, MSFT, NVDA, QQQ, and TSLA, but its derived position snapshot
+  contains only the four-asset reported baseline and no scenario field.
+  Orientation therefore offers a baseline Run that cannot answer the actual
+  two-proposal question. The Agent correctly stopped before manufacturing a
+  successful but irrelevant result.
 
 ## Verification
 
-Pending.
+- AutoQuant `0.6.0` public intake created
+  `us-megacap-book-reallocation-v060-gap` with
+  `status: ready-for-run`, requested TSLA authority, and no diagnostics.
+- `aq validate` succeeds and `aq orient` preserves the exact delegated
+  reallocation question plus fixed descriptive/no-trading authority.
+- `strategies/position-snapshot.json` contains only the reported baseline and
+  no scenarios, proving the current Run cannot bind either caller-specified
+  funded book.
+- The Project's English `research.md` records complete baseline and scenario
+  weights; `framework-needs.md` records the missing contract and rejects
+  unrelated-Project comparison as an unaudited workaround.
 
 ## Progress log
 
 - 2026-07-28 — Plan created after the clean reported-book field trial proved
   the baseline audit and exposed the next practical current-book question.
+- 2026-07-28 — Preserved the `0.6.0` failure reproduction and stopped before
+  running a baseline-only Study that would not answer the delegated question.
 
 ## Completion
 
