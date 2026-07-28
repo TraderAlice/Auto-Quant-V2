@@ -514,7 +514,8 @@ def build_parser() -> RaisingArgumentParser:
     run_book_risk = run_actions.add_parser(
         "book-risk",
         help=(
-            "inspect one reported-book audit and supplied scenario comparison"
+            "inspect one reported-book audit, supplied scenarios, and "
+            "caller-bounded target-position sizing"
         ),
     )
     run_book_risk.add_argument("path")
