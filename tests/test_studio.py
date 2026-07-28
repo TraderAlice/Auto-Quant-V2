@@ -385,6 +385,14 @@ class StudioObservationTests(unittest.TestCase):
                         "content: attr(data-label)",
                         css,
                     )
+                    self.assertIn(
+                        ".book-risk-scenario-table .factor-table td::before",
+                        css,
+                    )
+                    self.assertIn(
+                        ".book-risk-scenario-contribution-table .factor-table td::before",
+                        css,
+                    )
                     self.assertIn(".inspector-lane", css)
                     self.assertIn(".inspector-collapsed", css)
                     self.assertIn(".rl-opportunity-panel", css)
@@ -431,6 +439,18 @@ class StudioObservationTests(unittest.TestCase):
                     )
                     self.assertIn(
                         "FROZEN SOURCE → LATER DATA → EXTERNAL AUDIT",
+                        javascript,
+                    )
+                    self.assertIn(
+                        "REQUEST → DATASET → FIXED RUN → REVIEW",
+                        javascript,
+                    )
+                    self.assertIn(
+                        "Copy Book Risk Explorer CLI",
+                        javascript,
+                    )
+                    self.assertIn(
+                        "no Session, optimization, order, or trading authority",
                         javascript,
                     )
                     self.assertIn(

@@ -774,7 +774,10 @@ def _single_study_orientation(
     ):
         primary_raw = _command(
             "run.book-risk",
-            "Inspect verified reported-book crowding and reduction evidence.",
+            (
+                "Inspect verified reported-book crowding, reduction, and "
+                "caller-supplied scenario evidence."
+            ),
             [
                 "aq",
                 "run",

@@ -6808,6 +6808,68 @@ main > div[id] {
     white-space: normal;
   }
 
+  .book-risk-scenario-table,
+  .book-risk-scenario-contribution-table {
+    overflow: visible;
+  }
+
+  .book-risk-scenario-table .factor-table thead,
+  .book-risk-scenario-contribution-table .factor-table thead {
+    display: none;
+  }
+
+  .book-risk-scenario-table .factor-table tbody,
+  .book-risk-scenario-contribution-table .factor-table tbody {
+    display: grid;
+    gap: 8px;
+  }
+
+  .book-risk-scenario-table .factor-table tr,
+  .book-risk-scenario-contribution-table .factor-table tr {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border: 1px solid var(--line);
+  }
+
+  .book-risk-scenario-table .factor-table td,
+  .book-risk-scenario-contribution-table .factor-table td {
+    min-width: 0;
+    padding: 10px;
+    border-bottom: 0;
+    border-left: 1px solid var(--line);
+    text-align: left;
+    overflow-wrap: anywhere;
+  }
+
+  .book-risk-scenario-table .factor-table td::before,
+  .book-risk-scenario-contribution-table .factor-table td::before {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--faint);
+    content: attr(data-label);
+    font: 5px/1.35 var(--mono);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .book-risk-scenario-table .factor-table td:nth-child(2),
+  .book-risk-scenario-contribution-table .factor-table td:first-child {
+    grid-column: 1 / -1;
+    border-left: 0;
+    border-bottom: 1px solid var(--line);
+    background: rgb(114 213 233 / 3%);
+  }
+
+  .book-risk-scenario-table .factor-table td:nth-child(odd),
+  .book-risk-scenario-contribution-table .factor-table td:nth-child(even) {
+    border-left: 0;
+  }
+
+  .book-risk-scenario-table .factor-table small,
+  .book-risk-scenario-contribution-table .factor-table small {
+    white-space: normal;
+  }
+
   .factor-qualification-diagnosis > span {
     border-right: 0;
     border-bottom: 1px solid var(--line);

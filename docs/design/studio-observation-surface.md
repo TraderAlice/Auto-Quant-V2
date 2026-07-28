@@ -179,6 +179,10 @@ current Workspace → Project → Study → Run rail must recognize this descrip
 Run even though it has no Factor/Portfolio/RL metric layer. Every Book Risk
 view states that reported and hypothetical weights are unauthenticated and
 that reduction/scenario evidence is neither optimization nor an order.
+The intake Handoff path is `REQUEST → DATASET → FIXED RUN → REVIEW`; a
+successful Book Risk Run never advertises Session creation. Below 680px, the
+scenario and contribution comparisons become labeled cards rather than
+compressing six evidence columns into unreadable table cells.
 
 Selecting an evidence lane also selects that lane's latest Session in the
 Inspector so the visible Run, Report, and Session remain semantically aligned.

@@ -1325,19 +1325,27 @@ function renderHandoff(project) {
       const program = project.researchProgramStatus;
       const holdout = project.externalHoldout;
       const lane = projectFocusLane(project);
+      const bookRisk = project.bookRiskExplorer;
       const next =
         holdout?.nextAction ??
+        (bookRisk ? project.agentWorkBrief?.primaryAction : null) ??
         program?.recommendedAction ??
         intake.commands.find((item) => item.id === "session.start");
       const baseline = projectFocusRun(project);
       const layers = baseline?.metricLayers;
       const portfolio = layers?.kind === "portfolio" ? layers : null;
       const baselineTone = valueTone(baseline?.primaryValue);
+      const scenarioCount =
+        bookRisk?.scenarioComparison?.scenarios?.length ?? 0;
       element("handoff-flow").textContent = holdout
         ? "FROZEN SOURCE → LATER DATA → EXTERNAL AUDIT"
+        : bookRisk
+          ? "REQUEST → DATASET → FIXED RUN → REVIEW"
         : "REQUEST → DATASET → BASELINE → ITERATE";
       element("handoff-meta").textContent = holdout
         ? `${holdout.state.toUpperCase()} · ${holdout.binding.laneIds.length} immutable lanes`
+        : bookRisk
+          ? `Descriptive evidence ready · ${scenarioCount} supplied scenario${scenarioCount === 1 ? "" : "s"} · no Session`
         : baseline
           ? `${baseline.primaryMetric} ${metric(baseline.primaryValue)} · Session not started`
           : "Content locked · baseline pending";
@@ -1365,17 +1373,17 @@ function renderHandoff(project) {
           <span class="context-note">${escapeHtml(dataset.provider.name)} · ${escapeHtml(dataset.priceAdjustment)} · ${escapeHtml(dataset.timeRange.start)} → ${escapeHtml(dataset.timeRange.end)} · ${datasetAvailability ? `observed-only ${percent(datasetAvailability.observationCoverage)} row coverage · ` : ""}provider claims</span>
         </article>
         <article class="handoff-card report-card ${baseline ? "ready" : ""}">
-          <small>03 · ${holdout ? "Frozen external audit" : `${lane ? escapeHtml(lane.name) : "Baseline"} &amp; next action`}</small>
+          <small>03 · ${holdout ? "Frozen external audit" : bookRisk ? "Book Risk evidence &amp; review" : `${lane ? escapeHtml(lane.name) : "Baseline"} &amp; next action`}</small>
           <h3>${holdout ? `${holdout.binding.laneIds.length} source lanes bound to later data` : baseline ? `${escapeHtml(baseline.primaryMetric)} = ${metric(baseline.primaryValue)}` : escapeHtml(intake.study.name)}</h3>
-          <p>${holdout ? "The exact source candidates are frozen. Only the one-shot holdout command is authorized; no Session, retuning, selection, promotion, or trading action is implied." : baseline ? "The immutable baseline is descriptive evidence, not a recommendation. Start a governed Session to test candidates against validation-only selection." : "Start a governed Session to run a fresh baseline and freeze this request into its derived Brief."}</p>
+          <p>${holdout ? "The exact source candidates are frozen. Only the one-shot holdout command is authorized; no Session, retuning, selection, promotion, or trading action is implied." : bookRisk ? `The fixed descriptive Run audits the reported baseline and compares ${scenarioCount} caller-supplied complete book${scenarioCount === 1 ? "" : "s"}. Review the verified evidence; no Session, optimization, order, or trading authority follows.` : baseline ? "The immutable baseline is descriptive evidence, not a recommendation. Start a governed Session to test candidates against validation-only selection." : "Start a governed Session to run a fresh baseline and freeze this request into its derived Brief."}</p>
           ${portfolio ? `
           <div class="handoff-metrics">
             <span class="${valueTone(portfolio.factor.validationRankIc)}"><b>${metric(portfolio.factor.validationRankIc)}</b><small>validation IC</small></span>
             <span class="${valueTone(portfolio.portfolio.testMaximumDrawdown)}"><b>${percent(portfolio.portfolio.testMaximumDrawdown)}</b><small>test max DD</small></span>
             <span class="${valueTone(portfolio.robustness.testAdverseCostSharpe)}"><b>${metric(portfolio.robustness.testAdverseCostSharpe)}</b><small>${metric(portfolio.robustness.adverseCostBps)}bps audit</small></span>
           </div>` : ""}
-          <span class="status-chip ${baselineTone === "bad" ? "revert" : "active"}">${baseline ? (baselineTone === "bad" ? "negative baseline" : "baseline verified") : "ready"}</span>
-          ${copyCommandButton(next, holdout ? (holdout.state === "completed" ? "Copy holdout show command" : "Copy holdout run command") : program ? "Copy recommended command" : "Copy start command")}
+          <span class="status-chip ${baselineTone === "bad" ? "revert" : "active"}">${bookRisk ? "descriptive evidence" : baseline ? (baselineTone === "bad" ? "negative baseline" : "baseline verified") : "ready"}</span>
+          ${copyCommandButton(next, holdout ? (holdout.state === "completed" ? "Copy holdout show command" : "Copy holdout run command") : bookRisk ? "Copy Book Risk Explorer CLI" : program ? "Copy recommended command" : "Copy start command")}
         </article>`;
       return;
     }
@@ -2244,7 +2252,7 @@ function renderBookRiskExplorer(project) {
     primaryScenarioRows.length === 0
       ? `<div class="empty-panel">No caller-supplied hypothetical books. The Run audits the reported baseline and fixed cash-funded reductions only.</div>`
       : `
-        <div class="factor-table-wrap">
+        <div class="factor-table-wrap book-risk-scenario-table">
           <table class="factor-table">
             <thead>
               <tr>
@@ -2283,7 +2291,7 @@ function renderBookRiskExplorer(project) {
     scenarioContributionRows.length === 0
       ? ""
       : `
-        <div class="factor-table-wrap">
+        <div class="factor-table-wrap book-risk-scenario-contribution-table">
           <table class="factor-table">
             <thead>
               <tr>

@@ -131,7 +131,9 @@ HHI/effective-bet deltas, largest contributor, and primary-window per-asset
 weight/risk-share changes. The rank orders only the supplied books; it does not
 search or select weights. Studio never substitutes Portfolio model targets,
 authenticates a supplied book, optimizes a replacement portfolio, or creates
-an order. Use
+an order. Its Handoff card terminates at fixed Run review, reports the supplied
+scenario count, and offers only the read-only Explorer command; it must not
+reuse an iterative template's Session affordance. Use
 `aq run book-risk <path> --run ID --points N --json` for the exact read model.
 
 The Portfolio Decision Explorer is a bounded projection, not a browser-side

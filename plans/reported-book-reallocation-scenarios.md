@@ -61,18 +61,18 @@ and descriptive-authority boundary.
 
 ## Acceptance
 
-- [ ] A strict request can bind one reported baseline plus two or more
+- [x] A strict request can bind one reported baseline plus two or more
   explicitly named hypothetical funded books without ambiguous delta
   interpretation.
-- [ ] Intake rejects scenario assets outside request/data authority, mismatched
+- [x] Intake rejects scenario assets outside request/data authority, mismatched
   timestamps/currencies, duplicate ids, incomplete funding, and hidden
   optimization semantics.
-- [ ] One immutable fixed Run and strict Explorer reconcile every scenario
+- [x] One immutable fixed Run and strict Explorer reconcile every scenario
   metric and delta against the exact baseline using the same covariance
   windows.
-- [ ] Agent orientation and Studio expose a closed descriptive comparison with
+- [x] Agent orientation and Studio expose a closed descriptive comparison with
   no Session, automatic selection, trading, or order authority.
-- [ ] A clean Yahoo field Run answers the NVDA-versus-QQQ funded TSLA transfer,
+- [x] A clean Yahoo field Run answers the NVDA-versus-QQQ funded TSLA transfer,
   and the Project records the raw request, assumptions, framework gap, Harness
   identity, and evidence.
 - [ ] Focused/full regression, package smoke, documentation, commit, push, and
@@ -86,7 +86,7 @@ and descriptive-authority boundary.
 - [x] Implement fixed Judge artifacts, Run schema, strict Explorer, CLI,
   orientation, and Studio projection.
 - [x] Add deterministic success, malformed-input, tamper, and authority tests.
-- [ ] Execute and interpret the clean real Yahoo field trial.
+- [x] Execute and interpret the clean real Yahoo field trial.
 - [ ] Complete release audit, record evidence, commit, push, and close the plan.
 
 ## Findings and decisions
@@ -120,6 +120,18 @@ and descriptive-authority boundary.
   deltas, CSV/report identity, weight deltas, component-variance sums,
   risk-share sums/HHI, and largest-contributor identity. Rehashed semantic
   tampering is rejected even when the Run manifest is recomputed.
+- 2026-07-28 — The clean Yahoo result is directionally unambiguous. Funding
+  TSLA from NVDA ranks first at 63/126/252 sessions, lowers primary modeled
+  volatility by `0.2008` percentage points and HHI by `0.1033`, and increases
+  effective risk bets by `1.5226`. Funding from QQQ lowers concentration but
+  raises primary modeled volatility by `1.1274` percentage points because the
+  original 30% NVDA leg remains.
+- 2026-07-28 — Browser review exposed a generic Studio handoff sentence that
+  incorrectly told a completed fixed Book Risk Project to start a Session.
+  The Book Risk branch now shows fixed Run → review, the supplied-scenario
+  count, explicit no-Session/no-optimization/no-order authority, and its
+  read-only Explorer command. Scenario tables become labeled two-column cards
+  below 680px.
 
 ## Verification
 
@@ -144,6 +156,16 @@ and descriptive-authority boundary.
   passes all 62 cross-boundary tests in 386.866 seconds. Research,
   documentation, and version tests pass seven additional checks; all 959
   documentation double-links resolve.
+- Project `us-megacap-book-reallocation-v070-clean` validates and preserves
+  both exact complete books. Clean Run
+  `run-20260728T154444082589Z-b88e1236d812` records AutoQuant `0.7.0`,
+  commit `bb1007491b5db904f20f678216ab5ccf1d373d40`, `dirty: false`, and
+  seven immutable Book Risk artifacts.
+- Strict `aq run book-risk` reconciles both books and `aq orient` closes at
+  `descriptive-audit-complete` with only `run.book-risk`.
+- In-app browser review verifies the desktop Handoff and scenario tables.
+  At a 390px emulated viewport, document width equals viewport width, scenario
+  rows use a two-column grid, and no horizontal overflow remains.
 
 ## Progress log
 
@@ -154,6 +176,10 @@ and descriptive-authority boundary.
 - 2026-07-28 — Implemented the strict `0.7.0` complete-book scenario contract,
   fixed Judge evidence, Explorer reconciliation, CLI/Studio projection, and
   focused tests. Clean Yahoo field execution and release audit remain.
+- 2026-07-28 — Completed and interpreted the clean Yahoo retry, then used
+  desktop and 390px Studio review to remove the last false Session affordance
+  and improve scenario-table readability. Final full regression, package
+  smoke, evidence commit, tag, and cleanliness audit remain.
 
 ## Completion
 
