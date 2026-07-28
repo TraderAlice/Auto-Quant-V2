@@ -1,4 +1,4 @@
-"""Fixed covariance crowding audit for one reported position snapshot."""
+"""Fixed covariance audit for one reported book and supplied scenarios."""
 
 from __future__ import annotations
 
@@ -336,6 +336,53 @@ def main() -> None:
                 "book-risk.position-snapshot",
                 "Reported position weights are invalid",
             )
+        scenario_snapshots = snapshot.get("scenarios")
+        if (
+            not isinstance(scenario_snapshots, list)
+            or len(scenario_snapshots) > 8
+            or not all(isinstance(item, dict) for item in scenario_snapshots)
+        ):
+            raise JudgeFailure(
+                "book-risk.position-scenarios",
+                "Position scenarios differ from the bounded fixed contract",
+            )
+        scenario_weights: list[tuple[dict[str, Any], pd.Series]] = []
+        scenario_ids: set[str] = set()
+        for scenario in scenario_snapshots:
+            raw = scenario.get("weights")
+            identifier = scenario.get("id")
+            if (
+                not isinstance(identifier, str)
+                or not identifier
+                or identifier in scenario_ids
+                or not isinstance(scenario.get("name"), str)
+                or not scenario["name"]
+                or scenario.get("snapshotKind") != "hypothetical-weights"
+                or scenario.get("asOf") != snapshot.get("asOf")
+                or scenario.get("baseCurrency") != snapshot.get("baseCurrency")
+                or scenario.get("authority")
+                != {
+                    "positionTruth": "caller-hypothetical-not-authenticated",
+                    "tradingAuthority": "none",
+                }
+                or not isinstance(raw, dict)
+                or not raw
+            ):
+                raise JudgeFailure(
+                    "book-risk.position-scenarios",
+                    "One position scenario is invalid",
+                )
+            candidate = pd.Series(raw, dtype=float)
+            if (
+                not np.isfinite(candidate.to_numpy(dtype=float)).all()
+                or (candidate.abs() <= 1e-12).any()
+            ):
+                raise JudgeFailure(
+                    "book-risk.position-scenarios",
+                    "Scenario position weights are invalid",
+                )
+            scenario_ids.add(identifier)
+            scenario_weights.append((scenario, candidate))
         scenarios = _load_scenarios(project_root)
         dataset = study.get("dataset")
         if not isinstance(dataset, dict):
@@ -351,6 +398,16 @@ def main() -> None:
                 "book-risk.universe",
                 "Reported positions are outside the Study universe",
             )
+        comparison_assets = list(weights.index)
+        for _, candidate in scenario_weights:
+            for asset in candidate.index:
+                if asset not in comparison_assets:
+                    comparison_assets.append(str(asset))
+        if not set(comparison_assets).issubset(universe):
+            raise JudgeFailure(
+                "book-risk.universe",
+                "Scenario positions are outside the Study universe",
+            )
         closes = pd.concat(
             [
                 _load_close(
@@ -359,7 +416,7 @@ def main() -> None:
                     str(time_range["start"]),
                     str(time_range["end"]),
                 )
-                for asset in weights.index
+                for asset in comparison_assets
             ],
             axis=1,
             join="inner",
@@ -372,6 +429,7 @@ def main() -> None:
         )
         closes = closes.loc[closes.index <= comparable_as_of]
         returns = closes.pct_change(fill_method=None).dropna()
+        baseline_returns = returns.loc[:, list(weights.index)]
         minimum = int(scenarios["minimumObservations"])
         if len(returns) < max(minimum, max(scenarios["lookbackBars"])):
             raise JudgeFailure(
@@ -382,7 +440,7 @@ def main() -> None:
         lookback_results: list[dict[str, Any]] = []
         analyses: dict[int, dict[str, Any]] = {}
         for lookback in scenarios["lookbackBars"]:
-            selected = returns.tail(lookback)
+            selected = baseline_returns.tail(lookback)
             analysis = _covariance_analysis(
                 selected,
                 weights,
@@ -417,7 +475,7 @@ def main() -> None:
             )
         primary_lookback = int(scenarios["primaryLookbackBars"])
         primary = analyses[primary_lookback]
-        primary_returns = returns.tail(primary_lookback)
+        primary_returns = baseline_returns.tail(primary_lookback)
         correlation = primary["correlation"]
         pairwise: list[dict[str, Any]] = []
         for left in range(len(weights)):
@@ -441,15 +499,179 @@ def main() -> None:
             annualization,
             reduction_weight,
         )
+        comparison_weights = weights.reindex(
+            comparison_assets,
+            fill_value=0.0,
+        )
+        comparison_baselines: dict[int, dict[str, Any]] = {}
+        scenario_results: list[dict[str, Any]] = []
+        for scenario, candidate in scenario_weights:
+            complete_candidate = candidate.reindex(
+                comparison_assets,
+                fill_value=0.0,
+            )
+            scenario_lookbacks: list[dict[str, Any]] = []
+            for lookback in scenarios["lookbackBars"]:
+                selected = returns.tail(lookback)
+                if lookback not in comparison_baselines:
+                    comparison_baselines[lookback] = _covariance_analysis(
+                        selected,
+                        comparison_weights,
+                        annualization,
+                    )
+                comparison_baseline = comparison_baselines[lookback]
+                analysis = _covariance_analysis(
+                    selected,
+                    complete_candidate,
+                    annualization,
+                )
+                largest = max(
+                    analysis["contributions"],
+                    key=lambda item: item["absoluteRiskShare"],
+                )
+                scenario_lookbacks.append(
+                    {
+                        "lookbackBars": lookback,
+                        "observations": int(analysis["observations"]),
+                        "annualizedVolatility": float(
+                            analysis["annualizedVolatility"]
+                        ),
+                        "annualizedVolatilityDelta": float(
+                            analysis["annualizedVolatility"]
+                            - comparison_baseline["annualizedVolatility"]
+                        ),
+                        "componentRiskHhi": float(
+                            analysis["componentRiskHhi"]
+                        ),
+                        "componentRiskHhiDelta": float(
+                            analysis["componentRiskHhi"]
+                            - comparison_baseline["componentRiskHhi"]
+                        ),
+                        "effectiveRiskBets": float(
+                            analysis["effectiveRiskBets"]
+                        ),
+                        "effectiveRiskBetsDelta": float(
+                            analysis["effectiveRiskBets"]
+                            - comparison_baseline["effectiveRiskBets"]
+                        ),
+                        "largestAbsoluteRiskContributor": largest["asset"],
+                        "largestAbsoluteRiskContributorShare": float(
+                            largest["absoluteRiskShare"]
+                        ),
+                    }
+                )
+            scenario_results.append(
+                {
+                    "id": scenario["id"],
+                    "name": scenario["name"],
+                    "weights": scenario["weights"],
+                    "cashWeight": float(scenario["cashWeight"]),
+                    "lookbacks": scenario_lookbacks,
+                }
+            )
+        for lookback in scenarios["lookbackBars"]:
+            ranked = sorted(
+                scenario_results,
+                key=lambda item: next(
+                    row["annualizedVolatilityDelta"]
+                    for row in item["lookbacks"]
+                    if row["lookbackBars"] == lookback
+                ),
+            )
+            for rank, scenario in enumerate(ranked, start=1):
+                next(
+                    row
+                    for row in scenario["lookbacks"]
+                    if row["lookbackBars"] == lookback
+                )["volatilityRank"] = rank
+        comparison_rows: list[dict[str, Any]] = []
+        scenario_contribution_rows: list[dict[str, Any]] = []
+        primary_comparison_baseline = comparison_baselines.get(
+            primary_lookback
+        )
+        if scenario_results and primary_comparison_baseline is None:
+            raise JudgeFailure(
+                "book-risk.position-scenarios",
+                "Primary scenario baseline is unavailable",
+            )
+        baseline_contributions = {
+            row["asset"]: row
+            for row in (
+                primary_comparison_baseline["contributions"]
+                if primary_comparison_baseline is not None
+                else []
+            )
+        }
+        for (scenario, candidate), result in zip(
+            scenario_weights,
+            scenario_results,
+            strict=True,
+        ):
+            for row in result["lookbacks"]:
+                comparison_rows.append(
+                    {
+                        "scenarioId": result["id"],
+                        "scenarioName": result["name"],
+                        **row,
+                    }
+                )
+            primary_analysis = _covariance_analysis(
+                returns.tail(primary_lookback),
+                candidate.reindex(comparison_assets, fill_value=0.0),
+                annualization,
+            )
+            scenario_contributions = {
+                row["asset"]: row
+                for row in primary_analysis["contributions"]
+            }
+            for asset in comparison_assets:
+                baseline_row = baseline_contributions[asset]
+                scenario_row = scenario_contributions[asset]
+                baseline_weight = float(comparison_weights[asset])
+                scenario_weight = float(
+                    candidate.reindex(
+                        comparison_assets,
+                        fill_value=0.0,
+                    )[asset]
+                )
+                scenario_contribution_rows.append(
+                    {
+                        "scenarioId": scenario["id"],
+                        "asset": asset,
+                        "baselineWeight": baseline_weight,
+                        "scenarioWeight": scenario_weight,
+                        "weightDelta": scenario_weight - baseline_weight,
+                        "baselineComponentVariance": float(
+                            baseline_row["componentVariance"]
+                        ),
+                        "scenarioComponentVariance": float(
+                            scenario_row["componentVariance"]
+                        ),
+                        "componentVarianceDelta": float(
+                            scenario_row["componentVariance"]
+                            - baseline_row["componentVariance"]
+                        ),
+                        "baselineAbsoluteRiskShare": float(
+                            baseline_row["absoluteRiskShare"]
+                        ),
+                        "scenarioAbsoluteRiskShare": float(
+                            scenario_row["absoluteRiskShare"]
+                        ),
+                        "absoluteRiskShareDelta": float(
+                            scenario_row["absoluteRiskShare"]
+                            - baseline_row["absoluteRiskShare"]
+                        ),
+                    }
+                )
         rolling: list[dict[str, Any]] = []
         step = int(scenarios["rollingStepBars"])
         positions = list(
-            range(primary_lookback, len(returns) + 1, step)
+            range(primary_lookback, len(baseline_returns) + 1, step)
         )
-        if not positions or positions[-1] != len(returns):
-            positions.append(len(returns))
+        if not positions or positions[-1] != len(baseline_returns):
+            positions.append(len(baseline_returns))
         for stop in positions:
-            selected = returns.iloc[
+            selected = baseline_returns.iloc[
                 max(0, stop - primary_lookback) : stop
             ]
             if len(selected) < minimum:
@@ -487,6 +709,7 @@ def main() -> None:
                 "marketEvidence": "content-locked-closed-ohlcv",
                 "tradingAuthority": "none",
                 "reductionMeaning": "standardized-historical-sensitivity",
+                "scenarioMeaning": "caller-specified-historical-comparison",
             },
             "method": scenarios,
             "dataset": {
@@ -517,6 +740,40 @@ def main() -> None:
             ),
             "pairwiseCorrelations": pairwise,
             "reductions": reductions,
+            "scenarioComparison": {
+                "comparisonUniverse": comparison_assets,
+                "baselineLookbacks": [
+                    {
+                        "lookbackBars": lookback,
+                        "observations": int(
+                            comparison_baselines[lookback]["observations"]
+                        ),
+                        "annualizedVolatility": float(
+                            comparison_baselines[lookback][
+                                "annualizedVolatility"
+                            ]
+                        ),
+                        "componentRiskHhi": float(
+                            comparison_baselines[lookback][
+                                "componentRiskHhi"
+                            ]
+                        ),
+                        "effectiveRiskBets": float(
+                            comparison_baselines[lookback][
+                                "effectiveRiskBets"
+                            ]
+                        ),
+                    }
+                    for lookback in scenarios["lookbackBars"]
+                    if lookback in comparison_baselines
+                ],
+                "scenarios": scenario_results,
+                "ranking": {
+                    "metric": "annualizedVolatilityDelta",
+                    "direction": "minimize",
+                    "selectionAuthority": "none",
+                },
+            },
             "rollingSummary": {
                 "observations": len(rolling),
                 "start": rolling[0]["timestamp"],
@@ -579,6 +836,42 @@ def main() -> None:
             ],
             rolling,
         )
+        _write_csv(
+            artifacts / "book-risk-scenario-comparisons.csv",
+            [
+                "scenarioId",
+                "scenarioName",
+                "volatilityRank",
+                "lookbackBars",
+                "observations",
+                "annualizedVolatility",
+                "annualizedVolatilityDelta",
+                "componentRiskHhi",
+                "componentRiskHhiDelta",
+                "effectiveRiskBets",
+                "effectiveRiskBetsDelta",
+                "largestAbsoluteRiskContributor",
+                "largestAbsoluteRiskContributorShare",
+            ],
+            comparison_rows,
+        )
+        _write_csv(
+            artifacts / "book-risk-scenario-contributions.csv",
+            [
+                "scenarioId",
+                "asset",
+                "baselineWeight",
+                "scenarioWeight",
+                "weightDelta",
+                "baselineComponentVariance",
+                "scenarioComponentVariance",
+                "componentVarianceDelta",
+                "baselineAbsoluteRiskShare",
+                "scenarioAbsoluteRiskShare",
+                "absoluteRiskShareDelta",
+            ],
+            scenario_contribution_rows,
+        )
         metrics = {
             "current_component_risk_hhi": float(
                 primary["componentRiskHhi"]
@@ -597,7 +890,16 @@ def main() -> None:
             ),
             "primary_lookback_bars": primary_lookback,
             "held_assets": len(weights),
+            "scenario_count": len(scenario_results),
         }
+        primary_scenario_order = sorted(
+            scenario_results,
+            key=lambda item: next(
+                row["volatilityRank"]
+                for row in item["lookbacks"]
+                if row["lookbackBars"] == primary_lookback
+            ),
+        )
         _write_output(
             {
                 "schema_version": 1,
@@ -605,7 +907,14 @@ def main() -> None:
                 "summary": (
                     "Reported book covariance audit; effective risk bets="
                     f"{metrics['current_effective_risk_bets']:.3f}; "
-                    f"first standardized reduction={reductions[0]['asset']}"
+                    f"first standardized reduction={reductions[0]['asset']}; "
+                    f"supplied scenarios={len(scenario_results)}"
+                    + (
+                        "; lowest primary-window volatility scenario="
+                        f"{primary_scenario_order[0]['id']}"
+                        if primary_scenario_order
+                        else ""
+                    )
                 ),
                 "metrics": metrics,
                 "artifacts": [
@@ -638,6 +947,21 @@ def main() -> None:
                         "kind": "book-risk-path",
                         "path": "book-risk-path.csv",
                         "description": "Sampled rolling primary-window risk path",
+                    },
+                    {
+                        "kind": "book-risk-scenario-comparisons",
+                        "path": "book-risk-scenario-comparisons.csv",
+                        "description": (
+                            "Caller-specified funded-book lookback comparisons"
+                        ),
+                    },
+                    {
+                        "kind": "book-risk-scenario-contributions",
+                        "path": "book-risk-scenario-contributions.csv",
+                        "description": (
+                            "Primary-window per-asset scenario contribution "
+                            "changes"
+                        ),
                     },
                 ],
                 "errors": [],

@@ -13,8 +13,13 @@ It must report:
 - exact pairwise held-asset correlations;
 - one standardized, cash-funded reduction of each position, ranked by
   volatility reduction per unit weight;
+- when supplied, every caller-authored complete hypothetical book under the
+  exact same return panel and covariance lookbacks, including volatility,
+  component-risk HHI, effective risk bets, baseline deltas, primary-window
+  per-asset contribution changes, and a no-authority volatility rank among
+  supplied books only;
 - a sampled rolling path under the primary lookback.
 
-The reduction table is comparative historical sensitivity, not a tax-aware
-recommendation or order. Never silently replace reported weights with a
-model-generated target.
+The reduction and supplied-book tables are comparative historical sensitivity,
+not tax-aware recommendations, optimized targets, or orders. Never silently
+replace reported weights or generate hypothetical books.

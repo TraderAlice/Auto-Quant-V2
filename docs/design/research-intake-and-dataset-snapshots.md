@@ -256,6 +256,13 @@ Portfolio and RL still use sequential next-bar accounting and do not relabel
 that accounting as a direct multi-bar forecast.
 
 Project-root `request.json` preserves the exact canonical caller request.
+For the fixed Book Risk route, optional `positionScenarios` preserves one to
+eight caller-authored complete hypothetical books beside the baseline
+`positionSnapshot`. Core requires the same timestamp and currency, requested
+non-context assets, complete funding, and distinct books; it never interprets
+sparse transfers or generates a scenario. The derived
+`strategies/position-snapshot.json` freezes baseline and scenarios together so
+one Run compares them against one content-locked dataset and method.
 Project-root `intake.json` points to and hashes the request, snapshot, and
 generated Study. Its `studyInputHash` is the immutable identity at handoff,
 not a requirement that editable research source remain unchanged forever.

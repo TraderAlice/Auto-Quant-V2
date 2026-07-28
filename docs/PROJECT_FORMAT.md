@@ -42,8 +42,9 @@ or Runs. It owns only discovery and an optional default Project.
 `--template ohlcv-rl-factor-lab` construction input additionally creates an
 independently owned candidate, Judge, Study, and deterministic local dataset.
 `--template ohlcv-book-risk-lab` creates a fixed descriptive Study over one
-reported or hypothetical position snapshot. Template choice is construction
-input and is not recorded as a runtime parent in `autoquant.json`.
+reported or hypothetical baseline position snapshot and optional
+caller-specified hypothetical books. Template choice is construction input and
+is not recorded as a runtime parent in `autoquant.json`.
 
 `--template ohlcv-research-desk` creates the canonical multi-Study Project:
 one shared dataset, one Factor candidate shared by Factor and Portfolio
@@ -127,12 +128,15 @@ stateful signal sleeve before portfolio accounting. See
 
 The Book Risk template derives
 `strategies/position-snapshot.json` from the normalized
-`request.positionSnapshot` and binds it as a fixed Study dependency. Its
-scenario declaration fixes bounded lookbacks, rolling cadence, and the
-standardized reduction size. The Judge owns covariance, component-risk,
-effective-bet, PCA, pair-correlation, and reduction calculations. The supplied
-weights remain external-reported and unauthenticated; they are never replaced
-with model targets. See [[docs/design/reported-position-book-risk]].
+`request.positionSnapshot` plus optional `request.positionScenarios` and binds
+them as one fixed Study dependency. Its researcher-owned method declaration
+fixes bounded lookbacks, rolling cadence, and the standardized reduction size.
+The Judge owns covariance, component-risk, effective-bet, PCA,
+pair-correlation, reduction, and caller-supplied scenario comparison
+calculations. The baseline remains external-reported and unauthenticated;
+scenario books remain caller-hypothetical and unauthenticated. Neither is ever
+replaced with model targets. See
+[[docs/design/reported-position-book-risk]].
 
 The Factor, Portfolio, and RL templates publish a nested `research_integrity`
 metric
@@ -659,6 +663,16 @@ cannot be held. Intake verifies that `asOf` lies in the closed dataset range
 and derives the immutable-provenance
 `strategies/position-snapshot.json`; the source fields still do not
 authenticate the account.
+Optional `positionScenarios` contains one to eight complete books. Every item
+has a unique lowercase kebab-case `id`, a display `name`,
+`kind: hypothetical-weights`, the exact baseline `asOf` and `baseCurrency`,
+non-zero requested/non-context `weights`, and `cashWeight`. Each scenario must
+fund to one, differ from the baseline and every other scenario, and remain
+within the same exposure bounds. Complete books are required deliberately:
+Core never infers a funding leg, residual cash, renormalization, or unchanged
+position from a sparse delta. The derived dependency assigns
+`caller-hypothetical-not-authenticated` position truth and no trading
+authority to every scenario.
 `brief.json` is derived from that request plus Project/Session/Study identity,
 baseline, objective, dataset, Judge, and Harness locks. Its authority is
 `research-prioritization`; trading authority is `none`. Every Session load

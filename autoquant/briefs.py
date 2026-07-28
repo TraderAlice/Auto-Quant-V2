@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -65,6 +66,8 @@ PORTFOLIO_POLICY_FIELDS = {
 }
 DECISION_ANCHORS = {"dataset-start", "session-start"}
 POSITION_SNAPSHOT_KINDS = {"reported-weights", "hypothetical-weights"}
+POSITION_SCENARIO_ID = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+MAX_POSITION_SCENARIOS = 8
 
 
 def _issue(path: Path | str, code: str, message: str) -> ValidationIssue:
@@ -324,6 +327,182 @@ def _normalize_position_snapshot(
     }
 
 
+def _normalize_position_scenarios(
+    value: Any,
+    baseline: dict[str, Any] | None,
+    path: str,
+    issues: list[ValidationIssue],
+) -> list[dict[str, Any]] | None:
+    if not isinstance(value, list) or not 1 <= len(value) <= MAX_POSITION_SCENARIOS:
+        issues.append(
+            _issue(
+                path,
+                "request.position-scenarios-count",
+                "positionScenarios must contain one to "
+                f"{MAX_POSITION_SCENARIOS} complete hypothetical books",
+            )
+        )
+        return None
+    if baseline is None:
+        issues.append(
+            _issue(
+                path,
+                "request.position-scenarios-baseline",
+                "positionScenarios requires a valid positionSnapshot baseline",
+            )
+        )
+        return None
+    normalized: list[dict[str, Any]] = []
+    identifiers: set[str] = set()
+    books = {
+        json.dumps(
+            {
+                "weights": baseline["weights"],
+                "cashWeight": baseline["cashWeight"],
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+    }
+    for index, raw in enumerate(value):
+        item_path = f"{path}/{index}"
+        if not isinstance(raw, dict):
+            issues.append(
+                _issue(
+                    item_path,
+                    "schema.type",
+                    "Each position scenario must be an object",
+                )
+            )
+            continue
+        issues.extend(
+            _strict_keys(
+                raw,
+                {
+                    "id",
+                    "name",
+                    "kind",
+                    "asOf",
+                    "baseCurrency",
+                    "weights",
+                    "cashWeight",
+                },
+                item_path,
+            )
+        )
+        identifier = raw.get("id")
+        name = raw.get("name")
+        if (
+            not isinstance(identifier, str)
+            or not 1 <= len(identifier) <= 64
+            or not POSITION_SCENARIO_ID.fullmatch(identifier)
+        ):
+            issues.append(
+                _issue(
+                    f"{item_path}/id",
+                    "request.position-scenario-id",
+                    "Scenario id must be a 1..64 character lowercase "
+                    "kebab-case identifier",
+                )
+            )
+        elif identifier in identifiers:
+            issues.append(
+                _issue(
+                    f"{item_path}/id",
+                    "request.position-scenario-duplicate-id",
+                    "Scenario ids must be unique",
+                )
+            )
+        else:
+            identifiers.add(identifier)
+        if (
+            not isinstance(name, str)
+            or not name.strip()
+            or len(name.strip()) > 120
+        ):
+            issues.append(
+                _issue(
+                    f"{item_path}/name",
+                    "request.position-scenario-name",
+                    "Scenario name must be a non-empty string of at most "
+                    "120 characters",
+                )
+            )
+        snapshot = _normalize_position_snapshot(
+            {
+                key: raw.get(key)
+                for key in (
+                    "kind",
+                    "asOf",
+                    "baseCurrency",
+                    "weights",
+                    "cashWeight",
+                )
+            },
+            item_path,
+            issues,
+        )
+        if snapshot is None:
+            continue
+        if snapshot["kind"] != "hypothetical-weights":
+            issues.append(
+                _issue(
+                    f"{item_path}/kind",
+                    "request.position-scenario-kind",
+                    "Position scenarios must be hypothetical-weights",
+                )
+            )
+        if snapshot["asOf"] != baseline["asOf"]:
+            issues.append(
+                _issue(
+                    f"{item_path}/asOf",
+                    "request.position-scenario-time",
+                    "Scenario asOf must exactly match the baseline",
+                )
+            )
+        if snapshot["baseCurrency"] != baseline["baseCurrency"]:
+            issues.append(
+                _issue(
+                    f"{item_path}/baseCurrency",
+                    "request.position-scenario-currency",
+                    "Scenario baseCurrency must exactly match the baseline",
+                )
+            )
+        book = json.dumps(
+            {
+                "weights": snapshot["weights"],
+                "cashWeight": snapshot["cashWeight"],
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        if book in books:
+            issues.append(
+                _issue(
+                    item_path,
+                    "request.position-scenario-duplicate-book",
+                    "Each scenario must differ from the baseline and every "
+                    "other scenario",
+                )
+            )
+        else:
+            books.add(book)
+        if (
+            isinstance(identifier, str)
+            and POSITION_SCENARIO_ID.fullmatch(identifier)
+            and isinstance(name, str)
+            and name.strip()
+        ):
+            normalized.append(
+                {
+                    "id": identifier,
+                    "name": name.strip(),
+                    **snapshot,
+                }
+            )
+    return normalized
+
+
 def validate_research_request(
     value: dict[str, Any],
     path: Path | str = "research-request",
@@ -354,6 +533,7 @@ def validate_research_request(
             "horizonPolicy",
             "factorPolicy",
             "positionSnapshot",
+            "positionScenarios",
         },
     )
     if value.get("schemaVersion") != SCHEMA_VERSION:
@@ -389,6 +569,14 @@ def validate_research_request(
         normalized_position_snapshot = _normalize_position_snapshot(
             value.get("positionSnapshot"),
             f"{path}/positionSnapshot",
+            issues,
+        )
+    normalized_position_scenarios: list[dict[str, Any]] | None = None
+    if "positionScenarios" in value:
+        normalized_position_scenarios = _normalize_position_scenarios(
+            value.get("positionScenarios"),
+            normalized_position_snapshot,
+            f"{path}/positionScenarios",
             issues,
         )
     benchmark_policy = value.get("benchmarkPolicy")
@@ -941,6 +1129,27 @@ def validate_research_request(
                         "A context-only asset cannot appear in the position snapshot",
                     )
                 )
+        for index, scenario in enumerate(
+            normalized_position_scenarios or []
+        ):
+            for symbol in scenario["weights"]:
+                if symbol not in requested_roles:
+                    issues.append(
+                        _issue(
+                            f"{path}/positionScenarios/{index}/weights/{symbol}",
+                            "request.position-scenario-unrequested",
+                            "Scenario weights may name requested assets only",
+                        )
+                    )
+                elif requested_roles.get(symbol) == "context-only":
+                    issues.append(
+                        _issue(
+                            f"{path}/positionScenarios/{index}/weights/{symbol}",
+                            "request.position-scenario-context-only",
+                            "A context-only asset cannot appear in a "
+                            "position scenario",
+                        )
+                    )
 
     source = value.get("source")
     if not isinstance(source, dict):
@@ -1031,6 +1240,11 @@ def validate_research_request(
         **(
             {"positionSnapshot": normalized_position_snapshot}
             if "positionSnapshot" in value
+            else {}
+        ),
+        **(
+            {"positionScenarios": normalized_position_scenarios}
+            if "positionScenarios" in value
             else {}
         ),
         "horizon": value["horizon"].strip(),
@@ -1376,6 +1590,59 @@ RESEARCH_REQUEST_JSON_SCHEMA: dict[str, Any] = {
                     "type": "number",
                     "minimum": -3,
                     "maximum": 3,
+                },
+            },
+        },
+        "positionScenarios": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": MAX_POSITION_SCENARIOS,
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": [
+                    "id",
+                    "name",
+                    "kind",
+                    "asOf",
+                    "baseCurrency",
+                    "weights",
+                    "cashWeight",
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 64,
+                        "pattern": POSITION_SCENARIO_ID.pattern,
+                    },
+                    "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 120,
+                    },
+                    "kind": {"const": "hypothetical-weights"},
+                    "asOf": {"type": "string", "format": "date-time"},
+                    "baseCurrency": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 16,
+                    },
+                    "weights": {
+                        "type": "object",
+                        "minProperties": 1,
+                        "maxProperties": 256,
+                        "additionalProperties": {
+                            "type": "number",
+                            "minimum": -2,
+                            "maximum": 2,
+                        },
+                    },
+                    "cashWeight": {
+                        "type": "number",
+                        "minimum": -3,
+                        "maximum": 3,
+                    },
                 },
             },
         },

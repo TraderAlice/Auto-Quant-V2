@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import json
 import subprocess
 import sys
@@ -78,6 +79,55 @@ def _book_request(path: Path) -> None:
     )
 
 
+def _book_scenario_request(path: Path) -> None:
+    _book_request(path)
+    request = json.loads(path.read_text(encoding="utf-8"))
+    request["assets"].append(
+        {
+            "symbol": "TSLA",
+            "assetClass": "equity",
+            "venue": "US-COMPOSITE",
+            "positionRole": "long-only",
+        }
+    )
+    request["positionScenarios"] = [
+        {
+            "id": "fund-tsla-from-nvda",
+            "name": "Fund TSLA from NVDA",
+            "kind": "hypothetical-weights",
+            "asOf": "2024-12-30T21:00:00Z",
+            "baseCurrency": "USD",
+            "weights": {
+                "AAPL": 0.20,
+                "MSFT": 0.25,
+                "NVDA": 0.20,
+                "QQQ": 0.25,
+                "TSLA": 0.10,
+            },
+            "cashWeight": 0.0,
+        },
+        {
+            "id": "fund-tsla-from-qqq",
+            "name": "Fund TSLA from QQQ",
+            "kind": "hypothetical-weights",
+            "asOf": "2024-12-30T21:00:00Z",
+            "baseCurrency": "USD",
+            "weights": {
+                "AAPL": 0.20,
+                "MSFT": 0.25,
+                "NVDA": 0.30,
+                "QQQ": 0.15,
+                "TSLA": 0.10,
+            },
+            "cashWeight": 0.0,
+        },
+    ]
+    path.write_text(
+        json.dumps(request, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+
 def _rehash_run(run_root: Path) -> None:
     manifest_path = run_root / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -116,6 +166,34 @@ class BookRiskLabTests(unittest.TestCase):
         return create_project(
             workspace.root_dir,
             "reported-book",
+            template=prepared.template,
+            template_intake=prepared,
+        )
+
+    def _scenario_project(self, root: Path):
+        request_path, package_path = write_intake_inputs(
+            root,
+            observations=260,
+            assets=("AAPL", "MSFT", "NVDA", "QQQ", "TSLA"),
+            request_assets=("AAPL", "MSFT", "NVDA", "QQQ", "TSLA"),
+            asset_position_roles={
+                "AAPL": "long-only",
+                "MSFT": "long-only",
+                "NVDA": "long-only",
+                "QQQ": "long-only",
+                "TSLA": "long-only",
+            },
+        )
+        _book_scenario_request(request_path)
+        prepared = prepare_project_intake(
+            request_path,
+            package_path,
+            "ohlcv-book-risk-lab",
+        )
+        workspace = initialize_workspace(root / "workspace")
+        return create_project(
+            workspace.root_dir,
+            "reported-book-scenarios",
             template=prepared.template,
             template_intake=prepared,
         )
@@ -257,6 +335,144 @@ class BookRiskLabTests(unittest.TestCase):
             self.assertEqual(
                 [action["id"] for action in envelope["nextActions"]],
                 ["study.inspect", "run.execute"],
+            )
+
+    def test_caller_supplied_funded_scenarios_share_one_fixed_run(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = self._scenario_project(Path(directory))
+            snapshot = load_position_snapshot(
+                project.root_dir / POSITION_SNAPSHOT
+            )
+            self.assertEqual(
+                [item["id"] for item in snapshot["scenarios"]],
+                ["fund-tsla-from-nvda", "fund-tsla-from-qqq"],
+            )
+            self.assertEqual(
+                {
+                    item["authority"]["positionTruth"]
+                    for item in snapshot["scenarios"]
+                },
+                {"caller-hypothetical-not-authenticated"},
+            )
+            run = execute_study(project, BOOK_RISK_STUDY_ID)
+            self.assertEqual(run.result["status"], "succeeded")
+            self.assertEqual(run.result["metrics"]["scenario_count"], 2)
+            diagnostics = load_book_risk_diagnostics(
+                project,
+                run.result["id"],
+                point_limit=20,
+            )
+            jsonschema.validate(
+                diagnostics,
+                BOOK_RISK_DIAGNOSTICS_JSON_SCHEMA,
+            )
+            comparison = diagnostics["scenarioComparison"]
+            self.assertEqual(
+                comparison["comparisonUniverse"],
+                ["AAPL", "MSFT", "NVDA", "QQQ", "TSLA"],
+            )
+            self.assertEqual(len(comparison["baselineLookbacks"]), 3)
+            self.assertEqual(len(comparison["scenarios"]), 2)
+            for lookback_index in range(3):
+                self.assertEqual(
+                    sorted(
+                        int(scenario["lookbacks"][lookback_index][
+                            "volatilityRank"
+                        ])
+                        for scenario in comparison["scenarios"]
+                    ),
+                    [1, 2],
+                )
+            for scenario in comparison["scenarios"]:
+                self.assertEqual(
+                    len(scenario["primaryContributions"]),
+                    5,
+                )
+                self.assertAlmostEqual(
+                    sum(
+                        row["scenarioAbsoluteRiskShare"]
+                        for row in scenario["primaryContributions"]
+                    ),
+                    1.0,
+                )
+            observed = build_studio_snapshot(project.root_dir)["projects"][0]
+            self.assertEqual(
+                len(
+                    observed["bookRiskExplorer"][
+                        "scenarioComparison"
+                    ]["scenarios"]
+                ),
+                2,
+            )
+            brief = build_agent_work_brief(project)
+            self.assertEqual(
+                brief["researchAgenda"]["status"],
+                "descriptive-audit-complete",
+            )
+            self.assertEqual(brief["researchAgenda"]["moves"], [])
+
+    def test_position_scenarios_reject_ambiguous_or_unauthorized_books(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            request_path, package_path = write_intake_inputs(
+                root,
+                assets=("AAPL", "MSFT", "NVDA", "QQQ", "TSLA"),
+                request_assets=("AAPL", "MSFT", "NVDA", "QQQ", "TSLA"),
+                asset_position_roles={
+                    "AAPL": "long-only",
+                    "MSFT": "long-only",
+                    "NVDA": "long-only",
+                    "QQQ": "long-only",
+                    "TSLA": "long-only",
+                },
+            )
+            _book_scenario_request(request_path)
+            request = json.loads(request_path.read_text(encoding="utf-8"))
+            request["positionScenarios"][1]["id"] = request[
+                "positionScenarios"
+            ][0]["id"]
+            request["positionScenarios"][1]["asOf"] = (
+                "2024-12-29T21:00:00Z"
+            )
+            request["positionScenarios"][1]["weights"] = dict(
+                request["positionSnapshot"]["weights"]
+            )
+            request_path.write_text(
+                json.dumps(request, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            with self.assertRaises(AutoQuantValidationError) as captured:
+                prepare_project_intake(
+                    request_path,
+                    package_path,
+                    "ohlcv-book-risk-lab",
+                )
+            codes = {issue.code for issue in captured.exception.issues}
+            self.assertIn("request.position-scenario-duplicate-id", codes)
+            self.assertIn("request.position-scenario-time", codes)
+            self.assertIn("request.position-scenario-duplicate-book", codes)
+
+            _book_scenario_request(request_path)
+            request = json.loads(request_path.read_text(encoding="utf-8"))
+            request["positionScenarios"][0]["weights"]["UNREQUESTED"] = 0.10
+            request["positionScenarios"][0]["weights"]["NVDA"] -= 0.10
+            request_path.write_text(
+                json.dumps(request, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            with self.assertRaises(AutoQuantValidationError) as captured:
+                prepare_project_intake(
+                    request_path,
+                    package_path,
+                    "ohlcv-book-risk-lab",
+                )
+            self.assertIn(
+                "request.position-scenario-unrequested",
+                {issue.code for issue in captured.exception.issues},
             )
 
     def test_book_risk_intake_requires_funded_position_snapshot(self) -> None:
@@ -409,5 +625,130 @@ class BookRiskLabTests(unittest.TestCase):
                 load_book_risk_diagnostics(project, run.result["id"])
             self.assertIn(
                 "book-risk.schema",
+                {issue.code for issue in captured.exception.issues},
+            )
+
+    def test_explorer_rejects_rehashed_scenario_delta_and_csv_tampering(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = self._scenario_project(Path(directory))
+            run = execute_study(project, BOOK_RISK_STUDY_ID)
+            report_path = (
+                run.root_dir / "artifacts" / "book-risk-report.json"
+            )
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+            report["scenarioComparison"]["scenarios"][0]["lookbacks"][0][
+                "annualizedVolatilityDelta"
+            ] += 0.01
+            report_path.write_text(
+                json.dumps(report, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            _rehash_run(run.root_dir)
+            with self.assertRaises(AutoQuantValidationError) as captured:
+                load_book_risk_diagnostics(project, run.result["id"])
+            self.assertIn(
+                "book-risk.reconcile",
+                {issue.code for issue in captured.exception.issues},
+            )
+
+        with tempfile.TemporaryDirectory() as directory:
+            project = self._scenario_project(Path(directory))
+            run = execute_study(project, BOOK_RISK_STUDY_ID)
+            csv_path = (
+                run.root_dir
+                / "artifacts"
+                / "book-risk-scenario-comparisons.csv"
+            )
+            with csv_path.open(
+                "r",
+                encoding="utf-8",
+                newline="",
+            ) as handle:
+                reader = csv.DictReader(handle)
+                rows = list(reader)
+                fields = list(reader.fieldnames or [])
+            rows[0]["annualizedVolatilityDelta"] = str(
+                float(rows[0]["annualizedVolatilityDelta"]) + 0.01
+            )
+            with csv_path.open(
+                "w",
+                encoding="utf-8",
+                newline="",
+            ) as handle:
+                writer = csv.DictWriter(handle, fieldnames=fields)
+                writer.writeheader()
+                writer.writerows(rows)
+            _rehash_run(run.root_dir)
+            with self.assertRaises(AutoQuantValidationError) as captured:
+                load_book_risk_diagnostics(project, run.result["id"])
+            self.assertIn(
+                "book-risk.scenario-comparisons",
+                {issue.code for issue in captured.exception.issues},
+            )
+
+        with tempfile.TemporaryDirectory() as directory:
+            project = self._scenario_project(Path(directory))
+            run = execute_study(project, BOOK_RISK_STUDY_ID)
+            report_path = (
+                run.root_dir / "artifacts" / "book-risk-report.json"
+            )
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+            primary = next(
+                row
+                for row in report["scenarioComparison"]["scenarios"][0][
+                    "lookbacks"
+                ]
+                if row["lookbackBars"]
+                == report["method"]["primaryLookbackBars"]
+            )
+            replacement = next(
+                asset
+                for asset in report["scenarioComparison"][
+                    "comparisonUniverse"
+                ]
+                if asset
+                != primary["largestAbsoluteRiskContributor"]
+            )
+            primary["largestAbsoluteRiskContributor"] = replacement
+            comparison_path = (
+                run.root_dir
+                / "artifacts"
+                / "book-risk-scenario-comparisons.csv"
+            )
+            with comparison_path.open(
+                "r",
+                encoding="utf-8",
+                newline="",
+            ) as handle:
+                reader = csv.DictReader(handle)
+                rows = list(reader)
+                fields = list(reader.fieldnames or [])
+            for row in rows:
+                if (
+                    row["scenarioId"]
+                    == report["scenarioComparison"]["scenarios"][0]["id"]
+                    and int(row["lookbackBars"])
+                    == report["method"]["primaryLookbackBars"]
+                ):
+                    row["largestAbsoluteRiskContributor"] = replacement
+            report_path.write_text(
+                json.dumps(report, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            with comparison_path.open(
+                "w",
+                encoding="utf-8",
+                newline="",
+            ) as handle:
+                writer = csv.DictWriter(handle, fieldnames=fields)
+                writer.writeheader()
+                writer.writerows(rows)
+            _rehash_run(run.root_dir)
+            with self.assertRaises(AutoQuantValidationError) as captured:
+                load_book_risk_diagnostics(project, run.result["id"])
+            self.assertIn(
+                "book-risk.scenario-contributor",
                 {issue.code for issue in captured.exception.issues},
             )

@@ -1314,6 +1314,7 @@ def prepare_project_intake(
         except AutoQuantValidationError as error:
             issues.extend(error.issues)
     position_snapshot = request.get("positionSnapshot")
+    position_scenarios = request.get("positionScenarios")
     if (
         position_snapshot is not None
         and template != "ohlcv-book-risk-lab"
@@ -1323,6 +1324,18 @@ def prepare_project_intake(
                 "request/positionSnapshot",
                 "request.position-snapshot-template",
                 "positionSnapshot is consumed only by "
+                "ohlcv-book-risk-lab",
+            )
+        )
+    if (
+        position_scenarios is not None
+        and template != "ohlcv-book-risk-lab"
+    ):
+        issues.append(
+            _issue(
+                "request/positionScenarios",
+                "request.position-scenarios-template",
+                "positionScenarios is consumed only by "
                 "ohlcv-book-risk-lab",
             )
         )

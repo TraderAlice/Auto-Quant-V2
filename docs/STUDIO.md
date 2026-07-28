@@ -121,12 +121,16 @@ Exact nested metrics, decision ledgers, daily slices, models, training
 histories, actions, and artifacts remain in the verified Run.
 
 The Reported Book Risk Explorer is the dedicated existing-holdings view. Core
-first verifies the frozen external-reported position snapshot and every
-cross-artifact relationship. Studio then shows the primary-window summary,
-63/126/252-bar stability, per-asset signed and absolute component risk,
-one-percentage-point reductions toward cash, pairwise correlations, and
-rolling crowding context. It never substitutes Portfolio model targets,
-authenticates the supplied book, optimizes a replacement portfolio, or creates
+first verifies the frozen external-reported baseline, any caller-specified
+hypothetical books, and every cross-artifact relationship. Studio then shows
+the primary-window summary, 63/126/252-bar stability, per-asset signed and
+absolute component risk, one-percentage-point reductions toward cash, pairwise
+correlations, rolling crowding context, and a same-window scenario table.
+For every supplied book the scenario panel exposes volatility rank and delta,
+HHI/effective-bet deltas, largest contributor, and primary-window per-asset
+weight/risk-share changes. The rank orders only the supplied books; it does not
+search or select weights. Studio never substitutes Portfolio model targets,
+authenticates a supplied book, optimizes a replacement portfolio, or creates
 an order. Use
 `aq run book-risk <path> --run ID --points N --json` for the exact read model.
 

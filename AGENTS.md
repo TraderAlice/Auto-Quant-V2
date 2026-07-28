@@ -65,9 +65,12 @@ brief that another Agent can recover from the filesystem.
 When a caller asks about an existing book, do not substitute historical model
 targets for current holdings. If the caller or delegating Agent can supply one
 explicit reported or hypothetical funded weight snapshot, the
-`ohlcv-book-risk-lab` can perform a fixed descriptive audit. Treat the
-snapshot as unauthenticated external input, return its verified evidence, and
-leave live account reconciliation and execution to OpenAlice/UTA. See
+`ohlcv-book-risk-lab` can perform a fixed descriptive audit. A conditional
+question may additionally supply up to eight explicitly named, complete funded
+hypothetical books at the same time and currency; never invent or search those
+scenarios. Treat every snapshot as unauthenticated external input, return its
+verified evidence, and leave live account reconciliation and execution to
+OpenAlice/UTA. See
 [[docs/design/reported-position-book-risk]].
 
 English is the working language inside the AutoQuant desk: use it for

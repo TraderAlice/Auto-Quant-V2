@@ -20,6 +20,16 @@ from .workspace import (
 POSITION_SNAPSHOT = "strategies/position-snapshot.json"
 POSITION_SNAPSHOT_KIND = "autoquant-position-snapshot"
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
+SCENARIO_ID = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+MAX_SCENARIOS = 8
+BASELINE_AUTHORITY = {
+    "positionTruth": "external-reported-not-authenticated",
+    "tradingAuthority": "none",
+}
+SCENARIO_AUTHORITY = {
+    "positionTruth": "caller-hypothetical-not-authenticated",
+    "tradingAuthority": "none",
+}
 
 
 def _issue(path: Path | str, code: str, message: str) -> ValidationIssue:
@@ -56,11 +66,70 @@ def build_position_snapshot(request: dict[str, Any]) -> dict[str, Any]:
         "baseCurrency": source["baseCurrency"],
         "weights": dict(source["weights"]),
         "cashWeight": float(source["cashWeight"]),
-        "authority": {
-            "positionTruth": "external-reported-not-authenticated",
-            "tradingAuthority": "none",
-        },
+        "authority": dict(BASELINE_AUTHORITY),
+        "scenarios": [
+            {
+                "id": scenario["id"],
+                "name": scenario["name"],
+                "snapshotKind": scenario["kind"],
+                "asOf": scenario["asOf"],
+                "baseCurrency": scenario["baseCurrency"],
+                "weights": dict(scenario["weights"]),
+                "cashWeight": float(scenario["cashWeight"]),
+                "authority": dict(SCENARIO_AUTHORITY),
+            }
+            for scenario in request.get("positionScenarios", [])
+        ],
     }
+
+
+def _valid_funded_weights(weights: Any, cash: Any) -> bool:
+    return bool(
+        isinstance(weights, dict)
+        and weights
+        and len(weights) <= 256
+        and all(
+            isinstance(symbol, str)
+            and symbol == symbol.strip()
+            and bool(symbol)
+            and isinstance(weight, (int, float))
+            and not isinstance(weight, bool)
+            and math.isfinite(float(weight))
+            and 1e-12 < abs(float(weight)) <= 2
+            for symbol, weight in weights.items()
+        )
+        and isinstance(cash, (int, float))
+        and not isinstance(cash, bool)
+        and math.isfinite(float(cash))
+        and -3 <= float(cash) <= 3
+        and sum(abs(float(weight)) for weight in weights.values())
+        <= 4 + 1e-12
+        and math.isclose(
+            sum(float(weight) for weight in weights.values()) + float(cash),
+            1.0,
+            rel_tol=0.0,
+            abs_tol=1e-9,
+        )
+    )
+
+
+def _valid_identity(as_of: Any, base_currency: Any) -> bool:
+    try:
+        parsed_as_of = (
+            datetime.fromisoformat(as_of.replace("Z", "+00:00"))
+            if isinstance(as_of, str)
+            else None
+        )
+    except ValueError:
+        parsed_as_of = None
+    return bool(
+        parsed_as_of is not None
+        and parsed_as_of.tzinfo is not None
+        and isinstance(base_currency, str)
+        and bool(base_currency)
+        and base_currency == base_currency.strip().upper()
+        and len(base_currency) <= 16
+    )
 
 
 def validate_position_snapshot(
@@ -78,6 +147,7 @@ def validate_position_snapshot(
         "weights",
         "cashWeight",
         "authority",
+        "scenarios",
     }
     issues = [
         *(
@@ -140,33 +210,7 @@ def validate_position_snapshot(
         )
     weights = value.get("weights")
     cash = value.get("cashWeight")
-    if (
-        not isinstance(weights, dict)
-        or not weights
-        or len(weights) > 256
-        or not all(
-            isinstance(symbol, str)
-            and symbol == symbol.strip()
-            and bool(symbol)
-            and isinstance(weight, (int, float))
-            and not isinstance(weight, bool)
-            and math.isfinite(float(weight))
-            and 1e-12 < abs(float(weight)) <= 2
-            for symbol, weight in weights.items()
-        )
-        or not isinstance(cash, (int, float))
-        or isinstance(cash, bool)
-        or not math.isfinite(float(cash))
-        or not -3 <= float(cash) <= 3
-        or sum(abs(float(weight)) for weight in weights.values())
-        > 4 + 1e-12
-        or not math.isclose(
-            sum(float(weight) for weight in weights.values()) + float(cash),
-            1.0,
-            rel_tol=0.0,
-            abs_tol=1e-9,
-        )
-    ):
+    if not _valid_funded_weights(weights, cash):
         issues.append(
             _issue(
                 path,
@@ -186,30 +230,12 @@ def validate_position_snapshot(
             )
         )
     as_of = value.get("asOf")
-    try:
-        parsed_as_of = (
-            datetime.fromisoformat(as_of.replace("Z", "+00:00"))
-            if isinstance(as_of, str)
-            else None
-        )
-    except ValueError:
-        parsed_as_of = None
     base_currency = value.get("baseCurrency")
-    if (
-        parsed_as_of is None
-        or parsed_as_of.tzinfo is None
-        or not isinstance(base_currency, str)
-        or not base_currency
-        or base_currency != base_currency.strip().upper()
-        or len(base_currency) > 16
-    ):
+    if not _valid_identity(as_of, base_currency):
         issues.append(
             _issue(path, "position-snapshot.identity", "Invalid snapshot identity")
         )
-    if value.get("authority") != {
-        "positionTruth": "external-reported-not-authenticated",
-        "tradingAuthority": "none",
-    }:
+    if value.get("authority") != BASELINE_AUTHORITY:
         issues.append(
             _issue(
                 f"{path}/authority",
@@ -217,6 +243,110 @@ def validate_position_snapshot(
                 "Position snapshot authority differs from the fixed boundary",
             )
         )
+    scenarios = value.get("scenarios")
+    if (
+        not isinstance(scenarios, list)
+        or len(scenarios) > MAX_SCENARIOS
+        or not all(isinstance(item, dict) for item in scenarios)
+    ):
+        issues.append(
+            _issue(
+                f"{path}/scenarios",
+                "position-snapshot.scenarios",
+                "Position scenarios must be a bounded array of objects",
+            )
+        )
+        scenarios = []
+    scenario_ids: set[str] = set()
+    books = {
+        json.dumps(
+            {"weights": weights, "cashWeight": cash},
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        if isinstance(weights, dict)
+        else ""
+    }
+    scenario_keys = {
+        "id",
+        "name",
+        "snapshotKind",
+        "asOf",
+        "baseCurrency",
+        "weights",
+        "cashWeight",
+        "authority",
+    }
+    for index, scenario in enumerate(scenarios):
+        scenario_path = f"{path}/scenarios/{index}"
+        if set(scenario) != scenario_keys:
+            issues.append(
+                _issue(
+                    scenario_path,
+                    "position-snapshot.scenario-schema",
+                    "Scenario fields differ from the fixed contract",
+                )
+            )
+            continue
+        identifier = scenario.get("id")
+        name = scenario.get("name")
+        if (
+            not isinstance(identifier, str)
+            or not 1 <= len(identifier) <= 64
+            or not SCENARIO_ID.fullmatch(identifier)
+            or identifier in scenario_ids
+            or not isinstance(name, str)
+            or not name
+            or name != name.strip()
+            or len(name) > 120
+        ):
+            issues.append(
+                _issue(
+                    scenario_path,
+                    "position-snapshot.scenario-identity",
+                    "Scenario id or name is invalid or duplicated",
+                )
+            )
+        elif isinstance(identifier, str):
+            scenario_ids.add(identifier)
+        if (
+            scenario.get("snapshotKind") != "hypothetical-weights"
+            or scenario.get("asOf") != as_of
+            or scenario.get("baseCurrency") != base_currency
+            or scenario.get("authority") != SCENARIO_AUTHORITY
+            or not _valid_identity(
+                scenario.get("asOf"),
+                scenario.get("baseCurrency"),
+            )
+            or not _valid_funded_weights(
+                scenario.get("weights"),
+                scenario.get("cashWeight"),
+            )
+        ):
+            issues.append(
+                _issue(
+                    scenario_path,
+                    "position-snapshot.scenario",
+                    "Scenario identity, authority, or funded weights are invalid",
+                )
+            )
+        scenario_book = json.dumps(
+            {
+                "weights": scenario.get("weights"),
+                "cashWeight": scenario.get("cashWeight"),
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        if scenario_book in books:
+            issues.append(
+                _issue(
+                    scenario_path,
+                    "position-snapshot.scenario-duplicate-book",
+                    "Scenario books must be unique and differ from baseline",
+                )
+            )
+        books.add(scenario_book)
     if issues:
         raise AutoQuantValidationError(issues)
     return value

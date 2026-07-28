@@ -802,7 +802,7 @@ def _apply_ohlcv_book_risk_lab(
     project: ProjectContext,
     intake: PreparedIntake | None = None,
 ) -> None:
-    """Create a fixed reported-position covariance and reduction audit."""
+    """Create a fixed reported-book and supplied-scenario covariance audit."""
 
     template = "ohlcv_book_risk_lab"
     if intake is None:
@@ -911,8 +911,8 @@ def _apply_ohlcv_book_risk_lab(
         id=BOOK_RISK_STUDY_ID,
         name="OHLCV Reported Book Risk",
         description=(
-            "Audit covariance crowding and standardized reduction sensitivity "
-            "for one explicit reported-position snapshot"
+            "Audit one explicit reported book plus any caller-supplied "
+            "complete scenarios under one fixed covariance model"
         ),
         program="program.md",
         subject=StudySubject("research", "reported-book-risk", "working"),

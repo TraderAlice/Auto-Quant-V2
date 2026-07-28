@@ -82,10 +82,10 @@ and descriptive-authority boundary.
 
 - [x] Preserve a `0.6.0` failure reproduction showing the current single-book
   Lab cannot answer the bounded comparison.
-- [ ] Define the smallest strict request and derived snapshot/scenario contract.
-- [ ] Implement fixed Judge artifacts, Run schema, strict Explorer, CLI,
+- [x] Define the smallest strict request and derived snapshot/scenario contract.
+- [x] Implement fixed Judge artifacts, Run schema, strict Explorer, CLI,
   orientation, and Studio projection.
-- [ ] Add deterministic success, malformed-input, tamper, and authority tests.
+- [x] Add deterministic success, malformed-input, tamper, and authority tests.
 - [ ] Execute and interpret the clean real Yahoo field trial.
 - [ ] Complete release audit, record evidence, commit, push, and close the plan.
 
@@ -106,6 +106,20 @@ and descriptive-authority boundary.
   Orientation therefore offers a baseline Run that cannot answer the actual
   two-proposal question. The Agent correctly stopped before manufacturing a
   successful but irrelevant result.
+- 2026-07-28 — The `0.7.0` contract accepts one to eight named complete
+  `hypothetical-weights` books, not sparse transfers. Each book shares the
+  baseline timestamp/currency, remains within requested non-context authority,
+  is independently funded, and is frozen with explicit
+  `caller-hypothetical-not-authenticated` / no-trading authority.
+- 2026-07-28 — Scenario comparison uses the ordered union of baseline and
+  supplied assets and one common return panel for every book. The fixed Judge
+  emits three-window volatility/HHI/effective-bet deltas and ranks only the
+  supplied books; primary-window per-asset contribution changes make the
+  result explainable without granting optimization authority.
+- 2026-07-28 — The strict Explorer reconciles frozen books, scenario ranks and
+  deltas, CSV/report identity, weight deltas, component-variance sums,
+  risk-share sums/HHI, and largest-contributor identity. Rehashed semantic
+  tampering is rejected even when the Run manifest is recomputed.
 
 ## Verification
 
@@ -120,6 +134,16 @@ and descriptive-authority boundary.
 - The Project's English `research.md` records complete baseline and scenario
   weights; `framework-needs.md` records the missing contract and rejects
   unrelated-Project comparison as an unaudited workaround.
+- `uv run python -m compileall -q autoquant tests`,
+  `node --check autoquant/studio_assets/studio.js`, and
+  `uv run python -m unittest tests.test_book_risk_lab` pass with eight focused
+  baseline, success, malformed-input, authority, lifecycle, and rehashed
+  tamper tests.
+- `uv run python -m unittest tests.test_book_risk_lab tests.test_intake
+  tests.test_cli tests.test_orientation tests.test_studio tests.test_version`
+  passes all 62 cross-boundary tests in 386.866 seconds. Research,
+  documentation, and version tests pass seven additional checks; all 959
+  documentation double-links resolve.
 
 ## Progress log
 
@@ -127,6 +151,9 @@ and descriptive-authority boundary.
   the baseline audit and exposed the next practical current-book question.
 - 2026-07-28 — Preserved the `0.6.0` failure reproduction and stopped before
   running a baseline-only Study that would not answer the delegated question.
+- 2026-07-28 — Implemented the strict `0.7.0` complete-book scenario contract,
+  fixed Judge evidence, Explorer reconciliation, CLI/Studio projection, and
+  focused tests. Clean Yahoo field execution and release audit remain.
 
 ## Completion
 

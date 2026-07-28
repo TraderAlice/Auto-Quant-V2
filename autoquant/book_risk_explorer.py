@@ -28,6 +28,12 @@ ARTIFACTS = {
     "book-risk-reductions": "book-risk-reductions.csv",
     "book-risk-correlations": "book-risk-correlations.csv",
     "book-risk-path": "book-risk-path.csv",
+    "book-risk-scenario-comparisons": (
+        "book-risk-scenario-comparisons.csv"
+    ),
+    "book-risk-scenario-contributions": (
+        "book-risk-scenario-contributions.csv"
+    ),
 }
 CONTRIBUTION_COLUMNS = (
     "asset",
@@ -58,6 +64,34 @@ PATH_COLUMNS = (
     "componentRiskHhi",
     "effectiveRiskBets",
     "firstPrincipalComponentVarianceShare",
+)
+SCENARIO_COMPARISON_COLUMNS = (
+    "scenarioId",
+    "scenarioName",
+    "volatilityRank",
+    "lookbackBars",
+    "observations",
+    "annualizedVolatility",
+    "annualizedVolatilityDelta",
+    "componentRiskHhi",
+    "componentRiskHhiDelta",
+    "effectiveRiskBets",
+    "effectiveRiskBetsDelta",
+    "largestAbsoluteRiskContributor",
+    "largestAbsoluteRiskContributorShare",
+)
+SCENARIO_CONTRIBUTION_COLUMNS = (
+    "scenarioId",
+    "asset",
+    "baselineWeight",
+    "scenarioWeight",
+    "weightDelta",
+    "baselineComponentVariance",
+    "scenarioComponentVariance",
+    "componentVarianceDelta",
+    "baselineAbsoluteRiskShare",
+    "scenarioAbsoluteRiskShare",
+    "absoluteRiskShareDelta",
 )
 
 
@@ -117,6 +151,8 @@ def _read_object(path: Path) -> dict[str, Any]:
 def _csv_rows(
     path: Path,
     columns: tuple[str, ...],
+    *,
+    allow_empty: bool = False,
 ) -> list[dict[str, str]]:
     try:
         with path.open("r", encoding="utf-8", newline="") as handle:
@@ -130,7 +166,7 @@ def _csv_rows(
             rows = list(reader)
     except OSError as error:
         _fail(path, "book-risk.csv", f"Cannot read CSV evidence: {error}")
-    if not rows or any(
+    if (not allow_empty and not rows) or any(
         None in row or any(value is None for value in row.values())
         for row in rows
     ):
@@ -213,6 +249,7 @@ def load_book_risk_diagnostics(
             "contributions",
             "pairwiseCorrelations",
             "reductions",
+            "scenarioComparison",
             "rollingSummary",
         },
         paths["book-risk-report"],
@@ -254,6 +291,7 @@ def load_book_risk_diagnostics(
         "marketEvidence": "content-locked-closed-ohlcv",
         "tradingAuthority": "none",
         "reductionMeaning": "standardized-historical-sensitivity",
+        "scenarioMeaning": "caller-specified-historical-comparison",
     }
     if report["authority"] != authority:
         _fail(
@@ -327,6 +365,15 @@ def load_book_risk_diagnostics(
             current_numeric[field],
             f"metrics/{metric}",
         )
+    frozen_scenarios = frozen_snapshot["scenarios"]
+    _close(
+        _finite(
+            run.result["metrics"].get("scenario_count"),
+            "metrics/scenario_count",
+        ),
+        float(len(frozen_scenarios)),
+        "metrics/scenario_count",
+    )
     method = _strict(
         report["method"],
         {
@@ -599,6 +646,462 @@ def load_book_risk_diagnostics(
             "book-risk.correlations",
             "Correlation evidence is invalid",
         )
+    comparison = _strict(
+        report["scenarioComparison"],
+        {
+            "comparisonUniverse",
+            "baselineLookbacks",
+            "scenarios",
+            "ranking",
+        },
+        f"{paths['book-risk-report']}/scenarioComparison",
+    )
+    expected_comparison_universe = list(frozen_snapshot["weights"])
+    for scenario in frozen_scenarios:
+        for asset in scenario["weights"]:
+            if asset not in expected_comparison_universe:
+                expected_comparison_universe.append(asset)
+    if comparison["comparisonUniverse"] != expected_comparison_universe:
+        _fail(
+            f"{paths['book-risk-report']}/scenarioComparison/comparisonUniverse",
+            "book-risk.scenario-universe",
+            "Scenario comparison universe differs from frozen books",
+        )
+    if comparison["ranking"] != {
+        "metric": "annualizedVolatilityDelta",
+        "direction": "minimize",
+        "selectionAuthority": "none",
+    }:
+        _fail(
+            f"{paths['book-risk-report']}/scenarioComparison/ranking",
+            "book-risk.scenario-ranking",
+            "Scenario ranking authority differs from the fixed contract",
+        )
+    raw_baseline_lookbacks = comparison["baselineLookbacks"]
+    raw_scenario_results = comparison["scenarios"]
+    if (
+        not isinstance(raw_baseline_lookbacks, list)
+        or not isinstance(raw_scenario_results, list)
+        or len(raw_scenario_results) != len(frozen_scenarios)
+        or (
+            frozen_scenarios
+            and len(raw_baseline_lookbacks) != len(method["lookbackBars"])
+        )
+        or (not frozen_scenarios and raw_baseline_lookbacks)
+    ):
+        _fail(
+            f"{paths['book-risk-report']}/scenarioComparison",
+            "book-risk.scenario-count",
+            "Scenario comparison counts differ from frozen authority",
+        )
+    baseline_lookbacks: list[dict[str, Any]] = []
+    baseline_keys = {
+        "lookbackBars",
+        "observations",
+        "annualizedVolatility",
+        "componentRiskHhi",
+        "effectiveRiskBets",
+    }
+    for index, raw in enumerate(raw_baseline_lookbacks):
+        raw = _strict(
+            raw,
+            baseline_keys,
+            f"{paths['book-risk-report']}/scenarioComparison/"
+            f"baselineLookbacks/{index}",
+        )
+        parsed = {
+            key: _finite(
+                value,
+                f"{paths['book-risk-report']}/scenarioComparison/"
+                f"baselineLookbacks/{index}/{key}",
+            )
+            for key, value in raw.items()
+        }
+        if (
+            parsed["lookbackBars"] != method["lookbackBars"][index]
+            or parsed["observations"] != parsed["lookbackBars"]
+            or parsed["annualizedVolatility"] <= 0
+            or not 0 < parsed["componentRiskHhi"] <= 1
+            or parsed["effectiveRiskBets"] < 1
+        ):
+            _fail(
+                f"{paths['book-risk-report']}/scenarioComparison/"
+                f"baselineLookbacks/{index}",
+                "book-risk.scenario-baseline",
+                "Scenario baseline is outside valid bounds",
+            )
+        _close(
+            1.0 / parsed["componentRiskHhi"],
+            parsed["effectiveRiskBets"],
+            f"{paths['book-risk-report']}/scenarioComparison/"
+            f"baselineLookbacks/{index}",
+        )
+        matching = next(
+            row
+            for row in lookbacks
+            if row["lookbackBars"] == parsed["lookbackBars"]
+        )
+        for key in (
+            "annualizedVolatility",
+            "componentRiskHhi",
+            "effectiveRiskBets",
+        ):
+            _close(
+                parsed[key],
+                matching[key],
+                f"{paths['book-risk-report']}/scenarioComparison/"
+                f"baselineLookbacks/{index}/{key}",
+            )
+        baseline_lookbacks.append(parsed)
+    baseline_by_lookback = {
+        int(row["lookbackBars"]): row for row in baseline_lookbacks
+    }
+    scenario_lookback_keys = {
+        "volatilityRank",
+        "lookbackBars",
+        "observations",
+        "annualizedVolatility",
+        "annualizedVolatilityDelta",
+        "componentRiskHhi",
+        "componentRiskHhiDelta",
+        "effectiveRiskBets",
+        "effectiveRiskBetsDelta",
+        "largestAbsoluteRiskContributor",
+        "largestAbsoluteRiskContributorShare",
+    }
+    parsed_scenarios: list[dict[str, Any]] = []
+    for index, (raw, frozen) in enumerate(
+        zip(raw_scenario_results, frozen_scenarios, strict=True)
+    ):
+        raw = _strict(
+            raw,
+            {"id", "name", "weights", "cashWeight", "lookbacks"},
+            f"{paths['book-risk-report']}/scenarioComparison/scenarios/{index}",
+        )
+        if (
+            raw["id"] != frozen["id"]
+            or raw["name"] != frozen["name"]
+            or raw["weights"] != frozen["weights"]
+            or raw["cashWeight"] != frozen["cashWeight"]
+            or not isinstance(raw["lookbacks"], list)
+            or len(raw["lookbacks"]) != len(method["lookbackBars"])
+        ):
+            _fail(
+                f"{paths['book-risk-report']}/scenarioComparison/"
+                f"scenarios/{index}",
+                "book-risk.scenario-identity",
+                "Scenario result differs from the frozen hypothetical book",
+            )
+        parsed_lookbacks: list[dict[str, Any]] = []
+        for lookback_index, lookback_raw in enumerate(raw["lookbacks"]):
+            row_path = (
+                f"{paths['book-risk-report']}/scenarioComparison/"
+                f"scenarios/{index}/lookbacks/{lookback_index}"
+            )
+            lookback_raw = _strict(
+                lookback_raw,
+                scenario_lookback_keys,
+                row_path,
+            )
+            if not isinstance(
+                lookback_raw["largestAbsoluteRiskContributor"],
+                str,
+            ):
+                _fail(
+                    row_path,
+                    "book-risk.scenario-contributor",
+                    "Scenario contributor must be an asset symbol",
+                )
+            parsed = {
+                key: (
+                    lookback_raw[key]
+                    if key == "largestAbsoluteRiskContributor"
+                    else _finite(lookback_raw[key], f"{row_path}/{key}")
+                )
+                for key in scenario_lookback_keys
+            }
+            lookback = method["lookbackBars"][lookback_index]
+            baseline = baseline_by_lookback.get(lookback)
+            if (
+                baseline is None
+                or parsed["lookbackBars"] != lookback
+                or parsed["observations"] != lookback
+                or parsed["annualizedVolatility"] <= 0
+                or not 0 < parsed["componentRiskHhi"] <= 1
+                or parsed["effectiveRiskBets"] < 1
+                or not 0
+                <= parsed["largestAbsoluteRiskContributorShare"]
+                <= 1
+                or parsed["largestAbsoluteRiskContributor"]
+                not in expected_comparison_universe
+            ):
+                _fail(
+                    row_path,
+                    "book-risk.scenario-lookback",
+                    "Scenario lookback evidence is outside valid bounds",
+                )
+            _close(
+                1.0 / parsed["componentRiskHhi"],
+                parsed["effectiveRiskBets"],
+                row_path,
+            )
+            for metric, delta in (
+                ("annualizedVolatility", "annualizedVolatilityDelta"),
+                ("componentRiskHhi", "componentRiskHhiDelta"),
+                ("effectiveRiskBets", "effectiveRiskBetsDelta"),
+            ):
+                _close(
+                    parsed[metric] - baseline[metric],
+                    parsed[delta],
+                    f"{row_path}/{delta}",
+                )
+            parsed_lookbacks.append(parsed)
+        parsed_scenarios.append(
+            {
+                "id": raw["id"],
+                "name": raw["name"],
+                "weights": raw["weights"],
+                "cashWeight": _finite(
+                    raw["cashWeight"],
+                    f"{paths['book-risk-report']}/scenarioComparison/"
+                    f"scenarios/{index}/cashWeight",
+                ),
+                "lookbacks": parsed_lookbacks,
+            }
+        )
+    for lookback_index, lookback in enumerate(method["lookbackBars"]):
+        rows = [
+            scenario["lookbacks"][lookback_index]
+            for scenario in parsed_scenarios
+        ]
+        if (
+            sorted(int(row["volatilityRank"]) for row in rows)
+            != list(range(1, len(rows) + 1))
+            or [
+                row["annualizedVolatilityDelta"]
+                for row in sorted(
+                    rows,
+                    key=lambda item: item["volatilityRank"],
+                )
+            ]
+            != sorted(
+                row["annualizedVolatilityDelta"] for row in rows
+            )
+        ):
+            _fail(
+                f"{paths['book-risk-report']}/scenarioComparison/"
+                f"scenarios/*/lookbacks/{lookback_index}",
+                "book-risk.scenario-rank",
+                f"Scenario volatility ranking is invalid for {lookback}",
+            )
+    comparison_csv_raw = _csv_rows(
+        paths["book-risk-scenario-comparisons"],
+        SCENARIO_COMPARISON_COLUMNS,
+        allow_empty=True,
+    )
+    comparison_csv: list[dict[str, Any]] = []
+    for index, row in enumerate(comparison_csv_raw):
+        comparison_csv.append(
+            {
+                "scenarioId": row["scenarioId"],
+                "scenarioName": row["scenarioName"],
+                "volatilityRank": int(row["volatilityRank"]),
+                "lookbackBars": int(row["lookbackBars"]),
+                "observations": int(row["observations"]),
+                **{
+                    key: (
+                        row[key]
+                        if key == "largestAbsoluteRiskContributor"
+                        else _csv_finite(
+                            row[key],
+                            f"{paths['book-risk-scenario-comparisons']}:"
+                            f"{index + 2}/{key}",
+                        )
+                    )
+                    for key in SCENARIO_COMPARISON_COLUMNS[5:]
+                },
+            }
+        )
+    expected_comparison_csv = [
+        {
+            "scenarioId": scenario["id"],
+            "scenarioName": scenario["name"],
+            **row,
+        }
+        for scenario in parsed_scenarios
+        for row in scenario["lookbacks"]
+    ]
+    if comparison_csv != expected_comparison_csv:
+        _fail(
+            paths["book-risk-scenario-comparisons"],
+            "book-risk.scenario-comparisons",
+            "Scenario comparison CSV differs from the report",
+        )
+    contribution_csv_raw = _csv_rows(
+        paths["book-risk-scenario-contributions"],
+        SCENARIO_CONTRIBUTION_COLUMNS,
+        allow_empty=True,
+    )
+    scenario_contributions: list[dict[str, Any]] = []
+    for index, row in enumerate(contribution_csv_raw):
+        scenario_contributions.append(
+            {
+                "scenarioId": row["scenarioId"],
+                "asset": row["asset"],
+                **{
+                    key: _csv_finite(
+                        row[key],
+                        f"{paths['book-risk-scenario-contributions']}:"
+                        f"{index + 2}/{key}",
+                    )
+                    for key in SCENARIO_CONTRIBUTION_COLUMNS[2:]
+                },
+            }
+        )
+    if len(scenario_contributions) != (
+        len(parsed_scenarios) * len(expected_comparison_universe)
+    ):
+        _fail(
+            paths["book-risk-scenario-contributions"],
+            "book-risk.scenario-contribution-count",
+            "Scenario contribution row count is invalid",
+        )
+    baseline_weights = {
+        asset: float(frozen_snapshot["weights"].get(asset, 0.0))
+        for asset in expected_comparison_universe
+    }
+    baseline_contributions = {
+        row["asset"]: row for row in contributions
+    }
+    primary_index = method["lookbackBars"].index(
+        method["primaryLookbackBars"]
+    )
+    for scenario, frozen in zip(
+        parsed_scenarios,
+        frozen_scenarios,
+        strict=True,
+    ):
+        rows = [
+            row
+            for row in scenario_contributions
+            if row["scenarioId"] == scenario["id"]
+        ]
+        if [row["asset"] for row in rows] != expected_comparison_universe:
+            _fail(
+                paths["book-risk-scenario-contributions"],
+                "book-risk.scenario-contribution-assets",
+                "Scenario contribution assets differ from comparison universe",
+            )
+        scenario_weights = {
+            asset: float(frozen["weights"].get(asset, 0.0))
+            for asset in expected_comparison_universe
+        }
+        for row in rows:
+            asset = row["asset"]
+            _close(
+                row["baselineWeight"],
+                baseline_weights[asset],
+                paths["book-risk-scenario-contributions"],
+            )
+            baseline_evidence = baseline_contributions.get(asset)
+            _close(
+                row["baselineComponentVariance"],
+                (
+                    baseline_evidence["componentVariance"]
+                    if baseline_evidence is not None
+                    else 0.0
+                ),
+                paths["book-risk-scenario-contributions"],
+            )
+            _close(
+                row["baselineAbsoluteRiskShare"],
+                (
+                    baseline_evidence["absoluteRiskShare"]
+                    if baseline_evidence is not None
+                    else 0.0
+                ),
+                paths["book-risk-scenario-contributions"],
+            )
+            _close(
+                row["scenarioWeight"],
+                scenario_weights[asset],
+                paths["book-risk-scenario-contributions"],
+            )
+            for left, right, delta in (
+                ("scenarioWeight", "baselineWeight", "weightDelta"),
+                (
+                    "scenarioComponentVariance",
+                    "baselineComponentVariance",
+                    "componentVarianceDelta",
+                ),
+                (
+                    "scenarioAbsoluteRiskShare",
+                    "baselineAbsoluteRiskShare",
+                    "absoluteRiskShareDelta",
+                ),
+            ):
+                _close(
+                    row[left] - row[right],
+                    row[delta],
+                    paths["book-risk-scenario-contributions"],
+                )
+        _close(
+            sum(row["baselineAbsoluteRiskShare"] for row in rows),
+            1.0,
+            paths["book-risk-scenario-contributions"],
+        )
+        _close(
+            sum(row["scenarioAbsoluteRiskShare"] for row in rows),
+            1.0,
+            paths["book-risk-scenario-contributions"],
+        )
+        primary_row = scenario["lookbacks"][primary_index]
+        primary_baseline = baseline_lookbacks[primary_index]
+        _close(
+            sum(
+                row["baselineAbsoluteRiskShare"] ** 2
+                for row in rows
+            ),
+            primary_baseline["componentRiskHhi"],
+            paths["book-risk-scenario-contributions"],
+        )
+        _close(
+            sum(
+                row["scenarioAbsoluteRiskShare"] ** 2
+                for row in rows
+            ),
+            primary_row["componentRiskHhi"],
+            paths["book-risk-scenario-contributions"],
+        )
+        _close(
+            sum(row["baselineComponentVariance"] for row in rows),
+            primary_baseline["annualizedVolatility"] ** 2,
+            paths["book-risk-scenario-contributions"],
+        )
+        _close(
+            sum(row["scenarioComponentVariance"] for row in rows),
+            primary_row["annualizedVolatility"] ** 2,
+            paths["book-risk-scenario-contributions"],
+        )
+        largest = max(
+            rows,
+            key=lambda row: row["scenarioAbsoluteRiskShare"],
+        )
+        if (
+            primary_row["largestAbsoluteRiskContributor"]
+            != largest["asset"]
+        ):
+            _fail(
+                paths["book-risk-scenario-contributions"],
+                "book-risk.scenario-contributor",
+                "Scenario contributor leader differs from contribution rows",
+            )
+        _close(
+            primary_row["largestAbsoluteRiskContributorShare"],
+            largest["scenarioAbsoluteRiskShare"],
+            paths["book-risk-scenario-contributions"],
+        )
+        scenario["primaryContributions"] = rows
     path_rows_raw = _csv_rows(paths["book-risk-path"], PATH_COLUMNS)
     path_rows: list[dict[str, Any]] = []
     previous = ""
@@ -724,6 +1227,12 @@ def load_book_risk_diagnostics(
         "riskContributions": contributions,
         "reductionPriority": reductions,
         "pairwiseCorrelations": correlations,
+        "scenarioComparison": {
+            "comparisonUniverse": expected_comparison_universe,
+            "baselineLookbacks": baseline_lookbacks,
+            "scenarios": parsed_scenarios,
+            "ranking": comparison["ranking"],
+        },
         "rollingPath": {
             "totalRows": len(path_rows),
             "sampledRows": len(sampled),
@@ -756,6 +1265,7 @@ BOOK_RISK_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "riskContributions",
         "reductionPriority",
         "pairwiseCorrelations",
+        "scenarioComparison",
         "rollingPath",
         "artifacts",
     ],
@@ -770,6 +1280,7 @@ BOOK_RISK_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "riskContributions": {"type": "array"},
         "reductionPriority": {"type": "array"},
         "pairwiseCorrelations": {"type": "array"},
+        "scenarioComparison": {"type": "object"},
         "rollingPath": {"type": "object"},
         "artifacts": {"type": "object"},
     },

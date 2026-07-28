@@ -1,5 +1,5 @@
 ---
-version: 0.6.0
+version: 0.7.0
 ---
 
 # AutoQuant V2
@@ -58,9 +58,11 @@ portfolios, orders, and TPSL when required for valid research without claiming
 live-trading authority.
 
 Existing-book questions use the separate `ohlcv-book-risk-lab`. It preserves
-one caller-supplied weight snapshot and returns historical covariance,
-component-risk, common-movement, and standardized reduction-sensitivity
-evidence without pretending that the snapshot is authenticated account truth.
+one caller-supplied baseline weight snapshot and may compare up to eight
+caller-specified complete hypothetical books under the same historical
+covariance windows. It returns component-risk, common-movement, standardized
+reduction-sensitivity, and explicit scenario-delta evidence without pretending
+that any snapshot is authenticated account truth or an optimized target.
 See [reported-position Book Risk](docs/design/reported-position-book-risk.md).
 
 See the canonical
@@ -149,8 +151,8 @@ The request may lock:
 - cash or one named dataset asset as the evaluation benchmark;
 - primary and diagnostic forward horizons;
 - Portfolio/RL decision cadence and dataset/session clock anchor;
-- one reported or hypothetical funded weight snapshot for a fixed,
-  non-authenticated Book Risk audit.
+- one reported or hypothetical funded baseline plus optional caller-authored
+  complete hypothetical books for a fixed, non-authenticated Book Risk audit.
 
 These are immutable research assumptions. They never grant live position or
 execution authority.

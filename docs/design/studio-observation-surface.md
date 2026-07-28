@@ -171,12 +171,14 @@ request → evidence → report surface.
 A standalone Book Risk Study appears as its own evidence lane rather than as
 historical model-target Portfolio evidence. Studio shows effective risk bets,
 first-PC share, component-risk HHI, lookback stability, contributor and
-standardized-reduction rankings, correlations, and rolling context from the
-strict Core projection. The current Workspace → Project → Study → Run rail
-must recognize this descriptive Run even though it has no Factor/Portfolio/RL
-metric layer. Every Book Risk view states that reported weights are
-unauthenticated and that reduction evidence is neither optimization nor an
-order.
+standardized-reduction rankings, correlations, rolling context, and any
+caller-supplied complete-book comparisons from the strict Core projection.
+Scenario rows show same-window deltas and primary-window per-asset
+weight/risk-share changes; JavaScript does not calculate or rank them. The
+current Workspace → Project → Study → Run rail must recognize this descriptive
+Run even though it has no Factor/Portfolio/RL metric layer. Every Book Risk
+view states that reported and hypothetical weights are unauthenticated and
+that reduction/scenario evidence is neither optimization nor an order.
 
 Selecting an evidence lane also selects that lane's latest Session in the
 Inspector so the visible Run, Report, and Session remain semantically aligned.

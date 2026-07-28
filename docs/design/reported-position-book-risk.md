@@ -1,6 +1,6 @@
 # Reported-position Book Risk
 
-Status: implemented in AutoQuant `0.6.0`.
+Status: implemented in AutoQuant `0.7.0`.
 
 Related contracts: [[docs/design/agent-native-quant-workbench]],
 [[docs/design/research-intake-and-dataset-snapshots]],
@@ -23,6 +23,16 @@ The `ohlcv-book-risk-lab` therefore accepts one explicit reported or
 hypothetical weight snapshot and performs a fixed descriptive covariance
 audit. It is a separate evidence route, not a Portfolio optimizer and not a
 Broker adapter.
+
+A second common question is conditional:
+
+> I want to add ten percentage points of TSLA. Is the same fully funded book
+> less crowded if the funding comes from NVDA or QQQ?
+
+This is still descriptive research when the caller supplies both complete
+books. Comparing those books does not require AutoQuant to invent an Order,
+search weights, or claim an optimum. Running them as unrelated Projects would,
+however, lose the shared baseline, data panel, method, and delta identity.
 
 ## Authority boundary
 
@@ -53,6 +63,30 @@ OpenAlice/UTA remains authoritative for authenticated current positions,
 lots, tax state, venue capabilities, and execution. AutoQuant does not claim
 that the supplied snapshot is still live.
 
+Optional `request.positionScenarios` contains one to eight caller-specified
+complete funded books. Each scenario has:
+
+- a unique lowercase kebab-case `id` and non-empty `name`;
+- `kind: hypothetical-weights`;
+- the exact baseline `asOf` and `baseCurrency`;
+- non-zero requested, non-context asset `weights`;
+- `cashWeight`.
+
+Each book independently obeys the baseline exposure/funding limits, differs
+from the baseline and every other scenario, and is frozen into the same
+position-snapshot dependency. Its fixed authority is:
+
+```json
+{
+  "positionTruth": "caller-hypothetical-not-authenticated",
+  "tradingAuthority": "none"
+}
+```
+
+The public boundary deliberately accepts complete books rather than sparse
+transfers. Core never guesses which leg funds an addition, whether omitted
+assets remain unchanged, how residual cash behaves, or whether to normalize.
+
 ## Fixed analysis
 
 The default bounded method uses 63, 126, and 252 closed-bar lookbacks, with 252
@@ -81,6 +115,27 @@ weight fixed. It ranks the resulting annualized-volatility reduction per unit
 weight. This is a standardized historical sensitivity. It is not a tax-aware
 recommendation, replacement portfolio, or executable order.
 
+When scenarios exist, the comparison universe is the ordered union of baseline
+and scenario assets. The Judge inner-aligns one common closed-price panel for
+that union and evaluates the zero-filled baseline plus every supplied complete
+book over each fixed 63/126/252-bar covariance window. This common panel can be
+narrower than a baseline-only panel when a newly proposed asset has shorter
+coverage; the ordinary baseline audit and the scenario baseline both disclose
+their observations.
+
+For each supplied scenario and lookback the Judge reports:
+
+- annualized volatility and delta from the common-panel baseline;
+- component-risk HHI and delta;
+- effective risk bets and delta;
+- largest absolute-risk contributor and share;
+- volatility rank among the supplied books for that lookback.
+
+For the primary window it also reports each comparison asset's baseline and
+scenario weight, component variance, absolute risk share, and exact deltas.
+The rank has `selectionAuthority: none`: it orders only books authored by the
+caller and does not search, promote, or recommend a nearby portfolio.
+
 ## Immutable evidence
 
 One successful Run publishes:
@@ -89,12 +144,17 @@ One successful Run publishes:
 - `book-risk-contributions.csv`;
 - `book-risk-reductions.csv`;
 - `book-risk-correlations.csv`;
-- `book-risk-path.csv`.
+- `book-risk-path.csv`;
+- `book-risk-scenario-comparisons.csv`;
+- `book-risk-scenario-contributions.csv`.
 
 `aq run book-risk` revalidates Run hashes, the frozen position snapshot, exact
 method and dataset description, metric reconciliation, contribution and
 reduction ordering, pair counts, rolling summaries, and cross-artifact
-identity before returning the bounded `book-risk-diagnostics` read model.
+identity before returning the bounded `book-risk-diagnostics` read model. For
+supplied scenarios it additionally re-derives every delta, rank, HHI/effective
+bet identity, weight change, component-variance sum, risk-share sum and leader
+from the two scenario artifacts and frozen books.
 
 Studio exposes the same verified evidence as a Book Risk lane:
 
@@ -103,7 +163,9 @@ Studio exposes the same verified evidence as a Book Risk lane:
 - lookback stability;
 - component-risk tables;
 - pairwise correlations;
-- rolling crowding context and the authority warning.
+- rolling crowding context;
+- caller-supplied scenario ranks/deltas and primary-window per-asset changes;
+- the explicit no-authentication/no-optimization/no-order warning.
 
 ## Agent lifecycle
 
@@ -111,6 +173,12 @@ The Quant Agent first writes the English `research.md` and clarifies whether
 weights are reported or hypothetical, the as-of time, the meaning of “reduce
 first,” and any tax, lot, replacement, or horizon constraints that would
 change interpretation.
+
+For a conditional reallocation question, the Agent must also clarify and
+record every complete proposed book, confirm the common time/currency and
+unchanged legs, and state that historical covariance risk—not taxes, expected
+return, suitability, or execution—is the comparison meaning. It must not
+manufacture missing scenarios.
 
 After the fixed Run, `aq orient` reports
 `descriptive-audit-complete`, points to the read-only
@@ -128,6 +196,7 @@ The first contract intentionally excludes:
 - tax lots, borrow, financing, replacement selection, and transaction costs;
 - covariance shrinkage or factor-model estimation;
 - portfolio optimization and target-weight generation;
+- scenario generation, sparse-delta interpretation, or scenario probability;
 - orders, TPSL, approval, or execution.
 
 Those require either another bounded research question or OpenAlice's existing

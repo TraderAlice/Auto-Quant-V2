@@ -513,7 +513,9 @@ def build_parser() -> RaisingArgumentParser:
 
     run_book_risk = run_actions.add_parser(
         "book-risk",
-        help="inspect one reported-position covariance and reduction audit",
+        help=(
+            "inspect one reported-book audit and supplied scenario comparison"
+        ),
     )
     run_book_risk.add_argument("path")
     run_book_risk.add_argument("--project")
@@ -1985,6 +1987,32 @@ def _run_book_risk(args: argparse.Namespace) -> CommandResult:
     reduction = diagnostics["reductionPriority"][0]
     correlation = diagnostics["pairwiseCorrelations"][0]
     snapshot = diagnostics["positionSnapshot"]
+    scenario_comparison = diagnostics["scenarioComparison"]
+    primary_lookback = int(current["lookbackBars"])
+    primary_scenarios = sorted(
+        (
+            {
+                "id": scenario["id"],
+                **next(
+                    row
+                    for row in scenario["lookbacks"]
+                    if int(row["lookbackBars"]) == primary_lookback
+                ),
+            }
+            for scenario in scenario_comparison["scenarios"]
+        ),
+        key=lambda item: item["volatilityRank"],
+    )
+    scenario_line = (
+        "Caller-supplied scenarios: none\n"
+        if not primary_scenarios
+        else (
+            f"Caller-supplied scenarios: {len(primary_scenarios)} · "
+            "lowest primary-window modeled volatility "
+            f"{primary_scenarios[0]['id']} · delta "
+            f"{primary_scenarios[0]['annualizedVolatilityDelta']}\n"
+        )
+    )
     return CommandResult(
         "run.book-risk",
         diagnostics,
@@ -2006,8 +2034,10 @@ def _run_book_risk(args: argparse.Namespace) -> CommandResult:
             f"Strongest pair: {correlation['leftAsset']}/"
             f"{correlation['rightAsset']} · "
             f"{correlation['correlation']}\n"
-            "Reported weights are not authenticated account truth; reduction "
-            "evidence is historical sensitivity, not an order.\n"
+            + scenario_line
+            + "Reported weights are not authenticated account truth; reduction "
+            "and supplied-scenario evidence are historical sensitivities, "
+            "not optimization or an order.\n"
         ),
         project_context(project),
         [

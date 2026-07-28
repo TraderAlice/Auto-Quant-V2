@@ -2227,6 +2227,89 @@ function renderBookRiskExplorer(project) {
         </tbody>
       </table>
     </div>`;
+  const comparison = explorer.scenarioComparison;
+  const primaryScenarioRows = comparison.scenarios
+    .map((scenario) => ({
+      ...scenario,
+      current: scenario.lookbacks.find(
+        (row) => Number(row.lookbackBars) === Number(current.lookbackBars),
+      ),
+    }))
+    .sort(
+      (left, right) =>
+        Number(left.current?.volatilityRank ?? Infinity) -
+        Number(right.current?.volatilityRank ?? Infinity),
+    );
+  element("book-risk-scenarios").innerHTML =
+    primaryScenarioRows.length === 0
+      ? `<div class="empty-panel">No caller-supplied hypothetical books. The Run audits the reported baseline and fixed cash-funded reductions only.</div>`
+      : `
+        <div class="factor-table-wrap">
+          <table class="factor-table">
+            <thead>
+              <tr>
+                <th>Vol rank</th>
+                <th>Supplied book</th>
+                <th>Volatility / Δ</th>
+                <th>Risk HHI / Δ</th>
+                <th>Effective bets / Δ</th>
+                <th>Largest contributor</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${primaryScenarioRows
+                .map(
+                  (scenario) => `
+                    <tr>
+                      <td data-label="Vol rank"><b>${scenario.current.volatilityRank}</b></td>
+                      <td data-label="Supplied book"><b>${escapeHtml(scenario.name)}</b><small>${escapeHtml(scenario.id)}</small></td>
+                      <td data-label="Volatility / Δ"><b>${percent(scenario.current.annualizedVolatility)}</b><small>${signedPercent(scenario.current.annualizedVolatilityDelta)} vs baseline</small></td>
+                      <td data-label="Risk HHI / Δ"><b>${metric(scenario.current.componentRiskHhi)}</b><small>${signedMetric(scenario.current.componentRiskHhiDelta)} vs baseline</small></td>
+                      <td data-label="Effective bets / Δ"><b>${metric(scenario.current.effectiveRiskBets)}</b><small>${signedMetric(scenario.current.effectiveRiskBetsDelta)} vs baseline</small></td>
+                      <td data-label="Largest contributor"><b>${escapeHtml(scenario.current.largestAbsoluteRiskContributor)}</b><small>${percent(scenario.current.largestAbsoluteRiskContributorShare)}</small></td>
+                    </tr>`,
+                )
+                .join("")}
+            </tbody>
+          </table>
+        </div>`;
+  const scenarioContributionRows = primaryScenarioRows.flatMap((scenario) =>
+    scenario.primaryContributions.map((row) => ({
+      ...row,
+      scenarioName: scenario.name,
+    })),
+  );
+  element("book-risk-scenario-contributions").innerHTML =
+    scenarioContributionRows.length === 0
+      ? ""
+      : `
+        <div class="factor-table-wrap">
+          <table class="factor-table">
+            <thead>
+              <tr>
+                <th>Supplied book</th>
+                <th>Asset</th>
+                <th>Weight baseline → scenario</th>
+                <th>Absolute risk share baseline → scenario</th>
+                <th>Risk-share Δ</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${scenarioContributionRows
+                .map(
+                  (row) => `
+                    <tr>
+                      <td data-label="Supplied book"><b>${escapeHtml(row.scenarioName)}</b></td>
+                      <td data-label="Asset"><b>${escapeHtml(row.asset)}</b></td>
+                      <td data-label="Weight baseline → scenario">${percent(row.baselineWeight)} → ${percent(row.scenarioWeight)}<small>${signedPercent(row.weightDelta)}</small></td>
+                      <td data-label="Absolute risk share baseline → scenario">${percent(row.baselineAbsoluteRiskShare)} → ${percent(row.scenarioAbsoluteRiskShare)}</td>
+                      <td data-label="Risk-share Δ">${signedPercent(row.absoluteRiskShareDelta)}</td>
+                    </tr>`,
+                )
+                .join("")}
+            </tbody>
+          </table>
+        </div>`;
   element("book-risk-contributions").innerHTML = `
     <div class="factor-table-wrap">
       <table class="factor-table">
@@ -2294,8 +2377,9 @@ function renderBookRiskExplorer(project) {
   element("book-risk-warning").innerHTML = `
     <span>
       Reported weights are externally supplied and unauthenticated. Historical
-      covariance and 1% reductions are descriptive sensitivity evidence, not
-      live account truth, optimization, an order, or trading authority.
+      covariance, 1% reductions, and caller-supplied hypothetical books are
+      descriptive sensitivity evidence, not live account truth, optimization,
+      an order, or trading authority.
       Rolling audit: ${rolling.observations} windows · minimum ${metric(rolling.minimumEffectiveRiskBets)}
       effective bets · maximum HHI ${metric(rolling.maximumComponentRiskHhi)}.
     </span>

@@ -556,7 +556,7 @@ CLI_COMMANDS = [
     descriptor(
         "run.book-risk",
         "aq run book-risk <path> --run ID [--points 20..400] [--project ID] [--json]",
-        "Project one verified reported-position Run into covariance crowding, component-risk, pair-correlation, standardized reduction, and rolling-path evidence.",
+        "Project one verified reported-book Run into covariance crowding, component-risk, pair-correlation, standardized reduction, caller-supplied complete-book comparison, and rolling-path evidence.",
         "read-only",
         [
             PATH_ARGUMENT,
