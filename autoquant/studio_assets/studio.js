@@ -1337,6 +1337,9 @@ function renderHandoff(project) {
       const baselineTone = valueTone(baseline?.primaryValue);
       const scenarioCount =
         bookRisk?.scenarioComparison?.scenarios?.length ?? 0;
+      const sizingStatus =
+        bookRisk?.positionSizing?.status ?? "not-requested";
+      const sizingReady = sizingStatus !== "not-requested";
       element("handoff-flow").textContent = holdout
         ? "FROZEN SOURCE → LATER DATA → EXTERNAL AUDIT"
         : bookRisk
@@ -1345,7 +1348,7 @@ function renderHandoff(project) {
       element("handoff-meta").textContent = holdout
         ? `${holdout.state.toUpperCase()} · ${holdout.binding.laneIds.length} immutable lanes`
         : bookRisk
-          ? `Descriptive evidence ready · ${scenarioCount} supplied scenario${scenarioCount === 1 ? "" : "s"} · no Session`
+          ? `Descriptive evidence ready · ${scenarioCount} supplied scenario${scenarioCount === 1 ? "" : "s"}${sizingReady ? ` · sizing ${escapeHtml(sizingStatus)}` : ""} · no Session`
         : baseline
           ? `${baseline.primaryMetric} ${metric(baseline.primaryValue)} · Session not started`
           : "Content locked · baseline pending";
@@ -1375,7 +1378,7 @@ function renderHandoff(project) {
         <article class="handoff-card report-card ${baseline ? "ready" : ""}">
           <small>03 · ${holdout ? "Frozen external audit" : bookRisk ? "Book Risk evidence &amp; review" : `${lane ? escapeHtml(lane.name) : "Baseline"} &amp; next action`}</small>
           <h3>${holdout ? `${holdout.binding.laneIds.length} source lanes bound to later data` : baseline ? `${escapeHtml(baseline.primaryMetric)} = ${metric(baseline.primaryValue)}` : escapeHtml(intake.study.name)}</h3>
-          <p>${holdout ? "The exact source candidates are frozen. Only the one-shot holdout command is authorized; no Session, retuning, selection, promotion, or trading action is implied." : bookRisk ? `The fixed descriptive Run audits the reported baseline and compares ${scenarioCount} caller-supplied complete book${scenarioCount === 1 ? "" : "s"}. Review the verified evidence; no Session, optimization, order, or trading authority follows.` : baseline ? "The immutable baseline is descriptive evidence, not a recommendation. Start a governed Session to test candidates against validation-only selection." : "Start a governed Session to run a fresh baseline and freeze this request into its derived Brief."}</p>
+          <p>${holdout ? "The exact source candidates are frozen. Only the one-shot holdout command is authorized; no Session, retuning, selection, promotion, or trading action is implied." : bookRisk ? `The fixed descriptive Run audits the reported baseline, compares ${scenarioCount} caller-supplied complete book${scenarioCount === 1 ? "" : "s"}${sizingReady ? `, and returns a ${escapeHtml(sizingStatus)} caller-bounded historical target position` : ""}. Review the verified evidence; no Session, optimization, order, or trading authority follows.` : baseline ? "The immutable baseline is descriptive evidence, not a recommendation. Start a governed Session to test candidates against validation-only selection." : "Start a governed Session to run a fresh baseline and freeze this request into its derived Brief."}</p>
           ${portfolio ? `
           <div class="handoff-metrics">
             <span class="${valueTone(portfolio.factor.validationRankIc)}"><b>${metric(portfolio.factor.validationRankIc)}</b><small>validation IC</small></span>
@@ -2318,6 +2321,49 @@ function renderBookRiskExplorer(project) {
             </tbody>
           </table>
         </div>`;
+  const sizing = explorer.positionSizing;
+  element("book-risk-sizing").innerHTML =
+    sizing.status === "not-requested"
+      ? `<div class="empty-panel">No caller-bounded target-position sizing was requested.</div>`
+      : `
+        <div class="portfolio-summary">
+          ${[
+            ["Status", sizing.status, sizing.resultMeaning],
+            ["Allowed leg", sizing.result.asset, "only this holding may be reduced"],
+            ["Weight", `${percent(sizing.result.startingWeight)} → ${percent(sizing.result.resultingWeight)}`, `${signedPercent(-sizing.result.weightReduction)} holding change`],
+            ["Cash", `${percent(sizing.result.startingCashWeight)} → ${percent(sizing.result.resultingCashWeight)}`, "explicit destination"],
+            ["Modeled volatility", percent(sizing.result.annualizedVolatility), `${percent(sizing.policy.annualizedVolatilityCeiling)} ceiling · ${sizing.policy.lookbackBars} bars`],
+            ["Boundary", sizing.result.ceilingSatisfied ? "satisfied" : "not reachable", sizing.status === "infeasible" ? "constrained minimum evidence, not a recommendation" : "historical covariance only"],
+          ]
+            .map(
+              ([label, value, note]) => `
+                <span>
+                  <small>${escapeHtml(label)}</small>
+                  <b>${escapeHtml(value)}</b>
+                  <i>${escapeHtml(note)}</i>
+                </span>`,
+            )
+            .join("")}
+        </div>
+        <div class="factor-table-wrap">
+          <table class="factor-table">
+            <thead><tr><th>Window</th><th>Volatility / Δ</th><th>Ceiling</th><th>Effective bets</th><th>Largest contributor</th></tr></thead>
+            <tbody>
+              ${sizing.lookbacks
+                .map(
+                  (row) => `
+                    <tr>
+                      <td data-label="Window"><b>${row.lookbackBars} bars${row.governing ? " · governing" : ""}</b></td>
+                      <td data-label="Volatility / Δ">${percent(row.annualizedVolatility)}<small>${signedPercent(row.annualizedVolatilityDelta)} vs baseline</small></td>
+                      <td data-label="Ceiling">${row.ceilingSatisfied ? "satisfied" : "not satisfied"}</td>
+                      <td data-label="Effective bets">${metric(row.effectiveRiskBets)}</td>
+                      <td data-label="Largest contributor"><b>${escapeHtml(row.largestAbsoluteRiskContributor)}</b><small>${percent(row.largestAbsoluteRiskContributorShare)}</small></td>
+                    </tr>`,
+                )
+                .join("")}
+            </tbody>
+          </table>
+        </div>`;
   element("book-risk-contributions").innerHTML = `
     <div class="factor-table-wrap">
       <table class="factor-table">
@@ -2386,8 +2432,9 @@ function renderBookRiskExplorer(project) {
     <span>
       Reported weights are externally supplied and unauthenticated. Historical
       covariance, 1% reductions, and caller-supplied hypothetical books are
-      descriptive sensitivity evidence, not live account truth, optimization,
-      an order, or trading authority.
+      descriptive sensitivity evidence. Caller-bounded sizing is a historical
+      target-position calculation, not live account truth, a future-volatility
+      guarantee, optimization search, an order, or trading authority.
       Rolling audit: ${rolling.observations} windows · minimum ${metric(rolling.minimumEffectiveRiskBets)}
       effective bets · maximum HHI ${metric(rolling.maximumComponentRiskHhi)}.
     </span>

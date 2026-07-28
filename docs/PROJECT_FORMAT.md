@@ -128,12 +128,14 @@ stateful signal sleeve before portfolio accounting. See
 
 The Book Risk template derives
 `strategies/position-snapshot.json` from the normalized
-`request.positionSnapshot` plus optional `request.positionScenarios` and binds
-them as one fixed Study dependency. Its researcher-owned method declaration
+`request.positionSnapshot` plus either optional `request.positionScenarios` or
+optional `request.positionSizing` and binds them as one fixed Study dependency.
+Its researcher-owned method declaration
 fixes bounded lookbacks, rolling cadence, and the standardized reduction size.
 The Judge owns covariance, component-risk, effective-bet, PCA,
 pair-correlation, reduction, and caller-supplied scenario comparison
-calculations. The baseline remains external-reported and unauthenticated;
+calculations, plus exact one-leg historical volatility-ceiling sizing when
+authorized. The baseline remains external-reported and unauthenticated;
 scenario books remain caller-hypothetical and unauthenticated. Neither is ever
 replaced with model targets. See
 [[docs/design/reported-position-book-risk]].
@@ -673,6 +675,13 @@ Core never infers a funding leg, residual cash, renormalization, or unchanged
 position from a sparse delta. The derived dependency assigns
 `caller-hypothetical-not-authenticated` position truth and no trading
 authority to every scenario.
+Optional `positionSizing` is mutually exclusive with `positionScenarios`. It
+binds `reduce-one-asset-to-cash-for-volatility-ceiling`, one strictly positive
+baseline `asset`, `destination: cash`, a positive
+`annualizedVolatilityCeiling`, and one fixed 63/126/252 `lookbackBars`. The
+derived dependency records caller-bounded historical sizing and no trading
+authority. The Judge may solve only that scalar weight path; it cannot choose
+another asset, destination, objective, or execution.
 `brief.json` is derived from that request plus Project/Session/Study identity,
 baseline, objective, dataset, Judge, and Harness locks. Its authority is
 `research-prioritization`; trading authority is `none`. Every Session load

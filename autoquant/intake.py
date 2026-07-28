@@ -1315,6 +1315,7 @@ def prepare_project_intake(
             issues.extend(error.issues)
     position_snapshot = request.get("positionSnapshot")
     position_scenarios = request.get("positionScenarios")
+    position_sizing = request.get("positionSizing")
     if (
         position_snapshot is not None
         and template != "ohlcv-book-risk-lab"
@@ -1337,6 +1338,17 @@ def prepare_project_intake(
                 "request.position-scenarios-template",
                 "positionScenarios is consumed only by "
                 "ohlcv-book-risk-lab",
+            )
+        )
+    if (
+        position_sizing is not None
+        and template != "ohlcv-book-risk-lab"
+    ):
+        issues.append(
+            _issue(
+                "request/positionSizing",
+                "request.position-sizing-template",
+                "positionSizing is consumed only by ohlcv-book-risk-lab",
             )
         )
     if issues:

@@ -1988,6 +1988,7 @@ def _run_book_risk(args: argparse.Namespace) -> CommandResult:
     correlation = diagnostics["pairwiseCorrelations"][0]
     snapshot = diagnostics["positionSnapshot"]
     scenario_comparison = diagnostics["scenarioComparison"]
+    sizing = diagnostics["positionSizing"]
     primary_lookback = int(current["lookbackBars"])
     primary_scenarios = sorted(
         (
@@ -2013,6 +2014,21 @@ def _run_book_risk(args: argparse.Namespace) -> CommandResult:
             f"{primary_scenarios[0]['annualizedVolatilityDelta']}\n"
         )
     )
+    sizing_line = (
+        "Caller-bounded position sizing: not requested\n"
+        if sizing["status"] == "not-requested"
+        else (
+            "Caller-bounded position sizing: "
+            f"{sizing['status']} · {sizing['result']['asset']} "
+            f"{sizing['result']['startingWeight']} → "
+            f"{sizing['result']['resultingWeight']} · cash "
+            f"{sizing['result']['startingCashWeight']} → "
+            f"{sizing['result']['resultingCashWeight']} · modeled volatility "
+            f"{sizing['result']['annualizedVolatility']} against "
+            f"{sizing['policy']['annualizedVolatilityCeiling']} ceiling "
+            f"on {sizing['policy']['lookbackBars']} bars\n"
+        )
+    )
     return CommandResult(
         "run.book-risk",
         diagnostics,
@@ -2035,9 +2051,11 @@ def _run_book_risk(args: argparse.Namespace) -> CommandResult:
             f"{correlation['rightAsset']} · "
             f"{correlation['correlation']}\n"
             + scenario_line
+            + sizing_line
             + "Reported weights are not authenticated account truth; reduction "
-            "and supplied-scenario evidence are historical sensitivities, "
-            "not optimization or an order.\n"
+            "and supplied-scenario evidence are historical sensitivities. "
+            "Caller-bounded sizing is a historical target-position calculation, "
+            "not a future-volatility guarantee, optimization search, or order.\n"
         ),
         project_context(project),
         [

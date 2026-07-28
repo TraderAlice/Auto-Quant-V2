@@ -68,9 +68,11 @@ explicit reported or hypothetical funded weight snapshot, the
 `ohlcv-book-risk-lab` can perform a fixed descriptive audit. A conditional
 question may additionally supply up to eight explicitly named, complete funded
 hypothetical books at the same time and currency; never invent or search those
-scenarios. Treat every snapshot as unauthenticated external input, return its
-verified evidence, and leave live account reconciliation and execution to
-OpenAlice/UTA. See
+scenarios. A caller may instead authorize one strictly positive held asset to
+be reduced only to cash against one fixed historical volatility ceiling; never
+add another adjustable leg or turn the resulting target into an Order. Treat
+every snapshot as unauthenticated external input, return its verified evidence,
+and leave live account reconciliation and execution to OpenAlice/UTA. See
 [[docs/design/reported-position-book-risk]].
 
 English is the working language inside the AutoQuant desk: use it for

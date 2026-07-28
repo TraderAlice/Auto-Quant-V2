@@ -43,7 +43,7 @@ historical sizing problem.
 - Bind one annualized-volatility ceiling and one existing fixed covariance
   lookback as the governing constraint.
 - Derive the smallest permitted reduction that reaches the ceiling, with an
-  exact infeasible result when reducing the asset to zero is insufficient.
+  exact infeasible result when no point on the permitted path can satisfy it.
 - Report the resulting complete book, cash, modeled volatility, HHI, effective
   risk bets, per-asset contributions, and diagnostic behavior under the other
   predeclared lookbacks.
@@ -63,13 +63,13 @@ historical sizing problem.
 
 - [x] Preserve an AutoQuant `0.7.0` failure reproduction without fabricating a
   scenario grid or returning an irrelevant 1% sensitivity.
-- [ ] Define the smallest strict caller-authority and derived result contract.
-- [ ] Reject ambiguous adjustable legs, non-cash destinations, invalid
+- [x] Define the smallest strict caller-authority and derived result contract.
+- [x] Reject ambiguous adjustable legs, non-cash destinations, invalid
   ceilings/windows, unauthorized assets, and already-compliant or infeasible
   states with explicit semantics.
-- [ ] One immutable Run and strict Explorer reconcile the exact one-dimensional
+- [x] One immutable Run and strict Explorer reconcile the exact one-dimensional
   solution, complete resulting book, risk metrics, and boundary cases.
-- [ ] Orientation and Studio terminate at descriptive target-position review
+- [x] Orientation and Studio terminate at descriptive target-position review
   with no Session, automatic trading, or Order authority.
 - [ ] A clean Yahoo field Run answers the 15%-ceiling NVDA question and records
   assumptions, Harness identity, evidence, and limitations.
@@ -79,8 +79,8 @@ historical sizing problem.
 ## Work
 
 - [x] Reproduce the current semantic gap from a strict real-data Project.
-- [ ] Define and implement the bounded sizing contract.
-- [ ] Add deterministic success, already-compliant, infeasible, malformed,
+- [x] Define and implement the bounded sizing contract.
+- [x] Add deterministic success, already-compliant, infeasible, malformed,
   tamper, and authority tests.
 - [ ] Execute and interpret the clean Yahoo field trial.
 - [ ] Complete release audit, record evidence, push, and close the plan.
@@ -104,6 +104,12 @@ historical sizing problem.
 - 2026-07-28 — The Agent stopped before executing a successful but irrelevant
   baseline audit. A field trial passes only when the recommended operation can
   answer the actual decision question, not merely when the Project is valid.
+- 2026-07-28 — AutoQuant `0.8.0` freezes `positionSizing` as one caller-bound
+  long-holding-to-cash path and solves its convex annualized-variance quadratic
+  exactly. It does not generate a scenario grid or search another asset.
+- 2026-07-28 — `infeasible` means no point anywhere on the permitted path
+  satisfies the ceiling. The constrained minimum is returned as proof, not as
+  a recommendation.
 
 ## Verification
 
@@ -119,6 +125,9 @@ historical sizing problem.
   why the ordinary 1% sensitivity Run does not answer it.
 - Project `framework-needs.md` rejects an Agent-generated scenario grid and
   links this plan as the smallest bounded Core promotion.
+- Twelve deterministic Book Risk tests cover valid authority freezing, exact
+  boundary sizing, already-compliant and infeasible states, malformed requests,
+  strict rehashed tamper rejection, CLI, orientation, and Studio projection.
 
 ## Progress log
 
@@ -126,6 +135,9 @@ historical sizing problem.
   caller-supplied book-reallocation field trial.
 - 2026-07-28 — Preserved the `0.7.0` machine-authority failure reproduction and
   stopped before an irrelevant baseline-only Run.
+- 2026-07-28 — Implemented and strictly verified the `0.8.0` one-leg sizing
+  contract through intake, immutable Run, Explorer, CLI, orientation, and
+  Studio. The clean Yahoo reproduction remains pending.
 
 ## Completion
 

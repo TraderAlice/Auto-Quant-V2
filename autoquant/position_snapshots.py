@@ -30,6 +30,10 @@ SCENARIO_AUTHORITY = {
     "positionTruth": "caller-hypothetical-not-authenticated",
     "tradingAuthority": "none",
 }
+SIZING_AUTHORITY = {
+    "decisionPath": "caller-bounded-historical-sizing",
+    "tradingAuthority": "none",
+}
 
 
 def _issue(path: Path | str, code: str, message: str) -> ValidationIssue:
@@ -80,6 +84,14 @@ def build_position_snapshot(request: dict[str, Any]) -> dict[str, Any]:
             }
             for scenario in request.get("positionScenarios", [])
         ],
+        "sizingPolicy": (
+            {
+                **request["positionSizing"],
+                "authority": dict(SIZING_AUTHORITY),
+            }
+            if "positionSizing" in request
+            else None
+        ),
     }
 
 
@@ -148,6 +160,7 @@ def validate_position_snapshot(
         "cashWeight",
         "authority",
         "scenarios",
+        "sizingPolicy",
     }
     issues = [
         *(
@@ -347,6 +360,51 @@ def validate_position_snapshot(
                 )
             )
         books.add(scenario_book)
+    sizing = value.get("sizingPolicy")
+    if sizing is not None:
+        sizing_keys = {
+            "kind",
+            "asset",
+            "destination",
+            "annualizedVolatilityCeiling",
+            "lookbackBars",
+            "authority",
+        }
+        if (
+            not isinstance(sizing, dict)
+            or set(sizing) != sizing_keys
+            or sizing.get("kind")
+            != "reduce-one-asset-to-cash-for-volatility-ceiling"
+            or sizing.get("destination") != "cash"
+            or sizing.get("authority") != SIZING_AUTHORITY
+            or not isinstance(sizing.get("asset"), str)
+            or sizing["asset"] not in (weights if isinstance(weights, dict) else {})
+            or float(weights.get(sizing["asset"], 0.0)) <= 0
+            or not isinstance(
+                sizing.get("annualizedVolatilityCeiling"),
+                (int, float),
+            )
+            or isinstance(
+                sizing.get("annualizedVolatilityCeiling"),
+                bool,
+            )
+            or not math.isfinite(
+                float(sizing.get("annualizedVolatilityCeiling", 0.0))
+            )
+            or not 0
+            < float(sizing.get("annualizedVolatilityCeiling", 0.0))
+            <= 10
+            or sizing.get("lookbackBars") not in {63, 126, 252}
+            or scenarios
+        ):
+            issues.append(
+                _issue(
+                    f"{path}/sizingPolicy",
+                    "position-snapshot.sizing-policy",
+                    "Sizing policy differs from the bounded caller-authority "
+                    "contract",
+                )
+            )
     if issues:
         raise AutoQuantValidationError(issues)
     return value

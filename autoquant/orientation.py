@@ -775,8 +775,9 @@ def _single_study_orientation(
         primary_raw = _command(
             "run.book-risk",
             (
-                "Inspect verified reported-book crowding, reduction, and "
-                "caller-supplied scenario evidence."
+                "Inspect verified reported-book crowding, reduction, "
+                "caller-supplied scenarios, and any caller-bounded "
+                "target-position sizing evidence."
             ),
             [
                 "aq",
@@ -1079,7 +1080,8 @@ def build_agent_work_brief(project: ProjectContext) -> dict[str, Any]:
             lane_id="book-risk",
             reason=(
                 "Reported-book risk is a fixed descriptive audit. Review the "
-                "verified evidence; do not manufacture an optimization agenda."
+                "verified evidence and any bounded target position; do not "
+                "manufacture an optimization or execution agenda."
             ),
         )
         if (

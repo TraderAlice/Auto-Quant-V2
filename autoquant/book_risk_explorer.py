@@ -34,6 +34,10 @@ ARTIFACTS = {
     "book-risk-scenario-contributions": (
         "book-risk-scenario-contributions.csv"
     ),
+    "book-risk-sizing-lookbacks": "book-risk-sizing-lookbacks.csv",
+    "book-risk-sizing-contributions": (
+        "book-risk-sizing-contributions.csv"
+    ),
 }
 CONTRIBUTION_COLUMNS = (
     "asset",
@@ -92,6 +96,27 @@ SCENARIO_CONTRIBUTION_COLUMNS = (
     "baselineAbsoluteRiskShare",
     "scenarioAbsoluteRiskShare",
     "absoluteRiskShareDelta",
+)
+SIZING_LOOKBACK_COLUMNS = (
+    "lookbackBars",
+    "observations",
+    "annualizedVolatility",
+    "annualizedVolatilityDelta",
+    "componentRiskHhi",
+    "effectiveRiskBets",
+    "largestAbsoluteRiskContributor",
+    "largestAbsoluteRiskContributorShare",
+    "governing",
+    "ceilingSatisfied",
+)
+SIZING_CONTRIBUTION_COLUMNS = (
+    "asset",
+    "baselineWeight",
+    "resultingWeight",
+    "weightDelta",
+    "componentVariance",
+    "signedRiskShare",
+    "absoluteRiskShare",
 )
 
 
@@ -208,6 +233,508 @@ def _sample(rows: list[dict[str, Any]], limit: int) -> list[dict[str, Any]]:
     return [rows[index] for index in sorted(indices)]
 
 
+def _csv_boolean(value: str, path: Path | str) -> bool:
+    if value not in {"True", "False"}:
+        _fail(path, "book-risk.boolean", "Expected True or False")
+    return value == "True"
+
+
+def _validate_position_sizing(
+    value: Any,
+    frozen_snapshot: dict[str, Any],
+    method: dict[str, Any],
+    baseline_lookbacks: list[dict[str, Any]],
+    paths: dict[str, Path],
+) -> dict[str, Any]:
+    policy = frozen_snapshot["sizingPolicy"]
+    if policy is None:
+        if value != {"status": "not-requested"}:
+            _fail(
+                f"{paths['book-risk-report']}/positionSizing",
+                "book-risk.position-sizing",
+                "Unrequested sizing evidence must be empty",
+            )
+        if _csv_rows(
+            paths["book-risk-sizing-lookbacks"],
+            SIZING_LOOKBACK_COLUMNS,
+            allow_empty=True,
+        ) or _csv_rows(
+            paths["book-risk-sizing-contributions"],
+            SIZING_CONTRIBUTION_COLUMNS,
+            allow_empty=True,
+        ):
+            _fail(
+                paths["book-risk-sizing-lookbacks"],
+                "book-risk.position-sizing",
+                "Unrequested sizing artifacts must be empty",
+            )
+        return {"status": "not-requested"}
+    value = _strict(
+        value,
+        {
+            "status",
+            "resultMeaning",
+            "policy",
+            "quadratic",
+            "result",
+            "lookbacks",
+            "contributions",
+        },
+        f"{paths['book-risk-report']}/positionSizing",
+    )
+    if value["policy"] != policy:
+        _fail(
+            f"{paths['book-risk-report']}/positionSizing/policy",
+            "book-risk.position-sizing-policy",
+            "Sizing policy differs from frozen caller authority",
+        )
+    status = value["status"]
+    meanings = {
+        "sized": "smallest-compliant-reduction",
+        "already-compliant": "unchanged-compliant-book",
+        "infeasible": "constrained-minimum-evidence-not-recommendation",
+    }
+    if status not in meanings or value["resultMeaning"] != meanings[status]:
+        _fail(
+            f"{paths['book-risk-report']}/positionSizing/status",
+            "book-risk.position-sizing-status",
+            "Sizing status semantics differ from the fixed contract",
+        )
+    quadratic = _strict(
+        value["quadratic"],
+        {
+            "coefficientA",
+            "coefficientB",
+            "coefficientC",
+            "domainMinimumWeight",
+            "domainMaximumWeight",
+            "targetVariance",
+            "startingVariance",
+            "minimumWeight",
+            "minimumVariance",
+        },
+        f"{paths['book-risk-report']}/positionSizing/quadratic",
+    )
+    q = {
+        key: _finite(
+            item,
+            f"{paths['book-risk-report']}/positionSizing/quadratic/{key}",
+        )
+        for key, item in quadratic.items()
+    }
+    asset = policy["asset"]
+    starting_weight = float(frozen_snapshot["weights"][asset])
+    ceiling = float(policy["annualizedVolatilityCeiling"])
+
+    def variance_at(weight: float) -> float:
+        return (
+            q["coefficientA"] * weight * weight
+            + q["coefficientB"] * weight
+            + q["coefficientC"]
+        )
+
+    _close(q["domainMinimumWeight"], 0.0, "positionSizing/domainMinimum")
+    _close(
+        q["domainMaximumWeight"],
+        starting_weight,
+        "positionSizing/domainMaximum",
+    )
+    _close(q["targetVariance"], ceiling**2, "positionSizing/targetVariance")
+    _close(
+        q["startingVariance"],
+        variance_at(starting_weight),
+        "positionSizing/startingVariance",
+    )
+    if q["coefficientA"] < -1e-15:
+        _fail(
+            "positionSizing/coefficientA",
+            "book-risk.position-sizing-quadratic",
+            "Sizing variance path must be convex",
+        )
+    expected_minimum = (
+        min(
+            max(
+                -q["coefficientB"] / (2 * q["coefficientA"]),
+                0.0,
+            ),
+            starting_weight,
+        )
+        if q["coefficientA"] > 1e-18
+        else min(
+            (0.0, starting_weight),
+            key=variance_at,
+        )
+    )
+    _close(q["minimumWeight"], expected_minimum, "positionSizing/minimumWeight")
+    _close(
+        q["minimumVariance"],
+        variance_at(expected_minimum),
+        "positionSizing/minimumVariance",
+    )
+    tolerance = max(1e-14, q["targetVariance"] * 1e-10)
+    if status == "already-compliant":
+        if q["startingVariance"] > q["targetVariance"] + tolerance:
+            _fail(
+                "positionSizing/status",
+                "book-risk.position-sizing-status",
+                "Already-compliant status violates the variance ceiling",
+            )
+        expected_weight = starting_weight
+    elif status == "infeasible":
+        if q["minimumVariance"] <= q["targetVariance"] + tolerance:
+            _fail(
+                "positionSizing/status",
+                "book-risk.position-sizing-status",
+                "Infeasible status has a compliant point on the path",
+            )
+        expected_weight = expected_minimum
+    else:
+        if (
+            q["startingVariance"] <= q["targetVariance"] + tolerance
+            or q["minimumVariance"] > q["targetVariance"] + tolerance
+        ):
+            _fail(
+                "positionSizing/status",
+                "book-risk.position-sizing-status",
+                "Sized status does not straddle the variance ceiling",
+            )
+        discriminant = (
+            q["coefficientB"] ** 2
+            - 4
+            * q["coefficientA"]
+            * (q["coefficientC"] - q["targetVariance"])
+        )
+        if q["coefficientA"] <= 1e-18 or discriminant < -tolerance:
+            _fail(
+                "positionSizing/quadratic",
+                "book-risk.position-sizing-quadratic",
+                "Sizing boundary cannot be rederived",
+            )
+        expected_weight = min(
+            max(
+                (
+                    -q["coefficientB"]
+                    + math.sqrt(max(discriminant, 0.0))
+                )
+                / (2 * q["coefficientA"]),
+                0.0,
+            ),
+            starting_weight,
+        )
+    result = _strict(
+        value["result"],
+        {
+            "asset",
+            "startingWeight",
+            "resultingWeight",
+            "weightReduction",
+            "startingCashWeight",
+            "resultingCashWeight",
+            "weights",
+            "annualizedVolatility",
+            "annualizedVariance",
+            "annualizedVolatilityDelta",
+            "componentRiskHhi",
+            "effectiveRiskBets",
+            "largestAbsoluteRiskContributor",
+            "largestAbsoluteRiskContributorShare",
+            "ceilingSatisfied",
+        },
+        f"{paths['book-risk-report']}/positionSizing/result",
+    )
+    numeric_fields = {
+        key: _finite(
+            result[key],
+            f"{paths['book-risk-report']}/positionSizing/result/{key}",
+        )
+        for key in {
+            "startingWeight",
+            "resultingWeight",
+            "weightReduction",
+            "startingCashWeight",
+            "resultingCashWeight",
+            "annualizedVolatility",
+            "annualizedVariance",
+            "annualizedVolatilityDelta",
+            "componentRiskHhi",
+            "effectiveRiskBets",
+            "largestAbsoluteRiskContributorShare",
+        }
+    }
+    _close(numeric_fields["startingWeight"], starting_weight, "positionSizing/result")
+    _close(numeric_fields["resultingWeight"], expected_weight, "positionSizing/result")
+    _close(
+        numeric_fields["weightReduction"],
+        starting_weight - expected_weight,
+        "positionSizing/result",
+    )
+    baseline_cash = float(frozen_snapshot["cashWeight"])
+    _close(numeric_fields["startingCashWeight"], baseline_cash, "positionSizing/result")
+    _close(
+        numeric_fields["resultingCashWeight"],
+        baseline_cash + starting_weight - expected_weight,
+        "positionSizing/result",
+    )
+    if (
+        result["asset"] != asset
+        or not isinstance(result["weights"], dict)
+        or set(result["weights"]) != set(frozen_snapshot["weights"])
+        or not isinstance(result["ceilingSatisfied"], bool)
+        or not isinstance(result["largestAbsoluteRiskContributor"], str)
+    ):
+        _fail(
+            "positionSizing/result",
+            "book-risk.position-sizing-result",
+            "Sizing result identity differs from the fixed path",
+        )
+    for symbol, baseline_weight in frozen_snapshot["weights"].items():
+        _close(
+            _finite(result["weights"][symbol], f"positionSizing/weights/{symbol}"),
+            expected_weight if symbol == asset else float(baseline_weight),
+            f"positionSizing/weights/{symbol}",
+        )
+    _close(
+        numeric_fields["annualizedVariance"],
+        variance_at(expected_weight),
+        "positionSizing/result/annualizedVariance",
+    )
+    _close(
+        numeric_fields["annualizedVolatility"] ** 2,
+        numeric_fields["annualizedVariance"],
+        "positionSizing/result/annualizedVolatility",
+    )
+    if result["ceilingSatisfied"] != (
+        numeric_fields["annualizedVolatility"] <= ceiling + 1e-12
+    ):
+        _fail(
+            "positionSizing/result/ceilingSatisfied",
+            "book-risk.position-sizing-ceiling",
+            "Sizing ceiling flag is invalid",
+        )
+    raw_lookbacks = value["lookbacks"]
+    if (
+        not isinstance(raw_lookbacks, list)
+        or len(raw_lookbacks) != len(method["lookbackBars"])
+    ):
+        _fail(
+            "positionSizing/lookbacks",
+            "book-risk.position-sizing-lookbacks",
+            "Sizing lookback count differs from the fixed method",
+        )
+    lookback_keys = set(SIZING_LOOKBACK_COLUMNS)
+    parsed_lookbacks: list[dict[str, Any]] = []
+    for index, raw in enumerate(raw_lookbacks):
+        raw = _strict(raw, lookback_keys, f"positionSizing/lookbacks/{index}")
+        parsed = {
+            key: (
+                raw[key]
+                if key == "largestAbsoluteRiskContributor"
+                else raw[key]
+                if key in {"governing", "ceilingSatisfied"}
+                else _finite(raw[key], f"positionSizing/lookbacks/{index}/{key}")
+            )
+            for key in SIZING_LOOKBACK_COLUMNS
+        }
+        baseline = next(
+            row
+            for row in baseline_lookbacks
+            if row["lookbackBars"] == parsed["lookbackBars"]
+        )
+        if (
+            parsed["lookbackBars"] != method["lookbackBars"][index]
+            or parsed["observations"] != parsed["lookbackBars"]
+            or parsed["governing"]
+            != (parsed["lookbackBars"] == policy["lookbackBars"])
+            or parsed["ceilingSatisfied"]
+            != (parsed["annualizedVolatility"] <= ceiling + 1e-12)
+        ):
+            _fail(
+                f"positionSizing/lookbacks/{index}",
+                "book-risk.position-sizing-lookbacks",
+                "Sizing lookback evidence is invalid",
+            )
+        _close(
+            parsed["annualizedVolatility"] - baseline["annualizedVolatility"],
+            parsed["annualizedVolatilityDelta"],
+            f"positionSizing/lookbacks/{index}",
+        )
+        _close(
+            1 / parsed["componentRiskHhi"],
+            parsed["effectiveRiskBets"],
+            f"positionSizing/lookbacks/{index}",
+        )
+        parsed_lookbacks.append(parsed)
+    governing = next(row for row in parsed_lookbacks if row["governing"])
+    for field in (
+        "annualizedVolatility",
+        "componentRiskHhi",
+        "effectiveRiskBets",
+        "largestAbsoluteRiskContributorShare",
+    ):
+        _close(
+            numeric_fields[field],
+            _finite(governing[field], f"positionSizing/governing/{field}"),
+            f"positionSizing/result/{field}",
+        )
+    if (
+        result["largestAbsoluteRiskContributor"]
+        != governing["largestAbsoluteRiskContributor"]
+    ):
+        _fail(
+            "positionSizing/result/largestAbsoluteRiskContributor",
+            "book-risk.position-sizing-contributor",
+            "Sizing contributor leader differs from governing lookback",
+        )
+    csv_lookbacks: list[dict[str, Any]] = []
+    for index, row in enumerate(
+        _csv_rows(
+            paths["book-risk-sizing-lookbacks"],
+            SIZING_LOOKBACK_COLUMNS,
+        )
+    ):
+        csv_lookbacks.append(
+            {
+                key: (
+                    row[key]
+                    if key == "largestAbsoluteRiskContributor"
+                    else _csv_boolean(
+                        row[key],
+                        f"{paths['book-risk-sizing-lookbacks']}:{index + 2}/{key}",
+                    )
+                    if key in {"governing", "ceilingSatisfied"}
+                    else _csv_finite(
+                        row[key],
+                        f"{paths['book-risk-sizing-lookbacks']}:{index + 2}/{key}",
+                    )
+                )
+                for key in SIZING_LOOKBACK_COLUMNS
+            }
+        )
+    if csv_lookbacks != parsed_lookbacks:
+        _fail(
+            paths["book-risk-sizing-lookbacks"],
+            "book-risk.position-sizing-lookbacks",
+            "Sizing lookback CSV differs from the report",
+        )
+    raw_contributions = value["contributions"]
+    if (
+        not isinstance(raw_contributions, list)
+        or len(raw_contributions) != len(frozen_snapshot["weights"])
+    ):
+        _fail(
+            "positionSizing/contributions",
+            "book-risk.position-sizing-contributions",
+            "Sizing contribution count is invalid",
+        )
+    contributions: list[dict[str, Any]] = []
+    for index, raw in enumerate(raw_contributions):
+        raw = _strict(
+            raw,
+            set(SIZING_CONTRIBUTION_COLUMNS),
+            f"positionSizing/contributions/{index}",
+        )
+        parsed = {
+            key: (
+                raw[key]
+                if key == "asset"
+                else _finite(raw[key], f"positionSizing/contributions/{index}/{key}")
+            )
+            for key in SIZING_CONTRIBUTION_COLUMNS
+        }
+        contributions.append(parsed)
+    csv_contributions: list[dict[str, Any]] = []
+    for index, row in enumerate(
+        _csv_rows(
+            paths["book-risk-sizing-contributions"],
+            SIZING_CONTRIBUTION_COLUMNS,
+        )
+    ):
+        csv_contributions.append(
+            {
+                key: (
+                    row[key]
+                    if key == "asset"
+                    else _csv_finite(
+                        row[key],
+                        f"{paths['book-risk-sizing-contributions']}:{index + 2}/{key}",
+                    )
+                )
+                for key in SIZING_CONTRIBUTION_COLUMNS
+            }
+        )
+    if contributions != csv_contributions:
+        _fail(
+            paths["book-risk-sizing-contributions"],
+            "book-risk.position-sizing-contributions",
+            "Sizing contribution CSV differs from the report",
+        )
+    if [row["asset"] for row in contributions] != list(frozen_snapshot["weights"]):
+        _fail(
+            "positionSizing/contributions",
+            "book-risk.position-sizing-contributions",
+            "Sizing contribution assets differ from the frozen book",
+        )
+    for row in contributions:
+        symbol = row["asset"]
+        _close(
+            row["baselineWeight"],
+            float(frozen_snapshot["weights"][symbol]),
+            "positionSizing/contributions",
+        )
+        _close(
+            row["resultingWeight"] - row["baselineWeight"],
+            row["weightDelta"],
+            "positionSizing/contributions",
+        )
+        _close(
+            row["resultingWeight"],
+            float(result["weights"][symbol]),
+            "positionSizing/contributions",
+        )
+    _close(
+        sum(row["componentVariance"] for row in contributions),
+        numeric_fields["annualizedVariance"],
+        "positionSizing/contributions",
+    )
+    _close(
+        sum(row["signedRiskShare"] for row in contributions),
+        1.0,
+        "positionSizing/contributions",
+    )
+    _close(
+        sum(row["absoluteRiskShare"] for row in contributions),
+        1.0,
+        "positionSizing/contributions",
+    )
+    _close(
+        sum(row["absoluteRiskShare"] ** 2 for row in contributions),
+        numeric_fields["componentRiskHhi"],
+        "positionSizing/contributions",
+    )
+    largest = max(contributions, key=lambda row: row["absoluteRiskShare"])
+    if largest["asset"] != result["largestAbsoluteRiskContributor"]:
+        _fail(
+            "positionSizing/contributions",
+            "book-risk.position-sizing-contributor",
+            "Sizing contribution leader differs from the result",
+        )
+    _close(
+        largest["absoluteRiskShare"],
+        numeric_fields["largestAbsoluteRiskContributorShare"],
+        "positionSizing/contributions",
+    )
+    return {
+        **value,
+        "quadratic": q,
+        "result": {
+            **result,
+            **numeric_fields,
+        },
+        "lookbacks": parsed_lookbacks,
+        "contributions": contributions,
+    }
+
+
 def load_book_risk_diagnostics(
     project: ProjectContext,
     run_id: str,
@@ -250,6 +777,7 @@ def load_book_risk_diagnostics(
             "pairwiseCorrelations",
             "reductions",
             "scenarioComparison",
+            "positionSizing",
             "rollingSummary",
         },
         paths["book-risk-report"],
@@ -292,6 +820,7 @@ def load_book_risk_diagnostics(
         "tradingAuthority": "none",
         "reductionMeaning": "standardized-historical-sensitivity",
         "scenarioMeaning": "caller-specified-historical-comparison",
+        "sizingMeaning": "caller-bounded-historical-target-position",
     }
     if report["authority"] != authority:
         _fail(
@@ -374,6 +903,30 @@ def load_book_risk_diagnostics(
         float(len(frozen_scenarios)),
         "metrics/scenario_count",
     )
+    sizing_policy = frozen_snapshot["sizingPolicy"]
+    expected_sizing_metrics = {
+        "sizing_requested": float(sizing_policy is not None),
+        "sizing_feasible": float(
+            report["positionSizing"].get("status")
+            in {"sized", "already-compliant"}
+            if isinstance(report["positionSizing"], dict)
+            else False
+        ),
+        "sizing_weight_reduction": float(
+            report["positionSizing"].get("result", {}).get(
+                "weightReduction",
+                0.0,
+            )
+            if isinstance(report["positionSizing"], dict)
+            else 0.0
+        ),
+    }
+    for metric, expected in expected_sizing_metrics.items():
+        _close(
+            _finite(run.result["metrics"].get(metric), f"metrics/{metric}"),
+            expected,
+            f"metrics/{metric}",
+        )
     method = _strict(
         report["method"],
         {
@@ -1102,6 +1655,13 @@ def load_book_risk_diagnostics(
             paths["book-risk-scenario-contributions"],
         )
         scenario["primaryContributions"] = rows
+    position_sizing = _validate_position_sizing(
+        report["positionSizing"],
+        frozen_snapshot,
+        method,
+        lookbacks,
+        paths,
+    )
     path_rows_raw = _csv_rows(paths["book-risk-path"], PATH_COLUMNS)
     path_rows: list[dict[str, Any]] = []
     previous = ""
@@ -1233,6 +1793,7 @@ def load_book_risk_diagnostics(
             "scenarios": parsed_scenarios,
             "ranking": comparison["ranking"],
         },
+        "positionSizing": position_sizing,
         "rollingPath": {
             "totalRows": len(path_rows),
             "sampledRows": len(sampled),
@@ -1266,6 +1827,7 @@ BOOK_RISK_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "reductionPriority",
         "pairwiseCorrelations",
         "scenarioComparison",
+        "positionSizing",
         "rollingPath",
         "artifacts",
     ],
@@ -1281,6 +1843,7 @@ BOOK_RISK_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "reductionPriority": {"type": "array"},
         "pairwiseCorrelations": {"type": "array"},
         "scenarioComparison": {"type": "object"},
+        "positionSizing": {"type": "object"},
         "rollingPath": {"type": "object"},
         "artifacts": {"type": "object"},
     },

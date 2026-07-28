@@ -1,6 +1,6 @@
 # Reported-position Book Risk
 
-Status: implemented in AutoQuant `0.7.0`.
+Status: implemented in AutoQuant `0.8.0`.
 
 Related contracts: [[docs/design/agent-native-quant-workbench]],
 [[docs/design/research-intake-and-dataset-snapshots]],
@@ -87,6 +87,25 @@ The public boundary deliberately accepts complete books rather than sparse
 transfers. Core never guesses which leg funds an addition, whether omitted
 assets remain unchanged, how residual cash behaves, or whether to normalize.
 
+Optional `request.positionSizing` authorizes one narrower derived question:
+
+```json
+{
+  "kind": "reduce-one-asset-to-cash-for-volatility-ceiling",
+  "asset": "NVDA",
+  "destination": "cash",
+  "annualizedVolatilityCeiling": 0.15,
+  "lookbackBars": 252
+}
+```
+
+The asset must be a strictly positive requested baseline holding, cash is the
+only destination, and the lookback must be one of the fixed 63/126/252-bar
+windows. Sizing and caller-supplied scenarios are mutually exclusive so one
+Run answers one authority-bounded question. Core freezes the policy with
+`decisionPath: caller-bounded-historical-sizing` and
+`tradingAuthority: none`.
+
 ## Fixed analysis
 
 The default bounded method uses 63, 126, and 252 closed-bar lookbacks, with 252
@@ -136,6 +155,22 @@ scenario weight, component variance, absolute risk share, and exact deltas.
 The rank has `selectionAuthority: none`: it orders only books authored by the
 caller and does not search, promote, or recommend a nearby portfolio.
 
+When sizing is requested, every weight except the named asset remains fixed
+and each removed unit moves to cash. For adjustable weight \(x\), annualized
+variance on the governing covariance matrix is solved exactly as:
+
+```text
+q(x) = a x² + b x + c,  0 ≤ x ≤ reported weight
+```
+
+The Judge returns the largest feasible \(x\), which is the smallest permitted
+reduction. `already-compliant` preserves the original book. `infeasible`
+returns the constrained minimum-risk point solely as proof that no point on
+the authorized path reaches the ceiling. The result includes the complete
+book, cash, quadratic coefficients and domain, governing contribution ledger,
+and diagnostic behavior on the other fixed lookbacks. It is a historical
+target-position calculation, not a forecast guarantee or execution plan.
+
 ## Immutable evidence
 
 One successful Run publishes:
@@ -146,7 +181,9 @@ One successful Run publishes:
 - `book-risk-correlations.csv`;
 - `book-risk-path.csv`;
 - `book-risk-scenario-comparisons.csv`;
-- `book-risk-scenario-contributions.csv`.
+- `book-risk-scenario-contributions.csv`;
+- `book-risk-sizing-lookbacks.csv`;
+- `book-risk-sizing-contributions.csv`.
 
 `aq run book-risk` revalidates Run hashes, the frozen position snapshot, exact
 method and dataset description, metric reconciliation, contribution and
@@ -155,6 +192,9 @@ identity before returning the bounded `book-risk-diagnostics` read model. For
 supplied scenarios it additionally re-derives every delta, rank, HHI/effective
 bet identity, weight change, component-variance sum, risk-share sum and leader
 from the two scenario artifacts and frozen books.
+For sizing it additionally re-derives the constrained quadratic minimum and
+largest feasible root, status semantics, complete one-leg/cash weight change,
+governing variance, contribution identities, and both sizing artifacts.
 
 Studio exposes the same verified evidence as a Book Risk lane:
 
@@ -165,6 +205,8 @@ Studio exposes the same verified evidence as a Book Risk lane:
 - pairwise correlations;
 - rolling crowding context;
 - caller-supplied scenario ranks/deltas and primary-window per-asset changes;
+- caller-bounded sizing status, target weights, cash change, governing ceiling,
+  and cross-lookback diagnostics;
 - the explicit no-authentication/no-optimization/no-order warning.
 
 ## Agent lifecycle
@@ -179,6 +221,12 @@ record every complete proposed book, confirm the common time/currency and
 unchanged legs, and state that historical covariance risk—not taxes, expected
 return, suitability, or execution—is the comparison meaning. It must not
 manufacture missing scenarios.
+
+For a one-leg sizing question, the Agent must clarify the only adjustable
+holding, cash destination, exact historical covariance window, numerical
+annualized-volatility ceiling, and whether the caller accepts a no-solution
+result. It must not add another adjustable asset, create a scenario grid, or
+turn the historical target into an Order.
 
 After the fixed Run, `aq orient` reports
 `descriptive-audit-complete`, points to the read-only
@@ -195,7 +243,7 @@ The first contract intentionally excludes:
 - point-in-time fundamentals, exposures, sectors, or options Greeks;
 - tax lots, borrow, financing, replacement selection, and transaction costs;
 - covariance shrinkage or factor-model estimation;
-- portfolio optimization and target-weight generation;
+- general portfolio optimization or multi-leg target generation;
 - scenario generation, sparse-delta interpretation, or scenario probability;
 - orders, TPSL, approval, or execution.
 

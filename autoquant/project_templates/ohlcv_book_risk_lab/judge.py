@@ -308,6 +308,267 @@ def _reduction_rows(
     return rows
 
 
+def _solve_position_sizing(
+    policy: dict[str, Any] | None,
+    returns: pd.DataFrame,
+    weights: pd.Series,
+    cash_weight: float,
+    annualization: int,
+    lookbacks: list[int],
+) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]]]:
+    if policy is None:
+        return {"status": "not-requested"}, [], []
+    required = {
+        "kind",
+        "asset",
+        "destination",
+        "annualizedVolatilityCeiling",
+        "lookbackBars",
+        "authority",
+    }
+    asset = policy.get("asset")
+    ceiling = policy.get("annualizedVolatilityCeiling")
+    governing_lookback = policy.get("lookbackBars")
+    if (
+        set(policy) != required
+        or policy.get("kind")
+        != "reduce-one-asset-to-cash-for-volatility-ceiling"
+        or policy.get("destination") != "cash"
+        or policy.get("authority")
+        != {
+            "decisionPath": "caller-bounded-historical-sizing",
+            "tradingAuthority": "none",
+        }
+        or not isinstance(asset, str)
+        or asset not in weights.index
+        or float(weights[asset]) <= 0
+        or not isinstance(ceiling, (int, float))
+        or isinstance(ceiling, bool)
+        or not math.isfinite(float(ceiling))
+        or float(ceiling) <= 0
+        or not isinstance(governing_lookback, int)
+        or isinstance(governing_lookback, bool)
+        or governing_lookback not in lookbacks
+    ):
+        raise JudgeFailure(
+            "book-risk.position-sizing",
+            "Position sizing differs from the bounded fixed contract",
+        )
+    selected_returns = returns.tail(governing_lookback)
+    covariance = np.atleast_2d(
+        np.cov(
+            selected_returns.to_numpy(dtype=float),
+            rowvar=False,
+            ddof=0,
+        )
+    ) * annualization
+    asset_index = list(weights.index).index(asset)
+    zero_leg = weights.to_numpy(dtype=float).copy()
+    zero_leg[asset_index] = 0.0
+    coefficient_a = float(covariance[asset_index, asset_index])
+    coefficient_b = float(
+        2.0 * covariance[asset_index, :] @ zero_leg
+    )
+    coefficient_c = float(zero_leg @ covariance @ zero_leg)
+    starting_weight = float(weights[asset])
+    target_variance = float(ceiling) ** 2
+
+    def variance_at(weight: float) -> float:
+        return float(
+            coefficient_a * weight * weight
+            + coefficient_b * weight
+            + coefficient_c
+        )
+
+    if coefficient_a > 1e-18:
+        unconstrained_minimum = -coefficient_b / (2.0 * coefficient_a)
+        minimum_weight = min(
+            max(unconstrained_minimum, 0.0),
+            starting_weight,
+        )
+    else:
+        minimum_weight = min(
+            (0.0, starting_weight),
+            key=variance_at,
+        )
+    minimum_variance = variance_at(minimum_weight)
+    starting_variance = variance_at(starting_weight)
+    tolerance = max(1e-14, target_variance * 1e-10)
+    if starting_variance <= target_variance + tolerance:
+        status = "already-compliant"
+        resulting_weight = starting_weight
+        result_meaning = "unchanged-compliant-book"
+    elif minimum_variance > target_variance + tolerance:
+        status = "infeasible"
+        resulting_weight = minimum_weight
+        result_meaning = "constrained-minimum-evidence-not-recommendation"
+    else:
+        status = "sized"
+        result_meaning = "smallest-compliant-reduction"
+        if coefficient_a <= 1e-18:
+            if abs(coefficient_b) <= 1e-18:
+                raise JudgeFailure(
+                    "book-risk.position-sizing",
+                    "Sizing path is numerically degenerate",
+                )
+            resulting_weight = (
+                target_variance - coefficient_c
+            ) / coefficient_b
+        else:
+            discriminant = (
+                coefficient_b * coefficient_b
+                - 4.0
+                * coefficient_a
+                * (coefficient_c - target_variance)
+            )
+            if discriminant < -tolerance:
+                raise JudgeFailure(
+                    "book-risk.position-sizing",
+                    "Sizing quadratic has no valid boundary solution",
+                )
+            root = math.sqrt(max(discriminant, 0.0))
+            resulting_weight = (
+                -coefficient_b + root
+            ) / (2.0 * coefficient_a)
+        resulting_weight = min(
+            max(float(resulting_weight), 0.0),
+            starting_weight,
+        )
+    resulting_weights = weights.copy()
+    resulting_weights[asset] = resulting_weight
+    weight_reduction = starting_weight - resulting_weight
+    resulting_cash = cash_weight + weight_reduction
+    lookback_rows: list[dict[str, Any]] = []
+    governing_analysis: dict[str, Any] | None = None
+    baseline_governing = _covariance_analysis(
+        selected_returns,
+        weights,
+        annualization,
+    )
+    for lookback in lookbacks:
+        selected = returns.tail(lookback)
+        baseline = _covariance_analysis(
+            selected,
+            weights,
+            annualization,
+        )
+        analysis = _covariance_analysis(
+            selected,
+            resulting_weights,
+            annualization,
+        )
+        largest = max(
+            analysis["contributions"],
+            key=lambda item: item["absoluteRiskShare"],
+        )
+        row = {
+            "lookbackBars": lookback,
+            "observations": int(analysis["observations"]),
+            "annualizedVolatility": float(
+                analysis["annualizedVolatility"]
+            ),
+            "annualizedVolatilityDelta": float(
+                analysis["annualizedVolatility"]
+                - baseline["annualizedVolatility"]
+            ),
+            "componentRiskHhi": float(analysis["componentRiskHhi"]),
+            "effectiveRiskBets": float(analysis["effectiveRiskBets"]),
+            "largestAbsoluteRiskContributor": largest["asset"],
+            "largestAbsoluteRiskContributorShare": float(
+                largest["absoluteRiskShare"]
+            ),
+            "governing": lookback == governing_lookback,
+            "ceilingSatisfied": (
+                analysis["annualizedVolatility"]
+                <= float(ceiling) + 1e-12
+            ),
+        }
+        lookback_rows.append(row)
+        if lookback == governing_lookback:
+            governing_analysis = analysis
+    if governing_analysis is None:
+        raise JudgeFailure(
+            "book-risk.position-sizing",
+            "Governing sizing analysis is unavailable",
+        )
+    contribution_rows = [
+        {
+            "asset": row["asset"],
+            "baselineWeight": float(weights[row["asset"]]),
+            "resultingWeight": float(resulting_weights[row["asset"]]),
+            "weightDelta": float(
+                resulting_weights[row["asset"]] - weights[row["asset"]]
+            ),
+            "componentVariance": float(row["componentVariance"]),
+            "signedRiskShare": float(row["signedRiskShare"]),
+            "absoluteRiskShare": float(row["absoluteRiskShare"]),
+        }
+        for row in governing_analysis["contributions"]
+    ]
+    largest = max(
+        governing_analysis["contributions"],
+        key=lambda item: item["absoluteRiskShare"],
+    )
+    return (
+        {
+            "status": status,
+            "resultMeaning": result_meaning,
+            "policy": policy,
+            "quadratic": {
+                "coefficientA": coefficient_a,
+                "coefficientB": coefficient_b,
+                "coefficientC": coefficient_c,
+                "domainMinimumWeight": 0.0,
+                "domainMaximumWeight": starting_weight,
+                "targetVariance": target_variance,
+                "startingVariance": starting_variance,
+                "minimumWeight": minimum_weight,
+                "minimumVariance": minimum_variance,
+            },
+            "result": {
+                "asset": asset,
+                "startingWeight": starting_weight,
+                "resultingWeight": resulting_weight,
+                "weightReduction": weight_reduction,
+                "startingCashWeight": cash_weight,
+                "resultingCashWeight": resulting_cash,
+                "weights": {
+                    symbol: float(resulting_weights[symbol])
+                    for symbol in resulting_weights.index
+                },
+                "annualizedVolatility": float(
+                    governing_analysis["annualizedVolatility"]
+                ),
+                "annualizedVariance": float(
+                    governing_analysis["annualizedVariance"]
+                ),
+                "annualizedVolatilityDelta": float(
+                    governing_analysis["annualizedVolatility"]
+                    - baseline_governing["annualizedVolatility"]
+                ),
+                "componentRiskHhi": float(
+                    governing_analysis["componentRiskHhi"]
+                ),
+                "effectiveRiskBets": float(
+                    governing_analysis["effectiveRiskBets"]
+                ),
+                "largestAbsoluteRiskContributor": largest["asset"],
+                "largestAbsoluteRiskContributorShare": float(
+                    largest["absoluteRiskShare"]
+                ),
+                "ceilingSatisfied": (
+                    governing_analysis["annualizedVolatility"]
+                    <= float(ceiling) + 1e-12
+                ),
+            },
+            "lookbacks": lookback_rows,
+            "contributions": contribution_rows,
+        },
+        lookback_rows,
+        contribution_rows,
+    )
+
+
 def main() -> None:
     try:
         project_root = Path(os.environ["AUTOQUANT_PROJECT_ROOT"]).resolve()
@@ -383,6 +644,12 @@ def main() -> None:
                 )
             scenario_ids.add(identifier)
             scenario_weights.append((scenario, candidate))
+        sizing_policy = snapshot.get("sizingPolicy")
+        if sizing_policy is not None and scenario_weights:
+            raise JudgeFailure(
+                "book-risk.position-sizing",
+                "Position sizing cannot coexist with supplied scenarios",
+            )
         scenarios = _load_scenarios(project_root)
         dataset = study.get("dataset")
         if not isinstance(dataset, dict):
@@ -498,6 +765,18 @@ def main() -> None:
             float(snapshot["cashWeight"]),
             annualization,
             reduction_weight,
+        )
+        (
+            position_sizing,
+            sizing_lookback_rows,
+            sizing_contribution_rows,
+        ) = _solve_position_sizing(
+            sizing_policy,
+            baseline_returns,
+            weights,
+            float(snapshot["cashWeight"]),
+            annualization,
+            list(scenarios["lookbackBars"]),
         )
         comparison_weights = weights.reindex(
             comparison_assets,
@@ -710,6 +989,9 @@ def main() -> None:
                 "tradingAuthority": "none",
                 "reductionMeaning": "standardized-historical-sensitivity",
                 "scenarioMeaning": "caller-specified-historical-comparison",
+                "sizingMeaning": (
+                    "caller-bounded-historical-target-position"
+                ),
             },
             "method": scenarios,
             "dataset": {
@@ -774,6 +1056,7 @@ def main() -> None:
                     "selectionAuthority": "none",
                 },
             },
+            "positionSizing": position_sizing,
             "rollingSummary": {
                 "observations": len(rolling),
                 "start": rolling[0]["timestamp"],
@@ -872,6 +1155,35 @@ def main() -> None:
             ],
             scenario_contribution_rows,
         )
+        _write_csv(
+            artifacts / "book-risk-sizing-lookbacks.csv",
+            [
+                "lookbackBars",
+                "observations",
+                "annualizedVolatility",
+                "annualizedVolatilityDelta",
+                "componentRiskHhi",
+                "effectiveRiskBets",
+                "largestAbsoluteRiskContributor",
+                "largestAbsoluteRiskContributorShare",
+                "governing",
+                "ceilingSatisfied",
+            ],
+            sizing_lookback_rows,
+        )
+        _write_csv(
+            artifacts / "book-risk-sizing-contributions.csv",
+            [
+                "asset",
+                "baselineWeight",
+                "resultingWeight",
+                "weightDelta",
+                "componentVariance",
+                "signedRiskShare",
+                "absoluteRiskShare",
+            ],
+            sizing_contribution_rows,
+        )
         metrics = {
             "current_component_risk_hhi": float(
                 primary["componentRiskHhi"]
@@ -891,6 +1203,17 @@ def main() -> None:
             "primary_lookback_bars": primary_lookback,
             "held_assets": len(weights),
             "scenario_count": len(scenario_results),
+            "sizing_requested": float(sizing_policy is not None),
+            "sizing_feasible": float(
+                position_sizing["status"]
+                in {"sized", "already-compliant"}
+            ),
+            "sizing_weight_reduction": float(
+                position_sizing.get("result", {}).get(
+                    "weightReduction",
+                    0.0,
+                )
+            ),
         }
         primary_scenario_order = sorted(
             scenario_results,
@@ -915,6 +1238,12 @@ def main() -> None:
                         if primary_scenario_order
                         else ""
                     )
+                    + (
+                        "; bounded sizing="
+                        f"{position_sizing['status']}"
+                        if sizing_policy is not None
+                        else ""
+                    )
                 ),
                 "metrics": metrics,
                 "artifacts": [
@@ -924,6 +1253,22 @@ def main() -> None:
                         "description": (
                             "Verified reported-book covariance, crowding, "
                             "contribution, and reduction evidence"
+                        ),
+                    },
+                    {
+                        "kind": "book-risk-sizing-lookbacks",
+                        "path": "book-risk-sizing-lookbacks.csv",
+                        "description": (
+                            "Fixed resulting-book evidence across declared "
+                            "lookbacks"
+                        ),
+                    },
+                    {
+                        "kind": "book-risk-sizing-contributions",
+                        "path": "book-risk-sizing-contributions.csv",
+                        "description": (
+                            "Governing-window resulting-book contribution "
+                            "ledger"
                         ),
                     },
                     {

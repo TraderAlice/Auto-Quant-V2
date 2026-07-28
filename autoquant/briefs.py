@@ -68,6 +68,10 @@ DECISION_ANCHORS = {"dataset-start", "session-start"}
 POSITION_SNAPSHOT_KINDS = {"reported-weights", "hypothetical-weights"}
 POSITION_SCENARIO_ID = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 MAX_POSITION_SCENARIOS = 8
+POSITION_SIZING_KIND = (
+    "reduce-one-asset-to-cash-for-volatility-ceiling"
+)
+POSITION_SIZING_LOOKBACKS = {63, 126, 252}
 
 
 def _issue(path: Path | str, code: str, message: str) -> ValidationIssue:
@@ -503,6 +507,130 @@ def _normalize_position_scenarios(
     return normalized
 
 
+def _normalize_position_sizing(
+    value: Any,
+    baseline: dict[str, Any] | None,
+    path: str,
+    issues: list[ValidationIssue],
+) -> dict[str, Any] | None:
+    if not isinstance(value, dict):
+        issues.append(
+            _issue(path, "schema.type", "positionSizing must be an object")
+        )
+        return None
+    issues.extend(
+        _strict_keys(
+            value,
+            {
+                "kind",
+                "asset",
+                "destination",
+                "annualizedVolatilityCeiling",
+                "lookbackBars",
+            },
+            path,
+        )
+    )
+    kind = value.get("kind")
+    if kind != POSITION_SIZING_KIND:
+        issues.append(
+            _issue(
+                f"{path}/kind",
+                "request.position-sizing-kind",
+                f"positionSizing kind must be {POSITION_SIZING_KIND}",
+            )
+        )
+    asset = value.get("asset")
+    if not isinstance(asset, str) or not asset.strip():
+        issues.append(
+            _issue(
+                f"{path}/asset",
+                "request.position-sizing-asset",
+                "positionSizing asset must be one non-empty symbol",
+            )
+        )
+    destination = value.get("destination")
+    if destination != "cash":
+        issues.append(
+            _issue(
+                f"{path}/destination",
+                "request.position-sizing-destination",
+                "The bounded position-sizing destination must be cash",
+            )
+        )
+    ceiling = value.get("annualizedVolatilityCeiling")
+    if (
+        not isinstance(ceiling, (int, float))
+        or isinstance(ceiling, bool)
+        or not math.isfinite(float(ceiling))
+        or not 0 < float(ceiling) <= 10
+    ):
+        issues.append(
+            _issue(
+                f"{path}/annualizedVolatilityCeiling",
+                "request.position-sizing-ceiling",
+                "Annualized volatility ceiling must be finite, positive, "
+                "and no greater than 10",
+            )
+        )
+    lookback = value.get("lookbackBars")
+    if (
+        not isinstance(lookback, int)
+        or isinstance(lookback, bool)
+        or lookback not in POSITION_SIZING_LOOKBACKS
+    ):
+        issues.append(
+            _issue(
+                f"{path}/lookbackBars",
+                "request.position-sizing-lookback",
+                "positionSizing lookbackBars must be one of 63, 126, or 252",
+            )
+        )
+    normalized_asset = asset.strip() if isinstance(asset, str) else ""
+    if baseline is None:
+        issues.append(
+            _issue(
+                path,
+                "request.position-sizing-baseline",
+                "positionSizing requires a valid positionSnapshot baseline",
+            )
+        )
+    elif (
+        normalized_asset not in baseline["weights"]
+        or baseline["weights"].get(normalized_asset, 0.0) <= 0
+    ):
+        issues.append(
+            _issue(
+                f"{path}/asset",
+                "request.position-sizing-held-long",
+                "The adjustable asset must be a strictly positive baseline "
+                "holding",
+            )
+        )
+    if (
+        kind != POSITION_SIZING_KIND
+        or not normalized_asset
+        or destination != "cash"
+        or not isinstance(ceiling, (int, float))
+        or isinstance(ceiling, bool)
+        or not math.isfinite(float(ceiling))
+        or not 0 < float(ceiling) <= 10
+        or not isinstance(lookback, int)
+        or isinstance(lookback, bool)
+        or lookback not in POSITION_SIZING_LOOKBACKS
+        or baseline is None
+        or baseline["weights"].get(normalized_asset, 0.0) <= 0
+    ):
+        return None
+    return {
+        "kind": POSITION_SIZING_KIND,
+        "asset": normalized_asset,
+        "destination": "cash",
+        "annualizedVolatilityCeiling": float(ceiling),
+        "lookbackBars": lookback,
+    }
+
+
 def validate_research_request(
     value: dict[str, Any],
     path: Path | str = "research-request",
@@ -534,6 +662,7 @@ def validate_research_request(
             "factorPolicy",
             "positionSnapshot",
             "positionScenarios",
+            "positionSizing",
         },
     )
     if value.get("schemaVersion") != SCHEMA_VERSION:
@@ -578,6 +707,23 @@ def validate_research_request(
             normalized_position_snapshot,
             f"{path}/positionScenarios",
             issues,
+        )
+    normalized_position_sizing: dict[str, Any] | None = None
+    if "positionSizing" in value:
+        normalized_position_sizing = _normalize_position_sizing(
+            value.get("positionSizing"),
+            normalized_position_snapshot,
+            f"{path}/positionSizing",
+            issues,
+        )
+    if "positionSizing" in value and "positionScenarios" in value:
+        issues.append(
+            _issue(
+                path,
+                "request.position-sizing-scenarios",
+                "positionSizing and positionScenarios cannot be requested "
+                "together",
+            )
         )
     benchmark_policy = value.get("benchmarkPolicy")
     normalized_benchmark_policy: dict[str, Any] | None = None
@@ -1150,6 +1296,24 @@ def validate_research_request(
                             "position scenario",
                         )
                     )
+        if normalized_position_sizing is not None:
+            sizing_asset = normalized_position_sizing["asset"]
+            if sizing_asset not in requested_roles:
+                issues.append(
+                    _issue(
+                        f"{path}/positionSizing/asset",
+                        "request.position-sizing-unrequested",
+                        "The adjustable asset must be a requested asset",
+                    )
+                )
+            elif requested_roles.get(sizing_asset) == "context-only":
+                issues.append(
+                    _issue(
+                        f"{path}/positionSizing/asset",
+                        "request.position-sizing-context-only",
+                        "A context-only asset cannot be the adjustable asset",
+                    )
+                )
 
     source = value.get("source")
     if not isinstance(source, dict):
@@ -1245,6 +1409,11 @@ def validate_research_request(
         **(
             {"positionScenarios": normalized_position_scenarios}
             if "positionScenarios" in value
+            else {}
+        ),
+        **(
+            {"positionSizing": normalized_position_sizing}
+            if "positionSizing" in value
             else {}
         ),
         "horizon": value["horizon"].strip(),
@@ -1643,6 +1812,30 @@ RESEARCH_REQUEST_JSON_SCHEMA: dict[str, Any] = {
                         "minimum": -3,
                         "maximum": 3,
                     },
+                },
+            },
+        },
+        "positionSizing": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "kind",
+                "asset",
+                "destination",
+                "annualizedVolatilityCeiling",
+                "lookbackBars",
+            ],
+            "properties": {
+                "kind": {"const": POSITION_SIZING_KIND},
+                "asset": {"type": "string", "minLength": 1},
+                "destination": {"const": "cash"},
+                "annualizedVolatilityCeiling": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "maximum": 10,
+                },
+                "lookbackBars": {
+                    "enum": sorted(POSITION_SIZING_LOOKBACKS),
                 },
             },
         },
