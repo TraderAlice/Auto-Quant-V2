@@ -49,16 +49,19 @@ evaluation, one RL state encoder, three fixed Studies, and a strict
 `research-program.json` coordination manifest. See
 [[docs/design/research-program-orchestration]].
 
-The factor template evaluates causal cross-sectional predictive evidence with
-dataset-fixed purged request-bound forward-bar rank/Pearson IC, HAC inference,
-fixed-tertile behavior, OHLCV-style overlap, and
+The factor template evaluates causal predictive evidence with dataset-fixed
+purged request-bound forward-bar rank/Pearson association, HAC inference,
+OHLCV-style overlap, and
 asset/fold/causal-regime stability. It always gives candidate code the complete
 research panel but freezes the evaluation population separately:
 `decision-signal` uses Portfolio-Mandate `tradableAssets`; `novel-factor` and
 `known-style-validation` use the complete research universe. Context-only
 assets therefore cannot silently strengthen a request-specific decision claim.
-Fewer than four request-bound prediction assets is an explicit unsupported
-cross-sectional population, not permission to borrow context targets. The
+Exactly one request-bound decision asset uses within-split temporal
+association; four or more use per-timestamp cross-sectional association. Two
+or three are an explicit relative-value boundary, not permission to borrow
+context targets. Cross-sectional runs retain fixed-tertile and declared
+component diagnostics; temporal V1 explicitly omits those two artifacts. The
 portfolio template fixes the next layer: factor normalization, target weights,
 explicit entry/hold/exit/reversal intent, gross/net and per-asset constraints,
 drift, no-trade behavior, turnover, costs, benchmark, a causal covariance

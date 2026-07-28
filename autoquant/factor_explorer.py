@@ -75,6 +75,15 @@ EXPECTED_ARTIFACT_KINDS = {
 }
 AVAILABILITY_ARTIFACT_KIND = "factor-availability"
 QUALIFICATION_METHOD = "request-claim-aware-one-style-rank-neutralization-v2"
+TEMPORAL_QUALIFICATION_METHOD = (
+    "request-claim-aware-one-style-temporal-neutralization-v1"
+)
+QUALIFICATION_METHODS = {
+    QUALIFICATION_METHOD,
+    TEMPORAL_QUALIFICATION_METHOD,
+}
+CROSS_SECTIONAL_MODE = "cross-sectional"
+SINGLE_ASSET_TEMPORAL_MODE = "single-asset-temporal"
 COMPONENT_METHOD = "candidate-declared-components-v2"
 MAX_COMPONENTS = 12
 QUALIFICATION_MIN_POSITIVE_HAC_T = 1.96
@@ -396,6 +405,7 @@ def _read_csv(
     *,
     columns: list[str],
     maximum_rows: int,
+    allow_empty: bool = False,
 ) -> list[dict[str, str]]:
     try:
         with path.open("r", encoding="utf-8", newline="") as handle:
@@ -423,7 +433,7 @@ def _read_csv(
                     )
     except UnicodeDecodeError:
         _fail(path, "factor.csv-encoding", "CSV must be UTF-8")
-    if not rows:
+    if not rows and not allow_empty:
         _fail(path, "factor.csv-empty", "CSV must contain data rows")
     return rows
 
@@ -687,6 +697,9 @@ def _availability(
         )
     observed_rows = sum(row["inputAssets"] for row in rows)
     possible_rows = len(rows) * maximum_assets
+    minimum_assets = raw_metrics.get(
+        "minimum_assets_per_factor_timestamp"
+    )
     if (
         raw_metrics.get("method") != "observed-only-no-fill-v1"
         or raw_metrics.get("missing_observation") != "absent-no-fill"
@@ -694,7 +707,7 @@ def _availability(
         or raw_metrics.get("possible_rows") != possible_rows
         or raw_metrics.get("complete_timestamps")
         != sum(row["inputAssets"] == maximum_assets for row in rows)
-        or raw_metrics.get("minimum_assets_per_factor_timestamp") != 4
+        or minimum_assets not in {1, 4}
     ):
         _fail(
             "RunResult/metrics/input_availability",
@@ -721,7 +734,7 @@ def _availability(
         {
             "horizon": horizon,
             "timestamps": sum(
-                row["pairedAssets"][str(horizon)] >= 4
+                row["pairedAssets"][str(horizon)] >= minimum_assets
                 for row in rows
             ),
         }
@@ -827,7 +840,7 @@ def _availability(
         "possibleRows": possible_rows,
         "observationCoverage": float(observed_rows / possible_rows),
         "completeTimestamps": raw_metrics["complete_timestamps"],
-        "minimumAssetsPerFactorTimestamp": 4,
+        "minimumAssetsPerFactorTimestamp": minimum_assets,
         "eligibleFactorTimestamps": eligible,
         "assetsPerTimestamp": count_summaries,
         "byAsset": by_asset,
@@ -843,6 +856,7 @@ def _prediction_universe(
         return {
             "available": False,
             "reason": "legacy-run",
+            "evaluationMode": CROSS_SECTIONAL_MODE,
             "researchAssets": list(universe),
             "predictionAssets": list(universe),
             "contextAssets": [],
@@ -855,7 +869,11 @@ def _prediction_universe(
         "asset_position_roles",
         "trading_authority",
     }
-    if not isinstance(raw, dict) or set(raw) != required:
+    if (
+        not isinstance(raw, dict)
+        or frozenset(raw)
+        not in {frozenset(required), frozenset(required | {"evaluation_mode"})}
+    ):
         _fail(
             "RunResult/metrics/prediction_universe",
             "factor.prediction-universe",
@@ -865,6 +883,7 @@ def _prediction_universe(
     prediction_assets = raw["prediction_assets"]
     context_assets = raw["context_assets"]
     roles = raw["asset_position_roles"]
+    evaluation_mode = raw.get("evaluation_mode", CROSS_SECTIONAL_MODE)
     if (
         research_assets != universe
         or not isinstance(prediction_assets, list)
@@ -881,6 +900,16 @@ def _prediction_universe(
             "factor-claim-research-universe",
         }
         or raw["trading_authority"] != "none"
+        or evaluation_mode
+        not in {CROSS_SECTIONAL_MODE, SINGLE_ASSET_TEMPORAL_MODE}
+        or (
+            evaluation_mode == SINGLE_ASSET_TEMPORAL_MODE
+            and len(prediction_assets) != 1
+        )
+        or (
+            evaluation_mode == CROSS_SECTIONAL_MODE
+            and len(prediction_assets) < 4
+        )
     ):
         _fail(
             "RunResult/metrics/prediction_universe",
@@ -890,6 +919,7 @@ def _prediction_universe(
     return {
         "available": True,
         "authority": raw["authority"],
+        "evaluationMode": evaluation_mode,
         "researchAssets": list(research_assets),
         "predictionAssets": list(prediction_assets),
         "contextAssets": list(context_assets),
@@ -901,6 +931,7 @@ def _prediction_universe(
 def _parse_daily(
     path: Path,
     protocol: dict[str, Any],
+    evaluation_mode: str = CROSS_SECTIONAL_MODE,
 ) -> ParsedDaily:
     raw_rows = _read_csv(
         path,
@@ -936,11 +967,18 @@ def _parse_daily(
             f"{measure}IcH{horizon}": (
                 None
                 if raw[f"{measure}_ic_h{horizon}"] == ""
-                else _bounded(
-                    raw[f"{measure}_ic_h{horizon}"],
-                    f"{row_path}/{measure}_ic_h{horizon}",
-                    minimum=-1.0,
-                    maximum=1.0,
+                else (
+                    _finite(
+                        raw[f"{measure}_ic_h{horizon}"],
+                        f"{row_path}/{measure}_ic_h{horizon}",
+                    )
+                    if evaluation_mode == SINGLE_ASSET_TEMPORAL_MODE
+                    else _bounded(
+                        raw[f"{measure}_ic_h{horizon}"],
+                        f"{row_path}/{measure}_ic_h{horizon}",
+                        minimum=-1.0,
+                        maximum=1.0,
+                    )
                 )
             )
             for horizon in HORIZONS
@@ -1071,6 +1109,7 @@ def _parse_quantiles(
         path,
         columns=QUANTILE_COLUMNS,
         maximum_rows=MAX_QUANTILE_ROWS,
+        allow_empty=True,
     )
     rows: list[dict[str, Any]] = []
     seen: set[tuple[str, str, int]] = set()
@@ -1258,7 +1297,8 @@ def _parse_factor_qualification(
             "factor.qualification",
             "Factor qualification metrics must be an object",
         )
-    if qualification.get("method") != QUALIFICATION_METHOD:
+    method = qualification.get("method")
+    if method not in QUALIFICATION_METHODS:
         _fail(
             "RunResult/metrics/factor_qualification/method",
             "factor.qualification-method",
@@ -1287,9 +1327,13 @@ def _parse_factor_qualification(
         or selection.get("split") != "train"
         or selection.get("criterion")
         != (
-            "request-predeclared-known-style"
-            if claim["claim"] == "known-style-validation"
-            else "maximum-absolute-mean-daily-rank-overlap"
+            "maximum-absolute-mean-temporal-rank-overlap"
+            if method == TEMPORAL_QUALIFICATION_METHOD
+            else (
+                "request-predeclared-known-style"
+                if claim["claim"] == "known-style-validation"
+                else "maximum-absolute-mean-daily-rank-overlap"
+            )
         )
         or selection.get("validation_enters_selection") is not False
         or selection.get("test_enters_selection") is not False
@@ -1399,11 +1443,18 @@ def _parse_factor_qualification(
             f"{signal}RankIcH{horizon}": (
                 None
                 if raw[f"{signal}_rank_ic_h{horizon}"] == ""
-                else _bounded(
-                    raw[f"{signal}_rank_ic_h{horizon}"],
-                    f"{row_path}/{signal}_rank_ic_h{horizon}",
-                    minimum=-1.0,
-                    maximum=1.0,
+                else (
+                    _finite(
+                        raw[f"{signal}_rank_ic_h{horizon}"],
+                        f"{row_path}/{signal}_rank_ic_h{horizon}",
+                    )
+                    if method == TEMPORAL_QUALIFICATION_METHOD
+                    else _bounded(
+                        raw[f"{signal}_rank_ic_h{horizon}"],
+                        f"{row_path}/{signal}_rank_ic_h{horizon}",
+                        minimum=-1.0,
+                        maximum=1.0,
+                    )
                 )
             )
             for horizon in HORIZONS
@@ -1481,6 +1532,7 @@ def _parse_factor_qualification(
                     "qualification mean rank IC",
                 )
     return rows, {
+        "method": method,
         "claim": claim,
         "dominantStyle": dominant_style,
         "candidates": normalized_candidates,
@@ -1548,8 +1600,11 @@ def _ic_summary(value: Any, path: str) -> dict[str, Any]:
 def _factor_qualification_projection(
     parsed: dict[str, Any] | None,
 ) -> dict[str, Any]:
+    method = (
+        parsed["method"] if parsed is not None else QUALIFICATION_METHOD
+    )
     base = {
-        "method": QUALIFICATION_METHOD,
+        "method": method,
         "authority": "research-prioritization-only",
         "tradingAuthority": "none",
     }
@@ -1562,12 +1617,22 @@ def _factor_qualification_projection(
     metrics = parsed["metrics"]
     claim = parsed["claim"]
     semantics = metrics.get("semantics")
+    expected_neutralization = (
+        "within-split-temporal-centered-rank-ols"
+        if method == TEMPORAL_QUALIFICATION_METHOD
+        else "same-timestamp-cross-sectional-centered-rank-ols"
+    )
+    expected_blend = (
+        "equal-weight-within-split-temporal-percentile-ranks"
+        if method == TEMPORAL_QUALIFICATION_METHOD
+        else "equal-weight-cross-sectional-percentile-ranks"
+    )
     if (
         not isinstance(semantics, dict)
         or semantics.get("neutralization")
-        != "same-timestamp-cross-sectional-centered-rank-ols"
+        != expected_neutralization
         or semantics.get("blend")
-        != "equal-weight-cross-sectional-percentile-ranks"
+        != expected_blend
         or semantics.get("target_enters_neutralization") is not False
         or semantics.get("selection_authority")
         != "research-context-only"
@@ -1881,9 +1946,13 @@ def _factor_qualification_projection(
             "split": "train",
             "role": "comparison-style-selection-only",
             "criterion": (
-                "request-predeclared-known-style"
-                if claim["claim"] == "known-style-validation"
-                else "maximum-absolute-mean-daily-rank-overlap"
+                "maximum-absolute-mean-temporal-rank-overlap"
+                if method == TEMPORAL_QUALIFICATION_METHOD
+                else (
+                    "request-predeclared-known-style"
+                    if claim["claim"] == "known-style-validation"
+                    else "maximum-absolute-mean-daily-rank-overlap"
+                )
             ),
             "dominantStyle": parsed["dominantStyle"],
             "candidates": parsed["candidates"],
@@ -3635,7 +3704,11 @@ def _load_factor_diagnostics_unlocked(
             "Factor report prediction universe differs from immutable metrics",
         )
     protocol = _split_protocol(metrics)
-    daily = _parse_daily(paths["factor-daily"], protocol)
+    daily = _parse_daily(
+        paths["factor-daily"],
+        protocol,
+        prediction_universe["evaluationMode"],
+    )
     _reconcile_daily(daily, metrics)
     if AVAILABILITY_ARTIFACT_KIND in paths:
         input_availability, availability_rows = _availability(
@@ -3723,9 +3796,24 @@ def _load_factor_diagnostics_unlocked(
             "Factor report must declare the fixed horizon and style semantics",
         )
     qualification_semantics = semantics.get("qualification")
+    qualification_method = (
+        qualification_parsed["method"]
+        if qualification_parsed is not None
+        else None
+    )
+    expected_neutralization = (
+        "within-split-temporal-centered-rank-ols"
+        if qualification_method == TEMPORAL_QUALIFICATION_METHOD
+        else "same-timestamp-cross-sectional-centered-rank-ols"
+    )
+    expected_blend = (
+        "equal-weight-within-split-temporal-percentile-ranks"
+        if qualification_method == TEMPORAL_QUALIFICATION_METHOD
+        else "equal-weight-cross-sectional-percentile-ranks"
+    )
     if qualification_parsed is not None and (
         not isinstance(qualification_semantics, dict)
-        or qualification_semantics.get("method") != QUALIFICATION_METHOD
+        or qualification_semantics.get("method") != qualification_method
         or qualification_semantics.get("claim")
         != qualification_parsed["claim"]
         or qualification_semantics.get("styleSelection")
@@ -3736,9 +3824,9 @@ def _load_factor_diagnostics_unlocked(
             else "train-only"
         )
         or qualification_semantics.get("neutralization")
-        != "same-timestamp-cross-sectional-centered-rank-ols"
+        != expected_neutralization
         or qualification_semantics.get("blend")
-        != "equal-weight-cross-sectional-percentile-ranks"
+        != expected_blend
         or qualification_semantics.get("testRole")
         != "visible audit only"
         or qualification_semantics.get("tradingAuthority") != "none"
@@ -3873,7 +3961,7 @@ _FACTOR_QUALIFICATION_SCHEMA: dict[str, Any] = {
                 "reason",
             ],
             "properties": {
-                "method": {"const": QUALIFICATION_METHOD},
+                "method": {"enum": sorted(QUALIFICATION_METHODS)},
                 "authority": {"const": "research-prioritization-only"},
                 "tradingAuthority": {"const": "none"},
                 "available": {"const": False},
@@ -3900,7 +3988,7 @@ _FACTOR_QUALIFICATION_SCHEMA: dict[str, Any] = {
                 "horizonProfile",
             ],
             "properties": {
-                "method": {"const": QUALIFICATION_METHOD},
+                "method": {"enum": sorted(QUALIFICATION_METHODS)},
                 "authority": {"const": "research-prioritization-only"},
                 "tradingAuthority": {"const": "none"},
                 "available": {"const": True},
@@ -3926,6 +4014,7 @@ _FACTOR_QUALIFICATION_SCHEMA: dict[str, Any] = {
                         "criterion": {
                             "enum": [
                                 "maximum-absolute-mean-daily-rank-overlap",
+                                "maximum-absolute-mean-temporal-rank-overlap",
                                 "request-predeclared-known-style",
                             ]
                         },
@@ -3954,16 +4043,16 @@ _FACTOR_QUALIFICATION_SCHEMA: dict[str, Any] = {
                     ],
                     "properties": {
                         "neutralization": {
-                            "const": (
-                                "same-timestamp-cross-sectional-centered-"
-                                "rank-ols"
-                            )
+                            "enum": [
+                                "same-timestamp-cross-sectional-centered-rank-ols",
+                                "within-split-temporal-centered-rank-ols",
+                            ]
                         },
                         "blend": {
-                            "const": (
-                                "equal-weight-cross-sectional-percentile-"
-                                "ranks"
-                            )
+                            "enum": [
+                                "equal-weight-cross-sectional-percentile-ranks",
+                                "equal-weight-within-split-temporal-percentile-ranks",
+                            ]
                         },
                         "targetEntersNeutralization": {"const": False},
                         "diagnosisSplit": {"const": "validation"},
@@ -4387,7 +4476,7 @@ FACTOR_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                             "minimum": 0,
                         },
                         "minimumAssetsPerFactorTimestamp": {
-                            "const": 4
+                            "enum": [1, 4]
                         },
                         "eligibleFactorTimestamps": {
                             "type": "array",

@@ -3,8 +3,8 @@
 ## Research question
 
 Can one causal transformation of ordinary OHLCV history produce stable
-cross-sectional forward-return rank information across the fixed
-prediction-eligible universe and both held-out chronological periods?
+forward-return information across the fixed prediction-eligible universe and
+both held-out chronological periods?
 
 ## Editable API
 
@@ -21,9 +21,11 @@ The complete research universe remains available for causal cross-asset
 features. The fixed Judge, not candidate code, selects target observations:
 `decision-signal` evaluates only Portfolio-Mandate `tradableAssets`, while
 `novel-factor` and `known-style-validation` evaluate the complete research
-universe. Inspect `predictionUniverse` in Factor diagnostics. A
-decision-signal with fewer than four eligible assets requires a time-series or
-relative-value Study and must not borrow context-only target observations.
+universe. Inspect `predictionUniverse.evaluationMode` in Factor diagnostics.
+A decision signal with exactly one eligible asset uses within-split temporal
+Spearman/Pearson evidence for that asset. Four or more eligible assets use the
+cross-sectional contract. Two or three require a dedicated relative-value
+Study. No mode may borrow context-only target observations.
 Aligned inputs are rectangular; V4 daily input is ragged and does not invent,
 fill, or globally intersect missing/pre-listing rows.
 Use ordinary `groupby("asset")` for rolling time-series features and
@@ -32,7 +34,8 @@ returned Series must align exactly with the input index. Missing warm-up values
 are allowed. Future timestamps, centered windows, negative shifts, global
 full-sample normalization, external data, and mutation of the input are not.
 
-When a hypothesis has meaningful sub-signals, also export
+For cross-sectional evaluation, when a hypothesis has meaningful sub-signals,
+also export
 `FACTOR_COMPONENTS` and
 `compute_factor_components(panel) -> pandas.DataFrame`. Declare one causal
 column per falsifiable source component, including its label, role, claimed
@@ -44,7 +47,9 @@ Core evaluates their train-tertile occupancy, transitions, and conditional
 final-factor IC instead of inventing meaningless standalone cross-sectional
 IC. The component table must remain aligned, deterministic, numeric,
 immutable, and prefix causal. Do not declare presentation-only duplicates or
-imply that Core inferred column use.
+imply that Core inferred column use. Single-asset temporal V1 validates the
+final factor but does not yet publish component or quantile attribution; treat
+that absence as an explicit protocol boundary, not positive evidence.
 
 ## Iteration protocol
 

@@ -124,7 +124,9 @@ The V2 foundation now implements:
   the complete research panel, request-specific decision signals are evaluated
   only on Portfolio-Mandate tradable assets, and factor-identity claims retain
   complete-universe evaluation. Research, prediction, and context populations
-  are frozen and disclosed separately.
+  are frozen and disclosed separately. One decision asset selects temporal
+  evaluation, four or more select cross-sectional evaluation, and two or three
+  remain a deliberate relative-value boundary.
 - one optional explicit factor-component contract that checks declared
   score and timestamp-context components for determinism and causality. Scores
   expose predictive quality, association, redundancy, residual IC, and

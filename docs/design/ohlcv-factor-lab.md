@@ -104,9 +104,13 @@ The Judge owns target construction and evaluation:
 5. Load the immutable Horizon Mandate, compute its primary and diagnostic
    close-to-close forward returns, and purge signal rows whose target would
    cross a split boundary.
-6. Measure per-timestamp cross-sectional Spearman information coefficient.
-7. Aggregate chronological train, validation, test, HAC, decay, fixed-tertile,
-   fixed-style, per-asset, fold, and causal-regime diagnostics.
+6. Select the immutable evaluation mode from the prediction population:
+   within-split temporal Spearman/Pearson for exactly one request-bound
+   decision asset, or per-timestamp cross-sectional association for four or
+   more assets. Two or three remain a relative-value boundary.
+7. Aggregate chronological train, validation, test, HAC, decay, fixed-style,
+   per-asset, fold, and causal-regime diagnostics. Fixed tertiles and declared
+   component attribution apply only to the cross-sectional mode in V1.
 8. Publish finite primary `validation_mean_ic`, diagnostic test metrics, a
    research-integrity declaration, a JSON tear sheet, and exact daily CSV
    evidence.

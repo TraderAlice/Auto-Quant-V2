@@ -20,8 +20,8 @@ working language of the AutoQuant desk.
 Research one investment question through three distinct evidence lanes without
 changing Project, request, universe, or dataset:
 
-1. **Factor quality** — test whether a causal cross-sectional signal predicts
-   forward returns across horizons, folds, regimes, assets, and style overlap.
+1. **Factor quality** — test whether a causal signal predicts forward returns
+   across horizons, folds, regimes, assets, and style overlap.
 2. **Portfolio quality** — test whether the same `factors/candidate.py`
    survives the request-bound tradable/context universe, direction, cash,
    mechanical signal state, sizing, causal covariance ceiling, constraints,
@@ -59,7 +59,9 @@ All three lanes bind the same fixed
 Factor uses its tradable assets as the prediction/evaluation population while
 the complete research universe remains available as causal input context.
 Novel-factor and known-style validation claims retain complete-universe
-evaluation. Portfolio and RL may never turn context assets into implicit
+evaluation. Exactly one tradable asset selects temporal evaluation; four or
+more select cross-sectional evaluation; two or three require a dedicated
+relative-value Study. Portfolio and RL may never turn context assets into implicit
 positions, learn around the requested direction, or bypass the shared
 scale-down-only target and final executed-book portfolio-volatility ceiling.
 Risk may override no-trade only by reducing the chosen book; the same

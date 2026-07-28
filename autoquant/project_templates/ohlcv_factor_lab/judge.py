@@ -49,6 +49,7 @@ from judges.factor_diagnostics import (
     descriptive_ic,
     equal_rank_blend,
     forward_return_panels,
+    hac_inference,
     per_asset_rank_correlation,
     purged_split_masks,
     quantile_summary,
@@ -60,6 +61,11 @@ REQUIRED_COLUMNS = ("timestamp", "open", "high", "low", "close", "volume")
 MIN_ASSETS_PER_DATE = 4
 MIN_IC_DATES_PER_SPLIT = 20
 PRIMARY_HORIZON = 1
+CROSS_SECTIONAL_MODE = "cross-sectional"
+SINGLE_ASSET_TEMPORAL_MODE = "single-asset-temporal"
+TEMPORAL_QUALIFICATION_METHOD = (
+    "request-claim-aware-one-style-temporal-neutralization-v1"
+)
 
 
 class JudgeFailure(ValueError):
@@ -110,7 +116,7 @@ def _load_factor_claim() -> dict[str, Any]:
 def _load_prediction_universe(
     research_universe: list[str],
     factor_claim: dict[str, Any],
-) -> tuple[dict[str, Any], list[str], list[str], str]:
+) -> tuple[dict[str, Any], list[str], list[str], str, str]:
     path = Path(os.environ["AUTOQUANT_PROJECT_ROOT"]) / PORTFOLIO_MANDATE
     try:
         mandate = load_portfolio_mandate(path)
@@ -133,16 +139,32 @@ def _load_prediction_universe(
     context_assets = [
         asset for asset in research_universe if asset not in prediction_assets
     ]
-    if len(prediction_assets) < MIN_ASSETS_PER_DATE:
+    if len(prediction_assets) == 1:
+        if factor_claim["claim"] != "decision-signal":
+            raise JudgeFailure(
+                "prediction-universe.claim",
+                "Single-asset temporal evaluation is available only for a "
+                "request-bound decision-signal claim",
+            )
+        evaluation_mode = SINGLE_ASSET_TEMPORAL_MODE
+    elif len(prediction_assets) >= MIN_ASSETS_PER_DATE:
+        evaluation_mode = CROSS_SECTIONAL_MODE
+    else:
         raise JudgeFailure(
             "prediction-universe.population",
-            "Cross-sectional Factor evaluation requires at least "
-            f"{MIN_ASSETS_PER_DATE} prediction-eligible assets; received "
-            f"{len(prediction_assets)}. Use a time-series or relative-value "
-            "Study instead of borrowing target observations from context-only "
-            "assets.",
+            "Factor evaluation supports one request-bound temporal asset or "
+            f"at least {MIN_ASSETS_PER_DATE} cross-sectional prediction "
+            f"assets; received {len(prediction_assets)}. Use a dedicated "
+            "relative-value Study instead of borrowing target observations "
+            "from context-only assets.",
         )
-    return mandate, prediction_assets, context_assets, authority
+    return (
+        mandate,
+        prediction_assets,
+        context_assets,
+        authority,
+        evaluation_mode,
+    )
 
 
 def _load_asset(data_root: Path, asset: str, start: str, end: str) -> pd.DataFrame:
@@ -228,6 +250,131 @@ def _component_split_metrics(values: pd.Series) -> dict[str, Any]:
 
 def _masked(values: pd.Series, mask: pd.Series) -> pd.Series:
     return values.reindex(mask.index[mask]).dropna()
+
+
+def _temporal_correlation_contributions(
+    left: pd.Series,
+    right: pd.Series,
+    mask: pd.Series,
+    *,
+    rank: bool,
+    constant_left_value: float | None = None,
+) -> pd.Series:
+    """Return timestamp contributions whose mean is one split correlation."""
+
+    selected = pd.DataFrame(
+        {
+            "left": left.reindex(mask.index[mask]),
+            "right": right.reindex(mask.index[mask]),
+        }
+    ).dropna()
+    result = pd.Series(index=mask.index, dtype=float)
+    if len(selected) < 3:
+        return result
+    if rank:
+        selected = selected.rank(method="average", pct=True)
+    left_centered = selected["left"] - float(selected["left"].mean())
+    right_centered = selected["right"] - float(selected["right"].mean())
+    denominator = math.sqrt(
+        float((left_centered**2).mean())
+        * float((right_centered**2).mean())
+    )
+    if denominator <= 1e-12:
+        if constant_left_value is not None:
+            result.loc[selected.index] = float(constant_left_value)
+        return result
+    result.loc[selected.index] = (
+        left_centered * right_centered / denominator
+    )
+    return result
+
+
+def _temporal_daily(
+    left_panel: pd.DataFrame,
+    right_panel: pd.DataFrame,
+    masks: dict[str, pd.Series],
+    *,
+    rank: bool,
+    constant_left_value: float | None = None,
+) -> pd.Series:
+    """Evaluate one prediction asset across time without context targets."""
+
+    left = left_panel.iloc[:, 0]
+    right = right_panel.iloc[:, 0]
+    result = pd.Series(index=left_panel.index, dtype=float)
+    for split in ("train", "validation", "test"):
+        contribution = _temporal_correlation_contributions(
+            left,
+            right,
+            masks[split],
+            rank=rank,
+            constant_left_value=constant_left_value,
+        )
+        result.loc[contribution.dropna().index] = contribution.dropna()
+    return result
+
+
+def _temporal_transform_panels(
+    candidate: pd.DataFrame,
+    style: pd.DataFrame,
+    masks: dict[str, pd.Series],
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Build target-free temporal residual and equal-rank blend panels."""
+
+    residual = pd.DataFrame(index=candidate.index, columns=candidate.columns)
+    blend = pd.DataFrame(index=candidate.index, columns=candidate.columns)
+    column = candidate.columns[0]
+    for split in ("train", "validation", "test"):
+        index = masks[split].index[masks[split]]
+        pair = pd.DataFrame(
+            {
+                "candidate": candidate[column].reindex(index),
+                "style": style[column].reindex(index),
+            }
+        ).dropna()
+        if pair.empty:
+            continue
+        ranks = pair.rank(method="average", pct=True)
+        candidate_centered = ranks["candidate"] - float(
+            ranks["candidate"].mean()
+        )
+        style_centered = ranks["style"] - float(ranks["style"].mean())
+        denominator = float((style_centered**2).sum())
+        beta = (
+            float((candidate_centered * style_centered).sum()) / denominator
+            if denominator > 1e-12
+            else 0.0
+        )
+        residual.loc[pair.index, column] = (
+            candidate_centered - beta * style_centered
+        )
+        blend.loc[pair.index, column] = (
+            ranks["candidate"] + ranks["style"]
+        ) / 2.0
+    return residual.astype(float), blend.astype(float)
+
+
+def _temporal_split_metrics(
+    values: pd.Series,
+    *,
+    horizon: int,
+    minimum_observations: int = MIN_IC_DATES_PER_SPLIT,
+) -> dict[str, Any]:
+    clean = values.dropna().astype(float)
+    result = descriptive_ic(
+        clean,
+        minimum_observations=minimum_observations,
+    )
+    result["hac"] = hac_inference(clean, maximum_lag=max(1, int(horizon)))
+    if len(clean) < minimum_observations:
+        result["hac"].update(
+            {
+                "standard_error": None,
+                "t_statistic": None,
+                "normal_approximation_p_value": None,
+            }
+        )
+    return result
 
 
 def _style_summary(values: pd.Series) -> dict[str, float | int | None]:
@@ -1122,6 +1269,155 @@ def _factor_qualification(
     }, evidence
 
 
+def _temporal_factor_qualification(
+    factor_panel: pd.DataFrame,
+    styles: dict[str, pd.DataFrame],
+    forward_panels: dict[int, pd.DataFrame],
+    split_masks: dict[int, dict[str, pd.Series]],
+    fold_masks: dict[str, pd.Series],
+    split_labels: pd.Series,
+    style_correlations: dict[str, dict[str, Any]],
+    factor_claim: dict[str, Any],
+) -> tuple[dict[str, Any], pd.DataFrame]:
+    """Qualify one request-authorized asset by association across time."""
+
+    candidates = {
+        name: {
+            "mean_rank_correlation": style_correlations["train"][name][
+                "mean_rank_correlation"
+            ],
+            "mean_absolute_rank_correlation": style_correlations["train"][
+                name
+            ]["mean_absolute_rank_correlation"],
+            "observations": style_correlations["train"][name]["observations"],
+        }
+        for name in STYLE_NAMES
+    }
+    finite = [
+        (name, value["mean_rank_correlation"])
+        for name, value in candidates.items()
+        if value["mean_rank_correlation"] is not None
+    ]
+    if not finite:
+        raise JudgeFailure(
+            "factor.qualification-style",
+            "No finite train-only temporal style overlap is available",
+        )
+    dominant_style = min(
+        finite,
+        key=lambda item: (-abs(float(item[1])), item[0]),
+    )[0]
+    style_panel = styles[dominant_style].reindex_like(factor_panel)
+    residual_panel, blend_panel = _temporal_transform_panels(
+        factor_panel,
+        style_panel,
+        split_masks[PRIMARY_HORIZON],
+    )
+    panels = {
+        "candidate": factor_panel,
+        "dominant_style": style_panel,
+        "style_neutral_candidate": residual_panel,
+        "equal_rank_blend": blend_panel,
+    }
+    daily = {
+        signal: {
+            horizon: _temporal_daily(
+                panel,
+                forward_panels[horizon],
+                split_masks[horizon],
+                rank=True,
+                constant_left_value=(
+                    0.0
+                    if signal == "style_neutral_candidate"
+                    else None
+                ),
+            )
+            for horizon in HORIZONS
+        }
+        for signal, panel in panels.items()
+    }
+    horizon_quality = {
+        str(horizon): {
+            split: {
+                signal: _temporal_split_metrics(
+                    _masked(
+                        daily[signal][horizon],
+                        split_masks[horizon][split],
+                    ),
+                    horizon=horizon,
+                )
+                for signal in panels
+            }
+            for split in ("train", "validation", "test")
+        }
+        for horizon in HORIZONS
+    }
+
+    def fold_quality(panel: pd.DataFrame) -> dict[str, dict[str, Any]]:
+        return {
+            name: _temporal_split_metrics(
+                _temporal_correlation_contributions(
+                    panel.iloc[:, 0],
+                    forward_panels[PRIMARY_HORIZON].iloc[:, 0],
+                    mask,
+                    rank=True,
+                    constant_left_value=(
+                        0.0 if panel is residual_panel else None
+                    ),
+                ),
+                horizon=PRIMARY_HORIZON,
+            )
+            for name, mask in fold_masks.items()
+        }
+
+    candidate_folds = fold_quality(factor_panel)
+    residual_folds = fold_quality(residual_panel)
+    evidence = pd.DataFrame(
+        {
+            "split": split_labels,
+            "dominant_style": dominant_style,
+        },
+        index=factor_panel.index,
+    )
+    for horizon in HORIZONS:
+        eligible = (
+            split_masks[horizon]["train"]
+            | split_masks[horizon]["validation"]
+            | split_masks[horizon]["test"]
+        )
+        for signal in panels:
+            evidence[f"{signal}_rank_ic_h{horizon}"] = (
+                daily[signal][horizon]
+                .reindex(factor_panel.index)
+                .where(eligible)
+            )
+    evidence.index.name = "timestamp"
+    return {
+        "method": TEMPORAL_QUALIFICATION_METHOD,
+        "claim": factor_claim,
+        "selection": {
+            "split": "train",
+            "criterion": "maximum-absolute-mean-temporal-rank-overlap",
+            "dominant_style": dominant_style,
+            "candidates": candidates,
+            "validation_enters_selection": False,
+            "test_enters_selection": False,
+        },
+        "semantics": {
+            "neutralization": "within-split-temporal-centered-rank-ols",
+            "blend": "equal-weight-within-split-temporal-percentile-ranks",
+            "target_enters_neutralization": False,
+            "selection_authority": "research-context-only",
+            "trading_authority": "none",
+        },
+        "horizon_quality": horizon_quality,
+        "stability": {
+            "candidate_chronological_folds": candidate_folds,
+            "style_neutral_chronological_folds": residual_folds,
+        },
+    }, evidence
+
+
 def _evaluate() -> tuple[
     dict[str, Any],
     dict[str, Any],
@@ -1144,7 +1440,13 @@ def _evaluate() -> tuple[
         prediction_assets,
         context_assets,
         prediction_authority,
+        evaluation_mode,
     ) = _load_prediction_universe(universe, factor_claim)
+    minimum_evaluation_assets = (
+        1
+        if evaluation_mode == SINGLE_ASSET_TEMPORAL_MODE
+        else MIN_ASSETS_PER_DATE
+    )
     time_range = dataset["time_range"]
     module = importlib.import_module("factors.candidate")
     frames: dict[str, pd.DataFrame] = {}
@@ -1191,7 +1493,6 @@ def _evaluate() -> tuple[
     )
     factor_panel = research_factor_panel[prediction_assets]
     close_panel = research_close_panel[prediction_assets]
-    volume_panel = research_volume_panel[prediction_assets]
     timeline = pd.DatetimeIndex(research_factor_panel.index)
     split_masks, split_protocol, base_split_labels = purged_split_masks(
         timeline,
@@ -1243,12 +1544,12 @@ def _evaluate() -> tuple[
         "eligible_factor_timestamps": {
             str(horizon): int(
                 paired_counts[horizon]
-                .ge(MIN_ASSETS_PER_DATE)
+                .ge(minimum_evaluation_assets)
                 .sum()
             )
             for horizon in HORIZONS
         },
-        "minimum_assets_per_factor_timestamp": MIN_ASSETS_PER_DATE,
+        "minimum_assets_per_factor_timestamp": minimum_evaluation_assets,
         "assets_per_timestamp": {
             "input": _count_summary(research_input_counts),
             "factor": _count_summary(factor_counts),
@@ -1317,37 +1618,78 @@ def _evaluate() -> tuple[
             component_coverage,
         )
         if component_declarations is not None
+        and evaluation_mode == CROSS_SECTIONAL_MODE
         else None
     )
-    daily_ic_by_horizon = {
-        horizon: daily_rank_correlation(
-            factor_panel,
-            forward_panels[horizon],
-            minimum_assets=MIN_ASSETS_PER_DATE,
-        )
-        for horizon in HORIZONS
-    }
-    daily_pearson_by_horizon = {
-        horizon: daily_pearson_correlation(
-            factor_panel,
-            forward_panels[horizon],
-            minimum_assets=MIN_ASSETS_PER_DATE,
-        )
-        for horizon in HORIZONS
-    }
+    if evaluation_mode == SINGLE_ASSET_TEMPORAL_MODE:
+        daily_ic_by_horizon = {
+            horizon: _temporal_daily(
+                factor_panel,
+                forward_panels[horizon],
+                split_masks[horizon],
+                rank=True,
+            )
+            for horizon in HORIZONS
+        }
+        daily_pearson_by_horizon = {
+            horizon: _temporal_daily(
+                factor_panel,
+                forward_panels[horizon],
+                split_masks[horizon],
+                rank=False,
+            )
+            for horizon in HORIZONS
+        }
+    else:
+        daily_ic_by_horizon = {
+            horizon: daily_rank_correlation(
+                factor_panel,
+                forward_panels[horizon],
+                minimum_assets=MIN_ASSETS_PER_DATE,
+            )
+            for horizon in HORIZONS
+        }
+        daily_pearson_by_horizon = {
+            horizon: daily_pearson_correlation(
+                factor_panel,
+                forward_panels[horizon],
+                minimum_assets=MIN_ASSETS_PER_DATE,
+            )
+            for horizon in HORIZONS
+        }
     horizon_metrics = {
         str(horizon): {
             split: {
-                **_split_metrics(
-                    _masked(
-                        daily_ic_by_horizon[horizon],
-                        split_masks[horizon][split],
+                **(
+                    _temporal_split_metrics(
+                        _masked(
+                            daily_ic_by_horizon[horizon],
+                            split_masks[horizon][split],
+                        ),
+                        horizon=horizon,
+                    )
+                    if evaluation_mode == SINGLE_ASSET_TEMPORAL_MODE
+                    else _split_metrics(
+                        _masked(
+                            daily_ic_by_horizon[horizon],
+                            split_masks[horizon][split],
+                        )
                     )
                 ),
-                "pearson_ic": _split_metrics(
-                    _masked(
-                        daily_pearson_by_horizon[horizon],
-                        split_masks[horizon][split],
+                "pearson_ic": (
+                    _temporal_split_metrics(
+                        _masked(
+                            daily_pearson_by_horizon[horizon],
+                            split_masks[horizon][split],
+                        ),
+                        horizon=horizon,
+                    )
+                    if evaluation_mode == SINGLE_ASSET_TEMPORAL_MODE
+                    else _split_metrics(
+                        _masked(
+                            daily_pearson_by_horizon[horizon],
+                            split_masks[horizon][split],
+                        )
                     )
                 ),
             }
@@ -1358,14 +1700,25 @@ def _evaluate() -> tuple[
     splits = horizon_metrics[str(PRIMARY_HORIZON)]
     validation_mean_ic = float(splits["validation"]["mean_ic"])
 
-    quantile_daily = {
-        horizon: daily_quantile_returns(
-            factor_panel,
-            forward_panels[horizon],
-            minimum_assets=MIN_ASSETS_PER_DATE,
-        )
-        for horizon in HORIZONS
-    }
+    quantile_daily = (
+        {
+            horizon: pd.DataFrame(
+                columns=["low", "middle", "high", "high_minus_low"],
+                index=pd.DatetimeIndex([], name="timestamp"),
+                dtype=float,
+            )
+            for horizon in HORIZONS
+        }
+        if evaluation_mode == SINGLE_ASSET_TEMPORAL_MODE
+        else {
+            horizon: daily_quantile_returns(
+                factor_panel,
+                forward_panels[horizon],
+                minimum_assets=MIN_ASSETS_PER_DATE,
+            )
+            for horizon in HORIZONS
+        }
+    )
     quantile_analysis = {
         str(horizon): {
             split: quantile_summary(
@@ -1381,10 +1734,25 @@ def _evaluate() -> tuple[
     }
 
     primary_ic = daily_ic_by_horizon[PRIMARY_HORIZON]
-    chronological_folds = {
-        name: descriptive_ic(_masked(primary_ic, mask))
-        for name, mask in fold_masks.items()
-    }
+    chronological_folds = (
+        {
+            name: _temporal_split_metrics(
+                _temporal_correlation_contributions(
+                    factor_panel.iloc[:, 0],
+                    forward_panels[PRIMARY_HORIZON].iloc[:, 0],
+                    mask,
+                    rank=True,
+                ),
+                horizon=PRIMARY_HORIZON,
+            )
+            for name, mask in fold_masks.items()
+        }
+        if evaluation_mode == SINGLE_ASSET_TEMPORAL_MODE
+        else {
+            name: descriptive_ic(_masked(primary_ic, mask))
+            for name, mask in fold_masks.items()
+        }
+    )
     regimes = causal_regime_labels(research_close_panel)
     regime_stability = {
         split: {
@@ -1411,10 +1779,19 @@ def _evaluate() -> tuple[
         for split in ("train", "validation", "test")
     }
     for style in STYLE_NAMES:
-        daily_style = daily_rank_correlation(
-            factor_panel,
-            styles[style],
-            minimum_assets=MIN_ASSETS_PER_DATE,
+        daily_style = (
+            _temporal_daily(
+                factor_panel,
+                styles[style],
+                split_masks[PRIMARY_HORIZON],
+                rank=True,
+            )
+            if evaluation_mode == SINGLE_ASSET_TEMPORAL_MODE
+            else daily_rank_correlation(
+                factor_panel,
+                styles[style],
+                minimum_assets=MIN_ASSETS_PER_DATE,
+            )
         )
         for split in style_correlations:
             style_correlations[split][style] = _style_summary(
@@ -1423,7 +1800,12 @@ def _evaluate() -> tuple[
                     split_masks[PRIMARY_HORIZON][split],
                 )
             )
-    factor_qualification, qualification_evidence = _factor_qualification(
+    qualification_builder = (
+        _temporal_factor_qualification
+        if evaluation_mode == SINGLE_ASSET_TEMPORAL_MODE
+        else _factor_qualification
+    )
+    factor_qualification, qualification_evidence = qualification_builder(
         factor_panel,
         styles,
         forward_panels,
@@ -1442,7 +1824,11 @@ def _evaluate() -> tuple[
         for split in ("train", "validation", "test")
     }
 
-    ranked = factor_panel.rank(axis=1, pct=True)
+    ranked = (
+        factor_panel.rank(method="average", pct=True)
+        if evaluation_mode == SINGLE_ASSET_TEMPORAL_MODE
+        else factor_panel.rank(axis=1, pct=True)
+    )
     turnover = float(ranked.diff().abs().mean(axis=1).dropna().mean())
     metrics = {
         "validation_mean_ic": validation_mean_ic,
@@ -1451,6 +1837,7 @@ def _evaluate() -> tuple[
         "factor_claim": factor_claim,
         "prediction_universe": {
             "authority": prediction_authority,
+            "evaluation_mode": evaluation_mode,
             "research_assets": list(universe),
             "prediction_assets": prediction_assets,
             "context_assets": context_assets,
@@ -1517,8 +1904,15 @@ def _evaluate() -> tuple[
         "semantics": {
             "target": research_horizon["targetSemantics"],
             "measure": (
-                "per-date cross-sectional Spearman rank IC and Pearson IC "
-                f"over the fixed {prediction_authority} evaluation universe"
+                (
+                    "within-split temporal Spearman and Pearson correlation "
+                    "contributions for the single request-authorized asset"
+                )
+                if evaluation_mode == SINGLE_ASSET_TEMPORAL_MODE
+                else (
+                    "per-date cross-sectional Spearman rank IC and Pearson IC "
+                    f"over the fixed {prediction_authority} evaluation universe"
+                )
             ),
             "researchUniverse": (
                 "complete Study universe available to candidate features"
@@ -1539,10 +1933,22 @@ def _evaluate() -> tuple[
                 f"{PRIMARY_HORIZON}-bar horizon only"
             ),
             "inference": (
-                "Newey-West/Bartlett HAC mean t-statistic with maximum lag 5 "
-                "and two-sided normal-approximation p-value"
+                (
+                    "Newey-West/Bartlett HAC mean t-statistic with maximum "
+                    "lag equal to each forward horizon and two-sided normal-"
+                    "approximation p-value"
+                )
+                if evaluation_mode == SINGLE_ASSET_TEMPORAL_MODE
+                else (
+                    "Newey-West/Bartlett HAC mean t-statistic with maximum "
+                    "lag 5 and two-sided normal-approximation p-value"
+                )
             ),
-            "quantiles": "fixed low/middle/high cross-sectional groups",
+            "quantiles": (
+                "unavailable-for-single-asset-temporal-v1"
+                if evaluation_mode == SINGLE_ASSET_TEMPORAL_MODE
+                else "fixed low/middle/high cross-sectional groups"
+            ),
             "regimes": (
                 "causal trailing market direction and volatility versus "
                 "lagged rolling threshold"
@@ -1595,7 +2001,7 @@ def _evaluate() -> tuple[
         "causalityAuditCuts": list(factor_evaluation.causality_cuts),
         "componentCausalityAuditCuts": (
             list(factor_evaluation.causality_cuts)
-            if components is not None
+            if component_evidence is not None
             else []
         ),
         "coverageByAsset": coverage,
@@ -1657,7 +2063,18 @@ def _evaluate() -> tuple[
                         "high_minus_low": float(row["high_minus_low"]),
                     }
                 )
-    quantile_evidence = pd.DataFrame(quantile_rows)
+    quantile_evidence = pd.DataFrame(
+        quantile_rows,
+        columns=[
+            "timestamp",
+            "split",
+            "horizon",
+            "low",
+            "middle",
+            "high",
+            "high_minus_low",
+        ],
+    )
     return (
         metrics,
         report,

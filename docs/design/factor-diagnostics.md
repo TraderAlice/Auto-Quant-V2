@@ -58,11 +58,16 @@ global intersection occurs.
 
 ### Horizon quality and inference
 
-For every Horizon Mandate diagnostic bar, each split reports daily
-cross-sectional Spearman rank IC and Pearson IC:
+For four or more prediction assets, every Horizon Mandate diagnostic bar and
+split reports daily cross-sectional Spearman rank IC and Pearson IC. For one
+request-bound decision asset, the same artifact columns contain within-split
+temporal correlation contributions whose mean exactly reconciles the split
+Spearman/Pearson correlation:
 
 - mean, population dispersion, ICIR, hit rate, and observations;
-- Newey-West/HAC t-statistic with fixed lag `min(5, n - 1)`;
+- Newey-West/HAC t-statistic with fixed lag `min(5, n - 1)` for
+  cross-sectional evaluation, or `min(forwardBars, n - 1)` for temporal
+  evaluation;
 - a two-sided normal-approximation p-value, labeled as an approximation.
 
 Overlapping multi-bar returns make naive independent-sample t-statistics
@@ -71,7 +76,7 @@ autocorrelation treatment explicit and deterministic.
 
 ### Quantile behavior
 
-Each date sorts valid assets by factor and partitions them into fixed
+Each cross-sectional date sorts valid assets by factor and partitions them into fixed
 low/middle/high groups. Each split/horizon reports:
 
 - mean return for each group;
@@ -81,6 +86,8 @@ low/middle/high groups. Each split/horizon reports:
 
 With the small reference universe, tertiles are honest; pretending to have
 stable deciles or quintiles would create mostly singleton bins.
+Single-asset temporal V1 emits an empty, reconciled quantile artifact and
+declares quantiles unavailable; it does not manufacture one-asset groups.
 
 ### Stability
 
@@ -99,16 +106,17 @@ explicit `sufficient` flag.
 
 ### Fixed style overlap
 
-The Judge compares cross-sectional factor ranks with four causal OHLCV style
-proxies:
+The Judge compares factor ranks with four causal OHLCV style proxies:
 
 - 20-bar momentum;
 - 5-bar reversal;
 - 20-bar realized volatility;
 - 20-bar relative volume.
 
-Mean rank correlation by split describes overlap. It does not prove economic
-equivalence, neutralize the candidate, or reject a signal automatically.
+Mean rank correlation by split describes overlap. It is cross-sectional for
+four or more prediction assets and temporal for one decision asset. It does
+not prove economic equivalence, neutralize the candidate, or reject a signal
+automatically.
 
 ## Artifacts
 

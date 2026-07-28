@@ -430,8 +430,88 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                 "prediction-universe.population",
             )
             self.assertIn(
-                "time-series or relative-value Study",
+                "dedicated relative-value Study",
                 run.result["errors"][0]["message"],
+            )
+
+    def test_single_asset_decision_signal_uses_temporal_evaluation(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            request_path, package_path = write_multi_interval_inputs(root)
+            request = json.loads(request_path.read_text(encoding="utf-8"))
+            request["assets"] = [
+                {
+                    "symbol": "BTC",
+                    "assetClass": "crypto",
+                    "venue": "CRYPTO-COMPOSITE",
+                }
+            ]
+            request["factorPolicy"] = {
+                "claim": "decision-signal",
+                "knownStyle": None,
+            }
+            request_path.write_text(
+                json.dumps(request, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            prepared = prepare_project_intake(
+                request_path,
+                package_path,
+                "ohlcv-factor-lab",
+            )
+            project = create_project(
+                initialize_workspace(root / "workspace").root_dir,
+                "single-asset-temporal-factor",
+                template=prepared.template,
+                template_intake=prepared,
+            )
+            run = execute_study(project, OHLCV_STUDY_ID)
+            self.assertEqual(
+                run.result["status"],
+                "succeeded",
+                run.result["errors"],
+            )
+            metrics = run.result["metrics"]
+            population = metrics["prediction_universe"]
+            self.assertEqual(
+                population["evaluation_mode"],
+                "single-asset-temporal",
+            )
+            self.assertEqual(population["prediction_assets"], ["BTC"])
+            self.assertEqual(
+                population["context_assets"],
+                ["ETH", "SOL", "XRP", "ADA"],
+            )
+            self.assertEqual(
+                metrics["input_availability"][
+                    "minimum_assets_per_factor_timestamp"
+                ],
+                1,
+            )
+            self.assertEqual(
+                set(metrics["stability"]["per_asset"]["validation"]),
+                {"BTC"},
+            )
+            self.assertNotIn("factor_components", metrics)
+
+            projection = load_factor_diagnostics(project, run.result["id"])
+            self.assertEqual(
+                projection["predictionUniverse"]["evaluationMode"],
+                "single-asset-temporal",
+            )
+            self.assertEqual(
+                projection["inputAvailability"][
+                    "minimumAssetsPerFactorTimestamp"
+                ],
+                1,
+            )
+            self.assertEqual(
+                projection["factorQualification"]["method"],
+                "request-claim-aware-one-style-temporal-neutralization-v1",
+            )
+            jsonschema.validate(
+                projection,
+                FACTOR_DIAGNOSTICS_JSON_SCHEMA,
             )
 
     def test_caller_portfolio_policy_governs_portfolio_and_rl(self) -> None:

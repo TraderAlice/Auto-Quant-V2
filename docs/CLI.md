@@ -105,7 +105,10 @@ synthetic OHLCV, content-locked Study, fixed no-lookahead Judge, fixed
 claim-aware prediction population, and executable next actions. Candidate code
 always sees the complete research panel. A `decision-signal` is evaluated only
 on Portfolio-Mandate `tradableAssets`; factor-identity claims use the complete
-research universe. `ohlcv-portfolio-lab` uses the same causal candidate API and
+research universe. Diagnostics disclose `predictionUniverse.evaluationMode`:
+one decision asset uses temporal evaluation, four or more use cross-sectional
+evaluation, and two or three require a relative-value Study.
+`ohlcv-portfolio-lab` uses the same causal candidate API and
 adds fixed constrained target construction, drift-aware accounting,
 transaction costs, layered professional metrics, and cost/delay/risk-governor
 stresses. It also emits a fixed 15-cell signal-threshold × no-trade
