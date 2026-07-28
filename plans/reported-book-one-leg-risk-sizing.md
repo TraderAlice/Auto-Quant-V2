@@ -1,6 +1,6 @@
 # Reported-book one-leg risk sizing field trial
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-07-28`
 - Related design: [[docs/design/reported-position-book-risk]] and
   [[docs/design/research-intake-and-dataset-snapshots]].
@@ -73,7 +73,7 @@ historical sizing problem.
   with no Session, automatic trading, or Order authority.
 - [x] A clean Yahoo field Run answers the 15%-ceiling NVDA question and records
   assumptions, Harness identity, evidence, and limitations.
-- [ ] Focused/full regression, package smoke, documentation, commit, push, tag,
+- [x] Focused/full regression, package smoke, documentation, commit, push, tag,
   and cleanliness pass.
 
 ## Work
@@ -83,7 +83,7 @@ historical sizing problem.
 - [x] Add deterministic success, already-compliant, infeasible, malformed,
   tamper, and authority tests.
 - [x] Execute and interpret the clean Yahoo field trial.
-- [ ] Complete release audit, record evidence, push, and close the plan.
+- [x] Complete release audit, record evidence, push, and close the plan.
 
 ## Findings and decisions
 
@@ -140,6 +140,15 @@ historical sizing problem.
   diagnostic breaches with no console errors; at the 390px browser breakpoint
   document width equals viewport width and the sizing surface has no internal
   horizontal overflow.
+- Full regression passed 255 tests in `1464.971s`; focused Book Risk,
+  version, Studio, orientation, and capability checks also pass.
+- Documentation validation resolves 963 double-links. `uv build` produced
+  `dist/auto_quant-0.8.0.tar.gz` and
+  `dist/auto_quant-0.8.0-py3-none-any.whl`.
+- A fresh Python 3.11 environment installed the wheel, reported `aq 0.8.0`,
+  discovered the sizing schema and capability, executed a packaged synthetic
+  sizing Run, passed strict Explorer, emitted both sizing artifacts, and
+  contained the packaged Studio target-position surface.
 
 ## Progress log
 
@@ -153,7 +162,12 @@ historical sizing problem.
 - 2026-07-28 — Completed the clean Yahoo retry. The 252-session target is
   feasible without eliminating NVDA, but the shorter windows reject a broad
   15% robustness claim.
+- 2026-07-28 — Passed full regression and fresh-wheel smoke, built the `0.8.0`
+  artifacts, pushed every milestone, and completed the release plan.
 
 ## Completion
 
-Pending.
+AutoQuant `0.8.0` can answer one caller-bounded historical volatility-budget
+sizing question exactly and defensibly. The preserved failure Project, clean
+Yahoo retry, immutable Run, strict Explorer, Agent orientation, CLI, Studio,
+tests, and package evidence agree on the same no-account/no-Order authority.
