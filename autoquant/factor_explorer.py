@@ -84,6 +84,11 @@ QUALIFICATION_METHODS = {
 }
 CROSS_SECTIONAL_MODE = "cross-sectional"
 SINGLE_ASSET_TEMPORAL_MODE = "single-asset-temporal"
+TWO_ASSET_RELATIVE_VALUE_MODE = "two-asset-relative-value"
+TEMPORAL_EVALUATION_MODES = {
+    SINGLE_ASSET_TEMPORAL_MODE,
+    TWO_ASSET_RELATIVE_VALUE_MODE,
+}
 COMPONENT_METHOD = "candidate-declared-components-v2"
 MAX_COMPONENTS = 12
 QUALIFICATION_MIN_POSITIVE_HAC_T = 1.96
@@ -707,7 +712,7 @@ def _availability(
         or raw_metrics.get("possible_rows") != possible_rows
         or raw_metrics.get("complete_timestamps")
         != sum(row["inputAssets"] == maximum_assets for row in rows)
-        or minimum_assets not in {1, 4}
+        or minimum_assets not in {1, 2, 4}
     ):
         _fail(
             "RunResult/metrics/input_availability",
@@ -872,7 +877,11 @@ def _prediction_universe(
     if (
         not isinstance(raw, dict)
         or frozenset(raw)
-        not in {frozenset(required), frozenset(required | {"evaluation_mode"})}
+        not in {
+            frozenset(required),
+            frozenset(required | {"evaluation_mode"}),
+            frozenset(required | {"evaluation_mode", "relative_value_pair"}),
+        }
     ):
         _fail(
             "RunResult/metrics/prediction_universe",
@@ -884,6 +893,25 @@ def _prediction_universe(
     context_assets = raw["context_assets"]
     roles = raw["asset_position_roles"]
     evaluation_mode = raw.get("evaluation_mode", CROSS_SECTIONAL_MODE)
+    relative_value_pair = raw.get("relative_value_pair")
+    expected_relative_value_pair = (
+        {
+            "left_asset": prediction_assets[0],
+            "right_asset": prediction_assets[1],
+            "factor_contrast": "factor(left_asset)-factor(right_asset)",
+            "target_contrast": (
+                "forward_return(left_asset)-forward_return(right_asset)"
+            ),
+            "construction": "symmetric-dollar-neutral-equal-funded",
+            "beta_neutral": False,
+        }
+        if (
+            evaluation_mode == TWO_ASSET_RELATIVE_VALUE_MODE
+            and isinstance(prediction_assets, list)
+            and len(prediction_assets) == 2
+        )
+        else None
+    )
     if (
         research_assets != universe
         or not isinstance(prediction_assets, list)
@@ -901,15 +929,24 @@ def _prediction_universe(
         }
         or raw["trading_authority"] != "none"
         or evaluation_mode
-        not in {CROSS_SECTIONAL_MODE, SINGLE_ASSET_TEMPORAL_MODE}
+        not in {
+            CROSS_SECTIONAL_MODE,
+            SINGLE_ASSET_TEMPORAL_MODE,
+            TWO_ASSET_RELATIVE_VALUE_MODE,
+        }
         or (
             evaluation_mode == SINGLE_ASSET_TEMPORAL_MODE
             and len(prediction_assets) != 1
         )
         or (
+            evaluation_mode == TWO_ASSET_RELATIVE_VALUE_MODE
+            and len(prediction_assets) != 2
+        )
+        or (
             evaluation_mode == CROSS_SECTIONAL_MODE
             and len(prediction_assets) < 4
         )
+        or relative_value_pair != expected_relative_value_pair
     ):
         _fail(
             "RunResult/metrics/prediction_universe",
@@ -924,6 +961,7 @@ def _prediction_universe(
         "predictionAssets": list(prediction_assets),
         "contextAssets": list(context_assets),
         "assetPositionRoles": dict(roles),
+        "relativeValuePair": relative_value_pair,
         "tradingAuthority": "none",
     }
 
@@ -972,7 +1010,7 @@ def _parse_daily(
                         raw[f"{measure}_ic_h{horizon}"],
                         f"{row_path}/{measure}_ic_h{horizon}",
                     )
-                    if evaluation_mode == SINGLE_ASSET_TEMPORAL_MODE
+                    if evaluation_mode in TEMPORAL_EVALUATION_MODES
                     else _bounded(
                         raw[f"{measure}_ic_h{horizon}"],
                         f"{row_path}/{measure}_ic_h{horizon}",
@@ -4476,7 +4514,7 @@ FACTOR_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                             "minimum": 0,
                         },
                         "minimumAssetsPerFactorTimestamp": {
-                            "enum": [1, 4]
+                            "enum": [1, 2, 4]
                         },
                         "eligibleFactorTimestamps": {
                             "type": "array",

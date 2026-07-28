@@ -125,8 +125,10 @@ The V2 foundation now implements:
   only on Portfolio-Mandate tradable assets, and factor-identity claims retain
   complete-universe evaluation. Research, prediction, and context populations
   are frozen and disclosed separately. One decision asset selects temporal
-  evaluation, four or more select cross-sectional evaluation, and two or three
-  remain a deliberate relative-value boundary.
+  evaluation; exactly two symmetric, two-sided, dollar-neutral decision assets
+  select temporal factor-spread versus forward-return-spread evaluation; four
+  or more select cross-sectional evaluation. Three remain a deliberate
+  caller-owned relative-basket-weight boundary.
 - one optional explicit factor-component contract that checks declared
   score and timestamp-context components for determinism and causality. Scores
   expose predictive quality, association, redundancy, residual IC, and

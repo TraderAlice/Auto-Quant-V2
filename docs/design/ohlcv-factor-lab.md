@@ -106,8 +106,11 @@ The Judge owns target construction and evaluation:
    cross a split boundary.
 6. Select the immutable evaluation mode from the prediction population:
    within-split temporal Spearman/Pearson for exactly one request-bound
-   decision asset, or per-timestamp cross-sectional association for four or
-   more assets. Two or three remain a relative-value boundary.
+   decision asset; within-split temporal Spearman/Pearson between the
+   first-minus-second factor and forward-return contrasts for exactly two
+   symmetric, two-sided, dollar-neutral decision assets; or per-timestamp
+   cross-sectional association for four or more assets. Three require an
+   explicit caller-owned relative-basket contrast.
 7. Aggregate chronological train, validation, test, HAC, decay, fixed-style,
    per-asset, fold, and causal-regime diagnostics. Fixed tertiles and declared
    component attribution apply only to the cross-sectional mode in V1.
@@ -163,6 +166,9 @@ receive a new dataset identity.
 - The CSV format is a reference fixture contract, not a production ingestion
   standard.
 - Cross-sectional factor quality is not a tradable portfolio return.
+- Two-asset relative-value quality is the temporal association of one
+  equal-funded dollar-neutral contrast. It is not beta neutrality and does
+  not model borrow availability, borrow fees, or financing.
 - HAC, quantile, style, asset, fold, and regime slices are diagnostics; they do
   not remove multiple-testing risk or become extra promotion objectives.
 - The Judge does not model fees, fills, position limits, corporate actions, or

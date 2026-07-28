@@ -58,10 +58,13 @@ research panel but freezes the evaluation population separately:
 `known-style-validation` use the complete research universe. Context-only
 assets therefore cannot silently strengthen a request-specific decision claim.
 Exactly one request-bound decision asset uses within-split temporal
-association; four or more use per-timestamp cross-sectional association. Two
-or three are an explicit relative-value boundary, not permission to borrow
-context targets. Cross-sectional runs retain fixed-tertile and declared
-component diagnostics; temporal V1 explicitly omits those two artifacts. The
+association. Exactly two symmetric, two-sided, dollar-neutral decision assets
+use temporal association between the first-minus-second factor contrast and
+the matching forward-return contrast. Four or more use per-timestamp
+cross-sectional association. Three remain an explicit basket-definition
+boundary, not permission to borrow context targets. Cross-sectional runs
+retain fixed-tertile and declared component diagnostics; temporal V1
+explicitly omits those two artifacts. The
 portfolio template fixes the next layer: factor normalization, target weights,
 explicit entry/hold/exit/reversal intent, gross/net and per-asset constraints,
 drift, no-trade behavior, turnover, costs, benchmark, a causal covariance

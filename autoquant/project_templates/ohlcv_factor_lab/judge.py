@@ -63,6 +63,11 @@ MIN_IC_DATES_PER_SPLIT = 20
 PRIMARY_HORIZON = 1
 CROSS_SECTIONAL_MODE = "cross-sectional"
 SINGLE_ASSET_TEMPORAL_MODE = "single-asset-temporal"
+TWO_ASSET_RELATIVE_VALUE_MODE = "two-asset-relative-value"
+TEMPORAL_EVALUATION_MODES = {
+    SINGLE_ASSET_TEMPORAL_MODE,
+    TWO_ASSET_RELATIVE_VALUE_MODE,
+}
 TEMPORAL_QUALIFICATION_METHOD = (
     "request-claim-aware-one-style-temporal-neutralization-v1"
 )
@@ -147,16 +152,39 @@ def _load_prediction_universe(
                 "request-bound decision-signal claim",
             )
         evaluation_mode = SINGLE_ASSET_TEMPORAL_MODE
+    elif len(prediction_assets) == 2:
+        if factor_claim["claim"] != "decision-signal":
+            raise JudgeFailure(
+                "prediction-universe.claim",
+                "Two-asset relative-value evaluation is available only for "
+                "a request-bound decision-signal claim",
+            )
+        construction = mandate["construction"]
+        if (
+            construction["family"] != "dollar-neutral"
+            or construction["netRule"] != "zero"
+            or any(
+                construction["assetPositionRoles"][asset] != "two-sided"
+                for asset in prediction_assets
+            )
+        ):
+            raise JudgeFailure(
+                "prediction-universe.relative-value-mandate",
+                "Two-asset relative-value evaluation requires a symmetric "
+                "two-sided dollar-neutral Portfolio Mandate",
+            )
+        evaluation_mode = TWO_ASSET_RELATIVE_VALUE_MODE
     elif len(prediction_assets) >= MIN_ASSETS_PER_DATE:
         evaluation_mode = CROSS_SECTIONAL_MODE
     else:
         raise JudgeFailure(
             "prediction-universe.population",
-            "Factor evaluation supports one request-bound temporal asset or "
+            "Factor evaluation supports one request-bound temporal asset, "
+            "exactly two symmetric dollar-neutral relative-value assets, or "
             f"at least {MIN_ASSETS_PER_DATE} cross-sectional prediction "
-            f"assets; received {len(prediction_assets)}. Use a dedicated "
-            "relative-value Study instead of borrowing target observations "
-            "from context-only assets.",
+            f"assets; received {len(prediction_assets)}. A three-asset "
+            "relative basket requires explicit caller-owned contrast weights "
+            "instead of borrowing target observations from context-only assets.",
         )
     return (
         mandate,
@@ -312,6 +340,26 @@ def _temporal_daily(
         )
         result.loc[contribution.dropna().index] = contribution.dropna()
     return result
+
+
+def _relative_value_spread_panel(
+    panel: pd.DataFrame,
+    prediction_assets: list[str],
+) -> pd.DataFrame:
+    """Reduce one authorized pair to the causal first-minus-second contrast."""
+
+    if len(prediction_assets) != 2:
+        raise JudgeFailure(
+            "prediction-universe.relative-value-pair",
+            "Relative-value spread construction requires exactly two assets",
+        )
+    left, right = prediction_assets
+    return pd.DataFrame(
+        {
+            f"{left}-minus-{right}": panel[left] - panel[right],
+        },
+        index=panel.index,
+    )
 
 
 def _temporal_transform_panels(
@@ -1445,7 +1493,11 @@ def _evaluate() -> tuple[
     minimum_evaluation_assets = (
         1
         if evaluation_mode == SINGLE_ASSET_TEMPORAL_MODE
-        else MIN_ASSETS_PER_DATE
+        else (
+            2
+            if evaluation_mode == TWO_ASSET_RELATIVE_VALUE_MODE
+            else MIN_ASSETS_PER_DATE
+        )
     )
     time_range = dataset["time_range"]
     module = importlib.import_module("factors.candidate")
@@ -1503,6 +1555,21 @@ def _evaluate() -> tuple[
         PRIMARY_HORIZON,
     )
     forward_panels = forward_return_panels(close_panel, HORIZONS)
+    if evaluation_mode == TWO_ASSET_RELATIVE_VALUE_MODE:
+        association_factor_panel = _relative_value_spread_panel(
+            factor_panel,
+            prediction_assets,
+        )
+        association_forward_panels = {
+            horizon: _relative_value_spread_panel(
+                forward_panels[horizon],
+                prediction_assets,
+            )
+            for horizon in HORIZONS
+        }
+    else:
+        association_factor_panel = factor_panel
+        association_forward_panels = forward_panels
     research_input_counts = research_close_panel.notna().sum(axis=1).astype(int)
     input_counts = close_panel.notna().sum(axis=1).astype(int)
     factor_counts = factor_panel.notna().sum(axis=1).astype(int)
@@ -1621,11 +1688,11 @@ def _evaluate() -> tuple[
         and evaluation_mode == CROSS_SECTIONAL_MODE
         else None
     )
-    if evaluation_mode == SINGLE_ASSET_TEMPORAL_MODE:
+    if evaluation_mode in TEMPORAL_EVALUATION_MODES:
         daily_ic_by_horizon = {
             horizon: _temporal_daily(
-                factor_panel,
-                forward_panels[horizon],
+                association_factor_panel,
+                association_forward_panels[horizon],
                 split_masks[horizon],
                 rank=True,
             )
@@ -1633,8 +1700,8 @@ def _evaluate() -> tuple[
         }
         daily_pearson_by_horizon = {
             horizon: _temporal_daily(
-                factor_panel,
-                forward_panels[horizon],
+                association_factor_panel,
+                association_forward_panels[horizon],
                 split_masks[horizon],
                 rank=False,
             )
@@ -1668,7 +1735,7 @@ def _evaluate() -> tuple[
                         ),
                         horizon=horizon,
                     )
-                    if evaluation_mode == SINGLE_ASSET_TEMPORAL_MODE
+                    if evaluation_mode in TEMPORAL_EVALUATION_MODES
                     else _split_metrics(
                         _masked(
                             daily_ic_by_horizon[horizon],
@@ -1684,7 +1751,7 @@ def _evaluate() -> tuple[
                         ),
                         horizon=horizon,
                     )
-                    if evaluation_mode == SINGLE_ASSET_TEMPORAL_MODE
+                    if evaluation_mode in TEMPORAL_EVALUATION_MODES
                     else _split_metrics(
                         _masked(
                             daily_pearson_by_horizon[horizon],
@@ -1709,7 +1776,7 @@ def _evaluate() -> tuple[
             )
             for horizon in HORIZONS
         }
-        if evaluation_mode == SINGLE_ASSET_TEMPORAL_MODE
+        if evaluation_mode in TEMPORAL_EVALUATION_MODES
         else {
             horizon: daily_quantile_returns(
                 factor_panel,
@@ -1738,8 +1805,8 @@ def _evaluate() -> tuple[
         {
             name: _temporal_split_metrics(
                 _temporal_correlation_contributions(
-                    factor_panel.iloc[:, 0],
-                    forward_panels[PRIMARY_HORIZON].iloc[:, 0],
+                    association_factor_panel.iloc[:, 0],
+                    association_forward_panels[PRIMARY_HORIZON].iloc[:, 0],
                     mask,
                     rank=True,
                 ),
@@ -1747,7 +1814,7 @@ def _evaluate() -> tuple[
             )
             for name, mask in fold_masks.items()
         }
-        if evaluation_mode == SINGLE_ASSET_TEMPORAL_MODE
+        if evaluation_mode in TEMPORAL_EVALUATION_MODES
         else {
             name: descriptive_ic(_masked(primary_ic, mask))
             for name, mask in fold_masks.items()
@@ -1767,13 +1834,24 @@ def _evaluate() -> tuple[
         }
         for split in ("train", "validation", "test")
     }
-    styles = {
+    prediction_style_panels = {
         name: values[prediction_assets]
         for name, values in style_proxy_panels(
             research_close_panel,
             research_volume_panel,
         ).items()
     }
+    styles = (
+        {
+            name: _relative_value_spread_panel(
+                values,
+                prediction_assets,
+            )
+            for name, values in prediction_style_panels.items()
+        }
+        if evaluation_mode == TWO_ASSET_RELATIVE_VALUE_MODE
+        else prediction_style_panels
+    )
     style_correlations: dict[str, dict[str, Any]] = {
         split: {}
         for split in ("train", "validation", "test")
@@ -1781,12 +1859,12 @@ def _evaluate() -> tuple[
     for style in STYLE_NAMES:
         daily_style = (
             _temporal_daily(
-                factor_panel,
+                association_factor_panel,
                 styles[style],
                 split_masks[PRIMARY_HORIZON],
                 rank=True,
             )
-            if evaluation_mode == SINGLE_ASSET_TEMPORAL_MODE
+            if evaluation_mode in TEMPORAL_EVALUATION_MODES
             else daily_rank_correlation(
                 factor_panel,
                 styles[style],
@@ -1802,13 +1880,13 @@ def _evaluate() -> tuple[
             )
     qualification_builder = (
         _temporal_factor_qualification
-        if evaluation_mode == SINGLE_ASSET_TEMPORAL_MODE
+        if evaluation_mode in TEMPORAL_EVALUATION_MODES
         else _factor_qualification
     )
     factor_qualification, qualification_evidence = qualification_builder(
-        factor_panel,
+        association_factor_panel,
         styles,
-        forward_panels,
+        association_forward_panels,
         split_masks,
         fold_masks,
         base_split_labels,
@@ -1825,9 +1903,9 @@ def _evaluate() -> tuple[
     }
 
     ranked = (
-        factor_panel.rank(method="average", pct=True)
-        if evaluation_mode == SINGLE_ASSET_TEMPORAL_MODE
-        else factor_panel.rank(axis=1, pct=True)
+        association_factor_panel.rank(method="average", pct=True)
+        if evaluation_mode in TEMPORAL_EVALUATION_MODES
+        else association_factor_panel.rank(axis=1, pct=True)
     )
     turnover = float(ranked.diff().abs().mean(axis=1).dropna().mean())
     metrics = {
@@ -1845,6 +1923,23 @@ def _evaluate() -> tuple[
                 "assetPositionRoles"
             ],
             "trading_authority": "none",
+            "relative_value_pair": (
+                {
+                    "left_asset": prediction_assets[0],
+                    "right_asset": prediction_assets[1],
+                    "factor_contrast": (
+                        "factor(left_asset)-factor(right_asset)"
+                    ),
+                    "target_contrast": (
+                        "forward_return(left_asset)-"
+                        "forward_return(right_asset)"
+                    ),
+                    "construction": "symmetric-dollar-neutral-equal-funded",
+                    "beta_neutral": False,
+                }
+                if evaluation_mode == TWO_ASSET_RELATIVE_VALUE_MODE
+                else None
+            ),
         },
         "train": splits["train"],
         "validation": splits["validation"],
@@ -1910,8 +2005,14 @@ def _evaluate() -> tuple[
                 )
                 if evaluation_mode == SINGLE_ASSET_TEMPORAL_MODE
                 else (
-                    "per-date cross-sectional Spearman rank IC and Pearson IC "
-                    f"over the fixed {prediction_authority} evaluation universe"
+                    "within-split temporal Spearman and Pearson correlation "
+                    "contributions between the first-minus-second factor "
+                    "contrast and first-minus-second forward-return contrast"
+                    if evaluation_mode == TWO_ASSET_RELATIVE_VALUE_MODE
+                    else (
+                        "per-date cross-sectional Spearman rank IC and Pearson IC "
+                        f"over the fixed {prediction_authority} evaluation universe"
+                    )
                 )
             ),
             "researchUniverse": (
@@ -1938,15 +2039,15 @@ def _evaluate() -> tuple[
                     "lag equal to each forward horizon and two-sided normal-"
                     "approximation p-value"
                 )
-                if evaluation_mode == SINGLE_ASSET_TEMPORAL_MODE
+                if evaluation_mode in TEMPORAL_EVALUATION_MODES
                 else (
                     "Newey-West/Bartlett HAC mean t-statistic with maximum "
                     "lag 5 and two-sided normal-approximation p-value"
                 )
             ),
             "quantiles": (
-                "unavailable-for-single-asset-temporal-v1"
-                if evaluation_mode == SINGLE_ASSET_TEMPORAL_MODE
+                "unavailable-for-temporal-evaluation-v1"
+                if evaluation_mode in TEMPORAL_EVALUATION_MODES
                 else "fixed low/middle/high cross-sectional groups"
             ),
             "regimes": (

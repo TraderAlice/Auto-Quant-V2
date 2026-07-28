@@ -61,8 +61,11 @@ global intersection occurs.
 For four or more prediction assets, every Horizon Mandate diagnostic bar and
 split reports daily cross-sectional Spearman rank IC and Pearson IC. For one
 request-bound decision asset, the same artifact columns contain within-split
-temporal correlation contributions whose mean exactly reconciles the split
-Spearman/Pearson correlation:
+temporal correlation contributions. For exactly two symmetric dollar-neutral
+decision assets, they contain contributions from the temporal correlation
+between `factor(left) - factor(right)` and
+`forwardReturn(left) - forwardReturn(right)`. Their mean exactly reconciles
+the split Spearman/Pearson correlation:
 
 - mean, population dispersion, ICIR, hit rate, and observations;
 - Newey-West/HAC t-statistic with fixed lag `min(5, n - 1)` for
@@ -73,6 +76,12 @@ Spearman/Pearson correlation:
 Overlapping multi-bar returns make naive independent-sample t-statistics
 misleading. HAC does not remove all financial-model risk, but it makes the
 autocorrelation treatment explicit and deterministic.
+
+The ordered pair makes signal direction inspectable: a positive contrast
+means long the first asset and short the second under the equal-funded model
+contract. Reversing both contrast definitions leaves the correlation
+unchanged. Context-only assets remain available to candidate features but
+never enter the target contrast.
 
 ### Quantile behavior
 

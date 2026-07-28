@@ -23,9 +23,12 @@ features. The fixed Judge, not candidate code, selects target observations:
 `novel-factor` and `known-style-validation` evaluate the complete research
 universe. Inspect `predictionUniverse.evaluationMode` in Factor diagnostics.
 A decision signal with exactly one eligible asset uses within-split temporal
-Spearman/Pearson evidence for that asset. Four or more eligible assets use the
-cross-sectional contract. Two or three require a dedicated relative-value
-Study. No mode may borrow context-only target observations.
+Spearman/Pearson evidence for that asset. Exactly two eligible assets use
+within-split temporal evidence between the first-minus-second factor contrast
+and matching forward-return contrast, but only under a symmetric, two-sided,
+dollar-neutral Mandate. Four or more eligible assets use the cross-sectional
+contract. Three require explicit caller-owned relative-basket contrast
+weights. No mode may borrow context-only target observations.
 Aligned inputs are rectangular; V4 daily input is ragged and does not invent,
 fill, or globally intersect missing/pre-listing rows.
 Use ordinary `groupby("asset")` for rolling time-series features and

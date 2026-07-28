@@ -430,8 +430,98 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                 "prediction-universe.population",
             )
             self.assertIn(
-                "dedicated relative-value Study",
+                "three-asset relative basket",
                 run.result["errors"][0]["message"],
+            )
+
+    def test_two_asset_relative_value_uses_temporal_spread_evaluation(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            request_path, package_path = write_intake_inputs(
+                root,
+                request_assets=("NVDA", "QQQ"),
+                factor_policy={
+                    "claim": "decision-signal",
+                    "knownStyle": None,
+                },
+            )
+            request = json.loads(request_path.read_text(encoding="utf-8"))
+            request["direction"] = "relative-value"
+            request_path.write_text(
+                json.dumps(request, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            prepared = prepare_project_intake(
+                request_path,
+                package_path,
+                "ohlcv-factor-lab",
+            )
+            project = create_project(
+                initialize_workspace(root / "workspace").root_dir,
+                "two-asset-relative-value-factor",
+                template=prepared.template,
+                template_intake=prepared,
+            )
+
+            run = execute_study(project, OHLCV_STUDY_ID)
+
+            self.assertEqual(
+                run.result["status"],
+                "succeeded",
+                run.result["errors"],
+            )
+            metrics = run.result["metrics"]
+            population = metrics["prediction_universe"]
+            self.assertEqual(
+                population["evaluation_mode"],
+                "two-asset-relative-value",
+            )
+            self.assertEqual(
+                population["relative_value_pair"],
+                {
+                    "left_asset": "NVDA",
+                    "right_asset": "QQQ",
+                    "factor_contrast": (
+                        "factor(left_asset)-factor(right_asset)"
+                    ),
+                    "target_contrast": (
+                        "forward_return(left_asset)-"
+                        "forward_return(right_asset)"
+                    ),
+                    "construction": "symmetric-dollar-neutral-equal-funded",
+                    "beta_neutral": False,
+                },
+            )
+            self.assertEqual(
+                metrics["input_availability"][
+                    "minimum_assets_per_factor_timestamp"
+                ],
+                2,
+            )
+            self.assertEqual(
+                set(metrics["stability"]["per_asset"]["validation"]),
+                {"NVDA", "QQQ"},
+            )
+            self.assertNotIn("factor_components", metrics)
+
+            projection = load_factor_diagnostics(project, run.result["id"])
+            self.assertEqual(
+                projection["predictionUniverse"]["evaluationMode"],
+                "two-asset-relative-value",
+            )
+            self.assertEqual(
+                projection["predictionUniverse"]["relativeValuePair"],
+                population["relative_value_pair"],
+            )
+            self.assertEqual(
+                projection["factorQualification"]["method"],
+                "request-claim-aware-one-style-temporal-neutralization-v1",
+            )
+            jsonschema.validate(
+                projection,
+                FACTOR_DIAGNOSTICS_JSON_SCHEMA,
             )
 
     def test_single_asset_decision_signal_uses_temporal_evaluation(self) -> None:
