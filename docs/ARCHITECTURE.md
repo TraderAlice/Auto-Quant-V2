@@ -195,7 +195,8 @@ Project is defined in [[docs/design/ohlcv-factor-lab]]; causal target-weight
 construction is defined in [[docs/design/portfolio-construction-lab]]. The
 governed RL lane is defined in [[docs/design/rl-factor-policy-lab]]. The
 fixed existing-holdings covariance and reduction-sensitivity route is defined
-in [[docs/design/reported-position-book-risk]]. The
+in [[docs/design/reported-position-book-risk]]. The fixed OHLCV conditional
+price-event route is defined in [[docs/design/ohlcv-price-event-study]]. The
 factor tear-sheet protocol is defined in [[docs/design/factor-diagnostics]].
 Bounded immutable Factor artifact projection is defined in
 [[docs/design/factor-evidence-explorer]].
@@ -389,6 +390,8 @@ cannot own Workspace, Project, or evidence semantics.
 - Verified Studio snapshot and local HTTP server: `autoquant/studio.py`
 - Verified Portfolio Run diagnostic projection:
   `autoquant/portfolio_explorer.py`
+- Price-event authority and strict immutable projection:
+  `autoquant/event_studies.py` and `autoquant/event_explorer.py`
 - Packaged browser presentation: `autoquant/studio_assets/`
 - Project template construction: `autoquant/templates.py` and
   `autoquant/project_templates/`
@@ -401,6 +404,7 @@ cannot own Workspace, Project, or evidence semantics.
 - Study/Run evidence design: [[docs/design/study-run-evidence]]
 - OHLCV Factor Lab design: [[docs/design/ohlcv-factor-lab]]
 - Reported-position Book Risk: [[docs/design/reported-position-book-risk]]
+- OHLCV Price Event Study: [[docs/design/ohlcv-price-event-study]]
 - Panel-native shared factor runtime:
   [[docs/design/panel-native-factor-api]]
 - Project-derived Workbench needs:

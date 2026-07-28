@@ -443,6 +443,17 @@ def start_session(
         else None
     )
     study = load_study(project, study_id)
+    if not study.definition.editable["paths"]:
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    study.manifest_path,
+                    "session.fixed-study",
+                    "This fixed descriptive Study has no editable research "
+                    "surface and does not support iterative Sessions",
+                )
+            ]
+        )
     if (
         study.definition.objective.metric
         == "current_component_risk_hhi"

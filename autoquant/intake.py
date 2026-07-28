@@ -20,6 +20,11 @@ from .factor_claims import (
     build_factor_claim,
     load_factor_claim,
 )
+from .event_studies import (
+    EVENT_STUDY_POLICY,
+    build_event_study_policy,
+    load_event_study_policy,
+)
 from .ohlcv import normalize_ohlcv
 from .horizons import (
     RESEARCH_HORIZON,
@@ -96,6 +101,7 @@ INTAKE_TEMPLATE_REQUIREMENTS = {
     "ohlcv-portfolio-lab": (5, 180),
     "ohlcv-rl-factor-lab": (5, 240),
     "ohlcv-book-risk-lab": (2, 120),
+    "ohlcv-event-study-lab": (2, 120),
     "ohlcv-research-desk": (5, 240),
 }
 
@@ -1316,6 +1322,7 @@ def prepare_project_intake(
     position_snapshot = request.get("positionSnapshot")
     position_scenarios = request.get("positionScenarios")
     position_sizing = request.get("positionSizing")
+    event_policy = request.get("eventPolicy")
     if (
         position_snapshot is not None
         and template != "ohlcv-book-risk-lab"
@@ -1351,6 +1358,64 @@ def prepare_project_intake(
                 "positionSizing is consumed only by ohlcv-book-risk-lab",
             )
         )
+    if (
+        event_policy is not None
+        and template != "ohlcv-event-study-lab"
+    ):
+        issues.append(
+            _issue(
+                "request/eventPolicy",
+                "request.event-policy-template",
+                "eventPolicy is consumed only by ohlcv-event-study-lab",
+            )
+        )
+    if template == "ohlcv-event-study-lab":
+        if not isinstance(event_policy, dict):
+            issues.append(
+                _issue(
+                    "request/eventPolicy",
+                    "request.event-policy-required",
+                    "ohlcv-event-study-lab requires eventPolicy",
+                )
+            )
+        else:
+            requested = {item["symbol"] for item in request["assets"]}
+            for key in ("asset", "referenceAsset"):
+                symbol = event_policy[key]
+                if symbol not in package_by_symbol or symbol not in requested:
+                    issues.append(
+                        _issue(
+                            f"request/eventPolicy/{key}",
+                            "request.event-policy-dataset",
+                            f"{key} must name one requested dataset asset",
+                        )
+                    )
+        if package["priceAdjustment"] == "raw":
+            issues.append(
+                _issue(
+                    "dataset/priceAdjustment",
+                    "request.event-policy-adjustment",
+                    "ohlcv-event-study-lab requires adjusted OHLCV so splits "
+                    "cannot masquerade as price events",
+                )
+            )
+        incompatible_policies = {
+            "horizonPolicy": request.get("horizonPolicy"),
+            "factorPolicy": request.get("factorPolicy"),
+            "portfolioPolicy": request.get("portfolioPolicy"),
+            "benchmarkPolicy": request.get("benchmarkPolicy"),
+        }
+        for key, value in incompatible_policies.items():
+            if value is not None:
+                issues.append(
+                    _issue(
+                        f"request/{key}",
+                        "request.event-policy-exclusive",
+                        "eventPolicy owns the complete event, timing, and "
+                        f"reference contract; {key} is not accepted by "
+                        "ohlcv-event-study-lab",
+                    )
+                )
     if issues:
         raise AutoQuantValidationError(issues)
     assert panel_dates
@@ -1565,7 +1630,8 @@ def finalize_project_intake(
         "datasetHash": study.dataset_hash,
         "status": (
             "ready-for-run"
-            if intake.template == "ohlcv-book-risk-lab"
+            if intake.template
+            in {"ohlcv-book-risk-lab", "ohlcv-event-study-lab"}
             else "ready-for-session"
         ),
     }
@@ -2319,7 +2385,8 @@ def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
     issues = _strict_keys(manifest, required, manifest_path)
     expected_status = (
         "ready-for-run"
-        if manifest.get("template") == "ohlcv-book-risk-lab"
+        if manifest.get("template")
+        in {"ohlcv-book-risk-lab", "ohlcv-event-study-lab"}
         else "ready-for-session"
     )
     if (
@@ -2724,6 +2791,40 @@ def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
                     "Factor claim differs from the normalized request",
                 )
             )
+    event_policy_path = project.root_dir / EVENT_STUDY_POLICY
+    event_policy_present = (
+        event_policy_path.exists() or event_policy_path.is_symlink()
+    )
+    requires_event_policy = (
+        manifest.get("template") == "ohlcv-event-study-lab"
+        and study.definition.dependencies is not None
+        and EVENT_STUDY_POLICY in study.definition.dependencies["paths"]
+    )
+    if (
+        manifest.get("template") == "ohlcv-event-study-lab"
+        and not requires_event_policy
+    ):
+        issues.append(
+            _issue(
+                study.manifest_path,
+                "intake.event-study-dependency",
+                "Event Study does not bind fixed event authority",
+            )
+        )
+    if event_policy_present or requires_event_policy:
+        try:
+            event_policy = load_event_study_policy(event_policy_path)
+            expected_event_policy = build_event_study_policy(request)
+            if event_policy != expected_event_policy:
+                issues.append(
+                    _issue(
+                        event_policy_path,
+                        "intake.event-study-policy",
+                        "Event Study authority differs from normalized request",
+                    )
+                )
+        except AutoQuantValidationError as error:
+            issues.extend(error.issues)
     if issues:
         raise AutoQuantValidationError(issues)
     return {

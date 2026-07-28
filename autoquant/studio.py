@@ -27,6 +27,7 @@ from .factor_explorer import (
     DEFAULT_FACTOR_POINTS,
     load_factor_diagnostics,
 )
+from .event_explorer import load_event_study_diagnostics
 from .intake import load_project_intake
 from .holdouts import load_holdout_status
 from .orientation import build_agent_work_brief
@@ -1170,6 +1171,29 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
                     error,
                 )
             )
+    event_study_explorer = None
+    event_study_candidate = next(
+        (
+            item
+            for item in reversed(runs_raw)
+            if item.status == "succeeded"
+            and item.primary_metric == "primary_eligible_event_count"
+        ),
+        None,
+    )
+    if event_study_candidate is not None:
+        try:
+            event_study_explorer = load_event_study_diagnostics(
+                project,
+                event_study_candidate.id,
+            )
+        except AutoQuantValidationError as error:
+            diagnostics.extend(
+                _diagnostics(
+                    f"event-study-explorer:{event_study_candidate.id}",
+                    error,
+                )
+            )
     sessions: list[dict[str, Any]] = []
     for summary in sessions_raw:
         try:
@@ -1293,6 +1317,22 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
                 "read-only",
             )
         )
+    if event_study_explorer is not None:
+        commands.append(
+            _command(
+                "run.event-study",
+                [
+                    "aq",
+                    "run",
+                    "event-study",
+                    str(project.root_dir),
+                    "--run",
+                    event_study_explorer["run"]["id"],
+                    "--json",
+                ],
+                "read-only",
+            )
+        )
     if research_program_status is not None:
         commands.append(
             _command(
@@ -1342,6 +1382,7 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
         "portfolioExplorer": portfolio_explorer,
         "rlExplorer": rl_explorer,
         "bookRiskExplorer": book_risk_explorer,
+        "eventStudyExplorer": event_study_explorer,
         "commands": commands,
         "valid": not diagnostics,
         "diagnostics": diagnostics,
@@ -1805,6 +1846,7 @@ STUDIO_SNAPSHOT_JSON_SCHEMA: dict[str, Any] = {
                 "portfolioExplorer",
                 "rlExplorer",
                 "bookRiskExplorer",
+                "eventStudyExplorer",
                 "commands",
                 "valid",
                 "diagnostics",
@@ -1842,6 +1884,7 @@ STUDIO_SNAPSHOT_JSON_SCHEMA: dict[str, Any] = {
                 "portfolioExplorer": {"type": ["object", "null"]},
                 "rlExplorer": {"type": ["object", "null"]},
                 "bookRiskExplorer": {"type": ["object", "null"]},
+                "eventStudyExplorer": {"type": ["object", "null"]},
                 "commands": {
                     "type": "array",
                     "items": {"type": "object"},

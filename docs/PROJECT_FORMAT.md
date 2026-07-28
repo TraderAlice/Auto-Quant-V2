@@ -43,8 +43,12 @@ or Runs. It owns only discovery and an optional default Project.
 independently owned candidate, Judge, Study, and deterministic local dataset.
 `--template ohlcv-book-risk-lab` creates a fixed descriptive Study over one
 reported or hypothetical baseline position snapshot and optional
-caller-specified hypothetical books. Template choice is construction input and
-is not recorded as a runtime parent in `autoquant.json`.
+caller-specified hypothetical books. `--template ohlcv-event-study-lab`
+creates a fixed descriptive Study for one request-bound OHLCV price event,
+exact delayed-entry/holding clock, matched reference, and overlap policy. It
+contains no editable candidate and runs directly once the content-locked
+package and policy are ready. Template choice is construction input and is not
+recorded as a runtime parent in `autoquant.json`.
 
 `--template ohlcv-research-desk` creates the canonical multi-Study Project:
 one shared dataset, one Factor candidate shared by Factor and Portfolio
@@ -139,6 +143,17 @@ authorized. The baseline remains external-reported and unauthenticated;
 scenario books remain caller-hypothetical and unauthenticated. Neither is ever
 replaced with model targets. See
 [[docs/design/reported-position-book-risk]].
+
+The Event Study template derives `strategies/event-study.json` from strict
+`request.eventPolicy`. The first policy supports one downside opening-gap
+event, one event asset, one reference asset, exact wait/holding bars,
+`keep-first-until-exit` overlap handling, and a frozen minimum useful event
+count. Event intake requires adjusted OHLCV and rejects separate
+`horizonPolicy`, `factorPolicy`, `portfolioPolicy`, and `benchmarkPolicy`
+objects so two authorities cannot silently describe different clocks or
+references. The fixed Judge owns event alignment, conditional/reference
+returns, populations, descriptive uncertainty, and the evidence-status
+conclusion. See [[docs/design/ohlcv-price-event-study]].
 
 The Factor, Portfolio, and RL templates publish a nested `research_integrity`
 metric
@@ -393,7 +408,9 @@ Subject kinds are `strategy`, `factor`, `model`, or `research`. Editable paths
 must be exact files or trailing-`/**` closures beneath the Project's declared
 strategy, factor, or model directories. Judge paths use the same closure syntax
 but stay beneath the declared Judge directory and are fixed and disjoint from
-editable source.
+editable source. An empty editable path list is reserved for a fixed
+descriptive Study such as Book Risk or Price Event Study; it has no candidate
+surface and therefore rejects Session creation.
 
 `dependencies` is optional. Its exact paths or trailing-`/**` closures use the
 same confined strategy/factor/model roots, must be non-empty and disjoint from

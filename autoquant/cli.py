@@ -52,6 +52,11 @@ from .factor_explorer import (
     load_factor_diagnostics,
 )
 from .factor_claims import FACTOR_CLAIM_JSON_SCHEMA
+from .event_studies import EVENT_STUDY_POLICY_JSON_SCHEMA
+from .event_explorer import (
+    EVENT_STUDY_DIAGNOSTICS_JSON_SCHEMA,
+    load_event_study_diagnostics,
+)
 from .cli_contract import (
     artifact,
     error_envelope,
@@ -270,6 +275,8 @@ def build_parser() -> RaisingArgumentParser:
             "run-result",
             "factor-diagnostics",
             "factor-claim",
+            "event-study-policy",
+            "event-study-diagnostics",
             "book-risk-diagnostics",
             "portfolio-diagnostics",
             "research-program-status",
@@ -533,6 +540,16 @@ def build_parser() -> RaisingArgumentParser:
     )
     run_book_risk.set_defaults(command_id="run.book-risk")
     _json_argument(run_book_risk)
+
+    run_event_study = run_actions.add_parser(
+        "event-study",
+        help="inspect one fixed OHLCV price-event Study",
+    )
+    run_event_study.add_argument("path")
+    run_event_study.add_argument("--project")
+    run_event_study.add_argument("--run", required=True)
+    run_event_study.set_defaults(command_id="run.event-study")
+    _json_argument(run_event_study)
 
     run_rl = run_actions.add_parser(
         "rl",
@@ -1130,7 +1147,10 @@ def _project_intake(args: argparse.Namespace) -> CommandResult:
                 "creates-artifact",
             ),
         ]
-        if args.template != "ohlcv-book-risk-lab":
+        if args.template not in {
+            "ohlcv-book-risk-lab",
+            "ohlcv-event-study-lab",
+        }:
             next_actions.append(
                 next_action(
                     "session.start",
@@ -2057,6 +2077,58 @@ def _run_book_risk(args: argparse.Namespace) -> CommandResult:
             "and supplied-scenario evidence are historical sensitivities. "
             "Caller-bounded sizing is a historical target-position calculation, "
             "not a future-volatility guarantee, optimization search, or order.\n"
+        ),
+        project_context(project),
+        [
+            artifact(
+                kind,
+                f"{diagnostics['run']['id']}:{kind}",
+                project.root_dir
+                / project.manifest.directories["runs"]
+                / diagnostics["run"]["id"]
+                / item["path"],
+                immutable=True,
+            )
+            for kind, item in diagnostics["artifacts"].items()
+        ],
+    )
+
+
+def _run_event_study(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    diagnostics = load_event_study_diagnostics(project, args.run)
+    policy = diagnostics["policy"]
+    populations = diagnostics["populations"]
+    primary = diagnostics["distributions"]["primaryEventAsset"]
+    excess = diagnostics["distributions"]["primaryEventExcess"]
+    unconditional = diagnostics["distributions"]["unconditionalAsset"]
+    comparison = diagnostics["comparisons"]
+    return CommandResult(
+        "run.event-study",
+        diagnostics,
+        (
+            f"Event Study Run: {diagnostics['run']['id']}\n"
+            f"Event: {policy['event']['asset']} opening gap "
+            f"{policy['event']['comparator']} "
+            f"{policy['event']['thresholdReturn']:.2%}\n"
+            f"Clock: wait {policy['timing']['waitBars']} bars · hold "
+            f"{policy['timing']['holdingBars']} bars · matched "
+            f"{policy['references']['matchedAsset']}\n"
+            f"Population: {populations['qualifyingEvents']} qualifying · "
+            f"{populations['completeEvents']} complete · "
+            f"{populations['primaryEvents']} primary · "
+            f"{populations['overlapExcludedEvents']} overlap-excluded · "
+            f"{populations['rightCensoredEvents']} right-censored\n"
+            f"Primary mean / hit rate: {primary['mean']} / "
+            f"{primary['positiveRate']}\n"
+            f"Unconditional mean: {unconditional['mean']} · delta "
+            f"{comparison['primaryMeanMinusUnconditionalAssetMean']}\n"
+            f"Matched mean excess: {excess['mean']}\n"
+            f"Conclusion: {diagnostics['conclusion']['status']} · "
+            f"{diagnostics['conclusion']['observedPrimaryEvents']}/"
+            f"{diagnostics['conclusion']['minimumEvents']} minimum events\n"
+            "Historical descriptive association only; no causal, Order, or "
+            "trading authority.\n"
         ),
         project_context(project),
         [
@@ -3736,6 +3808,8 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "experiment",
             "factor-diagnostics",
             "factor-claim",
+            "event-study-policy",
+            "event-study-diagnostics",
             "judge-output",
             "ohlcv-dataset-package",
             "book-risk-diagnostics",
@@ -3777,6 +3851,8 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "run-result": RUN_RESULT_JSON_SCHEMA,
             "factor-diagnostics": FACTOR_DIAGNOSTICS_JSON_SCHEMA,
             "factor-claim": FACTOR_CLAIM_JSON_SCHEMA,
+            "event-study-policy": EVENT_STUDY_POLICY_JSON_SCHEMA,
+            "event-study-diagnostics": EVENT_STUDY_DIAGNOSTICS_JSON_SCHEMA,
             "book-risk-diagnostics": BOOK_RISK_DIAGNOSTICS_JSON_SCHEMA,
             "portfolio-diagnostics": PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA,
             "research-program-status": RESEARCH_PROGRAM_STATUS_JSON_SCHEMA,
@@ -3843,6 +3919,8 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
         return _run_portfolio(args)
     if args.command_id == "run.book-risk":
         return _run_book_risk(args)
+    if args.command_id == "run.event-study":
+        return _run_event_study(args)
     if args.command_id == "run.rl":
         return _run_rl(args)
     if args.command_id == "session.start":

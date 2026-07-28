@@ -55,9 +55,9 @@ evidence without changing the user's question.
   data.
 - [x] Reproduce whether the current public route can or cannot answer the exact
   event-conditional question without a misleading success.
-- [ ] If a Core gap exists, define the smallest event authority, immutable
+- [x] If a Core gap exists, define the smallest event authority, immutable
   result, strict Explorer, and no-trading boundary.
-- [ ] Deterministic tests cover timing, forward-return alignment, overlap,
+- [x] Deterministic tests cover timing, forward-return alignment, overlap,
   insufficient events, references, tamper rejection, and authority.
 - [ ] A clean bounded Yahoo field trial returns a useful positive or negative
   conclusion with sample-size limitations.
@@ -68,7 +68,7 @@ evidence without changing the user's question.
 
 - [x] Create and clarify the Project.
 - [x] Reproduce the current semantic boundary.
-- [ ] Promote and implement only the reusable Workbench gap.
+- [x] Promote and implement only the reusable Workbench gap.
 - [ ] Execute and interpret the clean field trial.
 - [ ] Complete the release audit and close the plan.
 
@@ -89,10 +89,31 @@ evidence without changing the user's question.
   validation correlation produced a null objective that the Judge converted
   with `float(None)`. Even a finite correlation would omit the event ledger,
   matched SPY returns, overlap policy, and conditional distribution.
+- 2026-07-29 — The reusable gap is a fixed descriptive Study, not a new
+  candidate family. `ohlcv-event-study-lab` has an empty editable closure,
+  rejects Sessions, and executes one caller-frozen event/timing/reference
+  policy directly.
+- 2026-07-29 — The first public policy is intentionally narrow:
+  adjusted-OHLCV downside opening gaps, delayed close-to-close returns, one
+  matched asset, `keep-first-until-exit`, and a minimum useful event count.
+  Separate horizon, Factor, Portfolio, and benchmark policies are rejected so
+  the Run cannot carry two clocks or references.
+- 2026-07-29 — The strict Event Explorer revalidates immutable file hashes,
+  authority, artifact inventory, event timing, censoring, overlap eligibility,
+  conditional/reference returns, distributions, uncertainty, metrics, and
+  conclusion before CLI or Studio projection.
 
 ## Verification
 
-Pending.
+- Synthetic fixture: 6 qualifying events, 5 complete, 4 primary,
+  1 overlap-excluded, and 1 right-censored.
+- Strict semantic tamper test changes a rehashed entry timestamp and is
+  rejected as `event-study.timing`.
+- Zero-event input succeeds with `insufficient-events` rather than crashing or
+  fabricating a result.
+- External intake binds the derived authority, rejects raw OHLCV and parallel
+  policy clocks, executes directly, rejects Session creation, and projects
+  through CLI, orientation, and Studio.
 
 ## Progress log
 
@@ -106,6 +127,8 @@ Pending.
 - 2026-07-29 — Preserved the exact public-route reproduction and immutable
   failure in sibling Project `nvda-gap-factor-route-repro`; promoted the
   smallest reusable event-study need to both Projects' `framework-needs.md`.
+- 2026-07-29 — Implemented the fixed event route and public read surfaces;
+  long-history Yahoo evidence and release audit remain pending.
 
 ## Completion
 

@@ -53,6 +53,7 @@ EXPECTED_EVIDENCE = {
     "dossier.status": "dossier-status",
     "study.inspect": "study-authority",
     "run.book-risk": "book-risk-diagnostics",
+    "run.event-study": "event-study-diagnostics",
     "validate": "structural-validation",
 }
 
@@ -768,21 +769,30 @@ def _single_study_orientation(
         editable = []
         mode = "establish-baseline"
         phase = "not-started"
-    elif (
-        study.definition.objective.metric
-        == "current_component_risk_hhi"
-    ):
+    elif study.definition.objective.metric in {
+        "current_component_risk_hhi",
+        "primary_eligible_event_count",
+    }:
+        event_study = (
+            study.definition.objective.metric
+            == "primary_eligible_event_count"
+        )
         primary_raw = _command(
-            "run.book-risk",
+            "run.event-study" if event_study else "run.book-risk",
             (
-                "Inspect verified reported-book crowding, reduction, "
-                "caller-supplied scenarios, and any caller-bounded "
-                "target-position sizing evidence."
+                "Inspect verified event timing, populations, references, "
+                "overlap, uncertainty, and no-trading conclusion evidence."
+                if event_study
+                else (
+                    "Inspect verified reported-book crowding, reduction, "
+                    "caller-supplied scenarios, and any caller-bounded "
+                    "target-position sizing evidence."
+                )
             ),
             [
                 "aq",
                 "run",
-                "book-risk",
+                "event-study" if event_study else "book-risk",
                 str(project.root_dir),
                 "--run",
                 current_run.id,
@@ -796,8 +806,13 @@ def _single_study_orientation(
                 "code": "descriptive-evidence-ready",
                 "category": "evidence",
                 "message": (
-                    "The fixed reported-book audit is complete and ready "
-                    "for decision-support review."
+                    "The fixed price-event Study is complete and ready for "
+                    "historical evidence review."
+                    if event_study
+                    else (
+                        "The fixed reported-book audit is complete and ready "
+                        "for decision-support review."
+                    )
                 ),
             }
         ]
@@ -889,19 +904,33 @@ def _single_study_orientation(
             "researchAuthority": (
                 "fixed-descriptive-audit"
                 if study.definition.objective.metric
-                == "current_component_risk_hhi"
+                in {
+                    "current_component_risk_hhi",
+                    "primary_eligible_event_count",
+                }
                 else "study-defined"
             ),
             "selectionSplit": (
                 "none"
                 if study.definition.objective.metric
-                == "current_component_risk_hhi"
+                in {
+                    "current_component_risk_hhi",
+                    "primary_eligible_event_count",
+                }
                 else "study-defined"
             ),
             "testRole": (
-                "lookback-and-rolling-context"
+                (
+                    "event-population-and-reference-context"
+                    if study.definition.objective.metric
+                    == "primary_eligible_event_count"
+                    else "lookback-and-rolling-context"
+                )
                 if study.definition.objective.metric
-                == "current_component_risk_hhi"
+                in {
+                    "current_component_risk_hhi",
+                    "primary_eligible_event_count",
+                }
                 else "study-defined"
             ),
             "testEntersSelection": False,

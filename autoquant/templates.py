@@ -9,7 +9,7 @@ import random
 from datetime import date, timedelta
 from importlib import resources
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from .checks import PREFLIGHT_KIND, PREFLIGHT_MANIFEST
 from .factor_claims import (
@@ -20,6 +20,10 @@ from .factor_claims import (
 from .horizons import (
     RESEARCH_HORIZON,
     build_research_horizon,
+)
+from .event_studies import (
+    EVENT_STUDY_POLICY,
+    build_event_study_policy,
 )
 from .mandates import (
     PORTFOLIO_MANDATE,
@@ -57,17 +61,20 @@ PROJECT_TEMPLATE_IDS = (
     "ohlcv-portfolio-lab",
     "ohlcv-rl-factor-lab",
     "ohlcv-book-risk-lab",
+    "ohlcv-event-study-lab",
     "ohlcv-research-desk",
 )
 OHLCV_STUDY_ID = "ohlcv-factor-quality"
 PORTFOLIO_STUDY_ID = "ohlcv-portfolio-quality"
 RL_STUDY_ID = "ohlcv-rl-factor-policy"
 BOOK_RISK_STUDY_ID = "ohlcv-book-risk"
+EVENT_STUDY_ID = "ohlcv-price-event-reaction"
 TEMPLATE_STUDY_IDS = {
     "ohlcv-factor-lab": OHLCV_STUDY_ID,
     "ohlcv-portfolio-lab": PORTFOLIO_STUDY_ID,
     "ohlcv-rl-factor-lab": RL_STUDY_ID,
     "ohlcv-book-risk-lab": BOOK_RISK_STUDY_ID,
+    "ohlcv-event-study-lab": EVENT_STUDY_ID,
     "ohlcv-research-desk": OHLCV_STUDY_ID,
 }
 TEMPLATE_STUDY_SEQUENCES = {
@@ -75,6 +82,7 @@ TEMPLATE_STUDY_SEQUENCES = {
     "ohlcv-portfolio-lab": (PORTFOLIO_STUDY_ID,),
     "ohlcv-rl-factor-lab": (RL_STUDY_ID,),
     "ohlcv-book-risk-lab": (BOOK_RISK_STUDY_ID,),
+    "ohlcv-event-study-lab": (EVENT_STUDY_ID,),
     "ohlcv-research-desk": (
         OHLCV_STUDY_ID,
         PORTFOLIO_STUDY_ID,
@@ -218,6 +226,50 @@ def _write_demo_ohlcv(
         encoding="utf-8",
     )
     return dates[-1]
+
+
+def _write_demo_event_ohlcv(project: ProjectContext) -> date:
+    """Generate the ordinary fixture plus deterministic downside gaps."""
+
+    end = _write_demo_ohlcv(
+        project,
+        readme_template="ohlcv_event_study_lab",
+    )
+    path = (
+        project.root_dir
+        / project.manifest.directories["data"]
+        / "ohlcv"
+        / f"{OHLCV_ASSETS[0]}.csv"
+    )
+    with path.open("r", encoding="utf-8", newline="") as handle:
+        rows = list(csv.reader(handle))
+    for position in (60, 64, 120, 180, 240, 316):
+        prior_close = float(rows[position][4])
+        rows[position + 1][1] = f"{prior_close * 0.94:.8f}"
+        rows[position + 1][3] = (
+            f"{min(float(rows[position + 1][3]), prior_close * 0.93):.8f}"
+        )
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.writer(handle, lineterminator="\n")
+        writer.writerows(rows)
+    return end
+
+
+def _write_event_study_policy(
+    project: ProjectContext,
+    request: dict[str, Any],
+) -> None:
+    path = project.root_dir / EVENT_STUDY_POLICY
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            build_event_study_policy(request),
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
 
 def _write_rl_ohlcv(project: ProjectContext) -> date:
@@ -949,6 +1001,151 @@ def _apply_ohlcv_book_risk_lab(
     _finalize_intake(project, intake, study, snapshot_hash)
 
 
+def _apply_ohlcv_event_study_lab(
+    project: ProjectContext,
+    intake: PreparedIntake | None = None,
+) -> None:
+    """Create one fixed request-bound OHLCV price-event Study."""
+
+    template = "ohlcv_event_study_lab"
+    if intake is None:
+        end = _write_demo_event_ohlcv(project)
+        dataset = {
+            "id": "synthetic-ohlcv-event-study-fixture",
+            "version": "v1",
+            "asset_class": "synthetic-multi-asset",
+            "universe": list(OHLCV_ASSETS),
+            "start": OHLCV_START.isoformat(),
+        }
+        snapshot_hash = None
+        request = {
+            "schemaVersion": 1,
+            "kind": "autoquant-research-request",
+            "title": "Synthetic downside-gap event study",
+            "question": (
+                "Does the fixed downside opening gap have a delayed "
+                "five-bar historical advantage?"
+            ),
+            "decisionContext": (
+                "Deterministic Harness fixture for fixed price-event evidence."
+            ),
+            "assets": [
+                {
+                    "symbol": OHLCV_ASSETS[0],
+                    "assetClass": "other",
+                    "venue": None,
+                },
+                {
+                    "symbol": OHLCV_ASSETS[1],
+                    "assetClass": "other",
+                    "venue": None,
+                },
+            ],
+            "direction": "research-only",
+            "eventPolicy": {
+                "kind": "opening-gap-delayed-close-return",
+                "asset": OHLCV_ASSETS[0],
+                "comparator": "less-than-or-equal",
+                "thresholdReturn": -0.05,
+                "waitBars": 2,
+                "holdingBars": 5,
+                "referenceAsset": OHLCV_ASSETS[1],
+                "overlapPolicy": "keep-first-until-exit",
+                "minimumEvents": 3,
+            },
+            "horizon": "Two-bar wait and five-bar close-to-close outcome.",
+            "hypotheses": [
+                "The fixed price event may have positive delayed returns."
+            ],
+            "constraints": [
+                "No parameter search, order, or trading authority."
+            ],
+            "deliverables": [
+                "Event ledger, references, uncertainty, and conclusion."
+            ],
+            "source": {
+                "system": "local",
+                "workspaceId": None,
+                "sessionId": None,
+                "artifactPath": None,
+                "artifactRevision": None,
+            },
+        }
+        (project.root_dir / "request.json").write_text(
+            json.dumps(request, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+    else:
+        if intake.request.get("eventPolicy") is None:
+            raise AutoQuantValidationError(
+                [
+                    _issue(
+                        "request/eventPolicy",
+                        "request.event-policy-required",
+                        "ohlcv-event-study-lab requires eventPolicy",
+                    )
+                ]
+            )
+        end, dataset, snapshot_hash = _intake_dataset(
+            project,
+            intake,
+            EVENT_STUDY_ID,
+        )
+        request = intake.request
+    _write_event_study_policy(project, request)
+    _write_template_source(
+        project,
+        "judges/ohlcv_event_study.py",
+        "judge.py",
+        template=template,
+    )
+    (project.root_dir / project.manifest.research_program).write_text(
+        _template_text("research.md", template=template),
+        encoding="utf-8",
+    )
+    definition = StudyDefinition(
+        schema_version=1,
+        id=EVENT_STUDY_ID,
+        name="OHLCV Price Event Reaction",
+        description=(
+            "Measure one caller-fixed opening-gap event with delayed "
+            "close-to-close outcomes and explicit references"
+        ),
+        program="program.md",
+        subject=StudySubject("research", "price-event-study", "fixed"),
+        editable={"paths": []},
+        judge=StudyJudge(
+            "python",
+            "judges/ohlcv_event_study.py",
+            ["judges/ohlcv_event_study.py"],
+            [],
+            30,
+        ),
+        objective=StudyObjective(
+            "primary_eligible_event_count",
+            "maximize",
+            1.0,
+        ),
+        dataset=StudyDataset(
+            str(dataset["id"]),
+            str(dataset["version"]),
+            str(dataset["asset_class"]),
+            list(dataset["universe"]),
+            StudyTimeRange(str(dataset["start"]), _time_range_value(end)),
+            ["ohlcv/**"],
+        ),
+        dependencies={"paths": [EVENT_STUDY_POLICY]},
+    )
+    study = create_study(project, definition)
+    study.program_path.write_text(
+        _template_text("program.md", template=template),
+        encoding="utf-8",
+    )
+    _externalize_intake_guidance(project, intake, study.program_path)
+    study = load_study(project, EVENT_STUDY_ID)
+    _finalize_intake(project, intake, study, snapshot_hash)
+
+
 def _apply_ohlcv_research_desk(
     project: ProjectContext,
     intake: PreparedIntake | None = None,
@@ -1215,5 +1412,7 @@ def apply_project_template(
         _apply_ohlcv_rl_factor_lab(project, intake)
     elif template_id == "ohlcv-book-risk-lab":
         _apply_ohlcv_book_risk_lab(project, intake)
+    elif template_id == "ohlcv-event-study-lab":
+        _apply_ohlcv_event_study_lab(project, intake)
     else:
         _apply_ohlcv_research_desk(project, intake)

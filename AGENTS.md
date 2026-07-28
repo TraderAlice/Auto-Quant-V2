@@ -201,6 +201,9 @@ Read the relevant linked document before changing a subsystem:
 - Externally reported position snapshots, covariance crowding, component risk,
   standardized reduction sensitivity, and live-account authority boundary:
   [[docs/design/reported-position-book-risk]]
+- Caller-fixed downside opening gaps, delayed close-to-close outcomes,
+  unconditional/matched references, overlap handling, and no-trading event
+  evidence: [[docs/design/ohlcv-price-event-study]]
 - Causal signal ranking, constrained target weights, drift-aware accounting,
   costs, risk/implementation metrics, and portfolio stress evidence:
   [[docs/design/portfolio-construction-lab]]

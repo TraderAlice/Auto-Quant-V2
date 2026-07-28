@@ -1,5 +1,5 @@
 ---
-version: 0.8.0
+version: 0.9.0
 ---
 
 # AutoQuant V2
@@ -64,6 +64,14 @@ covariance windows. It returns component-risk, common-movement, standardized
 reduction-sensitivity, and explicit scenario-delta evidence without pretending
 that any snapshot is authenticated account truth or an optimized target.
 See [reported-position Book Risk](docs/design/reported-position-book-risk.md).
+
+Price-defined conditional-history questions use
+`ohlcv-event-study-lab`. Its first fixed contract preserves a downside opening
+gap, exact delayed close entry and holding clock, every qualifying or censored
+event, overlap treatment, unconditional same-asset history, and matched
+reference-asset outcomes. It has no candidate Session, does not pretend an
+OHLCV gap proves an earnings/news event, and returns no Order or live-trading
+authority. See [OHLCV Price Event Study](docs/design/ohlcv-price-event-study.md).
 
 See the canonical
 [Agent-native workbench model](docs/design/agent-native-quant-workbench.md)
@@ -153,6 +161,8 @@ The request may lock:
 - Portfolio/RL decision cadence and dataset/session clock anchor;
 - one reported or hypothetical funded baseline plus optional caller-authored
   complete hypothetical books for a fixed, non-authenticated Book Risk audit.
+- one fixed adjusted-OHLCV opening-gap event, delayed return clock, matched
+  reference asset, overlap policy, and minimum useful sample count.
 
 These are immutable research assumptions. They never grant live position or
 execution authority.
@@ -206,6 +216,9 @@ policy with caps, side limits, covariance risk scaling, drift/no-trade
 execution, costs, capacity, lifecycle, and robustness diagnostics. Governed RL
 may select only among fixed factor sleeves built through that same Portfolio
 Mandate; it cannot rewrite the action, reward, risk, or execution contracts.
+Fixed Price Event Runs instead publish a complete conditional-event ledger,
+reference distributions, descriptive uncertainty, and an evidence-status
+conclusion without entering the candidate-selection lifecycle.
 
 Agents may publish lane Reports, and the canonical Factor → Portfolio →
 optional RL program can compose them into one immutable Project Dossier:

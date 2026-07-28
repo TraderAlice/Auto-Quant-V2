@@ -33,7 +33,7 @@ The first viewport prioritizes:
 - pre-research request intake, locked dataset/provider/adjustment claims,
   requested assets versus research universe, baseline selection/audit/stress
   metrics, and the exact lifecycle command—Session start for iterative
-  templates or fixed Run execution for Book Risk;
+  templates or fixed Run execution for Book Risk and Price Event Studies;
 - active Sessions and current leader values;
 - delegated caller questions, assets, direction, horizon, and Brief identity;
 - running external Researcher phase and turn budget;
@@ -61,6 +61,10 @@ The first viewport prioritizes:
   effective risk bets, first-PC crowding, component-risk concentration,
   lookback stability, standardized reduction ranking, pair correlations, and
   unauthenticated-position authority warning;
+- the latest successful Price Event Run's fixed event/timing policy, raw,
+  complete, overlap-excluded, right-censored, and primary populations,
+  conditional/reference distributions, uncertainty, event ledger, and
+  no-trading authority warning;
 - RL Run summaries for validation/test audit Sharpe, seed/fold dispersion,
   simple-baseline advantage, failure rate, and fold × seed coverage;
 - a bounded Session decision matrix comparing baseline, recent candidates, and
@@ -86,15 +90,16 @@ The first viewport prioritizes:
   Core-ordered Factor, Portfolio, or governed-RL experiment briefs from that
   same hashed work brief, including hypothesis, editable target, optional
   declared components, typed validation evidence, required checks, and stop
-  conditions; a completed Book Risk audit instead shows a closed descriptive
-  agenda with no candidate moves; JavaScript never creates or reorders moves;
+  conditions; a completed Book Risk or Price Event audit instead shows a
+  closed descriptive agenda with no candidate moves; JavaScript never creates
+  or reorders moves;
 - a frozen external-holdout panel when present, showing the exact source
   Dossier, source-end/strictly-later-start boundary, imported lane set, and
   source-versus-later objective/delta cells from Core; it never colors a lane
   as a production pass or converts the audit into trading authority;
-- one selectable Book Risk, Factor, Portfolio, or RL evidence workbench at a
-  time, keeping the complete bounded explorer available without rendering all
-  long reports into one page;
+- one selectable Book Risk, Price Event, Factor, Portfolio, or RL evidence
+  workbench at a time, keeping the complete bounded explorer available without
+  rendering all long reports into one page;
 - fixed Study catalog and Project research program;
 - category-level diagnostics when evidence cannot be verified.
 
@@ -135,6 +140,17 @@ an order. Its Handoff card terminates at fixed Run review, reports the supplied
 scenario count, and offers only the read-only Explorer command; it must not
 reuse an iterative template's Session affordance. Use
 `aq run book-risk <path> --run ID --points N --json` for the exact read model.
+
+The Price Event Explorer is the dedicated fixed conditional-history view.
+Core verifies the immutable Run, derived event authority, exact timing and
+return ledger, overlap treatment, reference population, statistics,
+uncertainty, and conclusion before the browser receives data. Studio shows the
+frozen event clock, sample populations, primary versus unconditional and
+matched-reference comparisons, and every event row including exclusions and
+right censoring. Its Handoff card terminates at read-only Run review and never
+offers a Session, threshold search, event-label inference, Order, or trading
+action. Use `aq run event-study <path> --run ID --json` for the exact read
+model.
 
 The Portfolio Decision Explorer is a bounded projection, not a browser-side
 CSV reader. Core first verifies the immutable Portfolio artifacts,

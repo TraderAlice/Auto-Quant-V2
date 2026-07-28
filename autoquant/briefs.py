@@ -19,6 +19,18 @@ from .horizons import (
     MIN_DIAGNOSTIC_HORIZONS,
     MIN_FORWARD_BARS,
 )
+from .event_studies import (
+    EVENT_COMPARATOR,
+    EVENT_POLICY_KIND,
+    MAX_EVENT_COUNT,
+    MAX_HOLDING_BARS,
+    MAX_WAIT_BARS,
+    MIN_EVENT_COUNT,
+    MIN_HOLDING_BARS,
+    MIN_WAIT_BARS,
+    OVERLAP_POLICY,
+    normalize_event_policy,
+)
 from .studies import hash_json
 from .workspace import (
     SCHEMA_VERSION,
@@ -663,6 +675,7 @@ def validate_research_request(
             "positionSnapshot",
             "positionScenarios",
             "positionSizing",
+            "eventPolicy",
         },
     )
     if value.get("schemaVersion") != SCHEMA_VERSION:
@@ -716,6 +729,15 @@ def validate_research_request(
             f"{path}/positionSizing",
             issues,
         )
+    normalized_event_policy: dict[str, Any] | None = None
+    if "eventPolicy" in value:
+        try:
+            normalized_event_policy = normalize_event_policy(
+                value.get("eventPolicy"),
+                f"{path}/eventPolicy",
+            )
+        except AutoQuantValidationError as error:
+            issues.extend(error.issues)
     if "positionSizing" in value and "positionScenarios" in value:
         issues.append(
             _issue(
@@ -1207,6 +1229,22 @@ def validate_research_request(
                     "short-capable assets",
                 )
             )
+    if normalized_event_policy is not None:
+        requested_symbols = {
+            identity[1]
+            for identity in asset_identities
+            if isinstance(identity[1], str)
+        }
+        for key in ("asset", "referenceAsset"):
+            symbol = normalized_event_policy[key]
+            if symbol not in requested_symbols:
+                issues.append(
+                    _issue(
+                        f"{path}/eventPolicy/{key}",
+                        "request.event-policy-unrequested",
+                        f"{key} must name one requested asset",
+                    )
+                )
     if normalized_policy is not None:
         requested_symbols = {
             identity[1]
@@ -1414,6 +1452,11 @@ def validate_research_request(
         **(
             {"positionSizing": normalized_position_sizing}
             if "positionSizing" in value
+            else {}
+        ),
+        **(
+            {"eventPolicy": normalized_event_policy}
+            if "eventPolicy" in value
             else {}
         ),
         "horizon": value["horizon"].strip(),
@@ -1836,6 +1879,48 @@ RESEARCH_REQUEST_JSON_SCHEMA: dict[str, Any] = {
                 },
                 "lookbackBars": {
                     "enum": sorted(POSITION_SIZING_LOOKBACKS),
+                },
+            },
+        },
+        "eventPolicy": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "kind",
+                "asset",
+                "comparator",
+                "thresholdReturn",
+                "waitBars",
+                "holdingBars",
+                "referenceAsset",
+                "overlapPolicy",
+                "minimumEvents",
+            ],
+            "properties": {
+                "kind": {"const": EVENT_POLICY_KIND},
+                "asset": {"type": "string", "minLength": 1},
+                "comparator": {"const": EVENT_COMPARATOR},
+                "thresholdReturn": {
+                    "type": "number",
+                    "exclusiveMinimum": -1,
+                    "exclusiveMaximum": 0,
+                },
+                "waitBars": {
+                    "type": "integer",
+                    "minimum": MIN_WAIT_BARS,
+                    "maximum": MAX_WAIT_BARS,
+                },
+                "holdingBars": {
+                    "type": "integer",
+                    "minimum": MIN_HOLDING_BARS,
+                    "maximum": MAX_HOLDING_BARS,
+                },
+                "referenceAsset": {"type": "string", "minLength": 1},
+                "overlapPolicy": {"const": OVERLAP_POLICY},
+                "minimumEvents": {
+                    "type": "integer",
+                    "minimum": MIN_EVENT_COUNT,
+                    "maximum": MAX_EVENT_COUNT,
                 },
             },
         },

@@ -245,6 +245,12 @@ const projectFocusLane = (project) => {
 };
 
 const projectFocusRun = (project) => {
+  if (!project.researchProgramStatus && project.eventStudyExplorer?.run?.id) {
+    const descriptive = project.runs.find(
+      (item) => item.id === project.eventStudyExplorer.run.id,
+    );
+    if (descriptive?.status === "succeeded") return descriptive;
+  }
   if (!project.researchProgramStatus && project.bookRiskExplorer?.run?.id) {
     const descriptive = project.runs.find(
       (item) => item.id === project.bookRiskExplorer.run.id,
@@ -271,7 +277,7 @@ const projectFocusStudy = (project) => {
 };
 
 const laneKind = (lane) => {
-  if (["factor", "portfolio", "rl", "book-risk"].includes(lane?.id)) {
+  if (["factor", "portfolio", "rl", "book-risk", "event-study"].includes(lane?.id)) {
     return lane.id;
   }
   return {
@@ -279,6 +285,7 @@ const laneKind = (lane) => {
     "mechanical-portfolio-evidence": "portfolio",
     "adaptive-policy-challenge": "rl",
     "reported-book-risk": "book-risk",
+    "price-event-study": "event-study",
   }[lane?.role] ?? null;
 };
 
@@ -296,6 +303,8 @@ const latestRunForLaneKind = (project, kind) =>
         run.status === "succeeded" &&
         (kind === "book-risk"
           ? run.primaryMetric === "current_component_risk_hhi"
+          : kind === "event-study"
+            ? run.primaryMetric === "primary_eligible_event_count"
           : kind === "rl"
             ? run.metricLayers?.kind === "rl-policy"
             : run.metricLayers?.kind === kind),
@@ -431,6 +440,31 @@ const laneReadout = (project, lane) => {
       verdict: `${metric(value)} EFFECTIVE BETS / ${total} HOLDINGS`,
       detail:
         "Descriptive covariance evidence from an externally reported, unauthenticated position snapshot",
+    };
+  }
+  if (kind === "event-study") {
+    const explorer = project.eventStudyExplorer;
+    const value = explorer?.populations?.primaryEvents ?? lane?.latestRun?.value;
+    if (!Number.isFinite(Number(value))) {
+      return {
+        kind,
+        metric: "Primary events",
+        value,
+        display: "—",
+        tone: "warning",
+        verdict: "EVIDENCE PENDING",
+        detail: "No current immutable Event Study Run is available",
+      };
+    }
+    const conclusion = explorer.conclusion;
+    return {
+      kind,
+      metric: "Primary events",
+      value,
+      display: String(value),
+      tone: conclusion.status === "insufficient-events" ? "warning" : "neutral",
+      verdict: conclusion.status.replaceAll("-", " ").toUpperCase(),
+      detail: `${conclusion.observedPrimaryEvents}/${conclusion.minimumEvents} minimum events · descriptive association only`,
     };
   }
   return {
@@ -1144,6 +1178,8 @@ function renderSessions(project) {
       .join("") ||
     (project.externalHoldout
       ? '<div class="empty-panel">Sessions are disabled in this frozen external-audit Project.</div>'
+      : project.bookRiskExplorer || project.eventStudyExplorer
+        ? '<div class="empty-panel">This fixed descriptive Project has no editable research surface or Session lifecycle.</div>'
       : '<div class="empty-panel">No Sessions yet. Start one with <code>aq session start</code>.</div>');
   document.querySelectorAll("[data-session]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -1326,9 +1362,12 @@ function renderHandoff(project) {
       const holdout = project.externalHoldout;
       const lane = projectFocusLane(project);
       const bookRisk = project.bookRiskExplorer;
+      const eventStudy = project.eventStudyExplorer;
       const next =
         holdout?.nextAction ??
-        (bookRisk ? project.agentWorkBrief?.primaryAction : null) ??
+        (bookRisk || eventStudy
+          ? project.agentWorkBrief?.primaryAction
+          : null) ??
         program?.recommendedAction ??
         intake.commands.find((item) => item.id === "session.start");
       const baseline = projectFocusRun(project);
@@ -1340,15 +1379,20 @@ function renderHandoff(project) {
       const sizingStatus =
         bookRisk?.positionSizing?.status ?? "not-requested";
       const sizingReady = sizingStatus !== "not-requested";
+      const eventCounts = eventStudy?.populations;
       element("handoff-flow").textContent = holdout
         ? "FROZEN SOURCE → LATER DATA → EXTERNAL AUDIT"
         : bookRisk
           ? "REQUEST → DATASET → FIXED RUN → REVIEW"
+        : eventStudy
+          ? "REQUEST → DATASET → FIXED EVENT RUN → REVIEW"
         : "REQUEST → DATASET → BASELINE → ITERATE";
       element("handoff-meta").textContent = holdout
         ? `${holdout.state.toUpperCase()} · ${holdout.binding.laneIds.length} immutable lanes`
         : bookRisk
           ? `Descriptive evidence ready · ${scenarioCount} supplied scenario${scenarioCount === 1 ? "" : "s"}${sizingReady ? ` · sizing ${escapeHtml(sizingStatus)}` : ""} · no Session`
+        : eventStudy
+          ? `${eventCounts?.primaryEvents ?? 0} primary events · ${eventCounts?.completeEvents ?? 0} complete · no Session`
         : baseline
           ? `${baseline.primaryMetric} ${metric(baseline.primaryValue)} · Session not started`
           : "Content locked · baseline pending";
@@ -1376,17 +1420,17 @@ function renderHandoff(project) {
           <span class="context-note">${escapeHtml(dataset.provider.name)} · ${escapeHtml(dataset.priceAdjustment)} · ${escapeHtml(dataset.timeRange.start)} → ${escapeHtml(dataset.timeRange.end)} · ${datasetAvailability ? `observed-only ${percent(datasetAvailability.observationCoverage)} row coverage · ` : ""}provider claims</span>
         </article>
         <article class="handoff-card report-card ${baseline ? "ready" : ""}">
-          <small>03 · ${holdout ? "Frozen external audit" : bookRisk ? "Book Risk evidence &amp; review" : `${lane ? escapeHtml(lane.name) : "Baseline"} &amp; next action`}</small>
+          <small>03 · ${holdout ? "Frozen external audit" : bookRisk ? "Book Risk evidence &amp; review" : eventStudy ? "Price-event evidence &amp; review" : `${lane ? escapeHtml(lane.name) : "Baseline"} &amp; next action`}</small>
           <h3>${holdout ? `${holdout.binding.laneIds.length} source lanes bound to later data` : baseline ? `${escapeHtml(baseline.primaryMetric)} = ${metric(baseline.primaryValue)}` : escapeHtml(intake.study.name)}</h3>
-          <p>${holdout ? "The exact source candidates are frozen. Only the one-shot holdout command is authorized; no Session, retuning, selection, promotion, or trading action is implied." : bookRisk ? `The fixed descriptive Run audits the reported baseline, compares ${scenarioCount} caller-supplied complete book${scenarioCount === 1 ? "" : "s"}${sizingReady ? `, and returns a ${escapeHtml(sizingStatus)} caller-bounded historical target position` : ""}. Review the verified evidence; no Session, optimization, order, or trading authority follows.` : baseline ? "The immutable baseline is descriptive evidence, not a recommendation. Start a governed Session to test candidates against validation-only selection." : "Start a governed Session to run a fresh baseline and freeze this request into its derived Brief."}</p>
+          <p>${holdout ? "The exact source candidates are frozen. Only the one-shot holdout command is authorized; no Session, retuning, selection, promotion, or trading action is implied." : bookRisk ? `The fixed descriptive Run audits the reported baseline, compares ${scenarioCount} caller-supplied complete book${scenarioCount === 1 ? "" : "s"}${sizingReady ? `, and returns a ${escapeHtml(sizingStatus)} caller-bounded historical target position` : ""}. Review the verified evidence; no Session, optimization, order, or trading authority follows.` : eventStudy ? `The fixed Run preserves ${eventCounts?.qualifyingEvents ?? 0} qualifying events, ${eventCounts?.primaryEvents ?? 0} non-overlapping primary outcomes, matched reference returns, and the frozen conclusion. Review the verified ledger; no Session, threshold search, order, or trading authority follows.` : baseline ? "The immutable baseline is descriptive evidence, not a recommendation. Start a governed Session to test candidates against validation-only selection." : "Start a governed Session to run a fresh baseline and freeze this request into its derived Brief."}</p>
           ${portfolio ? `
           <div class="handoff-metrics">
             <span class="${valueTone(portfolio.factor.validationRankIc)}"><b>${metric(portfolio.factor.validationRankIc)}</b><small>validation IC</small></span>
             <span class="${valueTone(portfolio.portfolio.testMaximumDrawdown)}"><b>${percent(portfolio.portfolio.testMaximumDrawdown)}</b><small>test max DD</small></span>
             <span class="${valueTone(portfolio.robustness.testAdverseCostSharpe)}"><b>${metric(portfolio.robustness.testAdverseCostSharpe)}</b><small>${metric(portfolio.robustness.adverseCostBps)}bps audit</small></span>
           </div>` : ""}
-          <span class="status-chip ${baselineTone === "bad" ? "revert" : "active"}">${bookRisk ? "descriptive evidence" : baseline ? (baselineTone === "bad" ? "negative baseline" : "baseline verified") : "ready"}</span>
-          ${copyCommandButton(next, holdout ? (holdout.state === "completed" ? "Copy holdout show command" : "Copy holdout run command") : bookRisk ? "Copy Book Risk Explorer CLI" : program ? "Copy recommended command" : "Copy start command")}
+          <span class="status-chip ${baselineTone === "bad" ? "revert" : "active"}">${bookRisk || eventStudy ? "descriptive evidence" : baseline ? (baselineTone === "bad" ? "negative baseline" : "baseline verified") : "ready"}</span>
+          ${copyCommandButton(next, holdout ? (holdout.state === "completed" ? "Copy holdout show command" : "Copy holdout run command") : bookRisk ? "Copy Book Risk Explorer CLI" : eventStudy ? "Copy Event Explorer CLI" : program ? "Copy recommended command" : "Copy start command")}
         </article>`;
       return;
     }
@@ -1565,6 +1609,13 @@ function renderResearchProgram(project) {
 
 const evidenceLanes = [
   {
+    id: "event-study",
+    label: "Price event",
+    question: "What happened after the fixed event and delay?",
+    explorer: "eventStudyExplorer",
+    section: "event-study-explorer",
+  },
+  {
     id: "book-risk",
     label: "Book risk",
     question: "Is the reported book crowded, and what reduces risk first?",
@@ -1595,6 +1646,7 @@ const evidenceLanes = [
 ];
 
 const studyIdsByEvidenceLane = {
+  "event-study": "ohlcv-price-event-reaction",
   "book-risk": "ohlcv-book-risk",
   factor: "ohlcv-factor-quality",
   portfolio: "ohlcv-portfolio-quality",
@@ -2439,6 +2491,90 @@ function renderBookRiskExplorer(project) {
       effective bets · maximum HHI ${metric(rolling.maximumComponentRiskHhi)}.
     </span>
     ${copyCommandButton(command, "Copy Book Risk JSON command")}`;
+}
+
+function renderEventStudyExplorer(project) {
+  const section = element("event-study-explorer");
+  const explorer = project.eventStudyExplorer;
+  if (!explorer) {
+    section.hidden = true;
+    return;
+  }
+  section.hidden = false;
+  const policy = explorer.policy;
+  const populations = explorer.populations;
+  const primary = explorer.distributions.primaryEventAsset;
+  const excess = explorer.distributions.primaryEventExcess;
+  const unconditional = explorer.distributions.unconditionalAsset;
+  const comparison = explorer.comparisons;
+  element("event-study-meta").textContent =
+    `${explorer.run.id} · ${policy.event.asset} · ${populations.primaryEvents} primary events`;
+  element("event-study-summary").innerHTML = [
+    ["Conclusion", explorer.conclusion.status.replaceAll("-", " "), `${explorer.conclusion.observedPrimaryEvents}/${explorer.conclusion.minimumEvents} minimum events`],
+    ["Fixed event", `${percent(policy.event.thresholdReturn)} opening gap`, `${policy.event.comparator}`],
+    ["Entry / exit", `t+${policy.timing.waitBars} / +${policy.timing.holdingBars}`, "adjusted closes"],
+    ["Raw / primary", `${populations.completeEvents} / ${populations.primaryEvents}`, `${populations.overlapExcludedEvents} overlap-excluded`],
+    ["Primary mean", percent(primary.mean), `${percent(primary.positiveRate)} positive`],
+    ["Unconditional mean", percent(unconditional.mean), `${signedPercent(comparison.primaryMeanMinusUnconditionalAssetMean)} delta`],
+    ["Matched excess", signedPercent(excess.mean), policy.references.matchedAsset],
+    ["Right-censored", String(populations.rightCensoredEvents), "preserved in ledger"],
+  ]
+    .map(
+      ([label, value, note]) => `
+        <span>
+          <small>${escapeHtml(label)}</small>
+          <b>${escapeHtml(value)}</b>
+          <em>${escapeHtml(note)}</em>
+        </span>`,
+    )
+    .join("");
+  const distributionRows = [
+    ["Primary event", primary],
+    [`Matched ${policy.references.matchedAsset}`, explorer.distributions.primaryMatchedReference],
+    ["Event excess", excess],
+    ["Unconditional asset", unconditional],
+    ["Raw complete event", explorer.distributions.rawEventAsset],
+  ];
+  element("event-study-distributions").innerHTML = `
+    <div class="factor-table-wrap">
+      <table>
+        <thead><tr><th>Population</th><th>N</th><th>Mean</th><th>Median</th><th>Positive</th><th>Min</th><th>Max</th></tr></thead>
+        <tbody>
+          ${distributionRows.map(([label, row]) => `
+            <tr>
+              <th>${escapeHtml(label)}</th>
+              <td>${row.count}</td>
+              <td>${signedPercent(row.mean)}</td>
+              <td>${signedPercent(row.median)}</td>
+              <td>${percent(row.positiveRate)}</td>
+              <td>${signedPercent(row.minimum)}</td>
+              <td>${signedPercent(row.maximum)}</td>
+            </tr>`).join("")}
+        </tbody>
+      </table>
+    </div>`;
+  element("event-study-events").innerHTML = `
+    <div class="factor-table-wrap">
+      <table>
+        <thead><tr><th>Event</th><th>Entry → exit</th><th>Gap</th><th>Asset</th><th>Reference</th><th>Excess</th><th>Population</th></tr></thead>
+        <tbody>
+          ${explorer.events.map((row) => `
+            <tr>
+              <th>${escapeHtml(row.eventTimestamp)}</th>
+              <td>${escapeHtml(row.entryTimestamp ?? "—")} → ${escapeHtml(row.exitTimestamp ?? "—")}</td>
+              <td>${signedPercent(row.gapReturn)}</td>
+              <td>${signedPercent(row.assetReturn)}</td>
+              <td>${signedPercent(row.referenceReturn)}</td>
+              <td>${signedPercent(row.excessReturn)}</td>
+              <td>${escapeHtml(row.primaryEligible ? "primary" : row.overlapReason)}</td>
+            </tr>`).join("")}
+        </tbody>
+      </table>
+    </div>`;
+  const command = project.commands?.find((item) => item.id === "run.event-study");
+  element("event-study-warning").innerHTML = `
+    <span>${escapeHtml(explorer.warning)}</span>
+    ${copyCommandButton(command, "Copy Event Study Explorer CLI")}`;
 }
 
 function renderFactorExplorer(project) {
@@ -4996,6 +5132,7 @@ function renderEmptyWorkspace(message = "Create a Project with aq project create
   element("external-holdout").hidden = true;
   element("evidence-workbench").hidden = true;
   element("book-risk-explorer").hidden = true;
+  element("event-study-explorer").hidden = true;
   element("factor-explorer").hidden = true;
   element("portfolio-explorer").hidden = true;
   element("rl-explorer").hidden = true;
@@ -5078,6 +5215,7 @@ function render() {
   renderHandoff(project);
   renderResearchProgram(project);
   renderBookRiskExplorer(project);
+  renderEventStudyExplorer(project);
   renderFactorExplorer(project);
   renderPortfolioExplorer(project);
   renderRlExplorer(project);

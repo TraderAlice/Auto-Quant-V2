@@ -295,12 +295,12 @@ def parse_study_definition(raw: dict[str, Any], path: Path) -> StudyDefinition:
     )
     editable_values = editable_raw.get("paths")
     editable_paths: list[str] = []
-    if not isinstance(editable_values, list) or not editable_values:
+    if not isinstance(editable_values, list):
         issues.append(
             _issue(
                 f"{path}/editable/paths",
                 "schema.array",
-                "Must contain at least one editable source path or closure",
+                "Editable paths must be an array",
             )
         )
     else:
@@ -1238,7 +1238,6 @@ STUDY_JSON_SCHEMA: dict[str, Any] = {
             "properties": {
                 "paths": {
                     "type": "array",
-                    "minItems": 1,
                     "items": {"type": "string", "minLength": 1},
                 }
             },

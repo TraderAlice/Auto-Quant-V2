@@ -21,6 +21,8 @@ aq schema ohlcv-dataset-package --json
 aq schema report-analysis --json
 aq schema factor-diagnostics --json
 aq schema factor-claim --json
+aq schema event-study-policy --json
+aq schema event-study-diagnostics --json
 aq schema book-risk-diagnostics --json
 aq schema portfolio-diagnostics --json
 aq schema portfolio-mandate --json
@@ -50,12 +52,12 @@ Agents should discover the contract rather than scrape `--help`.
 aq workspace init <workspace-dir> [--name NAME] [--json]
 aq project create <workspace-dir> <project-id> \
   [--name NAME] [--description TEXT] \
-  [--template blank|ohlcv-factor-lab|ohlcv-portfolio-lab|ohlcv-rl-factor-lab|ohlcv-book-risk-lab|ohlcv-research-desk] \
+  [--template blank|ohlcv-factor-lab|ohlcv-portfolio-lab|ohlcv-rl-factor-lab|ohlcv-book-risk-lab|ohlcv-event-study-lab|ohlcv-research-desk] \
   [--json]
 aq project intake <workspace-dir> <project-id> \
   --request research-request.json \
   --dataset ohlcv-dataset-package.json \
-  [--template ohlcv-factor-lab|ohlcv-portfolio-lab|ohlcv-rl-factor-lab|ohlcv-book-risk-lab|ohlcv-research-desk] \
+  [--template ohlcv-factor-lab|ohlcv-portfolio-lab|ohlcv-rl-factor-lab|ohlcv-book-risk-lab|ohlcv-event-study-lab|ohlcv-research-desk] \
   [--name NAME] [--json]
 aq project list <workspace-dir> [--json]
 aq project default <workspace-dir> <project-id> [--json]
@@ -155,6 +157,22 @@ closes the descriptive audit and points to its read-only Explorer instead of
 starting an experiment agenda. See
 [[docs/design/reported-position-book-risk]].
 
+`ohlcv-event-study-lab` is the fixed descriptive route for a caller-frozen,
+OHLCV-observable price event. Its first contract detects one downside opening
+gap, waits an exact number of complete bars, measures one close-to-close
+holding return, and compares the complete event ledger with unconditional
+same-asset and matched-date reference-asset returns. Intake derives strict
+`strategies/event-study.json` authority from `request.eventPolicy`; adjusted
+OHLCV is required, and parallel Factor, Portfolio, benchmark, or horizon
+policies are rejected because the event policy owns the complete clock and
+reference meaning.
+
+The Study has no candidate source or Session. One direct immutable Run
+preserves qualifying, complete, right-censored, overlap-excluded, and primary
+event populations plus deterministic distributions and uncertainty. It does
+not infer earnings/news labels, search thresholds, create an Order, or grant
+trading authority. See [[docs/design/ohlcv-price-event-study]].
+
 `ohlcv-research-desk` coordinates those three evaluation questions in one
 Project over one dataset snapshot. Factor and Portfolio deliberately share
 `factors/candidate.py`; RL owns `models/candidate.py`. The program reports
@@ -245,6 +263,8 @@ aq run portfolio <path> --run ID \
   [--points 180] [--project ID] [--json]
 aq run book-risk <path> --run ID \
   [--points 80] [--project ID] [--json]
+aq run event-study <path> --run ID \
+  [--project ID] [--json]
 aq run rl <path> --run ID \
   [--points 180] [--project ID] [--json]
 ```
@@ -335,6 +355,15 @@ JSON returns the same evidence under `book-risk-diagnostics`. Ranking applies
 only to caller-supplied books and has no selection authority. The command
 neither authenticates a snapshot nor emits generated target weights or orders.
 
+`run event-study` is the strict read-only projection for a successful
+`ohlcv-event-study-lab` Run. Core verifies the immutable Run, frozen event
+policy, exact three-artifact inventory, event/entry/exit timing, right
+censoring, overlap eligibility, conditional and reference returns,
+distributions, uncertainty, metrics, and conclusion before returning
+`event-study-diagnostics`. It exposes every event row and the reference
+distribution without treating the result as a strategy, event label, Order,
+or live-trading instruction.
+
 `run factor` is the corresponding bounded professional tear sheet for a
 successful fixed Factor Lab Run. Core verifies the immutable report, daily
 request-bound forward-bar rank/Pearson IC, fixed-tertile,
@@ -408,9 +437,9 @@ all equal the current inputs. If no exact baseline exists, it runs one fresh
 baseline. It then returns an Agent brief containing the disposable worktree,
 fixed program, editable closure, leader, authority status, and exact next
 commands. The caller edits only that worktree.
-Fixed `ohlcv-book-risk-lab` Studies reject Session creation: their result is a
-descriptive audit to review, not an objective to optimize through candidate
-selection.
+Fixed `ohlcv-book-risk-lab` and `ohlcv-event-study-lab` Studies reject Session
+creation: their result is a descriptive audit to review, not an objective to
+optimize through candidate selection.
 
 With `--request`, Session start first validates the strict external question,
 assets, optional complete per-asset `positionRole` declarations, direction,
