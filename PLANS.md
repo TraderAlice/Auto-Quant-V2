@@ -18,7 +18,9 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-There are no active plans.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/global-etf-calendar-month-allocation]] | Test whether AutoQuant can preserve a calendar-month diversified ETF allocation request through Factor gating and, when justified, a current target-weight handoff. | 2026-07-29 |
 
 ## Proposed plans
 
