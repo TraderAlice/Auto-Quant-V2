@@ -5,6 +5,11 @@
 Before running the fixed Study, rewrite the incoming assignment in this file
 as a bounded English research brief. Preserve the caller's exact event,
 threshold, wait, holding period, references, and intended evidence meaning.
+The caller may use any language; English is the internal working language of
+the AutoQuant desk.
+If any caller-owned ambiguity could change that fixed question or evidence
+meaning, record it here and ask the delegating Agent or user before intake or
+execution.
 
 This Project was transactionally constructed from a caller-supplied,
 content-locked OHLCV snapshot. Provider, calendar, and price-adjustment
