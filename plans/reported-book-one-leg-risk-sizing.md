@@ -1,0 +1,111 @@
+# Reported-book one-leg risk sizing field trial
+
+- Status: `active`
+- Updated: `2026-07-28`
+- Related design: [[docs/design/reported-position-book-risk]] and
+  [[docs/design/research-intake-and-dataset-snapshots]].
+- Field matrix: [[docs/trading-request-field-trials]].
+
+## Outcome
+
+Let an AutoQuant coworker answer one bounded target-position question: given a
+caller-reported funded book, one caller-authorized reducible asset, cash as the
+explicit destination, one fixed historical covariance window, and a maximum
+annualized-volatility budget, find the smallest reduction that satisfies the
+budget or prove that the permitted change cannot do so.
+
+## Context
+
+Representative request:
+
+> 我现在 AAPL 20%、MSFT 25%、NVDA 30%、QQQ 25%。按最近一年的波动算，我最多想
+> 承受 15% 年化波动；其他仓位都不动，只减 NVDA、剩下放现金，至少要减到多少？
+
+AutoQuant `0.7.0` reports a 252-session modeled volatility of `19.7685%` for
+this book and ranks a standardized one-percentage-point NVDA-to-cash reduction
+first. It cannot bind the caller's `15%` ceiling, authorize only NVDA as the
+adjustable leg, or derive the minimum compliant weight. Asking the Agent to
+manufacture a grid of `positionScenarios` would violate that field's
+caller-supplied-only authority.
+
+This is not a universal portfolio optimizer. The caller has already fixed the
+book, adjustable asset, destination, risk metric, covariance window, and
+objective. The remaining calculation is a one-dimensional constrained
+historical sizing problem.
+
+## Scope
+
+### In scope
+
+- Preserve one external-reported funded baseline.
+- Bind one requested held asset as the only reducible leg and cash as the only
+  destination.
+- Bind one annualized-volatility ceiling and one existing fixed covariance
+  lookback as the governing constraint.
+- Derive the smallest permitted reduction that reaches the ceiling, with an
+  exact infeasible result when reducing the asset to zero is insufficient.
+- Report the resulting complete book, cash, modeled volatility, HHI, effective
+  risk bets, per-asset contributions, and diagnostic behavior under the other
+  predeclared lookbacks.
+- Preserve no-account, no-tax, no-order, and no-trading authority across Run,
+  strict Explorer, orientation, CLI, Studio, and handoff.
+
+### Out of scope
+
+- Choosing which asset to reduce, adding another risky asset, changing multiple
+  legs, or searching expected-return-optimal weights.
+- A general optimization DSL, covariance-method selection, leverage, shorts,
+  tax lots, transaction costs, liquidity, or execution.
+- Claiming that a historical covariance ceiling guarantees future realized
+  volatility.
+
+## Acceptance
+
+- [ ] Preserve an AutoQuant `0.7.0` failure reproduction without fabricating a
+  scenario grid or returning an irrelevant 1% sensitivity.
+- [ ] Define the smallest strict caller-authority and derived result contract.
+- [ ] Reject ambiguous adjustable legs, non-cash destinations, invalid
+  ceilings/windows, unauthorized assets, and already-compliant or infeasible
+  states with explicit semantics.
+- [ ] One immutable Run and strict Explorer reconcile the exact one-dimensional
+  solution, complete resulting book, risk metrics, and boundary cases.
+- [ ] Orientation and Studio terminate at descriptive target-position review
+  with no Session, automatic trading, or Order authority.
+- [ ] A clean Yahoo field Run answers the 15%-ceiling NVDA question and records
+  assumptions, Harness identity, evidence, and limitations.
+- [ ] Focused/full regression, package smoke, documentation, commit, push, tag,
+  and cleanliness pass.
+
+## Work
+
+- [ ] Reproduce the current semantic gap from a strict real-data Project.
+- [ ] Define and implement the bounded sizing contract.
+- [ ] Add deterministic success, already-compliant, infeasible, malformed,
+  tamper, and authority tests.
+- [ ] Execute and interpret the clean Yahoo field trial.
+- [ ] Complete release audit, record evidence, push, and close the plan.
+
+## Findings and decisions
+
+- 2026-07-28 — Target position sizing belongs in AutoQuant research when the
+  caller fixes the allowed weight path and risk budget. How to realize that
+  target through orders, TPSL, timing, or conversation remains an OpenAlice
+  execution concern.
+- 2026-07-28 — `positionScenarios` cannot be reused for an Agent-generated
+  search grid. Its `0.7.0` authority is explicitly caller-supplied historical
+  comparison; silently broadening it would make evidence provenance false.
+- 2026-07-28 — Cash is the first useful destination because it creates one
+  bounded scalar path and avoids premature multi-asset optimization.
+
+## Verification
+
+Pending the `0.7.0` failure reproduction.
+
+## Progress log
+
+- 2026-07-28 — Selected the next real trading request after completing the
+  caller-supplied book-reallocation field trial.
+
+## Completion
+
+Pending.

@@ -18,7 +18,9 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-There are no active plans.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/reported-book-one-leg-risk-sizing]] | Derive the minimum caller-authorized one-leg reduction to satisfy a fixed historical volatility budget. | 2026-07-28 |
 
 ## Proposed plans
 
