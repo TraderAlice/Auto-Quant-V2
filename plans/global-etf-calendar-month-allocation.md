@@ -63,9 +63,9 @@ dataset start.
 
 ## Acceptance
 
-- [ ] An English Project brief freezes caller-owned meaning before retrieval or
+- [x] An English Project brief freezes caller-owned meaning before retrieval or
   execution.
-- [ ] The current public route is reproduced and refuses any cadence or asset
+- [x] The current public route is reproduced and refuses any cadence or asset
   semantics it cannot represent exactly.
 - [ ] Any Workbench change implements the smallest general calendar-month
   schedule contract across request, Mandate, Portfolio/RL execution, evidence,
@@ -77,9 +77,9 @@ dataset start.
 
 ## Work
 
-- [ ] Create and clarify the representative Project.
-- [ ] Acquire and audit one bounded provider snapshot.
-- [ ] Reproduce the current public boundary.
+- [x] Create and clarify the representative Project.
+- [x] Acquire and audit one bounded provider snapshot.
+- [x] Reproduce the current public boundary.
 - [ ] Implement only field-proven reusable changes.
 - [ ] Execute and interpret the clean field trial.
 - [ ] Complete release or explicit-boundary audit and close the plan.
@@ -92,14 +92,32 @@ dataset start.
 - 2026-07-29 — The representative universe is SPY, QQQ, IWM, EFA, EEM, TLT,
   IEF, GLD, and DBC. Every asset is a long-only ETF research leg; cash is
   allowed. The question does not authorize hidden security selection.
+- 2026-07-29 — Yahoo returned all nine symbols as `ETF`, with 4,922 exact
+  common observed dates from 2007-01-03 through 2026-07-28 and no zero-volume
+  rows. The package preserves provider-adjusted OHLC and provider-reported
+  volume under XNYS session authority.
+- 2026-07-29 — The unchanged `0.8.2` public intake rejected only the honest
+  calendar schedule surface: `decisionSchedule` is unknown while
+  `decisionEveryBars` and `decisionAnchor` are required. The operation left no
+  partial Project. Data and fund asset-class semantics did not need to be
+  weakened to reproduce the gap.
 
 ## Verification
 
-Pending.
+- Provider audit: nine Yahoo `ETF` series, 4,922 aligned daily observations,
+  2007-01-03 through 2026-07-28, zero zero-volume rows.
+- Public `aq project intake ... --template ohlcv-research-desk --json`
+  returned `validation.failed` for the exact calendar schedule fields and
+  created no Project directory.
 
 ## Progress log
 
 - 2026-07-29 — Plan created after the `v0.8.2` observed-hourly Factor release.
+- 2026-07-29 — Created a blank Project and froze the exact English allocation,
+  cadence, risk, data, evidence, and no-trading contract before retrieval.
+- 2026-07-29 — Retrieved and hashed the adjusted Yahoo snapshot, then
+  reproduced the every-bars-only intake boundary without approximating
+  calendar months.
 
 ## Completion
 
