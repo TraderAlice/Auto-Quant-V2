@@ -53,7 +53,7 @@ evidence without changing the user's question.
 
 - [x] Preserve a strict English research brief before downloading or running
   data.
-- [ ] Reproduce whether the current public route can or cannot answer the exact
+- [x] Reproduce whether the current public route can or cannot answer the exact
   event-conditional question without a misleading success.
 - [ ] If a Core gap exists, define the smallest event authority, immutable
   result, strict Explorer, and no-trading boundary.
@@ -67,7 +67,7 @@ evidence without changing the user's question.
 ## Work
 
 - [x] Create and clarify the Project.
-- [ ] Reproduce the current semantic boundary.
+- [x] Reproduce the current semantic boundary.
 - [ ] Promote and implement only the reusable Workbench gap.
 - [ ] Execute and interpret the clean field trial.
 - [ ] Complete the release audit and close the plan.
@@ -83,6 +83,12 @@ evidence without changing the user's question.
   rank/Pearson association contract. A constant sparse event selector has no
   defined correlation among selected observations; substituting gap magnitude
   would answer a different monotonic-association question.
+- 2026-07-29 — A public `ohlcv-factor-lab` intake accepted the exact request
+  and a causal binary `t+2` candidate. Immutable Run
+  `run-20260728T172110652639Z-d0e06d7c91ac` then failed because sparse
+  validation correlation produced a null objective that the Judge converted
+  with `float(None)`. Even a finite correlation would omit the event ledger,
+  matched SPY returns, overlap policy, and conditional distribution.
 
 ## Verification
 
@@ -97,6 +103,9 @@ Pending.
   brief freezes event `open[t] / adjusted_close[t-1] - 1 <= -5%`, entry at
   `t+2` close, exit at `t+7` close, unconditional NVDA and matched-date SPY
   references, overlap disclosure, and no-trading authority.
+- 2026-07-29 — Preserved the exact public-route reproduction and immutable
+  failure in sibling Project `nvda-gap-factor-route-repro`; promoted the
+  smallest reusable event-study need to both Projects' `framework-needs.md`.
 
 ## Completion
 
