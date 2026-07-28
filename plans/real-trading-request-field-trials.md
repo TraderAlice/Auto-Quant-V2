@@ -82,10 +82,10 @@ finding a schema-compatible paraphrase.
 - [x] Inventory existing capabilities against raw trading-request archetypes
   and publish the initial field-trial matrix.
 - [x] Construct and complete the cross-sectional selection/target-weight trial.
-- [ ] Construct and complete the multi-interval timing/context trial.
+- [x] Construct and complete the multi-interval timing/context trial.
 - [ ] Construct and complete the relative-value or portfolio-risk trial.
 - [x] Reproduce and prioritize common Workbench gaps revealed by the trials.
-- [ ] Implement the highest-priority justified improvement and rerun affected
+- [x] Implement the highest-priority justified improvement and rerun affected
   trials.
 - [ ] Complete regression, documentation, packaging, commit, and push.
 
@@ -130,6 +130,24 @@ finding a schema-compatible paraphrase.
   progression are distinct authorities. CLI guidance now states that
   promotion preserves the best source and closes the Session without granting
   Factor qualification, Portfolio/RL admission, or trading authority.
+- 2026-07-28 — The BTC hourly trial proved a same-Core single-asset temporal
+  Factor contract. AutoQuant `0.4.0` evaluates one request-authorized asset
+  across time while leaving ETH, SOL, BNB, and XRP available only as feature
+  context; two or three prediction assets remain a relative-value boundary.
+- 2026-07-28 — Multi-horizon continuation reverted at validation IC
+  `-0.178427`; the opposite overextension-reversion hypothesis retained
+  `0.178427`, HAC t `2.391`, and two positive validation folds. A clean
+  AutoQuant `0.4.1` reproduction had family-adjusted p `0.033568`, while the
+  already-visible sample still requires a fresh external holdout.
+- 2026-07-28 — Full hourly Portfolio evaluation exposed repeated pandas and
+  Mandate work plus an unrealistic 60-second budget. AutoQuant `0.4.1`
+  vectorized covariance/accounting storage, reused resolved Mandates, and
+  deduplicated equivalent robustness profiles; `0.4.2` fixes the bounded
+  Portfolio budget at 180 seconds. The 9,408-hour Run completed in 144,399 ms.
+- 2026-07-28 — The completed Portfolio result is negative: validation gross
+  Sharpe `1.920` becomes net Sharpe `-1.819` after 15 bps, with annualized
+  one-way turnover `82.473`. The same Run exposed an open correctness defect:
+  no-trade drift allowed executed BTC weight `0.316860` above its `0.30` cap.
 
 ## Verification
 
@@ -141,6 +159,17 @@ finding a schema-compatible paraphrase.
   - terminal Report `report-20260728T081902704910Z-bcb2bc282fd6`;
   - promoted terminal Session
     `session-20260728T081255744887Z-4d3d9bd0df53`.
+- Crypto timing/context field trial:
+  - preserved AutoQuant `0.3.0` unsupported Run
+    `run-20260728T085522890105Z-ef731be49a57`;
+  - AutoQuant `0.4.0` baseline
+    `run-20260728T091727168123Z-92487791e08b`;
+  - retained temporal factor Run
+    `run-20260728T092002595194Z-eb3f9a63a874`;
+  - clean AutoQuant `0.4.1` reproduction
+    `run-20260728T095650387668Z-a3bb04252cdc`;
+  - complete AutoQuant `0.4.2` Portfolio Run
+    `run-20260728T100043368147Z-bf56b58eeef7`.
 - Prediction-universe and affected workflow regression: 42 Factor/Intake tests
   and 37 Explorer/Research-program/Session/CLI/orientation tests passed.
 - Full-suite, package, and cleanliness audit remain pending until all three
@@ -162,6 +191,10 @@ finding a schema-compatible paraphrase.
   an evidence-bound negative Report, and a promoted terminal Session. Repaired
   the reusable prediction-population and promotion-authority UX gaps revealed
   by that handoff.
+- 2026-07-28 — Completed the BTC multi-interval timing/context request through
+  Factor qualification, clean reproduction, and the full costed BTC/cash
+  Portfolio route. Preserved the negative implementation conclusion and
+  recorded the post-drift asset-cap defect for Core repair.
 
 ## Completion
 
