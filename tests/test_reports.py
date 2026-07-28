@@ -9,6 +9,7 @@ from unittest import mock
 
 import autoquant.reports as report_module
 import jsonschema
+from autoquant.decision_support import sizing_anatomy_markdown_lines
 from autoquant.reports import (
     list_reports,
     load_report,
@@ -140,6 +141,60 @@ def fully_rehash_report(report, forged: dict, session_id: str) -> tuple[Path, st
 
 
 class ResearchHandoffTests(unittest.TestCase):
+    def test_sizing_markdown_is_canonical_across_mapping_order(self) -> None:
+        sizing = {
+            "method": "test",
+            "timestamp": "2026-07-27",
+            "construction": {
+                "rawGross": 0.9,
+                "governedGross": 0.9,
+                "executedGross": 0.9,
+                "unfundedGross": 0.1,
+                "maxAbsWeight": 0.3,
+                "riskGovernorScale": 1.0,
+                "assetMaxAbsWeights": {
+                    "SPY": 0.3,
+                    "QQQ": 0.3,
+                    "IWM": 0.3,
+                },
+                "assetPositionRoles": {
+                    "SPY": "long-only",
+                    "QQQ": "long-only",
+                    "IWM": "long-only",
+                },
+                "longGrossLimit": 1.0,
+                "shortGrossLimit": 0.0,
+            },
+            "componentRisk": {
+                "available": True,
+                "absoluteConcentrationHhi": 0.4,
+                "largestAbsoluteContributor": "IWM",
+            },
+            "sides": [],
+            "positions": [],
+        }
+        support = {
+            "portfolioSizingAnatomy": sizing,
+            "portfolioSizingAnatomyHash": "test-hash",
+        }
+        rendered = sizing_anatomy_markdown_lines(
+            support,
+            heading="## Sizing",
+        )
+        round_tripped = json.loads(json.dumps(support, sort_keys=True))
+        self.assertEqual(
+            rendered,
+            sizing_anatomy_markdown_lines(
+                round_tripped,
+                heading="## Sizing",
+            ),
+        )
+        self.assertIn(
+            "Effective per-asset caps: `IWM`=`0.3`, `QQQ`=`0.3`, "
+            "`SPY`=`0.3`",
+            "\n".join(rendered),
+        )
+
     def _project(self, directory: str):
         _, project = make_project(directory)
         create_study(project, study_definition())

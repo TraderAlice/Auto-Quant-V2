@@ -121,6 +121,11 @@ dataset start.
   fixed 120-second timeout and terminated with `judge.timeout`. The budget is
   not widened again: RL is optional here and the successful Factor-to-Portfolio
   handoff remains the supported interactive route.
+- 2026-07-29 — The first clean `0.8.3` Portfolio report exposed one more
+  deterministic boundary: its non-alphabetical effective-cap map rendered in
+  universe order before JSON persistence and alphabetical order after the
+  canonical `sort_keys` round trip. `0.8.4` sorts named cap/role maps in the
+  renderer and adds a direct order-invariance regression test.
 
 ## Verification
 
@@ -150,6 +155,13 @@ dataset start.
 - Fresh Python 3.11 wheel smoke: `auto-quant==0.8.3`, 48 public commands,
   both schedule variants visible in the public request schema, and the official
   month-end mask returns June 30 eligible / July 28 ineligible under Pandas 3.
+- Report-fix verification: direct non-alphabetical mapping-order regression,
+  complete Report tests, Dossier tests, and caller-owned
+  Portfolio/RL/Report end-to-end flow pass (24 tests in 196.943 s).
+- Final `0.8.4` full regression: 266/266 in 1,453.832 s.
+- Fresh `0.8.4` Python 3.11 wheel smoke: 48 public commands, both schedule
+  variants in the request schema, and June-eligible/July-incomplete mask
+  behavior under Pandas 3.
 
 ## Progress log
 

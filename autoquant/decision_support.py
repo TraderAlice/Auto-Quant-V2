@@ -1053,16 +1053,16 @@ def sizing_anatomy_markdown_lines(
         "- Effective per-asset caps: "
         + ", ".join(
             f"`{asset}`=`{value}`"
-            for asset, value in construction[
-                "assetMaxAbsWeights"
-            ].items()
+            for asset, value in sorted(
+                construction["assetMaxAbsWeights"].items()
+            )
         ),
         "- Asset position roles: "
         + ", ".join(
             f"`{asset}`=`{role}`"
-            for asset, role in construction[
-                "assetPositionRoles"
-            ].items()
+            for asset, role in sorted(
+                construction["assetPositionRoles"].items()
+            )
         ),
         f"- Long / short gross-side limits: "
         f"`{construction['longGrossLimit']}` / "
