@@ -138,6 +138,7 @@ def descriptive_audit_agenda(
     *,
     lane_id: str,
     reason: str,
+    test_role: str = "lookback-and-rolling-context",
 ) -> dict[str, Any]:
     """Close a fixed descriptive audit without inventing research moves."""
 
@@ -162,7 +163,7 @@ def descriptive_audit_agenda(
             "source": "verified-immutable-run",
             "prioritization": "none",
             "selectionSplit": "none",
-            "testRole": "lookback-and-rolling-context",
+            "testRole": test_role,
             "testEntersPrioritization": False,
             "automaticExecution": False,
             "automaticPromotion": False,

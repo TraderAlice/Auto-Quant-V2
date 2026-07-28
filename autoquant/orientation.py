@@ -1094,6 +1094,16 @@ def build_agent_work_brief(project: ProjectContext) -> dict[str, Any]:
         and projected["evidence"]["leaderRunId"] is not None
     ):
         agenda_run_id = projected["evidence"]["leaderRunId"]
+    descriptive_metric = (
+        studies[0].primary_metric
+        if projected["focus"]["studyId"] is not None and studies
+        else None
+    )
+    event_descriptive = descriptive_metric == "primary_eligible_event_count"
+    fixed_descriptive = descriptive_metric in {
+        "current_component_risk_hhi",
+        "primary_eligible_event_count",
+    }
     research_agenda = (
         waiting_research_agenda(
             "external-holdout",
@@ -1106,20 +1116,28 @@ def build_agent_work_brief(project: ProjectContext) -> dict[str, Any]:
         else descriptive_audit_agenda(
             project,
             agenda_run_id,
-            lane_id="book-risk",
+            lane_id="event-study" if event_descriptive else "book-risk",
             reason=(
-                "Reported-book risk is a fixed descriptive audit. Review the "
-                "verified evidence and any bounded target position; do not "
-                "manufacture an optimization or execution agenda."
+                (
+                    "Price-event history is a fixed descriptive audit. Review "
+                    "the verified event ledger, references, overlap, and "
+                    "uncertainty; do not manufacture a parameter-search or "
+                    "execution agenda."
+                )
+                if event_descriptive
+                else (
+                    "Reported-book risk is a fixed descriptive audit. Review "
+                    "the verified evidence and any bounded target position; "
+                    "do not manufacture an optimization or execution agenda."
+                )
+            ),
+            test_role=(
+                "event-population-and-reference-context"
+                if event_descriptive
+                else "lookback-and-rolling-context"
             ),
         )
-        if (
-            projected["focus"]["studyId"] is not None
-            and studies
-            and studies[0].primary_metric
-            == "current_component_risk_hhi"
-            and agenda_run_id is not None
-        )
+        if fixed_descriptive and agenda_run_id is not None
         else build_research_agenda(
             project,
             agenda_run_id,

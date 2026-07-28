@@ -168,6 +168,19 @@ class EventStudyLabTests(unittest.TestCase):
             self.assertEqual(brief["focus"]["operatingMode"], "observe")
             self.assertFalse(brief["filesystem"]["writable"])
             self.assertEqual(brief["filesystem"]["declaredEditablePaths"], [])
+            self.assertEqual(
+                brief["researchAgenda"]["status"],
+                "descriptive-audit-complete",
+            )
+            self.assertEqual(
+                brief["researchAgenda"]["laneId"],
+                "event-study",
+            )
+            self.assertEqual(
+                brief["researchAgenda"]["authority"]["testRole"],
+                "event-population-and-reference-context",
+            )
+            self.assertEqual(brief["researchAgenda"]["moves"], [])
             snapshot = build_studio_snapshot(project.root_dir)
             projected = snapshot["projects"][0]["eventStudyExplorer"]
             self.assertEqual(
