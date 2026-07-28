@@ -132,6 +132,10 @@ roll rule, margin requirement, tick value, expiry, venue order, or fill.
   passes and four governed-RL timeout-chain failures. The exact root
   reproducibility test passed alone in 112.990 seconds, and the remaining
   three cases passed together in 268.889 seconds without a code change.
+- After raising only the governed RL Judge hard timeout from 90 to 120
+  seconds, its exact two-Run reproducibility test passed in 160.117 seconds,
+  all 980 documentation links resolved, and the clean complete gate passed all
+  263 tests in 1805.362 seconds.
 
 ## Progress log
 
