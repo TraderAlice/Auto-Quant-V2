@@ -30,9 +30,10 @@ Binding `--host` to a non-loopback address is an explicit operator decision.
 The first viewport prioritizes:
 
 - every discovered Project and its verification state;
-- pre-Session request intake, locked dataset/provider/adjustment claims,
+- pre-research request intake, locked dataset/provider/adjustment claims,
   requested assets versus research universe, baseline selection/audit/stress
-  metrics, and the exact Session-start command;
+  metrics, and the exact lifecycle command—Session start for iterative
+  templates or fixed Run execution for Book Risk;
 - active Sessions and current leader values;
 - delegated caller questions, assets, direction, horizon, and Brief identity;
 - running external Researcher phase and turn budget;

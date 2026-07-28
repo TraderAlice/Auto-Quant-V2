@@ -1538,7 +1538,11 @@ def finalize_project_intake(
         "studyHash": study.study_hash,
         "studyInputHash": study.input_hash,
         "datasetHash": study.dataset_hash,
-        "status": "ready-for-session",
+        "status": (
+            "ready-for-run"
+            if intake.template == "ohlcv-book-risk-lab"
+            else "ready-for-session"
+        ),
     }
     _write_json(project.root_dir / PROJECT_INTAKE, manifest)
     return manifest
@@ -2288,10 +2292,15 @@ def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
         "status",
     }
     issues = _strict_keys(manifest, required, manifest_path)
+    expected_status = (
+        "ready-for-run"
+        if manifest.get("template") == "ohlcv-book-risk-lab"
+        else "ready-for-session"
+    )
     if (
         manifest.get("schemaVersion") != SCHEMA_VERSION
         or manifest.get("kind") != PROJECT_INTAKE_KIND
-        or manifest.get("status") != "ready-for-session"
+        or manifest.get("status") != expected_status
     ):
         issues.append(_issue(manifest_path, "intake.schema", "Invalid Project intake"))
     for key in (

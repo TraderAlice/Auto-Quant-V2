@@ -191,8 +191,12 @@ expose verified union coverage and time-varying breadth. Portfolio, governed
 RL, and the coordinated research desk reject V4 explicitly.
 
 The JSON result contains Project-level `request.json`, `intake.json`,
-`data/ohlcv/snapshot.json`, three verified Study identities, and exact next
-actions for inspecting the program and advancing its recommended lane.
+`data/ohlcv/snapshot.json`, the template's verified Study identities, and
+exact next actions for inspecting the program and advancing its recommended
+lane. Iterative templates publish intake status `ready-for-session` and may
+offer `session.start`. The fixed descriptive Book Risk template publishes
+`ready-for-run` and offers only inspection plus `run.execute`; Core will not
+advertise a Session that the Lab intentionally rejects.
 V2/V3 RunResults copy the locked `dataset.intervalSurface`, and Reports, Studio,
 and Dossiers project that same evidence rather than inferring intervals from
 filenames.

@@ -263,8 +263,12 @@ Core and Studio verify the fixed Study/dataset contract while exposing whether
 the current Study input still matches that intake identity. Existing Runs
 become stale evidence after an intentional source change; the intake itself
 does not become corrupt.
-Once a delegated Session starts, the existing Session contract copies and
-freezes the request and derived Brief independently.
+Iterative Factor, Portfolio, RL, and coordinated-desk intake records
+`status: ready-for-session`; once a delegated Session starts, the existing
+Session contract copies and freezes the request and derived Brief
+independently. The fixed descriptive Book Risk route instead records
+`status: ready-for-run`. It has no candidate source or selection loop, so
+advertising a Session would contradict its authority contract.
 
 ## Transactional construction
 
@@ -284,10 +288,13 @@ publishes the Project and returns exact commands to:
 
 1. inspect the coordinated research program;
 2. execute a bounded baseline Run in the recommended lane;
-3. start a delegated Session using the preserved request.
+3. for iterative templates only, start a delegated Session using the
+   preserved request.
 
 For Portfolio or RL work, those commands operate only after the request-derived
 Portfolio Mandate has been content-locked into the Study identity.
+Book Risk intake terminates at the fixed Run and its read-only Explorer; it
+returns no `session.start` action.
 
 The three single-lane templates remain available for narrow, explicitly
 selected work. `ohlcv-research-desk` is the default delegated-research intake:
@@ -298,7 +305,7 @@ The command does not silently run research.
 
 ## Studio
 
-Before a Session exists, Studio shows:
+Before iterative research starts, Studio shows:
 
 ```text
 research mandate → locked dataset snapshot → immutable baseline → iterate
@@ -306,9 +313,11 @@ research mandate → locked dataset snapshot → immutable baseline → iterate
 
 The view distinguishes requested assets from the wider research universe and
 includes coverage, provider/adjustment claims, template, Study, latest verified
-baseline selection/audit/stress metrics, and the exact copyable `session.start`
-command. After Session start, the existing
-request → evidence → report board becomes authoritative.
+baseline selection/audit/stress metrics, and the exact copyable next command.
+That command is `session.start` for iterative templates and `run.execute` for
+the fixed descriptive Book Risk route. After Session start, the existing
+request → evidence → report board becomes authoritative; after a Book Risk
+Run, the verified read-only Explorer becomes authoritative.
 
 Studio remains read-only and does not duplicate validation or construction.
 

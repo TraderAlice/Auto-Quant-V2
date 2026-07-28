@@ -62,6 +62,12 @@ live account or execution authority.
   `waiting-evidence` or propose candidate optimization. Orientation now emits
   an explicit closed descriptive agenda with no selection or trading
   authority.
+- 2026-07-28 — Clean-Project preparation exposed a lifecycle contradiction:
+  intake advertised `ready-for-session` and returned `session.start`, while
+  Core correctly rejects Sessions for this descriptive Lab. Book Risk intake
+  now records `ready-for-run`; CLI and Studio expose only the fixed
+  `run.execute` route. The preserved
+  `us-megacap-book-crowding-v060` Project remains the failure reproduction.
 
 ## Verification
 

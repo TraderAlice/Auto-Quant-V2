@@ -196,10 +196,13 @@ and rejects a rehashed mismatch.
 `intake.json` binds request, snapshot, primary construction Study, dataset, and
 the Study input identity at handoff. Editable source may evolve; its current
 hash determines whether existing Run evidence is stale rather than corrupting
-the intake record. `research-program.json` binds the canonical Factor,
-Portfolio, and governed RL lanes and their editable surfaces. Every Study's
-`ohlcv/**` closure makes every local dataset byte part of Run and Session
-identity. See
+the intake record. Its terminal lifecycle status is `ready-for-session` for
+iterative Factor, Portfolio, RL, and coordinated-desk templates, or
+`ready-for-run` for the fixed descriptive Book Risk template. The latter has
+no candidate Session surface. `research-program.json` binds the canonical
+Factor, Portfolio, and governed RL lanes and their editable surfaces. Every
+Study's `ohlcv/**` closure makes every local dataset byte part of Run and
+Session identity. See
 [[docs/design/research-intake-and-dataset-snapshots]].
 
 ```text

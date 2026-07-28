@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -31,6 +33,19 @@ from autoquant.workspace import (
     initialize_workspace,
 )
 from tests.intake_helpers import write_intake_inputs
+
+
+PROJECT_DIR = Path(__file__).resolve().parents[1]
+
+
+def _run_cli(*arguments: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, "-m", "autoquant", *arguments],
+        cwd=PROJECT_DIR,
+        capture_output=True,
+        check=False,
+        text=True,
+    )
 
 
 def _book_request(path: Path) -> None:
@@ -113,6 +128,7 @@ class BookRiskLabTests(unittest.TestCase):
             intake = load_project_intake(project)
             assert intake is not None
             self.assertTrue(intake["study"]["current"])
+            self.assertEqual(intake["manifest"]["status"], "ready-for-run")
             snapshot = load_position_snapshot(
                 project.root_dir / POSITION_SNAPSHOT
             )
@@ -182,6 +198,10 @@ class BookRiskLabTests(unittest.TestCase):
                 "run.book-risk",
                 {command["id"] for command in observed["commands"]},
             )
+            self.assertEqual(
+                [command["id"] for command in observed["intake"]["commands"]],
+                ["run.execute"],
+            )
             self.assertIsNone(observed["factorExplorer"])
             self.assertIsNone(observed["portfolioExplorer"])
 
@@ -190,6 +210,53 @@ class BookRiskLabTests(unittest.TestCase):
             self.assertIn(
                 "session.descriptive-study",
                 {issue.code for issue in captured.exception.issues},
+            )
+
+    def test_cli_intake_routes_book_risk_to_fixed_run_only(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            request_path, package_path = write_intake_inputs(
+                root,
+                observations=260,
+                request_assets=("AAPL", "MSFT", "NVDA", "QQQ"),
+                asset_position_roles={
+                    "AAPL": "long-only",
+                    "MSFT": "long-only",
+                    "NVDA": "long-only",
+                    "QQQ": "long-only",
+                },
+            )
+            _book_request(request_path)
+            workspace = root / "workspace"
+            initialized = _run_cli(
+                "workspace",
+                "init",
+                str(workspace),
+                "--json",
+            )
+            self.assertEqual(initialized.returncode, 0, initialized.stderr)
+            created = _run_cli(
+                "project",
+                "intake",
+                str(workspace),
+                "reported-book",
+                "--request",
+                str(request_path),
+                "--dataset",
+                str(package_path),
+                "--template",
+                "ohlcv-book-risk-lab",
+                "--json",
+            )
+            self.assertEqual(created.returncode, 0, created.stderr)
+            envelope = json.loads(created.stdout)
+            self.assertEqual(
+                envelope["data"]["intake"]["manifest"]["status"],
+                "ready-for-run",
+            )
+            self.assertEqual(
+                [action["id"] for action in envelope["nextActions"]],
+                ["study.inspect", "run.execute"],
             )
 
     def test_book_risk_intake_requires_funded_position_snapshot(self) -> None:

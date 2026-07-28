@@ -1126,24 +1126,27 @@ def _project_intake(args: argparse.Namespace) -> CommandResult:
                 ],
                 "creates-artifact",
             ),
-            next_action(
-                "session.start",
-                "After updating research.md, start delegated research with the "
-                "preserved request.",
-                [
-                    "aq",
-                    "session",
-                    "start",
-                    str(project.root_dir),
-                    "--study",
-                    study_id,
-                    "--request",
-                    str(request_path),
-                    "--json",
-                ],
-                "creates-artifact",
-            ),
         ]
+        if args.template != "ohlcv-book-risk-lab":
+            next_actions.append(
+                next_action(
+                    "session.start",
+                    "After updating research.md, start delegated research with "
+                    "the preserved request.",
+                    [
+                        "aq",
+                        "session",
+                        "start",
+                        str(project.root_dir),
+                        "--study",
+                        study_id,
+                        "--request",
+                        str(request_path),
+                        "--json",
+                    ],
+                    "creates-artifact",
+                )
+            )
     artifacts = [
         artifact(
             "project",

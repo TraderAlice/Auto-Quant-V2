@@ -922,25 +922,43 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
     diagnostics.extend(issues)
     intake = intake_raw if isinstance(intake_raw, dict) else None
     if intake is not None:
+        intake_command = (
+            _command(
+                "run.execute",
+                [
+                    "aq",
+                    "run",
+                    "execute",
+                    str(project.root_dir),
+                    "--study",
+                    intake["study"]["id"],
+                    "--json",
+                ],
+                "creates-artifact",
+            )
+            if intake["manifest"]["status"] == "ready-for-run"
+            else _command(
+                "session.start",
+                [
+                    "aq",
+                    "session",
+                    "start",
+                    str(project.root_dir),
+                    "--study",
+                    intake["study"]["id"],
+                    "--request",
+                    str(
+                        project.root_dir
+                        / intake["manifest"]["requestPath"]
+                    ),
+                    "--json",
+                ],
+                "creates-artifact",
+            )
+        )
         intake = {
             **intake,
-            "commands": [
-                _command(
-                    "session.start",
-                    [
-                        "aq",
-                        "session",
-                        "start",
-                        str(project.root_dir),
-                        "--study",
-                        intake["study"]["id"],
-                        "--request",
-                        str(project.root_dir / intake["manifest"]["requestPath"]),
-                        "--json",
-                    ],
-                    "creates-artifact",
-                )
-            ],
+            "commands": [intake_command],
         }
     research_program_status = None
     try:
