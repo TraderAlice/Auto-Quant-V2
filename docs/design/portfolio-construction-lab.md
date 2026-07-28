@@ -19,7 +19,7 @@ causal signal timing, target-weight construction, portfolio accounting,
 transaction-cost and capacity proxies, professional metric layers, stress
 tests, artifacts, and candidate authority.
 
-Portfolio Studies use a 120-second bounded Judge budget. The reference engine
+Portfolio Studies use a 180-second bounded Judge budget. The reference engine
 precomputes fixed-window covariance with NumPy, reuses validated Mandate state
 inside repeated simulations, stores per-bar accounting in arrays before
 materializing artifacts, and deduplicates signal profiles that are equivalent

@@ -635,7 +635,7 @@ def _apply_ohlcv_portfolio_lab(
                 "judges/portfolio_core.py",
             ],
             [],
-            120,
+            180,
         ),
         objective=StudyObjective("validation_net_sharpe", "maximize", 0.05),
         dataset=StudyDataset(
@@ -929,7 +929,7 @@ def _apply_ohlcv_research_desk(
                         "judges/portfolio_core.py",
                     ],
                     [],
-                    120,
+                    180,
                 ),
                 objective=StudyObjective(
                     "validation_net_sharpe",
