@@ -86,10 +86,11 @@ exact fixed side budget; if either side's active cap capacity is insufficient,
 the complete target stays flat.
 
 The covariance risk governor remains one-sided and may only scale these
-already-cap-compliant raw targets down. Drift/no-trade retention may temporarily
-leave historical executed weights different from current targets; final risk
-compliance remains separately authoritative. Caps constrain proposed targets,
-not live UTA holdings.
+already-cap-compliant raw targets down. Drift may move a pretrade weight above
+its cap, but the shared executed-book compliance step repairs the chosen book
+even when no-trade or decision cadence would otherwise retain it. That repair
+is included in exact turnover and cost accounting. Caps constrain both
+proposed and final historical research weights, not live UTA holdings.
 
 ## Evidence
 
@@ -113,12 +114,13 @@ named overrides. They retain `quantitative-decision-support` and
    global cap; every context-only asset has cap zero.
 3. Water-filling uses the exact per-asset vector for every Portfolio and RL
    sleeve.
-4. Proposed targets never exceed their named caps.
+4. Proposed and final executed research weights never exceed named caps.
 5. Directional unused capacity remains cash; dollar-neutral side underfunding
    remains flat.
 6. Candidate code cannot tune caps or reinterpret zero as tradable authority.
 7. Risk scaling may reduce but never increase a cap-compliant target.
-8. Current executed weights remain historical research evidence, never a live
+8. A cap repair may override no-trade or cadence but may never add exposure.
+9. Current executed weights remain historical research evidence, never a live
    holdings or order claim.
 
 ## Known limits

@@ -529,6 +529,15 @@ def _rollout_action_rows(
                 "proposed_one_way_turnover": float(
                     daily["proposed_one_way_turnover"]
                 ),
+                "constraint_rebalance_override": bool(
+                    daily["constraint_rebalance_override"]
+                ),
+                "constraint_repair_one_way": float(
+                    daily["constraint_repair_one_way"]
+                ),
+                "executed_constraint_maximum_error": float(
+                    daily["executed_constraint_maximum_error"]
+                ),
             }
         )
     return rows

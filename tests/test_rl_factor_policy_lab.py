@@ -402,10 +402,10 @@ class RlEnvironmentTests(unittest.TestCase):
         first = rollout.simulation.daily.loc[dates[1]]
         second = rollout.simulation.daily.loc[dates[2]]
         self.assertEqual(first["gross_return"], 0.0)
-        self.assertAlmostEqual(first["net_return"], -0.001)
-        self.assertAlmostEqual(first["reward"], -0.001)
-        self.assertAlmostEqual(second["gross_return"], 0.05)
-        self.assertAlmostEqual(second["reward"], 0.04975)
+        self.assertAlmostEqual(first["net_return"], -0.0006)
+        self.assertAlmostEqual(first["reward"], -0.0006)
+        self.assertAlmostEqual(second["gross_return"], 0.03)
+        self.assertAlmostEqual(second["reward"], 0.02991)
 
 
 class GovernedRlFactorPolicyLabTests(unittest.TestCase):

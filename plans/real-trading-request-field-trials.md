@@ -148,6 +148,16 @@ finding a schema-compatible paraphrase.
   Sharpe `1.920` becomes net Sharpe `-1.819` after 15 bps, with annualized
   one-way turnover `82.473`. The same Run exposed an open correctness defect:
   no-trade drift allowed executed BTC weight `0.316860` above its `0.30` cap.
+- 2026-07-28 — AutoQuant `0.5.0` completed the two-asset relative-value
+  boundary. The NVDA-minus-SOXX continuation hypothesis failed; its
+  predeclared reversion inverse retained validation IC `0.094936` but HAC
+  t `0.583`, adjusted p `1.0`, and inconsistent folds withheld Portfolio,
+  RL, and model weights.
+- 2026-07-28 — AutoQuant `0.5.1` closed the BTC final-book cap defect. Clean
+  Run `run-20260728T110200734675Z-e92950ca021c` kept maximum BTC weight at
+  `0.30`, context weights at zero, accounted 567 constraint overrides, and
+  produced zero final constraint error. The negative economic result remained
+  validation net Sharpe `-1.858`.
 
 ## Verification
 
@@ -169,7 +179,18 @@ finding a schema-compatible paraphrase.
   - clean AutoQuant `0.4.1` reproduction
     `run-20260728T095650387668Z-a3bb04252cdc`;
   - complete AutoQuant `0.4.2` Portfolio Run
-    `run-20260728T100043368147Z-bf56b58eeef7`.
+    `run-20260728T100043368147Z-bf56b58eeef7`;
+  - clean AutoQuant `0.5.1` hard-cap reproduction
+    `run-20260728T110200734675Z-e92950ca021c`.
+- Relative-value field trial:
+  - preserved AutoQuant `0.4.2` unsupported Run
+    `run-20260728T100947958397Z-006a612b6c15`;
+  - AutoQuant `0.5.0` baseline Run
+    `run-20260728T102437119041Z-bd638b6e96c8`;
+  - retained inverse Run
+    `run-20260728T102528560064Z-f090ecba787f`;
+  - terminal Report
+    `report-20260728T102616941970Z-a8b7f7e2cdc6`.
 - Prediction-universe and affected workflow regression: 42 Factor/Intake tests
   and 37 Explorer/Research-program/Session/CLI/orientation tests passed.
 - Full-suite, package, and cleanliness audit remain pending until all three

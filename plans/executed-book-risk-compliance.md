@@ -1,4 +1,4 @@
-# Executed-book risk compliance
+# Executed-book hard compliance
 
 - Status: `completed`
 - Updated: `2026-07-25`
@@ -10,11 +10,10 @@
 
 ## Outcome
 
-Every new Portfolio and governed-RL path proves that the final post-drift,
-post-no-trade executed book—not merely its proposed target—obeys the
-request-bound covariance volatility ceiling whenever the causal forecast is
-available. Risk-only rebalances, unavailable evidence, and exact pre/post
-forecasts are visible to researchers and OpenAlice handoff consumers.
+Every Portfolio and governed-RL path proves that the final post-drift,
+post-no-trade executed book—not merely its proposed target—obeys both the
+complete request-bound Portfolio Mandate and the covariance volatility ceiling
+whenever the causal forecast is available.
 
 ## Context
 
@@ -33,12 +32,15 @@ remains target-weight research and creates no Broker or live-trading authority.
 
 ### In scope
 
-- One causal executed-book risk decision shared by Portfolio and governed RL.
+- One causal executed-book hard-compliance decision shared by Portfolio and
+  governed RL.
+- Deterministic sign, context-only, gross, side, net, and per-asset repair
+  after drift and ordinary target/no-trade selection.
 - Minimum proportional scale-down when a retained drifted book breaches the
   request-bound ceiling.
 - Exact daily/decision evidence, split compliance metrics, and strict
   reconciliation.
-- CLI, Reports, Dossiers, decision matrix, Studio, and legacy-read behavior.
+- CLI, Reports, Dossiers, decision matrix, and Studio evidence.
 
 ### Out of scope
 
@@ -50,7 +52,10 @@ remains target-weight research and creates no Broker or live-trading authority.
 ## Acceptance
 
 - [x] Final executed weights use only returns through decision close and obey
-  the declared volatility ceiling whenever the forecast is available.
+  the complete Mandate plus the declared volatility ceiling whenever the
+  forecast is available.
+- [x] A drifted per-asset cap breach bypasses no-trade with explicit
+  constraint-only evidence and exact repair turnover/cost.
 - [x] A risk breach bypasses the no-trade band with an explicit risk-only
   reason and the minimum proportional scale-down; ordinary in-band books
   remain untouched.
@@ -61,8 +66,8 @@ remains target-weight research and creates no Broker or live-trading authority.
 - [x] Capacity, costs, returns, artifacts, explorer, CLI, Reports, Dossiers,
   Studio, and Session context preserve one verified interpretation with no
   trading-authority claim.
-- [x] Deterministic tests prove causality, no-trade override, minimum scaling,
-  tamper rejection, RL parity, legacy readability, and unchanged safe paths.
+- [x] Deterministic tests prove causality, constraint/risk no-trade overrides,
+  minimum risk scaling, tamper rejection, RL parity, and unchanged safe paths.
 
 ## Work
 
@@ -80,6 +85,10 @@ remains target-weight research and creates no Broker or live-trading authority.
   target, preserving intent with the minimum necessary notional change.
 - 2026-07-25 — Executed compliance is a safety invariant and contextual
   diagnostic, not a favorable selection metric.
+- 2026-07-28 — A real BTC hourly Run exposed `0.316860` executed weight under
+  a `0.30` cap because drift retention was checked only for covariance risk.
+  V2 makes the complete Mandate authoritative on the final book, accounts for
+  the repair trade, and exposes identical Portfolio/RL evidence.
 - 2026-07-25 — Isolated-wheel smoke exposed a pre-existing explorer mismatch:
   liquidity reconciliation included a purged split boundary row. Projection
   now uses the Judge-authoritative `signalEnd`, with a dedicated regression
@@ -108,7 +117,7 @@ remains target-weight research and creates no Broker or live-trading authority.
 - 2026-07-25 — Plan created from the professional workflow audit.
 - 2026-07-25 — Added the shared final-book decision, Portfolio/RL evidence,
   strict artifact reconciliation, public CLI/Report/Dossier/Studio
-  projections, legacy fallback, and tamper rejection.
+  projections, and tamper rejection.
 - 2026-07-25 — Completed final full tests, isolated-wheel smoke, documentation
   validation, and visible Studio QA.
 

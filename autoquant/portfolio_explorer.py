@@ -321,6 +321,17 @@ EXECUTION_RISK_DECISION_COLUMNS = EXECUTION_RISK_DAILY_COLUMNS - {
     "execution_reason"
 }
 EXECUTION_RISK_DECISION_FLOATS = EXECUTION_RISK_DAILY_FLOATS
+EXECUTION_CONSTRAINT_DAILY_FLOATS = {
+    "constraint_repair_one_way",
+    "executed_constraint_maximum_error",
+}
+EXECUTION_CONSTRAINT_DAILY_BOOLEANS = {
+    "constraint_rebalance_override",
+}
+EXECUTION_CONSTRAINT_DAILY_COLUMNS = (
+    EXECUTION_CONSTRAINT_DAILY_FLOATS
+    | EXECUTION_CONSTRAINT_DAILY_BOOLEANS
+)
 
 
 def _issue(path: Path | str, code: str, message: str) -> ValidationIssue:
@@ -522,6 +533,8 @@ def _parse_daily(path: Path) -> ParsedDaily:
         "decision_anchor",
         "decision_session",
         *DAILY_NUMERIC_COLUMNS,
+        *EXECUTION_RISK_DAILY_COLUMNS,
+        *EXECUTION_CONSTRAINT_DAILY_COLUMNS,
     }
     fields, raw_rows = _read_csv(
         path,
@@ -535,6 +548,18 @@ def _parse_daily(path: Path) -> ParsedDaily:
             path,
             "portfolio.execution-risk-columns",
             "Daily evidence must contain the complete execution-risk column set",
+        )
+    has_execution_constraints = (
+        EXECUTION_CONSTRAINT_DAILY_COLUMNS.issubset(fields)
+    )
+    if (
+        EXECUTION_CONSTRAINT_DAILY_COLUMNS & set(fields)
+        and not has_execution_constraints
+    ):
+        _fail(
+            path,
+            "portfolio.execution-constraint-columns",
+            "Daily evidence must contain the complete executed-constraint column set",
         )
     rows: list[dict[str, Any]] = []
     for index, (timestamp, raw) in enumerate(zip(dates, raw_rows), start=2):
@@ -682,7 +707,10 @@ def _parse_daily(path: Path) -> ParsedDaily:
                     and (
                         execution_boolean["ordinary_rebalance"]
                         or raw["execution_reason"]
-                        != "risk_ceiling_override"
+                        not in {
+                            "risk_ceiling_override",
+                            "mandate_and_risk_override",
+                        }
                         or raw["rebalanced"] != "True"
                     )
                 )
@@ -700,6 +728,75 @@ def _parse_daily(path: Path) -> ParsedDaily:
                     "execution_risk_status"
                 ],
             }
+            if has_execution_constraints:
+                for key in EXECUTION_CONSTRAINT_DAILY_BOOLEANS:
+                    if raw[key] not in {"True", "False"}:
+                        _fail(
+                            f"{path}:{index}/{key}",
+                            "portfolio.boolean",
+                            f"{key} must be True or False",
+                        )
+                execution_values.update(
+                    {
+                        key: _finite(raw[key], f"{path}:{index}/{key}")
+                        for key in EXECUTION_CONSTRAINT_DAILY_FLOATS
+                    }
+                )
+                execution_values.update(
+                    {
+                        key: raw[key] == "True"
+                        for key in EXECUTION_CONSTRAINT_DAILY_BOOLEANS
+                    }
+                )
+                if (
+                    any(
+                        float(execution_values[key]) < 0
+                        for key in EXECUTION_CONSTRAINT_DAILY_FLOATS
+                    )
+                    or execution_values[
+                        "executed_constraint_maximum_error"
+                    ]
+                    > 1e-10
+                    or (
+                        execution_values[
+                            "constraint_rebalance_override"
+                        ]
+                        and (
+                            execution_boolean["ordinary_rebalance"]
+                            or raw["execution_reason"]
+                            not in {
+                                "mandate_constraint_override",
+                                "mandate_and_risk_override",
+                            }
+                            or raw["rebalanced"] != "True"
+                        )
+                    )
+                    or (
+                        raw["execution_reason"]
+                        == "mandate_and_risk_override"
+                        and not execution_boolean[
+                            "risk_rebalance_override"
+                        ]
+                    )
+                ):
+                    _fail(
+                        f"{path}:{index}",
+                        "portfolio.execution-constraint-value",
+                        "Executed-book constraint evidence is invalid",
+                    )
+            else:
+                execution_values.update(
+                    {
+                        key: 0.0
+                        for key in EXECUTION_CONSTRAINT_DAILY_FLOATS
+                    }
+                )
+                execution_values.update(
+                    {
+                        key: False
+                        for key in EXECUTION_CONSTRAINT_DAILY_BOOLEANS
+                    }
+                )
             if (
                 not (raw["decision_eligible"] == "True")
                 and (
@@ -709,11 +806,16 @@ def _parse_daily(path: Path) -> ParsedDaily:
                         and not execution_boolean[
                             "risk_rebalance_override"
                         ]
+                        and not execution_values[
+                            "constraint_rebalance_override"
+                        ]
                     )
                     or raw["execution_reason"]
                     not in {
                         "decision_schedule_hold",
                         "risk_ceiling_override",
+                        "mandate_constraint_override",
+                        "mandate_and_risk_override",
                     }
                 )
             ):
@@ -731,6 +833,14 @@ def _parse_daily(path: Path) -> ParsedDaily:
                 **{
                     key: False
                     for key in EXECUTION_RISK_DAILY_BOOLEANS
+                },
+                **{
+                    key: 0.0
+                    for key in EXECUTION_CONSTRAINT_DAILY_FLOATS
+                },
+                **{
+                    key: False
+                    for key in EXECUTION_CONSTRAINT_DAILY_BOOLEANS
                 },
                 "execution_reason": "legacy_unavailable",
                 "execution_risk_status": "legacy_unavailable",
@@ -799,7 +909,16 @@ def _parse_decisions(
 ) -> tuple[list[dict[str, Any]], dict[tuple[str, str], dict[str, Any]]]:
     fields, raw_rows = _read_csv(
         path,
-        required=DECISION_REQUIRED_COLUMNS,
+        required={
+            *DECISION_REQUIRED_COLUMNS,
+            "tradable",
+            "permitted_direction",
+            "mandate_id",
+            *RISK_DECISION_COLUMNS,
+            *LIQUIDITY_DECISION_COLUMNS,
+            *EXECUTION_RISK_DECISION_COLUMNS,
+            *EXECUTION_CONSTRAINT_DAILY_COLUMNS,
+        },
         maximum_rows=MAX_DECISION_ROWS,
     )
     expected = {
@@ -842,6 +961,18 @@ def _parse_decisions(
             path,
             "portfolio.execution-risk-columns",
             "Decision ledger must contain the complete execution-risk column set",
+        )
+    has_execution_constraint_columns = (
+        EXECUTION_CONSTRAINT_DAILY_COLUMNS.issubset(fields)
+    )
+    if (
+        EXECUTION_CONSTRAINT_DAILY_COLUMNS & set(fields)
+        and not has_execution_constraint_columns
+    ):
+        _fail(
+            path,
+            "portfolio.execution-constraint-columns",
+            "Decision ledger must contain the complete executed-constraint column set",
         )
     for row_number, raw in enumerate(raw_rows, start=2):
         row_path = f"{path}:{row_number}"
@@ -1026,6 +1157,37 @@ def _parse_decisions(
                 field: False
                 for field in EXECUTION_RISK_DAILY_BOOLEANS
             }
+        execution_constraint_numeric = (
+            {
+                field: _finite(raw[field], f"{row_path}/{field}")
+                for field in EXECUTION_CONSTRAINT_DAILY_FLOATS
+            }
+            if has_execution_constraint_columns
+            else {
+                field: 0.0
+                for field in EXECUTION_CONSTRAINT_DAILY_FLOATS
+            }
+        )
+        execution_constraint_booleans = (
+            {
+                field: raw[field] == "True"
+                for field in EXECUTION_CONSTRAINT_DAILY_BOOLEANS
+            }
+            if has_execution_constraint_columns
+            else {
+                field: False
+                for field in EXECUTION_CONSTRAINT_DAILY_BOOLEANS
+            }
+        )
+        if has_execution_constraint_columns and any(
+            raw[field] not in {"True", "False"}
+            for field in EXECUTION_CONSTRAINT_DAILY_BOOLEANS
+        ):
+            _fail(
+                row_path,
+                "portfolio.boolean",
+                "Executed-constraint flags must be True or False",
+            )
         for field in (
             "signal_event",
             "allocation_status",
@@ -1094,7 +1256,43 @@ def _parse_decisions(
                 execution_risk_booleans["risk_rebalance_override"]
                 and (
                     execution_risk_booleans["ordinary_rebalance"]
-                    or raw["execution_reason"] != "risk_ceiling_override"
+                    or raw["execution_reason"]
+                    not in {
+                        "risk_ceiling_override",
+                        "mandate_and_risk_override",
+                    }
+                )
+            )
+            or any(
+                value < 0
+                for value in execution_constraint_numeric.values()
+            )
+            or execution_constraint_numeric[
+                "executed_constraint_maximum_error"
+            ]
+            > 1e-10
+            or (
+                execution_constraint_booleans[
+                    "constraint_rebalance_override"
+                ]
+                and (
+                    execution_risk_booleans["ordinary_rebalance"]
+                    or raw["execution_reason"]
+                    not in {
+                        "mandate_constraint_override",
+                        "mandate_and_risk_override",
+                    }
+                )
+            )
+            or (
+                raw["execution_reason"] == "mandate_and_risk_override"
+                and (
+                    not execution_risk_booleans[
+                        "risk_rebalance_override"
+                    ]
+                    or not execution_constraint_booleans[
+                        "constraint_rebalance_override"
+                    ]
                 )
             )
         ):
@@ -1255,6 +1453,8 @@ def _parse_decisions(
             **liquidity_numeric,
             **execution_risk_numeric,
             **execution_risk_booleans,
+            **execution_constraint_numeric,
+            **execution_constraint_booleans,
             "decision_eligible": decision_eligible,
             "decision_every_bars": decision_every_bars,
             "decision_anchor": decision_anchor,
@@ -1322,6 +1522,7 @@ def _parse_decisions(
                 or (
                     abs(parsed["trade_weight"]) > 1e-12
                     and not parsed["risk_rebalance_override"]
+                    and not parsed["constraint_rebalance_override"]
                 )
             ):
                 _fail(
@@ -1396,6 +1597,9 @@ def _parse_decisions(
                 item["proposed_one_way_turnover"],
                 item["ordinary_rebalance"],
                 item["risk_rebalance_override"],
+                item["constraint_rebalance_override"],
+                item["constraint_repair_one_way"],
+                item["executed_constraint_maximum_error"],
                 item["execution_reason"],
                 item["decision_eligible"],
                 item["decision_every_bars"],
@@ -1425,6 +1629,9 @@ def _parse_decisions(
             expected_daily["proposed_one_way_turnover"],
             expected_daily["ordinary_rebalance"],
             expected_daily["risk_rebalance_override"],
+            expected_daily["constraint_rebalance_override"],
+            expected_daily["constraint_repair_one_way"],
+            expected_daily["executed_constraint_maximum_error"],
             expected_daily["execution_reason"],
             expected_daily["decision_eligible"],
             expected_daily["decision_every_bars"],
@@ -4677,6 +4884,7 @@ def _executed_book_risk_projection(
                 abs(row["gross_exposure"]) > 1e-12
                 or abs(row["proposed_one_way_turnover"]) > 1e-12
                 or row["risk_rebalance_override"]
+                or row["constraint_rebalance_override"]
             )
         ]
         available = [
@@ -4703,6 +4911,9 @@ def _executed_book_risk_projection(
         ]
         overrides = [
             row for row in active if row["risk_rebalance_override"]
+        ]
+        constraint_overrides = [
+            row for row in active if row["constraint_rebalance_override"]
         ]
         errors = [
             max(
@@ -4770,6 +4981,33 @@ def _executed_book_risk_projection(
             "maximum_ceiling_error": max(errors) if errors else 0.0,
             "status_counts": status_counts,
             "execution_reason_counts": reason_counts,
+            "constraint_rebalance_override_dates": len(
+                constraint_overrides
+            ),
+            "constraint_only_override_dates": sum(
+                row["constraint_rebalance_override"]
+                and not row["risk_rebalance_override"]
+                for row in active
+            ),
+            "joint_constraint_risk_override_dates": sum(
+                row["constraint_rebalance_override"]
+                and row["risk_rebalance_override"]
+                for row in active
+            ),
+            "constraint_repair_one_way": sum(
+                row["constraint_repair_one_way"] for row in dated
+            ),
+            "executed_constraint_breach_dates": sum(
+                row["executed_constraint_maximum_error"] > 1e-10
+                for row in dated
+            ),
+            "maximum_executed_constraint_error": max(
+                (
+                    row["executed_constraint_maximum_error"]
+                    for row in dated
+                ),
+                default=0.0,
+            ),
         }
 
     def compare(expected: Any, actual: Any, path: str) -> None:
@@ -4844,13 +5082,38 @@ def _executed_book_risk_projection(
         derived = derive(split_name)
         compare(
             raw.get(split_name),
-            derived,
+            {
+                source: derived[source]
+                for source in fields.values()
+            },
             f"RunResult/metrics/execution_risk/{split_name}",
         )
         projection[split_name] = {
             output: derived[source]
             for output, source in fields.items()
         }
+        projection[split_name].update(
+            {
+                "constraintRebalanceOverrideDates": derived[
+                    "constraint_rebalance_override_dates"
+                ],
+                "constraintOnlyOverrideDates": derived[
+                    "constraint_only_override_dates"
+                ],
+                "jointConstraintRiskOverrideDates": derived[
+                    "joint_constraint_risk_override_dates"
+                ],
+                "constraintRepairOneWay": derived[
+                    "constraint_repair_one_way"
+                ],
+                "executedConstraintBreachDates": derived[
+                    "executed_constraint_breach_dates"
+                ],
+                "maximumExecutedConstraintError": derived[
+                    "maximum_executed_constraint_error"
+                ],
+            }
+        )
     latest = daily.rows[-1]
     projection["latest"] = {
         "timestamp": latest["timestamp"],
@@ -4869,6 +5132,15 @@ def _executed_book_risk_projection(
         ],
         "riskRebalanceOverride": latest[
             "risk_rebalance_override"
+        ],
+        "constraintRebalanceOverride": latest[
+            "constraint_rebalance_override"
+        ],
+        "constraintRepairOneWay": latest[
+            "constraint_repair_one_way"
+        ],
+        "executedConstraintMaximumError": latest[
+            "executed_constraint_maximum_error"
         ],
         "executionReason": latest["execution_reason"],
     }
@@ -6331,10 +6603,24 @@ def load_portfolio_diagnostics(
             "scheduledHoldBars": sum(
                 not row["decision_eligible"]
                 and not row["risk_rebalance_override"]
+                and not row["constraint_rebalance_override"]
                 for row in daily.rows
             ),
             "riskOnlyOverrideBars": sum(
                 not row["decision_eligible"]
+                and row["risk_rebalance_override"]
+                and not row["constraint_rebalance_override"]
+                for row in daily.rows
+            ),
+            "constraintOnlyOverrideBars": sum(
+                not row["decision_eligible"]
+                and row["constraint_rebalance_override"]
+                and not row["risk_rebalance_override"]
+                for row in daily.rows
+            ),
+            "jointConstraintRiskOverrideBars": sum(
+                not row["decision_eligible"]
+                and row["constraint_rebalance_override"]
                 and row["risk_rebalance_override"]
                 for row in daily.rows
             ),
@@ -7655,6 +7941,8 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 "eligibleRate",
                 "scheduledHoldBars",
                 "riskOnlyOverrideBars",
+                "constraintOnlyOverrideBars",
+                "jointConstraintRiskOverrideBars",
             ],
             "properties": {
                 "source": {
@@ -7675,6 +7963,14 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 },
                 "scheduledHoldBars": {"type": "integer", "minimum": 0},
                 "riskOnlyOverrideBars": {"type": "integer", "minimum": 0},
+                "constraintOnlyOverrideBars": {
+                    "type": "integer",
+                    "minimum": 0,
+                },
+                "jointConstraintRiskOverrideBars": {
+                    "type": "integer",
+                    "minimum": 0,
+                },
             },
         },
         "run": {

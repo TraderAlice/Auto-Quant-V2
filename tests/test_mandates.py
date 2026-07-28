@@ -268,12 +268,22 @@ class PortfolioMandateTests(unittest.TestCase):
         ]
         self.assertTrue((~off_schedule["ordinary_rebalance"]).all())
         self.assertTrue(
-            np.allclose(off_schedule["traded_notional"], 0.0)
+            (
+                off_schedule["traded_notional"].le(1e-12)
+                | off_schedule["risk_rebalance_override"]
+                | off_schedule["constraint_rebalance_override"]
+            ).all()
         )
         self.assertTrue(
             (
-                off_schedule["execution_reason"]
-                == "decision_schedule_hold"
+                off_schedule["execution_reason"].isin(
+                    {
+                        "decision_schedule_hold",
+                        "risk_ceiling_override",
+                        "mandate_constraint_override",
+                        "mandate_and_risk_override",
+                    }
+                )
             ).all()
         )
 

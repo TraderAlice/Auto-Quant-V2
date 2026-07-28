@@ -123,6 +123,11 @@ ACTION_EXECUTION_RISK_COLUMNS = [
     "gross_exposure",
     "proposed_one_way_turnover",
 ]
+ACTION_EXECUTION_CONSTRAINT_COLUMNS = [
+    "constraint_rebalance_override",
+    "constraint_repair_one_way",
+    "executed_constraint_maximum_error",
+]
 SPLITS = ("validation", "test")
 
 
@@ -875,15 +880,17 @@ def _action_rows(
         with path.open("r", encoding="utf-8", newline="") as handle:
             reader = csv.DictReader(handle)
             fields = tuple(reader.fieldnames or [])
-            complete_fields = tuple(
-                [*ACTION_COLUMNS, *ACTION_EXECUTION_RISK_COLUMNS]
+            constraint_fields = tuple(
+                [
+                    *ACTION_COLUMNS,
+                    *ACTION_EXECUTION_RISK_COLUMNS,
+                    *ACTION_EXECUTION_CONSTRAINT_COLUMNS,
+                ]
             )
-            if fields not in {
-                tuple(ACTION_COLUMNS),
-                complete_fields,
-            }:
+            if fields != constraint_fields:
                 _fail(path, "rl.csv-columns", "Action CSV columns differ from the fixed contract")
-            has_execution_risk = fields == complete_fields
+            has_execution_risk = True
+            has_execution_constraints = True
             rows: list[dict[str, Any]] = []
             seen: set[tuple[str, int, str, str]] = set()
             last_dates: dict[tuple[str, int, str], str] = {}
@@ -1013,6 +1020,30 @@ def _action_rows(
                                 "riskRebalanceOverride": (
                                     row["risk_rebalance_override"] == "True"
                                 ),
+                                "constraintRebalanceOverride": (
+                                    row["constraint_rebalance_override"]
+                                    == "True"
+                                    if has_execution_constraints
+                                    else False
+                                ),
+                                "constraintRepairOneWay": (
+                                    _finite(
+                                        row["constraint_repair_one_way"],
+                                        f"{path}:{row_number}/constraint_repair_one_way",
+                                    )
+                                    if has_execution_constraints
+                                    else 0.0
+                                ),
+                                "executedConstraintMaximumError": (
+                                    _finite(
+                                        row[
+                                            "executed_constraint_maximum_error"
+                                        ],
+                                        f"{path}:{row_number}/executed_constraint_maximum_error",
+                                    )
+                                    if has_execution_constraints
+                                    else 0.0
+                                ),
                                 "executionReason": row[
                                     "execution_reason"
                                 ],
@@ -1036,6 +1067,9 @@ def _action_rows(
                                 "executedRiskForecastAnnualized": 0.0,
                                 "executionRiskCeilingAnnualized": 0.0,
                                 "riskRebalanceOverride": False,
+                                "constraintRebalanceOverride": False,
+                                "constraintRepairOneWay": 0.0,
+                                "executedConstraintMaximumError": 0.0,
                                 "executionReason": "legacy_unavailable",
                                 "grossExposure": 0.0,
                                 "proposedOneWayTurnover": 0.0,
@@ -1055,6 +1089,11 @@ def _action_rows(
                         not in {"True", "False"}
                         or row["risk_rebalance_override"]
                         not in {"True", "False"}
+                        or (
+                            has_execution_constraints
+                            and row["constraint_rebalance_override"]
+                            not in {"True", "False"}
+                        )
                         or not rows[-1]["executionRiskStatus"]
                         or not rows[-1]["executionReason"]
                         or rows[-1]["executionRiskStatus"]
@@ -1063,6 +1102,7 @@ def _action_rows(
                             "within_ceiling",
                             "volatility_limited",
                             "risk_repaired",
+                            "constraint_repaired",
                             "insufficient_history_fail_flat",
                             "invalid_covariance_fail_flat",
                         }
@@ -1073,6 +1113,9 @@ def _action_rows(
                             "rebalance_threshold_met",
                             "portfolio_no_trade_band",
                             "decision_schedule_hold",
+                            "mandate_constraint_override",
+                            "mandate_and_risk_override",
+                            "target_constraint_repair",
                         }
                         or min(
                             rows[-1][
@@ -1088,15 +1131,43 @@ def _action_rows(
                         < 0
                         or rows[-1]["grossExposure"] < 0
                         or rows[-1]["proposedOneWayTurnover"] < 0
+                        or rows[-1]["constraintRepairOneWay"] < 0
+                        or rows[-1][
+                            "executedConstraintMaximumError"
+                        ] < 0
                         or (
                             rows[-1]["riskRebalanceOverride"]
                             and rows[-1]["executionReason"]
-                            != "risk_ceiling_override"
+                            not in {
+                                "risk_ceiling_override",
+                                "mandate_and_risk_override",
+                            }
+                        )
+                        or (
+                            rows[-1]["constraintRebalanceOverride"]
+                            and rows[-1]["executionReason"]
+                            not in {
+                                "mandate_constraint_override",
+                                "mandate_and_risk_override",
+                            }
+                        )
+                        or (
+                            rows[-1]["executionReason"]
+                            == "mandate_and_risk_override"
+                            and (
+                                not rows[-1]["riskRebalanceOverride"]
+                                or not rows[-1][
+                                    "constraintRebalanceOverride"
+                                ]
+                            )
                         )
                         or (
                             not rows[-1]["decisionEligible"]
                             and rows[-1]["oneWayTurnover"] > 1e-12
                             and not rows[-1]["riskRebalanceOverride"]
+                            and not rows[-1][
+                                "constraintRebalanceOverride"
+                            ]
                         )
                         or (
                             rows[-1]["executionRiskForecastAvailable"]
@@ -1186,6 +1257,7 @@ def _action_projection(
                             row["grossExposure"] > 1e-12
                             or row["proposedOneWayTurnover"] > 1e-12
                             or row["riskRebalanceOverride"]
+                            or row["constraintRebalanceOverride"]
                         )
                     ]
                     available_risk_rows = [
@@ -2494,6 +2566,9 @@ def _factor_opportunity_projection(
         "executedRiskForecastAnnualized",
         "executionRiskCeilingAnnualized",
         "riskRebalanceOverride",
+        "constraintRebalanceOverride",
+        "constraintRepairOneWay",
+        "executedConstraintMaximumError",
         "executionReason",
     }
     normalized: list[dict[str, Any]] = []
@@ -2656,6 +2731,17 @@ def _factor_opportunity_projection(
                 "riskRebalanceOverride": item.get(
                     "riskRebalanceOverride"
                 ),
+                "constraintRebalanceOverride": item.get(
+                    "constraintRebalanceOverride"
+                ),
+                "constraintRepairOneWay": _finite(
+                    item.get("constraintRepairOneWay"),
+                    f"{action_path}/constraintRepairOneWay",
+                ),
+                "executedConstraintMaximumError": _finite(
+                    item.get("executedConstraintMaximumError"),
+                    f"{action_path}/executedConstraintMaximumError",
+                ),
                 "executionReason": item.get("executionReason"),
             }
             if (
@@ -2665,6 +2751,9 @@ def _factor_opportunity_projection(
                     evidence["executionRiskForecastAvailable"], bool
                 )
                 or not isinstance(evidence["riskRebalanceOverride"], bool)
+                or not isinstance(
+                    evidence["constraintRebalanceOverride"], bool
+                )
                 or not isinstance(evidence["executionReason"], str)
                 or not evidence["executionReason"]
                 or min(
@@ -2674,8 +2763,11 @@ def _factor_opportunity_projection(
                     evidence["pretradeRiskForecastAnnualized"],
                     evidence["executedRiskForecastAnnualized"],
                     evidence["executionRiskCeilingAnnualized"],
+                    evidence["constraintRepairOneWay"],
+                    evidence["executedConstraintMaximumError"],
                 )
                 < -1e-12
+                or evidence["executedConstraintMaximumError"] > 1e-10
             ):
                 _fail(
                     action_path,
@@ -2869,6 +2961,20 @@ def _factor_opportunity_projection(
             != selected_action_row["executionReason"]
             or selected_evidence["riskRebalanceOverride"]
             != selected_action_row["riskRebalanceOverride"]
+            or selected_evidence["constraintRebalanceOverride"]
+            != selected_action_row["constraintRebalanceOverride"]
+            or not math.isclose(
+                selected_evidence["constraintRepairOneWay"],
+                selected_action_row["constraintRepairOneWay"],
+                rel_tol=0.0,
+                abs_tol=1e-10,
+            )
+            or not math.isclose(
+                selected_evidence["executedConstraintMaximumError"],
+                selected_action_row["executedConstraintMaximumError"],
+                rel_tol=0.0,
+                abs_tol=1e-10,
+            )
         ):
             _fail(
                 path,
@@ -2963,6 +3069,12 @@ def _factor_opportunity_projection(
                             ],
                             "riskRebalanceOverride": row["actions"][action][
                                 "riskRebalanceOverride"
+                            ],
+                            "constraintRebalanceOverride": row["actions"][
+                                action
+                            ]["constraintRebalanceOverride"],
+                            "constraintRepairOneWay": row["actions"][action][
+                                "constraintRepairOneWay"
                             ],
                         }
                         for action in configuration["actions"]
@@ -4132,6 +4244,7 @@ def _incremental_attribution_projection(
 def _execution_risk_projection(
     metrics: dict[str, Any],
     action_summaries: list[dict[str, Any]],
+    action_rows: list[dict[str, Any]],
     mandate: dict[str, Any],
 ) -> dict[str, Any]:
     raw = metrics.get("execution_risk")
@@ -4262,6 +4375,42 @@ def _execution_risk_projection(
             ],
             "maximumCeilingError": derived["maximum_ceiling_error"],
         }
+        split_rows = [
+            row for row in action_rows if row["split"] == split
+        ]
+        projection[split].update(
+            {
+                "constraintRebalanceOverrideDates": sum(
+                    row["constraintRebalanceOverride"]
+                    for row in split_rows
+                ),
+                "constraintOnlyOverrideDates": sum(
+                    row["constraintRebalanceOverride"]
+                    and not row["riskRebalanceOverride"]
+                    for row in split_rows
+                ),
+                "jointConstraintRiskOverrideDates": sum(
+                    row["constraintRebalanceOverride"]
+                    and row["riskRebalanceOverride"]
+                    for row in split_rows
+                ),
+                "constraintRepairOneWay": sum(
+                    row["constraintRepairOneWay"]
+                    for row in split_rows
+                ),
+                "executedConstraintBreachDates": sum(
+                    row["executedConstraintMaximumError"] > 1e-10
+                    for row in split_rows
+                ),
+                "maximumExecutedConstraintError": max(
+                    (
+                        row["executedConstraintMaximumError"]
+                        for row in split_rows
+                    ),
+                    default=0.0,
+                ),
+            }
+        )
     return projection
 
 
@@ -5026,10 +5175,24 @@ def load_rl_diagnostics(
             "scheduledHoldBars": sum(
                 not row["decisionEligible"]
                 and not row["riskRebalanceOverride"]
+                and not row["constraintRebalanceOverride"]
                 for row in action_rows
             ),
             "riskOnlyOverrideBars": sum(
                 not row["decisionEligible"]
+                and row["riskRebalanceOverride"]
+                and not row["constraintRebalanceOverride"]
+                for row in action_rows
+            ),
+            "constraintOnlyOverrideBars": sum(
+                not row["decisionEligible"]
+                and row["constraintRebalanceOverride"]
+                and not row["riskRebalanceOverride"]
+                for row in action_rows
+            ),
+            "jointConstraintRiskOverrideBars": sum(
+                not row["decisionEligible"]
+                and row["constraintRebalanceOverride"]
                 and row["riskRebalanceOverride"]
                 for row in action_rows
             ),
@@ -5041,6 +5204,7 @@ def load_rl_diagnostics(
         "executedBookRisk": _execution_risk_projection(
             metrics,
             action_summaries,
+            action_rows,
             mandate_projection,
         ),
         "protocol": {
@@ -5545,6 +5709,8 @@ RL_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 "eligibleRate",
                 "scheduledHoldBars",
                 "riskOnlyOverrideBars",
+                "constraintOnlyOverrideBars",
+                "jointConstraintRiskOverrideBars",
             ],
             "properties": {
                 "source": {
@@ -5565,6 +5731,14 @@ RL_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 },
                 "scheduledHoldBars": {"type": "integer", "minimum": 0},
                 "riskOnlyOverrideBars": {"type": "integer", "minimum": 0},
+                "constraintOnlyOverrideBars": {
+                    "type": "integer",
+                    "minimum": 0,
+                },
+                "jointConstraintRiskOverrideBars": {
+                    "type": "integer",
+                    "minimum": 0,
+                },
             },
         },
         "policyBehavior": {"type": "object"},

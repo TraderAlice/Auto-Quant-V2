@@ -629,6 +629,15 @@ def resolve_implementation_policy(
     }
 
 
+def resolve_portfolio_mandate(
+    columns: pd.Index,
+    mandate: dict[str, object] | None,
+) -> dict[str, object]:
+    """Validate and resolve one fixed Mandate once for repeated accounting."""
+
+    return _resolve_mandate(columns, mandate)
+
+
 def decision_schedule_sessions(
     index: pd.Index,
     decision_anchor: str,
@@ -861,6 +870,154 @@ def build_risk_covariance_cache(
     return cache
 
 
+def _repair_executed_mandate_constraints(
+    weights: pd.Series,
+    resolved: dict[str, object],
+) -> tuple[pd.Series, dict[str, float | bool | str]]:
+    """Scale down a chosen book until every hard Mandate constraint holds."""
+
+    original = weights.to_numpy(dtype=float, copy=False)
+    roles = resolved["asset_position_roles"]
+    caps = resolved["asset_max_abs_weights"]
+    assert isinstance(roles, dict)
+    assert isinstance(caps, dict)
+    role_values = resolved.get("_constraint_role_values")
+    cap_values = resolved.get("_constraint_cap_values")
+    if (
+        not isinstance(role_values, tuple)
+        or len(role_values) != len(weights)
+        or not isinstance(cap_values, np.ndarray)
+        or cap_values.shape != (len(weights),)
+    ):
+        role_values = tuple(
+            str(roles[str(asset)]) for asset in weights.index
+        )
+        cap_values = np.asarray(
+            [float(caps[str(asset)]) for asset in weights.index],
+            dtype=float,
+        )
+        resolved["_constraint_role_values"] = role_values
+        resolved["_constraint_cap_values"] = cap_values
+    family = str(resolved["family"])
+    gross_limit = float(resolved["gross_limit"])
+    long_limit = float(resolved["long_gross_limit"])
+    short_limit = float(resolved["short_gross_limit"])
+    repaired_values = original.copy()
+    for position, role in enumerate(role_values):
+        cap = float(cap_values[position])
+        value = float(repaired_values[position])
+        if role == "context-only":
+            value = 0.0
+        elif role == "long-only":
+            value = max(value, 0.0)
+        elif role == "short-only":
+            value = min(value, 0.0)
+        repaired_values[position] = min(max(value, -cap), cap)
+
+    def scale_side(positive: bool, limit: float) -> None:
+        mask = repaired_values > 0.0 if positive else repaired_values < 0.0
+        exposure = float(
+            repaired_values[mask].sum()
+            if positive
+            else -repaired_values[mask].sum()
+        )
+        if exposure > limit + 1e-15:
+            repaired_values[mask] *= limit / exposure
+
+    if family == "dollar-neutral":
+        positive = repaired_values > 0.0
+        negative = repaired_values < 0.0
+        long_exposure = float(repaired_values[positive].sum())
+        short_exposure = float(-repaired_values[negative].sum())
+        funded_side = min(
+            long_exposure,
+            short_exposure,
+            long_limit,
+            short_limit,
+            gross_limit / 2.0,
+        )
+        if funded_side <= 1e-15:
+            repaired_values.fill(0.0)
+        else:
+            repaired_values[positive] *= funded_side / long_exposure
+            repaired_values[negative] *= funded_side / short_exposure
+    else:
+        scale_side(True, long_limit)
+        scale_side(False, short_limit)
+        gross = float(np.abs(repaired_values).sum())
+        if gross > gross_limit + 1e-15:
+            repaired_values *= gross_limit / gross
+
+    gross = float(np.abs(repaired_values).sum())
+    long_exposure = float(repaired_values[repaired_values > 0.0].sum())
+    short_exposure = float(-repaired_values[repaired_values < 0.0].sum())
+    net = float(repaired_values.sum())
+    cap_excess = float(
+        np.maximum(np.abs(repaired_values) - cap_values, 0.0).max(
+            initial=0.0
+        )
+    )
+    context_exposure = max(
+        (
+            abs(float(repaired_values[position]))
+            for position, role in enumerate(role_values)
+            if role == "context-only"
+        ),
+        default=0.0,
+    )
+    role_error = max(
+        (
+            max(0.0, -float(repaired_values[position]))
+            if role == "long-only"
+            else max(0.0, float(repaired_values[position]))
+            if role == "short-only"
+            else 0.0
+            for position, role in enumerate(role_values)
+        ),
+        default=0.0,
+    )
+    net_error = (
+        abs(net)
+        if family == "dollar-neutral"
+        else abs(net - gross)
+        if family == "long-cash"
+        else abs(net + gross)
+        if family == "short-cash"
+        else 0.0
+    )
+    maximum_error = max(
+        0.0,
+        gross - gross_limit,
+        long_exposure - long_limit,
+        short_exposure - short_limit,
+        cap_excess,
+        context_exposure,
+        role_error,
+        net_error,
+    )
+    if maximum_error > 1e-10:
+        raise PortfolioFailure(
+            "portfolio.executed-constraint-breach",
+            "Final executed book cannot be repaired to the Portfolio Mandate",
+        )
+    repair_one_way = 0.5 * float(np.abs(repaired_values - original).sum())
+    repaired = (
+        pd.Series(repaired_values, index=weights.index, dtype=float)
+        if repair_one_way > 1e-12
+        else weights.astype(float, copy=False)
+    )
+    return repaired, {
+        "status": (
+            "constraint_repaired"
+            if repair_one_way > 1e-12
+            else "within_constraints"
+        ),
+        "repaired": repair_one_way > 1e-12,
+        "repair_one_way": repair_one_way,
+        "maximum_error": maximum_error,
+    }
+
+
 def execute_risk_compliant_book(
     pretrade: pd.Series,
     proposed: pd.Series,
@@ -906,8 +1063,12 @@ def execute_risk_compliant_book(
         enabled=False,
         risk_covariance_cache=risk_covariance_cache,
     )
-    runtime_proposed, proposed_risk = _govern_portfolio_risk(
+    constrained_proposed, _ = _repair_executed_mandate_constraints(
         proposed,
+        resolved,
+    )
+    runtime_proposed, proposed_risk = _govern_portfolio_risk(
+        constrained_proposed,
         close_returns,
         timestamp,
         resolved,
@@ -921,36 +1082,52 @@ def execute_risk_compliant_book(
         and proposed_one_way + 1e-12 >= no_trade_one_way
     )
     ordinary_book = runtime_proposed if ordinary_rebalance else pretrade
+    constraint_book, constraint_evidence = (
+        _repair_executed_mandate_constraints(
+            ordinary_book,
+            resolved,
+        )
+    )
     if ordinary_rebalance:
-        current = runtime_proposed
+        current = constraint_book
         execution_risk = proposed_risk
     else:
         current, execution_risk = _govern_portfolio_risk(
-            ordinary_book,
+            constraint_book,
             close_returns,
             timestamp,
             resolved,
             enabled=True,
             risk_covariance_cache=risk_covariance_cache,
         )
-    repair_trade = current - ordinary_book
-    repaired = bool(repair_trade.abs().sum() > 1e-12)
-    risk_override = repaired and not ordinary_rebalance
+    risk_repair_trade = current - constraint_book
+    risk_repaired = bool(risk_repair_trade.abs().sum() > 1e-12)
+    constraint_repaired = bool(constraint_evidence["repaired"])
+    risk_override = risk_repaired and not ordinary_rebalance
+    constraint_override = constraint_repaired and not ordinary_rebalance
     actual_trade = current - pretrade
     rebalanced = bool(actual_trade.abs().sum() > 1e-12)
     raw_status = str(execution_risk["status"])
-    if repaired:
+    if risk_repaired:
         status = (
             f"{raw_status}_fail_flat"
             if raw_status in {"insufficient_history", "invalid_covariance"}
             else "risk_repaired"
         )
+    elif constraint_repaired:
+        status = "constraint_repaired"
     else:
         status = raw_status
-    if risk_override:
+    if risk_override and constraint_override:
+        reason = "mandate_and_risk_override"
+    elif constraint_override:
+        reason = "mandate_constraint_override"
+    elif risk_override:
         reason = "risk_ceiling_override"
-    elif repaired:
+    elif risk_repaired:
         reason = "target_risk_repair"
+    elif constraint_repaired:
+        reason = "target_constraint_repair"
     elif ordinary_rebalance:
         reason = "rebalance_threshold_met"
     elif not ordinary_rebalance_allowed:
@@ -996,6 +1173,13 @@ def execute_risk_compliant_book(
         "ordinary_rebalance": ordinary_rebalance,
         "decision_eligible": ordinary_rebalance_allowed,
         "risk_rebalance_override": risk_override,
+        "constraint_rebalance_override": constraint_override,
+        "constraint_repair_one_way": float(
+            constraint_evidence["repair_one_way"]
+        ),
+        "executed_constraint_maximum_error": float(
+            constraint_evidence["maximum_error"]
+        ),
         "rebalanced": rebalanced,
         "execution_reason": reason,
     }
@@ -1877,6 +2061,15 @@ def simulate_targets(
                 "risk_rebalance_override": bool(
                     execution_risk["risk_rebalance_override"]
                 ),
+                "constraint_rebalance_override": bool(
+                    execution_risk["constraint_rebalance_override"]
+                ),
+                "constraint_repair_one_way": float(
+                    execution_risk["constraint_repair_one_way"]
+                ),
+                "executed_constraint_maximum_error": float(
+                    execution_risk["executed_constraint_maximum_error"]
+                ),
                 "max_participation": float(row_participation.max()),
                 "mean_participation": float(row_participation.mean()),
             }
@@ -2176,6 +2369,17 @@ def build_decision_ledger(
                     "risk_rebalance_override": bool(
                         portfolio_row["risk_rebalance_override"]
                     ),
+                    "constraint_rebalance_override": bool(
+                        portfolio_row["constraint_rebalance_override"]
+                    ),
+                    "constraint_repair_one_way": float(
+                        portfolio_row["constraint_repair_one_way"]
+                    ),
+                    "executed_constraint_maximum_error": float(
+                        portfolio_row[
+                            "executed_constraint_maximum_error"
+                        ]
+                    ),
                     "liquidity_capacity_status": capacity_status,
                     "liquidity_adv_observations": (
                         liquidity_adv_window
@@ -2249,6 +2453,8 @@ def build_decision_ledger(
             "proposed_runtime_risk_scale",
             "execution_risk_repair_scale",
             "proposed_one_way_turnover",
+            "constraint_repair_one_way",
+            "executed_constraint_maximum_error",
             "liquidity_adv_observations",
             "causal_adv_dollar_volume",
             "reference_nav_adv_participation",

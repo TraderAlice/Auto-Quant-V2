@@ -23,6 +23,7 @@ try:
         implementation_metrics,
         performance_metrics,
         resolve_implementation_policy,
+        resolve_portfolio_mandate,
     )
 except ModuleNotFoundError:  # Package-level deterministic primitive tests.
     from autoquant.project_templates.ohlcv_portfolio_lab.portfolio_core import (
@@ -38,6 +39,7 @@ except ModuleNotFoundError:  # Package-level deterministic primitive tests.
         implementation_metrics,
         performance_metrics,
         resolve_implementation_policy,
+        resolve_portfolio_mandate,
     )
 
 
@@ -296,14 +298,25 @@ def _account_step(
     ordinary_rebalance_allowed: bool = True,
     mandate: dict[str, object] | None = None,
     risk_covariance_cache: RiskCovarianceCache | None = None,
+    resolved_mandate: dict[str, object] | None = None,
+    implementation: dict[str, float | int | str] | None = None,
+    pretrade: pd.Series | None = None,
 ) -> tuple[pd.Series, pd.Series, pd.Series, dict[str, float | bool]]:
-    implementation = resolve_implementation_policy(mandate)
+    implementation = (
+        implementation
+        if implementation is not None
+        else resolve_implementation_policy(mandate)
+    )
     decision_anchor = str(implementation["decision_anchor"])
-    pretrade = _pretrade_weights(
-        previous_weights,
-        close_returns,
-        timestamp,
-        first=first,
+    pretrade = (
+        pretrade
+        if pretrade is not None
+        else _pretrade_weights(
+            previous_weights,
+            close_returns,
+            timestamp,
+            first=first,
+        )
     )
     current, execution_risk = execute_risk_compliant_book(
         pretrade,
@@ -314,6 +327,7 @@ def _account_step(
         no_trade_one_way=implementation["no_trade_one_way"],
         ordinary_rebalance_allowed=ordinary_rebalance_allowed,
         risk_covariance_cache=risk_covariance_cache,
+        _resolved_mandate=resolved_mandate,
     )
     rebalanced = bool(execution_risk["rebalanced"])
     trade = current - pretrade
@@ -420,6 +434,15 @@ def _account_step(
         "risk_rebalance_override": bool(
             execution_risk["risk_rebalance_override"]
         ),
+        "constraint_rebalance_override": bool(
+            execution_risk["constraint_rebalance_override"]
+        ),
+        "constraint_repair_one_way": float(
+            execution_risk["constraint_repair_one_way"]
+        ),
+        "executed_constraint_maximum_error": float(
+            execution_risk["executed_constraint_maximum_error"]
+        ),
         "max_participation": float(participation.max()),
         "mean_participation": float(participation.mean()),
     }
@@ -454,14 +477,15 @@ def rollout_policy(
         )
     close_returns = closes.pct_change(fill_method=None)
     forward_returns = closes.shift(-1) / closes - 1.0
+    resolved_mandate = resolve_portfolio_mandate(
+        closes.columns,
+        mandate,
+    )
+    implementation = resolve_implementation_policy(mandate)
     previous_weights = pd.Series(0.0, index=closes.columns, dtype=float)
     previous_action = "balanced"
-    decision_every_bars = int(
-        resolve_implementation_policy(mandate)["decision_every_bars"]
-    )
-    decision_anchor = str(
-        resolve_implementation_policy(mandate)["decision_anchor"]
-    )
+    decision_every_bars = int(implementation["decision_every_bars"])
+    decision_anchor = str(implementation["decision_anchor"])
     complete_index = next(iter(action_targets.values())).index
     decision_mask = decision_schedule_mask(
         complete_index,
@@ -519,6 +543,9 @@ def rollout_policy(
             ordinary_rebalance_allowed=decision_eligible,
             mandate=mandate,
             risk_covariance_cache=risk_covariance_cache,
+            resolved_mandate=resolved_mandate,
+            implementation=implementation,
+            pretrade=pretrade,
         )
         daily_rows.append(row)
         weight_rows.append(current)
@@ -576,13 +603,14 @@ def one_step_action_opportunities(
     )
     close_returns = closes.pct_change(fill_method=None)
     forward_returns = closes.shift(-1) / closes - 1.0
+    resolved_mandate = resolve_portfolio_mandate(
+        closes.columns,
+        mandate,
+    )
+    implementation = resolve_implementation_policy(mandate)
     zero = pd.Series(0.0, index=closes.columns, dtype=float)
-    decision_every_bars = int(
-        resolve_implementation_policy(mandate)["decision_every_bars"]
-    )
-    decision_anchor = str(
-        resolve_implementation_policy(mandate)["decision_anchor"]
-    )
+    decision_every_bars = int(implementation["decision_every_bars"])
+    decision_anchor = str(implementation["decision_anchor"])
     complete_index = next(iter(action_targets.values())).index
     decision_mask = decision_schedule_mask(
         complete_index,
@@ -623,6 +651,9 @@ def one_step_action_opportunities(
                 ordinary_rebalance_allowed=decision_eligible,
                 mandate=mandate,
                 risk_covariance_cache=cache,
+                resolved_mandate=resolved_mandate,
+                implementation=implementation,
+                pretrade=pretrade,
             )
             action_evidence[action] = {
                 "proposedWeights": {
@@ -664,6 +695,15 @@ def one_step_action_opportunities(
                 ),
                 "riskRebalanceOverride": bool(
                     daily["risk_rebalance_override"]
+                ),
+                "constraintRebalanceOverride": bool(
+                    daily["constraint_rebalance_override"]
+                ),
+                "constraintRepairOneWay": float(
+                    daily["constraint_repair_one_way"]
+                ),
+                "executedConstraintMaximumError": float(
+                    daily["executed_constraint_maximum_error"]
                 ),
                 "executionReason": str(daily["execution_reason"]),
             }
@@ -790,12 +830,13 @@ def train_q_policy(
     weights = rng.normal(0.0, 1e-5, size=(len(ACTIONS), feature_count))
     close_returns = closes.pct_change(fill_method=None)
     forward_returns = closes.shift(-1) / closes - 1.0
-    decision_every_bars = int(
-        resolve_implementation_policy(mandate)["decision_every_bars"]
+    resolved_mandate = resolve_portfolio_mandate(
+        closes.columns,
+        mandate,
     )
-    decision_anchor = str(
-        resolve_implementation_policy(mandate)["decision_anchor"]
-    )
+    implementation = resolve_implementation_policy(mandate)
+    decision_every_bars = int(implementation["decision_every_bars"])
+    decision_anchor = str(implementation["decision_anchor"])
     complete_index = next(iter(action_targets.values())).index
     decision_mask = decision_schedule_mask(
         complete_index,
@@ -854,6 +895,9 @@ def train_q_policy(
                 ordinary_rebalance_allowed=decision_eligible,
                 mandate=mandate,
                 risk_covariance_cache=risk_covariance_cache,
+                resolved_mandate=resolved_mandate,
+                implementation=implementation,
+                pretrade=pretrade,
             )
             reward = float(row["reward"])
             done = position == len(train_index) - 1

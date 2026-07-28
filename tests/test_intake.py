@@ -737,12 +737,15 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                     self.assertTrue(
                         abs(float(row["traded_notional"])) <= 1e-12
                         or bool(row["risk_rebalance_override"])
+                        or bool(row["constraint_rebalance_override"])
                     )
                     self.assertIn(
                         row["execution_reason"],
                         {
                             "decision_schedule_hold",
                             "risk_ceiling_override",
+                            "mandate_constraint_override",
+                            "mandate_and_risk_override",
                         },
                     )
             self.assertEqual(len(daily), len(spy) - 1)
@@ -875,13 +878,30 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                             row["action"],
                             previous_action,
                         )
-                        self.assertFalse(
-                            bool(row["risk_rebalance_override"])
+                        risk_override = bool(
+                            row["risk_rebalance_override"]
+                        )
+                        constraint_override = bool(
+                            row["constraint_rebalance_override"]
+                        )
+                        expected_reason = (
+                            "mandate_and_risk_override"
+                            if risk_override and constraint_override
+                            else "risk_ceiling_override"
+                            if risk_override
+                            else "mandate_constraint_override"
+                            if constraint_override
+                            else "decision_schedule_hold"
                         )
                         self.assertEqual(
                             row["execution_reason"],
-                            "decision_schedule_hold",
+                            expected_reason,
                         )
+                        if not risk_override and not constraint_override:
+                            self.assertAlmostEqual(
+                                float(row["one_way_turnover"]),
+                                0.0,
+                            )
                     previous_action = row["action"]
             rl_projection = load_rl_diagnostics(
                 project,
@@ -1467,6 +1487,7 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                     self.assertTrue(
                         abs(float(row["traded_notional"])) <= 1e-12
                         or bool(row["risk_rebalance_override"])
+                        or bool(row["constraint_rebalance_override"])
                     )
             portfolio_projection = load_portfolio_diagnostics(
                 project,

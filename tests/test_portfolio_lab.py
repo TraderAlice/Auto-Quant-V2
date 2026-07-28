@@ -31,6 +31,7 @@ from autoquant.project_templates.ohlcv_portfolio_lab.portfolio_core import (
     simulate_targets,
 )
 from autoquant.mandates import build_portfolio_mandate
+from autoquant.briefs import validate_research_request
 from autoquant.research import run_campaign
 from autoquant.runs import execute_study
 from autoquant.sessions import (
@@ -196,13 +197,13 @@ class PortfolioAccountingTests(unittest.TestCase):
         signs = np.where(np.arange(len(index)) % 2 == 0, 1.0, -1.0)
         close_returns = pd.DataFrame(
             {
-                "A": signs * 0.0098,
-                "B": -signs * 0.0098,
+                "A": signs * 0.016,
+                "B": -signs * 0.016,
             },
             index=index,
         )
         mandate = build_portfolio_mandate(None, ["A", "B"])
-        pretrade = pd.Series({"A": 0.5, "B": -0.5})
+        pretrade = pd.Series({"A": 0.3, "B": -0.3})
         proposed = pretrade * 0.95
 
         current, evidence = execute_risk_compliant_book(
@@ -253,6 +254,88 @@ class PortfolioAccountingTests(unittest.TestCase):
         )
         pd.testing.assert_series_equal(current, repeated)
         self.assertEqual(evidence, repeated_evidence)
+
+    def test_executed_book_hard_cap_overrides_no_trade_after_drift(
+        self,
+    ) -> None:
+        index = pd.bdate_range("2026-01-01", periods=30)
+        close_returns = pd.DataFrame(
+            {
+                "A": 0.002
+                * np.sin(np.arange(len(index), dtype=float) / 3.0),
+            },
+            index=index,
+        )
+        raw_request = {
+            "schemaVersion": 1,
+            "kind": "autoquant-research-request",
+            "title": "Hard cap repair",
+            "question": "Can a drifted long book remain within its hard cap?",
+            "decisionContext": "Bounded accounting regression.",
+            "assets": [
+                {
+                    "symbol": "A",
+                    "assetClass": "equity",
+                    "venue": "TEST",
+                }
+            ],
+            "direction": "long",
+            "horizon": "one month",
+            "portfolioPolicy": {
+                "grossLimit": 0.3,
+                "maxAbsWeight": 0.3,
+                "assetMaxAbsWeights": {"A": 0.3},
+                "annualizedVolatilityCeiling": 1.0,
+                "baseCostBps": 10.0,
+                "noTradeOneWay": 0.05,
+                "referenceNav": 100000.0,
+                "decisionEveryBars": 1,
+                "decisionAnchor": "dataset-start",
+            },
+            "hypotheses": [],
+            "constraints": [],
+            "deliverables": ["bounded model weights"],
+            "source": {
+                "system": "local",
+                "workspaceId": None,
+                "sessionId": None,
+                "artifactPath": None,
+                "artifactRevision": None,
+            },
+        }
+        mandate = build_portfolio_mandate(
+            validate_research_request(raw_request),
+            ["A"],
+        )
+        pretrade = pd.Series({"A": 0.3168601148})
+        proposed = pd.Series({"A": 0.3})
+
+        current, evidence = execute_risk_compliant_book(
+            pretrade,
+            proposed,
+            close_returns,
+            index[-1],
+            mandate=mandate,
+            no_trade_one_way=0.05,
+        )
+
+        self.assertAlmostEqual(float(current["A"]), 0.3)
+        self.assertFalse(evidence["ordinary_rebalance"])
+        self.assertFalse(evidence["risk_rebalance_override"])
+        self.assertTrue(evidence["constraint_rebalance_override"])
+        self.assertTrue(evidence["rebalanced"])
+        self.assertEqual(
+            evidence["execution_reason"],
+            "mandate_constraint_override",
+        )
+        self.assertAlmostEqual(
+            evidence["constraint_repair_one_way"],
+            0.5 * (0.3168601148 - 0.3),
+        )
+        self.assertLessEqual(
+            evidence["executed_constraint_maximum_error"],
+            1e-12,
+        )
 
     def test_constructed_targets_obey_gross_net_and_asset_caps(self) -> None:
         index = pd.bdate_range("2026-01-01", periods=50)
@@ -317,7 +400,7 @@ class PortfolioAccountingTests(unittest.TestCase):
         self.assertEqual(simulation.daily.loc[index[1], "gross_return"], 0.0)
         self.assertAlmostEqual(
             simulation.daily.loc[index[2], "gross_return"],
-            0.05,
+            0.03,
         )
 
     def test_extra_delay_moves_target_to_the_following_decision_bar(self) -> None:
@@ -356,9 +439,9 @@ class PortfolioAccountingTests(unittest.TestCase):
             extra_delay=1,
         )
 
-        self.assertAlmostEqual(base.daily.loc[index[1], "gross_return"], 0.05)
+        self.assertAlmostEqual(base.daily.loc[index[1], "gross_return"], 0.03)
         self.assertEqual(delayed.daily.loc[index[1], "gross_return"], 0.0)
-        self.assertAlmostEqual(delayed.daily.loc[index[2], "gross_return"], 0.10)
+        self.assertAlmostEqual(delayed.daily.loc[index[2], "gross_return"], 0.06)
 
     def test_drift_turnover_and_cost_conventions_are_explicit(self) -> None:
         previous = pd.Series({"A": 0.5, "B": -0.5})
@@ -385,13 +468,23 @@ class PortfolioAccountingTests(unittest.TestCase):
         simulation = simulate_targets(targets, closes, volumes)
 
         first = simulation.daily.loc[index[0]]
-        self.assertAlmostEqual(first["traded_notional"], 1.0)
-        self.assertAlmostEqual(first["one_way_turnover"], 0.5)
-        self.assertAlmostEqual(first["cost"], 0.001)
-        self.assertFalse(bool(simulation.daily.loc[index[1], "rebalanced"]))
+        self.assertAlmostEqual(first["traded_notional"], 0.6)
+        self.assertAlmostEqual(first["one_way_turnover"], 0.3)
+        self.assertAlmostEqual(first["cost"], 0.0006)
+        repaired = simulation.daily.loc[index[1]]
+        self.assertTrue(bool(repaired["rebalanced"]))
+        self.assertTrue(bool(repaired["constraint_rebalance_override"]))
+        self.assertEqual(
+            repaired["execution_reason"],
+            "mandate_constraint_override",
+        )
         self.assertAlmostEqual(
-            float(simulation.trades.loc[index[1]].abs().sum()),
-            0.0,
+            float(simulation.weights.loc[index[1], "A"]),
+            abs(float(simulation.weights.loc[index[1], "B"])),
+        )
+        self.assertLessEqual(
+            float(simulation.weights.loc[index[1]].abs().max()),
+            0.3,
         )
 
     def test_signal_state_machine_separates_hysteresis_from_targets(self) -> None:
@@ -787,11 +880,11 @@ class PortfolioAccountingTests(unittest.TestCase):
         )
         self.assertAlmostEqual(
             float(available["portfolio_capacity_nav_1pct"].iloc[0]),
-            2_000_000.0,
+            10_000_000.0 / 3.0,
         )
         self.assertAlmostEqual(
             float(available["portfolio_capacity_nav_5pct"].iloc[0]),
-            10_000_000.0,
+            50_000_000.0 / 3.0,
         )
         binding = available[available["capacity_binding_asset"]]
         self.assertEqual(binding["asset"].tolist(), ["A"])
@@ -802,7 +895,7 @@ class PortfolioAccountingTests(unittest.TestCase):
                     "reference_nav_adv_participation",
                 ].iloc[0]
             ),
-            0.005,
+            0.003,
         )
 
         metrics = liquidity_capacity_metrics(

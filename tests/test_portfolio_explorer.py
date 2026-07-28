@@ -1142,7 +1142,7 @@ class PortfolioDecisionExplorerTests(unittest.TestCase):
                 diagnostics["positionLifecycle"]["validation"]
             )
 
-    def test_legacy_run_without_capacity_evidence_remains_readable(self) -> None:
+    def test_run_without_capacity_evidence_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             _, project, run = make_lab(Path(directory))
             decisions_path = (
@@ -1197,19 +1197,16 @@ class PortfolioDecisionExplorerTests(unittest.TestCase):
             )
             rehash_run(run.root_dir)
 
-            diagnostics = load_portfolio_diagnostics(
-                project,
-                run.result["id"],
-            )
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "CSV is missing columns",
+            ):
+                load_portfolio_diagnostics(
+                    project,
+                    run.result["id"],
+                )
 
-            self.assertFalse(
-                diagnostics["liquidityCapacity"]["available"]
-            )
-            self.assertIsNone(
-                diagnostics["liquidityCapacity"]["validation"]
-            )
-
-    def test_legacy_run_without_execution_risk_remains_readable(self) -> None:
+    def test_run_without_execution_risk_evidence_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             _, project, run = make_lab(Path(directory))
             new_fields = {
@@ -1260,15 +1257,14 @@ class PortfolioDecisionExplorerTests(unittest.TestCase):
             )
             rehash_run(run.root_dir)
 
-            diagnostics = load_portfolio_diagnostics(
-                project,
-                run.result["id"],
-            )
-
-            self.assertFalse(diagnostics["executedBookRisk"]["available"])
-            self.assertIsNone(
-                diagnostics["executedBookRisk"]["validation"]
-            )
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "CSV is missing columns",
+            ):
+                load_portfolio_diagnostics(
+                    project,
+                    run.result["id"],
+                )
 
     def test_point_and_artifact_size_limits_are_structured(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
