@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import math
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -63,6 +64,7 @@ PORTFOLIO_POLICY_FIELDS = {
     "decisionAnchor",
 }
 DECISION_ANCHORS = {"dataset-start", "session-start"}
+POSITION_SNAPSHOT_KINDS = {"reported-weights", "hypothetical-weights"}
 
 
 def _issue(path: Path | str, code: str, message: str) -> ValidationIssue:
@@ -141,6 +143,187 @@ def _string_list(
     return []
 
 
+def _normalize_position_snapshot(
+    value: Any,
+    path: str,
+    issues: list[ValidationIssue],
+) -> dict[str, Any] | None:
+    if not isinstance(value, dict):
+        issues.append(
+            _issue(path, "schema.type", "positionSnapshot must be an object")
+        )
+        return None
+    issues.extend(
+        _strict_keys(
+            value,
+            {"kind", "asOf", "baseCurrency", "weights", "cashWeight"},
+            path,
+        )
+    )
+    kind = value.get("kind")
+    if kind not in POSITION_SNAPSHOT_KINDS:
+        issues.append(
+            _issue(
+                f"{path}/kind",
+                "request.position-snapshot-kind",
+                "Position snapshot kind must be reported-weights or "
+                "hypothetical-weights",
+            )
+        )
+    as_of = value.get("asOf")
+    parsed_as_of: datetime | None = None
+    if not isinstance(as_of, str) or not as_of.strip():
+        issues.append(
+            _issue(
+                f"{path}/asOf",
+                "request.position-snapshot-time",
+                "Position snapshot asOf must be a timezone-aware timestamp",
+            )
+        )
+    else:
+        try:
+            parsed_as_of = datetime.fromisoformat(
+                as_of.strip().replace("Z", "+00:00")
+            )
+        except ValueError:
+            parsed_as_of = None
+        if parsed_as_of is None or parsed_as_of.tzinfo is None:
+            issues.append(
+                _issue(
+                    f"{path}/asOf",
+                    "request.position-snapshot-time",
+                    "Position snapshot asOf must be a timezone-aware timestamp",
+                )
+            )
+    currency = value.get("baseCurrency")
+    if (
+        not isinstance(currency, str)
+        or not currency.strip()
+        or len(currency.strip()) > 16
+    ):
+        issues.append(
+            _issue(
+                f"{path}/baseCurrency",
+                "request.position-snapshot-currency",
+                "Position snapshot baseCurrency must be a non-empty string "
+                "of at most 16 characters",
+            )
+        )
+    raw_weights = value.get("weights")
+    weights: dict[str, float] = {}
+    if not isinstance(raw_weights, dict) or not raw_weights:
+        issues.append(
+            _issue(
+                f"{path}/weights",
+                "request.position-snapshot-weights",
+                "Position snapshot weights must be a non-empty object",
+            )
+        )
+    elif len(raw_weights) > 256:
+        issues.append(
+            _issue(
+                f"{path}/weights",
+                "request.position-snapshot-count",
+                "Position snapshot may contain at most 256 assets",
+            )
+        )
+    else:
+        for symbol, raw_weight in raw_weights.items():
+            item_path = f"{path}/weights/{symbol}"
+            if not isinstance(symbol, str) or not symbol.strip():
+                issues.append(
+                    _issue(
+                        item_path,
+                        "request.position-snapshot-symbol",
+                        "Position snapshot symbols must be non-empty strings",
+                    )
+                )
+                continue
+            if (
+                not isinstance(raw_weight, (int, float))
+                or isinstance(raw_weight, bool)
+                or not math.isfinite(float(raw_weight))
+                or abs(float(raw_weight)) > 2.0
+                or abs(float(raw_weight)) <= 1e-12
+            ):
+                issues.append(
+                    _issue(
+                        item_path,
+                        "request.position-snapshot-weight",
+                        "Position weights must be finite, non-zero, and have "
+                        "absolute value at most 2",
+                    )
+                )
+                continue
+            normalized_symbol = symbol.strip()
+            if normalized_symbol in weights:
+                issues.append(
+                    _issue(
+                        item_path,
+                        "request.position-snapshot-duplicate",
+                        "Position symbols must be unique after whitespace "
+                        "normalization",
+                    )
+                )
+                continue
+            weights[normalized_symbol] = float(raw_weight)
+    cash_weight = value.get("cashWeight")
+    if (
+        not isinstance(cash_weight, (int, float))
+        or isinstance(cash_weight, bool)
+        or not math.isfinite(float(cash_weight))
+        or not -3.0 <= float(cash_weight) <= 3.0
+    ):
+        issues.append(
+            _issue(
+                f"{path}/cashWeight",
+                "request.position-snapshot-cash",
+                "Position snapshot cashWeight must be finite and between "
+                "-3 and 3",
+            )
+        )
+    elif weights:
+        total = float(cash_weight) + sum(weights.values())
+        gross = sum(abs(weight) for weight in weights.values())
+        if not math.isclose(total, 1.0, rel_tol=0.0, abs_tol=1e-9):
+            issues.append(
+                _issue(
+                    path,
+                    "request.position-snapshot-funded",
+                    "Position weights plus cashWeight must sum to 1",
+                )
+            )
+        if gross > 4.0 + 1e-12:
+            issues.append(
+                _issue(
+                    f"{path}/weights",
+                    "request.position-snapshot-gross",
+                    "Position snapshot gross exposure may not exceed 4",
+                )
+            )
+    if (
+        kind not in POSITION_SNAPSHOT_KINDS
+        or parsed_as_of is None
+        or parsed_as_of.tzinfo is None
+        or not isinstance(currency, str)
+        or not currency.strip()
+        or not weights
+        or not isinstance(cash_weight, (int, float))
+        or isinstance(cash_weight, bool)
+        or not math.isfinite(float(cash_weight))
+    ):
+        return None
+    return {
+        "kind": kind,
+        "asOf": parsed_as_of.isoformat().replace("+00:00", "Z"),
+        "baseCurrency": currency.strip().upper(),
+        "weights": {
+            symbol: weights[symbol] for symbol in sorted(weights)
+        },
+        "cashWeight": float(cash_weight),
+    }
+
+
 def validate_research_request(
     value: dict[str, Any],
     path: Path | str = "research-request",
@@ -170,6 +353,7 @@ def validate_research_request(
             "benchmarkPolicy",
             "horizonPolicy",
             "factorPolicy",
+            "positionSnapshot",
         },
     )
     if value.get("schemaVersion") != SCHEMA_VERSION:
@@ -200,6 +384,13 @@ def validate_research_request(
                 )
                 for issue in error.issues
             )
+    normalized_position_snapshot: dict[str, Any] | None = None
+    if "positionSnapshot" in value:
+        normalized_position_snapshot = _normalize_position_snapshot(
+            value.get("positionSnapshot"),
+            f"{path}/positionSnapshot",
+            issues,
+        )
     benchmark_policy = value.get("benchmarkPolicy")
     normalized_benchmark_policy: dict[str, Any] | None = None
     if "benchmarkPolicy" in value:
@@ -726,6 +917,30 @@ def validate_research_request(
                         "than maxAbsWeight",
                     )
                 )
+    if normalized_position_snapshot is not None:
+        requested_roles = {
+            asset.get("symbol"): asset.get("positionRole")
+            for asset in assets
+            if isinstance(asset, dict)
+            and isinstance(asset.get("symbol"), str)
+        }
+        for symbol in normalized_position_snapshot["weights"]:
+            if symbol not in requested_roles:
+                issues.append(
+                    _issue(
+                        f"{path}/positionSnapshot/weights/{symbol}",
+                        "request.position-snapshot-unrequested",
+                        "Position snapshot weights may name requested assets only",
+                    )
+                )
+            elif requested_roles.get(symbol) == "context-only":
+                issues.append(
+                    _issue(
+                        f"{path}/positionSnapshot/weights/{symbol}",
+                        "request.position-snapshot-context-only",
+                        "A context-only asset cannot appear in the position snapshot",
+                    )
+                )
 
     source = value.get("source")
     if not isinstance(source, dict):
@@ -811,6 +1026,11 @@ def validate_research_request(
         **(
             {"factorPolicy": normalized_factor_policy}
             if "factorPolicy" in value
+            else {}
+        ),
+        **(
+            {"positionSnapshot": normalized_position_snapshot}
+            if "positionSnapshot" in value
             else {}
         ),
         "horizon": value["horizon"].strip(),
@@ -1123,6 +1343,41 @@ RESEARCH_REQUEST_JSON_SCHEMA: dict[str, Any] = {
                     },
                 },
             ]
+        },
+        "positionSnapshot": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "kind",
+                "asOf",
+                "baseCurrency",
+                "weights",
+                "cashWeight",
+            ],
+            "properties": {
+                "kind": {"enum": sorted(POSITION_SNAPSHOT_KINDS)},
+                "asOf": {"type": "string", "format": "date-time"},
+                "baseCurrency": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 16,
+                },
+                "weights": {
+                    "type": "object",
+                    "minProperties": 1,
+                    "maxProperties": 256,
+                    "additionalProperties": {
+                        "type": "number",
+                        "minimum": -2,
+                        "maximum": 2,
+                    },
+                },
+                "cashWeight": {
+                    "type": "number",
+                    "minimum": -3,
+                    "maximum": 3,
+                },
+            },
         },
         "portfolioPolicy": {
             "anyOf": [

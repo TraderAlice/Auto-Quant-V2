@@ -25,6 +25,10 @@ from .mandates import (
     PORTFOLIO_MANDATE,
     build_portfolio_mandate,
 )
+from .position_snapshots import (
+    POSITION_SNAPSHOT,
+    build_position_snapshot,
+)
 from .studies import (
     StudyContext,
     StudyDataset,
@@ -52,21 +56,25 @@ PROJECT_TEMPLATE_IDS = (
     "ohlcv-factor-lab",
     "ohlcv-portfolio-lab",
     "ohlcv-rl-factor-lab",
+    "ohlcv-book-risk-lab",
     "ohlcv-research-desk",
 )
 OHLCV_STUDY_ID = "ohlcv-factor-quality"
 PORTFOLIO_STUDY_ID = "ohlcv-portfolio-quality"
 RL_STUDY_ID = "ohlcv-rl-factor-policy"
+BOOK_RISK_STUDY_ID = "ohlcv-book-risk"
 TEMPLATE_STUDY_IDS = {
     "ohlcv-factor-lab": OHLCV_STUDY_ID,
     "ohlcv-portfolio-lab": PORTFOLIO_STUDY_ID,
     "ohlcv-rl-factor-lab": RL_STUDY_ID,
+    "ohlcv-book-risk-lab": BOOK_RISK_STUDY_ID,
     "ohlcv-research-desk": OHLCV_STUDY_ID,
 }
 TEMPLATE_STUDY_SEQUENCES = {
     "ohlcv-factor-lab": (OHLCV_STUDY_ID,),
     "ohlcv-portfolio-lab": (PORTFOLIO_STUDY_ID,),
     "ohlcv-rl-factor-lab": (RL_STUDY_ID,),
+    "ohlcv-book-risk-lab": (BOOK_RISK_STUDY_ID,),
     "ohlcv-research-desk": (
         OHLCV_STUDY_ID,
         PORTFOLIO_STUDY_ID,
@@ -363,6 +371,18 @@ def _write_factor_claim(
         encoding="utf-8",
     )
     return claim
+
+
+def _write_position_snapshot(
+    project: ProjectContext,
+    request: dict[str, object],
+) -> dict[str, object]:
+    snapshot = build_position_snapshot(request)
+    (project.root_dir / POSITION_SNAPSHOT).write_text(
+        json.dumps(snapshot, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return snapshot
 
 
 def _seed_known_style_candidate(
@@ -778,6 +798,157 @@ def _apply_ohlcv_rl_factor_lab(
     _finalize_intake(project, intake, study, snapshot_hash)
 
 
+def _apply_ohlcv_book_risk_lab(
+    project: ProjectContext,
+    intake: PreparedIntake | None = None,
+) -> None:
+    """Create a fixed reported-position covariance and reduction audit."""
+
+    template = "ohlcv_book_risk_lab"
+    if intake is None:
+        end = _write_demo_ohlcv(project, readme_template=template)
+        dataset = {
+            "id": "synthetic-ohlcv-book-risk-fixture",
+            "version": "v1",
+            "asset_class": "synthetic-multi-asset",
+            "universe": list(OHLCV_ASSETS),
+            "start": OHLCV_START.isoformat(),
+        }
+        snapshot_hash = None
+        request = {
+            "schemaVersion": 1,
+            "kind": "autoquant-research-request",
+            "title": "Synthetic reported-book risk audit",
+            "question": (
+                "How concentrated is the reported model book and which "
+                "one-percent reduction most reduces covariance risk?"
+            ),
+            "decisionContext": (
+                "Harness fixture for a non-authenticated reported weight snapshot."
+            ),
+            "assets": [
+                {
+                    "symbol": asset,
+                    "assetClass": "other",
+                    "venue": None,
+                    "positionRole": (
+                        "long-only"
+                        if asset in OHLCV_ASSETS[:4]
+                        else "context-only"
+                    ),
+                }
+                for asset in OHLCV_ASSETS
+            ],
+            "direction": "research-only",
+            "positionSnapshot": {
+                "kind": "hypothetical-weights",
+                "asOf": f"{_time_range_value(end)}T00:00:00Z",
+                "baseCurrency": "USD",
+                "weights": {
+                    asset: 0.25 for asset in OHLCV_ASSETS[:4]
+                },
+                "cashWeight": 0.0,
+            },
+            "horizon": "Current covariance state through the final closed bar.",
+            "hypotheses": [
+                "The reported assets share materially overlapping risk."
+            ],
+            "constraints": [
+                "No Broker, account reconciliation, or order authority."
+            ],
+            "deliverables": [
+                "Risk contribution, effective-risk-bet, and reduction evidence."
+            ],
+            "source": {
+                "system": "local",
+                "workspaceId": None,
+                "sessionId": None,
+                "artifactPath": None,
+                "artifactRevision": None,
+            },
+        }
+        (project.root_dir / "request.json").write_text(
+            json.dumps(request, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+    else:
+        if intake.request.get("positionSnapshot") is None:
+            raise AutoQuantValidationError(
+                [
+                    _issue(
+                        "request/positionSnapshot",
+                        "request.position-snapshot-required",
+                        "ohlcv-book-risk-lab requires one explicit reported "
+                        "or hypothetical position snapshot",
+                    )
+                ]
+            )
+        end, dataset, snapshot_hash = _intake_dataset(
+            project,
+            intake,
+            BOOK_RISK_STUDY_ID,
+        )
+        request = intake.request
+    _write_position_snapshot(project, request)
+    _write_template_source(
+        project,
+        "strategies/book-risk-scenarios.json",
+        "scenarios.json",
+        template=template,
+    )
+    _write_template_source(
+        project,
+        "judges/ohlcv_book_risk.py",
+        "judge.py",
+        template=template,
+    )
+    (project.root_dir / project.manifest.research_program).write_text(
+        _template_text("research.md", template=template),
+        encoding="utf-8",
+    )
+    definition = StudyDefinition(
+        schema_version=1,
+        id=BOOK_RISK_STUDY_ID,
+        name="OHLCV Reported Book Risk",
+        description=(
+            "Audit covariance crowding and standardized reduction sensitivity "
+            "for one explicit reported-position snapshot"
+        ),
+        program="program.md",
+        subject=StudySubject("research", "reported-book-risk", "working"),
+        editable={"paths": ["strategies/book-risk-scenarios.json"]},
+        judge=StudyJudge(
+            "python",
+            "judges/ohlcv_book_risk.py",
+            ["judges/ohlcv_book_risk.py"],
+            [],
+            30,
+        ),
+        objective=StudyObjective(
+            "current_component_risk_hhi",
+            "minimize",
+            0.01,
+        ),
+        dataset=StudyDataset(
+            str(dataset["id"]),
+            str(dataset["version"]),
+            str(dataset["asset_class"]),
+            list(dataset["universe"]),
+            StudyTimeRange(str(dataset["start"]), _time_range_value(end)),
+            ["ohlcv/**"],
+        ),
+        dependencies={"paths": [POSITION_SNAPSHOT]},
+    )
+    study = create_study(project, definition)
+    study.program_path.write_text(
+        _template_text("program.md", template=template),
+        encoding="utf-8",
+    )
+    _externalize_intake_guidance(project, intake, study.program_path)
+    study = load_study(project, BOOK_RISK_STUDY_ID)
+    _finalize_intake(project, intake, study, snapshot_hash)
+
+
 def _apply_ohlcv_research_desk(
     project: ProjectContext,
     intake: PreparedIntake | None = None,
@@ -1042,5 +1213,7 @@ def apply_project_template(
         _apply_ohlcv_portfolio_lab(project, intake)
     elif template_id == "ohlcv-rl-factor-lab":
         _apply_ohlcv_rl_factor_lab(project, intake)
+    elif template_id == "ohlcv-book-risk-lab":
+        _apply_ohlcv_book_risk_lab(project, intake)
     else:
         _apply_ohlcv_research_desk(project, intake)

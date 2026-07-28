@@ -443,6 +443,20 @@ def start_session(
         else None
     )
     study = load_study(project, study_id)
+    if (
+        study.definition.objective.metric
+        == "current_component_risk_hhi"
+    ):
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    study.manifest_path,
+                    "session.descriptive-study",
+                    "Reported Book Risk is a fixed descriptive audit and "
+                    "does not support iterative research Sessions",
+                )
+            ]
+        )
     if normalized_request is not None:
         requested_symbols = {
             item["symbol"] for item in normalized_request["assets"]

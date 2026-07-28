@@ -40,8 +40,10 @@ or Runs. It owns only discovery and an optional default Project.
 `aq project create` produces a complete blank Project. The optional
 `--template ohlcv-factor-lab`, `--template ohlcv-portfolio-lab`, or
 `--template ohlcv-rl-factor-lab` construction input additionally creates an
-independently owned candidate, Judge, Study, and deterministic local dataset;
-it is not recorded as a runtime parent in `autoquant.json`.
+independently owned candidate, Judge, Study, and deterministic local dataset.
+`--template ohlcv-book-risk-lab` creates a fixed descriptive Study over one
+reported or hypothetical position snapshot. Template choice is construction
+input and is not recorded as a runtime parent in `autoquant.json`.
 
 `--template ohlcv-research-desk` creates the canonical multi-Study Project:
 one shared dataset, one Factor candidate shared by Factor and Portfolio
@@ -123,7 +125,17 @@ and baseline comparison is Run evidence. Each action resolves to a fixed
 stateful signal sleeve before portfolio accounting. See
 [[docs/design/rl-factor-policy-lab]].
 
-All three reference templates publish a nested `research_integrity` metric
+The Book Risk template derives
+`strategies/position-snapshot.json` from the normalized
+`request.positionSnapshot` and binds it as a fixed Study dependency. Its
+scenario declaration fixes bounded lookbacks, rolling cadence, and the
+standardized reduction size. The Judge owns covariance, component-risk,
+effective-bet, PCA, pair-correlation, and reduction calculations. The supplied
+weights remain external-reported and unauthenticated; they are never replaced
+with model targets. See [[docs/design/reported-position-book-risk]].
+
+The Factor, Portfolio, and RL templates publish a nested `research_integrity`
+metric
 declaring validation-only selection, visible diagnostic test evidence, and the
 external-holdout rule. Session snapshots derive exact candidate/verdict counts
 from immutable Experiments. They also discover every verified Project Run with
@@ -636,6 +648,14 @@ provenance. `positionRole` is optional only as a complete vector: when any
 requested asset declares it, every requested asset must declare `long-only`,
 `short-only`, `two-sided`, or `context-only`. Requested symbols and asset
 classes must fit the selected Study.
+The optional `positionSnapshot` is used by the Book Risk route only. It names
+`reported-weights` or `hypothetical-weights`, a timezone-aware `asOf`,
+`baseCurrency`, non-zero requested-asset `weights`, and `cashWeight`.
+Weights plus cash must sum to one, gross is bounded, and context-only assets
+cannot be held. Intake verifies that `asOf` lies in the closed dataset range
+and derives the immutable-provenance
+`strategies/position-snapshot.json`; the source fields still do not
+authenticate the account.
 `brief.json` is derived from that request plus Project/Session/Study identity,
 baseline, objective, dataset, Judge, and Harness locks. Its authority is
 `research-prioritization`; trading authority is `none`. Every Session load
@@ -879,6 +899,8 @@ uv run aq project create /tmp/quant-workspace portfolio-lab \
   --template ohlcv-portfolio-lab
 uv run aq project create /tmp/quant-workspace rl-factor-lab \
   --template ohlcv-rl-factor-lab
+uv run aq project create /tmp/quant-workspace book-risk-lab \
+  --template ohlcv-book-risk-lab
 uv run aq project create /tmp/quant-workspace research-desk \
   --template ohlcv-research-desk
 uv run aq project program /tmp/quant-workspace --project research-desk --json

@@ -139,7 +139,7 @@ CLI_COMMANDS = [
     ),
     descriptor(
         "schema",
-        "aq schema [workspace|project|agent-work-brief|research-agenda|holdout-binding|holdout-result|holdout-status|study|judge-output|run-result|factor-claim|factor-diagnostics|portfolio-diagnostics|research-program-status|rl-policy-diagnostics|session-decision-matrix|session|session-completion|candidate-preflight|candidate-check-output|candidate-check-result|portfolio-mandate|research-horizon|experiment|research-request|ohlcv-dataset-package|report-analysis|dossier-analysis|dossier-result|dossier-status|researcher-response|campaign-result|campaign-progress|studio-snapshot] [--json]",
+        "aq schema [workspace|project|agent-work-brief|research-agenda|holdout-binding|holdout-result|holdout-status|study|judge-output|run-result|factor-claim|factor-diagnostics|book-risk-diagnostics|portfolio-diagnostics|research-program-status|rl-policy-diagnostics|session-decision-matrix|session|session-completion|candidate-preflight|candidate-check-output|candidate-check-result|portfolio-mandate|research-horizon|experiment|research-request|ohlcv-dataset-package|report-analysis|dossier-analysis|dossier-result|dossier-status|researcher-response|campaign-result|campaign-progress|studio-snapshot] [--json]",
         "List or emit canonical AutoQuant JSON Schemas.",
         "read-only",
         [
@@ -162,6 +162,7 @@ CLI_COMMANDS = [
                     "run-result",
                     "factor-diagnostics",
                     "factor-claim",
+                    "book-risk-diagnostics",
                     "portfolio-diagnostics",
                     "research-program-status",
                     "rl-policy-diagnostics",
@@ -548,6 +549,26 @@ CLI_COMMANDS = [
                 False,
                 "Maximum sampled full-history path points.",
                 default=180,
+            ),
+            JSON_ARGUMENT,
+        ],
+    ),
+    descriptor(
+        "run.book-risk",
+        "aq run book-risk <path> --run ID [--points 20..400] [--project ID] [--json]",
+        "Project one verified reported-position Run into covariance crowding, component-risk, pair-correlation, standardized reduction, and rolling-path evidence.",
+        "read-only",
+        [
+            PATH_ARGUMENT,
+            PROJECT_ARGUMENT,
+            RUN_ARGUMENT,
+            argument(
+                "points",
+                "option",
+                "integer",
+                False,
+                "Maximum sampled rolling book-risk path points.",
+                default=80,
             ),
             JSON_ARGUMENT,
         ],

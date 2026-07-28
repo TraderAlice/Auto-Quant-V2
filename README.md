@@ -1,5 +1,5 @@
 ---
-version: 0.5.1
+version: 0.6.0
 ---
 
 # AutoQuant V2
@@ -56,6 +56,12 @@ live accounts, approvals, and real order submission remain outside AutoQuant;
 in OpenAlice that authority belongs to UTA. AutoQuant may model target
 portfolios, orders, and TPSL when required for valid research without claiming
 live-trading authority.
+
+Existing-book questions use the separate `ohlcv-book-risk-lab`. It preserves
+one caller-supplied weight snapshot and returns historical covariance,
+component-risk, common-movement, and standardized reduction-sensitivity
+evidence without pretending that the snapshot is authenticated account truth.
+See [reported-position Book Risk](docs/design/reported-position-book-risk.md).
 
 See the canonical
 [Agent-native workbench model](docs/design/agent-native-quant-workbench.md)
@@ -142,7 +148,9 @@ The request may lock:
 - gross, per-asset, volatility, cost, no-trade, and reference-NAV assumptions;
 - cash or one named dataset asset as the evaluation benchmark;
 - primary and diagnostic forward horizons;
-- Portfolio/RL decision cadence and dataset/session clock anchor.
+- Portfolio/RL decision cadence and dataset/session clock anchor;
+- one reported or hypothetical funded weight snapshot for a fixed,
+  non-authenticated Book Risk audit.
 
 These are immutable research assumptions. They never grant live position or
 execution authority.

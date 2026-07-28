@@ -13,6 +13,7 @@ from .holdouts import HOLDOUT_STATUS_JSON_SCHEMA, load_holdout_status
 from .research_agenda import (
     RESEARCH_AGENDA_JSON_SCHEMA,
     build_research_agenda,
+    descriptive_audit_agenda,
     waiting_research_agenda,
 )
 from .research_program import load_research_program
@@ -51,6 +52,7 @@ EXPECTED_EVIDENCE = {
     "dossier.show": "immutable-dossier",
     "dossier.status": "dossier-status",
     "study.inspect": "study-authority",
+    "run.book-risk": "book-risk-diagnostics",
     "validate": "structural-validation",
 }
 
@@ -766,6 +768,39 @@ def _single_study_orientation(
         editable = []
         mode = "establish-baseline"
         phase = "not-started"
+    elif (
+        study.definition.objective.metric
+        == "current_component_risk_hhi"
+    ):
+        primary_raw = _command(
+            "run.book-risk",
+            "Inspect verified reported-book crowding and reduction evidence.",
+            [
+                "aq",
+                "run",
+                "book-risk",
+                str(project.root_dir),
+                "--run",
+                current_run.id,
+                "--json",
+            ],
+            "read-only",
+        )
+        supporting_raw = []
+        reasons = [
+            {
+                "code": "descriptive-evidence-ready",
+                "category": "evidence",
+                "message": (
+                    "The fixed reported-book audit is complete and ready "
+                    "for decision-support review."
+                ),
+            }
+        ]
+        operating_root = project.root_dir
+        editable = []
+        mode = "observe"
+        phase = "evidence-ready"
     else:
         primary_raw = _command(
             "session.start",
@@ -847,9 +882,24 @@ def _single_study_orientation(
             "protectedCategories": PROTECTED_CATEGORIES,
         },
         "authority": {
-            "researchAuthority": "study-defined",
-            "selectionSplit": "study-defined",
-            "testRole": "study-defined",
+            "researchAuthority": (
+                "fixed-descriptive-audit"
+                if study.definition.objective.metric
+                == "current_component_risk_hhi"
+                else "study-defined"
+            ),
+            "selectionSplit": (
+                "none"
+                if study.definition.objective.metric
+                == "current_component_risk_hhi"
+                else "study-defined"
+            ),
+            "testRole": (
+                "lookback-and-rolling-context"
+                if study.definition.objective.metric
+                == "current_component_risk_hhi"
+                else "study-defined"
+            ),
             "testEntersSelection": False,
             "tradingAuthority": "none",
         },
@@ -864,6 +914,8 @@ def _single_study_orientation(
                 if active_session is not None and active_authority_valid
                 else "blocked"
                 if active_session is not None
+                else "complete"
+                if reasons[0]["code"] == "descriptive-evidence-ready"
                 else "pending"
             ),
             "label": reasons[0]["code"].replace("-", " ").upper(),
@@ -1018,6 +1070,22 @@ def build_agent_work_brief(project: ProjectContext) -> dict[str, Any]:
             ),
         )
         if holdout is not None
+        else descriptive_audit_agenda(
+            project,
+            agenda_run_id,
+            lane_id="book-risk",
+            reason=(
+                "Reported-book risk is a fixed descriptive audit. Review the "
+                "verified evidence; do not manufacture an optimization agenda."
+            ),
+        )
+        if (
+            projected["focus"]["studyId"] is not None
+            and studies
+            and studies[0].primary_metric
+            == "current_component_risk_hhi"
+            and agenda_run_id is not None
+        )
         else build_research_agenda(
             project,
             agenda_run_id,

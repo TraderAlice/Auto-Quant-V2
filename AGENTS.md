@@ -62,6 +62,14 @@ brief that another Agent can recover from the filesystem.
    manifests and begin the bounded research loop. Those machine contracts
    freeze an understood question; they do not replace the Markdown brief.
 
+When a caller asks about an existing book, do not substitute historical model
+targets for current holdings. If the caller or delegating Agent can supply one
+explicit reported or hypothetical funded weight snapshot, the
+`ohlcv-book-risk-lab` can perform a fixed descriptive audit. Treat the
+snapshot as unauthenticated external input, return its verified evidence, and
+leave live account reconciliation and execution to OpenAlice/UTA. See
+[[docs/design/reported-position-book-risk]].
+
 English is the working language inside the AutoQuant desk: use it for
 `research.md`, plans, research notes, code and comments, experiment hypotheses,
 and internal Reports or Dossiers. Preserve proper nouns, identifiers, source
@@ -185,6 +193,9 @@ Read the relevant linked document before changing a subsystem:
 - Transactional reference-Project construction, ordinary pandas factor API,
   deterministic OHLCV fixture, and fixed no-lookahead factor Judge:
   [[docs/design/ohlcv-factor-lab]]
+- Externally reported position snapshots, covariance crowding, component risk,
+  standardized reduction sensitivity, and live-account authority boundary:
+  [[docs/design/reported-position-book-risk]]
 - Causal signal ranking, constrained target weights, drift-aware accounting,
   costs, risk/implementation metrics, and portfolio stress evidence:
   [[docs/design/portfolio-construction-lab]]

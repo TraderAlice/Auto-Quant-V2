@@ -245,6 +245,12 @@ const projectFocusLane = (project) => {
 };
 
 const projectFocusRun = (project) => {
+  if (!project.researchProgramStatus && project.bookRiskExplorer?.run?.id) {
+    const descriptive = project.runs.find(
+      (item) => item.id === project.bookRiskExplorer.run.id,
+    );
+    if (descriptive?.status === "succeeded") return descriptive;
+  }
   const lane = projectFocusLane(project);
   if (lane?.latestRun?.id) {
     const run = project.runs.find((item) => item.id === lane.latestRun.id);
@@ -265,11 +271,14 @@ const projectFocusStudy = (project) => {
 };
 
 const laneKind = (lane) => {
-  if (["factor", "portfolio", "rl"].includes(lane?.id)) return lane.id;
+  if (["factor", "portfolio", "rl", "book-risk"].includes(lane?.id)) {
+    return lane.id;
+  }
   return {
     "causal-predictive-evidence": "factor",
     "mechanical-portfolio-evidence": "portfolio",
     "adaptive-policy-challenge": "rl",
+    "reported-book-risk": "book-risk",
   }[lane?.role] ?? null;
 };
 
@@ -285,9 +294,11 @@ const latestRunForLaneKind = (project, kind) =>
     .find(
       (run) =>
         run.status === "succeeded" &&
-        (kind === "rl"
-          ? run.metricLayers?.kind === "rl-policy"
-          : run.metricLayers?.kind === kind),
+        (kind === "book-risk"
+          ? run.primaryMetric === "current_component_risk_hhi"
+          : kind === "rl"
+            ? run.metricLayers?.kind === "rl-policy"
+            : run.metricLayers?.kind === kind),
     ) ?? null;
 
 const laneReadout = (project, lane) => {
@@ -393,6 +404,33 @@ const laneReadout = (project, lane) => {
         Number(value) >= 0
           ? "RL exceeds the fixed validation-selected baseline; this is not a promotion verdict"
           : "RL trails the best fixed validation-selected baseline",
+    };
+  }
+  if (kind === "book-risk") {
+    const explorer = project.bookRiskExplorer;
+    const value =
+      explorer?.current?.effectiveRiskBets ?? lane?.latestRun?.value;
+    if (!Number.isFinite(Number(value))) {
+      return {
+        kind,
+        metric: "Effective risk bets",
+        value,
+        display: "—",
+        tone: "warning",
+        verdict: "EVIDENCE PENDING",
+        detail: "No current immutable Book Risk Run is available",
+      };
+    }
+    const total = Object.keys(explorer.positionSnapshot.weights).length;
+    return {
+      kind,
+      metric: "Effective risk bets",
+      value,
+      display: metric(value),
+      tone: Number(value) < Math.max(2, total * 0.6) ? "warning" : "neutral",
+      verdict: `${metric(value)} EFFECTIVE BETS / ${total} HOLDINGS`,
+      detail:
+        "Descriptive covariance evidence from an externally reported, unauthenticated position snapshot",
     };
   }
   return {
@@ -1516,6 +1554,13 @@ function renderResearchProgram(project) {
 
 const evidenceLanes = [
   {
+    id: "book-risk",
+    label: "Book risk",
+    question: "Is the reported book crowded, and what reduces risk first?",
+    explorer: "bookRiskExplorer",
+    section: "book-risk-explorer",
+  },
+  {
     id: "factor",
     label: "Factor",
     question: "Does the signal predict?",
@@ -1539,6 +1584,7 @@ const evidenceLanes = [
 ];
 
 const studyIdsByEvidenceLane = {
+  "book-risk": "ohlcv-book-risk",
   factor: "ohlcv-factor-quality",
   portfolio: "ohlcv-portfolio-quality",
   rl: "ohlcv-rl-factor-policy",
@@ -2117,6 +2163,143 @@ function renderFactorComponents(explorer) {
       diagnostic blend. Validation prioritizes research; test is visible audit
       only; Portfolio, RL-action, order, account, and trading authority remain none.
     </p>`;
+}
+
+function renderBookRiskExplorer(project) {
+  const section = element("book-risk-explorer");
+  const explorer = project.bookRiskExplorer;
+  if (!explorer) {
+    section.hidden = true;
+    return;
+  }
+  section.hidden = false;
+  const current = explorer.current;
+  const snapshot = explorer.positionSnapshot;
+  const assets = Object.keys(snapshot.weights);
+  element("book-risk-meta").textContent =
+    `${explorer.run.id} · ${assets.length} reported holdings · ${current.lookbackBars}-bar primary window`;
+  element("book-risk-summary").innerHTML = [
+    ["Annualized volatility", percent(current.annualizedVolatility), `${current.observations} aligned returns`],
+    ["Effective risk bets", metric(current.effectiveRiskBets), `${assets.length} reported holdings`],
+    ["First principal component", percent(current.firstPrincipalComponentVarianceShare), "correlation crowding"],
+    ["Component-risk HHI", metric(current.componentRiskHhi), "lower is more diversified"],
+    ["Largest contributor", explorer.riskContributions[0]?.asset ?? "—", percent(current.largestAbsoluteRiskContributorShare)],
+    ["First reduction", explorer.reductionPriority[0]?.asset ?? "—", `${metric(explorer.reductionPriority[0]?.volatilityReductionPerWeight)} vol / weight`],
+    ["Gross / net exposure", `${percent(current.grossExposure)} / ${percent(current.netExposure)}`, "reported snapshot"],
+    ["Cash weight", percent(current.cashWeight), snapshot.baseCurrency],
+  ]
+    .map(
+      ([label, value, note]) => `
+        <span>
+          <small>${escapeHtml(label)}</small>
+          <b>${escapeHtml(value)}</b>
+          <i>${escapeHtml(note)}</i>
+        </span>`,
+    )
+    .join("");
+  element("book-risk-lookbacks").innerHTML = `
+    <div class="factor-table-wrap">
+      <table class="factor-table">
+        <thead>
+          <tr>
+            <th>Window</th>
+            <th>Volatility</th>
+            <th>Effective bets</th>
+            <th>First PC</th>
+            <th>Largest contributor</th>
+            <th>First reduction</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${explorer.lookbacks
+            .map(
+              (row) => `
+                <tr>
+                  <td data-label="Window"><b>${row.lookbackBars} bars</b></td>
+                  <td data-label="Volatility">${percent(row.annualizedVolatility)}</td>
+                  <td data-label="Effective bets">${metric(row.effectiveRiskBets)}</td>
+                  <td data-label="First PC">${percent(row.firstPrincipalComponentVarianceShare)}</td>
+                  <td data-label="Largest contributor"><b>${escapeHtml(row.largestAbsoluteRiskContributor)}</b><small>${percent(row.largestAbsoluteRiskContributorShare)}</small></td>
+                  <td data-label="First reduction"><b>${escapeHtml(row.firstReductionAsset)}</b><small>${metric(row.firstReductionVolatilityPerWeight)} vol / weight</small></td>
+                </tr>`,
+            )
+            .join("")}
+        </tbody>
+      </table>
+    </div>`;
+  element("book-risk-contributions").innerHTML = `
+    <div class="factor-table-wrap">
+      <table class="factor-table">
+        <thead><tr><th>Asset</th><th>Reported weight</th><th>Absolute risk share</th><th>Signed risk share</th></tr></thead>
+        <tbody>
+          ${explorer.riskContributions
+            .map(
+              (row) => `
+                <tr>
+                  <td data-label="Asset"><b>${escapeHtml(row.asset)}</b></td>
+                  <td data-label="Reported weight">${percent(row.weight)}</td>
+                  <td data-label="Absolute risk share">${percent(row.absoluteRiskShare)}</td>
+                  <td data-label="Signed risk share">${signedPercent(row.signedRiskShare)}</td>
+                </tr>`,
+            )
+            .join("")}
+        </tbody>
+      </table>
+    </div>`;
+  element("book-risk-reductions").innerHTML = `
+    <div class="factor-table-wrap">
+      <table class="factor-table">
+        <thead><tr><th>Priority</th><th>Asset</th><th>Reduction</th><th>Volatility reduction</th><th>Resulting volatility</th></tr></thead>
+        <tbody>
+          ${explorer.reductionPriority
+            .map(
+              (row) => `
+                <tr>
+                  <td data-label="Priority"><b>${row.rank}</b></td>
+                  <td data-label="Asset"><b>${escapeHtml(row.asset)}</b></td>
+                  <td data-label="Reduction">${percent(row.weightReduction)}</td>
+                  <td data-label="Volatility reduction">${percent(row.volatilityReduction)}</td>
+                  <td data-label="Resulting volatility">${percent(row.annualizedVolatility)}</td>
+                </tr>`,
+            )
+            .join("")}
+        </tbody>
+      </table>
+    </div>`;
+  const strongest = explorer.pairwiseCorrelations
+    .slice()
+    .sort(
+      (left, right) =>
+        Math.abs(right.correlation) - Math.abs(left.correlation),
+    );
+  element("book-risk-correlations").innerHTML = `
+    <div class="factor-table-wrap">
+      <table class="factor-table">
+        <thead><tr><th>Pair</th><th>Correlation</th></tr></thead>
+        <tbody>
+          ${strongest
+            .map(
+              (row) => `
+                <tr>
+                  <td data-label="Pair"><b>${escapeHtml(row.leftAsset)} / ${escapeHtml(row.rightAsset)}</b></td>
+                  <td data-label="Correlation">${metric(row.correlation)}</td>
+                </tr>`,
+            )
+            .join("")}
+        </tbody>
+      </table>
+    </div>`;
+  const rolling = explorer.rollingPath.summary;
+  const command = project.commands?.find((item) => item.id === "run.book-risk");
+  element("book-risk-warning").innerHTML = `
+    <span>
+      Reported weights are externally supplied and unauthenticated. Historical
+      covariance and 1% reductions are descriptive sensitivity evidence, not
+      live account truth, optimization, an order, or trading authority.
+      Rolling audit: ${rolling.observations} windows · minimum ${metric(rolling.minimumEffectiveRiskBets)}
+      effective bets · maximum HHI ${metric(rolling.maximumComponentRiskHhi)}.
+    </span>
+    ${copyCommandButton(command, "Copy Book Risk JSON command")}`;
 }
 
 function renderFactorExplorer(project) {
@@ -4673,6 +4856,7 @@ function renderEmptyWorkspace(message = "Create a Project with aq project create
   element("research-agenda").hidden = true;
   element("external-holdout").hidden = true;
   element("evidence-workbench").hidden = true;
+  element("book-risk-explorer").hidden = true;
   element("factor-explorer").hidden = true;
   element("portfolio-explorer").hidden = true;
   element("rl-explorer").hidden = true;
@@ -4754,6 +4938,7 @@ function render() {
   renderDiagnostics(project);
   renderHandoff(project);
   renderResearchProgram(project);
+  renderBookRiskExplorer(project);
   renderFactorExplorer(project);
   renderPortfolioExplorer(project);
   renderRlExplorer(project);

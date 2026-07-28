@@ -55,6 +55,11 @@ from .mandates import (
     build_portfolio_mandate,
     load_portfolio_mandate,
 )
+from .position_snapshots import (
+    POSITION_SNAPSHOT,
+    build_position_snapshot,
+    load_position_snapshot,
+)
 from .studies import StudyContext, hash_file, hash_json, load_study
 from .workspace import (
     SCHEMA_VERSION,
@@ -90,6 +95,7 @@ INTAKE_TEMPLATE_REQUIREMENTS = {
     "ohlcv-factor-lab": (4, 180),
     "ohlcv-portfolio-lab": (5, 180),
     "ohlcv-rl-factor-lab": (5, 240),
+    "ohlcv-book-risk-lab": (2, 120),
     "ohlcv-research-desk": (5, 240),
 }
 
@@ -1307,11 +1313,51 @@ def prepare_project_intake(
             )
         except AutoQuantValidationError as error:
             issues.extend(error.issues)
+    position_snapshot = request.get("positionSnapshot")
+    if (
+        position_snapshot is not None
+        and template != "ohlcv-book-risk-lab"
+    ):
+        issues.append(
+            _issue(
+                "request/positionSnapshot",
+                "request.position-snapshot-template",
+                "positionSnapshot is consumed only by "
+                "ohlcv-book-risk-lab",
+            )
+        )
     if issues:
         raise AutoQuantValidationError(issues)
     assert panel_dates
     start = panel_dates[0]
     end = panel_dates[-1]
+    if template == "ohlcv-book-risk-lab":
+        if not isinstance(position_snapshot, dict):
+            raise AutoQuantValidationError(
+                [
+                    _issue(
+                        "request/positionSnapshot",
+                        "request.position-snapshot-required",
+                        "ohlcv-book-risk-lab requires positionSnapshot",
+                    )
+                ]
+            )
+        as_of = pd.Timestamp(position_snapshot["asOf"])
+        start_timestamp = pd.Timestamp(start)
+        end_timestamp = pd.Timestamp(end)
+        if start_timestamp.tzinfo is None and as_of.tzinfo is not None:
+            as_of = as_of.tz_localize(None).normalize()
+        if not start_timestamp <= as_of <= end_timestamp:
+            raise AutoQuantValidationError(
+                [
+                    _issue(
+                        "request/positionSnapshot/asOf",
+                        "request.position-snapshot-range",
+                        "Position snapshot asOf must lie within the closed "
+                        "dataset range",
+                    )
+                ]
+            )
     if isinstance(start, pd.Timestamp):
         start = start.isoformat().replace("+00:00", "Z")
         end = end.isoformat().replace("+00:00", "Z")
@@ -2298,6 +2344,20 @@ def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
         )
     if hash_json(request) != manifest.get("requestHash"):
         issues.append(_issue(request_path, "intake.request-hash", "Request hash mismatch"))
+    position_path = project.root_dir / POSITION_SNAPSHOT
+    if manifest.get("template") == "ohlcv-book-risk-lab":
+        try:
+            position_snapshot = load_position_snapshot(position_path)
+            if position_snapshot != build_position_snapshot(request):
+                issues.append(
+                    _issue(
+                        position_path,
+                        "intake.position-snapshot",
+                        "Position snapshot differs from the normalized request",
+                    )
+                )
+        except AutoQuantValidationError as error:
+            issues.extend(error.issues)
     if hash_file(snapshot_path) != manifest.get("datasetSnapshotHash"):
         issues.append(
             _issue(snapshot_path, "intake.snapshot-hash", "Dataset snapshot hash mismatch")

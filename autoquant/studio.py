@@ -18,6 +18,10 @@ from .decision_matrix import (
     STUDIO_COMPARISON_TRIALS,
     load_session_decision_matrix,
 )
+from .book_risk_explorer import (
+    DEFAULT_BOOK_RISK_POINTS,
+    load_book_risk_diagnostics,
+)
 from .dossiers import list_dossiers, load_dossier_status
 from .factor_explorer import (
     DEFAULT_FACTOR_POINTS,
@@ -1124,6 +1128,30 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
                     error,
                 )
             )
+    book_risk_explorer = None
+    book_risk_candidate = next(
+        (
+            item
+            for item in reversed(runs_raw)
+            if item.status == "succeeded"
+            and item.primary_metric == "current_component_risk_hhi"
+        ),
+        None,
+    )
+    if book_risk_candidate is not None:
+        try:
+            book_risk_explorer = load_book_risk_diagnostics(
+                project,
+                book_risk_candidate.id,
+                point_limit=DEFAULT_BOOK_RISK_POINTS,
+            )
+        except AutoQuantValidationError as error:
+            diagnostics.extend(
+                _diagnostics(
+                    f"book-risk-explorer:{book_risk_candidate.id}",
+                    error,
+                )
+            )
     sessions: list[dict[str, Any]] = []
     for summary in sessions_raw:
         try:
@@ -1231,6 +1259,22 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
                 "read-only",
             )
         )
+    if book_risk_explorer is not None:
+        commands.append(
+            _command(
+                "run.book-risk",
+                [
+                    "aq",
+                    "run",
+                    "book-risk",
+                    str(project.root_dir),
+                    "--run",
+                    book_risk_explorer["run"]["id"],
+                    "--json",
+                ],
+                "read-only",
+            )
+        )
     if research_program_status is not None:
         commands.append(
             _command(
@@ -1279,6 +1323,7 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
         "factorExplorer": factor_explorer,
         "portfolioExplorer": portfolio_explorer,
         "rlExplorer": rl_explorer,
+        "bookRiskExplorer": book_risk_explorer,
         "commands": commands,
         "valid": not diagnostics,
         "diagnostics": diagnostics,
@@ -1741,6 +1786,7 @@ STUDIO_SNAPSHOT_JSON_SCHEMA: dict[str, Any] = {
                 "factorExplorer",
                 "portfolioExplorer",
                 "rlExplorer",
+                "bookRiskExplorer",
                 "commands",
                 "valid",
                 "diagnostics",
@@ -1777,6 +1823,7 @@ STUDIO_SNAPSHOT_JSON_SCHEMA: dict[str, Any] = {
                 "factorExplorer": {"type": ["object", "null"]},
                 "portfolioExplorer": {"type": ["object", "null"]},
                 "rlExplorer": {"type": ["object", "null"]},
+                "bookRiskExplorer": {"type": ["object", "null"]},
                 "commands": {
                     "type": "array",
                     "items": {"type": "object"},

@@ -56,6 +56,10 @@ The first viewport prioritizes:
   validation/test attribution, causal 1%/5%
   participation-capacity distributions, latest binding asset, and exact
   request-derived position/risk mandate;
+- the latest successful Book Risk Run's reported-position volatility,
+  effective risk bets, first-PC crowding, component-risk concentration,
+  lookback stability, standardized reduction ranking, pair correlations, and
+  unauthenticated-position authority warning;
 - RL Run summaries for validation/test audit Sharpe, seed/fold dispersion,
   simple-baseline advantage, failure rate, and fold × seed coverage;
 - a bounded Session decision matrix comparing baseline, recent candidates, and
@@ -81,14 +85,15 @@ The first viewport prioritizes:
   Core-ordered Factor, Portfolio, or governed-RL experiment briefs from that
   same hashed work brief, including hypothesis, editable target, optional
   declared components, typed validation evidence, required checks, and stop
-  conditions; JavaScript never creates or reorders moves;
+  conditions; a completed Book Risk audit instead shows a closed descriptive
+  agenda with no candidate moves; JavaScript never creates or reorders moves;
 - a frozen external-holdout panel when present, showing the exact source
   Dossier, source-end/strictly-later-start boundary, imported lane set, and
   source-versus-later objective/delta cells from Core; it never colors a lane
   as a production pass or converts the audit into trading authority;
-- one selectable Factor, Portfolio, or RL evidence workbench at a time, keeping
-  the complete bounded explorer available without rendering all three long
-  reports into one page;
+- one selectable Book Risk, Factor, Portfolio, or RL evidence workbench at a
+  time, keeping the complete bounded explorer available without rendering all
+  long reports into one page;
 - fixed Study catalog and Project research program;
 - category-level diagnostics when evidence cannot be verified.
 
@@ -113,6 +118,16 @@ activation, and reconciliation.
 RL cards show implementation, dispersion, failure, and baseline comparison.
 Exact nested metrics, decision ledgers, daily slices, models, training
 histories, actions, and artifacts remain in the verified Run.
+
+The Reported Book Risk Explorer is the dedicated existing-holdings view. Core
+first verifies the frozen external-reported position snapshot and every
+cross-artifact relationship. Studio then shows the primary-window summary,
+63/126/252-bar stability, per-asset signed and absolute component risk,
+one-percentage-point reductions toward cash, pairwise correlations, and
+rolling crowding context. It never substitutes Portfolio model targets,
+authenticates the supplied book, optimizes a replacement portfolio, or creates
+an order. Use
+`aq run book-risk <path> --run ID --points N --json` for the exact read model.
 
 The Portfolio Decision Explorer is a bounded projection, not a browser-side
 CSV reader. Core first verifies the immutable Portfolio artifacts,

@@ -21,6 +21,7 @@ aq schema ohlcv-dataset-package --json
 aq schema report-analysis --json
 aq schema factor-diagnostics --json
 aq schema factor-claim --json
+aq schema book-risk-diagnostics --json
 aq schema portfolio-diagnostics --json
 aq schema portfolio-mandate --json
 aq schema rl-policy-diagnostics --json
@@ -49,12 +50,12 @@ Agents should discover the contract rather than scrape `--help`.
 aq workspace init <workspace-dir> [--name NAME] [--json]
 aq project create <workspace-dir> <project-id> \
   [--name NAME] [--description TEXT] \
-  [--template blank|ohlcv-factor-lab|ohlcv-portfolio-lab|ohlcv-rl-factor-lab|ohlcv-research-desk] \
+  [--template blank|ohlcv-factor-lab|ohlcv-portfolio-lab|ohlcv-rl-factor-lab|ohlcv-book-risk-lab|ohlcv-research-desk] \
   [--json]
 aq project intake <workspace-dir> <project-id> \
   --request research-request.json \
   --dataset ohlcv-dataset-package.json \
-  [--template ohlcv-factor-lab|ohlcv-portfolio-lab|ohlcv-rl-factor-lab|ohlcv-research-desk] \
+  [--template ohlcv-factor-lab|ohlcv-portfolio-lab|ohlcv-rl-factor-lab|ohlcv-book-risk-lab|ohlcv-research-desk] \
   [--name NAME] [--json]
 aq project list <workspace-dir> [--json]
 aq project default <workspace-dir> <project-id> [--json]
@@ -138,6 +139,18 @@ a content-locked candidate-factor sleeve plus fixed reference actions,
 Q-learning, folds, seeds, rewards, portfolio accounting, and simple baselines.
 All three reference templates are bounded, deterministic construction
 fixtures.
+
+`ohlcv-book-risk-lab` is the fixed descriptive route for one explicit
+reported or hypothetical position-weight snapshot. It binds the normalized
+snapshot as a Study dependency, uses only content-locked closed OHLCV at or
+before its `asOf`, and publishes component risk, effective risk bets,
+first-principal-component crowding, held-asset correlations, fixed-lookback
+stability, and one-percentage-point cash-funded reduction sensitivities.
+It does not authenticate an account, replace the supplied weights with model
+targets, optimize a portfolio, or create orders. After the Run, `orient`
+closes the descriptive audit and points to its read-only Explorer instead of
+starting an experiment agenda. See
+[[docs/design/reported-position-book-risk]].
 
 `ohlcv-research-desk` coordinates those three evaluation questions in one
 Project over one dataset snapshot. Factor and Portfolio deliberately share
@@ -223,6 +236,8 @@ aq run factor <path> --run ID \
   [--points 180] [--project ID] [--json]
 aq run portfolio <path> --run ID \
   [--points 180] [--project ID] [--json]
+aq run book-risk <path> --run ID \
+  [--points 80] [--project ID] [--json]
 aq run rl <path> --run ID \
   [--points 180] [--project ID] [--json]
 ```
@@ -298,6 +313,17 @@ Runs without the paired metric and artifact remain readable and return
 reconciled before deterministic sampling. The operation has no live account
 or trading authority.
 
+`run book-risk` is the strict read-only projection for a successful
+`ohlcv-book-risk-lab` Run. Core verifies the frozen reported-position
+dependency, exact method and dataset description, Run metrics, component-risk
+and standardized-reduction tables, pair count and correlations, fixed
+lookbacks, and the complete rolling path before sampling 20–400 points.
+The human view identifies the largest component-risk contributor, first
+one-percentage-point reduction sensitivity, strongest pair, effective risk
+bets, first-PC share, and the unauthenticated-position warning. JSON returns
+the same evidence under `book-risk-diagnostics`. It neither authenticates the
+snapshot nor emits target weights or orders.
+
 `run factor` is the corresponding bounded professional tear sheet for a
 successful fixed Factor Lab Run. Core verifies the immutable report, daily
 request-bound forward-bar rank/Pearson IC, fixed-tertile,
@@ -371,6 +397,9 @@ all equal the current inputs. If no exact baseline exists, it runs one fresh
 baseline. It then returns an Agent brief containing the disposable worktree,
 fixed program, editable closure, leader, authority status, and exact next
 commands. The caller edits only that worktree.
+Fixed `ohlcv-book-risk-lab` Studies reject Session creation: their result is a
+descriptive audit to review, not an objective to optimize through candidate
+selection.
 
 With `--request`, Session start first validates the strict external question,
 assets, optional complete per-asset `positionRole` declarations, direction,

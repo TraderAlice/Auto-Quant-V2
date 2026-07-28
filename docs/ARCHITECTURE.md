@@ -194,6 +194,8 @@ in [[docs/design/study-run-evidence]]; governed source research is defined in
 Project is defined in [[docs/design/ohlcv-factor-lab]]; causal target-weight
 construction is defined in [[docs/design/portfolio-construction-lab]]. The
 governed RL lane is defined in [[docs/design/rl-factor-policy-lab]]. The
+fixed existing-holdings covariance and reduction-sensitivity route is defined
+in [[docs/design/reported-position-book-risk]]. The
 factor tear-sheet protocol is defined in [[docs/design/factor-diagnostics]].
 Bounded immutable Factor artifact projection is defined in
 [[docs/design/factor-evidence-explorer]].
@@ -398,6 +400,7 @@ cannot own Workspace, Project, or evidence semantics.
 - Agent CLI design: [[docs/design/agent-cli-contract]]
 - Study/Run evidence design: [[docs/design/study-run-evidence]]
 - OHLCV Factor Lab design: [[docs/design/ohlcv-factor-lab]]
+- Reported-position Book Risk: [[docs/design/reported-position-book-risk]]
 - Panel-native shared factor runtime:
   [[docs/design/panel-native-factor-api]]
 - Project-derived Workbench needs:

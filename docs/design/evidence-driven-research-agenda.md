@@ -9,7 +9,8 @@ Related: [[docs/design/agent-operator-experience]],
 [[docs/design/portfolio-construction-lab]],
 [[docs/design/signal-policy-and-attribution]],
 [[docs/design/portfolio-decision-explorer]], and
-[[docs/design/rl-factor-policy-lab]].
+[[docs/design/rl-factor-policy-lab]], and
+[[docs/design/reported-position-book-risk]].
 
 ## Purpose
 
@@ -92,6 +93,8 @@ Every work brief contains:
 - `unsupported-study` when the Study metric has no agenda recipe;
 - `no-further-in-sample-tuning` when positive evidence calls for a frozen
   candidate plus fresh external holdout rather than another validation edit.
+- `descriptive-audit-complete` when a fixed Book Risk Run is ready for review
+  and no optimization agenda is authorized.
 
 `moves` contains at most three entries. Ordering is fixed by Core. A move is
 not an `AgentWorkBrief.primaryAction`: it cannot mutate state and has no
@@ -99,6 +102,12 @@ operation effect. The existing lifecycle command still governs baseline,
 Session, Check, Experiment, Report, promotion, and completion transitions.
 Waiting agendas declare `authority.source: none`; they never imply that a
 missing Run was verified.
+
+A completed descriptive audit binds its verified Run, carries no moves, and
+uses `prioritization: none`, `selectionSplit: none`, and
+`testRole: lookback-and-rolling-context`. It prevents the Agent from
+misreading a finished holdings diagnosis as missing Factor/Portfolio/RL
+evidence or manufacturing a candidate optimization.
 
 The work-brief hash covers the agenda. Studio and `aq orient` consume the exact
 Core object; neither recreates move selection.

@@ -20,6 +20,7 @@ invariants live in `docs/design/`.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/reported-position-book-risk-field-trial]] | Preserve one externally reported book and return verified crowding and reduction-sensitivity evidence without claiming account or execution authority. | 2026-07-28 |
 | [[plans/real-trading-request-field-trials]] | Prove and improve AutoQuant's ability to turn representative delegated trading questions into bounded, evidence-backed research handoffs. | 2026-07-28 |
 
 ## Proposed plans

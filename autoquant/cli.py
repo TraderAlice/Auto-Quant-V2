@@ -9,6 +9,13 @@ from dataclasses import dataclass, field
 from typing import Any, Sequence
 
 from .briefs import RESEARCH_REQUEST_JSON_SCHEMA, load_research_request
+from .book_risk_explorer import (
+    BOOK_RISK_DIAGNOSTICS_JSON_SCHEMA,
+    DEFAULT_BOOK_RISK_POINTS,
+    MAX_BOOK_RISK_POINTS,
+    MIN_BOOK_RISK_POINTS,
+    load_book_risk_diagnostics,
+)
 from .capabilities import CLI_COMMANDS
 from .checks import (
     CANDIDATE_CHECK_RESULT_JSON_SCHEMA,
@@ -263,6 +270,7 @@ def build_parser() -> RaisingArgumentParser:
             "run-result",
             "factor-diagnostics",
             "factor-claim",
+            "book-risk-diagnostics",
             "portfolio-diagnostics",
             "research-program-status",
             "rl-policy-diagnostics",
@@ -502,6 +510,26 @@ def build_parser() -> RaisingArgumentParser:
     )
     run_portfolio.set_defaults(command_id="run.portfolio")
     _json_argument(run_portfolio)
+
+    run_book_risk = run_actions.add_parser(
+        "book-risk",
+        help="inspect one reported-position covariance and reduction audit",
+    )
+    run_book_risk.add_argument("path")
+    run_book_risk.add_argument("--project")
+    run_book_risk.add_argument("--run", required=True)
+    run_book_risk.add_argument(
+        "--points",
+        type=int,
+        choices=range(
+            MIN_BOOK_RISK_POINTS,
+            MAX_BOOK_RISK_POINTS + 1,
+        ),
+        default=DEFAULT_BOOK_RISK_POINTS,
+        metavar=f"{MIN_BOOK_RISK_POINTS}..{MAX_BOOK_RISK_POINTS}",
+    )
+    run_book_risk.set_defaults(command_id="run.book-risk")
+    _json_argument(run_book_risk)
 
     run_rl = run_actions.add_parser(
         "rl",
@@ -1925,6 +1953,58 @@ def _run_portfolio(args: argparse.Namespace) -> CommandResult:
             f"{capacity_summary}"
             f"{lifecycle_summary}"
             f"{neighborhood_summary}"
+        ),
+        project_context(project),
+        [
+            artifact(
+                kind,
+                f"{diagnostics['run']['id']}:{kind}",
+                project.root_dir
+                / project.manifest.directories["runs"]
+                / diagnostics["run"]["id"]
+                / item["path"],
+                immutable=True,
+            )
+            for kind, item in diagnostics["artifacts"].items()
+        ],
+    )
+
+
+def _run_book_risk(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    diagnostics = load_book_risk_diagnostics(
+        project,
+        args.run,
+        point_limit=args.points,
+    )
+    current = diagnostics["current"]
+    largest = diagnostics["riskContributions"][0]
+    reduction = diagnostics["reductionPriority"][0]
+    correlation = diagnostics["pairwiseCorrelations"][0]
+    snapshot = diagnostics["positionSnapshot"]
+    return CommandResult(
+        "run.book-risk",
+        diagnostics,
+        (
+            f"Book Risk Run: {diagnostics['run']['id']}\n"
+            f"Reported snapshot: {snapshot['snapshotKind']} at "
+            f"{snapshot['asOf']} · {len(snapshot['weights'])} positions\n"
+            f"Annualized volatility: {current['annualizedVolatility']}\n"
+            f"Effective risk bets / component-risk HHI: "
+            f"{current['effectiveRiskBets']} / "
+            f"{current['componentRiskHhi']}\n"
+            f"First principal-component share: "
+            f"{current['firstPrincipalComponentVarianceShare']}\n"
+            f"Largest risk contributor: {largest['asset']} · "
+            f"{largest['absoluteRiskShare']}\n"
+            f"First standardized reduction: {reduction['asset']} · "
+            "volatility reduction per 1.0 weight "
+            f"{reduction['volatilityReductionPerWeight']}\n"
+            f"Strongest pair: {correlation['leftAsset']}/"
+            f"{correlation['rightAsset']} · "
+            f"{correlation['correlation']}\n"
+            "Reported weights are not authenticated account truth; reduction "
+            "evidence is historical sensitivity, not an order.\n"
         ),
         project_context(project),
         [
@@ -3606,6 +3686,7 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "factor-claim",
             "judge-output",
             "ohlcv-dataset-package",
+            "book-risk-diagnostics",
             "portfolio-diagnostics",
             "research-program-status",
             "rl-policy-diagnostics",
@@ -3644,6 +3725,7 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "run-result": RUN_RESULT_JSON_SCHEMA,
             "factor-diagnostics": FACTOR_DIAGNOSTICS_JSON_SCHEMA,
             "factor-claim": FACTOR_CLAIM_JSON_SCHEMA,
+            "book-risk-diagnostics": BOOK_RISK_DIAGNOSTICS_JSON_SCHEMA,
             "portfolio-diagnostics": PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA,
             "research-program-status": RESEARCH_PROGRAM_STATUS_JSON_SCHEMA,
             "rl-policy-diagnostics": RL_DIAGNOSTICS_JSON_SCHEMA,
@@ -3707,6 +3789,8 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
         return _run_factor(args)
     if args.command_id == "run.portfolio":
         return _run_portfolio(args)
+    if args.command_id == "run.book-risk":
+        return _run_book_risk(args)
     if args.command_id == "run.rl":
         return _run_rl(args)
     if args.command_id == "session.start":

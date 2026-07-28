@@ -132,6 +132,45 @@ def waiting_research_agenda(
     )
 
 
+def descriptive_audit_agenda(
+    project: ProjectContext,
+    run_id: str,
+    *,
+    lane_id: str,
+    reason: str,
+) -> dict[str, Any]:
+    """Close a fixed descriptive audit without inventing research moves."""
+
+    run = load_run(project, run_id)
+    return {
+        **_agenda(
+            status="descriptive-audit-complete",
+            lane_id=lane_id,
+            run={
+                "id": run.result["id"],
+                "inputHash": run.result["studyInputHash"],
+            },
+            diagnosis={
+                "stage": "descriptive-audit-complete",
+                "iterationFocus": "verified-evidence-review",
+                "explanation": reason,
+            },
+            moves=[],
+            reason=reason,
+        ),
+        "authority": {
+            "source": "verified-immutable-run",
+            "prioritization": "none",
+            "selectionSplit": "none",
+            "testRole": "lookback-and-rolling-context",
+            "testEntersPrioritization": False,
+            "automaticExecution": False,
+            "automaticPromotion": False,
+            "tradingAuthority": "none",
+        },
+    }
+
+
 def _component_by_id(
     components: dict[str, Any],
     component_id: str | None,
@@ -1362,6 +1401,7 @@ RESEARCH_AGENDA_JSON_SCHEMA: dict[str, Any] = {
                 "waiting-evidence",
                 "unsupported-study",
                 "no-further-in-sample-tuning",
+                "descriptive-audit-complete",
             ]
         },
         "reason": {"type": ["string", "null"]},
@@ -1424,9 +1464,18 @@ RESEARCH_AGENDA_JSON_SCHEMA: dict[str, Any] = {
                 "source": {
                     "enum": ["verified-immutable-run", "none"]
                 },
-                "prioritization": {"const": "diagnostic-only"},
-                "selectionSplit": {"const": "validation"},
-                "testRole": {"const": "visible-audit-only"},
+                "prioritization": {
+                    "enum": ["diagnostic-only", "none"]
+                },
+                "selectionSplit": {
+                    "enum": ["validation", "none"]
+                },
+                "testRole": {
+                    "enum": [
+                        "visible-audit-only",
+                        "lookback-and-rolling-context",
+                    ]
+                },
                 "testEntersPrioritization": {"const": False},
                 "automaticExecution": {"const": False},
                 "automaticPromotion": {"const": False},
@@ -1435,6 +1484,33 @@ RESEARCH_AGENDA_JSON_SCHEMA: dict[str, Any] = {
         },
     },
     "allOf": [
+        {
+            "if": {
+                "properties": {
+                    "status": {"const": "descriptive-audit-complete"}
+                },
+                "required": ["status"],
+            },
+            "then": {
+                "properties": {
+                    "run": {"type": "object"},
+                    "diagnosis": {"type": "object"},
+                    "moves": {"maxItems": 0},
+                    "authority": {
+                        "properties": {
+                            "source": {
+                                "const": "verified-immutable-run"
+                            },
+                            "prioritization": {"const": "none"},
+                            "selectionSplit": {"const": "none"},
+                            "testRole": {
+                                "const": "lookback-and-rolling-context"
+                            },
+                        }
+                    },
+                }
+            },
+        },
         {
             "if": {
                 "properties": {
