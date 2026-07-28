@@ -18,7 +18,9 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-There are no active plans.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/reported-book-reallocation-scenarios]] | Compare one externally reported book with a bounded set of caller-specified funded reallocations under one fixed historical risk model. | 2026-07-28 |
 
 ## Proposed plans
 
