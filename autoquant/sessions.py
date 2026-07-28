@@ -478,7 +478,11 @@ def start_session(
             {
                 item["assetClass"]
                 for item in normalized_request["assets"]
-                if item["assetClass"] != study.definition.dataset.asset_class
+                if (
+                    study.definition.dataset.asset_class != "mixed"
+                    and item["assetClass"]
+                    != study.definition.dataset.asset_class
+                )
             }
         )
         request_issues: list[ValidationIssue] = []

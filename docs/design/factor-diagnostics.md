@@ -53,8 +53,11 @@ noise. For every union timestamp it records observed input assets, finite
 factor assets, and target-paired assets at every requested horizon. Aggregate
 evidence includes observed/possible rows, complete and eligible timestamps,
 input/factor/pair breadth summaries, and each asset's observed range and
-coverage. V4 missing and pre-listing combinations stay absent; no fill or
-global intersection occurs.
+coverage. V4/V5 missing, closed-market, and pre-listing combinations stay
+absent; no fill or global intersection occurs. V5 single-asset temporal
+evidence reports the prediction asset's observed timeline; context-only
+timestamps cannot shorten an observed-bar forward return or move a purge
+boundary.
 
 ### Horizon quality and inference
 

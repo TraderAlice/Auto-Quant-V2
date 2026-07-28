@@ -64,9 +64,9 @@ roll rule, margin requirement, tick value, expiry, venue order, or fill.
 
 - [x] A strict English Project brief freezes caller-owned meaning before data
   retrieval or execution.
-- [ ] The current public route is reproduced and any failure names the exact
+- [x] The current public route is reproduced and any failure names the exact
   clock, alignment, asset-class, or contract-authority boundary.
-- [ ] Any Core change is the smallest reusable boundary proven by the trial;
+- [x] Any Core change is the smallest reusable boundary proven by the trial;
   unsupported contract-chain semantics remain explicit.
 - [ ] A bounded real-data Project either executes with causal evidence and
   limitations or terminates with a useful machine-readable refusal.
@@ -78,8 +78,8 @@ roll rule, margin requirement, tick value, expiry, venue order, or fill.
 - [x] Create and clarify the representative Project.
 - [x] Acquire a bounded provider sample only after the research-series contract
   is frozen.
-- [ ] Reproduce the current public intake/runtime boundary.
-- [ ] Design and implement only a justified reusable gap.
+- [x] Reproduce the current public intake/runtime boundary.
+- [x] Design and implement only a justified reusable gap.
 - [ ] Execute and interpret the clean field trial.
 - [ ] Complete release or explicit-boundary audit and close the plan.
 
@@ -100,10 +100,26 @@ roll rule, margin requirement, tick value, expiry, venue order, or fill.
   temporal target. The reproduced design gap is narrower: observed-only
   intraday intake, exact mixed dataset classes, and role-aware intake breadth.
   Portfolio/RL and executable futures semantics remain out of scope.
+- 2026-07-29 — The unchanged public `aq project intake` route rejected the
+  honest proposed package before creating a Project. Its versioned JSON error
+  named unsupported V5/hourly/observed-panel fields, per-asset class and volume
+  semantics, and the real `GC=F` provider symbol. No supported package contract
+  can encode the sample without changing its meaning.
+- 2026-07-29 — V5 is intentionally Factor-only and base-only. It adds exact
+  per-asset class and volume semantics, observed absent-no-fill timestamps,
+  one explicit prediction asset, and prediction-owned horizon/purge timing.
+  It does not add a market calendar, higher-interval aggregation, Portfolio,
+  RL, contract-chain, margin, or execution authority.
 
 ## Verification
 
-Pending.
+- 11 focused V5/interval/public-schema tests passed.
+- The combined 66-test intake/Factor/interval/CLI run had one V2 Judge timeout
+  under load and no semantic failure; the exact isolated V2 case then passed
+  end-to-end in 107.719 seconds.
+- Public Yahoo V5 smoke Project `gold-dollar-hourly-v5-smoke` completed
+  immutable Run `run-20260728T193549738971Z-d51d27ce72cf`. Orientation and
+  strict Factor Explorer returned zero diagnostics.
 
 ## Progress log
 
@@ -116,6 +132,13 @@ Pending.
   2026-07-27: 11,373 `GC=F` rows, 11,847 `DX-Y.NYB` rows, and 11,359 exact
   timestamp intersections. Preserved daily maintenance, weekend, DST/anchor,
   and provider irregularities as absence.
+- 2026-07-29 — Reproduced the current boundary through public
+  `aq project intake ... --template ohlcv-factor-lab --json`; the command
+  returned `validation.failed` with no partially created Project.
+- 2026-07-29 — The real V5 smoke retained 11,373 target gold observations and
+  11,359 exact same-timestamp dollar-index context rows. Its Factor Run used
+  `single-asset-temporal`, a 24-gold-bar primary horizon, and
+  `per-target-observed-bars` purge authority.
 
 ## Completion
 

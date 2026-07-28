@@ -1,7 +1,8 @@
 # Request-driven research intake and OHLCV dataset snapshots
 
-Status: V1 aligned daily, V2 continuous-1h, V3 configurable/session, and V4
-observed-only daily Factor intake implemented.
+Status: V1 aligned daily, V2 continuous-1h, V3 configurable/session, V4
+observed-only daily Factor, and V5 observed-only intraday mixed-class Factor
+intake implemented.
 
 Related: [[docs/ARCHITECTURE]], [[docs/CLI]], [[docs/PROJECT_FORMAT]],
 [[docs/STUDIO]], [[docs/design/workspace-project-boundaries]],
@@ -155,6 +156,55 @@ their accounting/state contracts do not yet define changing-universe
 semantics. V1 remains exact and aligned rather than silently acquiring a new
 meaning.
 
+V5 accepts a base-only observed intraday Factor panel:
+
+```json
+{
+  "schemaVersion": 5,
+  "kind": "autoquant-ohlcv-dataset-package",
+  "assetClass": "mixed",
+  "baseInterval": "1h",
+  "timestampSemantics": "bar-close",
+  "panelPolicy": {
+    "alignment": "observed-only",
+    "missingObservation": "absent-no-fill",
+    "horizonClock": "per-target-observed-bars"
+  },
+  "market": {
+    "clock": "observed",
+    "calendar": "provider-observed",
+    "timezone": "UTC"
+  },
+  "assets": [
+    {
+      "symbol": "GC=F",
+      "assetClass": "future",
+      "venue": "CMX",
+      "currency": "USD",
+      "path": "GC.csv",
+      "volumeSemantics": "provider-reported-nonnegative"
+    },
+    {
+      "symbol": "DX-Y.NYB",
+      "assetClass": "index",
+      "venue": "NYB",
+      "currency": "USD",
+      "path": "DXY.csv",
+      "volumeSemantics": "unavailable-zero"
+    }
+  ]
+}
+```
+
+V5 is accepted only by `ohlcv-factor-lab`. Every request asset must declare a
+position role and exactly one may be non-context. Per-asset classes must match
+the Research Request; the top-level class is the common class or `mixed`.
+Prices remain finite and strictly positive. Volume is finite and
+non-negative; `unavailable-zero` requires every stored volume value to be
+zero, preventing a missing index-volume field from being presented as
+measured activity. V5 authenticates neither a provider calendar nor a futures
+contract chain.
+
 ## Validation and normalization
 
 Before any Project is visible, Core:
@@ -168,14 +218,20 @@ Before any Project is visible, Core:
 5. for V2/V3, requires explicit timezone-aware base-bar-close timestamps,
    exact UTC-hour boundaries, consecutive rows with no gaps, strict OHLCV
    geometry, and complete UTC-midnight-anchored aggregation groups;
-6. requires every asset to share the exact base timestamp panel for V1–V3;
+6. for V5, requires timezone-aware completed bar-close labels, strict OHLC
+   geometry, declared zero-or-provider volume semantics, and keeps every
+   missing timestamp absent without requiring a regular calendar;
+7. requires every asset to share the exact base timestamp panel for V1–V3;
    V4 instead requires at least 120 observations per asset, at least four
    observed assets on enough union timestamps for each requested horizon, and
-   records the complete observed-only availability surface;
-7. enforces template-specific breadth and history floors;
-8. requires each requested asset and non-null venue to exist in the package
-   and requires the request's single asset class to equal the package class;
-9. derives the request's exact numerical Horizon Mandate and rejects a largest
+   records the complete observed-only availability surface; V5 requires at
+   least 120 observations per asset but derives its Factor timeline from the
+   one explicit prediction asset;
+8. enforces template-specific breadth and history floors;
+9. requires each requested asset and non-null venue to exist in the package;
+   V1–V4 require one package class while V5 matches each requested asset
+   against its own package class;
+10. derives the request's exact numerical Horizon Mandate and rejects a largest
    diagnostic target that leaves fewer than 20 purged rows in any split.
 
 Canonical Project data uses:
@@ -193,6 +249,12 @@ complete timestamp counts, observed/possible rows, observation coverage, and
 minimum/median/maximum assets per timestamp. Every asset records its own
 observed start, end, and row count. Load-time validation recomputes these facts
 from normalized bytes.
+
+For V5, `snapshot.json` freezes the observed interval surface, per-asset class
+and volume semantics, union/intersection/coverage facts, and the target-owned
+eligible observation count. Materialized files live under the declared base
+interval only. Loading revalidates hashes, non-negative volume, per-asset
+availability, and the complete snapshot summary.
 
 V2 uses `data/ohlcv/<interval>/<symbol>.csv`. The fixed loader recomputes every
 materialized 3h/4h/6h/12h/1d file from 1h bytes and rejects a mismatch even if
@@ -339,8 +401,8 @@ Studio remains read-only and does not duplicate validation or construction.
 1. No invalid intake leaves a visible partial Project.
 2. All source paths are confined and all normalized dataset bytes are local to
    the Project.
-3. Request assets are a subset of the research universe and share its declared
-   asset class.
+3. Request assets are a subset of the research universe. V1–V4 share one
+   declared class; V5 preserves and verifies each requested asset class.
 4. No missing date is silently filled or removed.
 5. Provider and adjustment metadata are disclosed claims, not authenticated
    provenance.
@@ -354,6 +416,8 @@ Studio remains read-only and does not duplicate validation or construction.
     three research lanes consume the same causally aligned surface.
 11. V4 retains absent rows as absence, is Factor-only, and exposes usable
     cross-sectional breadth in immutable evidence.
+12. V5 is Factor-only, has one explicit temporal target, and advances targets
+    and purges only on that asset's observed completed bars.
 
 ## Verification and change checklist
 
@@ -379,10 +443,13 @@ When changing this boundary:
 - V1 handles one aligned daily session panel; V2 handles one continuous UTC
   1h panel with exact 3h/4h/6h/12h/1d derived bars; V3 handles bounded
   configurable continuous bases and XNYS regular sessions; V4 handles an
-  observed-only ragged daily panel for Factor research only.
+  observed-only ragged daily panel; V5 handles one base-only observed
+  intraday mixed-class panel with one temporal prediction asset. V4/V5 are
+  Factor-only.
 - V3 XNYS regular-session intraday aggregation is supported; extended hours,
   unscheduled halts, and other exchange calendars are not.
-- Symbols are restricted to path-safe identifiers.
+- Symbols are restricted to path-safe identifiers; `=` is accepted for
+  provider symbols such as `GC=F`, while path separators remain forbidden.
 - It does not prove point-in-time universe membership, delisting coverage,
   corporate-action correctness, or vendor licensing.
 - Provider retrieval and optional host/Inbox delivery remain external

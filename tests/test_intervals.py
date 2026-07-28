@@ -14,6 +14,8 @@ from autoquant.intervals import (
     configurable_interval_surface,
     interval_surface,
     normalize_feature_intervals,
+    observed_interval_surface,
+    validate_observed_ohlcv,
     validate_xnys_session_ohlcv,
 )
 
@@ -144,6 +146,42 @@ class MultiIntervalCoreTests(unittest.TestCase):
         bad.loc[0, "high"] = bad.loc[0, "open"] - 2.0
         with self.assertRaisesRegex(IntervalContractError, "bar geometry"):
             build_multi_interval_frame(bad, ["3h"])
+
+    def test_observed_surface_preserves_gaps_and_zero_volume(self) -> None:
+        surface = observed_interval_surface("1h").to_dict()
+        self.assertEqual(
+            surface,
+            {
+                "baseInterval": "1h",
+                "featureIntervals": [],
+                "timestampSemantics": "bar-close",
+                "marketClock": "observed",
+                "calendar": "provider-observed",
+                "timezone": "UTC",
+                "aggregationMethod": "none-observed-base-bars-v1",
+                "alignment": "observed-only",
+                "missingObservation": "absent-no-fill",
+                "horizonClock": "per-target-observed-bars",
+            },
+        )
+        observed = hourly_fixture(6).drop(index=[1, 4]).reset_index(drop=True)
+        observed.loc[:, "volume"] = 0.0
+        observed.loc[1, "timestamp"] = pd.Timestamp(
+            "2026-01-01T03:30:00Z"
+        )
+        validated = validate_observed_ohlcv(observed)
+        self.assertEqual(len(validated), 4)
+        self.assertTrue(validated["volume"].eq(0).all())
+
+        naive = observed.copy()
+        naive["timestamp"] = naive["timestamp"].dt.tz_localize(None)
+        with self.assertRaisesRegex(IntervalContractError, "explicit UTC offset"):
+            validate_observed_ohlcv(naive)
+
+        negative = observed.copy()
+        negative.loc[0, "volume"] = -1.0
+        with self.assertRaisesRegex(IntervalContractError, "non-negative"):
+            validate_observed_ohlcv(negative)
 
     def test_v3_continuous_base_interval_is_explicit_and_causal(self) -> None:
         timestamps = pd.date_range(

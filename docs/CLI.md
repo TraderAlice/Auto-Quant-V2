@@ -211,6 +211,14 @@ listing-history start. Snapshot, Run, Factor Explorer, Studio, and Report
 expose verified union coverage and time-varying breadth. Portfolio, governed
 RL, and the coordinated research desk reject V4 explicitly.
 
+V5 accepts observed-only intraday input only with
+`--template ohlcv-factor-lab`. It requires completed timezone-aware
+bar-close timestamps, one explicit non-context prediction asset, per-asset
+classes, and declared volume semantics. Market closures and unmatched context
+rows remain absent. Forward horizons and split purges advance on the
+prediction asset's own observed bars, not elapsed time or the panel union.
+Portfolio, governed RL, and the coordinated research desk reject V5.
+
 The JSON result contains Project-level `request.json`, `intake.json`,
 `data/ohlcv/snapshot.json`, the template's verified Study identities, and
 exact next actions for inspecting the program and advancing its recommended

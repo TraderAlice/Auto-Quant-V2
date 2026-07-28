@@ -14,7 +14,11 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import numpy as np
 import pandas as pd
 
-from .briefs import load_research_request, validate_research_request
+from .briefs import (
+    ASSET_CLASSES,
+    load_research_request,
+    validate_research_request,
+)
 from .factor_claims import (
     FACTOR_CLAIM,
     build_factor_claim,
@@ -39,6 +43,7 @@ from .intervals import (
     CONTINUOUS_AGGREGATION_METHOD,
     CONTINUOUS_TERMINAL_POLICY,
     IntervalContractError,
+    OBSERVED_PANEL_POLICY,
     SESSION_TERMINAL_POLICY,
     SUPPORTED_BASE_INTERVALS,
     SUPPORTED_FEATURE_INTERVALS,
@@ -52,8 +57,10 @@ from .intervals import (
     interval_surface,
     load_multi_interval_asset,
     normalize_feature_intervals,
+    observed_interval_surface,
     validate_base_ohlcv,
     validate_continuous_hourly_ohlcv,
+    validate_observed_ohlcv,
 )
 from .mandates import (
     PORTFOLIO_MANDATE,
@@ -81,15 +88,25 @@ PROJECT_INTAKE_KIND = "autoquant-project-intake"
 PROJECT_REQUEST = "request.json"
 PROJECT_INTAKE = "intake.json"
 DATASET_SNAPSHOT = "data/ohlcv/snapshot.json"
-SAFE_SYMBOL = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+SAFE_SYMBOL = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._=-]{0,63}$")
 SUPPORTED_SOURCE_SUFFIXES = {".csv", ".parquet", ".feather"}
 RAGGED_DAILY_SCHEMA_VERSION = 4
+OBSERVED_INTRADAY_SCHEMA_VERSION = 5
 RAGGED_PANEL_POLICY = {
     "alignment": "observed-only",
     "missingObservation": "absent-no-fill",
 }
 FACTOR_MIN_ASSETS_PER_TIMESTAMP = 4
 FACTOR_MIN_ASSET_OBSERVATIONS = 120
+OBSERVED_INTRADAY_MARKET = {
+    "clock": "observed",
+    "calendar": "provider-observed",
+    "timezone": "UTC",
+}
+OBSERVED_VOLUME_SEMANTICS = {
+    "provider-reported-nonnegative",
+    "unavailable-zero",
+}
 PRICE_ADJUSTMENTS = {
     "raw",
     "split-adjusted",
@@ -261,6 +278,8 @@ class PreparedAsset:
     source_hash: str
     frame: pd.DataFrame
     interval_frames: dict[str, pd.DataFrame] | None = None
+    asset_class: str | None = None
+    volume_semantics: str | None = None
 
 
 @dataclass(frozen=True)
@@ -280,11 +299,22 @@ class PreparedIntake:
 
     @property
     def multi_interval(self) -> bool:
-        return self.package["schemaVersion"] in {2, 3}
+        return self.package["schemaVersion"] in {
+            2,
+            3,
+            OBSERVED_INTRADAY_SCHEMA_VERSION,
+        }
 
     @property
     def ragged_daily(self) -> bool:
         return self.package["schemaVersion"] == RAGGED_DAILY_SCHEMA_VERSION
+
+    @property
+    def observed_intraday(self) -> bool:
+        return (
+            self.package["schemaVersion"]
+            == OBSERVED_INTRADAY_SCHEMA_VERSION
+        )
 
     @property
     def interval_surface(self) -> dict[str, Any] | None:
@@ -293,6 +323,10 @@ class PreparedIntake:
         if self.package["schemaVersion"] == 2:
             return interval_surface(
                 self.package["featureIntervals"]
+            ).to_dict()
+        if self.observed_intraday:
+            return observed_interval_surface(
+                self.package["baseInterval"],
             ).to_dict()
         return configurable_interval_surface(
             self.package["baseInterval"],
@@ -304,6 +338,17 @@ class PreparedIntake:
     def annualization_periods(self) -> int:
         if not self.multi_interval:
             return 252
+        if self.observed_intraday:
+            requested = {
+                item["symbol"]: item.get("positionRole")
+                for item in self.request["assets"]
+            }
+            target = next(
+                asset
+                for asset in self.assets
+                if requested.get(asset.symbol) != "context-only"
+            )
+            return infer_annualization_periods(target.frame["timestamp"])
         return infer_annualization_periods(self.assets[0].frame["timestamp"])
 
 
@@ -581,6 +626,281 @@ def _validate_v4_package_manifest(
         **normalized,
         "schemaVersion": RAGGED_DAILY_SCHEMA_VERSION,
         "panelPolicy": dict(RAGGED_PANEL_POLICY),
+    }
+
+
+def _validate_v5_package_manifest(
+    value: dict[str, Any],
+    path: Path,
+) -> dict[str, Any]:
+    """Validate a Factor-only observed-bar intraday package."""
+
+    required = {
+        "schemaVersion",
+        "kind",
+        "id",
+        "version",
+        "assetClass",
+        "baseInterval",
+        "timestampSemantics",
+        "panelPolicy",
+        "market",
+        "priceAdjustment",
+        "provider",
+        "assets",
+    }
+    issues = _strict_keys(value, required, path)
+    if value.get("schemaVersion") != OBSERVED_INTRADAY_SCHEMA_VERSION:
+        issues.append(
+            _issue(
+                f"{path}/schemaVersion",
+                "schema.version",
+                f"Expected V{OBSERVED_INTRADAY_SCHEMA_VERSION}",
+            )
+        )
+    if value.get("kind") != DATASET_PACKAGE_KIND:
+        issues.append(
+            _issue(
+                f"{path}/kind",
+                "dataset.kind",
+                f"Expected {DATASET_PACKAGE_KIND}",
+            )
+        )
+    for key in ("id", "version", "assetClass"):
+        issues.extend(_non_empty(value.get(key), f"{path}/{key}"))
+    try:
+        surface = observed_interval_surface(value.get("baseInterval")).to_dict()
+    except IntervalContractError as error:
+        issues.append(_issue(f"{path}/baseInterval", error.code, str(error)))
+        surface = observed_interval_surface(BASE_INTERVAL).to_dict()
+    if value.get("timestampSemantics") != "bar-close":
+        issues.append(
+            _issue(
+                f"{path}/timestampSemantics",
+                "dataset.timestamp-semantics",
+                "V5 source timestamps must already mean completed bar close",
+            )
+        )
+    if value.get("panelPolicy") != OBSERVED_PANEL_POLICY:
+        issues.append(
+            _issue(
+                f"{path}/panelPolicy",
+                "dataset.panel-policy",
+                "V5 requires observed-only, absent-no-fill, "
+                "per-target-observed-bar horizon authority",
+            )
+        )
+    if value.get("market") != OBSERVED_INTRADAY_MARKET:
+        issues.append(
+            _issue(
+                f"{path}/market",
+                "dataset.market-clock",
+                "V5 requires provider-observed UTC timestamp authority",
+            )
+        )
+    if value.get("priceAdjustment") not in PRICE_ADJUSTMENTS:
+        issues.append(
+            _issue(
+                f"{path}/priceAdjustment",
+                "dataset.adjustment",
+                "Unsupported priceAdjustment",
+            )
+        )
+
+    provider = value.get("provider")
+    if not isinstance(provider, dict):
+        issues.append(
+            _issue(f"{path}/provider", "schema.type", "Provider must be an object")
+        )
+        provider = {}
+    else:
+        issues.extend(
+            _strict_keys(
+                provider,
+                {"name", "retrievedAt", "sourceUri", "terms"},
+                f"{path}/provider",
+            )
+        )
+    for key in ("name", "retrievedAt", "terms"):
+        issues.extend(_non_empty(provider.get(key), f"{path}/provider/{key}"))
+    if isinstance(provider.get("retrievedAt"), str):
+        try:
+            retrieved_at = datetime.fromisoformat(
+                provider["retrievedAt"].replace("Z", "+00:00")
+            )
+            if retrieved_at.tzinfo is None:
+                raise ValueError("timezone required")
+        except ValueError:
+            issues.append(
+                _issue(
+                    f"{path}/provider/retrievedAt",
+                    "dataset.retrieved-at",
+                    "retrievedAt must be timezone-aware ISO-8601",
+                )
+            )
+    source_uri = provider.get("sourceUri")
+    if source_uri is not None:
+        issues.extend(_non_empty(source_uri, f"{path}/provider/sourceUri"))
+
+    assets = value.get("assets")
+    if not isinstance(assets, list) or not assets:
+        issues.append(
+            _issue(f"{path}/assets", "schema.array", "Assets must be non-empty")
+        )
+        assets = []
+    symbols: list[str] = []
+    source_paths: list[str] = []
+    asset_classes: list[str] = []
+    normalized_assets: list[dict[str, str]] = []
+    for index, asset in enumerate(assets):
+        asset_path = f"{path}/assets/{index}"
+        if not isinstance(asset, dict):
+            issues.append(_issue(asset_path, "schema.type", "Asset must be an object"))
+            continue
+        issues.extend(
+            _strict_keys(
+                asset,
+                {
+                    "symbol",
+                    "assetClass",
+                    "venue",
+                    "currency",
+                    "path",
+                    "volumeSemantics",
+                },
+                asset_path,
+            )
+        )
+        for key in (
+            "symbol",
+            "assetClass",
+            "venue",
+            "currency",
+            "path",
+            "volumeSemantics",
+        ):
+            issues.extend(_non_empty(asset.get(key), f"{asset_path}/{key}"))
+        symbol = asset.get("symbol")
+        if isinstance(symbol, str):
+            symbols.append(symbol)
+            if not SAFE_SYMBOL.fullmatch(symbol):
+                issues.append(
+                    _issue(
+                        f"{asset_path}/symbol",
+                        "dataset.symbol",
+                        "Symbol must be a path-safe 1-64 character identifier",
+                    )
+                )
+        asset_class = asset.get("assetClass")
+        if asset_class not in ASSET_CLASSES:
+            issues.append(
+                _issue(
+                    f"{asset_path}/assetClass",
+                    "dataset.asset-class",
+                    "Unsupported asset class",
+                )
+            )
+        elif isinstance(asset_class, str):
+            asset_classes.append(asset_class)
+        volume_semantics = asset.get("volumeSemantics")
+        if volume_semantics not in OBSERVED_VOLUME_SEMANTICS:
+            issues.append(
+                _issue(
+                    f"{asset_path}/volumeSemantics",
+                    "dataset.volume-semantics",
+                    "Unsupported observed volume semantics",
+                )
+            )
+        relative = asset.get("path")
+        if isinstance(relative, str):
+            source_paths.append(relative)
+            try:
+                confined_path(path.parent, relative, f"{asset_path}/path")
+            except AutoQuantValidationError as error:
+                issues.extend(error.issues)
+            if Path(relative).suffix.lower() not in SUPPORTED_SOURCE_SUFFIXES:
+                issues.append(
+                    _issue(
+                        f"{asset_path}/path",
+                        "dataset.format",
+                        "Asset path must end in .csv, .parquet, or .feather",
+                    )
+                )
+        if all(
+            isinstance(asset.get(key), str)
+            for key in (
+                "symbol",
+                "assetClass",
+                "venue",
+                "currency",
+                "path",
+                "volumeSemantics",
+            )
+        ):
+            normalized_assets.append(
+                {
+                    key: asset[key].strip()
+                    for key in (
+                        "symbol",
+                        "assetClass",
+                        "venue",
+                        "currency",
+                        "path",
+                        "volumeSemantics",
+                    )
+                }
+            )
+    if len(symbols) != len(set(symbols)):
+        issues.append(
+            _issue(
+                f"{path}/assets",
+                "dataset.duplicate-symbol",
+                "Symbols must be unique",
+            )
+        )
+    if len(source_paths) != len(set(source_paths)):
+        issues.append(
+            _issue(
+                f"{path}/assets",
+                "dataset.duplicate-path",
+                "Asset source paths must be unique",
+            )
+        )
+    expected_class = (
+        next(iter(set(asset_classes)))
+        if len(set(asset_classes)) == 1
+        else "mixed"
+    )
+    if asset_classes and value.get("assetClass") != expected_class:
+        issues.append(
+            _issue(
+                f"{path}/assetClass",
+                "dataset.asset-class-summary",
+                f"assetClass must summarize per-asset classes as '{expected_class}'",
+            )
+        )
+    if issues:
+        raise AutoQuantValidationError(issues)
+    return {
+        **value,
+        "id": value["id"].strip(),
+        "version": value["version"].strip(),
+        "assetClass": value["assetClass"].strip(),
+        "baseInterval": surface["baseInterval"],
+        "timestampSemantics": "bar-close",
+        "panelPolicy": dict(OBSERVED_PANEL_POLICY),
+        "market": dict(OBSERVED_INTRADAY_MARKET),
+        "provider": {
+            "name": provider["name"].strip(),
+            "retrievedAt": provider["retrievedAt"].strip(),
+            "sourceUri": (
+                provider["sourceUri"].strip()
+                if isinstance(provider["sourceUri"], str)
+                else None
+            ),
+            "terms": provider["terms"].strip(),
+        },
+        "assets": normalized_assets,
     }
 
 
@@ -989,6 +1309,8 @@ def _validate_package_manifest(
     value: dict[str, Any],
     path: Path,
 ) -> dict[str, Any]:
+    if value.get("schemaVersion") == OBSERVED_INTRADAY_SCHEMA_VERSION:
+        return _validate_v5_package_manifest(value, path)
     if value.get("schemaVersion") == RAGGED_DAILY_SCHEMA_VERSION:
         return _validate_v4_package_manifest(value, path)
     if value.get("schemaVersion") == 3:
@@ -1000,6 +1322,11 @@ def _validate_package_manifest(
 
 def _daily_panel_availability_from_dates(
     asset_dates: list[list[str]],
+    *,
+    minimum_assets_per_factor_timestamp: int = (
+        FACTOR_MIN_ASSETS_PER_TIMESTAMP
+    ),
+    eligible_dates: list[str] | None = None,
 ) -> tuple[list[str], dict[str, Any]]:
     if not asset_dates:
         return [], {
@@ -1011,7 +1338,7 @@ def _daily_panel_availability_from_dates(
             "intersectionObservations": 0,
             "eligibleFactorObservations": 0,
             "minimumAssetsPerFactorTimestamp": (
-                FACTOR_MIN_ASSETS_PER_TIMESTAMP
+                minimum_assets_per_factor_timestamp
             ),
             "observedRows": 0,
             "possibleRows": 0,
@@ -1031,9 +1358,13 @@ def _daily_panel_availability_from_dates(
     ]
     possible = len(union_dates) * len(asset_dates)
     observed = sum(len(dates) for dates in date_sets)
-    eligible = sum(
-        count >= FACTOR_MIN_ASSETS_PER_TIMESTAMP
-        for count in counts
+    eligible = (
+        len(eligible_dates)
+        if eligible_dates is not None
+        else sum(
+            count >= minimum_assets_per_factor_timestamp
+            for count in counts
+        )
     )
     return union_dates, {
         "alignment": RAGGED_PANEL_POLICY["alignment"],
@@ -1042,7 +1373,7 @@ def _daily_panel_availability_from_dates(
         "intersectionObservations": len(intersection_dates),
         "eligibleFactorObservations": eligible,
         "minimumAssetsPerFactorTimestamp": (
-            FACTOR_MIN_ASSETS_PER_TIMESTAMP
+            minimum_assets_per_factor_timestamp
         ),
         "observedRows": observed,
         "possibleRows": possible,
@@ -1107,6 +1438,14 @@ def prepare_project_intake(
     ragged_daily = (
         package["schemaVersion"] == RAGGED_DAILY_SCHEMA_VERSION
     )
+    observed_intraday = (
+        package["schemaVersion"] == OBSERVED_INTRADAY_SCHEMA_VERSION
+    )
+    observed_target_symbols = [
+        item["symbol"]
+        for item in request["assets"]
+        if item.get("positionRole") != "context-only"
+    ]
     if ragged_daily and template != "ohlcv-factor-lab":
         issues.append(
             _issue(
@@ -1116,6 +1455,27 @@ def prepare_project_intake(
                 "by the ohlcv-factor-lab template",
             )
         )
+    if observed_intraday and template != "ohlcv-factor-lab":
+        issues.append(
+            _issue(
+                manifest_path,
+                "dataset.observed-intraday-factor-only",
+                "V5 observed-only intraday panels are supported only by "
+                "the ohlcv-factor-lab template",
+            )
+        )
+    if observed_intraday and (
+        any("positionRole" not in item for item in request["assets"])
+        or len(observed_target_symbols) != 1
+    ):
+        issues.append(
+            _issue(
+                "request/assets",
+                "request.observed-intraday-target",
+                "V5 requires explicit positionRole on every requested asset "
+                "and exactly one non-context temporal target",
+            )
+        )
     package_surface = (
         configurable_interval_surface(
             package["baseInterval"],
@@ -1123,7 +1483,13 @@ def prepare_project_intake(
             package["market"],
         ).to_dict()
         if package["schemaVersion"] == 3
-        else None
+        else (
+            observed_interval_surface(
+                package["baseInterval"],
+            ).to_dict()
+            if observed_intraday
+            else None
+        )
     )
     portfolio_policy = request.get("portfolioPolicy")
     if (
@@ -1189,6 +1555,29 @@ def prepare_project_intake(
             except IntervalContractError as error:
                 issues.append(_issue(source, error.code, str(error)))
                 continue
+        elif observed_intraday:
+            try:
+                frame = validate_observed_ohlcv(
+                    _read_source(source).rename(
+                        columns={"date": "timestamp"}
+                    ),
+                    label=asset["symbol"],
+                )
+                if (
+                    asset["volumeSemantics"] == "unavailable-zero"
+                    and not frame["volume"].eq(0).all()
+                ):
+                    raise IntervalContractError(
+                        "interval.volume-semantics",
+                        f"{asset['symbol']} declares unavailable-zero volume "
+                        "but contains nonzero observations",
+                    )
+                interval_frames = {
+                    package["baseInterval"]: frame,
+                }
+            except IntervalContractError as error:
+                issues.append(_issue(source, error.code, str(error)))
+                continue
         else:
             frame = _canonical_frame(
                 source,
@@ -1197,7 +1586,11 @@ def prepare_project_intake(
         dates = frame["timestamp"].tolist()
         if expected_dates is None:
             expected_dates = dates
-        elif dates != expected_dates and not ragged_daily:
+        elif (
+            dates != expected_dates
+            and not ragged_daily
+            and not observed_intraday
+        ):
             panel = (
                 "exact base timestamp panel"
                 if package["schemaVersion"] in {2, 3}
@@ -1220,19 +1613,39 @@ def prepare_project_intake(
                 source_hash=hash_file(source),
                 frame=frame,
                 interval_frames=interval_frames,
+                asset_class=(
+                    asset["assetClass"]
+                    if observed_intraday
+                    else package["assetClass"]
+                ),
+                volume_semantics=(
+                    asset["volumeSemantics"]
+                    if observed_intraday
+                    else None
+                ),
             )
         )
+    prepared_by_symbol = {asset.symbol: asset for asset in prepared}
+    observed_target = (
+        prepared_by_symbol.get(observed_target_symbols[0])
+        if observed_intraday and len(observed_target_symbols) == 1
+        else None
+    )
     panel_dates = (
         _daily_panel_availability(prepared)[0]
         if ragged_daily
-        else list(expected_dates or [])
+        else (
+            observed_target.frame["timestamp"].tolist()
+            if observed_target is not None
+            else list(expected_dates or [])
+        )
     )
     availability = (
         _daily_panel_availability(prepared)[1]
-        if ragged_daily
+        if ragged_daily or observed_intraday
         else None
     )
-    if ragged_daily:
+    if ragged_daily or observed_intraday:
         for asset in prepared:
             if len(asset.frame) < FACTOR_MIN_ASSET_OBSERVATIONS:
                 issues.append(
@@ -1240,10 +1653,12 @@ def prepare_project_intake(
                         asset.source_path,
                         "dataset.asset-observations",
                         f"{asset.symbol} has fewer than "
-                        f"{FACTOR_MIN_ASSET_OBSERVATIONS} observed daily rows",
+                        f"{FACTOR_MIN_ASSET_OBSERVATIONS} observed rows",
                     )
                 )
     minimum_assets, minimum_observations = INTAKE_TEMPLATE_REQUIREMENTS[template]
+    if observed_intraday:
+        minimum_assets = 1
     if len(prepared) < minimum_assets:
         issues.append(
             _issue(
@@ -1256,7 +1671,8 @@ def prepare_project_intake(
     if observations < minimum_observations:
         unit = (
             f"base {package['baseInterval']}"
-            if package["schemaVersion"] in {2, 3}
+            if package["schemaVersion"]
+            in {2, 3, OBSERVED_INTRADAY_SCHEMA_VERSION}
             else "daily"
         )
         issues.append(
@@ -1268,6 +1684,7 @@ def prepare_project_intake(
         )
     if (
         availability is not None
+        and not observed_intraday
         and availability["eligibleFactorObservations"]
         < minimum_observations
     ):
@@ -1281,9 +1698,9 @@ def prepare_project_intake(
             )
         )
 
-    package_by_symbol = {asset.symbol: asset for asset in prepared}
+    package_by_symbol = prepared_by_symbol
     requested_classes = {item["assetClass"] for item in request["assets"]}
-    if requested_classes != {package["assetClass"]}:
+    if not observed_intraday and requested_classes != {package["assetClass"]}:
         issues.append(
             _issue(
                 "request/assets",
@@ -1308,6 +1725,15 @@ def prepare_project_intake(
                     "request/assets",
                     "request.dataset-venue",
                     f"Requested venue for {item['symbol']} differs from dataset",
+                )
+            )
+        elif observed_intraday and item["assetClass"] != source.asset_class:
+            issues.append(
+                _issue(
+                    "request/assets",
+                    "request.dataset-asset-class",
+                    f"Requested asset class for {item['symbol']} differs "
+                    "from its dataset assetClass",
                 )
             )
     if panel_dates:
@@ -1473,6 +1899,7 @@ def materialize_intake_dataset(
     output = project.root_dir / project.manifest.directories["data"] / "ohlcv"
     output.mkdir()
     asset_records: list[dict[str, Any]] = []
+    observed_intraday_dates: list[list[str]] = []
     for asset in intake.assets:
         asset_start = str(asset.frame["timestamp"].iloc[0])
         asset_end = str(asset.frame["timestamp"].iloc[-1])
@@ -1483,10 +1910,19 @@ def materialize_intake_dataset(
             "sourcePath": asset.source_relative_path,
             "sourceHash": asset.source_hash,
             "start": (
-                asset_start if intake.ragged_daily else intake.start
+                asset_start
+                if intake.ragged_daily or intake.observed_intraday
+                else intake.start
             ),
-            "end": asset_end if intake.ragged_daily else intake.end,
+            "end": (
+                asset_end
+                if intake.ragged_daily or intake.observed_intraday
+                else intake.end
+            ),
         }
+        if intake.observed_intraday:
+            common["assetClass"] = asset.asset_class
+            common["volumeSemantics"] = asset.volume_semantics
         if intake.multi_interval:
             assert asset.interval_frames is not None
             interval_records = []
@@ -1495,6 +1931,38 @@ def materialize_intake_dataset(
                 target_directory.mkdir(exist_ok=True)
                 target = target_directory / f"{asset.symbol}.csv"
                 frame = raw_frame.copy()
+                if intake.observed_intraday:
+                    start_at = pd.Timestamp(intake.start)
+                    end_at = pd.Timestamp(intake.end)
+                    frame = frame[
+                        (frame["timestamp"] >= start_at)
+                        & (frame["timestamp"] <= end_at)
+                    ].reset_index(drop=True)
+                    if frame.empty:
+                        raise AutoQuantValidationError(
+                            [
+                                _issue(
+                                    asset.source_path,
+                                    "dataset.observed-range",
+                                    f"{asset.symbol} has no observations in "
+                                    "the target time range",
+                                )
+                            ]
+                        )
+                    common["start"] = pd.Timestamp(
+                        frame["timestamp"].iloc[0]
+                    ).isoformat().replace("+00:00", "Z")
+                    common["end"] = pd.Timestamp(
+                        frame["timestamp"].iloc[-1]
+                    ).isoformat().replace("+00:00", "Z")
+                    observed_intraday_dates.append(
+                        [
+                            pd.Timestamp(value)
+                            .isoformat()
+                            .replace("+00:00", "Z")
+                            for value in frame["timestamp"]
+                        ]
+                    )
                 frame["timestamp"] = frame["timestamp"].map(
                     lambda value: pd.Timestamp(value)
                     .isoformat()
@@ -1564,6 +2032,21 @@ def materialize_intake_dataset(
     if intake.multi_interval:
         snapshot["schemaVersion"] = intake.package["schemaVersion"]
         snapshot["intervalSurface"] = intake.interval_surface
+        if intake.observed_intraday:
+            snapshot["panelPolicy"] = dict(OBSERVED_PANEL_POLICY)
+            target_symbol = next(
+                item["symbol"]
+                for item in intake.request["assets"]
+                if item.get("positionRole") != "context-only"
+            )
+            target_dates = observed_intraday_dates[
+                intake.universe.index(target_symbol)
+            ]
+            snapshot["availability"] = _daily_panel_availability_from_dates(
+                observed_intraday_dates,
+                minimum_assets_per_factor_timestamp=1,
+                eligible_dates=target_dates,
+            )[1]
     else:
         snapshot["frequency"] = intake.package["frequency"]
         if intake.ragged_daily:
@@ -1579,7 +2062,7 @@ def materialize_intake_dataset(
         + " / ".join(
             [
                 intake.package["baseInterval"],
-                *intake.package["featureIntervals"],
+                *intake.interval_surface["featureIntervals"],
             ]
         )
         + "`\n"
@@ -1599,7 +2082,13 @@ def materialize_intake_dataset(
             "- Panel: observed-only ragged daily rows; missing observations "
             "remain absent and are never filled.\n\n"
             if intake.ragged_daily
-            else ""
+            else (
+                "- Panel: provider-observed base bars; closures and missing "
+                "observations remain absent, and horizons advance on the "
+                "prediction asset's own observed bars.\n\n"
+                if intake.observed_intraday
+                else ""
+            )
         )
         + "The fixed Study hashes every file in this directory. Provider, "
         "calendar, adjustment, venue, and terms values are caller-supplied "
@@ -2041,6 +2530,8 @@ def _validate_multi_interval_snapshot(
         "studyId",
         "assets",
     }
+    if schema_version == OBSERVED_INTRADAY_SCHEMA_VERSION:
+        required.update({"panelPolicy", "availability"})
     issues = _strict_keys(snapshot, required, path)
     if (
         snapshot.get("schemaVersion") != schema_version
@@ -2088,6 +2579,19 @@ def _validate_multi_interval_snapshot(
         }
         if schema_version == 3:
             surface_keys |= {"calendar", "terminalBucketPolicy"}
+        elif schema_version == OBSERVED_INTRADAY_SCHEMA_VERSION:
+            surface_keys = {
+                "baseInterval",
+                "featureIntervals",
+                "timestampSemantics",
+                "marketClock",
+                "calendar",
+                "timezone",
+                "aggregationMethod",
+                "alignment",
+                "missingObservation",
+                "horizonClock",
+            }
         issues.extend(
             _strict_keys(
                 surface,
@@ -2145,6 +2649,24 @@ def _validate_multi_interval_snapshot(
                 f"V{schema_version} snapshot market differs from interval authority",
             )
         )
+    if schema_version == OBSERVED_INTRADAY_SCHEMA_VERSION:
+        if snapshot.get("panelPolicy") != OBSERVED_PANEL_POLICY:
+            issues.append(
+                _issue(
+                    f"{path}/panelPolicy",
+                    "intake.snapshot-panel-policy",
+                    "V5 snapshot must preserve observed-only target-bar authority",
+                )
+            )
+        availability = snapshot.get("availability")
+        if not isinstance(availability, dict):
+            issues.append(
+                _issue(
+                    f"{path}/availability",
+                    "schema.type",
+                    "V5 snapshot availability must be an object",
+                )
+            )
     provider = snapshot.get("provider")
     if not isinstance(provider, dict):
         issues.append(_issue(f"{path}/provider", "schema.type", "Provider must be an object"))
@@ -2202,27 +2724,25 @@ def _validate_multi_interval_snapshot(
         issues.append(_issue(f"{path}/assets", "schema.array", "Snapshot assets must be non-empty"))
         assets = []
     symbols: list[str] = []
+    snapshot_asset_classes: list[str] = []
     for asset_index, asset in enumerate(assets):
         asset_path = f"{path}/assets/{asset_index}"
         if not isinstance(asset, dict):
             issues.append(_issue(asset_path, "schema.type", "Asset must be an object"))
             continue
-        issues.extend(
-            _strict_keys(
-                asset,
-                {
-                    "symbol",
-                    "venue",
-                    "currency",
-                    "sourcePath",
-                    "sourceHash",
-                    "start",
-                    "end",
-                    "intervals",
-                },
-                asset_path,
-            )
-        )
+        asset_keys = {
+            "symbol",
+            "venue",
+            "currency",
+            "sourcePath",
+            "sourceHash",
+            "start",
+            "end",
+            "intervals",
+        }
+        if schema_version == OBSERVED_INTRADAY_SCHEMA_VERSION:
+            asset_keys.update({"assetClass", "volumeSemantics"})
+        issues.extend(_strict_keys(asset, asset_keys, asset_path))
         for key in ("symbol", "venue", "currency", "sourcePath", "start", "end"):
             issues.extend(_non_empty(asset.get(key), f"{asset_path}/{key}"))
         if not _valid_hash(asset.get("sourceHash")):
@@ -2231,8 +2751,11 @@ def _validate_multi_interval_snapshot(
         if isinstance(symbol, str):
             symbols.append(symbol)
         if (
-            asset.get("start") != time_range.get("start")
-            or asset.get("end") != time_range.get("end")
+            schema_version != OBSERVED_INTRADAY_SCHEMA_VERSION
+            and (
+                asset.get("start") != time_range.get("start")
+                or asset.get("end") != time_range.get("end")
+            )
         ):
             issues.append(
                 _issue(
@@ -2241,6 +2764,46 @@ def _validate_multi_interval_snapshot(
                     "Base asset coverage must match snapshot timeRange",
                 )
             )
+        if schema_version == OBSERVED_INTRADAY_SCHEMA_VERSION:
+            if asset.get("assetClass") not in ASSET_CLASSES:
+                issues.append(
+                    _issue(
+                        f"{asset_path}/assetClass",
+                        "dataset.asset-class",
+                        "Unsupported asset class",
+                    )
+                )
+            else:
+                snapshot_asset_classes.append(asset["assetClass"])
+            if asset.get("volumeSemantics") not in OBSERVED_VOLUME_SEMANTICS:
+                issues.append(
+                    _issue(
+                        f"{asset_path}/volumeSemantics",
+                        "dataset.volume-semantics",
+                        "Unsupported observed volume semantics",
+                    )
+                )
+            try:
+                asset_start = pd.Timestamp(asset.get("start"))
+                asset_end = pd.Timestamp(asset.get("end"))
+                range_start = pd.Timestamp(time_range.get("start"))
+                range_end = pd.Timestamp(time_range.get("end"))
+                if not (
+                    range_start
+                    <= asset_start
+                    <= asset_end
+                    <= range_end
+                ):
+                    raise ValueError
+            except (TypeError, ValueError):
+                issues.append(
+                    _issue(
+                        asset_path,
+                        "intake.snapshot-coverage",
+                        "Observed asset coverage must be contained within "
+                        "the target timeRange",
+                    )
+                )
         rows = asset.get("intervals")
         if not isinstance(rows, list) or not rows:
             issues.append(
@@ -2316,6 +2879,20 @@ def _validate_multi_interval_snapshot(
                 "Snapshot asset order must exactly match the research universe",
             )
         )
+    if schema_version == OBSERVED_INTRADAY_SCHEMA_VERSION:
+        expected_class = (
+            next(iter(set(snapshot_asset_classes)))
+            if len(set(snapshot_asset_classes)) == 1
+            else "mixed"
+        )
+        if snapshot_asset_classes and snapshot.get("assetClass") != expected_class:
+            issues.append(
+                _issue(
+                    f"{path}/assetClass",
+                    "intake.snapshot-asset-class-summary",
+                    f"Snapshot assetClass must be '{expected_class}'",
+                )
+            )
     return issues
 
 
@@ -2348,10 +2925,23 @@ def _validate_v4_snapshot(
     return _validate_v1_snapshot(snapshot, path, ragged=True)
 
 
+def _validate_v5_snapshot(
+    snapshot: dict[str, Any],
+    path: Path,
+) -> list[ValidationIssue]:
+    return _validate_multi_interval_snapshot(
+        snapshot,
+        path,
+        schema_version=OBSERVED_INTRADAY_SCHEMA_VERSION,
+    )
+
+
 def _validate_snapshot(
     snapshot: dict[str, Any],
     path: Path,
 ) -> list[ValidationIssue]:
+    if snapshot.get("schemaVersion") == OBSERVED_INTRADAY_SCHEMA_VERSION:
+        return _validate_v5_snapshot(snapshot, path)
     if snapshot.get("schemaVersion") == RAGGED_DAILY_SCHEMA_VERSION:
         return _validate_v4_snapshot(snapshot, path)
     if snapshot.get("schemaVersion") == 3:
@@ -2492,13 +3082,35 @@ def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
                 "Snapshot requested assets differ from the Research Request",
             )
         )
+    if snapshot.get("schemaVersion") == OBSERVED_INTRADAY_SCHEMA_VERSION:
+        snapshot_classes = {
+            item.get("symbol"): item.get("assetClass")
+            for item in snapshot.get("assets", [])
+            if isinstance(item, dict)
+        }
+        mismatched_classes = [
+            item["symbol"]
+            for item in request["assets"]
+            if snapshot_classes.get(item["symbol"]) != item["assetClass"]
+        ]
+        if mismatched_classes:
+            issues.append(
+                _issue(
+                    snapshot_path,
+                    "intake.snapshot-request-asset-classes",
+                    "V5 snapshot asset classes differ from the Research "
+                    "Request: " + ", ".join(mismatched_classes),
+                )
+            )
     ragged_dates_by_symbol: dict[str, list[str]] = {}
+    observed_dates_by_symbol: dict[str, list[str]] = {}
     for asset in snapshot.get("assets", []):
         if not isinstance(asset, dict):
             continue
         normalized_rows = (
             asset.get("intervals", [])
-            if snapshot.get("schemaVersion") in {2, 3}
+            if snapshot.get("schemaVersion")
+            in {2, 3, OBSERVED_INTRADAY_SCHEMA_VERSION}
             else [asset]
         )
         for row in normalized_rows:
@@ -2559,12 +3171,13 @@ def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
                             )
                         )
         if (
-            snapshot.get("schemaVersion") in {2, 3}
+            snapshot.get("schemaVersion")
+            in {2, 3, OBSERVED_INTRADAY_SCHEMA_VERSION}
             and isinstance(asset.get("symbol"), str)
             and isinstance(snapshot.get("timeRange"), dict)
         ):
             try:
-                load_multi_interval_asset(
+                loaded_interval_asset = load_multi_interval_asset(
                     project.root_dir / project.manifest.directories["data"],
                     asset["symbol"],
                     start=snapshot["timeRange"].get("start", ""),
@@ -2578,6 +3191,48 @@ def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
                         str(error),
                     )
                 )
+            else:
+                if (
+                    snapshot.get("schemaVersion")
+                    == OBSERVED_INTRADAY_SCHEMA_VERSION
+                    and loaded_interval_asset is not None
+                ):
+                    dates = [
+                        pd.Timestamp(value)
+                        .isoformat()
+                        .replace("+00:00", "Z")
+                        for value in loaded_interval_asset["timestamp"]
+                    ]
+                    observed_dates_by_symbol[asset["symbol"]] = dates
+                    base_interval = snapshot["intervalSurface"]["baseInterval"]
+                    base_record = next(
+                        (
+                            row
+                            for row in asset.get("intervals", [])
+                            if row.get("interval") == base_interval
+                        ),
+                        None,
+                    )
+                    if (
+                        not isinstance(base_record, dict)
+                        or base_record.get("observations") != len(dates)
+                        or base_record.get("start")
+                        != (dates[0] if dates else None)
+                        or base_record.get("end")
+                        != (dates[-1] if dates else None)
+                        or asset.get("start")
+                        != (dates[0] if dates else None)
+                        or asset.get("end")
+                        != (dates[-1] if dates else None)
+                    ):
+                        issues.append(
+                            _issue(
+                                snapshot_path,
+                                "intake.snapshot-asset-availability",
+                                "Observed asset availability differs from "
+                                "canonical normalized rows",
+                            )
+                        )
     if (
         snapshot.get("schemaVersion") == RAGGED_DAILY_SCHEMA_VERSION
         and len(ragged_dates_by_symbol)
@@ -2629,6 +3284,38 @@ def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
                 "Study dataset hash mismatch",
             )
         )
+    if (
+        snapshot.get("schemaVersion") == OBSERVED_INTRADAY_SCHEMA_VERSION
+        and len(observed_dates_by_symbol)
+        == len(snapshot.get("universe", []))
+    ):
+        ordered_dates = [
+            observed_dates_by_symbol[symbol]
+            for symbol in snapshot["universe"]
+        ]
+        target_symbol = next(
+            (
+                item["symbol"]
+                for item in request["assets"]
+                if item.get("positionRole") != "context-only"
+            ),
+            None,
+        )
+        target_dates = observed_dates_by_symbol.get(target_symbol, [])
+        _, availability = _daily_panel_availability_from_dates(
+            ordered_dates,
+            minimum_assets_per_factor_timestamp=1,
+            eligible_dates=target_dates,
+        )
+        if snapshot.get("availability") != availability:
+            issues.append(
+                _issue(
+                    snapshot_path,
+                    "intake.snapshot-availability",
+                    "V5 availability summary differs from canonical "
+                    "observed rows",
+                )
+            )
     time_range = (
         snapshot.get("timeRange")
         if isinstance(snapshot.get("timeRange"), dict)
@@ -2676,8 +3363,31 @@ def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
     if requires_mandate or mandate_path.exists() or mandate_path.is_symlink():
         mandate = load_portfolio_mandate(mandate_path)
         annualization = 252
-        if snapshot.get("schemaVersion") in {2, 3} and snapshot.get("assets"):
-            first_asset = snapshot["assets"][0]
+        if (
+            snapshot.get("schemaVersion")
+            in {2, 3, OBSERVED_INTRADAY_SCHEMA_VERSION}
+            and snapshot.get("assets")
+        ):
+            target_symbol = next(
+                (
+                    item["symbol"]
+                    for item in request["assets"]
+                    if item.get("positionRole") != "context-only"
+                ),
+                None,
+            )
+            first_asset = next(
+                (
+                    item
+                    for item in snapshot["assets"]
+                    if (
+                        snapshot.get("schemaVersion")
+                        == OBSERVED_INTRADAY_SCHEMA_VERSION
+                        and item.get("symbol") == target_symbol
+                    )
+                ),
+                snapshot["assets"][0],
+            )
             if isinstance(first_asset, dict):
                 base_interval = snapshot["intervalSurface"]["baseInterval"]
                 base_record = next(
@@ -3071,13 +3781,83 @@ OHLCV_DATASET_PACKAGE_V3_JSON_SCHEMA: dict[str, Any] = {
         "assets": OHLCV_DATASET_PACKAGE_V1_JSON_SCHEMA["properties"]["assets"],
     },
 }
+OHLCV_DATASET_PACKAGE_V5_JSON_SCHEMA: dict[str, Any] = {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "AutoQuant observed-only intraday Factor dataset package",
+    "type": "object",
+    "additionalProperties": False,
+    "required": [
+        "schemaVersion",
+        "kind",
+        "id",
+        "version",
+        "assetClass",
+        "baseInterval",
+        "timestampSemantics",
+        "panelPolicy",
+        "market",
+        "priceAdjustment",
+        "provider",
+        "assets",
+    ],
+    "properties": {
+        "schemaVersion": {"const": OBSERVED_INTRADAY_SCHEMA_VERSION},
+        "kind": {"const": DATASET_PACKAGE_KIND},
+        "id": {"type": "string", "minLength": 1},
+        "version": {"type": "string", "minLength": 1},
+        "assetClass": {"type": "string", "minLength": 1},
+        "baseInterval": {"enum": list(SUPPORTED_BASE_INTERVALS)},
+        "timestampSemantics": {"const": "bar-close"},
+        "panelPolicy": {"const": OBSERVED_PANEL_POLICY},
+        "market": {"const": OBSERVED_INTRADAY_MARKET},
+        "priceAdjustment": {"enum": sorted(PRICE_ADJUSTMENTS)},
+        "provider": OHLCV_DATASET_PACKAGE_V1_JSON_SCHEMA["properties"][
+            "provider"
+        ],
+        "assets": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": [
+                    "symbol",
+                    "assetClass",
+                    "venue",
+                    "currency",
+                    "path",
+                    "volumeSemantics",
+                ],
+                "properties": {
+                    "symbol": {
+                        "type": "string",
+                        "pattern": SAFE_SYMBOL.pattern,
+                    },
+                    "assetClass": {"enum": sorted(ASSET_CLASSES)},
+                    "venue": {"type": "string", "minLength": 1},
+                    "currency": {"type": "string", "minLength": 1},
+                    "path": {"type": "string", "minLength": 1},
+                    "volumeSemantics": {
+                        "enum": sorted(OBSERVED_VOLUME_SEMANTICS)
+                    },
+                },
+            },
+        },
+    },
+}
 OHLCV_DATASET_PACKAGE_JSON_SCHEMA: dict[str, Any] = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "title": "AutoQuant external OHLCV dataset package",
     "type": "object",
     "properties": {
         "schemaVersion": {
-            "enum": [1, 2, 3, RAGGED_DAILY_SCHEMA_VERSION]
+            "enum": [
+                1,
+                2,
+                3,
+                RAGGED_DAILY_SCHEMA_VERSION,
+                OBSERVED_INTRADAY_SCHEMA_VERSION,
+            ]
         },
         "kind": {"const": DATASET_PACKAGE_KIND},
         "frequency": {"const": "1d"},
@@ -3092,5 +3872,6 @@ OHLCV_DATASET_PACKAGE_JSON_SCHEMA: dict[str, Any] = {
         OHLCV_DATASET_PACKAGE_V2_JSON_SCHEMA,
         OHLCV_DATASET_PACKAGE_V3_JSON_SCHEMA,
         OHLCV_DATASET_PACKAGE_V4_JSON_SCHEMA,
+        OHLCV_DATASET_PACKAGE_V5_JSON_SCHEMA,
     ],
 }

@@ -52,6 +52,12 @@ CONTINUOUS_AGGREGATION_METHOD = (
 XNYS_AGGREGATION_METHOD = "complete-xnys-regular-session-bar-close-v1"
 CONTINUOUS_TERMINAL_POLICY = "omit-incomplete"
 SESSION_TERMINAL_POLICY = "complete-at-session-close"
+OBSERVED_AGGREGATION_METHOD = "none-observed-base-bars-v1"
+OBSERVED_PANEL_POLICY = {
+    "alignment": "observed-only",
+    "missingObservation": "absent-no-fill",
+    "horizonClock": "per-target-observed-bars",
+}
 INTERVAL_ID = re.compile(r"^(?:1m|5m|15m|30m|1h|3h|4h|6h|12h|1d)$")
 
 
@@ -112,6 +118,31 @@ class ConfigurableIntervalSurface:
             "anchor": self.anchor,
             "aggregationMethod": self.aggregation_method,
             "terminalBucketPolicy": self.terminal_bucket_policy,
+        }
+
+
+@dataclass(frozen=True)
+class ObservedIntervalSurface:
+    """Factor-only observed-bar authority without an invented market calendar."""
+
+    base_interval: str
+    feature_intervals: tuple[str, ...] = ()
+    timestamp_semantics: str = "bar-close"
+    market_clock: str = "observed"
+    calendar: str = "provider-observed"
+    timezone: str = "UTC"
+    aggregation_method: str = OBSERVED_AGGREGATION_METHOD
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "baseInterval": self.base_interval,
+            "featureIntervals": list(self.feature_intervals),
+            "timestampSemantics": self.timestamp_semantics,
+            "marketClock": self.market_clock,
+            "calendar": self.calendar,
+            "timezone": self.timezone,
+            "aggregationMethod": self.aggregation_method,
+            **OBSERVED_PANEL_POLICY,
         }
 
 
@@ -265,6 +296,18 @@ def configurable_interval_surface(
     )
 
 
+def observed_interval_surface(base_interval: str) -> ObservedIntervalSurface:
+    """Build one base-only observed-bar Factor surface."""
+
+    if base_interval not in SUPPORTED_BASE_INTERVALS:
+        raise IntervalContractError(
+            "interval.base-unsupported",
+            "Observed base interval must be selected from: "
+            + ", ".join(SUPPORTED_BASE_INTERVALS),
+        )
+    return ObservedIntervalSurface(base_interval=base_interval)
+
+
 def canonical_interval_surface(
     surface: Mapping[str, Any],
     *,
@@ -284,10 +327,14 @@ def canonical_interval_surface(
                 "timezone": surface.get("timezone"),
             },
         ).to_dict()
+    elif schema_version == 5:
+        expected = observed_interval_surface(
+            surface.get("baseInterval"),
+        ).to_dict()
     else:
         raise IntervalContractError(
             "interval.schema",
-            "Interval surface requires snapshot schema V2 or V3",
+            "Interval surface requires snapshot schema V2, V3, or V5",
         )
     if dict(surface) != expected:
         raise IntervalContractError(
@@ -378,6 +425,81 @@ def _normalize_ohlcv_values(
         raise IntervalContractError(
             "interval.non-positive",
             f"{label} OHLCV must be strictly positive",
+        )
+    if (
+        (result["high"] < result[["open", "close"]].max(axis=1)).any()
+        or (result["low"] > result[["open", "close"]].min(axis=1)).any()
+        or (result["high"] < result["low"]).any()
+    ):
+        raise IntervalContractError(
+            "interval.bar-shape",
+            f"{label} contains invalid OHLCV bar geometry",
+        )
+    result["timestamp"] = timestamps
+    return result.reset_index(drop=True)
+
+
+def validate_observed_ohlcv(
+    frame: pd.DataFrame,
+    *,
+    label: str = "observed OHLCV",
+) -> pd.DataFrame:
+    """Normalize timestamp-aware observed bars without inventing missing rows."""
+
+    if tuple(frame.columns) != OHLCV_COLUMNS:
+        raise IntervalContractError(
+            "interval.columns",
+            f"{label} columns must be exactly {', '.join(OHLCV_COLUMNS)}",
+        )
+    result = frame.copy(deep=True)
+    try:
+        raw = pd.to_datetime(result["timestamp"], errors="raise")
+        timestamps = pd.to_datetime(
+            result["timestamp"],
+            utc=True,
+            errors="raise",
+        )
+    except (TypeError, ValueError) as error:
+        raise IntervalContractError(
+            "interval.timestamp",
+            f"{label} timestamps must be timezone-aware bar closes: {error}",
+        ) from error
+    if getattr(raw.dt, "tz", None) is None:
+        raise IntervalContractError(
+            "interval.timezone",
+            f"{label} timestamps must include an explicit UTC offset",
+        )
+    if not timestamps.is_monotonic_increasing or timestamps.duplicated().any():
+        raise IntervalContractError(
+            "interval.order",
+            f"{label} timestamps must be unique and chronological",
+        )
+    numeric_columns = list(OHLCV_COLUMNS[1:])
+    try:
+        result[numeric_columns] = result[numeric_columns].apply(
+            pd.to_numeric,
+            errors="raise",
+        )
+    except (TypeError, ValueError) as error:
+        raise IntervalContractError(
+            "interval.numeric",
+            f"{label} OHLCV values must be numeric: {error}",
+        ) from error
+    numeric = result[numeric_columns].to_numpy(dtype=float)
+    if not np.isfinite(numeric).all():
+        raise IntervalContractError(
+            "interval.non-finite",
+            f"{label} contains non-finite OHLCV",
+        )
+    if (result[["open", "high", "low", "close"]] <= 0).any().any():
+        raise IntervalContractError(
+            "interval.non-positive-price",
+            f"{label} OHLC prices must be strictly positive",
+        )
+    if (result["volume"] < 0).any():
+        raise IntervalContractError(
+            "interval.negative-volume",
+            f"{label} volume must be non-negative",
         )
     if (
         (result["high"] < result[["open", "close"]].max(axis=1)).any()
@@ -829,7 +951,7 @@ def load_multi_interval_asset(
     start: str,
     end: str,
 ) -> pd.DataFrame | None:
-    """Load and reconcile one materialized V2/V3 asset."""
+    """Load and reconcile one materialized V2/V3 or observed V5 asset."""
 
     root = Path(data_root).resolve()
     ohlcv = (root / "ohlcv").resolve()
@@ -844,7 +966,7 @@ def load_multi_interval_asset(
             f"Invalid interval snapshot JSON: {error}",
         ) from error
     schema_version = snapshot.get("schemaVersion")
-    if schema_version not in {2, 3}:
+    if schema_version not in {2, 3, 5}:
         return None
     surface = snapshot.get("intervalSurface")
     if not isinstance(surface, dict):
@@ -862,6 +984,56 @@ def load_multi_interval_asset(
         expected_surface["baseInterval"],
         *expected_surface["featureIntervals"],
     ]
+    if schema_version == 5:
+        base_interval = expected_surface["baseInterval"]
+        source = (ohlcv / base_interval / f"{asset}.csv").resolve()
+        if ohlcv not in source.parents or not source.is_file() or source.is_symlink():
+            raise IntervalContractError(
+                "interval.asset",
+                f"Missing confined observed {base_interval} OHLCV for {asset}",
+            )
+        base = validate_observed_ohlcv(
+            pd.read_csv(source),
+            label=f"{asset} observed {base_interval}",
+        )
+        asset_record = next(
+            (
+                item
+                for item in snapshot.get("assets", [])
+                if isinstance(item, dict) and item.get("symbol") == asset
+            ),
+            None,
+        )
+        if not isinstance(asset_record, dict):
+            raise IntervalContractError(
+                "interval.asset",
+                f"Observed snapshot has no asset record for {asset}",
+            )
+        if (
+            asset_record.get("volumeSemantics") == "unavailable-zero"
+            and not base["volume"].eq(0).all()
+        ):
+            raise IntervalContractError(
+                "interval.volume-semantics",
+                f"{asset} declares unavailable-zero volume but contains "
+                "nonzero observations",
+            )
+        start_at = pd.Timestamp(start)
+        end_at = pd.Timestamp(end)
+        start_at = (
+            start_at.tz_localize("UTC")
+            if start_at.tzinfo is None
+            else start_at.tz_convert("UTC")
+        )
+        end_at = (
+            end_at.tz_localize("UTC")
+            if end_at.tzinfo is None
+            else end_at.tz_convert("UTC")
+        )
+        return base[
+            (base["timestamp"] >= start_at)
+            & (base["timestamp"] <= end_at)
+        ].reset_index(drop=True)
     frames: dict[str, pd.DataFrame] = {}
     base_interval = expected_surface["baseInterval"]
     for interval in intervals:

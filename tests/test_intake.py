@@ -59,6 +59,7 @@ from tests.intake_helpers import (
     write_configurable_continuous_inputs,
     write_intake_inputs,
     write_multi_interval_inputs,
+    write_observed_intraday_inputs,
     write_session_interval_inputs,
 )
 
@@ -2312,6 +2313,101 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                     "assetsPerTimestamp"
                 ]["input"],
                 {"minimum": 4, "median": 5.0, "maximum": 5},
+            )
+
+    def test_v5_factor_intake_uses_target_observed_bar_clock(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            request_path, package_path = write_observed_intraday_inputs(root)
+            package = json.loads(package_path.read_text(encoding="utf-8"))
+            jsonschema.validate(
+                package,
+                OHLCV_DATASET_PACKAGE_JSON_SCHEMA,
+            )
+
+            prepared = prepare_project_intake(
+                request_path,
+                package_path,
+                "ohlcv-factor-lab",
+            )
+            self.assertEqual(prepared.package["assetClass"], "mixed")
+            self.assertEqual(len(prepared.assets), 2)
+            self.assertEqual(len(prepared.assets[0].frame), 395)
+            self.assertEqual(len(prepared.assets[1].frame), 420)
+            self.assertGreater(prepared.annualization_periods, 252)
+
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "supported only by the ohlcv-factor-lab",
+            ):
+                prepare_project_intake(
+                    request_path,
+                    package_path,
+                    "ohlcv-portfolio-lab",
+                )
+
+            project = create_project(
+                initialize_workspace(root / "workspace").root_dir,
+                "observed-hourly-factor",
+                template=prepared.template,
+                template_intake=prepared,
+            )
+            intake = load_project_intake(project)
+            assert intake is not None
+            self.assertEqual(
+                intake["dataset"]["schemaVersion"],
+                5,
+            )
+            self.assertEqual(
+                intake["dataset"]["availability"][
+                    "eligibleFactorObservations"
+                ],
+                395,
+            )
+            self.assertEqual(
+                intake["dataset"]["availability"][
+                    "intersectionObservations"
+                ],
+                395,
+            )
+            self.assertEqual(
+                intake["dataset"]["availability"]["unionObservations"],
+                419,
+            )
+
+            run = execute_study(project, OHLCV_STUDY_ID)
+            self.assertEqual(
+                run.result["status"],
+                "succeeded",
+                run.result["errors"],
+            )
+            metrics = run.result["metrics"]
+            self.assertEqual(
+                metrics["prediction_universe"]["evaluation_mode"],
+                "single-asset-temporal",
+            )
+            self.assertEqual(
+                metrics["input_availability"]["timestamps"],
+                395,
+            )
+            primary = metrics["split_protocol"]["horizons"]["24"]
+            self.assertEqual(
+                sum(
+                    item["eligibleSignalRows"]
+                    for item in primary.values()
+                ),
+                395 - (3 * 24),
+            )
+            session = start_session(
+                project,
+                OHLCV_STUDY_ID,
+                request=json.loads(
+                    request_path.read_text(encoding="utf-8")
+                ),
+            )
+            self.assertEqual(
+                session.manifest["studyId"],
+                OHLCV_STUDY_ID,
             )
 
     def test_duplicate_non_positive_and_weekend_rows_are_rejected(self) -> None:

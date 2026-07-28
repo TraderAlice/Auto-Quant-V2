@@ -214,6 +214,15 @@ base cadences below `1d`; XNYS V3 accepts regular-session bases through `1h`
 and verifies exact scheduled closes before materializing session-anchored
 features. The loader always recomputes every derived file from the locked base
 and rejects a rehashed mismatch.
+
+V5 also uses `data/ohlcv/<baseInterval>/<SYMBOL>.csv`, but it contains only
+provider-observed completed base bars and no derived intervals. Its fixed
+surface is `observed / provider-observed / UTC`, with
+`absent-no-fill` and `per-target-observed-bars` authority. Each asset records
+its own class and volume semantics; `assetClass=mixed` summarizes a
+mixed-class research panel. V5 is Factor-only and requires exactly one
+explicit non-context temporal target. Context-only timestamps never advance
+that target's horizon or purge clock.
 `intake.json` binds request, snapshot, primary construction Study, dataset, and
 the Study input identity at handoff. Editable source may evolve; its current
 hash determines whether existing Run evidence is stale rather than corrupting

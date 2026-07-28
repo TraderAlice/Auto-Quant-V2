@@ -675,7 +675,7 @@ class AgentCliTests(unittest.TestCase):
             json_output(dataset_schema)["data"]["schema"]["properties"][
                 "schemaVersion"
             ]["enum"],
-            [1, 2, 3, 4],
+            [1, 2, 3, 4, 5],
         )
         portfolio_schema = run_cli(
             "schema",

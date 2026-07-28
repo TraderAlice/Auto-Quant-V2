@@ -48,7 +48,8 @@ The V2 foundation now implements:
   Workspace discovery;
 - transactional request-driven Project intake from strict caller-supplied V1
   aligned daily, V2 continuous-UTC hourly, V3 configurable
-  continuous/XNYS-session, or V4 observed-only daily Factor OHLCV packages,
+  continuous/XNYS-session, V4 observed-only daily Factor, or V5
+  observed-only intraday mixed-class Factor OHLCV packages,
   with normalized local bytes, completed higher intervals,
   version-locked calendar authority, explicit provider/adjustment claims,
   source/snapshot hashes, and exact Study identity;

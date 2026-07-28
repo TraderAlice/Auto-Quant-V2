@@ -281,6 +281,173 @@ def write_multi_interval_inputs(
     return request_path, package_path
 
 
+def write_observed_intraday_inputs(
+    root: Path,
+    *,
+    observations: int = 420,
+) -> tuple[Path, Path]:
+    """Write one ragged future/index hourly panel with zero index volume."""
+
+    source = root / "external-observed-hourly-data"
+    source.mkdir()
+    complete = pd.date_range(
+        "2026-01-01T01:00:00Z",
+        periods=observations,
+        freq="1h",
+    )
+    gold_timestamps = complete[
+        np.arange(observations) % 17 != 0
+    ]
+    assets = (
+        (
+            "GC=F",
+            "future",
+            "CMX",
+            gold_timestamps,
+            "provider-reported-nonnegative",
+        ),
+        (
+            "DX-Y.NYB",
+            "index",
+            "NYB",
+            complete,
+            "unavailable-zero",
+        ),
+    )
+    entries = []
+    for number, (
+        symbol,
+        asset_class,
+        venue,
+        timestamps,
+        volume_semantics,
+    ) in enumerate(assets):
+        time = np.arange(len(timestamps), dtype=float)
+        returns = (
+            0.0001
+            + 0.002 * np.sin(time / (8.0 + number))
+            + 0.001 * np.cos(time / (19.0 + number))
+        )
+        close = (100.0 + number * 20.0) * np.exp(np.cumsum(returns))
+        open_price = close * np.exp(-0.0007 * np.sin(time / 5.0))
+        spread = 0.002 + 0.0003 * np.cos(time / 11.0)
+        frame = pd.DataFrame(
+            {
+                "timestamp": [
+                    value.isoformat().replace("+00:00", "Z")
+                    for value in timestamps
+                ],
+                "open": open_price,
+                "high": np.maximum(open_price, close) * (1.0 + spread),
+                "low": np.minimum(open_price, close) * (1.0 - spread),
+                "close": close,
+                "volume": (
+                    1000.0 + 100.0 * np.sin(time / 7.0)
+                    if volume_semantics
+                    == "provider-reported-nonnegative"
+                    else np.zeros(len(time))
+                ),
+            }
+        )
+        filename = (
+            "GC%3DF.csv" if symbol == "GC=F" else f"{symbol}.csv"
+        )
+        frame.to_csv(source / filename, index=False)
+        entries.append(
+            {
+                "symbol": symbol,
+                "assetClass": asset_class,
+                "venue": venue,
+                "currency": "USD",
+                "path": filename,
+                "volumeSemantics": volume_semantics,
+            }
+        )
+    package = {
+        "schemaVersion": 5,
+        "kind": "autoquant-ohlcv-dataset-package",
+        "id": "bounded-gold-dollar-observed-hourly",
+        "version": "2026-v1",
+        "assetClass": "mixed",
+        "baseInterval": "1h",
+        "timestampSemantics": "bar-close",
+        "panelPolicy": {
+            "alignment": "observed-only",
+            "missingObservation": "absent-no-fill",
+            "horizonClock": "per-target-observed-bars",
+        },
+        "market": {
+            "clock": "observed",
+            "calendar": "provider-observed",
+            "timezone": "UTC",
+        },
+        "priceAdjustment": "raw",
+        "provider": {
+            "name": "deterministic-observed-test-provider",
+            "retrievedAt": "2026-07-29T00:00:00Z",
+            "sourceUri": None,
+            "terms": "test fixture only",
+        },
+        "assets": entries,
+    }
+    package_path = source / "dataset.json"
+    package_path.write_text(
+        json.dumps(package, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    request = {
+        "schemaVersion": 1,
+        "kind": "autoquant-research-request",
+        "title": "Gold timing with dollar context",
+        "question": "Does observed dollar context improve long gold timing?",
+        "decisionContext": "OpenAlice is reviewing a research-only gold posture.",
+        "assets": [
+            {
+                "symbol": "GC=F",
+                "assetClass": "future",
+                "venue": "CMX",
+                "positionRole": "long-only",
+            },
+            {
+                "symbol": "DX-Y.NYB",
+                "assetClass": "index",
+                "venue": "NYB",
+                "positionRole": "context-only",
+            },
+        ],
+        "direction": "long",
+        "factorPolicy": {
+            "claim": "decision-signal",
+            "knownStyle": None,
+        },
+        "horizonPolicy": {
+            "primaryForwardBars": 24,
+            "diagnosticForwardBars": [6, 12, 24, 48],
+        },
+        "horizon": "Twenty-four subsequent observed gold bars.",
+        "hypotheses": [
+            "Causal dollar index context may improve temporal gold evidence."
+        ],
+        "constraints": [
+            "Do not fill closures or infer contract-chain authority."
+        ],
+        "deliverables": ["Temporal Factor evidence"],
+        "source": {
+            "system": "openalice",
+            "workspaceId": "workspace-gold",
+            "sessionId": "session-observed-hourly",
+            "artifactPath": None,
+            "artifactRevision": None,
+        },
+    }
+    request_path = root / "request.json"
+    request_path.write_text(
+        json.dumps(request, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return request_path, package_path
+
+
 def write_session_interval_inputs(
     root: Path,
     *,

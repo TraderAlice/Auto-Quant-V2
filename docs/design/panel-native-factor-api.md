@@ -44,11 +44,15 @@ All assets receive the same ordered column surface. `asset` is the exact Study
 universe identifier. `timestamp` retains verified bar-close semantics.
 
 The runtime contract is `panel-v2`. Aligned V1–V3 inputs remain rectangular.
-V4 inputs are `ragged-observed-only`: an asset/timestamp row exists only when
-the locked dataset contains that observation. Missing and pre-listing rows are
-not synthesized, filled, or introduced as all-null records. Consequently a
-same-timestamp cross section may contain fewer than the full Study universe;
-candidate code must operate on the rows actually supplied.
+V4 daily and V5 intraday inputs are `ragged-observed-only`: an
+asset/timestamp row exists only when the locked dataset contains that
+observation. Missing, closed-market, and pre-listing rows are not synthesized,
+filled, or introduced as all-null records. Consequently a same-timestamp
+cross section may contain fewer than the full Study universe; candidate code
+must operate on the rows actually supplied. For V5 single-asset temporal
+evaluation, the prediction asset's observed timestamps alone own targets,
+split boundaries, and purge counts. Context-only union timestamps remain
+available to the candidate but never advance the target clock.
 
 Candidate code may:
 

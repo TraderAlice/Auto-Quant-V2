@@ -1543,6 +1543,19 @@ def _evaluate() -> tuple[
     research_volume_panel = pd.DataFrame(volume_by_asset).reindex(
         research_factor_panel.index
     )
+    if evaluation_mode == SINGLE_ASSET_TEMPORAL_MODE:
+        prediction_timeline = pd.DatetimeIndex(
+            close_by_asset[prediction_assets[0]].index
+        )
+        research_factor_panel = research_factor_panel.reindex(
+            prediction_timeline
+        )
+        research_close_panel = research_close_panel.reindex(
+            prediction_timeline
+        )
+        research_volume_panel = research_volume_panel.reindex(
+            prediction_timeline
+        )
     factor_panel = research_factor_panel[prediction_assets]
     close_panel = research_close_panel[prediction_assets]
     timeline = pd.DatetimeIndex(research_factor_panel.index)
