@@ -20,7 +20,7 @@ invariants live in `docs/design/`.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
-| [[plans/ohlcv-event-reaction-field-trial]] | Test and, if needed, add a bounded OHLCV-defined event-reaction research route. | 2026-07-29 |
+| [[plans/gold-dollar-hourly-field-trial]] | Test whether AutoQuant can faithfully research an hourly gold-futures timing question with dollar context without inventing contract or execution semantics. | 2026-07-29 |
 
 ## Proposed plans
 
@@ -36,6 +36,7 @@ There are no proposed plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/ohlcv-event-reaction-field-trial]] | Added and field-tested one fixed OHLCV price-event route with strict ledger/reference evidence and no trading authority. | 2026-07-29 |
 | [[plans/reported-book-one-leg-risk-sizing]] | Derived the minimum caller-authorized one-leg reduction to satisfy a fixed historical volatility budget and completed a clean Yahoo field trial. | 2026-07-28 |
 | [[plans/reported-book-reallocation-scenarios]] | Compared one externally reported book with caller-specified funded reallocations under one fixed historical risk model and completed a clean Yahoo field trial. | 2026-07-28 |
 | [[plans/reported-position-book-risk-field-trial]] | Preserved one externally reported book and returned verified crowding and reduction-sensitivity evidence without claiming account or execution authority. | 2026-07-28 |
