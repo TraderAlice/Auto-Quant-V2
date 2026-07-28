@@ -81,7 +81,7 @@ finding a schema-compatible paraphrase.
 
 - [x] Inventory existing capabilities against raw trading-request archetypes
   and publish the initial field-trial matrix.
-- [ ] Construct and complete the cross-sectional selection/target-weight trial.
+- [x] Construct and complete the cross-sectional selection/target-weight trial.
 - [ ] Construct and complete the multi-interval timing/context trial.
 - [ ] Construct and complete the relative-value or portfolio-risk trial.
 - [x] Reproduce and prioritize common Workbench gaps revealed by the trials.
@@ -115,10 +115,36 @@ finding a schema-compatible paraphrase.
   `0.2.0`: decision-signal research, complete legacy claim compatibility, and
   primary-horizon Explorer sampling. Existing immutable Runs retain their
   recorded Harness identity.
+- 2026-07-28 — The corrected equity-allocation Session retained five-session
+  reversal as an improved but unqualified leader: validation IC `0.084686`,
+  HAC t `1.715`, uneven validation folds, and family-adjusted p `0.258767`.
+  The immutable Report correctly withheld target weights and Portfolio/RL
+  progression instead of manufacturing an allocation.
+- 2026-07-28 — The authorized-only follow-up produced validation IC `0.061599`
+  and `REVERT`, proving that context-only target observations materially change
+  a request-specific decision claim. AutoQuant `0.3.0` now gives candidate
+  code the complete research panel but evaluates `decision-signal` only on
+  Mandate `tradableAssets`; Factor-identity claims retain complete-universe
+  evaluation. Factor diagnostics disclose the exact prediction population.
+- 2026-07-28 — Source `KEEP`, scientific qualification, and downstream
+  progression are distinct authorities. CLI guidance now states that
+  promotion preserves the best source and closes the Session without granting
+  Factor qualification, Portfolio/RL admission, or trading authority.
 
 ## Verification
 
-- Pending.
+- Cross-sectional field trial:
+  - baseline Run `run-20260728T081235762766Z-c6e953f8dad6`;
+  - retained leader Run `run-20260728T081340625334Z-de1a16dbede3`;
+  - authorized-only reverted Run
+    `run-20260728T081727225961Z-132c0948dceb`;
+  - terminal Report `report-20260728T081902704910Z-bcb2bc282fd6`;
+  - promoted terminal Session
+    `session-20260728T081255744887Z-4d3d9bd0df53`.
+- Prediction-universe and affected workflow regression: 42 Factor/Intake tests
+  and 37 Explorer/Research-program/Session/CLI/orientation tests passed.
+- Full-suite, package, and cleanliness audit remain pending until all three
+  request families complete.
 
 ## Progress log
 
@@ -132,6 +158,10 @@ finding a schema-compatible paraphrase.
 - 2026-07-28 — Repaired legacy Factor-claim compatibility and primary-horizon
   Explorer sampling, then recovered a complete Factor tear sheet and Agent
   orientation from the real 20-session baseline.
+- 2026-07-28 — Completed the corrected request with two bounded Experiments,
+  an evidence-bound negative Report, and a promoted terminal Session. Repaired
+  the reusable prediction-population and promotion-authority UX gaps revealed
+  by that handoff.
 
 ## Completion
 

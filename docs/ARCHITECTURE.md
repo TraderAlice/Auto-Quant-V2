@@ -120,6 +120,11 @@ The V2 foundation now implements:
 - one request-bound Factor claim dependency that distinguishes general
   decision-signal research, novel-factor discovery, and predeclared
   known-style validation before candidate search.
+- one claim-aware Factor prediction-universe contract: candidate code receives
+  the complete research panel, request-specific decision signals are evaluated
+  only on Portfolio-Mandate tradable assets, and factor-identity claims retain
+  complete-universe evaluation. Research, prediction, and context populations
+  are frozen and disclosed separately.
 - one optional explicit factor-component contract that checks declared
   score and timestamp-context components for determinism and causality. Scores
   expose predictive quality, association, redundancy, residual IC, and
@@ -131,7 +136,8 @@ The V2 foundation now implements:
   capped target weights, drift-aware execution, reconciled contribution/risk
   attribution, causal OHLCV liquidity-capacity envelopes, and
   policy/cost/delay stresses without trading authority.
-- one request-bound Portfolio Mandate that derives tradable/context assets,
+- one request-bound Portfolio Mandate shared by Factor, Portfolio, and governed
+  RL that derives tradable/context assets,
   direction-default or caller-supplied per-asset position roles, side limits,
   cash, gross/net, cap, benchmark, and one-sided
   covariance risk policy from caller intent and is shared exactly by Portfolio

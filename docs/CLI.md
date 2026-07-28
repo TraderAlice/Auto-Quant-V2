@@ -101,8 +101,11 @@ the machine contract defined by `aq schema agent-work-brief --json`. See
 
 `blank` is the default construction. `ohlcv-factor-lab` transactionally
 creates a complete, self-contained pandas factor research Project with local
-synthetic OHLCV, content-locked Study, fixed no-lookahead Judge, and executable
-next actions. `ohlcv-portfolio-lab` uses the same causal candidate API and
+synthetic OHLCV, content-locked Study, fixed no-lookahead Judge, fixed
+claim-aware prediction population, and executable next actions. Candidate code
+always sees the complete research panel. A `decision-signal` is evaluated only
+on Portfolio-Mandate `tradableAssets`; factor-identity claims use the complete
+research universe. `ohlcv-portfolio-lab` uses the same causal candidate API and
 adds fixed constrained target construction, drift-aware accounting,
 transaction costs, layered professional metrics, and cost/delay/risk-governor
 stresses. It also emits a fixed 15-cell signal-threshold × no-trade
@@ -422,7 +425,11 @@ aq session promote . <session-id> --report <report-id>
 
 Core records the Report identity in the immutable promotion receipt. A stale
 or partial Report cannot authorize source mutation. Non-delegated local
-Sessions retain the report-free promotion path.
+Sessions retain the report-free promotion path. Promotion preserves the best
+source and closes the Session; it does not assert Factor qualification,
+Portfolio/RL admission, or trading authority. Consequently an improved KEEP
+that remains scientifically unqualified is still promoted as source while its
+Report records the failed gate; do not call `session complete` afterward.
 
 For the Factor Lab, `run execute/show --json` and Experiment output preserve
 the full purge-aware factor tear sheet: request-bound forward-horizon quality,

@@ -52,7 +52,13 @@ evaluation, one RL state encoder, three fixed Studies, and a strict
 The factor template evaluates causal cross-sectional predictive evidence with
 dataset-fixed purged request-bound forward-bar rank/Pearson IC, HAC inference,
 fixed-tertile behavior, OHLCV-style overlap, and
-asset/fold/causal-regime stability. The
+asset/fold/causal-regime stability. It always gives candidate code the complete
+research panel but freezes the evaluation population separately:
+`decision-signal` uses Portfolio-Mandate `tradableAssets`; `novel-factor` and
+`known-style-validation` use the complete research universe. Context-only
+assets therefore cannot silently strengthen a request-specific decision claim.
+Fewer than four request-bound prediction assets is an explicit unsupported
+cross-sectional population, not permission to borrow context targets. The
 portfolio template fixes the next layer: factor normalization, target weights,
 explicit entry/hold/exit/reversal intent, gross/net and per-asset constraints,
 drift, no-trade behavior, turnover, costs, benchmark, a causal covariance
@@ -72,10 +78,11 @@ comparison rule. See [[docs/design/ohlcv-factor-lab]],
 [[docs/design/signal-policy-and-attribution]], and
 [[docs/design/mechanical-position-lifecycle-evidence]].
 
-New Portfolio and governed-RL Projects also contain the fixed
-`strategies/portfolio-mandate.json`; every research template also contains
-the fixed `strategies/research-horizon.json`. For request intake the former
-derives the
+Every quantitative reference Project contains the fixed
+`strategies/portfolio-mandate.json` and
+`strategies/research-horizon.json`. Factor Studies bind the former to fix their
+claim-aware prediction population; Portfolio and governed RL additionally use
+it as their construction authority. For request intake the Mandate derives the
 tradable/context asset partition, direction, cash, gross/net, cap, and
 structured benchmark from the canonical request. Optional strict
 `request.benchmarkPolicy` selects cash or one named dataset asset as the
@@ -450,12 +457,18 @@ runs/
 - objective and execution details;
 - nested metrics, immutable artifact references, and structured errors.
 
-Factor Studies bind `strategies/factor-claim.json` as a fixed dependency. It
-records a general `decision-signal`, a `novel-factor` claim, or a
-caller-predeclared `known-style-validation` claim and known OHLCV style. The
-Judge and Explorer reconstruct the same claim from request/intake evidence;
-strategy code cannot silently turn decision support into a novelty claim or
-relabel a familiar style as novel.
+Factor Studies bind `strategies/factor-claim.json`,
+`strategies/portfolio-mandate.json`, and
+`strategies/research-horizon.json` as fixed dependencies. The claim records a
+general `decision-signal`, a `novel-factor` claim, or a caller-predeclared
+`known-style-validation` claim and known OHLCV style. For
+`decision-signal`, the Judge evaluates only Mandate `tradableAssets`; the two
+factor-identity claims evaluate the complete research universe. Candidate code
+still receives the complete panel for causal context. Run metrics and Factor
+diagnostics disclose research, prediction, and context assets. The Judge and
+Explorer reconstruct the same authority from request/intake evidence;
+strategy code cannot silently change the target population, turn decision
+support into a novelty claim, or relabel a familiar style as novel.
 
 Declaring Factor Runs add `metrics.factor_components` and
 `artifacts/factor-components.json`. Both appear together and describe only
@@ -663,7 +676,11 @@ Verdicts are:
 KEEP advances the Session leader. REVERT and CRASH restore the exact leader
 source from its verified Run. `promotion.json` is written once only after the
 current KEEP replaces an unchanged Project base and the applied source hash is
-verified. Any failure rolls Project source and Session state back.
+verified. Promotion is a source-preservation terminal state, not scientific
+qualification, Portfolio/RL admission, or trading authority. An improved but
+unqualified KEEP must still use promotion rather than baseline-only completion;
+its Report preserves the negative gate conclusion. Any failure rolls Project
+source and Session state back.
 
 For a delegated Session whose leader still equals baseline, `completion.json`
 can instead bind one explicitly selected current Report and mark the Session

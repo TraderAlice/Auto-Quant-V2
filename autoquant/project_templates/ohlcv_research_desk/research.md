@@ -54,9 +54,13 @@ after costs; a portfolio can be mechanically sound without proving a raw
 factor claim; an RL policy can have high absolute Sharpe yet add no value over
 a simple baseline.
 
-Portfolio and RL bind the same fixed
-`strategies/portfolio-mandate.json`; neither lane may turn context assets into
-implicit positions, learn around the requested direction, or bypass the shared
+All three lanes bind the same fixed
+`strategies/portfolio-mandate.json`. For a request-bound `decision-signal`,
+Factor uses its tradable assets as the prediction/evaluation population while
+the complete research universe remains available as causal input context.
+Novel-factor and known-style validation claims retain complete-universe
+evaluation. Portfolio and RL may never turn context assets into implicit
+positions, learn around the requested direction, or bypass the shared
 scale-down-only target and final executed-book portfolio-volatility ceiling.
 Risk may override no-trade only by reducing the chosen book; the same
 primitive governs both lanes. The RL lane also content-locks the current

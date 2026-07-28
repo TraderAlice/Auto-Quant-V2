@@ -2327,8 +2327,11 @@ def complete_session(
                 _issue(
                     session.manifest_path,
                     "completion.unpromoted-leader",
-                    "Session has an improved KEEP leader; promote it before "
-                    "closing this research lane",
+                    "Session has an improved KEEP leader. Source promotion is "
+                    "the terminal close path for this lane even when the "
+                    "leader remains scientifically unqualified; promotion "
+                    "preserves the best source but does not grant downstream "
+                    "admission or trading authority",
                 )
             ]
         )

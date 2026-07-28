@@ -42,6 +42,7 @@ CANONICAL_LANES: tuple[dict[str, Any], ...] = (
         "editablePaths": ["factors/**"],
         "dependencyPaths": [
             "strategies/factor-claim.json",
+            "strategies/portfolio-mandate.json",
             "strategies/research-horizon.json",
         ],
         "optional": False,
@@ -78,6 +79,9 @@ INTEGRATION = {
     "factorToPortfolio": "shared-candidate-source",
     "rlFactorDependency": "content-locked-candidate-source",
     "portfolioMandate": "request-bound-shared-fixed-dependency",
+    "factorPredictionUniverse": (
+        "claim-aware-portfolio-mandate-or-research-universe"
+    ),
     "researchHorizon": "request-bound-shared-fixed-dependency",
     "factorClaim": "request-bound-factor-evaluation-authority",
     "tradingAuthority": "none",

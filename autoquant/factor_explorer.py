@@ -834,6 +834,70 @@ def _availability(
     }, rows
 
 
+def _prediction_universe(
+    metrics: dict[str, Any],
+    universe: list[str],
+) -> dict[str, Any]:
+    raw = metrics.get("prediction_universe")
+    if raw is None:
+        return {
+            "available": False,
+            "reason": "legacy-run",
+            "researchAssets": list(universe),
+            "predictionAssets": list(universe),
+            "contextAssets": [],
+        }
+    required = {
+        "authority",
+        "research_assets",
+        "prediction_assets",
+        "context_assets",
+        "asset_position_roles",
+        "trading_authority",
+    }
+    if not isinstance(raw, dict) or set(raw) != required:
+        _fail(
+            "RunResult/metrics/prediction_universe",
+            "factor.prediction-universe",
+            "Invalid fixed Factor prediction-universe evidence",
+        )
+    research_assets = raw["research_assets"]
+    prediction_assets = raw["prediction_assets"]
+    context_assets = raw["context_assets"]
+    roles = raw["asset_position_roles"]
+    if (
+        research_assets != universe
+        or not isinstance(prediction_assets, list)
+        or not prediction_assets
+        or len(prediction_assets) != len(set(prediction_assets))
+        or any(asset not in universe for asset in prediction_assets)
+        or context_assets
+        != [asset for asset in universe if asset not in prediction_assets]
+        or not isinstance(roles, dict)
+        or set(roles) != set(universe)
+        or raw["authority"]
+        not in {
+            "portfolio-mandate-tradable-assets",
+            "factor-claim-research-universe",
+        }
+        or raw["trading_authority"] != "none"
+    ):
+        _fail(
+            "RunResult/metrics/prediction_universe",
+            "factor.prediction-universe",
+            "Factor prediction universe does not reconcile the Run universe",
+        )
+    return {
+        "available": True,
+        "authority": raw["authority"],
+        "researchAssets": list(research_assets),
+        "predictionAssets": list(prediction_assets),
+        "contextAssets": list(context_assets),
+        "assetPositionRoles": dict(roles),
+        "tradingAuthority": "none",
+    }
+
+
 def _parse_daily(
     path: Path,
     protocol: dict[str, Any],
@@ -3558,6 +3622,18 @@ def _load_factor_diagnostics_unlocked(
             "Factor report dataset differs from immutable RunResult",
         )
     metrics = run.result["metrics"]
+    prediction_universe = _prediction_universe(metrics, universe)
+    if prediction_universe["available"] and (
+        report_dataset.get("predictionAssets")
+        != prediction_universe["predictionAssets"]
+        or report_dataset.get("contextAssets")
+        != prediction_universe["contextAssets"]
+    ):
+        _fail(
+            paths["factor-report"],
+            "factor.prediction-universe",
+            "Factor report prediction universe differs from immutable metrics",
+        )
     protocol = _split_protocol(metrics)
     daily = _parse_daily(paths["factor-daily"], protocol)
     _reconcile_daily(daily, metrics)
@@ -3726,6 +3802,7 @@ def _load_factor_diagnostics_unlocked(
         },
         "harness": run.result["harness"],
         "researchHorizon": research_horizon,
+        "predictionUniverse": prediction_universe,
         "artifacts": artifacts,
         "protocol": {
             "selectionSplit": "validation",
@@ -3747,7 +3824,10 @@ def _load_factor_diagnostics_unlocked(
         ),
         "horizonProfile": _horizon_profile(metrics),
         "quantileSummary": _quantile_summary(metrics),
-        "stability": _stability(metrics, universe),
+        "stability": _stability(
+            metrics,
+            prediction_universe["predictionAssets"],
+        ),
         "coverage": _coverage(report, universe),
         "availabilityPath": availability_path,
         "icPath": ic_path,
@@ -4184,6 +4264,7 @@ FACTOR_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "dataset",
         "harness",
         "researchHorizon",
+        "predictionUniverse",
         "artifacts",
         "protocol",
         "summary",
@@ -4209,6 +4290,7 @@ FACTOR_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         },
         "harness": {"type": "object"},
         "researchHorizon": RESEARCH_HORIZON_JSON_SCHEMA,
+        "predictionUniverse": {"type": "object"},
         "artifacts": {
             "type": "object",
             "required": sorted(BASE_ARTIFACT_KINDS),

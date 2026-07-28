@@ -289,6 +289,7 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                 {
                     "paths": [
                         "strategies/factor-claim.json",
+                        "strategies/portfolio-mandate.json",
                         RESEARCH_HORIZON,
                     ]
                 },
@@ -328,6 +329,109 @@ class RequestDrivenIntakeTests(unittest.TestCase):
             jsonschema.validate(
                 projection,
                 FACTOR_DIAGNOSTICS_JSON_SCHEMA,
+            )
+
+    def test_decision_signal_factor_evaluates_only_position_authorized_assets(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            requested = ("AAPL", "MSFT", "NVDA", "QQQ")
+            request_path, package_path = write_intake_inputs(
+                root,
+                request_assets=requested,
+                factor_policy={
+                    "claim": "decision-signal",
+                    "knownStyle": None,
+                },
+            )
+            prepared = prepare_project_intake(
+                request_path,
+                package_path,
+                "ohlcv-factor-lab",
+            )
+            project = create_project(
+                initialize_workspace(root / "workspace").root_dir,
+                "request-bound-factor-population",
+                template=prepared.template,
+                template_intake=prepared,
+            )
+            study = load_study(project, OHLCV_STUDY_ID)
+            self.assertIn(
+                PORTFOLIO_MANDATE,
+                study.definition.dependencies["paths"],
+            )
+
+            run = execute_study(project, OHLCV_STUDY_ID)
+            self.assertEqual(
+                run.result["status"],
+                "succeeded",
+                run.result["errors"],
+            )
+            population = run.result["metrics"]["prediction_universe"]
+            self.assertEqual(
+                population["authority"],
+                "portfolio-mandate-tradable-assets",
+            )
+            self.assertEqual(population["prediction_assets"], list(requested))
+            self.assertEqual(population["context_assets"], ["SPY"])
+            self.assertEqual(run.result["metrics"]["prediction_assets"], 4)
+            self.assertEqual(
+                set(
+                    run.result["metrics"]["stability"]["per_asset"][
+                        "validation"
+                    ]
+                ),
+                set(requested),
+            )
+
+            projection = load_factor_diagnostics(project, run.result["id"])
+            self.assertEqual(
+                projection["predictionUniverse"]["predictionAssets"],
+                list(requested),
+            )
+            self.assertEqual(
+                projection["predictionUniverse"]["contextAssets"],
+                ["SPY"],
+            )
+            jsonschema.validate(
+                projection,
+                FACTOR_DIAGNOSTICS_JSON_SCHEMA,
+            )
+
+    def test_small_decision_population_does_not_borrow_context_targets(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            request_path, package_path = write_intake_inputs(
+                root,
+                request_assets=("AAPL", "MSFT", "NVDA"),
+                factor_policy={
+                    "claim": "decision-signal",
+                    "knownStyle": None,
+                },
+            )
+            prepared = prepare_project_intake(
+                request_path,
+                package_path,
+                "ohlcv-factor-lab",
+            )
+            project = create_project(
+                initialize_workspace(root / "workspace").root_dir,
+                "unsupported-small-decision-population",
+                template=prepared.template,
+                template_intake=prepared,
+            )
+            run = execute_study(project, OHLCV_STUDY_ID)
+            self.assertEqual(run.result["status"], "failed")
+            self.assertEqual(
+                run.result["errors"][0]["code"],
+                "prediction-universe.population",
+            )
+            self.assertIn(
+                "time-series or relative-value Study",
+                run.result["errors"][0]["message"],
             )
 
     def test_caller_portfolio_policy_governs_portfolio_and_rl(self) -> None:

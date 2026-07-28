@@ -196,7 +196,8 @@ def _session_actions(
         supporting.append(
             _command(
                 "session.promote",
-                "Promote the exact current KEEP after human review.",
+                "Promote the exact current KEEP after human review to preserve "
+                "the source; promotion is not scientific qualification.",
                 [
                     "aq",
                     "session",

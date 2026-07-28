@@ -50,7 +50,7 @@ Each exercised row must leave:
 
 | ID | Project | Status | Evidence and conclusion |
 | --- | --- | --- | --- |
-| `equity-allocation` | `us-megacap-one-month-signal` | running | The first intake (`us-megacap-one-month-allocation`) exposed an invalid implicit novelty claim and remains preserved as evidence. The corrected Project explicitly binds general `decision-signal` research over the same seven authorized equities and five context/benchmark assets. |
+| `equity-allocation` | `us-megacap-one-month-signal` | completed — negative | The first intake (`us-megacap-one-month-allocation`) exposed an invalid implicit novelty claim and remains preserved. The corrected `decision-signal` Session retained five-session reversal over the full research universe at validation IC `0.084686`, but HAC t `1.715`, uneven folds, and family-adjusted p `0.258767` failed qualification. An authorized-seven-only check fell to `0.061599` and was reverted. Report `report-20260728T081902704910Z-bcb2bc282fd6` therefore withheld target weights and downstream Portfolio/RL work. The trial directly produced the claim-aware prediction-universe contract in AutoQuant `0.3.0`. |
 | `crypto-context-timing` | pending | not started | Pending hourly crypto package and caller-clarification fixture. |
 | `relative-value` | pending | not started | Pending semiconductor universe and explicit sign/neutrality clarification. |
 

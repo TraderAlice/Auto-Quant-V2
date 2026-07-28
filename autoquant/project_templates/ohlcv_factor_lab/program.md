@@ -3,8 +3,8 @@
 ## Research question
 
 Can one causal transformation of ordinary OHLCV history produce stable
-cross-sectional next-bar rank information across the fixed universe and both
-held-out chronological periods?
+cross-sectional forward-return rank information across the fixed
+prediction-eligible universe and both held-out chronological periods?
 
 ## Editable API
 
@@ -17,6 +17,13 @@ def compute_factor(panel: pandas.DataFrame) -> pandas.Series:
 
 `panel` is the observed Study universe in long form, with one row per available
 `asset`/`timestamp` and base plus available completed higher-interval OHLCV.
+The complete research universe remains available for causal cross-asset
+features. The fixed Judge, not candidate code, selects target observations:
+`decision-signal` evaluates only Portfolio-Mandate `tradableAssets`, while
+`novel-factor` and `known-style-validation` evaluate the complete research
+universe. Inspect `predictionUniverse` in Factor diagnostics. A
+decision-signal with fewer than four eligible assets requires a time-series or
+relative-value Study and must not borrow context-only target observations.
 Aligned inputs are rectangular; V4 daily input is ragged and does not invent,
 fill, or globally intersect missing/pre-listing rows.
 Use ordinary `groupby("asset")` for rolling time-series features and
@@ -45,10 +52,11 @@ imply that Core inferred column use.
    `researchAgenda`. Treat its ordered moves as validation-only scientific
    priorities, not executable actions or permission to inspect test for
    selection.
-2. Read `strategies/factor-claim.json`, the current candidate, and immutable
+2. Read `strategies/factor-claim.json`,
+   `strategies/portfolio-mandate.json`, the current candidate, and immutable
    leader evidence. The request-bound `decision-signal`, `novel-factor`, or
-   `known-style-validation` claim is fixed evidence authority, not editable
-   strategy metadata.
+   `known-style-validation` claim and its prediction population are fixed
+   evidence authority, not editable strategy metadata.
 3. State one falsifiable hypothesis about price or volume behavior.
 4. Make one coherent code change inside the editable closure.
 5. Run the bounded Experiment command supplied by the Session.

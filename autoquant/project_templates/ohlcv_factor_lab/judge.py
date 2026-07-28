@@ -28,6 +28,10 @@ from autoquant.intervals import (
     load_multi_interval_asset,
     timestamp_label,
 )
+from autoquant.mandates import (
+    PORTFOLIO_MANDATE,
+    load_portfolio_mandate,
+)
 from autoquant.horizons import (
     RESEARCH_HORIZON,
     load_research_horizon,
@@ -101,6 +105,44 @@ def _load_factor_claim() -> dict[str, Any]:
             "factor-claim.contract",
             f"Invalid fixed Factor claim: {error}",
         ) from error
+
+
+def _load_prediction_universe(
+    research_universe: list[str],
+    factor_claim: dict[str, Any],
+) -> tuple[dict[str, Any], list[str], list[str], str]:
+    path = Path(os.environ["AUTOQUANT_PROJECT_ROOT"]) / PORTFOLIO_MANDATE
+    try:
+        mandate = load_portfolio_mandate(path)
+    except Exception as error:
+        raise JudgeFailure(
+            "prediction-universe.contract",
+            f"Invalid fixed prediction-universe authority: {error}",
+        ) from error
+    if mandate["researchUniverse"] != research_universe:
+        raise JudgeFailure(
+            "prediction-universe.research-universe",
+            "Portfolio Mandate researchUniverse must equal the Factor Study universe",
+        )
+    if factor_claim["claim"] == "decision-signal":
+        prediction_assets = list(mandate["tradableAssets"])
+        authority = "portfolio-mandate-tradable-assets"
+    else:
+        prediction_assets = list(research_universe)
+        authority = "factor-claim-research-universe"
+    context_assets = [
+        asset for asset in research_universe if asset not in prediction_assets
+    ]
+    if len(prediction_assets) < MIN_ASSETS_PER_DATE:
+        raise JudgeFailure(
+            "prediction-universe.population",
+            "Cross-sectional Factor evaluation requires at least "
+            f"{MIN_ASSETS_PER_DATE} prediction-eligible assets; received "
+            f"{len(prediction_assets)}. Use a time-series or relative-value "
+            "Study instead of borrowing target observations from context-only "
+            "assets.",
+        )
+    return mandate, prediction_assets, context_assets, authority
 
 
 def _load_asset(data_root: Path, asset: str, start: str, end: str) -> pd.DataFrame:
@@ -1097,6 +1139,12 @@ def _evaluate() -> tuple[
     PRIMARY_HORIZON = int(research_horizon["primaryForwardBars"])
     dataset = study["dataset"]
     universe = dataset["universe"]
+    (
+        mandate,
+        prediction_assets,
+        context_assets,
+        prediction_authority,
+    ) = _load_prediction_universe(universe, factor_claim)
     time_range = dataset["time_range"]
     module = importlib.import_module("factors.candidate")
     frames: dict[str, pd.DataFrame] = {}
@@ -1134,9 +1182,17 @@ def _evaluate() -> tuple[
         )
         for asset in universe
     }
-    close_panel = pd.DataFrame(close_by_asset).reindex(factor_panel.index)
-    volume_panel = pd.DataFrame(volume_by_asset).reindex(factor_panel.index)
-    timeline = pd.DatetimeIndex(factor_panel.index)
+    research_factor_panel = factor_panel
+    research_close_panel = pd.DataFrame(close_by_asset).reindex(
+        research_factor_panel.index
+    )
+    research_volume_panel = pd.DataFrame(volume_by_asset).reindex(
+        research_factor_panel.index
+    )
+    factor_panel = research_factor_panel[prediction_assets]
+    close_panel = research_close_panel[prediction_assets]
+    volume_panel = research_volume_panel[prediction_assets]
+    timeline = pd.DatetimeIndex(research_factor_panel.index)
     split_masks, split_protocol, base_split_labels = purged_split_masks(
         timeline,
         HORIZONS,
@@ -1146,6 +1202,7 @@ def _evaluate() -> tuple[
         PRIMARY_HORIZON,
     )
     forward_panels = forward_return_panels(close_panel, HORIZONS)
+    research_input_counts = research_close_panel.notna().sum(axis=1).astype(int)
     input_counts = close_panel.notna().sum(axis=1).astype(int)
     factor_counts = factor_panel.notna().sum(axis=1).astype(int)
     paired_counts = {
@@ -1155,7 +1212,9 @@ def _evaluate() -> tuple[
         for horizon in HORIZONS
     }
     possible_rows = int(len(timeline) * len(universe))
-    observed_rows = int(input_counts.sum())
+    observed_rows = int(research_input_counts.sum())
+    prediction_possible_rows = int(len(timeline) * len(prediction_assets))
+    prediction_observed_rows = int(input_counts.sum())
     input_availability = {
         "method": "observed-only-no-fill-v1",
         "missing_observation": "absent-no-fill",
@@ -1166,8 +1225,21 @@ def _evaluate() -> tuple[
             observed_rows / possible_rows
         ),
         "complete_timestamps": int(
-            input_counts.eq(len(universe)).sum()
+            research_input_counts.eq(len(universe)).sum()
         ),
+        "prediction_universe": {
+            "authority": prediction_authority,
+            "assets": prediction_assets,
+            "context_assets": context_assets,
+            "observed_rows": prediction_observed_rows,
+            "possible_rows": prediction_possible_rows,
+            "observation_coverage": float(
+                prediction_observed_rows / prediction_possible_rows
+            ),
+            "complete_timestamps": int(
+                input_counts.eq(len(prediction_assets)).sum()
+            ),
+        },
         "eligible_factor_timestamps": {
             str(horizon): int(
                 paired_counts[horizon]
@@ -1178,7 +1250,7 @@ def _evaluate() -> tuple[
         },
         "minimum_assets_per_factor_timestamp": MIN_ASSETS_PER_DATE,
         "assets_per_timestamp": {
-            "input": _count_summary(input_counts),
+            "input": _count_summary(research_input_counts),
             "factor": _count_summary(factor_counts),
             "primary_pair": _count_summary(
                 paired_counts[PRIMARY_HORIZON]
@@ -1186,15 +1258,17 @@ def _evaluate() -> tuple[
         },
         "by_asset": {
             asset: {
-                "observations": int(close_panel[asset].notna().sum()),
+                "observations": int(
+                    research_close_panel[asset].notna().sum()
+                ),
                 "start": timestamp_label(
-                    close_panel[asset].dropna().index[0]
+                    research_close_panel[asset].dropna().index[0]
                 ),
                 "end": timestamp_label(
-                    close_panel[asset].dropna().index[-1]
+                    research_close_panel[asset].dropna().index[-1]
                 ),
                 "input_coverage": float(
-                    close_panel[asset].notna().mean()
+                    research_close_panel[asset].notna().mean()
                 ),
                 "factor_coverage": coverage[asset],
             }
@@ -1211,7 +1285,7 @@ def _evaluate() -> tuple[
                 panel,
                 components.values[name],
                 universe=universe,
-            )
+            )[prediction_assets]
             for name in components.values.columns
         }
         if components is not None
@@ -1311,7 +1385,7 @@ def _evaluate() -> tuple[
         name: descriptive_ic(_masked(primary_ic, mask))
         for name, mask in fold_masks.items()
     }
-    regimes = causal_regime_labels(close_panel)
+    regimes = causal_regime_labels(research_close_panel)
     regime_stability = {
         split: {
             regime: descriptive_ic(
@@ -1325,7 +1399,13 @@ def _evaluate() -> tuple[
         }
         for split in ("train", "validation", "test")
     }
-    styles = style_proxy_panels(close_panel, volume_panel)
+    styles = {
+        name: values[prediction_assets]
+        for name, values in style_proxy_panels(
+            research_close_panel,
+            research_volume_panel,
+        ).items()
+    }
     style_correlations: dict[str, dict[str, Any]] = {
         split: {}
         for split in ("train", "validation", "test")
@@ -1369,6 +1449,16 @@ def _evaluate() -> tuple[
         "factor_api": factor_contract(factor_evaluation),
         "research_horizon": research_horizon,
         "factor_claim": factor_claim,
+        "prediction_universe": {
+            "authority": prediction_authority,
+            "research_assets": list(universe),
+            "prediction_assets": prediction_assets,
+            "context_assets": context_assets,
+            "asset_position_roles": mandate["construction"][
+                "assetPositionRoles"
+            ],
+            "trading_authority": "none",
+        },
         "train": splits["train"],
         "validation": splits["validation"],
         "test": splits["test"],
@@ -1390,6 +1480,7 @@ def _evaluate() -> tuple[
         "input_availability": input_availability,
         "mean_rank_turnover": turnover,
         "assets": int(len(universe)),
+        "prediction_assets": int(len(prediction_assets)),
         "ic_dates": int(len(primary_ic)),
         "research_integrity": {
             "selection_split": "validation",
@@ -1418,13 +1509,24 @@ def _evaluate() -> tuple[
             "id": dataset["id"],
             "version": dataset["version"],
             "universe": universe,
+            "predictionAssets": prediction_assets,
+            "contextAssets": context_assets,
             "timeRange": time_range,
         },
         "researchHorizon": research_horizon,
         "semantics": {
             "target": research_horizon["targetSemantics"],
             "measure": (
-                "per-date cross-sectional Spearman rank IC and Pearson IC"
+                "per-date cross-sectional Spearman rank IC and Pearson IC "
+                f"over the fixed {prediction_authority} evaluation universe"
+            ),
+            "researchUniverse": (
+                "complete Study universe available to candidate features"
+            ),
+            "predictionUniverse": (
+                "Portfolio Mandate tradableAssets for request-bound "
+                "decision-signal claims; complete research universe for "
+                "novel-factor and known-style-validation claims"
             ),
             "horizons": list(HORIZONS),
             "primaryHorizon": PRIMARY_HORIZON,
@@ -1524,7 +1626,7 @@ def _evaluate() -> tuple[
     daily_evidence.index.name = "timestamp"
     availability_evidence = pd.DataFrame(
         {
-            "input_assets": input_counts,
+            "input_assets": research_input_counts,
             "factor_assets": factor_counts,
             **{
                 f"paired_assets_h{horizon}": paired_counts[horizon]

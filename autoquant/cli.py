@@ -2211,11 +2211,14 @@ def _session_next_actions(project, session) -> list[dict[str, Any]]:
                         "session.promote",
                         (
                             "Promote the exact current KEEP with its immutable "
-                            "Report if the Project base is unchanged."
+                            "Report if the Project base is unchanged. This "
+                            "preserves the best source; it does not assert "
+                            "scientific qualification or downstream admission."
                             if current_report is not None
                             else (
                                 "Promote the exact current KEEP if the Project "
-                                "base is unchanged."
+                                "base is unchanged. Source promotion is not "
+                                "scientific qualification."
                             )
                         ),
                         promote_argv,
@@ -2507,6 +2510,8 @@ def _session_promote(args: argparse.Namespace) -> CommandResult:
             f"Study: {session.manifest['studyId']}\n"
             f"Source: {receipt['beforeSourceHash']} -> "
             f"{receipt['afterSourceHash']}\n"
+            "Authority: source preserved; qualification and downstream "
+            "progression remain evidence-gated\n"
             + (
                 f"Report: {receipt['report']['id']}\n"
                 if receipt.get("report") is not None
@@ -2525,7 +2530,8 @@ def _session_promote(args: argparse.Namespace) -> CommandResult:
         [
             next_action(
                 "run.execute",
-                "Execute the promoted Project source through the fixed Study.",
+                "Execute the preserved Project source through the fixed Study; "
+                "promotion alone does not qualify it.",
                 [
                     "aq",
                     "run",

@@ -498,6 +498,11 @@ def _apply_ohlcv_factor_lab(
         )
     _write_research_horizon(project, intake)
     _write_factor_claim(project, intake)
+    _write_portfolio_mandate(
+        project,
+        intake,
+        list(dataset["universe"]),
+    )
     _write_template_source(project, "factors/candidate.py", "candidate.py")
     _seed_known_style_candidate(project, intake)
     _write_template_source(project, "judges/ohlcv_factor.py", "judge.py")
@@ -542,7 +547,13 @@ def _apply_ohlcv_factor_lab(
             StudyTimeRange(str(dataset["start"]), _time_range_value(end)),
             ["ohlcv/**"],
         ),
-        dependencies={"paths": [FACTOR_CLAIM, RESEARCH_HORIZON]},
+        dependencies={
+            "paths": [
+                FACTOR_CLAIM,
+                PORTFOLIO_MANDATE,
+                RESEARCH_HORIZON,
+            ]
+        },
     )
     study = create_study(project, definition)
     study.program_path.write_text(
@@ -888,7 +899,13 @@ def _apply_ohlcv_research_desk(
                     0.01,
                 ),
                 dataset=shared_dataset,
-                dependencies={"paths": [FACTOR_CLAIM, RESEARCH_HORIZON]},
+                dependencies={
+                    "paths": [
+                        FACTOR_CLAIM,
+                        PORTFOLIO_MANDATE,
+                        RESEARCH_HORIZON,
+                    ]
+                },
             ),
             "ohlcv_factor_lab",
         ),
