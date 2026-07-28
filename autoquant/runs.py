@@ -15,7 +15,6 @@ import time
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -47,6 +46,7 @@ from .workspace import (
     ValidationIssue,
     confined_path,
 )
+from .version import current_version
 
 
 RUN_MANIFEST = "manifest.json"
@@ -106,13 +106,6 @@ def _write_json(path: Path, value: Any) -> None:
     )
 
 
-def _package_version() -> str:
-    try:
-        return version("auto-quant")
-    except PackageNotFoundError:
-        return "0.1.0"
-
-
 def _harness_commit() -> str:
     source_root = Path(__file__).resolve().parents[1]
     try:
@@ -170,7 +163,7 @@ def _harness_source_hash() -> str:
 def harness_identity() -> dict[str, Any]:
     return {
         "id": "autoquant.python-judge",
-        "version": _package_version(),
+        "version": current_version(),
         "commit": _harness_commit(),
         "dirty": _harness_dirty(),
         "sourceHash": _harness_source_hash(),

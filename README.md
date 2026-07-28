@@ -1,3 +1,7 @@
+---
+version: 0.1.0
+---
+
 # AutoQuant V2
 
 AutoQuant turns quantitative research into a versioned, testable,
@@ -64,6 +68,7 @@ AutoQuant requires Python 3.11 and
 
 ```bash
 uv sync
+uv run aq --version
 uv run aq capabilities --json
 uv run aq workspace init ./quant-workspace --name "Quant Research Desk"
 uv run aq project create ./quant-workspace research-desk \

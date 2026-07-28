@@ -168,6 +168,7 @@ from .workspace import (
     schema_for as workspace_schema_for,
     set_default_project,
 )
+from .version import current_version
 
 
 class CliUsageError(ValueError):
@@ -228,7 +229,11 @@ def build_parser() -> RaisingArgumentParser:
             "many self-contained Projects."
         ),
     )
-    parser.add_argument("--version", action="version", version="aq 0.1.0")
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"aq {current_version()}",
+    )
     subcommands = parser.add_subparsers(dest="command", required=True)
 
     capabilities = subcommands.add_parser(
