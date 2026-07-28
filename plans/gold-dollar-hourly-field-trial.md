@@ -1,6 +1,6 @@
 # Gold futures and dollar hourly field trial
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-07-29`
 - Related design: [[docs/design/agent-native-quant-workbench]],
   [[docs/design/research-intake-and-dataset-snapshots]],
@@ -68,9 +68,9 @@ roll rule, margin requirement, tick value, expiry, venue order, or fill.
   clock, alignment, asset-class, or contract-authority boundary.
 - [x] Any Core change is the smallest reusable boundary proven by the trial;
   unsupported contract-chain semantics remain explicit.
-- [ ] A bounded real-data Project either executes with causal evidence and
+- [x] A bounded real-data Project either executes with causal evidence and
   limitations or terminates with a useful machine-readable refusal.
-- [ ] CLI, orientation, Studio, documentation, deterministic tests, packaging,
+- [x] CLI, orientation, Studio, documentation, deterministic tests, packaging,
   commit/push, and repository cleanliness pass in proportion to the change.
 
 ## Work
@@ -80,8 +80,8 @@ roll rule, margin requirement, tick value, expiry, venue order, or fill.
   is frozen.
 - [x] Reproduce the current public intake/runtime boundary.
 - [x] Design and implement only a justified reusable gap.
-- [ ] Execute and interpret the clean field trial.
-- [ ] Complete release or explicit-boundary audit and close the plan.
+- [x] Execute and interpret the clean field trial.
+- [x] Complete release or explicit-boundary audit and close the plan.
 
 ## Findings and decisions
 
@@ -118,6 +118,16 @@ roll rule, margin requirement, tick value, expiry, venue order, or fill.
   The caller explicitly approved a 120-second RL allowance. Only that hard
   timeout changes; Factor/Portfolio budgets and RL seeds, folds, episodes, and
   training logic remain fixed.
+- 2026-07-29 — The clean `0.8.2` installed-wheel Project proves the new
+  boundary without claiming a positive market result. The generic
+  gold-versus-dollar baseline is weak; gold-only 24-bar momentum and the
+  predeclared inverse-dollar context combination both reverted. No Portfolio
+  or RL lane is admitted.
+- 2026-07-29 — An installed wheel has no `.git` checkout, so its immutable Run
+  honestly records commit `unavailable` alongside version `0.8.2`,
+  `dirty: false`, and its source hash. Annotated tag `v0.8.2` binds the
+  released distribution to source commit `a109ee7`; no commit is fabricated
+  inside wheel evidence.
 
 ## Verification
 
@@ -136,6 +146,24 @@ roll rule, margin requirement, tick value, expiry, venue order, or fill.
   seconds, its exact two-Run reproducibility test passed in 160.117 seconds,
   all 980 documentation links resolved, and the clean complete gate passed all
   263 tests in 1805.362 seconds.
+- Release-candidate version and capability tests passed; `uv lock --check`
+  resolved the package contract and public CLI reported `aq 0.8.2`.
+- A fresh Python 3.11.14 environment installed
+  `auto_quant-0.8.2-py3-none-any.whl` outside the repository, exposed 48
+  public commands, and advertised dataset package V5 through the public JSON
+  Schema.
+- Clean Project `gold-dollar-hourly-timing-v082` passed validate, orientation,
+  Study inspection, Factor Explorer, Report reload, and Studio snapshot with
+  zero diagnostics. Baseline Run
+  `run-20260728T211436645786Z-4403d0db226b` succeeded in 5,176 ms with Harness
+  `0.8.2`, `dirty: false`, and installed source hash
+  `3d94eaa332307e76cb18c672968e6ea992ddb698aa92890a3f9cc4a9fc0fdaf9`.
+- The governed Session preserved one metadata-only CRASH, then REVERTED
+  gold-only 24-bar momentum at validation IC `-0.0856952` and gold momentum
+  plus inverse dollar momentum at `-0.0611825`. Immutable Report
+  `report-20260728T211953828000Z-bf3249f548af` completed the Session with
+  baseline-reported/no-trading authority.
+- Annotated tag `v0.8.2` points to pushed release commit `a109ee7`.
 
 ## Progress log
 
@@ -155,7 +183,18 @@ roll rule, margin requirement, tick value, expiry, venue order, or fill.
   11,359 exact same-timestamp dollar-index context rows. Its Factor Run used
   `single-asset-temporal`, a 24-gold-bar primary horizon, and
   `per-target-observed-bars` purge authority.
+- 2026-07-29 — Built and installed the `0.8.2` wheel in a fresh Python 3.11
+  environment, created a new public-intake Project, executed and inspected its
+  bounded real-data baseline, stopped after two predeclared reverted
+  candidates, published an immutable Report, completed the Session, and
+  released tag `v0.8.2`.
 
 ## Completion
 
-Pending.
+AutoQuant `0.8.2` now accepts the originally unsupported request without
+changing its asset classes, market closures, or horizon meaning. The field
+trial returned a useful negative research conclusion: neither the generic
+baseline nor the two bounded candidates supports a stable historical
+long-gold timing rule. The observed-intraday Factor workbench is released;
+contract-chain, Portfolio/RL, and execution semantics remain explicit future
+boundaries rather than fabricated capabilities.
