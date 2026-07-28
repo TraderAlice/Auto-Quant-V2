@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import re
 from dataclasses import dataclass
 from datetime import datetime
@@ -72,6 +73,13 @@ PROJECT_INTAKE = "intake.json"
 DATASET_SNAPSHOT = "data/ohlcv/snapshot.json"
 SAFE_SYMBOL = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 SUPPORTED_SOURCE_SUFFIXES = {".csv", ".parquet", ".feather"}
+RAGGED_DAILY_SCHEMA_VERSION = 4
+RAGGED_PANEL_POLICY = {
+    "alignment": "observed-only",
+    "missingObservation": "absent-no-fill",
+}
+FACTOR_MIN_ASSETS_PER_TIMESTAMP = 4
+FACTOR_MIN_ASSET_OBSERVATIONS = 120
 PRICE_ADJUSTMENTS = {
     "raw",
     "split-adjusted",
@@ -261,6 +269,10 @@ class PreparedIntake:
     @property
     def multi_interval(self) -> bool:
         return self.package["schemaVersion"] in {2, 3}
+
+    @property
+    def ragged_daily(self) -> bool:
+        return self.package["schemaVersion"] == RAGGED_DAILY_SCHEMA_VERSION
 
     @property
     def interval_surface(self) -> dict[str, Any] | None:
@@ -502,6 +514,61 @@ def _validate_v1_package_manifest(
             }
             for asset in assets
         ],
+    }
+
+
+def _validate_v4_package_manifest(
+    value: dict[str, Any],
+    path: Path,
+) -> dict[str, Any]:
+    required = {
+        "schemaVersion",
+        "kind",
+        "id",
+        "version",
+        "assetClass",
+        "frequency",
+        "panelPolicy",
+        "market",
+        "priceAdjustment",
+        "provider",
+        "assets",
+    }
+    issues = _strict_keys(value, required, path)
+    if value.get("schemaVersion") != RAGGED_DAILY_SCHEMA_VERSION:
+        issues.append(
+            _issue(
+                f"{path}/schemaVersion",
+                "schema.version",
+                f"Expected V{RAGGED_DAILY_SCHEMA_VERSION}",
+            )
+        )
+    if value.get("panelPolicy") != RAGGED_PANEL_POLICY:
+        issues.append(
+            _issue(
+                f"{path}/panelPolicy",
+                "dataset.panel-policy",
+                "V4 requires the fixed observed-only, absent-no-fill "
+                "daily panel policy",
+            )
+        )
+    common = {
+        key: item
+        for key, item in value.items()
+        if key not in {"schemaVersion", "panelPolicy"}
+    }
+    common["schemaVersion"] = SCHEMA_VERSION
+    try:
+        normalized = _validate_v1_package_manifest(common, path)
+    except AutoQuantValidationError as error:
+        issues.extend(error.issues)
+        normalized = common
+    if issues:
+        raise AutoQuantValidationError(issues)
+    return {
+        **normalized,
+        "schemaVersion": RAGGED_DAILY_SCHEMA_VERSION,
+        "panelPolicy": dict(RAGGED_PANEL_POLICY),
     }
 
 
@@ -910,11 +977,87 @@ def _validate_package_manifest(
     value: dict[str, Any],
     path: Path,
 ) -> dict[str, Any]:
+    if value.get("schemaVersion") == RAGGED_DAILY_SCHEMA_VERSION:
+        return _validate_v4_package_manifest(value, path)
     if value.get("schemaVersion") == 3:
         return _validate_v3_package_manifest(value, path)
     if value.get("schemaVersion") == 2:
         return _validate_v2_package_manifest(value, path)
     return _validate_v1_package_manifest(value, path)
+
+
+def _daily_panel_availability_from_dates(
+    asset_dates: list[list[str]],
+) -> tuple[list[str], dict[str, Any]]:
+    if not asset_dates:
+        return [], {
+            "alignment": RAGGED_PANEL_POLICY["alignment"],
+            "missingObservation": RAGGED_PANEL_POLICY[
+                "missingObservation"
+            ],
+            "unionObservations": 0,
+            "intersectionObservations": 0,
+            "eligibleFactorObservations": 0,
+            "minimumAssetsPerFactorTimestamp": (
+                FACTOR_MIN_ASSETS_PER_TIMESTAMP
+            ),
+            "observedRows": 0,
+            "possibleRows": 0,
+            "observationCoverage": 0.0,
+            "assetsPerTimestamp": {
+                "minimum": 0,
+                "median": 0.0,
+                "maximum": 0,
+            },
+        }
+    date_sets = [set(dates) for dates in asset_dates]
+    union_dates = sorted(set().union(*date_sets))
+    intersection_dates = sorted(set.intersection(*date_sets))
+    counts = [
+        sum(date in dates for dates in date_sets)
+        for date in union_dates
+    ]
+    possible = len(union_dates) * len(asset_dates)
+    observed = sum(len(dates) for dates in date_sets)
+    eligible = sum(
+        count >= FACTOR_MIN_ASSETS_PER_TIMESTAMP
+        for count in counts
+    )
+    return union_dates, {
+        "alignment": RAGGED_PANEL_POLICY["alignment"],
+        "missingObservation": RAGGED_PANEL_POLICY["missingObservation"],
+        "unionObservations": len(union_dates),
+        "intersectionObservations": len(intersection_dates),
+        "eligibleFactorObservations": eligible,
+        "minimumAssetsPerFactorTimestamp": (
+            FACTOR_MIN_ASSETS_PER_TIMESTAMP
+        ),
+        "observedRows": observed,
+        "possibleRows": possible,
+        "observationCoverage": (
+            float(observed / possible) if possible else 0.0
+        ),
+        "assetsPerTimestamp": {
+            "minimum": min(counts) if counts else 0,
+            "median": (
+                float(np.median(np.asarray(counts, dtype=float)))
+                if counts
+                else 0.0
+            ),
+            "maximum": max(counts) if counts else 0,
+        },
+    }
+
+
+def _daily_panel_availability(
+    assets: list[PreparedAsset] | tuple[PreparedAsset, ...],
+) -> tuple[list[str], dict[str, Any]]:
+    return _daily_panel_availability_from_dates(
+        [
+            [str(value) for value in asset.frame["timestamp"]]
+            for asset in assets
+        ]
+    )
 
 
 def prepare_project_intake(
@@ -949,6 +1092,18 @@ def prepare_project_intake(
     prepared: list[PreparedAsset] = []
     issues: list[ValidationIssue] = []
     expected_dates: list[Any] | None = None
+    ragged_daily = (
+        package["schemaVersion"] == RAGGED_DAILY_SCHEMA_VERSION
+    )
+    if ragged_daily and template != "ohlcv-factor-lab":
+        issues.append(
+            _issue(
+                manifest_path,
+                "dataset.ragged-factor-only",
+                "V4 observed-only ragged daily panels are supported only "
+                "by the ohlcv-factor-lab template",
+            )
+        )
     package_surface = (
         configurable_interval_surface(
             package["baseInterval"],
@@ -1030,7 +1185,7 @@ def prepare_project_intake(
         dates = frame["timestamp"].tolist()
         if expected_dates is None:
             expected_dates = dates
-        elif dates != expected_dates:
+        elif dates != expected_dates and not ragged_daily:
             panel = (
                 "exact base timestamp panel"
                 if package["schemaVersion"] in {2, 3}
@@ -1055,6 +1210,27 @@ def prepare_project_intake(
                 interval_frames=interval_frames,
             )
         )
+    panel_dates = (
+        _daily_panel_availability(prepared)[0]
+        if ragged_daily
+        else list(expected_dates or [])
+    )
+    availability = (
+        _daily_panel_availability(prepared)[1]
+        if ragged_daily
+        else None
+    )
+    if ragged_daily:
+        for asset in prepared:
+            if len(asset.frame) < FACTOR_MIN_ASSET_OBSERVATIONS:
+                issues.append(
+                    _issue(
+                        asset.source_path,
+                        "dataset.asset-observations",
+                        f"{asset.symbol} has fewer than "
+                        f"{FACTOR_MIN_ASSET_OBSERVATIONS} observed daily rows",
+                    )
+                )
     minimum_assets, minimum_observations = INTAKE_TEMPLATE_REQUIREMENTS[template]
     if len(prepared) < minimum_assets:
         issues.append(
@@ -1064,7 +1240,7 @@ def prepare_project_intake(
                 f"{template} requires at least {minimum_assets} aligned assets",
             )
         )
-    observations = len(expected_dates or [])
+    observations = len(panel_dates)
     if observations < minimum_observations:
         unit = (
             f"base {package['baseInterval']}"
@@ -1076,6 +1252,20 @@ def prepare_project_intake(
                 manifest_path,
                 "dataset.observations",
                 f"{template} requires at least {minimum_observations} {unit} rows",
+            )
+        )
+    if (
+        availability is not None
+        and availability["eligibleFactorObservations"]
+        < minimum_observations
+    ):
+        issues.append(
+            _issue(
+                manifest_path,
+                "dataset.factor-breadth-history",
+                f"{template} requires at least {minimum_observations} "
+                f"timestamps with {FACTOR_MIN_ASSETS_PER_TIMESTAMP} or "
+                "more observed assets",
             )
         )
 
@@ -1108,20 +1298,20 @@ def prepare_project_intake(
                     f"Requested venue for {item['symbol']} differs from dataset",
                 )
             )
-    if expected_dates is not None:
+    if panel_dates:
         try:
             validate_horizon_capacity(
                 normalize_horizon_policy(request.get("horizonPolicy")),
-                len(expected_dates),
+                len(panel_dates),
                 "request/horizonPolicy",
             )
         except AutoQuantValidationError as error:
             issues.extend(error.issues)
     if issues:
         raise AutoQuantValidationError(issues)
-    assert expected_dates is not None
-    start = expected_dates[0]
-    end = expected_dates[-1]
+    assert panel_dates
+    start = panel_dates[0]
+    end = panel_dates[-1]
     if isinstance(start, pd.Timestamp):
         start = start.isoformat().replace("+00:00", "Z")
         end = end.isoformat().replace("+00:00", "Z")
@@ -1148,14 +1338,18 @@ def materialize_intake_dataset(
     output.mkdir()
     asset_records: list[dict[str, Any]] = []
     for asset in intake.assets:
+        asset_start = str(asset.frame["timestamp"].iloc[0])
+        asset_end = str(asset.frame["timestamp"].iloc[-1])
         common = {
             "symbol": asset.symbol,
             "venue": asset.venue,
             "currency": asset.currency,
             "sourcePath": asset.source_relative_path,
             "sourceHash": asset.source_hash,
-            "start": intake.start,
-            "end": intake.end,
+            "start": (
+                asset_start if intake.ragged_daily else intake.start
+            ),
+            "end": asset_end if intake.ragged_daily else intake.end,
         }
         if intake.multi_interval:
             assert asset.interval_frames is not None
@@ -1236,6 +1430,12 @@ def materialize_intake_dataset(
         snapshot["intervalSurface"] = intake.interval_surface
     else:
         snapshot["frequency"] = intake.package["frequency"]
+        if intake.ragged_daily:
+            snapshot["schemaVersion"] = RAGGED_DAILY_SCHEMA_VERSION
+            snapshot["panelPolicy"] = dict(RAGGED_PANEL_POLICY)
+            snapshot["availability"] = _daily_panel_availability(
+                intake.assets
+            )[1]
     snapshot_path = output / "snapshot.json"
     _write_json(snapshot_path, snapshot)
     interval_line = (
@@ -1259,7 +1459,13 @@ def materialize_intake_dataset(
         f"{interval_line}"
         f"- Coverage: `{intake.start}` through `{intake.end}`\n"
         f"- Universe: {', '.join(intake.universe)}\n\n"
-        "The fixed Study hashes every file in this directory. Provider, "
+        + (
+            "- Panel: observed-only ragged daily rows; missing observations "
+            "remain absent and are never filled.\n\n"
+            if intake.ragged_daily
+            else ""
+        )
+        + "The fixed Study hashes every file in this directory. Provider, "
         "calendar, adjustment, venue, and terms values are caller-supplied "
         "claims, not authenticated by AutoQuant.\n"
     )
@@ -1295,6 +1501,8 @@ def finalize_project_intake(
 def _validate_v1_snapshot(
     snapshot: dict[str, Any],
     path: Path,
+    *,
+    ragged: bool = False,
 ) -> list[ValidationIssue]:
     required = {
         "schemaVersion",
@@ -1315,12 +1523,126 @@ def _validate_v1_snapshot(
         "studyId",
         "assets",
     }
+    if ragged:
+        required.update({"panelPolicy", "availability"})
     issues = _strict_keys(snapshot, required, path)
     if (
-        snapshot.get("schemaVersion") != SCHEMA_VERSION
+        snapshot.get("schemaVersion")
+        != (
+            RAGGED_DAILY_SCHEMA_VERSION
+            if ragged
+            else SCHEMA_VERSION
+        )
         or snapshot.get("kind") != DATASET_SNAPSHOT_KIND
     ):
         issues.append(_issue(path, "intake.snapshot-schema", "Invalid dataset snapshot"))
+    if ragged and snapshot.get("panelPolicy") != RAGGED_PANEL_POLICY:
+        issues.append(
+            _issue(
+                f"{path}/panelPolicy",
+                "intake.snapshot-panel-policy",
+                "Ragged daily snapshot must preserve the fixed "
+                "observed-only policy",
+            )
+        )
+    availability = snapshot.get("availability")
+    if ragged:
+        availability_required = {
+            "alignment",
+            "missingObservation",
+            "unionObservations",
+            "intersectionObservations",
+            "eligibleFactorObservations",
+            "minimumAssetsPerFactorTimestamp",
+            "observedRows",
+            "possibleRows",
+            "observationCoverage",
+            "assetsPerTimestamp",
+        }
+        if not isinstance(availability, dict):
+            issues.append(
+                _issue(
+                    f"{path}/availability",
+                    "schema.type",
+                    "Ragged daily availability must be an object",
+                )
+            )
+            availability = {}
+        else:
+            issues.extend(
+                _strict_keys(
+                    availability,
+                    availability_required,
+                    f"{path}/availability",
+                )
+            )
+        if (
+            availability.get("alignment")
+            != RAGGED_PANEL_POLICY["alignment"]
+            or availability.get("missingObservation")
+            != RAGGED_PANEL_POLICY["missingObservation"]
+            or availability.get("minimumAssetsPerFactorTimestamp")
+            != FACTOR_MIN_ASSETS_PER_TIMESTAMP
+        ):
+            issues.append(
+                _issue(
+                    f"{path}/availability",
+                    "intake.snapshot-availability-policy",
+                    "Snapshot availability policy differs from the fixed "
+                    "Factor contract",
+                )
+            )
+        for key in (
+            "unionObservations",
+            "intersectionObservations",
+            "eligibleFactorObservations",
+            "observedRows",
+            "possibleRows",
+        ):
+            value = availability.get(key)
+            if (
+                not isinstance(value, int)
+                or isinstance(value, bool)
+                or value < 0
+            ):
+                issues.append(
+                    _issue(
+                        f"{path}/availability/{key}",
+                        "schema.integer",
+                        f"{key} must be a non-negative integer",
+                    )
+                )
+        coverage = availability.get("observationCoverage")
+        if (
+            not isinstance(coverage, (int, float))
+            or isinstance(coverage, bool)
+            or not math.isfinite(float(coverage))
+            or not 0.0 <= float(coverage) <= 1.0
+        ):
+            issues.append(
+                _issue(
+                    f"{path}/availability/observationCoverage",
+                    "schema.number",
+                    "observationCoverage must be a finite ratio",
+                )
+            )
+        breadth = availability.get("assetsPerTimestamp")
+        if not isinstance(breadth, dict):
+            issues.append(
+                _issue(
+                    f"{path}/availability/assetsPerTimestamp",
+                    "schema.type",
+                    "assetsPerTimestamp must be an object",
+                )
+            )
+        else:
+            issues.extend(
+                _strict_keys(
+                    breadth,
+                    {"minimum", "median", "maximum"},
+                    f"{path}/availability/assetsPerTimestamp",
+                )
+            )
     for key in ("id", "version", "assetClass", "template", "studyId"):
         issues.extend(_non_empty(snapshot.get(key), f"{path}/{key}"))
     if snapshot.get("frequency") != "1d":
@@ -1509,7 +1831,7 @@ def _validate_v1_snapshot(
         symbol = asset.get("symbol")
         if isinstance(symbol, str):
             asset_symbols.append(symbol)
-        if (
+        if not ragged and (
             asset.get("start") != time_range.get("start")
             or asset.get("end") != time_range.get("end")
         ):
@@ -1520,6 +1842,28 @@ def _validate_v1_snapshot(
                     "Every asset must match snapshot timeRange",
                 )
             )
+        if ragged:
+            try:
+                asset_start = pd.Timestamp(asset.get("start"))
+                asset_end = pd.Timestamp(asset.get("end"))
+                range_start = pd.Timestamp(time_range.get("start"))
+                range_end = pd.Timestamp(time_range.get("end"))
+                if not (
+                    range_start
+                    <= asset_start
+                    <= asset_end
+                    <= range_end
+                ):
+                    raise ValueError
+            except (TypeError, ValueError):
+                issues.append(
+                    _issue(
+                        asset_path,
+                        "intake.snapshot-coverage",
+                        "Ragged asset coverage must be contained within "
+                        "the snapshot union timeRange",
+                    )
+                )
     if asset_symbols != universe:
         issues.append(
             _issue(
@@ -1856,10 +2200,19 @@ def _validate_v3_snapshot(
     )
 
 
+def _validate_v4_snapshot(
+    snapshot: dict[str, Any],
+    path: Path,
+) -> list[ValidationIssue]:
+    return _validate_v1_snapshot(snapshot, path, ragged=True)
+
+
 def _validate_snapshot(
     snapshot: dict[str, Any],
     path: Path,
 ) -> list[ValidationIssue]:
+    if snapshot.get("schemaVersion") == RAGGED_DAILY_SCHEMA_VERSION:
+        return _validate_v4_snapshot(snapshot, path)
     if snapshot.get("schemaVersion") == 3:
         return _validate_v3_snapshot(snapshot, path)
     if snapshot.get("schemaVersion") == 2:
@@ -1978,6 +2331,7 @@ def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
                 "Snapshot requested assets differ from the Research Request",
             )
         )
+    ragged_dates_by_symbol: dict[str, list[str]] = {}
     for asset in snapshot.get("assets", []):
         if not isinstance(asset, dict):
             continue
@@ -2010,6 +2364,39 @@ def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
                         "Normalized asset hash mismatch",
                     )
                 )
+            elif (
+                snapshot.get("schemaVersion")
+                == RAGGED_DAILY_SCHEMA_VERSION
+                and isinstance(asset.get("symbol"), str)
+            ):
+                try:
+                    normalized = _canonical_frame(
+                        normalized_path,
+                        market_clock="session",
+                    )
+                except AutoQuantValidationError as error:
+                    issues.extend(error.issues)
+                else:
+                    dates = [
+                        str(value)
+                        for value in normalized["timestamp"].tolist()
+                    ]
+                    ragged_dates_by_symbol[asset["symbol"]] = dates
+                    if (
+                        row.get("observations") != len(dates)
+                        or row.get("start")
+                        != (dates[0] if dates else None)
+                        or row.get("end")
+                        != (dates[-1] if dates else None)
+                    ):
+                        issues.append(
+                            _issue(
+                                normalized_path,
+                                "intake.snapshot-asset-availability",
+                                "Ragged asset availability differs from "
+                                "canonical normalized rows",
+                            )
+                        )
         if (
             snapshot.get("schemaVersion") in {2, 3}
             and isinstance(asset.get("symbol"), str)
@@ -2030,6 +2417,39 @@ def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
                         str(error),
                     )
                 )
+    if (
+        snapshot.get("schemaVersion") == RAGGED_DAILY_SCHEMA_VERSION
+        and len(ragged_dates_by_symbol)
+        == len(snapshot.get("universe", []))
+    ):
+        ordered_dates = [
+            ragged_dates_by_symbol[symbol]
+            for symbol in snapshot["universe"]
+        ]
+        union_dates, availability = _daily_panel_availability_from_dates(
+            ordered_dates
+        )
+        if snapshot.get("availability") != availability:
+            issues.append(
+                _issue(
+                    snapshot_path,
+                    "intake.snapshot-availability",
+                    "Snapshot availability summary differs from canonical "
+                    "normalized rows",
+                )
+            )
+        expected_range = {
+            "start": union_dates[0] if union_dates else None,
+            "end": union_dates[-1] if union_dates else None,
+        }
+        if snapshot.get("timeRange") != expected_range:
+            issues.append(
+                _issue(
+                    snapshot_path,
+                    "intake.snapshot-time-range",
+                    "Snapshot timeRange must equal the ragged panel union",
+                )
+            )
     study = load_study(project, manifest.get("studyId", ""))
     if study.study_hash != manifest.get("studyHash"):
         issues.append(
@@ -2295,6 +2715,31 @@ OHLCV_DATASET_PACKAGE_V1_JSON_SCHEMA: dict[str, Any] = {
     },
 }
 
+OHLCV_DATASET_PACKAGE_V4_JSON_SCHEMA: dict[str, Any] = {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "AutoQuant observed-only ragged daily OHLCV package",
+    "type": "object",
+    "additionalProperties": False,
+    "required": [
+        "schemaVersion",
+        "kind",
+        "id",
+        "version",
+        "assetClass",
+        "frequency",
+        "panelPolicy",
+        "market",
+        "priceAdjustment",
+        "provider",
+        "assets",
+    ],
+    "properties": {
+        **OHLCV_DATASET_PACKAGE_V1_JSON_SCHEMA["properties"],
+        "schemaVersion": {"const": RAGGED_DAILY_SCHEMA_VERSION},
+        "panelPolicy": {"const": RAGGED_PANEL_POLICY},
+    },
+}
+
 OHLCV_DATASET_PACKAGE_V2_JSON_SCHEMA: dict[str, Any] = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "title": "AutoQuant causal multi-interval OHLCV dataset package",
@@ -2432,7 +2877,9 @@ OHLCV_DATASET_PACKAGE_JSON_SCHEMA: dict[str, Any] = {
     "title": "AutoQuant external OHLCV dataset package",
     "type": "object",
     "properties": {
-        "schemaVersion": {"enum": [1, 2, 3]},
+        "schemaVersion": {
+            "enum": [1, 2, 3, RAGGED_DAILY_SCHEMA_VERSION]
+        },
         "kind": {"const": DATASET_PACKAGE_KIND},
         "frequency": {"const": "1d"},
         "baseInterval": {"enum": list(SUPPORTED_BASE_INTERVALS)},
@@ -2445,5 +2892,6 @@ OHLCV_DATASET_PACKAGE_JSON_SCHEMA: dict[str, Any] = {
         OHLCV_DATASET_PACKAGE_V1_JSON_SCHEMA,
         OHLCV_DATASET_PACKAGE_V2_JSON_SCHEMA,
         OHLCV_DATASET_PACKAGE_V3_JSON_SCHEMA,
+        OHLCV_DATASET_PACKAGE_V4_JSON_SCHEMA,
     ],
 }

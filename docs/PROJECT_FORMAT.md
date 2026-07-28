@@ -124,7 +124,8 @@ exact reason. See [[docs/design/research-selection-integrity]] and
 
 `aq project intake` uses one of these same fixed templates but replaces the
 construction fixture with a validated caller-supplied OHLCV snapshot. V1
-stores a daily session panel:
+stores an aligned daily session panel; V4 uses the same paths for a Factor-only
+observed daily panel whose per-asset dates may differ:
 
 ```text
 request.json
@@ -152,7 +153,10 @@ data/ohlcv/
 ```
 
 `snapshot.json` preserves package/provider/market/adjustment claims, requested
-assets, research universe, coverage, source hashes, and canonical hashes. V2
+assets, research universe, coverage, source hashes, and canonical hashes. V4
+also freezes `observed-only / absent-no-fill`, union/complete timestamps,
+observed/possible rows, breadth distribution, and each asset's own observed
+range. V2
 also fixes base/features, bar-close semantics, continuous UTC clock, midnight
 anchor, aggregation method, and per-interval inventories. Fixed loading
 recomputes derived files from 1h before causal backward-as-of alignment.

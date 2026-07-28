@@ -247,8 +247,9 @@ class MultiStudyResearchProgramTests(unittest.TestCase):
             ]
             self.assertTrue(
                 all(
-                    contract["kind"] == "panel-v1"
-                    and contract["input"] == "long-form-complete-universe"
+                    contract["kind"] == "panel-v2"
+                    and contract["input"]
+                    == "long-form-observed-universe"
                     and contract["cross_asset_context"] == "same-timestamp"
                     and contract["causality_audit"]
                     == "whole-panel-timestamp-prefix"

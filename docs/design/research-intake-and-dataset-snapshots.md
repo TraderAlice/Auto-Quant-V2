@@ -1,7 +1,7 @@
 # Request-driven research intake and OHLCV dataset snapshots
 
-Status: V1 daily, V2 continuous-1h, and V3 configurable/session intake
-implemented.
+Status: V1 aligned daily, V2 continuous-1h, V3 configurable/session, and V4
+observed-only daily Factor intake implemented.
 
 Related: [[docs/ARCHITECTURE]], [[docs/CLI]], [[docs/PROJECT_FORMAT]],
 [[docs/STUDIO]], [[docs/design/workspace-project-boundaries]],
@@ -133,6 +133,28 @@ regular-session authority. The exact XNYS calendar, DST, early-close, and
 terminal partial-bar contract is in
 [[docs/design/configurable-session-interval-inputs]].
 
+V4 keeps the V1 daily asset/provider shape but explicitly changes panel
+authority:
+
+```json
+{
+  "schemaVersion": 4,
+  "kind": "autoquant-ohlcv-dataset-package",
+  "frequency": "1d",
+  "panelPolicy": {
+    "alignment": "observed-only",
+    "missingObservation": "absent-no-fill"
+  }
+}
+```
+
+V4 is accepted only by the Factor template. Each asset keeps its own observed
+dates and listing-history start; there is no forward/back fill and no global
+timestamp intersection. Portfolio and governed RL fail explicitly because
+their accounting/state contracts do not yet define changing-universe
+semantics. V1 remains exact and aligned rather than silently acquiring a new
+meaning.
+
 ## Validation and normalization
 
 Before any Project is visible, Core:
@@ -141,12 +163,15 @@ Before any Project is visible, Core:
 2. confines every asset path beneath the package directory and rejects
    symlinks, duplicates, and unsafe symbols;
 3. reads CSV, Parquet, or Feather;
-4. for V1, accepts a conventional timestamp alias, requires finite positive
+4. for V1/V4, accepts a conventional timestamp alias, requires finite positive
    daily OHLCV and no weekend session rows, then orders canonical output;
 5. for V2/V3, requires explicit timezone-aware base-bar-close timestamps,
    exact UTC-hour boundaries, consecutive rows with no gaps, strict OHLCV
    geometry, and complete UTC-midnight-anchored aggregation groups;
-6. requires every asset to share the exact base timestamp panel;
+6. requires every asset to share the exact base timestamp panel for V1–V3;
+   V4 instead requires at least 120 observations per asset, at least four
+   observed assets on enough union timestamps for each requested horizon, and
+   records the complete observed-only availability surface;
 7. enforces template-specific breadth and history floors;
 8. requires each requested asset and non-null venue to exist in the package
    and requires the request's single asset class to equal the package class;
@@ -162,6 +187,12 @@ timestamp,open,high,low,close,volume
 with one `YYYY-MM-DD` row per session and one `<symbol>.csv` per asset. There is
 no implicit forward fill, timestamp intersection, survivorship repair, or
 corporate-action transformation.
+
+For V4, `snapshot.json` additionally freezes the exact panel policy, union and
+complete timestamp counts, observed/possible rows, observation coverage, and
+minimum/median/maximum assets per timestamp. Every asset records its own
+observed start, end, and row count. Load-time validation recomputes these facts
+from normalized bytes.
 
 V2 uses `data/ohlcv/<interval>/<symbol>.csv`. The fixed loader recomputes every
 materialized 3h/4h/6h/12h/1d file from 1h bytes and rejects a mismatch even if
@@ -299,6 +330,8 @@ Studio remains read-only and does not duplicate validation or construction.
    request explicitly authorizes them.
 10. V2/V3 materialized higher bars must reconcile to locked base bytes, and all
     three research lanes consume the same causally aligned surface.
+11. V4 retains absent rows as absence, is Factor-only, and exposes usable
+    cross-sectional breadth in immutable evidence.
 
 ## Verification and change checklist
 
@@ -323,7 +356,8 @@ When changing this boundary:
 
 - V1 handles one aligned daily session panel; V2 handles one continuous UTC
   1h panel with exact 3h/4h/6h/12h/1d derived bars; V3 handles bounded
-  configurable continuous bases and XNYS regular sessions.
+  configurable continuous bases and XNYS regular sessions; V4 handles an
+  observed-only ragged daily panel for Factor research only.
 - V3 XNYS regular-session intraday aggregation is supported; extended hours,
   unscheduled halts, and other exchange calendars are not.
 - Symbols are restricted to path-safe identifiers.

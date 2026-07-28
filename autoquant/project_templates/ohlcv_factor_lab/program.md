@@ -15,8 +15,10 @@ def compute_factor(panel: pandas.DataFrame) -> pandas.Series:
     ...
 ```
 
-`panel` is the complete Study universe in long form, with one row per
+`panel` is the observed Study universe in long form, with one row per available
 `asset`/`timestamp` and base plus available completed higher-interval OHLCV.
+Aligned inputs are rectangular; V4 daily input is ragged and does not invent,
+fill, or globally intersect missing/pre-listing rows.
 Use ordinary `groupby("asset")` for rolling time-series features and
 `groupby("timestamp")` for contemporaneous cross-sectional context. The
 returned Series must align exactly with the input index. Missing warm-up values
@@ -55,8 +57,9 @@ imply that Core inferred column use.
    style-neutral residual
    IC, equal-blend uplift, declared-component raw/residual IC, pairwise
    redundancy, fixed diagnostic-blend leave-one-out delta, residual fold
-   stability, asset/regime stability, coverage, turnover, errors, verdict,
-   Project-family trial count, and family-wise adjusted HAC significance.
+   stability, asset/regime stability, observed input/factor/target-pair
+   availability, coverage, turnover, errors, verdict, Project-family trial
+   count, and family-wise adjusted HAC significance.
 7. KEEP only when the fixed objective improves; otherwise accept restoration
    and form a different hypothesis.
 
@@ -70,6 +73,10 @@ unique editable source hashes across every Run with the same fixed Study,
 Judge, data, dependencies, and objective. Treat the Bonferroni-HAC result as a
 selection-risk diagnostic, not permission to hide failed attempts or override
 the immutable verdict.
+
+Session construction reuses an exact successful current baseline Run. It
+executes a new baseline only when Study, program, candidate, Judge, dataset,
+dependency, or Harness identity differs.
 
 The Judge fixes dataset-derived split dates and purges each declared diagnostic
 horizon before a boundary. Treat sparse regimes, one weak fold, one dominant

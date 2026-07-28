@@ -198,6 +198,13 @@ aq session start <path> --study <id> --request request.json --json
   - aq session complete <path> --session <id> --report <id> --json
 ```
 
+Session start first searches verified successful Runs newest-first. It reuses a
+Run only when the Study, program, editable source, Judge, dataset,
+dependencies, and installed Harness identities exactly match current inputs.
+Otherwise it executes one fresh baseline. This keeps Session construction from
+silently duplicating an already established one-shot evaluation while
+preserving strict currentness after any scientific or runtime change.
+
 An external Codex, another coding Agent, or a human can drive these same
 operations. The implemented provider-neutral bounded layer is
 [[docs/design/external-researcher-driver]]; it composes this contract rather
@@ -223,6 +230,7 @@ Later Experiments do not mutate an earlier Report.
    are not research evidence by themselves.
 11. A delegated Brief is exactly derived from caller content and fixed
     Session/Study authority; caller context cannot alter the Judge.
+12. Session start does not duplicate an exact successful current baseline Run.
 12. Reports freeze chronological evidence prefixes and have no trading
     authority.
 13. `promoted` and `completed` are mutually exclusive terminal states.

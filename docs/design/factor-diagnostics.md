@@ -15,7 +15,7 @@ Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]],
 
 This document owns the fixed research diagnostics between a candidate's causal
 factor Series and later portfolio/RL work. Candidate code remains one plain
-complete-universe panel pandas function. The Judge owns every target, horizon,
+observed-universe panel pandas function. The Judge owns every target, horizon,
 split, bin, regime, style proxy, statistic, artifact, and acceptance rule.
 
 The protocol is a research tear sheet, not a trading simulator. It describes
@@ -45,6 +45,16 @@ Mandate's primary bar. Non-primary horizons and all test metrics are
 diagnostics only.
 
 ## Fixed evidence
+
+### Observed input availability
+
+The Judge treats input availability as evidence rather than preprocessing
+noise. For every union timestamp it records observed input assets, finite
+factor assets, and target-paired assets at every requested horizon. Aggregate
+evidence includes observed/possible rows, complete and eligible timestamps,
+input/factor/pair breadth summaries, and each asset's observed range and
+coverage. V4 missing and pre-listing combinations stay absent; no fill or
+global intersection occurs.
 
 ### Horizon quality and inference
 
@@ -110,6 +120,8 @@ Every successful reference Run publishes:
   purge-aware request-bound daily rank/Pearson IC;
 - `factor-quantiles.csv`: timestamp, split, horizon, low/middle/high return,
   and high-minus-low spread.
+- `factor-availability.csv`: timestamp-level observed input, finite-factor,
+  and per-horizon target-pair breadth reconciled to aggregate availability.
 - `factor-qualification.csv`: timestamp, split, request-fixed or train-selected
   comparison style,
   and candidate/style/style-neutral/equal-blend daily rank IC for fixed

@@ -52,6 +52,25 @@ class GovernedResearchSessionTests(unittest.TestCase):
             self.assertEqual(len(list_runs(project)), 1)
             self.assertEqual([item.id for item in list_sessions(project)], [session.manifest["id"]])
 
+    def test_session_reuses_an_exact_successful_baseline_run(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, project = make_project(directory)
+            create_study(project, study_definition())
+            baseline = execute_study(project, "factor-quality")
+
+            with mock.patch.object(
+                session_module,
+                "execute_study",
+                side_effect=AssertionError("exact baseline must be reused"),
+            ):
+                session = start_session(project, "factor-quality")
+
+            self.assertEqual(
+                session.manifest["baseline"]["runId"],
+                baseline.result["id"],
+            )
+            self.assertEqual(len(list_runs(project)), 1)
+
     def test_keep_revert_and_crash_advance_or_restore_the_linear_leader(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             project, session = self._setup(directory)

@@ -1282,6 +1282,7 @@ function renderHandoff(project) {
     if (intake) {
       const request = intake.request;
       const dataset = intake.dataset;
+      const datasetAvailability = dataset.availability;
       const source = request.source;
       const program = project.researchProgramStatus;
       const holdout = project.externalHoldout;
@@ -1320,10 +1321,10 @@ function renderHandoff(project) {
           <p>${escapeHtml(dataset.universe.join(" · "))}</p>
           <div class="handoff-metrics">
             <span><b>${escapeHtml(dataset.frequency)}</b><small>frequency</small></span>
-            <span><b>${dataset.assets[0]?.observations ?? "—"}</b><small>sessions</small></span>
+            <span><b>${datasetAvailability?.unionObservations ?? dataset.assets[0]?.observations ?? "—"}</b><small>${datasetAvailability ? "union sessions" : "sessions"}</small></span>
             <span><b>${escapeHtml(dataset.market.calendar)}</b><small>calendar claim</small></span>
           </div>
-          <span class="context-note">${escapeHtml(dataset.provider.name)} · ${escapeHtml(dataset.priceAdjustment)} · ${escapeHtml(dataset.timeRange.start)} → ${escapeHtml(dataset.timeRange.end)} · provider claims</span>
+          <span class="context-note">${escapeHtml(dataset.provider.name)} · ${escapeHtml(dataset.priceAdjustment)} · ${escapeHtml(dataset.timeRange.start)} → ${escapeHtml(dataset.timeRange.end)} · ${datasetAvailability ? `observed-only ${percent(datasetAvailability.observationCoverage)} row coverage · ` : ""}provider claims</span>
         </article>
         <article class="handoff-card report-card ${baseline ? "ready" : ""}">
           <small>03 · ${holdout ? "Frozen external audit" : `${lane ? escapeHtml(lane.name) : "Baseline"} &amp; next action`}</small>
@@ -2152,6 +2153,7 @@ function renderFactorExplorer(project) {
   const summary = explorer.summary;
   const validation = summary.validation;
   const test = summary.testAudit;
+  const availability = explorer.inputAvailability;
   element("factor-meta").textContent =
     `${explorer.run.id} · ${explorer.dataset.universe.length} assets · ${explorer.researchHorizon.primaryForwardBars}-bar validation selection`;
   element("factor-summary").innerHTML = [
@@ -2159,6 +2161,7 @@ function renderFactorExplorer(project) {
     ["HAC t / p", `${metric(validation.hacTStatistic)} / ${metric(validation.hacNormalPValue)}`, "normal approximation"],
     ["Weakest validation fold", metric(summary.weakestValidationFold?.meanRankIc), summary.weakestValidationFold?.id ?? "unavailable"],
     ["Maximum style overlap", metric(summary.maximumValidationStyleOverlap?.absoluteMeanRankCorrelation), summary.maximumValidationStyleOverlap?.style?.replaceAll("_", " ") ?? "unavailable"],
+    ["Input panel", availability?.available ? percent(availability.observationCoverage) : "legacy", availability?.available ? `${availability.assetsPerTimestamp.input.minimum}/${availability.assetsPerTimestamp.input.median}/${availability.assetsPerTimestamp.input.maximum} min/median/max assets` : "availability unavailable"],
     ["Coverage", percent(summary.meanCoverage), "mean asset availability"],
     ["Rank turnover", percent(summary.meanRankTurnover), "full-scope diagnostic"],
     ["Test rank IC", metric(test.meanRankIc), "VISIBLE AUDIT ONLY"],

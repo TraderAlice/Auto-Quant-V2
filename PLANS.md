@@ -34,6 +34,7 @@ There are no proposed plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/broad-universe-independent-factor-challenge]] | Completed a frozen known-style Factor challenge over a disjoint 72-stock observed-only daily panel and published one immutable negative-evidence Report. | 2026-07-28 |
 | [[plans/project-derived-factor-completeness]] | Support explicit novel-versus-known-style Factor claims, timestamp-context components, and Report-bound delegated promotion. | 2026-07-28 |
 | [[plans/panel-native-factor-system]] | Gave Agents one causal ordinary-pandas panel factor API plus a Project-derived Workbench-needs feedback line. | 2026-07-27 |
 | [[plans/clarified-english-research-briefs]] | Require an Agent-maintained English Markdown research brief and material-ambiguity clarification before quantitative work begins. | 2026-07-27 |

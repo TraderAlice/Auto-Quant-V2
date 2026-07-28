@@ -71,7 +71,9 @@ EXPECTED_ARTIFACT_KINDS = {
     *BASE_ARTIFACT_KINDS,
     QUALIFICATION_ARTIFACT_KIND,
     COMPONENT_ARTIFACT_KIND,
+    "factor-availability",
 }
+AVAILABILITY_ARTIFACT_KIND = "factor-availability"
 QUALIFICATION_METHOD = "request-claim-aware-one-style-rank-neutralization-v2"
 COMPONENT_METHOD = "candidate-declared-components-v2"
 MAX_COMPONENTS = 12
@@ -111,6 +113,12 @@ QUALIFICATION_COLUMNS = [
         for signal in QUALIFICATION_SIGNALS
     ],
 ]
+AVAILABILITY_COLUMNS = [
+    "timestamp",
+    "input_assets",
+    "factor_assets",
+    *[f"paired_assets_h{horizon}" for horizon in HORIZONS],
+]
 _HORIZON_CONFIGURATION_LOCK = threading.RLock()
 
 
@@ -121,7 +129,7 @@ def _configure_horizons(
     """Bind module-local artifact parsers to this immutable Run policy."""
 
     global HORIZONS, PRIMARY_HORIZON, DAILY_COLUMNS
-    global QUALIFICATION_COLUMNS
+    global QUALIFICATION_COLUMNS, AVAILABILITY_COLUMNS
     raw = run.result["metrics"].get("research_horizon")
     report_raw = report.get("researchHorizon")
     if not isinstance(raw, dict) or report_raw != raw:
@@ -170,6 +178,12 @@ def _configure_horizons(
             for item in HORIZONS
             for signal in QUALIFICATION_SIGNALS
         ],
+    ]
+    AVAILABILITY_COLUMNS = [
+        "timestamp",
+        "input_assets",
+        "factor_assets",
+        *[f"paired_assets_h{item}" for item in HORIZONS],
     ]
     return horizon
 
@@ -363,6 +377,17 @@ def _artifact_paths(
             "factor.component-artifact",
             "Factor component metrics and artifact must appear together",
         )
+    availability_metrics = run.result.get("metrics", {}).get(
+        "input_availability"
+    )
+    has_availability_artifact = AVAILABILITY_ARTIFACT_KIND in paths
+    if (availability_metrics is not None) != has_availability_artifact:
+        _fail(
+            run.root_dir,
+            "factor.availability-artifact",
+            "Factor input-availability metrics and artifact must appear "
+            "together",
+        )
     return paths, identities
 
 
@@ -522,6 +547,291 @@ class ParsedDaily:
     dates: list[str]
     rows: list[dict[str, Any]]
     by_date: dict[str, dict[str, Any]]
+
+
+def _csv_integer(
+    value: str,
+    path: Path | str,
+    *,
+    minimum: int = 0,
+    maximum: int | None = None,
+) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        _fail(path, "factor.integer", "Expected an integer")
+    if str(parsed) != value or parsed < minimum or (
+        maximum is not None and parsed > maximum
+    ):
+        _fail(path, "factor.integer", "Integer is outside the fixed bounds")
+    return parsed
+
+
+def _availability(
+    path: Path,
+    daily: ParsedDaily,
+    metrics: dict[str, Any],
+    report: dict[str, Any],
+    universe: list[str],
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    raw_metrics = metrics.get("input_availability")
+    if raw_metrics is None:
+        return {
+            "available": False,
+            "reason": "legacy-run",
+        }, []
+    if (
+        not isinstance(raw_metrics, dict)
+        or report.get("inputAvailability") != raw_metrics
+    ):
+        _fail(
+            "RunResult/metrics/input_availability",
+            "factor.availability",
+            "Run and Factor report availability evidence must match",
+        )
+    raw_rows = _read_csv(
+        path,
+        columns=AVAILABILITY_COLUMNS,
+        maximum_rows=MAX_DAILY_ROWS,
+    )
+    if len(raw_rows) != len(daily.rows):
+        _fail(
+            path,
+            "factor.availability-rows",
+            "Availability rows must match the Factor timeline",
+        )
+    rows: list[dict[str, Any]] = []
+    maximum_assets = len(universe)
+    for index, raw in enumerate(raw_rows):
+        row_path = f"{path}:{index + 2}"
+        timestamp = _session_date(
+            raw["timestamp"],
+            f"{row_path}/timestamp",
+        )
+        if timestamp != daily.dates[index]:
+            _fail(
+                row_path,
+                "factor.availability-timestamp",
+                "Availability timeline must match daily Factor evidence",
+            )
+        input_assets = _csv_integer(
+            raw["input_assets"],
+            f"{row_path}/input_assets",
+            maximum=maximum_assets,
+        )
+        factor_assets = _csv_integer(
+            raw["factor_assets"],
+            f"{row_path}/factor_assets",
+            maximum=input_assets,
+        )
+        paired = {
+            str(horizon): _csv_integer(
+                raw[f"paired_assets_h{horizon}"],
+                f"{row_path}/paired_assets_h{horizon}",
+                maximum=factor_assets,
+            )
+            for horizon in HORIZONS
+        }
+        rows.append(
+            {
+                "timestamp": timestamp,
+                "inputAssets": input_assets,
+                "factorAssets": factor_assets,
+                "pairedAssets": paired,
+            }
+        )
+
+    def count_summary(
+        values: list[int],
+        raw: Any,
+        label: str,
+    ) -> dict[str, float | int]:
+        if not isinstance(raw, dict):
+            _fail(label, "factor.availability-summary", "Invalid count summary")
+        ordered = sorted(values)
+        midpoint = len(ordered) // 2
+        median = (
+            float(ordered[midpoint])
+            if len(ordered) % 2
+            else float(
+                (ordered[midpoint - 1] + ordered[midpoint]) / 2
+            )
+        )
+        expected = {
+            "minimum": min(values),
+            "median": median,
+            "maximum": max(values),
+        }
+        if raw != expected:
+            _fail(
+                label,
+                "factor.availability-reconciliation",
+                "Availability count summary does not reconcile its artifact",
+            )
+        return {
+            "minimum": expected["minimum"],
+            "median": expected["median"],
+            "maximum": expected["maximum"],
+        }
+
+    timestamps = _integer(
+        raw_metrics.get("timestamps"),
+        "input_availability/timestamps",
+        minimum=1,
+    )
+    if timestamps != len(rows):
+        _fail(
+            "input_availability/timestamps",
+            "factor.availability-reconciliation",
+            "Availability timestamp count does not reconcile its artifact",
+        )
+    observed_rows = sum(row["inputAssets"] for row in rows)
+    possible_rows = len(rows) * maximum_assets
+    if (
+        raw_metrics.get("method") != "observed-only-no-fill-v1"
+        or raw_metrics.get("missing_observation") != "absent-no-fill"
+        or raw_metrics.get("observed_rows") != observed_rows
+        or raw_metrics.get("possible_rows") != possible_rows
+        or raw_metrics.get("complete_timestamps")
+        != sum(row["inputAssets"] == maximum_assets for row in rows)
+        or raw_metrics.get("minimum_assets_per_factor_timestamp") != 4
+    ):
+        _fail(
+            "RunResult/metrics/input_availability",
+            "factor.availability-reconciliation",
+            "Availability summary does not reconcile its artifact",
+        )
+    _close(
+        observed_rows / possible_rows,
+        raw_metrics.get("observation_coverage"),
+        "input_availability/observation_coverage",
+        "input observation coverage",
+    )
+    raw_eligible = raw_metrics.get("eligible_factor_timestamps")
+    if (
+        not isinstance(raw_eligible, dict)
+        or set(raw_eligible) != {str(item) for item in HORIZONS}
+    ):
+        _fail(
+            "input_availability/eligible_factor_timestamps",
+            "factor.availability",
+            "Every request-bound horizon needs an eligibility count",
+        )
+    eligible = [
+        {
+            "horizon": horizon,
+            "timestamps": sum(
+                row["pairedAssets"][str(horizon)] >= 4
+                for row in rows
+            ),
+        }
+        for horizon in HORIZONS
+    ]
+    if {
+        str(item["horizon"]): item["timestamps"]
+        for item in eligible
+    } != raw_eligible:
+        _fail(
+            "input_availability/eligible_factor_timestamps",
+            "factor.availability-reconciliation",
+            "Eligibility counts do not reconcile the availability artifact",
+        )
+    raw_counts = raw_metrics.get("assets_per_timestamp")
+    if not isinstance(raw_counts, dict):
+        _fail(
+            "input_availability/assets_per_timestamp",
+            "factor.availability",
+            "Availability count summaries must be an object",
+        )
+    count_summaries = {
+        "input": count_summary(
+            [row["inputAssets"] for row in rows],
+            raw_counts.get("input"),
+            "input_availability/assets_per_timestamp/input",
+        ),
+        "factor": count_summary(
+            [row["factorAssets"] for row in rows],
+            raw_counts.get("factor"),
+            "input_availability/assets_per_timestamp/factor",
+        ),
+        "primaryPair": count_summary(
+            [
+                row["pairedAssets"][str(PRIMARY_HORIZON)]
+                for row in rows
+            ],
+            raw_counts.get("primary_pair"),
+            "input_availability/assets_per_timestamp/primary_pair",
+        ),
+    }
+    raw_by_asset = raw_metrics.get("by_asset")
+    if (
+        not isinstance(raw_by_asset, dict)
+        or set(raw_by_asset) != set(universe)
+    ):
+        _fail(
+            "input_availability/by_asset",
+            "factor.availability-universe",
+            "Per-asset availability must match the Run universe",
+        )
+    by_asset: list[dict[str, Any]] = []
+    for asset in universe:
+        raw = raw_by_asset[asset]
+        if not isinstance(raw, dict):
+            _fail(
+                f"input_availability/by_asset/{asset}",
+                "factor.availability",
+                "Per-asset availability must be an object",
+            )
+        by_asset.append(
+            {
+                "asset": asset,
+                "observations": _integer(
+                    raw.get("observations"),
+                    f"input_availability/by_asset/{asset}/observations",
+                    minimum=1,
+                ),
+                "start": _session_date(
+                    raw.get("start"),
+                    f"input_availability/by_asset/{asset}/start",
+                ),
+                "end": _session_date(
+                    raw.get("end"),
+                    f"input_availability/by_asset/{asset}/end",
+                ),
+                "inputCoverage": _bounded(
+                    raw.get("input_coverage"),
+                    f"input_availability/by_asset/{asset}/input_coverage",
+                    minimum=0.0,
+                    maximum=1.0,
+                ),
+                "factorCoverage": _bounded(
+                    raw.get("factor_coverage"),
+                    f"input_availability/by_asset/{asset}/factor_coverage",
+                    minimum=0.0,
+                    maximum=1.0,
+                ),
+            }
+        )
+    if sum(item["observations"] for item in by_asset) != observed_rows:
+        _fail(
+            "input_availability/by_asset",
+            "factor.availability-reconciliation",
+            "Per-asset observations do not reconcile observed rows",
+        )
+    return {
+        "available": True,
+        "method": raw_metrics["method"],
+        "missingObservation": raw_metrics["missing_observation"],
+        "timestamps": timestamps,
+        "observedRows": observed_rows,
+        "possibleRows": possible_rows,
+        "observationCoverage": float(observed_rows / possible_rows),
+        "completeTimestamps": raw_metrics["complete_timestamps"],
+        "minimumAssetsPerFactorTimestamp": 4,
+        "eligibleFactorTimestamps": eligible,
+        "assetsPerTimestamp": count_summaries,
+        "byAsset": by_asset,
+    }, rows
 
 
 def _parse_daily(
@@ -3231,6 +3541,20 @@ def _load_factor_diagnostics_unlocked(
     protocol = _split_protocol(metrics)
     daily = _parse_daily(paths["factor-daily"], protocol)
     _reconcile_daily(daily, metrics)
+    if AVAILABILITY_ARTIFACT_KIND in paths:
+        input_availability, availability_rows = _availability(
+            paths[AVAILABILITY_ARTIFACT_KIND],
+            daily,
+            metrics,
+            report,
+            universe,
+        )
+    else:
+        input_availability = {
+            "available": False,
+            "reason": "legacy-run",
+        }
+        availability_rows = []
     quantiles = _parse_quantiles(paths["factor-quantiles"], daily)
     _reconcile_quantiles(quantiles, metrics)
     qualification_parsed = (
@@ -3272,6 +3596,20 @@ def _load_factor_diagnostics_unlocked(
             )
         component_evidence = component_artifact["evidence"]
     ic_path, quantile_path = _paths(daily, quantiles, point_limit)
+    selected_dates = {
+        row["timestamp"] for row in ic_path["points"]
+    }
+    availability_points = [
+        row
+        for row in availability_rows
+        if row["timestamp"] in selected_dates
+    ]
+    availability_path = {
+        "totalRows": len(availability_rows),
+        "sampledRows": len(availability_points),
+        "sampling": "aligned-to-ic-path-timestamps",
+        "points": availability_points,
+    }
     semantics = report.get("semantics")
     declared_styles = (
         semantics.get("styles") if isinstance(semantics, dict) else None
@@ -3379,6 +3717,7 @@ def _load_factor_diagnostics_unlocked(
             "splits": protocol,
         },
         "summary": _summary(metrics),
+        "inputAvailability": input_availability,
         "factorQualification": _factor_qualification_projection(
             qualification_parsed
         ),
@@ -3390,6 +3729,7 @@ def _load_factor_diagnostics_unlocked(
         "quantileSummary": _quantile_summary(metrics),
         "stability": _stability(metrics, universe),
         "coverage": _coverage(report, universe),
+        "availabilityPath": availability_path,
         "icPath": ic_path,
         "quantilePath": quantile_path,
         "warning": (
@@ -3825,12 +4165,14 @@ FACTOR_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "artifacts",
         "protocol",
         "summary",
+        "inputAvailability",
         "factorQualification",
         "factorComponents",
         "horizonProfile",
         "quantileSummary",
         "stability",
         "coverage",
+        "availabilityPath",
         "icPath",
         "quantilePath",
         "warning",
@@ -3885,6 +4227,79 @@ FACTOR_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
             },
         },
         "summary": {"type": "object"},
+        "inputAvailability": {
+            "oneOf": [
+                {
+                    "type": "object",
+                    "required": ["available", "reason"],
+                    "properties": {
+                        "available": {"const": False},
+                        "reason": {"const": "legacy-run"},
+                    },
+                },
+                {
+                    "type": "object",
+                    "required": [
+                        "available",
+                        "method",
+                        "missingObservation",
+                        "timestamps",
+                        "observedRows",
+                        "possibleRows",
+                        "observationCoverage",
+                        "completeTimestamps",
+                        "minimumAssetsPerFactorTimestamp",
+                        "eligibleFactorTimestamps",
+                        "assetsPerTimestamp",
+                        "byAsset",
+                    ],
+                    "properties": {
+                        "available": {"const": True},
+                        "method": {
+                            "const": "observed-only-no-fill-v1"
+                        },
+                        "missingObservation": {
+                            "const": "absent-no-fill"
+                        },
+                        "timestamps": {
+                            "type": "integer",
+                            "minimum": 1,
+                        },
+                        "observedRows": {
+                            "type": "integer",
+                            "minimum": 1,
+                        },
+                        "possibleRows": {
+                            "type": "integer",
+                            "minimum": 1,
+                        },
+                        "observationCoverage": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 1,
+                        },
+                        "completeTimestamps": {
+                            "type": "integer",
+                            "minimum": 0,
+                        },
+                        "minimumAssetsPerFactorTimestamp": {
+                            "const": 4
+                        },
+                        "eligibleFactorTimestamps": {
+                            "type": "array",
+                            "minItems": 1,
+                            "maxItems": 5,
+                        },
+                        "assetsPerTimestamp": {"type": "object"},
+                        "byAsset": {
+                            "type": "array",
+                            "minItems": 1,
+                            "maxItems": MAX_UNIVERSE,
+                        },
+                    },
+                },
+            ]
+        },
         "factorQualification": _FACTOR_QUALIFICATION_SCHEMA,
         "factorComponents": _FACTOR_COMPONENTS_SCHEMA,
         "horizonProfile": {
@@ -3902,6 +4317,30 @@ FACTOR_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
             "type": "array",
             "minItems": 1,
             "maxItems": MAX_UNIVERSE,
+        },
+        "availabilityPath": {
+            "type": "object",
+            "required": [
+                "totalRows",
+                "sampledRows",
+                "sampling",
+                "points",
+            ],
+            "properties": {
+                "totalRows": {"type": "integer", "minimum": 0},
+                "sampledRows": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": MAX_FACTOR_POINTS,
+                },
+                "sampling": {
+                    "const": "aligned-to-ic-path-timestamps"
+                },
+                "points": {
+                    "type": "array",
+                    "maxItems": MAX_FACTOR_POINTS,
+                },
+            },
         },
         "icPath": {
             "type": "object",

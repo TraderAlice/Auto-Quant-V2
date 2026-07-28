@@ -89,6 +89,20 @@ class FactorEvidenceExplorerTests(unittest.TestCase):
             self.assertEqual(len(diagnostics["stability"]["assets"]), 18)
             self.assertEqual(len(diagnostics["stability"]["styles"]), 12)
             self.assertEqual(len(diagnostics["coverage"]), 6)
+            availability = diagnostics["inputAvailability"]
+            self.assertTrue(availability["available"])
+            self.assertEqual(
+                availability["observationCoverage"],
+                1.0,
+            )
+            self.assertEqual(
+                availability["assetsPerTimestamp"]["input"],
+                {"minimum": 6, "median": 6.0, "maximum": 6},
+            )
+            self.assertEqual(
+                diagnostics["availabilityPath"]["sampledRows"],
+                diagnostics["icPath"]["sampledRows"],
+            )
             qualification = diagnostics["factorQualification"]
             self.assertTrue(qualification["available"])
             self.assertEqual(
@@ -208,6 +222,35 @@ class FactorEvidenceExplorerTests(unittest.TestCase):
                 [item["id"] for item in observed["commands"]],
             )
 
+            availability_path = (
+                run.root_dir / "artifacts" / "factor-availability.csv"
+            )
+            original_availability = availability_path.read_text(
+                encoding="utf-8"
+            )
+            availability_rows = original_availability.splitlines()
+            availability_header = availability_rows[0].split(",")
+            availability_cells = availability_rows[1].split(",")
+            input_assets_index = availability_header.index("input_assets")
+            availability_cells[input_assets_index] = str(
+                int(availability_cells[input_assets_index]) - 1
+            )
+            availability_rows[1] = ",".join(availability_cells)
+            availability_path.write_text(
+                "\n".join(availability_rows) + "\n",
+                encoding="utf-8",
+            )
+            rehash_run(run.root_dir)
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "reconcile",
+            ):
+                load_factor_diagnostics(project, run.result["id"])
+            availability_path.write_text(
+                original_availability,
+                encoding="utf-8",
+            )
+
             qualification_path = (
                 run.root_dir / "artifacts" / "factor-qualification.csv"
             )
@@ -271,14 +314,21 @@ class FactorEvidenceExplorerTests(unittest.TestCase):
             )
             legacy_result["metrics"].pop("factor_qualification")
             legacy_result["metrics"].pop("factor_components")
+            legacy_result["metrics"].pop("input_availability")
             legacy_result["artifacts"] = [
                 item
                 for item in legacy_result["artifacts"]
                 if item["kind"]
-                not in {"factor-qualification", "factor-components"}
+                not in {
+                    "factor-availability",
+                    "factor-qualification",
+                    "factor-components",
+                }
             ]
             legacy_report["metrics"].pop("factor_qualification")
             legacy_report["metrics"].pop("factor_components")
+            legacy_report["metrics"].pop("input_availability")
+            legacy_report.pop("inputAvailability")
             legacy_report["semantics"].pop("qualification")
             legacy_report["semantics"]["components"] = None
             result_path.write_text(
@@ -289,10 +339,12 @@ class FactorEvidenceExplorerTests(unittest.TestCase):
                 json.dumps(legacy_report, indent=2, sort_keys=True) + "\n",
                 encoding="utf-8",
             )
+            availability_path.unlink()
             qualification_path.unlink()
             component_path.unlink()
             rehash_run(run.root_dir)
             legacy = load_factor_diagnostics(project, run.result["id"])
+            self.assertFalse(legacy["inputAvailability"]["available"])
             self.assertFalse(legacy["factorQualification"]["available"])
             self.assertFalse(legacy["factorComponents"]["available"])
             jsonschema.validate(

@@ -143,8 +143,9 @@ Read the relevant linked document before changing a subsystem:
   [[docs/design/agent-operator-experience]]
 - Project-observed capability gaps and their promotion into Workbench design
   and plans: [[docs/design/project-derived-workbench-needs]]
-- Complete-universe ordinary-pandas factor input, cross-asset computation, and
-  shared causality runtime: [[docs/design/panel-native-factor-api]]
+- Observed-universe ordinary-pandas factor input, aligned/ragged cross-asset
+  computation, and shared causality runtime:
+  [[docs/design/panel-native-factor-api]]
 - Verified Factor/Portfolio/RL evidence translated into bounded experiment
   briefs without automatic execution, promotion, or trading authority:
   [[docs/design/evidence-driven-research-agenda]]
@@ -239,8 +240,9 @@ Read the relevant linked document before changing a subsystem:
 - Verified baseline/candidate/leader comparison, metric preferences,
   validation-only non-dominance, and Studio decision matrix:
   [[docs/design/session-decision-matrix]]
-- Request-driven Project construction, external OHLCV package validation,
-  normalized dataset snapshots, and pre-Session intake state:
+- Request-driven Project construction, aligned or observed-only external OHLCV
+  package validation, normalized dataset snapshots, and pre-Session intake
+  state:
   [[docs/design/research-intake-and-dataset-snapshots]]
 - Completed-bar multi-interval aggregation, causal as-of alignment, ordinary
   pandas candidate surface, and shared Factor/Portfolio/RL input authority:

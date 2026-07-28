@@ -267,6 +267,12 @@ class ProgramResearchDossierTests(unittest.TestCase):
                 factor_support["factorComponentsHash"],
                 hash_json(components),
             )
+            availability = factor_support["factorInputAvailability"]
+            self.assertTrue(availability["available"])
+            self.assertEqual(
+                factor_support["factorInputAvailabilityHash"],
+                hash_json(availability),
+            )
             self.assertFalse(
                 components["declaration"]["sourceInference"]
             )
@@ -286,6 +292,10 @@ class ProgramResearchDossierTests(unittest.TestCase):
             )
             self.assertIn(
                 "## Frozen leader-Run factor components",
+                factor_markdown,
+            )
+            self.assertIn(
+                "## Frozen leader-Run Factor input availability",
                 factor_markdown,
             )
             portfolio_session, portfolio_report = self._publish_lane(

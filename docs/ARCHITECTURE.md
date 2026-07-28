@@ -47,8 +47,9 @@ The V2 foundation now implements:
 - self-contained blank or reference-template Project creation and one-level
   Workspace discovery;
 - transactional request-driven Project intake from strict caller-supplied V1
-  daily, V2 continuous-UTC hourly, or V3 configurable continuous/XNYS-session
-  OHLCV packages, with normalized local bytes, completed higher intervals,
+  aligned daily, V2 continuous-UTC hourly, V3 configurable
+  continuous/XNYS-session, or V4 observed-only daily Factor OHLCV packages,
+  with normalized local bytes, completed higher intervals,
   version-locked calendar authority, explicit provider/adjustment claims,
   source/snapshot hashes, and exact Study identity;
 - one canonical request-driven research desk that coordinates Factor,

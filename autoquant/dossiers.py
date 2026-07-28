@@ -15,6 +15,7 @@ from typing import Any
 from .decision_support import (
     diversification_stress_markdown_lines,
     factor_components_markdown_lines,
+    factor_input_availability_markdown_lines,
     factor_qualification_markdown_lines,
     mechanical_decision_markdown_lines,
     rl_factor_fusion_diagnosis_markdown_lines,
@@ -1364,6 +1365,13 @@ def _render_markdown(dossier: dict[str, Any]) -> str:
     for lane in evidence["lanes"]:
         support = lane["report"].get("leaderDecisionSupport")
         if isinstance(support, dict):
+            lines.extend(
+                factor_input_availability_markdown_lines(
+                    support,
+                    heading="### Factor input availability",
+                    lane_name=lane["name"],
+                )
+            )
             lines.extend(
                 factor_qualification_markdown_lines(
                     support,

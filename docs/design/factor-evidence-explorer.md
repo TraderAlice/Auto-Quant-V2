@@ -25,7 +25,7 @@ authority.
 
 ```text
 verified successful Factor Run
-→ verified factor-report + daily IC + quantile artifacts
+→ verified factor-report + daily IC + quantile + availability artifacts
 → full-history reconciliation with immutable Run metrics
 → bounded deterministic IC and quantile paths
 → fixed horizon/stability/style summaries
@@ -72,6 +72,22 @@ Decision-useful summary fields include:
 Positive values are evidence, not automatic approval. The browser must not
 colour significance, stability, or monotonicity as “passed” without a fixed
 threshold.
+
+### Input availability
+
+New Runs publish `factor-availability.csv` together with
+`metrics.input_availability` and the matching Factor report object. Core
+reconciles every timestamp's observed input assets, finite factor assets, and
+forward-target-paired assets for each declared horizon. It also verifies
+observed/possible rows, complete timestamps, eligible timestamps, per-asset
+observed start/end/coverage, and the explicit
+`observed-only-no-fill-v1` method.
+
+The Explorer exposes this evidence as `inputAvailability` and samples the
+availability path on the same deterministic anchors as the IC path. Historical
+Runs without the paired metric/artifact remain readable as
+`available=false, reason=legacy-run`; partial or mismatched new evidence fails
+closed.
 
 ### IC path and horizon profile
 
@@ -172,7 +188,9 @@ Full artifacts are reconciled before these response bounds apply.
 ## Invariants
 
 1. No artifact is read before immutable Run verification.
-2. Exactly one fixed Factor artifact set is accepted.
+2. Exactly one fixed Factor artifact set is accepted; availability evidence is
+   optional only for legacy Runs and otherwise must appear as a reconciled
+   metric/artifact pair.
 3. Full daily/quantile evidence reconciles before deterministic sampling.
 4. Validation primary-horizon mean rank IC remains the only selection
    objective.

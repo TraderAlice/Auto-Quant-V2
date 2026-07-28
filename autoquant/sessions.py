@@ -22,7 +22,13 @@ from .briefs import (
     validate_research_request,
     validate_session_brief,
 )
-from .runs import RunContext, execute_study, harness_identity, load_run
+from .runs import (
+    RunContext,
+    execute_study,
+    harness_identity,
+    list_runs,
+    load_run,
+)
 from .selection import build_research_family, build_selection_adjustment
 from .studies import (
     StudyContext,
@@ -390,6 +396,38 @@ def _canonical_data_root(project: ProjectContext) -> Path:
     )
 
 
+def _reusable_baseline(
+    project: ProjectContext,
+    study: StudyContext,
+) -> RunContext | None:
+    """Return the newest successful Run with exactly the current fixed inputs."""
+
+    current_harness = harness_identity()
+    expected_dependency_hash = study.dependency_hash
+    for summary in reversed(list_runs(project, study.definition.id)):
+        if summary.status != "succeeded":
+            continue
+        run = load_run(project, summary.id)
+        result = run.result
+        dependencies = result.get("dependencies")
+        dependency_hash = (
+            dependencies.get("hash")
+            if isinstance(dependencies, dict)
+            else None
+        )
+        if (
+            result["study"].get("hash") == study.study_hash
+            and result["study"].get("programHash") == study.program_hash
+            and result["subject"].get("sourceHash") == study.source_hash
+            and result["judge"].get("hash") == study.judge_hash
+            and result["dataset"].get("hash") == study.dataset_hash
+            and dependency_hash == expected_dependency_hash
+            and result.get("harness") == current_harness
+        ):
+            return run
+    return None
+
+
 def start_session(
     project: ProjectContext,
     study_id: str,
@@ -440,7 +478,9 @@ def start_session(
             )
         if request_issues:
             raise AutoQuantValidationError(request_issues)
-    baseline = execute_study(project, study_id)
+    baseline = _reusable_baseline(project, study)
+    if baseline is None:
+        baseline = execute_study(project, study_id)
     if baseline.result["status"] != "succeeded":
         raise AutoQuantValidationError(
             [

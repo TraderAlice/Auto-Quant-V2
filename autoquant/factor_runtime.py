@@ -16,7 +16,7 @@ from .factor_components import (
 
 
 PANEL_ID_COLUMNS = ("asset", "timestamp")
-FACTOR_API_KIND = "panel-v1"
+FACTOR_API_KIND = "panel-v2"
 MAX_PANEL_ASSETS = 256
 
 
@@ -42,12 +42,27 @@ def factor_contract(evaluation: FactorEvaluation) -> dict[str, Any]:
     """Return structured evidence for the factor API used by one Run."""
 
     panel = evaluation.panel
+    assets = int(panel["asset"].nunique())
+    timestamps = int(panel["timestamp"].nunique())
+    possible_rows = assets * timestamps
+    observed_rows = int(len(panel))
     return {
         "kind": FACTOR_API_KIND,
-        "input": "long-form-complete-universe",
-        "rows": int(len(panel)),
-        "assets": int(panel["asset"].nunique()),
-        "timestamps": int(panel["timestamp"].nunique()),
+        "input": "long-form-observed-universe",
+        "shape": (
+            "rectangular"
+            if observed_rows == possible_rows
+            else "ragged-observed-only"
+        ),
+        "rows": observed_rows,
+        "possible_rows": possible_rows,
+        "observation_coverage": (
+            float(observed_rows / possible_rows)
+            if possible_rows
+            else 0.0
+        ),
+        "assets": assets,
+        "timestamps": timestamps,
         "cross_asset_context": "same-timestamp",
         "causality_audit": "whole-panel-timestamp-prefix",
         "causality_cuts": list(evaluation.causality_cuts),

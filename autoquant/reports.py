@@ -15,6 +15,7 @@ from .decision_support import (
     build_leader_decision_support,
     diversification_stress_markdown_lines,
     factor_components_markdown_lines,
+    factor_input_availability_markdown_lines,
     factor_qualification_markdown_lines,
     mechanical_decision_markdown_lines,
     rl_factor_fusion_diagnosis_markdown_lines,
@@ -901,6 +902,12 @@ def _render_markdown(report: dict[str, Any]) -> str:
         lines.append("")
     leader_decision_support = evidence.get("leaderDecisionSupport")
     if isinstance(leader_decision_support, dict):
+        lines.extend(
+            factor_input_availability_markdown_lines(
+                leader_decision_support,
+                heading="## Frozen leader-Run Factor input availability",
+            )
+        )
         lines.extend(
             factor_qualification_markdown_lines(
                 leader_decision_support,

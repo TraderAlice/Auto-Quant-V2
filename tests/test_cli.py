@@ -183,6 +183,7 @@ class AgentCliTests(unittest.TestCase):
                     "factor-report",
                     "factor-daily",
                     "factor-quantiles",
+                    "factor-availability",
                     "factor-qualification",
                     "factor-components",
                 },
@@ -660,6 +661,12 @@ class AgentCliTests(unittest.TestCase):
                 "frequency"
             ]["const"],
             "1d",
+        )
+        self.assertEqual(
+            json_output(dataset_schema)["data"]["schema"]["properties"][
+                "schemaVersion"
+            ]["enum"],
+            [1, 2, 3, 4],
         )
         portfolio_schema = run_cli(
             "schema",

@@ -203,6 +203,15 @@ def _style_summary(values: pd.Series) -> dict[str, float | int | None]:
     }
 
 
+def _count_summary(values: pd.Series) -> dict[str, float | int]:
+    clean = values.astype(int)
+    return {
+        "minimum": int(clean.min()),
+        "median": float(clean.median()),
+        "maximum": int(clean.max()),
+    }
+
+
 def _equal_rank_component_blend(
     panels: dict[str, pd.DataFrame],
     *,
@@ -1077,6 +1086,7 @@ def _evaluate() -> tuple[
     pd.DataFrame,
     pd.DataFrame,
     pd.DataFrame,
+    pd.DataFrame,
     dict[str, Any] | None,
 ]:
     global HORIZONS, PRIMARY_HORIZON
@@ -1136,6 +1146,61 @@ def _evaluate() -> tuple[
         PRIMARY_HORIZON,
     )
     forward_panels = forward_return_panels(close_panel, HORIZONS)
+    input_counts = close_panel.notna().sum(axis=1).astype(int)
+    factor_counts = factor_panel.notna().sum(axis=1).astype(int)
+    paired_counts = {
+        horizon: (
+            factor_panel.notna() & forward_panels[horizon].notna()
+        ).sum(axis=1).astype(int)
+        for horizon in HORIZONS
+    }
+    possible_rows = int(len(timeline) * len(universe))
+    observed_rows = int(input_counts.sum())
+    input_availability = {
+        "method": "observed-only-no-fill-v1",
+        "missing_observation": "absent-no-fill",
+        "timestamps": int(len(timeline)),
+        "observed_rows": observed_rows,
+        "possible_rows": possible_rows,
+        "observation_coverage": float(
+            observed_rows / possible_rows
+        ),
+        "complete_timestamps": int(
+            input_counts.eq(len(universe)).sum()
+        ),
+        "eligible_factor_timestamps": {
+            str(horizon): int(
+                paired_counts[horizon]
+                .ge(MIN_ASSETS_PER_DATE)
+                .sum()
+            )
+            for horizon in HORIZONS
+        },
+        "minimum_assets_per_factor_timestamp": MIN_ASSETS_PER_DATE,
+        "assets_per_timestamp": {
+            "input": _count_summary(input_counts),
+            "factor": _count_summary(factor_counts),
+            "primary_pair": _count_summary(
+                paired_counts[PRIMARY_HORIZON]
+            ),
+        },
+        "by_asset": {
+            asset: {
+                "observations": int(close_panel[asset].notna().sum()),
+                "start": timestamp_label(
+                    close_panel[asset].dropna().index[0]
+                ),
+                "end": timestamp_label(
+                    close_panel[asset].dropna().index[-1]
+                ),
+                "input_coverage": float(
+                    close_panel[asset].notna().mean()
+                ),
+                "factor_coverage": coverage[asset],
+            }
+            for asset in universe
+        },
+    }
     components = factor_evaluation.components
     component_declarations = (
         components.declaration() if components is not None else None
@@ -1322,6 +1387,7 @@ def _evaluate() -> tuple[
             "folds": fold_protocol,
         },
         "mean_coverage": float(sum(coverage.values()) / len(coverage)),
+        "input_availability": input_availability,
         "mean_rank_turnover": turnover,
         "assets": int(len(universe)),
         "ic_dates": int(len(primary_ic)),
@@ -1431,6 +1497,7 @@ def _evaluate() -> tuple[
             else []
         ),
         "coverageByAsset": coverage,
+        "inputAvailability": input_availability,
         "splitProtocol": split_protocol,
         "foldProtocol": fold_protocol,
         "metrics": metrics,
@@ -1455,6 +1522,18 @@ def _evaluate() -> tuple[
             daily_pearson_by_horizon[horizon].reindex(timeline).where(eligible)
         )
     daily_evidence.index.name = "timestamp"
+    availability_evidence = pd.DataFrame(
+        {
+            "input_assets": input_counts,
+            "factor_assets": factor_counts,
+            **{
+                f"paired_assets_h{horizon}": paired_counts[horizon]
+                for horizon in HORIZONS
+            },
+        },
+        index=timeline,
+    )
+    availability_evidence.index.name = "timestamp"
 
     quantile_rows: list[dict[str, Any]] = []
     for horizon in HORIZONS:
@@ -1483,6 +1562,7 @@ def _evaluate() -> tuple[
         daily_evidence,
         quantile_evidence,
         qualification_evidence,
+        availability_evidence,
         (
             {
                 "schemaVersion": 1,
@@ -1503,6 +1583,7 @@ def main() -> None:
             daily_evidence,
             quantile_evidence,
             qualification_evidence,
+            availability_evidence,
             component_evidence,
         ) = _evaluate()
         artifacts = Path(os.environ["AUTOQUANT_ARTIFACTS_DIR"])
@@ -1525,6 +1606,12 @@ def main() -> None:
             timestamp_label(value) for value in qualification_artifact.index
         ]
         qualification_artifact.index.name = "timestamp"
+        availability_artifact = availability_evidence.copy()
+        availability_artifact.index = [
+            timestamp_label(value)
+            for value in availability_artifact.index
+        ]
+        availability_artifact.index.name = "timestamp"
         daily_artifact.to_csv(
             artifacts / "daily-factor-evidence.csv",
             float_format="%.17g",
@@ -1537,6 +1624,9 @@ def main() -> None:
         qualification_artifact.to_csv(
             artifacts / "factor-qualification.csv",
             float_format="%.17g",
+        )
+        availability_artifact.to_csv(
+            artifacts / "factor-availability.csv",
         )
         if component_evidence is not None:
             (artifacts / "factor-components.json").write_text(
@@ -1566,6 +1656,14 @@ def main() -> None:
                 "description": (
                     "Timestamped fixed-tertile forward returns and "
                     "high-minus-low spread by split and horizon"
+                ),
+            },
+            {
+                "kind": "factor-availability",
+                "path": "factor-availability.csv",
+                "description": (
+                    "Per-timestamp observed input, finite factor, and "
+                    "horizon-paired cross-sectional asset counts"
                 ),
             },
             {

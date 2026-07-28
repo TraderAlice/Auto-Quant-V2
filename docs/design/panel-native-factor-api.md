@@ -12,7 +12,7 @@ Related: [[docs/design/ohlcv-factor-lab]],
 
 AutoQuant factor research needs one Agent-friendly surface for both
 time-series and cross-asset OHLCV hypotheses. The candidate API therefore uses
-one ordinary long-form pandas DataFrame over the complete Study universe:
+one ordinary long-form pandas DataFrame over the observed Study universe:
 
 ```python
 def compute_factor(panel: pandas.DataFrame) -> pandas.Series:
@@ -42,6 +42,13 @@ close__<interval> volume__<interval> age_bars__<interval>
 
 All assets receive the same ordered column surface. `asset` is the exact Study
 universe identifier. `timestamp` retains verified bar-close semantics.
+
+The runtime contract is `panel-v2`. Aligned V1–V3 inputs remain rectangular.
+V4 inputs are `ragged-observed-only`: an asset/timestamp row exists only when
+the locked dataset contains that observation. Missing and pre-listing rows are
+not synthesized, filled, or introduced as all-null records. Consequently a
+same-timestamp cross section may contain fewer than the full Study universe;
+candidate code must operate on the rows actually supplied.
 
 Candidate code may:
 
@@ -93,11 +100,12 @@ RL. It:
 4. rejects input mutation, exceptions, misalignment, nonnumeric output,
    infinity, empty output, and non-determinism;
 5. executes and validates optional components;
-6. truncates the complete panel at fixed timestamp cuts;
+6. truncates the observed panel at fixed timestamp cuts;
 7. recomputes candidate and components on each prefix;
 8. rejects any already-emitted value that changes when future timestamps are
    removed;
-9. pivots verified values into the fixed timestamp × asset evidence shape.
+9. pivots verified values into a timestamp × asset evidence shape while
+   retaining missing combinations as absent evidence.
 
 The audit intentionally permits one asset to use another asset's value at the
 same timestamp. It rejects dependence on any later timestamp. As with the old
@@ -132,10 +140,14 @@ old candidate source is not executed under new semantics.
 5. Candidate code owns scores, not targets, weights, evaluation, or trading.
 6. Dataset, interval, universe, and candidate bytes remain content-locked in
    Study and Run evidence.
+7. Ragged input availability is evidence: no candidate or runtime step may
+   silently repair it.
 
 ## Known limits
 
 - Input remains OHLCV-only.
+- V4 changing-universe semantics are Factor-only; Portfolio and governed RL
+  reject that intake contract.
 - There is no sector/fundamental metadata or heterogeneous asset feature table.
 - The factor output is one scalar, not a multi-target model.
 - A formal fit/freeze/predict lifecycle belongs in a future governed ML Study,

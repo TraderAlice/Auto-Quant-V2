@@ -250,6 +250,18 @@ class OhlcvFactorLabTests(unittest.TestCase):
             )
             metrics = run.result["metrics"]
             self.assertEqual(set(metrics["horizon_quality"]), {"1", "5", "10"})
+            self.assertEqual(
+                metrics["factor_api"]["kind"],
+                "panel-v2",
+            )
+            self.assertEqual(
+                metrics["factor_api"]["input"],
+                "long-form-observed-universe",
+            )
+            self.assertEqual(
+                metrics["input_availability"]["observation_coverage"],
+                1.0,
+            )
             self.assertFalse(
                 metrics["split_protocol"]["candidateDependent"]
             )
@@ -319,6 +331,7 @@ class OhlcvFactorLabTests(unittest.TestCase):
                     "factor-report",
                     "factor-daily",
                     "factor-quantiles",
+                    "factor-availability",
                     "factor-qualification",
                     "factor-components",
                 },

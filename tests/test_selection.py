@@ -310,7 +310,9 @@ class ResearchFamilyTests(unittest.TestCase):
         self.assertFalse(observed.projection["reproducible"])
         self.assertEqual(observed.projection["inconsistentSourceTrials"], 1)
 
-    def test_session_restart_does_not_reset_project_family_trials(self) -> None:
+    def test_session_restart_reuses_baseline_without_inflating_family_trials(
+        self,
+    ) -> None:
         with tempfile.TemporaryDirectory() as directory:
             _, project = make_project(directory)
             create_study(project, study_definition())
@@ -338,6 +340,6 @@ class ResearchFamilyTests(unittest.TestCase):
 
             self.assertEqual(first_family["id"], second_family["id"])
             self.assertEqual(first_family["uniqueSourceTrials"], 2)
-            self.assertEqual(first_family["totalExecutions"], 3)
-            self.assertEqual(first_family["duplicateExecutions"], 1)
+            self.assertEqual(first_family["totalExecutions"], 2)
+            self.assertEqual(first_family["duplicateExecutions"], 0)
             self.assertEqual(first_family, second_family)

@@ -47,6 +47,11 @@ def build_leader_decision_support(
         if factor_diagnostics is not None
         else None
     )
+    factor_input_availability = (
+        factor_diagnostics["inputAvailability"]
+        if factor_diagnostics is not None
+        else None
+    )
     portfolio_diagnostics = (
         load_portfolio_diagnostics(
             project,
@@ -111,6 +116,12 @@ def build_leader_decision_support(
             else None
         ),
         "factorComponents": factor_components,
+        "factorInputAvailabilityHash": (
+            hash_json(factor_input_availability)
+            if factor_input_availability is not None
+            else None
+        ),
+        "factorInputAvailability": factor_input_availability,
         "portfolioMechanicalDecisionHash": (
             hash_json(mechanical_decision)
             if mechanical_decision is not None
@@ -179,6 +190,10 @@ def verify_leader_decision_support(
             "factorComponents",
         ),
         (
+            "factorInputAvailabilityHash",
+            "factorInputAvailability",
+        ),
+        (
             "portfolioSizingAnatomyHash",
             "portfolioSizingAnatomy",
         ),
@@ -234,6 +249,7 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
             "resultHash": None,
             "factorQualificationHash": None,
             "factorComponentsHash": None,
+            "factorInputAvailabilityHash": None,
             "portfolioMechanicalDecisionHash": None,
             "portfolioSizingAnatomyHash": None,
             "portfolioDiversificationStressHash": None,
@@ -247,6 +263,7 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
     decision = value.get("portfolioMechanicalDecision")
     factor_qualification = value.get("factorQualification")
     factor_components = value.get("factorComponents")
+    factor_input_availability = value.get("factorInputAvailability")
     factor_summary = None
     if (
         isinstance(factor_qualification, dict)
@@ -325,6 +342,28 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
                 and factor_components.get("available")
                 else None
             ),
+            "inputAvailability": (
+                {
+                    "observationCoverage": factor_input_availability[
+                        "observationCoverage"
+                    ],
+                    "completeTimestamps": factor_input_availability[
+                        "completeTimestamps"
+                    ],
+                    "timestamps": factor_input_availability[
+                        "timestamps"
+                    ],
+                    "inputAssetsPerTimestamp": factor_input_availability[
+                        "assetsPerTimestamp"
+                    ]["input"],
+                    "eligibleFactorTimestamps": factor_input_availability[
+                        "eligibleFactorTimestamps"
+                    ],
+                }
+                if isinstance(factor_input_availability, dict)
+                and factor_input_availability.get("available")
+                else None
+            ),
         }
     rl_diagnosis = value.get("rlFactorFusionDiagnosis")
     rl_summary = None
@@ -390,6 +429,9 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
                 "factorComponentsHash": value.get(
                     "factorComponentsHash"
                 ),
+                "factorInputAvailabilityHash": value.get(
+                    "factorInputAvailabilityHash"
+                ),
                 "portfolioMechanicalDecisionHash": value.get(
                     "portfolioMechanicalDecisionHash"
                 ),
@@ -422,6 +464,9 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
             ),
             "factorComponentsHash": value.get(
                 "factorComponentsHash"
+            ),
+            "factorInputAvailabilityHash": value.get(
+                "factorInputAvailabilityHash"
             ),
             "portfolioMechanicalDecisionHash": value.get(
                 "portfolioMechanicalDecisionHash"
@@ -584,6 +629,9 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
             "factorQualificationHash"
         ),
         "factorComponentsHash": value.get("factorComponentsHash"),
+        "factorInputAvailabilityHash": value.get(
+            "factorInputAvailabilityHash"
+        ),
         "portfolioMechanicalDecisionHash": value[
             "portfolioMechanicalDecisionHash"
         ],
@@ -654,6 +702,51 @@ def _trigger_label(trigger: dict[str, Any]) -> str:
         f"`{trigger['event']} {trigger['comparator']} P{threshold:.0f}` "
         f"({buffer})"
     )
+
+
+def factor_input_availability_markdown_lines(
+    support: dict[str, Any],
+    *,
+    heading: str,
+    lane_name: str | None = None,
+) -> list[str]:
+    """Render frozen observed-only input breadth and coverage evidence."""
+
+    availability = support.get("factorInputAvailability")
+    if (
+        not isinstance(availability, dict)
+        or not availability.get("available")
+    ):
+        return []
+    prefix = f"{lane_name}: " if lane_name else ""
+    breadth = availability["assetsPerTimestamp"]["input"]
+    eligible = " / ".join(
+        f"h{item['horizon']}={item['timestamps']}"
+        for item in availability["eligibleFactorTimestamps"]
+    )
+    return [
+        heading,
+        "",
+        f"- {prefix}Method / missing-observation policy: "
+        f"`{availability['method']}` / "
+        f"`{availability['missingObservation']}`.",
+        "- Observed / possible rows / coverage: "
+        f"`{availability['observedRows']}` / "
+        f"`{availability['possibleRows']}` / "
+        f"`{availability['observationCoverage']:.2%}`.",
+        "- Union / complete timestamps: "
+        f"`{availability['timestamps']}` / "
+        f"`{availability['completeTimestamps']}`.",
+        "- Input assets per timestamp minimum / median / maximum: "
+        f"`{breadth['minimum']}` / `{breadth['median']}` / "
+        f"`{breadth['maximum']}`.",
+        f"- Eligible paired Factor timestamps: `{eligible}`.",
+        f"- Availability hash: "
+        f"`{support['factorInputAvailabilityHash']}`.",
+        "- Interpretation: absent rows remain absent; no forward fill, "
+        "global timestamp intersection, or pre-listing history is inferred.",
+        "",
+    ]
 
 
 def factor_qualification_markdown_lines(

@@ -29,14 +29,21 @@ not evidence about real markets.
   style-neutral qualification funnel, optional candidate-declared component
   quality/redundancy/fixed-blend ablation, and the causality audit.
 - Dataset bytes under `data/ohlcv/**` participate in Study and Run identity.
+- A V4 intake may supply an observed-only ragged daily panel. Missing and
+  pre-listing asset/timestamp rows remain absent; the Run and Factor Explorer
+  expose input, finite-factor, and forward-target-pair availability.
+- A `known-style-validation` intake seeds `factors/candidate.py` from the exact
+  requested style before Study identity is created. Inspect it, but do not
+  replace it with the generic exploratory baseline.
 - Every candidate is evaluated through `aq experiment evaluate`; never call the
   Judge directly or optimize against the test target outside that contract.
 - Quantitative evidence describes historical behavior. It is not an order,
   Broker integration, or live-trading instruction.
 
 Successful declaring Runs include a complete JSON tear sheet plus exact daily
-IC/regime, quantile-return, candidate/style/residual/blend qualification, and
-candidate-declared component artifacts.
+IC/regime, quantile-return, observed-input availability,
+candidate/style/residual/blend qualification, and candidate-declared component
+artifacts.
 Use `aq run factor --run <id> --json` and Studio for the verified summary; read
 artifacts when a conclusion depends on a specific date or slice.
 

@@ -15,6 +15,7 @@ from .checks import PREFLIGHT_KIND, PREFLIGHT_MANIFEST
 from .factor_claims import (
     FACTOR_CLAIM,
     build_factor_claim,
+    known_style_candidate_source,
 )
 from .horizons import (
     RESEARCH_HORIZON,
@@ -364,6 +365,20 @@ def _write_factor_claim(
     return claim
 
 
+def _seed_known_style_candidate(
+    project: ProjectContext,
+    intake: PreparedIntake | None,
+) -> None:
+    if intake is None:
+        return
+    source = known_style_candidate_source(intake.request)
+    if source is not None:
+        (project.root_dir / "factors" / "candidate.py").write_text(
+            source,
+            encoding="utf-8",
+        )
+
+
 def _intake_dataset(
     project: ProjectContext,
     intake: PreparedIntake,
@@ -484,6 +499,7 @@ def _apply_ohlcv_factor_lab(
     _write_research_horizon(project, intake)
     _write_factor_claim(project, intake)
     _write_template_source(project, "factors/candidate.py", "candidate.py")
+    _seed_known_style_candidate(project, intake)
     _write_template_source(project, "judges/ohlcv_factor.py", "judge.py")
     _write_template_source(
         project,
@@ -572,6 +588,7 @@ def _apply_ohlcv_portfolio_lab(
         "candidate.py",
         template=template,
     )
+    _seed_known_style_candidate(project, intake)
     _write_template_source(
         project,
         "judges/ohlcv_portfolio.py",
@@ -672,6 +689,7 @@ def _apply_ohlcv_rl_factor_lab(
         "candidate.py",
         template="ohlcv_portfolio_lab",
     )
+    _seed_known_style_candidate(project, intake)
     _write_template_source(
         project,
         "judges/ohlcv_rl_factor.py",
@@ -786,6 +804,7 @@ def _apply_ohlcv_research_desk(
         "candidate.py",
         template="ohlcv_portfolio_lab",
     )
+    _seed_known_style_candidate(project, intake)
     _write_template_source(
         project,
         "models/candidate.py",

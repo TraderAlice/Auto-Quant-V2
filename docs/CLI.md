@@ -160,6 +160,14 @@ DST, holidays, and early closes; `1d` is one exchange session and a final
 short intraday bucket completes at the scheduled close. Extended hours and
 unscheduled halts remain unsupported.
 
+V4 accepts a daily observed-only panel only with
+`--template ohlcv-factor-lab`. Its exact
+`panelPolicy.alignment=observed-only` and
+`missingObservation=absent-no-fill` retain each asset's real dates and
+listing-history start. Snapshot, Run, Factor Explorer, Studio, and Report
+expose verified union coverage and time-varying breadth. Portfolio, governed
+RL, and the coordinated research desk reject V4 explicitly.
+
 The JSON result contains Project-level `request.json`, `intake.json`,
 `data/ohlcv/snapshot.json`, three verified Study identities, and exact next
 actions for inspecting the program and advancing its recommended lane.
@@ -347,9 +355,12 @@ aq experiment show <path> \
   [--project ID] [--json]
 ```
 
-`session start` runs a fresh successful baseline and returns an Agent brief
-containing the disposable worktree, fixed program, editable closure, leader,
-authority status, and exact next commands. The caller edits only that worktree.
+`session start` reuses the newest verified successful Run when its Study,
+program, editable source, Judge, dataset, dependencies, and Harness identities
+all equal the current inputs. If no exact baseline exists, it runs one fresh
+baseline. It then returns an Agent brief containing the disposable worktree,
+fixed program, editable closure, leader, authority status, and exact next
+commands. The caller edits only that worktree.
 
 With `--request`, Session start first validates the strict external question,
 assets, optional complete per-asset `positionRole` declarations, direction,
