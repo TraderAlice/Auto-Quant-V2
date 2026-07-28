@@ -83,11 +83,11 @@ finding a schema-compatible paraphrase.
   and publish the initial field-trial matrix.
 - [x] Construct and complete the cross-sectional selection/target-weight trial.
 - [x] Construct and complete the multi-interval timing/context trial.
-- [ ] Construct and complete the relative-value or portfolio-risk trial.
+- [x] Construct and complete the relative-value or portfolio-risk trial.
 - [x] Reproduce and prioritize common Workbench gaps revealed by the trials.
 - [x] Implement the highest-priority justified improvement and rerun affected
   trials.
-- [ ] Complete regression, documentation, packaging, commit, and push.
+- [x] Complete regression, documentation, packaging, commit, and push.
 
 ## Findings and decisions
 
@@ -153,9 +153,10 @@ finding a schema-compatible paraphrase.
   predeclared reversion inverse retained validation IC `0.094936` but HAC
   t `0.583`, adjusted p `1.0`, and inconsistent folds withheld Portfolio,
   RL, and model weights.
-- 2026-07-28 — AutoQuant `0.5.1` closed the BTC final-book cap defect. Clean
-  Run `run-20260728T110200734675Z-e92950ca021c` kept maximum BTC weight at
-  `0.30`, context weights at zero, accounted 567 constraint overrides, and
+- 2026-07-28 — AutoQuant `0.5.1` closed the BTC final-book cap defect. Run
+  `run-20260728T130807142399Z-b9a473685697` binds clean commit `eb8796d`,
+  kept maximum BTC weight at `0.30`, held context weights at zero, accounted
+  567 constraint overrides and `0.176286` one-way repair turnover, and
   produced zero final constraint error. The negative economic result remained
   validation net Sharpe `-1.858`.
 
@@ -181,7 +182,7 @@ finding a schema-compatible paraphrase.
   - complete AutoQuant `0.4.2` Portfolio Run
     `run-20260728T100043368147Z-bf56b58eeef7`;
   - clean AutoQuant `0.5.1` hard-cap reproduction
-    `run-20260728T110200734675Z-e92950ca021c`.
+    `run-20260728T130807142399Z-b9a473685697`.
 - Relative-value field trial:
   - preserved AutoQuant `0.4.2` unsupported Run
     `run-20260728T100947958397Z-006a612b6c15`;
@@ -191,10 +192,11 @@ finding a schema-compatible paraphrase.
     `run-20260728T102528560064Z-f090ecba787f`;
   - terminal Report
     `report-20260728T102616941970Z-a8b7f7e2cdc6`.
-- Prediction-universe and affected workflow regression: 42 Factor/Intake tests
-  and 37 Explorer/Research-program/Session/CLI/orientation tests passed.
-- Full-suite, package, and cleanliness audit remain pending until all three
-  request families complete.
+- Full regression: all 243 tests passed in 1,895.835 seconds; the final
+  affected-path rerun passed 44 tests in 478.423 seconds.
+- Static and documentation checks passed, including 940 resolved double-links.
+- AutoQuant `0.5.1` source and wheel distributions built successfully. A fresh
+  Python 3.11 wheel environment executed both Portfolio and governed-RL Runs.
 
 ## Progress log
 
@@ -216,7 +218,15 @@ finding a schema-compatible paraphrase.
   Factor qualification, clean reproduction, and the full costed BTC/cash
   Portfolio route. Preserved the negative implementation conclusion and
   recorded the post-drift asset-cap defect for Core repair.
+- 2026-07-28 — Completed the two-asset relative-value request with an explicit
+  spread evaluation contract; weak and inconsistent evidence correctly
+  withheld Portfolio/RL progression and model weights.
+- 2026-07-28 — Repaired final-book Mandate compliance in AutoQuant `0.5.1`,
+  reproduced the BTC defect from clean commit `eb8796d`, and completed full
+  tests, package smoke, Explorer validation, documentation, commit, and push.
 
 ## Completion
 
-Pending.
+Completed. Three caller-style request families now have immutable evidence,
+negative conclusions where warranted, and reusable Core improvements derived
+from actual Workbench failures rather than speculative framework design.

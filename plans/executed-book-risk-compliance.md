@@ -1,7 +1,7 @@
 # Executed-book hard compliance
 
 - Status: `completed`
-- Updated: `2026-07-25`
+- Updated: `2026-07-28`
 - Related design: [[docs/design/executed-book-risk-compliance]],
   [[docs/design/portfolio-risk-governor]],
   [[docs/design/portfolio-construction-lab]],
@@ -96,9 +96,10 @@ remains target-weight research and creates no Broker or live-trading authority.
 
 ## Verification
 
-- `uv run python -m unittest discover -s tests -v` passed all `151` tests in
-  `526.816` seconds on the final code state.
-- `uv run python scripts/check_doc_links.py` resolved all `478` documentation
+- `uv run python -m unittest discover -s tests` passed all `243` tests in
+  `1,895.835` seconds on the final code state. The final affected-path rerun
+  passed `44` tests in `478.423` seconds.
+- `uv run python scripts/check_doc_links.py` resolved all `940` documentation
   double-links.
 - `uv run python -m compileall -q autoquant tests`,
   `node --check autoquant/studio_assets/studio.js`, and `git diff --check`
@@ -108,6 +109,11 @@ remains target-weight research and creates no Broker or live-trading authority.
   `100%` validation forecast coverage with zero executed breaches. RL
   reconciled all six declared fold/seed validation paths. Packaged Core,
   explorers, templates, and Studio assets were present.
+- Clean real-data Run `run-20260728T130807142399Z-b9a473685697` binds
+  AutoQuant `0.5.1`, commit `eb8796d`, and `dirty: false`; across 9,407
+  accounted hourly rows it kept BTC at or below `0.30`, every context-only
+  asset at zero, recorded 567 constraint overrides and `0.176286` one-way
+  repair turnover, and reported zero final constraint error.
 - In-app browser QA at `http://127.0.0.1:8774/` confirmed Portfolio and RL
   executed-risk readouts, lane switching, no horizontal overflow at
   `1280×720`, and no application console errors.
