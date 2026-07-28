@@ -1121,8 +1121,8 @@ def _evaluate() -> tuple[
                 "no_trade_one_way": implementation_policy[
                     "no_trade_one_way"
                 ],
-                "decision_every_bars": implementation_policy[
-                    "decision_every_bars"
+                "decision_schedule": implementation_policy[
+                    "decision_policy"
                 ],
             },
             "train": policy_metrics["train"],
@@ -1245,10 +1245,7 @@ def _evaluate() -> tuple[
             "noTradeOneWay": implementation_policy["no_trade_one_way"],
             "baseCostBps": base_cost_bps,
             "referenceNav": implementation_policy["reference_nav"],
-            "decisionEveryBars": implementation_policy[
-                "decision_every_bars"
-            ],
-            "decisionAnchor": implementation_policy["decision_anchor"],
+            "decisionSchedule": implementation_policy["decision_policy"],
             "longEntryPercentile": LONG_ENTRY_PERCENTILE,
             "longExitPercentile": LONG_EXIT_PERCENTILE,
             "shortExitPercentile": SHORT_EXIT_PERCENTILE,

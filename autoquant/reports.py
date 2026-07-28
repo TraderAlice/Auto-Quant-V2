@@ -698,6 +698,14 @@ def _render_markdown(report: dict[str, Any]) -> str:
         construction = mandate["construction"]
         implementation = mandate["implementationPolicy"]
         decision_policy = implementation["decisionPolicy"]
+        decision_schedule_label = (
+            "calendar month-end"
+            if decision_policy["kind"] == "calendar-month-end"
+            else (
+                f"every {decision_policy['bars']} base bars / "
+                f"{decision_policy['anchor']}"
+            )
+        )
         benchmark = construction["benchmark"]
         benchmark_label = (
             f"{benchmark['asset']} long"
@@ -765,9 +773,8 @@ def _render_markdown(report: dict[str, Any]) -> str:
                 f"`{implementation['baseCostBps']}` bps / "
                 f"`{implementation['noTradeOneWay']}` / "
                 f"`{implementation['referenceNav']}`",
-                f"- Decision cadence / anchor / source: every "
-                f"`{decision_policy['bars']}` base bars / "
-                f"`{decision_policy['anchor']}` / "
+                f"- Decision schedule / source: "
+                f"`{decision_schedule_label}` / "
                 f"`{decision_policy['source']}`",
                 "- Off-schedule bars hold signal intent and ordinary "
                 "positions; only mandatory risk scale-down may trade.",

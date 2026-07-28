@@ -44,8 +44,11 @@ can still request support. When present it contains every field:
   "baseCostBps": 15.0,
   "noTradeOneWay": 0.04,
   "referenceNav": 250000.0,
-  "decisionEveryBars": 4,
-  "decisionAnchor": "session-start"
+  "decisionSchedule": {
+    "kind": "every-bars",
+    "bars": 4,
+    "anchor": "session-start"
+  }
 }
 ```
 
@@ -60,9 +63,10 @@ Bounds are deliberately finite:
 - `baseCostBps`: `[0, 1000]`;
 - `noTradeOneWay`: `[0, 1]`;
 - `referenceNav`: `(0, 1e12]`.
-- `decisionEveryBars`: integer `[1, 252]`.
-- `decisionAnchor`: `dataset-start` or `session-start`; the latter requires
-  verified V3 intraday XNYS input.
+- `decisionSchedule`: either bounded `every-bars` with integer `bars` in
+  `[1, 252]` and `dataset-start` or `session-start`, or
+  `{"kind": "calendar-month-end"}` for V1 daily XNYS input. Session-start
+  requires verified V3 intraday XNYS input.
 
 When omitted, Core inserts the documented reference defaults `1.0`, `0.30`,
 an empty override map, `0.15`, `10`, `0.05`, `1,000,000`, and `1`.

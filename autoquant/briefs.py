@@ -67,16 +67,13 @@ PORTFOLIO_POLICY_NUMERIC_FIELDS = {
     "noTradeOneWay",
     "referenceNav",
 }
-PORTFOLIO_POLICY_INTEGER_FIELDS = {
-    "decisionEveryBars",
-}
 PORTFOLIO_POLICY_FIELDS = {
     *PORTFOLIO_POLICY_NUMERIC_FIELDS,
-    *PORTFOLIO_POLICY_INTEGER_FIELDS,
     "assetMaxAbsWeights",
-    "decisionAnchor",
+    "decisionSchedule",
 }
 DECISION_ANCHORS = {"dataset-start", "session-start"}
+DECISION_SCHEDULE_KINDS = {"every-bars", "calendar-month-end"}
 POSITION_SNAPSHOT_KINDS = {"reported-weights", "hypothetical-weights"}
 POSITION_SCENARIO_ID = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 MAX_POSITION_SCENARIOS = 8
@@ -901,38 +898,87 @@ def validate_research_request(
                             )
                         else:
                             asset_caps[normalized_symbol] = float(item)
-            decision_every_bars = policy.get("decisionEveryBars")
-            valid_decision_every_bars = (
-                isinstance(decision_every_bars, int)
-                and not isinstance(decision_every_bars, bool)
-                and 1 <= decision_every_bars <= 252
-            )
-            if not valid_decision_every_bars:
+            raw_schedule = policy.get("decisionSchedule")
+            decision_schedule: dict[str, Any] | None = None
+            if not isinstance(raw_schedule, dict):
                 issues.append(
                     _issue(
-                        f"{path}/portfolioPolicy/decisionEveryBars",
-                        "request.decision-cadence",
-                        "decisionEveryBars must be an integer from 1 to 252",
+                        f"{path}/portfolioPolicy/decisionSchedule",
+                        "request.decision-schedule",
+                        "decisionSchedule must be an object",
                     )
                 )
-            decision_anchor = policy.get("decisionAnchor")
-            valid_decision_anchor = (
-                isinstance(decision_anchor, str)
-                and decision_anchor in DECISION_ANCHORS
-            )
-            if not valid_decision_anchor:
-                issues.append(
-                    _issue(
-                        f"{path}/portfolioPolicy/decisionAnchor",
-                        "request.decision-anchor",
-                        "decisionAnchor must be dataset-start or session-start",
+            else:
+                kind = raw_schedule.get("kind")
+                if kind == "every-bars":
+                    issues.extend(
+                        _strict_keys(
+                            raw_schedule,
+                            {"kind", "bars", "anchor"},
+                            f"{path}/portfolioPolicy/decisionSchedule",
+                        )
                     )
-                )
+                    bars = raw_schedule.get("bars")
+                    anchor = raw_schedule.get("anchor")
+                    if (
+                        not isinstance(bars, int)
+                        or isinstance(bars, bool)
+                        or not 1 <= bars <= 252
+                    ):
+                        issues.append(
+                            _issue(
+                                f"{path}/portfolioPolicy/"
+                                "decisionSchedule/bars",
+                                "request.decision-cadence",
+                                "Every-bars schedule bars must be an integer "
+                                "from 1 to 252",
+                            )
+                        )
+                    if anchor not in DECISION_ANCHORS:
+                        issues.append(
+                            _issue(
+                                f"{path}/portfolioPolicy/"
+                                "decisionSchedule/anchor",
+                                "request.decision-anchor",
+                                "Every-bars schedule anchor must be "
+                                "dataset-start or session-start",
+                            )
+                        )
+                    if (
+                        isinstance(bars, int)
+                        and not isinstance(bars, bool)
+                        and 1 <= bars <= 252
+                        and anchor in DECISION_ANCHORS
+                    ):
+                        decision_schedule = {
+                            "kind": "every-bars",
+                            "bars": bars,
+                            "anchor": anchor,
+                        }
+                elif kind == "calendar-month-end":
+                    issues.extend(
+                        _strict_keys(
+                            raw_schedule,
+                            {"kind"},
+                            f"{path}/portfolioPolicy/decisionSchedule",
+                        )
+                    )
+                    decision_schedule = {
+                        "kind": "calendar-month-end",
+                    }
+                else:
+                    issues.append(
+                        _issue(
+                            f"{path}/portfolioPolicy/decisionSchedule/kind",
+                            "request.decision-schedule-kind",
+                            "Decision schedule kind must be every-bars or "
+                            "calendar-month-end",
+                        )
+                    )
             if (
                 len(numeric) == len(PORTFOLIO_POLICY_NUMERIC_FIELDS)
                 and asset_caps is not None
-                and valid_decision_every_bars
-                and valid_decision_anchor
+                and decision_schedule is not None
             ):
                 bounds = (
                     ("grossLimit", 0.0, 2.0, False),
@@ -1008,8 +1054,7 @@ def validate_research_request(
                     )
                 normalized_policy = {
                     **numeric,
-                    "decisionEveryBars": decision_every_bars,
-                    "decisionAnchor": decision_anchor,
+                    "decisionSchedule": decision_schedule,
                     "assetMaxAbsWeights": {
                         symbol: asset_caps[symbol]
                         for symbol in sorted(asset_caps)
@@ -1971,13 +2016,43 @@ RESEARCH_REQUEST_JSON_SCHEMA: dict[str, Any] = {
                             "exclusiveMinimum": 0,
                             "maximum": 1e12,
                         },
-                        "decisionEveryBars": {
-                            "type": "integer",
-                            "minimum": 1,
-                            "maximum": 252,
-                        },
-                        "decisionAnchor": {
-                            "enum": sorted(DECISION_ANCHORS),
+                        "decisionSchedule": {
+                            "oneOf": [
+                                {
+                                    "type": "object",
+                                    "additionalProperties": False,
+                                    "required": [
+                                        "kind",
+                                        "bars",
+                                        "anchor",
+                                    ],
+                                    "properties": {
+                                        "kind": {
+                                            "const": "every-bars",
+                                        },
+                                        "bars": {
+                                            "type": "integer",
+                                            "minimum": 1,
+                                            "maximum": 252,
+                                        },
+                                        "anchor": {
+                                            "enum": sorted(
+                                                DECISION_ANCHORS
+                                            ),
+                                        },
+                                    },
+                                },
+                                {
+                                    "type": "object",
+                                    "additionalProperties": False,
+                                    "required": ["kind"],
+                                    "properties": {
+                                        "kind": {
+                                            "const": "calendar-month-end",
+                                        },
+                                    },
+                                },
+                            ],
                         },
                     },
                 },

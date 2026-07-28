@@ -1492,9 +1492,15 @@ def prepare_project_intake(
         )
     )
     portfolio_policy = request.get("portfolioPolicy")
+    decision_schedule = (
+        portfolio_policy.get("decisionSchedule")
+        if isinstance(portfolio_policy, dict)
+        else None
+    )
     if (
-        isinstance(portfolio_policy, dict)
-        and portfolio_policy.get("decisionAnchor") == "session-start"
+        isinstance(decision_schedule, dict)
+        and decision_schedule.get("kind") == "every-bars"
+        and decision_schedule.get("anchor") == "session-start"
         and (
             package["schemaVersion"] != 3
             or not isinstance(package_surface, dict)
@@ -1505,9 +1511,27 @@ def prepare_project_intake(
     ):
         issues.append(
             _issue(
-                "request/portfolioPolicy/decisionAnchor",
+                "request/portfolioPolicy/decisionSchedule/anchor",
                 "request.dataset-decision-anchor",
                 "session-start requires a V3 intraday XNYS "
+                "regular-session package",
+            )
+        )
+    if (
+        isinstance(decision_schedule, dict)
+        and decision_schedule.get("kind") == "calendar-month-end"
+        and (
+            package["schemaVersion"] != 1
+            or package.get("frequency") != "1d"
+            or package.get("market", {}).get("clock") != "session"
+            or package.get("market", {}).get("calendar") != "XNYS"
+        )
+    ):
+        issues.append(
+            _issue(
+                "request/portfolioPolicy/decisionSchedule",
+                "request.dataset-decision-schedule",
+                "calendar-month-end requires a V1 daily XNYS "
                 "regular-session package",
             )
         )
@@ -3014,9 +3038,15 @@ def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
     issues.extend(_validate_snapshot(snapshot, snapshot_path))
     surface = snapshot.get("intervalSurface")
     portfolio_policy = request.get("portfolioPolicy")
+    decision_schedule = (
+        portfolio_policy.get("decisionSchedule")
+        if isinstance(portfolio_policy, dict)
+        else None
+    )
     if (
-        isinstance(portfolio_policy, dict)
-        and portfolio_policy.get("decisionAnchor") == "session-start"
+        isinstance(decision_schedule, dict)
+        and decision_schedule.get("kind") == "every-bars"
+        and decision_schedule.get("anchor") == "session-start"
         and (
             snapshot.get("schemaVersion") != 3
             or not isinstance(surface, dict)
@@ -3027,9 +3057,28 @@ def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
     ):
         issues.append(
             _issue(
-                f"{request_path}/portfolioPolicy/decisionAnchor",
+                f"{request_path}/portfolioPolicy/"
+                "decisionSchedule/anchor",
                 "request.dataset-decision-anchor",
                 "session-start requires a V3 intraday XNYS "
+                "regular-session package",
+            )
+        )
+    if (
+        isinstance(decision_schedule, dict)
+        and decision_schedule.get("kind") == "calendar-month-end"
+        and (
+            snapshot.get("schemaVersion") != 1
+            or snapshot.get("frequency") != "1d"
+            or snapshot.get("market", {}).get("clock") != "session"
+            or snapshot.get("market", {}).get("calendar") != "XNYS"
+        )
+    ):
+        issues.append(
+            _issue(
+                f"{request_path}/portfolioPolicy/decisionSchedule",
+                "request.dataset-decision-schedule",
+                "calendar-month-end requires a V1 daily XNYS "
                 "regular-session package",
             )
         )

@@ -84,8 +84,11 @@ DEFAULT_PORTFOLIO_POLICY = {
     "baseCostBps": 10.0,
     "noTradeOneWay": 0.05,
     "referenceNav": 1_000_000.0,
-    "decisionEveryBars": 1,
-    "decisionAnchor": "dataset-start",
+    "decisionSchedule": {
+        "kind": "every-bars",
+        "bars": 1,
+        "anchor": "dataset-start",
+    },
 }
 IMPLEMENTATION_COST_MODEL = "linear-traded-notional-v1"
 IMPLEMENTATION_CAPACITY_MODEL = "trailing-dollar-volume-participation-v1"
@@ -104,6 +107,24 @@ def _valid_annualization_periods(value: Any) -> bool:
     )
 
 
+def _valid_decision_schedule(value: Any) -> bool:
+    if not isinstance(value, dict):
+        return False
+    if value.get("kind") == "every-bars":
+        bars = value.get("bars")
+        return (
+            set(value) == {"kind", "bars", "anchor"}
+            and isinstance(bars, int)
+            and not isinstance(bars, bool)
+            and 1 <= bars <= 252
+            and value.get("anchor") in {"dataset-start", "session-start"}
+        )
+    return (
+        value.get("kind") == "calendar-month-end"
+        and set(value) == {"kind"}
+    )
+
+
 def _valid_portfolio_policy(
     value: dict[str, Any],
     direction: str,
@@ -114,8 +135,7 @@ def _valid_portfolio_policy(
         return False
     numeric_fields = required - {
         "assetMaxAbsWeights",
-        "decisionEveryBars",
-        "decisionAnchor",
+        "decisionSchedule",
     }
     if any(
         not isinstance(value[key], (int, float))
@@ -145,8 +165,7 @@ def _valid_portfolio_policy(
     cost = float(value["baseCostBps"])
     no_trade = float(value["noTradeOneWay"])
     nav = float(value["referenceNav"])
-    cadence = value["decisionEveryBars"]
-    anchor = value["decisionAnchor"]
+    decision_schedule = value["decisionSchedule"]
     has_long = (
         any(role in {"long-only", "two-sided"} for role in asset_position_roles)
         if asset_position_roles is not None
@@ -165,11 +184,7 @@ def _valid_portfolio_policy(
         and 0 <= cost <= 1000
         and 0 <= no_trade <= 1
         and 0 < nav <= 1e12
-        and isinstance(cadence, int)
-        and not isinstance(cadence, bool)
-        and 1 <= cadence <= 252
-        and isinstance(anchor, str)
-        and anchor in {"dataset-start", "session-start"}
+        and _valid_decision_schedule(decision_schedule)
         and all(
             0 < float(asset_cap) <= cap
             for asset_cap in asset_caps.values()
@@ -420,9 +435,7 @@ def _canonical_payload(
             "referenceNav": portfolio_policy["referenceNav"],
             "decisionPolicy": {
                 "source": policy_source,
-                "kind": "every-bars",
-                "bars": portfolio_policy["decisionEveryBars"],
-                "anchor": portfolio_policy["decisionAnchor"],
+                **portfolio_policy["decisionSchedule"],
             },
             "costModel": IMPLEMENTATION_COST_MODEL,
             "capacityModel": IMPLEMENTATION_CAPACITY_MODEL,
@@ -962,18 +975,15 @@ def validate_portfolio_mandate(
                     "baseCostBps": implementation.get("baseCostBps"),
                     "noTradeOneWay": implementation.get("noTradeOneWay"),
                     "referenceNav": implementation.get("referenceNav"),
-                    "decisionEveryBars": (
-                        implementation.get("decisionPolicy", {}).get("bars")
-                        if isinstance(
-                            implementation.get("decisionPolicy"),
-                            dict,
-                        )
-                        else None
-                    ),
-                    "decisionAnchor": (
-                        implementation.get("decisionPolicy", {}).get(
-                            "anchor"
-                        )
+                    "decisionSchedule": (
+                        {
+                            key: item
+                            for key, item in implementation.get(
+                                "decisionPolicy",
+                                {},
+                            ).items()
+                            if key != "source"
+                        }
                         if isinstance(
                             implementation.get("decisionPolicy"),
                             dict,
@@ -1392,31 +1402,54 @@ PORTFOLIO_MANDATE_JSON_SCHEMA: dict[str, Any] = {
                     "maximum": 1e12,
                 },
                 "decisionPolicy": {
-                    "type": "object",
-                    "additionalProperties": False,
-                    "required": [
-                        "source",
-                        "kind",
-                        "bars",
-                        "anchor",
+                    "oneOf": [
+                        {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "required": [
+                                "source",
+                                "kind",
+                                "bars",
+                                "anchor",
+                            ],
+                            "properties": {
+                                "source": {
+                                    "enum": [
+                                        "caller-supplied",
+                                        "reference-default",
+                                    ]
+                                },
+                                "kind": {"const": "every-bars"},
+                                "bars": {
+                                    "type": "integer",
+                                    "minimum": 1,
+                                    "maximum": 252,
+                                },
+                                "anchor": {
+                                    "enum": [
+                                        "dataset-start",
+                                        "session-start",
+                                    ]
+                                },
+                            },
+                        },
+                        {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "required": ["source", "kind"],
+                            "properties": {
+                                "source": {
+                                    "enum": [
+                                        "caller-supplied",
+                                        "reference-default",
+                                    ]
+                                },
+                                "kind": {
+                                    "const": "calendar-month-end",
+                                },
+                            },
+                        },
                     ],
-                    "properties": {
-                        "source": {
-                            "enum": [
-                                "caller-supplied",
-                                "reference-default",
-                            ]
-                        },
-                        "kind": {"const": "every-bars"},
-                        "bars": {
-                            "type": "integer",
-                            "minimum": 1,
-                            "maximum": 252,
-                        },
-                        "anchor": {
-                            "enum": ["dataset-start", "session-start"]
-                        },
-                    },
                 },
                 "costModel": {"const": IMPLEMENTATION_COST_MODEL},
                 "capacityModel": {

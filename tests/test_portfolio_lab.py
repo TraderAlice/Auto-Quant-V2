@@ -289,8 +289,11 @@ class PortfolioAccountingTests(unittest.TestCase):
                 "baseCostBps": 10.0,
                 "noTradeOneWay": 0.05,
                 "referenceNav": 100000.0,
-                "decisionEveryBars": 1,
-                "decisionAnchor": "dataset-start",
+                "decisionSchedule": {
+                    "kind": "every-bars",
+                    "bars": 1,
+                    "anchor": "dataset-start",
+                },
             },
             "hypotheses": [],
             "constraints": [],

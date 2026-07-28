@@ -493,10 +493,11 @@ def _rollout_action_rows(
                 "decision_eligible": bool(
                     daily["decision_eligible"]
                 ),
-                "decision_every_bars": int(
-                    daily["decision_every_bars"]
+                "decision_schedule_kind": str(
+                    daily["decision_schedule_kind"]
                 ),
-                "decision_anchor": str(daily["decision_anchor"]),
+                "decision_every_bars": daily["decision_every_bars"],
+                "decision_anchor": daily["decision_anchor"],
                 "decision_session": str(daily["decision_session"]),
                 "reward": float(daily["reward"]),
                 "gross_return": float(daily["gross_return"]),
@@ -622,8 +623,16 @@ def _rollout_rationale_rows(
             "split": split,
             "timestamp": timestamp_label(timestamp),
             "decisionEligible": decision_eligible,
-            "decisionEveryBars": int(daily["decision_every_bars"]),
-            "decisionAnchor": str(daily["decision_anchor"]),
+            "decisionSchedule": (
+                {"kind": "calendar-month-end"}
+                if daily["decision_schedule_kind"]
+                == "calendar-month-end"
+                else {
+                    "kind": "every-bars",
+                    "bars": int(daily["decision_every_bars"]),
+                    "anchor": str(daily["decision_anchor"]),
+                }
+            ),
             "decisionSession": str(daily["decision_session"]),
             "selectionReason": selection_reason,
             "previousAction": previous_action,
@@ -2215,10 +2224,7 @@ def _evaluate() -> tuple[
             "costBps": implementation_policy["base_cost_bps"],
             "noTradeOneWay": implementation_policy["no_trade_one_way"],
             "referenceNav": implementation_policy["reference_nav"],
-            "decisionEveryBars": implementation_policy[
-                "decision_every_bars"
-            ],
-            "decisionAnchor": implementation_policy["decision_anchor"],
+            "decisionSchedule": implementation_policy["decision_policy"],
             "executionRiskMethod": (
                 "post-drift-executed-book-volatility-compliance-v1"
             ),

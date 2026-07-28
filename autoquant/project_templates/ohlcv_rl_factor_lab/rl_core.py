@@ -299,7 +299,7 @@ def _account_step(
     mandate: dict[str, object] | None = None,
     risk_covariance_cache: RiskCovarianceCache | None = None,
     resolved_mandate: dict[str, object] | None = None,
-    implementation: dict[str, float | int | str] | None = None,
+    implementation: dict[str, object] | None = None,
     pretrade: pd.Series | None = None,
 ) -> tuple[pd.Series, pd.Series, pd.Series, dict[str, float | bool]]:
     implementation = (
@@ -307,7 +307,10 @@ def _account_step(
         if implementation is not None
         else resolve_implementation_policy(mandate)
     )
-    decision_anchor = str(implementation["decision_anchor"])
+    decision_policy = dict(implementation["decision_policy"])
+    decision_schedule_kind = str(decision_policy["kind"])
+    decision_every_bars = decision_policy.get("bars")
+    decision_anchor = decision_policy.get("anchor")
     pretrade = (
         pretrade
         if pretrade is not None
@@ -386,14 +389,13 @@ def _account_step(
         "concentration_hhi": float(current.pow(2).sum()),
         "rebalanced": rebalanced,
         "decision_eligible": ordinary_rebalance_allowed,
-        "decision_every_bars": int(
-            implementation["decision_every_bars"]
-        ),
+        "decision_schedule_kind": decision_schedule_kind,
+        "decision_every_bars": decision_every_bars,
         "decision_anchor": decision_anchor,
         "decision_session": str(
             decision_schedule_sessions(
                 pd.Index([timestamp]),
-                decision_anchor,
+                decision_policy,
             ).iloc[0]
         ),
         "execution_reason": str(execution_risk["execution_reason"]),
@@ -484,13 +486,11 @@ def rollout_policy(
     implementation = resolve_implementation_policy(mandate)
     previous_weights = pd.Series(0.0, index=closes.columns, dtype=float)
     previous_action = "balanced"
-    decision_every_bars = int(implementation["decision_every_bars"])
-    decision_anchor = str(implementation["decision_anchor"])
+    decision_policy = dict(implementation["decision_policy"])
     complete_index = next(iter(action_targets.values())).index
     decision_mask = decision_schedule_mask(
         complete_index,
-        decision_every_bars,
-        decision_anchor=decision_anchor,
+        decision_policy,
     ).reindex(index)
     if decision_mask.isna().any():
         raise PolicyFailure(
@@ -609,13 +609,11 @@ def one_step_action_opportunities(
     )
     implementation = resolve_implementation_policy(mandate)
     zero = pd.Series(0.0, index=closes.columns, dtype=float)
-    decision_every_bars = int(implementation["decision_every_bars"])
-    decision_anchor = str(implementation["decision_anchor"])
+    decision_policy = dict(implementation["decision_policy"])
     complete_index = next(iter(action_targets.values())).index
     decision_mask = decision_schedule_mask(
         complete_index,
-        decision_every_bars,
-        decision_anchor=decision_anchor,
+        decision_policy,
     ).reindex(index)
     if decision_mask.isna().any():
         raise PolicyFailure(
@@ -776,12 +774,15 @@ def one_step_action_opportunities(
             {
                 "timestamp": timestamp,
                 "decisionEligible": decision_eligible,
-                "decisionEveryBars": decision_every_bars,
-                "decisionAnchor": decision_anchor,
+                "decisionSchedule": {
+                    key: value
+                    for key, value in decision_policy.items()
+                    if key != "source"
+                },
                 "decisionSession": str(
                     decision_schedule_sessions(
                         pd.Index([timestamp]),
-                        decision_anchor,
+                        decision_policy,
                     ).iloc[0]
                 ),
                 "selectedAction": selected,
@@ -835,13 +836,11 @@ def train_q_policy(
         mandate,
     )
     implementation = resolve_implementation_policy(mandate)
-    decision_every_bars = int(implementation["decision_every_bars"])
-    decision_anchor = str(implementation["decision_anchor"])
+    decision_policy = dict(implementation["decision_policy"])
     complete_index = next(iter(action_targets.values())).index
     decision_mask = decision_schedule_mask(
         complete_index,
-        decision_every_bars,
-        decision_anchor=decision_anchor,
+        decision_policy,
     ).reindex(train_index)
     if decision_mask.isna().any():
         raise PolicyFailure(

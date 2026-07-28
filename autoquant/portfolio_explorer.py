@@ -34,6 +34,7 @@ from .project_templates.ohlcv_portfolio_lab.portfolio_core import (
     SHORT_EXIT_PERCENTILE,
     VOLATILITY_WINDOW,
     build_position_episodes,
+    decision_schedule_mask,
     performance_metrics,
     position_episode_metrics,
 )
@@ -51,7 +52,7 @@ PORTFOLIO_DIAGNOSTICS_KIND = "autoquant-portfolio-diagnostics"
 DEFAULT_PORTFOLIO_POINTS = 180
 MIN_PORTFOLIO_POINTS = 40
 MAX_PORTFOLIO_POINTS = 400
-MAX_ARTIFACT_BYTES = 32 * 1024 * 1024
+MAX_ARTIFACT_BYTES = 64 * 1024 * 1024
 MAX_DAILY_ROWS = 100_000
 MAX_DECISION_ROWS = 1_000_000
 MAX_EPISODE_ROWS = 100_000
@@ -118,7 +119,6 @@ EXPECTED_SIGNAL_PARAMETERS = {
     "gross_target": GROSS_TARGET,
     "max_abs_weight": MAX_ABS_WEIGHT,
     "no_trade_one_way": NO_TRADE_ONE_WAY,
-    "decision_every_bars": 1,
 }
 BASE_ARTIFACT_KINDS = {
     "portfolio-report",
@@ -201,6 +201,7 @@ DECISION_REQUIRED_COLUMNS = {
     "signal_state",
     "signal_event",
     "decision_eligible",
+    "decision_schedule_kind",
     "decision_every_bars",
     "decision_anchor",
     "decision_session",
@@ -524,11 +525,58 @@ class ParsedDaily:
     rows: list[dict[str, Any]]
 
 
+def _parse_flat_decision_schedule(
+    raw: dict[str, str],
+    path: str,
+) -> tuple[dict[str, object], int | None, str | None]:
+    kind = raw["decision_schedule_kind"]
+    if kind == "calendar-month-end":
+        if raw["decision_every_bars"] or raw["decision_anchor"]:
+            _fail(
+                path,
+                "portfolio.decision-schedule",
+                "Calendar month-end rows must leave bars and anchor empty",
+            )
+        return {"kind": kind}, None, None
+    if kind != "every-bars":
+        _fail(
+            f"{path}/decision_schedule_kind",
+            "portfolio.decision-schedule",
+            "decision_schedule_kind is invalid",
+        )
+    try:
+        bars = int(raw["decision_every_bars"])
+    except ValueError:
+        bars = 0
+    if (
+        str(bars) != raw["decision_every_bars"]
+        or not 1 <= bars <= 252
+    ):
+        _fail(
+            f"{path}/decision_every_bars",
+            "portfolio.decision-cadence",
+            "decision_every_bars must be an integer from 1 to 252",
+        )
+    anchor = raw["decision_anchor"]
+    if anchor not in {"dataset-start", "session-start"}:
+        _fail(
+            f"{path}/decision_anchor",
+            "portfolio.decision-anchor",
+            "decision_anchor must be dataset-start or session-start",
+        )
+    return {
+        "kind": kind,
+        "bars": bars,
+        "anchor": anchor,
+    }, bars, anchor
+
+
 def _parse_daily(path: Path) -> ParsedDaily:
     required = {
         "timestamp",
         "rebalanced",
         "decision_eligible",
+        "decision_schedule_kind",
         "decision_every_bars",
         "decision_anchor",
         "decision_session",
@@ -593,13 +641,9 @@ def _parse_daily(path: Path) -> ParsedDaily:
                 "portfolio.return",
                 "Daily compounded returns must be greater than -1",
             )
-        decision_anchor = raw["decision_anchor"]
-        if decision_anchor not in {"dataset-start", "session-start"}:
-            _fail(
-                f"{path}:{index}/decision_anchor",
-                "portfolio.decision-anchor",
-                "decision_anchor must be dataset-start or session-start",
-            )
+        decision_schedule, decision_every_bars, decision_anchor = (
+            _parse_flat_decision_schedule(raw, f"{path}:{index}")
+        )
         decision_session = raw["decision_session"]
         if (
             not decision_session
@@ -640,19 +684,6 @@ def _parse_daily(path: Path) -> ParsedDaily:
                 f"{path}:{index}/decision_eligible",
                 "portfolio.boolean",
                 "decision_eligible must be True or False",
-            )
-        try:
-            decision_every_bars = int(raw["decision_every_bars"])
-        except ValueError:
-            decision_every_bars = 0
-        if (
-            str(decision_every_bars) != raw["decision_every_bars"]
-            or not 1 <= decision_every_bars <= 252
-        ):
-            _fail(
-                f"{path}:{index}/decision_every_bars",
-                "portfolio.decision-cadence",
-                "decision_every_bars must be an integer from 1 to 252",
             )
         if has_execution_risk:
             execution_numeric = {
@@ -854,6 +885,8 @@ def _parse_daily(path: Path) -> ParsedDaily:
                 "decision_eligible": (
                     raw["decision_eligible"] == "True"
                 ),
+                "decision_schedule": decision_schedule,
+                "decision_schedule_kind": decision_schedule["kind"],
                 "decision_every_bars": decision_every_bars,
                 "decision_anchor": decision_anchor,
                 "decision_session": decision_session,
@@ -1015,26 +1048,9 @@ def _parse_decisions(
                 "decision_eligible must be True or False",
             )
         decision_eligible = raw["decision_eligible"] == "True"
-        try:
-            decision_every_bars = int(raw["decision_every_bars"])
-        except ValueError:
-            decision_every_bars = 0
-        if (
-            str(decision_every_bars) != raw["decision_every_bars"]
-            or not 1 <= decision_every_bars <= 252
-        ):
-            _fail(
-                f"{row_path}/decision_every_bars",
-                "portfolio.decision-cadence",
-                "decision_every_bars must be an integer from 1 to 252",
-            )
-        decision_anchor = raw["decision_anchor"]
-        if decision_anchor not in {"dataset-start", "session-start"}:
-            _fail(
-                f"{row_path}/decision_anchor",
-                "portfolio.decision-anchor",
-                "decision_anchor must be dataset-start or session-start",
-            )
+        decision_schedule, decision_every_bars, decision_anchor = (
+            _parse_flat_decision_schedule(raw, row_path)
+        )
         decision_session = raw["decision_session"]
         if (
             not decision_session
@@ -1332,6 +1348,8 @@ def _parse_decisions(
                 abs_tol=1e-10,
             )
             or (
+                raw["risk_governor_status"] != "diagnostic_disabled"
+                and
                 risk_numeric["risk_volatility_ceiling_annualized"] > 0
                 and risk_numeric["risk_forecast_post_annualized"]
                 > risk_numeric["risk_volatility_ceiling_annualized"] + 1e-10
@@ -1456,6 +1474,8 @@ def _parse_decisions(
             **execution_constraint_numeric,
             **execution_constraint_booleans,
             "decision_eligible": decision_eligible,
+            "decision_schedule": decision_schedule,
+            "decision_schedule_kind": decision_schedule["kind"],
             "decision_every_bars": decision_every_bars,
             "decision_anchor": decision_anchor,
             "decision_session": decision_session,
@@ -1602,6 +1622,7 @@ def _parse_decisions(
                 item["executed_constraint_maximum_error"],
                 item["execution_reason"],
                 item["decision_eligible"],
+                item["decision_schedule_kind"],
                 item["decision_every_bars"],
                 item["decision_anchor"],
                 item["decision_session"],
@@ -1634,6 +1655,7 @@ def _parse_decisions(
             expected_daily["executed_constraint_maximum_error"],
             expected_daily["execution_reason"],
             expected_daily["decision_eligible"],
+            expected_daily["decision_schedule_kind"],
             expected_daily["decision_every_bars"],
             expected_daily["decision_anchor"],
             expected_daily["decision_session"],
@@ -3928,8 +3950,7 @@ def _mechanical_decision_projection(
         "executionGate": {
             "available": execution_available,
             "decisionEligible": daily_row["decision_eligible"],
-            "decisionEveryBars": daily_row["decision_every_bars"],
-            "decisionAnchor": daily_row["decision_anchor"],
+            "decisionSchedule": daily_row["decision_schedule"],
             "decisionSession": daily_row["decision_session"],
             "decisionSource": mandate["implementationPolicy"][
                 "decisionPolicy"
@@ -4465,7 +4486,9 @@ def _signal_policy_projection(
             "portfolio.signal-policy",
             "Signal-policy parameters must be an object",
         )
-    required_parameters = set(EXPECTED_SIGNAL_PARAMETERS)
+    required_parameters = set(EXPECTED_SIGNAL_PARAMETERS) | {
+        "decision_schedule"
+    }
     if set(parameters) != required_parameters:
         _fail(
             "RunResult/metrics/signal_policy/parameters",
@@ -4477,8 +4500,20 @@ def _signal_policy_projection(
             parameters[key],
             f"RunResult/metrics/signal_policy/parameters/{key}",
         )
-        for key in required_parameters
+        for key in EXPECTED_SIGNAL_PARAMETERS
     }
+    decision_schedule = parameters["decision_schedule"]
+    if (
+        not isinstance(decision_schedule, dict)
+        or decision_schedule
+        != mandate["implementationPolicy"]["decisionPolicy"]
+    ):
+        _fail(
+            "RunResult/metrics/signal_policy/parameters/decision_schedule",
+            "portfolio.signal-policy-parameters",
+            "Decision schedule differs from the Portfolio Mandate",
+        )
+    normalized_parameters["decision_schedule"] = decision_schedule
     if (
         not 0.0
         <= normalized_parameters["short_entry_percentile"]
@@ -4498,13 +4533,6 @@ def _signal_policy_projection(
         < normalized_parameters["max_abs_weight"]
         <= normalized_parameters["gross_target"]
         or not 0.0 <= normalized_parameters["no_trade_one_way"] <= 1.0
-        or not 1.0 <= normalized_parameters["decision_every_bars"] <= 252.0
-        or not math.isclose(
-            normalized_parameters["decision_every_bars"],
-            round(normalized_parameters["decision_every_bars"]),
-            rel_tol=0.0,
-            abs_tol=1e-12,
-        )
     ):
         _fail(
             "RunResult/metrics/signal_policy/parameters",
@@ -4514,9 +4542,6 @@ def _signal_policy_projection(
     normalized_parameters["volatility_window"] = int(
         normalized_parameters["volatility_window"]
     )
-    normalized_parameters["decision_every_bars"] = int(
-        normalized_parameters["decision_every_bars"]
-    )
     expected_parameters = {
         **EXPECTED_SIGNAL_PARAMETERS,
         "gross_target": mandate["grossLimit"],
@@ -4524,9 +4549,9 @@ def _signal_policy_projection(
         "no_trade_one_way": mandate["implementationPolicy"][
             "noTradeOneWay"
         ],
-        "decision_every_bars": mandate["implementationPolicy"][
+        "decision_schedule": mandate["implementationPolicy"][
             "decisionPolicy"
-        ]["bars"],
+        ],
     }
     if normalized_parameters != expected_parameters:
         _fail(
@@ -6486,15 +6511,16 @@ def load_portfolio_diagnostics(
     )
 
     daily = _parse_daily(paths["portfolio-daily"])
-    decision_every_bars = int(
-        mandate["implementationPolicy"]["decisionPolicy"]["bars"]
-    )
-    decision_anchor = str(
-        mandate["implementationPolicy"]["decisionPolicy"]["anchor"]
-    )
+    locked_decision_policy = mandate["implementationPolicy"][
+        "decisionPolicy"
+    ]
+    flat_decision_policy = {
+        key: value
+        for key, value in locked_decision_policy.items()
+        if key != "source"
+    }
     if any(
-        row["decision_every_bars"] != decision_every_bars
-        or row["decision_anchor"] != decision_anchor
+        row["decision_schedule"] != flat_decision_policy
         for row in daily.rows
     ):
         _fail(
@@ -6502,15 +6528,21 @@ def load_portfolio_diagnostics(
             "portfolio.decision-policy",
             "Daily decision policy differs from the Portfolio Mandate",
         )
-    session_ordinals: dict[str, int] = {}
-    for row in daily.rows:
+    expected_mask = decision_schedule_mask(
+        pd.DatetimeIndex(daily.dates),
+        locked_decision_policy,
+    )
+    for position, row in enumerate(daily.rows):
         expected_session = (
-            "dataset"
-            if decision_anchor == "dataset-start"
-            else str(row["timestamp"])[:10]
+            str(row["timestamp"])[:7]
+            if locked_decision_policy["kind"] == "calendar-month-end"
+            else (
+                "dataset"
+                if locked_decision_policy["anchor"] == "dataset-start"
+                else str(row["timestamp"])[:10]
+            )
         )
-        ordinal = session_ordinals.get(expected_session, 0)
-        expected_eligible = ordinal % decision_every_bars == 0
+        expected_eligible = bool(expected_mask.iloc[position])
         if (
             row["decision_session"] != expected_session
             or row["decision_eligible"] != expected_eligible
@@ -6520,7 +6552,6 @@ def load_portfolio_diagnostics(
                 "portfolio.decision-schedule",
                 "Daily decision schedule differs from its locked anchor",
             )
-        session_ordinals[expected_session] = ordinal + 1
     target_dates, targets = _parse_weight_panel(
         paths["portfolio-targets"],
         universe,
@@ -7933,8 +7964,6 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
             "required": [
                 "source",
                 "kind",
-                "bars",
-                "anchor",
                 "observations",
                 "scheduleGroups",
                 "eligibleBars",
@@ -7948,7 +7977,9 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 "source": {
                     "enum": ["caller-supplied", "reference-default"]
                 },
-                "kind": {"const": "every-bars"},
+                "kind": {
+                    "enum": ["every-bars", "calendar-month-end"]
+                },
                 "bars": {"type": "integer", "minimum": 1, "maximum": 252},
                 "anchor": {
                     "enum": ["dataset-start", "session-start"]
@@ -7972,6 +8003,16 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                     "minimum": 0,
                 },
             },
+            "allOf": [
+                {
+                    "if": {
+                        "properties": {
+                            "kind": {"const": "every-bars"}
+                        }
+                    },
+                    "then": {"required": ["bars", "anchor"]},
+                }
+            ],
         },
         "run": {
             "type": "object",
@@ -8621,8 +8662,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                     "required": [
                         "available",
                         "decisionEligible",
-                        "decisionEveryBars",
-                        "decisionAnchor",
+                        "decisionSchedule",
                         "decisionSession",
                         "decisionSource",
                         "noTradeOneWay",
@@ -8640,13 +8680,42 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                     "properties": {
                         "available": {"type": "boolean"},
                         "decisionEligible": {"type": "boolean"},
-                        "decisionEveryBars": {
-                            "type": "integer",
-                            "minimum": 1,
-                            "maximum": 252,
-                        },
-                        "decisionAnchor": {
-                            "enum": ["dataset-start", "session-start"]
+                        "decisionSchedule": {
+                            "oneOf": [
+                                {
+                                    "type": "object",
+                                    "additionalProperties": False,
+                                    "required": [
+                                        "kind",
+                                        "bars",
+                                        "anchor",
+                                    ],
+                                    "properties": {
+                                        "kind": {"const": "every-bars"},
+                                        "bars": {
+                                            "type": "integer",
+                                            "minimum": 1,
+                                            "maximum": 252,
+                                        },
+                                        "anchor": {
+                                            "enum": [
+                                                "dataset-start",
+                                                "session-start",
+                                            ]
+                                        },
+                                    },
+                                },
+                                {
+                                    "type": "object",
+                                    "additionalProperties": False,
+                                    "required": ["kind"],
+                                    "properties": {
+                                        "kind": {
+                                            "const": "calendar-month-end"
+                                        }
+                                    },
+                                },
+                            ]
                         },
                         "decisionSession": {
                             "type": "string",

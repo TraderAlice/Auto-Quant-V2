@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -659,8 +660,7 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
                 "proposedOneWayTurnover"
             ],
             "decisionEligible": execution["decisionEligible"],
-            "decisionEveryBars": execution["decisionEveryBars"],
-            "decisionAnchor": execution["decisionAnchor"],
+            "decisionSchedule": execution["decisionSchedule"],
             "decisionSession": execution["decisionSession"],
             "decisionSource": execution["decisionSource"],
             "noTradeOneWay": execution["noTradeOneWay"],
@@ -970,10 +970,9 @@ def mechanical_decision_markdown_lines(
         f"- Proposed one-way turnover / no-trade band: "
         f"`{execution['proposedOneWayTurnover']}` / "
         f"`{execution['noTradeOneWay']}`",
-        f"- Decision eligible / cadence / anchor / session / source: "
-        f"`{execution['decisionEligible']}` / every "
-        f"`{execution['decisionEveryBars']}` base bars / "
-        f"`{execution['decisionAnchor']}` / "
+        f"- Decision eligible / schedule / session / source: "
+        f"`{execution['decisionEligible']}` / "
+        f"`{json.dumps(execution['decisionSchedule'], sort_keys=True)}` / "
         f"`{execution['decisionSession']}` / "
         f"`{execution['decisionSource']}`",
         f"- Ordinary rebalance / risk override / final rebalance: "

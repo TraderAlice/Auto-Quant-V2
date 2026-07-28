@@ -14,7 +14,7 @@ of delegated Portfolio/RL decisions. AutoQuant binds that assumption to the
 locked dataset and applies one deterministic schedule everywhere.
 
 ```text
-portfolioPolicy.decisionEveryBars + decisionAnchor
+portfolioPolicy.decisionSchedule
 → content-addressed Portfolio Mandate
 → locked-dataset compatibility check
 → one complete-panel eligibility mask
@@ -27,8 +27,11 @@ The complete caller policy contains:
 
 ```json
 {
-  "decisionEveryBars": 4,
-  "decisionAnchor": "session-start"
+  "decisionSchedule": {
+    "kind": "every-bars",
+    "bars": 4,
+    "anchor": "session-start"
+  }
 }
 ```
 
@@ -65,7 +68,7 @@ decision mask uses the same complete panel. For each session and zero-based
 bar ordinal `i`:
 
 ```text
-eligible = i mod decisionEveryBars == 0
+eligible = i mod decisionSchedule.bars == 0
 ```
 
 Thus a 15-minute/four-bar policy is eligible on the first completed bar and
@@ -88,6 +91,9 @@ never restart the schedule.
 ## Known limits
 
 - `session-start` currently means verified XNYS regular sessions only.
+- `calendar-month-end` is a separate schedule kind for V1 daily XNYS
+  packages. It uses the official final regular session of the calendar month,
+  so an incomplete terminal month is never made eligible by dataset truncation.
 - The first completed base bar is the phase origin. Arbitrary phase offsets,
   wall-clock times, session-close decisions, and auctions are not yet
   represented.

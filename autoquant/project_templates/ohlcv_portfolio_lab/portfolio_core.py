@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
+import exchange_calendars
 import numpy as np
 import pandas as pd
 
@@ -18,6 +19,12 @@ BASE_COST_BPS = 10.0
 REFERENCE_NAV = 1_000_000.0
 DECISION_EVERY_BARS = 1
 DECISION_ANCHOR = "dataset-start"
+DEFAULT_DECISION_POLICY = {
+    "source": "reference-default",
+    "kind": "every-bars",
+    "bars": DECISION_EVERY_BARS,
+    "anchor": DECISION_ANCHOR,
+}
 LONG_ENTRY_PERCENTILE = 0.75
 LONG_EXIT_PERCENTILE = 0.55
 SHORT_EXIT_PERCENTILE = 0.45
@@ -84,6 +91,37 @@ class SignalConstruction:
 
 
 RiskCovarianceCache = dict[object, tuple[int, np.ndarray | None]]
+
+
+def _valid_decision_policy(
+    value: object,
+    *,
+    expected_source: object | None = None,
+) -> bool:
+    if not isinstance(value, dict):
+        return False
+    source = value.get("source")
+    if expected_source is not None and source != expected_source:
+        return False
+    if source is not None and source not in {
+        "caller-supplied",
+        "reference-default",
+    }:
+        return False
+    source_keys = {"source"} if source is not None else set()
+    if value.get("kind") == "every-bars":
+        bars = value.get("bars")
+        return (
+            set(value) == source_keys | {"kind", "bars", "anchor"}
+            and isinstance(bars, int)
+            and not isinstance(bars, bool)
+            and 1 <= bars <= 252
+            and value.get("anchor") in {"dataset-start", "session-start"}
+        )
+    return (
+        value.get("kind") == "calendar-month-end"
+        and set(value) == source_keys | {"kind"}
+    )
 
 
 def _allocate_capped_side(
@@ -314,8 +352,7 @@ def _resolve_mandate(
                 "base_cost_bps": BASE_COST_BPS,
                 "no_trade_one_way": NO_TRADE_ONE_WAY,
                 "reference_nav": REFERENCE_NAV,
-                "decision_every_bars": DECISION_EVERY_BARS,
-                "decision_anchor": DECISION_ANCHOR,
+                "decision_policy": dict(DEFAULT_DECISION_POLICY),
             },
             "risk_policy": None,
         }
@@ -450,27 +487,10 @@ def _resolve_mandate(
         or not isinstance(implementation.get("referenceNav"), (int, float))
         or isinstance(implementation.get("referenceNav"), bool)
         or not 0 < float(implementation["referenceNav"]) <= 1e12
-        or not isinstance(implementation.get("decisionPolicy"), dict)
-        or set(implementation["decisionPolicy"])
-        != {"source", "kind", "bars", "anchor"}
-        or implementation["decisionPolicy"].get("source")
-        != source.get("portfolioPolicy")
-        or implementation["decisionPolicy"].get("kind") != "every-bars"
-        or not isinstance(
-            implementation["decisionPolicy"].get("bars"),
-            int,
+        or not _valid_decision_policy(
+            implementation.get("decisionPolicy"),
+            expected_source=source.get("portfolioPolicy"),
         )
-        or isinstance(
-            implementation["decisionPolicy"].get("bars"),
-            bool,
-        )
-        or not 1 <= implementation["decisionPolicy"]["bars"] <= 252
-        or not isinstance(
-            implementation["decisionPolicy"].get("anchor"),
-            str,
-        )
-        or implementation["decisionPolicy"].get("anchor")
-        not in {"dataset-start", "session-start"}
         or set(risk_policy)
         != {
             "method",
@@ -541,12 +561,7 @@ def _resolve_mandate(
             "base_cost_bps": float(implementation["baseCostBps"]),
             "no_trade_one_way": float(implementation["noTradeOneWay"]),
             "reference_nav": float(implementation["referenceNav"]),
-            "decision_every_bars": int(
-                implementation["decisionPolicy"]["bars"]
-            ),
-            "decision_anchor": str(
-                implementation["decisionPolicy"]["anchor"]
-            ),
+            "decision_policy": dict(implementation["decisionPolicy"]),
         },
         "risk_policy": {
             "method": str(risk_policy["method"]),
@@ -567,7 +582,7 @@ def _resolve_mandate(
 
 def resolve_implementation_policy(
     mandate: dict[str, object] | None,
-) -> dict[str, float | int | str]:
+) -> dict[str, object]:
     """Resolve fixed accounting assumptions without requiring an asset panel."""
 
     if mandate is None:
@@ -575,8 +590,7 @@ def resolve_implementation_policy(
             "base_cost_bps": BASE_COST_BPS,
             "no_trade_one_way": NO_TRADE_ONE_WAY,
             "reference_nav": REFERENCE_NAV,
-            "decision_every_bars": DECISION_EVERY_BARS,
-            "decision_anchor": DECISION_ANCHOR,
+            "decision_policy": dict(DEFAULT_DECISION_POLICY),
         }
     implementation = mandate.get("implementationPolicy")
     if not isinstance(implementation, dict):
@@ -588,16 +602,7 @@ def resolve_implementation_policy(
         "base_cost_bps": implementation.get("baseCostBps"),
         "no_trade_one_way": implementation.get("noTradeOneWay"),
         "reference_nav": implementation.get("referenceNav"),
-        "decision_every_bars": (
-            implementation.get("decisionPolicy", {}).get("bars")
-            if isinstance(implementation.get("decisionPolicy"), dict)
-            else None
-        ),
-        "decision_anchor": (
-            implementation.get("decisionPolicy", {}).get("anchor")
-            if isinstance(implementation.get("decisionPolicy"), dict)
-            else None
-        ),
+        "decision_policy": implementation.get("decisionPolicy"),
     }
     if (
         not isinstance(result["base_cost_bps"], (int, float))
@@ -609,12 +614,7 @@ def resolve_implementation_policy(
         or not isinstance(result["reference_nav"], (int, float))
         or isinstance(result["reference_nav"], bool)
         or not 0 < float(result["reference_nav"]) <= 1e12
-        or not isinstance(result["decision_every_bars"], int)
-        or isinstance(result["decision_every_bars"], bool)
-        or not 1 <= result["decision_every_bars"] <= 252
-        or not isinstance(result["decision_anchor"], str)
-        or result["decision_anchor"]
-        not in {"dataset-start", "session-start"}
+        or not _valid_decision_policy(result["decision_policy"])
     ):
         raise PortfolioFailure(
             "mandate.implementation",
@@ -624,8 +624,7 @@ def resolve_implementation_policy(
         "base_cost_bps": float(result["base_cost_bps"]),
         "no_trade_one_way": float(result["no_trade_one_way"]),
         "reference_nav": float(result["reference_nav"]),
-        "decision_every_bars": int(result["decision_every_bars"]),
-        "decision_anchor": str(result["decision_anchor"]),
+        "decision_policy": dict(result["decision_policy"]),
     }
 
 
@@ -640,19 +639,26 @@ def resolve_portfolio_mandate(
 
 def decision_schedule_sessions(
     index: pd.Index,
-    decision_anchor: str,
+    decision_policy: dict[str, object],
 ) -> pd.Series:
     """Return the immutable schedule group for every complete-panel row."""
 
-    if (
-        not index.is_unique
-        or not isinstance(decision_anchor, str)
-        or decision_anchor not in {"dataset-start", "session-start"}
-    ):
+    if not index.is_unique or not _valid_decision_policy(decision_policy):
         raise PortfolioFailure(
-            "portfolio.decision-anchor",
-            "Decision anchor requires a unique index and supported anchor",
+            "portfolio.decision-schedule",
+            "Decision schedule requires a unique index and valid policy",
         )
+    if decision_policy["kind"] == "calendar-month-end":
+        timestamps = pd.DatetimeIndex(index)
+        if timestamps.tz is not None:
+            timestamps = timestamps.tz_convert("America/New_York").tz_localize(None)
+        return pd.Series(
+            timestamps.to_period("M").astype(str),
+            index=index,
+            dtype="string",
+            name="decision_session",
+        )
+    decision_anchor = str(decision_policy["anchor"])
     if decision_anchor == "dataset-start":
         return pd.Series(
             "dataset",
@@ -676,23 +682,54 @@ def decision_schedule_sessions(
 
 def decision_schedule_mask(
     index: pd.Index,
-    decision_every_bars: int,
-    *,
-    decision_anchor: str = DECISION_ANCHOR,
+    decision_policy: dict[str, object],
 ) -> pd.Series:
     """Return one immutable complete-panel anchor-aware decision mask."""
 
-    if (
-        not isinstance(decision_every_bars, int)
-        or isinstance(decision_every_bars, bool)
-        or not 1 <= decision_every_bars <= 252
-        or not index.is_unique
-    ):
+    if not index.is_unique or not _valid_decision_policy(decision_policy):
         raise PortfolioFailure(
             "portfolio.decision-cadence",
-            "Decision cadence requires a unique index and 1-252 bars",
+            "Decision cadence requires a unique index and valid policy",
         )
-    sessions = decision_schedule_sessions(index, decision_anchor)
+    if decision_policy["kind"] == "calendar-month-end":
+        timestamps = pd.DatetimeIndex(index)
+        if timestamps.empty:
+            return pd.Series(
+                [],
+                index=index,
+                dtype=bool,
+                name="decision_eligible",
+            )
+        if timestamps.tz is not None:
+            local_dates = timestamps.tz_convert(
+                "America/New_York"
+            ).tz_localize(None).normalize()
+        else:
+            local_dates = timestamps.normalize()
+        month_end = local_dates.max() + pd.offsets.MonthEnd(0)
+        calendar = exchange_calendars.get_calendar(
+            "XNYS",
+            start=str(local_dates.min().date()),
+            end=str(month_end.date()),
+        )
+        official_sessions = pd.DatetimeIndex(calendar.sessions)
+        if official_sessions.tz is not None:
+            official_sessions = official_sessions.tz_localize(None)
+        official_sessions = official_sessions.normalize()
+        official_month_ends = (
+            pd.Series(official_sessions, index=official_sessions.to_period("M"))
+            .groupby(level=0, sort=True)
+            .max()
+        )
+        eligible_dates = set(official_month_ends.tolist())
+        return pd.Series(
+            local_dates.isin(eligible_dates),
+            index=index,
+            dtype=bool,
+            name="decision_eligible",
+        )
+    decision_every_bars = int(decision_policy["bars"])
+    sessions = decision_schedule_sessions(index, decision_policy)
     ordinal = sessions.groupby(sessions, sort=False).cumcount()
     return pd.Series(
         ordinal.mod(decision_every_bars).eq(0).to_numpy(),
@@ -1474,20 +1511,19 @@ def construct_signal_policy(
     prior_states = pd.Series(0, index=factors.columns, dtype=int)
     prior_targets = pd.Series(0.0, index=factors.columns, dtype=float)
     ledger_rows: list[dict[str, object]] = []
-    decision_every_bars = int(
-        resolved["implementation_policy"]["decision_every_bars"]
+    decision_policy = dict(
+        resolved["implementation_policy"]["decision_policy"]
     )
-    decision_anchor = str(
-        resolved["implementation_policy"]["decision_anchor"]
-    )
+    decision_schedule_kind = str(decision_policy["kind"])
+    decision_every_bars = decision_policy.get("bars")
+    decision_anchor = decision_policy.get("anchor")
     decision_sessions = decision_schedule_sessions(
         factors.index,
-        decision_anchor,
+        decision_policy,
     )
     decision_mask = decision_schedule_mask(
         factors.index,
-        decision_every_bars,
-        decision_anchor=decision_anchor,
+        decision_policy,
     )
     finite_factors = pd.DataFrame(
         np.isfinite(factors.to_numpy(dtype=float)),
@@ -1755,6 +1791,7 @@ def construct_signal_policy(
                     "signal_state": int(current_states.loc[asset]),
                     "signal_event": events[str(asset)],
                     "decision_eligible": decision_eligible,
+                    "decision_schedule_kind": decision_schedule_kind,
                     "decision_every_bars": decision_every_bars,
                     "decision_anchor": decision_anchor,
                     "decision_session": str(
@@ -1874,11 +1911,13 @@ def simulate_targets(
         if reference_nav is None
         else float(reference_nav)
     )
-    decision_every_bars = int(implementation["decision_every_bars"])
-    decision_anchor = str(implementation["decision_anchor"])
+    decision_policy = dict(implementation["decision_policy"])
+    decision_schedule_kind = str(decision_policy["kind"])
+    decision_every_bars = decision_policy.get("bars")
+    decision_anchor = decision_policy.get("anchor")
     decision_sessions = decision_schedule_sessions(
         targets.index,
-        decision_anchor,
+        decision_policy,
     )
     if cost_bps < 0 or not 0 <= no_trade_one_way <= 1 or reference_nav <= 0:
         raise PortfolioFailure(
@@ -1897,8 +1936,7 @@ def simulate_targets(
     proposed_targets = targets.shift(extra_delay).fillna(0.0)
     decision_mask = decision_schedule_mask(
         targets.index,
-        decision_every_bars,
-        decision_anchor=decision_anchor,
+        decision_policy,
     ).shift(extra_delay, fill_value=False)
     close_returns = closes.pct_change(fill_method=None)
     forward_returns = closes.shift(-1) / closes - 1.0
@@ -2010,6 +2048,7 @@ def simulate_targets(
                 "concentration_hhi": float((current_values**2).sum()),
                 "rebalanced": rebalance,
                 "decision_eligible": decision_eligible,
+                "decision_schedule_kind": decision_schedule_kind,
                 "decision_every_bars": decision_every_bars,
                 "decision_anchor": decision_anchor,
                 "decision_session": str(
@@ -3311,6 +3350,7 @@ def signal_policy_metrics(
         selected.groupby("timestamp", sort=True)
         .agg(
             eligible=("decision_eligible", "first"),
+            kind=("decision_schedule_kind", "first"),
             every_bars=("decision_every_bars", "first"),
             anchor=("decision_anchor", "first"),
         )
@@ -3341,11 +3381,17 @@ def signal_policy_metrics(
         "decision_eligible_rate": float(
             cadence_by_timestamp["eligible"].mean()
         ),
-        "decision_every_bars": int(
-            cadence_by_timestamp["every_bars"].iloc[0]
-        ),
-        "decision_anchor": str(
-            cadence_by_timestamp["anchor"].iloc[0]
+        "decision_schedule": (
+            {
+                "kind": "calendar-month-end",
+            }
+            if str(cadence_by_timestamp["kind"].iloc[0])
+            == "calendar-month-end"
+            else {
+                "kind": "every-bars",
+                "bars": int(cadence_by_timestamp["every_bars"].iloc[0]),
+                "anchor": str(cadence_by_timestamp["anchor"].iloc[0]),
+            }
         ),
         "scheduled_hold_timestamps": int(
             (~cadence_by_timestamp["eligible"]).sum()

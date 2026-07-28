@@ -619,8 +619,11 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                 "baseCostBps": 17.5,
                 "noTradeOneWay": 0.04,
                 "referenceNav": 250_000.0,
-                "decisionEveryBars": 4,
-                "decisionAnchor": "dataset-start",
+                "decisionSchedule": {
+                    "kind": "every-bars",
+                    "bars": 4,
+                    "anchor": "dataset-start",
+                },
             }
             request_path, package_path = write_intake_inputs(
                 root,
@@ -732,6 +735,10 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                 )
                 self.assertEqual(int(row["decision_every_bars"]), 4)
                 self.assertEqual(row["decision_anchor"], "dataset-start")
+                self.assertEqual(
+                    row["decision_schedule_kind"],
+                    "every-bars",
+                )
                 self.assertEqual(row["decision_session"], "dataset")
                 if not expected_eligible:
                     self.assertFalse(bool(row["ordinary_rebalance"]))
@@ -770,7 +777,12 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                     "gross_target": 0.8,
                     "max_abs_weight": 0.2,
                     "no_trade_one_way": 0.04,
-                    "decision_every_bars": 4,
+                    "decision_schedule": {
+                        "source": "caller-supplied",
+                        "kind": "every-bars",
+                        "bars": 4,
+                        "anchor": "dataset-start",
+                    },
                 },
             )
             self.assertEqual(
@@ -840,13 +852,9 @@ class RequestDrivenIntakeTests(unittest.TestCase):
             )
             self.assertEqual(
                 rl_run.result["metrics"]["configuration"][
-                    "decisionEveryBars"
+                    "decisionSchedule"
                 ],
-                4,
-            )
-            self.assertEqual(
-                rl_run.result["metrics"]["configuration"]["decisionAnchor"],
-                "dataset-start",
+                mandate["implementationPolicy"]["decisionPolicy"],
             )
             action_rows = pd.read_csv(
                 rl_run.root_dir / "artifacts" / "policy-actions.csv"
@@ -872,6 +880,10 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                     self.assertEqual(
                         row["decision_anchor"],
                         "dataset-start",
+                    )
+                    self.assertEqual(
+                        row["decision_schedule_kind"],
+                        "every-bars",
                     )
                     self.assertEqual(row["decision_session"], "dataset")
                     if not expected_eligible:
@@ -1020,8 +1032,8 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                 report_markdown,
             )
             self.assertIn(
-                "Decision cadence / anchor / source: every `4` base bars / "
-                "`dataset-start` / `caller-supplied`",
+                "Decision schedule / source: "
+                "`every 4 base bars / dataset-start` / `caller-supplied`",
                 report_markdown,
             )
             self.assertIn(
@@ -1046,8 +1058,11 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                 "baseCostBps": 12.0,
                 "noTradeOneWay": 0.0,
                 "referenceNav": 500_000.0,
-                "decisionEveryBars": 1,
-                "decisionAnchor": "dataset-start",
+                "decisionSchedule": {
+                    "kind": "every-bars",
+                    "bars": 1,
+                    "anchor": "dataset-start",
+                },
             }
             request_path, package_path = write_intake_inputs(
                 root,
@@ -1256,6 +1271,65 @@ class RequestDrivenIntakeTests(unittest.TestCase):
             )
             jsonschema.validate(run.result, RUN_RESULT_JSON_SCHEMA)
 
+    def test_calendar_month_end_requires_daily_xnys_input(self) -> None:
+        policy = {
+            "grossLimit": 0.8,
+            "maxAbsWeight": 0.3,
+            "assetMaxAbsWeights": {},
+            "annualizedVolatilityCeiling": 0.20,
+            "baseCostBps": 12.0,
+            "noTradeOneWay": 0.0,
+            "referenceNav": 500_000.0,
+            "decisionSchedule": {"kind": "calendar-month-end"},
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            request_path, package_path = write_intake_inputs(
+                root,
+                portfolio_policy=policy,
+            )
+            prepared = prepare_project_intake(
+                request_path,
+                package_path,
+                "ohlcv-research-desk",
+            )
+            project = create_project(
+                initialize_workspace(root / "workspace").root_dir,
+                "calendar-month-end",
+                template=prepared.template,
+                template_intake=prepared,
+            )
+            mandate = load_portfolio_mandate(
+                project.root_dir / PORTFOLIO_MANDATE
+            )
+            self.assertEqual(
+                mandate["implementationPolicy"]["decisionPolicy"],
+                {
+                    "source": "caller-supplied",
+                    "kind": "calendar-month-end",
+                },
+            )
+
+        with tempfile.TemporaryDirectory() as directory:
+            request_path, package_path = write_configurable_continuous_inputs(
+                Path(directory)
+            )
+            request = json.loads(request_path.read_text(encoding="utf-8"))
+            request["portfolioPolicy"] = policy
+            request_path.write_text(
+                json.dumps(request, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "calendar-month-end requires a V1 daily XNYS",
+            ):
+                prepare_project_intake(
+                    request_path,
+                    package_path,
+                    "ohlcv-research-desk",
+                )
+
     def test_session_start_anchor_requires_xnys_intraday_input(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             request_path, package_path = write_configurable_continuous_inputs(
@@ -1270,8 +1344,11 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                 "baseCostBps": 12.0,
                 "noTradeOneWay": 0.0,
                 "referenceNav": 500_000.0,
-                "decisionEveryBars": 4,
-                "decisionAnchor": "session-start",
+                "decisionSchedule": {
+                    "kind": "every-bars",
+                    "bars": 4,
+                    "anchor": "session-start",
+                },
             }
             request_path.write_text(
                 json.dumps(request, indent=2, sort_keys=True) + "\n",
@@ -1383,8 +1460,11 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                 "baseCostBps": 12.0,
                 "noTradeOneWay": 0.0,
                 "referenceNav": 500_000.0,
-                "decisionEveryBars": 4,
-                "decisionAnchor": "session-start",
+                "decisionSchedule": {
+                    "kind": "every-bars",
+                    "bars": 4,
+                    "anchor": "session-start",
+                },
             }
             request_path, package_path = write_session_interval_inputs(
                 root,

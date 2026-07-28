@@ -102,6 +102,7 @@ ACTION_COLUMNS = [
     "timestamp",
     "action",
     "decision_eligible",
+    "decision_schedule_kind",
     "decision_every_bars",
     "decision_anchor",
     "decision_session",
@@ -354,15 +355,40 @@ def _configuration(metrics: dict[str, Any]) -> dict[str, Any]:
             "rl.learning-contract",
             "Learning configuration provenance differs from the fixed contract",
         )
-    decision_anchor = value.get("decisionAnchor")
-    if (
-        not isinstance(decision_anchor, str)
-        or decision_anchor not in {"dataset-start", "session-start"}
+    decision_schedule = value.get("decisionSchedule")
+    if not isinstance(decision_schedule, dict):
+        _fail(
+            "configuration/decisionSchedule",
+            "rl.decision-schedule",
+            "Decision schedule must be an object",
+        )
+    kind = decision_schedule.get("kind")
+    if kind == "every-bars":
+        if (
+            set(decision_schedule) != {"source", "kind", "bars", "anchor"}
+            or decision_schedule.get("source")
+            not in {"caller-supplied", "reference-default"}
+            or not isinstance(decision_schedule.get("bars"), int)
+            or isinstance(decision_schedule.get("bars"), bool)
+            or not 1 <= decision_schedule["bars"] <= 252
+            or decision_schedule.get("anchor")
+            not in {"dataset-start", "session-start"}
+        ):
+            _fail(
+                "configuration/decisionSchedule",
+                "rl.decision-schedule",
+                "Every-bars decision schedule is invalid",
+            )
+    elif (
+        kind != "calendar-month-end"
+        or set(decision_schedule) != {"source", "kind"}
+        or decision_schedule.get("source")
+        not in {"caller-supplied", "reference-default"}
     ):
         _fail(
-            "configuration/decisionAnchor",
-            "rl.decision-anchor",
-            "Decision anchor must be dataset-start or session-start",
+            "configuration/decisionSchedule",
+            "rl.decision-schedule",
+            "Calendar month-end decision schedule is invalid",
         )
     return {
         **value,
@@ -379,12 +405,7 @@ def _configuration(metrics: dict[str, Any]) -> dict[str, Any]:
         "discount": _finite(value.get("discount"), "configuration/discount"),
         "riskAversion": _finite(value.get("riskAversion"), "configuration/riskAversion"),
         "costBps": _finite(value.get("costBps"), "configuration/costBps"),
-        "decisionEveryBars": _integer(
-            value.get("decisionEveryBars"),
-            "configuration/decisionEveryBars",
-            minimum=1,
-        ),
-        "decisionAnchor": decision_anchor,
+        "decisionSchedule": decision_schedule,
     }
 
 
@@ -926,30 +947,56 @@ def _action_rows(
                         "Decision eligibility must be a boolean",
                     )
                 decision_eligible = row["decision_eligible"] == "True"
-                decision_every_bars = _csv_nonnegative_integer(
-                    row["decision_every_bars"],
-                    f"{path}:{row_number}/decision_every_bars",
-                )
-                if (
-                    decision_every_bars
-                    != configuration["decisionEveryBars"]
-                    or decision_every_bars < 1
-                ):
+                configured_schedule = configuration["decisionSchedule"]
+                decision_kind = row["decision_schedule_kind"]
+                if decision_kind != configured_schedule["kind"]:
                     _fail(
-                        f"{path}:{row_number}/decision_every_bars",
-                        "rl.decision-cadence",
-                        "Action cadence differs from configuration",
+                        f"{path}:{row_number}/decision_schedule_kind",
+                        "rl.decision-schedule",
+                        "Action schedule differs from configuration",
                     )
-                decision_anchor = row["decision_anchor"]
+                if decision_kind == "calendar-month-end":
+                    if row["decision_every_bars"] or row["decision_anchor"]:
+                        _fail(
+                            f"{path}:{row_number}",
+                            "rl.decision-schedule",
+                            "Calendar month-end rows must leave bars and anchor empty",
+                        )
+                    decision_schedule = {"kind": decision_kind}
+                else:
+                    decision_every_bars = _csv_nonnegative_integer(
+                        row["decision_every_bars"],
+                        f"{path}:{row_number}/decision_every_bars",
+                    )
+                    decision_anchor = row["decision_anchor"]
+                    decision_schedule = {
+                        "kind": decision_kind,
+                        "bars": decision_every_bars,
+                        "anchor": decision_anchor,
+                    }
+                    expected_schedule = {
+                        key: value
+                        for key, value in configured_schedule.items()
+                        if key != "source"
+                    }
+                    if decision_schedule != expected_schedule:
+                        _fail(
+                            f"{path}:{row_number}",
+                            "rl.decision-schedule",
+                            "Action schedule differs from configuration",
+                        )
                 decision_session = row["decision_session"]
                 expected_session = (
-                    "dataset"
-                    if configuration["decisionAnchor"] == "dataset-start"
-                    else timestamp[:10]
+                    timestamp[:7]
+                    if decision_kind == "calendar-month-end"
+                    else (
+                        "dataset"
+                        if decision_schedule["anchor"] == "dataset-start"
+                        else timestamp[:10]
+                    )
                 )
                 if (
-                    decision_anchor != configuration["decisionAnchor"]
-                    or decision_session != expected_session
+                    decision_session != expected_session
                 ):
                     _fail(
                         f"{path}:{row_number}/decision_anchor",
@@ -972,8 +1019,7 @@ def _action_rows(
                         "timestamp": timestamp,
                         "action": action,
                         "decisionEligible": decision_eligible,
-                        "decisionEveryBars": decision_every_bars,
-                        "decisionAnchor": decision_anchor,
+                        "decisionSchedule": decision_schedule,
                         "decisionSession": decision_session,
                         "reward": _finite(row["reward"], f"{path}:{row_number}/reward"),
                         "grossReturn": _finite(row["gross_return"], f"{path}:{row_number}/gross_return"),
@@ -1840,8 +1886,7 @@ def _policy_behavior_projection(
         "split",
         "timestamp",
         "decisionEligible",
-        "decisionEveryBars",
-        "decisionAnchor",
+        "decisionSchedule",
         "decisionSession",
         "selectionReason",
         "previousAction",
@@ -1891,10 +1936,8 @@ def _policy_behavior_projection(
             or raw.get("selectedAction") != action_row["action"]
             or raw.get("decisionEligible")
             != action_row["decisionEligible"]
-            or raw.get("decisionEveryBars")
-            != action_row["decisionEveryBars"]
-            or raw.get("decisionAnchor")
-            != action_row["decisionAnchor"]
+            or raw.get("decisionSchedule")
+            != action_row["decisionSchedule"]
             or raw.get("decisionSession")
             != action_row["decisionSession"]
             or raw.get("selectionReason")
@@ -2532,8 +2575,7 @@ def _factor_opportunity_projection(
         "split",
         "timestamp",
         "decisionEligible",
-        "decisionEveryBars",
-        "decisionAnchor",
+        "decisionSchedule",
         "decisionSession",
         "selectedAction",
         "oracleAction",
@@ -2606,10 +2648,8 @@ def _factor_opportunity_projection(
             raw.get("selectedAction") != selected_action_row["action"]
             or raw.get("decisionEligible")
             != selected_action_row["decisionEligible"]
-            or raw.get("decisionEveryBars")
-            != selected_action_row["decisionEveryBars"]
-            or raw.get("decisionAnchor")
-            != selected_action_row["decisionAnchor"]
+            or raw.get("decisionSchedule")
+            != selected_action_row["decisionSchedule"]
             or raw.get("decisionSession")
             != selected_action_row["decisionSession"]
             or raw.get("selectedAction") not in configuration["actions"]
@@ -4998,21 +5038,13 @@ def load_rl_diagnostics(
                     "rl.implementation-policy",
                     "RL configuration differs from the Portfolio Mandate",
                 )
-        if configuration.get("decisionEveryBars") != implementation[
+        if configuration.get("decisionSchedule") != implementation[
             "decisionPolicy"
-        ]["bars"]:
+        ]:
             _fail(
-                "metrics/configuration/decisionEveryBars",
-                "rl.decision-cadence",
-                "RL decision cadence differs from the Portfolio Mandate",
-            )
-        if configuration.get("decisionAnchor") != implementation[
-            "decisionPolicy"
-        ]["anchor"]:
-            _fail(
-                "metrics/configuration/decisionAnchor",
-                "rl.decision-anchor",
-                "RL decision anchor differs from the Portfolio Mandate",
+                "metrics/configuration/decisionSchedule",
+                "rl.decision-schedule",
+                "RL decision schedule differs from the Portfolio Mandate",
             )
         mandate_projection = {
             "available": True,
@@ -5701,8 +5733,6 @@ RL_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
             "required": [
                 "source",
                 "kind",
-                "bars",
-                "anchor",
                 "observations",
                 "scheduleGroups",
                 "eligibleBars",
@@ -5716,7 +5746,9 @@ RL_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 "source": {
                     "enum": ["caller-supplied", "reference-default"]
                 },
-                "kind": {"const": "every-bars"},
+                "kind": {
+                    "enum": ["every-bars", "calendar-month-end"]
+                },
                 "bars": {"type": "integer", "minimum": 1, "maximum": 252},
                 "anchor": {
                     "enum": ["dataset-start", "session-start"]
@@ -5740,6 +5772,16 @@ RL_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                     "minimum": 0,
                 },
             },
+            "allOf": [
+                {
+                    "if": {
+                        "properties": {
+                            "kind": {"const": "every-bars"}
+                        }
+                    },
+                    "then": {"required": ["bars", "anchor"]},
+                }
+            ],
         },
         "policyBehavior": {"type": "object"},
         "factorOpportunity": {"type": "object"},

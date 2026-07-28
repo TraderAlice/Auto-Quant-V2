@@ -21,6 +21,7 @@ from autoquant.project_templates.ohlcv_portfolio_lab.portfolio_core import (
     constraint_audit,
     construct_signal_policy,
     decision_schedule_mask,
+    decision_schedule_sessions,
     simulate_targets,
 )
 from autoquant.workspace import AutoQuantValidationError
@@ -94,8 +95,11 @@ class PortfolioMandateTests(unittest.TestCase):
             "baseCostBps": 10.0,
             "noTradeOneWay": 0.0,
             "referenceNav": 1_000_000.0,
-            "decisionEveryBars": 1,
-            "decisionAnchor": "dataset-start",
+            "decisionSchedule": {
+                "kind": "every-bars",
+                "bars": 1,
+                "anchor": "dataset-start",
+            },
         }
         normalized = validate_research_request(raw)
         mandate = build_portfolio_mandate(normalized, UNIVERSE)
@@ -205,8 +209,11 @@ class PortfolioMandateTests(unittest.TestCase):
             "baseCostBps": 10.0,
             "noTradeOneWay": 0.0,
             "referenceNav": 1_000_000.0,
-            "decisionEveryBars": 4,
-            "decisionAnchor": "dataset-start",
+            "decisionSchedule": {
+                "kind": "every-bars",
+                "bars": 4,
+                "anchor": "dataset-start",
+            },
         }
         mandate = build_portfolio_mandate(
             validate_research_request(raw),
@@ -312,8 +319,11 @@ class PortfolioMandateTests(unittest.TestCase):
         )
         observed = decision_schedule_mask(
             index,
-            4,
-            decision_anchor="session-start",
+            {
+                "kind": "every-bars",
+                "bars": 4,
+                "anchor": "session-start",
+            },
         )
         expected = pd.Series(
             [True, False, False, False, True, False, False],
@@ -321,6 +331,41 @@ class PortfolioMandateTests(unittest.TestCase):
             name="decision_eligible",
         )
         pd.testing.assert_series_equal(observed, expected)
+
+    def test_calendar_month_end_uses_official_xnys_sessions(self) -> None:
+        index = pd.DatetimeIndex(
+            [
+                "2026-04-29",
+                "2026-04-30",
+                "2026-05-28",
+                "2026-05-29",
+                "2026-06-29",
+                "2026-06-30",
+                "2026-07-27",
+                "2026-07-28",
+            ]
+        )
+        policy = {"kind": "calendar-month-end"}
+        observed = decision_schedule_mask(index, policy)
+        expected = pd.Series(
+            [False, True, False, True, False, True, False, False],
+            index=index,
+            name="decision_eligible",
+        )
+        pd.testing.assert_series_equal(observed, expected)
+        self.assertEqual(
+            decision_schedule_sessions(index, policy).tolist(),
+            [
+                "2026-04",
+                "2026-04",
+                "2026-05",
+                "2026-05",
+                "2026-06",
+                "2026-06",
+                "2026-07",
+                "2026-07",
+            ],
+        )
 
     def test_caller_policy_is_strict_and_content_locked_into_mandate(self) -> None:
         raw = request("long", ["A", "B"])
@@ -332,8 +377,11 @@ class PortfolioMandateTests(unittest.TestCase):
             "baseCostBps": 17.5,
             "noTradeOneWay": 0.04,
             "referenceNav": 250_000.0,
-            "decisionEveryBars": 4,
-            "decisionAnchor": "dataset-start",
+            "decisionSchedule": {
+                "kind": "every-bars",
+                "bars": 4,
+                "anchor": "dataset-start",
+            },
         }
         normalized = validate_research_request(raw)
         jsonschema.validate(normalized, RESEARCH_REQUEST_JSON_SCHEMA)
@@ -380,14 +428,20 @@ class PortfolioMandateTests(unittest.TestCase):
             ("grossLimit", float("nan")),
             ("baseCostBps", 1001.0),
             ("referenceNav", 0.0),
-            ("decisionEveryBars", 0),
-            ("decisionAnchor", "market-close"),
         ):
             with self.subTest(key=key):
                 changed = copy.deepcopy(raw)
                 changed["portfolioPolicy"][key] = invalid
                 with self.assertRaises(AutoQuantValidationError):
                     validate_research_request(changed)
+        for invalid_schedule in (
+            {"kind": "every-bars", "bars": 0, "anchor": "dataset-start"},
+            {"kind": "every-bars", "bars": 4, "anchor": "market-close"},
+        ):
+            changed = copy.deepcopy(raw)
+            changed["portfolioPolicy"]["decisionSchedule"] = invalid_schedule
+            with self.assertRaises(AutoQuantValidationError):
+                validate_research_request(changed)
 
         neutral = request("long-short", UNIVERSE)
         neutral["portfolioPolicy"] = dict(raw["portfolioPolicy"])
@@ -539,8 +593,11 @@ class PortfolioMandateTests(unittest.TestCase):
             "baseCostBps": 10.0,
             "noTradeOneWay": 0.05,
             "referenceNav": 1_000_000.0,
-            "decisionEveryBars": 1,
-            "decisionAnchor": "dataset-start",
+            "decisionSchedule": {
+                "kind": "every-bars",
+                "bars": 1,
+                "anchor": "dataset-start",
+            },
         }
         raw["benchmarkPolicy"] = {
             "kind": "asset",

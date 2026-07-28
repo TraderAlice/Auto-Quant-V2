@@ -2931,7 +2931,7 @@ function renderPortfolioMechanicalDecision(explorer) {
       <span role="listitem" class="${execution.riskOverride ? "warning" : ""}">
         <small>03 · Execution gate</small>
         <b>${escapeHtml(executionLabel)}</b>
-        <i>${execution.decisionEligible ? "eligible" : "ineligible"} · every ${execution.decisionEveryBars} base bar${execution.decisionEveryBars === 1 ? "" : "s"} · ${escapeHtml(execution.decisionAnchor)} / ${escapeHtml(execution.decisionSession)} · ${percent(execution.proposedOneWayTurnover)} proposed / ${percent(execution.noTradeOneWay)} band</i>
+        <i>${execution.decisionEligible ? "eligible" : "ineligible"} · ${escapeHtml(execution.decisionSchedule.kind === "calendar-month-end" ? "calendar month-end" : `every ${execution.decisionSchedule.bars} base bar${execution.decisionSchedule.bars === 1 ? "" : "s"} / ${execution.decisionSchedule.anchor}`)} · ${escapeHtml(execution.decisionSession)} · ${percent(execution.proposedOneWayTurnover)} proposed / ${percent(execution.noTradeOneWay)} band</i>
       </span>
       <span role="listitem">
         <small>04 · Historical book</small>

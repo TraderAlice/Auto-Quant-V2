@@ -17,7 +17,7 @@ to reconsider its research position; AutoQuant owns deterministic mechanics
 and evidence on every intervening base bar.
 
 ```text
-Research Request.portfolioPolicy.decisionEveryBars + decisionAnchor
+Research Request.portfolioPolicy.decisionSchedule
 → content-addressed Portfolio Mandate decision schedule
 → mechanical signal / target eligibility
 → Portfolio execution and governed-RL action availability
@@ -31,14 +31,24 @@ Candidate factor and encoder code cannot edit this chain.
 A complete caller `portfolioPolicy` includes:
 
 ```json
+{"decisionSchedule": {"kind": "calendar-month-end"}}
+```
+
+The other supported shape is:
+
+```json
 {
-  "decisionEveryBars": 4,
-  "decisionAnchor": "session-start"
+  "decisionSchedule": {
+    "kind": "every-bars",
+    "bars": 4,
+    "anchor": "session-start"
+  }
 }
 ```
 
-The value is a non-boolean integer in `[1, 252]`. When Portfolio policy is
-omitted, Core inserts the explicit reference default `1`.
+`bars` is a non-boolean integer in `[1, 252]`. When Portfolio policy is
+omitted, Core inserts the explicit `every-bars`, one-bar,
+`dataset-start` reference default.
 
 The Mandate materializes:
 
@@ -58,6 +68,11 @@ The Mandate materializes:
 regular session and is rejected for other inputs. Neither evaluation splits,
 Study Sessions, nor Runs can reset or reinterpret the schedule. See
 [[docs/design/market-clock-decision-anchors]].
+
+`calendar-month-end` is accepted only for V1 daily XNYS session packages.
+Core derives eligibility from the official XNYS calendar through the terminal
+calendar month. The final observed row is therefore not treated as month-end
+when the dataset stops before that month's official final session.
 
 ## Mechanical signal and execution semantics
 
@@ -104,8 +119,15 @@ baselines obey the identical mask.
 Daily Portfolio/RL evidence records:
 
 - `decision_eligible`;
+- `decision_schedule_kind`;
 - `decision_every_bars`;
+- `decision_anchor`;
+- `decision_session`;
 - whether a scheduled hold or risk-only override occurred.
+
+The two legacy-named flat CSV detail columns are populated only for
+`every-bars`; they are empty for `calendar-month-end`. Structured JSON exposes
+the exact `decisionSchedule` object instead of sentinel values.
 
 Signal and decision ledgers distinguish a schedule hold from hysteresis, a
 small-trade no-op, missing factor evidence, and a risk repair. Explorer,
@@ -126,8 +148,9 @@ the documented reference default. They retain
 
 ## Known limits
 
-- V1 expresses dataset-start and verified XNYS session-start only; it does not
-  express session-close, weekday, clock-time, event, or arbitrary phase-offset
-  schedules.
+- Supported schedules are every-N-bars from dataset start, every-N-bars from
+  verified XNYS session start, and official XNYS calendar month-end. Weekday,
+  wall-clock, event, auction, and arbitrary phase-offset schedules are not
+  represented.
 - Cadence is a research assumption, not a live scheduler, exchange order, TPSL,
   or OpenAlice UTA authorization.

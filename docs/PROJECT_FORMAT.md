@@ -657,8 +657,11 @@ Brief hash. `request.json` records the exact normalized caller input:
     "baseCostBps": 15.0,
     "noTradeOneWay": 0.04,
     "referenceNav": 250000.0,
-    "decisionEveryBars": 4,
-    "decisionAnchor": "session-start"
+    "decisionSchedule": {
+      "kind": "every-bars",
+      "bars": 4,
+      "anchor": "session-start"
+    }
   },
   "horizon": "one to three months",
   "horizonPolicy": {

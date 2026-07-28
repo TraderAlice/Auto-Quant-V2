@@ -67,10 +67,10 @@ dataset start.
   execution.
 - [x] The current public route is reproduced and refuses any cadence or asset
   semantics it cannot represent exactly.
-- [ ] Any Workbench change implements the smallest general calendar-month
+- [x] Any Workbench change implements the smallest general calendar-month
   schedule contract across request, Mandate, Portfolio/RL execution, evidence,
   CLI, and Studio.
-- [ ] A bounded real-data Project terminates with verified Factor/Portfolio
+- [x] A bounded real-data Project terminates with verified Factor/Portfolio
   evidence or a scientifically useful gate.
 - [ ] Tests, docs, package smoke, versioning, commit/push, and repository
   cleanliness pass in proportion to the change.
@@ -80,8 +80,8 @@ dataset start.
 - [x] Create and clarify the representative Project.
 - [x] Acquire and audit one bounded provider snapshot.
 - [x] Reproduce the current public boundary.
-- [ ] Implement only field-proven reusable changes.
-- [ ] Execute and interpret the clean field trial.
+- [x] Implement only field-proven reusable changes.
+- [x] Execute and interpret the field trial before the clean release replay.
 - [ ] Complete release or explicit-boundary audit and close the plan.
 
 ## Findings and decisions
@@ -101,6 +101,26 @@ dataset start.
   `decisionEveryBars` and `decisionAnchor` are required. The operation left no
   partial Project. Data and fund asset-class semantics did not need to be
   weakened to reproduce the gap.
+- 2026-07-29 — `decisionSchedule` is now one discriminated object:
+  `every-bars` retains bounded dataset/session anchors and
+  `calendar-month-end` uses official XNYS daily sessions. The Mandate,
+  Portfolio, governed RL, CSV evidence, Explorers, CLI, Studio, Reports, and
+  Dossiers share the exact schedule. Calendar rows leave flat bars/anchor
+  details empty rather than using a fake `21`.
+- 2026-07-29 — The real Portfolio decision ledger contained 44,298 asset rows
+  and was about 34 MiB. The successful Run exposed the former 32 MiB Explorer
+  byte ceiling as too small for a legitimate bounded panel. Portfolio Explorer
+  now permits at most 64 MiB while preserving row, hash, and reconciliation
+  limits.
+- 2026-07-29 — Off-schedule proposed-target risk evidence explicitly marks its
+  governor `diagnostic_disabled`; final execution can still perform the
+  mandatory scale-down-only risk repair. Explorer now exempts only that
+  explicit proposed diagnostic from the ceiling assertion and continues to
+  reconcile final executed-book risk.
+- 2026-07-29 — The full nine-asset, 4,922-session governed RL lane reached its
+  fixed 120-second timeout and terminated with `judge.timeout`. The budget is
+  not widened again: RL is optional here and the successful Factor-to-Portfolio
+  handoff remains the supported interactive route.
 
 ## Verification
 
@@ -109,6 +129,27 @@ dataset start.
 - Public `aq project intake ... --template ohlcv-research-desk --json`
   returned `validation.failed` for the exact calendar schedule fields and
   created no Project directory.
+- Upgraded public intake created
+  `global-etf-calendar-month-allocation-v083` with the exact schedule.
+- Factor Run `run-20260728T214548865583Z-6d94dc9a5d0f` completed in 53,866 ms
+  with primary validation IC `0.031360`.
+- Portfolio Run `run-20260728T214656702102Z-02e5fa470a22` completed in
+  123,955 ms with validation net Sharpe `0.618792`; strict Explorer confirms
+  234 eligible rows, latest eligible 2026-06-30, and an ineligible July
+  endpoint.
+- Latest accountable 2026-07-27 book: IWM `0.297353`, TLT `0.297400`, IEF
+  `0.299379`, cash `0.105867`; scheduled target remains 30%/30%/30%/10% and
+  no ordinary rebalance is due.
+- Governed RL Run `run-20260728T215047604954Z-f5cb1ac946d0` terminated at the
+  exact 120-second budget with a structured timeout.
+- Focused verification so far: Mandate/calendar tests 12/12; Portfolio Lab
+  16/16; Portfolio Explorer 21/21; RL Explorer 2/2; Report/Dossier/CLI 34/34;
+  Studio 7/7; every-bars daily/intraday and calendar intake end-to-end checks
+  pass.
+- Full regression after the final assertion update: 265/265 in 1,470.892 s.
+- Fresh Python 3.11 wheel smoke: `auto-quant==0.8.3`, 48 public commands,
+  both schedule variants visible in the public request schema, and the official
+  month-end mask returns June 30 eligible / July 28 ineligible under Pandas 3.
 
 ## Progress log
 
@@ -118,6 +159,14 @@ dataset start.
 - 2026-07-29 — Retrieved and hashed the adjusted Yahoo snapshot, then
   reproduced the every-bars-only intake boundary without approximating
   calendar months.
+- 2026-07-29 — Implemented and field-ran official XNYS calendar-month
+  scheduling. Raised one evidence byte limit and corrected one
+  diagnostic-versus-executed-risk Explorer assumption only after the real Run
+  demonstrated each need.
+- 2026-07-29 — Published a Factor handoff from the dirty development Harness.
+  A later Portfolio report-rendering fix correctly made the open Session
+  Harness-stale. Final Reports/Dossier will therefore be replayed only after
+  the `0.8.3` code is tested and committed cleanly.
 
 ## Completion
 
