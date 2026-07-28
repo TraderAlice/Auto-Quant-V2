@@ -442,7 +442,7 @@ class GovernedRlFactorPolicyLabTests(unittest.TestCase):
                     "judges/portfolio_core.py",
                 ],
             )
-            self.assertEqual(study.definition.judge.timeout_seconds, 90)
+            self.assertEqual(study.definition.judge.timeout_seconds, 120)
             self.assertEqual(len(study.dataset_hashes), 7)
 
             first = execute_study(project, RL_STUDY_ID)

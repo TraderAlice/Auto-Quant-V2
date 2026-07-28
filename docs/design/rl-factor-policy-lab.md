@@ -239,9 +239,11 @@ rendered beside it as visible audit only and never changes the stage or next
 research focus. Report and Project Dossier freeze the exact projection and
 hash from the immutable leader Run.
 
-The reference Study keeps a 90-second hard Judge timeout for cold installed
-environments plus all fixed folds, seeds, baselines, and sleeve construction.
-Warm reference Runs are much faster and remain deterministic.
+The reference Study keeps a 120-second hard Judge timeout for cold installed
+environments, all fixed folds, seeds, baselines, and sleeve construction, plus
+bounded host contention during a full Harness regression. Warm reference Runs
+are much faster and remain deterministic. The training budget is unchanged;
+this allowance is not permission for a longer training job.
 
 ## Studio projection
 

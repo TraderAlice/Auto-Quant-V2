@@ -816,7 +816,7 @@ def _apply_ohlcv_rl_factor_lab(
                 "judges/portfolio_core.py",
             ],
             [],
-            90,
+            120,
         ),
         objective=StudyObjective(
             "validation_mean_net_sharpe",
@@ -1332,7 +1332,7 @@ def _apply_ohlcv_research_desk(
                         "judges/portfolio_core.py",
                     ],
                     [],
-                    90,
+                    120,
                 ),
                 objective=StudyObjective(
                     "validation_mean_net_sharpe",

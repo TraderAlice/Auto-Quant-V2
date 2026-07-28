@@ -110,6 +110,14 @@ roll rule, margin requirement, tick value, expiry, venue order, or fill.
   one explicit prediction asset, and prediction-owned horizon/purge timing.
   It does not add a market calendar, higher-interval aggregation, Portfolio,
   RL, contract-chain, margin, or execution authority.
+- 2026-07-29 — The first complete regression passed 259 of 263 tests. Its four
+  failures shared one cause: governed RL baseline Runs exhausted the existing
+  90-second Judge budget under sustained suite contention. Every exact failed
+  case passed unchanged in isolation, including the 112.990-second
+  reproducibility case and three Explorer/campaign cases in 268.889 seconds.
+  The caller explicitly approved a 120-second RL allowance. Only that hard
+  timeout changes; Factor/Portfolio budgets and RL seeds, folds, episodes, and
+  training logic remain fixed.
 
 ## Verification
 
@@ -120,6 +128,10 @@ roll rule, margin requirement, tick value, expiry, venue order, or fill.
 - Public Yahoo V5 smoke Project `gold-dollar-hourly-v5-smoke` completed
   immutable Run `run-20260728T193549738971Z-d51d27ce72cf`. Orientation and
   strict Factor Explorer returned zero diagnostics.
+- The first complete 263-test gate finished in 1775.799 seconds with 259
+  passes and four governed-RL timeout-chain failures. The exact root
+  reproducibility test passed alone in 112.990 seconds, and the remaining
+  three cases passed together in 268.889 seconds without a code change.
 
 ## Progress log
 
