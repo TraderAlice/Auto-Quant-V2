@@ -61,7 +61,7 @@ historical sizing problem.
 
 ## Acceptance
 
-- [ ] Preserve an AutoQuant `0.7.0` failure reproduction without fabricating a
+- [x] Preserve an AutoQuant `0.7.0` failure reproduction without fabricating a
   scenario grid or returning an irrelevant 1% sensitivity.
 - [ ] Define the smallest strict caller-authority and derived result contract.
 - [ ] Reject ambiguous adjustable legs, non-cash destinations, invalid
@@ -78,7 +78,7 @@ historical sizing problem.
 
 ## Work
 
-- [ ] Reproduce the current semantic gap from a strict real-data Project.
+- [x] Reproduce the current semantic gap from a strict real-data Project.
 - [ ] Define and implement the bounded sizing contract.
 - [ ] Add deterministic success, already-compliant, infeasible, malformed,
   tamper, and authority tests.
@@ -96,15 +96,36 @@ historical sizing problem.
   comparison; silently broadening it would make evidence provenance false.
 - 2026-07-28 — Cash is the first useful destination because it creates one
   bounded scalar path and avoids premature multi-asset optimization.
+- 2026-07-28 — Project `us-megacap-nvda-risk-budget-v070-gap` proves that
+  natural-language request preservation is insufficient machine authority.
+  Intake/validation succeed and orientation offers a baseline Run, while the
+  fixed dependency contains neither ceiling, governing window, adjustable leg,
+  destination, nor sizing objective.
+- 2026-07-28 — The Agent stopped before executing a successful but irrelevant
+  baseline audit. A field trial passes only when the recommended operation can
+  answer the actual decision question, not merely when the Project is valid.
 
 ## Verification
 
-Pending the `0.7.0` failure reproduction.
+- AutoQuant `0.7.0` public intake created
+  `us-megacap-nvda-risk-budget-v070-gap` against the same 643-session,
+  twelve-asset Yahoo XNYS package with `status: ready-for-run`.
+- `aq validate` succeeds and `aq orient` returns only `run.execute` with
+  `researchAgenda.status: waiting-evidence`.
+- `strategies/position-snapshot.json` contains the exact reported baseline and
+  `scenarios: []`; no frozen field represents the 15% ceiling, 252-session
+  governing window, NVDA-only path, cash destination, or minimum reduction.
+- Project `research.md` preserves the complete caller authority and explains
+  why the ordinary 1% sensitivity Run does not answer it.
+- Project `framework-needs.md` rejects an Agent-generated scenario grid and
+  links this plan as the smallest bounded Core promotion.
 
 ## Progress log
 
 - 2026-07-28 — Selected the next real trading request after completing the
   caller-supplied book-reallocation field trial.
+- 2026-07-28 — Preserved the `0.7.0` machine-authority failure reproduction and
+  stopped before an irrelevant baseline-only Run.
 
 ## Completion
 
