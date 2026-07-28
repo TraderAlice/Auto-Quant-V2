@@ -11,6 +11,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from autoquant.factor_claims import FACTOR_CLAIM, build_factor_claim
 from autoquant.factor_explorer import load_factor_diagnostics
 from autoquant.project_templates.ohlcv_factor_lab.factor_diagnostics import (
     HORIZONS,
@@ -571,6 +572,57 @@ class OhlcvFactorLabTests(unittest.TestCase):
             )
             self.assertEqual(crashed.result["verdict"], "CRASH")
             self.assertEqual(crashed.result["errors"][0]["code"], "factor.lookahead")
+
+    def test_decision_signal_can_advance_without_novelty(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, project = make_factor_lab(directory)
+            claim = build_factor_claim(
+                {
+                    "factorPolicy": {
+                        "claim": "decision-signal",
+                        "knownStyle": None,
+                    }
+                }
+            )
+            claim_path = project.root_dir / FACTOR_CLAIM
+            claim_path.write_text(
+                json.dumps(claim, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            session = start_session(project, OHLCV_STUDY_ID)
+            candidate = (
+                session.worktree_project.root_dir / "factors" / "candidate.py"
+            )
+            candidate.write_text(IMPROVED_FACTOR, encoding="utf-8")
+            kept = evaluate_experiment(
+                project,
+                session.manifest["id"],
+                "Relative volume is a useful decision signal without a novelty claim.",
+            )
+            self.assertEqual(kept.result["verdict"], "KEEP")
+
+            diagnostics = load_factor_diagnostics(
+                project,
+                kept.result["candidate"]["runId"],
+            )
+            qualification = diagnostics["factorQualification"]
+            self.assertEqual(
+                qualification["claim"]["claim"],
+                "decision-signal",
+            )
+            self.assertEqual(
+                qualification["diagnosis"]["stage"],
+                "decision-signal-positive",
+            )
+            self.assertTrue(
+                qualification["diagnosis"]["qualifiesForPortfolio"]
+            )
+            self.assertAlmostEqual(
+                qualification["validation"]["styleNeutralCandidate"][
+                    "meanRankIc"
+                ],
+                0.0,
+            )
 
     def test_test_only_bar_changes_do_not_change_selection_metric(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

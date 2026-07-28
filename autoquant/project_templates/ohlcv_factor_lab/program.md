@@ -46,7 +46,7 @@ imply that Core inferred column use.
    priorities, not executable actions or permission to inspect test for
    selection.
 2. Read `strategies/factor-claim.json`, the current candidate, and immutable
-   leader evidence. The request-bound `novel-factor` or
+   leader evidence. The request-bound `decision-signal`, `novel-factor`, or
    `known-style-validation` claim is fixed evidence authority, not editable
    strategy metadata.
 3. State one falsifiable hypothesis about price or volume behavior.
@@ -84,7 +84,10 @@ asset, fast decay, or near-perfect overlap with a familiar OHLCV style as
 findings to explain—not fields to hide or alternate scores to optimize
 opportunistically.
 
-For a `novel-factor` claim, the dominant comparison style is chosen on train
+For a `decision-signal` claim, validation requires statistically supported
+positive raw IC and positive raw IC in both fixed chronological folds. The
+train-selected style, residual, and blend remain disclosure without creating
+a novelty hurdle. For a `novel-factor` claim, the dominant comparison style is chosen on train
 overlap only. Validation asks whether raw and style-neutral IC are positive
 with fixed HAC t at least 1.96, whether an equal rank blend improves the
 selected style, and whether both residual folds remain positive. For a

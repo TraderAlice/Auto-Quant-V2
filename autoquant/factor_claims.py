@@ -17,6 +17,7 @@ from .workspace import (
 FACTOR_CLAIM = "strategies/factor-claim.json"
 FACTOR_CLAIM_KIND = "autoquant-factor-claim"
 FACTOR_CLAIMS = {
+    "decision-signal",
     "novel-factor",
     "known-style-validation",
 }
@@ -83,7 +84,7 @@ def normalize_factor_policy(value: Any) -> dict[str, Any]:
             ]
         )
     if (
-        claim == "novel-factor"
+        claim in {"decision-signal", "novel-factor"}
         and known_style is not None
     ) or (
         claim == "known-style-validation"
@@ -94,8 +95,9 @@ def normalize_factor_policy(value: Any) -> dict[str, Any]:
                 _issue(
                     "factorPolicy/knownStyle",
                     "factor-claim.known-style",
-                    "knownStyle must be null for novel-factor and one supported "
-                    "style for known-style-validation",
+                    "knownStyle must be null for decision-signal and "
+                    "novel-factor, and one supported style for "
+                    "known-style-validation",
                 )
             ]
         )
@@ -435,6 +437,18 @@ FACTOR_CLAIM_JSON_SCHEMA: dict[str, Any] = {
             "if": {
                 "properties": {
                     "claim": {"const": "novel-factor"},
+                }
+            },
+            "then": {
+                "properties": {
+                    "knownStyle": {"type": "null"},
+                }
+            },
+        },
+        {
+            "if": {
+                "properties": {
+                    "claim": {"const": "decision-signal"},
                 }
             },
             "then": {

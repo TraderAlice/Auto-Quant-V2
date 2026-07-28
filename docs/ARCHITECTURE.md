@@ -117,8 +117,9 @@ The V2 foundation now implements:
 - one bounded Factor evidence projection that reconciles immutable daily IC
   and quantile artifacts before exposing horizon, stability, style, coverage,
   and turnover evidence to CLI and Studio.
-- one request-bound Factor claim dependency that distinguishes novel-factor
-  discovery from predeclared known-style validation before candidate search.
+- one request-bound Factor claim dependency that distinguishes general
+  decision-signal research, novel-factor discovery, and predeclared
+  known-style validation before candidate search.
 - one optional explicit factor-component contract that checks declared
   score and timestamp-context components for determinism and causality. Scores
   expose predictive quality, association, redundancy, residual IC, and

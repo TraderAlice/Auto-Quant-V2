@@ -177,8 +177,9 @@ filenames.
 `project program --json` is the stable Agent read model for lane phase, current
 Run evidence, Sessions, Reports, shared-source conflicts, scientific
 `progression` gates, and next action. Phase is coordination state only.
-Portfolio requires a reported claim-positive Factor leader—either
-`factor-qualification-positive` for a novel claim or
+Portfolio requires a reported claim-positive Factor leader—
+`decision-signal-positive` for a general trading-research signal,
+`factor-qualification-positive` for a novel claim, or
 `known-style-validation-positive` for a request-predeclared known style—and a
 passing Project-family selection adjustment. Optional RL requires a reported
 `post-cost-edge-positive` Portfolio leader. A terminal

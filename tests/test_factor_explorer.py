@@ -14,6 +14,7 @@ from autoquant.factor_explorer import (
     FACTOR_DIAGNOSTICS_JSON_SCHEMA,
     load_factor_diagnostics,
 )
+from autoquant.intake import prepare_project_intake
 from autoquant.runs import execute_study
 from autoquant.studio import build_studio_snapshot
 from autoquant.studies import hash_file
@@ -23,6 +24,7 @@ from autoquant.workspace import (
     create_project,
     initialize_workspace,
 )
+from tests.intake_helpers import write_intake_inputs
 
 
 def make_lab(root: Path, *, template: str = "ohlcv-factor-lab"):
@@ -56,6 +58,64 @@ def rehash_run(run_root: Path) -> None:
 
 
 class FactorEvidenceExplorerTests(unittest.TestCase):
+    def test_primary_horizon_sampling_does_not_require_one_bar_diagnostics(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            request_path, package_path = write_intake_inputs(
+                root,
+                observations=640,
+                horizon_policy={
+                    "primaryForwardBars": 20,
+                    "diagnosticForwardBars": [5, 20, 60],
+                },
+            )
+            prepared = prepare_project_intake(
+                request_path,
+                package_path,
+                "ohlcv-factor-lab",
+            )
+            project = create_project(
+                initialize_workspace(root / "workspace").root_dir,
+                "custom-horizon-factor",
+                template=prepared.template,
+                template_intake=prepared,
+            )
+            run = execute_study(project, OHLCV_STUDY_ID)
+            diagnostics = load_factor_diagnostics(
+                project,
+                run.result["id"],
+                point_limit=64,
+            )
+
+            self.assertEqual(
+                diagnostics["protocol"]["horizons"],
+                [5, 20, 60],
+            )
+            self.assertEqual(
+                diagnostics["protocol"]["primaryHorizon"],
+                20,
+            )
+            daily_path = (
+                run.root_dir / "artifacts" / "daily-factor-evidence.csv"
+            )
+            with daily_path.open(encoding="utf-8", newline="") as handle:
+                daily = list(csv.DictReader(handle))
+            maximum = max(
+                daily,
+                key=lambda row: abs(float(row["rank_ic_h20"] or 0.0)),
+            )
+            sampled_dates = {
+                item["timestamp"]
+                for item in diagnostics["icPath"]["points"]
+            }
+            self.assertIn(maximum["timestamp"], sampled_dates)
+            jsonschema.validate(
+                diagnostics,
+                FACTOR_DIAGNOSTICS_JSON_SCHEMA,
+            )
+
     def test_projection_reconciles_paths_horizons_and_stability(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             workspace, project, run = make_lab(Path(directory))

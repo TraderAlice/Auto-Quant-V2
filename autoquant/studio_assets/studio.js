@@ -1931,9 +1931,10 @@ function renderFactorQualification(explorer) {
   );
   const residual = validation.styleNeutralCandidate;
   const incremental = validation.incremental;
-  const knownStyleClaim =
-    qualification.claim.claim === "known-style-validation";
-  const worst = knownStyleClaim
+  const rawOnlyClaim = ["decision-signal", "known-style-validation"].includes(
+    qualification.claim.claim,
+  );
+  const worst = rawOnlyClaim
     ? validation.weakestCandidateFold
     : validation.weakestStyleNeutralFold;
   const positive = diagnosis.qualifiesForPortfolio === true;

@@ -766,7 +766,15 @@ def factor_qualification_markdown_lines(
     diagnosis = qualification["diagnosis"]
     selection = qualification["selection"]
     claim = qualification["claim"]
-    known_style_claim = claim["claim"] == "known-style-validation"
+    raw_only_claim = claim["claim"] in {
+        "decision-signal",
+        "known-style-validation",
+    }
+    qualification_threshold_line = (
+        "- Positive raw evidence requires validation HAC t "
+        if raw_only_claim
+        else "- Positive raw and residual layers require validation HAC t "
+    )
     prefix = f"{lane_name}: " if lane_name else ""
     lines = [
         heading,
@@ -781,10 +789,10 @@ def factor_qualification_markdown_lines(
         f"`{selection['criterion']}`.",
         "- Neutralization: same-timestamp cross-sectional centered-rank OLS; "
         "forward targets do not enter the projection.",
-        "- Positive raw and residual layers require validation HAC t "
-        f"`>= {qualification['semantics']['diagnosticThresholds']['minimumPositiveHacTStatistic']}`; "
-        "Project-family selection-adjusted significance remains separately "
-        "required.",
+        qualification_threshold_line
+        + f"`>= {qualification['semantics']['diagnosticThresholds']['minimumPositiveHacTStatistic']}`; "
+        + "Project-family selection-adjusted significance remains separately "
+        + "required.",
         f"- Qualification hash: `{support['factorQualificationHash']}`",
         "- Authority: `research-prioritization-only`; validation sets the "
         "diagnosis; test is visible audit only; Factor promotion, RL "
@@ -792,7 +800,7 @@ def factor_qualification_markdown_lines(
         "",
         "| Split / role | Raw candidate IC | Dominant style IC | "
         "Style-neutral IC / delta | Equal-blend IC / uplift vs style | "
-        f"Weakest {'candidate' if known_style_claim else 'residual'} fold |",
+        f"Weakest {'candidate' if raw_only_claim else 'residual'} fold |",
         "| --- | --- | --- | --- | --- | --- |",
     ]
     for split_name, key in (
@@ -803,7 +811,7 @@ def factor_qualification_markdown_lines(
         incremental = split["incremental"]
         worst = (
             split["weakestCandidateFold"]
-            if known_style_claim
+            if raw_only_claim
             else split["weakestStyleNeutralFold"]
         )
         lines.append(

@@ -13,9 +13,10 @@ Related: [[docs/design/factor-diagnostics]],
 
 AutoQuant must not send every syntactically valid candidate factor directly
 into portfolio construction or RL. A quant researcher first needs to know
-whether the request is validating a predeclared known style or claiming novel
-information. That distinction is frozen in `strategies/factor-claim.json`
-before candidate iteration; it cannot be inferred after seeing results.
+whether the request needs a useful decision signal, is validating a
+predeclared known style, or is claiming novel information. That distinction is
+frozen in `strategies/factor-claim.json` before candidate iteration; it cannot
+be inferred after seeing results.
 
 The qualification funnel is research evidence, not an automatic promotion or
 trading gate:
@@ -49,6 +50,12 @@ The candidate must match it with at least `0.95` mean train rank correlation.
 This makes “we implemented and validated reversal” a coherent claim instead
 of forcing an impossible requirement that reversal also be novel versus
 reversal.
+
+For `decision-signal`, the researcher may use a familiar or composite signal
+to answer an allocation, ranking, or timing question. The Judge still chooses
+the closest comparison style on train only and discloses neutralized and blend
+evidence, but style overlap is not a failure: the request does not claim new
+information.
 
 At every timestamp, the Judge ranks the candidate and selected style across the
 current asset universe and centers both rank vectors. It computes:
@@ -90,6 +97,13 @@ first demonstrated failure is classified as:
 5. `blend-uplift-absent`;
 6. `residual-temporal-instability`;
 7. `factor-qualification-positive`.
+
+The decision-signal funnel uses:
+
+1. `raw-predictive-edge-absent`;
+2. `raw-statistical-evidence-weak`;
+3. `decision-signal-temporal-instability`;
+4. `decision-signal-positive`.
 
 The known-style funnel uses:
 
@@ -150,8 +164,8 @@ Report/Dossier evidence so an operator can distinguish:
 ## Invariants
 
 1. The research claim and optional known style are fixed by request intake.
-2. A novel claim selects its dominant style on train only; a known-style claim
-   uses the request-predeclared comparison.
+2. Decision-signal and novel claims select their dominant style on train only;
+   a known-style claim uses the request-predeclared comparison.
 3. Neutralization uses only same-timestamp factor/style observations.
 4. Forward returns never enter style selection or neutralization.
 5. Validation alone determines the research diagnosis.

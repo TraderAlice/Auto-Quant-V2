@@ -64,6 +64,59 @@ from tests.intake_helpers import (
 
 
 class RequestDrivenIntakeTests(unittest.TestCase):
+    def test_complete_pre_factor_claim_intake_remains_valid(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            request_path, package_path = write_intake_inputs(root)
+            prepared = prepare_project_intake(
+                request_path,
+                package_path,
+                "ohlcv-research-desk",
+            )
+            project = create_project(
+                initialize_workspace(root / "workspace").root_dir,
+                "legacy-factor-desk",
+                template=prepared.template,
+                template_intake=prepared,
+            )
+
+            claim_path = project.root_dir / FACTOR_CLAIM
+            claim_bytes = claim_path.read_bytes()
+            study_path = (
+                project.root_dir
+                / "studies"
+                / OHLCV_STUDY_ID
+                / "study.json"
+            )
+            study = json.loads(study_path.read_text(encoding="utf-8"))
+            study["dependencies"]["paths"].remove(FACTOR_CLAIM)
+            study_path.write_text(
+                json.dumps(study, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            claim_path.unlink()
+
+            legacy_study = load_study(project, OHLCV_STUDY_ID)
+            intake_path = project.root_dir / "intake.json"
+            intake = json.loads(intake_path.read_text(encoding="utf-8"))
+            intake["studyHash"] = legacy_study.study_hash
+            intake["studyInputHash"] = legacy_study.input_hash
+            intake_path.write_text(
+                json.dumps(intake, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+
+            loaded = load_project_intake(project)
+            self.assertTrue(loaded["study"]["current"])
+
+            claim_path.write_bytes(claim_bytes)
+            with self.assertRaises(AutoQuantValidationError) as captured:
+                load_project_intake(project)
+            self.assertIn(
+                "intake.factor-claim-dependency",
+                {issue.code for issue in captured.exception.issues},
+            )
+
     def test_request_predeclares_and_locks_known_style_claim(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

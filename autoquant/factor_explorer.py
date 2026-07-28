@@ -1706,17 +1706,33 @@ def _factor_qualification_projection(
             "on neutralization, Portfolio, or RL yet."
         )
     elif (
-        claim["claim"] == "known-style-validation"
+        claim["claim"] in {
+            "decision-signal",
+            "known-style-validation",
+        }
         and (
             worst_candidate_ic is None
             or worst_candidate_ic <= 0.0
         )
     ):
-        stage = "known-style-temporal-instability"
+        stage = (
+            "decision-signal-temporal-instability"
+            if claim["claim"] == "decision-signal"
+            else "known-style-temporal-instability"
+        )
         focus = "temporal-regime-robustness"
         explanation = (
-            "Aggregate known-style validation IC is positive, but at least "
+            "Aggregate validation raw candidate IC is positive, but at least "
             "one fixed chronological candidate fold is non-positive."
+        )
+    elif claim["claim"] == "decision-signal":
+        stage = "decision-signal-positive"
+        focus = "portfolio-monetization-and-rl-context"
+        explanation = (
+            "The decision signal has positive statistically supported "
+            "validation IC in every fixed chronological candidate fold. "
+            "Style overlap remains disclosed context rather than a novelty "
+            "claim; proceed to bounded Portfolio monetization."
         )
     elif claim["claim"] == "known-style-validation":
         stage = "known-style-validation-positive"
@@ -1835,6 +1851,7 @@ def _factor_qualification_projection(
             "explanation": explanation,
             "qualifiesForPortfolio": stage
             in {
+                "decision-signal-positive",
                 "factor-qualification-positive",
                 "known-style-validation-positive",
             },
@@ -3403,9 +3420,12 @@ def _paths(
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     required = {0, len(daily.rows) - 1}
     preferred: set[int] = set()
+    primary_rank_key = f"rankIcH{PRIMARY_HORIZON}"
     maximum = max(
         range(len(daily.rows)),
-        key=lambda index: abs(daily.rows[index]["rankIcH1"] or 0.0),
+        key=lambda index: abs(
+            daily.rows[index][primary_rank_key] or 0.0
+        ),
     )
     required.add(maximum)
     for index in range(1, len(daily.rows)):
@@ -3917,6 +3937,8 @@ _FACTOR_QUALIFICATION_SCHEMA: dict[str, Any] = {
                                 "blend-uplift-absent",
                                 "residual-temporal-instability",
                                 "factor-qualification-positive",
+                                "decision-signal-temporal-instability",
+                                "decision-signal-positive",
                                 "known-style-identity-mismatch",
                                 "known-style-temporal-instability",
                                 "known-style-validation-positive",

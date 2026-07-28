@@ -18,7 +18,9 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-There are no active plans.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/real-trading-request-field-trials]] | Prove and improve AutoQuant's ability to turn representative delegated trading questions into bounded, evidence-backed research handoffs. | 2026-07-28 |
 
 ## Proposed plans
 

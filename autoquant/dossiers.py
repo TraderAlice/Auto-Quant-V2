@@ -2201,7 +2201,7 @@ def _verify_frozen_evidence(
     )
     if (
         isinstance(factor_diagnosis, dict)
-        and factor_diagnosis.get("stage") == "factor-qualification-positive"
+        and factor_diagnosis.get("qualifiesForPortfolio") is True
     ):
         required_ids.add("portfolio")
     if not required_ids.issubset(set(lane_ids)):

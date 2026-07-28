@@ -85,17 +85,19 @@ class KnownStyleCandidateTests(unittest.TestCase):
                     )
                 )
 
-    def test_novel_factor_request_keeps_the_exploratory_template(self) -> None:
-        self.assertIsNone(
-            known_style_candidate_source(
-                {
-                    "factorPolicy": {
-                        "claim": "novel-factor",
-                        "knownStyle": None,
-                    }
-                }
-            )
-        )
+    def test_non_known_style_requests_keep_the_exploratory_template(self) -> None:
+        for claim in ("decision-signal", "novel-factor"):
+            with self.subTest(claim=claim):
+                self.assertIsNone(
+                    known_style_candidate_source(
+                        {
+                            "factorPolicy": {
+                                "claim": claim,
+                                "knownStyle": None,
+                            }
+                        }
+                    )
+                )
 
 
 if __name__ == "__main__":

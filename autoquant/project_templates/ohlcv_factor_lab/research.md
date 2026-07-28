@@ -35,6 +35,9 @@ not evidence about real markets.
 - A `known-style-validation` intake seeds `factors/candidate.py` from the exact
   requested style before Study identity is created. Inspect it, but do not
   replace it with the generic exploratory baseline.
+- A `decision-signal` intake is appropriate for an allocation, ranking, or
+  timing question that needs robust raw predictive evidence without claiming
+  novelty. Style overlap remains required disclosure.
 - Every candidate is evaluated through `aq experiment evaluate`; never call the
   Judge directly or optimize against the test target outside that contract.
 - Quantitative evidence describes historical behavior. It is not an order,

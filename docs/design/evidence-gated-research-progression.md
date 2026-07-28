@@ -42,7 +42,7 @@ Explorer. Portfolio is admitted only when:
 
 1. qualification evidence is available;
 2. the request-bound validation diagnosis is claim-positive
-   (`factor-qualification-positive` or
+   (`decision-signal-positive`, `factor-qualification-positive`, or
    `known-style-validation-positive`);
 3. the frozen Report's Project-family selection adjustment is available and
    passes at 95%; and

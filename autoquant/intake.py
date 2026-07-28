@@ -2593,16 +2593,25 @@ def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
         "ohlcv-factor-lab": ("ohlcv-factor-quality",),
         "ohlcv-research-desk": ("ohlcv-factor-quality",),
     }.get(manifest.get("template"), ())
-    requires_factor_claim = False
+    factor_claim_path = project.root_dir / FACTOR_CLAIM
+    factor_claim_present = (
+        factor_claim_path.exists() or factor_claim_path.is_symlink()
+    )
+    factor_claim_dependencies: dict[str, bool] = {}
     for factor_study_id in factor_claim_studies:
         factor_study = load_study(project, factor_study_id)
-        if (
+        factor_claim_dependencies[factor_study_id] = (
             factor_study.definition.dependencies is not None
             and FACTOR_CLAIM
             in factor_study.definition.dependencies["paths"]
-        ):
-            requires_factor_claim = True
-        else:
+        )
+    requires_factor_claim = any(factor_claim_dependencies.values())
+    factor_claim_contract = factor_claim_present or requires_factor_claim
+    if factor_claim_contract:
+        for factor_study_id, binds_claim in factor_claim_dependencies.items():
+            if binds_claim:
+                continue
+            factor_study = load_study(project, factor_study_id)
             issues.append(
                 _issue(
                     factor_study.manifest_path,
@@ -2610,12 +2619,7 @@ def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
                     "Factor Study does not bind the fixed Factor claim",
                 )
             )
-    factor_claim_path = project.root_dir / FACTOR_CLAIM
-    if (
-        requires_factor_claim
-        or factor_claim_path.exists()
-        or factor_claim_path.is_symlink()
-    ):
+    if factor_claim_contract:
         factor_claim = load_factor_claim(factor_claim_path)
         expected_factor_claim = build_factor_claim(request)
         if factor_claim != expected_factor_claim:

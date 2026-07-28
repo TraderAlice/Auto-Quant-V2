@@ -1073,6 +1073,15 @@ RESEARCH_REQUEST_JSON_SCHEMA: dict[str, Any] = {
                     "additionalProperties": False,
                     "required": ["claim", "knownStyle"],
                     "properties": {
+                        "claim": {"const": "decision-signal"},
+                        "knownStyle": {"type": "null"},
+                    },
+                },
+                {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["claim", "knownStyle"],
+                    "properties": {
                         "claim": {"const": "novel-factor"},
                         "knownStyle": {"type": "null"},
                     },

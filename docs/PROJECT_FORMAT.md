@@ -451,10 +451,11 @@ runs/
 - nested metrics, immutable artifact references, and structured errors.
 
 Factor Studies bind `strategies/factor-claim.json` as a fixed dependency. It
-records either a `novel-factor` claim or a caller-predeclared
-`known-style-validation` claim and known OHLCV style. The Judge and Explorer
-reconstruct the same claim from request/intake evidence; strategy code cannot
-silently relabel a familiar style as novel.
+records a general `decision-signal`, a `novel-factor` claim, or a
+caller-predeclared `known-style-validation` claim and known OHLCV style. The
+Judge and Explorer reconstruct the same claim from request/intake evidence;
+strategy code cannot silently turn decision support into a novelty claim or
+relabel a familiar style as novel.
 
 Declaring Factor Runs add `metrics.factor_components` and
 `artifacts/factor-components.json`. Both appear together and describe only
