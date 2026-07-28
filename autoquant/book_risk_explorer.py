@@ -345,6 +345,25 @@ def _validate_position_sizing(
         variance_at(starting_weight),
         "positionSizing/startingVariance",
     )
+    governing_baseline = next(
+        (
+            row
+            for row in baseline_lookbacks
+            if int(row["lookbackBars"]) == int(policy["lookbackBars"])
+        ),
+        None,
+    )
+    if governing_baseline is None:
+        _fail(
+            "positionSizing/lookbackBars",
+            "book-risk.position-sizing-lookbacks",
+            "Governing baseline lookback is unavailable",
+        )
+    _close(
+        q["startingVariance"],
+        float(governing_baseline["annualizedVolatility"]) ** 2,
+        "positionSizing/startingVariance",
+    )
     if q["coefficientA"] < -1e-15:
         _fail(
             "positionSizing/coefficientA",
@@ -502,6 +521,12 @@ def _validate_position_sizing(
         numeric_fields["annualizedVolatility"] ** 2,
         numeric_fields["annualizedVariance"],
         "positionSizing/result/annualizedVolatility",
+    )
+    _close(
+        numeric_fields["annualizedVolatility"]
+        - float(governing_baseline["annualizedVolatility"]),
+        numeric_fields["annualizedVolatilityDelta"],
+        "positionSizing/result/annualizedVolatilityDelta",
     )
     if result["ceilingSatisfied"] != (
         numeric_fields["annualizedVolatility"] <= ceiling + 1e-12

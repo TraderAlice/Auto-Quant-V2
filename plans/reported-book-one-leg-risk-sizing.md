@@ -71,7 +71,7 @@ historical sizing problem.
   solution, complete resulting book, risk metrics, and boundary cases.
 - [x] Orientation and Studio terminate at descriptive target-position review
   with no Session, automatic trading, or Order authority.
-- [ ] A clean Yahoo field Run answers the 15%-ceiling NVDA question and records
+- [x] A clean Yahoo field Run answers the 15%-ceiling NVDA question and records
   assumptions, Harness identity, evidence, and limitations.
 - [ ] Focused/full regression, package smoke, documentation, commit, push, tag,
   and cleanliness pass.
@@ -82,7 +82,7 @@ historical sizing problem.
 - [x] Define and implement the bounded sizing contract.
 - [x] Add deterministic success, already-compliant, infeasible, malformed,
   tamper, and authority tests.
-- [ ] Execute and interpret the clean Yahoo field trial.
+- [x] Execute and interpret the clean Yahoo field trial.
 - [ ] Complete release audit, record evidence, push, and close the plan.
 
 ## Findings and decisions
@@ -128,6 +128,18 @@ historical sizing problem.
 - Twelve deterministic Book Risk tests cover valid authority freezing, exact
   boundary sizing, already-compliant and infeasible states, malformed requests,
   strict rehashed tamper rejection, CLI, orientation, and Studio projection.
+- Clean Yahoo Project `us-megacap-nvda-risk-budget-v080-clean` and Run
+  `run-20260728T163953622662Z-d522d77c701f` used AutoQuant `0.8.0`, clean
+  commit `f799cee`, 643 sessions, and completed in 278 ms.
+- The exact result reduces NVDA by `16.609343` percentage points to
+  `13.390657%` and moves the same weight to cash. The 252-session modeled
+  volatility is 15%; 63/126-session diagnostics remain `15.8524%` and
+  `16.9419%`.
+- Strict Explorer and orientation terminate at read-only
+  `descriptive-audit-complete`. Studio renders the sized target and both
+  diagnostic breaches with no console errors; at the 390px browser breakpoint
+  document width equals viewport width and the sizing surface has no internal
+  horizontal overflow.
 
 ## Progress log
 
@@ -137,7 +149,10 @@ historical sizing problem.
   stopped before an irrelevant baseline-only Run.
 - 2026-07-28 — Implemented and strictly verified the `0.8.0` one-leg sizing
   contract through intake, immutable Run, Explorer, CLI, orientation, and
-  Studio. The clean Yahoo reproduction remains pending.
+  Studio.
+- 2026-07-28 — Completed the clean Yahoo retry. The 252-session target is
+  feasible without eliminating NVDA, but the shorter windows reject a broad
+  15% robustness claim.
 
 ## Completion
 
