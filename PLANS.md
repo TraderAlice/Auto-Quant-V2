@@ -18,10 +18,7 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-| Plan | Outcome | Updated |
-| --- | --- | --- |
-| [[plans/reported-position-book-risk-field-trial]] | Preserve one externally reported book and return verified crowding and reduction-sensitivity evidence without claiming account or execution authority. | 2026-07-28 |
-| [[plans/real-trading-request-field-trials]] | Prove and improve AutoQuant's ability to turn representative delegated trading questions into bounded, evidence-backed research handoffs. | 2026-07-28 |
+There are no active plans.
 
 ## Proposed plans
 
@@ -37,6 +34,8 @@ There are no proposed plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/reported-position-book-risk-field-trial]] | Preserved one externally reported book and returned verified crowding and reduction-sensitivity evidence without claiming account or execution authority. | 2026-07-28 |
+| [[plans/real-trading-request-field-trials]] | Proved AutoQuant can turn four materially different representative trading questions into bounded, evidence-backed research handoffs while deriving reusable Core improvements from real friction. | 2026-07-28 |
 | [[plans/broad-universe-independent-factor-challenge]] | Completed a frozen known-style Factor challenge over a disjoint 72-stock observed-only daily panel and published one immutable negative-evidence Report. | 2026-07-28 |
 | [[plans/project-derived-factor-completeness]] | Support explicit novel-versus-known-style Factor claims, timestamp-context components, and Report-bound delegated promotion. | 2026-07-28 |
 | [[plans/panel-native-factor-system]] | Gave Agents one causal ordinary-pandas panel factor API plus a Project-derived Workbench-needs feedback line. | 2026-07-27 |

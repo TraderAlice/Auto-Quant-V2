@@ -1,6 +1,6 @@
 # Reported-position Book Risk field trial
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-07-28`
 - Design: [[docs/design/reported-position-book-risk]]
 - Field matrix: [[docs/trading-request-field-trials]]
@@ -25,9 +25,9 @@ live account or execution authority.
   iterative research agenda.
 - [x] Studio exposes the same immutable evidence and authority boundary.
 - [x] AutoQuant `0.6.0` passes full regression and package installation smoke.
-- [ ] A clean-commit Yahoo field Run reproduces the AAPL/MSFT/NVDA/QQQ
+- [x] A clean-commit Yahoo field Run reproduces the AAPL/MSFT/NVDA/QQQ
   conclusion and is recorded in the field-trial matrix.
-- [ ] Implementation and field evidence are committed and pushed.
+- [x] Implementation and field evidence are committed and pushed.
 
 ## Work
 
@@ -38,9 +38,9 @@ live account or execution authority.
 - [x] Add deterministic success and adversarial cross-artifact tests.
 - [x] Verify the Studio page with an executable synthetic Project.
 - [x] Complete full tests, source/wheel build, and fresh-wheel Run smoke.
-- [ ] Commit and push the `0.6.0` implementation.
-- [ ] Recreate and run the real Yahoo Project from the clean commit.
-- [ ] Record the final evidence and close this plan.
+- [x] Commit and push the `0.6.0` implementation.
+- [x] Recreate and run the real Yahoo Project from the clean commit.
+- [x] Record the final evidence and close this plan.
 
 ## Findings
 
@@ -68,6 +68,15 @@ live account or execution authority.
   now records `ready-for-run`; CLI and Studio expose only the fixed
   `run.execute` route. The preserved
   `us-megacap-book-crowding-v060` Project remains the failure reproduction.
+- 2026-07-28 — Clean Run
+  `run-20260728T143529188735Z-0f88a723d405` at AutoQuant `0.6.0`, commit
+  `e798d6f`, and `dirty: false` reproduced the result in 246 ms. The
+  252-session estimate is 19.77% annualized volatility, 3.153 effective risk
+  bets, HHI `0.3172`, and 50.95% first-PC share. NVDA contributes 46.62% of
+  absolute component risk and ranks first for the fixed one-percentage-point
+  reduction across every 63/126/252-session window. The evidence supports
+  material concentration, not a literal claim that four instruments are one
+  trade.
 
 ## Verification
 
@@ -77,7 +86,18 @@ live account or execution authority.
 - An executable synthetic Project produced a successful Book Risk Run in
   272 ms; the browser render showed the complete evidence lane with no console
   errors after the current-Run focus repair.
-- Full regression passed all 247 tests in 1,503.679 seconds.
+- Pre-lifecycle-fix full regression passed all 247 tests in 1,503.679 seconds.
 - AutoQuant `0.6.0` source and wheel distributions built successfully. A
   fresh Python 3.11 wheel environment discovered `run.book-risk`, created the
   synthetic Lab, executed a successful Run, and reported `dirty: false`.
+- Focused post-lifecycle-fix regression passed 58 intake, Book Risk, CLI,
+  Studio, and orientation tests in 377.492 seconds; Python compilation,
+  JavaScript syntax, version consistency, diff checks, and all 955
+  documentation links passed.
+- Final-tree full regression passed all 248 tests in 1,497.628 seconds.
+- Final `0.6.0` source and wheel distributions built successfully. A new
+  Python 3.11 environment installed the wheel, reported `aq 0.6.0`, and
+  discovered both `project.intake` and `run.book-risk`.
+- The clean Yahoo Run, strict Explorer, `aq orient`, and Studio snapshot
+  reconcile the same Run id, Harness identity, current metrics, lookback
+  leaders, first reduction, and external-reported/no-trading authority.

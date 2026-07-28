@@ -1,6 +1,6 @@
 # Real trading request field trials
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-07-28`
 - Related design: [[docs/design/agent-native-quant-workbench]],
   [[docs/design/quant-research-lifecycle]],
@@ -66,14 +66,14 @@ finding a schema-compatible paraphrase.
 
 - [x] A durable matrix covers representative trading requests and distinguishes
   caller intent, necessary clarification, Workbench route, and known boundary.
-- [ ] At least three materially different request families are constructed and
+- [x] At least three materially different request families are constructed and
   exercised through public AutoQuant workflows using non-toy market data.
-- [ ] Every trial leaves a recoverable English brief, exact request/data
+- [x] Every trial leaves a recoverable English brief, exact request/data
   authority, reproducible evidence, and a useful handoff or explicit refusal.
-- [ ] Observed Agent friction is separated into Project-local methodological
+- [x] Observed Agent friction is separated into Project-local methodological
   work versus reusable Workbench gaps, with the highest-priority common gap
   implemented and regression-tested when one is demonstrated.
-- [ ] CLI, Studio, Reports/Dossiers, documentation, focused tests, full
+- [x] CLI, Studio, Reports/Dossiers, documentation, focused tests, full
   regression, package build, and repository cleanliness are audited before
   completion.
 
@@ -159,6 +159,18 @@ finding a schema-compatible paraphrase.
   567 constraint overrides and `0.176286` one-way repair turnover, and
   produced zero final constraint error. The negative economic result remained
   validation net Sharpe `-1.858`.
+- 2026-07-28 — The fourth request family tested an existing reported book
+  rather than a generated target. AutoQuant `0.6.0` now preserves one explicit
+  unauthenticated position snapshot in a dedicated fixed Book Risk Study.
+  Clean Run `run-20260728T143529188735Z-0f88a723d405` found 3.153 effective
+  risk bets, 50.95% first-PC share, and NVDA at 46.62% of absolute component
+  risk. NVDA remained the first standardized reduction across 63/126/252
+  sessions. The conclusion is descriptive concentration, not an account
+  instruction.
+- 2026-07-28 — Preparing the clean Book Risk Project exposed an Agent-routing
+  defect: intake said `ready-for-session` even though the descriptive Lab
+  rejects Sessions. Commit `e798d6f` makes CLI and Studio route this template
+  directly to its fixed Run while iterative templates retain Sessions.
 
 ## Verification
 
@@ -192,11 +204,26 @@ finding a schema-compatible paraphrase.
     `run-20260728T102528560064Z-f090ecba787f`;
   - terminal Report
     `report-20260728T102616941970Z-a8b7f7e2cdc6`.
+- Reported-book field trial:
+  - preserved intake-lifecycle failure Project
+    `us-megacap-book-crowding-v060`;
+  - clean AutoQuant `0.6.0` Project
+    `us-megacap-book-crowding-v060-clean`;
+  - clean fixed Book Risk Run
+    `run-20260728T143529188735Z-0f88a723d405`.
 - Full regression: all 243 tests passed in 1,895.835 seconds; the final
   affected-path rerun passed 44 tests in 478.423 seconds.
 - Static and documentation checks passed, including 940 resolved double-links.
 - AutoQuant `0.5.1` source and wheel distributions built successfully. A fresh
   Python 3.11 wheel environment executed both Portfolio and governed-RL Runs.
+- AutoQuant `0.6.0` final-tree regression passed all 248 tests in 1,497.628
+  seconds after the Book Risk lifecycle repair. The affected intake, Book
+  Risk, CLI, Studio, and orientation group separately passed 58 tests in
+  377.492 seconds.
+- All 955 documentation links, Python compilation, JavaScript syntax, version
+  consistency, and diff checks passed. Final `0.6.0` source and wheel
+  distributions built successfully; a new Python 3.11 environment reported
+  `aq 0.6.0` and discovered `project.intake` plus `run.book-risk`.
 
 ## Progress log
 
@@ -224,9 +251,13 @@ finding a schema-compatible paraphrase.
 - 2026-07-28 — Repaired final-book Mandate compliance in AutoQuant `0.5.1`,
   reproduced the BTC defect from clean commit `eb8796d`, and completed full
   tests, package smoke, Explorer validation, documentation, commit, and push.
+- 2026-07-28 — Completed the reported-position Book Risk request from clean
+  AutoQuant `0.6.0`, preserved the unauthenticated-account boundary, and fixed
+  the descriptive intake lifecycle before reproduction.
 
 ## Completion
 
-Completed. Three caller-style request families now have immutable evidence,
-negative conclusions where warranted, and reusable Core improvements derived
-from actual Workbench failures rather than speculative framework design.
+Completed. Four caller-style request families now have immutable evidence,
+negative or descriptive conclusions where warranted, and reusable Core
+improvements derived from actual Workbench failures rather than speculative
+framework design.
