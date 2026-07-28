@@ -18,7 +18,9 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-There are no active plans.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/ohlcv-event-reaction-field-trial]] | Test and, if needed, add a bounded OHLCV-defined event-reaction research route. | 2026-07-29 |
 
 ## Proposed plans
 
