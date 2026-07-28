@@ -19,6 +19,14 @@ causal signal timing, target-weight construction, portfolio accounting,
 transaction-cost and capacity proxies, professional metric layers, stress
 tests, artifacts, and candidate authority.
 
+Portfolio Studies use a 120-second bounded Judge budget. The reference engine
+precomputes fixed-window covariance with NumPy, reuses validated Mandate state
+inside repeated simulations, stores per-bar accounting in arrays before
+materializing artifacts, and deduplicates signal profiles that are equivalent
+on the attainable percentile grid. These are execution optimizations only;
+the fixed 15-cell robustness surface and all accounting semantics remain
+unchanged.
+
 It does not own live orders, Broker/UTA state, L2 fills, intrabar TPSL, capital
 allocation across OpenAlice users, or a universal portfolio optimizer.
 

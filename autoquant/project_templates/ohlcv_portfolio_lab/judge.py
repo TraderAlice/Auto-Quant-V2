@@ -44,6 +44,7 @@ from judges.portfolio_core import (
     SHORT_EXIT_PERCENTILE,
     VOLATILITY_WINDOW,
     PortfolioFailure,
+    _position_role_signal_transition,
     attribution_metrics,
     build_decision_ledger,
     build_position_episodes,
@@ -335,6 +336,53 @@ def _parameter_configuration_id(profile_id: str, band: float) -> str:
     return f"{profile_id}__band-{int(round(band * 100)):03d}"
 
 
+def _signal_profile_signature(
+    profile: dict[str, Any],
+    mandate: dict[str, Any],
+    universe_size: int,
+) -> tuple[Any, ...]:
+    """Identify profiles equivalent on every attainable percentile score."""
+
+    scores: list[float | None] = [None]
+    scores.extend(
+        sorted(
+            {
+                rank / float(count - 1)
+                for count in range(MIN_ASSETS_PER_DATE, universe_size + 1)
+                for rank in range(count)
+            }
+        )
+    )
+    roles = sorted(
+        {
+            str(role)
+            for role in mandate["construction"][
+                "assetPositionRoles"
+            ].values()
+            if role != "context-only"
+        }
+    )
+    return tuple(
+        (
+            role,
+            state,
+            score,
+            _position_role_signal_transition(
+                state,
+                score,
+                role=role,
+                long_entry=float(profile["long_entry"]),
+                long_exit=float(profile["long_exit"]),
+                short_exit=float(profile["short_exit"]),
+                short_entry=float(profile["short_entry"]),
+            ),
+        )
+        for role in roles
+        for state in (-1, 0, 1)
+        for score in scores
+    )
+
+
 def _parameter_signal_daily(
     construction: Any,
     index: pd.DatetimeIndex,
@@ -390,11 +438,29 @@ def _parameter_neighborhood(
     }
     configurations: dict[str, dict[str, Any]] = {}
     rows: list[dict[str, Any]] = []
+    base_profile = next(
+        profile
+        for profile in PARAMETER_SIGNAL_PROFILES
+        if profile["id"] == "base"
+    )
+    base_signature = _signal_profile_signature(
+        base_profile,
+        mandate,
+        len(factor_panel.columns),
+    )
+    construction_cache = {base_signature: base_construction}
+    simulation_cache = {
+        (base_signature, float(base_band)): base_simulation
+    }
     for profile in PARAMETER_SIGNAL_PROFILES:
-        construction = (
-            base_construction
-            if profile["id"] == "base"
-            else construct_signal_policy(
+        signature = _signal_profile_signature(
+            profile,
+            mandate,
+            len(factor_panel.columns),
+        )
+        construction = construction_cache.get(signature)
+        if construction is None:
+            construction = construct_signal_policy(
                 factor_panel,
                 close_panel,
                 long_entry=float(profile["long_entry"]),
@@ -404,17 +470,17 @@ def _parameter_neighborhood(
                 mandate=mandate,
                 risk_covariance_cache=risk_covariance_cache,
             )
-        )
+            construction_cache[signature] = construction
         for band in bands:
             configuration_id = _parameter_configuration_id(
                 str(profile["id"]),
                 band,
             )
             is_base = configuration_id == base_configuration_id
-            simulation = (
-                base_simulation
-                if is_base
-                else simulate_targets(
+            cache_key = (signature, float(band))
+            simulation = simulation_cache.get(cache_key)
+            if simulation is None:
+                simulation = simulate_targets(
                     construction.targets,
                     close_panel,
                     volume_panel,
@@ -422,7 +488,7 @@ def _parameter_neighborhood(
                     mandate=mandate,
                     risk_covariance_cache=risk_covariance_cache,
                 )
-            )
+                simulation_cache[cache_key] = simulation
             split_metrics: dict[str, Any] = {}
             for split in ("validation", "test"):
                 index = splits[split]
@@ -457,51 +523,39 @@ def _parameter_neighborhood(
                 }
                 daily_signal = _parameter_signal_daily(construction, index)
                 daily = simulation.daily.loc[index]
-                for timestamp in index:
-                    rows.append(
-                        {
-                            "configurationId": configuration_id,
-                            "signalProfile": profile["id"],
-                            "noTradeOneWay": band,
-                            "split": split,
-                            "role": roles[split],
-                            "timestamp": timestamp_label(timestamp),
-                            "netReturn": float(
-                                daily.loc[timestamp, "net_return"]
-                            ),
-                            "benchmarkReturn": float(
-                                daily.loc[timestamp, "benchmark_return"]
-                            ),
-                            "oneWayTurnover": float(
-                                daily.loc[timestamp, "one_way_turnover"]
-                            ),
-                            "cost": float(daily.loc[timestamp, "cost"]),
-                            "rebalanced": bool(
-                                daily.loc[timestamp, "rebalanced"]
-                            ),
-                            "signalDecisionRows": int(
-                                daily_signal.loc[
-                                    timestamp,
-                                    "decision_rows",
-                                ]
-                            ),
-                            "signalTransitions": int(
-                                daily_signal.loc[
-                                    timestamp,
-                                    "signal_transitions",
-                                ]
-                            ),
-                            "entries": int(
-                                daily_signal.loc[timestamp, "entries"]
-                            ),
-                            "exits": int(
-                                daily_signal.loc[timestamp, "exits"]
-                            ),
-                            "reversals": int(
-                                daily_signal.loc[timestamp, "reversals"]
-                            ),
-                        }
-                    )
+                row_frame = pd.DataFrame(
+                    {
+                        "configurationId": configuration_id,
+                        "signalProfile": profile["id"],
+                        "noTradeOneWay": band,
+                        "split": split,
+                        "role": roles[split],
+                        "timestamp": [
+                            timestamp_label(timestamp)
+                            for timestamp in index
+                        ],
+                        "netReturn": daily["net_return"].astype(float),
+                        "benchmarkReturn": daily[
+                            "benchmark_return"
+                        ].astype(float),
+                        "oneWayTurnover": daily[
+                            "one_way_turnover"
+                        ].astype(float),
+                        "cost": daily["cost"].astype(float),
+                        "rebalanced": daily["rebalanced"].astype(bool),
+                        "signalDecisionRows": daily_signal[
+                            "decision_rows"
+                        ].astype(int),
+                        "signalTransitions": daily_signal[
+                            "signal_transitions"
+                        ].astype(int),
+                        "entries": daily_signal["entries"].astype(int),
+                        "exits": daily_signal["exits"].astype(int),
+                        "reversals": daily_signal["reversals"].astype(int),
+                    },
+                    index=index,
+                )
+                rows.extend(row_frame.to_dict(orient="records"))
             configurations[configuration_id] = {
                 "signal_profile": profile["id"],
                 "no_trade_one_way": band,

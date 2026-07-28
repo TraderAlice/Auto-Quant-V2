@@ -944,7 +944,7 @@ class OhlcvPortfolioLabTests(unittest.TestCase):
                     "judges/portfolio_core.py",
                 ],
             )
-            self.assertEqual(study.definition.judge.timeout_seconds, 60)
+            self.assertEqual(study.definition.judge.timeout_seconds, 120)
             self.assertEqual(len(study.dataset_hashes), 7)
 
             run = execute_study(project, PORTFOLIO_STUDY_ID)
@@ -1283,7 +1283,7 @@ print(json.dumps({
                 session.manifest["id"],
                 f"{shlex.quote(sys.executable)} {shlex.quote(str(researcher))}",
                 max_turns=1,
-                max_wall_seconds=90,
+                max_wall_seconds=180,
                 turn_timeout_seconds=5,
             )
 

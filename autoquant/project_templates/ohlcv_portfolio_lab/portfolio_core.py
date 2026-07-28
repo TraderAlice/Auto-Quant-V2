@@ -835,23 +835,28 @@ def build_risk_covariance_cache(
     cache: RiskCovarianceCache = {}
     window = int(policy["covariance_window"])
     minimum = int(policy["minimum_observations"])
-    for timestamp in closes.index:
-        history = (
-            close_returns.loc[:timestamp]
-            .tail(window)
-            .dropna(how="any")
-        )
-        observations = int(len(history))
+    return_values = close_returns.to_numpy(dtype=float)
+    for row_number, timestamp in enumerate(closes.index):
+        history = return_values[
+            max(0, row_number - window + 1) : row_number + 1
+        ]
+        history = history[np.isfinite(history).all(axis=1)]
+        observations = int(history.shape[0])
         covariance_values: np.ndarray | None = None
         if observations >= minimum:
-            covariance = history.cov(ddof=0).reindex(
-                index=closes.columns,
-                columns=closes.columns,
+            covariance_values = np.atleast_2d(
+                np.cov(
+                    history,
+                    rowvar=False,
+                    ddof=0,
+                )
             )
-            if not covariance.isna().any().any():
-                values = covariance.to_numpy(dtype=float)
-                if np.isfinite(values).all():
-                    covariance_values = values
+            if (
+                covariance_values.shape
+                != (len(closes.columns), len(closes.columns))
+                or not np.isfinite(covariance_values).all()
+            ):
+                covariance_values = None
         cache[timestamp] = (observations, covariance_values)
     return cache
 
@@ -866,6 +871,7 @@ def execute_risk_compliant_book(
     no_trade_one_way: float = NO_TRADE_ONE_WAY,
     ordinary_rebalance_allowed: bool = True,
     risk_covariance_cache: RiskCovarianceCache | None = None,
+    _resolved_mandate: dict[str, object] | None = None,
 ) -> tuple[pd.Series, dict[str, object]]:
     """Choose the final book, with risk compliance outranking no-trade."""
 
@@ -887,7 +893,11 @@ def execute_risk_compliant_book(
             "portfolio.non-finite",
             "Executed-book risk inputs contain non-finite weights",
         )
-    resolved = _resolve_mandate(pretrade.index, mandate)
+    resolved = (
+        _resolved_mandate
+        if _resolved_mandate is not None
+        else _resolve_mandate(pretrade.index, mandate)
+    )
     _, pretrade_risk = _govern_portfolio_risk(
         pretrade,
         close_returns,
@@ -911,14 +921,18 @@ def execute_risk_compliant_book(
         and proposed_one_way + 1e-12 >= no_trade_one_way
     )
     ordinary_book = runtime_proposed if ordinary_rebalance else pretrade
-    current, execution_risk = _govern_portfolio_risk(
-        ordinary_book,
-        close_returns,
-        timestamp,
-        resolved,
-        enabled=True,
-        risk_covariance_cache=risk_covariance_cache,
-    )
+    if ordinary_rebalance:
+        current = runtime_proposed
+        execution_risk = proposed_risk
+    else:
+        current, execution_risk = _govern_portfolio_risk(
+            ordinary_book,
+            close_returns,
+            timestamp,
+            resolved,
+            enabled=True,
+            risk_covariance_cache=risk_covariance_cache,
+        )
     repair_trade = current - ordinary_book
     repaired = bool(repair_trade.abs().sum() > 1e-12)
     risk_override = repaired and not ordinary_rebalance
@@ -1291,28 +1305,42 @@ def construct_signal_policy(
         decision_every_bars,
         decision_anchor=decision_anchor,
     )
+    finite_factors = pd.DataFrame(
+        np.isfinite(factors.to_numpy(dtype=float)),
+        index=factors.index,
+        columns=factors.columns,
+    )
+    finite_volatility = pd.DataFrame(
+        np.isfinite(volatility.to_numpy(dtype=float)),
+        index=volatility.index,
+        columns=volatility.columns,
+    )
+    valid_panel = (
+        factors.notna()
+        & volatility.notna()
+        & finite_factors
+        & finite_volatility
+    )
+    valid_counts = valid_panel.sum(axis=1)
+    sufficient_rows = (
+        valid_counts.ge(4)
+        & factors.where(valid_panel).nunique(axis=1).ge(2)
+    )
+    factor_ranks = factors.where(valid_panel).rank(
+        axis=1,
+        method="average",
+    )
+    score_panel = factor_ranks.sub(1.0).div(
+        valid_counts.sub(1.0),
+        axis=0,
+    ).where(sufficient_rows, np.nan)
 
     for timestamp in factors.index:
         decision_eligible = bool(decision_mask.loc[timestamp])
         row_factor = factors.loc[timestamp].astype(float)
         row_volatility = volatility.loc[timestamp].astype(float)
-        valid = (
-            row_factor.notna()
-            & row_volatility.notna()
-            & np.isfinite(row_factor.to_numpy())
-            & np.isfinite(row_volatility.to_numpy())
-        )
-        valid_assets = factors.columns[valid]
-        scores = pd.Series(np.nan, index=factors.columns, dtype=float)
-        sufficient = (
-            len(valid_assets) >= 4
-            and row_factor.loc[valid_assets].nunique() >= 2
-        )
-        if sufficient:
-            ranks = row_factor.loc[valid_assets].rank(method="average")
-            scores.loc[valid_assets] = (
-                (ranks - 1.0) / (len(valid_assets) - 1.0)
-            )
+        scores = score_panel.loc[timestamp]
+        sufficient = bool(sufficient_rows.loc[timestamp])
 
         current_states = pd.Series(0, index=factors.columns, dtype=int)
         events: dict[str, str] = {}
@@ -1690,20 +1718,46 @@ def simulate_targets(
     ).shift(extra_delay, fill_value=False)
     close_returns = closes.pct_change(fill_method=None)
     forward_returns = closes.shift(-1) / closes - 1.0
-    executed = pd.DataFrame(0.0, index=targets.index, columns=targets.columns)
-    trades = pd.DataFrame(0.0, index=targets.index, columns=targets.columns)
-    participation = pd.DataFrame(0.0, index=targets.index, columns=targets.columns)
+    target_values = proposed_targets.to_numpy(dtype=float)
+    close_return_values = close_returns.to_numpy(dtype=float)
+    forward_return_values = forward_returns.to_numpy(dtype=float)
+    close_values = closes.to_numpy(dtype=float)
+    volume_values = volumes.to_numpy(dtype=float)
+    executed_values = np.zeros(targets.shape, dtype=float)
+    trade_values = np.zeros(targets.shape, dtype=float)
+    participation_values = np.zeros(targets.shape, dtype=float)
     daily_rows: list[dict[str, object]] = []
-    prior = pd.Series(0.0, index=targets.columns, dtype=float)
+    prior_values = np.zeros(len(targets.columns), dtype=float)
 
     for row_number, timestamp in enumerate(targets.index):
         decision_eligible = bool(decision_mask.loc[timestamp])
-        pretrade = (
-            pd.Series(0.0, index=targets.columns, dtype=float)
-            if row_number == 0
-            else drift_weights(prior, close_returns.loc[timestamp])
+        if row_number == 0:
+            pretrade_values = np.zeros_like(prior_values)
+        else:
+            realized = np.nan_to_num(
+                close_return_values[row_number],
+                nan=0.0,
+            )
+            gross_realized = float(prior_values @ realized)
+            denominator = 1.0 + gross_realized
+            if not math.isfinite(denominator) or denominator <= 1e-9:
+                raise PortfolioFailure(
+                    "portfolio.bankrupt",
+                    "Portfolio drift denominator is non-positive",
+                )
+            pretrade_values = (
+                prior_values * (1.0 + realized) / denominator
+            )
+        pretrade = pd.Series(
+            pretrade_values,
+            index=targets.columns,
+            dtype=float,
         )
-        proposed = proposed_targets.loc[timestamp].fillna(0.0).astype(float)
+        proposed = pd.Series(
+            np.nan_to_num(target_values[row_number], nan=0.0),
+            index=targets.columns,
+            dtype=float,
+        )
         current, execution_risk = execute_risk_compliant_book(
             pretrade,
             proposed,
@@ -1713,25 +1767,32 @@ def simulate_targets(
             no_trade_one_way=no_trade_one_way,
             ordinary_rebalance_allowed=decision_eligible,
             risk_covariance_cache=risk_covariance_cache,
+            _resolved_mandate=resolved,
         )
         rebalance = bool(execution_risk["rebalanced"])
-        trade = current - pretrade
-        traded_notional = float(trade.abs().sum())
+        current_values = current.to_numpy(dtype=float)
+        row_trade_values = current_values - pretrade_values
+        traded_notional = float(np.abs(row_trade_values).sum())
         one_way_turnover = 0.5 * traded_notional
         cost = traded_notional * cost_bps / 10_000.0
-        next_returns = forward_returns.loc[timestamp].fillna(0.0).astype(float)
-        gross_return = float((current * next_returns).sum())
+        next_returns = np.nan_to_num(
+            forward_return_values[row_number],
+            nan=0.0,
+        )
+        gross_return = float(current_values @ next_returns)
         net_return = gross_return - cost
         benchmark_return = float(
-            (benchmark_weights * next_returns).sum()
+            benchmark_weights.to_numpy(dtype=float) @ next_returns
         )
         dollar_volume = (
-            closes.loc[timestamp].astype(float)
-            * volumes.loc[timestamp].astype(float)
+            close_values[row_number] * volume_values[row_number]
         )
-        row_participation = (
-            trade.abs() * reference_nav / dollar_volume.replace(0.0, np.nan)
-        ).fillna(0.0)
+        row_participation = np.divide(
+            np.abs(row_trade_values) * reference_nav,
+            dollar_volume,
+            out=np.zeros_like(row_trade_values),
+            where=dollar_volume != 0.0,
+        )
         if not all(
             math.isfinite(value)
             for value in (
@@ -1747,9 +1808,9 @@ def simulate_targets(
                 "portfolio.non-finite",
                 "Accounting produced non-finite values",
             )
-        executed.loc[timestamp] = current
-        trades.loc[timestamp] = trade
-        participation.loc[timestamp] = row_participation
+        executed_values[row_number] = current_values
+        trade_values[row_number] = row_trade_values
+        participation_values[row_number] = row_participation
         daily_rows.append(
             {
                 "gross_return": gross_return,
@@ -1758,11 +1819,11 @@ def simulate_targets(
                 "one_way_turnover": one_way_turnover,
                 "traded_notional": traded_notional,
                 "cost": cost,
-                "gross_exposure": float(current.abs().sum()),
-                "net_exposure": float(current.sum()),
-                "cash_weight": 1.0 - float(current.abs().sum()),
-                "max_abs_weight": float(current.abs().max()),
-                "concentration_hhi": float(current.pow(2).sum()),
+                "gross_exposure": float(np.abs(current_values).sum()),
+                "net_exposure": float(current_values.sum()),
+                "cash_weight": 1.0 - float(np.abs(current_values).sum()),
+                "max_abs_weight": float(np.abs(current_values).max()),
+                "concentration_hhi": float((current_values**2).sum()),
                 "rebalanced": rebalance,
                 "decision_eligible": decision_eligible,
                 "decision_every_bars": decision_every_bars,
@@ -1820,8 +1881,23 @@ def simulate_targets(
                 "mean_participation": float(row_participation.mean()),
             }
         )
-        prior = current
+        prior_values = current_values
     daily = pd.DataFrame(daily_rows, index=targets.index)
+    executed = pd.DataFrame(
+        executed_values,
+        index=targets.index,
+        columns=targets.columns,
+    )
+    trades = pd.DataFrame(
+        trade_values,
+        index=targets.index,
+        columns=targets.columns,
+    )
+    participation = pd.DataFrame(
+        participation_values,
+        index=targets.index,
+        columns=targets.columns,
+    )
     valid = forward_returns.notna().any(axis=1)
     return Simulation(
         daily=daily.loc[valid].copy(),
