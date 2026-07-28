@@ -61,7 +61,7 @@ evidence without changing the user's question.
   insufficient events, references, tamper rejection, and authority.
 - [x] A clean bounded Yahoo field trial returns a useful positive or negative
   conclusion with sample-size limitations.
-- [ ] CLI, orientation, Studio, documentation, full regression, package smoke,
+- [x] CLI, orientation, Studio, documentation, full regression, package smoke,
   commit, push, tag, and cleanliness pass.
 
 ## Work
@@ -70,7 +70,7 @@ evidence without changing the user's question.
 - [x] Reproduce the current semantic boundary.
 - [x] Promote and implement only the reusable Workbench gap.
 - [x] Execute and interpret the clean field trial.
-- [ ] Complete the release audit and close the plan.
+- [x] Complete the release audit and close the plan.
 
 ## Findings and decisions
 
@@ -132,6 +132,17 @@ evidence without changing the user's question.
   browser checks reconcile 26 complete / 22 primary events, expose only the
   read-only Event Explorer command, and produce no page-level horizontal
   overflow after the responsive table fix.
+- Focused affected-surface regression: 62 tests passed before the field trial;
+  final event/Studio/documentation gates passed after browser corrections.
+- Full release regression: 261 tests passed in 1,792.015 seconds after the
+  shared template clarification gate found by the preceding 260/261 run was
+  fixed and retested.
+- Installed-wheel smoke in a fresh Python 3.11 environment discovered
+  AutoQuant `0.8.1`, `run.event-study`, and the packaged event template, then
+  executed and strictly projected the deterministic event fixture with zero
+  diagnostics.
+- Clean commit `3668548` is pushed and annotated tag `v0.8.1` points to that
+  exact tested release state.
 
 ## Progress log
 
@@ -148,9 +159,16 @@ evidence without changing the user's question.
 - 2026-07-29 — Implemented the fixed event route and public read surfaces;
   long-history Yahoo evidence and release audit remained pending.
 - 2026-07-29 — Completed the long-history `0.8.1` clean field trial and
-  human-facing Studio audit. Full regression, package smoke, final commit/push,
-  tag, and cleanliness remain pending.
+  human-facing Studio audit.
+- 2026-07-29 — Closed the release gate with 261/261 tests, installed-wheel
+  smoke, clean/pushed commit `3668548`, and tag `v0.8.1`.
 
 ## Completion
 
-Pending.
+Complete on 2026-07-29. AutoQuant can now preserve this caller-fixed,
+price-defined conditional-history question as one immutable descriptive Study
+without translating it into continuous Factor correlation or downstream
+execution. The clean real-data result is useful but deliberately modest:
+historical means show an observed advantage across 22 non-overlapping events,
+while wide uncertainty, sparse sampling, provider claims, and no-trading
+authority remain visible.
