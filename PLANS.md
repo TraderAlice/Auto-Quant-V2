@@ -18,9 +18,7 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-| Plan | Outcome | Updated |
-| --- | --- | --- |
-| [[plans/reported-book-reallocation-scenarios]] | Compare one externally reported book with a bounded set of caller-specified funded reallocations under one fixed historical risk model. | 2026-07-28 |
+There are no active plans.
 
 ## Proposed plans
 
@@ -36,6 +34,7 @@ There are no proposed plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/reported-book-reallocation-scenarios]] | Compared one externally reported book with caller-specified funded reallocations under one fixed historical risk model and completed a clean Yahoo field trial. | 2026-07-28 |
 | [[plans/reported-position-book-risk-field-trial]] | Preserved one externally reported book and returned verified crowding and reduction-sensitivity evidence without claiming account or execution authority. | 2026-07-28 |
 | [[plans/real-trading-request-field-trials]] | Proved AutoQuant can turn four materially different representative trading questions into bounded, evidence-backed research handoffs while deriving reusable Core improvements from real friction. | 2026-07-28 |
 | [[plans/broad-universe-independent-factor-challenge]] | Completed a frozen known-style Factor challenge over a disjoint 72-stock observed-only daily panel and published one immutable negative-evidence Report. | 2026-07-28 |

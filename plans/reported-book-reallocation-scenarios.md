@@ -1,6 +1,6 @@
 # Reported-book reallocation scenario field trial
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-07-28`
 - Related design: [[docs/design/reported-position-book-risk]] and
   [[docs/design/research-intake-and-dataset-snapshots]].
@@ -75,7 +75,7 @@ and descriptive-authority boundary.
 - [x] A clean Yahoo field Run answers the NVDA-versus-QQQ funded TSLA transfer,
   and the Project records the raw request, assumptions, framework gap, Harness
   identity, and evidence.
-- [ ] Focused/full regression, package smoke, documentation, commit, push, and
+- [x] Focused/full regression, package smoke, documentation, commit, push, and
   repository cleanliness pass.
 
 ## Work
@@ -87,7 +87,7 @@ and descriptive-authority boundary.
   orientation, and Studio projection.
 - [x] Add deterministic success, malformed-input, tamper, and authority tests.
 - [x] Execute and interpret the clean real Yahoo field trial.
-- [ ] Complete release audit, record evidence, commit, push, and close the plan.
+- [x] Complete release audit, record evidence, commit, push, and close the plan.
 
 ## Findings and decisions
 
@@ -166,6 +166,17 @@ and descriptive-authority boundary.
 - In-app browser review verifies the desktop Handoff and scenario tables.
   At a 390px emulated viewport, document width equals viewport width, scenario
   rows use a two-column grid, and no horizontal overflow remains.
+- Final `uv run python -m unittest discover -s tests` passes all 251 tests in
+  1,420.421 seconds. Compile, JavaScript syntax, focused tamper/lifecycle,
+  documentation, and diff checks also pass.
+- `uv build` publishes `dist/auto_quant-0.7.0.tar.gz` and
+  `dist/auto_quant-0.7.0-py3-none-any.whl`. A fresh Python 3.11 environment
+  installs only the wheel, reports `aq 0.7.0`, discovers the supplied-book
+  comparison and `positionScenarios.maxItems=8`, executes the packaged
+  synthetic Book Risk Study successfully, emits both scenario artifacts, and
+  contains the fixed Studio Handoff.
+- Implementation commits `bb10074` and `a42af21` are pushed to `origin/main`;
+  the final evidence commit and `v0.7.0` tag close the release.
 
 ## Progress log
 
@@ -180,7 +191,15 @@ and descriptive-authority boundary.
   desktop and 390px Studio review to remove the last false Session affordance
   and improve scenario-table readability. Final full regression, package
   smoke, evidence commit, tag, and cleanliness audit remain.
+- 2026-07-28 — Passed the 251-test final regression and fresh-wheel execution
+  smoke, recorded all release evidence, and completed the plan.
 
 ## Completion
 
-Pending.
+AutoQuant `0.7.0` now converts one practical existing-book reallocation
+question into a single bounded immutable comparison without inventing a
+portfolio or an execution path. The preserved `0.6.0` failure and clean
+`0.7.0` retry prove the Workbench improvement end to end. The caller can
+compare the two supplied books, inspect why their risk differs, and hand the
+descriptive result back to OpenAlice while account, suitability, tax, and
+execution authority remain outside AutoQuant.
