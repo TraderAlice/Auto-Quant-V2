@@ -51,6 +51,10 @@ const metric = (value) => {
 };
 
 const horizonPolicyText = (request) => {
+  const event = request?.eventPolicy;
+  if (event) {
+    return `event t · entry t+${event.waitBars} · exit t+${event.waitBars + event.holdingBars} · fixed event policy`;
+  }
   const policy = request?.horizonPolicy;
   if (!policy) return "reference default · primary 1 · diagnostics 1/5/10 bars";
   return `primary ${policy.primaryForwardBars} · diagnostics ${policy.diagnosticForwardBars.join("/")} bars`;
@@ -652,8 +656,15 @@ function renderResearchAgenda(project) {
     return;
   }
   section.hidden = false;
+  const agendaStatus = agenda.status.replaceAll("-", " ");
   element("research-agenda-meta").textContent = agenda.diagnosis
-    ? `${agenda.status.replaceAll("-", " ")} · ${agenda.diagnosis.stage.replaceAll("-", " ")}`
+    ? `${agendaStatus} · ${
+        agenda.diagnosis.stage === agenda.status
+          ? (
+              agenda.diagnosis.iterationFocus ?? agenda.diagnosis.stage
+            ).replaceAll("-", " ")
+          : agenda.diagnosis.stage.replaceAll("-", " ")
+      }`
     : agenda.status.replaceAll("-", " ");
   const board = element("research-agenda-board");
   if (!agenda.moves.length) {
@@ -2537,7 +2548,7 @@ function renderEventStudyExplorer(project) {
   ];
   element("event-study-distributions").innerHTML = `
     <div class="factor-table-wrap">
-      <table>
+      <table class="factor-table">
         <thead><tr><th>Population</th><th>N</th><th>Mean</th><th>Median</th><th>Positive</th><th>Min</th><th>Max</th></tr></thead>
         <tbody>
           ${distributionRows.map(([label, row]) => `
@@ -2555,7 +2566,7 @@ function renderEventStudyExplorer(project) {
     </div>`;
   element("event-study-events").innerHTML = `
     <div class="factor-table-wrap">
-      <table>
+      <table class="factor-table">
         <thead><tr><th>Event</th><th>Entry → exit</th><th>Gap</th><th>Asset</th><th>Reference</th><th>Excess</th><th>Population</th></tr></thead>
         <tbody>
           ${explorer.events.map((row) => `
@@ -5195,6 +5206,8 @@ function render() {
         : "FROZEN EXTERNAL HOLDOUT"
       : project.counts.runningCampaigns
       ? "RESEARCHER IN PROGRESS"
+      : project.bookRiskExplorer || project.eventStudyExplorer
+        ? "DESCRIPTIVE EVIDENCE READY"
       : project.intake && project.counts.sessions === 0
         ? "CONTENT-LOCKED INTAKE READY"
         : "VERIFIED RESEARCH PROJECT"

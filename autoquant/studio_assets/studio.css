@@ -2262,6 +2262,12 @@ main > div[id] {
   font: 6px var(--mono);
 }
 
+.factor-table-wrap {
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+}
+
 .factor-table th,
 .factor-table td {
   padding: 10px 7px;

@@ -59,7 +59,7 @@ evidence without changing the user's question.
   result, strict Explorer, and no-trading boundary.
 - [x] Deterministic tests cover timing, forward-return alignment, overlap,
   insufficient events, references, tamper rejection, and authority.
-- [ ] A clean bounded Yahoo field trial returns a useful positive or negative
+- [x] A clean bounded Yahoo field trial returns a useful positive or negative
   conclusion with sample-size limitations.
 - [ ] CLI, orientation, Studio, documentation, full regression, package smoke,
   commit, push, tag, and cleanliness pass.
@@ -69,7 +69,7 @@ evidence without changing the user's question.
 - [x] Create and clarify the Project.
 - [x] Reproduce the current semantic boundary.
 - [x] Promote and implement only the reusable Workbench gap.
-- [ ] Execute and interpret the clean field trial.
+- [x] Execute and interpret the clean field trial.
 - [ ] Complete the release audit and close the plan.
 
 ## Findings and decisions
@@ -102,6 +102,18 @@ evidence without changing the user's question.
   authority, artifact inventory, event timing, censoring, overlap eligibility,
   conditional/reference returns, distributions, uncertainty, metrics, and
   conclusion before CLI or Studio projection.
+- 2026-07-29 — Researcher-owned method choices were frozen before retrieval:
+  `keep-first-until-exit` and at least 12 primary events. Yahoo then supplied
+  4,166 aligned adjusted NVDA/SPY sessions from 2010-01-04 through 2026-07-28.
+- 2026-07-29 — Clean AutoQuant `0.8.1` Run
+  `run-20260728T180552737821Z-6ca9339e863e` at commit `6e7cdcb` found 26
+  complete and 22 primary events. Primary NVDA mean was `+3.2500%` versus
+  unconditional `+0.9333%`; matched SPY excess averaged `+2.5770%`.
+  `observed-advantage` is descriptive only: the absolute mean interval crosses
+  zero and the sparse sample contains outcomes from `-17.71%` to `+21.10%`.
+- 2026-07-29 — The patch-release cadence is authoritative for this increment:
+  the public version is `0.8.1`, not `0.9.0`. The earlier untagged development
+  Run remains preserved but is not release evidence.
 
 ## Verification
 
@@ -114,6 +126,12 @@ evidence without changing the user's question.
 - External intake binds the derived authority, rejects raw OHLCV and parallel
   policy clocks, executes directly, rejects Session creation, and projects
   through CLI, orientation, and Studio.
+- Clean field Run records Harness `0.8.1`, commit `6e7cdcb`, `dirty: false`,
+  341 ms execution, and the exact dataset and dependency hashes.
+- Strict Explorer, orientation, Studio snapshot, desktop browser, and 390px
+  browser checks reconcile 26 complete / 22 primary events, expose only the
+  read-only Event Explorer command, and produce no page-level horizontal
+  overflow after the responsive table fix.
 
 ## Progress log
 
@@ -128,7 +146,10 @@ evidence without changing the user's question.
   failure in sibling Project `nvda-gap-factor-route-repro`; promoted the
   smallest reusable event-study need to both Projects' `framework-needs.md`.
 - 2026-07-29 — Implemented the fixed event route and public read surfaces;
-  long-history Yahoo evidence and release audit remain pending.
+  long-history Yahoo evidence and release audit remained pending.
+- 2026-07-29 — Completed the long-history `0.8.1` clean field trial and
+  human-facing Studio audit. Full regression, package smoke, final commit/push,
+  tag, and cleanliness remain pending.
 
 ## Completion
 
