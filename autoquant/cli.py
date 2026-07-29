@@ -3856,6 +3856,22 @@ def _orient(args: argparse.Namespace) -> CommandResult:
         (brief["question"]["text"] or brief["question"]["title"]).split()
     )
     candidate_contract = brief["candidateContract"]
+    latest_experiment = brief["evidence"]["latestExperiment"]
+    latest_experiment_line = (
+        "Latest trial: "
+        f"{latest_experiment['id']} · {latest_experiment['verdict']} · "
+        f"Run {latest_experiment['runId']} · "
+        + (
+            "Check "
+            f"{latest_experiment['candidateCheck']['id']} "
+            f"({latest_experiment['candidateCheck']['status']})"
+            if latest_experiment["candidateCheck"] is not None
+            else "Check unavailable"
+        )
+        + "\n"
+        if latest_experiment is not None
+        else ""
+    )
     if len(question) > 320:
         question = question[:319].rstrip() + "…"
     human = (
@@ -3879,6 +3895,7 @@ def _orient(args: argparse.Namespace) -> CommandResult:
         f"{focus['studyId'] or 'no Study'}\n"
         f"State: {focus['coordinationPhase']} · "
         f"{focus['scientificStage']} · {focus['operatingMode']}\n"
+        f"{latest_experiment_line}"
         f"Reason: {brief['reasons'][0]['code']} — "
         f"{brief['reasons'][0]['message']}\n"
         f"Operating root: {filesystem['operatingRoot']}\n"

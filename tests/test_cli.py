@@ -1605,6 +1605,24 @@ class AgentCliTests(unittest.TestCase):
                 ["promotion-ready"],
             )
             self.assertEqual(
+                oriented_json["data"]["evidence"]["latestExperiment"],
+                {
+                    "id": experiment_id,
+                    "verdict": "KEEP",
+                    "runId": evaluated_json["data"]["experiment"]["candidate"][
+                        "runId"
+                    ],
+                    "candidateSourceHash": evaluated_json["data"][
+                        "experiment"
+                    ]["candidate"]["sourceHash"],
+                    "completedAt": evaluated_json["data"]["experiment"][
+                        "completedAt"
+                    ],
+                    "verdictAuthority": "session-objective-only",
+                    "candidateCheck": None,
+                },
+            )
+            self.assertEqual(
                 [item["id"] for item in oriented_json["nextActions"]],
                 ["session.promote"],
             )
@@ -1616,6 +1634,10 @@ class AgentCliTests(unittest.TestCase):
             )
             self.assertIn(
                 "Reason: promotion-ready",
+                human_oriented.stdout,
+            )
+            self.assertIn(
+                f"Latest trial: {experiment_id} · KEEP",
                 human_oriented.stdout,
             )
             self.assertIn(

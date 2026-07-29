@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha at `0.8.15`.
+Status: usable pre-alpha at `0.8.16`.
 
 Updated: 2026-07-29.
 
@@ -13,7 +13,7 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 AutoQuant V2 has crossed the line from an architectural prototype into a
 usable Agent-native quantitative research workbench.
 
-At `0.8.15`, a human, local coding Agent, or coworker delegated from OpenAlice
+At `0.8.16`, a human, local coding Agent, or coworker delegated from OpenAlice
 can:
 
 1. clone the repository and immediately discover the Harness plus its
@@ -85,7 +85,14 @@ rejects illegal static component metadata before final-factor execution, and
 a baseline-restored Session obeys a verified freeze/external-holdout agenda
 instead of advertising another in-sample edit.
 
-The latest annotated release tag is `v0.8.15`; `v0.8.14` remains the
+`0.8.16` makes completed trial evidence a first-class Session handoff.
+Restored leaders enter explicit review rather than mandatory-edit language;
+delegated evidence can be reported and completed without hiding the option for
+another explicitly bounded hypothesis. Current-candidate Check state stays
+separate from a durable latest-Experiment/Run/verdict/preceding-Check pointer.
+
+The current release is `v0.8.16`. `v0.8.15` remains the candidate-contract
+and freeze-handoff milestone, while `v0.8.14` remains the
 fixed-Study answer-handoff milestone, and `v0.8.13` remains the
 qualification-aware handoff milestone, and `v0.8.12` remains the
 worktree re-entry milestone, and `v0.8.11` remains the
@@ -184,6 +191,39 @@ not only synthetic fixtures:
 
 The canonical results, Run identifiers, versions, and limitations are preserved
 in [[docs/trading-request-field-trials]].
+
+## `0.8.16` verification snapshot
+
+- a fresh Grok Build coworker used only installed `aq 0.8.15`, one unchanged
+  OpenAlice-style request, and one content-locked V2 hourly package; it did not
+  inspect framework source, docs, tests, plans, another Project, or the web;
+- public intake independently selected `ohlcv-research-desk` and exposed the
+  exact `1h + 3h/4h/6h/12h/1d` panel contract before edit;
+- the coworker correctly declared a three-base-bar pullback as
+  `cross-sectional-score` and causal completed-12h breadth as
+  `timestamp-context`; Check
+  `check-20260729T153814029674Z-b87f8d42b5aa` passed;
+- Experiment `exp-0001-096c849038b4` REVERTed candidate Run
+  `run-20260729T153819638110Z-500559f45737` from baseline validation mean IC
+  `0.231579` to `-0.935088`; it did not promote or force Portfolio/RL work;
+- the coworker published Report
+  `report-20260729T153933853847Z-e334ccf7fb50`, completed the
+  baseline-retaining delegated Session, and returned an evidence-backed
+  negative conclusion;
+- its two low-severity Workbench observations originated
+  [[plans/post-trial-session-handoff]];
+- a fresh installed `0.8.16` public replay returned
+  `trial-review-required` after REVERT with only `session.show` and
+  `report.publish` supporting choices, made exact completion primary after
+  Report publication, and retained the immutable Experiment/Run/passed-Check
+  link after Session completion;
+- installed CLI and Studio projected the exact same Work Brief throughout the
+  replay.
+- final repository regression: 306/306 tests in 886.197 seconds;
+- documentation graph: 1,069/1,069 checked links;
+- source distribution, wheel build, fresh Python 3.11 install, version and
+  capability/schema discovery, clean public-CLI Project replay, Project
+  validation, and exact CLI/Studio Work Brief parity passed with `aq 0.8.16`.
 
 ## `0.8.15` verification snapshot
 
@@ -443,7 +483,7 @@ field-trial surface.
 
 ## Maturity and next use
 
-`0.8.15` is suitable for controlled standalone use and initial OpenAlice desk
+`0.8.16` is suitable for controlled standalone use and initial OpenAlice desk
 integration. It is still pre-`1.0`: public contracts are versioned and strict,
 but the project continues to prefer domain correctness and Agent operability
 over backward compatibility while the product shape settles.

@@ -188,6 +188,13 @@ and read-only Session inspection. A newly opened Session with no trial still
 retains its normal edit path, but the brief explicitly limits that authority
 to a predeclared bounded alternative and distinguishes it from open-ended
 tuning.
+For other agendas, a restored leader with immutable trial history enters
+`trial-review-required`, not `candidate-edit-required`. The Agent can publish
+and complete the current evidence prefix or deliberately declare another
+bounded hypothesis; Work Brief writability is never phrased as mandatory
+continuation. `latestExperiment` retains the trial verdict, candidate Run, and
+preceding Check even after the current candidate becomes the leader again or
+the Session closes.
 Once such a Dossier is bound into a later Project, the work brief switches to
 `external-audit`, exposes no editable paths, routes only to `holdout.run`, and
 marks the research agenda unavailable because candidate selection is frozen.

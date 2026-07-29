@@ -617,6 +617,7 @@ const researchDecisionBrief = (project) => {
       next: coreBrief.review.next,
       boundary: coreBrief.review.boundary,
       candidateContract: coreBrief.candidateContract,
+      latestExperiment: coreBrief.evidence.latestExperiment,
       origin:
         coreBrief.question.origin === "delegated-request"
           ? "OPENALICE REQUEST"
@@ -637,6 +638,7 @@ const researchDecisionBrief = (project) => {
     next: "Repair the reported Core validation issue, then refresh this snapshot.",
     boundary: "no inferred edit or trading authority",
     candidateContract: null,
+    latestExperiment: null,
     origin: "CORE DIAGNOSTIC",
   };
 };
@@ -654,6 +656,11 @@ function renderDecisionBrief(project) {
     ${
       brief.candidateContract
         ? `<p><b>Candidate panel</b> · base ${escapeHtml(brief.candidateContract.data.baseInterval ?? "unspecified")} · completed context ${escapeHtml(brief.candidateContract.data.featureIntervals.join(", ") || "none")} · roles ${escapeHtml(brief.candidateContract.components.roles.join(", "))}</p><p>${escapeHtml(brief.candidateContract.data.availabilityRule)}</p>`
+        : ""
+    }
+    ${
+      brief.latestExperiment
+        ? `<p><b>Latest trial</b> · ${escapeHtml(brief.latestExperiment.id)} · ${escapeHtml(brief.latestExperiment.verdict)} · Run ${escapeHtml(brief.latestExperiment.runId)} · ${brief.latestExperiment.candidateCheck ? `Check ${escapeHtml(brief.latestExperiment.candidateCheck.id)} (${escapeHtml(brief.latestExperiment.candidateCheck.status)})` : "Check unavailable"}</p>`
         : ""
     }
     <footer>

@@ -158,6 +158,18 @@ admission, and `tradingAuthority: none`. This disclosure does not rewrite
 historical Experiment schemas or make the CLI a second evaluator.
 `experiment.show` repeats the same envelope-level authority and human
 disclosure so replacement Agents do not need the original evaluation response.
+The Work Brief additionally projects nullable `evidence.latestExperiment`
+with the latest Experiment id/verdict, candidate Run/source, fixed
+`session-objective-only` authority, and the last same-source Check completed
+before Experiment start. This is distinct from `candidateCheckId`, which
+continues to describe only the exact current worktree candidate.
+
+After a REVERT/CRASH restores the leader, an active Session with trial history
+uses `trial-review-required`: no primary edit is invented, delegated
+`report.publish` and read-only `session.show` are supporting choices, and the
+review text leaves an explicit new bounded hypothesis under Agent/caller
+authority. Once a baseline-retaining Report exists, `session.complete` is the
+single executable primary action.
 
 When a coordinated lane has both terminal Session evidence and a blocked
 scientific gate, orientation has no primary action and keeps a new

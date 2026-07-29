@@ -104,6 +104,13 @@ Session, Check, Experiment, Report, promotion, and completion transitions.
 Waiting agendas declare `authority.source: none`; they never imply that a
 missing Run was verified.
 
+An available future move does not make another edit mandatory after an
+immutable trial restores the leader. That state is a trial-review handoff:
+orientation lets the Agent report/complete the current prefix or explicitly
+declare another bounded hypothesis. Only a separate
+`no-further-in-sample-tuning` diagnosis upgrades that choice to the stronger
+freeze/external-holdout handoff.
+
 A completed descriptive audit binds its verified Run and exact
 Harness-bound `run.inputHash`, carries no moves, and uses
 `prioritization: none` and `selectionSplit: none` because it authorizes no

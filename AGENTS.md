@@ -69,6 +69,11 @@ brief that another Agent can recover from the filesystem.
 7. Only then bind datasets, requests, Studies, Judges, or other strict
    manifests and begin the bounded research loop. Those machine contracts
    freeze an understood question; they do not replace the Markdown brief.
+8. After every Experiment, re-read `aq orient`. Treat
+   `evidence.latestExperiment` as the immutable trial/check pointer and
+   `trial-review-required` as an Agent/caller choice to report/complete or
+   explicitly declare another bounded hypothesis. Session writability is not
+   an instruction to continue tuning.
 
 When a caller asks about an existing book, do not substitute historical model
 targets for current holdings. If the caller or delegating Agent can supply one

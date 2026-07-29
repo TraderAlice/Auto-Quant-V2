@@ -121,6 +121,12 @@ intake-bound multi-interval Project lists its exact locked surface. Agents must
 not infer higher-interval availability from conditional template branches or
 component declarations; the contract carries this availability rule
 explicitly.
+`evidence.candidateCheckId` remains scoped to the exact current worktree
+candidate. Separately, nullable `evidence.latestExperiment` preserves the
+latest immutable Experiment id, verdict, candidate Run/source, verdict
+authority, and the latest matching Check completed before that Experiment.
+This historical link survives leader restore, Report publication, and Session
+completion.
 Question provenance is explicit: delegated intake returns
 `origin: delegated-request`; otherwise a strict Project request returns
 `origin: project-request` only when a fixed Study dependency binds its exact
@@ -603,6 +609,15 @@ replacement Agent inspecting immutable history. `session promote` is the only
 operation that copies a KEEP into Project source; it rejects a stale Project
 base and rolls back if the source, receipt, and Session pointer cannot all be
 committed.
+
+When an Experiment restores the current leader and the Session remains active,
+orientation returns `trial-review-required` instead of declaring that another
+edit is mandatory. A delegated Session exposes `report.publish` and read-only
+`session.show` as supporting choices. The Agent/caller may freeze and report
+the current prefix or explicitly declare another bounded hypothesis; Core
+neither infers a prose trial budget nor starts the next edit. After a
+baseline-retaining Report exists, exact `session.complete` becomes the primary
+action.
 
 When REVERT or CRASH restores an unchanged baseline after at least one trial
 and the verified Portfolio agenda says `no-further-in-sample-tuning`,

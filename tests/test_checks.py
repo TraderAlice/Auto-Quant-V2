@@ -24,7 +24,9 @@ from autoquant.orientation import (
     AGENT_WORK_BRIEF_JSON_SCHEMA,
     build_agent_work_brief,
 )
+from autoquant.reports import publish_report
 from autoquant.sessions import evaluate_experiment, load_session, start_session
+from autoquant.sessions import complete_session
 from autoquant.studies import StudyJudge, create_study, load_study
 from autoquant.templates import TEMPLATE_STUDY_IDS
 from autoquant.workspace import AutoQuantValidationError
@@ -59,8 +61,71 @@ Path(os.environ["AUTOQUANT_CHECK_OUTPUT"]).write_text(json.dumps({
 """
 
 
+def delegated_request() -> dict:
+    return {
+        "schemaVersion": 1,
+        "kind": "autoquant-research-request",
+        "title": "Review one bounded AAA factor",
+        "question": "Does the candidate improve the fixed AAA factor score?",
+        "decisionContext": "OpenAlice needs bounded quantitative evidence.",
+        "assets": [
+            {
+                "symbol": "AAA/USD",
+                "assetClass": "equity",
+                "venue": "TEST",
+            }
+        ],
+        "direction": "long",
+        "horizon": "one month",
+        "hypotheses": ["One declared candidate may improve the score."],
+        "constraints": ["No trading authority."],
+        "deliverables": ["Factor evidence and limitations."],
+        "source": {
+            "system": "openalice",
+            "workspaceId": "check-workspace",
+            "sessionId": "check-session",
+            "artifactPath": "requests/check.md",
+            "artifactRevision": "sha256:check-request",
+        },
+    }
+
+
+def baseline_report_analysis(run_id: str) -> dict:
+    evidence = {
+        "kind": "run",
+        "id": run_id,
+        "artifactPath": "artifacts/report.json",
+    }
+    return {
+        "schemaVersion": 1,
+        "kind": "autoquant-research-report-analysis",
+        "title": "Bounded AAA factor result",
+        "executiveSummary": (
+            "The bounded candidate reverted, so the fixed baseline remains."
+        ),
+        "findings": [
+            {
+                "id": "baseline-retained",
+                "claim": "The immutable trial did not improve the baseline.",
+                "confidence": "high",
+                "evidenceRefs": [evidence],
+            }
+        ],
+        "recommendations": [
+            {
+                "action": "Retain the baseline for this bounded assignment.",
+                "rationale": "The candidate REVERTed under the fixed objective.",
+                "conditions": ["Use fresh evidence for any new claim."],
+                "evidenceRefs": [evidence],
+            }
+        ],
+        "limitations": ["Synthetic fixture only."],
+        "unresolvedQuestions": ["Does another predeclared factor add value?"],
+    }
+
+
 class CandidateCheckTests(unittest.TestCase):
-    def _session(self, directory: str):
+    def _session(self, directory: str, *, request: dict | None = None):
         _, project = make_project(directory)
         (project.root_dir / "judges" / "preflight.py").write_text(
             PREFLIGHT,
@@ -97,7 +162,11 @@ class CandidateCheckTests(unittest.TestCase):
         loaded = load_candidate_preflight(project, load_study(project, definition.id))
         self.assertIsNotNone(loaded)
         jsonschema.validate(preflight, PREFLIGHT_JSON_SCHEMA)
-        return project, start_session(project, definition.id)
+        return project, start_session(
+            project,
+            definition.id,
+            request=request,
+        )
 
     def test_pass_fail_stale_and_non_selection_boundary(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -222,6 +291,116 @@ class CandidateCheckTests(unittest.TestCase):
             self.assertEqual(
                 brief["evidence"]["candidateCheckStatus"],
                 "passed",
+            )
+
+    def test_reverted_trial_retains_check_and_offers_evidence_handoff(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project, session = self._session(
+                directory,
+                request=delegated_request(),
+            )
+            candidate = (
+                session.worktree_project.root_dir / "factors" / "candidate.py"
+            )
+            candidate.write_text("SCORE = 0.5\n", encoding="utf-8")
+            passed = execute_candidate_check(project, session.manifest["id"])
+            experiment = evaluate_experiment(
+                project,
+                session.manifest["id"],
+                "Test one lower bounded score.",
+            )
+            self.assertEqual(experiment.result["verdict"], "REVERT")
+
+            review = build_agent_work_brief(project)
+            jsonschema.validate(review, AGENT_WORK_BRIEF_JSON_SCHEMA)
+            self.assertEqual(
+                review["reasons"][0]["code"],
+                "trial-review-required",
+            )
+            self.assertIsNone(review["primaryAction"])
+            self.assertEqual(
+                [item["id"] for item in review["supportingActions"]],
+                ["session.show", "report.publish"],
+            )
+            self.assertIsNone(review["evidence"]["candidateCheckId"])
+            self.assertEqual(
+                review["evidence"]["latestExperiment"],
+                {
+                    "id": experiment.result["id"],
+                    "verdict": "REVERT",
+                    "runId": experiment.result["candidate"]["runId"],
+                    "candidateSourceHash": experiment.result["candidate"][
+                        "sourceHash"
+                    ],
+                    "completedAt": experiment.result["completedAt"],
+                    "verdictAuthority": "session-objective-only",
+                    "candidateCheck": {
+                        "id": passed.result["id"],
+                        "status": "passed",
+                    },
+                },
+            )
+
+            report = publish_report(
+                project,
+                session.manifest["id"],
+                baseline_report_analysis(
+                    session.manifest["baseline"]["runId"]
+                ),
+            )
+            ready = build_agent_work_brief(project)
+            self.assertEqual(
+                ready["reasons"][0]["code"],
+                "baseline-completion-ready",
+            )
+            self.assertEqual(
+                ready["primaryAction"]["id"],
+                "session.complete",
+            )
+            complete_session(
+                project,
+                session.manifest["id"],
+                report.report["id"],
+            )
+            completed = build_agent_work_brief(project)
+            jsonschema.validate(completed, AGENT_WORK_BRIEF_JSON_SCHEMA)
+            self.assertEqual(
+                completed["evidence"]["latestExperiment"],
+                review["evidence"]["latestExperiment"],
+            )
+            self.assertEqual(
+                completed["evidence"]["sessionStatus"],
+                "completed",
+            )
+
+    def test_later_same_source_check_is_not_attributed_to_prior_trial(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project, session = self._session(directory)
+            candidate = (
+                session.worktree_project.root_dir / "factors" / "candidate.py"
+            )
+            candidate.write_text("SCORE = 0.5\n", encoding="utf-8")
+            experiment = evaluate_experiment(
+                project,
+                session.manifest["id"],
+                "Evaluate without a prior optional Check.",
+            )
+            self.assertEqual(experiment.result["verdict"], "REVERT")
+
+            candidate.write_text("SCORE = 0.5\n", encoding="utf-8")
+            later = execute_candidate_check(project, session.manifest["id"])
+            brief = build_agent_work_brief(project)
+
+            self.assertEqual(
+                brief["evidence"]["candidateCheckId"],
+                later.result["id"],
+            )
+            self.assertIsNone(
+                brief["evidence"]["latestExperiment"]["candidateCheck"]
             )
 
     def test_worktree_preserves_fixed_preflight_authority(self) -> None:

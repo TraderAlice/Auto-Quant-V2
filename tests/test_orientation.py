@@ -547,7 +547,7 @@ Do not include this sibling section.
             jsonschema.validate(settled, AGENT_WORK_BRIEF_JSON_SCHEMA)
             self.assertEqual(
                 settled["method"],
-                "verified-project-agent-orientation-v7",
+                "verified-project-agent-orientation-v8",
             )
             self.assertEqual(
                 [item["code"] for item in settled["reasons"]],

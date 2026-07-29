@@ -95,7 +95,9 @@ The first viewport prioritizes:
   without rereading or trusting files in JavaScript; when fixed candidate
   preflight is available, this same object routes
   edit → bounded Check → formal Experiment and exposes the exact current Check
-  id/status without granting selection or trading authority; after KEEP it
+  id/status without granting selection or trading authority; it separately
+  renders the latest immutable Experiment/verdict/Run and its preceding Check
+  after leader restore or Session completion; after KEEP it
   distinguishes a settled leader from a newer worktree edit, makes executable
   guarded promotion primary only for the settled leader, and preserves the
   delegated Report gate; for a focused Factor edit it also renders the exact

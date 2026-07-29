@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import re
 import shlex
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -13,7 +14,7 @@ from .candidate_contracts import (
     FACTOR_CANDIDATE_CONTRACT_JSON_SCHEMA,
     build_candidate_contract,
 )
-from .checks import candidate_check_state
+from .checks import candidate_check_state, list_candidate_checks
 from .dossiers import load_dossier_status
 from .intake import load_project_intake
 from .holdouts import HOLDOUT_STATUS_JSON_SCHEMA, load_holdout_status
@@ -29,6 +30,7 @@ from .runs import list_runs, load_run
 from .sessions import (
     list_experiments,
     list_sessions,
+    load_experiment,
     load_session,
     session_snapshot,
 )
@@ -37,7 +39,7 @@ from .workspace import SCHEMA_VERSION, ProjectContext
 
 
 AGENT_WORK_BRIEF_KIND = "autoquant-agent-work-brief"
-AGENT_WORK_BRIEF_METHOD = "verified-project-agent-orientation-v7"
+AGENT_WORK_BRIEF_METHOD = "verified-project-agent-orientation-v8"
 MAX_RESEARCH_QUESTION_CHARS = 4_000
 PROTECTED_CATEGORIES = [
     "request",
@@ -277,6 +279,7 @@ def _session_actions(
 ]:
     manifest = session.manifest
     check_state = candidate_check_state(project, session)
+    experiments = list_experiments(project, session)
     promotion: dict[str, Any] | None = None
     if manifest["leader"]["runId"] != manifest["baseline"]["runId"]:
         if session.delegation is None or current_report is not None:
@@ -339,6 +342,57 @@ def _session_actions(
                 ],
                 check_state,
             )
+    if (
+        current_report is not None
+        and manifest["leader"] == manifest["baseline"]
+        and not check_state["candidateChanged"]
+    ):
+        completion = _command(
+            "session.complete",
+            "Complete baseline-retaining research with the exact current Report.",
+            [
+                "aq",
+                "session",
+                "complete",
+                str(project.root_dir),
+                "--session",
+                manifest["id"],
+                "--report",
+                current_report["id"],
+                "--json",
+            ],
+            "creates-artifact",
+        )
+        return (
+            completion,
+            [
+                _command(
+                    "session.show",
+                    "Inspect the complete Session trial and Report history.",
+                    [
+                        "aq",
+                        "session",
+                        "show",
+                        str(project.root_dir),
+                        "--session",
+                        manifest["id"],
+                        "--json",
+                    ],
+                    "read-only",
+                )
+            ],
+            [
+                {
+                    "code": "baseline-completion-ready",
+                    "category": "evidence",
+                    "message": (
+                        "The current Report freezes the unchanged baseline and "
+                        "complete evidence prefix."
+                    ),
+                }
+            ],
+            check_state,
+        )
     evaluation = _command(
         "experiment.evaluate",
         "Evaluate this exact candidate with the fixed formal Judge.",
@@ -365,6 +419,54 @@ def _session_actions(
                 "message": (
                     "A governed Session owns candidate edits in its disposable "
                     "worktree."
+                ),
+            }
+        ]
+    elif not check_state["candidateChanged"] and experiments:
+        primary = None
+        supporting = [
+            _command(
+                "session.show",
+                "Inspect the latest immutable trial before choosing whether to stop or continue.",
+                [
+                    "aq",
+                    "session",
+                    "show",
+                    str(project.root_dir),
+                    "--session",
+                    manifest["id"],
+                    "--json",
+                ],
+                "read-only",
+            )
+        ]
+        if session.delegation is not None:
+            supporting.append(
+                _command(
+                    "report.publish",
+                    "Publish strict analysis over the current verified Session evidence.",
+                    [
+                        "aq",
+                        "report",
+                        "publish",
+                        str(project.root_dir),
+                        "--session",
+                        manifest["id"],
+                        "--analysis",
+                        "report-analysis.json",
+                        "--json",
+                    ],
+                    "creates-artifact",
+                )
+            )
+        reasons = [
+            {
+                "code": "trial-review-required",
+                "category": "evidence",
+                "message": (
+                    "The latest immutable trial restored the current leader. "
+                    "Review and report this evidence, or explicitly declare "
+                    "another bounded hypothesis; continuation is not required."
                 ),
             }
         ]
@@ -441,39 +543,6 @@ def _session_actions(
                 ),
             }
         )
-    if (
-        current_report is not None
-        and manifest["leader"] == manifest["baseline"]
-    ):
-        completion = _command(
-            "session.complete",
-            "Complete baseline-retaining research with the exact current Report.",
-            [
-                "aq",
-                "session",
-                "complete",
-                str(project.root_dir),
-                "--session",
-                manifest["id"],
-                "--report",
-                current_report["id"],
-                "--json",
-            ],
-            "creates-artifact",
-        )
-        reasons.append(
-            {
-                "code": "baseline-completion-ready",
-                "category": "evidence",
-                "message": (
-                    "The current Report freezes the unchanged baseline and "
-                    "complete evidence prefix."
-                ),
-            }
-        )
-        if not check_state["supported"]:
-            return completion, [evaluation, *supporting], reasons, check_state
-        supporting.append(completion)
     return primary, supporting, reasons, check_state
 
 
@@ -489,6 +558,51 @@ def _orientation_candidate_check(
     }:
         return check_state.get("exactCandidate")
     return check_state.get("current")
+
+
+def _latest_experiment_projection(
+    project: ProjectContext,
+    session: Any,
+) -> dict[str, Any] | None:
+    """Link the latest immutable trial to its preceding candidate Check."""
+
+    experiments = list_experiments(project, session)
+    if not experiments:
+        return None
+    latest = load_experiment(
+        project,
+        session,
+        experiments[-1].id,
+    ).result
+    started_at = datetime.fromisoformat(
+        latest["startedAt"].replace("Z", "+00:00")
+    )
+    matching_check = None
+    for check in reversed(
+        list_candidate_checks(project, session.manifest["id"])
+    ):
+        completed_at = datetime.fromisoformat(
+            check.completed_at.replace("Z", "+00:00")
+        )
+        if (
+            check.candidate_source_hash
+            == latest["candidate"]["sourceHash"]
+            and completed_at <= started_at
+        ):
+            matching_check = {
+                "id": check.id,
+                "status": check.status,
+            }
+            break
+    return {
+        "id": latest["id"],
+        "verdict": latest["verdict"],
+        "runId": latest["candidate"]["runId"],
+        "candidateSourceHash": latest["candidate"]["sourceHash"],
+        "completedAt": latest["completedAt"],
+        "verdictAuthority": "session-objective-only",
+        "candidateCheck": matching_check,
+    }
 
 
 def _program_orientation(
@@ -807,7 +921,13 @@ def _program_orientation(
                 primary["description"]
                 if primary is not None
                 else (
-                    "Edit one falsifiable candidate hypothesis in the declared worktree closure."
+                    (
+                        "Review the latest immutable trial; publish and complete "
+                        "the current evidence, or explicitly declare another "
+                        "bounded hypothesis."
+                    )
+                    if reasons[0]["code"] == "trial-review-required"
+                    else "Edit one falsifiable candidate hypothesis in the declared worktree closure."
                     if reasons[0]["code"] == "candidate-edit-required"
                     else "Revise the candidate to address the failed bounded preflight."
                     if reasons[0]["code"] == "candidate-check-failed"
@@ -1256,7 +1376,13 @@ def _single_study_orientation(
                     "more detail is needed."
                     if reasons[0]["code"] == "descriptive-evidence-ready"
                     else (
-                        "Edit one falsifiable candidate hypothesis in the declared worktree closure."
+                        (
+                            "Review the latest immutable trial; publish and "
+                            "complete the current evidence, or explicitly "
+                            "declare another bounded hypothesis."
+                        )
+                        if reasons[0]["code"] == "trial-review-required"
+                        else "Edit one falsifiable candidate hypothesis in the declared worktree closure."
                         if reasons[0]["code"] == "candidate-edit-required"
                         else (
                             "Revise the candidate to address the failed bounded preflight."
@@ -1503,7 +1629,8 @@ def build_agent_work_brief(project: ProjectContext) -> dict[str, Any]:
         )
     if (
         research_agenda["status"] == "no-further-in-sample-tuning"
-        and projected["reasons"][0]["code"] == "candidate-edit-required"
+        and projected["reasons"][0]["code"]
+        in {"candidate-edit-required", "trial-review-required"}
         and projected["primaryAction"] is None
         and freeze_session is not None
         and bool(freeze_experiments)
@@ -1557,6 +1684,11 @@ def build_agent_work_brief(project: ProjectContext) -> dict[str, Any]:
                 "validation selects · visible test audits · no trading authority"
             ),
         }
+    projected["evidence"]["latestExperiment"] = (
+        _latest_experiment_projection(project, freeze_session)
+        if freeze_session is not None
+        else None
+    )
     focus_study_id = projected["focus"]["studyId"]
     candidate_contract = (
         build_candidate_contract(
@@ -1730,19 +1862,80 @@ AGENT_WORK_BRIEF_JSON_SCHEMA: dict[str, Any] = {
                 "reportId",
                 "candidateCheckId",
                 "candidateCheckStatus",
+                "latestExperiment",
             ],
             "properties": {
-                key: {"type": ["string", "null"]}
-                for key in (
-                    "runId",
-                    "runStatus",
-                    "sessionId",
-                    "sessionStatus",
-                    "leaderRunId",
-                    "reportId",
-                    "candidateCheckId",
-                    "candidateCheckStatus",
-                )
+                **{
+                    key: {"type": ["string", "null"]}
+                    for key in (
+                        "runId",
+                        "runStatus",
+                        "sessionId",
+                        "sessionStatus",
+                        "leaderRunId",
+                        "reportId",
+                        "candidateCheckId",
+                        "candidateCheckStatus",
+                    )
+                },
+                "latestExperiment": {
+                    "oneOf": [
+                        {"type": "null"},
+                        {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "required": [
+                                "id",
+                                "verdict",
+                                "runId",
+                                "candidateSourceHash",
+                                "completedAt",
+                                "verdictAuthority",
+                                "candidateCheck",
+                            ],
+                            "properties": {
+                                "id": {"type": "string", "minLength": 1},
+                                "verdict": {
+                                    "enum": ["KEEP", "REVERT", "CRASH"]
+                                },
+                                "runId": {"type": "string", "minLength": 1},
+                                "candidateSourceHash": {
+                                    "type": "string",
+                                    "pattern": "^[0-9a-f]{64}$",
+                                },
+                                "completedAt": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                },
+                                "verdictAuthority": {
+                                    "const": "session-objective-only"
+                                },
+                                "candidateCheck": {
+                                    "oneOf": [
+                                        {"type": "null"},
+                                        {
+                                            "type": "object",
+                                            "additionalProperties": False,
+                                            "required": ["id", "status"],
+                                            "properties": {
+                                                "id": {
+                                                    "type": "string",
+                                                    "minLength": 1,
+                                                },
+                                                "status": {
+                                                    "enum": [
+                                                        "passed",
+                                                        "failed",
+                                                    ]
+                                                },
+                                            },
+                                        },
+                                    ]
+                                },
+                            },
+                        },
+                    ]
+                },
             },
         },
         "reasons": {

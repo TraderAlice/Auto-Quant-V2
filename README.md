@@ -1,5 +1,5 @@
 ---
-version: 0.8.15
+version: 0.8.16
 ---
 
 # AutoQuant V2
@@ -32,7 +32,7 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current milestone: `0.8.15`
+## Current milestone: `0.8.16`
 
 AutoQuant V2 has crossed from an architectural prototype into a usable
 research workbench.
@@ -124,9 +124,23 @@ from validation net Sharpe `1.7614` to `-2.0367`; no promotion occurred and
 the final Work Brief cleanly froze the restored baseline for external
 evidence.
 
-Repository regression passes all 304 tests, the documentation graph resolves
-all 1,064 checked links, and the final source/wheel installation reproduces
-the same candidate contract across CLI and Studio.
+The `0.8.15` repository regression passed all 304 tests, its documentation
+graph resolved all 1,064 checked links, and the final source/wheel installation
+reproduced the same candidate contract across CLI and Studio.
+
+`0.8.16` follows the next fresh Grok coworker through a real OpenAlice-style
+multi-interval intake and one complete delegated REVERT handoff. A restored
+leader with trial history now enters explicit review instead of demanding
+another edit; delegated Report publication and Session inspection remain
+optional supporting actions, then an exact baseline-retaining Report makes
+completion primary. The Work Brief separately preserves the latest immutable
+Experiment, candidate Run, verdict, and preceding Check after restore and
+Session completion.
+
+Repository regression passes all 306 tests, the documentation graph resolves
+all 1,069 checked links, and a fresh installed-wheel replay reproduces the
+trial-review, Report, completion, and immutable evidence handoff across CLI
+and Studio.
 
 ## Standalone or an OpenAlice desk
 
