@@ -34,6 +34,7 @@ There are no proposed plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/research-brief-backed-agent-orientation]] | Made the verified Agent Work Brief and Studio follow a local Project's maintained English research question while preserving delegated request authority, proved by a second clean Grok Build retry. | 2026-07-29 |
 | [[plans/repository-root-workspace]] | Made the repository clone an immediately operable, Git-backed AutoQuant Workspace with a complete evidence-bearing sample and an explicit local external-Projects override for Workbench development. | 2026-07-29 |
 | [[plans/portfolio-native-risk-parity-allocation]] | Answered a fixed equal-risk-contribution strategic allocation request against a same-clock weighted reference without inventing a predictive factor. | 2026-07-29 |
 | [[plans/governed-rl-real-panel-runtime]] | Completed the unchanged real nine-asset global ETF governed-RL lane inside its fixed 120-second boundary without reducing scientific or evidence authority; strict evidence rejected adaptive promotion. | 2026-07-29 |

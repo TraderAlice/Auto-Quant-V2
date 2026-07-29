@@ -1,5 +1,5 @@
 ---
-version: 0.8.8
+version: 0.8.9
 ---
 
 # AutoQuant V2
@@ -32,7 +32,7 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current milestone: `0.8.8`
+## Current milestone: `0.8.9`
 
 AutoQuant V2 has crossed from an architectural prototype into a usable
 research workbench.
@@ -64,6 +64,13 @@ Factor Run. Workbench developers can explicitly redirect effective Project
 discovery through an ignored local Workspace configuration without changing
 the shipped default. See [current status](docs/STATUS.md) for supported
 research routes, verification, maturity, and honest boundaries.
+
+`0.8.9` closes one gap found by an independent Grok Build onboarding trial:
+for local Projects, `aq orient` and Studio now surface the explicitly headed
+question maintained in `research.md`, its source path, and its provenance
+instead of continuing to show a stale create-time description. Delegated
+request manifests remain higher authority, and Projects without an explicit
+question heading retain the safe manifest-description fallback.
 
 ## Standalone or an OpenAlice desk
 
@@ -173,6 +180,10 @@ has no override and remains self-contained.
 The `0.8.8` release was closed with 286 passing tests, 1,029 checked
 documentation links, source/wheel and installed-wheel smoke, and a second
 no-hardlink clean-clone replay of the complete root Workspace.
+
+The `0.8.9` release was closed with 289 passing tests, 1,033 checked
+documentation links, an independent pre-Run Grok Build retry, and a fresh
+installed-wheel Workspace/Project/orientation/Factor-Run smoke.
 
 `project create` is the normal construction entry point. It creates
 `research.md`, `framework-needs.md`, the Project manifest, and the Project-local

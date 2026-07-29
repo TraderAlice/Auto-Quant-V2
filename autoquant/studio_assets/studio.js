@@ -619,6 +619,8 @@ const researchDecisionBrief = (project) => {
       origin:
         coreBrief.question.origin === "delegated-request"
           ? "OPENALICE REQUEST"
+          : coreBrief.question.origin === "project-research-brief"
+            ? "PROJECT RESEARCH BRIEF"
           : "LOCAL RESEARCH",
       workBriefHash: project.agentWorkBriefHash,
     };

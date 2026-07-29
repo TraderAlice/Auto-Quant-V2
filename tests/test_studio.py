@@ -61,6 +61,13 @@ class StudioObservationTests(unittest.TestCase):
     def test_workspace_and_project_snapshots_share_verified_contract(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             workspace, project, session = self._setup(directory)
+            research_path = project.root_dir / "research.md"
+            research_path.write_text(
+                "# Factor Project\n\n"
+                "## Research question\n\n"
+                "Does Studio receive the maintained question?\n",
+                encoding="utf-8",
+            )
             create_project(
                 workspace.root_dir,
                 "empty-lab",
@@ -96,6 +103,16 @@ class StudioObservationTests(unittest.TestCase):
             self.assertEqual(
                 observed["agentWorkBrief"]["kind"],
                 "autoquant-agent-work-brief",
+            )
+            self.assertEqual(
+                observed["agentWorkBrief"]["question"],
+                {
+                    "title": project.manifest.name,
+                    "text": "Does Studio receive the maintained question?",
+                    "origin": "project-research-brief",
+                    "sourcePath": str(research_path),
+                    "requestPath": None,
+                },
             )
             self.assertEqual(
                 len(observed["agentWorkBriefHash"]),

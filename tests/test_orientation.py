@@ -21,6 +21,121 @@ from tests.study_helpers import make_project, study_definition
 
 
 class AgentOrientationTests(unittest.TestCase):
+    def test_local_question_comes_from_explicit_research_brief_section(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = initialize_workspace(
+                Path(directory) / "workspace",
+                name="Quant Desk",
+            )
+            project = create_project(
+                workspace.root_dir,
+                "brief-lab",
+                name="Brief Lab",
+                description="Stale create-time description",
+            )
+            research_path = project.root_dir / "research.md"
+            research_path.write_text(
+                """# Brief Lab
+
+## Context
+
+Do not mistake this prose for the active question.
+
+```markdown
+## Research question
+
+This fenced example is not authority.
+```
+
+### Research question and hypotheses
+
+Does the maintained
+multi-line question reach a replacement Agent?
+
+#### Supporting detail
+
+Preserve this deeper detail with the question.
+
+### Constraints
+
+Stop the extracted section here.
+""",
+                encoding="utf-8",
+            )
+
+            brief = build_agent_work_brief(project)
+
+            jsonschema.validate(brief, AGENT_WORK_BRIEF_JSON_SCHEMA)
+            self.assertEqual(
+                brief["question"],
+                {
+                    "title": "Brief Lab",
+                    "text": (
+                        "Does the maintained\n"
+                        "multi-line question reach a replacement Agent?\n\n"
+                        "#### Supporting detail\n\n"
+                        "Preserve this deeper detail with the question."
+                    ),
+                    "origin": "project-research-brief",
+                    "sourcePath": str(research_path),
+                    "requestPath": None,
+                },
+            )
+
+    def test_research_brief_question_is_bounded_for_compact_orientation(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = initialize_workspace(
+                Path(directory) / "workspace",
+                name="Quant Desk",
+            )
+            project = create_project(workspace.root_dir, "bounded-lab")
+            (project.root_dir / "research.md").write_text(
+                "# Bounded Lab\n\n## Research question\n\n"
+                + "signal " * 1_000,
+                encoding="utf-8",
+            )
+
+            question = build_agent_work_brief(project)["question"]
+
+            self.assertEqual(question["origin"], "project-research-brief")
+            self.assertLessEqual(len(question["text"]), 4_000)
+            self.assertTrue(question["text"].endswith("…"))
+
+    def test_local_question_falls_back_when_brief_has_no_question_heading(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = initialize_workspace(
+                Path(directory) / "workspace",
+                name="Quant Desk",
+            )
+            project = create_project(
+                workspace.root_dir,
+                "fallback-lab",
+                name="Fallback Lab",
+                description="Use the manifest fallback",
+            )
+            (project.root_dir / "research.md").write_text(
+                "# Fallback Lab\n\n## Purpose\n\nArbitrary method prose.\n",
+                encoding="utf-8",
+            )
+
+            brief = build_agent_work_brief(project)
+
+            jsonschema.validate(brief, AGENT_WORK_BRIEF_JSON_SCHEMA)
+            self.assertEqual(
+                brief["question"],
+                {
+                    "title": "Fallback Lab",
+                    "text": "Use the manifest fallback",
+                    "origin": "local",
+                    "sourcePath": None,
+                    "requestPath": None,
+                },
+            )
+
     def test_single_study_moves_from_baseline_to_session_worktree(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             _, project = make_project(directory)
@@ -115,10 +230,28 @@ class AgentOrientationTests(unittest.TestCase):
                 template=prepared.template,
                 template_intake=prepared,
             )
+            (project.root_dir / "research.md").write_text(
+                "# Conflicting local brief\n\n"
+                "## Research question\n\n"
+                "This local text must not replace delegated authority.\n",
+                encoding="utf-8",
+            )
 
             brief = build_agent_work_brief(project)
             jsonschema.validate(brief, AGENT_WORK_BRIEF_JSON_SCHEMA)
             self.assertEqual(brief["question"]["origin"], "delegated-request")
+            self.assertEqual(
+                brief["question"]["text"],
+                prepared.request["question"],
+            )
+            self.assertEqual(
+                brief["question"]["requestPath"],
+                str(project.root_dir / "request.json"),
+            )
+            self.assertEqual(
+                brief["question"]["sourcePath"],
+                str(project.root_dir / "request.json"),
+            )
             self.assertEqual(brief["focus"]["laneId"], "factor")
             self.assertEqual(brief["focus"]["studyId"], OHLCV_STUDY_ID)
             self.assertEqual(

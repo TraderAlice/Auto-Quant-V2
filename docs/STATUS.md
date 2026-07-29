@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha at `0.8.8`.
+Status: usable pre-alpha at `0.8.9`.
 
 Updated: 2026-07-29.
 
@@ -13,7 +13,7 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 AutoQuant V2 has crossed the line from an architectural prototype into a
 usable Agent-native quantitative research workbench.
 
-At `0.8.8`, a human, local coding Agent, or coworker delegated from OpenAlice
+At `0.8.9`, a human, local coding Agent, or coworker delegated from OpenAlice
 can:
 
 1. clone the repository and immediately discover the Harness plus its
@@ -33,14 +33,22 @@ can:
 9. return useful negative evidence without turning rejection into a system
    failure or a fabricated trading instruction.
 
-`0.8.8` makes the repository clone the canonical default Workspace. Its
+`0.8.8` made the repository clone the canonical default Workspace. Its
 ordinary `sample-research-desk` contains Factor, Portfolio, and governed-RL
 Studies plus one explicitly historical clean `0.8.7` Factor Run for immediate
 Studio inspection. An ignored strict local Workspace configuration lets
 Workbench development reuse an external real-Project collection without
 shipping those cases or changing the user's internal default.
 
-The annotated release tag `v0.8.8` points to commit `d2e56f0`.
+`0.8.9` makes the Agent Work Brief follow the maintained local research
+question. A clearly headed question in `research.md` now reaches CLI and
+Studio with explicit provenance and source path; a validated delegated request
+still takes precedence, and arbitrary Markdown prose is never guessed into
+caller intent. Two clean Grok Build field trials supplied the original failure
+and independent pre-Run retry evidence.
+
+The latest annotated release tag is `v0.8.9`; `v0.8.8` remains the
+repository-root Workspace milestone at commit `d2e56f0`.
 
 The canonical repository is
 [TraderAlice/Auto-Quant-V2](https://github.com/TraderAlice/Auto-Quant-V2).
@@ -95,8 +103,8 @@ The current workbench gives that Agent:
 - `research.md` for recoverable problem definition and clarification;
 - `framework-needs.md` for Project-observed Workbench gaps;
 - `aq capabilities` for machine discovery;
-- `aq orient` for one verified question, evidence state, filesystem boundary,
-  and exact next action;
+- `aq orient` for one verified question with delegated/request-brief/local
+  provenance, evidence state, filesystem boundary, and exact next action;
 - ordinary pandas factor code instead of a proprietary factor DSL;
 - fast deterministic candidate checks before complete evaluation;
 - disposable Session worktrees with a declared editable closure;
@@ -132,6 +140,25 @@ not only synthetic fixtures:
 
 The canonical results, Run identifiers, versions, and limitations are preserved
 in [[docs/trading-request-field-trials]].
+
+## `0.8.9` verification snapshot
+
+- independent Grok Build retry created a fresh Project, wrote its English
+  brief, and verified exact `project-research-brief` question provenance before
+  any Run existed;
+- the same retry completed exactly one bounded synthetic Factor baseline, with
+  one Run, zero Sessions, unchanged candidate bytes, and matching CLI/Studio
+  orientation;
+- delegated-request precedence, explicit-heading extraction, fenced-heading
+  exclusion, bounded content, safe fallback, human CLI compaction, and Studio
+  parity have deterministic regression coverage;
+- final repository regression: 289/289 tests;
+- documentation graph: 1,033/1,033 checked links;
+- source distribution, wheel build, fresh Python 3.11 install, empty Workspace,
+  Project construction, orientation/Studio parity, and one installed-wheel
+  Factor Run passed with Harness `0.8.9` and `dirty: false`;
+- no Study, Judge, dataset, evaluation semantic, or historical immutable Run
+  changed.
 
 ## `0.8.8` verification snapshot
 
@@ -209,7 +236,7 @@ field-trial surface.
 
 ## Maturity and next use
 
-`0.8.8` is suitable for controlled standalone use and initial OpenAlice desk
+`0.8.9` is suitable for controlled standalone use and initial OpenAlice desk
 integration. It is still pre-`1.0`: public contracts are versioned and strict,
 but the project continues to prefer domain correctness and Agent operability
 over backward compatibility while the product shape settles.

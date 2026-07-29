@@ -71,6 +71,13 @@ class AgentCliTests(unittest.TestCase):
                 ["study.inspect", "run.execute"],
             )
             project = Path(envelope["data"]["projectDir"])
+            research_path = project / "research.md"
+            research_path.write_text(
+                "# OHLCV Lab\n\n"
+                "## Research question\n\n"
+                "Does the shipped factor survive the fixed validation Study?\n",
+                encoding="utf-8",
+            )
             study = json.loads(
                 (
                     project
@@ -92,6 +99,19 @@ class AgentCliTests(unittest.TestCase):
             self.assertEqual(
                 orientation["data"]["kind"],
                 "autoquant-agent-work-brief",
+            )
+            self.assertEqual(
+                orientation["data"]["question"],
+                {
+                    "title": "ohlcv-lab",
+                    "text": (
+                        "Does the shipped factor survive the fixed validation "
+                        "Study?"
+                    ),
+                    "origin": "project-research-brief",
+                    "sourcePath": str(research_path),
+                    "requestPath": None,
+                },
             )
             self.assertEqual(
                 orientation["data"]["primaryAction"]["id"],

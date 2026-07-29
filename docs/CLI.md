@@ -108,6 +108,13 @@ state into one strict `AgentWorkBrief`. The brief identifies the current
 question and focus, stable reason code, exact operating root, paths writable
 now versus only declared for a future Session, protected authority, and one
 primary command with working directory, effect, and expected evidence kind.
+Question provenance is explicit: delegated intake returns
+`origin: delegated-request`; otherwise an explicitly headed
+`Research question...` or `Fixed question` section in the Project research
+program returns `origin: project-research-brief`. Both expose an absolute
+`sourcePath`. If neither source exists, orientation uses the create-time
+Project description with `origin: local` and does not infer intent from
+arbitrary prose.
 V2 also includes `researchAgenda`: an explicit waiting/unsupported/frozen
 state or up to three deterministic experiment briefs derived from the current
 verified Factor, Portfolio, or governed-RL Run. Each move carries its

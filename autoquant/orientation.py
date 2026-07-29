@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import shlex
 from pathlib import Path
 from typing import Any
@@ -24,7 +25,8 @@ from .workspace import SCHEMA_VERSION, ProjectContext
 
 
 AGENT_WORK_BRIEF_KIND = "autoquant-agent-work-brief"
-AGENT_WORK_BRIEF_METHOD = "verified-project-agent-orientation-v3"
+AGENT_WORK_BRIEF_METHOD = "verified-project-agent-orientation-v4"
+MAX_RESEARCH_QUESTION_CHARS = 4_000
 PROTECTED_CATEGORIES = [
     "request",
     "dataset",
@@ -56,6 +58,115 @@ EXPECTED_EVIDENCE = {
     "run.event-study": "event-study-diagnostics",
     "validate": "structural-validation",
 }
+
+
+_MARKDOWN_HEADING = re.compile(r"^(#{1,6})[ \t]+(.+?)[ \t]*$")
+_MARKDOWN_FENCE = re.compile(r"^[ \t]*(`{3,}|~{3,})")
+
+
+def _normalized_heading(value: str) -> str:
+    plain = value.rstrip("#").strip()
+    plain = re.sub(r"[*_`~]+", "", plain)
+    return re.sub(r"[\s_-]+", " ", plain).strip().casefold()
+
+
+def _bounded_research_question(value: str) -> str:
+    if len(value) <= MAX_RESEARCH_QUESTION_CHARS:
+        return value
+    prefix = value[: MAX_RESEARCH_QUESTION_CHARS - 1]
+    boundary = prefix.rfind(" ")
+    if boundary >= MAX_RESEARCH_QUESTION_CHARS // 2:
+        prefix = prefix[:boundary]
+    return prefix.rstrip() + "…"
+
+
+def _research_brief_question(project: ProjectContext) -> tuple[str, Path] | None:
+    """Read one explicitly headed question without imposing a Markdown schema."""
+
+    path = project.root_dir / project.manifest.research_program
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeError):
+        return None
+
+    headings: list[tuple[int, int, str]] = []
+    fence_character: str | None = None
+    for index, line in enumerate(lines):
+        fence = _MARKDOWN_FENCE.match(line)
+        if fence is not None:
+            character = fence.group(1)[0]
+            if fence_character is None:
+                fence_character = character
+            elif fence_character == character:
+                fence_character = None
+            continue
+        if fence_character is not None:
+            continue
+        heading = _MARKDOWN_HEADING.match(line)
+        if heading is None:
+            continue
+        headings.append(
+            (
+                index,
+                len(heading.group(1)),
+                _normalized_heading(heading.group(2)),
+            )
+        )
+
+    for position, (index, level, heading) in enumerate(headings):
+        if not (
+            heading == "fixed question"
+            or heading == "research question"
+            or heading.startswith("research question ")
+        ):
+            continue
+        end = len(lines)
+        for next_index, next_level, _ in headings[position + 1 :]:
+            if next_level <= level:
+                end = next_index
+                break
+        text = "\n".join(lines[index + 1 : end]).strip()
+        if text:
+            return _bounded_research_question(text), path
+    return None
+
+
+def _question_projection(
+    project: ProjectContext,
+    intake: dict[str, Any] | None,
+) -> dict[str, Any]:
+    if intake is not None:
+        request = intake["request"]
+        return {
+            "title": request["title"],
+            "text": request["question"],
+            "origin": "delegated-request",
+            "sourcePath": str(
+                project.root_dir / intake["manifest"]["requestPath"]
+            ),
+            "requestPath": str(
+                project.root_dir / intake["manifest"]["requestPath"]
+            ),
+        }
+
+    maintained = _research_brief_question(project)
+    if maintained is not None:
+        text, path = maintained
+        return {
+            "title": project.manifest.name,
+            "text": text,
+            "origin": "project-research-brief",
+            "sourcePath": str(path),
+            "requestPath": None,
+        }
+
+    return {
+        "title": project.manifest.name,
+        "text": project.manifest.description,
+        "origin": "local",
+        "sourcePath": None,
+        "requestPath": None,
+    }
 
 
 def _action(
@@ -1191,7 +1302,6 @@ def build_agent_work_brief(project: ProjectContext) -> dict[str, Any]:
             editable_paths=projected["filesystem"]["declaredEditablePaths"],
         )
     )
-    request = intake["request"] if intake is not None else None
     return {
         "schemaVersion": SCHEMA_VERSION,
         "kind": AGENT_WORK_BRIEF_KIND,
@@ -1201,22 +1311,7 @@ def build_agent_work_brief(project: ProjectContext) -> dict[str, Any]:
             "name": project.manifest.name,
             "rootDir": str(project.root_dir),
         },
-        "question": {
-            "title": (
-                request["title"] if request is not None else project.manifest.name
-            ),
-            "text": (
-                request["question"]
-                if request is not None
-                else project.manifest.description
-            ),
-            "origin": "delegated-request" if request is not None else "local",
-            "requestPath": (
-                str(project.root_dir / intake["manifest"]["requestPath"])
-                if intake is not None
-                else None
-            ),
-        },
+        "question": _question_projection(project, intake),
         "researchAgenda": research_agenda,
         "externalHoldout": holdout,
         **projected,
@@ -1297,11 +1392,24 @@ AGENT_WORK_BRIEF_JSON_SCHEMA: dict[str, Any] = {
         "question": {
             "type": "object",
             "additionalProperties": False,
-            "required": ["title", "text", "origin", "requestPath"],
+            "required": [
+                "title",
+                "text",
+                "origin",
+                "sourcePath",
+                "requestPath",
+            ],
             "properties": {
                 "title": {"type": "string", "minLength": 1},
                 "text": {"type": "string"},
-                "origin": {"enum": ["local", "delegated-request"]},
+                "origin": {
+                    "enum": [
+                        "local",
+                        "project-research-brief",
+                        "delegated-request",
+                    ]
+                },
+                "sourcePath": {"type": ["string", "null"]},
                 "requestPath": {"type": ["string", "null"]},
             },
         },

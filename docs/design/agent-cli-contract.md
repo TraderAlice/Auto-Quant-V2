@@ -98,6 +98,17 @@ execute, promote, or trade. Studio consumes the exact same object and Core
 hash rather than deriving a competing research decision or experiment order
 in JavaScript. See [[docs/design/evidence-driven-research-agenda]].
 
+The brief's `question` projection has ordered, disclosed provenance. A
+validated delegated request returns `origin: delegated-request` and its
+request path in both `sourcePath` and the backward-compatible
+`requestPath`. Without intake, a clearly headed question section in the
+manifest-declared research program returns
+`origin: project-research-brief`, that Markdown `sourcePath`, and a null
+`requestPath`. When neither exists, Core returns the Project manifest
+description with `origin: local` and null source/request paths. Studio consumes
+this exact projection; it does not reread Markdown or choose a competing
+question.
+
 ## CLI-to-Studio flow
 
 ```text

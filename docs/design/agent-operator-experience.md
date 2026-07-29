@@ -44,6 +44,16 @@ cross-Workspace communication, and authenticated provenance may add context,
 but Project files and Core evidence remain sufficient to orient a replacement
 Agent. Standalone and hosted operation use the same brief contract.
 
+Question authority is explicit and ordered. A validated delegated request
+manifest is first because it freezes caller-owned intent. Otherwise Core reads
+the manifest-declared research program and extracts only a non-empty section
+headed `Research question`, `Research question ...`, or `Fixed question`.
+That bounded Markdown section is identified as
+`project-research-brief` and its absolute `sourcePath` is returned. Core does
+not infer intent from arbitrary prose; when no recognized section exists it
+safely falls back to the Project manifest description with `origin: local`.
+The delegated-only `requestPath` remains null for a Markdown-derived question.
+
 The repository clone is itself the default Workspace. Harness source,
 checked-in `projects/`, and one complete three-lane sample therefore share one
 filesystem search surface. A new Agent can use `aq project list .`,
@@ -115,7 +125,9 @@ The V2 brief is compact, strict, and derived entirely from verified current
 state. It contains:
 
 - identity: Workspace/Project and optional delegated request;
-- objective: current research question and selected Study objective;
+- objective: current research question, its delegated-request,
+  project-research-brief, or local-fallback origin, source path when present,
+  and selected Study objective;
 - focus: lane, Study, coordination phase, scientific stage, and operating
   mode;
 - evidence: current Run/Session/Report/Dossier identities needed to understand
@@ -271,6 +283,9 @@ Judge authority.
     orientation for the same Workspace state.
 12. Required orientation survives replacement of the native Agent Session;
     private chat history is never the only source of Project truth.
+13. Delegated request authority precedes the flexible research brief; without
+    delegated intake, an explicitly headed maintained question precedes the
+    create-time Project description.
 
 ## Known limitations
 

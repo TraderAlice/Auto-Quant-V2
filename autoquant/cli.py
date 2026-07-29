@@ -3798,9 +3798,14 @@ def _orient(args: argparse.Namespace) -> CommandResult:
         if filesystem["writable"]
         else "none until a governed Session owns a worktree"
     )
+    question = " ".join(
+        (brief["question"]["text"] or brief["question"]["title"]).split()
+    )
+    if len(question) > 320:
+        question = question[:319].rstrip() + "…"
     human = (
         f"AutoQuant Agent Work Brief: {brief['project']['name']}\n"
-        f"Question: {brief['question']['text'] or brief['question']['title']}\n"
+        f"Question: {question}\n"
         f"Focus: {focus['laneName'] or 'single Study'} · "
         f"{focus['studyId'] or 'no Study'}\n"
         f"State: {focus['coordinationPhase']} · "
