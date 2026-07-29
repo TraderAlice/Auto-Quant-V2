@@ -236,6 +236,43 @@ Stop the extracted section here.
             self.assertLessEqual(len(question["text"]), 4_000)
             self.assertTrue(question["text"].endswith("…"))
 
+    def test_qualified_question_heading_is_explicit_research_authority(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = initialize_workspace(
+                Path(directory) / "workspace",
+                name="Quant Desk",
+            )
+            project = create_project(
+                workspace.root_dir,
+                "qualified-question-lab",
+                description="Stale fallback",
+            )
+            research_path = project.root_dir / "research.md"
+            research_path.write_text(
+                """# Qualified Question Lab
+
+### Question (bounded, falsifiable)
+
+Does relative volume add validation-period information?
+
+### Deliverable
+
+Do not include this sibling section.
+""",
+                encoding="utf-8",
+            )
+
+            question = build_agent_work_brief(project)["question"]
+
+            self.assertEqual(question["origin"], "project-research-brief")
+            self.assertEqual(
+                question["text"],
+                "Does relative volume add validation-period information?",
+            )
+            self.assertEqual(question["sourcePath"], str(research_path))
+
     def test_local_question_falls_back_when_brief_has_no_question_heading(
         self,
     ) -> None:

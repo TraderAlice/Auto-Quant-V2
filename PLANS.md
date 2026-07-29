@@ -34,6 +34,7 @@ There are no proposed plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/qualification-aware-agent-handoff]] | Let a bounded research worker distinguish Session verdict from scientific qualification and stop cleanly on terminal blocked evidence. | 2026-07-29 |
 | [[plans/session-worktree-cli-reentry]] | Made a locked Session worktree a verified read-only orientation entry point without copying datasets or redirecting mutation commands, proved by a fresh installed-wheel Grok retry. | 2026-07-29 |
 | [[plans/promotion-first-session-orientation]] | Routed a settled KEEP to one executable guarded-promotion primary action without overriding newer candidate edits or delegated Report gates, and retained its exact passing Check through handoff. | 2026-07-29 |
 | [[plans/verified-project-request-orientation]] | Surfaced locally constructed but fixed-dependency-bound Project requests in the Agent Work Brief without weakening delegated or Markdown provenance, proved by a fresh pre-inspection Grok Event retry. | 2026-07-29 |

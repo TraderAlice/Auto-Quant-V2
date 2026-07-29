@@ -112,13 +112,13 @@ Project-root request returns `origin: project-request` only when its canonical
 hash is bound by `source.requestHash` in a declared fixed Study dependency.
 Both paths identify `request.json`.
 
-Without a verified request, a clearly headed `Question`,
-`Research question...`, or `Fixed question` section in the manifest-declared
-research program returns `origin: project-research-brief`, that Markdown
-`sourcePath`, and a null `requestPath`. When none exists, Core returns the
-Project manifest description with `origin: local` and null source/request
-paths. Studio consumes this exact projection; it does not reread files or
-choose a competing question.
+Without a verified request, a clearly headed `Question`, qualified
+`Question ...`, `Research question...`, or `Fixed question` section in the
+manifest-declared research program returns
+`origin: project-research-brief`, that Markdown `sourcePath`, and a null
+`requestPath`. When none exists, Core returns the Project manifest description
+with `origin: local` and null source/request paths. Studio consumes this exact
+projection; it does not reread files or choose a competing question.
 
 Session action ordering is also reconstructed from verified state. When the
 worktree equals a non-baseline KEEP leader, non-delegated orientation makes
@@ -135,9 +135,26 @@ identity still match; this evidence projection does not make the old
 leader-relative Check eligible to preflight a different candidate.
 
 After successful promotion, the mutation response reconstructs the same
-post-mutation Agent Work Brief used by `aq orient` and Studio and projects its
-primary/supporting actions into `nextActions`. It must not recommend a
-redundant baseline Run when the promoted KEEP Run is already current evidence.
+post-mutation Agent Work Brief used by `aq orient` and Studio, includes that
+brief in `data.agentWorkBrief`, and projects its primary/supporting actions
+into `nextActions`. Human output prints its leading disposition. It must not
+recommend a redundant baseline Run when the promoted KEEP Run is already
+current evidence.
+
+Experiment evaluation separates local selection from scientific authority.
+Its immutable Experiment result retains the fixed `KEEP`, `REVERT`, or `CRASH`
+verdict, while the command envelope adds `verdictAuthority` with
+`scope: session-objective-only`, false scientific qualification and downstream
+admission, and `tradingAuthority: none`. This disclosure does not rewrite
+historical Experiment schemas or make the CLI a second evaluator.
+`experiment.show` repeats the same envelope-level authority and human
+disclosure so replacement Agents do not need the original evaluation response.
+
+When a coordinated lane has both terminal Session evidence and a blocked
+scientific gate, orientation has no primary action and keeps a new
+`session.start` only as optional supporting work. The Agent can still invoke
+that exact command explicitly. A weak initial baseline without prior terminal
+research continues to present its first Session as primary work.
 
 ## CLI-to-Studio flow
 

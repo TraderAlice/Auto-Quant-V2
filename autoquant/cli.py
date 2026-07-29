@@ -2818,10 +2818,16 @@ def _session_promote(args: argparse.Namespace) -> CommandResult:
     project = _selected_project(args)
     receipt = promote_session(project, args.session, args.report)
     session = load_session(project, args.session)
+    brief = build_agent_work_brief(project)
+    disposition = brief["reasons"][0]
     receipt_path = session.root_dir / "promotion.json"
     return CommandResult(
         "session.promote",
-        {"receipt": receipt, "session": session.manifest},
+        {
+            "receipt": receipt,
+            "session": session.manifest,
+            "agentWorkBrief": brief,
+        },
         (
             f"Promoted Session {session.manifest['id']}\n"
             f"Study: {session.manifest['studyId']}\n"
@@ -2834,6 +2840,10 @@ def _session_promote(args: argparse.Namespace) -> CommandResult:
                 if receipt.get("report") is not None
                 else ""
             )
+            + (
+                f"Post-promotion: {disposition['code']} — "
+                f"{disposition['message']}\n"
+            )
         ),
         project_context(project),
         [
@@ -2844,7 +2854,7 @@ def _session_promote(args: argparse.Namespace) -> CommandResult:
                 immutable=True,
             )
         ],
-        _brief_next_actions(build_agent_work_brief(project)),
+        _brief_next_actions(brief),
     )
 
 
@@ -2898,6 +2908,15 @@ def _experiment_artifacts(project, experiment) -> list[dict[str, Any]]:
     ]
 
 
+def _experiment_verdict_authority() -> dict[str, Any]:
+    return {
+        "scope": "session-objective-only",
+        "scientificQualification": False,
+        "downstreamAdmission": False,
+        "tradingAuthority": "none",
+    }
+
+
 def _experiment_evaluate(args: argparse.Namespace) -> CommandResult:
     project = _selected_project(args)
     experiment = evaluate_experiment(project, args.session, args.hypothesis)
@@ -2909,6 +2928,7 @@ def _experiment_evaluate(args: argparse.Namespace) -> CommandResult:
             "experiment": experiment.result,
             "changes": experiment.changes,
             "session": session_snapshot(project, session),
+            "verdictAuthority": _experiment_verdict_authority(),
         },
         (
             f"Experiment {experiment.result['id']}: "
@@ -2919,6 +2939,8 @@ def _experiment_evaluate(args: argparse.Namespace) -> CommandResult:
             f"{candidate['value'] if candidate['value'] is not None else 'failed'}\n"
             f"Improvement: "
             f"{experiment.result['improvement'] if experiment.result['improvement'] is not None else 'unavailable'}\n"
+            "Authority: Session objective only; this verdict is not scientific "
+            "qualification, downstream admission, or trading authority.\n"
         ),
         project_context(project),
         _experiment_artifacts(project, experiment),
@@ -2978,12 +3000,15 @@ def _experiment_show(args: argparse.Namespace) -> CommandResult:
             "result": experiment.result,
             "changes": experiment.changes,
             "diffPath": str(experiment.root_dir / "diff.patch"),
+            "verdictAuthority": _experiment_verdict_authority(),
         },
         (
             f"Immutable Experiment: {experiment.result['id']}\n"
             f"Verdict: {experiment.result['verdict']}\n"
             f"Hypothesis: {experiment.result['hypothesis']}\n"
             f"Candidate Run: {experiment.result['candidate']['runId']}\n"
+            "Authority: Session objective only; this verdict is not scientific "
+            "qualification, downstream admission, or trading authority.\n"
         ),
         project_context(project),
         _experiment_artifacts(project, experiment),

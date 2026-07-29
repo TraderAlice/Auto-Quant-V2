@@ -511,7 +511,17 @@ class MultiStudyResearchProgramTests(unittest.TestCase):
                 brief["reasons"][0]["code"],
                 "scientific-gate-blocked",
             )
-            self.assertEqual(brief["primaryAction"]["id"], "session.start")
+            self.assertIsNone(brief["primaryAction"])
+            self.assertEqual(
+                [item["id"] for item in brief["supportingActions"]],
+                ["session.start"],
+            )
+            self.assertIn(
+                "Optionally continue",
+                brief["supportingActions"][0]["description"],
+            )
+            self.assertEqual(brief["focus"]["operatingMode"], "observe")
+            self.assertEqual(brief["review"]["status"], "blocked")
             self.assertFalse(brief["filesystem"]["writable"])
 
     def test_positive_reported_gates_complete_required_program(self) -> None:

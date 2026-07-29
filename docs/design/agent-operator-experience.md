@@ -53,7 +53,8 @@ dependency. That locally constructed authority uses
 is never projected.
 
 Without either verified request, Core reads the manifest-declared research
-program and extracts only a non-empty section headed `Question`,
+program and extracts only a non-empty section headed `Question`, qualified
+`Question ...` such as `Question (bounded, falsifiable)`,
 `Research question`, `Research question ...`, or `Fixed question`. That
 bounded Markdown section uses `origin: project-research-brief` and returns its
 absolute `sourcePath`. Core does not infer intent from arbitrary prose; when no
@@ -154,8 +155,10 @@ state. It contains:
   `argv`, working directory, operation effect, and expected evidence kind;
   an Agent-owned source edit or Report-analysis preparation remains explicit
   review guidance rather than a fake command;
-- supporting read-only actions only when they materially help the primary
-  action.
+- supporting actions only when their effect is explicit and they materially
+  help the current decision; these are normally read-only, while a
+  creates-artifact continuation may appear without a primary action only when
+  terminal evidence labels it explicitly optional.
 
 The brief does not copy the entire program projection. A caller may use the
 referenced detailed command when it needs full lane, Run, Session, or report
@@ -198,6 +201,12 @@ Operating modes summarize existing state; they do not replace it.
   guarded promotion operation.
 
 One brief has exactly one primary mode and at most one primary action.
+After a terminal Session leaves a coordinated lane scientifically blocked,
+orientation switches to `observe`, returns no primary action, and retains
+another governed Session only as an optional supporting command. This is a
+truthful stopping point, not a prohibition on further research. The first
+Session after an unqualified baseline remains primary because no bounded
+attempt has yet completed.
 
 ## Filesystem authority
 
@@ -311,6 +320,11 @@ Judge authority.
 14. A settled KEEP routes to executable guarded promotion; a newer worktree
     edit retains check/evaluation priority, and delegated Report gates are
     never bypassed by orientation.
+15. Experiment `KEEP` is Session-objective-only; scientific qualification,
+    downstream admission, and trading authority remain separately denied until
+    their verified contracts say otherwise.
+16. Promotion returns the exact post-mutation Work Brief, and terminal blocked
+    evidence makes further research optional rather than implicitly required.
 
 ## Known limitations
 

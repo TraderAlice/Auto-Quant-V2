@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha at `0.8.12`.
+Status: usable pre-alpha at `0.8.13`.
 
 Updated: 2026-07-29.
 
@@ -13,7 +13,7 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 AutoQuant V2 has crossed the line from an architectural prototype into a
 usable Agent-native quantitative research workbench.
 
-At `0.8.12`, a human, local coding Agent, or coworker delegated from OpenAlice
+At `0.8.13`, a human, local coding Agent, or coworker delegated from OpenAlice
 can:
 
 1. clone the repository and immediately discover the Harness plus its
@@ -65,7 +65,14 @@ orientation verifies a fixed-inventory-locked worktree marker and its exact
 owning Project/Session topology, then returns the canonical brief without
 copying dataset bytes or redirecting mutation commands.
 
-The latest annotated release tag is `v0.8.12`; `v0.8.11` remains the
+`0.8.13` makes bounded research completion qualification-aware. Qualified
+question headings remain explicit authority, Experiment verdicts disclose
+their Session-only scope, promotion returns the exact subsequent Work Brief,
+and a scientifically blocked terminal lane treats further research as an
+optional continuation.
+
+The latest annotated release tag is `v0.8.13`; `v0.8.12` remains the
+worktree re-entry milestone, and `v0.8.11` remains the
 promotion-first orientation milestone, and `v0.8.10` the fixed
 Project-request orientation milestone, `v0.8.9` the
 research-brief orientation milestone at commit `2157d99`, and `v0.8.8` the
@@ -161,6 +168,35 @@ not only synthetic fixtures:
 
 The canonical results, Run identifiers, versions, and limitations are preserved
 in [[docs/trading-request-field-trials]].
+
+## `0.8.13` verification snapshot
+
+- a fresh Grok Build coworker used only an installed `0.8.13` wheel and a new
+  `ohlcv-research-desk` Project, without opening framework source or reusing
+  another Project;
+- orientation recovered its exact `Question (bounded, falsifiable)` section
+  with Markdown provenance, and worktree re-entry retained exact canonical
+  authority;
+- the coworker completed one Factor baseline, one Session, one passing Check,
+  one KEEP Experiment, and one guarded promotion;
+- Experiment authority explicitly remained `session-objective-only`, with
+  false scientific qualification/downstream admission and no trading
+  authority;
+- the candidate improved validation mean IC from `-0.031325` to `0.471945`,
+  but strict evidence found perfect `relative_volume_20` style identity and
+  zero style-neutral validation IC;
+- post-promotion orientation therefore returned
+  `scientific-gate-blocked`, null primary action, and one explicitly optional
+  Factor Session; the coworker correctly ran neither Portfolio nor RL and did
+  not start a second Factor Session;
+- promotion Work Brief, subsequent orientation, and Studio were equal, and
+  Project validation passed;
+- final repository regression: 301/301 tests;
+- documentation graph: 1,052/1,052 checked links;
+- source distribution, wheel build, fresh Python 3.11 install, capability
+  discovery, immutable Experiment inspection, Project validation, orientation,
+  and Studio parity passed with `aq 0.8.13`; `experiment show` repeated the
+  same verdict-authority disclosure for replacement Agents.
 
 ## `0.8.12` verification snapshot
 
@@ -330,7 +366,7 @@ field-trial surface.
 
 ## Maturity and next use
 
-`0.8.12` is suitable for controlled standalone use and initial OpenAlice desk
+`0.8.13` is suitable for controlled standalone use and initial OpenAlice desk
 integration. It is still pre-`1.0`: public contracts are versioned and strict,
 but the project continues to prefer domain correctness and Agent operability
 over backward compatibility while the product shape settles.

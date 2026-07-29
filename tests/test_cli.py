@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from autoquant.sessions import start_session
+from autoquant.sessions import list_experiments, start_session
 from autoquant.studies import create_study
 from tests.intake_helpers import write_intake_inputs
 from tests.study_helpers import SUCCESS_JUDGE, make_project, study_definition
@@ -1444,6 +1444,15 @@ class AgentCliTests(unittest.TestCase):
                 evaluated_json["data"]["experiment"]["verdict"],
                 "KEEP",
             )
+            self.assertEqual(
+                evaluated_json["data"]["verdictAuthority"],
+                {
+                    "scope": "session-objective-only",
+                    "scientificQualification": False,
+                    "downstreamAdmission": False,
+                    "tradingAuthority": "none",
+                },
+            )
             experiment_id = evaluated_json["data"]["experiment"]["id"]
             self.assertIn(
                 "session.promote",
@@ -1529,6 +1538,10 @@ class AgentCliTests(unittest.TestCase):
                 json_output(shown)["data"]["result"]["verdict"],
                 "KEEP",
             )
+            self.assertEqual(
+                json_output(shown)["data"]["verdictAuthority"],
+                evaluated_json["data"]["verdictAuthority"],
+            )
 
             promoted = run_cli(
                 "session",
@@ -1563,9 +1576,68 @@ class AgentCliTests(unittest.TestCase):
                 json_output(post_promotion)["nextActions"],
             )
             self.assertEqual(
+                promoted_json["data"]["agentWorkBrief"],
+                json_output(post_promotion)["data"],
+            )
+            self.assertEqual(
                 [item["id"] for item in promoted_json["nextActions"]],
                 ["session.start"],
             )
+
+    def test_human_experiment_and_promotion_disclose_authority(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, project = make_project(directory)
+            create_study(project, study_definition())
+            session = start_session(project, "factor-quality")
+            (
+                session.worktree_project.root_dir / "factors/candidate.py"
+            ).write_text("SCORE = 2.0\n", encoding="utf-8")
+
+            evaluated = run_cli(
+                "experiment",
+                "evaluate",
+                str(project.root_dir),
+                "--session",
+                session.manifest["id"],
+                "--hypothesis",
+                "Raise the bounded synthetic score.",
+            )
+
+            self.assertEqual(evaluated.returncode, 0, evaluated.stderr)
+            self.assertIn("Experiment exp-0001", evaluated.stdout)
+            self.assertIn(
+                "Authority: Session objective only; this verdict is not "
+                "scientific qualification, downstream admission, or trading "
+                "authority.",
+                evaluated.stdout,
+            )
+            shown = run_cli(
+                "experiment",
+                "show",
+                str(project.root_dir),
+                "--session",
+                session.manifest["id"],
+                "--experiment",
+                list_experiments(project, session)[0].id,
+            )
+            self.assertEqual(shown.returncode, 0, shown.stderr)
+            self.assertIn(
+                "Authority: Session objective only; this verdict is not "
+                "scientific qualification, downstream admission, or trading "
+                "authority.",
+                shown.stdout,
+            )
+
+            promoted = run_cli(
+                "session",
+                "promote",
+                str(project.root_dir),
+                "--session",
+                session.manifest["id"],
+            )
+
+            self.assertEqual(promoted.returncode, 0, promoted.stderr)
+            self.assertIn("Post-promotion: session-required", promoted.stdout)
 
     def test_json_cli_runs_and_inspects_a_bounded_external_campaign(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

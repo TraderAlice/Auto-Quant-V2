@@ -155,9 +155,10 @@ id/status even though leader advancement means that Check is no longer a
 pre-evaluation check against the *previous* leader.
 
 After promotion succeeds, its response reconstructs the same post-mutation
-work brief as `aq orient` and Studio and uses that brief for `nextActions`.
-The response therefore does not request a redundant `run execute` when the
-promoted KEEP Run already supplies current evidence.
+work brief as `aq orient` and Studio, returns it as `data.agentWorkBrief`,
+prints its leading post-promotion reason for human operators, and uses that
+brief for `nextActions`. The response therefore does not request a redundant
+`run execute` when the promoted KEEP Run already supplies current evidence.
 
 `blank` is the default construction. `ohlcv-factor-lab` transactionally
 creates a complete, self-contained pandas factor research Project with local
@@ -304,9 +305,10 @@ Portfolio requires a reported claim-positive Factor leader—
 `factor-qualification-positive` for a novel claim, or
 `known-style-validation-positive` for a request-predeclared known style—and a
 passing Project-family selection adjustment. Optional RL requires a reported
-`post-cost-edge-positive` Portfolio leader. A terminal
-upstream Session that remains blocked exposes a fresh `session start` command
-instead of advancing by phase alone. See
+`post-cost-edge-positive` Portfolio leader. A terminal upstream Session that
+remains blocked exposes a fresh `session start` command as optional supporting
+work rather than an unfinished primary action. An initial blocked baseline
+with no completed Session still requires its first Session. See
 [[docs/design/research-intake-and-dataset-snapshots]] and
 [[docs/design/evidence-gated-research-progression]].
 
@@ -563,9 +565,15 @@ the complete Judge owns selection evidence.
 `experiment evaluate` freezes the candidate into a canonical Run, compares the
 primary metric with the current leader, publishes immutable Experiment
 evidence, and returns `KEEP`, `REVERT`, or `CRASH`. REVERT and CRASH restore the
-leader bytes in the worktree. `session promote` is the only operation that
-copies a KEEP into Project source; it rejects a stale Project base and rolls
-back if the source, receipt, and Session pointer cannot all be committed.
+leader bytes in the worktree. Its CLI envelope also returns
+`verdictAuthority.scope: session-objective-only` and explicitly denies
+scientific qualification, downstream admission, and trading authority. A
+`KEEP` means only that the candidate improved the locked Session objective.
+`experiment show` repeats the same authority object and human disclosure for a
+replacement Agent inspecting immutable history. `session promote` is the only
+operation that copies a KEEP into Project source; it rejects a stale Project
+base and rolls back if the source, receipt, and Session pointer cannot all be
+committed.
 
 `session complete` is the no-promotion terminal path for a delegated lane whose
 leader remains its baseline. The caller selects the exact current Report.

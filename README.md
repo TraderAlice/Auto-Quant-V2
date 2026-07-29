@@ -1,5 +1,5 @@
 ---
-version: 0.8.12
+version: 0.8.13
 ---
 
 # AutoQuant V2
@@ -32,7 +32,7 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current milestone: `0.8.12`
+## Current milestone: `0.8.13`
 
 AutoQuant V2 has crossed from an architectural prototype into a usable
 research workbench.
@@ -92,6 +92,14 @@ entry point: its locked marker resolves the owning canonical Project and
 Session, while dataset bytes remain canonical and mutation commands keep their
 explicit Project paths. Detached, forged, changed, or symlinked worktrees are
 rejected.
+
+`0.8.13` follows a fresh Grok coworker through a complete three-lane gating
+assignment. Explicit qualified `Question (...)` headings now reach
+orientation, Experiment responses state that verdicts are
+Session-objective-only, and promotion returns the exact post-mutation Work
+Brief. When terminal evidence blocks downstream science, another Session
+remains available as optional supporting work instead of an unfinished
+primary action.
 
 ## Standalone or an OpenAlice desk
 
@@ -223,6 +231,15 @@ installed-wheel Grok retry under `0.8.12`, adversarial owner-marker coverage,
 and a final Python 3.11 wheel baseline → worktree re-entry → Check → KEEP →
 promotion → post-orient/Studio smoke whose Harness recorded `0.8.12`,
 `commit: unavailable`, and `dirty: false`.
+
+The `0.8.13` release was closed with 301 passing tests, 1,052 checked
+documentation links, one fresh installed-wheel Grok three-lane gating task,
+and a final Python 3.11 wheel inspection smoke. The coworker recovered its
+qualified research question, re-entered its Session worktree, completed one
+Check and one KEEP, promoted through the guarded path, then correctly stopped
+at `scientific-gate-blocked` with no Portfolio/RL Run or second Factor Session.
+The final wheel also repeated Session-only verdict authority on immutable
+Experiment inspection.
 
 `project create` is the normal construction entry point. It creates
 `research.md`, `framework-needs.md`, the Project manifest, and the Project-local

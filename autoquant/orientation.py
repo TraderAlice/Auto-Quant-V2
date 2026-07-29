@@ -120,6 +120,7 @@ def _research_brief_question(project: ProjectContext) -> tuple[str, Path] | None
         if not (
             heading == "fixed question"
             or heading == "question"
+            or heading.startswith("question ")
             or heading == "research question"
             or heading.startswith("research question ")
         ):
@@ -628,6 +629,18 @@ def _program_orientation(
                 else "Current baseline evidence is ready for governed research."
             )
             category = "scientific" if blocked_gate is not None else "coordination"
+            if (
+                blocked_gate is not None
+                and session_summary is not None
+                and session_summary["status"] != "active"
+            ):
+                optional = dict(primary_raw)
+                optional["description"] = (
+                    "Optionally continue this scientifically blocked lane with "
+                    "another governed Session."
+                )
+                supporting_raw.append(optional)
+                primary_raw = None
         elif primary_raw["id"] == "session.complete":
             code = "baseline-completion-ready"
             message = "The current reported baseline can close this research lane."
