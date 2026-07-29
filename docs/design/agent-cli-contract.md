@@ -62,6 +62,10 @@ Study/Run evaluation rules.
 11. In a Workspace with multiple Projects, `creates-artifact` and
     `mutates-project` commands require explicit `--project ID` and fail before
     mutation otherwise.
+12. A non-empty Workspace target fails with an actionable recovery path.
+    Explicit adoption is discoverable through both parser help and capability
+    JSON; it preserves surrounding files and refuses existing AutoQuant-owned
+    configuration or Projects paths.
 
 ## Operation effects
 
@@ -91,6 +95,13 @@ exposes only fixed read-only HTTP routes.
 object after verifying the Session, Experiments, and Runs; the CLI and Studio
 must not independently select metrics, infer preference direction, or include
 test audit fields in dominance.
+
+`workspace.init` creates ownership rather than discovering arbitrary contents.
+Without `--adopt-existing`, its target must be absent or empty. With the flag,
+Core preserves existing caller/host entries byte-for-byte, creates only the
+base manifest and a new empty `projects/`, and rejects existing base/local
+configuration or any `projects` file, directory, or symlink. Surrounding
+staging remains outside Project, dataset, Study, and Run identity.
 
 `orient` is read-only. It returns one strict Core-authored `AgentWorkBrief`
 after resolving the selected Project and reconstructing its current Study,

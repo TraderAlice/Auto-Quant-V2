@@ -1,5 +1,5 @@
 ---
-version: 0.8.24
+version: 0.8.25
 ---
 
 # AutoQuant V2
@@ -32,7 +32,7 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current milestone: `0.8.24`
+## Current milestone: `0.8.25`
 
 AutoQuant V2 has crossed from an architectural prototype into a usable
 research workbench.
@@ -262,7 +262,23 @@ documentation graph resolves all 1,099 checked links, and a fresh Python 3.11
 environment installs the built `0.8.22` wheel for version, capability,
 Workspace, Project, orientation, and validation smoke.
 
-`0.8.24` follows another isolated Grok coworker into a capped ERC assignment
+`0.8.25` follows the next concrete Agent-operability friction. A fresh Grok
+coworker naturally staged caller inputs below its intended `./workspace`
+before initialization, then had to move them after the empty-target guard
+failed. `aq workspace init --adopt-existing` now makes that ownership choice
+explicit: it preserves surrounding caller/host files, creates only the
+Workspace manifest and a new empty `projects/`, and refuses any existing
+configuration or Projects entry. Default initialization remains strict and
+its failure names both safe recovery routes.
+
+The isolated installed-wheel Grok retry discovered adoption through public
+help/capabilities, preserved all three pre-staged input hashes, and completed a
+fixed NVDA downside-gap Event Study in one Project, one Run, and zero Sessions.
+Strict Event Explorer and Studio remained valid; no staging relocation or
+rewrite occurred. Repository regression passes all 321 tests in 826.969
+seconds and the documentation graph resolves all 1,113 checked links.
+
+`0.8.24` followed another isolated Grok coworker into a capped ERC assignment
 with two independent caller questions. The installed `0.8.23` worker could
 answer validation relative performance, but correctly refused to claim that
 90% of validation decisions met risk-contribution tolerance: Core exposed only

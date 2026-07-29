@@ -52,7 +52,8 @@ Agents should discover the contract rather than scrape `--help`.
 ## Workspace and Project commands
 
 ```bash
-aq workspace init <workspace-dir> [--name NAME] [--json]
+aq workspace init <workspace-dir> \
+  [--name NAME] [--adopt-existing] [--json]
 aq project create <workspace-dir> <project-id> \
   [--name NAME] [--description TEXT] \
   [--template blank|ohlcv-factor-lab|ohlcv-portfolio-lab|ohlcv-rl-factor-lab|ohlcv-book-risk-lab|ohlcv-event-study-lab|ohlcv-allocation-lab|ohlcv-research-desk] \
@@ -69,6 +70,15 @@ aq orient <project-or-workspace-dir> [--project ID] [--json]
 aq validate <project-or-workspace-dir> [--project ID] [--json]
 aq inspect <project-or-workspace-dir> [--project ID] [--json]
 ```
+
+`workspace init` requires an absent or empty target by default. If caller or
+host inputs are already staged inside the intended desk,
+`--adopt-existing` explicitly preserves them and creates only
+`autoquant-workspace.json` plus a new empty `projects/`. Adoption refuses any
+existing base/local Workspace manifest or `projects` file, directory, or
+symlink; it never imports staging into Project or quantitative identity.
+Keeping staging in a sibling directory and passing those external paths to
+`project intake` remains the other safe route.
 
 The repository root is the shipped Workspace, so the first commands after a
 clone are normally:

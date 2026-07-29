@@ -28,6 +28,13 @@ developer may have an ignored `autoquant-workspace.local.json` that explicitly
 redirects effective Project discovery outside the repository; inspect CLI or
 Studio configuration-source output before assuming which Projects are active.
 
+For a new standalone desk, `aq workspace init <directory>` owns an absent or
+empty target by default. Keep request/dataset packaging in a sibling staging
+directory, or pass `--adopt-existing` explicitly when caller/host files are
+already inside the intended desk. Adoption preserves those surrounding files
+but refuses any existing Workspace manifest, local override, or `projects`
+entry; never move or delete caller material merely to satisfy initialization.
+
 Before adding a host integration or public surface, ask:
 
 1. Can a coding Agent use the same capability in a standalone Workspace?

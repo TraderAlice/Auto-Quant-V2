@@ -94,6 +94,10 @@ own Study, Run, evaluation, research-loop, dataset-format, or Studio semantics.
     explicit or default plus every available Project id. In a multi-Project
     Workspace, `creates-artifact` and `mutates-project` commands fail before
     mutation unless `--project ID` is explicit.
+17. Default Workspace initialization owns only an absent or empty target.
+    Explicit `--adopt-existing` may preserve surrounding caller/host files,
+    but it refuses any existing base/local Workspace configuration or
+    `projects` entry and never imports those files into quantitative identity.
 
 ## File-to-operation flow
 
@@ -114,6 +118,24 @@ Project creation travels the reverse direction: strict id, Workspace, and
 template/intake validation → hidden staged starter → optional self-contained
 template population and Study validation → atomic rename → optional
 first-default Workspace update.
+
+Workspace construction has two explicit entry paths:
+
+```text
+absent or empty target
+→ workspace init
+→ new manifest + empty projects/
+
+non-empty target with caller/host files
+→ workspace init --adopt-existing
+→ reject existing configuration/projects ownership
+→ preserve every existing entry
+→ new manifest + empty projects/
+```
+
+Adoption is an ownership declaration, never implicit recovery. Input staging
+may instead remain outside the Workspace and `project intake` may read its
+request/package paths there.
 
 ## Non-goals
 

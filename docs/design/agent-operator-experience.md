@@ -237,6 +237,13 @@ ERC construction fidelity. This prevents an Agent from privately aggregating
 the decision ledger or treating a validation performance verdict as evidence
 that capped risk contributions met tolerance.
 
+Before Project orientation exists, Workspace construction should not force an
+Agent to rearrange caller inputs. Public help and capability discovery expose
+two safe routes: keep staging outside an absent/empty Workspace target, or
+explicitly adopt a pre-staged directory. Adoption never turns surrounding
+files into research authority and refuses collisions with AutoQuant-owned
+configuration or `projects/`.
+
 ## Filesystem authority
 
 The distinction between ownership and current edit authority is explicit.

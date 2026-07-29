@@ -36,6 +36,15 @@ Auto-Quant-V2/
 The Workspace manifest has no datasets, factors, strategies, models, Studies,
 or Runs. It owns only discovery and an optional default Project.
 
+`aq workspace init <directory>` creates this ownership boundary only in an
+absent or empty target by default. `--adopt-existing` is the explicit
+alternative when caller/host files are already staged in the intended desk.
+It preserves all existing entries, refuses any existing
+`autoquant-workspace.json`, `autoquant-workspace.local.json`, or `projects`
+entry, then creates only the base manifest and a new empty `projects/`.
+Preserved surrounding files are not declared Workspace research state and do
+not enter Project, dataset, Study, or Run identity.
+
 The checked-in manifest accepts only a confined POSIX-relative
 `projects_directory`. A framework developer may add the Git-ignored
 `autoquant-workspace.local.json` beside it. The local file is a complete

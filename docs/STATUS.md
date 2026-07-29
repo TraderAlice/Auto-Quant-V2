@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha at `0.8.24`.
+Status: usable pre-alpha at `0.8.25`.
 
 Updated: 2026-07-30.
 
@@ -13,7 +13,7 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 AutoQuant V2 has crossed the line from an architectural prototype into a
 usable Agent-native quantitative research workbench.
 
-At `0.8.24`, a human, local coding Agent, or coworker delegated from OpenAlice
+At `0.8.25`, a human, local coding Agent, or coworker delegated from OpenAlice
 can:
 
 1. clone the repository and immediately discover the Harness plus its
@@ -195,7 +195,24 @@ had a 0.2011 maximum contribution error. Strict verification reconciled the
 new block and Studio remained valid without diagnostics. Full regression
 passes 317 tests in 808.042 seconds and all 1,109 documentation links resolve.
 
-The current release is `v0.8.24`. `v0.8.23` remains the mixed-class
+`0.8.25` lets an Agent explicitly adopt a pre-staged desk as a Workspace
+without moving caller files. Default initialization still owns only absent or
+empty targets. Adoption preserves every surrounding entry, refuses existing
+base/local configuration or any `projects` entry, and does not import staging
+into quantitative identity. Parser help, capability JSON, structured failure
+text, and the Agent guide expose both safe routes.
+
+The isolated installed-wheel Grok retry began with its assignment plus
+NVDA/SPY bytes already below the intended non-empty Workspace. It discovered
+`--adopt-existing`, preserved all three staging hashes, created one fixed Event
+Study Project and one Run with zero Sessions, and left strict Explorer and
+Studio valid. The Run found 22 primary complete events after four overlap
+exclusions; its `observed-advantage` conclusion remained explicitly
+descriptive with no trading authority. Full regression passes 321 tests in
+826.969 seconds and all 1,113 documentation links resolve.
+
+The current release is `v0.8.25`. `v0.8.24` remains the split Allocation
+construction-fidelity milestone, `v0.8.23` remains the mixed-class
 Allocation milestone, `v0.8.22` remains the multi-Project
 selection-safety milestone, `v0.8.21` remains the atomic lane-aware
 holdout-target milestone, `v0.8.20` remains the self-describing Report

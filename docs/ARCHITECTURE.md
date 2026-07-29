@@ -69,6 +69,10 @@ The V2 foundation now implements:
 - one canonical request-driven research desk that coordinates Factor,
   Portfolio, and governed RL Studies over the same dataset, exposes exact lane
   currentness/conflicts/next actions, and keeps method choice inside AutoQuant;
+- explicit Workspace construction in an absent/empty target or safe adoption
+  of a directory containing only surrounding caller/host files, preserving
+  those files while refusing pre-existing configuration or Projects
+  ownership;
 - default or explicit Project resolution with effective configuration
   disclosure, base-root confinement, explicit external-local authority, and
   symlink rejection;

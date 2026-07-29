@@ -652,14 +652,71 @@ def _atomic_write_json(path: Path, value: dict[str, Any]) -> None:
     os.replace(temporary, path)
 
 
-def _require_empty_target(target: Path) -> None:
+def _validate_workspace_target(
+    target: Path,
+    *,
+    adopt_existing: bool,
+) -> None:
     if target.is_symlink():
         raise AutoQuantValidationError(
             [_issue(target, "path.symlink", "Target cannot be a symlink")]
         )
-    if target.exists() and (not target.is_dir() or any(target.iterdir())):
+    if target.exists() and not target.is_dir():
         raise AutoQuantValidationError(
-            [_issue(target, "path.not-empty", f"Target directory is not empty: {target}")]
+            [
+                _issue(
+                    target,
+                    "path.not-directory",
+                    f"Workspace target must be a directory: {target}",
+                )
+            ]
+        )
+    if not target.exists():
+        return
+    if not any(target.iterdir()):
+        return
+    if not adopt_existing:
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    target,
+                    "path.not-empty",
+                    f"Target directory is not empty: {target}. If this "
+                    "directory should become the Workspace, rerun with "
+                    "--adopt-existing to preserve its current files. "
+                    "Otherwise keep request and dataset staging outside the "
+                    "target.",
+                )
+            ]
+        )
+    for manifest_name in (
+        WORKSPACE_MANIFEST,
+        WORKSPACE_LOCAL_MANIFEST,
+    ):
+        path = target / manifest_name
+        if path.exists() or path.is_symlink():
+            raise AutoQuantValidationError(
+                [
+                    _issue(
+                        path,
+                        "workspace.adopt-configuration",
+                        "Cannot adopt a directory that already contains "
+                        f"{manifest_name}",
+                    )
+                ]
+            )
+    projects = target / "projects"
+    if projects.exists() or projects.is_symlink():
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    projects,
+                    "workspace.adopt-projects",
+                    "Cannot adopt a directory with an existing projects "
+                    "entry; choose a new Workspace target or move the "
+                    "unowned entry first",
+                )
+            ]
         )
 
 
@@ -667,10 +724,9 @@ def initialize_workspace(
     directory: str | Path,
     *,
     name: str | None = None,
+    adopt_existing: bool = False,
 ) -> WorkspaceContext:
     target = Path(directory).expanduser().absolute()
-    _require_empty_target(target)
-    target.mkdir(parents=True, exist_ok=True)
     manifest = WorkspaceManifest(
         schema_version=SCHEMA_VERSION,
         name=(name or target.name or "AutoQuant Workspace").strip(),
@@ -681,8 +737,24 @@ def initialize_workspace(
         raise AutoQuantValidationError(
             [_issue(target, "workspace.name", "Workspace name cannot be empty")]
         )
-    (target / manifest.projects_directory).mkdir()
-    _atomic_write_json(target / WORKSPACE_MANIFEST, manifest.to_dict())
+    _validate_workspace_target(
+        target,
+        adopt_existing=adopt_existing,
+    )
+    target_created = not target.exists()
+    target.mkdir(parents=True, exist_ok=True)
+    projects = target / manifest.projects_directory
+    projects.mkdir()
+    try:
+        _atomic_write_json(
+            target / WORKSPACE_MANIFEST,
+            manifest.to_dict(),
+        )
+    except Exception:
+        projects.rmdir()
+        if target_created:
+            target.rmdir()
+        raise
     return load_workspace(target)
 
 

@@ -206,8 +206,12 @@ CLI_COMMANDS = [
     ),
     descriptor(
         "workspace.init",
-        "aq workspace init <workspace-dir> [--name NAME] [--json]",
-        "Create an empty multi-Project AutoQuant Workspace.",
+        "aq workspace init <workspace-dir> [--name NAME] "
+        "[--adopt-existing] [--json]",
+        "Create a multi-Project AutoQuant Workspace in an absent or empty "
+        "directory, or explicitly adopt a non-empty directory while "
+        "preserving caller files and refusing existing configuration or "
+        "projects entries.",
         "creates-artifact",
         [
             argument(
@@ -215,7 +219,8 @@ CLI_COMMANDS = [
                 "positional",
                 "string",
                 True,
-                "New empty Workspace directory.",
+                "New Workspace directory. Keep staging outside it unless "
+                "--adopt-existing is explicit.",
             ),
             argument(
                 "name",
@@ -224,6 +229,16 @@ CLI_COMMANDS = [
                 False,
                 "Workspace display name.",
                 default="Directory name",
+            ),
+            argument(
+                "adopt-existing",
+                "option",
+                "boolean",
+                False,
+                "Preserve existing entries and create only the Workspace "
+                "manifest plus a new empty projects directory; refuse "
+                "existing Workspace configuration or projects entries.",
+                default=False,
             ),
             JSON_ARGUMENT,
         ],

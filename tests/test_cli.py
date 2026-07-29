@@ -34,6 +34,58 @@ def json_output(result: subprocess.CompletedProcess[str]) -> dict:
 
 
 class AgentCliTests(unittest.TestCase):
+    def test_workspace_init_can_explicitly_adopt_pre_staged_inputs(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Path(directory) / "workspace"
+            staging = workspace / "staging"
+            staging.mkdir(parents=True)
+            caller_input = staging / "caller-input.json"
+            caller_input.write_bytes(b'{"preserve":true}\n')
+
+            rejected = run_cli(
+                "workspace",
+                "init",
+                str(workspace),
+                "--json",
+            )
+            self.assertEqual(rejected.returncode, 1)
+            issue = json_output(rejected)["error"]["issues"][0]
+            self.assertEqual(issue["code"], "path.not-empty")
+            self.assertIn("--adopt-existing", issue["message"])
+            self.assertIn("staging outside", issue["message"])
+
+            adopted = run_cli(
+                "workspace",
+                "init",
+                str(workspace),
+                "--name",
+                "Pre-staged Desk",
+                "--adopt-existing",
+                "--json",
+            )
+            self.assertEqual(adopted.returncode, 0, adopted.stderr)
+            envelope = json_output(adopted)
+            self.assertTrue(envelope["data"]["adoptExistingRequested"])
+            self.assertEqual(
+                envelope["data"]["manifest"]["name"],
+                "Pre-staged Desk",
+            )
+            self.assertEqual(
+                caller_input.read_bytes(),
+                b'{"preserve":true}\n',
+            )
+            self.assertTrue((workspace / "projects").is_dir())
+
+            help_result = run_cli("workspace", "init", "--help")
+            self.assertEqual(help_result.returncode, 0)
+            self.assertIn("--adopt-existing", help_result.stdout)
+            self.assertIn(
+                "preserve existing files",
+                help_result.stdout,
+            )
+
     def test_cli_orients_fixed_template_from_bound_project_request(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             workspace = Path(directory) / "workspace"
@@ -779,6 +831,22 @@ class AgentCliTests(unittest.TestCase):
                 "studio.snapshot",
                 "studio.serve",
             ],
+        )
+        workspace_init = next(
+            command
+            for command in commands
+            if command["id"] == "workspace.init"
+        )
+        adopt_existing = next(
+            argument
+            for argument in workspace_init["arguments"]
+            if argument["name"] == "adopt-existing"
+        )
+        self.assertEqual(adopt_existing["value"], "boolean")
+        self.assertFalse(adopt_existing["default"])
+        self.assertIn(
+            "refuse existing Workspace configuration",
+            adopt_existing["description"],
         )
         for command in commands:
             self.assertEqual(

@@ -339,9 +339,32 @@ def build_parser() -> RaisingArgumentParser:
 
     workspace = subcommands.add_parser("workspace", help="manage a Workspace")
     workspace_actions = workspace.add_subparsers(dest="workspace_action", required=True)
-    workspace_init = workspace_actions.add_parser("init", help="initialize a Workspace")
-    workspace_init.add_argument("directory")
-    workspace_init.add_argument("--name")
+    workspace_init = workspace_actions.add_parser(
+        "init",
+        help="initialize an empty or explicitly adopted Workspace directory",
+        description=(
+            "Initialize an AutoQuant Workspace. The target must be absent or "
+            "empty unless --adopt-existing is passed. Adoption preserves "
+            "existing caller files but refuses existing Workspace "
+            "configuration or projects entries."
+        ),
+    )
+    workspace_init.add_argument(
+        "directory",
+        help="new Workspace directory",
+    )
+    workspace_init.add_argument(
+        "--name",
+        help="Workspace display name",
+    )
+    workspace_init.add_argument(
+        "--adopt-existing",
+        action="store_true",
+        help=(
+            "preserve existing files and initialize this directory; refuses "
+            "existing manifests or projects entries"
+        ),
+    )
     workspace_init.set_defaults(command_id="workspace.init")
     _json_argument(workspace_init)
 
@@ -1014,15 +1037,28 @@ def build_parser() -> RaisingArgumentParser:
 
 
 def _workspace_init(args: argparse.Namespace) -> CommandResult:
-    workspace = initialize_workspace(args.directory, name=args.name)
+    workspace = initialize_workspace(
+        args.directory,
+        name=args.name,
+        adopt_existing=args.adopt_existing,
+    )
     manifest_path = workspace.root_dir / WORKSPACE_MANIFEST
     return CommandResult(
         "workspace.init",
         {
             "workspaceDir": str(workspace.root_dir),
             "manifest": workspace.manifest.to_dict(),
+            "adoptExistingRequested": bool(args.adopt_existing),
         },
-        f"Initialized AutoQuant Workspace at {workspace.root_dir}\n",
+        (
+            f"Initialized AutoQuant Workspace at {workspace.root_dir}\n"
+            + (
+                "Adoption mode preserved existing caller/host files; they "
+                "remain outside Project and quantitative identity.\n"
+                if args.adopt_existing
+                else ""
+            )
+        ),
         workspace_context(workspace),
         [artifact("workspace", workspace.manifest.name, manifest_path, immutable=False)],
         [

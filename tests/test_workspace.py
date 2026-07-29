@@ -76,6 +76,160 @@ class WorkspaceProjectTests(unittest.TestCase):
             (first.root_dir / "factors" / "alpha.py").write_text("ALPHA = 1\n")
             self.assertFalse((second.root_dir / "factors" / "alpha.py").exists())
 
+    def test_workspace_adoption_preserves_pre_staged_caller_files(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "workspace"
+            raw = root / "staging" / "raw-ohlcv"
+            raw.mkdir(parents=True)
+            source = raw / "NVDA.csv"
+            source.write_bytes(b"timestamp,close\n2026-07-30,100\n")
+            request = root / "staging" / "research-request.json"
+            request.write_bytes(b'{"caller":"preserved"}\n')
+            source_before = source.read_bytes()
+            request_before = request.read_bytes()
+
+            with self.assertRaises(AutoQuantValidationError) as caught:
+                initialize_workspace(root)
+            self.assertEqual(
+                {issue.code for issue in caught.exception.issues},
+                {"path.not-empty"},
+            )
+            self.assertIn(
+                "--adopt-existing",
+                str(caught.exception),
+            )
+            self.assertIn(
+                "staging outside",
+                str(caught.exception),
+            )
+            self.assertFalse((root / WORKSPACE_MANIFEST).exists())
+            self.assertFalse((root / "projects").exists())
+
+            workspace = initialize_workspace(
+                root,
+                name="Adopted Desk",
+                adopt_existing=True,
+            )
+
+            self.assertEqual(workspace.manifest.name, "Adopted Desk")
+            self.assertEqual(source.read_bytes(), source_before)
+            self.assertEqual(request.read_bytes(), request_before)
+            self.assertEqual(
+                {path.name for path in root.iterdir()},
+                {
+                    "autoquant-workspace.json",
+                    "projects",
+                    "staging",
+                },
+            )
+            self.assertEqual(list(workspace.projects_dir.iterdir()), [])
+
+    def test_workspace_adoption_rejects_owned_path_conflicts_without_mutation(
+        self,
+    ) -> None:
+        conflict_cases = (
+            (WORKSPACE_MANIFEST, "workspace.adopt-configuration", "file"),
+            (
+                WORKSPACE_LOCAL_MANIFEST,
+                "workspace.adopt-configuration",
+                "file",
+            ),
+            ("projects", "workspace.adopt-projects", "file"),
+            ("projects", "workspace.adopt-projects", "directory"),
+            ("projects", "workspace.adopt-projects", "symlink"),
+        )
+        for name, expected_code, kind in conflict_cases:
+            with self.subTest(name=name, kind=kind):
+                with (
+                    tempfile.TemporaryDirectory() as directory,
+                    tempfile.TemporaryDirectory() as outside,
+                ):
+                    root = Path(directory) / "workspace"
+                    root.mkdir()
+                    caller = root / "caller-input.bin"
+                    caller.write_bytes(b"\x00caller-owned\xff")
+                    conflict = root / name
+                    if kind == "directory":
+                        conflict.mkdir()
+                        (conflict / "sentinel").write_bytes(b"project")
+                    elif kind == "symlink":
+                        outside_path = Path(outside)
+                        (outside_path / "sentinel").write_bytes(b"outside")
+                        conflict.symlink_to(
+                            outside_path,
+                            target_is_directory=True,
+                        )
+                    else:
+                        conflict.write_bytes(b"pre-existing")
+                    caller_before = caller.read_bytes()
+
+                    with self.assertRaises(
+                        AutoQuantValidationError
+                    ) as caught:
+                        initialize_workspace(
+                            root,
+                            adopt_existing=True,
+                        )
+
+                    self.assertEqual(
+                        {issue.code for issue in caught.exception.issues},
+                        {expected_code},
+                    )
+                    self.assertEqual(caller.read_bytes(), caller_before)
+                    if name != WORKSPACE_MANIFEST:
+                        self.assertFalse(
+                            (root / WORKSPACE_MANIFEST).exists()
+                        )
+                    if kind == "directory":
+                        self.assertEqual(
+                            (conflict / "sentinel").read_bytes(),
+                            b"project",
+                        )
+                    elif kind == "symlink":
+                        self.assertTrue(conflict.is_symlink())
+                        self.assertEqual(
+                            (Path(outside) / "sentinel").read_bytes(),
+                            b"outside",
+                        )
+                    else:
+                        self.assertEqual(
+                            conflict.read_bytes(),
+                            b"pre-existing",
+                        )
+
+    def test_workspace_adoption_rejects_file_and_symlink_roots(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            parent = Path(directory)
+            target_file = parent / "workspace-file"
+            target_file.write_bytes(b"caller")
+            with self.assertRaises(AutoQuantValidationError) as caught:
+                initialize_workspace(
+                    target_file,
+                    adopt_existing=True,
+                )
+            self.assertEqual(
+                {issue.code for issue in caught.exception.issues},
+                {"path.not-directory"},
+            )
+            self.assertEqual(target_file.read_bytes(), b"caller")
+
+            real = parent / "real"
+            real.mkdir()
+            link = parent / "workspace-link"
+            link.symlink_to(real, target_is_directory=True)
+            with self.assertRaises(AutoQuantValidationError) as caught:
+                initialize_workspace(
+                    link,
+                    adopt_existing=True,
+                )
+            self.assertEqual(
+                {issue.code for issue in caught.exception.issues},
+                {"path.symlink"},
+            )
+            self.assertTrue(link.is_symlink())
+
     def test_created_project_is_a_complete_self_contained_construction_site(
         self,
     ) -> None:
