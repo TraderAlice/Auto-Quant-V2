@@ -261,6 +261,13 @@ and verifies exact scheduled closes before materializing session-anchored
 features. The loader always recomputes every derived file from the locked base
 and rejects a rehashed mismatch.
 
+V1–V4 package asset rows may optionally declare a complete `assetClass`
+vector. When present, every row must declare a supported class, the top-level
+class must be their common value or `mixed`, and the per-asset values are
+frozen into `snapshot.json` and matched to `request.json` on every load.
+Omitting the entire vector retains the legacy homogeneous top-level-class
+contract; partial vectors are invalid.
+
 V5 also uses `data/ohlcv/<baseInterval>/<SYMBOL>.csv`, but it contains only
 provider-observed completed base bars and no derived intervals. Its fixed
 surface is `observed / provider-observed / UTC`, with
@@ -766,7 +773,9 @@ Origin fields are caller-supplied content, not authenticated OpenAlice
 provenance. `positionRole` is optional only as a complete vector: when any
 requested asset declares it, every requested asset must declare `long-only`,
 `short-only`, `two-sided`, or `context-only`. Requested symbols and asset
-classes must fit the selected Study.
+classes must fit the selected Study and its content-locked dataset snapshot.
+A classified V1–V4 package, like V5, matches the request per symbol rather
+than flattening a mixed panel to one class.
 The optional `positionSnapshot` is used by the Book Risk route only. It names
 `reported-weights` or `hypothetical-weights`, a timezone-aware `asOf`,
 `baseCurrency`, non-zero requested-asset `weights`, and `cashWeight`.

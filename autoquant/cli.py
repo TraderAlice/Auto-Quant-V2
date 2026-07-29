@@ -108,6 +108,7 @@ from .intake import (
     PROJECT_INTAKE,
     PROJECT_REQUEST,
     DATASET_SNAPSHOT,
+    intake_dataset_class_context,
     load_project_intake,
     prepare_project_intake,
 )
@@ -1738,10 +1739,16 @@ def _study_create(args: argparse.Namespace) -> CommandResult:
 
 
 def _study_data(project, study) -> dict[str, Any]:
+    intake = load_project_intake(project)
     return {
         "definition": study.definition.to_dict(),
         "path": str(study.root_dir),
         "programPath": str(study.program_path),
+        "datasetContext": (
+            intake_dataset_class_context(intake)
+            if intake is not None
+            else None
+        ),
         "candidateContract": build_candidate_contract(project, study),
         "identity": {
             "studyHash": study.study_hash,
@@ -1789,6 +1796,7 @@ def _study_inspect(args: argparse.Namespace) -> CommandResult:
     study = load_study(project, args.study)
     data = _study_data(project, study)
     candidate_contract = data["candidateContract"]
+    dataset_context = data["datasetContext"]
     return CommandResult(
         "study.inspect",
         data,
@@ -1803,6 +1811,12 @@ def _study_inspect(args: argparse.Namespace) -> CommandResult:
             f"{len(study.definition.dataset.universe)} assets · "
             f"{study.definition.dataset.time_range.start}.."
             f"{study.definition.dataset.time_range.end}\n"
+            + (
+                f"Dataset classes: {dataset_context['assetClass']} · "
+                f"{dataset_context['assetClassSource']}\n"
+                if dataset_context is not None
+                else ""
+            )
             + (
                 "Candidate panel: "
                 f"{candidate_contract['api']['kind']} · base "

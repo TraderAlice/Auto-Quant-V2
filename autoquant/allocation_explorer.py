@@ -11,6 +11,10 @@ import numpy as np
 import pandas as pd
 
 from .allocation_policies import load_allocation_contract
+from .intake import (
+    intake_dataset_class_context,
+    load_project_intake,
+)
 from .project_templates.ohlcv_portfolio_lab.portfolio_core import performance_metrics
 from .runs import load_run
 from .workspace import (
@@ -210,6 +214,24 @@ def load_allocation_diagnostics(
             "allocation.report",
             "Allocation report identity or frozen contract is invalid",
         )
+    intake = load_project_intake(project)
+    dataset_class_context = None
+    if intake is not None:
+        frozen_snapshot_hash = (
+            run.result.get("dataset", {})
+            .get("sourceHashes", {})
+            .get("ohlcv/snapshot.json")
+        )
+        if (
+            frozen_snapshot_hash
+            != intake["manifest"]["datasetSnapshotHash"]
+        ):
+            _fail(
+                paths["allocation-report"],
+                "allocation.dataset-context",
+                "Project intake classes do not belong to this Run dataset",
+            )
+        dataset_class_context = intake_dataset_class_context(intake)
     try:
         daily = pd.read_csv(
             paths["allocation-daily"],
@@ -542,7 +564,14 @@ def load_allocation_diagnostics(
             "inputHash": run.result["inputHash"],
         },
         "contract": contract,
-        "dataset": report["dataset"],
+        "dataset": {
+            **report["dataset"],
+            **(
+                dataset_class_context
+                if dataset_class_context is not None
+                else {}
+            ),
+        },
         "splitProtocol": report["splitProtocol"],
         "splits": report["splits"],
         "solver": report["solver"],

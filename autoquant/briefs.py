@@ -1410,14 +1410,6 @@ def validate_research_request(
                         "Benchmark weights may name requested assets only",
                     )
                 )
-            elif requested_roles.get(symbol) == "context-only":
-                issues.append(
-                    _issue(
-                        weight_path,
-                        "request.benchmark-context-only",
-                        "A context-only asset cannot receive benchmark weight",
-                    )
-                )
     if normalized_position_snapshot is not None:
         requested_roles = {
             asset.get("symbol"): asset.get("positionRole")

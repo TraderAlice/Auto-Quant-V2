@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha at `0.8.22`.
+Status: usable pre-alpha at `0.8.23`.
 
 Updated: 2026-07-30.
 
@@ -13,7 +13,7 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 AutoQuant V2 has crossed the line from an architectural prototype into a
 usable Agent-native quantitative research workbench.
 
-At `0.8.22`, a human, local coding Agent, or coworker delegated from OpenAlice
+At `0.8.23`, a human, local coding Agent, or coworker delegated from OpenAlice
 can:
 
 1. clone the repository and immediately discover the Harness plus its
@@ -146,12 +146,39 @@ byte-identical to their separate caller inputs, no Sessions, and a valid
 two-Project Studio snapshot without diagnostics. An omitted-Project Run was
 then rejected before either immutable Run inventory changed.
 
-Final verification passes all 312 tests in 803.410 seconds, resolves all 1,099
-documentation links, and installs the built `0.8.22` wheel in a fresh Python
-3.11 environment for version, capability, Workspace, Project, orientation,
-and validation smoke.
+`0.8.23` makes aligned mixed-class research truthful without changing its
+market clock. V1–V4 OHLCV packages accept either the historical homogeneous
+top-level class or one complete per-asset class vector summarized by the
+common class or `mixed`. Classified snapshots preserve every instrument class
+and match it to the canonical request on every load; partial vectors and
+rehashed class tampering fail explicitly.
 
-The current release is `v0.8.22`. `v0.8.21` remains the atomic lane-aware
+The fixed Allocation reference may now include requested context-only assets.
+Reference membership remains evaluation authority only: those legs stay out
+of ERC candidate construction, caps, positions, and component-risk shares
+while the independent funded reference still applies its own schedule, drift,
+no-trade band, turnover, and cost.
+
+The isolated installed-wheel retry completed the unchanged mixed
+AAPL/NVDA/GLD/TLT allocation against a 60/40 SPY/TLT reference with one fixed
+Run and no Session. Its remaining concrete friction was information
+compression rather than correctness: Study inspection showed only the
+top-level `mixed` summary. Study JSON inspection, strict Allocation Explorer,
+and Studio now expose the complete verified symbol-to-class map and whether it
+came from explicit per-asset declarations or a legacy homogeneous summary.
+
+A second fresh final-wheel worker repeated the complete task after that
+read-model change. Study and Explorer class maps matched, SPY candidate target,
+executed weight, and risk contribution remained zero while its reference
+weight was funded, strict verification reconciled, and Studio had no
+diagnostics.
+
+Final verification passes all 315 tests in 805.092 seconds, resolves all 1,104
+documentation links, and installs the final `0.8.23` wheel in a fresh Python
+3.11 environment for the complete mixed-class Allocation field trial.
+
+The current release is `v0.8.23`. `v0.8.22` remains the multi-Project
+selection-safety milestone, `v0.8.21` remains the atomic lane-aware
 holdout-target milestone, `v0.8.20` remains the self-describing Report
 evidence milestone, `v0.8.19` remains the fixed Book Risk
 drawdown milestone, `v0.8.18` the honest unknown-provider provenance

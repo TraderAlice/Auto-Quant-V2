@@ -40,11 +40,14 @@ An Allocation request requires:
    `kind`, `covarianceWindow`, `minimumObservations`,
    `contributionTolerance`, and `scaleUp: false`;
 5. `benchmarkPolicy.kind: fixed-weights` with positive weights that sum to one
-   and name only requested long-only assets.
+   and name only requested long-only and/or context-only assets.
 
 Public intake rejects partial roles, unfunded or unknown benchmark legs,
 unsupported allocation fields, non-long authority, and attempts to combine the
 route with Factor, event, position-snapshot, or position-sizing authority.
+Reference membership never changes candidate authority: a context-only
+benchmark leg stays out of ERC covariance targets, candidate caps, candidate
+weights, and candidate risk contributions.
 
 Intake materializes `strategies/allocation-policy.json`. The dependency freezes
 the normalized request hash, method, complete universe, tradable/context
@@ -81,6 +84,8 @@ It is simulated as an independent portfolio:
 - weights drift between decisions;
 - the same no-trade band and linear traded-notional cost apply;
 - reference legs may drift beyond their target weights between rebalances;
+- reference legs marked context-only remain reference-only while their
+  independent reference weights and returns are still fully simulated;
 - candidate caps and the candidate volatility ceiling do not govern the
   reference;
 - both paths earn only the close after the decision close.
@@ -109,7 +114,9 @@ independently rederives split performance, costs, turnover, volatility
 breaches, role/cap/gross compliance, solver counts, latest target/executed/
 reference weights, component-risk shares, parity error, the end-of-dataset
 drifted book, whether an ordinary rebalance is due, and validation-only
-conclusion authority. Studio consumes the same strict read model.
+conclusion authority. For request-driven Projects it also binds the Run's
+snapshot hash before returning the complete per-symbol economic-class map.
+Studio consumes the same strict read model.
 
 After the current fixed Run succeeds, orientation has no primary CLI action
 and explicitly hands off to an Agent-owned written answer. The Allocation

@@ -161,6 +161,27 @@ their accounting/state contracts do not yet define changing-universe
 semantics. V1 remains exact and aligned rather than silently acquiring a new
 meaning.
 
+V1–V4 also accept one optional complete per-asset class vector. This keeps a
+single aligned panel truthful when, for example, equities and funds share the
+same XNYS daily clock:
+
+```json
+{
+  "schemaVersion": 1,
+  "assetClass": "mixed",
+  "assets": [
+    {"symbol": "AAPL", "assetClass": "equity", "path": "AAPL.csv"},
+    {"symbol": "SPY", "assetClass": "fund", "path": "SPY.csv"}
+  ]
+}
+```
+
+If any asset row declares `assetClass`, every row must declare one. The
+top-level value must be the common class when all rows agree, or `mixed` when
+they differ. Legacy homogeneous V1–V4 packages may omit the row fields and
+continue to use the single top-level class. Core never fills a partial vector
+or guesses an instrument class from its symbol, venue, or provider.
+
 V5 accepts a base-only observed intraday Factor panel:
 
 ```json
@@ -234,8 +255,9 @@ Before any Project is visible, Core:
    one explicit prediction asset;
 8. enforces template-specific breadth and history floors;
 9. requires each requested asset and non-null venue to exist in the package;
-   V1–V4 require one package class while V5 matches each requested asset
-   against its own package class;
+   V1–V4 legacy packages match the request against their one package class,
+   while a supplied complete per-asset vector and every V5 package match each
+   requested asset against its own package class;
 10. derives the request's exact numerical Horizon Mandate and rejects a largest
    diagnostic target that leaves fewer than 20 purged rows in any split.
 
@@ -255,11 +277,16 @@ minimum/median/maximum assets per timestamp. Every asset records its own
 observed start, end, and row count. Load-time validation recomputes these facts
 from normalized bytes.
 
-For V5, `snapshot.json` freezes the observed interval surface, per-asset class
-and volume semantics, union/intersection/coverage facts, and the target-owned
-eligible observation count. Materialized files live under the declared base
-interval only. Loading revalidates hashes, non-negative volume, per-asset
-availability, and the complete snapshot summary.
+When a V1–V4 package supplies the complete class vector, `snapshot.json`
+freezes each asset's class and load-time verification matches it to both the
+canonical Research Request and package identity. Historical snapshots without
+that optional vector remain valid.
+
+For V5, `snapshot.json` freezes the observed interval surface, required
+per-asset class and volume semantics, union/intersection/coverage facts, and
+the target-owned eligible observation count. Materialized files live under
+the declared base interval only. Loading revalidates hashes, non-negative
+volume, per-asset availability, and the complete snapshot summary.
 
 V2 uses `data/ohlcv/<interval>/<symbol>.csv`. The fixed loader recomputes every
 materialized 3h/4h/6h/12h/1d file from 1h bytes and rejects a mismatch even if
@@ -274,8 +301,8 @@ source closes at or before the decision close. See
 
 The resulting `data/ohlcv/snapshot.json` records:
 
-- package id, version, class, clock/interval surface, market, adjustment, and
-  provider;
+- package id, version, top-level class, optional complete per-asset classes,
+  clock/interval surface, market, adjustment, and provider;
 - request hash and requested assets;
 - exact research universe and common time range;
 - source path/hash and normalized interval path/hash for every asset;
@@ -285,6 +312,11 @@ The resulting `data/ohlcv/snapshot.json` records:
 The Study declares `ohlcv/**`, so canonical CSV, snapshot, and README bytes all
 enter `datasetHash`, Run identity, Session locks, and Reports. Editing any one
 creates a different Study/Run identity and stales an existing Session.
+The compact Study definition retains the top-level class summary, while
+`aq study inspect --json` projects a complete verified `assetClasses` map plus
+its `per-asset` or `package-summary` source. Strict Allocation Explorer and
+Studio return that same Run-bound class context, so callers need not reopen
+snapshot files to interpret `mixed`.
 
 Portfolio and governed-RL intake also writes the strict fixed
 `strategies/portfolio-mandate.json`. Core derives it from the exact normalized
@@ -305,12 +337,14 @@ Portfolio and RL Studies bind the same file as a
 dependency. Intake reconstructs it on every load, so request or mandate
 tampering fails rather than changing the position or risk question silently.
 
-If the request contains `benchmarkPolicy`, the same derivation locks cash or
-one named dataset-universe asset into a complete benchmark weight vector.
-The asset may remain context-only; benchmark membership never expands
-position authority. Omission records the direction-derived benchmark rather
-than treating it as caller intent. Portfolio and governed RL use the identical
-vector for every relative metric. See
+For Portfolio and governed RL, `benchmarkPolicy` locks cash or one named
+dataset-universe asset into a complete benchmark weight vector. The asset may
+remain context-only; benchmark membership never expands position authority.
+The fixed Allocation route instead accepts one funded non-negative
+`fixed-weights` reference over requested long-only and/or context-only assets.
+Context-only reference legs remain excluded from candidate construction,
+caps, and risk contributions. Omission records the direction-derived
+benchmark rather than treating it as caller intent. See
 [[docs/design/caller-owned-benchmark-reference]].
 
 Every intake also writes
@@ -414,8 +448,9 @@ Studio remains read-only and does not duplicate validation or construction.
 1. No invalid intake leaves a visible partial Project.
 2. All source paths are confined and all normalized dataset bytes are local to
    the Project.
-3. Request assets are a subset of the research universe. V1–V4 share one
-   declared class; V5 preserves and verifies each requested asset class.
+3. Request assets are a subset of the research universe. Legacy V1–V4 packages
+   share one declared class; classified V1–V4 and V5 packages preserve and
+   verify each requested asset class.
 4. No missing date is silently filled or removed.
 5. Provider and adjustment metadata are disclosed claims, not authenticated
    provenance.

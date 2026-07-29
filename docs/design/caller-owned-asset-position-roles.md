@@ -70,6 +70,11 @@ Explicit `long-short` and `relative-value` requests use cash. This prevents a
 short-only hedge asset from silently entering an equal-weight long reference.
 An explicit caller benchmark still changes evaluation only.
 
+The fixed Allocation Lab may use a requested `context-only` asset in its
+separately funded fixed-weight reference. That reference role does not admit
+the asset to ERC candidate covariance targets, caps, positions, or component
+risk contributions.
+
 Direction-derived `long-cash`, `short-cash`, and `dollar-neutral` families
 retain their existing exact semantics. Their complete role vector merely makes
 the already-existing permissions explicit.
@@ -115,6 +120,8 @@ Dossiers, CLI, and Studio disclose:
 6. Portfolio and governed RL consume the same complete role vector.
 7. Candidate code cannot edit, infer, or optimize roles.
 8. No role represents live account, borrow, margin, or order authority.
+9. Fixed-reference membership never upgrades `context-only` candidate
+   authority.
 
 ## Known limits
 

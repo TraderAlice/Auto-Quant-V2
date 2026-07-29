@@ -312,7 +312,8 @@ CLI_COMMANDS = [
                 True,
                 "Path to the external OHLCV dataset-package manifest JSON, "
                 "not its directory. V4/V5 are ohlcv-factor-lab only; use "
-                "V1 for aligned daily fixed-Lab intake.",
+                "V1 for aligned daily fixed-Lab intake. V1-V4 may declare "
+                "one complete per-asset assetClass vector.",
             ),
             argument(
                 "template",

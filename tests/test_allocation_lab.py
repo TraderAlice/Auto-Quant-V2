@@ -19,6 +19,11 @@ from autoquant.allocation_policies import (
     load_allocation_contract,
 )
 from autoquant.briefs import validate_research_request
+from autoquant.intake import (
+    OHLCV_DATASET_PACKAGE_JSON_SCHEMA,
+    load_project_intake,
+    prepare_project_intake,
+)
 from autoquant.orientation import build_agent_work_brief
 from autoquant.project_templates.ohlcv_allocation_lab.allocation_core import (
     construct_erc_targets,
@@ -32,6 +37,7 @@ from autoquant.workspace import (
     create_project,
     initialize_workspace,
 )
+from tests.intake_helpers import write_intake_inputs
 
 
 def _rehash_run(run_root: Path) -> None:
@@ -158,6 +164,221 @@ class EqualRiskContributionTests(unittest.TestCase):
 
 
 class AllocationLabTests(unittest.TestCase):
+    def test_mixed_class_intake_keeps_context_reference_out_of_erc(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            roles = {
+                "AAPL": "long-only",
+                "NVDA": "long-only",
+                "GLD": "long-only",
+                "TLT": "long-only",
+                "SPY": "context-only",
+            }
+            request_path, package_path = write_intake_inputs(
+                root,
+                observations=643,
+                assets=("AAPL", "NVDA", "GLD", "TLT", "SPY"),
+                request_assets=("AAPL", "NVDA", "GLD", "TLT", "SPY"),
+                asset_position_roles=roles,
+                portfolio_policy={
+                    "annualizedVolatilityCeiling": 0.20,
+                    "assetMaxAbsWeights": {
+                        "AAPL": 0.45,
+                        "NVDA": 0.45,
+                        "GLD": 0.45,
+                        "TLT": 0.45,
+                    },
+                    "baseCostBps": 5.0,
+                    "decisionSchedule": {
+                        "kind": "calendar-month-end",
+                    },
+                    "grossLimit": 1.0,
+                    "maxAbsWeight": 0.45,
+                    "noTradeOneWay": 0.02,
+                    "referenceNav": 100_000.0,
+                },
+                benchmark_policy={
+                    "kind": "fixed-weights",
+                    "weights": {"SPY": 0.60, "TLT": 0.40},
+                },
+            )
+            request = json.loads(request_path.read_text(encoding="utf-8"))
+            request["allocationPolicy"] = {
+                "kind": "equal-risk-contribution",
+                "covarianceWindow": 126,
+                "minimumObservations": 126,
+                "contributionTolerance": 0.03,
+                "scaleUp": False,
+            }
+            requested_classes = {
+                "AAPL": "equity",
+                "NVDA": "equity",
+                "GLD": "fund",
+                "TLT": "fund",
+                "SPY": "fund",
+            }
+            for asset in request["assets"]:
+                asset["assetClass"] = requested_classes[asset["symbol"]]
+            request_path.write_text(
+                json.dumps(request, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            package = json.loads(package_path.read_text(encoding="utf-8"))
+            package["assetClass"] = "mixed"
+            for asset in package["assets"]:
+                asset["assetClass"] = requested_classes[asset["symbol"]]
+            package_path.write_text(
+                json.dumps(package, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            jsonschema.validate(
+                package,
+                OHLCV_DATASET_PACKAGE_JSON_SCHEMA,
+            )
+
+            prepared = prepare_project_intake(
+                request_path,
+                package_path,
+                "ohlcv-allocation-lab",
+            )
+            self.assertEqual(prepared.package["assetClass"], "mixed")
+            self.assertEqual(
+                {
+                    asset.symbol: asset.asset_class
+                    for asset in prepared.assets
+                },
+                requested_classes,
+            )
+            workspace = initialize_workspace(root / "workspace")
+            project = create_project(
+                workspace.root_dir,
+                "mixed-allocation",
+                template=prepared.template,
+                template_intake=prepared,
+            )
+            intake = load_project_intake(project)
+            assert intake is not None
+            self.assertEqual(
+                {
+                    asset["symbol"]: asset["assetClass"]
+                    for asset in intake["dataset"]["assets"]
+                },
+                requested_classes,
+            )
+            contract = load_allocation_contract(
+                project.root_dir / ALLOCATION_POLICY
+            )
+            self.assertEqual(
+                contract["tradableAssets"],
+                ["AAPL", "NVDA", "GLD", "TLT"],
+            )
+            self.assertEqual(contract["contextAssets"], ["SPY"])
+            self.assertEqual(
+                contract["benchmark"]["weights"],
+                {"SPY": 0.60, "TLT": 0.40},
+            )
+
+            run = execute_study(project, ALLOCATION_STUDY_ID)
+            self.assertEqual(
+                run.result["status"],
+                "succeeded",
+                run.result["errors"],
+            )
+            diagnostics = load_allocation_diagnostics(
+                project,
+                run.result["id"],
+            )
+            self.assertEqual(
+                diagnostics["dataset"]["assetClasses"],
+                requested_classes,
+            )
+            self.assertEqual(
+                diagnostics["dataset"]["assetClassSource"],
+                "per-asset",
+            )
+            self.assertEqual(
+                diagnostics["latestDecision"]["targetWeights"]["SPY"],
+                0.0,
+            )
+            self.assertEqual(
+                diagnostics["latestDecision"]["executedWeights"]["SPY"],
+                0.0,
+            )
+            self.assertEqual(
+                diagnostics["latestDecision"][
+                    "targetRiskContributionShares"
+                ]["SPY"],
+                0.0,
+            )
+            snapshot = build_studio_snapshot(project.root_dir)
+            self.assertTrue(snapshot["valid"])
+            self.assertEqual(snapshot["diagnostics"], [])
+            studio_project = snapshot["projects"][0]
+            self.assertEqual(
+                {
+                    asset["symbol"]: asset["assetClass"]
+                    for asset in studio_project["intake"]["dataset"]["assets"]
+                },
+                requested_classes,
+            )
+            studio_contract = studio_project["allocationExplorer"]["contract"]
+            self.assertEqual(
+                studio_project["allocationExplorer"]["dataset"][
+                    "assetClasses"
+                ],
+                requested_classes,
+            )
+            self.assertEqual(
+                studio_contract["tradableAssets"],
+                ["AAPL", "NVDA", "GLD", "TLT"],
+            )
+            self.assertEqual(studio_contract["contextAssets"], ["SPY"])
+            self.assertEqual(
+                studio_contract["benchmark"]["weights"],
+                {"SPY": 0.60, "TLT": 0.40},
+            )
+
+            dataset_snapshot_path = (
+                project.root_dir / "data" / "ohlcv" / "snapshot.json"
+            )
+            dataset_snapshot = json.loads(
+                dataset_snapshot_path.read_text(encoding="utf-8")
+            )
+            dataset_snapshot["assets"][0]["assetClass"] = "fund"
+            dataset_snapshot_path.write_text(
+                json.dumps(
+                    dataset_snapshot,
+                    indent=2,
+                    sort_keys=True,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            intake_path = project.root_dir / "intake.json"
+            intake_manifest = json.loads(
+                intake_path.read_text(encoding="utf-8")
+            )
+            intake_manifest["datasetSnapshotHash"] = hashlib.sha256(
+                dataset_snapshot_path.read_bytes()
+            ).hexdigest()
+            intake_path.write_text(
+                json.dumps(
+                    intake_manifest,
+                    indent=2,
+                    sort_keys=True,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            with self.assertRaises(AutoQuantValidationError) as caught:
+                load_project_intake(project)
+            self.assertIn(
+                "intake.snapshot-request-asset-classes",
+                {issue.code for issue in caught.exception.issues},
+            )
+
     def test_template_run_explorer_and_studio_are_strict(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             workspace = initialize_workspace(Path(directory) / "workspace")

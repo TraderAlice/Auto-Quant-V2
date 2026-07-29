@@ -22,6 +22,10 @@ Research Request.benchmarkPolicy
 
 Candidate factor and encoder code cannot edit this chain.
 
+The Portfolio/RL Mandate uses the cash or single-asset forms below. The fixed
+Allocation Lab extends only the reference form to one funded non-negative
+fixed-weight basket; it does not extend candidate position authority.
+
 ## Request contract
 
 `benchmarkPolicy` is optional. When supplied it is exactly one of:
@@ -37,6 +41,20 @@ Candidate factor and encoder code cannot edit this chain.
 For `asset`, `symbol` must be a non-empty dataset-universe symbol. It may be
 one of the requested tradable assets or a context-only asset. For `cash`,
 `symbol` must be null.
+
+The fixed Allocation route instead requires:
+
+```json
+{
+  "kind": "fixed-weights",
+  "weights": {"SPY": 0.6, "TLT": 0.4}
+}
+```
+
+Every leg must be requested, assigned either `long-only` or `context-only`,
+non-negative, and the complete basket must sum to one. A context-only leg
+belongs only to the independent reference portfolio; it remains zero in all
+candidate targets, executed weights, and risk contributions.
 
 When omitted, Core records `direction-default`. Requests without explicit
 asset roles retain the direction-derived reference:
@@ -83,15 +101,20 @@ For each decision bar `t`, benchmark return is:
 benchmark_return(t→t+1) = Σ benchmark_weight_i × asset_return_i(t→t+1)
 ```
 
-The vector is fixed for the Run and does not drift or rebalance through a
-Broker model. It is an evaluation index used by the existing chronological
-performance equations.
+For Portfolio and governed RL, the vector is fixed for the Run and does not
+drift or rebalance through a Broker model. It is an evaluation index used by
+the existing chronological performance equations.
 
 Portfolio and every governed-RL action sleeve receive the same Mandate and
 therefore the same benchmark path. Gross/net returns, costs, and positions do
 not depend on benchmark choice. Benchmark beta, active annualized return,
 tracking error, information ratio, relative growth, and handoff interpretation
 do.
+
+Allocation instead simulates its fixed-weight reference as a separately
+funded portfolio on the caller's same decision schedule, with its own drift,
+no-trade decisions, turnover, and linear costs. Candidate caps and volatility
+control never apply to that reference.
 
 ## Authority and roles
 
@@ -119,7 +142,9 @@ A benchmark asset:
 
 ## Known limits
 
-- V1 does not express custom baskets, leverage, short benchmarks, dynamic
-  rebalancing, factor benchmarks, or an authenticated cash yield.
+- Portfolio and governed RL do not express custom baskets. Allocation supports
+  only one caller-funded non-negative fixed-weight basket on its fixed
+  schedule; leverage, short benchmarks, factor benchmarks, and authenticated
+  cash yield remain unsupported.
 - The benchmark is a fixed research index, not a live investable product,
   financing model, or order instruction.

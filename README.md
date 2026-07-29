@@ -1,5 +1,5 @@
 ---
-version: 0.8.22
+version: 0.8.23
 ---
 
 # AutoQuant V2
@@ -32,7 +32,7 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current milestone: `0.8.22`
+## Current milestone: `0.8.23`
 
 AutoQuant V2 has crossed from an architectural prototype into a usable
 research workbench.
@@ -261,6 +261,33 @@ Repository regression passes all 312 tests in 803.410 seconds, the
 documentation graph resolves all 1,099 checked links, and a fresh Python 3.11
 environment installs the built `0.8.22` wheel for version, capability,
 Workspace, Project, orientation, and validation smoke.
+
+`0.8.23` follows a fresh Grok coworker into a mixed equity/fund Allocation
+assignment. V1–V4 OHLCV packages may now preserve an optional complete
+per-asset class vector; Core rejects partial vectors and wrong summaries,
+freezes the exact classes into the Project snapshot, and verifies them against
+the Research Request on every load. Legacy homogeneous packages remain valid.
+
+A fixed Allocation reference may also contain requested `context-only` legs.
+Those assets participate in the separately funded, drifted, costed reference
+portfolio without entering ERC candidate targets, caps, executed weights, or
+risk contributions. This keeps economic metadata and candidate authority
+truthful without adding another role or special Project type.
+
+The installed-wheel retry completed the unchanged AAPL/NVDA/GLD/TLT ERC
+assignment against a 60/40 SPY/TLT reference in one Project, one fixed Run,
+and zero Sessions. It preserved all five classes, kept SPY out of candidate
+weights and risk contributions, and surfaced one final read-model friction:
+the compact Study summary `mixed` hid the complete class map. Study inspection,
+Allocation Explorer, and Studio now project the verified Run-bound per-symbol
+classes directly.
+
+A second fresh worker installed the final wheel and repeated the complete
+assignment after that read-model fix. Study inspection and Explorer agreed on
+the exact five-symbol map, the Run succeeded in about 0.8 seconds, strict
+verification reconciled every path, and Studio reported no diagnostics.
+Repository regression passes all 315 tests in 805.092 seconds and the
+documentation graph resolves all 1,104 checked links.
 
 ## Standalone or an OpenAlice desk
 

@@ -1253,6 +1253,30 @@ class AgentCliTests(unittest.TestCase):
                 str(Path(envelope["data"]["projectDir"]) / "request.json"),
                 envelope["nextActions"][-1]["argv"],
             )
+            inspected = run_cli(
+                "study",
+                "inspect",
+                str(workspace),
+                "--project",
+                "real-portfolio",
+                "--study",
+                "ohlcv-portfolio-quality",
+                "--json",
+            )
+            self.assertEqual(inspected.returncode, 0, inspected.stderr)
+            context = json_output(inspected)["data"]["datasetContext"]
+            self.assertEqual(context["assetClass"], "equity")
+            self.assertEqual(context["assetClassSource"], "package-summary")
+            self.assertEqual(
+                context["assetClasses"],
+                {
+                    "AAPL": "equity",
+                    "MSFT": "equity",
+                    "NVDA": "equity",
+                    "QQQ": "equity",
+                    "SPY": "equity",
+                },
+            )
 
     def test_cli_intake_defaults_to_multi_study_research_desk(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

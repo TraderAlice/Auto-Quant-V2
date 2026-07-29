@@ -305,6 +305,12 @@ time. Never substitute Project creation time, package preparation time, file
 mtime, or the current clock; unknown provenance is more truthful than invented
 precision. The exact string/null is content-locked into the dataset snapshot.
 
+V1–V4 packages may add `assetClass` to every asset row. The vector is
+all-or-nothing, each value must be supported, and the top-level class must be
+the shared value or `mixed`. Intake freezes the vector and matches each
+requested symbol against it. Packages that omit every row-level class retain
+the legacy homogeneous top-level-class behavior.
+
 V3 accepts a bounded configurable base interval and either continuous UTC or
 XNYS regular-session authority. Continuous features must be larger exact
 multiples of the base. XNYS uses exchange-scheduled opens/closes, including
@@ -397,6 +403,13 @@ For a Study that edits `factors/**`, `study inspect` returns the same strict
 `candidateContract` used by orientation. Human output prints its base
 interval, completed feature intervals, interval-authority rule, and legal
 component roles before input identity.
+
+For every request-intake Project, `study inspect --json` also returns
+`datasetContext`: the verified package summary, a complete symbol-to-class
+map, and whether that map came from explicit per-asset declarations or the
+legacy homogeneous package summary. The Study definition keeps its compact
+top-level `dataset.asset_class`; consumers do not need to mistake that summary
+for the complete economic inventory.
 
 `--dependency` is optional and repeatable. It declares fixed Project-relative
 strategy/factor/model source that the Judge may import but the Study cannot

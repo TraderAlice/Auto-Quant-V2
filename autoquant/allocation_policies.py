@@ -265,8 +265,6 @@ def build_allocation_contract(
     context = [symbol for symbol in universe if symbol not in tradable]
     if not tradable:
         raise ValueError("allocation request has no long-only assets")
-    if set(benchmark["weights"]) - set(tradable):
-        raise ValueError("benchmark may fund long-only allocation assets only")
     payload = {
         "schemaVersion": SCHEMA_VERSION,
         "kind": ALLOCATION_POLICY_KIND,
@@ -368,7 +366,7 @@ def validate_allocation_contract(
     method = normalize_allocation_policy(value.get("method"), f"{path}/method")
     benchmark = normalize_fixed_weight_benchmark(
         value.get("benchmark"),
-        requested_symbols=set(tradable),
+        requested_symbols=set(universe),
         path=f"{path}/benchmark",
     )
     portfolio = value.get("portfolioPolicy")

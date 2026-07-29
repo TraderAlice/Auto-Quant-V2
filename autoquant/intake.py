@@ -157,6 +157,57 @@ def _non_empty(value: Any, path: Path | str) -> list[ValidationIssue]:
     return []
 
 
+def _asset_class_summary(asset_classes: list[str]) -> str:
+    distinct = set(asset_classes)
+    return next(iter(distinct)) if len(distinct) == 1 else "mixed"
+
+
+def _optional_asset_class_issues(
+    assets: list[Any],
+    path: Path,
+    package_asset_class: Any,
+) -> list[ValidationIssue]:
+    issues: list[ValidationIssue] = []
+    declared = [
+        index
+        for index, asset in enumerate(assets)
+        if isinstance(asset, dict) and "assetClass" in asset
+    ]
+    if declared and len(declared) != len(assets):
+        issues.append(
+            _issue(
+                f"{path}/assets",
+                "dataset.partial-asset-classes",
+                "Per-asset assetClass is optional only as a complete vector",
+            )
+        )
+    asset_classes: list[str] = []
+    for index in declared:
+        asset_class = assets[index].get("assetClass")
+        if asset_class not in ASSET_CLASSES:
+            issues.append(
+                _issue(
+                    f"{path}/assets/{index}/assetClass",
+                    "dataset.asset-class",
+                    "Unsupported asset class",
+                )
+            )
+        else:
+            asset_classes.append(asset_class)
+    if len(asset_classes) == len(assets) and asset_classes:
+        expected = _asset_class_summary(asset_classes)
+        if package_asset_class != expected:
+            issues.append(
+                _issue(
+                    f"{path}/assetClass",
+                    "dataset.asset-class-summary",
+                    "assetClass must summarize per-asset classes as "
+                    f"'{expected}'",
+                )
+            )
+    return issues
+
+
 def _validate_provider_claim(
     value: Any,
     path: Path | str,
@@ -389,6 +440,13 @@ class PreparedIntake:
         )
 
     @property
+    def per_asset_classes(self) -> bool:
+        return all(
+            "assetClass" in asset
+            for asset in self.package["assets"]
+        )
+
+    @property
     def interval_surface(self) -> dict[str, Any] | None:
         if not self.multi_interval:
             return None
@@ -536,7 +594,17 @@ def _validate_v1_package_manifest(
         issues.extend(
             _strict_keys(
                 asset,
-                {"symbol", "venue", "currency", "path"},
+                {
+                    "symbol",
+                    "venue",
+                    "currency",
+                    "path",
+                    *(
+                        ("assetClass",)
+                        if "assetClass" in asset
+                        else ()
+                    ),
+                },
                 asset_path,
             )
         )
@@ -569,6 +637,13 @@ def _validate_v1_package_manifest(
             symbols.append(symbol)
         if isinstance(relative, str):
             source_paths.append(relative)
+    issues.extend(
+        _optional_asset_class_issues(
+            assets,
+            path,
+            value.get("assetClass"),
+        )
+    )
     if len(symbols) != len(set(symbols)):
         issues.append(
             _issue(f"{path}/assets", "dataset.duplicate-symbol", "Symbols must be unique")
@@ -596,8 +671,15 @@ def _validate_v1_package_manifest(
         "provider": _normalize_provider_claim(provider),
         "assets": [
             {
-                key: asset[key].strip()
-                for key in ("symbol", "venue", "currency", "path")
+                **{
+                    key: asset[key].strip()
+                    for key in ("symbol", "venue", "currency", "path")
+                },
+                **(
+                    {"assetClass": asset["assetClass"].strip()}
+                    if "assetClass" in asset
+                    else {}
+                ),
             }
             for asset in assets
         ],
@@ -1050,7 +1132,17 @@ def _validate_v2_package_manifest(
         issues.extend(
             _strict_keys(
                 asset,
-                {"symbol", "venue", "currency", "path"},
+                {
+                    "symbol",
+                    "venue",
+                    "currency",
+                    "path",
+                    *(
+                        ("assetClass",)
+                        if "assetClass" in asset
+                        else ()
+                    ),
+                },
                 asset_path,
             )
         )
@@ -1078,6 +1170,13 @@ def _validate_v2_package_manifest(
                     )
                 )
             source_paths.append(relative)
+    issues.extend(
+        _optional_asset_class_issues(
+            assets,
+            path,
+            value.get("assetClass"),
+        )
+    )
     if len(symbols) != len(set(symbols)):
         issues.append(_issue(f"{path}/assets", "dataset.duplicate-symbol", "Symbols must be unique"))
     if len(source_paths) != len(set(source_paths)):
@@ -1098,8 +1197,15 @@ def _validate_v2_package_manifest(
         "provider": _normalize_provider_claim(provider),
         "assets": [
             {
-                key: asset[key].strip()
-                for key in ("symbol", "venue", "currency", "path")
+                **{
+                    key: asset[key].strip()
+                    for key in ("symbol", "venue", "currency", "path")
+                },
+                **(
+                    {"assetClass": asset["assetClass"].strip()}
+                    if "assetClass" in asset
+                    else {}
+                ),
             }
             for asset in assets
         ],
@@ -1635,10 +1741,9 @@ def prepare_project_intake(
                 source_hash=hash_file(source),
                 frame=frame,
                 interval_frames=interval_frames,
-                asset_class=(
-                    asset["assetClass"]
-                    if observed_intraday
-                    else package["assetClass"]
+                asset_class=asset.get(
+                    "assetClass",
+                    package["assetClass"],
                 ),
                 volume_semantics=(
                     asset["volumeSemantics"]
@@ -1733,16 +1838,6 @@ def prepare_project_intake(
         )
 
     package_by_symbol = prepared_by_symbol
-    requested_classes = {item["assetClass"] for item in request["assets"]}
-    if not observed_intraday and requested_classes != {package["assetClass"]}:
-        issues.append(
-            _issue(
-                "request/assets",
-                "request.dataset-asset-class",
-                "Every requested asset class must equal dataset assetClass "
-                f"'{package['assetClass']}'",
-            )
-        )
     for item in request["assets"]:
         source = package_by_symbol.get(item["symbol"])
         if source is None:
@@ -1761,13 +1856,14 @@ def prepare_project_intake(
                     f"Requested venue for {item['symbol']} differs from dataset",
                 )
             )
-        elif observed_intraday and item["assetClass"] != source.asset_class:
+        elif item["assetClass"] != source.asset_class:
             issues.append(
                 _issue(
                     "request/assets",
                     "request.dataset-asset-class",
-                    f"Requested asset class for {item['symbol']} differs "
-                    "from its dataset assetClass",
+                    "Every requested asset class must match its dataset "
+                    f"assetClass; {item['symbol']} differs from "
+                    f"'{source.asset_class}'",
                 )
             )
     if panel_dates:
@@ -2039,8 +2135,9 @@ def materialize_intake_dataset(
                 else intake.end
             ),
         }
-        if intake.observed_intraday:
+        if intake.per_asset_classes:
             common["assetClass"] = asset.asset_class
+        if intake.observed_intraday:
             common["volumeSemantics"] = asset.volume_semantics
         if intake.multi_interval:
             assert asset.interval_frames is not None
@@ -2513,26 +2610,30 @@ def _validate_v1_snapshot(
         )
         assets = []
     asset_symbols: list[str] = []
+    snapshot_asset_classes: list[str] = []
     for index, asset in enumerate(assets):
         asset_path = f"{path}/assets/{index}"
         if not isinstance(asset, dict):
             issues.append(_issue(asset_path, "schema.type", "Asset must be an object"))
             continue
+        asset_fields = {
+            "symbol",
+            "venue",
+            "currency",
+            "sourcePath",
+            "sourceHash",
+            "normalizedPath",
+            "normalizedHash",
+            "observations",
+            "start",
+            "end",
+        }
+        if "assetClass" in asset:
+            asset_fields.add("assetClass")
         issues.extend(
             _strict_keys(
                 asset,
-                {
-                    "symbol",
-                    "venue",
-                    "currency",
-                    "sourcePath",
-                    "sourceHash",
-                    "normalizedPath",
-                    "normalizedHash",
-                    "observations",
-                    "start",
-                    "end",
-                },
+                asset_fields,
                 asset_path,
             )
         )
@@ -2571,6 +2672,17 @@ def _validate_v1_snapshot(
         symbol = asset.get("symbol")
         if isinstance(symbol, str):
             asset_symbols.append(symbol)
+        if "assetClass" in asset:
+            if asset.get("assetClass") not in ASSET_CLASSES:
+                issues.append(
+                    _issue(
+                        f"{asset_path}/assetClass",
+                        "dataset.asset-class",
+                        "Unsupported asset class",
+                    )
+                )
+            else:
+                snapshot_asset_classes.append(asset["assetClass"])
         if not ragged and (
             asset.get("start") != time_range.get("start")
             or asset.get("end") != time_range.get("end")
@@ -2612,6 +2724,25 @@ def _validate_v1_snapshot(
                 "Snapshot asset order must exactly match the research universe",
             )
         )
+    if snapshot_asset_classes:
+        if len(snapshot_asset_classes) != len(assets):
+            issues.append(
+                _issue(
+                    f"{path}/assets",
+                    "intake.snapshot-partial-asset-classes",
+                    "Snapshot per-asset assetClass must be a complete vector",
+                )
+            )
+        else:
+            expected_class = _asset_class_summary(snapshot_asset_classes)
+            if snapshot.get("assetClass") != expected_class:
+                issues.append(
+                    _issue(
+                        f"{path}/assetClass",
+                        "intake.snapshot-asset-class-summary",
+                        f"Snapshot assetClass must be '{expected_class}'",
+                    )
+                )
     return issues
 
 
@@ -2842,8 +2973,13 @@ def _validate_multi_interval_snapshot(
             "end",
             "intervals",
         }
+        if (
+            schema_version == OBSERVED_INTRADAY_SCHEMA_VERSION
+            or "assetClass" in asset
+        ):
+            asset_keys.add("assetClass")
         if schema_version == OBSERVED_INTRADAY_SCHEMA_VERSION:
-            asset_keys.update({"assetClass", "volumeSemantics"})
+            asset_keys.add("volumeSemantics")
         issues.extend(_strict_keys(asset, asset_keys, asset_path))
         for key in ("symbol", "venue", "currency", "sourcePath", "start", "end"):
             issues.extend(_non_empty(asset.get(key), f"{asset_path}/{key}"))
@@ -2866,7 +3002,7 @@ def _validate_multi_interval_snapshot(
                     "Base asset coverage must match snapshot timeRange",
                 )
             )
-        if schema_version == OBSERVED_INTRADAY_SCHEMA_VERSION:
+        if "assetClass" in asset:
             if asset.get("assetClass") not in ASSET_CLASSES:
                 issues.append(
                     _issue(
@@ -2877,6 +3013,7 @@ def _validate_multi_interval_snapshot(
                 )
             else:
                 snapshot_asset_classes.append(asset["assetClass"])
+        if schema_version == OBSERVED_INTRADAY_SCHEMA_VERSION:
             if asset.get("volumeSemantics") not in OBSERVED_VOLUME_SEMANTICS:
                 issues.append(
                     _issue(
@@ -2981,20 +3118,25 @@ def _validate_multi_interval_snapshot(
                 "Snapshot asset order must exactly match the research universe",
             )
         )
-    if schema_version == OBSERVED_INTRADAY_SCHEMA_VERSION:
-        expected_class = (
-            next(iter(set(snapshot_asset_classes)))
-            if len(set(snapshot_asset_classes)) == 1
-            else "mixed"
-        )
-        if snapshot_asset_classes and snapshot.get("assetClass") != expected_class:
+    if snapshot_asset_classes:
+        if len(snapshot_asset_classes) != len(assets):
             issues.append(
                 _issue(
-                    f"{path}/assetClass",
-                    "intake.snapshot-asset-class-summary",
-                    f"Snapshot assetClass must be '{expected_class}'",
+                    f"{path}/assets",
+                    "intake.snapshot-partial-asset-classes",
+                    "Snapshot per-asset assetClass must be a complete vector",
                 )
             )
+        else:
+            expected_class = _asset_class_summary(snapshot_asset_classes)
+            if snapshot.get("assetClass") != expected_class:
+                issues.append(
+                    _issue(
+                        f"{path}/assetClass",
+                        "intake.snapshot-asset-class-summary",
+                        f"Snapshot assetClass must be '{expected_class}'",
+                    )
+                )
     return issues
 
 
@@ -3213,7 +3355,10 @@ def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
                 "Snapshot requested assets differ from the Research Request",
             )
         )
-    if snapshot.get("schemaVersion") == OBSERVED_INTRADAY_SCHEMA_VERSION:
+    if any(
+        isinstance(item, dict) and "assetClass" in item
+        for item in snapshot.get("assets", [])
+    ):
         snapshot_classes = {
             item.get("symbol"): item.get("assetClass")
             for item in snapshot.get("assets", [])
@@ -3229,8 +3374,8 @@ def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
                 _issue(
                     snapshot_path,
                     "intake.snapshot-request-asset-classes",
-                    "V5 snapshot asset classes differ from the Research "
-                    "Request: " + ", ".join(mismatched_classes),
+                    "Snapshot asset classes differ from the Research Request: "
+                    + ", ".join(mismatched_classes),
                 )
             )
     ragged_dates_by_symbol: dict[str, list[str]] = {}
@@ -3771,6 +3916,78 @@ def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
     }
 
 
+def intake_dataset_class_context(
+    intake: dict[str, Any],
+) -> dict[str, Any]:
+    """Project one verified snapshot's complete economic-class read model."""
+
+    snapshot = intake["dataset"]
+    summary = snapshot["assetClass"]
+    assets = snapshot["assets"]
+    per_asset = all("assetClass" in asset for asset in assets)
+    return {
+        "assetClass": summary,
+        "assetClasses": {
+            asset["symbol"]: asset.get("assetClass", summary)
+            for asset in assets
+        },
+        "assetClassSource": (
+            "per-asset" if per_asset else "package-summary"
+        ),
+    }
+
+
+OHLCV_PACKAGE_ASSET_PROPERTIES: dict[str, Any] = {
+    "symbol": {
+        "type": "string",
+        "pattern": SAFE_SYMBOL.pattern,
+    },
+    "assetClass": {
+        "description": (
+            "Exact economic class for this asset. Supply it on every asset "
+            "or omit it from every asset; Core never fills a partial vector."
+        ),
+        "enum": sorted(ASSET_CLASSES),
+    },
+    "venue": {"type": "string", "minLength": 1},
+    "currency": {"type": "string", "minLength": 1},
+    "path": {"type": "string", "minLength": 1},
+}
+OHLCV_PACKAGE_ASSETS_JSON_SCHEMA: dict[str, Any] = {
+    "type": "array",
+    "minItems": 1,
+    "description": (
+        "Asset inventory. Use either the legacy homogeneous shape with no "
+        "per-asset assetClass fields, or one complete classified vector."
+    ),
+    "oneOf": [
+        {
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["symbol", "venue", "currency", "path"],
+                "not": {"required": ["assetClass"]},
+                "properties": OHLCV_PACKAGE_ASSET_PROPERTIES,
+            }
+        },
+        {
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": [
+                    "symbol",
+                    "assetClass",
+                    "venue",
+                    "currency",
+                    "path",
+                ],
+                "properties": OHLCV_PACKAGE_ASSET_PROPERTIES,
+            }
+        },
+    ],
+}
+
+
 OHLCV_DATASET_PACKAGE_V1_JSON_SCHEMA: dict[str, Any] = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "title": "AutoQuant external OHLCV dataset package",
@@ -3793,7 +4010,15 @@ OHLCV_DATASET_PACKAGE_V1_JSON_SCHEMA: dict[str, Any] = {
         "kind": {"const": DATASET_PACKAGE_KIND},
         "id": {"type": "string", "minLength": 1},
         "version": {"type": "string", "minLength": 1},
-        "assetClass": {"type": "string", "minLength": 1},
+        "assetClass": {
+            "type": "string",
+            "minLength": 1,
+            "description": (
+                "Package class for a legacy homogeneous inventory, or the "
+                "canonical common class / 'mixed' summary when every asset "
+                "declares assetClass."
+            ),
+        },
         "frequency": {"const": "1d"},
         "market": {
             "type": "object",
@@ -3833,24 +4058,7 @@ OHLCV_DATASET_PACKAGE_V1_JSON_SCHEMA: dict[str, Any] = {
                 "terms": {"type": "string", "minLength": 1},
             },
         },
-        "assets": {
-            "type": "array",
-            "minItems": 1,
-            "items": {
-                "type": "object",
-                "additionalProperties": False,
-                "required": ["symbol", "venue", "currency", "path"],
-                "properties": {
-                    "symbol": {
-                        "type": "string",
-                        "pattern": SAFE_SYMBOL.pattern,
-                    },
-                    "venue": {"type": "string", "minLength": 1},
-                    "currency": {"type": "string", "minLength": 1},
-                    "path": {"type": "string", "minLength": 1},
-                },
-            },
-        },
+        "assets": OHLCV_PACKAGE_ASSETS_JSON_SCHEMA,
     },
 }
 
@@ -3909,7 +4117,9 @@ OHLCV_DATASET_PACKAGE_V2_JSON_SCHEMA: dict[str, Any] = {
         "kind": {"const": DATASET_PACKAGE_KIND},
         "id": {"type": "string", "minLength": 1},
         "version": {"type": "string", "minLength": 1},
-        "assetClass": {"type": "string", "minLength": 1},
+        "assetClass": OHLCV_DATASET_PACKAGE_V1_JSON_SCHEMA["properties"][
+            "assetClass"
+        ],
         "baseInterval": {"const": BASE_INTERVAL},
         "featureIntervals": {
             "type": "array",
@@ -3936,7 +4146,7 @@ OHLCV_DATASET_PACKAGE_V2_JSON_SCHEMA: dict[str, Any] = {
         },
         "priceAdjustment": {"enum": sorted(PRICE_ADJUSTMENTS)},
         "provider": OHLCV_DATASET_PACKAGE_V1_JSON_SCHEMA["properties"]["provider"],
-        "assets": OHLCV_DATASET_PACKAGE_V1_JSON_SCHEMA["properties"]["assets"],
+        "assets": OHLCV_PACKAGE_ASSETS_JSON_SCHEMA,
     },
 }
 OHLCV_DATASET_PACKAGE_V3_JSON_SCHEMA: dict[str, Any] = {

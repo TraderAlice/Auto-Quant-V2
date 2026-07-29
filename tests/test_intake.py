@@ -65,6 +65,189 @@ from tests.intake_helpers import (
 
 
 class RequestDrivenIntakeTests(unittest.TestCase):
+    def test_aligned_package_asset_classes_are_complete_and_truthful(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            request_path, package_path = write_intake_inputs(root)
+            legacy = json.loads(package_path.read_text(encoding="utf-8"))
+            jsonschema.validate(
+                legacy,
+                OHLCV_DATASET_PACKAGE_JSON_SCHEMA,
+            )
+            prepared = prepare_project_intake(
+                request_path,
+                package_path,
+                "ohlcv-factor-lab",
+            )
+            self.assertFalse(prepared.per_asset_classes)
+
+            partial = json.loads(json.dumps(legacy))
+            partial["assets"][0]["assetClass"] = "equity"
+            with self.assertRaises(jsonschema.ValidationError):
+                jsonschema.validate(
+                    partial,
+                    OHLCV_DATASET_PACKAGE_JSON_SCHEMA,
+                )
+            package_path.write_text(
+                json.dumps(partial, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            with self.assertRaises(AutoQuantValidationError) as caught:
+                prepare_project_intake(
+                    request_path,
+                    package_path,
+                    "ohlcv-factor-lab",
+                )
+            self.assertIn(
+                "dataset.partial-asset-classes",
+                {issue.code for issue in caught.exception.issues},
+            )
+
+            unsupported = json.loads(json.dumps(legacy))
+            for asset in unsupported["assets"]:
+                asset["assetClass"] = "security"
+            with self.assertRaises(jsonschema.ValidationError):
+                jsonschema.validate(
+                    unsupported,
+                    OHLCV_DATASET_PACKAGE_JSON_SCHEMA,
+                )
+            package_path.write_text(
+                json.dumps(unsupported, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            with self.assertRaises(AutoQuantValidationError) as caught:
+                prepare_project_intake(
+                    request_path,
+                    package_path,
+                    "ohlcv-factor-lab",
+                )
+            self.assertIn(
+                "dataset.asset-class",
+                {issue.code for issue in caught.exception.issues},
+            )
+
+            wrong_summary = json.loads(json.dumps(legacy))
+            classes = {
+                "AAPL": "equity",
+                "MSFT": "equity",
+                "NVDA": "equity",
+                "QQQ": "fund",
+                "SPY": "fund",
+            }
+            for asset in wrong_summary["assets"]:
+                asset["assetClass"] = classes[asset["symbol"]]
+            jsonschema.validate(
+                wrong_summary,
+                OHLCV_DATASET_PACKAGE_JSON_SCHEMA,
+            )
+            package_path.write_text(
+                json.dumps(wrong_summary, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            with self.assertRaises(AutoQuantValidationError) as caught:
+                prepare_project_intake(
+                    request_path,
+                    package_path,
+                    "ohlcv-factor-lab",
+                )
+            self.assertIn(
+                "dataset.asset-class-summary",
+                {issue.code for issue in caught.exception.issues},
+            )
+
+    def test_v1_through_v4_freeze_complete_per_asset_classes(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workspace = initialize_workspace(root / "workspace")
+            fixtures = []
+            for version, writer in (
+                (1, write_intake_inputs),
+                (2, write_multi_interval_inputs),
+                (3, write_session_interval_inputs),
+                (4, write_intake_inputs),
+            ):
+                fixture_root = root / f"v{version}"
+                fixture_root.mkdir()
+                request_path, package_path = writer(fixture_root)
+                package = json.loads(
+                    package_path.read_text(encoding="utf-8")
+                )
+                if version == 4:
+                    package["schemaVersion"] = 4
+                    package["panelPolicy"] = {
+                        "alignment": "observed-only",
+                        "missingObservation": "absent-no-fill",
+                    }
+                request = json.loads(
+                    request_path.read_text(encoding="utf-8")
+                )
+                requested_classes = {
+                    asset["symbol"]: asset["assetClass"]
+                    for asset in request["assets"]
+                }
+                expected_classes = {}
+                for asset in package["assets"]:
+                    asset_class = requested_classes.get(
+                        asset["symbol"],
+                        "fund",
+                    )
+                    asset["assetClass"] = asset_class
+                    expected_classes[asset["symbol"]] = asset_class
+                package["assetClass"] = "mixed"
+                package_path.write_text(
+                    json.dumps(package, indent=2, sort_keys=True) + "\n",
+                    encoding="utf-8",
+                )
+                fixtures.append(
+                    (
+                        version,
+                        request_path,
+                        package_path,
+                        expected_classes,
+                    )
+                )
+
+            for version, request_path, package_path, expected_classes in fixtures:
+                package = json.loads(
+                    package_path.read_text(encoding="utf-8")
+                )
+                jsonschema.validate(
+                    package,
+                    OHLCV_DATASET_PACKAGE_JSON_SCHEMA,
+                )
+                prepared = prepare_project_intake(
+                    request_path,
+                    package_path,
+                    "ohlcv-factor-lab",
+                )
+                self.assertTrue(prepared.per_asset_classes)
+                self.assertEqual(
+                    {
+                        asset.symbol: asset.asset_class
+                        for asset in prepared.assets
+                    },
+                    expected_classes,
+                )
+                project = create_project(
+                    workspace.root_dir,
+                    f"classified-v{version}",
+                    template=prepared.template,
+                    template_intake=prepared,
+                )
+                intake = load_project_intake(project)
+                assert intake is not None
+                self.assertEqual(
+                    {
+                        asset["symbol"]: asset["assetClass"]
+                        for asset in intake["dataset"]["assets"]
+                    },
+                    expected_classes,
+                )
+
     def test_unknown_provider_retrieval_time_is_explicit_and_preserved(
         self,
     ) -> None:
