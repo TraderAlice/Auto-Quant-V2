@@ -1,6 +1,6 @@
 # Reported-book cash entry sizing field trial
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-07-29`
 - Related design: [[docs/design/reported-position-book-risk]] and
   [[docs/design/research-intake-and-dataset-snapshots]].
@@ -69,8 +69,8 @@ maximum-weight objective. Only one scalar remains to solve.
   and infeasible states plus malformed/tampered authority.
 - [x] Judge, strict Explorer, CLI, orientation, and Studio agree on
   the exact complete target book and no-trading boundary.
-- [ ] One clean real-Yahoo Project answers the representative request.
-- [ ] Focused/full tests, docs, package smoke, patch version, commit/push, tag,
+- [x] One clean real-Yahoo Project answers the representative request.
+- [x] Focused/full tests, docs, package smoke, patch version, commit/push, tag,
   and repository cleanliness pass.
 
 ## Work
@@ -79,7 +79,7 @@ maximum-weight objective. Only one scalar remains to solve.
 - [x] Generalize and document the one-leg asset/cash sizing contract.
 - [x] Implement exact Judge and independent Explorer reconciliation.
 - [x] Update Agent and human surfaces with bounded tests.
-- [ ] Complete the clean real-data trial and release audit.
+- [x] Complete the clean real-data trial and release audit.
 
 ## Findings and decisions
 
@@ -129,6 +129,11 @@ maximum-weight objective. Only one scalar remains to solve.
   reports `aq 0.8.5`, performs the real Yahoo intake and Run in 248 ms,
   rederives the exact `0.2440994362` NVDA result through strict Explorer, and
   returns a valid Studio snapshot with no diagnostics.
+- Final Project `us-megacap-nvda-cash-entry-v085-clean` Run
+  `run-20260729T011215934120Z-f2d1476911da` completed in 271 ms under clean
+  Harness commit `b39cc8e`, version `0.8.5`. Strict Explorer, Project
+  validation, orientation, and direct Studio snapshot all pass with no
+  diagnostics; Studio is `valid: true`.
 
 ## Progress log
 
@@ -141,7 +146,19 @@ maximum-weight objective. Only one scalar remains to solve.
   strict Explorer independently rederived the domain, ceiling root, signed
   asset/cash changes, complete funded book, contribution ledger, and
   cross-lookback status.
+- 2026-07-29 — Passed the full regression and wheel smoke, released and pushed
+  `v0.8.5`, then reproduced the exact result in a fresh Project from the clean
+  release commit.
 
 ## Completion
 
-Pending.
+Completed on 2026-07-29. AutoQuant 0.8.5 replaces the reduction-only pre-1.0
+contract with one explicit direction-aware asset/cash sizing path. A caller
+can now authorize either the smallest necessary decrease to cash or the
+largest compliant cash-funded increase while every other holding remains
+fixed. The real Yahoo trial produces an exact 24.4099436% NVDA historical
+target and 25.5900564% cash under the fixed 252-session 15% ceiling, while
+truthfully disclosing breaches under both shorter diagnostic windows.
+Request, frozen dependency, Judge, independent Explorer, CLI, orientation,
+Studio, tests, wheel, and clean Project agree on the same no-account,
+no-future-guarantee, no-Order authority.
