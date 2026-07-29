@@ -9,6 +9,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from .allocation_explorer import (
+    CONSTRUCTION_FIDELITY_JSON_SCHEMA,
+    load_allocation_diagnostics,
+)
 from .briefs import load_research_request
 from .candidate_contracts import (
     FACTOR_CANDIDATE_CONTRACT_JSON_SCHEMA,
@@ -39,7 +43,7 @@ from .workspace import SCHEMA_VERSION, ProjectContext
 
 
 AGENT_WORK_BRIEF_KIND = "autoquant-agent-work-brief"
-AGENT_WORK_BRIEF_METHOD = "verified-project-agent-orientation-v8"
+AGENT_WORK_BRIEF_METHOD = "verified-project-agent-orientation-v9"
 MAX_RESEARCH_QUESTION_CHARS = 4_000
 PROTECTED_CATEGORIES = [
     "request",
@@ -1701,6 +1705,14 @@ def build_agent_work_brief(project: ProjectContext) -> dict[str, Any]:
         if focus_study_id is not None
         else None
     )
+    construction_fidelity = (
+        load_allocation_diagnostics(
+            project,
+            agenda_run_id,
+        )["constructionFidelity"]
+        if allocation_fixed and agenda_run_id is not None
+        else None
+    )
     return {
         "schemaVersion": SCHEMA_VERSION,
         "kind": AGENT_WORK_BRIEF_KIND,
@@ -1712,6 +1724,7 @@ def build_agent_work_brief(project: ProjectContext) -> dict[str, Any]:
         },
         "question": _question_projection(project, intake, studies),
         "candidateContract": candidate_contract,
+        "constructionFidelity": construction_fidelity,
         "researchAgenda": research_agenda,
         "externalHoldout": holdout,
         **projected,
@@ -1765,6 +1778,7 @@ AGENT_WORK_BRIEF_JSON_SCHEMA: dict[str, Any] = {
         "project",
         "question",
         "candidateContract",
+        "constructionFidelity",
         "focus",
         "evidence",
         "reasons",
@@ -1818,6 +1832,12 @@ AGENT_WORK_BRIEF_JSON_SCHEMA: dict[str, Any] = {
         "candidateContract": {
             "oneOf": [
                 FACTOR_CANDIDATE_CONTRACT_JSON_SCHEMA,
+                {"type": "null"},
+            ]
+        },
+        "constructionFidelity": {
+            "oneOf": [
+                CONSTRUCTION_FIDELITY_JSON_SCHEMA,
                 {"type": "null"},
             ]
         },

@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha at `0.8.23`.
+Status: usable pre-alpha at `0.8.24`.
 
 Updated: 2026-07-30.
 
@@ -13,7 +13,7 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 AutoQuant V2 has crossed the line from an architectural prototype into a
 usable Agent-native quantitative research workbench.
 
-At `0.8.23`, a human, local coding Agent, or coworker delegated from OpenAlice
+At `0.8.24`, a human, local coding Agent, or coworker delegated from OpenAlice
 can:
 
 1. clone the repository and immediately discover the Harness plus its
@@ -177,7 +177,26 @@ Final verification passes all 315 tests in 805.092 seconds, resolves all 1,104
 documentation links, and installs the final `0.8.23` wheel in a fresh Python
 3.11 environment for the complete mixed-class Allocation field trial.
 
-The current release is `v0.8.23`. `v0.8.22` remains the multi-Project
+`0.8.24` separates a fixed Allocation Run's validation relative-performance
+verdict from its ERC construction fidelity. Every split now publishes exact
+scheduled, eligible, within-tolerance, cap-gap, maximum-error, and latest-
+eligible evidence. Strict Explorer rederives it from immutable decisions,
+rejects mismatched new reports, and gives valid older Runs the same read model
+without rewriting history. Orientation, CLI, Studio, and public schemas carry
+the validation view directly.
+
+The isolated final-wheel Grok retry completed the unchanged capped
+AAPL/NVDA/GLD/TLT assignment against the fixed SPY/TLT reference in one
+Project, one Run, and zero Sessions. From public Core evidence only, it kept
+the positive validation net-Sharpe conclusion scoped to relative performance,
+then separately rejected both construction-fidelity clauses: 0 of 6 eligible
+validation decisions were within tolerance and the latest validation decision
+had a 0.2011 maximum contribution error. Strict verification reconciled the
+new block and Studio remained valid without diagnostics. Full regression
+passes 317 tests in 808.042 seconds and all 1,109 documentation links resolve.
+
+The current release is `v0.8.24`. `v0.8.23` remains the mixed-class
+Allocation milestone, `v0.8.22` remains the multi-Project
 selection-safety milestone, `v0.8.21` remains the atomic lane-aware
 holdout-target milestone, `v0.8.20` remains the self-describing Report
 evidence milestone, `v0.8.19` remains the fixed Book Risk

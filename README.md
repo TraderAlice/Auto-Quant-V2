@@ -1,5 +1,5 @@
 ---
-version: 0.8.23
+version: 0.8.24
 ---
 
 # AutoQuant V2
@@ -32,7 +32,7 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current milestone: `0.8.23`
+## Current milestone: `0.8.24`
 
 AutoQuant V2 has crossed from an architectural prototype into a usable
 research workbench.
@@ -262,7 +262,29 @@ documentation graph resolves all 1,099 checked links, and a fresh Python 3.11
 environment installs the built `0.8.22` wheel for version, capability,
 Workspace, Project, orientation, and validation smoke.
 
-`0.8.23` follows a fresh Grok coworker into a mixed equity/fund Allocation
+`0.8.24` follows another isolated Grok coworker into a capped ERC assignment
+with two independent caller questions. The installed `0.8.23` worker could
+answer validation relative performance, but correctly refused to claim that
+90% of validation decisions met risk-contribution tolerance: Core exposed only
+all-period solver counts and one test-dated latest decision.
+
+Allocation Runs now publish immutable train/validation/test
+`constructionFidelity`. Strict Explorer independently rederives every
+scheduled, eligible, within-tolerance, cap-gap, maximum-error, and latest-
+eligible field from the decision ledger. Orientation, CLI, and Studio expose
+validation fidelity directly. The existing performance conclusion is
+explicitly `relative-performance-only`; valid older Runs gain the derived read
+projection without artifact migration.
+
+The fresh final-wheel retry answered both fidelity clauses on its first fixed
+Run from public Core evidence only: validation had 6 eligible decisions, 0
+within tolerance, and a latest validation decision with a 0.2011 maximum
+contribution error. It created one Project, one Run, zero Sessions, and left
+Studio valid without diagnostics. Repository regression passes all 317 tests
+in 808.042 seconds and the documentation graph resolves all 1,109 checked
+links.
+
+`0.8.23` followed a fresh Grok coworker into a mixed equity/fund Allocation
 assignment. V1–V4 OHLCV packages may now preserve an optional complete
 per-asset class vector; Core rejects partial vectors and wrong summaries,
 freezes the exact classes into the Project snapshot, and verifies them against

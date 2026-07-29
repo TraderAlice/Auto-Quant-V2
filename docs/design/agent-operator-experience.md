@@ -232,6 +232,11 @@ verified Explorer remains supporting read-only evidence access. Markdown
 authoring and outward communication remain Agent-owned work, so Core does not
 invent a `review.write-*` command.
 
+For Allocation, the Work Brief additionally projects Core-verified validation
+ERC construction fidelity. This prevents an Agent from privately aggregating
+the decision ledger or treating a validation performance verdict as evidence
+that capped risk contributions met tolerance.
+
 ## Filesystem authority
 
 The distinction between ownership and current edit authority is explicit.

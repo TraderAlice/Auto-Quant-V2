@@ -185,17 +185,17 @@ class AllocationLabTests(unittest.TestCase):
                 portfolio_policy={
                     "annualizedVolatilityCeiling": 0.20,
                     "assetMaxAbsWeights": {
-                        "AAPL": 0.45,
-                        "NVDA": 0.45,
-                        "GLD": 0.45,
-                        "TLT": 0.45,
+                        "AAPL": 0.30,
+                        "NVDA": 0.30,
+                        "GLD": 0.30,
+                        "TLT": 0.30,
                     },
                     "baseCostBps": 5.0,
                     "decisionSchedule": {
                         "kind": "calendar-month-end",
                     },
                     "grossLimit": 1.0,
-                    "maxAbsWeight": 0.45,
+                    "maxAbsWeight": 0.30,
                     "noTradeOneWay": 0.02,
                     "referenceNav": 100_000.0,
                 },
@@ -209,7 +209,7 @@ class AllocationLabTests(unittest.TestCase):
                 "kind": "equal-risk-contribution",
                 "covarianceWindow": 126,
                 "minimumObservations": 126,
-                "contributionTolerance": 0.03,
+                "contributionTolerance": 0.01,
                 "scaleUp": False,
             }
             requested_classes = {
@@ -312,6 +312,56 @@ class AllocationLabTests(unittest.TestCase):
                 ]["SPY"],
                 0.0,
             )
+            validation_fidelity = diagnostics["constructionFidelity"][
+                "bySplit"
+            ]["validation"]
+            self.assertEqual(
+                validation_fidelity["scheduledDecisions"],
+                6,
+            )
+            self.assertEqual(
+                validation_fidelity["eligibleDecisions"],
+                6,
+            )
+            self.assertEqual(
+                validation_fidelity["withinToleranceDecisions"]
+                + validation_fidelity["capInducedParityGapDecisions"],
+                6,
+            )
+            self.assertAlmostEqual(
+                validation_fidelity["withinToleranceRate"],
+                validation_fidelity["withinToleranceDecisions"] / 6,
+            )
+            self.assertGreater(
+                validation_fidelity["maximumContributionError"],
+                0.01,
+            )
+            self.assertGreaterEqual(
+                validation_fidelity["latestEligibleDecision"]["asOf"],
+                diagnostics["splitProtocol"]["splits"]["validation"][
+                    "start"
+                ],
+            )
+            self.assertLessEqual(
+                validation_fidelity["latestEligibleDecision"]["asOf"],
+                diagnostics["splitProtocol"]["splits"]["validation"]["end"],
+            )
+            self.assertEqual(
+                validation_fidelity["latestEligibleDecision"]["status"],
+                "cap-induced-parity-gap",
+            )
+            self.assertEqual(
+                diagnostics["conclusion"]["scope"],
+                "relative-performance-only",
+            )
+            self.assertEqual(
+                run.result["metrics"]["construction_fidelity"]["bySplit"][
+                    "validation"
+                ]["eligibleDecisions"],
+                diagnostics["constructionFidelity"]["bySplit"][
+                    "validation"
+                ]["eligibleDecisions"],
+            )
             snapshot = build_studio_snapshot(project.root_dir)
             self.assertTrue(snapshot["valid"])
             self.assertEqual(snapshot["diagnostics"], [])
@@ -338,6 +388,16 @@ class AllocationLabTests(unittest.TestCase):
             self.assertEqual(
                 studio_contract["benchmark"]["weights"],
                 {"SPY": 0.60, "TLT": 0.40},
+            )
+            self.assertEqual(
+                studio_project["allocationExplorer"][
+                    "constructionFidelity"
+                ],
+                diagnostics["constructionFidelity"],
+            )
+            self.assertEqual(
+                studio_project["agentWorkBrief"]["constructionFidelity"],
+                diagnostics["constructionFidelity"],
             )
 
             dataset_snapshot_path = (
@@ -440,6 +500,15 @@ class AllocationLabTests(unittest.TestCase):
             self.assertTrue(
                 diagnostics["verification"]["currentStateReconciled"]
             )
+            self.assertTrue(
+                diagnostics["verification"][
+                    "constructionFidelityReconciled"
+                ]
+            )
+            self.assertEqual(
+                diagnostics["conclusion"]["scope"],
+                "relative-performance-only",
+            )
             self.assertEqual(
                 diagnostics["currentState"]["tradingAuthority"],
                 "none",
@@ -475,6 +544,10 @@ class AllocationLabTests(unittest.TestCase):
                 {command["id"] for command in observed["commands"]},
             )
             brief = build_agent_work_brief(project)
+            self.assertEqual(
+                brief["constructionFidelity"],
+                diagnostics["constructionFidelity"],
+            )
             self.assertIsNone(brief["primaryAction"])
             self.assertEqual(brief["focus"]["operatingMode"], "observe")
             self.assertEqual(brief["review"]["status"], "complete")
@@ -499,6 +572,85 @@ class AllocationLabTests(unittest.TestCase):
                 run.result["inputHash"],
             )
             self.assertTrue(observed["valid"])
+
+    def test_explorer_derives_split_fidelity_for_legacy_report(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = initialize_workspace(Path(directory) / "workspace")
+            project = create_project(
+                workspace.root_dir,
+                "allocation",
+                template="ohlcv-allocation-lab",
+            )
+            run = execute_study(project, ALLOCATION_STUDY_ID)
+            report_path = (
+                run.root_dir / "artifacts" / "allocation-report.json"
+            )
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+            expected = report.pop("constructionFidelity")
+            report["conclusion"].pop("scope")
+            report_path.write_text(
+                json.dumps(report, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            _rehash_run(run.root_dir)
+
+            diagnostics = load_allocation_diagnostics(
+                project,
+                run.result["id"],
+            )
+            jsonschema.validate(
+                diagnostics["constructionFidelity"],
+                ALLOCATION_DIAGNOSTICS_JSON_SCHEMA["properties"][
+                    "constructionFidelity"
+                ],
+            )
+            self.assertEqual(
+                diagnostics["constructionFidelity"]["bySplit"][
+                    "validation"
+                ]["eligibleDecisions"],
+                expected["bySplit"]["validation"]["eligibleDecisions"],
+            )
+            self.assertAlmostEqual(
+                diagnostics["constructionFidelity"]["bySplit"][
+                    "validation"
+                ]["maximumContributionError"],
+                expected["bySplit"]["validation"][
+                    "maximumContributionError"
+                ],
+            )
+            self.assertEqual(
+                diagnostics["conclusion"]["scope"],
+                "relative-performance-only",
+            )
+
+    def test_explorer_rejects_rehashed_split_fidelity_tamper(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = initialize_workspace(Path(directory) / "workspace")
+            project = create_project(
+                workspace.root_dir,
+                "allocation",
+                template="ohlcv-allocation-lab",
+            )
+            run = execute_study(project, ALLOCATION_STUDY_ID)
+            report_path = (
+                run.root_dir / "artifacts" / "allocation-report.json"
+            )
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+            report["constructionFidelity"]["bySplit"]["validation"][
+                "withinToleranceRate"
+            ] = 0.123
+            report_path.write_text(
+                json.dumps(report, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            _rehash_run(run.root_dir)
+
+            with self.assertRaises(AutoQuantValidationError) as caught:
+                load_allocation_diagnostics(project, run.result["id"])
+            self.assertIn(
+                "allocation.reconcile",
+                {issue.code for issue in caught.exception.issues},
+            )
 
     def test_explorer_rejects_rehashed_accounting_tamper(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

@@ -604,8 +604,9 @@ CLI_COMMANDS = [
         "run.allocation",
         "aq run allocation <path> --run ID [--points 40..400] [--project ID] [--json]",
         "Project one verified portfolio-native Allocation Run into same-clock "
-        "candidate/reference performance, ERC solver, component-risk, "
-        "constraint, implementation, and current target evidence.",
+        "candidate/reference performance, split ERC construction fidelity, "
+        "component-risk, constraint, implementation, and current target "
+        "evidence.",
         "read-only",
         [
             PATH_ARGUMENT,

@@ -34,6 +34,7 @@ There are no proposed plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/allocation-construction-fidelity-by-split]] | Made fixed Allocation evidence distinguish relative performance from split-scoped ERC construction fidelity, so Agents can answer validation parity questions without private recomputation. | 2026-07-30 |
 | [[plans/mixed-class-aligned-ohlcv-allocation]] | Preserved truthful per-instrument classes in aligned OHLCV intake and let fixed Allocation references use context-only assets without admitting them to the ERC candidate set, proved by two fresh installed-wheel workers. | 2026-07-30 |
 | [[plans/multi-project-selection-safety]] | Kept Workspace defaults useful for disclosed read-only navigation while requiring explicit Project identity before Project-local state changes in a multi-Project desk, proved by a fresh installed-wheel Grok retry. | 2026-07-30 |
 | [[plans/atomic-frozen-holdout-target-intake]] | Let an Agent atomically create and bind a lane-aware, strictly later holdout target from a current Dossier without weakening ordinary research intake. | 2026-07-30 |

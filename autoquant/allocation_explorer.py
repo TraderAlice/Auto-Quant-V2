@@ -163,6 +163,82 @@ def _sample(frame: pd.DataFrame, points: int) -> list[dict[str, Any]]:
     return rows
 
 
+def _construction_fidelity(
+    decisions: pd.DataFrame,
+    split_protocol: dict[str, Any],
+    *,
+    tolerance: float,
+) -> dict[str, Any]:
+    solver_rows = decisions.drop_duplicates("timestamp").sort_values(
+        "timestamp"
+    )
+    by_split: dict[str, Any] = {}
+    for name, split in split_protocol["splits"].items():
+        selected = solver_rows[
+            (solver_rows["timestamp"] >= pd.Timestamp(split["start"]))
+            & (solver_rows["timestamp"] <= pd.Timestamp(split["end"]))
+        ]
+        eligible = selected[
+            selected["solver_status"] != "insufficient-history"
+        ]
+        within = int(
+            (eligible["solver_status"] == "within-tolerance").sum()
+        )
+        latest = None
+        if not eligible.empty:
+            row = eligible.iloc[-1]
+            latest = {
+                "asOf": row["timestamp"].date().isoformat(),
+                "status": str(row["solver_status"]),
+                "solverConverged": bool(row["solver_converged"]),
+                "withinTolerance": bool(
+                    row["solver_status"] == "within-tolerance"
+                ),
+                "maximumContributionError": float(
+                    row["maximum_contribution_error"]
+                ),
+                "capBindingAssets": (
+                    str(row["cap_binding_assets"]).split(",")
+                    if str(row["cap_binding_assets"])
+                    else []
+                ),
+            }
+        by_split[name] = {
+            "scheduledDecisions": int(len(selected)),
+            "eligibleDecisions": int(len(eligible)),
+            "withinToleranceDecisions": within,
+            "capInducedParityGapDecisions": int(
+                (
+                    eligible["solver_status"]
+                    == "cap-induced-parity-gap"
+                ).sum()
+            ),
+            "withinToleranceRate": (
+                float(within / len(eligible))
+                if len(eligible)
+                else None
+            ),
+            "maximumContributionError": (
+                float(
+                    pd.to_numeric(
+                        eligible["maximum_contribution_error"]
+                    ).max()
+                )
+                if len(eligible)
+                else None
+            ),
+            "latestEligibleDecision": latest,
+        }
+    return {
+        "kind": "erc-contribution-tolerance-by-split",
+        "tolerance": float(tolerance),
+        "selectionSplit": split_protocol["selectionSplit"],
+        "testRole": split_protocol["testRole"],
+        "performanceConclusionIndependent": True,
+        "bySplit": by_split,
+    }
+
+
 def load_allocation_diagnostics(
     project: ProjectContext,
     run_id: str,
@@ -403,6 +479,26 @@ def load_allocation_diagnostics(
             "allocation.decisions",
             "Decision ledger differs from the fixed contract",
         )
+    solver_metadata = [
+        "decision_eligible",
+        "solver_status",
+        "solver_observations",
+        "solver_converged",
+        "maximum_contribution_error",
+        "cap_binding_assets",
+    ]
+    if (
+        decisions.groupby("timestamp")[solver_metadata]
+        .nunique(dropna=False)
+        .gt(1)
+        .any()
+        .any()
+    ):
+        _fail(
+            paths["allocation-decisions"],
+            "allocation.decision-solver",
+            "Per-asset decision rows disagree on solver evidence",
+        )
     solver_rows = decisions.drop_duplicates("timestamp")
     eligible_solver = solver_rows[
         solver_rows["solver_status"] != "insufficient-history"
@@ -426,6 +522,19 @@ def load_allocation_diagnostics(
         ),
     }
     _reconcile(report["solver"], derived_solver, "report/solver")
+    construction_fidelity = _construction_fidelity(
+        decisions,
+        report["splitProtocol"],
+        tolerance=float(
+            contract["method"]["contributionTolerance"]
+        ),
+    )
+    if "constructionFidelity" in report:
+        _reconcile(
+            report["constructionFidelity"],
+            construction_fidelity,
+            "report/constructionFidelity",
+        )
     latest_timestamp = eligible_solver["timestamp"].max()
     latest_rows = decisions[decisions["timestamp"] == latest_timestamp]
     latest = report["latestDecision"]
@@ -544,10 +653,16 @@ def load_allocation_diagnostics(
         report["splits"]["validation"]["comparison"]["netSharpeAdvantage"]
     )
     expected_status = "supported" if validation_advantage > 0 else "rejected"
+    conclusion_scope = report["conclusion"].get("scope")
     if (
         report["conclusion"]["status"] != expected_status
         or report["conclusion"]["testUsedForSelection"] is not False
         or report["conclusion"]["tradingAuthority"] != "none"
+        or conclusion_scope not in {None, "relative-performance-only"}
+        or (
+            "constructionFidelity" in report
+            and conclusion_scope != "relative-performance-only"
+        )
     ):
         _fail(
             paths["allocation-report"],
@@ -578,7 +693,11 @@ def load_allocation_diagnostics(
         "implementation": report["implementation"],
         "latestDecision": report["latestDecision"],
         "currentState": report["currentState"],
-        "conclusion": report["conclusion"],
+        "conclusion": {
+            **report["conclusion"],
+            "scope": "relative-performance-only",
+        },
+        "constructionFidelity": construction_fidelity,
         "path": _sample(daily, points),
         "artifacts": {
             kind: {"path": declared[kind]}
@@ -589,12 +708,120 @@ def load_allocation_diagnostics(
             "accountingReconciled": True,
             "weightsReconciled": True,
             "solverReconciled": True,
+            "constructionFidelityReconciled": True,
             "riskContributionsReconciled": True,
             "currentStateReconciled": True,
             "selectionAuthorityReconciled": True,
             "tradingAuthority": "none",
         },
     }
+
+CONSTRUCTION_FIDELITY_SPLIT_JSON_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": [
+        "scheduledDecisions",
+        "eligibleDecisions",
+        "withinToleranceDecisions",
+        "capInducedParityGapDecisions",
+        "withinToleranceRate",
+        "maximumContributionError",
+        "latestEligibleDecision",
+    ],
+    "properties": {
+        "scheduledDecisions": {"type": "integer", "minimum": 0},
+        "eligibleDecisions": {"type": "integer", "minimum": 0},
+        "withinToleranceDecisions": {
+            "type": "integer",
+            "minimum": 0,
+        },
+        "capInducedParityGapDecisions": {
+            "type": "integer",
+            "minimum": 0,
+        },
+        "withinToleranceRate": {
+            "type": ["number", "null"],
+            "minimum": 0,
+            "maximum": 1,
+        },
+        "maximumContributionError": {
+            "type": ["number", "null"],
+            "minimum": 0,
+        },
+        "latestEligibleDecision": {
+            "oneOf": [
+                {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": [
+                        "asOf",
+                        "status",
+                        "solverConverged",
+                        "withinTolerance",
+                        "maximumContributionError",
+                        "capBindingAssets",
+                    ],
+                    "properties": {
+                        "asOf": {
+                            "type": "string",
+                            "format": "date",
+                        },
+                        "status": {
+                            "enum": [
+                                "within-tolerance",
+                                "cap-induced-parity-gap",
+                            ]
+                        },
+                        "solverConverged": {"type": "boolean"},
+                        "withinTolerance": {"type": "boolean"},
+                        "maximumContributionError": {
+                            "type": "number",
+                            "minimum": 0,
+                        },
+                        "capBindingAssets": {
+                            "type": "array",
+                            "uniqueItems": True,
+                            "items": {
+                                "type": "string",
+                                "minLength": 1,
+                            },
+                        },
+                    },
+                },
+                {"type": "null"},
+            ]
+        },
+    },
+}
+
+CONSTRUCTION_FIDELITY_JSON_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": [
+        "kind",
+        "tolerance",
+        "selectionSplit",
+        "testRole",
+        "performanceConclusionIndependent",
+        "bySplit",
+    ],
+    "properties": {
+        "kind": {"const": "erc-contribution-tolerance-by-split"},
+        "tolerance": {"type": "number", "exclusiveMinimum": 0},
+        "selectionSplit": {"const": "validation"},
+        "testRole": {"const": "visible-audit-only"},
+        "performanceConclusionIndependent": {"const": True},
+        "bySplit": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["train", "validation", "test"],
+            "properties": {
+                name: CONSTRUCTION_FIDELITY_SPLIT_JSON_SCHEMA
+                for name in ("train", "validation", "test")
+            },
+        },
+    },
+}
 
 
 ALLOCATION_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
@@ -611,6 +838,7 @@ ALLOCATION_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "splitProtocol",
         "splits",
         "solver",
+        "constructionFidelity",
         "implementation",
         "latestDecision",
         "currentState",
@@ -628,12 +856,19 @@ ALLOCATION_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "splitProtocol": {"type": "object"},
         "splits": {"type": "object"},
         "solver": {"type": "object"},
+        "constructionFidelity": CONSTRUCTION_FIDELITY_JSON_SCHEMA,
         "implementation": {"type": "object"},
         "latestDecision": {"type": "object"},
         "currentState": {"type": "object"},
         "conclusion": {"type": "object"},
         "path": {"type": "array"},
         "artifacts": {"type": "object"},
-        "verification": {"type": "object"},
+        "verification": {
+            "type": "object",
+            "required": ["constructionFidelityReconciled"],
+            "properties": {
+                "constructionFidelityReconciled": {"const": True},
+            },
+        },
     },
 }

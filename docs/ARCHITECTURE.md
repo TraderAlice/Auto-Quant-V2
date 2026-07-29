@@ -161,8 +161,10 @@ The V2 foundation now implements:
 - one fixed Portfolio-native Allocation Lab that constructs a caller-bound
   long-only equal-risk-contribution book without inventing a predictive
   Factor, compares it with a separately drifted and costed fixed-weight
-  reference on the same decision clock, and exposes cap-induced parity gaps
-  without opening an optimizer or Session surface.
+  reference on the same decision clock, separates validation relative
+  performance from train/validation/test ERC construction fidelity, and
+  exposes cap-induced parity gaps without opening an optimizer or Session
+  surface.
 - one request-bound Portfolio Mandate shared by Factor, Portfolio, and governed
   RL that derives tradable/context assets,
   direction-default or caller-supplied per-asset position roles, side limits,

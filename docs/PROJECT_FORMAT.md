@@ -195,7 +195,12 @@ tolerance, long-only/context roles, Portfolio policy, fixed-weight reference,
 validation-only selection, and no-trading authority. Candidate and reference
 are separately simulated on the same schedule, drift, no-trade band, and cost
 model. Cap-induced contribution inequality is measured and never labeled exact
-parity. See [[docs/design/portfolio-native-allocation-lab]].
+parity. The immutable Run report and metrics carry one
+`constructionFidelity` block for train, validation, and test populations.
+Relative-performance selection remains a separately scoped conclusion.
+Strict Explorer rederives the block from `allocation-decisions.csv`; valid
+older Runs without the report field receive the derived read projection but
+are never rewritten. See [[docs/design/portfolio-native-allocation-lab]].
 
 The Factor, Portfolio, and RL templates publish a nested `research_integrity`
 metric

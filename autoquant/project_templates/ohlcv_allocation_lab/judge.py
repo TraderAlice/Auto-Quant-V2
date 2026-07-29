@@ -189,6 +189,77 @@ def _portfolio_metrics(
     }
 
 
+def _construction_fidelity(
+    solver_ledger: pd.DataFrame,
+    split_protocol: dict[str, Any],
+    *,
+    tolerance: float,
+) -> dict[str, Any]:
+    by_split: dict[str, Any] = {}
+    for name, split in split_protocol["splits"].items():
+        selected = solver_ledger[
+            (solver_ledger["timestamp"] >= pd.Timestamp(split["start"]))
+            & (solver_ledger["timestamp"] <= pd.Timestamp(split["end"]))
+        ].sort_values("timestamp")
+        eligible = selected[
+            selected["status"] != "insufficient-history"
+        ]
+        within = int(
+            (eligible["status"] == "within-tolerance").sum()
+        )
+        latest = None
+        if not eligible.empty:
+            row = eligible.iloc[-1]
+            latest = {
+                "asOf": timestamp_label(row["timestamp"]),
+                "status": str(row["status"]),
+                "solverConverged": bool(row["converged"]),
+                "withinTolerance": bool(
+                    row["status"] == "within-tolerance"
+                ),
+                "maximumContributionError": float(
+                    row["maximum_contribution_error"]
+                ),
+                "capBindingAssets": (
+                    str(row["cap_binding_assets"]).split(",")
+                    if str(row["cap_binding_assets"])
+                    else []
+                ),
+            }
+        by_split[name] = {
+            "scheduledDecisions": int(len(selected)),
+            "eligibleDecisions": int(len(eligible)),
+            "withinToleranceDecisions": within,
+            "capInducedParityGapDecisions": int(
+                (
+                    eligible["status"]
+                    == "cap-induced-parity-gap"
+                ).sum()
+            ),
+            "withinToleranceRate": (
+                float(within / len(eligible))
+                if len(eligible)
+                else None
+            ),
+            "maximumContributionError": (
+                float(
+                    eligible["maximum_contribution_error"].max()
+                )
+                if len(eligible)
+                else None
+            ),
+            "latestEligibleDecision": latest,
+        }
+    return {
+        "kind": "erc-contribution-tolerance-by-split",
+        "tolerance": float(tolerance),
+        "selectionSplit": split_protocol["selectionSplit"],
+        "testRole": split_protocol["testRole"],
+        "performanceConclusionIndependent": True,
+        "bySplit": by_split,
+    }
+
+
 def _evaluate() -> tuple[
     dict[str, Any],
     pd.DataFrame,
@@ -295,6 +366,7 @@ def _evaluate() -> tuple[
     conclusion_status = "supported" if validation_advantage > 0 else "rejected"
     conclusion = {
         "status": conclusion_status,
+        "scope": "relative-performance-only",
         "selectionBasis": "validation-net-sharpe-advantage",
         "validationNetSharpeAdvantage": validation_advantage,
         "testUsedForSelection": False,
@@ -416,6 +488,11 @@ def _evaluate() -> tuple[
     eligible_solver = solver_ledger[
         solver_ledger["status"] != "insufficient-history"
     ]
+    construction_fidelity = _construction_fidelity(
+        solver_ledger,
+        split_protocol,
+        tolerance=float(contract["method"]["contributionTolerance"]),
+    )
     latest_timestamp = eligible_solver["timestamp"].max()
     latest_decisions = decisions[decisions["timestamp"] == latest_timestamp]
     latest = {
@@ -562,6 +639,7 @@ def _evaluate() -> tuple[
                 eligible_solver["maximum_contribution_error"].max()
             ),
         },
+        "constructionFidelity": construction_fidelity,
         "implementation": {
             name: {
                 "candidateTotalCost": float(
@@ -651,6 +729,15 @@ def main() -> None:
                 "netSharpeAdvantage"
             ]
         )
+        validation_fidelity = report["constructionFidelity"]["bySplit"][
+            "validation"
+        ]
+        validation_rate = validation_fidelity["withinToleranceRate"]
+        validation_rate_label = (
+            f"{validation_rate:.3f}"
+            if validation_rate is not None
+            else "unavailable"
+        )
         _write_output(
             {
                 "schema_version": 1,
@@ -658,11 +745,19 @@ def main() -> None:
                 "summary": (
                     "Fixed ERC allocation evaluated against the same-clock "
                     "fixed-weight reference; validation net Sharpe advantage="
-                    f"{validation_advantage:.6f}"
+                    f"{validation_advantage:.6f}; validation ERC "
+                    "within-tolerance="
+                    f"{validation_fidelity['withinToleranceDecisions']}/"
+                    f"{validation_fidelity['eligibleDecisions']} "
+                    f"({validation_rate_label}); performance conclusion is "
+                    "relative-performance-only"
                 ),
                 "metrics": {
                     "validation_net_sharpe_advantage": validation_advantage,
                     "conclusion": report["conclusion"],
+                    "construction_fidelity": report[
+                        "constructionFidelity"
+                    ],
                     "latest_decision": report["latestDecision"],
                     "current_state": report["currentState"],
                     "solver": report["solver"],

@@ -2500,6 +2500,24 @@ def _run_allocation(args: argparse.Namespace) -> CommandResult:
     current = diagnostics["currentState"]
     conclusion = diagnostics["conclusion"]
     validation = diagnostics["splits"]["validation"]
+    validation_fidelity = diagnostics["constructionFidelity"]["bySplit"][
+        "validation"
+    ]
+    validation_latest = validation_fidelity["latestEligibleDecision"]
+    validation_rate = validation_fidelity["withinToleranceRate"]
+    validation_rate_label = (
+        f"{validation_rate:.3f}"
+        if validation_rate is not None
+        else "unavailable"
+    )
+    validation_latest_line = (
+        "Latest validation decision: "
+        f"{validation_latest['asOf']} · {validation_latest['status']} · "
+        "maximum contribution error "
+        f"{validation_latest['maximumContributionError']}\n"
+        if validation_latest is not None
+        else "Latest validation decision: unavailable\n"
+    )
     return CommandResult(
         "run.allocation",
         diagnostics,
@@ -2511,7 +2529,13 @@ def _run_allocation(args: argparse.Namespace) -> CommandResult:
             f"{validation['reference']['sharpe']}\n"
             f"Validation net Sharpe advantage: "
             f"{validation['comparison']['netSharpeAdvantage']}\n"
-            f"Conclusion: {conclusion['status']}\n"
+            "Conclusion (relative performance only): "
+            f"{conclusion['status']}\n"
+            "Validation ERC fidelity: "
+            f"{validation_fidelity['withinToleranceDecisions']}/"
+            f"{validation_fidelity['eligibleDecisions']} within tolerance · "
+            f"rate {validation_rate_label}\n"
+            f"{validation_latest_line}"
             f"Latest scheduled decision: {latest['asOf']} · forecast volatility "
             f"{latest['forecastAnnualizedVolatility']}\n"
             f"Latest executed research weights: "
@@ -4217,6 +4241,30 @@ def _orient(args: argparse.Namespace) -> CommandResult:
         (brief["question"]["text"] or brief["question"]["title"]).split()
     )
     candidate_contract = brief["candidateContract"]
+    construction_fidelity = brief["constructionFidelity"]
+    validation_fidelity_line = ""
+    if construction_fidelity is not None:
+        validation_fidelity = construction_fidelity["bySplit"]["validation"]
+        validation_rate = validation_fidelity["withinToleranceRate"]
+        validation_rate_label = (
+            f"{validation_rate:.3f}"
+            if validation_rate is not None
+            else "unavailable"
+        )
+        validation_latest = validation_fidelity["latestEligibleDecision"]
+        validation_latest_label = (
+            f" · latest {validation_latest['asOf']} "
+            f"{validation_latest['status']}"
+            if validation_latest is not None
+            else ""
+        )
+        validation_fidelity_line = (
+            "Validation ERC fidelity: "
+            f"{validation_fidelity['withinToleranceDecisions']}/"
+            f"{validation_fidelity['eligibleDecisions']} within tolerance · "
+            f"rate {validation_rate_label}"
+            f"{validation_latest_label}\n"
+        )
     latest_experiment = brief["evidence"]["latestExperiment"]
     latest_experiment_line = (
         "Latest trial: "
@@ -4258,6 +4306,7 @@ def _orient(args: argparse.Namespace) -> CommandResult:
         f"{focus['studyId'] or 'no Study'}\n"
         f"State: {focus['coordinationPhase']} · "
         f"{focus['scientificStage']} · {focus['operatingMode']}\n"
+        f"{validation_fidelity_line}"
         f"{latest_experiment_line}"
         f"Reason: {brief['reasons'][0]['code']} — "
         f"{brief['reasons'][0]['message']}\n"

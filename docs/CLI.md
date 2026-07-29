@@ -510,15 +510,21 @@ or live-trading instruction.
 `ohlcv-allocation-lab` Run. Core verifies the frozen allocation contract and
 six-artifact inventory, then independently rederives candidate/reference split
 performance, costs, turnover, caps, gross exposure, volatility breaches,
-solver counts, latest weights, and validation-only conclusion. It samples
-40–400 path points only after full reconciliation and carries no account,
-Order, or trading authority.
+solver counts, train/validation/test ERC construction fidelity, latest weights,
+and validation-only conclusion. The performance conclusion is explicitly
+`relative-performance-only`; validation fidelity separately exposes
+scheduled/eligible/within-tolerance/cap-gap counts, rate, maximum error, and
+latest eligible decision. It samples 40–400 path points only after full
+reconciliation and carries no account, Order, or trading authority.
 
 For every completed fixed Book Risk, Price Event, or Allocation Study,
 `aq orient` returns `primaryAction: null`, `review.status: complete`, and an
 Agent-owned write/return instruction. The corresponding strict Explorer is one
 supporting read-only action and therefore remains in JSON `nextActions`,
 Studio commands, and human output without masquerading as unfinished work.
+For Allocation, the Agent Work Brief and human orientation also include the
+strictly rederived validation ERC fidelity, so an Agent need not privately
+aggregate immutable CSV evidence.
 The descriptive agenda's `run.inputHash` is the immutable Run's exact
 Harness-bound input hash, not its separate Study input hash.
 

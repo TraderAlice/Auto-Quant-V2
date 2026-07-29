@@ -107,16 +107,34 @@ Run publishes:
 
 The immutable report contains chronological 60/20/20 splits. The conclusion is
 selected only from validation candidate-minus-reference net Sharpe. Test is
-visible audit only and cannot reverse the conclusion.
+visible audit only and cannot reverse the conclusion. That conclusion is
+explicitly `relative-performance-only`: it does not claim that the constructed
+book achieved the requested ERC contribution tolerance.
+
+Construction fidelity is a separate immutable contract. For train,
+validation, and test, `constructionFidelity` publishes:
+
+- scheduled and history-eligible decision counts;
+- within-tolerance and cap-induced-parity-gap counts;
+- the eligible within-tolerance rate and maximum contribution error;
+- the latest eligible decision's date, solver status, error, and binding caps.
+
+Split membership follows the fixed daily-path intervals. Scheduled
+insufficient-history decisions stay in the population but not its eligible
+denominator. Validation remains the caller-facing selection split; test
+fidelity is visible audit only.
 
 `aq run allocation` verifies the Run inventory and frozen dependency, then
 independently rederives split performance, costs, turnover, volatility
 breaches, role/cap/gross compliance, solver counts, latest target/executed/
-reference weights, component-risk shares, parity error, the end-of-dataset
-drifted book, whether an ordinary rebalance is due, and validation-only
-conclusion authority. For request-driven Projects it also binds the Run's
+reference weights, component-risk shares, every split-fidelity field, parity
+error, the end-of-dataset drifted book, whether an ordinary rebalance is due,
+and validation-only conclusion authority. New reports carry the complete
+block and are rejected if it differs from the decision ledger. Valid older
+reports remain readable: Explorer derives the block without rewriting their
+immutable artifacts. For request-driven Projects it also binds the Run's
 snapshot hash before returning the complete per-symbol economic-class map.
-Studio consumes the same strict read model.
+Studio, orientation, and CLI consume the same strict read model.
 
 After the current fixed Run succeeds, orientation has no primary CLI action
 and explicitly hands off to an Agent-owned written answer. The Allocation

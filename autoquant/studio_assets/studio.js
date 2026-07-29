@@ -2565,13 +2565,18 @@ function renderAllocationExplorer(project) {
   const latest = explorer.latestDecision;
   const current = explorer.currentState;
   const solver = explorer.solver;
+  const validationFidelity =
+    explorer.constructionFidelity.bySplit.validation;
+  const validationLatest = validationFidelity.latestEligibleDecision;
   element("allocation-meta").textContent =
     `${explorer.run.id} · ${explorer.contract.tradableAssets.length} tradable assets · ${latest.asOf}`;
   element("allocation-summary").innerHTML = [
-    ["Conclusion", explorer.conclusion.status.toUpperCase(), "validation selection only"],
+    ["Conclusion", explorer.conclusion.status.toUpperCase(), "relative performance only"],
     ["Candidate net Sharpe", metric(validation.candidate.sharpe), "validation"],
     ["Reference net Sharpe", metric(validation.reference.sharpe), "validation"],
     ["Sharpe advantage", signedMetric(validation.comparison.netSharpeAdvantage), "candidate − reference"],
+    ["Validation ERC fidelity", `${validationFidelity.withinToleranceDecisions}/${validationFidelity.eligibleDecisions}`, validationFidelity.withinToleranceRate === null ? "unavailable" : `${percent(validationFidelity.withinToleranceRate)} within tolerance`],
+    ["Latest validation decision", validationLatest ? validationLatest.status.replaceAll("-", " ") : "UNAVAILABLE", validationLatest ? `${validationLatest.asOf} · ${percent(validationLatest.maximumContributionError)} error` : "no eligible decision"],
     ["Latest forecast vol", percent(latest.forecastAnnualizedVolatility), `${percent(explorer.contract.portfolioPolicy.annualizedVolatilityCeiling)} ceiling`],
     ["Current state", current.ordinaryRebalanceDue ? "REBALANCE DUE" : "HOLD", current.asOf],
     ["Parity error", percent(latest.maximumContributionError), latest.status.replaceAll("-", " ")],
@@ -2621,7 +2626,7 @@ function renderAllocationExplorer(project) {
     </div>`;
   const command = project.commands?.find((item) => item.id === "run.allocation");
   element("allocation-warning").innerHTML = `
-    <span>Strict accounting, weights, solver counts, validation authority, and no-trading boundary rederived from immutable artifacts.</span>
+    <span>Strict accounting, weights, solver counts, split construction fidelity, validation authority, and no-trading boundary rederived from immutable artifacts. Relative performance and ERC construction fidelity remain separate conclusions.</span>
     ${copyCommandButton(command, "Copy Allocation Explorer CLI")}`;
 }
 
