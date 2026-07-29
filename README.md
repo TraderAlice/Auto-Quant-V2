@@ -170,6 +170,10 @@ CLI and Studio disclose the effective Projects directory and whether this
 local override is active. Invalid overrides fail explicitly. A normal clone
 has no override and remains self-contained.
 
+The `0.8.8` release was closed with 286 passing tests, 1,029 checked
+documentation links, source/wheel and installed-wheel smoke, and a second
+no-hardlink clean-clone replay of the complete root Workspace.
+
 `project create` is the normal construction entry point. It creates
 `research.md`, `framework-needs.md`, the Project manifest, and the Project-local
 strategy, factor, model, Judge, Study, Session, data, Run, and cache surfaces.

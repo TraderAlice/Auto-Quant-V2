@@ -48,28 +48,28 @@ ignored local override for the development checkout.
 
 ## Acceptance
 
-- [ ] A clean clone resolves `sample-research-desk` through `aq orient .`,
+- [x] A clean clone resolves `sample-research-desk` through `aq orient .`,
   `aq validate .`, Project listing, and Studio snapshot.
-- [ ] The sample owns Factor, Portfolio, and governed-RL Studies plus one
+- [x] The sample owns Factor, Portfolio, and governed-RL Studies plus one
   verified immutable historical Factor Run and no Session.
-- [ ] Repository Projects remain ordinary Git-managed research state, with
+- [x] Repository Projects remain ordinary Git-managed research state, with
   only Project-local data/cache policies unchanged.
-- [ ] A valid ignored local override selects relative or absolute external
+- [x] A valid ignored local override selects relative or absolute external
   Projects, and every invalid or unsafe override fails explicitly.
-- [ ] Project creation and default selection write through the active local
+- [x] Project creation and default selection write through the active local
   configuration without mutating the checked-in manifest.
-- [ ] CLI and Studio expose effective Projects path and configuration source.
+- [x] CLI and Studio expose effective Projects path and configuration source.
 - [ ] Documentation, full tests, source/wheel smoke, clean-clone smoke,
   version `0.8.8`, tag, and canonical push reconcile.
 
 ## Work
 
-- [ ] Generate and verify the sample and historical `0.8.7` baseline before
+- [x] Generate and verify the sample and historical `0.8.7` baseline before
   changing Harness source or release metadata.
-- [ ] Implement strict base/local Workspace configuration resolution and
+- [x] Implement strict base/local Workspace configuration resolution and
   active-configuration writes.
-- [ ] Add focused repository-root, override, CLI, and Studio tests.
-- [ ] Update README, canonical references, architecture, and status.
+- [x] Add focused repository-root, override, CLI, and Studio tests.
+- [x] Update README, canonical references, architecture, and status.
 - [ ] Complete release verification, plan audit, commit, tag, push, and local
   development override setup.
 
@@ -88,11 +88,26 @@ ignored local override for the development checkout.
 
 ## Verification
 
-Pending.
+- `uv run python scripts/check_doc_links.py` — 1,029/1,029 links.
+- `uv run python -m unittest discover -s tests -v` — 286/286 tests in
+  866.145 seconds.
+- `uv build` — `0.8.8` source and wheel distributions succeeded; required
+  templates and Studio assets were present and repository Projects remained
+  outside the wheel.
+- Installed-wheel smoke — version/capabilities, empty Workspace init,
+  `ohlcv-factor-lab` creation, and validation passed under Python 3.11.
+- Clean-clone smoke — internal default discovery, tracked OHLCV fixture,
+  Project validation, Agent orientation, Studio snapshot/Factor Explorer, and
+  repository sample tests passed without a local override.
 
 ## Progress log
 
 - 2026-07-29 — Plan created and indexed.
+- 2026-07-29 — Implemented the root Workspace, complete sample, external local
+  override, CLI/Studio disclosure, and `0.8.8` documentation.
+- 2026-07-29 — Full regression, distributions, installed wheel, and corrected
+  clean-clone smoke passed. The first clone replay exposed and fixed the empty
+  Session-directory packaging gap.
 
 ## Completion
 

@@ -131,6 +131,22 @@ not only synthetic fixtures:
 The canonical results, Run identifiers, versions, and limitations are preserved
 in [[docs/trading-request-field-trials]].
 
+## `0.8.8` verification snapshot
+
+- final repository regression: 286/286 tests;
+- documentation graph: 1,029/1,029 checked links;
+- source distribution and wheel build succeeded;
+- installed-wheel smoke verified version/capabilities, empty Workspace
+  initialization, packaged Project templates, and validation;
+- committed sample evidence verified three Studies, zero Sessions, one
+  immutable historical `0.8.7` Run, and strict Factor Explorer projection;
+- a no-hardlink clean clone contained the fixed OHLCV bytes and empty Session
+  directory, resolved the internal default Project, validated and oriented
+  from `.`, and produced a valid Studio snapshot;
+- local-override tests covered relative and absolute external Projects,
+  strict/invalid configuration, missing paths, symlinks, wrong defaults, and
+  write-through without base-manifest mutation.
+
 ## `0.8.7` verification snapshot
 
 - final repository regression: 277/277 tests;
