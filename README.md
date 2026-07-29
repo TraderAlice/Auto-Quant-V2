@@ -1,5 +1,5 @@
 ---
-version: 0.8.17
+version: 0.8.18
 ---
 
 # AutoQuant V2
@@ -32,7 +32,7 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current milestone: `0.8.17`
+## Current milestone: `0.8.18`
 
 AutoQuant V2 has crossed from an architectural prototype into a usable
 research workbench.
@@ -156,6 +156,24 @@ fallback, passed its first Check over the disclosed bounded sample plus SPY,
 spent one Experiment, published one Report, promoted once, and stopped at the
 terminal `promoted` state. Repository regression passes all 307 tests and the
 documentation graph resolves all 1,074 checked links.
+
+`0.8.18` follows that same worker's remaining intake friction. A required
+`provider.retrievedAt` may now be a known timezone-aware ISO-8601 timestamp or
+explicit JSON `null` when caller-supplied bytes do not preserve the original
+retrieval time. The public schema tells Agents not to invent Project,
+packaging, file, or current-clock precision, and the exact claim remains
+content-locked through the Project snapshot and Studio.
+
+A fresh installed Grok worker then used that contract on nine unchanged raw
+Yahoo CSVs, created a fixed eight-holding Book Risk Project, preserved
+`retrievedAt: null`, executed exactly one Run, started no Session, and returned
+strict descriptive evidence. Its retry also hardened manifest-file and
+V1/V4/V5 routing guidance. The worker correctly refused to fabricate the
+requested maximum drawdown when current Book Risk evidence lacked it; that
+method gap is preserved in
+[`plans/book-risk-drawdown-evidence.md`](plans/book-risk-drawdown-evidence.md).
+Repository regression passes all 309 tests and the documentation graph
+resolves all 1,085 checked links.
 
 ## Standalone or an OpenAlice desk
 

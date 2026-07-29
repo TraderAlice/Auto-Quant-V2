@@ -247,6 +247,10 @@ range. V2
 also fixes base/features, bar-close semantics, continuous UTC clock, midnight
 anchor, aggregation method, and per-interval inventories. Fixed loading
 recomputes derived files from 1h before causal backward-as-of alignment.
+Provider `retrievedAt` is always present: a timezone-aware ISO-8601 string
+means the original retrieval time is known, while JSON `null` explicitly
+preserves that caller-supplied bytes lack it. Neither Project nor package
+creation time is inferred.
 
 V3 uses the same directory shape but the first directory is the declared base
 interval and the derived set is package-specific. Its interval surface also

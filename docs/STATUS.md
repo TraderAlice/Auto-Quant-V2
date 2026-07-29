@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha at `0.8.17`.
+Status: usable pre-alpha at `0.8.18`.
 
 Updated: 2026-07-30.
 
@@ -13,7 +13,7 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 AutoQuant V2 has crossed the line from an architectural prototype into a
 usable Agent-native quantitative research workbench.
 
-At `0.8.17`, a human, local coding Agent, or coworker delegated from OpenAlice
+At `0.8.18`, a human, local coding Agent, or coworker delegated from OpenAlice
 can:
 
 1. clone the repository and immediately discover the Harness plus its
@@ -97,7 +97,15 @@ context and benchmark assets, discloses that exact surface, and leaves the
 complete Judge unchanged. KEEP promotion and baseline-retaining completion
 are now explicitly projected as mutually exclusive terminal Session paths.
 
-The current release is `v0.8.17`. `v0.8.16` remains the completed
+`0.8.18` makes unknown provider retrieval time an honest first-class claim.
+Dataset packages keep the required field but may use explicit JSON `null`
+instead of forcing a coding Agent to invent a later packaging timestamp.
+Known timestamps remain strict and timezone-aware, while both forms stay
+content-locked through snapshot validation and Studio.
+
+The current release is `v0.8.18`. `v0.8.17` remains the
+reference-aware preflight and terminal-handoff milestone, while `v0.8.16`
+remains the completed
 trial-handoff milestone, while `v0.8.15` remains the candidate-contract
 and freeze-handoff milestone, while `v0.8.14` remains the
 fixed-Study answer-handoff milestone, and `v0.8.13` remains the
@@ -198,6 +206,35 @@ not only synthetic fixtures:
 
 The canonical results, Run identifiers, versions, and limitations are preserved
 in [[docs/trading-request-field-trials]].
+
+## `0.8.18` verification snapshot
+
+- a fresh Grok Build coworker used only installed `aq 0.8.18`, one unchanged
+  English hypothetical-book assignment, and nine caller-supplied raw Yahoo
+  OHLCV CSVs; it did not inspect framework source, docs, tests, plans, another
+  Project, or the web;
+- public schema discovery led it to preserve the unknown original provider
+  retrieval time as JSON `null`; no filesystem, coverage, Project, package, or
+  current-clock timestamp was substituted;
+- the coworker selected fixed `ohlcv-book-risk-lab`, wrote `research.md`
+  before quantitative work, started no Session, edited no candidate, and
+  executed exactly one successful Run
+  `run-20260729T174536010358Z-c388e3a0c03f` in 243 ms;
+- the immutable Run reported annualized volatility `0.207404`, component-risk
+  HHI `0.138695`, `7.210055` effective risk bets, first-PC share `0.388666`,
+  and NVDA as the largest risk contributor at `0.227376`; it granted no
+  trading authority;
+- Project validation and Studio preserved `provider.retrievedAt: null`
+  exactly, and source/package/snapshot/Study/Run hashes remained coherent;
+- the worker first passed a package directory and then selected Factor-only
+  V4 before recovering to its aligned daily V1 manifest. Final release source
+  turns the directory mistake into `dataset.manifest-path-required` and makes
+  V1 versus Factor-only V4/V5 compatibility visible in capability/schema/help;
+- the worker refused to estimate requested maximum drawdown outside immutable
+  evidence. That genuine Book Risk method gap is promoted to
+  [[plans/book-risk-drawdown-evidence]] rather than reported as if answered;
+- final repository regression: 309/309 tests in 792.276 seconds;
+- documentation graph: 1,085/1,085 checked links.
 
 ## `0.8.17` verification snapshot
 
@@ -511,9 +548,6 @@ unfinished:
   other methods should be added only when real Projects justify them;
 - external OHLCV acquisition and dataset-package preparation still require
   engineering judgment outside the atomic intake command;
-- caller-supplied packages still require a timezone-aware provider
-  `retrievedAt`; when the original acquisition time is unknown, Core does not
-  yet distinguish that absence from the later packaging timestamp;
 - Studio is a verified observation surface, not a full interactive research
   authoring or orchestration UI;
 - OpenAlice still needs the host-side path that selects an AutoQuant version,
@@ -528,7 +562,7 @@ field-trial surface.
 
 ## Maturity and next use
 
-`0.8.17` is suitable for controlled standalone use and initial OpenAlice desk
+`0.8.18` is suitable for controlled standalone use and initial OpenAlice desk
 integration. It is still pre-`1.0`: public contracts are versioned and strict,
 but the project continues to prefer domain correctness and Agent operability
 over backward compatibility while the product shape settles.

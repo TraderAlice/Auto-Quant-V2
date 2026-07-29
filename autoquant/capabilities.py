@@ -308,7 +308,9 @@ CLI_COMMANDS = [
                 "option",
                 "string",
                 True,
-                "External OHLCV dataset-package JSON.",
+                "Path to the external OHLCV dataset-package manifest JSON, "
+                "not its directory. V4/V5 are ohlcv-factor-lab only; use "
+                "V1 for aligned daily fixed-Lab intake.",
             ),
             argument(
                 "template",

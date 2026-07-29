@@ -65,6 +65,169 @@ from tests.intake_helpers import (
 
 
 class RequestDrivenIntakeTests(unittest.TestCase):
+    def test_unknown_provider_retrieval_time_is_explicit_and_preserved(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            request_path, package_path = write_intake_inputs(root)
+            package = json.loads(package_path.read_text(encoding="utf-8"))
+            package["provider"]["retrievedAt"] = None
+            package_path.write_text(
+                json.dumps(package, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+
+            jsonschema.validate(
+                package,
+                OHLCV_DATASET_PACKAGE_JSON_SCHEMA,
+            )
+            retrieved_schema = (
+                OHLCV_DATASET_PACKAGE_JSON_SCHEMA["oneOf"][0]["properties"][
+                    "provider"
+                ]["properties"]["retrievedAt"]
+            )
+            self.assertIn(
+                "never substitute a later packaging timestamp",
+                retrieved_schema["description"],
+            )
+            prepared = prepare_project_intake(
+                request_path,
+                package_path,
+                "ohlcv-factor-lab",
+            )
+            self.assertIsNone(prepared.package["provider"]["retrievedAt"])
+            project = create_project(
+                initialize_workspace(root / "workspace").root_dir,
+                "unknown-retrieval-time",
+                template=prepared.template,
+                template_intake=prepared,
+            )
+            intake = load_project_intake(project)
+            assert intake is not None
+            self.assertIsNone(
+                intake["dataset"]["provider"]["retrievedAt"]
+            )
+            studio = build_studio_snapshot(project.root_dir)
+            self.assertIsNone(
+                studio["projects"][0]["intake"]["dataset"]["provider"][
+                    "retrievedAt"
+                ]
+            )
+
+            for invalid in ("", "2026-07-30T00:00:00", 123):
+                package["provider"]["retrievedAt"] = invalid
+                package_path.write_text(
+                    json.dumps(package, indent=2, sort_keys=True) + "\n",
+                    encoding="utf-8",
+                )
+                with self.assertRaises(
+                    AutoQuantValidationError
+                ) as captured:
+                    prepare_project_intake(
+                        request_path,
+                        package_path,
+                        "ohlcv-factor-lab",
+                    )
+                self.assertIn(
+                    "dataset.retrieved-at",
+                    {issue.code for issue in captured.exception.issues},
+                )
+            with self.assertRaises(
+                AutoQuantValidationError
+            ) as captured:
+                prepare_project_intake(
+                    request_path,
+                    package_path.parent,
+                    "ohlcv-factor-lab",
+                )
+            self.assertEqual(
+                captured.exception.issues[0].code,
+                "dataset.manifest-path-required",
+            )
+            self.assertIn(
+                "manifest file, not its containing directory",
+                captured.exception.issues[0].message,
+            )
+
+    def test_unknown_retrieval_time_is_shared_by_every_package_route(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            fixtures: list[tuple[Path, Path, str]] = []
+            for name, writer, template in (
+                (
+                    "v1",
+                    write_intake_inputs,
+                    "ohlcv-factor-lab",
+                ),
+                (
+                    "v2",
+                    write_multi_interval_inputs,
+                    "ohlcv-research-desk",
+                ),
+                (
+                    "v3",
+                    write_session_interval_inputs,
+                    "ohlcv-factor-lab",
+                ),
+                (
+                    "v5",
+                    write_observed_intraday_inputs,
+                    "ohlcv-factor-lab",
+                ),
+            ):
+                fixture_root = root / name
+                fixture_root.mkdir()
+                request_path, package_path = writer(fixture_root)
+                fixtures.append((request_path, package_path, template))
+            v4_root = root / "v4"
+            v4_root.mkdir()
+            request_path, package_path = write_intake_inputs(v4_root)
+            v4_package = json.loads(
+                package_path.read_text(encoding="utf-8")
+            )
+            v4_package["schemaVersion"] = 4
+            v4_package["panelPolicy"] = {
+                "alignment": "observed-only",
+                "missingObservation": "absent-no-fill",
+            }
+            package_path.write_text(
+                json.dumps(v4_package, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            fixtures.append(
+                (request_path, package_path, "ohlcv-factor-lab")
+            )
+
+            observed_versions: list[int] = []
+            for request_path, package_path, template in fixtures:
+                package = json.loads(
+                    package_path.read_text(encoding="utf-8")
+                )
+                package["provider"]["retrievedAt"] = None
+                package_path.write_text(
+                    json.dumps(package, indent=2, sort_keys=True) + "\n",
+                    encoding="utf-8",
+                )
+                jsonschema.validate(
+                    package,
+                    OHLCV_DATASET_PACKAGE_JSON_SCHEMA,
+                )
+                prepared = prepare_project_intake(
+                    request_path,
+                    package_path,
+                    template,
+                )
+                self.assertIsNone(
+                    prepared.package["provider"]["retrievedAt"]
+                )
+                observed_versions.append(
+                    prepared.package["schemaVersion"]
+                )
+            self.assertEqual(sorted(observed_versions), [1, 2, 3, 4, 5])
+
     def test_complete_pre_factor_claim_intake_remains_valid(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

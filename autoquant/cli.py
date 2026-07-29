@@ -353,8 +353,19 @@ def build_parser() -> RaisingArgumentParser:
     )
     project_intake.add_argument("workspace")
     project_intake.add_argument("project_id")
-    project_intake.add_argument("--request", required=True)
-    project_intake.add_argument("--dataset", required=True)
+    project_intake.add_argument(
+        "--request",
+        required=True,
+        help="strict delegated Research Request JSON file",
+    )
+    project_intake.add_argument(
+        "--dataset",
+        required=True,
+        help=(
+            "dataset-package manifest JSON file, not its containing directory; "
+            "V4/V5 are ohlcv-factor-lab only"
+        ),
+    )
     project_intake.add_argument(
         "--template",
         choices=tuple(INTAKE_TEMPLATE_REQUIREMENTS),

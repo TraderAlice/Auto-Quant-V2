@@ -69,6 +69,9 @@ brief that another Agent can recover from the filesystem.
 7. Only then bind datasets, requests, Studies, Judges, or other strict
    manifests and begin the bounded research loop. Those machine contracts
    freeze an understood question; they do not replace the Markdown brief.
+   Preserve provider retrieval time only when the supplied provenance knows
+   it. Use explicit JSON `null` for an unknown original `retrievedAt`; never
+   invent the current or packaging time.
 8. After every Experiment, re-read `aq orient`. Treat
    `evidence.latestExperiment` as the immutable trial/check pointer and
    `trial-review-required` as an Agent/caller choice to report/complete or

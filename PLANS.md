@@ -22,7 +22,9 @@ There are no active plans.
 
 ## Proposed plans
 
-There are no proposed plans.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/book-risk-drawdown-evidence]] | Add immutable fixed-book maximum-drawdown evidence to the descriptive Book Risk route without inventing optimization or trading authority. | 2026-07-30 |
 
 ## Paused plans
 
@@ -34,6 +36,7 @@ There are no proposed plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/unknown-provider-retrieval-time]] | Let caller-supplied OHLCV preserve an explicitly unknown provider retrieval time without forcing an Agent to invent a packaging timestamp, proved by a fresh fixed Book Risk worker. | 2026-07-30 |
 | [[plans/reference-aware-preflight-and-promotion-closure]] | Let bounded Factor preflight exercise fixed context/benchmark assets and make KEEP promotion unambiguously terminal to Coding Agents, proved by a fresh installed-CLI Grok retry. | 2026-07-30 |
 | [[plans/post-trial-session-handoff]] | Made completed trial evidence a first-class Session handoff with explicit review choices and durable Experiment/Check traceability, proved by a fresh installed-wheel replay. | 2026-07-29 |
 | [[plans/candidate-contract-and-freeze-handoff]] | Made a factor worker see the exact Project panel/component contract before editing, reject illegal metadata in preflight, and obey a verified freeze agenda after a bounded trial. | 2026-07-29 |

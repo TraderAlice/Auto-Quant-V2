@@ -271,7 +271,9 @@ Portfolio lane, so factor or mandate changes stale its Run evidence.
 `project intake` is the atomic fast path after research intent has been
 clarified and translated into a strict request. It defaults to this
 research-desk template and validates the request and a caller-supplied,
-path-confined OHLCV package before creating anything. The generated
+path-confined OHLCV package before creating anything. `--dataset` names the
+package manifest JSON file, not its containing directory; a directory returns
+`dataset.manifest-path-required`. The generated
 `research.md` remains the Agent-maintained narrative source; `request.json`
 locks the understood execution assumptions and does not replace it. V1
 accepts one exact daily session panel. V2 accepts a
@@ -282,6 +284,13 @@ surface, provider, retrieval, calendar, terms, and price-adjustment claims;
 hashes source and normalized bytes; replaces the synthetic Study dataset
 identity; and atomically publishes the Project. It does not download data,
 authenticate provider claims, or fill missing bars.
+
+`provider.retrievedAt` is a required but nullable provenance claim. Use a
+timezone-aware ISO-8601 string only when the original provider retrieval time
+is known. Use JSON `null` when caller-supplied bytes do not preserve that
+time. Never substitute Project creation time, package preparation time, file
+mtime, or the current clock; unknown provenance is more truthful than invented
+precision. The exact string/null is content-locked into the dataset snapshot.
 
 V3 accepts a bounded configurable base interval and either continuous UTC or
 XNYS regular-session authority. Continuous features must be larger exact

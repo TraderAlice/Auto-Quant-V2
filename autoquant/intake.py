@@ -118,6 +118,7 @@ PRICE_ADJUSTMENTS = {
     "split-and-dividend-adjusted",
     "provider-adjusted",
 }
+PROVIDER_KEYS = {"name", "retrievedAt", "sourceUri", "terms"}
 INTAKE_TEMPLATE_REQUIREMENTS = {
     "ohlcv-factor-lab": (4, 180),
     "ohlcv-portfolio-lab": (5, 180),
@@ -153,6 +154,70 @@ def _non_empty(value: Any, path: Path | str) -> list[ValidationIssue]:
     if not isinstance(value, str) or not value.strip():
         return [_issue(path, "schema.string", "Must be a non-empty string")]
     return []
+
+
+def _validate_provider_claim(
+    value: Any,
+    path: Path | str,
+) -> tuple[dict[str, Any], list[ValidationIssue]]:
+    if not isinstance(value, dict):
+        return {}, [
+            _issue(path, "schema.type", "Provider must be an object")
+        ]
+    issues = _strict_keys(value, PROVIDER_KEYS, path)
+    for key in ("name", "terms"):
+        issues.extend(_non_empty(value.get(key), f"{path}/{key}"))
+    retrieved_at = value.get("retrievedAt")
+    if retrieved_at is not None:
+        if not isinstance(retrieved_at, str) or not retrieved_at.strip():
+            issues.append(
+                _issue(
+                    f"{path}/retrievedAt",
+                    "dataset.retrieved-at",
+                    "retrievedAt must be null when the original provider "
+                    "retrieval time is unknown, or a timezone-aware ISO-8601 "
+                    "timestamp when known",
+                )
+            )
+        else:
+            try:
+                parsed = datetime.fromisoformat(
+                    retrieved_at.replace("Z", "+00:00")
+                )
+                if parsed.tzinfo is None:
+                    raise ValueError("timezone required")
+            except ValueError:
+                issues.append(
+                    _issue(
+                        f"{path}/retrievedAt",
+                        "dataset.retrieved-at",
+                        "retrievedAt must be null when the original provider "
+                        "retrieval time is unknown, or a timezone-aware "
+                        "ISO-8601 timestamp when known",
+                    )
+                )
+    source_uri = value.get("sourceUri")
+    if source_uri is not None:
+        issues.extend(_non_empty(source_uri, f"{path}/sourceUri"))
+    return value, issues
+
+
+def _normalize_provider_claim(provider: dict[str, Any]) -> dict[str, Any]:
+    retrieved_at = provider["retrievedAt"]
+    return {
+        "name": provider["name"].strip(),
+        "retrievedAt": (
+            retrieved_at.strip()
+            if isinstance(retrieved_at, str)
+            else None
+        ),
+        "sourceUri": (
+            provider["sourceUri"].strip()
+            if isinstance(provider["sourceUri"], str)
+            else None
+        ),
+        "terms": provider["terms"].strip(),
+    }
 
 
 def _read_json(path: Path, label: str) -> dict[str, Any]:
@@ -442,44 +507,11 @@ def _validate_v1_package_manifest(
                 )
             )
 
-    provider = value.get("provider")
-    if not isinstance(provider, dict):
-        issues.append(
-            _issue(
-                f"{path}/provider",
-                "schema.type",
-                "Provider must be an object",
-            )
-        )
-        provider = {}
-    else:
-        issues.extend(
-            _strict_keys(
-                provider,
-                {"name", "retrievedAt", "sourceUri", "terms"},
-                f"{path}/provider",
-            )
-        )
-    for key in ("name", "retrievedAt", "terms"):
-        issues.extend(_non_empty(provider.get(key), f"{path}/provider/{key}"))
-    if isinstance(provider.get("retrievedAt"), str):
-        try:
-            retrieved_at = datetime.fromisoformat(
-                provider["retrievedAt"].replace("Z", "+00:00")
-            )
-            if retrieved_at.tzinfo is None:
-                raise ValueError("timezone required")
-        except ValueError:
-            issues.append(
-                _issue(
-                    f"{path}/provider/retrievedAt",
-                    "dataset.retrieved-at",
-                    "retrievedAt must be a timezone-aware ISO-8601 timestamp",
-                )
-            )
-    source_uri = provider.get("sourceUri")
-    if source_uri is not None:
-        issues.extend(_non_empty(source_uri, f"{path}/provider/sourceUri"))
+    provider, provider_issues = _validate_provider_claim(
+        value.get("provider"),
+        f"{path}/provider",
+    )
+    issues.extend(provider_issues)
 
     assets = value.get("assets")
     if not isinstance(assets, list) or not assets:
@@ -560,16 +592,7 @@ def _validate_v1_package_manifest(
             "calendar": market["calendar"].strip(),
             "timezone": market["timezone"].strip(),
         },
-        "provider": {
-            "name": provider["name"].strip(),
-            "retrievedAt": provider["retrievedAt"].strip(),
-            "sourceUri": (
-                provider["sourceUri"].strip()
-                if isinstance(provider["sourceUri"], str)
-                else None
-            ),
-            "terms": provider["terms"].strip(),
-        },
+        "provider": _normalize_provider_claim(provider),
         "assets": [
             {
                 key: asset[key].strip()
@@ -713,40 +736,11 @@ def _validate_v5_package_manifest(
             )
         )
 
-    provider = value.get("provider")
-    if not isinstance(provider, dict):
-        issues.append(
-            _issue(f"{path}/provider", "schema.type", "Provider must be an object")
-        )
-        provider = {}
-    else:
-        issues.extend(
-            _strict_keys(
-                provider,
-                {"name", "retrievedAt", "sourceUri", "terms"},
-                f"{path}/provider",
-            )
-        )
-    for key in ("name", "retrievedAt", "terms"):
-        issues.extend(_non_empty(provider.get(key), f"{path}/provider/{key}"))
-    if isinstance(provider.get("retrievedAt"), str):
-        try:
-            retrieved_at = datetime.fromisoformat(
-                provider["retrievedAt"].replace("Z", "+00:00")
-            )
-            if retrieved_at.tzinfo is None:
-                raise ValueError("timezone required")
-        except ValueError:
-            issues.append(
-                _issue(
-                    f"{path}/provider/retrievedAt",
-                    "dataset.retrieved-at",
-                    "retrievedAt must be timezone-aware ISO-8601",
-                )
-            )
-    source_uri = provider.get("sourceUri")
-    if source_uri is not None:
-        issues.extend(_non_empty(source_uri, f"{path}/provider/sourceUri"))
+    provider, provider_issues = _validate_provider_claim(
+        value.get("provider"),
+        f"{path}/provider",
+    )
+    issues.extend(provider_issues)
 
     assets = value.get("assets")
     if not isinstance(assets, list) or not assets:
@@ -896,16 +890,7 @@ def _validate_v5_package_manifest(
         "timestampSemantics": "bar-close",
         "panelPolicy": dict(OBSERVED_PANEL_POLICY),
         "market": dict(OBSERVED_INTRADAY_MARKET),
-        "provider": {
-            "name": provider["name"].strip(),
-            "retrievedAt": provider["retrievedAt"].strip(),
-            "sourceUri": (
-                provider["sourceUri"].strip()
-                if isinstance(provider["sourceUri"], str)
-                else None
-            ),
-            "terms": provider["terms"].strip(),
-        },
+        "provider": _normalize_provider_claim(provider),
         "assets": normalized_assets,
     }
 
@@ -1044,38 +1029,11 @@ def _validate_v2_package_manifest(
             )
         )
 
-    provider = value.get("provider")
-    if not isinstance(provider, dict):
-        issues.append(_issue(f"{path}/provider", "schema.type", "Provider must be an object"))
-        provider = {}
-    else:
-        issues.extend(
-            _strict_keys(
-                provider,
-                {"name", "retrievedAt", "sourceUri", "terms"},
-                f"{path}/provider",
-            )
-        )
-    for key in ("name", "retrievedAt", "terms"):
-        issues.extend(_non_empty(provider.get(key), f"{path}/provider/{key}"))
-    if isinstance(provider.get("retrievedAt"), str):
-        try:
-            retrieved_at = datetime.fromisoformat(
-                provider["retrievedAt"].replace("Z", "+00:00")
-            )
-            if retrieved_at.tzinfo is None:
-                raise ValueError("timezone required")
-        except ValueError:
-            issues.append(
-                _issue(
-                    f"{path}/provider/retrievedAt",
-                    "dataset.retrieved-at",
-                    "retrievedAt must be timezone-aware ISO-8601",
-                )
-            )
-    source_uri = provider.get("sourceUri")
-    if source_uri is not None:
-        issues.extend(_non_empty(source_uri, f"{path}/provider/sourceUri"))
+    provider, provider_issues = _validate_provider_claim(
+        value.get("provider"),
+        f"{path}/provider",
+    )
+    issues.extend(provider_issues)
 
     assets = value.get("assets")
     if not isinstance(assets, list) or not assets:
@@ -1136,16 +1094,7 @@ def _validate_v2_package_manifest(
             "anchor": aggregation["anchor"],
         },
         "market": expected_market,
-        "provider": {
-            "name": provider["name"].strip(),
-            "retrievedAt": provider["retrievedAt"].strip(),
-            "sourceUri": (
-                provider["sourceUri"].strip()
-                if isinstance(provider["sourceUri"], str)
-                else None
-            ),
-            "terms": provider["terms"].strip(),
-        },
+        "provider": _normalize_provider_claim(provider),
         "assets": [
             {
                 key: asset[key].strip()
@@ -1426,12 +1375,23 @@ def prepare_project_intake(
                     + ", ".join(INTAKE_TEMPLATE_REQUIREMENTS),
                 )
             ]
-        )
+    )
     request = load_research_request(request_path)
     manifest_path = Path(package_path).expanduser().absolute()
     if manifest_path.is_symlink():
         raise AutoQuantValidationError(
             [_issue(manifest_path, "path.symlink", "Dataset manifest cannot be a symlink")]
+        )
+    if manifest_path.is_dir():
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    manifest_path,
+                    "dataset.manifest-path-required",
+                    "--dataset must point to the dataset-package JSON "
+                    "manifest file, not its containing directory",
+                )
+            ]
         )
     manifest_path = manifest_path.resolve()
     package = _validate_package_manifest(
@@ -2436,24 +2396,11 @@ def _validate_v1_snapshot(
         for key in ("calendar", "timezone"):
             issues.extend(_non_empty(market.get(key), f"{path}/market/{key}"))
 
-    provider = snapshot.get("provider")
-    if not isinstance(provider, dict):
-        issues.append(
-            _issue(f"{path}/provider", "schema.type", "Provider must be an object")
-        )
-    else:
-        issues.extend(
-            _strict_keys(
-                provider,
-                {"name", "retrievedAt", "sourceUri", "terms"},
-                f"{path}/provider",
-            )
-        )
-        for key in ("name", "retrievedAt", "terms"):
-            issues.extend(_non_empty(provider.get(key), f"{path}/provider/{key}"))
-        source_uri = provider.get("sourceUri")
-        if source_uri is not None:
-            issues.extend(_non_empty(source_uri, f"{path}/provider/sourceUri"))
+    _, provider_issues = _validate_provider_claim(
+        snapshot.get("provider"),
+        f"{path}/provider",
+    )
+    issues.extend(provider_issues)
 
     requested_assets = snapshot.get("requestedAssets")
     if (
@@ -2782,19 +2729,11 @@ def _validate_multi_interval_snapshot(
                     "V5 snapshot availability must be an object",
                 )
             )
-    provider = snapshot.get("provider")
-    if not isinstance(provider, dict):
-        issues.append(_issue(f"{path}/provider", "schema.type", "Provider must be an object"))
-    else:
-        issues.extend(
-            _strict_keys(
-                provider,
-                {"name", "retrievedAt", "sourceUri", "terms"},
-                f"{path}/provider",
-            )
-        )
-        for key in ("name", "retrievedAt", "terms"):
-            issues.extend(_non_empty(provider.get(key), f"{path}/provider/{key}"))
+    _, provider_issues = _validate_provider_claim(
+        snapshot.get("provider"),
+        f"{path}/provider",
+    )
+    issues.extend(provider_issues)
 
     requested_assets = snapshot.get("requestedAssets")
     universe = snapshot.get("universe")
@@ -3825,7 +3764,18 @@ OHLCV_DATASET_PACKAGE_V1_JSON_SCHEMA: dict[str, Any] = {
             "required": ["name", "retrievedAt", "sourceUri", "terms"],
             "properties": {
                 "name": {"type": "string", "minLength": 1},
-                "retrievedAt": {"type": "string", "minLength": 1},
+                "retrievedAt": {
+                    "description": (
+                        "Original provider retrieval time as a timezone-aware "
+                        "ISO-8601 timestamp when known. Use null when "
+                        "caller-supplied bytes do not preserve that time; "
+                        "never substitute a later packaging timestamp."
+                    ),
+                    "anyOf": [
+                        {"type": "null"},
+                        {"type": "string", "minLength": 1},
+                    ],
+                },
                 "sourceUri": {
                     "anyOf": [
                         {"type": "null"},
@@ -3859,6 +3809,11 @@ OHLCV_DATASET_PACKAGE_V1_JSON_SCHEMA: dict[str, Any] = {
 OHLCV_DATASET_PACKAGE_V4_JSON_SCHEMA: dict[str, Any] = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "title": "AutoQuant observed-only ragged daily OHLCV package",
+    "description": (
+        "Only valid with project intake --template ohlcv-factor-lab. "
+        "Use V1 for aligned daily fixed Book Risk, Event, Allocation, "
+        "Portfolio, RL, or research-desk intake."
+    ),
     "type": "object",
     "additionalProperties": False,
     "required": [
@@ -4016,6 +3971,10 @@ OHLCV_DATASET_PACKAGE_V3_JSON_SCHEMA: dict[str, Any] = {
 OHLCV_DATASET_PACKAGE_V5_JSON_SCHEMA: dict[str, Any] = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "title": "AutoQuant observed-only intraday Factor dataset package",
+    "description": (
+        "Only valid with project intake --template ohlcv-factor-lab and "
+        "exactly one non-context temporal target."
+    ),
     "type": "object",
     "additionalProperties": False,
     "required": [
@@ -4080,6 +4039,12 @@ OHLCV_DATASET_PACKAGE_V5_JSON_SCHEMA: dict[str, Any] = {
 OHLCV_DATASET_PACKAGE_JSON_SCHEMA: dict[str, Any] = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "title": "AutoQuant external OHLCV dataset package",
+    "description": (
+        "Select the package version together with the intake template: V1 "
+        "is aligned daily and supports every intake template; V2 is fixed "
+        "continuous hourly; V3 is configurable continuous/XNYS; V4 ragged "
+        "daily and V5 observed intraday are ohlcv-factor-lab only."
+    ),
     "type": "object",
     "properties": {
         "schemaVersion": {

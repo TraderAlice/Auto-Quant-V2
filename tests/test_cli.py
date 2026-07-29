@@ -833,6 +833,19 @@ class AgentCliTests(unittest.TestCase):
             command for command in commands if command["id"] == "project.intake"
         )
         self.assertEqual(project_intake["effect"], "creates-artifact")
+        dataset_argument = next(
+            argument
+            for argument in project_intake["arguments"]
+            if argument["name"] == "dataset"
+        )
+        self.assertIn(
+            "manifest JSON, not its directory",
+            dataset_argument["description"],
+        )
+        self.assertIn(
+            "V4/V5 are ohlcv-factor-lab only",
+            dataset_argument["description"],
+        )
         self.assertEqual(
             next(
                 argument
@@ -978,6 +991,15 @@ class AgentCliTests(unittest.TestCase):
                 "schemaVersion"
             ]["enum"],
             [1, 2, 3, 4, 5],
+        )
+        package_schema = json_output(dataset_schema)["data"]["schema"]
+        self.assertIn(
+            "V1 is aligned daily and supports every intake template",
+            package_schema["description"],
+        )
+        self.assertIn(
+            "Only valid with project intake --template ohlcv-factor-lab",
+            package_schema["oneOf"][3]["description"],
         )
         portfolio_schema = run_cli(
             "schema",

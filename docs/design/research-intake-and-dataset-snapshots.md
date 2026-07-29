@@ -78,9 +78,9 @@ V1 accepts one JSON package manifest and its relative source files:
   "priceAdjustment": "provider-adjusted",
   "provider": {
     "name": "yahoo-finance",
-    "retrievedAt": "2026-07-23T00:00:00Z",
+    "retrievedAt": null,
     "sourceUri": "https://finance.yahoo.com/",
-    "terms": "provider terms apply"
+    "terms": "caller-supplied bytes; original retrieval time unknown"
   },
   "assets": [
     {
@@ -95,7 +95,12 @@ V1 accepts one JSON package manifest and its relative source files:
 
 The manifest is caller-supplied context. Provider, adjustment, venue, calendar,
 and terms fields are preserved and hashed but are not authenticated by
-AutoQuant.
+AutoQuant. `retrievedAt` remains required so the claim cannot disappear
+accidentally. It is either the known original provider retrieval time as a
+timezone-aware ISO-8601 string, or JSON `null` when caller-supplied bytes do
+not preserve that time. Package preparation time, filesystem metadata,
+Project creation time, and the current clock are not substitutes. The value is
+copied and hashed unchanged into the Project dataset snapshot.
 
 V1 deliberately supports only `1d` session data. Factor, Portfolio, and RL
 annualize that clock at 252 and consume one aligned daily panel.
@@ -438,6 +443,8 @@ When changing this boundary:
 - preserve structured failures and all-or-nothing Project publication;
 - treat provider fields as disclosed claims unless a separate authenticated
   provenance authority is introduced;
+- preserve an explicitly unknown provider retrieval time as `null`; never
+  manufacture timestamp precision from package or Project lifecycle clocks;
 - never mutate a dataset behind an existing Study, Session, Run, or Report
   identity.
 
