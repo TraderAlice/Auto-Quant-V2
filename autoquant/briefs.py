@@ -9,6 +9,15 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from .allocation_policies import (
+    ALLOCATION_METHOD,
+    MAX_CONTRIBUTION_TOLERANCE,
+    MAX_COVARIANCE_WINDOW,
+    MIN_CONTRIBUTION_TOLERANCE,
+    MIN_COVARIANCE_WINDOW,
+    normalize_allocation_policy,
+    normalize_fixed_weight_benchmark,
+)
 from .factor_claims import (
     KNOWN_FACTOR_STYLES,
     normalize_factor_policy,
@@ -698,6 +707,7 @@ def validate_research_request(
             "benchmarkPolicy",
             "horizonPolicy",
             "factorPolicy",
+            "allocationPolicy",
             "positionSnapshot",
             "positionScenarios",
             "positionSizing",
@@ -764,6 +774,15 @@ def validate_research_request(
             )
         except AutoQuantValidationError as error:
             issues.extend(error.issues)
+    normalized_allocation_policy: dict[str, Any] | None = None
+    if "allocationPolicy" in value:
+        try:
+            normalized_allocation_policy = normalize_allocation_policy(
+                value.get("allocationPolicy"),
+                f"{path}/allocationPolicy",
+            )
+        except AutoQuantValidationError as error:
+            issues.extend(error.issues)
     if "positionSizing" in value and "positionScenarios" in value:
         issues.append(
             _issue(
@@ -785,6 +804,14 @@ def validate_research_request(
                     "benchmarkPolicy must be an object",
                 )
             )
+        elif benchmark_policy.get("kind") == "fixed-weights":
+            try:
+                normalized_benchmark_policy = normalize_fixed_weight_benchmark(
+                    benchmark_policy,
+                    path=benchmark_path,
+                )
+            except AutoQuantValidationError as error:
+                issues.extend(error.issues)
         else:
             issues.extend(
                 _strict_keys(
@@ -1363,6 +1390,34 @@ def validate_research_request(
                         "than maxAbsWeight",
                     )
                 )
+    if (
+        normalized_benchmark_policy is not None
+        and normalized_benchmark_policy.get("kind") == "fixed-weights"
+    ):
+        requested_roles = {
+            asset.get("symbol"): asset.get("positionRole")
+            for asset in assets
+            if isinstance(asset, dict)
+            and isinstance(asset.get("symbol"), str)
+        }
+        for symbol in normalized_benchmark_policy["weights"]:
+            weight_path = f"{path}/benchmarkPolicy/weights/{symbol}"
+            if symbol not in requested_roles:
+                issues.append(
+                    _issue(
+                        weight_path,
+                        "request.benchmark-unrequested",
+                        "Benchmark weights may name requested assets only",
+                    )
+                )
+            elif requested_roles.get(symbol) == "context-only":
+                issues.append(
+                    _issue(
+                        weight_path,
+                        "request.benchmark-context-only",
+                        "A context-only asset cannot receive benchmark weight",
+                    )
+                )
     if normalized_position_snapshot is not None:
         requested_roles = {
             asset.get("symbol"): asset.get("positionRole")
@@ -1501,6 +1556,11 @@ def validate_research_request(
         **(
             {"portfolioPolicy": normalized_policy}
             if "portfolioPolicy" in value
+            else {}
+        ),
+        **(
+            {"allocationPolicy": normalized_allocation_policy}
+            if "allocationPolicy" in value
             else {}
         ),
         **(
@@ -1842,7 +1902,51 @@ RESEARCH_REQUEST_JSON_SCHEMA: dict[str, Any] = {
                         },
                     },
                 },
+                {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["kind", "weights"],
+                    "properties": {
+                        "kind": {"const": "fixed-weights"},
+                        "weights": {
+                            "type": "object",
+                            "minProperties": 1,
+                            "maxProperties": 256,
+                            "additionalProperties": {
+                                "type": "number",
+                                "exclusiveMinimum": 0,
+                                "maximum": 1,
+                            },
+                        },
+                    },
+                },
             ]
+        },
+        "allocationPolicy": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "kind",
+                "covarianceWindow",
+                "minimumObservations",
+                "contributionTolerance",
+                "scaleUp",
+            ],
+            "properties": {
+                "kind": {"const": ALLOCATION_METHOD},
+                "covarianceWindow": {
+                    "type": "integer",
+                    "minimum": MIN_COVARIANCE_WINDOW,
+                    "maximum": MAX_COVARIANCE_WINDOW,
+                },
+                "minimumObservations": {"type": "integer", "minimum": 2},
+                "contributionTolerance": {
+                    "type": "number",
+                    "minimum": MIN_CONTRIBUTION_TOLERANCE,
+                    "maximum": MAX_CONTRIBUTION_TOLERANCE,
+                },
+                "scaleUp": {"const": False},
+            },
         },
         "positionSnapshot": {
             "type": "object",

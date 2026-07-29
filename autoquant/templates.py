@@ -11,6 +11,10 @@ from importlib import resources
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from .allocation_policies import (
+    ALLOCATION_POLICY,
+    build_allocation_contract,
+)
 from .checks import PREFLIGHT_KIND, PREFLIGHT_MANIFEST
 from .factor_claims import (
     FACTOR_CLAIM,
@@ -62,6 +66,7 @@ PROJECT_TEMPLATE_IDS = (
     "ohlcv-rl-factor-lab",
     "ohlcv-book-risk-lab",
     "ohlcv-event-study-lab",
+    "ohlcv-allocation-lab",
     "ohlcv-research-desk",
 )
 OHLCV_STUDY_ID = "ohlcv-factor-quality"
@@ -69,12 +74,14 @@ PORTFOLIO_STUDY_ID = "ohlcv-portfolio-quality"
 RL_STUDY_ID = "ohlcv-rl-factor-policy"
 BOOK_RISK_STUDY_ID = "ohlcv-book-risk"
 EVENT_STUDY_ID = "ohlcv-price-event-reaction"
+ALLOCATION_STUDY_ID = "ohlcv-risk-parity-allocation"
 TEMPLATE_STUDY_IDS = {
     "ohlcv-factor-lab": OHLCV_STUDY_ID,
     "ohlcv-portfolio-lab": PORTFOLIO_STUDY_ID,
     "ohlcv-rl-factor-lab": RL_STUDY_ID,
     "ohlcv-book-risk-lab": BOOK_RISK_STUDY_ID,
     "ohlcv-event-study-lab": EVENT_STUDY_ID,
+    "ohlcv-allocation-lab": ALLOCATION_STUDY_ID,
     "ohlcv-research-desk": OHLCV_STUDY_ID,
 }
 TEMPLATE_STUDY_SEQUENCES = {
@@ -83,6 +90,7 @@ TEMPLATE_STUDY_SEQUENCES = {
     "ohlcv-rl-factor-lab": (RL_STUDY_ID,),
     "ohlcv-book-risk-lab": (BOOK_RISK_STUDY_ID,),
     "ohlcv-event-study-lab": (EVENT_STUDY_ID,),
+    "ohlcv-allocation-lab": (ALLOCATION_STUDY_ID,),
     "ohlcv-research-desk": (
         OHLCV_STUDY_ID,
         PORTFOLIO_STUDY_ID,
@@ -264,6 +272,30 @@ def _write_event_study_policy(
     path.write_text(
         json.dumps(
             build_event_study_policy(request),
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def _write_allocation_contract(
+    project: ProjectContext,
+    request: dict[str, Any],
+    universe: list[str],
+    *,
+    annualization_periods: int,
+) -> None:
+    path = project.root_dir / ALLOCATION_POLICY
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            build_allocation_contract(
+                request,
+                universe,
+                annualization_periods=annualization_periods,
+            ),
             indent=2,
             sort_keys=True,
         )
@@ -1146,6 +1178,160 @@ def _apply_ohlcv_event_study_lab(
     _finalize_intake(project, intake, study, snapshot_hash)
 
 
+def _apply_ohlcv_allocation_lab(
+    project: ProjectContext,
+    intake: PreparedIntake | None = None,
+) -> None:
+    """Create one fixed portfolio-native equal-risk-contribution Study."""
+
+    template = "ohlcv_allocation_lab"
+    if intake is None:
+        end = _write_demo_ohlcv(project, readme_template=template)
+        dataset = {
+            "id": "synthetic-ohlcv-allocation-fixture",
+            "version": "v1",
+            "asset_class": "synthetic-multi-asset",
+            "universe": list(OHLCV_ASSETS),
+            "start": OHLCV_START.isoformat(),
+        }
+        snapshot_hash = None
+        request = {
+            "schemaVersion": 1,
+            "kind": "autoquant-research-request",
+            "title": "Synthetic equal-risk-contribution allocation",
+            "question": "Does fixed ERC improve on a fixed 60/40 reference?",
+            "decisionContext": "Deterministic Harness fixture.",
+            "assets": [
+                {
+                    "symbol": asset,
+                    "assetClass": "other",
+                    "venue": None,
+                    "positionRole": "long-only",
+                }
+                for asset in OHLCV_ASSETS
+            ],
+            "direction": "long",
+            "allocationPolicy": {
+                "kind": "equal-risk-contribution",
+                "covarianceWindow": 60,
+                "minimumObservations": 20,
+                "contributionTolerance": 0.05,
+                "scaleUp": False,
+            },
+            "portfolioPolicy": {
+                "grossLimit": 1.0,
+                "maxAbsWeight": 0.35,
+                "assetMaxAbsWeights": {},
+                "annualizedVolatilityCeiling": 0.15,
+                "baseCostBps": 5.0,
+                "noTradeOneWay": 0.02,
+                "referenceNav": 250000.0,
+                "decisionSchedule": {"kind": "calendar-month-end"},
+            },
+            "benchmarkPolicy": {
+                "kind": "fixed-weights",
+                "weights": {OHLCV_ASSETS[0]: 0.6, OHLCV_ASSETS[1]: 0.4},
+            },
+            "horizon": "Monthly allocation over the fixed fixture.",
+            "hypotheses": ["ERC may improve validation net Sharpe."],
+            "constraints": ["No prediction, Order, or trading authority."],
+            "deliverables": ["Costed comparison and current research target."],
+            "source": {
+                "system": "local",
+                "workspaceId": None,
+                "sessionId": None,
+                "artifactPath": None,
+                "artifactRevision": None,
+            },
+        }
+        (project.root_dir / "request.json").write_text(
+            json.dumps(request, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        annualization = 252
+    else:
+        end, dataset, snapshot_hash = _intake_dataset(
+            project,
+            intake,
+            ALLOCATION_STUDY_ID,
+        )
+        request = intake.request
+        annualization = intake.annualization_periods
+    _write_allocation_contract(
+        project,
+        request,
+        list(dataset["universe"]),
+        annualization_periods=annualization,
+    )
+    _write_template_source(
+        project,
+        "judges/ohlcv_allocation.py",
+        "judge.py",
+        template=template,
+    )
+    _write_template_source(
+        project,
+        "judges/allocation_core.py",
+        "allocation_core.py",
+        template=template,
+    )
+    _write_template_source(
+        project,
+        "judges/portfolio_core.py",
+        "portfolio_core.py",
+        template="ohlcv_portfolio_lab",
+    )
+    (project.root_dir / project.manifest.research_program).write_text(
+        _template_text("research.md", template=template),
+        encoding="utf-8",
+    )
+    definition = StudyDefinition(
+        schema_version=1,
+        id=ALLOCATION_STUDY_ID,
+        name="OHLCV Risk Parity Allocation",
+        description=(
+            "Construct one causal equal-risk-contribution portfolio and compare "
+            "it with one same-clock fixed-weight reference"
+        ),
+        program="program.md",
+        subject=StudySubject("strategy", "equal-risk-contribution", "fixed"),
+        editable={"paths": []},
+        judge=StudyJudge(
+            "python",
+            "judges/ohlcv_allocation.py",
+            [
+                "judges/ohlcv_allocation.py",
+                "judges/allocation_core.py",
+                "judges/portfolio_core.py",
+            ],
+            [],
+            120,
+        ),
+        objective=StudyObjective(
+            "validation_net_sharpe_advantage",
+            "maximize",
+            0.0,
+        ),
+        dataset=StudyDataset(
+            str(dataset["id"]),
+            str(dataset["version"]),
+            str(dataset["asset_class"]),
+            list(dataset["universe"]),
+            StudyTimeRange(str(dataset["start"]), _time_range_value(end)),
+            ["ohlcv/**"],
+        ),
+        dependencies={"paths": [ALLOCATION_POLICY]},
+    )
+    study = create_study(project, definition)
+    study.program_path.write_text(
+        _template_text("program.md", template=template),
+        encoding="utf-8",
+    )
+    _externalize_intake_guidance(project, intake, study.program_path)
+    study = load_study(project, ALLOCATION_STUDY_ID)
+    _finalize_intake(project, intake, study, snapshot_hash)
+
+
 def _apply_ohlcv_research_desk(
     project: ProjectContext,
     intake: PreparedIntake | None = None,
@@ -1414,5 +1600,7 @@ def apply_project_template(
         _apply_ohlcv_book_risk_lab(project, intake)
     elif template_id == "ohlcv-event-study-lab":
         _apply_ohlcv_event_study_lab(project, intake)
+    elif template_id == "ohlcv-allocation-lab":
+        _apply_ohlcv_allocation_lab(project, intake)
     else:
         _apply_ohlcv_research_desk(project, intake)

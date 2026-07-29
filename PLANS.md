@@ -18,7 +18,9 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-There are no active plans.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/portfolio-native-risk-parity-allocation]] | Answer a fixed equal-risk-contribution strategic allocation request against a same-clock weighted reference without inventing a predictive factor. | 2026-07-29 |
 
 ## Proposed plans
 

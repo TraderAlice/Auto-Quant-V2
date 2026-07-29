@@ -141,6 +141,11 @@ The V2 foundation now implements:
   capped target weights, drift-aware execution, reconciled contribution/risk
   attribution, causal OHLCV liquidity-capacity envelopes, and
   policy/cost/delay stresses without trading authority.
+- one fixed Portfolio-native Allocation Lab that constructs a caller-bound
+  long-only equal-risk-contribution book without inventing a predictive
+  Factor, compares it with a separately drifted and costed fixed-weight
+  reference on the same decision clock, and exposes cap-induced parity gaps
+  without opening an optimizer or Session surface.
 - one request-bound Portfolio Mandate shared by Factor, Portfolio, and governed
   RL that derives tradable/context assets,
   direction-default or caller-supplied per-asset position roles, side limits,
@@ -198,6 +203,8 @@ governed RL lane is defined in [[docs/design/rl-factor-policy-lab]]. The
 fixed existing-holdings covariance and reduction-sensitivity route is defined
 in [[docs/design/reported-position-book-risk]]. The fixed OHLCV conditional
 price-event route is defined in [[docs/design/ohlcv-price-event-study]]. The
+fixed Portfolio-native construction route is defined in
+[[docs/design/portfolio-native-allocation-lab]]. The
 factor tear-sheet protocol is defined in [[docs/design/factor-diagnostics]].
 Bounded immutable Factor artifact projection is defined in
 [[docs/design/factor-evidence-explorer]].
@@ -424,6 +431,8 @@ cannot own Workspace, Project, or evidence semantics.
 - OHLCV Factor Lab design: [[docs/design/ohlcv-factor-lab]]
 - Reported-position Book Risk: [[docs/design/reported-position-book-risk]]
 - OHLCV Price Event Study: [[docs/design/ohlcv-price-event-study]]
+- Portfolio-native Allocation Lab:
+  [[docs/design/portfolio-native-allocation-lab]]
 - Panel-native shared factor runtime:
   [[docs/design/panel-native-factor-api]]
 - Project-derived Workbench needs:

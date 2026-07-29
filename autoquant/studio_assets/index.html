@@ -192,6 +192,42 @@
 
         <section
           class="portfolio-section"
+          id="allocation-explorer"
+          aria-labelledby="allocation-title"
+          hidden
+        >
+          <header class="section-header">
+            <span>
+              <small>CAUSAL COVARIANCE → ERC TARGET → SAME-CLOCK REFERENCE</small>
+              <h2 id="allocation-title">Portfolio allocation explorer</h2>
+            </span>
+            <span class="section-meta" id="allocation-meta">No Allocation Run</span>
+          </header>
+          <div class="portfolio-summary" id="allocation-summary"></div>
+          <article class="portfolio-viability-panel">
+            <header class="panel-toolbar">
+              <span>
+                <b>Latest mechanical research allocation</b>
+                <small>Target, executed book, fixed-weight reference, cap and risk evidence</small>
+              </span>
+              <span class="section-meta">DECISION SUPPORT · NO TRADING</span>
+            </header>
+            <div id="allocation-weights"></div>
+          </article>
+          <article class="portfolio-attribution-panel">
+            <header class="panel-toolbar">
+              <span>
+                <b>Sampled candidate versus reference path</b>
+                <small>Immutable net returns, exposure, and causal forecast volatility</small>
+              </span>
+            </header>
+            <div id="allocation-path"></div>
+          </article>
+          <div class="factor-warning" id="allocation-warning"></div>
+        </section>
+
+        <section
+          class="portfolio-section"
           id="event-study-explorer"
           aria-labelledby="event-study-title"
           hidden

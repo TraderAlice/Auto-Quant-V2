@@ -249,6 +249,12 @@ const projectFocusLane = (project) => {
 };
 
 const projectFocusRun = (project) => {
+  if (!project.researchProgramStatus && project.allocationExplorer?.run?.id) {
+    const allocation = project.runs.find(
+      (item) => item.id === project.allocationExplorer.run.id,
+    );
+    if (allocation?.status === "succeeded") return allocation;
+  }
   if (!project.researchProgramStatus && project.eventStudyExplorer?.run?.id) {
     const descriptive = project.runs.find(
       (item) => item.id === project.eventStudyExplorer.run.id,
@@ -1189,7 +1195,7 @@ function renderSessions(project) {
       .join("") ||
     (project.externalHoldout
       ? '<div class="empty-panel">Sessions are disabled in this frozen external-audit Project.</div>'
-      : project.bookRiskExplorer || project.eventStudyExplorer
+      : project.bookRiskExplorer || project.eventStudyExplorer || project.allocationExplorer
         ? '<div class="empty-panel">This fixed descriptive Project has no editable research surface or Session lifecycle.</div>'
       : '<div class="empty-panel">No Sessions yet. Start one with <code>aq session start</code>.</div>');
   document.querySelectorAll("[data-session]").forEach((button) => {
@@ -1374,9 +1380,10 @@ function renderHandoff(project) {
       const lane = projectFocusLane(project);
       const bookRisk = project.bookRiskExplorer;
       const eventStudy = project.eventStudyExplorer;
+      const allocation = project.allocationExplorer;
       const next =
         holdout?.nextAction ??
-        (bookRisk || eventStudy
+        (bookRisk || eventStudy || allocation
           ? project.agentWorkBrief?.primaryAction
           : null) ??
         program?.recommendedAction ??
@@ -1397,6 +1404,8 @@ function renderHandoff(project) {
           ? "REQUEST → DATASET → FIXED RUN → REVIEW"
         : eventStudy
           ? "REQUEST → DATASET → FIXED EVENT RUN → REVIEW"
+        : allocation
+          ? "REQUEST → DATASET → FIXED ALLOCATION RUN → REVIEW"
         : "REQUEST → DATASET → BASELINE → ITERATE";
       element("handoff-meta").textContent = holdout
         ? `${holdout.state.toUpperCase()} · ${holdout.binding.laneIds.length} immutable lanes`
@@ -1404,6 +1413,8 @@ function renderHandoff(project) {
           ? `Descriptive evidence ready · ${scenarioCount} supplied scenario${scenarioCount === 1 ? "" : "s"}${sizingReady ? ` · sizing ${escapeHtml(sizingStatus)}` : ""} · no Session`
         : eventStudy
           ? `${eventCounts?.primaryEvents ?? 0} primary events · ${eventCounts?.completeEvents ?? 0} complete · no Session`
+        : allocation
+          ? `${allocation.conclusion.status} · validation advantage ${metric(allocation.conclusion.validationNetSharpeAdvantage)} · no Session`
         : baseline
           ? `${baseline.primaryMetric} ${metric(baseline.primaryValue)} · Session not started`
           : "Content locked · baseline pending";
@@ -1431,17 +1442,17 @@ function renderHandoff(project) {
           <span class="context-note">${escapeHtml(dataset.provider.name)} · ${escapeHtml(dataset.priceAdjustment)} · ${escapeHtml(dataset.timeRange.start)} → ${escapeHtml(dataset.timeRange.end)} · ${datasetAvailability ? `observed-only ${percent(datasetAvailability.observationCoverage)} row coverage · ` : ""}provider claims</span>
         </article>
         <article class="handoff-card report-card ${baseline ? "ready" : ""}">
-          <small>03 · ${holdout ? "Frozen external audit" : bookRisk ? "Book Risk evidence &amp; review" : eventStudy ? "Price-event evidence &amp; review" : `${lane ? escapeHtml(lane.name) : "Baseline"} &amp; next action`}</small>
+          <small>03 · ${holdout ? "Frozen external audit" : bookRisk ? "Book Risk evidence &amp; review" : eventStudy ? "Price-event evidence &amp; review" : allocation ? "Allocation evidence &amp; review" : `${lane ? escapeHtml(lane.name) : "Baseline"} &amp; next action`}</small>
           <h3>${holdout ? `${holdout.binding.laneIds.length} source lanes bound to later data` : baseline ? `${escapeHtml(baseline.primaryMetric)} = ${metric(baseline.primaryValue)}` : escapeHtml(intake.study.name)}</h3>
-          <p>${holdout ? "The exact source candidates are frozen. Only the one-shot holdout command is authorized; no Session, retuning, selection, promotion, or trading action is implied." : bookRisk ? `The fixed descriptive Run audits the reported baseline, compares ${scenarioCount} caller-supplied complete book${scenarioCount === 1 ? "" : "s"}${sizingReady ? `, and returns a ${escapeHtml(sizingStatus)} caller-bounded historical target position` : ""}. Review the verified evidence; no Session, optimization, order, or trading authority follows.` : eventStudy ? `The fixed Run preserves ${eventCounts?.qualifyingEvents ?? 0} qualifying events, ${eventCounts?.primaryEvents ?? 0} non-overlapping primary outcomes, matched reference returns, and the frozen conclusion. Review the verified ledger; no Session, threshold search, order, or trading authority follows.` : baseline ? "The immutable baseline is descriptive evidence, not a recommendation. Start a governed Session to test candidates against validation-only selection." : "Start a governed Session to run a fresh baseline and freeze this request into its derived Brief."}</p>
+          <p>${holdout ? "The exact source candidates are frozen. Only the one-shot holdout command is authorized; no Session, retuning, selection, promotion, or trading action is implied." : bookRisk ? `The fixed descriptive Run audits the reported baseline, compares ${scenarioCount} caller-supplied complete book${scenarioCount === 1 ? "" : "s"}${sizingReady ? `, and returns a ${escapeHtml(sizingStatus)} caller-bounded historical target position` : ""}. Review the verified evidence; no Session, optimization, order, or trading authority follows.` : eventStudy ? `The fixed Run preserves ${eventCounts?.qualifyingEvents ?? 0} qualifying events, ${eventCounts?.primaryEvents ?? 0} non-overlapping primary outcomes, matched reference returns, and the frozen conclusion. Review the verified ledger; no Session, threshold search, order, or trading authority follows.` : allocation ? `The fixed Run compares a causal ERC book with the complete fixed-weight reference under the same schedule, drift, no-trade band, and cost model. The validation-only conclusion is ${escapeHtml(allocation.conclusion.status)}; no Session, Order, or trading authority follows.` : baseline ? "The immutable baseline is descriptive evidence, not a recommendation. Start a governed Session to test candidates against validation-only selection." : "Start a governed Session to run a fresh baseline and freeze this request into its derived Brief."}</p>
           ${portfolio ? `
           <div class="handoff-metrics">
             <span class="${valueTone(portfolio.factor.validationRankIc)}"><b>${metric(portfolio.factor.validationRankIc)}</b><small>validation IC</small></span>
             <span class="${valueTone(portfolio.portfolio.testMaximumDrawdown)}"><b>${percent(portfolio.portfolio.testMaximumDrawdown)}</b><small>test max DD</small></span>
             <span class="${valueTone(portfolio.robustness.testAdverseCostSharpe)}"><b>${metric(portfolio.robustness.testAdverseCostSharpe)}</b><small>${metric(portfolio.robustness.adverseCostBps)}bps audit</small></span>
           </div>` : ""}
-          <span class="status-chip ${baselineTone === "bad" ? "revert" : "active"}">${bookRisk || eventStudy ? "descriptive evidence" : baseline ? (baselineTone === "bad" ? "negative baseline" : "baseline verified") : "ready"}</span>
-          ${copyCommandButton(next, holdout ? (holdout.state === "completed" ? "Copy holdout show command" : "Copy holdout run command") : bookRisk ? "Copy Book Risk Explorer CLI" : eventStudy ? "Copy Event Explorer CLI" : program ? "Copy recommended command" : "Copy start command")}
+          <span class="status-chip ${baselineTone === "bad" ? "revert" : "active"}">${bookRisk || eventStudy || allocation ? "fixed evidence" : baseline ? (baselineTone === "bad" ? "negative baseline" : "baseline verified") : "ready"}</span>
+          ${copyCommandButton(next, holdout ? (holdout.state === "completed" ? "Copy holdout show command" : "Copy holdout run command") : bookRisk ? "Copy Book Risk Explorer CLI" : eventStudy ? "Copy Event Explorer CLI" : allocation ? "Copy Allocation Explorer CLI" : program ? "Copy recommended command" : "Copy start command")}
         </article>`;
       return;
     }
@@ -1620,6 +1631,13 @@ function renderResearchProgram(project) {
 
 const evidenceLanes = [
   {
+    id: "allocation",
+    label: "Allocation",
+    question: "Does the fixed construction beat the same-clock reference?",
+    explorer: "allocationExplorer",
+    section: "allocation-explorer",
+  },
+  {
     id: "event-study",
     label: "Price event",
     question: "What happened after the fixed event and delay?",
@@ -1657,6 +1675,7 @@ const evidenceLanes = [
 ];
 
 const studyIdsByEvidenceLane = {
+  allocation: "ohlcv-risk-parity-allocation",
   "event-study": "ohlcv-price-event-reaction",
   "book-risk": "ohlcv-book-risk",
   factor: "ohlcv-factor-quality",
@@ -2502,6 +2521,78 @@ function renderBookRiskExplorer(project) {
       effective bets · maximum HHI ${metric(rolling.maximumComponentRiskHhi)}.
     </span>
     ${copyCommandButton(command, "Copy Book Risk JSON command")}`;
+}
+
+function renderAllocationExplorer(project) {
+  const section = element("allocation-explorer");
+  const explorer = project.allocationExplorer;
+  if (!explorer) {
+    section.hidden = true;
+    return;
+  }
+  section.hidden = false;
+  const validation = explorer.splits.validation;
+  const latest = explorer.latestDecision;
+  const current = explorer.currentState;
+  const solver = explorer.solver;
+  element("allocation-meta").textContent =
+    `${explorer.run.id} · ${explorer.contract.tradableAssets.length} tradable assets · ${latest.asOf}`;
+  element("allocation-summary").innerHTML = [
+    ["Conclusion", explorer.conclusion.status.toUpperCase(), "validation selection only"],
+    ["Candidate net Sharpe", metric(validation.candidate.sharpe), "validation"],
+    ["Reference net Sharpe", metric(validation.reference.sharpe), "validation"],
+    ["Sharpe advantage", signedMetric(validation.comparison.netSharpeAdvantage), "candidate − reference"],
+    ["Latest forecast vol", percent(latest.forecastAnnualizedVolatility), `${percent(explorer.contract.portfolioPolicy.annualizedVolatilityCeiling)} ceiling`],
+    ["Current state", current.ordinaryRebalanceDue ? "REBALANCE DUE" : "HOLD", current.asOf],
+    ["Parity error", percent(latest.maximumContributionError), latest.status.replaceAll("-", " ")],
+    ["Eligible decisions", String(solver.eligibleDecisions), `${solver.withinToleranceDecisions} within tolerance`],
+    ["Cap-gap decisions", String(solver.capInducedParityGapDecisions), "never mislabeled exact parity"],
+  ]
+    .map(
+      ([label, value, note]) => `
+        <span>
+          <small>${escapeHtml(label)}</small>
+          <b>${escapeHtml(value)}</b>
+          <em>${escapeHtml(note)}</em>
+        </span>`,
+    )
+    .join("");
+  element("allocation-weights").innerHTML = `
+    <div class="factor-table-wrap">
+      <table class="factor-table">
+        <thead><tr><th>Asset</th><th>Latest ERC target</th><th>Latest executed</th><th>Current drifted</th><th>Reference</th></tr></thead>
+        <tbody>
+          ${explorer.contract.universe.map((asset) => `
+            <tr>
+              <th>${escapeHtml(asset)}</th>
+              <td>${percent(latest.targetWeights[asset])}</td>
+              <td>${percent(latest.executedWeights[asset])}</td>
+              <td>${percent(current.candidatePretradeWeights[asset])}</td>
+              <td>${percent(current.referencePretradeWeights[asset])}</td>
+            </tr>`).join("")}
+        </tbody>
+      </table>
+    </div>`;
+  element("allocation-path").innerHTML = `
+    <div class="factor-table-wrap">
+      <table class="factor-table">
+        <thead><tr><th>Date</th><th>Candidate net</th><th>Reference net</th><th>Gross</th><th>Forecast vol</th></tr></thead>
+        <tbody>
+          ${explorer.path.slice(-16).map((row) => `
+            <tr>
+              <th>${escapeHtml(row.timestamp)}</th>
+              <td>${signedPercent(row.candidateNetReturn)}</td>
+              <td>${signedPercent(row.referenceNetReturn)}</td>
+              <td>${percent(row.candidateGrossExposure)}</td>
+              <td>${percent(row.candidateForecastVolatility)}</td>
+            </tr>`).join("")}
+        </tbody>
+      </table>
+    </div>`;
+  const command = project.commands?.find((item) => item.id === "run.allocation");
+  element("allocation-warning").innerHTML = `
+    <span>Strict accounting, weights, solver counts, validation authority, and no-trading boundary rederived from immutable artifacts.</span>
+    ${copyCommandButton(command, "Copy Allocation Explorer CLI")}`;
 }
 
 function renderEventStudyExplorer(project) {
@@ -5206,7 +5297,7 @@ function render() {
         : "FROZEN EXTERNAL HOLDOUT"
       : project.counts.runningCampaigns
       ? "RESEARCHER IN PROGRESS"
-      : project.bookRiskExplorer || project.eventStudyExplorer
+      : project.bookRiskExplorer || project.eventStudyExplorer || project.allocationExplorer
         ? "DESCRIPTIVE EVIDENCE READY"
       : project.intake && project.counts.sessions === 0
         ? "CONTENT-LOCKED INTAKE READY"
@@ -5228,6 +5319,7 @@ function render() {
   renderHandoff(project);
   renderResearchProgram(project);
   renderBookRiskExplorer(project);
+  renderAllocationExplorer(project);
   renderEventStudyExplorer(project);
   renderFactorExplorer(project);
   renderPortfolioExplorer(project);

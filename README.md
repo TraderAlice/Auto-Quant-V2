@@ -1,5 +1,5 @@
 ---
-version: 0.8.6
+version: 0.8.7
 ---
 
 # AutoQuant V2
@@ -72,6 +72,15 @@ event, overlap treatment, unconditional same-asset history, and matched
 reference-asset outcomes. It has no candidate Session, does not pretend an
 OHLCV gap proves an earnings/news event, and returns no Order or live-trading
 authority. See [OHLCV Price Event Study](docs/design/ohlcv-price-event-study.md).
+
+Non-predictive strategic-allocation questions use
+`ohlcv-allocation-lab`. Its narrow V1 contract constructs a long-only
+equal-risk-contribution book from trailing completed returns, enforces
+caller-owned caps and a scale-down-only volatility ceiling, and compares it
+with a separately drifted and costed fixed-weight reference on the same
+decision schedule. It has no Factor, RL, editable candidate, Session, Order, or
+trading authority. See
+[Portfolio-native Allocation Lab](docs/design/portfolio-native-allocation-lab.md).
 
 See the canonical
 [Agent-native workbench model](docs/design/agent-native-quant-workbench.md)

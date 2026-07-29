@@ -14,6 +14,10 @@ from pathlib import Path
 from typing import Any, Callable
 from urllib.parse import urlsplit
 
+from .allocation_explorer import (
+    DEFAULT_ALLOCATION_POINTS,
+    load_allocation_diagnostics,
+)
 from .decision_matrix import (
     STUDIO_COMPARISON_TRIALS,
     load_session_decision_matrix,
@@ -1194,6 +1198,31 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
                     error,
                 )
             )
+    allocation_explorer = None
+    allocation_candidate = next(
+        (
+            item
+            for item in reversed(runs_raw)
+            if item.status == "succeeded"
+            and item.primary_metric
+            == "validation_net_sharpe_advantage"
+        ),
+        None,
+    )
+    if allocation_candidate is not None:
+        try:
+            allocation_explorer = load_allocation_diagnostics(
+                project,
+                allocation_candidate.id,
+                points=DEFAULT_ALLOCATION_POINTS,
+            )
+        except AutoQuantValidationError as error:
+            diagnostics.extend(
+                _diagnostics(
+                    f"allocation-explorer:{allocation_candidate.id}",
+                    error,
+                )
+            )
     sessions: list[dict[str, Any]] = []
     for summary in sessions_raw:
         try:
@@ -1333,6 +1362,22 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
                 "read-only",
             )
         )
+    if allocation_explorer is not None:
+        commands.append(
+            _command(
+                "run.allocation",
+                [
+                    "aq",
+                    "run",
+                    "allocation",
+                    str(project.root_dir),
+                    "--run",
+                    allocation_explorer["run"]["id"],
+                    "--json",
+                ],
+                "read-only",
+            )
+        )
     if research_program_status is not None:
         commands.append(
             _command(
@@ -1383,6 +1428,7 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
         "rlExplorer": rl_explorer,
         "bookRiskExplorer": book_risk_explorer,
         "eventStudyExplorer": event_study_explorer,
+        "allocationExplorer": allocation_explorer,
         "commands": commands,
         "valid": not diagnostics,
         "diagnostics": diagnostics,
@@ -1847,6 +1893,7 @@ STUDIO_SNAPSHOT_JSON_SCHEMA: dict[str, Any] = {
                 "rlExplorer",
                 "bookRiskExplorer",
                 "eventStudyExplorer",
+                "allocationExplorer",
                 "commands",
                 "valid",
                 "diagnostics",
@@ -1885,6 +1932,7 @@ STUDIO_SNAPSHOT_JSON_SCHEMA: dict[str, Any] = {
                 "rlExplorer": {"type": ["object", "null"]},
                 "bookRiskExplorer": {"type": ["object", "null"]},
                 "eventStudyExplorer": {"type": ["object", "null"]},
+                "allocationExplorer": {"type": ["object", "null"]},
                 "commands": {
                     "type": "array",
                     "items": {"type": "object"},

@@ -49,6 +49,10 @@ exact delayed-entry/holding clock, matched reference, and overlap policy. It
 contains no editable candidate and runs directly once the content-locked
 package and policy are ready. Template choice is construction input and is not
 recorded as a runtime parent in `autoquant.json`.
+`--template ohlcv-allocation-lab` creates a fixed Portfolio-native Study for
+one long-only equal-risk-contribution method and one funded fixed-weight
+reference. It binds `strategies/allocation-policy.json`, contains no editable
+candidate, and runs directly without a Factor, RL, or Session.
 
 `--template ohlcv-research-desk` creates the canonical multi-Study Project:
 one shared dataset, one Factor candidate shared by Factor and Portfolio
@@ -155,6 +159,14 @@ references. The fixed Judge owns event alignment, conditional/reference
 returns, populations, descriptive uncertainty, and the evidence-status
 conclusion. See [[docs/design/ohlcv-price-event-study]].
 
+The Allocation template derives `strategies/allocation-policy.json` from the
+strict request. It freezes trailing covariance history, contribution
+tolerance, long-only/context roles, Portfolio policy, fixed-weight reference,
+validation-only selection, and no-trading authority. Candidate and reference
+are separately simulated on the same schedule, drift, no-trade band, and cost
+model. Cap-induced contribution inequality is measured and never labeled exact
+parity. See [[docs/design/portfolio-native-allocation-lab]].
+
 The Factor, Portfolio, and RL templates publish a nested `research_integrity`
 metric
 declaring validation-only selection, visible diagnostic test evidence, and the
@@ -228,8 +240,9 @@ the Study input identity at handoff. Editable source may evolve; its current
 hash determines whether existing Run evidence is stale rather than corrupting
 the intake record. Its terminal lifecycle status is `ready-for-session` for
 iterative Factor, Portfolio, RL, and coordinated-desk templates, or
-`ready-for-run` for the fixed descriptive Book Risk template. The latter has
-no candidate Session surface. `research-program.json` binds the canonical
+`ready-for-run` for fixed Book Risk, Price Event, and Portfolio-native
+Allocation templates. These routes have no candidate Session surface.
+`research-program.json` binds the canonical
 Factor, Portfolio, and governed RL lanes and their editable surfaces. Every
 Study's `ohlcv/**` closure makes every local dataset byte part of Run and
 Session identity. See

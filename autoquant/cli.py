@@ -8,6 +8,14 @@ import sys
 from dataclasses import dataclass, field
 from typing import Any, Sequence
 
+from .allocation_explorer import (
+    ALLOCATION_DIAGNOSTICS_JSON_SCHEMA,
+    DEFAULT_ALLOCATION_POINTS,
+    MAX_ALLOCATION_POINTS,
+    MIN_ALLOCATION_POINTS,
+    load_allocation_diagnostics,
+)
+from .allocation_policies import ALLOCATION_POLICY_JSON_SCHEMA
 from .briefs import RESEARCH_REQUEST_JSON_SCHEMA, load_research_request
 from .book_risk_explorer import (
     BOOK_RISK_DIAGNOSTICS_JSON_SCHEMA,
@@ -277,6 +285,8 @@ def build_parser() -> RaisingArgumentParser:
             "factor-claim",
             "event-study-policy",
             "event-study-diagnostics",
+            "allocation-policy",
+            "allocation-diagnostics",
             "book-risk-diagnostics",
             "portfolio-diagnostics",
             "research-program-status",
@@ -550,6 +560,26 @@ def build_parser() -> RaisingArgumentParser:
     run_event_study.add_argument("--run", required=True)
     run_event_study.set_defaults(command_id="run.event-study")
     _json_argument(run_event_study)
+
+    run_allocation = run_actions.add_parser(
+        "allocation",
+        help="inspect one fixed portfolio-native allocation Study",
+    )
+    run_allocation.add_argument("path")
+    run_allocation.add_argument("--project")
+    run_allocation.add_argument("--run", required=True)
+    run_allocation.add_argument(
+        "--points",
+        type=int,
+        choices=range(
+            MIN_ALLOCATION_POINTS,
+            MAX_ALLOCATION_POINTS + 1,
+        ),
+        default=DEFAULT_ALLOCATION_POINTS,
+        metavar=f"{MIN_ALLOCATION_POINTS}..{MAX_ALLOCATION_POINTS}",
+    )
+    run_allocation.set_defaults(command_id="run.allocation")
+    _json_argument(run_allocation)
 
     run_rl = run_actions.add_parser(
         "rl",
@@ -1150,6 +1180,7 @@ def _project_intake(args: argparse.Namespace) -> CommandResult:
         if args.template not in {
             "ohlcv-book-risk-lab",
             "ohlcv-event-study-lab",
+            "ohlcv-allocation-lab",
         }:
             next_actions.append(
                 next_action(
@@ -2130,6 +2161,56 @@ def _run_event_study(args: argparse.Namespace) -> CommandResult:
             f"{diagnostics['conclusion']['minimumEvents']} minimum events\n"
             "Historical descriptive association only; no causal, Order, or "
             "trading authority.\n"
+        ),
+        project_context(project),
+        [
+            artifact(
+                kind,
+                f"{diagnostics['run']['id']}:{kind}",
+                project.root_dir
+                / project.manifest.directories["runs"]
+                / diagnostics["run"]["id"]
+                / item["path"],
+                immutable=True,
+            )
+            for kind, item in diagnostics["artifacts"].items()
+        ],
+    )
+
+
+def _run_allocation(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    diagnostics = load_allocation_diagnostics(
+        project,
+        args.run,
+        points=args.points,
+    )
+    latest = diagnostics["latestDecision"]
+    current = diagnostics["currentState"]
+    conclusion = diagnostics["conclusion"]
+    validation = diagnostics["splits"]["validation"]
+    return CommandResult(
+        "run.allocation",
+        diagnostics,
+        (
+            f"Allocation Run: {diagnostics['run']['id']}\n"
+            "Method: equal-risk-contribution · reference fixed weights\n"
+            f"Validation candidate/reference net Sharpe: "
+            f"{validation['candidate']['sharpe']} / "
+            f"{validation['reference']['sharpe']}\n"
+            f"Validation net Sharpe advantage: "
+            f"{validation['comparison']['netSharpeAdvantage']}\n"
+            f"Conclusion: {conclusion['status']}\n"
+            f"Latest scheduled decision: {latest['asOf']} · forecast volatility "
+            f"{latest['forecastAnnualizedVolatility']}\n"
+            f"Latest executed research weights: "
+            f"{json.dumps(latest['executedWeights'], sort_keys=True)}\n"
+            f"Current state: {current['asOf']} · ordinary rebalance due="
+            f"{str(current['ordinaryRebalanceDue']).lower()}\n"
+            f"Current drifted research weights: "
+            f"{json.dumps(current['candidatePretradeWeights'], sort_keys=True)}\n"
+            "Mechanical quantitative decision support only; no account, Order, "
+            "or trading authority.\n"
         ),
         project_context(project),
         [
@@ -3811,6 +3892,8 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "factor-claim",
             "event-study-policy",
             "event-study-diagnostics",
+            "allocation-policy",
+            "allocation-diagnostics",
             "judge-output",
             "ohlcv-dataset-package",
             "book-risk-diagnostics",
@@ -3854,6 +3937,8 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "factor-claim": FACTOR_CLAIM_JSON_SCHEMA,
             "event-study-policy": EVENT_STUDY_POLICY_JSON_SCHEMA,
             "event-study-diagnostics": EVENT_STUDY_DIAGNOSTICS_JSON_SCHEMA,
+            "allocation-policy": ALLOCATION_POLICY_JSON_SCHEMA,
+            "allocation-diagnostics": ALLOCATION_DIAGNOSTICS_JSON_SCHEMA,
             "book-risk-diagnostics": BOOK_RISK_DIAGNOSTICS_JSON_SCHEMA,
             "portfolio-diagnostics": PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA,
             "research-program-status": RESEARCH_PROGRAM_STATUS_JSON_SCHEMA,
@@ -3922,6 +4007,8 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
         return _run_book_risk(args)
     if args.command_id == "run.event-study":
         return _run_event_study(args)
+    if args.command_id == "run.allocation":
+        return _run_allocation(args)
     if args.command_id == "run.rl":
         return _run_rl(args)
     if args.command_id == "session.start":

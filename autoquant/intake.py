@@ -14,6 +14,11 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import numpy as np
 import pandas as pd
 
+from .allocation_policies import (
+    ALLOCATION_POLICY,
+    build_allocation_contract,
+    load_allocation_contract,
+)
 from .briefs import (
     ASSET_CLASSES,
     load_research_request,
@@ -119,6 +124,7 @@ INTAKE_TEMPLATE_REQUIREMENTS = {
     "ohlcv-rl-factor-lab": (5, 240),
     "ohlcv-book-risk-lab": (2, 120),
     "ohlcv-event-study-lab": (2, 120),
+    "ohlcv-allocation-lab": (5, 180),
     "ohlcv-research-desk": (5, 240),
 }
 
@@ -1773,6 +1779,7 @@ def prepare_project_intake(
     position_scenarios = request.get("positionScenarios")
     position_sizing = request.get("positionSizing")
     event_policy = request.get("eventPolicy")
+    allocation_policy = request.get("allocationPolicy")
     if (
         position_snapshot is not None
         and template != "ohlcv-book-risk-lab"
@@ -1819,6 +1826,86 @@ def prepare_project_intake(
                 "eventPolicy is consumed only by ohlcv-event-study-lab",
             )
         )
+    if (
+        allocation_policy is not None
+        and template != "ohlcv-allocation-lab"
+    ):
+        issues.append(
+            _issue(
+                "request/allocationPolicy",
+                "request.allocation-policy-template",
+                "allocationPolicy is consumed only by ohlcv-allocation-lab",
+            )
+        )
+    if template == "ohlcv-allocation-lab":
+        if not isinstance(allocation_policy, dict):
+            issues.append(
+                _issue(
+                    "request/allocationPolicy",
+                    "request.allocation-policy-required",
+                    "ohlcv-allocation-lab requires allocationPolicy",
+                )
+            )
+        if request.get("direction") != "long":
+            issues.append(
+                _issue(
+                    "request/direction",
+                    "request.allocation-direction",
+                    "ohlcv-allocation-lab requires direction long",
+                )
+            )
+        roles = {
+            item["symbol"]: item.get("positionRole")
+            for item in request["assets"]
+        }
+        if any(
+            role not in {"long-only", "context-only"}
+            for role in roles.values()
+        ) or not any(role == "long-only" for role in roles.values()):
+            issues.append(
+                _issue(
+                    "request/assets",
+                    "request.allocation-roles",
+                    "Allocation assets must explicitly be long-only or "
+                    "context-only with at least one long-only asset",
+                )
+            )
+        if not isinstance(request.get("portfolioPolicy"), dict):
+            issues.append(
+                _issue(
+                    "request/portfolioPolicy",
+                    "request.allocation-portfolio-policy",
+                    "ohlcv-allocation-lab requires portfolioPolicy",
+                )
+            )
+        benchmark = request.get("benchmarkPolicy")
+        if (
+            not isinstance(benchmark, dict)
+            or benchmark.get("kind") != "fixed-weights"
+        ):
+            issues.append(
+                _issue(
+                    "request/benchmarkPolicy",
+                    "request.allocation-benchmark",
+                    "ohlcv-allocation-lab requires a fixed-weights benchmark",
+                )
+            )
+        incompatible = {
+            "factorPolicy": request.get("factorPolicy"),
+            "eventPolicy": request.get("eventPolicy"),
+            "positionSnapshot": request.get("positionSnapshot"),
+            "positionScenarios": request.get("positionScenarios"),
+            "positionSizing": request.get("positionSizing"),
+        }
+        for key, item in incompatible.items():
+            if item is not None:
+                issues.append(
+                    _issue(
+                        f"request/{key}",
+                        "request.allocation-exclusive",
+                        f"{key} is not accepted by ohlcv-allocation-lab",
+                    )
+                )
     if template == "ohlcv-event-study-lab":
         if not isinstance(event_policy, dict):
             issues.append(
@@ -2144,7 +2231,11 @@ def finalize_project_intake(
         "status": (
             "ready-for-run"
             if intake.template
-            in {"ohlcv-book-risk-lab", "ohlcv-event-study-lab"}
+            in {
+                "ohlcv-book-risk-lab",
+                "ohlcv-event-study-lab",
+                "ohlcv-allocation-lab",
+            }
             else "ready-for-session"
         ),
     }
@@ -3000,7 +3091,11 @@ def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
     expected_status = (
         "ready-for-run"
         if manifest.get("template")
-        in {"ohlcv-book-risk-lab", "ohlcv-event-study-lab"}
+        in {
+            "ohlcv-book-risk-lab",
+            "ohlcv-event-study-lab",
+            "ohlcv-allocation-lab",
+        }
         else "ready-for-session"
     )
     if (
@@ -3584,6 +3679,94 @@ def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
                 )
         except AutoQuantValidationError as error:
             issues.extend(error.issues)
+    allocation_path = project.root_dir / ALLOCATION_POLICY
+    allocation_present = (
+        allocation_path.exists() or allocation_path.is_symlink()
+    )
+    requires_allocation = (
+        manifest.get("template") == "ohlcv-allocation-lab"
+        and study.definition.dependencies is not None
+        and ALLOCATION_POLICY in study.definition.dependencies["paths"]
+    )
+    if (
+        manifest.get("template") == "ohlcv-allocation-lab"
+        and not requires_allocation
+    ):
+        issues.append(
+            _issue(
+                study.manifest_path,
+                "intake.allocation-dependency",
+                "Allocation Study does not bind fixed allocation authority",
+            )
+        )
+    if allocation_present or requires_allocation:
+        try:
+            allocation = load_allocation_contract(allocation_path)
+            allocation_annualization = 252
+            if (
+                snapshot.get("schemaVersion")
+                in {2, 3, OBSERVED_INTRADAY_SCHEMA_VERSION}
+                and snapshot.get("assets")
+            ):
+                target_symbol = next(
+                    (
+                        item["symbol"]
+                        for item in request["assets"]
+                        if item.get("positionRole") == "long-only"
+                    ),
+                    None,
+                )
+                first_asset = next(
+                    (
+                        item
+                        for item in snapshot["assets"]
+                        if item.get("symbol") == target_symbol
+                    ),
+                    snapshot["assets"][0],
+                )
+                base_interval = snapshot["intervalSurface"]["baseInterval"]
+                base_record = next(
+                    (
+                        row
+                        for row in first_asset.get("intervals", [])
+                        if row.get("interval") == base_interval
+                    ),
+                    None,
+                )
+                if isinstance(base_record, dict):
+                    normalized_path = confined_path(
+                        project.root_dir
+                        / project.manifest.directories["data"],
+                        base_record.get("normalizedPath", ""),
+                        f"{snapshot_path}/assets/0/intervals",
+                    )
+                    allocation_annualization = infer_annualization_periods(
+                        _read_source(normalized_path)["timestamp"]
+                    )
+            expected_allocation = build_allocation_contract(
+                request,
+                list(snapshot.get("universe", [])),
+                annualization_periods=allocation_annualization,
+            )
+            if allocation != expected_allocation:
+                issues.append(
+                    _issue(
+                        allocation_path,
+                        "intake.allocation-policy",
+                        "Allocation authority differs from normalized request",
+                    )
+                )
+        except (AutoQuantValidationError, ValueError) as error:
+            if isinstance(error, AutoQuantValidationError):
+                issues.extend(error.issues)
+            else:
+                issues.append(
+                    _issue(
+                        allocation_path,
+                        "intake.allocation-policy",
+                        str(error),
+                    )
+                )
     if issues:
         raise AutoQuantValidationError(issues)
     return {

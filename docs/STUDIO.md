@@ -162,6 +162,15 @@ research state, not account holdings or an instruction to trade. Use
 `aq run portfolio <path> --run ID --points N --json` for a specific historical
 Run or a different bounded point count.
 
+The Portfolio Allocation Explorer is the dedicated fixed construction view.
+Core first verifies and rederives the immutable ERC candidate and complete
+fixed-weight reference paths. Studio shows validation-only comparison, solver
+tolerance and cap-gap counts, latest target/executed/reference weights,
+forecast volatility, and a sampled return path. Its Handoff terminates at
+read-only review and never offers Factor, RL, Session, Order, or trading
+actions. Use `aq run allocation <path> --run ID --points N --json` for the
+exact read model.
+
 The Strategy Viability panel leads the Portfolio detail with the ordinary
 quant-research question: where did the edge stop? Its validation-only chain
 shows factor rank IC, gross portfolio Sharpe, annual turnover/base and

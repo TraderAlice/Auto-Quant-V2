@@ -465,6 +465,7 @@ class AgentCliTests(unittest.TestCase):
                 "run.portfolio",
                 "run.book-risk",
                 "run.event-study",
+                "run.allocation",
                 "run.rl",
                 "session.start",
                 "session.list",
@@ -528,6 +529,7 @@ class AgentCliTests(unittest.TestCase):
                 "ohlcv-rl-factor-lab",
                 "ohlcv-book-risk-lab",
                 "ohlcv-event-study-lab",
+                "ohlcv-allocation-lab",
                 "ohlcv-research-desk",
             ],
         )
@@ -547,6 +549,7 @@ class AgentCliTests(unittest.TestCase):
                 "ohlcv-rl-factor-lab",
                 "ohlcv-book-risk-lab",
                 "ohlcv-event-study-lab",
+                "ohlcv-allocation-lab",
                 "ohlcv-research-desk",
             ],
         )
@@ -568,6 +571,8 @@ class AgentCliTests(unittest.TestCase):
                 "factor-claim",
                 "event-study-policy",
                 "event-study-diagnostics",
+                "allocation-policy",
+                "allocation-diagnostics",
                 "book-risk-diagnostics",
                 "portfolio-diagnostics",
                 "research-program-status",

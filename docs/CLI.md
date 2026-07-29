@@ -23,6 +23,8 @@ aq schema factor-diagnostics --json
 aq schema factor-claim --json
 aq schema event-study-policy --json
 aq schema event-study-diagnostics --json
+aq schema allocation-policy --json
+aq schema allocation-diagnostics --json
 aq schema book-risk-diagnostics --json
 aq schema portfolio-diagnostics --json
 aq schema portfolio-mandate --json
@@ -52,12 +54,12 @@ Agents should discover the contract rather than scrape `--help`.
 aq workspace init <workspace-dir> [--name NAME] [--json]
 aq project create <workspace-dir> <project-id> \
   [--name NAME] [--description TEXT] \
-  [--template blank|ohlcv-factor-lab|ohlcv-portfolio-lab|ohlcv-rl-factor-lab|ohlcv-book-risk-lab|ohlcv-event-study-lab|ohlcv-research-desk] \
+  [--template blank|ohlcv-factor-lab|ohlcv-portfolio-lab|ohlcv-rl-factor-lab|ohlcv-book-risk-lab|ohlcv-event-study-lab|ohlcv-allocation-lab|ohlcv-research-desk] \
   [--json]
 aq project intake <workspace-dir> <project-id> \
   --request research-request.json \
   --dataset ohlcv-dataset-package.json \
-  [--template ohlcv-factor-lab|ohlcv-portfolio-lab|ohlcv-rl-factor-lab|ohlcv-book-risk-lab|ohlcv-event-study-lab|ohlcv-research-desk] \
+  [--template ohlcv-factor-lab|ohlcv-portfolio-lab|ohlcv-rl-factor-lab|ohlcv-book-risk-lab|ohlcv-event-study-lab|ohlcv-allocation-lab|ohlcv-research-desk] \
   [--name NAME] [--json]
 aq project list <workspace-dir> [--json]
 aq project default <workspace-dir> <project-id> [--json]
@@ -173,6 +175,16 @@ event populations plus deterministic distributions and uncertainty. It does
 not infer earnings/news labels, search thresholds, create an Order, or grant
 trading authority. See [[docs/design/ohlcv-price-event-study]].
 
+`ohlcv-allocation-lab` is the fixed Portfolio-native route for a caller who
+chooses equal risk contribution rather than return prediction. It requires
+explicit long-only/context roles, `allocationPolicy`, `portfolioPolicy`, and a
+funded `fixed-weights` benchmark. One direct immutable Run constructs causal
+ERC targets, discloses cap-induced parity gaps, applies scale-down-only risk
+control, and simulates the candidate and reference independently with the same
+schedule, drift, no-trade, and costs. It has no Factor, RL, candidate Session,
+Order, or trading authority. See
+[[docs/design/portfolio-native-allocation-lab]].
+
 `ohlcv-research-desk` coordinates those three evaluation questions in one
 Project over one dataset snapshot. Factor and Portfolio deliberately share
 `factors/candidate.py`; RL owns `models/candidate.py`. The program reports
@@ -223,9 +235,9 @@ The JSON result contains Project-level `request.json`, `intake.json`,
 `data/ohlcv/snapshot.json`, the template's verified Study identities, and
 exact next actions for inspecting the program and advancing its recommended
 lane. Iterative templates publish intake status `ready-for-session` and may
-offer `session.start`. The fixed descriptive Book Risk template publishes
-`ready-for-run` and offers only inspection plus `run.execute`; Core will not
-advertise a Session that the Lab intentionally rejects.
+offer `session.start`. Fixed Book Risk, Price Event, and Portfolio-native
+Allocation templates publish `ready-for-run` and offer only inspection plus
+`run.execute`; Core will not advertise a Session that those Labs reject.
 V2/V3 RunResults copy the locked `dataset.intervalSurface`, and Reports, Studio,
 and Dossiers project that same evidence rather than inferring intervals from
 filenames.
@@ -273,6 +285,8 @@ aq run book-risk <path> --run ID \
   [--points 80] [--project ID] [--json]
 aq run event-study <path> --run ID \
   [--project ID] [--json]
+aq run allocation <path> --run ID \
+  [--points 180] [--project ID] [--json]
 aq run rl <path> --run ID \
   [--points 180] [--project ID] [--json]
 ```
@@ -371,6 +385,14 @@ distributions, uncertainty, metrics, and conclusion before returning
 `event-study-diagnostics`. It exposes every event row and the reference
 distribution without treating the result as a strategy, event label, Order,
 or live-trading instruction.
+
+`run allocation` is the strict read-only projection for a successful
+`ohlcv-allocation-lab` Run. Core verifies the frozen allocation contract and
+six-artifact inventory, then independently rederives candidate/reference split
+performance, costs, turnover, caps, gross exposure, volatility breaches,
+solver counts, latest weights, and validation-only conclusion. It samples
+40–400 path points only after full reconciliation and carries no account,
+Order, or trading authority.
 
 `run factor` is the corresponding bounded professional tear sheet for a
 successful fixed Factor Lab Run. Core verifies the immutable report, daily

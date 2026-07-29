@@ -772,27 +772,49 @@ def _single_study_orientation(
     elif study.definition.objective.metric in {
         "current_component_risk_hhi",
         "primary_eligible_event_count",
+        "validation_net_sharpe_advantage",
     }:
         event_study = (
             study.definition.objective.metric
             == "primary_eligible_event_count"
         )
+        allocation_study = (
+            study.definition.objective.metric
+            == "validation_net_sharpe_advantage"
+        )
         primary_raw = _command(
-            "run.event-study" if event_study else "run.book-risk",
+            (
+                "run.event-study"
+                if event_study
+                else "run.allocation"
+                if allocation_study
+                else "run.book-risk"
+            ),
             (
                 "Inspect verified event timing, populations, references, "
                 "overlap, uncertainty, and no-trading conclusion evidence."
                 if event_study
                 else (
-                    "Inspect verified reported-book crowding, reduction, "
-                    "caller-supplied scenarios, and any caller-bounded "
-                    "target-position sizing evidence."
+                    "Inspect verified same-clock allocation/reference, ERC "
+                    "solver, risk, implementation, and current target evidence."
+                    if allocation_study
+                    else (
+                        "Inspect verified reported-book crowding, reduction, "
+                        "caller-supplied scenarios, and any caller-bounded "
+                        "target-position sizing evidence."
+                    )
                 )
             ),
             [
                 "aq",
                 "run",
-                "event-study" if event_study else "book-risk",
+                (
+                    "event-study"
+                    if event_study
+                    else "allocation"
+                    if allocation_study
+                    else "book-risk"
+                ),
                 str(project.root_dir),
                 "--run",
                 current_run.id,
@@ -810,8 +832,13 @@ def _single_study_orientation(
                     "historical evidence review."
                     if event_study
                     else (
-                        "The fixed reported-book audit is complete and ready "
-                        "for decision-support review."
+                        "The fixed allocation Study is complete and ready for "
+                        "decision-support review."
+                        if allocation_study
+                        else (
+                            "The fixed reported-book audit is complete and ready "
+                            "for decision-support review."
+                        )
                     )
                 ),
             }
@@ -1100,9 +1127,13 @@ def build_agent_work_brief(project: ProjectContext) -> dict[str, Any]:
         else None
     )
     event_descriptive = descriptive_metric == "primary_eligible_event_count"
+    allocation_fixed = (
+        descriptive_metric == "validation_net_sharpe_advantage"
+    )
     fixed_descriptive = descriptive_metric in {
         "current_component_risk_hhi",
         "primary_eligible_event_count",
+        "validation_net_sharpe_advantage",
     }
     research_agenda = (
         waiting_research_agenda(
@@ -1116,7 +1147,13 @@ def build_agent_work_brief(project: ProjectContext) -> dict[str, Any]:
         else descriptive_audit_agenda(
             project,
             agenda_run_id,
-            lane_id="event-study" if event_descriptive else "book-risk",
+            lane_id=(
+                "event-study"
+                if event_descriptive
+                else "allocation"
+                if allocation_fixed
+                else "book-risk"
+            ),
             reason=(
                 (
                     "Price-event history is a fixed descriptive audit. Review "
@@ -1126,14 +1163,23 @@ def build_agent_work_brief(project: ProjectContext) -> dict[str, Any]:
                 )
                 if event_descriptive
                 else (
-                    "Reported-book risk is a fixed descriptive audit. Review "
-                    "the verified evidence and any bounded target position; "
-                    "do not manufacture an optimization or execution agenda."
+                    "Portfolio-native allocation is a fixed construction "
+                    "evaluation. Review the verified candidate/reference, "
+                    "solver, risk, and current-target evidence; do not "
+                    "manufacture a Factor, RL, or execution agenda."
+                    if allocation_fixed
+                    else (
+                        "Reported-book risk is a fixed descriptive audit. Review "
+                        "the verified evidence and any bounded target position; "
+                        "do not manufacture an optimization or execution agenda."
+                    )
                 )
             ),
             test_role=(
                 "event-population-and-reference-context"
                 if event_descriptive
+                else "visible-audit-only"
+                if allocation_fixed
                 else "lookback-and-rolling-context"
             ),
         )

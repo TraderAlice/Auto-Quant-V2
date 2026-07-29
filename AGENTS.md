@@ -204,6 +204,9 @@ Read the relevant linked document before changing a subsystem:
 - Caller-fixed downside opening gaps, delayed close-to-close outcomes,
   unconditional/matched references, overlap handling, and no-trading event
   evidence: [[docs/design/ohlcv-price-event-study]]
+- Portfolio-native equal-risk-contribution construction, fixed weighted
+  reference paths, cap-induced parity disclosure, and no-Session evidence:
+  [[docs/design/portfolio-native-allocation-lab]]
 - Causal signal ranking, constrained target weights, drift-aware accounting,
   costs, risk/implementation metrics, and portfolio stress evidence:
   [[docs/design/portfolio-construction-lab]]
