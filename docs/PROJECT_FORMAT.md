@@ -705,12 +705,14 @@ position from a sparse delta. The derived dependency assigns
 `caller-hypothetical-not-authenticated` position truth and no trading
 authority to every scenario.
 Optional `positionSizing` is mutually exclusive with `positionScenarios`. It
-binds `reduce-one-asset-to-cash-for-volatility-ceiling`, one strictly positive
-baseline `asset`, `destination: cash`, a positive
-`annualizedVolatilityCeiling`, and one fixed 63/126/252 `lookbackBars`. The
-derived dependency records caller-bounded historical sizing and no trading
-authority. The Judge may solve only that scalar weight path; it cannot choose
-another asset, destination, objective, or execution.
+binds `one-asset-against-cash-for-volatility-ceiling`, one requested
+non-context `asset`, explicit `direction: increase|decrease`, a positive
+`annualizedVolatilityCeiling`, and one fixed 63/126/252 `lookbackBars`.
+`decrease` requires a positive baseline holding; `increase` requires positive
+cash and permits the asset to be absent from baseline weights. The derived
+dependency records caller-bounded historical sizing and no trading authority.
+The Judge may solve only that scalar asset/cash weight path; it cannot choose
+another asset, funding leg, objective, or execution.
 `brief.json` is derived from that request plus Project/Session/Study identity,
 baseline, objective, dataset, Judge, and Harness locks. Its authority is
 `research-prioritization`; trading authority is `none`. Every Session load

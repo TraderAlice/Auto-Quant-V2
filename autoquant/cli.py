@@ -2040,7 +2040,8 @@ def _run_book_risk(args: argparse.Namespace) -> CommandResult:
         if sizing["status"] == "not-requested"
         else (
             "Caller-bounded position sizing: "
-            f"{sizing['status']} · {sizing['result']['asset']} "
+            f"{sizing['status']} · {sizing['policy']['direction']} "
+            f"{sizing['result']['asset']} "
             f"{sizing['result']['startingWeight']} → "
             f"{sizing['result']['resultingWeight']} · cash "
             f"{sizing['result']['startingCashWeight']} → "

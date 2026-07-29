@@ -77,9 +77,8 @@ DECISION_SCHEDULE_KINDS = {"every-bars", "calendar-month-end"}
 POSITION_SNAPSHOT_KINDS = {"reported-weights", "hypothetical-weights"}
 POSITION_SCENARIO_ID = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 MAX_POSITION_SCENARIOS = 8
-POSITION_SIZING_KIND = (
-    "reduce-one-asset-to-cash-for-volatility-ceiling"
-)
+POSITION_SIZING_KIND = "one-asset-against-cash-for-volatility-ceiling"
+POSITION_SIZING_DIRECTIONS = {"increase", "decrease"}
 POSITION_SIZING_LOOKBACKS = {63, 126, 252}
 
 
@@ -533,7 +532,7 @@ def _normalize_position_sizing(
             {
                 "kind",
                 "asset",
-                "destination",
+                "direction",
                 "annualizedVolatilityCeiling",
                 "lookbackBars",
             },
@@ -558,13 +557,13 @@ def _normalize_position_sizing(
                 "positionSizing asset must be one non-empty symbol",
             )
         )
-    destination = value.get("destination")
-    if destination != "cash":
+    direction = value.get("direction")
+    if direction not in POSITION_SIZING_DIRECTIONS:
         issues.append(
             _issue(
-                f"{path}/destination",
-                "request.position-sizing-destination",
-                "The bounded position-sizing destination must be cash",
+                f"{path}/direction",
+                "request.position-sizing-direction",
+                "positionSizing direction must be increase or decrease",
             )
         )
     ceiling = value.get("annualizedVolatilityCeiling")
@@ -604,22 +603,42 @@ def _normalize_position_sizing(
                 "positionSizing requires a valid positionSnapshot baseline",
             )
         )
-    elif (
-        normalized_asset not in baseline["weights"]
-        or baseline["weights"].get(normalized_asset, 0.0) <= 0
-    ):
-        issues.append(
-            _issue(
-                f"{path}/asset",
-                "request.position-sizing-held-long",
-                "The adjustable asset must be a strictly positive baseline "
-                "holding",
+    elif direction == "decrease":
+        if (
+            normalized_asset not in baseline["weights"]
+            or baseline["weights"].get(normalized_asset, 0.0) <= 0
+        ):
+            issues.append(
+                _issue(
+                    f"{path}/asset",
+                    "request.position-sizing-held-long",
+                    "A decreased asset must be a strictly positive baseline "
+                    "holding",
+                )
             )
-        )
+    elif direction == "increase":
+        if baseline["weights"].get(normalized_asset, 0.0) < 0:
+            issues.append(
+                _issue(
+                    f"{path}/asset",
+                    "request.position-sizing-entry-long",
+                    "An increased asset must be absent, zero, or a positive "
+                    "baseline holding",
+                )
+            )
+        if baseline["cashWeight"] <= 0:
+            issues.append(
+                _issue(
+                    f"{path}/direction",
+                    "request.position-sizing-positive-cash",
+                    "An increased asset requires strictly positive baseline "
+                    "cash",
+                )
+            )
     if (
         kind != POSITION_SIZING_KIND
         or not normalized_asset
-        or destination != "cash"
+        or direction not in POSITION_SIZING_DIRECTIONS
         or not isinstance(ceiling, (int, float))
         or isinstance(ceiling, bool)
         or not math.isfinite(float(ceiling))
@@ -628,13 +647,23 @@ def _normalize_position_sizing(
         or isinstance(lookback, bool)
         or lookback not in POSITION_SIZING_LOOKBACKS
         or baseline is None
-        or baseline["weights"].get(normalized_asset, 0.0) <= 0
+        or (
+            direction == "decrease"
+            and baseline["weights"].get(normalized_asset, 0.0) <= 0
+        )
+        or (
+            direction == "increase"
+            and (
+                baseline["weights"].get(normalized_asset, 0.0) < 0
+                or baseline["cashWeight"] <= 0
+            )
+        )
     ):
         return None
     return {
         "kind": POSITION_SIZING_KIND,
         "asset": normalized_asset,
-        "destination": "cash",
+        "direction": direction,
         "annualizedVolatilityCeiling": float(ceiling),
         "lookbackBars": lookback,
     }
@@ -1909,14 +1938,16 @@ RESEARCH_REQUEST_JSON_SCHEMA: dict[str, Any] = {
             "required": [
                 "kind",
                 "asset",
-                "destination",
+                "direction",
                 "annualizedVolatilityCeiling",
                 "lookbackBars",
             ],
             "properties": {
                 "kind": {"const": POSITION_SIZING_KIND},
                 "asset": {"type": "string", "minLength": 1},
-                "destination": {"const": "cash"},
+                "direction": {
+                    "enum": sorted(POSITION_SIZING_DIRECTIONS),
+                },
                 "annualizedVolatilityCeiling": {
                     "type": "number",
                     "exclusiveMinimum": 0,

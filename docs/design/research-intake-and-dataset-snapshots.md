@@ -326,11 +326,14 @@ sparse transfers or generates a scenario. The derived
 `strategies/position-snapshot.json` freezes baseline and scenarios together so
 one Run compares them against one content-locked dataset and method.
 Alternatively, optional `positionSizing` freezes one caller-authorized
-positive held-asset-to-cash path, a fixed 63/126/252-bar historical covariance
-window, and one annualized-volatility ceiling. It is mutually exclusive with
-scenarios. The derived dependency authorizes an exact one-dimensional
-historical target-position calculation only; it grants no optimization,
-account, Order, or trading authority.
+asset/cash path with an explicit `increase` or `decrease` direction, a fixed
+63/126/252-bar historical covariance window, and one annualized-volatility
+ceiling. A decrease requires a positive baseline holding; an increase requires
+positive cash and may name a requested asset absent from baseline weights. It
+is mutually exclusive with scenarios. The derived dependency authorizes an
+exact one-dimensional historical target-position calculation only; it grants
+no asset selection, general optimization, account, Order, or trading
+authority.
 Project-root `intake.json` points to and hashes the request, snapshot, and
 generated Study. Its `studyInputHash` is the immutable identity at handoff,
 not a requirement that editable research source remain unchanged forever.

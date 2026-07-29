@@ -132,9 +132,35 @@ def _book_sizing_request(path: Path, *, ceiling: float = 0.15) -> None:
     _book_request(path)
     request = json.loads(path.read_text(encoding="utf-8"))
     request["positionSizing"] = {
-        "kind": "reduce-one-asset-to-cash-for-volatility-ceiling",
+        "kind": "one-asset-against-cash-for-volatility-ceiling",
         "asset": "NVDA",
-        "destination": "cash",
+        "direction": "decrease",
+        "annualizedVolatilityCeiling": ceiling,
+        "lookbackBars": 252,
+    }
+    path.write_text(
+        json.dumps(request, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _book_entry_sizing_request(
+    path: Path,
+    *,
+    ceiling: float = 0.03,
+) -> None:
+    _book_request(path)
+    request = json.loads(path.read_text(encoding="utf-8"))
+    request["positionSnapshot"]["weights"] = {
+        "AAPL": 0.15,
+        "MSFT": 0.15,
+        "QQQ": 0.20,
+    }
+    request["positionSnapshot"]["cashWeight"] = 0.50
+    request["positionSizing"] = {
+        "kind": "one-asset-against-cash-for-volatility-ceiling",
+        "asset": "NVDA",
+        "direction": "increase",
         "annualizedVolatilityCeiling": ceiling,
         "lookbackBars": 252,
     }
@@ -240,6 +266,37 @@ class BookRiskLabTests(unittest.TestCase):
             template_intake=prepared,
         )
 
+    def _entry_sizing_project(
+        self,
+        root: Path,
+        *,
+        ceiling: float = 0.03,
+    ):
+        request_path, package_path = write_intake_inputs(
+            root,
+            observations=260,
+            request_assets=("AAPL", "MSFT", "NVDA", "QQQ"),
+            asset_position_roles={
+                "AAPL": "long-only",
+                "MSFT": "long-only",
+                "NVDA": "long-only",
+                "QQQ": "long-only",
+            },
+        )
+        _book_entry_sizing_request(request_path, ceiling=ceiling)
+        prepared = prepare_project_intake(
+            request_path,
+            package_path,
+            "ohlcv-book-risk-lab",
+        )
+        workspace = initialize_workspace(root / "workspace")
+        return create_project(
+            workspace.root_dir,
+            "reported-book-entry-sizing",
+            template=prepared.template,
+            template_intake=prepared,
+        )
+
     def test_position_sizing_freezes_one_bounded_caller_path(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             project = self._sizing_project(Path(directory))
@@ -251,11 +308,40 @@ class BookRiskLabTests(unittest.TestCase):
                 snapshot["sizingPolicy"],
                 {
                     "kind": (
-                        "reduce-one-asset-to-cash-for-volatility-ceiling"
+                        "one-asset-against-cash-for-volatility-ceiling"
                     ),
                     "asset": "NVDA",
-                    "destination": "cash",
+                    "direction": "decrease",
                     "annualizedVolatilityCeiling": 0.15,
+                    "lookbackBars": 252,
+                    "authority": {
+                        "decisionPath": (
+                            "caller-bounded-historical-sizing"
+                        ),
+                        "tradingAuthority": "none",
+                    },
+                },
+            )
+
+    def test_cash_entry_sizing_freezes_absent_asset_and_exact_direction(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = self._entry_sizing_project(Path(directory))
+            snapshot = load_position_snapshot(
+                project.root_dir / POSITION_SNAPSHOT
+            )
+            self.assertNotIn("NVDA", snapshot["weights"])
+            self.assertEqual(snapshot["cashWeight"], 0.5)
+            self.assertEqual(
+                snapshot["sizingPolicy"],
+                {
+                    "kind": (
+                        "one-asset-against-cash-for-volatility-ceiling"
+                    ),
+                    "asset": "NVDA",
+                    "direction": "increase",
+                    "annualizedVolatilityCeiling": 0.03,
                     "lookbackBars": 252,
                     "authority": {
                         "decisionPath": (
@@ -287,7 +373,7 @@ class BookRiskLabTests(unittest.TestCase):
                 request_path.read_text(encoding="utf-8")
             )
             request["positionSizing"]["asset"] = "UNREQUESTED"
-            request["positionSizing"]["destination"] = "AAPL"
+            request["positionSizing"]["direction"] = "sideways"
             request["positionSizing"]["lookbackBars"] = 100
             request["positionSizing"][
                 "annualizedVolatilityCeiling"
@@ -303,10 +389,29 @@ class BookRiskLabTests(unittest.TestCase):
                     "ohlcv-book-risk-lab",
                 )
             codes = {issue.code for issue in captured.exception.issues}
-            self.assertIn("request.position-sizing-held-long", codes)
-            self.assertIn("request.position-sizing-destination", codes)
+            self.assertIn("request.position-sizing-direction", codes)
             self.assertIn("request.position-sizing-lookback", codes)
             self.assertIn("request.position-sizing-ceiling", codes)
+
+            _book_sizing_request(request_path)
+            request = json.loads(
+                request_path.read_text(encoding="utf-8")
+            )
+            request["positionSizing"]["asset"] = "UNREQUESTED"
+            request_path.write_text(
+                json.dumps(request, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            with self.assertRaises(AutoQuantValidationError) as captured:
+                prepare_project_intake(
+                    request_path,
+                    package_path,
+                    "ohlcv-book-risk-lab",
+                )
+            self.assertIn(
+                "request.position-sizing-held-long",
+                {issue.code for issue in captured.exception.issues},
+            )
 
             _book_scenario_request(request_path)
             request = json.loads(
@@ -314,10 +419,10 @@ class BookRiskLabTests(unittest.TestCase):
             )
             request["positionSizing"] = {
                 "kind": (
-                    "reduce-one-asset-to-cash-for-volatility-ceiling"
+                    "one-asset-against-cash-for-volatility-ceiling"
                 ),
                 "asset": "NVDA",
-                "destination": "cash",
+                "direction": "decrease",
                 "annualizedVolatilityCeiling": 0.15,
                 "lookbackBars": 252,
             }
@@ -336,6 +441,79 @@ class BookRiskLabTests(unittest.TestCase):
                 {issue.code for issue in captured.exception.issues},
             )
 
+            _book_entry_sizing_request(request_path)
+            request = json.loads(
+                request_path.read_text(encoding="utf-8")
+            )
+            request["positionSnapshot"]["cashWeight"] = 0.0
+            request["positionSnapshot"]["weights"]["AAPL"] = 0.65
+            request_path.write_text(
+                json.dumps(request, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            with self.assertRaises(AutoQuantValidationError) as captured:
+                prepare_project_intake(
+                    request_path,
+                    package_path,
+                    "ohlcv-book-risk-lab",
+                )
+            self.assertIn(
+                "request.position-sizing-positive-cash",
+                {issue.code for issue in captured.exception.issues},
+            )
+
+    def test_cash_entry_sizing_solves_largest_compliant_weight(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = self._entry_sizing_project(Path(directory))
+            run = execute_study(project, BOOK_RISK_STUDY_ID)
+            self.assertEqual(run.result["status"], "succeeded")
+            diagnostics = load_book_risk_diagnostics(
+                project,
+                run.result["id"],
+            )
+            sizing = diagnostics["positionSizing"]
+            self.assertEqual(sizing["status"], "sized")
+            self.assertEqual(sizing["result"]["startingWeight"], 0.0)
+            self.assertGreater(sizing["result"]["weightChange"], 0.0)
+            self.assertAlmostEqual(
+                sizing["result"]["resultingWeight"],
+                sizing["result"]["weightChange"],
+            )
+            self.assertAlmostEqual(
+                sizing["result"]["cashWeightChange"],
+                -sizing["result"]["weightChange"],
+            )
+            self.assertAlmostEqual(
+                sizing["result"]["annualizedVolatility"],
+                0.03,
+                places=10,
+            )
+            self.assertEqual(
+                set(sizing["result"]["weights"]),
+                {"AAPL", "MSFT", "NVDA", "QQQ"},
+            )
+            self.assertTrue(sizing["result"]["ceilingSatisfied"])
+
+        with tempfile.TemporaryDirectory() as directory:
+            project = self._entry_sizing_project(
+                Path(directory),
+                ceiling=0.50,
+            )
+            run = execute_study(project, BOOK_RISK_STUDY_ID)
+            sizing = load_book_risk_diagnostics(
+                project,
+                run.result["id"],
+            )["positionSizing"]
+            self.assertEqual(sizing["status"], "fully-funded-compliant")
+            self.assertAlmostEqual(
+                sizing["result"]["resultingWeight"],
+                0.5,
+            )
+            self.assertAlmostEqual(
+                sizing["result"]["resultingCashWeight"],
+                0.0,
+            )
+
     def test_position_sizing_solves_exact_boundary_and_infeasible_path(
         self,
     ) -> None:
@@ -352,7 +530,7 @@ class BookRiskLabTests(unittest.TestCase):
             )
             sizing = diagnostics["positionSizing"]
             self.assertEqual(sizing["status"], "sized")
-            self.assertGreater(sizing["result"]["weightReduction"], 0)
+            self.assertLess(sizing["result"]["weightChange"], 0)
             self.assertLess(
                 sizing["result"]["resultingWeight"],
                 sizing["result"]["startingWeight"],
@@ -407,6 +585,26 @@ class BookRiskLabTests(unittest.TestCase):
             self.assertEqual(
                 sizing["resultMeaning"],
                 "constrained-minimum-evidence-not-recommendation",
+            )
+
+        with tempfile.TemporaryDirectory() as directory:
+            project = self._sizing_project(
+                Path(directory),
+                ceiling=0.50,
+            )
+            run = execute_study(project, BOOK_RISK_STUDY_ID)
+            sizing = load_book_risk_diagnostics(
+                project,
+                run.result["id"],
+            )["positionSizing"]
+            self.assertEqual(sizing["status"], "unchanged-compliant")
+            self.assertEqual(
+                sizing["resultMeaning"],
+                "unchanged-compliant-book",
+            )
+            self.assertAlmostEqual(
+                sizing["result"]["weightChange"],
+                0.0,
             )
 
     def test_position_sizing_explorer_rejects_rehashed_solution_tamper(

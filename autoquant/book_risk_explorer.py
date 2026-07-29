@@ -289,10 +289,22 @@ def _validate_position_sizing(
             "Sizing policy differs from frozen caller authority",
         )
     status = value["status"]
+    direction = policy["direction"]
     meanings = {
-        "sized": "smallest-compliant-reduction",
-        "already-compliant": "unchanged-compliant-book",
         "infeasible": "constrained-minimum-evidence-not-recommendation",
+        **(
+            {
+                "sized": "smallest-compliant-decrease",
+                "unchanged-compliant": "unchanged-compliant-book",
+            }
+            if direction == "decrease"
+            else {
+                "sized": "largest-compliant-increase",
+                "fully-funded-compliant": (
+                    "full-cash-allocation-compliant"
+                ),
+            }
+        ),
     }
     if status not in meanings or value["resultMeaning"] != meanings[status]:
         _fail(
@@ -323,7 +335,14 @@ def _validate_position_sizing(
         for key, item in quadratic.items()
     }
     asset = policy["asset"]
-    starting_weight = float(frozen_snapshot["weights"][asset])
+    starting_weight = float(frozen_snapshot["weights"].get(asset, 0.0))
+    baseline_cash = float(frozen_snapshot["cashWeight"])
+    domain_minimum = 0.0 if direction == "decrease" else starting_weight
+    domain_maximum = (
+        starting_weight
+        if direction == "decrease"
+        else starting_weight + baseline_cash
+    )
     ceiling = float(policy["annualizedVolatilityCeiling"])
 
     def variance_at(weight: float) -> float:
@@ -333,10 +352,14 @@ def _validate_position_sizing(
             + q["coefficientC"]
         )
 
-    _close(q["domainMinimumWeight"], 0.0, "positionSizing/domainMinimum")
+    _close(
+        q["domainMinimumWeight"],
+        domain_minimum,
+        "positionSizing/domainMinimum",
+    )
     _close(
         q["domainMaximumWeight"],
-        starting_weight,
+        domain_maximum,
         "positionSizing/domainMaximum",
     )
     _close(q["targetVariance"], ceiling**2, "positionSizing/targetVariance")
@@ -374,13 +397,13 @@ def _validate_position_sizing(
         min(
             max(
                 -q["coefficientB"] / (2 * q["coefficientA"]),
-                0.0,
+                domain_minimum,
             ),
-            starting_weight,
+            domain_maximum,
         )
         if q["coefficientA"] > 1e-18
         else min(
-            (0.0, starting_weight),
+            (domain_minimum, domain_maximum),
             key=variance_at,
         )
     )
@@ -391,7 +414,7 @@ def _validate_position_sizing(
         "positionSizing/minimumVariance",
     )
     tolerance = max(1e-14, q["targetVariance"] * 1e-10)
-    if status == "already-compliant":
+    if status == "unchanged-compliant":
         if q["startingVariance"] > q["targetVariance"] + tolerance:
             _fail(
                 "positionSizing/status",
@@ -407,9 +430,30 @@ def _validate_position_sizing(
                 "Infeasible status has a compliant point on the path",
             )
         expected_weight = expected_minimum
+    elif status == "fully-funded-compliant":
+        if (
+            direction != "increase"
+            or variance_at(domain_maximum)
+            > q["targetVariance"] + tolerance
+        ):
+            _fail(
+                "positionSizing/status",
+                "book-risk.position-sizing-status",
+                "Fully funded status violates the variance ceiling",
+            )
+        expected_weight = domain_maximum
     else:
         if (
-            q["startingVariance"] <= q["targetVariance"] + tolerance
+            (
+                direction == "decrease"
+                and q["startingVariance"]
+                <= q["targetVariance"] + tolerance
+            )
+            or (
+                direction == "increase"
+                and variance_at(domain_maximum)
+                <= q["targetVariance"] + tolerance
+            )
             or q["minimumVariance"] > q["targetVariance"] + tolerance
         ):
             _fail(
@@ -423,32 +467,58 @@ def _validate_position_sizing(
             * q["coefficientA"]
             * (q["coefficientC"] - q["targetVariance"])
         )
-        if q["coefficientA"] <= 1e-18 or discriminant < -tolerance:
+        if (
+            q["coefficientA"] <= 1e-18
+            and abs(q["coefficientB"]) <= 1e-18
+        ) or discriminant < -tolerance:
             _fail(
                 "positionSizing/quadratic",
                 "book-risk.position-sizing-quadratic",
                 "Sizing boundary cannot be rederived",
             )
-        expected_weight = min(
-            max(
+        expected_weight = (
+            (q["targetVariance"] - q["coefficientC"])
+            / q["coefficientB"]
+            if q["coefficientA"] <= 1e-18
+            else (
                 (
                     -q["coefficientB"]
                     + math.sqrt(max(discriminant, 0.0))
                 )
-                / (2 * q["coefficientA"]),
-                0.0,
-            ),
-            starting_weight,
+                / (2 * q["coefficientA"])
+            )
         )
+        expected_weight = min(
+            max(expected_weight, domain_minimum),
+            domain_maximum,
+        )
+        _close(
+            variance_at(expected_weight),
+            q["targetVariance"],
+            "positionSizing/sizedBoundary",
+        )
+        if (
+            direction == "increase"
+            and expected_weight <= starting_weight + 1e-12
+        ) or (
+            direction == "decrease"
+            and expected_weight >= starting_weight - 1e-12
+        ):
+            _fail(
+                "positionSizing/status",
+                "book-risk.position-sizing-status",
+                "Sized status must change the asset in the authorized direction",
+            )
     result = _strict(
         value["result"],
         {
             "asset",
             "startingWeight",
             "resultingWeight",
-            "weightReduction",
+            "weightChange",
             "startingCashWeight",
             "resultingCashWeight",
+            "cashWeightChange",
             "weights",
             "annualizedVolatility",
             "annualizedVariance",
@@ -469,9 +539,10 @@ def _validate_position_sizing(
         for key in {
             "startingWeight",
             "resultingWeight",
-            "weightReduction",
+            "weightChange",
             "startingCashWeight",
             "resultingCashWeight",
+            "cashWeightChange",
             "annualizedVolatility",
             "annualizedVariance",
             "annualizedVolatilityDelta",
@@ -483,21 +554,28 @@ def _validate_position_sizing(
     _close(numeric_fields["startingWeight"], starting_weight, "positionSizing/result")
     _close(numeric_fields["resultingWeight"], expected_weight, "positionSizing/result")
     _close(
-        numeric_fields["weightReduction"],
+        numeric_fields["weightChange"],
+        expected_weight - starting_weight,
+        "positionSizing/result",
+    )
+    _close(numeric_fields["startingCashWeight"], baseline_cash, "positionSizing/result")
+    _close(
+        numeric_fields["cashWeightChange"],
         starting_weight - expected_weight,
         "positionSizing/result",
     )
-    baseline_cash = float(frozen_snapshot["cashWeight"])
-    _close(numeric_fields["startingCashWeight"], baseline_cash, "positionSizing/result")
     _close(
         numeric_fields["resultingCashWeight"],
-        baseline_cash + starting_weight - expected_weight,
+        baseline_cash + numeric_fields["cashWeightChange"],
         "positionSizing/result",
     )
+    expected_assets = list(frozen_snapshot["weights"])
+    if asset not in expected_assets:
+        expected_assets.append(asset)
     if (
         result["asset"] != asset
         or not isinstance(result["weights"], dict)
-        or set(result["weights"]) != set(frozen_snapshot["weights"])
+        or set(result["weights"]) != set(expected_assets)
         or not isinstance(result["ceilingSatisfied"], bool)
         or not isinstance(result["largestAbsoluteRiskContributor"], str)
     ):
@@ -506,12 +584,19 @@ def _validate_position_sizing(
             "book-risk.position-sizing-result",
             "Sizing result identity differs from the fixed path",
         )
-    for symbol, baseline_weight in frozen_snapshot["weights"].items():
+    for symbol in expected_assets:
+        baseline_weight = frozen_snapshot["weights"].get(symbol, 0.0)
         _close(
             _finite(result["weights"][symbol], f"positionSizing/weights/{symbol}"),
             expected_weight if symbol == asset else float(baseline_weight),
             f"positionSizing/weights/{symbol}",
         )
+    _close(
+        sum(float(result["weights"][symbol]) for symbol in expected_assets)
+        + numeric_fields["resultingCashWeight"],
+        1.0,
+        "positionSizing/result/funding",
+    )
     _close(
         numeric_fields["annualizedVariance"],
         variance_at(expected_weight),
@@ -644,7 +729,7 @@ def _validate_position_sizing(
     raw_contributions = value["contributions"]
     if (
         not isinstance(raw_contributions, list)
-        or len(raw_contributions) != len(frozen_snapshot["weights"])
+        or len(raw_contributions) != len(expected_assets)
     ):
         _fail(
             "positionSizing/contributions",
@@ -693,7 +778,7 @@ def _validate_position_sizing(
             "book-risk.position-sizing-contributions",
             "Sizing contribution CSV differs from the report",
         )
-    if [row["asset"] for row in contributions] != list(frozen_snapshot["weights"]):
+    if [row["asset"] for row in contributions] != expected_assets:
         _fail(
             "positionSizing/contributions",
             "book-risk.position-sizing-contributions",
@@ -703,7 +788,7 @@ def _validate_position_sizing(
         symbol = row["asset"]
         _close(
             row["baselineWeight"],
-            float(frozen_snapshot["weights"][symbol]),
+            float(frozen_snapshot["weights"].get(symbol, 0.0)),
             "positionSizing/contributions",
         )
         _close(
@@ -933,13 +1018,17 @@ def load_book_risk_diagnostics(
         "sizing_requested": float(sizing_policy is not None),
         "sizing_feasible": float(
             report["positionSizing"].get("status")
-            in {"sized", "already-compliant"}
+            in {
+                "sized",
+                "unchanged-compliant",
+                "fully-funded-compliant",
+            }
             if isinstance(report["positionSizing"], dict)
             else False
         ),
-        "sizing_weight_reduction": float(
+        "sizing_weight_change": float(
             report["positionSizing"].get("result", {}).get(
-                "weightReduction",
+                "weightChange",
                 0.0,
             )
             if isinstance(report["positionSizing"], dict)

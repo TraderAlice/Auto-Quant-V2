@@ -1,6 +1,6 @@
 # Reported-position Book Risk
 
-Status: implemented in AutoQuant `0.8.0`.
+Status: implemented in AutoQuant `0.8.5`.
 
 Related contracts: [[docs/design/agent-native-quant-workbench]],
 [[docs/design/research-intake-and-dataset-snapshots]],
@@ -91,20 +91,29 @@ Optional `request.positionSizing` authorizes one narrower derived question:
 
 ```json
 {
-  "kind": "reduce-one-asset-to-cash-for-volatility-ceiling",
+  "kind": "one-asset-against-cash-for-volatility-ceiling",
   "asset": "NVDA",
-  "destination": "cash",
+  "direction": "increase",
   "annualizedVolatilityCeiling": 0.15,
   "lookbackBars": 252
 }
 ```
 
-The asset must be a strictly positive requested baseline holding, cash is the
-only destination, and the lookback must be one of the fixed 63/126/252-bar
-windows. Sizing and caller-supplied scenarios are mutually exclusive so one
-Run answers one authority-bounded question. Core freezes the policy with
+The asset must be requested and non-context, the lookback must be one of the
+fixed 63/126/252-bar windows, and `direction` is explicit:
+
+- `decrease` requires a strictly positive baseline holding and authorizes only
+  movement from that asset to cash;
+- `increase` requires strictly positive baseline cash, permits the asset to be
+  absent from the baseline book, and authorizes only movement from cash to that
+  asset.
+
+Sizing and caller-supplied scenarios are mutually exclusive so one Run answers
+one authority-bounded question. Core freezes the policy with
 `decisionPath: caller-bounded-historical-sizing` and
-`tradingAuthority: none`.
+`tradingAuthority: none`. An absent entry asset remains absent from the
+reported baseline weights; request-universe membership and the sizing policy,
+not a fabricated zero holding, authorize its market data and target-book role.
 
 ## Fixed analysis
 
@@ -156,20 +165,27 @@ The rank has `selectionAuthority: none`: it orders only books authored by the
 caller and does not search, promote, or recommend a nearby portfolio.
 
 When sizing is requested, every weight except the named asset remains fixed
-and each removed unit moves to cash. For adjustable weight \(x\), annualized
-variance on the governing covariance matrix is solved exactly as:
+and every unit of asset change is exactly offset by cash. For adjustable
+weight \(x\), annualized variance on the governing covariance matrix is solved
+exactly as:
 
 ```text
-q(x) = a x² + b x + c,  0 ≤ x ≤ reported weight
+q(x) = a x² + b x + c
+
+decrease domain: 0 ≤ x ≤ reported weight
+increase domain: reported weight ≤ x ≤ reported weight + reported cash
 ```
 
-The Judge returns the largest feasible \(x\), which is the smallest permitted
-reduction. `already-compliant` preserves the original book. `infeasible`
-returns the constrained minimum-risk point solely as proof that no point on
-the authorized path reaches the ceiling. The result includes the complete
-book, cash, quadratic coefficients and domain, governing contribution ledger,
-and diagnostic behavior on the other fixed lookbacks. It is a historical
-target-position calculation, not a forecast guarantee or execution plan.
+For `decrease`, the Judge preserves an already-compliant book or returns the
+largest feasible \(x\), which is the smallest necessary reduction. For
+`increase`, it returns the largest feasible \(x\), either the exact ceiling
+boundary or the fully cash-funded endpoint when that entire endpoint remains
+compliant. `infeasible` returns the constrained minimum-risk point solely as
+proof that no point on the authorized path reaches the ceiling. The result
+includes signed asset/cash changes, the complete target book, quadratic
+coefficients and domain, governing contribution ledger, and diagnostic
+behavior on the other fixed lookbacks. It is a historical target-position
+calculation, not a forecast guarantee or execution plan.
 
 ## Immutable evidence
 
@@ -192,9 +208,12 @@ identity before returning the bounded `book-risk-diagnostics` read model. For
 supplied scenarios it additionally re-derives every delta, rank, HHI/effective
 bet identity, weight change, component-variance sum, risk-share sum and leader
 from the two scenario artifacts and frozen books.
-For sizing it additionally re-derives the constrained quadratic minimum and
-largest feasible root, status semantics, complete one-leg/cash weight change,
-governing variance, contribution identities, and both sizing artifacts.
+For sizing it additionally re-derives the direction-specific domain,
+constrained quadratic minimum, largest feasible root or endpoint, status
+semantics, complete one-leg/cash weight change, governing variance,
+contribution identities, and both sizing artifacts. A sizing-only asset may
+enter this ledger with baseline weight zero without entering the
+caller-scenario comparison universe.
 
 Studio exposes the same verified evidence as a Book Risk lane:
 
@@ -223,10 +242,12 @@ return, suitability, or execution—is the comparison meaning. It must not
 manufacture missing scenarios.
 
 For a one-leg sizing question, the Agent must clarify the only adjustable
-holding, cash destination, exact historical covariance window, numerical
-annualized-volatility ceiling, and whether the caller accepts a no-solution
-result. It must not add another adjustable asset, create a scenario grid, or
-turn the historical target into an Order.
+asset, whether it increases from cash or decreases to cash, exact historical
+covariance window, numerical annualized-volatility ceiling, and whether the
+caller accepts a no-solution result. For an increase it must also confirm the
+available cash and that every existing holding remains fixed. It must not add
+another adjustable asset, create a scenario grid, or turn the historical
+target into an Order.
 
 After the fixed Run, `aq orient` reports
 `descriptive-audit-complete`, points to the read-only
@@ -243,7 +264,8 @@ The first contract intentionally excludes:
 - point-in-time fundamentals, exposures, sectors, or options Greeks;
 - tax lots, borrow, financing, replacement selection, and transaction costs;
 - covariance shrinkage or factor-model estimation;
-- general portfolio optimization or multi-leg target generation;
+- choosing the adjustable asset, non-cash funding, general portfolio
+  optimization, or multi-leg target generation;
 - scenario generation, sparse-delta interpretation, or scenario probability;
 - orders, TPSL, approval, or execution.
 

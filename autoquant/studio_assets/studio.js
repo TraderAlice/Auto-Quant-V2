@@ -2392,9 +2392,9 @@ function renderBookRiskExplorer(project) {
         <div class="portfolio-summary">
           ${[
             ["Status", sizing.status, sizing.resultMeaning],
-            ["Allowed leg", sizing.result.asset, "only this holding may be reduced"],
-            ["Weight", `${percent(sizing.result.startingWeight)} → ${percent(sizing.result.resultingWeight)}`, `${signedPercent(-sizing.result.weightReduction)} holding change`],
-            ["Cash", `${percent(sizing.result.startingCashWeight)} → ${percent(sizing.result.resultingCashWeight)}`, "explicit destination"],
+            ["Allowed leg", sizing.result.asset, `${sizing.policy.direction} against cash only`],
+            ["Weight", `${percent(sizing.result.startingWeight)} → ${percent(sizing.result.resultingWeight)}`, `${signedPercent(sizing.result.weightChange)} holding change`],
+            ["Cash", `${percent(sizing.result.startingCashWeight)} → ${percent(sizing.result.resultingCashWeight)}`, `${signedPercent(sizing.result.cashWeightChange)} cash change`],
             ["Modeled volatility", percent(sizing.result.annualizedVolatility), `${percent(sizing.policy.annualizedVolatilityCeiling)} ceiling · ${sizing.policy.lookbackBars} bars`],
             ["Boundary", sizing.result.ceilingSatisfied ? "satisfied" : "not reachable", sizing.status === "infeasible" ? "constrained minimum evidence, not a recommendation" : "historical covariance only"],
           ]

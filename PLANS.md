@@ -18,7 +18,9 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-There are no active plans.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/reported-book-cash-entry-sizing]] | Find the largest caller-authorized cash-funded asset weight under one fixed historical volatility ceiling without turning the result into an Order. | 2026-07-29 |
 
 ## Proposed plans
 

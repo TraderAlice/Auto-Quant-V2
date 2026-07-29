@@ -365,7 +365,7 @@ def validate_position_snapshot(
         sizing_keys = {
             "kind",
             "asset",
-            "destination",
+            "direction",
             "annualizedVolatilityCeiling",
             "lookbackBars",
             "authority",
@@ -374,12 +374,11 @@ def validate_position_snapshot(
             not isinstance(sizing, dict)
             or set(sizing) != sizing_keys
             or sizing.get("kind")
-            != "reduce-one-asset-to-cash-for-volatility-ceiling"
-            or sizing.get("destination") != "cash"
+            != "one-asset-against-cash-for-volatility-ceiling"
+            or sizing.get("direction") not in {"increase", "decrease"}
             or sizing.get("authority") != SIZING_AUTHORITY
             or not isinstance(sizing.get("asset"), str)
-            or sizing["asset"] not in (weights if isinstance(weights, dict) else {})
-            or float(weights.get(sizing["asset"], 0.0)) <= 0
+            or not sizing["asset"]
             or not isinstance(
                 sizing.get("annualizedVolatilityCeiling"),
                 (int, float),
@@ -395,6 +394,23 @@ def validate_position_snapshot(
             < float(sizing.get("annualizedVolatilityCeiling", 0.0))
             <= 10
             or sizing.get("lookbackBars") not in {63, 126, 252}
+            or (
+                sizing.get("direction") == "decrease"
+                and (
+                    sizing["asset"]
+                    not in (weights if isinstance(weights, dict) else {})
+                    or float(weights.get(sizing["asset"], 0.0)) <= 0
+                )
+            )
+            or (
+                sizing.get("direction") == "increase"
+                and (
+                    float(weights.get(sizing["asset"], 0.0)) < 0
+                    or not isinstance(cash, (int, float))
+                    or isinstance(cash, bool)
+                    or float(cash) <= 0
+                )
+            )
             or scenarios
         ):
             issues.append(

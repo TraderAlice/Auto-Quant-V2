@@ -5,8 +5,11 @@
 Rewrite the incoming assignment as a bounded English risk-research brief before
 running the Study. Record the reported or hypothetical baseline weight
 snapshot, its as-of time and provenance, the market-data authority, material
-tax/lot or replacement constraints, and exactly what “reduce first” means. If
-the caller asks a conditional reallocation question, record every proposed
+tax/lot or replacement constraints, and exactly what “reduce first” or “how
+large can I open” means. For one-leg sizing, confirm the only adjustable asset,
+explicit asset/cash direction, cash availability, fixed covariance window,
+numerical ceiling, unchanged holdings, and acceptance of a no-solution result.
+If the caller asks a conditional reallocation question, record every proposed
 complete funded book and confirm that all proposals share the baseline time
 and currency.
 The caller may use any language; English is the internal working language of

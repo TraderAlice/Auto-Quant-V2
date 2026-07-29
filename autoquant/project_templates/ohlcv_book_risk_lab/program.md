@@ -18,8 +18,13 @@ It must report:
   component-risk HHI, effective risk bets, baseline deltas, primary-window
   per-asset contribution changes, and a no-authority volatility rank among
   supplied books only;
+- when authorized, one exact direction-aware asset/cash sizing path under a
+  fixed historical volatility ceiling: the smallest necessary decrease or
+  largest compliant cash-funded increase, including its complete target book,
+  signed changes, quadratic domain, and cross-lookback diagnostics;
 - a sampled rolling path under the primary lookback.
 
-The reduction and supplied-book tables are comparative historical sensitivity,
-not tax-aware recommendations, optimized targets, or orders. Never silently
-replace reported weights or generate hypothetical books.
+The reduction, supplied-book, and one-leg sizing tables are historical
+evidence, not tax-aware recommendations, general optimized targets, or orders.
+Never silently replace reported weights, generate hypothetical books, select
+the adjustable asset, or infer a funding leg.

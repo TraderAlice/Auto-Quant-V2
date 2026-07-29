@@ -321,19 +321,20 @@ def _solve_position_sizing(
     required = {
         "kind",
         "asset",
-        "destination",
+        "direction",
         "annualizedVolatilityCeiling",
         "lookbackBars",
         "authority",
     }
     asset = policy.get("asset")
+    direction = policy.get("direction")
     ceiling = policy.get("annualizedVolatilityCeiling")
     governing_lookback = policy.get("lookbackBars")
     if (
         set(policy) != required
         or policy.get("kind")
-        != "reduce-one-asset-to-cash-for-volatility-ceiling"
-        or policy.get("destination") != "cash"
+        != "one-asset-against-cash-for-volatility-ceiling"
+        or direction not in {"increase", "decrease"}
         or policy.get("authority")
         != {
             "decisionPath": "caller-bounded-historical-sizing",
@@ -341,7 +342,17 @@ def _solve_position_sizing(
         }
         or not isinstance(asset, str)
         or asset not in weights.index
-        or float(weights[asset]) <= 0
+        or (
+            direction == "decrease"
+            and float(weights[asset]) <= 0
+        )
+        or (
+            direction == "increase"
+            and (
+                float(weights[asset]) < 0
+                or cash_weight <= 0
+            )
+        )
         or not isinstance(ceiling, (int, float))
         or isinstance(ceiling, bool)
         or not math.isfinite(float(ceiling))
@@ -371,6 +382,12 @@ def _solve_position_sizing(
     )
     coefficient_c = float(zero_leg @ covariance @ zero_leg)
     starting_weight = float(weights[asset])
+    domain_minimum = 0.0 if direction == "decrease" else starting_weight
+    domain_maximum = (
+        starting_weight
+        if direction == "decrease"
+        else starting_weight + cash_weight
+    )
     target_variance = float(ceiling) ** 2
 
     def variance_at(weight: float) -> float:
@@ -383,28 +400,42 @@ def _solve_position_sizing(
     if coefficient_a > 1e-18:
         unconstrained_minimum = -coefficient_b / (2.0 * coefficient_a)
         minimum_weight = min(
-            max(unconstrained_minimum, 0.0),
-            starting_weight,
+            max(unconstrained_minimum, domain_minimum),
+            domain_maximum,
         )
     else:
         minimum_weight = min(
-            (0.0, starting_weight),
+            (domain_minimum, domain_maximum),
             key=variance_at,
         )
     minimum_variance = variance_at(minimum_weight)
     starting_variance = variance_at(starting_weight)
     tolerance = max(1e-14, target_variance * 1e-10)
-    if starting_variance <= target_variance + tolerance:
-        status = "already-compliant"
+    if (
+        direction == "decrease"
+        and starting_variance <= target_variance + tolerance
+    ):
+        status = "unchanged-compliant"
         resulting_weight = starting_weight
         result_meaning = "unchanged-compliant-book"
     elif minimum_variance > target_variance + tolerance:
         status = "infeasible"
         resulting_weight = minimum_weight
         result_meaning = "constrained-minimum-evidence-not-recommendation"
+    elif (
+        direction == "increase"
+        and variance_at(domain_maximum) <= target_variance + tolerance
+    ):
+        status = "fully-funded-compliant"
+        resulting_weight = domain_maximum
+        result_meaning = "full-cash-allocation-compliant"
     else:
         status = "sized"
-        result_meaning = "smallest-compliant-reduction"
+        result_meaning = (
+            "smallest-compliant-decrease"
+            if direction == "decrease"
+            else "largest-compliant-increase"
+        )
         if coefficient_a <= 1e-18:
             if abs(coefficient_b) <= 1e-18:
                 raise JudgeFailure(
@@ -431,13 +462,14 @@ def _solve_position_sizing(
                 -coefficient_b + root
             ) / (2.0 * coefficient_a)
         resulting_weight = min(
-            max(float(resulting_weight), 0.0),
-            starting_weight,
+            max(float(resulting_weight), domain_minimum),
+            domain_maximum,
         )
     resulting_weights = weights.copy()
     resulting_weights[asset] = resulting_weight
-    weight_reduction = starting_weight - resulting_weight
-    resulting_cash = cash_weight + weight_reduction
+    weight_change = resulting_weight - starting_weight
+    cash_weight_change = -weight_change
+    resulting_cash = cash_weight + cash_weight_change
     lookback_rows: list[dict[str, Any]] = []
     governing_analysis: dict[str, Any] | None = None
     baseline_governing = _covariance_analysis(
@@ -518,8 +550,8 @@ def _solve_position_sizing(
                 "coefficientA": coefficient_a,
                 "coefficientB": coefficient_b,
                 "coefficientC": coefficient_c,
-                "domainMinimumWeight": 0.0,
-                "domainMaximumWeight": starting_weight,
+                "domainMinimumWeight": domain_minimum,
+                "domainMaximumWeight": domain_maximum,
                 "targetVariance": target_variance,
                 "startingVariance": starting_variance,
                 "minimumWeight": minimum_weight,
@@ -529,9 +561,10 @@ def _solve_position_sizing(
                 "asset": asset,
                 "startingWeight": starting_weight,
                 "resultingWeight": resulting_weight,
-                "weightReduction": weight_reduction,
+                "weightChange": weight_change,
                 "startingCashWeight": cash_weight,
                 "resultingCashWeight": resulting_cash,
+                "cashWeightChange": cash_weight_change,
                 "weights": {
                     symbol: float(resulting_weights[symbol])
                     for symbol in resulting_weights.index
@@ -670,7 +703,20 @@ def main() -> None:
             for asset in candidate.index:
                 if asset not in comparison_assets:
                     comparison_assets.append(str(asset))
-        if not set(comparison_assets).issubset(universe):
+        data_assets = list(comparison_assets)
+        if sizing_policy is not None:
+            sizing_asset = sizing_policy.get("asset")
+            if (
+                not isinstance(sizing_asset, str)
+                or not sizing_asset
+            ):
+                raise JudgeFailure(
+                    "book-risk.position-sizing",
+                    "Position sizing asset is invalid",
+                )
+            if sizing_asset not in data_assets:
+                data_assets.append(sizing_asset)
+        if not set(data_assets).issubset(universe):
             raise JudgeFailure(
                 "book-risk.universe",
                 "Scenario positions are outside the Study universe",
@@ -683,7 +729,7 @@ def main() -> None:
                     str(time_range["start"]),
                     str(time_range["end"]),
                 )
-                for asset in comparison_assets
+                for asset in data_assets
             ],
             axis=1,
             join="inner",
@@ -766,14 +812,23 @@ def main() -> None:
             annualization,
             reduction_weight,
         )
+        sizing_assets = list(weights.index)
+        if (
+            sizing_policy is not None
+            and sizing_policy["asset"] not in sizing_assets
+        ):
+            sizing_assets.append(sizing_policy["asset"])
         (
             position_sizing,
             sizing_lookback_rows,
             sizing_contribution_rows,
         ) = _solve_position_sizing(
             sizing_policy,
-            baseline_returns,
-            weights,
+            returns.loc[:, sizing_assets],
+            weights.reindex(
+                sizing_assets,
+                fill_value=0.0,
+            ),
             float(snapshot["cashWeight"]),
             annualization,
             list(scenarios["lookbackBars"]),
@@ -1206,11 +1261,15 @@ def main() -> None:
             "sizing_requested": float(sizing_policy is not None),
             "sizing_feasible": float(
                 position_sizing["status"]
-                in {"sized", "already-compliant"}
+                in {
+                    "sized",
+                    "unchanged-compliant",
+                    "fully-funded-compliant",
+                }
             ),
-            "sizing_weight_reduction": float(
+            "sizing_weight_change": float(
                 position_sizing.get("result", {}).get(
-                    "weightReduction",
+                    "weightChange",
                     0.0,
                 )
             ),
