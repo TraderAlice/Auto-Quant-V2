@@ -1882,18 +1882,70 @@ def list_reports(
 
 EVIDENCE_REFERENCE_JSON_SCHEMA: dict[str, Any] = {
     "type": "object",
+    "description": (
+        "One exact Session evidence reference. Run artifactPath is null or "
+        "must exactly match one path in that Run's result.artifacts array, "
+        "for example artifacts/factor-report.json. Experiment and Campaign "
+        "artifactPath must be null."
+    ),
     "additionalProperties": False,
     "required": ["kind", "id", "artifactPath"],
+    "examples": [
+        {
+            "kind": "run",
+            "id": "run-20260730T120000000000Z-example",
+            "artifactPath": "artifacts/factor-report.json",
+        },
+        {
+            "kind": "experiment",
+            "id": "exp-0001-example",
+            "artifactPath": None,
+        },
+    ],
     "properties": {
-        "kind": {"enum": sorted(EVIDENCE_KINDS)},
-        "id": {"type": "string", "minLength": 1},
+        "kind": {
+            "enum": sorted(EVIDENCE_KINDS),
+            "description": (
+                "Evidence identity kind from the current delegated Session."
+            ),
+        },
+        "id": {
+            "type": "string",
+            "minLength": 1,
+            "description": (
+                "Exact Run, Experiment, or Campaign id present in the Session."
+            ),
+        },
         "artifactPath": {
+            "description": (
+                "For kind=run, null or an exact Run-declared relative path "
+                "copied from result.artifacts[].path, such as "
+                "artifacts/factor-report.json. Never prefix it with runs/<id>/ "
+                "or use a Project/filesystem path. For kind=experiment or "
+                "kind=campaign, this field must be null."
+            ),
             "anyOf": [
                 {"type": "null"},
                 {"type": "string", "minLength": 1},
-            ]
+            ],
+            "examples": [None, "artifacts/factor-report.json"],
         },
     },
+    "allOf": [
+        {
+            "if": {
+                "properties": {
+                    "kind": {"enum": ["campaign", "experiment"]},
+                },
+                "required": ["kind"],
+            },
+            "then": {
+                "properties": {
+                    "artifactPath": {"const": None},
+                }
+            },
+        }
+    ],
 }
 
 

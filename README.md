@@ -1,5 +1,5 @@
 ---
-version: 0.8.19
+version: 0.8.20
 ---
 
 # AutoQuant V2
@@ -32,7 +32,7 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current milestone: `0.8.19`
+## Current milestone: `0.8.20`
 
 AutoQuant V2 has crossed from an architectural prototype into a usable
 research workbench.
@@ -191,6 +191,23 @@ the formerly unsupported drawdown directly from immutable evidence:
 no replacement pandas calculation and recorded no remaining Workbench blocker.
 Final repository regression passes all 311 tests in 794.604 seconds, and the
 documentation graph resolves all 1,085 checked links.
+
+`0.8.20` follows a fresh Grok coworker through a gated Factor → Portfolio
+assignment. The worker improved the Session objective, correctly distinguished
+KEEP from scientific qualification, and stopped before Portfolio and RL when
+the fixed gate remained blocked. Its only concrete framework failure was
+Report evidence-reference discovery: the public schema did not explain the
+exact Run-relative artifact path or the required null artifact for Experiment
+and Campaign evidence.
+
+The executable `report-analysis` schema now encodes those kind-specific rules
+and supplies complete examples; CLI help, capabilities, orientation, and
+documentation repeat the same contract. A second isolated installed-wheel
+worker inspected only public discovery, published its Report exactly once,
+succeeded on that first attempt, and again stopped at the scientific gate
+without manufacturing downstream evidence. Final repository regression passes
+all 311 tests in 796.165 seconds, and the documentation graph resolves all
+1,089 checked links.
 
 ## Standalone or an OpenAlice desk
 

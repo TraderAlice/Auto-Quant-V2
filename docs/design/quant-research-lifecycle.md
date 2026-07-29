@@ -325,6 +325,15 @@ An Agent supplies a strict report-analysis object containing:
 - recommendations with conditions, not broker orders;
 - limitations and unresolved questions.
 
+Every evidence reference contains `kind`, exact Session evidence `id`, and
+`artifactPath`. For a Run, the path is null or copied byte-for-byte from that
+Run's `result.artifacts[].path` (for example
+`artifacts/factor-report.json`); it is not a Run-root, Project, or filesystem
+path. Experiment and Campaign references use `artifactPath: null`. This
+kind-specific contract and complete examples are part of
+`aq schema report-analysis --json` so a Coding Agent does not need repository
+documentation or validation-error recovery to author the first Report.
+
 Core resolves every reference against the verified Session and freezes an
 evidence snapshot: request/brief, Study locks, baseline and current leader,
 Runs, Experiments, Campaigns, artifacts, Harness, and dataset. It then

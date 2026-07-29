@@ -806,7 +806,16 @@ def build_parser() -> RaisingArgumentParser:
     report_publish.add_argument("path")
     report_publish.add_argument("--project")
     report_publish.add_argument("--session", required=True)
-    report_publish.add_argument("--analysis", required=True)
+    report_publish.add_argument(
+        "--analysis",
+        required=True,
+        help=(
+            "strict report-analysis JSON; Run artifactPath must be null or "
+            "exactly match result.artifacts[].path (for example "
+            "artifacts/factor-report.json), while Experiment/Campaign "
+            "artifactPath must be null"
+        ),
+    )
     report_publish.set_defaults(command_id="report.publish")
     _json_argument(report_publish)
 
@@ -2624,7 +2633,11 @@ def _session_next_actions(project, session) -> list[dict[str, Any]]:
         actions.append(
             next_action(
                 "report.publish",
-                "Publish strict analysis over the current verified Session evidence.",
+                (
+                    "Publish strict analysis over current Session evidence; "
+                    "discover exact evidenceRefs with "
+                    "`aq schema report-analysis --json`."
+                ),
                 [
                     "aq",
                     "report",

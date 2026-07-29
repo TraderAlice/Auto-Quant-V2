@@ -847,7 +847,12 @@ CLI_COMMANDS = [
                 "option",
                 "string",
                 True,
-                "Strict report-analysis JSON with evidence-bound findings.",
+                (
+                    "Strict report-analysis JSON. Run artifactPath is null or "
+                    "an exact result.artifacts[].path such as "
+                    "artifacts/factor-report.json; Experiment/Campaign "
+                    "artifactPath is null."
+                ),
             ),
             JSON_ARGUMENT,
         ],

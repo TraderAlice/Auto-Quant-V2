@@ -808,6 +808,19 @@ class AgentCliTests(unittest.TestCase):
             "not valid after KEEP promotion",
             commands_by_id["session.complete"]["description"],
         )
+        report_analysis_argument = next(
+            argument
+            for argument in commands_by_id["report.publish"]["arguments"]
+            if argument["name"] == "analysis"
+        )
+        self.assertIn(
+            "exact result.artifacts[].path",
+            report_analysis_argument["description"],
+        )
+        self.assertIn(
+            "Experiment/Campaign artifactPath is null",
+            report_analysis_argument["description"],
+        )
         project_create = next(
             command for command in commands if command["id"] == "project.create"
         )
@@ -961,6 +974,56 @@ class AgentCliTests(unittest.TestCase):
                 "const"
             ],
             "autoquant-research-report-analysis",
+        )
+        report_schema_value = json_output(report_schema)["data"]["schema"]
+        evidence_ref_schema = report_schema_value["properties"]["findings"][
+            "items"
+        ]["properties"]["evidenceRefs"]["items"]
+        self.assertIn(
+            "result.artifacts",
+            evidence_ref_schema["description"],
+        )
+        self.assertEqual(
+            evidence_ref_schema["examples"][0]["artifactPath"],
+            "artifacts/factor-report.json",
+        )
+        self.assertIsNone(
+            evidence_ref_schema["examples"][1]["artifactPath"],
+        )
+        jsonschema.validate(
+            {
+                "kind": "run",
+                "id": "run-example",
+                "artifactPath": "artifacts/factor-report.json",
+            },
+            evidence_ref_schema,
+        )
+        jsonschema.validate(
+            {
+                "kind": "experiment",
+                "id": "exp-0001-example",
+                "artifactPath": None,
+            },
+            evidence_ref_schema,
+        )
+        with self.assertRaises(jsonschema.ValidationError):
+            jsonschema.validate(
+                {
+                    "kind": "experiment",
+                    "id": "exp-0001-example",
+                    "artifactPath": "artifacts/factor-report.json",
+                },
+                evidence_ref_schema,
+            )
+        report_help = run_cli("report", "publish", "--help")
+        self.assertEqual(report_help.returncode, 0, report_help.stderr)
+        self.assertIn(
+            "exactly match result.artifacts[].path",
+            report_help.stdout,
+        )
+        self.assertIn(
+            "Experiment/Campaign artifactPath must be null",
+            report_help.stdout,
         )
         dossier_schema = run_cli("schema", "dossier-analysis", "--json")
         self.assertEqual(dossier_schema.returncode, 0, dossier_schema.stderr)

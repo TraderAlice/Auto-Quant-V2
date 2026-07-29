@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha at `0.8.19`.
+Status: usable pre-alpha at `0.8.20`.
 
 Updated: 2026-07-30.
 
@@ -13,7 +13,7 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 AutoQuant V2 has crossed the line from an architectural prototype into a
 usable Agent-native quantitative research workbench.
 
-At `0.8.19`, a human, local coding Agent, or coworker delegated from OpenAlice
+At `0.8.20`, a human, local coding Agent, or coworker delegated from OpenAlice
 can:
 
 1. clone the repository and immediately discover the Harness plus its
@@ -110,8 +110,15 @@ Explorer re-derives every row and each fixed lookback scalar before CLI or
 Studio can display it. Pre-`0.8.19` immutable Runs remain readable and mark
 drawdown unavailable instead of being invalidated or silently retrofitted.
 
-The current release is `v0.8.19`. `v0.8.18` remains the honest unknown-provider
-provenance milestone, while `v0.8.17` remains the
+`0.8.20` makes strict Research Report evidence references self-describing.
+The public executable schema, capabilities, CLI help, and durable docs agree
+that a Run artifact path is null or copied exactly from
+`result.artifacts[].path`, while Experiment and Campaign paths are null. The
+existing semantic evidence validation remains strict and unchanged.
+
+The current release is `v0.8.20`. `v0.8.19` remains the fixed Book Risk
+drawdown milestone, `v0.8.18` the honest unknown-provider provenance
+milestone, while `v0.8.17` remains the
 reference-aware preflight and terminal-handoff milestone, while `v0.8.16`
 remains the completed
 trial-handoff milestone, while `v0.8.15` remains the candidate-contract
@@ -214,6 +221,38 @@ not only synthetic fixtures:
 
 The canonical results, Run identifiers, versions, and limitations are preserved
 in [[docs/trading-request-field-trials]].
+
+## `0.8.20` verification snapshot
+
+- a fresh isolated installed-`aq 0.8.19` Grok Build coworker received a fixed
+  eight-stock, SPY-context, one-Experiment Factor → conditional Portfolio
+  assignment and no repository source, docs, earlier Project, web, memory, or
+  subagent access;
+- its checked candidate received Session-objective KEEP, improving validation
+  mean rank IC from `-0.119921` to `0.027741`, but validation HAC evidence
+  remained weak and the worker correctly started no Portfolio or RL Run;
+- strict Report validation rejected its guessed Run-root path and an artifact
+  attached to Experiment evidence. This preserved the evidence boundary while
+  exposing that the public schema had not described the valid representation;
+- `0.8.20` now embeds exact Run and Experiment examples plus kind-specific
+  artifact-path constraints in `aq schema report-analysis --json`, and repeats
+  the same rule in help, capabilities, orientation, and durable documentation;
+- a second clean installed-`aq 0.8.20` worker was limited to exactly one
+  `aq report publish` invocation. It discovered the public contract, used
+  `artifacts/factor-report.json` for Runs and JSON null for Experiments, and
+  published Report
+  `report-20260729T190753748783Z-a915f8c8ce36` successfully on its first and
+  only attempt;
+- that retry improved validation mean rank IC from `-0.119921` to `0.039974`
+  but retained validation HAC t-statistic `0.542`, test audit mean rank IC
+  `-0.171`, and explicit false scientific/downstream authority. It again
+  created two Factor Runs, one Session, one Report, one Factor-only Dossier,
+  and no Portfolio or RL evidence;
+- independent validation and Studio projection emitted no diagnostics;
+- final repository regression: 311/311 tests in 796.165 seconds;
+- documentation graph: 1,089/1,089 checked links;
+- a fresh Python 3.11 wheel installation reported `aq 0.8.20` and reproduced
+  the same capability and executable Schema contract.
 
 ## `0.8.19` verification snapshot
 

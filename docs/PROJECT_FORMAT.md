@@ -882,8 +882,13 @@ provides strict `analysis.json` with:
 
 Evidence kinds are `run`, `experiment`, or `campaign`. Only Run references may
 select an `artifactPath`, and that path must match a declared immutable Run
-artifact. Every id must belong to the Session baseline or chronological
-Experiment/Campaign history.
+artifact exactly as written in `result.artifacts[].path`—for example,
+`artifacts/factor-report.json`, never
+`runs/<run-id>/artifacts/factor-report.json` or an absolute filesystem path.
+Experiment and Campaign references must set the required `artifactPath` field
+to JSON `null`. Every id must belong to the Session baseline or chronological
+Experiment/Campaign history. The public `report-analysis` JSON Schema encodes
+these kind-specific constraints and includes complete examples.
 
 Core freezes a complete evidence projection into `report.json`: the exact
 request/Brief, Session baseline and leader at publication, fixed locks, Harness,

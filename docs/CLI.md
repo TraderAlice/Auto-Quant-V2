@@ -759,6 +759,29 @@ conditional recommendations, limitations, unresolved questions, and exact
 Run/Experiment/Campaign evidence references. A Run reference may also name one
 of that Run's declared artifact paths.
 
+`aq schema report-analysis --json` carries the executable reference contract
+and examples. Copy a Run artifact path exactly from that Run's
+`result.artifacts[].path`; it is relative to the Run and already begins with
+`artifacts/`. Do not prefix it with `runs/<id>/`, a Project path, or a
+filesystem path. Experiment and Campaign evidence have no separately
+selectable declared artifact, so their required `artifactPath` field is
+`null`:
+
+```json
+[
+  {
+    "kind": "run",
+    "id": "run-20260730T120000000000Z-example",
+    "artifactPath": "artifacts/factor-report.json"
+  },
+  {
+    "kind": "experiment",
+    "id": "exp-0001-example",
+    "artifactPath": null
+  }
+]
+```
+
 Core does not write the conclusions. It validates every reference against the
 verified Session history, freezes the current baseline/leader, Run metrics,
 Experiments, Campaigns, Study locks, Harness, dataset, request, and Brief, then
