@@ -1,5 +1,5 @@
 ---
-version: 0.8.10
+version: 0.8.11
 ---
 
 # AutoQuant V2
@@ -32,7 +32,7 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current milestone: `0.8.10`
+## Current milestone: `0.8.11`
 
 AutoQuant V2 has crossed from an architectural prototype into a usable
 research workbench.
@@ -78,6 +78,13 @@ when a current fixed Study dependency binds its exact canonical hash, labels
 that authority `project-request`, and still rejects tampered, invalid,
 symlinked, or unbound files. The flexible Markdown fallback also accepts the
 natural explicit heading `Question`.
+
+`0.8.11` follows the first independent Grok trial through a complete editable
+Session. A settled KEEP now routes directly to executable guarded promotion
+instead of contradictorily requesting another edit. Newer worktree changes
+retain check/evaluation priority, and delegated promotion remains unavailable
+until an exact current Report supplies its required `--report` binding. The
+accepted candidate's exact passed Check remains visible through that handoff.
 
 ## Standalone or an OpenAlice desk
 
@@ -196,6 +203,12 @@ The `0.8.10` release was closed with 293 passing tests, 1,038 checked
 documentation links, an independent zero-file-inspection Grok Build Event
 Study retry, and a fresh installed-wheel Workspace/Project/orientation/Event
 Run smoke whose Harness recorded `0.8.10` and `dirty: false`.
+
+The `0.8.11` release was closed with 296 passing tests, 1,048 checked
+documentation links, two independent editable-Session Grok Build trials, and
+a fresh installed-wheel Python 3.11 baseline → Check → KEEP → guarded
+promotion → Studio smoke whose Harness recorded `0.8.11`,
+`commit: unavailable`, and `dirty: false`.
 
 `project create` is the normal construction entry point. It creates
 `research.md`, `framework-needs.md`, the Project manifest, and the Project-local

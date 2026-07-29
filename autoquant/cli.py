@@ -3837,7 +3837,10 @@ def _orient(args: argparse.Namespace) -> CommandResult:
             f"Effect: {primary['effect']} · produces "
             f"{primary['expectedEvidenceKind']}\n"
             if primary is not None
-            else "Next: no automatic action; human review required\n"
+            else (
+                f"Next: {brief['review']['next']}\n"
+                "Effect: Agent-owned preparation; no automatic command\n"
+            )
         )
     )
     actions = [

@@ -20,6 +20,7 @@ from .research_agenda import (
     waiting_research_agenda,
 )
 from .research_program import load_research_program
+from .reports import list_reports
 from .runs import list_runs, load_run
 from .sessions import list_sessions, load_session, session_snapshot
 from .studies import StudySummary, hash_json, list_studies, load_study
@@ -27,7 +28,7 @@ from .workspace import SCHEMA_VERSION, ProjectContext
 
 
 AGENT_WORK_BRIEF_KIND = "autoquant-agent-work-brief"
-AGENT_WORK_BRIEF_METHOD = "verified-project-agent-orientation-v5"
+AGENT_WORK_BRIEF_METHOD = "verified-project-agent-orientation-v6"
 MAX_RESEARCH_QUESTION_CHARS = 4_000
 PROTECTED_CATEGORIES = [
     "request",
@@ -265,6 +266,68 @@ def _session_actions(
 ]:
     manifest = session.manifest
     check_state = candidate_check_state(project, session)
+    promotion: dict[str, Any] | None = None
+    if manifest["leader"]["runId"] != manifest["baseline"]["runId"]:
+        if session.delegation is None or current_report is not None:
+            promotion_argv = [
+                "aq",
+                "session",
+                "promote",
+                str(project.root_dir),
+                "--session",
+                manifest["id"],
+            ]
+            if current_report is not None:
+                promotion_argv.extend(["--report", current_report["id"]])
+            promotion_argv.append("--json")
+            promotion = _command(
+                "session.promote",
+                (
+                    "Promote the exact current KEEP with its immutable Report "
+                    "after review; promotion preserves source but does not "
+                    "assert scientific qualification."
+                    if current_report is not None
+                    else (
+                        "Promote the exact current KEEP after review to "
+                        "preserve the source; promotion is not scientific "
+                        "qualification."
+                    )
+                ),
+                promotion_argv,
+                "mutates-project",
+            )
+        if not check_state["candidateChanged"]:
+            if promotion is not None:
+                return (
+                    promotion,
+                    [],
+                    [
+                        {
+                            "code": "promotion-ready",
+                            "category": "authority",
+                            "message": (
+                                "The Session worktree matches its non-baseline "
+                                "KEEP leader and is ready for guarded promotion."
+                            ),
+                        }
+                    ],
+                    check_state,
+                )
+            return (
+                None,
+                [],
+                [
+                    {
+                        "code": "report-required",
+                        "category": "evidence",
+                        "message": (
+                            "The delegated KEEP leader requires an exact "
+                            "current Research Report before guarded promotion."
+                        ),
+                    }
+                ],
+                check_state,
+            )
     evaluation = _command(
         "experiment.evaluate",
         "Evaluate this exact candidate with the fixed formal Judge.",
@@ -355,24 +418,8 @@ def _session_actions(
                 ),
             }
         ]
-    if manifest["leader"]["runId"] != manifest["baseline"]["runId"]:
-        supporting.append(
-            _command(
-                "session.promote",
-                "Promote the exact current KEEP after human review to preserve "
-                "the source; promotion is not scientific qualification.",
-                [
-                    "aq",
-                    "session",
-                    "promote",
-                    str(project.root_dir),
-                    "--session",
-                    manifest["id"],
-                    "--json",
-                ],
-                "mutates-project",
-            )
-        )
+    if promotion is not None:
+        supporting.append(promotion)
         reasons.append(
             {
                 "code": "promotion-ready",
@@ -417,6 +464,20 @@ def _session_actions(
             return completion, [evaluation, *supporting], reasons, check_state
         supporting.append(completion)
     return primary, supporting, reasons, check_state
+
+
+def _orientation_candidate_check(
+    check_state: dict[str, Any],
+    reasons: list[dict[str, str]],
+) -> dict[str, Any] | None:
+    """Keep an accepted candidate's exact Check visible through handoff."""
+
+    if reasons and reasons[0]["code"] in {
+        "promotion-ready",
+        "report-required",
+    }:
+        return check_state.get("exactCandidate")
+    return check_state.get("current")
 
 
 def _program_orientation(
@@ -622,12 +683,15 @@ def _program_orientation(
     latest_report = (
         focus_lane["reports"][-1] if focus_lane["reports"] else None
     )
+    visible_check = _orientation_candidate_check(check_state, reasons)
     if (
         writable
         and reasons[0]["code"]
         in {"candidate-edit-required", "candidate-check-failed"}
     ):
         operating_mode = "edit-and-evaluate"
+    elif reasons[0]["code"] == "report-required":
+        operating_mode = "publish-evidence"
     elif primary is None or program["conflicts"]:
         operating_mode = "observe"
     else:
@@ -682,14 +746,10 @@ def _program_orientation(
                 latest_report["id"] if latest_report is not None else None
             ),
             "candidateCheckId": (
-                check_state["current"]["id"]
-                if check_state["current"] is not None
-                else None
+                visible_check["id"] if visible_check is not None else None
             ),
             "candidateCheckStatus": (
-                check_state["current"]["status"]
-                if check_state["current"] is not None
-                else None
+                visible_check["status"] if visible_check is not None else None
             ),
         },
         "reasons": reasons,
@@ -728,6 +788,11 @@ def _program_orientation(
                     if reasons[0]["code"] == "candidate-edit-required"
                     else "Revise the candidate to address the failed bounded preflight."
                     if reasons[0]["code"] == "candidate-check-failed"
+                    else (
+                        "Prepare and publish an exact current Research Report "
+                        "for the KEEP leader before promotion."
+                    )
+                    if reasons[0]["code"] == "report-required"
                     else "Review the verified evidence and choose any optional follow-up explicitly."
                 )
             ),
@@ -848,6 +913,17 @@ def _single_study_orientation(
         if latest_session is not None and latest_session.status == "active"
         else None
     )
+    current_report = None
+    if active_session is not None:
+        current_report = next(
+            (
+                report.to_dict()
+                for report in reversed(list_reports(project, active_session))
+                if report.leader_run_id
+                == active_session.manifest["leader"]["runId"]
+            ),
+            None,
+        )
     current_runs = []
     for item in list_runs(project):
         if item.study_id != study.definition.id or item.status != "succeeded":
@@ -866,11 +942,18 @@ def _single_study_orientation(
         primary_raw, supporting_raw, reasons, check_state = _session_actions(
             project,
             active_session,
-            current_report=None,
+            current_report=current_report,
         )
         operating_root = active_session.worktree_project.root_dir
         editable = list(active_session.manifest["editablePaths"])
-        mode = "edit-and-evaluate"
+        mode = (
+            "promote"
+            if primary_raw is not None
+            and primary_raw["id"] == "session.promote"
+            else "publish-evidence"
+            if reasons[0]["code"] == "report-required"
+            else "edit-and-evaluate"
+        )
         phase = "researching"
     elif active_session is not None:
         primary_raw = _command(
@@ -1039,6 +1122,7 @@ def _single_study_orientation(
         if primary_raw is not None
         else None
     )
+    visible_check = _orientation_candidate_check(check_state, reasons)
     return {
         "focus": {
             "laneId": None,
@@ -1065,16 +1149,14 @@ def _single_study_orientation(
                 if latest_session is not None
                 else None
             ),
-            "reportId": None,
+            "reportId": (
+                current_report["id"] if current_report is not None else None
+            ),
             "candidateCheckId": (
-                check_state["current"]["id"]
-                if check_state["current"] is not None
-                else None
+                visible_check["id"] if visible_check is not None else None
             ),
             "candidateCheckStatus": (
-                check_state["current"]["status"]
-                if check_state["current"] is not None
-                else None
+                visible_check["status"] if visible_check is not None else None
             ),
         },
         "reasons": reasons,
@@ -1147,7 +1229,14 @@ def _single_study_orientation(
                 else (
                     "Edit one falsifiable candidate hypothesis in the declared worktree closure."
                     if reasons[0]["code"] == "candidate-edit-required"
-                    else "Revise the candidate to address the failed bounded preflight."
+                    else (
+                        "Revise the candidate to address the failed bounded preflight."
+                        if reasons[0]["code"] == "candidate-check-failed"
+                        else (
+                            "Prepare and publish an exact current Research "
+                            "Report for the KEEP leader before promotion."
+                        )
+                    )
                 )
             ),
             "boundary": "fixed Study authority · no trading authority",

@@ -24,6 +24,7 @@ from autoquant.runs import execute_study
 from autoquant.sessions import (
     complete_session,
     evaluate_experiment,
+    load_session,
     start_session,
 )
 from autoquant.studio import build_studio_snapshot
@@ -82,6 +83,93 @@ def _passing_factor_selection_integrity() -> dict:
 
 
 class MultiStudyResearchProgramTests(unittest.TestCase):
+    def test_delegated_keep_requires_report_then_routes_primary_promotion(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            request_path, package_path = write_intake_inputs(root)
+            request = json.loads(request_path.read_text(encoding="utf-8"))
+            workspace = initialize_workspace(root / "workspace", name="Quant Desk")
+            prepared = prepare_project_intake(
+                request_path,
+                package_path,
+                "ohlcv-research-desk",
+            )
+            project = create_project(
+                workspace.root_dir,
+                "delegated-promotion-desk",
+                name=prepared.request["title"],
+                description=prepared.request["question"],
+                template=prepared.template,
+                template_intake=prepared,
+            )
+            session = start_session(
+                project,
+                OHLCV_STUDY_ID,
+                request=request,
+            )
+            candidate = (
+                session.worktree_project.root_dir
+                / "factors"
+                / "candidate.py"
+            )
+            candidate.write_text(
+                "from __future__ import annotations\n\n"
+                "import pandas as pd\n\n"
+                "def compute_factor(panel: pd.DataFrame) -> pd.Series:\n"
+                "    return panel.groupby(\"asset\", sort=False)"
+                "[\"close\"].pct_change(1, fill_method=None)\n",
+                encoding="utf-8",
+            )
+            experiment = evaluate_experiment(
+                project,
+                session.manifest["id"],
+                "Test one causal one-bar persistence behavior.",
+            )
+            self.assertEqual(experiment.result["verdict"], "KEEP")
+
+            awaiting_report = build_agent_work_brief(project)
+
+            self.assertEqual(
+                awaiting_report["reasons"][0]["code"],
+                "report-required",
+            )
+            self.assertIsNone(awaiting_report["primaryAction"])
+            self.assertEqual(awaiting_report["supportingActions"], [])
+            self.assertEqual(
+                awaiting_report["focus"]["operatingMode"],
+                "publish-evidence",
+            )
+            self.assertIn(
+                "publish an exact current Research Report",
+                awaiting_report["review"]["next"],
+            )
+
+            current = load_session(project, session.manifest["id"])
+            report = publish_report(
+                project,
+                session.manifest["id"],
+                _report_analysis(current.leader_run),
+            )
+            ready = build_agent_work_brief(project)
+
+            self.assertEqual(
+                [item["code"] for item in ready["reasons"]],
+                ["promotion-ready"],
+            )
+            self.assertEqual(ready["primaryAction"]["id"], "session.promote")
+            self.assertEqual(
+                ready["primaryAction"]["argv"][-3:],
+                ["--report", report.report["id"], "--json"],
+            )
+            self.assertEqual(ready["evidence"]["reportId"], report.report["id"])
+            observed = build_studio_snapshot(project.root_dir)["projects"][0]
+            self.assertEqual(
+                observed["agentWorkBrief"]["primaryAction"],
+                ready["primaryAction"],
+            )
+
     def test_reverted_candidate_does_not_replace_current_lane_evidence(
         self,
     ) -> None:

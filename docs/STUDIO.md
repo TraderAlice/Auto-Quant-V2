@@ -95,7 +95,10 @@ The first viewport prioritizes:
   without rereading or trusting files in JavaScript; when fixed candidate
   preflight is available, this same object routes
   edit → bounded Check → formal Experiment and exposes the exact current Check
-  id/status without granting selection or trading authority;
+  id/status without granting selection or trading authority; after KEEP it
+  distinguishes a settled leader from a newer worktree edit, makes executable
+  guarded promotion primary only for the settled leader, and preserves the
+  delegated Report gate;
 - a Research Agenda directly beneath the decision surface, rendering the exact
   Core-ordered Factor, Portfolio, or governed-RL experiment briefs from that
   same hashed work brief, including hypothesis, editable target, optional

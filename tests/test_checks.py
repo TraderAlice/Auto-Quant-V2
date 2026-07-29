@@ -24,7 +24,7 @@ from autoquant.orientation import (
     AGENT_WORK_BRIEF_JSON_SCHEMA,
     build_agent_work_brief,
 )
-from autoquant.sessions import start_session
+from autoquant.sessions import evaluate_experiment, load_session, start_session
 from autoquant.studies import StudyJudge, create_study, load_study
 from autoquant.templates import TEMPLATE_STUDY_IDS
 from autoquant.workspace import AutoQuantValidationError
@@ -187,6 +187,42 @@ class CandidateCheckTests(unittest.TestCase):
                     session.manifest["id"],
                     failed.result["id"],
                 )
+
+    def test_keep_handoff_retains_exact_passed_check_pointer(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project, session = self._session(directory)
+            candidate = (
+                session.worktree_project.root_dir / "factors" / "candidate.py"
+            )
+            candidate.write_text("SCORE = 2.0\n", encoding="utf-8")
+            passed = execute_candidate_check(project, session.manifest["id"])
+            experiment = evaluate_experiment(
+                project,
+                session.manifest["id"],
+                "Raise the bounded checked score.",
+            )
+            self.assertEqual(experiment.result["verdict"], "KEEP")
+
+            state = candidate_check_state(
+                project,
+                load_session(project, session.manifest["id"]),
+            )
+            self.assertIsNone(state["current"])
+            self.assertEqual(
+                state["exactCandidate"]["id"],
+                passed.result["id"],
+            )
+            brief = build_agent_work_brief(project)
+
+            self.assertEqual(brief["primaryAction"]["id"], "session.promote")
+            self.assertEqual(
+                brief["evidence"]["candidateCheckId"],
+                passed.result["id"],
+            )
+            self.assertEqual(
+                brief["evidence"]["candidateCheckStatus"],
+                "passed",
+            )
 
     def test_worktree_preserves_fixed_preflight_authority(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

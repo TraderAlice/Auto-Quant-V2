@@ -1352,6 +1352,35 @@ class AgentCliTests(unittest.TestCase):
                 "session.promote",
                 [action["id"] for action in evaluated_json["nextActions"]],
             )
+            oriented = run_cli("orient", str(workspace), "--json")
+            self.assertEqual(oriented.returncode, 0, oriented.stderr)
+            oriented_json = json_output(oriented)
+            self.assertEqual(
+                oriented_json["data"]["primaryAction"]["id"],
+                "session.promote",
+            )
+            self.assertEqual(
+                [item["code"] for item in oriented_json["data"]["reasons"]],
+                ["promotion-ready"],
+            )
+            self.assertEqual(
+                [item["id"] for item in oriented_json["nextActions"]],
+                ["session.promote"],
+            )
+            human_oriented = run_cli("orient", str(workspace))
+            self.assertEqual(
+                human_oriented.returncode,
+                0,
+                human_oriented.stderr,
+            )
+            self.assertIn(
+                "Reason: promotion-ready",
+                human_oriented.stdout,
+            )
+            self.assertIn(
+                "Next: aq session promote",
+                human_oriented.stdout,
+            )
             compared = run_cli(
                 "session",
                 "compare",

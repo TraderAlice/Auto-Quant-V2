@@ -133,8 +133,8 @@ state. It contains:
 
 - identity: Workspace/Project and optional delegated request;
 - objective: current research question, its delegated-request,
-  project-research-brief, or local-fallback origin, source path when present,
-  and selected Study objective;
+  project-request, project-research-brief, or local-fallback origin, source
+  path when present, and selected Study objective;
 - focus: lane, Study, coordination phase, scientific stage, and operating
   mode;
 - evidence: current Run/Session/Report/Dossier identities needed to understand
@@ -150,8 +150,10 @@ state. It contains:
   checks, and stop conditions;
 - filesystem contract: the exact operating root, candidate-editable patterns,
   and protected authority categories;
-- primary action: one existing Core-generated command with exact `argv`,
-  working directory, operation effect, and expected evidence kind;
+- primary action: at most one existing Core-generated command with exact
+  `argv`, working directory, operation effect, and expected evidence kind;
+  an Agent-owned source edit or Report-analysis preparation remains explicit
+  review guidance rather than a fake command;
 - supporting read-only actions only when they materially help the primary
   action.
 
@@ -212,8 +214,17 @@ During an active Session:
 - editable paths are resolved beneath that root;
 - the canonical Project, request, data, Study, program, Judge, mandate,
   dependency closures, Runs, Experiments, Reports, and Dossiers are protected;
-- the primary candidate action is `experiment evaluate` or a terminal evidence
-  operation already authorized by the Session state.
+- a newer candidate routes through bounded check/evaluation before it can
+  replace the leader;
+- a worktree already settled on a non-baseline KEEP routes to guarded
+  promotion instead of another edit;
+- that settled handoff retains the exact accepted candidate's passed Check
+  pointer while its source, Study, preflight, and Harness identities match;
+- delegated promotion is visible only when an exact current Report makes its
+  generated `--report` command executable;
+- a first free-form candidate edit or Report analysis remains Agent-owned
+  preparation, with exact root/closure/review guidance and no fabricated
+  command.
 
 No brief may advertise two writable roots.
 
@@ -293,6 +304,9 @@ Judge authority.
 13. Delegated request authority precedes a fixed-dependency-bound Project
     request, which precedes the flexible research brief; an explicitly headed
     maintained question precedes the create-time Project description.
+14. A settled KEEP routes to executable guarded promotion; a newer worktree
+    edit retains check/evaluation priority, and delegated Report gates are
+    never bypassed by orientation.
 
 ## Known limitations
 

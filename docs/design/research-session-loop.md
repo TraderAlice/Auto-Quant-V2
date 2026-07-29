@@ -214,6 +214,20 @@ A delegated Session may publish immutable Reports over any verified evidence
 prefix. Report publication neither changes the leader nor closes the Session.
 Later Experiments do not mutate an earlier Report.
 
+The verified Agent Work Brief orders these same states. A worktree that equals
+an accepted non-baseline KEEP has no pending candidate hypothesis, so
+orientation routes a local Session directly to guarded promotion. Delegated
+promotion becomes primary only after an exact current Report binds the leader
+and its generated argv includes that Report. A newer worktree edit keeps
+check/evaluation primary; promotion of the prior KEEP may remain secondary
+only when it is already executable. The initial source edit and Report-analysis
+authoring are reasoning work, not CLI operations, so orientation supplies
+their exact filesystem/review boundary without inventing a command.
+The same settled handoff retains the accepted candidate's exact passed
+preflight pointer when source, Study, preflight, and Harness identities remain
+current. It is audit provenance for that accepted candidate, not authority to
+skip checking a later edit.
+
 ## Invariants
 
 1. Sessions and Experiments are Project-local and path-confined.

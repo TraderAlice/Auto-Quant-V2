@@ -106,8 +106,11 @@ the understood question already fits its fixed contract.
 Study, research-program, Session, Run, Report, Dossier, gate, and conflict
 state into one strict `AgentWorkBrief`. The brief identifies the current
 question and focus, stable reason code, exact operating root, paths writable
-now versus only declared for a future Session, protected authority, and one
-primary command with working directory, effect, and expected evidence kind.
+now versus only declared for a future Session, protected authority, and at
+most one primary command with working directory, effect, and expected evidence
+kind. When the next step is an Agent-owned source edit or Report analysis
+rather than an executable Core operation, JSON keeps `primaryAction` null and
+the human/JSON review text states that exact preparation step.
 Question provenance is explicit: delegated intake returns
 `origin: delegated-request`; otherwise a strict Project request returns
 `origin: project-request` only when a fixed Study dependency binds its exact
@@ -129,6 +132,19 @@ source as the governed edit target; an active valid Session points only to its
 disposable worktree. Human output fits a short terminal readout, while JSON is
 the machine contract defined by `aq schema agent-work-brief --json`. See
 [[docs/design/evidence-driven-research-agenda]].
+
+Inside an active Session, orientation distinguishes the accepted leader from a
+newer worktree edit. A settled non-delegated KEEP routes directly to guarded
+`session promote` as the primary action. A newer candidate still routes to its
+bounded check/evaluation first and may keep promotion only as a secondary
+escape to the already accepted leader. Delegated KEEP work returns
+`report-required` until an exact current Report exists; only then does
+orientation expose primary promotion with the required `--report` argument.
+It never emits a promotion command that the Session contract would reject.
+When the accepted source, Study, preflight, and Harness identities remain
+exact, the promotion/report handoff also retains the passed candidate Check
+id/status even though leader advancement means that Check is no longer a
+pre-evaluation check against the *previous* leader.
 
 `blank` is the default construction. `ohlcv-factor-lab` transactionally
 creates a complete, self-contained pandas factor research Project with local

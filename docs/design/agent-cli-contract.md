@@ -113,6 +113,20 @@ Project manifest description with `origin: local` and null source/request
 paths. Studio consumes this exact projection; it does not reread files or
 choose a competing question.
 
+Session action ordering is also reconstructed from verified state. When the
+worktree equals a non-baseline KEEP leader, non-delegated orientation makes
+guarded `session.promote` the primary action. Delegated orientation does so
+only when an exact current Report binds that leader and includes `--report` in
+the generated argv. Without the Report, the brief returns `report-required`
+and no unexecutable promotion action. If the worktree contains a newer
+candidate, its check/evaluation remains primary while an already executable
+promotion may remain supporting. Free-form code edits and Report-analysis
+authoring are Agent-owned preparation, so they use review guidance rather than
+a fabricated CLI command. A settled handoff retains the exact accepted
+candidate's passed Check pointer when source, Study, preflight, and Harness
+identity still match; this evidence projection does not make the old
+leader-relative Check eligible to preflight a different candidate.
+
 ## CLI-to-Studio flow
 
 ```text

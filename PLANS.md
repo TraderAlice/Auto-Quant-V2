@@ -22,7 +22,9 @@ There are no active plans.
 
 ## Proposed plans
 
-There are no proposed plans.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/session-worktree-cli-reentry]] | Let an Agent invoke read-only orientation from the advertised Session operating root while Core resolves the owning Project's locked data and Session authority without copying dataset bytes. | 2026-07-29 |
 
 ## Paused plans
 
@@ -34,6 +36,7 @@ There are no proposed plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/promotion-first-session-orientation]] | Routed a settled KEEP to one executable guarded-promotion primary action without overriding newer candidate edits or delegated Report gates, and retained its exact passing Check through handoff. | 2026-07-29 |
 | [[plans/verified-project-request-orientation]] | Surfaced locally constructed but fixed-dependency-bound Project requests in the Agent Work Brief without weakening delegated or Markdown provenance, proved by a fresh pre-inspection Grok Event retry. | 2026-07-29 |
 | [[plans/research-brief-backed-agent-orientation]] | Made the verified Agent Work Brief and Studio follow a local Project's maintained English research question while preserving delegated request authority, proved by a second clean Grok Build retry. | 2026-07-29 |
 | [[plans/repository-root-workspace]] | Made the repository clone an immediately operable, Git-backed AutoQuant Workspace with a complete evidence-bearing sample and an explicit local external-Projects override for Workbench development. | 2026-07-29 |

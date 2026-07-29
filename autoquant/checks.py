@@ -1005,11 +1005,13 @@ def candidate_check_state(
             "candidateSourceHash": candidate.source_hash,
             "preflightHash": None,
             "current": None,
+            "exactCandidate": None,
             "latest": None,
         }
     summaries = list_candidate_checks(project, session.manifest["id"])
     latest = summaries[-1].to_dict() if summaries else None
     current = None
+    exact_candidate = None
     current_harness = harness_identity()
     for summary in reversed(summaries):
         check = load_candidate_check(
@@ -1018,14 +1020,19 @@ def candidate_check_state(
             summary.id,
         )
         result = check.result
-        if (
+        exact_identity = (
             result["candidate"]["sourceHash"] == candidate.source_hash
-            and result["candidate"]["leaderSourceHash"]
-            == session.manifest["leader"]["sourceHash"]
             and result["study"]["inputHash"] == candidate.input_hash
             and result["study"]["datasetHash"] == candidate.dataset_hash
             and result["preflight"]["hash"] == preflight.preflight_hash
             and result["harness"] == current_harness
+        )
+        if exact_identity and exact_candidate is None:
+            exact_candidate = summary.to_dict()
+        if (
+            exact_identity
+            and result["candidate"]["leaderSourceHash"]
+            == session.manifest["leader"]["sourceHash"]
         ):
             current = summary.to_dict()
             break
@@ -1035,6 +1042,7 @@ def candidate_check_state(
         "candidateSourceHash": candidate.source_hash,
         "preflightHash": preflight.preflight_hash,
         "current": current,
+        "exactCandidate": exact_candidate,
         "latest": latest,
     }
 

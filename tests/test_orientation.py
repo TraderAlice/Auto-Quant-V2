@@ -13,8 +13,9 @@ from autoquant.orientation import (
     build_agent_work_brief,
 )
 from autoquant.runs import execute_study
-from autoquant.sessions import start_session
+from autoquant.sessions import evaluate_experiment, start_session
 from autoquant.studies import create_study
+from autoquant.studio import build_studio_snapshot
 from autoquant.templates import OHLCV_STUDY_ID
 from autoquant.workspace import create_project, initialize_workspace
 from tests.intake_helpers import write_intake_inputs
@@ -339,6 +340,67 @@ Stop the extracted section here.
             self.assertEqual(
                 stale["filesystem"]["operatingRoot"],
                 str(project.root_dir),
+            )
+
+    def test_settled_keep_routes_to_primary_promotion_before_another_edit(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, project = make_project(directory)
+            create_study(project, study_definition())
+            session = start_session(project, "factor-quality")
+            candidate = (
+                session.worktree_project.root_dir / "factors" / "candidate.py"
+            )
+            candidate.write_text("SCORE = 2.0\n", encoding="utf-8")
+            experiment = evaluate_experiment(
+                project,
+                session.manifest["id"],
+                "Raise the bounded synthetic score once.",
+            )
+            self.assertEqual(experiment.result["verdict"], "KEEP")
+
+            settled = build_agent_work_brief(project)
+
+            jsonschema.validate(settled, AGENT_WORK_BRIEF_JSON_SCHEMA)
+            self.assertEqual(
+                settled["method"],
+                "verified-project-agent-orientation-v6",
+            )
+            self.assertEqual(
+                [item["code"] for item in settled["reasons"]],
+                ["promotion-ready"],
+            )
+            self.assertEqual(
+                settled["primaryAction"]["id"],
+                "session.promote",
+            )
+            self.assertEqual(settled["supportingActions"], [])
+            self.assertEqual(settled["focus"]["operatingMode"], "promote")
+            self.assertEqual(
+                settled["review"]["next"],
+                settled["primaryAction"]["description"],
+            )
+            snapshot = build_studio_snapshot(project.root_dir)
+            self.assertEqual(
+                snapshot["projects"][0]["agentWorkBrief"]["primaryAction"],
+                settled["primaryAction"],
+            )
+
+            candidate.write_text("SCORE = 3.0\n", encoding="utf-8")
+            newer_candidate = build_agent_work_brief(project)
+
+            self.assertEqual(
+                newer_candidate["primaryAction"]["id"],
+                "experiment.evaluate",
+            )
+            self.assertEqual(
+                [item["id"] for item in newer_candidate["supportingActions"]],
+                ["session.promote"],
+            )
+            self.assertEqual(
+                [item["code"] for item in newer_candidate["reasons"]],
+                ["session-active", "promotion-ready"],
             )
 
     def test_research_desk_orients_to_verified_factor_gate(self) -> None:

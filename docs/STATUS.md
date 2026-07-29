@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha at `0.8.10`.
+Status: usable pre-alpha at `0.8.11`.
 
 Updated: 2026-07-29.
 
@@ -13,7 +13,7 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 AutoQuant V2 has crossed the line from an architectural prototype into a
 usable Agent-native quantitative research workbench.
 
-At `0.8.10`, a human, local coding Agent, or coworker delegated from OpenAlice
+At `0.8.11`, a human, local coding Agent, or coworker delegated from OpenAlice
 can:
 
 1. clone the repository and immediately discover the Harness plus its
@@ -53,7 +53,15 @@ and a fixed Study dependency binds its exact canonical hash. This lets
 Allocation, Event Study, and Book Risk templates self-describe without
 granting authority to an arbitrary file.
 
-The latest annotated release tag is `v0.8.10`; `v0.8.9` remains the
+`0.8.11` makes the editable Session handoff equally unambiguous. Once a KEEP
+leader and worktree are identical, orientation makes guarded promotion the
+primary action. A newer candidate remains check/evaluate work, while delegated
+promotion remains Report-bound and is never advertised without an executable
+`--report` command. The exact passed candidate Check remains attached while
+its source, Study, preflight, and Harness identities are still current.
+
+The latest annotated release tag is `v0.8.11`; `v0.8.10` remains the fixed
+Project-request orientation milestone, `v0.8.9` the
 research-brief orientation milestone at commit `2157d99`, and `v0.8.8` the
 repository-root Workspace milestone at commit `d2e56f0`.
 
@@ -147,6 +155,31 @@ not only synthetic fixtures:
 
 The canonical results, Run identifiers, versions, and limitations are preserved
 in [[docs/trading-request-field-trials]].
+
+## `0.8.11` verification snapshot
+
+- the first fresh Grok Build coworker completed one Factor baseline, one
+  passing Check, one KEEP Experiment, and one guarded promotion, and exposed
+  the contradictory post-KEEP edit-versus-promote orientation;
+- an independent replay reproduced the defect, then a second fresh Grok retry
+  under Agent Work Brief v6 received `session.promote` as its sole primary
+  action with only `promotion-ready`, no supporting action, and no second
+  Experiment;
+- focused tests preserve newer-candidate check/evaluate priority and require
+  an exact current Report plus `--report` before delegated promotion;
+- the same retry exposed a dropped candidate-Check pointer; exact-identity
+  handoff now retains that passing Check through promotion-ready and
+  report-required states;
+- final repository regression: 296/296 tests;
+- documentation graph: 1,048/1,048 checked links;
+- source distribution, wheel build, fresh Python 3.11 install, empty
+  Workspace, Factor Project, baseline, Session edit, passing Check, KEEP,
+  promotion-first human/JSON orientation, guarded promotion, Project
+  validation, and Studio projection passed with Harness `0.8.11`,
+  `commit: unavailable`, and `dirty: false`;
+- Session worktree CLI re-entry was deliberately split into
+  [[plans/session-worktree-cli-reentry]] rather than copying or symlinking
+  content-locked datasets into disposable worktrees.
 
 ## `0.8.10` verification snapshot
 
@@ -266,7 +299,7 @@ field-trial surface.
 
 ## Maturity and next use
 
-`0.8.10` is suitable for controlled standalone use and initial OpenAlice desk
+`0.8.11` is suitable for controlled standalone use and initial OpenAlice desk
 integration. It is still pre-`1.0`: public contracts are versioned and strict,
 but the project continues to prefer domain correctness and Agent operability
 over backward compatibility while the product shape settles.
