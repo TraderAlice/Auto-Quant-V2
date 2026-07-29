@@ -44,15 +44,22 @@ cross-Workspace communication, and authenticated provenance may add context,
 but Project files and Core evidence remain sufficient to orient a replacement
 Agent. Standalone and hosted operation use the same brief contract.
 
-Question authority is explicit and ordered. A validated delegated request
-manifest is first because it freezes caller-owned intent. Otherwise Core reads
-the manifest-declared research program and extracts only a non-empty section
-headed `Research question`, `Research question ...`, or `Fixed question`.
-That bounded Markdown section is identified as
-`project-research-brief` and its absolute `sourcePath` is returned. Core does
-not infer intent from arbitrary prose; when no recognized section exists it
-safely falls back to the Project manifest description with `origin: local`.
-The delegated-only `requestPath` remains null for a Markdown-derived question.
+Question authority is explicit and ordered. A validated delegated intake
+request is first because it freezes caller-owned intent. Otherwise Core may
+accept a Project-root strict request only when its canonical hash exactly
+matches `source.requestHash` in at least one currently declared fixed Study
+dependency. That locally constructed authority uses
+`origin: project-request`; an invalid, symlinked, tampered, or unbound request
+is never projected.
+
+Without either verified request, Core reads the manifest-declared research
+program and extracts only a non-empty section headed `Question`,
+`Research question`, `Research question ...`, or `Fixed question`. That
+bounded Markdown section uses `origin: project-research-brief` and returns its
+absolute `sourcePath`. Core does not infer intent from arbitrary prose; when no
+recognized section exists it safely falls back to the Project manifest
+description with `origin: local`. `requestPath` remains null for a
+Markdown-derived question.
 
 The repository clone is itself the default Workspace. Harness source,
 checked-in `projects/`, and one complete three-lane sample therefore share one
@@ -283,9 +290,9 @@ Judge authority.
     orientation for the same Workspace state.
 12. Required orientation survives replacement of the native Agent Session;
     private chat history is never the only source of Project truth.
-13. Delegated request authority precedes the flexible research brief; without
-    delegated intake, an explicitly headed maintained question precedes the
-    create-time Project description.
+13. Delegated request authority precedes a fixed-dependency-bound Project
+    request, which precedes the flexible research brief; an explicitly headed
+    maintained question precedes the create-time Project description.
 
 ## Known limitations
 

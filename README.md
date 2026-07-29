@@ -1,5 +1,5 @@
 ---
-version: 0.8.9
+version: 0.8.10
 ---
 
 # AutoQuant V2
@@ -32,7 +32,7 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current milestone: `0.8.9`
+## Current milestone: `0.8.10`
 
 AutoQuant V2 has crossed from an architectural prototype into a usable
 research workbench.
@@ -71,6 +71,13 @@ question maintained in `research.md`, its source path, and its provenance
 instead of continuing to show a stale create-time description. Delegated
 request manifests remain higher authority, and Projects without an explicit
 question heading retain the safe manifest-description fallback.
+
+`0.8.10` follows the next independent Grok trial into fixed descriptive
+Projects. Orientation now surfaces a locally constructed strict request only
+when a current fixed Study dependency binds its exact canonical hash, labels
+that authority `project-request`, and still rejects tampered, invalid,
+symlinked, or unbound files. The flexible Markdown fallback also accepts the
+natural explicit heading `Question`.
 
 ## Standalone or an OpenAlice desk
 
@@ -184,6 +191,11 @@ no-hardlink clean-clone replay of the complete root Workspace.
 The `0.8.9` release was closed with 289 passing tests, 1,033 checked
 documentation links, an independent pre-Run Grok Build retry, and a fresh
 installed-wheel Workspace/Project/orientation/Factor-Run smoke.
+
+The `0.8.10` release was closed with 293 passing tests, 1,038 checked
+documentation links, an independent zero-file-inspection Grok Build Event
+Study retry, and a fresh installed-wheel Workspace/Project/orientation/Event
+Run smoke whose Harness recorded `0.8.10` and `dirty: false`.
 
 `project create` is the normal construction entry point. It creates
 `research.md`, `framework-needs.md`, the Project manifest, and the Project-local

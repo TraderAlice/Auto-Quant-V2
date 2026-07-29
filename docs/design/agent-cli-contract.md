@@ -99,15 +99,19 @@ hash rather than deriving a competing research decision or experiment order
 in JavaScript. See [[docs/design/evidence-driven-research-agenda]].
 
 The brief's `question` projection has ordered, disclosed provenance. A
-validated delegated request returns `origin: delegated-request` and its
-request path in both `sourcePath` and the backward-compatible
-`requestPath`. Without intake, a clearly headed question section in the
-manifest-declared research program returns
-`origin: project-research-brief`, that Markdown `sourcePath`, and a null
-`requestPath`. When neither exists, Core returns the Project manifest
-description with `origin: local` and null source/request paths. Studio consumes
-this exact projection; it does not reread Markdown or choose a competing
-question.
+validated delegated intake returns `origin: delegated-request` and its request
+path in both `sourcePath` and `requestPath`. Without intake, a strict
+Project-root request returns `origin: project-request` only when its canonical
+hash is bound by `source.requestHash` in a declared fixed Study dependency.
+Both paths identify `request.json`.
+
+Without a verified request, a clearly headed `Question`,
+`Research question...`, or `Fixed question` section in the manifest-declared
+research program returns `origin: project-research-brief`, that Markdown
+`sourcePath`, and a null `requestPath`. When none exists, Core returns the
+Project manifest description with `origin: local` and null source/request
+paths. Studio consumes this exact projection; it does not reread files or
+choose a competing question.
 
 ## CLI-to-Studio flow
 

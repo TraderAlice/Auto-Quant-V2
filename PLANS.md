@@ -34,6 +34,7 @@ There are no proposed plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/verified-project-request-orientation]] | Surfaced locally constructed but fixed-dependency-bound Project requests in the Agent Work Brief without weakening delegated or Markdown provenance, proved by a fresh pre-inspection Grok Event retry. | 2026-07-29 |
 | [[plans/research-brief-backed-agent-orientation]] | Made the verified Agent Work Brief and Studio follow a local Project's maintained English research question while preserving delegated request authority, proved by a second clean Grok Build retry. | 2026-07-29 |
 | [[plans/repository-root-workspace]] | Made the repository clone an immediately operable, Git-backed AutoQuant Workspace with a complete evidence-bearing sample and an explicit local external-Projects override for Workbench development. | 2026-07-29 |
 | [[plans/portfolio-native-risk-parity-allocation]] | Answered a fixed equal-risk-contribution strategic allocation request against a same-clock weighted reference without inventing a predictive factor. | 2026-07-29 |

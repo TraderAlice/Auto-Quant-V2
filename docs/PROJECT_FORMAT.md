@@ -372,14 +372,21 @@ training, or backtests. The generated starter requires:
 - explicit KEEP, REVERT, or BRANCH decisions;
 - no candidate authority over the Harness or locked Judge.
 
-For local Projects without a delegated request manifest, `aq orient` surfaces
-the first non-empty Markdown section explicitly headed `Research question`,
+For local Projects without a delegated intake manifest, `aq orient` first
+checks whether Project-root `request.json` strictly validates and whether its
+canonical hash is bound by `source.requestHash` in a currently declared fixed
+Study dependency. Only that double proof permits `origin: project-request`;
+standalone, tampered, invalid, or symlinked request files do not become
+orientation claims.
+
+Without either verified request, orientation surfaces the first non-empty
+Markdown section explicitly headed `Question`, `Research question`,
 `Research question ...`, or `Fixed question`. The section continues through
 the next heading at the same or higher level, is bounded for the compact work
 brief, and retains the research-program path as provenance. This is a
 convenience projection of flexible Markdown, not a required document schema:
 when no recognized section exists, orientation safely uses the Project
-manifest description. A validated delegated request remains higher authority.
+manifest description.
 
 The brief and other AutoQuant-internal working materials use English so a
 replacement Quant Agent receives one consistent desk language. This does not

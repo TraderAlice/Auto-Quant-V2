@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -21,6 +22,137 @@ from tests.study_helpers import make_project, study_definition
 
 
 class AgentOrientationTests(unittest.TestCase):
+    def test_fixed_template_surfaces_dependency_bound_project_request(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = initialize_workspace(
+                Path(directory) / "workspace",
+                name="Quant Desk",
+            )
+            project = create_project(
+                workspace.root_dir,
+                "allocation-lab",
+                template="ohlcv-allocation-lab",
+            )
+            request_path = project.root_dir / "request.json"
+
+            brief = build_agent_work_brief(project)
+
+            jsonschema.validate(brief, AGENT_WORK_BRIEF_JSON_SCHEMA)
+            self.assertEqual(
+                brief["question"],
+                {
+                    "title": "Synthetic equal-risk-contribution allocation",
+                    "text": (
+                        "Does fixed ERC improve on a fixed 60/40 reference?"
+                    ),
+                    "origin": "project-request",
+                    "sourcePath": str(request_path),
+                    "requestPath": str(request_path),
+                },
+            )
+
+    def test_every_fixed_request_template_surfaces_project_request(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = initialize_workspace(
+                Path(directory) / "workspace",
+                name="Quant Desk",
+            )
+
+            for template in (
+                "ohlcv-allocation-lab",
+                "ohlcv-book-risk-lab",
+                "ohlcv-event-study-lab",
+            ):
+                with self.subTest(template=template):
+                    project = create_project(
+                        workspace.root_dir,
+                        template.removeprefix("ohlcv-"),
+                        template=template,
+                    )
+                    request_path = project.root_dir / "request.json"
+
+                    question = build_agent_work_brief(project)["question"]
+
+                    self.assertEqual(question["origin"], "project-request")
+                    self.assertTrue(question["text"])
+                    self.assertEqual(question["sourcePath"], str(request_path))
+                    self.assertEqual(question["requestPath"], str(request_path))
+
+    def test_unbound_tampered_invalid_and_symlink_requests_are_not_authority(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workspace = initialize_workspace(root / "workspace", name="Quant Desk")
+            project = create_project(
+                workspace.root_dir,
+                "allocation-lab",
+                template="ohlcv-allocation-lab",
+            )
+            request_path = project.root_dir / "request.json"
+            request = json.loads(request_path.read_text(encoding="utf-8"))
+            request["question"] = "Tampered but schema-valid question"
+            request_path.write_text(
+                json.dumps(request, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            research_path = project.root_dir / "research.md"
+            research_path.write_text(
+                "# Allocation Lab\n\n"
+                "## Question\n\n"
+                "Does the explicit Markdown fallback remain visible?\n",
+                encoding="utf-8",
+            )
+
+            tampered = build_agent_work_brief(project)["question"]
+
+            self.assertEqual(tampered["origin"], "project-research-brief")
+            self.assertEqual(
+                tampered["text"],
+                "Does the explicit Markdown fallback remain visible?",
+            )
+            request_path.write_text("{}\n", encoding="utf-8")
+            invalid = build_agent_work_brief(project)["question"]
+            self.assertEqual(invalid["origin"], "project-research-brief")
+
+            unbound = create_project(
+                workspace.root_dir,
+                "unbound-lab",
+                description="Safe manifest fallback",
+            )
+            (unbound.root_dir / "request.json").write_text(
+                json.dumps(request, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            (unbound.root_dir / "research.md").write_text(
+                "# Unbound Lab\n\n## Purpose\n\nNo explicit question.\n",
+                encoding="utf-8",
+            )
+            unbound_question = build_agent_work_brief(unbound)["question"]
+            self.assertEqual(unbound_question["origin"], "local")
+            self.assertEqual(
+                unbound_question["text"],
+                "Safe manifest fallback",
+            )
+
+            symlinked = create_project(
+                workspace.root_dir,
+                "symlinked-lab",
+                description="Safe symlink fallback",
+                template="ohlcv-allocation-lab",
+            )
+            symlink_request = symlinked.root_dir / "request.json"
+            outside = root / "outside-request.json"
+            outside.write_bytes(symlink_request.read_bytes())
+            symlink_request.unlink()
+            symlink_request.symlink_to(outside)
+            symlink_question = build_agent_work_brief(symlinked)["question"]
+            self.assertEqual(symlink_question["origin"], "local")
+
     def test_local_question_comes_from_explicit_research_brief_section(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             workspace = initialize_workspace(

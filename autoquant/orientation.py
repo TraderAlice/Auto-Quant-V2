@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import json
 import re
 import shlex
 from pathlib import Path
 from typing import Any
 
+from .briefs import load_research_request
 from .checks import candidate_check_state
 from .dossiers import load_dossier_status
 from .intake import load_project_intake
@@ -20,12 +22,12 @@ from .research_agenda import (
 from .research_program import load_research_program
 from .runs import list_runs, load_run
 from .sessions import list_sessions, load_session, session_snapshot
-from .studies import list_studies, load_study
+from .studies import StudySummary, hash_json, list_studies, load_study
 from .workspace import SCHEMA_VERSION, ProjectContext
 
 
 AGENT_WORK_BRIEF_KIND = "autoquant-agent-work-brief"
-AGENT_WORK_BRIEF_METHOD = "verified-project-agent-orientation-v4"
+AGENT_WORK_BRIEF_METHOD = "verified-project-agent-orientation-v5"
 MAX_RESEARCH_QUESTION_CHARS = 4_000
 PROTECTED_CATEGORIES = [
     "request",
@@ -116,6 +118,7 @@ def _research_brief_question(project: ProjectContext) -> tuple[str, Path] | None
     for position, (index, level, heading) in enumerate(headings):
         if not (
             heading == "fixed question"
+            or heading == "question"
             or heading == "research question"
             or heading.startswith("research question ")
         ):
@@ -131,9 +134,44 @@ def _research_brief_question(project: ProjectContext) -> tuple[str, Path] | None
     return None
 
 
+def _project_request(
+    project: ProjectContext,
+    studies: list[StudySummary],
+) -> tuple[dict[str, Any], Path] | None:
+    """Load a strict request only when current fixed authority binds its hash."""
+
+    path = project.root_dir / "request.json"
+    if not path.is_file() or path.is_symlink():
+        return None
+    try:
+        request = load_research_request(path)
+    except (OSError, UnicodeError, ValueError):
+        return None
+    request_hash = hash_json(request)
+    for summary in studies:
+        study = load_study(project, summary.id)
+        dependencies = study.definition.dependencies
+        if dependencies is None:
+            continue
+        for relative in dependencies["paths"]:
+            dependency_path = project.root_dir / relative
+            try:
+                value = json.loads(dependency_path.read_text(encoding="utf-8"))
+            except (OSError, UnicodeError, json.JSONDecodeError):
+                continue
+            if (
+                isinstance(value, dict)
+                and isinstance(value.get("source"), dict)
+                and value["source"].get("requestHash") == request_hash
+            ):
+                return request, path
+    return None
+
+
 def _question_projection(
     project: ProjectContext,
     intake: dict[str, Any] | None,
+    studies: list[StudySummary],
 ) -> dict[str, Any]:
     if intake is not None:
         request = intake["request"]
@@ -147,6 +185,17 @@ def _question_projection(
             "requestPath": str(
                 project.root_dir / intake["manifest"]["requestPath"]
             ),
+        }
+
+    bound_request = _project_request(project, studies)
+    if bound_request is not None:
+        request, path = bound_request
+        return {
+            "title": request["title"],
+            "text": request["question"],
+            "origin": "project-request",
+            "sourcePath": str(path),
+            "requestPath": str(path),
         }
 
     maintained = _research_brief_question(project)
@@ -1311,7 +1360,7 @@ def build_agent_work_brief(project: ProjectContext) -> dict[str, Any]:
             "name": project.manifest.name,
             "rootDir": str(project.root_dir),
         },
-        "question": _question_projection(project, intake),
+        "question": _question_projection(project, intake, studies),
         "researchAgenda": research_agenda,
         "externalHoldout": holdout,
         **projected,
@@ -1406,6 +1455,7 @@ AGENT_WORK_BRIEF_JSON_SCHEMA: dict[str, Any] = {
                     "enum": [
                         "local",
                         "project-research-brief",
+                        "project-request",
                         "delegated-request",
                     ]
                 },

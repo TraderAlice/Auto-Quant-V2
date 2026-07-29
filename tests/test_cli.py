@@ -32,6 +32,39 @@ def json_output(result: subprocess.CompletedProcess[str]) -> dict:
 
 
 class AgentCliTests(unittest.TestCase):
+    def test_cli_orients_fixed_template_from_bound_project_request(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Path(directory) / "workspace"
+            self.assertEqual(
+                run_cli("workspace", "init", str(workspace), "--json").returncode,
+                0,
+            )
+            created = run_cli(
+                "project",
+                "create",
+                str(workspace),
+                "allocation-lab",
+                "--template",
+                "ohlcv-allocation-lab",
+                "--json",
+            )
+            self.assertEqual(created.returncode, 0, created.stderr)
+            project = Path(json_output(created)["data"]["projectDir"])
+
+            oriented = run_cli("orient", str(project), "--json")
+
+            self.assertEqual(oriented.returncode, 0, oriented.stderr)
+            question = json_output(oriented)["data"]["question"]
+            self.assertEqual(question["origin"], "project-request")
+            self.assertEqual(
+                question["text"],
+                "Does fixed ERC improve on a fixed 60/40 reference?",
+            )
+            self.assertEqual(
+                question["sourcePath"],
+                str(project / "request.json"),
+            )
+
     def test_cli_constructs_and_runs_ohlcv_factor_lab_template(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             workspace = Path(directory) / "workspace"

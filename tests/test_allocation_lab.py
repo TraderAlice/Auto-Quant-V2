@@ -228,6 +228,19 @@ class AllocationLabTests(unittest.TestCase):
             )
             snapshot = build_studio_snapshot(project.root_dir)
             observed = snapshot["projects"][0]
+            request_path = project.root_dir / "request.json"
+            self.assertEqual(
+                observed["agentWorkBrief"]["question"],
+                {
+                    "title": "Synthetic equal-risk-contribution allocation",
+                    "text": (
+                        "Does fixed ERC improve on a fixed 60/40 reference?"
+                    ),
+                    "origin": "project-request",
+                    "sourcePath": str(request_path),
+                    "requestPath": str(request_path),
+                },
+            )
             self.assertEqual(
                 observed["allocationExplorer"]["run"]["id"],
                 run.result["id"],

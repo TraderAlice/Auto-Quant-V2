@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha at `0.8.9`.
+Status: usable pre-alpha at `0.8.10`.
 
 Updated: 2026-07-29.
 
@@ -13,7 +13,7 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 AutoQuant V2 has crossed the line from an architectural prototype into a
 usable Agent-native quantitative research workbench.
 
-At `0.8.9`, a human, local coding Agent, or coworker delegated from OpenAlice
+At `0.8.10`, a human, local coding Agent, or coworker delegated from OpenAlice
 can:
 
 1. clone the repository and immediately discover the Harness plus its
@@ -47,7 +47,14 @@ still takes precedence, and arbitrary Markdown prose is never guessed into
 caller intent. Two clean Grok Build field trials supplied the original failure
 and independent pre-Run retry evidence.
 
-The latest annotated release tag is `v0.8.9`; `v0.8.8` remains the
+`0.8.10` extends the same truthful orientation contract to locally constructed
+fixed requests. A Project request is visible only when it strictly validates
+and a fixed Study dependency binds its exact canonical hash. This lets
+Allocation, Event Study, and Book Risk templates self-describe without
+granting authority to an arbitrary file.
+
+The latest annotated release tag is `v0.8.10`; `v0.8.9` remains the
+research-brief orientation milestone at commit `2157d99`, and `v0.8.8` the
 repository-root Workspace milestone at commit `d2e56f0`.
 
 The canonical repository is
@@ -140,6 +147,29 @@ not only synthetic fixtures:
 
 The canonical results, Run identifiers, versions, and limitations are preserved
 in [[docs/trading-request-field-trials]].
+
+## `0.8.10` verification snapshot
+
+- an independent fresh Grok Build coworker created a fixed Event Study Project
+  and, before opening any request, policy, Study, Judge, or research file,
+  recovered the exact question from `aq orient` with
+  `origin: project-request`, both source paths, an empty editable closure, no
+  trading authority, and the correct baseline action;
+- that retry completed exactly one successful Event Study Run and zero
+  Sessions; independent validation, strict Explorer, post-Run orientation, and
+  Studio reproduced the same request, Run, four-event primary population, and
+  descriptive no-trading conclusion;
+- strict request binding is deterministically covered for Allocation, Book
+  Risk, and Event Study templates, plus delegated precedence, exact `Question`
+  fallback, invalid, tampered, symlinked, and unbound refusal;
+- final repository regression: 293/293 tests;
+- documentation graph: 1,038/1,038 checked links;
+- source distribution, wheel build, fresh Python 3.11 install, empty Workspace,
+  fixed Event Project construction, pre-Run request orientation, one installed
+  Run, strict Explorer, and Studio projection passed with Harness `0.8.10`,
+  `commit: unavailable`, and `dirty: false`;
+- no Study, Judge, dataset, evaluation semantic, or historical immutable Run
+  changed.
 
 ## `0.8.9` verification snapshot
 
@@ -236,7 +266,7 @@ field-trial surface.
 
 ## Maturity and next use
 
-`0.8.9` is suitable for controlled standalone use and initial OpenAlice desk
+`0.8.10` is suitable for controlled standalone use and initial OpenAlice desk
 integration. It is still pre-`1.0`: public contracts are versioned and strict,
 but the project continues to prefer domain correctness and Agent operability
 over backward compatibility while the product shape settles.
