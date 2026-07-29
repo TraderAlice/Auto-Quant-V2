@@ -164,8 +164,17 @@ class EventStudyLabTests(unittest.TestCase):
                 "none",
             )
             brief = build_agent_work_brief(project)
-            self.assertEqual(brief["primaryAction"]["id"], "run.event-study")
+            self.assertIsNone(brief["primaryAction"])
+            self.assertEqual(
+                [item["id"] for item in brief["supportingActions"]],
+                ["run.event-study"],
+            )
             self.assertEqual(brief["focus"]["operatingMode"], "observe")
+            self.assertEqual(brief["review"]["status"], "complete")
+            self.assertIn(
+                "Write and return the decision-support answer",
+                brief["review"]["next"],
+            )
             self.assertFalse(brief["filesystem"]["writable"])
             self.assertEqual(brief["filesystem"]["declaredEditablePaths"], [])
             self.assertEqual(
@@ -181,6 +190,10 @@ class EventStudyLabTests(unittest.TestCase):
                 "event-population-and-reference-context",
             )
             self.assertEqual(brief["researchAgenda"]["moves"], [])
+            self.assertEqual(
+                brief["researchAgenda"]["run"]["inputHash"],
+                run.result["inputHash"],
+            )
             snapshot = build_studio_snapshot(project.root_dir)
             projected = snapshot["projects"][0]["eventStudyExplorer"]
             self.assertEqual(

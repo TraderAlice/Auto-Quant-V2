@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha at `0.8.13`.
+Status: usable pre-alpha at `0.8.14`.
 
 Updated: 2026-07-29.
 
@@ -13,7 +13,7 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 AutoQuant V2 has crossed the line from an architectural prototype into a
 usable Agent-native quantitative research workbench.
 
-At `0.8.13`, a human, local coding Agent, or coworker delegated from OpenAlice
+At `0.8.14`, a human, local coding Agent, or coworker delegated from OpenAlice
 can:
 
 1. clone the repository and immediately discover the Harness plus its
@@ -71,7 +71,14 @@ their Session-only scope, promotion returns the exact subsequent Work Brief,
 and a scientifically blocked terminal lane treats further research as an
 optional continuation.
 
-The latest annotated release tag is `v0.8.13`; `v0.8.12` remains the
+`0.8.14` makes fixed-Study completion an explicit answer handoff. Current
+successful Book Risk, Price Event, and Allocation evidence leaves no primary
+CLI action; the Agent is told to write and return the answer while the strict
+Explorer remains optional supporting evidence. Descriptive agenda Run identity
+now uses the exact immutable Run input hash.
+
+The latest annotated release tag is `v0.8.14`; `v0.8.13` remains the
+qualification-aware handoff milestone, and `v0.8.12` remains the
 worktree re-entry milestone, and `v0.8.11` remains the
 promotion-first orientation milestone, and `v0.8.10` the fixed
 Project-request orientation milestone, `v0.8.9` the
@@ -168,6 +175,35 @@ not only synthetic fixtures:
 
 The canonical results, Run identifiers, versions, and limitations are preserved
 in [[docs/trading-request-field-trials]].
+
+## `0.8.14` verification snapshot
+
+- a fresh Grok Build coworker used only an installed `0.8.14` wheel and a new
+  Project, without inspecting framework source, plans, tests, docs, or another
+  research Project;
+- public CLI discovery led it independently to `ohlcv-book-risk-lab` for a
+  non-predictive equal-weight four-asset risk audit;
+- the coworker executed fixed Study `ohlcv-book-risk` exactly once as Run
+  `run-20260729T135618598499Z-a37e9d56fb52`, created no Session, and did not
+  enter Factor, Portfolio, RL, or Order lifecycles;
+- the verified evidence found component-risk HHI `0.2518`, approximately
+  `3.971` effective risk bets, BRAVO as the `27.54%` largest absolute risk
+  contributor, and BRAVO as the best standardized one-percentage-point
+  cash-funded reduction;
+- post-completion orientation had null primary action, explicit Agent-owned
+  write/return guidance, and `run.book-risk` as optional supporting read-only
+  evidence in JSON, human CLI, ordinary `nextActions`, and Studio;
+- agenda and immutable Run input hashes both equal
+  `d3b3032338d7673aae5f604e421000bc426966b81c02388a2de0d9d81f0d1685`,
+  while the distinct Study input hash remains explicit;
+- an independent installed-CLI audit reproduced every handoff/hash assertion,
+  counted one Run and zero Sessions, validated the Project, and proved exact
+  CLI/Studio Work Brief parity;
+- final repository regression: 302/302 tests in 874.499 seconds;
+- documentation graph: 1,059/1,059 checked links;
+- source distribution, wheel build, fresh Python 3.11 install, version,
+  capability discovery, Project validation, orientation, Run inspection, and
+  Studio parity passed with `aq 0.8.14`.
 
 ## `0.8.13` verification snapshot
 
@@ -366,7 +402,7 @@ field-trial surface.
 
 ## Maturity and next use
 
-`0.8.13` is suitable for controlled standalone use and initial OpenAlice desk
+`0.8.14` is suitable for controlled standalone use and initial OpenAlice desk
 integration. It is still pre-`1.0`: public contracts are versioned and strict,
 but the project continues to prefer domain correctness and Agent operability
 over backward compatibility while the product shape settles.

@@ -136,6 +136,11 @@ The fixed Study has no editable candidate and is ready for a direct bounded
 Run. A Session is not offered because there is no selection loop or strategy
 source to optimize.
 
+After that Run is current, orientation has no primary CLI action and tells the
+Agent to write and return the historical decision-support answer.
+`aq run event-study ... --json` remains one supporting read-only evidence path;
+it is not unfinished research.
+
 ## Limitations
 
 - Only daily or other already-validated base-bar OHLCV observations are

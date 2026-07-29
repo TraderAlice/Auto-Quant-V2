@@ -1,5 +1,5 @@
 ---
-version: 0.8.13
+version: 0.8.14
 ---
 
 # AutoQuant V2
@@ -32,7 +32,7 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current milestone: `0.8.13`
+## Current milestone: `0.8.14`
 
 AutoQuant V2 has crossed from an architectural prototype into a usable
 research workbench.
@@ -100,6 +100,19 @@ Session-objective-only, and promotion returns the exact post-mutation Work
 Brief. When terminal evidence blocks downstream science, another Session
 remains available as optional supporting work instead of an unfinished
 primary action.
+
+`0.8.14` follows a fresh Grok coworker through a non-predictive fixed
+Allocation assignment. Completed fixed Book Risk, Price Event, and Allocation
+Studies now have no false mandatory CLI action: orientation explicitly hands
+off to an Agent-owned written answer and keeps the strict Explorer as
+supporting read-only evidence. Descriptive agendas also carry the immutable
+Run's actual Harness-bound input hash.
+
+The installed-wheel retry independently selected the fixed Book Risk route,
+executed exactly one Run with no Session, and verified the same null-primary,
+answer-handoff, Explorer-support, Run-identity, validation, and Studio
+contracts through public CLI surfaces. Repository regression passes all 302
+tests and the documentation graph resolves all 1,059 checked links.
 
 ## Standalone or an OpenAlice desk
 

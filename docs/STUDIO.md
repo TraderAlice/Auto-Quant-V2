@@ -149,8 +149,9 @@ HHI/effective-bet deltas, largest contributor, and primary-window per-asset
 weight/risk-share changes. The rank orders only the supplied books; it does not
 search or select weights. Studio never substitutes Portfolio model targets,
 authenticates a supplied book, optimizes a replacement portfolio, or creates
-an order. Its Handoff card terminates at fixed Run review, reports the supplied
-scenario count, and offers only the read-only Explorer command; it must not
+an order. Its Handoff card terminates at an Agent-owned written answer,
+reports the supplied scenario count, and offers the read-only Explorer only as
+supporting evidence access; it must not
 reuse an iterative template's Session affordance. Use
 `aq run book-risk <path> --run ID --points N --json` for the exact read model.
 
@@ -162,8 +163,8 @@ frozen event clock, sample populations, primary versus unconditional and
 matched-reference comparisons, and every event row including exclusions and
 right censoring. Its Handoff card terminates at read-only Run review and never
 offers a Session, threshold search, event-label inference, Order, or trading
-action. Use `aq run event-study <path> --run ID --json` for the exact read
-model.
+action. The Handoff has no primary CLI task and keeps the Explorer supporting.
+Use `aq run event-study <path> --run ID --json` for the exact read model.
 
 The Portfolio Decision Explorer is a bounded projection, not a browser-side
 CSV reader. Core first verifies the immutable Portfolio artifacts,
@@ -179,8 +180,9 @@ The Portfolio Allocation Explorer is the dedicated fixed construction view.
 Core first verifies and rederives the immutable ERC candidate and complete
 fixed-weight reference paths. Studio shows validation-only comparison, solver
 tolerance and cap-gap counts, latest target/executed/reference weights,
-forecast volatility, and a sampled return path. Its Handoff terminates at
-read-only review and never offers Factor, RL, Session, Order, or trading
+forecast volatility, and a sampled return path. Its Handoff has no primary CLI
+task, explicitly asks the Agent to write and return the answer, keeps the
+Explorer supporting, and never offers Factor, RL, Session, Order, or trading
 actions. Use `aq run allocation <path> --run ID --points N --json` for the
 exact read model.
 

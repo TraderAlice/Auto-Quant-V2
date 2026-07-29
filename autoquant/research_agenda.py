@@ -149,7 +149,7 @@ def descriptive_audit_agenda(
             lane_id=lane_id,
             run={
                 "id": run.result["id"],
-                "inputHash": run.result["studyInputHash"],
+                "inputHash": run.result["inputHash"],
             },
             diagnosis={
                 "stage": "descriptive-audit-complete",

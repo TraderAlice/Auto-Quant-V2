@@ -3825,6 +3825,7 @@ def _orient(args: argparse.Namespace) -> CommandResult:
     focus = brief["focus"]
     filesystem = brief["filesystem"]
     primary = brief["primaryAction"]
+    supporting = brief["supportingActions"]
     agenda = brief["researchAgenda"]
     agenda_move = agenda["moves"][0] if agenda["moves"] else None
     writable = (
@@ -3875,6 +3876,13 @@ def _orient(args: argparse.Namespace) -> CommandResult:
             else (
                 f"Next: {brief['review']['next']}\n"
                 "Effect: Agent-owned preparation; no automatic command\n"
+                + (
+                    f"Supporting: {supporting[0]['display']}\n"
+                    f"Supporting effect: {supporting[0]['effect']} · produces "
+                    f"{supporting[0]['expectedEvidenceKind']}\n"
+                    if supporting
+                    else ""
+                )
             )
         )
     )

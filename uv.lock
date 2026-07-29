@@ -17,7 +17,7 @@ wheels = [
 
 [[package]]
 name = "auto-quant"
-version = "0.8.13"
+version = "0.8.14"
 source = { editable = "." }
 dependencies = [
     { name = "exchange-calendars" },

@@ -59,6 +59,7 @@ EXPECTED_EVIDENCE = {
     "study.inspect": "study-authority",
     "run.book-risk": "book-risk-diagnostics",
     "run.event-study": "event-study-diagnostics",
+    "run.allocation": "allocation-diagnostics",
     "validate": "structural-validation",
 }
 
@@ -1038,7 +1039,7 @@ def _single_study_orientation(
             study.definition.objective.metric
             == "validation_net_sharpe_advantage"
         )
-        primary_raw = _command(
+        explorer_raw = _command(
             (
                 "run.event-study"
                 if event_study
@@ -1078,7 +1079,8 @@ def _single_study_orientation(
             ],
             "read-only",
         )
-        supporting_raw = []
+        primary_raw = None
+        supporting_raw = [explorer_raw]
         reasons = [
             {
                 "code": "descriptive-evidence-ready",
@@ -1240,14 +1242,20 @@ def _single_study_orientation(
                 primary["description"]
                 if primary is not None
                 else (
-                    "Edit one falsifiable candidate hypothesis in the declared worktree closure."
-                    if reasons[0]["code"] == "candidate-edit-required"
+                    "Write and return the decision-support answer from the "
+                    "verified evidence; use the supporting Explorer only when "
+                    "more detail is needed."
+                    if reasons[0]["code"] == "descriptive-evidence-ready"
                     else (
-                        "Revise the candidate to address the failed bounded preflight."
-                        if reasons[0]["code"] == "candidate-check-failed"
+                        "Edit one falsifiable candidate hypothesis in the declared worktree closure."
+                        if reasons[0]["code"] == "candidate-edit-required"
                         else (
-                            "Prepare and publish an exact current Research "
-                            "Report for the KEEP leader before promotion."
+                            "Revise the candidate to address the failed bounded preflight."
+                            if reasons[0]["code"] == "candidate-check-failed"
+                            else (
+                                "Prepare and publish an exact current Research "
+                                "Report for the KEEP leader before promotion."
+                            )
                         )
                     )
                 )

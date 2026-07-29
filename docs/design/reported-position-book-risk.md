@@ -250,11 +250,12 @@ another adjustable asset, create a scenario grid, or turn the historical
 target into an Order.
 
 After the fixed Run, `aq orient` reports
-`descriptive-audit-complete`, points to the read-only
-`aq run book-risk ... --json` command, and creates no experiment agenda.
-The evidence should be explained and returned to the delegating Agent. It
-must not be converted into an optimization Session merely because AutoQuant
-also supports iterative Factor, Portfolio, and RL research.
+`descriptive-audit-complete`, has no primary CLI action, explicitly instructs
+the Agent to explain and return the decision-support answer, retains
+`aq run book-risk ... --json` as supporting read-only evidence access, and
+creates no experiment agenda. It must not be converted into an optimization
+Session merely because AutoQuant also supports iterative Factor, Portfolio,
+and RL research.
 
 ## Explicit limitations
 

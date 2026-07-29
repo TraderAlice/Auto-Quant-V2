@@ -560,7 +560,7 @@ class BookRiskLabTests(unittest.TestCase):
             brief = build_agent_work_brief(project)
             self.assertIn(
                 "target-position sizing evidence",
-                brief["primaryAction"]["description"],
+                brief["supportingActions"][0]["description"],
             )
             studio = build_studio_snapshot(project.root_dir)
             observed = studio["projects"][0]["bookRiskExplorer"]
@@ -687,17 +687,29 @@ class BookRiskLabTests(unittest.TestCase):
 
             brief = build_agent_work_brief(project)
             jsonschema.validate(brief, AGENT_WORK_BRIEF_JSON_SCHEMA)
-            self.assertEqual(brief["primaryAction"]["id"], "run.book-risk")
+            self.assertIsNone(brief["primaryAction"])
             self.assertEqual(
-                brief["primaryAction"]["expectedEvidenceKind"],
+                [item["id"] for item in brief["supportingActions"]],
+                ["run.book-risk"],
+            )
+            self.assertEqual(
+                brief["supportingActions"][0]["expectedEvidenceKind"],
                 "book-risk-diagnostics",
             )
             self.assertEqual(brief["review"]["status"], "complete")
+            self.assertIn(
+                "Write and return the decision-support answer",
+                brief["review"]["next"],
+            )
             self.assertEqual(
                 brief["researchAgenda"]["status"],
                 "descriptive-audit-complete",
             )
             self.assertEqual(brief["researchAgenda"]["moves"], [])
+            self.assertEqual(
+                brief["researchAgenda"]["run"]["inputHash"],
+                run.result["inputHash"],
+            )
             self.assertEqual(
                 brief["authority"]["researchAuthority"],
                 "fixed-descriptive-audit",

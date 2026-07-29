@@ -208,6 +208,13 @@ truthful stopping point, not a prohibition on further research. The first
 Session after an unqualified baseline remains primary because no bounded
 attempt has yet completed.
 
+After a fixed Book Risk, Price Event, or Allocation Study has current
+successful evidence, `observe` likewise has no primary action. `review.next`
+instructs the Agent to write and return the decision-support answer; the exact
+verified Explorer remains supporting read-only evidence access. Markdown
+authoring and outward communication remain Agent-owned work, so Core does not
+invent a `review.write-*` command.
+
 ## Filesystem authority
 
 The distinction between ownership and current edit authority is explicit.
@@ -325,6 +332,9 @@ Judge authority.
     their verified contracts say otherwise.
 16. Promotion returns the exact post-mutation Work Brief, and terminal blocked
     evidence makes further research optional rather than implicitly required.
+17. Completed fixed Studies have no mandatory CLI action; answer authoring is
+    explicit review guidance and their Explorer is optional supporting
+    evidence.
 
 ## Known limitations
 

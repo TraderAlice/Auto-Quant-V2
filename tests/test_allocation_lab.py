@@ -19,6 +19,7 @@ from autoquant.allocation_policies import (
     load_allocation_contract,
 )
 from autoquant.briefs import validate_research_request
+from autoquant.orientation import build_agent_work_brief
 from autoquant.project_templates.ohlcv_allocation_lab.allocation_core import (
     construct_erc_targets,
     solve_equal_risk_contribution,
@@ -244,6 +245,37 @@ class AllocationLabTests(unittest.TestCase):
             self.assertEqual(
                 observed["allocationExplorer"]["run"]["id"],
                 run.result["id"],
+            )
+            self.assertIsNone(
+                observed["agentWorkBrief"]["primaryAction"]
+            )
+            self.assertIn(
+                "run.allocation",
+                {command["id"] for command in observed["commands"]},
+            )
+            brief = build_agent_work_brief(project)
+            self.assertIsNone(brief["primaryAction"])
+            self.assertEqual(brief["focus"]["operatingMode"], "observe")
+            self.assertEqual(brief["review"]["status"], "complete")
+            self.assertIn(
+                "Write and return the decision-support answer",
+                brief["review"]["next"],
+            )
+            self.assertEqual(
+                [item["id"] for item in brief["supportingActions"]],
+                ["run.allocation"],
+            )
+            self.assertEqual(
+                brief["supportingActions"][0]["effect"],
+                "read-only",
+            )
+            self.assertEqual(
+                brief["supportingActions"][0]["expectedEvidenceKind"],
+                "allocation-diagnostics",
+            )
+            self.assertEqual(
+                brief["researchAgenda"]["run"]["inputHash"],
+                run.result["inputHash"],
             )
             self.assertTrue(observed["valid"])
 

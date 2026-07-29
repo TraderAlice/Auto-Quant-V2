@@ -111,6 +111,11 @@ reference weights, component-risk shares, parity error, the end-of-dataset
 drifted book, whether an ordinary rebalance is due, and validation-only
 conclusion authority. Studio consumes the same strict read model.
 
+After the current fixed Run succeeds, orientation has no primary CLI action
+and explicitly hands off to an Agent-owned written answer. The Allocation
+Explorer remains one supporting read-only action for evidence inspection; it
+does not imply another construction or evaluation is required.
+
 Latest weights are mechanical historical research targets. They are not
 authenticated holdings, Orders, TPSL instructions, future-volatility
 guarantees, or trading authority.

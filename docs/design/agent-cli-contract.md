@@ -156,6 +156,15 @@ scientific gate, orientation has no primary action and keeps a new
 that exact command explicitly. A weak initial baseline without prior terminal
 research continues to present its first Session as primary work.
 
+A successful current fixed Book Risk, Price Event, or Allocation Study is also
+terminal. Orientation has no primary CLI action, puts the Agent-owned
+write/return instruction in `review.next`, and retains the exact strict
+Explorer as one supporting read-only action. The standard envelope therefore
+keeps that Explorer in `nextActions` for optional evidence access without
+claiming more research is required. Human orientation prints both the
+Agent-owned next step and the first supporting command; no fake write command
+or operation effect is introduced.
+
 ## CLI-to-Studio flow
 
 ```text

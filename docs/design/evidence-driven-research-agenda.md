@@ -93,8 +93,9 @@ Every work brief contains:
 - `unsupported-study` when the Study metric has no agenda recipe;
 - `no-further-in-sample-tuning` when positive evidence calls for a frozen
   candidate plus fresh external holdout rather than another validation edit.
-- `descriptive-audit-complete` when a fixed Book Risk Run is ready for review
-  and no optimization agenda is authorized.
+- `descriptive-audit-complete` when a fixed Book Risk, Price Event, or
+  Allocation Run is ready for answer handoff and no optimization agenda is
+  authorized.
 
 `moves` contains at most three entries. Ordering is fixed by Core. A move is
 not an `AgentWorkBrief.primaryAction`: it cannot mutate state and has no
@@ -103,11 +104,14 @@ Session, Check, Experiment, Report, promotion, and completion transitions.
 Waiting agendas declare `authority.source: none`; they never imply that a
 missing Run was verified.
 
-A completed descriptive audit binds its verified Run, carries no moves, and
-uses `prioritization: none`, `selectionSplit: none`, and
-`testRole: lookback-and-rolling-context`. It prevents the Agent from
-misreading a finished holdings diagnosis as missing Factor/Portfolio/RL
-evidence or manufacturing a candidate optimization.
+A completed descriptive audit binds its verified Run and exact
+Harness-bound `run.inputHash`, carries no moves, and uses
+`prioritization: none` and `selectionSplit: none` because it authorizes no
+further candidate choice. Its template-specific test role describes the
+evidence context; the strict Explorer separately retains any fixed result
+selection contract, such as Allocation validation versus visible-test audit.
+It prevents the Agent from misreading a finished fixed result as missing
+Factor/Portfolio/RL evidence or manufacturing a candidate optimization.
 
 The work-brief hash covers the agenda. Studio and `aq orient` consume the exact
 Core object; neither recreates move selection.

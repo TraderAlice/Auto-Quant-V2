@@ -210,9 +210,12 @@ first-principal-component crowding, held-asset correlations, fixed-lookback
 stability, one-percentage-point cash-funded reduction sensitivities, and
 same-window deltas for every supplied scenario.
 It does not authenticate an account, replace the supplied weights with model
-targets, generate or optimize scenarios, or create orders. After the Run, `orient`
-closes the descriptive audit and points to its read-only Explorer instead of
-starting an experiment agenda. See
+targets, generate or optimize scenarios, or create orders. After the Run,
+`orient` closes the descriptive audit with no primary CLI action, tells the
+Agent to write and return the decision-support answer, and retains the exact
+read-only Explorer as a supporting evidence path instead of starting an
+experiment agenda. Price Event and Allocation fixed Studies use the same
+completion handoff. See
 [[docs/design/reported-position-book-risk]].
 
 `ohlcv-event-study-lab` is the fixed descriptive route for a caller-frozen,
@@ -450,6 +453,14 @@ performance, costs, turnover, caps, gross exposure, volatility breaches,
 solver counts, latest weights, and validation-only conclusion. It samples
 40–400 path points only after full reconciliation and carries no account,
 Order, or trading authority.
+
+For every completed fixed Book Risk, Price Event, or Allocation Study,
+`aq orient` returns `primaryAction: null`, `review.status: complete`, and an
+Agent-owned write/return instruction. The corresponding strict Explorer is one
+supporting read-only action and therefore remains in JSON `nextActions`,
+Studio commands, and human output without masquerading as unfinished work.
+The descriptive agenda's `run.inputHash` is the immutable Run's exact
+Harness-bound input hash, not its separate Study input hash.
 
 `run factor` is the corresponding bounded professional tear sheet for a
 successful fixed Factor Lab Run. Core verifies the immutable report, daily

@@ -496,6 +496,65 @@ class AgentCliTests(unittest.TestCase):
             self.assertIn("Executed book:", human.stdout)
             self.assertIn("contextual only", human.stdout)
 
+    def test_fixed_allocation_completion_hands_off_to_agent_answer(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Path(directory) / "workspace"
+            initialized = run_cli(
+                "workspace",
+                "init",
+                str(workspace),
+                "--json",
+            )
+            self.assertEqual(initialized.returncode, 0, initialized.stderr)
+            created = run_cli(
+                "project",
+                "create",
+                str(workspace),
+                "allocation-completion",
+                "--template",
+                "ohlcv-allocation-lab",
+                "--json",
+            )
+            self.assertEqual(created.returncode, 0, created.stderr)
+            project = Path(json_output(created)["data"]["projectDir"])
+            executed = run_cli(
+                "run",
+                "execute",
+                str(project),
+                "--study",
+                "ohlcv-risk-parity-allocation",
+                "--json",
+            )
+            self.assertEqual(executed.returncode, 0, executed.stderr)
+
+            oriented = run_cli("orient", str(project), "--json")
+
+            self.assertEqual(oriented.returncode, 0, oriented.stderr)
+            envelope = json_output(oriented)
+            self.assertIsNone(envelope["data"]["primaryAction"])
+            self.assertEqual(
+                [item["id"] for item in envelope["data"]["supportingActions"]],
+                ["run.allocation"],
+            )
+            self.assertEqual(
+                [item["id"] for item in envelope["nextActions"]],
+                ["run.allocation"],
+            )
+
+            human = run_cli("orient", str(project))
+
+            self.assertEqual(human.returncode, 0, human.stderr)
+            self.assertIn(
+                "Next: Write and return the decision-support answer",
+                human.stdout,
+            )
+            self.assertIn("Supporting: aq run allocation", human.stdout)
+            self.assertIn(
+                "Supporting effect: read-only · produces "
+                "allocation-diagnostics",
+                human.stdout,
+            )
+
     def test_cli_constructs_rl_factor_lab_with_correct_next_actions(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             workspace = Path(directory) / "workspace"
