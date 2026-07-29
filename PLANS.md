@@ -18,9 +18,7 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-| Plan | Outcome | Updated |
-| --- | --- | --- |
-| [[plans/global-etf-calendar-month-allocation]] | Test whether AutoQuant can preserve a calendar-month diversified ETF allocation request through Factor gating and, when justified, a current target-weight handoff. | 2026-07-29 |
+There are no active plans.
 
 ## Proposed plans
 
@@ -36,6 +34,7 @@ There are no proposed plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/global-etf-calendar-month-allocation]] | Preserved one official XNYS calendar-month diversified ETF request through a clean Factor-to-Portfolio handoff and immutable Dossier, with governed RL retained as a bounded optional lane. | 2026-07-29 |
 | [[plans/gold-dollar-hourly-field-trial]] | Added and field-tested observed-only intraday mixed-class Factor research for an hourly gold-futures timing question with dollar context, without inventing contract or execution semantics. | 2026-07-29 |
 | [[plans/ohlcv-event-reaction-field-trial]] | Added and field-tested one fixed OHLCV price-event route with strict ledger/reference evidence and no trading authority. | 2026-07-29 |
 | [[plans/reported-book-one-leg-risk-sizing]] | Derived the minimum caller-authorized one-leg reduction to satisfy a fixed historical volatility budget and completed a clean Yahoo field trial. | 2026-07-28 |

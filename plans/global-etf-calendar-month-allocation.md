@@ -1,6 +1,6 @@
 # Global ETF calendar-month allocation field trial
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-07-29`
 - Related design: [[docs/design/agent-native-quant-workbench]],
   [[docs/design/research-intake-and-dataset-snapshots]],
@@ -72,7 +72,7 @@ dataset start.
   CLI, and Studio.
 - [x] A bounded real-data Project terminates with verified Factor/Portfolio
   evidence or a scientifically useful gate.
-- [ ] Tests, docs, package smoke, versioning, commit/push, and repository
+- [x] Tests, docs, package smoke, versioning, commit/push, and repository
   cleanliness pass in proportion to the change.
 
 ## Work
@@ -82,7 +82,7 @@ dataset start.
 - [x] Reproduce the current public boundary.
 - [x] Implement only field-proven reusable changes.
 - [x] Execute and interpret the field trial before the clean release replay.
-- [ ] Complete release or explicit-boundary audit and close the plan.
+- [x] Complete release or explicit-boundary audit and close the plan.
 
 ## Findings and decisions
 
@@ -134,8 +134,10 @@ dataset start.
 - Public `aq project intake ... --template ohlcv-research-desk --json`
   returned `validation.failed` for the exact calendar schedule fields and
   created no Project directory.
-- Upgraded public intake created
-  `global-etf-calendar-month-allocation-v083` with the exact schedule.
+- Upgraded public intake created the development Project
+  `global-etf-calendar-month-allocation-v083` and the final clean `0.8.4`
+  Project `global-etf-calendar-month-allocation-v084-clean` with the exact
+  schedule.
 - Factor Run `run-20260728T214548865583Z-6d94dc9a5d0f` completed in 53,866 ms
   with primary validation IC `0.031360`.
 - Portfolio Run `run-20260728T214656702102Z-02e5fa470a22` completed in
@@ -162,6 +164,20 @@ dataset start.
 - Fresh `0.8.4` Python 3.11 wheel smoke: 48 public commands, both schedule
   variants in the request schema, and June-eligible/July-incomplete mask
   behavior under Pandas 3.
+- Clean `0.8.4` Factor Session
+  `session-20260729T000836238795Z-12d4ca3c2aec` retained immutable Run
+  `run-20260729T000742645386Z-30f73195760d` in 53,573 ms and completed with
+  Report `report-20260729T000902597899Z-ea1d9d4302ca`. A preceding clean
+  attempt reached the unchanged 60,007 ms Factor budget under transient load;
+  the same-budget retry succeeded, so no timeout was enlarged.
+- Clean `0.8.4` Portfolio Session
+  `session-20260729T001129143498Z-f04f185ace2f` retained immutable Run
+  `run-20260729T000928242410Z-4e79dca7ea8e` in 120,829 ms and completed with
+  Report `report-20260729T001155012880Z-4b9a60cfdf05`.
+- Dossier `dossier-20260729T001358357987Z-20a64c271a82` published over the two
+  completed clean Reports. Strict Project validation, Dossier reload, and the
+  direct Project Studio snapshot all pass with no diagnostics and
+  `valid: true`.
 
 ## Progress log
 
@@ -175,11 +191,21 @@ dataset start.
   scheduling. Raised one evidence byte limit and corrected one
   diagnostic-versus-executed-risk Explorer assumption only after the real Run
   demonstrated each need.
-- 2026-07-29 — Published a Factor handoff from the dirty development Harness.
-  A later Portfolio report-rendering fix correctly made the open Session
-  Harness-stale. Final Reports/Dossier will therefore be replayed only after
-  the `0.8.3` code is tested and committed cleanly.
+- 2026-07-29 — Released and pushed `v0.8.3` for the calendar contract, then
+  released and pushed the narrowly scoped canonical Report-order fix as
+  `v0.8.4`.
+- 2026-07-29 — Replayed Factor and Portfolio on one fresh `0.8.4` Project,
+  completed both Sessions, published the cross-lane Dossier, and verified the
+  Project through strict validation, immutable reload, and Studio.
 
 ## Completion
 
-Pending.
+Completed on 2026-07-29. AutoQuant now preserves one caller-owned official
+XNYS calendar-month schedule from request through Mandate, Portfolio and
+governed-RL mechanics, evidence, Reports, Dossiers, CLI, and Studio. The clean
+field trial returns a bounded Factor-to-Portfolio handoff with an explicit
+incomplete-month hold, while the optional full-history RL lane remains an
+honest 120-second capacity boundary. Releases `v0.8.3` and `v0.8.4`, the full
+266-test regression, fresh-wheel smoke, clean Project, and immutable Dossier
+provide the closing evidence. No account, Order, TPSL, Broker, or trading
+authority was added.
