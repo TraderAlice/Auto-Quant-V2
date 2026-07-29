@@ -1,5 +1,5 @@
 ---
-version: 0.8.14
+version: 0.8.15
 ---
 
 # AutoQuant V2
@@ -32,7 +32,7 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current milestone: `0.8.14`
+## Current milestone: `0.8.15`
 
 AutoQuant V2 has crossed from an architectural prototype into a usable
 research workbench.
@@ -108,11 +108,25 @@ off to an Agent-owned written answer and keeps the strict Explorer as
 supporting read-only evidence. Descriptive agendas also carry the immutable
 Run's actual Harness-bound input hash.
 
-The installed-wheel retry independently selected the fixed Book Risk route,
-executed exactly one Run with no Session, and verified the same null-primary,
-answer-handoff, Explorer-support, Run-identity, validation, and Studio
-contracts through public CLI surfaces. Repository regression passes all 302
-tests and the documentation graph resolves all 1,059 checked links.
+`0.8.15` follows a fresh Grok coworker into an editable multi-horizon Factor
+assignment. Factor handoffs now disclose the Project's actual base clock,
+available completed feature intervals, panel columns, component metadata
+fields, and legal roles before source is edited. Bounded preflight validates
+static component metadata before running the final factor, and a
+baseline-restored Session now follows a verified freeze/external-holdout
+agenda instead of simultaneously demanding another in-sample edit.
+
+The installed-wheel retry saw the teaching Project's exact daily base-only
+surface before editing, explicitly downgraded the unavailable multi-hour
+hypothesis, used one legal `cross-sectional-score` component, passed one
+preflight, and spent exactly one Experiment. The three-bar pullback REVERTed
+from validation net Sharpe `1.7614` to `-2.0367`; no promotion occurred and
+the final Work Brief cleanly froze the restored baseline for external
+evidence.
+
+Repository regression passes all 304 tests, the documentation graph resolves
+all 1,064 checked links, and the final source/wheel installation reproduces
+the same candidate contract across CLI and Studio.
 
 ## Standalone or an OpenAlice desk
 

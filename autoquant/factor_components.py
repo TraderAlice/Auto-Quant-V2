@@ -148,6 +148,14 @@ def _metadata(module: Any) -> dict[str, dict[str, Any]] | None:
     return normalized
 
 
+def validate_factor_component_metadata(
+    module: Any,
+) -> dict[str, dict[str, Any]] | None:
+    """Validate optional static component declarations before candidate execution."""
+
+    return _metadata(module)
+
+
 def compute_factor_components(
     module: Any,
     panel: pd.DataFrame,

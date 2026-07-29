@@ -139,7 +139,7 @@ CLI_COMMANDS = [
     ),
     descriptor(
         "schema",
-        "aq schema [workspace|project|agent-work-brief|research-agenda|holdout-binding|holdout-result|holdout-status|study|judge-output|run-result|factor-claim|factor-diagnostics|event-study-policy|event-study-diagnostics|allocation-policy|allocation-diagnostics|book-risk-diagnostics|portfolio-diagnostics|research-program-status|rl-policy-diagnostics|session-decision-matrix|session|session-completion|candidate-preflight|candidate-check-output|candidate-check-result|portfolio-mandate|research-horizon|experiment|research-request|ohlcv-dataset-package|report-analysis|dossier-analysis|dossier-result|dossier-status|researcher-response|campaign-result|campaign-progress|studio-snapshot] [--json]",
+        "aq schema [workspace|project|agent-work-brief|research-agenda|holdout-binding|holdout-result|holdout-status|study|judge-output|run-result|factor-claim|factor-candidate-contract|factor-diagnostics|event-study-policy|event-study-diagnostics|allocation-policy|allocation-diagnostics|book-risk-diagnostics|portfolio-diagnostics|research-program-status|rl-policy-diagnostics|session-decision-matrix|session|session-completion|candidate-preflight|candidate-check-output|candidate-check-result|portfolio-mandate|research-horizon|experiment|research-request|ohlcv-dataset-package|report-analysis|dossier-analysis|dossier-result|dossier-status|researcher-response|campaign-result|campaign-progress|studio-snapshot] [--json]",
         "List or emit canonical AutoQuant JSON Schemas.",
         "read-only",
         [
@@ -160,6 +160,7 @@ CLI_COMMANDS = [
                     "study",
                     "judge-output",
                     "run-result",
+                    "factor-candidate-contract",
                     "factor-diagnostics",
                     "factor-claim",
                     "event-study-policy",

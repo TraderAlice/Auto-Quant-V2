@@ -20,6 +20,7 @@ aq schema research-request --json
 aq schema ohlcv-dataset-package --json
 aq schema report-analysis --json
 aq schema factor-diagnostics --json
+aq schema factor-candidate-contract --json
 aq schema factor-claim --json
 aq schema event-study-policy --json
 aq schema event-study-diagnostics --json
@@ -111,6 +112,15 @@ most one primary command with working directory, effect, and expected evidence
 kind. When the next step is an Agent-owned source edit or Report analysis
 rather than an executable Core operation, JSON keeps `primaryAction` null and
 the human/JSON review text states that exact preparation step.
+For a focused editable Factor Study, `candidateContract` states the actual
+Project base interval, available completed feature intervals, full panel
+column inventory, factor API, component metadata fields, and the only legal
+roles: `cross-sectional-score` and `timestamp-context`. A legacy teaching
+Project therefore says `baseInterval: 1d` and `featureIntervals: []`; an
+intake-bound multi-interval Project lists its exact locked surface. Agents must
+not infer higher-interval availability from conditional template branches or
+component declarations; the contract carries this availability rule
+explicitly.
 Question provenance is explicit: delegated intake returns
 `origin: delegated-request`; otherwise a strict Project request returns
 `origin: project-request` only when a fixed Study dependency binds its exact
@@ -355,6 +365,11 @@ aq run rl <path> --run ID \
 the selected Project's `data/` directory and binds matching file bytes into
 Study and Run identity.
 
+For a Study that edits `factors/**`, `study inspect` returns the same strict
+`candidateContract` used by orientation. Human output prints its base
+interval, completed feature intervals, interval-authority rule, and legal
+component roles before input identity.
+
 `--dependency` is optional and repeatable. It declares fixed Project-relative
 strategy/factor/model source that the Judge may import but the Study cannot
 edit. Dependency files are separately hashed, frozen into Run inputs, copied
@@ -565,6 +580,10 @@ no selection, promotion, or trading authority. It never creates a Run or
 Experiment, advances the sequence, restores source, or changes the leader.
 Failure leaves the candidate in place for repair. A later edit makes the old
 Check stale.
+Factor preflight validates static `FACTOR_COMPONENTS` metadata before
+executing the final factor, so an illegal role is rejected without spending a
+formal Experiment. The same edit-time shape is independently discoverable
+through `aq schema factor-candidate-contract --json`.
 
 `aq orient` uses this feedback tier when present: unchanged candidate asks for
 an edit; a changed unchecked candidate points to `session.check`; a failed
@@ -579,12 +598,18 @@ evidence, and returns `KEEP`, `REVERT`, or `CRASH`. REVERT and CRASH restore the
 leader bytes in the worktree. Its CLI envelope also returns
 `verdictAuthority.scope: session-objective-only` and explicitly denies
 scientific qualification, downstream admission, and trading authority. A
-`KEEP` means only that the candidate improved the locked Session objective.
 `experiment show` repeats the same authority object and human disclosure for a
 replacement Agent inspecting immutable history. `session promote` is the only
 operation that copies a KEEP into Project source; it rejects a stale Project
 base and rolls back if the source, receipt, and Session pointer cannot all be
 committed.
+
+When REVERT or CRASH restores an unchanged baseline after at least one trial
+and the verified Portfolio agenda says `no-further-in-sample-tuning`,
+orientation returns `in-sample-freeze-ready`, observe mode, no primary edit
+action, and a supporting read-only `session.show`. It does not close the
+Session or forbid explicit new research; it stops presenting more in-sample
+tuning as the default next step.
 
 `session complete` is the no-promotion terminal path for a delegated lane whose
 leader remains its baseline. The caller selects the exact current Report.

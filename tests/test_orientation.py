@@ -18,11 +18,80 @@ from autoquant.studies import create_study
 from autoquant.studio import build_studio_snapshot
 from autoquant.templates import OHLCV_STUDY_ID
 from autoquant.workspace import create_project, initialize_workspace
-from tests.intake_helpers import write_intake_inputs
+from tests.intake_helpers import (
+    write_intake_inputs,
+    write_multi_interval_inputs,
+)
 from tests.study_helpers import make_project, study_definition
 
 
 class AgentOrientationTests(unittest.TestCase):
+    def test_factor_candidate_contract_discloses_actual_interval_surface(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workspace = initialize_workspace(root / "workspace")
+            legacy = create_project(
+                workspace.root_dir,
+                "legacy-portfolio",
+                template="ohlcv-portfolio-lab",
+            )
+
+            legacy_contract = build_agent_work_brief(legacy)[
+                "candidateContract"
+            ]
+
+            self.assertEqual(legacy_contract["data"]["baseInterval"], "1d")
+            self.assertEqual(legacy_contract["data"]["featureIntervals"], [])
+            self.assertIn(
+                "source branches and component declarations do not add",
+                legacy_contract["data"]["availabilityRule"],
+            )
+            self.assertEqual(
+                legacy_contract["components"]["roles"],
+                ["cross-sectional-score", "timestamp-context"],
+            )
+            self.assertNotIn(
+                "close__12h",
+                legacy_contract["data"]["panelColumns"],
+            )
+
+            multi_root = root / "multi"
+            multi_root.mkdir()
+            request_path, package_path = write_multi_interval_inputs(
+                multi_root,
+            )
+            prepared = prepare_project_intake(
+                request_path,
+                package_path,
+                "ohlcv-portfolio-lab",
+            )
+            multi = create_project(
+                workspace.root_dir,
+                "multi-portfolio",
+                template=prepared.template,
+                template_intake=prepared,
+            )
+
+            multi_contract = build_agent_work_brief(multi)[
+                "candidateContract"
+            ]
+
+            jsonschema.validate(
+                build_agent_work_brief(multi),
+                AGENT_WORK_BRIEF_JSON_SCHEMA,
+            )
+            self.assertEqual(multi_contract["data"]["baseInterval"], "1h")
+            self.assertEqual(
+                multi_contract["data"]["featureIntervals"],
+                ["3h", "4h", "6h", "12h", "1d"],
+            )
+            self.assertIn(
+                "close__12h",
+                multi_contract["data"]["panelColumns"],
+            )
+
     def test_fixed_template_surfaces_dependency_bound_project_request(
         self,
     ) -> None:
@@ -379,6 +448,82 @@ Do not include this sibling section.
                 str(project.root_dir),
             )
 
+    def test_crash_restored_strong_baseline_honors_freeze_agenda(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = initialize_workspace(Path(directory) / "workspace")
+            project = create_project(
+                workspace.root_dir,
+                "freeze-portfolio",
+                template="ohlcv-portfolio-lab",
+            )
+            execute_study(project, "ohlcv-portfolio-quality")
+            session = start_session(project, "ohlcv-portfolio-quality")
+            before_trial = build_agent_work_brief(project)
+            self.assertEqual(
+                before_trial["reasons"][0]["code"],
+                "candidate-edit-required",
+            )
+            self.assertIn(
+                "explicitly predeclared bounded alternative",
+                before_trial["reasons"][0]["message"],
+            )
+            self.assertIn(
+                "does not authorize open-ended tuning",
+                before_trial["reasons"][0]["message"],
+            )
+            candidate = (
+                session.worktree_project.root_dir
+                / "factors"
+                / "candidate.py"
+            )
+            candidate.write_text(
+                "import pandas as pd\n\n"
+                "FACTOR_COMPONENTS = {\n"
+                "    'pullback': {\n"
+                "        'label': 'Pullback',\n"
+                "        'role': 'context-state',\n"
+                "        'intervals': ['base'],\n"
+                "        'hypothesis': 'Short returns reverse.',\n"
+                "    },\n"
+                "}\n\n"
+                "def compute_factor(panel):\n"
+                "    return -panel.groupby('asset', sort=False)"
+                "['close'].pct_change(fill_method=None)\n\n"
+                "def compute_factor_components(panel):\n"
+                "    return pd.DataFrame({'pullback': panel['close']}, "
+                "index=panel.index)\n",
+                encoding="utf-8",
+            )
+            experiment = evaluate_experiment(
+                project,
+                session.manifest["id"],
+                "Test one invalid declaration fixture.",
+            )
+            self.assertEqual(experiment.result["verdict"], "CRASH")
+
+            brief = build_agent_work_brief(project)
+
+            jsonschema.validate(brief, AGENT_WORK_BRIEF_JSON_SCHEMA)
+            self.assertEqual(
+                brief["researchAgenda"]["status"],
+                "no-further-in-sample-tuning",
+            )
+            self.assertEqual(
+                brief["reasons"][0]["code"],
+                "in-sample-freeze-ready",
+            )
+            self.assertIsNone(brief["primaryAction"])
+            self.assertEqual(
+                [item["id"] for item in brief["supportingActions"]],
+                ["session.show"],
+            )
+            self.assertEqual(brief["focus"]["operatingMode"], "observe")
+            self.assertEqual(brief["review"]["status"], "complete")
+            self.assertIn(
+                "freeze the current source",
+                brief["review"]["next"],
+            )
+
     def test_settled_keep_routes_to_primary_promotion_before_another_edit(
         self,
     ) -> None:
@@ -402,7 +547,7 @@ Do not include this sibling section.
             jsonschema.validate(settled, AGENT_WORK_BRIEF_JSON_SCHEMA)
             self.assertEqual(
                 settled["method"],
-                "verified-project-agent-orientation-v6",
+                "verified-project-agent-orientation-v7",
             )
             self.assertEqual(
                 [item["code"] for item in settled["reasons"]],

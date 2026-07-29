@@ -9,6 +9,10 @@ from pathlib import Path
 from typing import Any
 
 from .briefs import load_research_request
+from .candidate_contracts import (
+    FACTOR_CANDIDATE_CONTRACT_JSON_SCHEMA,
+    build_candidate_contract,
+)
 from .checks import candidate_check_state
 from .dossiers import load_dossier_status
 from .intake import load_project_intake
@@ -22,13 +26,18 @@ from .research_agenda import (
 from .research_program import load_research_program
 from .reports import list_reports
 from .runs import list_runs, load_run
-from .sessions import list_sessions, load_session, session_snapshot
+from .sessions import (
+    list_experiments,
+    list_sessions,
+    load_session,
+    session_snapshot,
+)
 from .studies import StudySummary, hash_json, list_studies, load_study
 from .workspace import SCHEMA_VERSION, ProjectContext
 
 
 AGENT_WORK_BRIEF_KIND = "autoquant-agent-work-brief"
-AGENT_WORK_BRIEF_METHOD = "verified-project-agent-orientation-v6"
+AGENT_WORK_BRIEF_METHOD = "verified-project-agent-orientation-v7"
 MAX_RESEARCH_QUESTION_CHARS = 4_000
 PROTECTED_CATEGORIES = [
     "request",
@@ -1461,6 +1470,102 @@ def build_agent_work_brief(project: ProjectContext) -> dict[str, Any]:
             editable_paths=projected["filesystem"]["declaredEditablePaths"],
         )
     )
+    freeze_session_id = projected["evidence"]["sessionId"]
+    freeze_session = (
+        load_session(project, freeze_session_id)
+        if freeze_session_id is not None
+        else None
+    )
+    freeze_experiments = (
+        list_experiments(project, freeze_session)
+        if freeze_session is not None
+        else []
+    )
+    if (
+        research_agenda["status"] == "no-further-in-sample-tuning"
+        and projected["reasons"][0]["code"] == "candidate-edit-required"
+        and freeze_session is not None
+        and not freeze_experiments
+    ):
+        guidance = (
+            "The diagnostic agenda favors freezing the current leader; "
+            "Session edit authority may evaluate an explicitly predeclared "
+            "bounded alternative, but does not authorize open-ended tuning."
+        )
+        projected["reasons"][0]["message"] = (
+            f"{projected['reasons'][0]['message']} {guidance}"
+        )
+        projected["review"]["detail"] = projected["reasons"][0]["message"]
+        projected["review"]["next"] = (
+            "Proceed only with an explicitly predeclared bounded alternative, "
+            "or freeze now; do not treat Session writability as authority for "
+            "open-ended tuning."
+        )
+    if (
+        research_agenda["status"] == "no-further-in-sample-tuning"
+        and projected["reasons"][0]["code"] == "candidate-edit-required"
+        and projected["primaryAction"] is None
+        and freeze_session is not None
+        and bool(freeze_experiments)
+    ):
+        supporting = [
+            _action(
+                _command(
+                    "session.show",
+                    "Inspect the baseline-restored Session and immutable trial history.",
+                    [
+                        "aq",
+                        "session",
+                        "show",
+                        str(project.root_dir),
+                        "--session",
+                        freeze_session_id,
+                        "--json",
+                    ],
+                    "read-only",
+                ),
+                working_directory=project.root_dir,
+            )
+        ]
+        rationale = (
+            research_agenda["moves"][0]["rationale"]
+            if research_agenda["moves"]
+            else research_agenda["reason"]
+        )
+        projected["primaryAction"] = None
+        projected["supportingActions"] = supporting
+        projected["reasons"] = [
+            {
+                "code": "in-sample-freeze-ready",
+                "category": "scientific",
+                "message": rationale,
+            }
+        ]
+        projected["focus"]["coordinationPhase"] = "freeze-ready"
+        projected["focus"]["operatingMode"] = "observe"
+        projected["review"] = {
+            "status": "complete",
+            "label": "IN SAMPLE FREEZE READY",
+            "title": "Current evidence is ready for an external challenge",
+            "detail": rationale,
+            "next": (
+                "Write and return the decision-support answer; freeze the "
+                "current source and use fresh external evidence for any "
+                "production claim."
+            ),
+            "boundary": (
+                "validation selects · visible test audits · no trading authority"
+            ),
+        }
+    focus_study_id = projected["focus"]["studyId"]
+    candidate_contract = (
+        build_candidate_contract(
+            project,
+            load_study(project, focus_study_id),
+        )
+        if focus_study_id is not None
+        else None
+    )
     return {
         "schemaVersion": SCHEMA_VERSION,
         "kind": AGENT_WORK_BRIEF_KIND,
@@ -1471,6 +1576,7 @@ def build_agent_work_brief(project: ProjectContext) -> dict[str, Any]:
             "rootDir": str(project.root_dir),
         },
         "question": _question_projection(project, intake, studies),
+        "candidateContract": candidate_contract,
         "researchAgenda": research_agenda,
         "externalHoldout": holdout,
         **projected,
@@ -1523,6 +1629,7 @@ AGENT_WORK_BRIEF_JSON_SCHEMA: dict[str, Any] = {
         "method",
         "project",
         "question",
+        "candidateContract",
         "focus",
         "evidence",
         "reasons",
@@ -1572,6 +1679,12 @@ AGENT_WORK_BRIEF_JSON_SCHEMA: dict[str, Any] = {
                 "sourcePath": {"type": ["string", "null"]},
                 "requestPath": {"type": ["string", "null"]},
             },
+        },
+        "candidateContract": {
+            "oneOf": [
+                FACTOR_CANDIDATE_CONTRACT_JSON_SCHEMA,
+                {"type": "null"},
+            ]
         },
         "focus": {
             "type": "object",

@@ -98,6 +98,15 @@ execute, promote, or trade. Studio consumes the exact same object and Core
 hash rather than deriving a competing research decision or experiment order
 in JavaScript. See [[docs/design/evidence-driven-research-agenda]].
 
+For a focused editable Factor Study, the same brief carries one strict
+`candidateContract`. It projects the verified Project's actual base interval,
+completed feature intervals, panel columns, factor API, component metadata
+fields, and legal component roles. `study inspect` returns the identical
+object, `aq schema factor-candidate-contract` publishes its schema, and Studio
+renders it from the hashed brief. Conditional candidate code never grants
+columns absent from this contract; the contract states that source branches
+and component declarations do not add panel inputs.
+
 The positional path may also be a newly materialized Session worktree. Core
 accepts that re-entry only when the worktree's strict marker is present in the
 owning Session's fixed inventory and its Project id, Session id, ancestor
@@ -155,6 +164,13 @@ scientific gate, orientation has no primary action and keeps a new
 `session.start` only as optional supporting work. The Agent can still invoke
 that exact command explicitly. A weak initial baseline without prior terminal
 research continues to present its first Session as primary work.
+
+For a single Portfolio Study, a baseline-restored active Session with at least
+one immutable trial and a verified `no-further-in-sample-tuning` agenda is
+also terminal by default. Orientation returns
+`in-sample-freeze-ready`, observe mode, null primary action, and only
+read-only Session inspection as support. Core neither closes the Session nor
+infers a caller trial budget; an explicit new mandate may still continue it.
 
 A successful current fixed Book Risk, Price Event, or Allocation Study is also
 terminal. Orientation has no primary CLI action, puts the Agent-owned

@@ -98,7 +98,10 @@ The first viewport prioritizes:
   id/status without granting selection or trading authority; after KEEP it
   distinguishes a settled leader from a newer worktree edit, makes executable
   guarded promotion primary only for the settled leader, and preserves the
-  delegated Report gate;
+  delegated Report gate; for a focused Factor edit it also renders the exact
+  base interval, completed feature intervals, interval-authority rule, and
+  legal component roles from Core's `candidateContract`, never from browser
+  inference;
 - a Research Agenda directly beneath the decision surface, rendering the exact
   Core-ordered Factor, Portfolio, or governed-RL experiment briefs from that
   same hashed work brief, including hypothesis, editable target, optional

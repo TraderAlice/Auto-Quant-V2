@@ -361,6 +361,33 @@ class CandidateCheckTests(unittest.TestCase):
             )
             candidate.write_text(
                 "import pandas as pd\n\n"
+                "FACTOR_COMPONENTS = {\n"
+                "    'invalid_role': {\n"
+                "        'label': 'Invalid role',\n"
+                "        'role': 'context-state',\n"
+                "        'intervals': ['base'],\n"
+                "        'hypothesis': 'Static metadata fails first.',\n"
+                "    },\n"
+                "}\n\n"
+                "def compute_factor(panel):\n"
+                "    return pd.Series(float('nan'), index=panel.index)\n\n"
+                "def compute_factor_components(panel):\n"
+                "    return pd.DataFrame({'invalid_role': panel['close']}, "
+                "index=panel.index)\n",
+                encoding="utf-8",
+            )
+            illegal_role = execute_candidate_check(
+                project,
+                session.manifest["id"],
+            )
+            self.assertEqual(illegal_role.result["status"], "failed")
+            self.assertEqual(
+                illegal_role.result["errors"][0]["code"],
+                "factor.component-role",
+            )
+
+            candidate.write_text(
+                "import pandas as pd\n\n"
                 "def compute_factor(panel):\n"
                 "    return panel.groupby('asset', sort=False)"
                 "['close'].pct_change(fill_method=None)\n\n"

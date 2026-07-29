@@ -25,6 +25,10 @@ from .book_risk_explorer import (
     load_book_risk_diagnostics,
 )
 from .capabilities import CLI_COMMANDS
+from .candidate_contracts import (
+    FACTOR_CANDIDATE_CONTRACT_JSON_SCHEMA,
+    build_candidate_contract,
+)
 from .checks import (
     CANDIDATE_CHECK_RESULT_JSON_SCHEMA,
     CHECK_OUTPUT,
@@ -282,6 +286,7 @@ def build_parser() -> RaisingArgumentParser:
             "study",
             "judge-output",
             "run-result",
+            "factor-candidate-contract",
             "factor-diagnostics",
             "factor-claim",
             "event-study-policy",
@@ -1470,7 +1475,7 @@ def _study_create(args: argparse.Namespace) -> CommandResult:
     study = create_study(project, definition)
     return CommandResult(
         "study.create",
-        _study_data(study),
+        _study_data(project, study),
         f"Created AutoQuant Study '{study.definition.id}' at {study.root_dir}\n",
         project_context(project),
         [
@@ -1500,11 +1505,12 @@ def _study_create(args: argparse.Namespace) -> CommandResult:
     )
 
 
-def _study_data(study) -> dict[str, Any]:
+def _study_data(project, study) -> dict[str, Any]:
     return {
         "definition": study.definition.to_dict(),
         "path": str(study.root_dir),
         "programPath": str(study.program_path),
+        "candidateContract": build_candidate_contract(project, study),
         "identity": {
             "studyHash": study.study_hash,
             "programHash": study.program_hash,
@@ -1549,7 +1555,8 @@ def _study_list(args: argparse.Namespace) -> CommandResult:
 def _study_inspect(args: argparse.Namespace) -> CommandResult:
     project = _selected_project(args)
     study = load_study(project, args.study)
-    data = _study_data(study)
+    data = _study_data(project, study)
+    candidate_contract = data["candidateContract"]
     return CommandResult(
         "study.inspect",
         data,
@@ -1564,6 +1571,18 @@ def _study_inspect(args: argparse.Namespace) -> CommandResult:
             f"{len(study.definition.dataset.universe)} assets · "
             f"{study.definition.dataset.time_range.start}.."
             f"{study.definition.dataset.time_range.end}\n"
+            + (
+                "Candidate panel: "
+                f"{candidate_contract['api']['kind']} · base "
+                f"{candidate_contract['data']['baseInterval'] or 'unspecified'}"
+                " · feature intervals "
+                f"{', '.join(candidate_contract['data']['featureIntervals']) or 'none'}\n"
+                f"Interval authority: {candidate_contract['data']['availabilityRule']}\n"
+                "Component roles: "
+                f"{', '.join(candidate_contract['components']['roles'])}\n"
+                if candidate_contract is not None
+                else ""
+            )
             + (
                 "Fixed dependencies: "
                 f"{len(study.dependency_hashes)} files · "
@@ -3836,12 +3855,26 @@ def _orient(args: argparse.Namespace) -> CommandResult:
     question = " ".join(
         (brief["question"]["text"] or brief["question"]["title"]).split()
     )
+    candidate_contract = brief["candidateContract"]
     if len(question) > 320:
         question = question[:319].rstrip() + "…"
     human = (
         f"AutoQuant Agent Work Brief: {brief['project']['name']}\n"
         f"Project root: {brief['project']['rootDir']}\n"
         f"Question: {question}\n"
+        + (
+            "Candidate panel: "
+            f"{candidate_contract['api']['kind']} · base "
+            f"{candidate_contract['data']['baseInterval'] or 'unspecified'}"
+            " · feature intervals "
+            f"{', '.join(candidate_contract['data']['featureIntervals']) or 'none'}\n"
+            f"Interval authority: {candidate_contract['data']['availabilityRule']}\n"
+            "Component roles: "
+            f"{', '.join(candidate_contract['components']['roles'])}\n"
+            if candidate_contract is not None
+            else ""
+        )
+        +
         f"Focus: {focus['laneName'] or 'single Study'} · "
         f"{focus['studyId'] or 'no Study'}\n"
         f"State: {focus['coordinationPhase']} · "
@@ -3932,6 +3965,7 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "dossier-result",
             "dossier-status",
             "experiment",
+            "factor-candidate-contract",
             "factor-diagnostics",
             "factor-claim",
             "event-study-policy",
@@ -3978,6 +4012,7 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "judge-output": JUDGE_OUTPUT_JSON_SCHEMA,
             "run-result": RUN_RESULT_JSON_SCHEMA,
             "factor-diagnostics": FACTOR_DIAGNOSTICS_JSON_SCHEMA,
+            "factor-candidate-contract": FACTOR_CANDIDATE_CONTRACT_JSON_SCHEMA,
             "factor-claim": FACTOR_CLAIM_JSON_SCHEMA,
             "event-study-policy": EVENT_STUDY_POLICY_JSON_SCHEMA,
             "event-study-diagnostics": EVENT_STUDY_DIAGNOSTICS_JSON_SCHEMA,

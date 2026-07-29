@@ -9,6 +9,10 @@ from pathlib import Path
 
 import pandas as pd
 
+from autoquant.factor_components import (
+    FactorComponentError,
+    validate_factor_component_metadata,
+)
 from autoquant.factor_runtime import (
     FactorRuntimeError,
     build_factor_panel,
@@ -59,6 +63,10 @@ def main() -> None:
         if not universe:
             raise CheckFailure("data.universe", "Study universe is empty")
         module = importlib.import_module("factors.candidate")
+        try:
+            validate_factor_component_metadata(module)
+        except FactorComponentError as error:
+            raise CheckFailure(error.code, str(error)) from error
         frames: dict[str, pd.DataFrame] = {}
         for symbol in universe:
             time_range = study["dataset"]["time_range"]

@@ -136,6 +136,10 @@ state. It contains:
 - objective: current research question, its delegated-request,
   project-request, project-research-brief, or local-fallback origin, source
   path when present, and selected Study objective;
+- candidate contract: for a focused Factor edit, the actual Project base
+  interval, completed feature intervals, panel columns, component metadata
+  fields, and legal roles; unavailable columns are explicit rather than
+  inferred from reusable template branches;
 - focus: lane, Study, coordination phase, scientific stage, and operating
   mode;
 - evidence: current Run/Session/Report/Dossier identities needed to understand
@@ -178,6 +182,12 @@ evaluation pressure. RL moves can change only the causal encoder; fixed
 factors, actions, rewards, learning rules, and Portfolio mechanics remain
 protected. Positive validation evidence may intentionally produce a
 freeze-and-external-holdout move instead of another in-sample edit.
+If REVERT or CRASH has already restored an unchanged baseline and this agenda
+is active, the lifecycle follows the freeze: observe mode, no primary edit,
+and read-only Session inspection. A newly opened Session with no trial still
+retains its normal edit path, but the brief explicitly limits that authority
+to a predeclared bounded alternative and distinguishes it from open-ended
+tuning.
 Once such a Dossier is bound into a later Project, the work brief switches to
 `external-audit`, exposes no editable paths, routes only to `holdout.run`, and
 marks the research agenda unavailable because candidate selection is frozen.

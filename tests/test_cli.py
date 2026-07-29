@@ -8,6 +8,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import jsonschema
+
 from autoquant.sessions import list_experiments, start_session
 from autoquant.studies import create_study
 from tests.intake_helpers import write_intake_inputs
@@ -121,6 +123,57 @@ class AgentCliTests(unittest.TestCase):
             )
             self.assertEqual(study["dataset"]["paths"], ["ohlcv/**"])
 
+            inspected = run_cli(
+                "study",
+                "inspect",
+                str(project),
+                "--study",
+                "ohlcv-factor-quality",
+                "--json",
+            )
+            self.assertEqual(inspected.returncode, 0, inspected.stderr)
+            inspected_contract = json_output(inspected)["data"][
+                "candidateContract"
+            ]
+            self.assertEqual(inspected_contract["data"]["baseInterval"], "1d")
+            self.assertEqual(
+                inspected_contract["data"]["featureIntervals"],
+                [],
+            )
+            human_inspect = run_cli(
+                "study",
+                "inspect",
+                str(project),
+                "--study",
+                "ohlcv-factor-quality",
+            )
+            self.assertIn(
+                "Candidate panel: panel-v2 · base 1d · feature intervals none",
+                human_inspect.stdout,
+            )
+            self.assertIn(
+                "Component roles: cross-sectional-score, timestamp-context",
+                human_inspect.stdout,
+            )
+            self.assertIn(
+                "source branches and component declarations do not add",
+                human_inspect.stdout,
+            )
+            contract_schema = run_cli(
+                "schema",
+                "factor-candidate-contract",
+                "--json",
+            )
+            self.assertEqual(
+                contract_schema.returncode,
+                0,
+                contract_schema.stderr,
+            )
+            jsonschema.validate(
+                inspected_contract,
+                json_output(contract_schema)["data"]["schema"],
+            )
+
             oriented = run_cli(
                 "orient",
                 str(project),
@@ -152,6 +205,28 @@ class AgentCliTests(unittest.TestCase):
             )
             self.assertFalse(
                 orientation["data"]["filesystem"]["writable"]
+            )
+            self.assertEqual(
+                orientation["data"]["candidateContract"]["data"],
+                {
+                    "surfaceSource": "legacy-ohlcv-v1",
+                    "baseInterval": "1d",
+                    "featureIntervals": [],
+                    "availabilityRule": (
+                        "Only baseInterval and featureIntervals are available; "
+                        "candidate source branches and component declarations "
+                        "do not add panel inputs."
+                    ),
+                    "panelColumns": [
+                        "asset",
+                        "timestamp",
+                        "open",
+                        "high",
+                        "low",
+                        "close",
+                        "volume",
+                    ],
+                },
             )
             self.assertEqual(
                 [item["id"] for item in orientation["nextActions"]],
@@ -776,6 +851,7 @@ class AgentCliTests(unittest.TestCase):
                 "study",
                 "judge-output",
                 "run-result",
+                "factor-candidate-contract",
                 "factor-diagnostics",
                 "factor-claim",
                 "event-study-policy",

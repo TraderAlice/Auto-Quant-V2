@@ -189,6 +189,14 @@ closure is.
   fixed caps.
 - Positive post-cost validation evidence freezes the candidate and requests
   fresh external holdout/capacity evidence rather than more validation tuning.
+  Before any Experiment exists, an active Session may still evaluate an
+  explicitly predeclared bounded alternative. Orientation labels that Session
+  authority as distinct from the diagnostic freeze recommendation and never
+  treats it as permission for open-ended tuning.
+  After an immutable REVERT/CRASH restores that unchanged leader, orientation
+  must follow the freeze instead of issuing a generic candidate-edit
+  instruction; the active Session remains inspectable and explicitly
+  continuable under a new mandate.
 
 ## Governed-RL recipes
 

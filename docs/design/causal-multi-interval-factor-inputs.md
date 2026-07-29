@@ -34,6 +34,17 @@ def compute_factor(panel: pandas.DataFrame) -> pandas.Series:
     ...
 ```
 
+Column availability is Project-specific and is never inferred from this
+design's superset. Before editing, Agents read the focused Study's strict
+`candidateContract` from `aq orient --json` or `aq study inspect --json`.
+Legacy daily teaching Projects explicitly report `baseInterval: 1d`,
+`featureIntervals: []`; V2/V3/V5 intake Projects report their exact
+content-locked interval surface and resulting panel columns. The same
+contract publishes legal component roles and is available through
+`aq schema factor-candidate-contract`. Its explicit availability rule makes
+the interval surface authoritative over reusable source branches or component
+declarations that may be inactive on a particular Project.
+
 The panel adds `asset` and retains familiar base interval columns:
 
 ```text

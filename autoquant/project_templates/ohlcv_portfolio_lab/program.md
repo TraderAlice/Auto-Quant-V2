@@ -20,6 +20,16 @@ The factor receives the complete Study universe as long-form OHLCV rows with
 contemporaneous cross-asset context, must return one numeric aligned Series,
 and may not use any future timestamp.
 
+Before choosing a hypothesis, inspect `candidateContract` from
+`aq orient . --json` or `aq study inspect . --study
+ohlcv-portfolio-quality --json`. It is the authority for this Project's actual
+base interval, completed feature intervals, panel columns, component metadata
+fields, and legal component roles. Conditional higher-interval branches in
+reusable candidate code do not prove that this Project supplies those columns.
+If components are declared, roles are exactly `cross-sectional-score` or
+`timestamp-context`; the latter must be one shared value across assets at a
+timestamp.
+
 Before each edit, run `aq orient . --json` and read the current verified
 `researchAgenda`. Its move must still target `factors/**`: sizing, caps,
 Mandate, covariance risk, no-trade, and cost remain fixed evaluation pressure.

@@ -34,6 +34,7 @@ There are no proposed plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/candidate-contract-and-freeze-handoff]] | Made a factor worker see the exact Project panel/component contract before editing, reject illegal metadata in preflight, and obey a verified freeze agenda after a bounded trial. | 2026-07-29 |
 | [[plans/fixed-study-completion-handoff]] | Let completed fixed Studies hand off to an Agent-owned answer with their exact Explorer optional and Run identity unambiguous. | 2026-07-29 |
 | [[plans/qualification-aware-agent-handoff]] | Let a bounded research worker distinguish Session verdict from scientific qualification and stop cleanly on terminal blocked evidence. | 2026-07-29 |
 | [[plans/session-worktree-cli-reentry]] | Made a locked Session worktree a verified read-only orientation entry point without copying datasets or redirecting mutation commands, proved by a fresh installed-wheel Grok retry. | 2026-07-29 |

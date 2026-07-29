@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha at `0.8.14`.
+Status: usable pre-alpha at `0.8.15`.
 
 Updated: 2026-07-29.
 
@@ -13,7 +13,7 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 AutoQuant V2 has crossed the line from an architectural prototype into a
 usable Agent-native quantitative research workbench.
 
-At `0.8.14`, a human, local coding Agent, or coworker delegated from OpenAlice
+At `0.8.15`, a human, local coding Agent, or coworker delegated from OpenAlice
 can:
 
 1. clone the repository and immediately discover the Harness plus its
@@ -77,7 +77,16 @@ CLI action; the Agent is told to write and return the answer while the strict
 Explorer remains optional supporting evidence. Descriptive agenda Run identity
 now uses the exact immutable Run input hash.
 
-The latest annotated release tag is `v0.8.14`; `v0.8.13` remains the
+`0.8.15` makes the editable Factor contract visible before source changes.
+Study inspection, orientation, JSON, human CLI, and Studio agree on the
+Project's actual base interval, available completed feature intervals, panel
+columns, component metadata fields, and legal component roles. Preflight
+rejects illegal static component metadata before final-factor execution, and
+a baseline-restored Session obeys a verified freeze/external-holdout agenda
+instead of advertising another in-sample edit.
+
+The latest annotated release tag is `v0.8.15`; `v0.8.14` remains the
+fixed-Study answer-handoff milestone, and `v0.8.13` remains the
 qualification-aware handoff milestone, and `v0.8.12` remains the
 worktree re-entry milestone, and `v0.8.11` remains the
 promotion-first orientation milestone, and `v0.8.10` the fixed
@@ -175,6 +184,38 @@ not only synthetic fixtures:
 
 The canonical results, Run identifiers, versions, and limitations are preserved
 in [[docs/trading-request-field-trials]].
+
+## `0.8.15` verification snapshot
+
+- a fresh Grok Build coworker used only an installed `0.8.15` release-candidate
+  wheel and a new Project, without inspecting framework source, plans, tests,
+  docs, another Project, or the web;
+- public discovery led it independently to `ohlcv-portfolio-lab` and exposed
+  `baseInterval=1d`, `featureIntervals=[]`, exact OHLCV columns, metadata
+  fields, legal roles, and the rule that reusable source declarations do not
+  grant absent inputs before any edit;
+- the coworker explicitly downgraded its unavailable multi-hour design to the
+  caller-authorized daily three-bar pullback rather than inventing data;
+- baseline Run `run-20260729T150143539661Z-849d291b9edc` established
+  validation net Sharpe `1.761404`; Session
+  `session-20260729T150158046040Z-5691848ea6e8` produced one passing Check
+  `check-20260729T150219634466Z-de18f4e1a36f` and exactly one Experiment
+  `exp-0001-abbd17eaf907`;
+- candidate Run `run-20260729T150224250038Z-fbdb39515750` REVERTed at
+  validation net Sharpe `-2.0367`; the baseline remained leader and no
+  promotion occurred;
+- final orientation returned `IN SAMPLE FREEZE READY`, observe mode, null
+  primary action, explicit external-evidence guidance, and only read-only
+  Session inspection;
+- two final low-severity observations tightened interval-authority and
+  pre-trial agenda/Session wording without changing immutable research
+  evidence;
+- final repository regression: 304/304 tests in 907.116 seconds;
+- documentation graph: 1,064/1,064 checked links;
+- source distribution, wheel build, fresh Python 3.11 install, version,
+  capability/schema discovery, clean-root Project validation, default
+  orientation, Study inspection, local-override discovery, and exact
+  CLI/Studio Work Brief parity passed with `aq 0.8.15`.
 
 ## `0.8.14` verification snapshot
 
@@ -402,7 +443,7 @@ field-trial surface.
 
 ## Maturity and next use
 
-`0.8.14` is suitable for controlled standalone use and initial OpenAlice desk
+`0.8.15` is suitable for controlled standalone use and initial OpenAlice desk
 integration. It is still pre-`1.0`: public contracts are versioned and strict,
 but the project continues to prefer domain correctness and Agent operability
 over backward compatibility while the product shape settles.

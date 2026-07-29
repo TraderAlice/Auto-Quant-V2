@@ -32,6 +32,11 @@ changing Project, request, universe, or dataset:
    that factor and fixed/contextual policies across every declared fold and
    seed.
 
+Before selecting factor or Portfolio hypotheses, read the focused Study's
+`candidateContract` from orientation or Study inspection. It states the
+actual Project base interval and completed feature intervals; do not infer
+column availability from conditional branches in reusable template code.
+
 ## Working order
 
 ```bash

@@ -616,6 +616,7 @@ const researchDecisionBrief = (project) => {
       detail: coreBrief.review.detail,
       next: coreBrief.review.next,
       boundary: coreBrief.review.boundary,
+      candidateContract: coreBrief.candidateContract,
       origin:
         coreBrief.question.origin === "delegated-request"
           ? "OPENALICE REQUEST"
@@ -635,6 +636,7 @@ const researchDecisionBrief = (project) => {
       "Inspect the Project diagnostics; Studio will not reconstruct a research decision from partial browser data.",
     next: "Repair the reported Core validation issue, then refresh this snapshot.",
     boundary: "no inferred edit or trading authority",
+    candidateContract: null,
     origin: "CORE DIAGNOSTIC",
   };
 };
@@ -649,6 +651,11 @@ function renderDecisionBrief(project) {
     </header>
     <h2>${escapeHtml(brief.title)}</h2>
     <p>${escapeHtml(brief.detail)}</p>
+    ${
+      brief.candidateContract
+        ? `<p><b>Candidate panel</b> · base ${escapeHtml(brief.candidateContract.data.baseInterval ?? "unspecified")} · completed context ${escapeHtml(brief.candidateContract.data.featureIntervals.join(", ") || "none")} · roles ${escapeHtml(brief.candidateContract.components.roles.join(", "))}</p><p>${escapeHtml(brief.candidateContract.data.availabilityRule)}</p>`
+        : ""
+    }
     <footer>
       <span>
         <small>Next investigation</small>
