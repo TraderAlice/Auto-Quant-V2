@@ -1,6 +1,6 @@
 # Repository-root AutoQuant Workspace
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-07-29`
 - Related design: [[docs/design/workspace-project-boundaries]],
   [[docs/design/agent-native-quant-workbench]], and
@@ -59,7 +59,7 @@ ignored local override for the development checkout.
 - [x] Project creation and default selection write through the active local
   configuration without mutating the checked-in manifest.
 - [x] CLI and Studio expose effective Projects path and configuration source.
-- [ ] Documentation, full tests, source/wheel smoke, clean-clone smoke,
+- [x] Documentation, full tests, source/wheel smoke, clean-clone smoke,
   version `0.8.8`, tag, and canonical push reconcile.
 
 ## Work
@@ -70,7 +70,7 @@ ignored local override for the development checkout.
   active-configuration writes.
 - [x] Add focused repository-root, override, CLI, and Studio tests.
 - [x] Update README, canonical references, architecture, and status.
-- [ ] Complete release verification, plan audit, commit, tag, push, and local
+- [x] Complete release verification, plan audit, commit, tag, push, and local
   development override setup.
 
 ## Findings and decisions
@@ -85,6 +85,12 @@ ignored local override for the development checkout.
 - 2026-07-29 — `aq workspace init` remains an empty constructor. The sample is
   repository-template state, not mandatory state for every independently
   initialized Workspace.
+- 2026-07-29 — The external collection's previous default
+  `us-large-cap-cross-section` predates the current canonical research-program
+  contract and fails honest orientation. The ignored development override
+  therefore selects the verified compatible
+  `global-etf-risk-parity-allocation-v087-clean` while preserving all 41
+  external Projects.
 
 ## Verification
 
@@ -108,7 +114,13 @@ ignored local override for the development checkout.
 - 2026-07-29 — Full regression, distributions, installed wheel, and corrected
   clean-clone smoke passed. The first clone replay exposed and fixed the empty
   Session-directory packaging gap.
+- 2026-07-29 — Canonical `main` and annotated tag `v0.8.8` were pushed; the
+  ignored local configuration discovered 41 external Projects and oriented
+  successfully to the compatible 0.8.7 allocation Project.
 
 ## Completion
 
-Pending.
+AutoQuant `0.8.8` shipped the repository-root Workspace at release commit
+`d2e56f0`. The root default remains the complete internal sample for every
+clean clone. The current Workbench checkout separately uses its ignored local
+override for the existing external Project collection, leaving Git clean.

@@ -40,6 +40,8 @@ Studio inspection. An ignored strict local Workspace configuration lets
 Workbench development reuse an external real-Project collection without
 shipping those cases or changing the user's internal default.
 
+The annotated release tag `v0.8.8` points to commit `d2e56f0`.
+
 The canonical repository is
 [TraderAlice/Auto-Quant-V2](https://github.com/TraderAlice/Auto-Quant-V2).
 The earlier personal repository remains a historical backup remote; the
