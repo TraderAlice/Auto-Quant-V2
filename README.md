@@ -122,6 +122,8 @@ AutoQuant requires Python 3.11 and
 [uv](https://docs.astral.sh/uv/).
 
 ```bash
+git clone git@github.com:TraderAlice/Auto-Quant-V2.git
+cd Auto-Quant-V2
 uv sync
 uv run aq --version
 uv run aq capabilities --json

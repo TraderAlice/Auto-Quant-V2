@@ -35,6 +35,12 @@ The release tag `v0.8.7` points to commit `f7018ab`, the exact clean Harness
 commit used for the final Portfolio-native allocation replay. Repository
 documentation closure is commit `2944fec`.
 
+The canonical repository is
+[TraderAlice/Auto-Quant-V2](https://github.com/TraderAlice/Auto-Quant-V2).
+The earlier personal repository remains a historical backup remote; the
+original `TraderAlice/Auto-Quant` repository remains the separate Classic
+line.
+
 ## What works today
 
 | Research need | Current route | Lifecycle |
