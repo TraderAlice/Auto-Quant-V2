@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha at `0.8.21`.
+Status: usable pre-alpha at `0.8.22`.
 
 Updated: 2026-07-30.
 
@@ -13,7 +13,7 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 AutoQuant V2 has crossed the line from an architectural prototype into a
 usable Agent-native quantitative research workbench.
 
-At `0.8.21`, a human, local coding Agent, or coworker delegated from OpenAlice
+At `0.8.22`, a human, local coding Agent, or coworker delegated from OpenAlice
 can:
 
 1. clone the repository and immediately discover the Harness plus its
@@ -129,11 +129,30 @@ Factor-only audit through the public atomic path. Its frozen source objective
 was `+0.101253` mean IC and the strictly later objective was `-0.284679`;
 both Projects remained valid, Studio had no diagnostics, and the negative
 external result granted no selection or trading authority.
-Final verification passes all 312 tests in 799.389 seconds, resolves all 1,094
-documentation links, and installs the built `0.8.21` wheel in a fresh Python
-3.11 environment for Workspace/create/orient/validate capability smoke.
 
-The current release is `v0.8.21`. `v0.8.20` remains the self-describing Report
+`0.8.22` makes Project selection safe in a persistent multi-Project desk.
+Read-only orientation entered through a Workspace names the effective
+Workspace, selection method, default, selected Project, Project count, and
+available ids. A Workspace default remains a navigation convenience; any
+Project-local `creates-artifact` or `mutates-project` operation requires
+explicit Project identity once the Workspace contains multiple Projects and
+fails before state changes otherwise.
+
+The isolated installed-wheel retry discovered the selection contract through
+public orientation, kept the default unchanged, and completed one fixed Book
+Risk Run plus one fixed Price Event Run using explicit Project identity.
+Independent verification found both Projects valid, both data snapshots
+byte-identical to their separate caller inputs, no Sessions, and a valid
+two-Project Studio snapshot without diagnostics. An omitted-Project Run was
+then rejected before either immutable Run inventory changed.
+
+Final verification passes all 312 tests in 803.410 seconds, resolves all 1,099
+documentation links, and installs the built `0.8.22` wheel in a fresh Python
+3.11 environment for version, capability, Workspace, Project, orientation,
+and validation smoke.
+
+The current release is `v0.8.22`. `v0.8.21` remains the atomic lane-aware
+holdout-target milestone, `v0.8.20` remains the self-describing Report
 evidence milestone, `v0.8.19` remains the fixed Book Risk
 drawdown milestone, `v0.8.18` the honest unknown-provider provenance
 milestone, while `v0.8.17` remains the

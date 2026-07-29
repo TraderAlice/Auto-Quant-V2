@@ -801,6 +801,19 @@ class AgentCliTests(unittest.TestCase):
             command["id"]: command
             for command in commands
         }
+        run_project_argument = next(
+            argument
+            for argument in commands_by_id["run.execute"]["arguments"]
+            if argument["name"] == "project"
+        )
+        self.assertIn(
+            "Project-local state-changing commands require it",
+            run_project_argument["description"],
+        )
+        self.assertIn(
+            "read-only commands may use the disclosed Workspace default",
+            run_project_argument["description"],
+        )
         self.assertIn(
             "terminally close",
             commands_by_id["session.promote"]["description"],
@@ -1348,6 +1361,41 @@ class AgentCliTests(unittest.TestCase):
                     [action["id"] for action in created_json["nextActions"]],
                     ["validate", "inspect"],
                 )
+                if project_id == "factor-lab":
+                    single_workspace_run = run_cli(
+                        "run",
+                        "execute",
+                        str(workspace),
+                        "--study",
+                        "missing-study",
+                        "--json",
+                    )
+                    self.assertEqual(
+                        single_workspace_run.returncode,
+                        1,
+                        single_workspace_run.stderr,
+                    )
+                    self.assertEqual(
+                        json_output(single_workspace_run)["error"]["code"],
+                        "validation.failed",
+                    )
+                    direct_project_run = run_cli(
+                        "run",
+                        "execute",
+                        created_json["data"]["projectDir"],
+                        "--study",
+                        "missing-study",
+                        "--json",
+                    )
+                    self.assertEqual(
+                        direct_project_run.returncode,
+                        1,
+                        direct_project_run.stderr,
+                    )
+                    self.assertEqual(
+                        json_output(direct_project_run)["error"]["code"],
+                        "validation.failed",
+                    )
 
             listed = run_cli("project", "list", str(workspace), "--json")
             self.assertEqual(listed.returncode, 0, listed.stderr)
@@ -1373,9 +1421,104 @@ class AgentCliTests(unittest.TestCase):
 
             validated = run_cli("validate", str(workspace), "--json")
             self.assertEqual(validated.returncode, 0, validated.stderr)
+            validated_json = json_output(validated)
             self.assertEqual(
-                json_output(validated)["context"]["project"]["id"],
+                validated_json["context"]["project"]["id"],
                 "ml-lab",
+            )
+            self.assertEqual(
+                validated_json["context"]["projectSelection"],
+                {
+                    "stateChangeRequiresExplicitProject": True,
+                    "availableProjects": ["factor-lab", "ml-lab"],
+                    "defaultProject": "ml-lab",
+                    "explicit": False,
+                    "method": "workspace-default",
+                    "projectCount": 2,
+                    "selectedProject": "ml-lab",
+                },
+            )
+            self.assertEqual(
+                validated_json["context"]["workspace"]["rootDir"],
+                str(workspace.resolve()),
+            )
+
+            oriented = run_cli("orient", str(workspace), "--json")
+            self.assertEqual(oriented.returncode, 0, oriented.stderr)
+            oriented_json = json_output(oriented)
+            self.assertEqual(
+                oriented_json["context"]["projectSelection"]["method"],
+                "workspace-default",
+            )
+            self.assertEqual(
+                oriented_json["nextActions"][0]["id"],
+                "project.list",
+            )
+
+            blocked_run = run_cli(
+                "run",
+                "execute",
+                str(workspace),
+                "--study",
+                "missing-study",
+                "--json",
+            )
+            self.assertEqual(blocked_run.returncode, 1, blocked_run.stderr)
+            blocked_json = json_output(blocked_run)
+            self.assertEqual(
+                blocked_json["error"]["code"],
+                "workspace.explicit-project-required",
+            )
+            self.assertEqual(
+                blocked_json["error"]["issues"][0]["code"],
+                "workspace.explicit-project-required",
+            )
+            self.assertIn(
+                "factor-lab, ml-lab",
+                blocked_json["error"]["message"],
+            )
+
+            blocked_holdout = run_cli(
+                "holdout",
+                "create-target",
+                str(workspace),
+                str(workspace),
+                "holdout-target",
+                "--dossier",
+                "missing-dossier",
+                "--dataset",
+                str(workspace / "missing-package.json"),
+                "--json",
+            )
+            self.assertEqual(
+                blocked_holdout.returncode,
+                1,
+                blocked_holdout.stderr,
+            )
+            blocked_holdout_json = json_output(blocked_holdout)
+            self.assertEqual(
+                blocked_holdout_json["error"]["code"],
+                "workspace.explicit-project-required",
+            )
+            self.assertIn(
+                "--source-project",
+                blocked_holdout_json["error"]["message"],
+            )
+
+            explicit_run = run_cli(
+                "run",
+                "execute",
+                str(workspace),
+                "--project",
+                "factor-lab",
+                "--study",
+                "missing-study",
+                "--json",
+            )
+            self.assertEqual(explicit_run.returncode, 1, explicit_run.stderr)
+            self.assertEqual(
+                json_output(explicit_run)["error"]["code"],
+                "validation.failed",
             )
 
             inspected = run_cli(
@@ -1392,6 +1535,10 @@ class AgentCliTests(unittest.TestCase):
                 "factor-lab",
             )
             self.assertEqual(
+                inspected_json["context"]["projectSelection"]["method"],
+                "explicit",
+            )
+            self.assertEqual(
                 sorted(inspected_json["data"]["directories"]),
                 [
                     "cache",
@@ -1405,6 +1552,15 @@ class AgentCliTests(unittest.TestCase):
                     "studies",
                 ],
             )
+
+            execute_help = run_cli("run", "execute", "--help")
+            self.assertEqual(execute_help.returncode, 0, execute_help.stderr)
+            execute_help_text = " ".join(execute_help.stdout.split())
+            self.assertIn(
+                "required for Project-local",
+                execute_help_text,
+            )
+            self.assertIn("multiple Projects", execute_help_text)
 
     def test_project_list_discloses_effective_local_projects_configuration(
         self,

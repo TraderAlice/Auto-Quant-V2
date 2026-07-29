@@ -304,6 +304,8 @@ location. Git history remains its archive. See
 ### Workspace and Harness own
 
 - project discovery, identity, and root confinement;
+- explicit Project authority for state changes in multi-Project
+  Workspaces, while defaults remain disclosed read-only navigation;
 - versioned schemas and machine-readable operations;
 - data preparation and validation contracts;
 - bounded execution and evaluation entry points;

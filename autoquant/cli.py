@@ -6,6 +6,7 @@ import argparse
 import json
 import sys
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Sequence
 
 from .allocation_explorer import (
@@ -70,6 +71,7 @@ from .event_explorer import (
     load_event_study_diagnostics,
 )
 from .cli_contract import (
+    CliCommandError,
     artifact,
     error_envelope,
     global_context,
@@ -184,6 +186,7 @@ from .workspace import (
     FRAMEWORK_NEEDS,
     PROJECT_MANIFEST,
     WORKSPACE_MANIFEST,
+    ValidationIssue,
     create_project,
     initialize_workspace,
     inspect_project,
@@ -201,7 +204,18 @@ class CliUsageError(ValueError):
     pass
 
 
+PROJECT_SELECTION_HELP = (
+    "Project id inside a Workspace; required for Project-local state changes "
+    "when the Workspace contains multiple Projects"
+)
+
+
 class RaisingArgumentParser(argparse.ArgumentParser):
+    def add_argument(self, *args, **kwargs):
+        if "--project" in args and "help" not in kwargs:
+            kwargs["help"] = PROJECT_SELECTION_HELP
+        return super().add_argument(*args, **kwargs)
+
     def error(self, message: str) -> None:
         raise CliUsageError(message)
 
@@ -1468,9 +1482,163 @@ def _project_default(args: argparse.Namespace) -> CommandResult:
     )
 
 
+def _workspace_project_selection(
+    args: argparse.Namespace,
+    project,
+) -> dict[str, Any] | None:
+    raw_path = getattr(args, "path", None)
+    if raw_path is None:
+        return None
+    root = Path(raw_path).expanduser().absolute()
+    if not (root / WORKSPACE_MANIFEST).is_file():
+        return None
+    workspace = load_workspace(root)
+    projects = list_workspace_projects(workspace.root_dir)
+    explicit = getattr(args, "project", None) is not None
+    return {
+        "workspace": workspace_context(workspace)["workspace"],
+        "selection": {
+            "method": "explicit" if explicit else "workspace-default",
+            "explicit": explicit,
+            "selectedProject": project.manifest.id,
+            "defaultProject": workspace.manifest.default_project,
+            "projectCount": len(projects),
+            "availableProjects": [item.id for item in projects],
+            "stateChangeRequiresExplicitProject": len(projects) > 1,
+        },
+    }
+
+
+def _project_result_context(
+    args: argparse.Namespace,
+    project,
+) -> dict[str, Any]:
+    context = project_context(project)
+    resolved = getattr(args, "_autoquant_project_selection", None)
+    if resolved is None:
+        resolved = _workspace_project_selection(args, project)
+    if resolved is not None:
+        context["workspace"] = resolved["workspace"]
+        context["projectSelection"] = resolved["selection"]
+    return context
+
+
+def _require_explicit_workspace_project(
+    command_id: str,
+    input_path: str,
+    project_id: str | None,
+    option_name: str,
+) -> None:
+    if project_id is not None:
+        return
+    root = Path(input_path).expanduser().absolute()
+    if not (root / WORKSPACE_MANIFEST).is_file():
+        return
+    workspace = load_workspace(root)
+    projects = list_workspace_projects(workspace.root_dir)
+    if len(projects) < 2:
+        return
+    selected = workspace.manifest.default_project
+    available = ", ".join(item.id for item in projects)
+    message = (
+        f"Command '{command_id}' changes Project-local state, so a Workspace "
+        f"containing multiple Projects requires an explicit {option_name} ID. "
+        f"Default is '{selected}'. Available: {available}"
+    )
+    context = workspace_context(workspace)
+    context["projectSelection"] = {
+        "method": "workspace-default",
+        "explicit": False,
+        "selectedProject": selected,
+        "defaultProject": selected,
+        "projectCount": len(projects),
+        "availableProjects": [item.id for item in projects],
+        "stateChangeRequiresExplicitProject": True,
+    }
+    raise CliCommandError(
+        "workspace.explicit-project-required",
+        message,
+        issues=[
+            ValidationIssue(
+                str(workspace.configuration_path),
+                "workspace.explicit-project-required",
+                message,
+            )
+        ],
+        context=context,
+    )
+
+
+def _project_selection_human(args: argparse.Namespace) -> str:
+    resolved = getattr(args, "_autoquant_project_selection", None)
+    if resolved is None:
+        return ""
+    selection = resolved["selection"]
+    method = (
+        "explicit --project"
+        if selection["explicit"]
+        else "Workspace default"
+    )
+    line = (
+        f"Workspace selection: {method} → "
+        f"{selection['selectedProject']} · "
+        f"{selection['projectCount']} Project"
+        f"{'s' if selection['projectCount'] != 1 else ''}\n"
+    )
+    if (
+        selection["stateChangeRequiresExplicitProject"]
+        and not selection["explicit"]
+    ):
+        line += (
+            "Available Projects: "
+            + ", ".join(selection["availableProjects"])
+            + "\nProject-local state changes require an explicit --project ID.\n"
+        )
+    return line
+
+
 def _selected_project(args: argparse.Namespace):
     directory = resolve_project_directory(args.path, args.project)
-    return load_project(directory)
+    project = load_project(directory)
+    selection = _workspace_project_selection(args, project)
+    setattr(args, "_autoquant_project_selection", selection)
+    command_effect = next(
+        (
+            command["effect"]
+            for command in CLI_COMMANDS
+            if command["id"] == args.command_id
+        ),
+        None,
+    )
+    if (
+        selection is not None
+        and selection["selection"][
+            "stateChangeRequiresExplicitProject"
+        ]
+        and not selection["selection"]["explicit"]
+        and command_effect in {"creates-artifact", "mutates-project"}
+    ):
+        selected = selection["selection"]["selectedProject"]
+        available = ", ".join(selection["selection"]["availableProjects"])
+        message = (
+            f"Command '{args.command_id}' changes Project-local state, "
+            "so a Workspace containing multiple Projects requires an "
+            f"explicit --project ID. Default is '{selected}'. Available: "
+            f"{available}"
+        )
+        raise CliCommandError(
+            "workspace.explicit-project-required",
+            message,
+            issues=[
+                ValidationIssue(
+                    selection["workspace"]["configurationPath"],
+                    "workspace.explicit-project-required",
+                    message,
+                )
+            ],
+            context=_project_result_context(args, project),
+        )
+    return project
 
 
 def _orientation_project(args: argparse.Namespace):
@@ -3654,6 +3822,12 @@ def _holdout_result_artifacts(
 
 
 def _holdout_create_target(args: argparse.Namespace) -> CommandResult:
+    _require_explicit_workspace_project(
+        "holdout.create-target",
+        args.source,
+        args.source_project,
+        "--source-project",
+    )
     source = load_project(
         resolve_project_directory(args.source, args.source_project)
     )
@@ -3711,6 +3885,18 @@ def _holdout_create_target(args: argparse.Namespace) -> CommandResult:
 
 
 def _holdout_bind(args: argparse.Namespace) -> CommandResult:
+    _require_explicit_workspace_project(
+        "holdout.bind",
+        args.source,
+        args.source_project,
+        "--source-project",
+    )
+    _require_explicit_workspace_project(
+        "holdout.bind",
+        args.target,
+        args.target_project,
+        "--target-project",
+    )
     source = load_project(
         resolve_project_directory(args.source, args.source_project)
     )
@@ -3911,6 +4097,7 @@ def _studio_serve(args: argparse.Namespace) -> CommandResult:
 def _validate(args: argparse.Namespace) -> CommandResult:
     project = _selected_project(args)
     intake = load_project_intake(project)
+    selection_line = _project_selection_human(args)
     return CommandResult(
         "validate",
         {
@@ -3922,8 +4109,9 @@ def _validate(args: argparse.Namespace) -> CommandResult:
             },
             "intake": intake,
         },
-        f"Valid AutoQuant Project '{project.manifest.id}' at {project.root_dir}\n",
-        project_context(project),
+        selection_line
+        + f"Valid AutoQuant Project '{project.manifest.id}' at {project.root_dir}\n",
+        _project_result_context(args, project),
         [
             artifact(
                 "project",
@@ -3952,6 +4140,8 @@ def _inspect(args: argparse.Namespace) -> CommandResult:
         for key, value in data["directories"].items()
     ]
     human = (
+        _project_selection_human(args)
+        +
         f"AutoQuant Project: {project.manifest.name} ({project.manifest.id})\n"
         f"Root: {project.root_dir}\n"
         f"Research: {project.manifest.research_program}\n"
@@ -3963,7 +4153,7 @@ def _inspect(args: argparse.Namespace) -> CommandResult:
         "inspect",
         data,
         human,
-        project_context(project),
+        _project_result_context(args, project),
         [
             artifact(
                 "project",
@@ -4032,6 +4222,8 @@ def _orient(args: argparse.Namespace) -> CommandResult:
     if len(question) > 320:
         question = question[:319].rstrip() + "…"
     human = (
+        _project_selection_human(args)
+        +
         f"AutoQuant Agent Work Brief: {brief['project']['name']}\n"
         f"Project root: {brief['project']['rootDir']}\n"
         f"Question: {question}\n"
@@ -4093,11 +4285,33 @@ def _orient(args: argparse.Namespace) -> CommandResult:
             )
         )
     )
+    next_actions = _brief_next_actions(brief)
+    selection = getattr(args, "_autoquant_project_selection", None)
+    if (
+        selection is not None
+        and selection["selection"]["projectCount"] > 1
+        and not selection["selection"]["explicit"]
+    ):
+        next_actions.insert(
+            0,
+            next_action(
+                "project.list",
+                "Review every Project before changing desk focus.",
+                [
+                    "aq",
+                    "project",
+                    "list",
+                    selection["workspace"]["rootDir"],
+                    "--json",
+                ],
+                "read-only",
+            ),
+        )
     return CommandResult(
         "orient",
         brief,
         human,
-        project_context(project),
+        _project_result_context(args, project),
         [
             artifact(
                 "project",
@@ -4106,7 +4320,7 @@ def _orient(args: argparse.Namespace) -> CommandResult:
                 immutable=False,
             )
         ],
-        _brief_next_actions(brief),
+        next_actions,
     )
 
 

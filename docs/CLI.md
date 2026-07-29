@@ -87,9 +87,22 @@ complete `autoquant-workspace.local.json` selected a local external Projects
 directory. Studio exposes the same effective source. Invalid local
 configuration is an error and never silently falls back.
 
-`validate` and `inspect` resolve exactly one Project before reading its
-manifest. A direct Project path rejects `--project`; a Workspace path selects
-the explicit id or its default.
+`orient`, `validate`, and `inspect` resolve exactly one Project before reading
+its manifest. A direct Project path rejects `--project`; a Workspace path
+selects the explicit id or its default. When entry came through a Workspace,
+human output prints the selection method and JSON `context` includes both the
+effective Workspace and `projectSelection`: selected/default Project, whether
+selection was explicit, Project count, and available ids. Default orientation
+in a multi-Project desk also advertises `project list` before the selected
+Project's own supporting actions.
+
+A Workspace default is read-only navigation convenience, not mutation
+authority. When a Workspace contains two or more Projects, every Project-local
+command whose advertised effect is `creates-artifact` or `mutates-project`
+must receive an explicit `--project ID`; otherwise Core returns
+`workspace.explicit-project-required` before creating state. Direct Project
+paths and single-Project Workspaces retain their existing behavior. Studio
+snapshot/serve intentionally remain Workspace-wide observation surfaces.
 
 `project create` is the normal new-assignment scaffold. It creates a
 self-contained Project with root `research.md`, `framework-needs.md`, and all

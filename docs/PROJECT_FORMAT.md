@@ -342,6 +342,10 @@ and RunResult contracts appear below.
 - A directory cannot contain both Workspace and Project manifests.
 - A direct Project path cannot also receive `--project`; Workspace paths resolve
   either the explicit id or the default.
+- In a Workspace with multiple Projects, the default may select read-only
+  navigation, but a Project-local state-changing command requires explicit
+  `--project ID`. Read-only command context discloses the Workspace, selection
+  method, Project count, default, selected id, and available ids.
 
 These rules prevent one Project from silently reading or mutating another
 Project through Workspace inheritance or path traversal.

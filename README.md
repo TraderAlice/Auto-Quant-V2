@@ -1,5 +1,5 @@
 ---
-version: 0.8.21
+version: 0.8.22
 ---
 
 # AutoQuant V2
@@ -32,7 +32,7 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current milestone: `0.8.21`
+## Current milestone: `0.8.22`
 
 AutoQuant V2 has crossed from an architectural prototype into a usable
 research workbench.
@@ -41,6 +41,9 @@ Today it can:
 
 - create persistent multi-Project quantitative desks from conversational or
   strict request-driven assignments;
+- keep Workspace defaults convenient for disclosed read-only navigation while
+  requiring explicit Project identity before state changes in a
+  multi-Project desk;
 - lock Project-local OHLCV data, market clocks, assumptions, Studies, Judges,
   and Harness identity;
 - run cross-sectional or temporal Factor research, mechanical Portfolio
@@ -231,6 +234,33 @@ from source validation mean IC `+0.101253` to later-period `-0.284679`
 and no Portfolio, RL, Session, Order, or trading authority was manufactured.
 Final repository regression passes all 312 tests in 799.389 seconds, and the
 documentation graph resolves all 1,094 checked links.
+
+`0.8.22` follows a fresh Grok coworker through two unrelated fixed Studies in
+one persistent Workspace. Both immutable evidence chains remained valid and
+Studio kept them separate, but Workspace-level orientation silently treated
+the first Project as the current default even after conversational focus moved
+to the second. That was adequate for inspection and unsafe as state-change
+authority.
+
+Read-only orientation now discloses the effective Workspace, default and
+selected Project, selection method, Project count, and every available id.
+Once a Workspace contains multiple Projects, Project-local commands advertised
+as `creates-artifact` or `mutates-project` fail before mutation unless their
+Project is explicit. Direct Project paths, single-Project Workspaces, and
+Workspace-wide Studio remain unchanged.
+
+The isolated installed-wheel retry discovered this contract from public
+orientation, left the first Project as default, explicitly selected both
+fixed Runs, and completed the unchanged book-risk plus price-event assignment.
+Independent checks found one valid Run and zero Sessions per Project,
+byte-identical isolated data snapshots, and a valid two-Project Studio with no
+diagnostics. A deliberate omitted-Project Run was rejected before either Run
+count changed.
+
+Repository regression passes all 312 tests in 803.410 seconds, the
+documentation graph resolves all 1,099 checked links, and a fresh Python 3.11
+environment installs the built `0.8.22` wheel for version, capability,
+Workspace, Project, orientation, and validation smoke.
 
 ## Standalone or an OpenAlice desk
 

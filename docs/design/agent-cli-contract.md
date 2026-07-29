@@ -57,6 +57,11 @@ Study/Run evaluation rules.
    means invalid CLI usage.
 8. `--json` usage errors remain parseable JSON rather than argparse prose.
 9. Human output may improve without changing the machine contract.
+10. Project context reached through a Workspace includes effective Workspace
+    and Project-selection provenance.
+11. In a Workspace with multiple Projects, `creates-artifact` and
+    `mutates-project` commands require explicit `--project ID` and fail before
+    mutation otherwise.
 
 ## Operation effects
 
@@ -97,6 +102,14 @@ Those agenda moves are diagnostic-only data, not CLI actions; they cannot
 execute, promote, or trade. Studio consumes the exact same object and Core
 hash rather than deriving a competing research decision or experiment order
 in JavaScript. See [[docs/design/evidence-driven-research-agenda]].
+
+When `orient`, `inspect`, or `validate` enters through a Workspace, the
+envelope keeps `scope: project` but additionally names the effective
+Workspace and `projectSelection`. A default-selected multi-Project orientation
+lists every available id and advertises `project.list`. This is navigation
+provenance, not mutation authority: any Project-local command whose capability
+effect is `creates-artifact` or `mutates-project` must use explicit
+`--project ID` once more than one Project exists.
 
 For a focused editable Factor Study, the same brief carries one strict
 `candidateContract`. It projects the verified Project's actual base interval,

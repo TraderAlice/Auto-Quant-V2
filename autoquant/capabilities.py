@@ -47,8 +47,10 @@ PROJECT_ARGUMENT = argument(
     "option",
     "string",
     False,
-    "Project id inside a Workspace.",
-    default="Workspace default",
+    "Project id inside a Workspace. Project-local state-changing commands "
+    "require it when the Workspace contains multiple Projects; read-only "
+    "commands may use the disclosed Workspace default.",
+    default="Disclosed Workspace default for read-only or single-Project use",
 )
 PATH_ARGUMENT = argument(
     "path",
@@ -958,7 +960,8 @@ CLI_COMMANDS = [
                 "option",
                 "string",
                 False,
-                "Source Workspace Project id.",
+                "Source Workspace Project id; required when the source "
+                "Workspace contains multiple Projects.",
             ),
             DOSSIER_ARGUMENT,
             argument(
@@ -1004,14 +1007,16 @@ CLI_COMMANDS = [
                 "option",
                 "string",
                 False,
-                "Source Workspace Project id.",
+                "Source Workspace Project id; required when the source "
+                "Workspace contains multiple Projects.",
             ),
             argument(
                 "target-project",
                 "option",
                 "string",
                 False,
-                "Target Workspace Project id.",
+                "Target Workspace Project id; required when the target "
+                "Workspace contains multiple Projects.",
             ),
             DOSSIER_ARGUMENT,
             JSON_ARGUMENT,

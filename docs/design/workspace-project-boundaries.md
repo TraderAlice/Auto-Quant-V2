@@ -33,6 +33,9 @@ own Study, Run, evaluation, research-loop, dataset-format, or Studio semantics.
   quantitative domain configuration.
 - The first created Project becomes the default. Later changes to the default
   are explicit Workspace mutations.
+- A default may drive disclosed read-only navigation. Once a Workspace has
+  multiple Projects, it cannot authorize Project-local state changes;
+  those commands require explicit `--project ID`.
 - A new research request normally creates or continues a Project. It does not
   require a fresh Workspace unless environment or ownership isolation is
   intentional.
@@ -87,6 +90,10 @@ own Study, Run, evaluation, research-loop, dataset-format, or Studio semantics.
     orientation may resolve it only through a fixed-inventory-locked marker,
     its exact ancestor Project/Session topology, and the canonical Session
     manifest; all other Project resolution remains unchanged.
+16. Read-only Workspace-to-Project resolution discloses whether selection was
+    explicit or default plus every available Project id. In a multi-Project
+    Workspace, `creates-artifact` and `mutates-project` commands fail before
+    mutation unless `--project ID` is explicit.
 
 ## File-to-operation flow
 
@@ -95,7 +102,8 @@ autoquant-workspace.json
 → optional strict autoquant-workspace.local.json
 → effective Workspace configuration and Projects path
 → confined immediate Project discovery
-→ default or explicit Project selection
+→ disclosed default or explicit Project selection
+→ explicit-Project gate for multi-Project state changes
 → strict autoquant.json load
 → required owned-path validation
 → Project context
@@ -125,6 +133,8 @@ first-default Workspace update.
 - Add rejection tests for every new path-bearing field.
 - Prove a Workspace with at least two Projects resolves and inspects them
   independently.
+- Prove a multi-Project default remains usable read-only but cannot direct a
+  state-changing command.
 - Project new operations through both human and JSON CLI paths.
 - Update Studio source projection and browser labeling with every Workspace
   configuration change.
