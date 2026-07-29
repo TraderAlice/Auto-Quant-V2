@@ -6,13 +6,17 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import numpy as np
 import pandas as pd
 
+from autoquant.briefs import validate_research_request
 from autoquant.mandates import build_portfolio_mandate
+from autoquant.project_templates.ohlcv_rl_factor_lab import rl_core
 from autoquant.project_templates.ohlcv_portfolio_lab.portfolio_core import (
     construct_signal_policy,
+    decision_schedule_mask,
     execution_risk_metrics,
 )
 from autoquant.project_templates.ohlcv_rl_factor_lab.rl_core import (
@@ -22,6 +26,7 @@ from autoquant.project_templates.ohlcv_rl_factor_lab.rl_core import (
     POLICY_STATE_COLUMNS,
     build_action_targets,
     build_policy_state,
+    compact_opportunity_rows,
     fixed_selector,
     one_step_action_opportunities,
     ridge_selector,
@@ -183,6 +188,105 @@ class RlEnvironmentTests(unittest.TestCase):
             columns=list(BASE_STATE_COLUMNS),
         )
         train_index = dates[:28]
+        reference_rollout = rollout_policy(
+            fixed_selector("balanced"),
+            raw_states,
+            action_targets,
+            closes,
+            volumes,
+            train_index,
+        )
+        array_rollout = rl_core._training_rollout(
+            fixed_selector("balanced"),
+            raw_states,
+            action_targets,
+            closes,
+            train_index,
+            mandate=None,
+            risk_covariance_cache=None,
+        )
+        pd.testing.assert_series_equal(
+            array_rollout.actions,
+            reference_rollout.actions,
+        )
+        pd.testing.assert_frame_equal(
+            array_rollout.states,
+            reference_rollout.states,
+        )
+        pd.testing.assert_series_equal(
+            array_rollout.net_returns,
+            reference_rollout.simulation.daily["net_return"],
+        )
+        pd.testing.assert_series_equal(
+            array_rollout.benchmark_returns,
+            reference_rollout.simulation.daily["benchmark_return"],
+        )
+        self.assertEqual(
+            rl_core.training_policy_net_sharpe(
+                fixed_selector("balanced"),
+                raw_states,
+                action_targets,
+                closes,
+                train_index,
+                mandate=None,
+                risk_covariance_cache=None,
+            ),
+            rl_core.rollout_metrics(reference_rollout)["net"]["sharpe"],
+        )
+        reference_opportunities = one_step_action_opportunities(
+            reference_rollout,
+            action_targets,
+            closes,
+            volumes,
+            train_index,
+        )
+        (
+            array_rewards,
+            array_oracle_hit_rate,
+            array_mean_regret,
+        ) = rl_core._training_opportunity_summary(
+            array_rollout,
+            action_targets,
+            closes,
+            train_index,
+            mandate=None,
+            risk_covariance_cache=None,
+        )
+        np.testing.assert_array_equal(
+            array_rewards,
+            np.asarray(
+                [
+                    [
+                        row["actions"][action]["reward"]
+                        for action in ACTIONS
+                    ]
+                    for row in reference_opportunities
+                ],
+                dtype=float,
+            ),
+        )
+        self.assertEqual(
+            array_oracle_hit_rate,
+            float(
+                np.mean(
+                    [
+                        row["selectedAction"] == row["oracleAction"]
+                        for row in reference_opportunities
+                    ]
+                )
+            ),
+        )
+        self.assertEqual(
+            array_mean_regret,
+            float(
+                np.mean(
+                    [
+                        row["realizedRegret"]
+                        for row in reference_opportunities
+                    ]
+                )
+            ),
+        )
 
         first = train_contextual_ridge(
             raw_states,
@@ -276,6 +380,12 @@ class RlEnvironmentTests(unittest.TestCase):
             closes,
             mandate=mandate,
         ).targets
+        target_only_candidate = construct_signal_policy(
+            factor_panels["candidate"],
+            closes,
+            mandate=mandate,
+            include_ledger=False,
+        )
         ungoverned_candidate = construct_signal_policy(
             factor_panels["candidate"],
             closes,
@@ -288,6 +398,11 @@ class RlEnvironmentTests(unittest.TestCase):
             action_targets["candidate"],
             expected_candidate,
         )
+        pd.testing.assert_frame_equal(
+            target_only_candidate.targets,
+            expected_candidate,
+        )
+        self.assertTrue(target_only_candidate.ledger.empty)
         self.assertTrue(
             (
                 action_targets["candidate"].abs().sum(axis=1)
@@ -407,6 +522,282 @@ class RlEnvironmentTests(unittest.TestCase):
         self.assertAlmostEqual(second["gross_return"], 0.03)
         self.assertAlmostEqual(second["reward"], 0.02991)
 
+    def test_opportunity_audit_shares_held_book_accounting_off_schedule(
+        self,
+    ) -> None:
+        dates = pd.bdate_range("2026-01-02", periods=32)
+        columns = list("ABCDE")
+        time = np.arange(len(dates), dtype=float)
+        closes = pd.DataFrame(
+            {
+                asset: 100.0
+                * np.exp(
+                    np.cumsum(
+                        0.001
+                        + 0.004
+                        * np.sin(time / (3.0 + number))
+                    )
+                )
+                for number, asset in enumerate(columns)
+            },
+            index=dates,
+        )
+        volumes = pd.DataFrame(
+            1_000_000.0,
+            index=dates,
+            columns=columns,
+        )
+        patterns = {
+            action: np.roll([0.3, 0.3, 0.2, 0.0, 0.0], number)
+            for number, action in enumerate(ACTIONS)
+        }
+        action_targets = {
+            action: pd.DataFrame(
+                [weights] * len(dates),
+                index=dates,
+                columns=columns,
+            )
+            for action, weights in patterns.items()
+        }
+        raw_states = pd.DataFrame(
+            0.0,
+            index=dates,
+            columns=list(BASE_STATE_COLUMNS),
+        )
+        request = validate_research_request(
+            {
+                "schemaVersion": 1,
+                "kind": "autoquant-research-request",
+                "title": "Held-book opportunity test",
+                "question": "Do fixed action sleeves share held accounting?",
+                "decisionContext": "Deterministic runtime regression.",
+                "assets": [
+                    {
+                        "symbol": asset,
+                        "assetClass": "equity",
+                        "venue": "TEST",
+                    }
+                    for asset in columns
+                ],
+                "direction": "long",
+                "horizon": "five bars",
+                "hypotheses": [],
+                "constraints": [],
+                "deliverables": ["runtime evidence"],
+                "portfolioPolicy": {
+                    "grossLimit": 1.0,
+                    "maxAbsWeight": 0.3,
+                    "assetMaxAbsWeights": {},
+                    "annualizedVolatilityCeiling": 1.0,
+                    "baseCostBps": 10.0,
+                    "noTradeOneWay": 0.0,
+                    "referenceNav": 1_000_000.0,
+                    "decisionSchedule": {
+                        "kind": "every-bars",
+                        "bars": 4,
+                        "anchor": "dataset-start",
+                    },
+                },
+                "source": {
+                    "system": "local",
+                    "workspaceId": "test",
+                    "sessionId": "held-book",
+                    "artifactPath": None,
+                    "artifactRevision": None,
+                },
+            }
+        )
+        mandate = build_portfolio_mandate(request, columns)
+        index = dates[:28]
+        rollout = rollout_policy(
+            fixed_selector("candidate"),
+            raw_states,
+            action_targets,
+            closes,
+            volumes,
+            index,
+            mandate=mandate,
+        )
+        eligible = decision_schedule_mask(
+            dates,
+            mandate["implementationPolicy"]["decisionPolicy"],
+        ).reindex(index)
+
+        with mock.patch.object(
+            rl_core,
+            "_account_step",
+            wraps=rl_core._account_step,
+        ) as account:
+            opportunities = one_step_action_opportunities(
+                rollout,
+                action_targets,
+                closes,
+                volumes,
+                index,
+                mandate=mandate,
+            )
+
+        self.assertEqual(
+            account.call_count,
+            int(eligible.sum()) * len(ACTIONS)
+            + int((~eligible).sum()),
+        )
+        for is_eligible, row in zip(eligible, opportunities, strict=True):
+            if is_eligible:
+                continue
+            actions = list(row["actions"].values())
+            self.assertEqual(
+                len({item["reward"] for item in actions}),
+                1,
+            )
+            self.assertEqual(
+                len(
+                    {
+                        tuple(item["executedWeights"].values())
+                        for item in actions
+                    }
+                ),
+                1,
+            )
+            self.assertGreater(
+                len(
+                    {
+                        tuple(item["proposedWeights"].values())
+                        for item in actions
+                    }
+                ),
+                1,
+            )
+        compacted = compact_opportunity_rows(opportunities)
+        for is_eligible, row in zip(eligible, compacted, strict=True):
+            if is_eligible:
+                self.assertIsNone(row["sharedExecution"])
+                self.assertTrue(
+                    all(
+                        "executedWeights" in evidence
+                        for evidence in row["actions"].values()
+                    )
+                )
+            else:
+                self.assertIsNotNone(row["sharedExecution"])
+                self.assertTrue(
+                    all(
+                        set(evidence) == {"proposedWeights"}
+                        for evidence in row["actions"].values()
+                    )
+                )
+
+    def test_learning_step_matches_full_governed_accounting(self) -> None:
+        dates = pd.bdate_range("2026-01-02", periods=80)
+        columns = list("ABCDE")
+        time = np.arange(len(dates), dtype=float)
+        closes = pd.DataFrame(
+            {
+                asset: 100.0
+                * np.exp(
+                    np.cumsum(
+                        0.0005
+                        + 0.012
+                        * np.sin(time / (2.0 + number * 0.4))
+                    )
+                )
+                for number, asset in enumerate(columns)
+            },
+            index=dates,
+        )
+        volumes = pd.DataFrame(
+            1_000_000.0,
+            index=dates,
+            columns=columns,
+        )
+        mandate = build_portfolio_mandate(None, columns)
+        returns = closes.pct_change(fill_method=None)
+        forward_returns = closes.shift(-1) / closes - 1.0
+        risk_cache = rl_core.build_risk_covariance_cache(
+            closes,
+            mandate=mandate,
+        )
+        resolved = rl_core.resolve_portfolio_mandate(columns, mandate)
+        implementation = rl_core.resolve_implementation_policy(mandate)
+        timestamp = dates[-2]
+        previous = pd.Series(
+            [0.2, -0.2, 0.1, -0.1, 0.0],
+            index=columns,
+            dtype=float,
+        )
+        proposed = pd.Series(
+            [0.3, -0.3, 0.2, -0.2, 0.0],
+            index=columns,
+            dtype=float,
+        )
+        pretrade = rl_core._pretrade_weights(
+            previous,
+            returns,
+            timestamp,
+            first=False,
+        )
+        forward = forward_returns.loc[timestamp].fillna(0.0)
+
+        for decision_eligible in (False, True):
+            with self.subTest(decision_eligible=decision_eligible):
+                full_current, _, _, full_row = rl_core._account_step(
+                    previous,
+                    proposed,
+                    returns,
+                    timestamp,
+                    forward,
+                    closes.loc[timestamp],
+                    volumes.loc[timestamp],
+                    first=False,
+                    ordinary_rebalance_allowed=decision_eligible,
+                    mandate=mandate,
+                    risk_covariance_cache=risk_cache,
+                    resolved_mandate=resolved,
+                    implementation=implementation,
+                    pretrade=pretrade,
+                )
+                fast_current, fast_reward = rl_core._learning_step(
+                    previous,
+                    proposed,
+                    returns,
+                    timestamp,
+                    forward,
+                    ordinary_rebalance_allowed=decision_eligible,
+                    mandate=mandate,
+                    risk_covariance_cache=risk_cache,
+                    resolved_mandate=resolved,
+                    implementation=implementation,
+                    pretrade=pretrade,
+                )
+                array_current, array_reward = (
+                    rl_core._learning_step_values(
+                        pretrade.to_numpy(dtype=float),
+                        proposed.to_numpy(dtype=float),
+                        timestamp,
+                        forward.to_numpy(dtype=float),
+                        ordinary_rebalance_allowed=decision_eligible,
+                        no_trade_one_way=float(
+                            implementation["no_trade_one_way"]
+                        ),
+                        base_cost_bps=float(
+                            implementation["base_cost_bps"]
+                        ),
+                        resolved_mandate=resolved,
+                        risk_covariance_cache=risk_cache,
+                    )
+                )
+
+                pd.testing.assert_series_equal(
+                    fast_current,
+                    full_current,
+                )
+                self.assertEqual(fast_reward, full_row["reward"])
+                np.testing.assert_array_equal(
+                    array_current,
+                    full_current.to_numpy(dtype=float),
+                )
+                self.assertEqual(array_reward, full_row["reward"])
+
 
 class GovernedRlFactorPolicyLabTests(unittest.TestCase):
     def test_template_is_reproducible_and_preserves_every_seed_fold_artifact(
@@ -504,6 +895,27 @@ class GovernedRlFactorPolicyLabTests(unittest.TestCase):
                     "policy-opportunities",
                     "policy-incremental-attribution",
                 },
+            )
+            opportunity_artifact = next(
+                item
+                for item in first.result["artifacts"]
+                if item["kind"] == "policy-opportunities"
+            )
+            opportunity_rows = json.loads(
+                (
+                    first.root_dir / opportunity_artifact["path"]
+                ).read_text(encoding="utf-8")
+            )["rows"]
+            self.assertTrue(
+                all(
+                    row["decisionEligible"]
+                    and row["sharedExecution"] is None
+                    and all(
+                        "executedWeights" in evidence
+                        for evidence in row["actions"].values()
+                    )
+                    for row in opportunity_rows
+                )
             )
             rationale = metrics["policy_rationale"]
             self.assertEqual(

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import unittest
+from unittest import mock
 
 import jsonschema
 import numpy as np
@@ -24,6 +25,7 @@ from autoquant.project_templates.ohlcv_portfolio_lab.portfolio_core import (
     decision_schedule_sessions,
     simulate_targets,
 )
+from autoquant.project_templates.ohlcv_portfolio_lab import portfolio_core
 from autoquant.workspace import AutoQuantValidationError
 
 
@@ -366,6 +368,61 @@ class PortfolioMandateTests(unittest.TestCase):
                 "2026-07",
             ],
         )
+
+    def test_calendar_month_policy_only_constructs_new_targets_on_decisions(
+        self,
+    ) -> None:
+        factors, closes = panels()
+        raw = request("long", ["A", "B"])
+        raw["portfolioPolicy"] = {
+            "grossLimit": 0.8,
+            "maxAbsWeight": 0.3,
+            "assetMaxAbsWeights": {},
+            "annualizedVolatilityCeiling": 1.0,
+            "baseCostBps": 10.0,
+            "noTradeOneWay": 0.0,
+            "referenceNav": 1_000_000.0,
+            "decisionSchedule": {"kind": "calendar-month-end"},
+        }
+        mandate = build_portfolio_mandate(
+            validate_research_request(raw),
+            UNIVERSE,
+        )
+        eligible = decision_schedule_mask(
+            factors.index,
+            {"kind": "calendar-month-end"},
+        )
+
+        with mock.patch.object(
+            portfolio_core,
+            "_allocate_capped_up_to",
+            wraps=portfolio_core._allocate_capped_up_to,
+        ) as allocate:
+            construction = construct_signal_policy(
+                factors,
+                closes,
+                mandate=mandate,
+                apply_risk_governor=False,
+            )
+
+        self.assertEqual(allocate.call_count, int(eligible.sum()))
+        observed = construction.ledger.groupby("timestamp")[
+            "decision_eligible"
+        ].first()
+        pd.testing.assert_series_equal(
+            observed,
+            eligible,
+            check_names=False,
+            check_freq=False,
+        )
+        held = construction.ledger[
+            (~construction.ledger["decision_eligible"])
+            & construction.ledger["tradable"]
+        ]
+        self.assertTrue(
+            (held["signal_event"] == "decision_schedule_hold").all()
+        )
+        self.assertTrue(np.allclose(held["target_delta"], 0.0))
 
     def test_caller_policy_is_strict_and_content_locked_into_mandate(self) -> None:
         raw = request("long", ["A", "B"])

@@ -151,6 +151,16 @@ Three declared seeds are always run. No seed is dropped because it performs
 poorly; any failed declared fold/seed trial fails the Run with structured trial
 evidence.
 
+The fixed learner and train-only baselines pre-extract the immutable panel,
+targets, decision schedule, mandate constraints, and covariance cache into an
+exact array accounting path. This path preserves chronological drift,
+schedule eligibility, mandate repair, risk-only override, cost, reward, and
+pretrade state while avoiding pandas evidence objects that training never
+publishes. Fixed-policy training Sharpe and contextual-ridge labels use the
+same train-only primitive. Validation and test continue through the complete
+governed rollout and immutable evidence path. Regression tests require exact
+actions, states, returns, rewards, and opportunity labels between both paths.
+
 Two expanding folds are fixed:
 
 ```text
@@ -214,7 +224,12 @@ Successful Runs declare:
 - `policy-opportunities.json`: every validation/test action sleeve evaluated
   for one bar from the selected policy path's exact shared pretrade book,
   including proposed/executed weights, trades, next returns, reward, local
-  oracle rank/regret, and candidate-factor opportunity.
+  oracle rank/regret, and candidate-factor opportunity. On a date when the
+  caller's decision schedule forbids an ordinary rebalance, all actions share
+  one executed book by definition: the artifact stores that execution once
+  beside each sleeve's distinct proposed target. Decision-eligible dates retain
+  every complete counterfactual execution. The Explorer reconstructs and
+  reconciles the same full action evidence before projection.
 - `policy-incremental-attribution.json`: the RL path paired with each fold's
   validation-selected mechanical baseline, including exact gross edge,
   incremental cost, net active return, market-state/action buckets, and
@@ -239,11 +254,13 @@ rendered beside it as visible audit only and never changes the stage or next
 research focus. Report and Project Dossier freeze the exact projection and
 hash from the immutable leader Run.
 
-The reference Study keeps a 120-second hard Judge timeout for cold installed
-environments, all fixed folds, seeds, baselines, and sleeve construction, plus
-bounded host contention during a full Harness regression. Warm reference Runs
-are much faster and remain deterministic. The training budget is unchanged;
-this allowance is not permission for a longer training job.
+The reference Study keeps a 120-second hard Judge timeout. A real nine-asset,
+4,922-session calendar-month Study with two folds, three seeds, 12 episodes,
+all baselines, and complete validation/test evidence finishes in 96.2 seconds
+on the reference development host. Its schedule-aware opportunity artifact is
+25 MiB rather than 92 MiB and passes the unchanged 32 MiB bounded-reader
+limit. The scientific workload and evidence rows are unchanged; this bound is
+not permission for a longer training job.
 
 ## Studio projection
 
@@ -292,6 +309,10 @@ promote a policy, hide a failed seed, or turn a local oracle into a strategy.
     preserves local one-step and independent full-path semantics, exposes test
     only as visible audit, and grants no selection, KEEP/REVERT, promotion,
     order, account, or trading authority.
+19. Schedule-held dates preserve one actual executed book and reward across
+    all proposed actions; compact storage may share that execution only after
+    exact equality is established, while decision-eligible counterfactuals
+    remain complete.
 
 ## Change checklist
 

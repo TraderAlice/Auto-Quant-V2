@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Callable
+from typing import Any, Callable
 
 import numpy as np
 import pandas as pd
@@ -119,6 +119,16 @@ class TrainedPolicy:
     history: list[dict[str, object]]
 
 
+@dataclass(frozen=True)
+class TrainingRollout:
+    actions: pd.Series
+    states: pd.DataFrame
+    pretrade: np.ndarray
+    net_returns: pd.Series
+    benchmark_returns: pd.Series
+    rewards: np.ndarray
+
+
 def build_action_targets(
     factor_panels: dict[str, pd.DataFrame],
     closes: pd.DataFrame,
@@ -140,6 +150,7 @@ def build_action_targets(
             combined,
             closes,
             mandate=mandate,
+            include_ledger=False,
         ).targets
     return targets
 
@@ -461,6 +472,652 @@ def _account_step(
     return current, trade, participation, row
 
 
+def _learning_step(
+    previous_weights: pd.Series,
+    proposed: pd.Series,
+    close_returns: pd.DataFrame,
+    timestamp: object,
+    forward_return: pd.Series,
+    *,
+    ordinary_rebalance_allowed: bool,
+    mandate: dict[str, object] | None,
+    risk_covariance_cache: RiskCovarianceCache | None,
+    resolved_mandate: dict[str, object],
+    implementation: dict[str, object],
+    pretrade: pd.Series,
+) -> tuple[pd.Series, float]:
+    """Advance the exact governed book without constructing unused evidence."""
+
+    current, _ = execute_risk_compliant_book(
+        pretrade,
+        proposed,
+        close_returns,
+        timestamp,
+        mandate=mandate,
+        no_trade_one_way=implementation["no_trade_one_way"],
+        ordinary_rebalance_allowed=ordinary_rebalance_allowed,
+        risk_covariance_cache=risk_covariance_cache,
+        _resolved_mandate=resolved_mandate,
+        _state_only=True,
+    )
+    traded_notional = float((current - pretrade).abs().sum())
+    cost = (
+        traded_notional
+        * implementation["base_cost_bps"]
+        / 10_000.0
+    )
+    gross_return = float((current * forward_return).sum())
+    net_return = gross_return - cost
+    reward = net_return - RISK_AVERSION * gross_return**2
+    if not math.isfinite(reward):
+        raise PolicyFailure(
+            "policy.non-finite",
+            "Learning accounting produced a non-finite reward",
+        )
+    return current, reward
+
+
+def _drift_weight_values(
+    previous: np.ndarray,
+    realized_returns: np.ndarray,
+) -> np.ndarray:
+    aligned = np.where(np.isnan(realized_returns), 0.0, realized_returns)
+    gross_return = float((previous * aligned).sum())
+    denominator = 1.0 + gross_return
+    if not math.isfinite(denominator) or denominator <= 1e-9:
+        raise PolicyFailure(
+            "portfolio.bankrupt",
+            "Portfolio drift denominator is non-positive",
+        )
+    drifted = previous * (1.0 + aligned) / denominator
+    if not np.isfinite(drifted).all():
+        raise PolicyFailure(
+            "portfolio.non-finite",
+            "Drift produced non-finite weights",
+        )
+    return drifted
+
+
+def _policy_state_values(
+    raw_state: np.ndarray,
+    previous_action_number: int,
+    pretrade: np.ndarray,
+    action_targets: np.ndarray,
+) -> dict[str, float]:
+    if (
+        raw_state.shape != (len(BASE_STATE_COLUMNS),)
+        or action_targets.shape != (len(ACTIONS), len(pretrade))
+        or not 0 <= previous_action_number < len(ACTIONS)
+    ):
+        raise PolicyFailure(
+            "policy.state-values",
+            "Array policy state inputs differ from the fixed contract",
+        )
+    result = {
+        column: float(raw_state[position])
+        for position, column in enumerate(BASE_STATE_COLUMNS)
+    }
+    result.update(
+        {
+            f"previous_{action}": float(
+                position == previous_action_number
+            )
+            for position, action in enumerate(ACTIONS)
+        }
+    )
+    absolute = np.abs(pretrade)
+    result.update(
+        {
+            "pretrade_gross_exposure": float(absolute.sum()),
+            "pretrade_net_exposure": float(pretrade.sum()),
+            "pretrade_cash_weight": 1.0 - float(absolute.sum()),
+            "pretrade_max_abs_weight": float(absolute.max()),
+            "pretrade_concentration_hhi": float(
+                np.square(pretrade).sum()
+            ),
+        }
+    )
+    result.update(
+        {
+            f"{action}_target_distance": float(
+                0.5
+                * np.abs(
+                    action_targets[position] - pretrade
+                ).sum()
+            )
+            for position, action in enumerate(ACTIONS)
+        }
+    )
+    if set(result) != set(POLICY_STATE_COLUMNS) or not all(
+        math.isfinite(value) for value in result.values()
+    ):
+        raise PolicyFailure(
+            "policy.state",
+            "Causal policy state contains invalid values",
+        )
+    return result
+
+
+def _repair_weight_values(
+    weights: np.ndarray,
+    resolved: dict[str, object],
+) -> np.ndarray:
+    roles = resolved["asset_position_roles"]
+    caps = resolved["asset_max_abs_weights"]
+    assert isinstance(roles, dict)
+    assert isinstance(caps, dict)
+    role_values = resolved.get("_constraint_role_values")
+    cap_values = resolved.get("_constraint_cap_values")
+    if (
+        not isinstance(role_values, tuple)
+        or len(role_values) != len(weights)
+        or not isinstance(cap_values, np.ndarray)
+        or cap_values.shape != weights.shape
+    ):
+        role_values = tuple(str(value) for value in roles.values())
+        cap_values = np.asarray(
+            [float(value) for value in caps.values()],
+            dtype=float,
+        )
+        resolved["_constraint_role_values"] = role_values
+        resolved["_constraint_cap_values"] = cap_values
+    repaired = weights.copy()
+    for position, role in enumerate(role_values):
+        cap = float(cap_values[position])
+        value = float(repaired[position])
+        if role == "context-only":
+            value = 0.0
+        elif role == "long-only":
+            value = max(value, 0.0)
+        elif role == "short-only":
+            value = min(value, 0.0)
+        repaired[position] = min(max(value, -cap), cap)
+
+    family = str(resolved["family"])
+    gross_limit = float(resolved["gross_limit"])
+    long_limit = float(resolved["long_gross_limit"])
+    short_limit = float(resolved["short_gross_limit"])
+    if family == "dollar-neutral":
+        positive = repaired > 0.0
+        negative = repaired < 0.0
+        long_exposure = float(repaired[positive].sum())
+        short_exposure = float(-repaired[negative].sum())
+        funded_side = min(
+            long_exposure,
+            short_exposure,
+            long_limit,
+            short_limit,
+            gross_limit / 2.0,
+        )
+        if funded_side <= 1e-15:
+            repaired.fill(0.0)
+        else:
+            repaired[positive] *= funded_side / long_exposure
+            repaired[negative] *= funded_side / short_exposure
+    else:
+        for positive, limit in (
+            (True, long_limit),
+            (False, short_limit),
+        ):
+            mask = repaired > 0.0 if positive else repaired < 0.0
+            exposure = float(
+                repaired[mask].sum()
+                if positive
+                else -repaired[mask].sum()
+            )
+            if exposure > limit + 1e-15:
+                repaired[mask] *= limit / exposure
+        gross = float(np.abs(repaired).sum())
+        if gross > gross_limit + 1e-15:
+            repaired *= gross_limit / gross
+    if not np.isfinite(repaired).all():
+        raise PolicyFailure(
+            "portfolio.non-finite",
+            "Mandate repair produced non-finite weights",
+        )
+    return repaired
+
+
+def _govern_weight_values(
+    weights: np.ndarray,
+    timestamp: object,
+    resolved: dict[str, object],
+    risk_covariance_cache: RiskCovarianceCache,
+) -> np.ndarray:
+    if float(np.abs(weights).sum()) <= 1e-12:
+        return weights.copy()
+    policy = resolved["risk_policy"]
+    if policy is None:
+        return weights.copy()
+    assert isinstance(policy, dict)
+    cached = risk_covariance_cache.get(timestamp)
+    if cached is None:
+        raise PolicyFailure(
+            "portfolio.risk-cache",
+            "Risk covariance cache is missing a learning timestamp",
+        )
+    observations, covariance = cached
+    if (
+        observations < int(policy["minimum_observations"])
+        or covariance is None
+    ):
+        return np.zeros_like(weights)
+    if covariance.shape != (len(weights), len(weights)):
+        raise PolicyFailure(
+            "portfolio.risk-cache",
+            "Risk covariance cache shape is invalid",
+        )
+    variance = float(weights @ covariance @ weights)
+    if not math.isfinite(variance) or variance < -1e-12:
+        return np.zeros_like(weights)
+    forecast = math.sqrt(
+        max(variance, 0.0) * int(policy["annualization_periods"])
+    )
+    ceiling = float(policy["annualized_volatility_ceiling"])
+    scale = (
+        min(1.0, ceiling / forecast)
+        if forecast > 1e-12
+        else 1.0
+    )
+    return weights * scale
+
+
+def _learning_account_values(
+    pretrade: np.ndarray,
+    proposed: np.ndarray,
+    timestamp: object,
+    forward_return: np.ndarray,
+    *,
+    ordinary_rebalance_allowed: bool,
+    no_trade_one_way: float,
+    base_cost_bps: float,
+    resolved_mandate: dict[str, object],
+    risk_covariance_cache: RiskCovarianceCache,
+) -> tuple[np.ndarray, float, float, float]:
+    if ordinary_rebalance_allowed:
+        runtime_proposed = _govern_weight_values(
+            _repair_weight_values(proposed, resolved_mandate),
+            timestamp,
+            resolved_mandate,
+            risk_covariance_cache,
+        )
+        proposed_one_way = 0.5 * float(
+            np.abs(runtime_proposed - pretrade).sum()
+        )
+        ordinary_rebalance = (
+            proposed_one_way + 1e-12 >= no_trade_one_way
+        )
+        ordinary_book = (
+            runtime_proposed if ordinary_rebalance else pretrade
+        )
+    else:
+        ordinary_rebalance = False
+        ordinary_book = pretrade
+    constraint_book = _repair_weight_values(
+        ordinary_book,
+        resolved_mandate,
+    )
+    current = (
+        constraint_book
+        if ordinary_rebalance
+        else _govern_weight_values(
+            constraint_book,
+            timestamp,
+            resolved_mandate,
+            risk_covariance_cache,
+        )
+    )
+    traded_notional = float(np.abs(current - pretrade).sum())
+    cost = traded_notional * base_cost_bps / 10_000.0
+    gross_return = float((current * forward_return).sum())
+    net_return = gross_return - cost
+    reward = net_return - RISK_AVERSION * gross_return**2
+    if not np.isfinite(current).all() or not math.isfinite(reward):
+        raise PolicyFailure(
+            "policy.non-finite",
+            "Array learning accounting produced non-finite evidence",
+        )
+    return current, gross_return, net_return, reward
+
+
+def _learning_step_values(
+    pretrade: np.ndarray,
+    proposed: np.ndarray,
+    timestamp: object,
+    forward_return: np.ndarray,
+    *,
+    ordinary_rebalance_allowed: bool,
+    no_trade_one_way: float,
+    base_cost_bps: float,
+    resolved_mandate: dict[str, object],
+    risk_covariance_cache: RiskCovarianceCache,
+) -> tuple[np.ndarray, float]:
+    current, _, _, reward = _learning_account_values(
+        pretrade,
+        proposed,
+        timestamp,
+        forward_return,
+        ordinary_rebalance_allowed=ordinary_rebalance_allowed,
+        no_trade_one_way=no_trade_one_way,
+        base_cost_bps=base_cost_bps,
+        resolved_mandate=resolved_mandate,
+        risk_covariance_cache=risk_covariance_cache,
+    )
+    return current, reward
+
+
+def _prepare_array_runtime(
+    raw_states: pd.DataFrame,
+    action_targets: dict[str, pd.DataFrame],
+    closes: pd.DataFrame,
+    index: pd.Index,
+    mandate: dict[str, object] | None,
+    risk_covariance_cache: RiskCovarianceCache | None,
+) -> tuple[
+    dict[str, object],
+    dict[str, object],
+    RiskCovarianceCache,
+    list[object],
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+    np.ndarray,
+]:
+    resolved = resolve_portfolio_mandate(closes.columns, mandate)
+    resolved["_constraint_role_values"] = tuple(
+        str(resolved["asset_position_roles"][str(asset)])
+        for asset in closes.columns
+    )
+    resolved["_constraint_cap_values"] = np.asarray(
+        [
+            float(resolved["asset_max_abs_weights"][str(asset)])
+            for asset in closes.columns
+        ],
+        dtype=float,
+    )
+    implementation = resolve_implementation_policy(mandate)
+    cache = (
+        risk_covariance_cache
+        if risk_covariance_cache is not None
+        else build_risk_covariance_cache(closes, mandate=mandate)
+    )
+    decision_mask = decision_schedule_mask(
+        next(iter(action_targets.values())).index,
+        dict(implementation["decision_policy"]),
+    ).reindex(index)
+    if decision_mask.isna().any():
+        raise PolicyFailure(
+            "policy.decision-cadence",
+            "Array runtime split is outside the complete decision schedule",
+        )
+    close_returns = closes.pct_change(fill_method=None)
+    forward_returns = closes.shift(-1) / closes - 1.0
+    return (
+        resolved,
+        implementation,
+        cache,
+        list(index),
+        raw_states.loc[
+            index,
+            list(BASE_STATE_COLUMNS),
+        ].to_numpy(dtype=float),
+        np.stack(
+            [
+                action_targets[action]
+                .loc[index, closes.columns]
+                .to_numpy(dtype=float)
+                for action in ACTIONS
+            ],
+            axis=0,
+        ),
+        close_returns.loc[
+            index,
+            closes.columns,
+        ].to_numpy(dtype=float),
+        (
+            forward_returns.loc[index, closes.columns]
+            .fillna(0.0)
+            .to_numpy(dtype=float)
+        ),
+        decision_mask.to_numpy(dtype=bool),
+    )
+
+
+def _training_rollout(
+    selector: Callable[[dict[str, float]], str],
+    raw_states: pd.DataFrame,
+    action_targets: dict[str, pd.DataFrame],
+    closes: pd.DataFrame,
+    index: pd.Index,
+    *,
+    mandate: dict[str, object] | None,
+    risk_covariance_cache: RiskCovarianceCache | None,
+) -> TrainingRollout:
+    (
+        resolved,
+        implementation,
+        cache,
+        timestamps,
+        raw_values,
+        target_values,
+        close_return_values,
+        forward_return_values,
+        decision_values,
+    ) = _prepare_array_runtime(
+        raw_states,
+        action_targets,
+        closes,
+        index,
+        mandate,
+        risk_covariance_cache,
+    )
+    benchmark = (
+        None
+        if mandate is None
+        else np.asarray(
+            [
+                float(
+                    mandate["construction"]["benchmark"]["weights"][
+                        str(asset)
+                    ]
+                )
+                for asset in closes.columns
+            ],
+            dtype=float,
+        )
+    )
+    previous_values = np.zeros(len(closes.columns), dtype=float)
+    previous_action_number = ACTIONS.index("balanced")
+    action_numbers: list[int] = []
+    state_rows: list[dict[str, float]] = []
+    pretrade_rows: list[np.ndarray] = []
+    net_returns: list[float] = []
+    benchmark_returns: list[float] = []
+    rewards: list[float] = []
+    for position, timestamp in enumerate(timestamps):
+        pretrade = (
+            np.zeros(len(closes.columns), dtype=float)
+            if position == 0
+            else _drift_weight_values(
+                previous_values,
+                close_return_values[position],
+            )
+        )
+        state = _policy_state_values(
+            raw_values[position],
+            previous_action_number,
+            pretrade,
+            target_values[:, position, :],
+        )
+        action_number = (
+            ACTIONS.index(selector(state))
+            if decision_values[position]
+            else previous_action_number
+        )
+        current, _, net_return, reward = _learning_account_values(
+            pretrade,
+            target_values[action_number, position],
+            timestamp,
+            forward_return_values[position],
+            ordinary_rebalance_allowed=bool(
+                decision_values[position]
+            ),
+            no_trade_one_way=float(
+                implementation["no_trade_one_way"]
+            ),
+            base_cost_bps=float(
+                implementation["base_cost_bps"]
+            ),
+            resolved_mandate=resolved,
+            risk_covariance_cache=cache,
+        )
+        action_numbers.append(action_number)
+        state_rows.append(state)
+        pretrade_rows.append(pretrade)
+        net_returns.append(net_return)
+        benchmark_returns.append(
+            float(forward_return_values[position].mean())
+            if benchmark is None
+            else float(
+                (
+                    benchmark * forward_return_values[position]
+                ).sum()
+            )
+        )
+        rewards.append(reward)
+        previous_values = current
+        previous_action_number = action_number
+    return TrainingRollout(
+        actions=pd.Series(
+            [ACTIONS[number] for number in action_numbers],
+            index=index,
+            name="action",
+        ),
+        states=pd.DataFrame(
+            state_rows,
+            index=index,
+            columns=list(POLICY_STATE_COLUMNS),
+        ),
+        pretrade=np.asarray(pretrade_rows, dtype=float),
+        net_returns=pd.Series(
+            net_returns,
+            index=index,
+            name="net_return",
+        ),
+        benchmark_returns=pd.Series(
+            benchmark_returns,
+            index=index,
+            name="benchmark_return",
+        ),
+        rewards=np.asarray(rewards, dtype=float),
+    )
+
+
+def training_policy_net_sharpe(
+    selector: Callable[[dict[str, float]], str],
+    raw_states: pd.DataFrame,
+    action_targets: dict[str, pd.DataFrame],
+    closes: pd.DataFrame,
+    index: pd.Index,
+    *,
+    mandate: dict[str, object] | None,
+    risk_covariance_cache: RiskCovarianceCache | None,
+) -> float:
+    """Return exact train-only net Sharpe without artifact-only accounting."""
+
+    rollout = _training_rollout(
+        selector,
+        raw_states,
+        action_targets,
+        closes,
+        index,
+        mandate=mandate,
+        risk_covariance_cache=risk_covariance_cache,
+    )
+    return float(
+        performance_metrics(
+            rollout.net_returns,
+            rollout.benchmark_returns,
+        )["sharpe"]
+    )
+
+
+def _training_opportunity_summary(
+    rollout: TrainingRollout,
+    action_targets: dict[str, pd.DataFrame],
+    closes: pd.DataFrame,
+    index: pd.Index,
+    *,
+    mandate: dict[str, object] | None,
+    risk_covariance_cache: RiskCovarianceCache | None,
+) -> tuple[np.ndarray, float, float]:
+    (
+        resolved,
+        implementation,
+        cache,
+        timestamps,
+        _,
+        target_values,
+        _,
+        forward_return_values,
+        decision_values,
+    ) = _prepare_array_runtime(
+        rollout.states.loc[:, list(BASE_STATE_COLUMNS)],
+        action_targets,
+        closes,
+        index,
+        mandate,
+        risk_covariance_cache,
+    )
+    oracle_hits: list[bool] = []
+    regrets: list[float] = []
+    reward_rows: list[list[float]] = []
+    for position, timestamp in enumerate(timestamps):
+        selected_number = ACTIONS.index(
+            str(rollout.actions.iloc[position])
+        )
+        if decision_values[position]:
+            action_rewards = [
+                _learning_account_values(
+                    rollout.pretrade[position],
+                    target_values[action_number, position],
+                    timestamp,
+                    forward_return_values[position],
+                    ordinary_rebalance_allowed=True,
+                    no_trade_one_way=float(
+                        implementation["no_trade_one_way"]
+                    ),
+                    base_cost_bps=float(
+                        implementation["base_cost_bps"]
+                    ),
+                    resolved_mandate=resolved,
+                    risk_covariance_cache=cache,
+                )[3]
+                for action_number in range(len(ACTIONS))
+            ]
+            ranked = sorted(
+                range(len(ACTIONS)),
+                key=lambda number: (-action_rewards[number], number),
+            )
+            oracle_number = ranked[0]
+            selected_reward = action_rewards[selected_number]
+            oracle_reward = action_rewards[oracle_number]
+        else:
+            oracle_number = selected_number
+            selected_reward = float(rollout.rewards[position])
+            oracle_reward = selected_reward
+            action_rewards = [selected_reward] * len(ACTIONS)
+        reward_rows.append(action_rewards)
+        oracle_hits.append(selected_number == oracle_number)
+        regrets.append(max(0.0, oracle_reward - selected_reward))
+    return (
+        np.asarray(reward_rows, dtype=float),
+        float(np.mean(oracle_hits)),
+        float(np.mean(regrets)),
+    )
+
+
 def rollout_policy(
     selector: Callable[[dict[str, float]], str],
     raw_states: pd.DataFrame,
@@ -623,6 +1280,7 @@ def one_step_action_opportunities(
     rows: list[dict[str, object]] = []
     for position, timestamp in enumerate(index):
         decision_eligible = bool(decision_mask.loc[timestamp])
+        selected = str(rollout.actions.loc[timestamp])
         previous_weights = (
             zero
             if position == 0
@@ -635,23 +1293,47 @@ def one_step_action_opportunities(
         )
         forward_return = forward_returns.loc[timestamp].fillna(0.0)
         action_evidence: dict[str, dict[str, object]] = {}
-        for action in ACTIONS:
-            proposed = action_targets[action].loc[timestamp]
-            current, trade, _, daily = _account_step(
+        held_step = (
+            None
+            if decision_eligible
+            else _account_step(
                 previous_weights,
-                proposed,
+                action_targets[selected].loc[timestamp],
                 close_returns,
                 timestamp,
                 forward_return,
                 closes.loc[timestamp],
                 volumes.loc[timestamp],
                 first=position == 0,
-                ordinary_rebalance_allowed=decision_eligible,
+                ordinary_rebalance_allowed=False,
                 mandate=mandate,
                 risk_covariance_cache=cache,
                 resolved_mandate=resolved_mandate,
                 implementation=implementation,
                 pretrade=pretrade,
+            )
+        )
+        for action in ACTIONS:
+            proposed = action_targets[action].loc[timestamp]
+            current, trade, _, daily = (
+                held_step
+                if held_step is not None
+                else _account_step(
+                    previous_weights,
+                    proposed,
+                    close_returns,
+                    timestamp,
+                    forward_return,
+                    closes.loc[timestamp],
+                    volumes.loc[timestamp],
+                    first=position == 0,
+                    ordinary_rebalance_allowed=True,
+                    mandate=mandate,
+                    risk_covariance_cache=cache,
+                    resolved_mandate=resolved_mandate,
+                    implementation=implementation,
+                    pretrade=pretrade,
+                )
             )
             action_evidence[action] = {
                 "proposedWeights": {
@@ -705,7 +1387,6 @@ def one_step_action_opportunities(
                 ),
                 "executionReason": str(daily["execution_reason"]),
             }
-        selected = str(rollout.actions.loc[timestamp])
         selected_evidence = action_evidence[selected]
         actual_daily = rollout.simulation.daily.loc[timestamp]
         if (
@@ -812,6 +1493,57 @@ def one_step_action_opportunities(
     return rows
 
 
+def compact_opportunity_rows(
+    rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Store one shared executed book when the schedule holds every sleeve."""
+
+    execution_fields = {
+        "executedWeights",
+        "trades",
+        "grossReturn",
+        "netReturn",
+        "reward",
+        "oneWayTurnover",
+        "cost",
+        "grossExposure",
+        "netExposure",
+        "executionRiskStatus",
+        "executionRiskForecastAvailable",
+        "executionRiskObservations",
+        "pretradeRiskForecastAnnualized",
+        "executedRiskForecastAnnualized",
+        "executionRiskCeilingAnnualized",
+        "riskRebalanceOverride",
+        "constraintRebalanceOverride",
+        "constraintRepairOneWay",
+        "executedConstraintMaximumError",
+        "executionReason",
+    }
+    compacted: list[dict[str, Any]] = []
+    for row in rows:
+        if row["decisionEligible"]:
+            compacted.append({**row, "sharedExecution": None})
+            continue
+        selected_evidence = row["actions"][row["selectedAction"]]
+        compacted.append(
+            {
+                **row,
+                "actions": {
+                    action: {
+                        "proposedWeights": evidence["proposedWeights"]
+                    }
+                    for action, evidence in row["actions"].items()
+                },
+                "sharedExecution": {
+                    field: selected_evidence[field]
+                    for field in execution_fields
+                },
+            }
+        )
+    return compacted
+
+
 def train_q_policy(
     encoder: Callable[[dict[str, float]], np.ndarray],
     feature_count: int,
@@ -835,6 +1567,21 @@ def train_q_policy(
         closes.columns,
         mandate,
     )
+    resolved_mandate["_constraint_role_values"] = tuple(
+        str(
+            resolved_mandate["asset_position_roles"][str(asset)]
+        )
+        for asset in closes.columns
+    )
+    resolved_mandate["_constraint_cap_values"] = np.asarray(
+        [
+            float(
+                resolved_mandate["asset_max_abs_weights"][str(asset)]
+            )
+            for asset in closes.columns
+        ],
+        dtype=float,
+    )
     implementation = resolve_implementation_policy(mandate)
     decision_policy = dict(implementation["decision_policy"])
     complete_index = next(iter(action_targets.values())).index
@@ -847,87 +1594,105 @@ def train_q_policy(
             "policy.decision-cadence",
             "Training split is outside the complete decision schedule",
         )
+    cache = (
+        risk_covariance_cache
+        if risk_covariance_cache is not None
+        else build_risk_covariance_cache(closes, mandate=mandate)
+    )
+    timestamps = list(train_index)
+    raw_values = raw_states.loc[
+        train_index,
+        list(BASE_STATE_COLUMNS),
+    ].to_numpy(dtype=float)
+    action_target_values = np.stack(
+        [
+            action_targets[action]
+            .loc[train_index, closes.columns]
+            .to_numpy(dtype=float)
+            for action in ACTIONS
+        ],
+        axis=0,
+    )
+    close_return_values = close_returns.loc[
+        train_index,
+        closes.columns,
+    ].to_numpy(dtype=float)
+    forward_return_values = (
+        forward_returns.loc[train_index, closes.columns]
+        .fillna(0.0)
+        .to_numpy(dtype=float)
+    )
+    decision_values = decision_mask.to_numpy(dtype=bool)
     history: list[dict[str, object]] = []
     for episode in range(EPISODES):
         fraction = episode / max(1, EPISODES - 1)
         epsilon = EPSILON_START + fraction * (EPSILON_END - EPSILON_START)
-        previous_weights = pd.Series(0.0, index=closes.columns, dtype=float)
-        previous_action = "balanced"
+        previous_values = np.zeros(len(closes.columns), dtype=float)
+        previous_action_number = ACTIONS.index("balanced")
         total_reward = 0.0
         action_counts = {action: 0 for action in ACTIONS}
-        for position, timestamp in enumerate(train_index):
+        for position, timestamp in enumerate(timestamps):
             first = position == 0
-            decision_eligible = bool(decision_mask.loc[timestamp])
-            pretrade = _pretrade_weights(
-                previous_weights,
-                close_returns,
-                timestamp,
-                first=first,
+            decision_eligible = bool(decision_values[position])
+            pretrade_values = (
+                np.zeros(len(closes.columns), dtype=float)
+                if first
+                else _drift_weight_values(
+                    previous_values,
+                    close_return_values[position],
+                )
             )
-            state = build_policy_state(
-                raw_states.loc[timestamp],
-                previous_action,
-                pretrade,
-                {
-                    action: action_targets[action].loc[timestamp]
-                    for action in ACTIONS
-                },
+            state = _policy_state_values(
+                raw_values[position],
+                previous_action_number,
+                pretrade_values,
+                action_target_values[:, position, :],
             )
             encoded = encoder(state)
             q_values = weights @ encoded
             if not decision_eligible:
-                action_number = ACTIONS.index(previous_action)
+                action_number = previous_action_number
             elif rng.random() < epsilon:
                 action_number = int(rng.integers(0, len(ACTIONS)))
             else:
                 action_number = int(np.argmax(q_values))
             action = ACTIONS[action_number]
-            current, _, _, row = _account_step(
-                previous_weights,
-                action_targets[action].loc[timestamp],
-                close_returns,
+            current_values, reward = _learning_step_values(
+                pretrade_values,
+                action_target_values[action_number, position],
                 timestamp,
-                forward_returns.loc[timestamp].fillna(0.0),
-                closes.loc[timestamp],
-                volumes.loc[timestamp],
-                first=first,
+                forward_return_values[position],
                 ordinary_rebalance_allowed=decision_eligible,
-                mandate=mandate,
-                risk_covariance_cache=risk_covariance_cache,
+                no_trade_one_way=float(
+                    implementation["no_trade_one_way"]
+                ),
+                base_cost_bps=float(
+                    implementation["base_cost_bps"]
+                ),
                 resolved_mandate=resolved_mandate,
-                implementation=implementation,
-                pretrade=pretrade,
+                risk_covariance_cache=cache,
             )
-            reward = float(row["reward"])
             done = position == len(train_index) - 1
             if done:
                 target = reward
             else:
-                next_timestamp = train_index[position + 1]
-                next_pretrade = _pretrade_weights(
-                    current,
-                    close_returns,
-                    next_timestamp,
-                    first=False,
+                next_pretrade_values = _drift_weight_values(
+                    current_values,
+                    close_return_values[position + 1],
                 )
-                next_state = build_policy_state(
-                    raw_states.loc[next_timestamp],
-                    action,
-                    next_pretrade,
-                    {
-                        candidate: action_targets[candidate].loc[
-                            next_timestamp
-                        ]
-                        for candidate in ACTIONS
-                    },
+                next_state = _policy_state_values(
+                    raw_values[position + 1],
+                    action_number,
+                    next_pretrade_values,
+                    action_target_values[:, position + 1, :],
                 )
                 next_encoded = encoder(next_state)
                 next_q_values = weights @ next_encoded
                 bootstrap = (
                     float(np.max(next_q_values))
-                    if bool(decision_mask.loc[next_timestamp])
+                    if bool(decision_values[position + 1])
                     else float(
-                        next_q_values[ACTIONS.index(action)]
+                        next_q_values[action_number]
                     )
                 )
                 target = reward + DISCOUNT * bootstrap
@@ -940,8 +1705,8 @@ def train_q_policy(
                 )
             total_reward += reward
             action_counts[action] += 1
-            previous_weights = current
-            previous_action = action
+            previous_values = current_values
+            previous_action_number = action_number
         history.append(
             {
                 "episode": episode + 1,
@@ -991,21 +1756,23 @@ def train_contextual_ridge(
     history: list[dict[str, object]] = []
     model: dict[str, object] | None = None
     for iteration in range(CONTEXTUAL_RIDGE_ITERATIONS):
-        behavior = rollout_policy(
+        behavior = _training_rollout(
             selector,
             raw_states,
             action_targets,
             closes,
-            volumes,
             train_index,
             mandate=mandate,
             risk_covariance_cache=cache,
         )
-        opportunities = one_step_action_opportunities(
+        (
+            opportunity_rewards,
+            behavior_oracle_hit_rate,
+            behavior_mean_regret,
+        ) = _training_opportunity_summary(
             behavior,
             action_targets,
             closes,
-            volumes,
             train_index,
             mandate=mandate,
             risk_covariance_cache=cache,
@@ -1028,14 +1795,8 @@ def train_contextual_ridge(
             + RIDGE_PENALTY * np.eye(design.shape[1])
         )
         coefficients: list[list[float]] = []
-        for action in ACTIONS:
-            target = np.asarray(
-                [
-                    row["actions"][action]["reward"]
-                    for row in opportunities
-                ],
-                dtype=float,
-            )
+        for action_number, _ in enumerate(ACTIONS):
+            target = opportunity_rewards[:, action_number]
             coefficients.append(
                 np.linalg.solve(gram, design.T @ target).tolist()
             )
@@ -1052,12 +1813,11 @@ def train_contextual_ridge(
             "coefficients": coefficients,
         }
         selector = ridge_selector(model)
-        improved = rollout_policy(
+        improved = _training_rollout(
             selector,
             raw_states,
             action_targets,
             closes,
-            volumes,
             train_index,
             mandate=mandate,
             risk_covariance_cache=cache,
@@ -1065,9 +1825,9 @@ def train_contextual_ridge(
         history.append(
             {
                 "iteration": iteration + 1,
-                "trainingRows": len(opportunities),
+                "trainingRows": len(train_index),
                 "sharedPretradeActionEvaluations": (
-                    len(opportunities) * len(ACTIONS)
+                    len(train_index) * len(ACTIONS)
                 ),
                 "behaviorActionFrequency": {
                     action: float(
@@ -1082,25 +1842,13 @@ def train_contextual_ridge(
                     for action in ACTIONS
                 },
                 "improvedTrainingNetSharpe": float(
-                    rollout_metrics(improved)["net"]["sharpe"]
+                    performance_metrics(
+                        improved.net_returns,
+                        improved.benchmark_returns,
+                    )["sharpe"]
                 ),
-                "behaviorOracleHitRate": float(
-                    np.mean(
-                        [
-                            row["selectedAction"]
-                            == row["oracleAction"]
-                            for row in opportunities
-                        ]
-                    )
-                ),
-                "behaviorMeanRealizedRegret": float(
-                    np.mean(
-                        [
-                            row["realizedRegret"]
-                            for row in opportunities
-                        ]
-                    )
-                ),
+                "behaviorOracleHitRate": behavior_oracle_hit_rate,
+                "behaviorMeanRealizedRegret": behavior_mean_regret,
             }
         )
     if model is None:

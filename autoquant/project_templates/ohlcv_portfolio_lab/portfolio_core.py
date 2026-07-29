@@ -1066,6 +1066,7 @@ def execute_risk_compliant_book(
     ordinary_rebalance_allowed: bool = True,
     risk_covariance_cache: RiskCovarianceCache | None = None,
     _resolved_mandate: dict[str, object] | None = None,
+    _state_only: bool = False,
 ) -> tuple[pd.Series, dict[str, object]]:
     """Choose the final book, with risk compliance outranking no-trade."""
 
@@ -1075,6 +1076,7 @@ def execute_risk_compliant_book(
         or timestamp not in close_returns.index
         or not 0 <= no_trade_one_way <= 1
         or not isinstance(ordinary_rebalance_allowed, bool)
+        or not isinstance(_state_only, bool)
     ):
         raise PortfolioFailure(
             "portfolio.execution-risk",
@@ -1092,14 +1094,30 @@ def execute_risk_compliant_book(
         if _resolved_mandate is not None
         else _resolve_mandate(pretrade.index, mandate)
     )
-    _, pretrade_risk = _govern_portfolio_risk(
-        pretrade,
-        close_returns,
-        timestamp,
-        resolved,
-        enabled=False,
-        risk_covariance_cache=risk_covariance_cache,
-    )
+    if _state_only and not ordinary_rebalance_allowed:
+        constraint_book, _ = _repair_executed_mandate_constraints(
+            pretrade,
+            resolved,
+        )
+        current, _ = _govern_portfolio_risk(
+            constraint_book,
+            close_returns,
+            timestamp,
+            resolved,
+            enabled=True,
+            risk_covariance_cache=risk_covariance_cache,
+        )
+        return current, {}
+    pretrade_risk: dict[str, object] | None = None
+    if not _state_only:
+        _, pretrade_risk = _govern_portfolio_risk(
+            pretrade,
+            close_returns,
+            timestamp,
+            resolved,
+            enabled=False,
+            risk_covariance_cache=risk_covariance_cache,
+        )
     constrained_proposed, _ = _repair_executed_mandate_constraints(
         proposed,
         resolved,
@@ -1144,6 +1162,9 @@ def execute_risk_compliant_book(
     constraint_override = constraint_repaired and not ordinary_rebalance
     actual_trade = current - pretrade
     rebalanced = bool(actual_trade.abs().sum() > 1e-12)
+    if _state_only:
+        return current, {}
+    assert pretrade_risk is not None
     raw_status = str(execution_risk["status"])
     if risk_repaired:
         status = (
@@ -1449,6 +1470,7 @@ def construct_signal_policy(
     mandate: dict[str, object] | None = None,
     apply_risk_governor: bool = True,
     risk_covariance_cache: RiskCovarianceCache | None = None,
+    include_ledger: bool = True,
 ) -> SignalConstruction:
     """Turn causal factor ranks into persistent intent and target weights."""
 
@@ -1491,6 +1513,7 @@ def construct_signal_policy(
             <= long_entry
             <= 1.0
         )
+        or not isinstance(include_ledger, bool)
     ):
         raise PortfolioFailure(
             "portfolio.parameters",
@@ -1557,7 +1580,11 @@ def construct_signal_policy(
 
     for timestamp in factors.index:
         decision_eligible = bool(decision_mask.loc[timestamp])
-        row_factor = factors.loc[timestamp].astype(float)
+        row_factor = (
+            factors.loc[timestamp].astype(float)
+            if include_ledger
+            else None
+        )
         row_volatility = volatility.loc[timestamp].astype(float)
         scores = score_panel.loc[timestamp]
         sufficient = bool(sufficient_rows.loc[timestamp])
@@ -1566,32 +1593,65 @@ def construct_signal_policy(
         events: dict[str, str] = {}
         convictions = pd.Series(0.0, index=factors.columns, dtype=float)
         strengths = pd.Series(0.0, index=factors.columns, dtype=float)
-        for asset in factors.columns:
-            if str(asset) not in tradable_assets:
-                current_states.loc[asset] = 0
-                events[str(asset)] = "context_only"
-                continue
-            raw_score = scores.loc[asset]
-            score = float(raw_score) if math.isfinite(raw_score) else None
-            state, event = _position_role_signal_transition(
-                int(prior_states.loc[asset]),
-                score,
-                role=asset_position_roles[str(asset)],
-                long_entry=long_entry,
-                long_exit=long_exit,
-                short_exit=short_exit,
-                short_entry=short_entry,
-            )
-            current_states.loc[asset] = state
-            events[str(asset)] = event
-            if state != 0 and score is not None:
-                conviction = 2.0 * abs(score - 0.5)
-                convictions.loc[asset] = conviction
-                strengths.loc[asset] = (
-                    conviction / float(row_volatility.loc[asset])
+        if decision_eligible:
+            for asset in factors.columns:
+                if str(asset) not in tradable_assets:
+                    current_states.loc[asset] = 0
+                    events[str(asset)] = "context_only"
+                    continue
+                raw_score = scores.loc[asset]
+                score = (
+                    float(raw_score)
+                    if math.isfinite(raw_score)
+                    else None
                 )
+                state, event = _position_role_signal_transition(
+                    int(prior_states.loc[asset]),
+                    score,
+                    role=asset_position_roles[str(asset)],
+                    long_entry=long_entry,
+                    long_exit=long_exit,
+                    short_exit=short_exit,
+                    short_entry=short_entry,
+                )
+                current_states.loc[asset] = state
+                events[str(asset)] = event
+                if state != 0 and score is not None:
+                    conviction = 2.0 * abs(score - 0.5)
+                    convictions.loc[asset] = conviction
+                    strengths.loc[asset] = (
+                        conviction / float(row_volatility.loc[asset])
+                    )
+        else:
+            current_states = prior_states.copy()
+            events = {
+                str(asset): (
+                    "decision_schedule_hold"
+                    if str(asset) in tradable_assets
+                    else "context_only"
+                )
+                for asset in factors.columns
+            }
+            for asset in factors.columns:
+                score = scores.loc[asset]
+                state = int(current_states.loc[asset])
+                volatility_value = row_volatility.loc[asset]
+                if (
+                    str(asset) in tradable_assets
+                    and state != 0
+                    and math.isfinite(score)
+                    and math.isfinite(volatility_value)
+                ):
+                    conviction = 2.0 * abs(float(score) - 0.5)
+                    convictions.loc[asset] = conviction
+                    strengths.loc[asset] = (
+                        conviction / float(volatility_value)
+                    )
 
-        if family == "dollar-neutral":
+        if not decision_eligible:
+            current_targets = prior_targets.copy()
+            allocation_status = "decision_schedule_hold"
+        elif family == "dollar-neutral":
             long_weights = _allocate_capped_side(
                 strengths.where(current_states.eq(1), 0.0),
                 budget=side_budget,
@@ -1706,49 +1766,16 @@ def construct_signal_policy(
             )
             allocation_status = "invalid_mandate"
         pre_governor_targets = current_targets.copy()
-        current_targets, risk_governor = _govern_portfolio_risk(
-            pre_governor_targets,
-            returns,
-            timestamp,
-            resolved,
-            enabled=apply_risk_governor,
-            risk_covariance_cache=risk_covariance_cache,
-        )
-        if not decision_eligible:
-            current_states = prior_states.copy()
-            events = {
-                str(asset): (
-                    "decision_schedule_hold"
-                    if str(asset) in tradable_assets
-                    else "context_only"
-                )
-                for asset in factors.columns
-            }
-            convictions = pd.Series(
-                0.0,
-                index=factors.columns,
-                dtype=float,
+        if decision_eligible:
+            current_targets, risk_governor = _govern_portfolio_risk(
+                pre_governor_targets,
+                returns,
+                timestamp,
+                resolved,
+                enabled=apply_risk_governor,
+                risk_covariance_cache=risk_covariance_cache,
             )
-            strengths = pd.Series(
-                0.0,
-                index=factors.columns,
-                dtype=float,
-            )
-            for asset in factors.columns:
-                score = scores.loc[asset]
-                state = int(current_states.loc[asset])
-                volatility_value = row_volatility.loc[asset]
-                if (
-                    str(asset) in tradable_assets
-                    and state != 0
-                    and math.isfinite(score)
-                    and math.isfinite(volatility_value)
-                ):
-                    conviction = 2.0 * abs(float(score) - 0.5)
-                    convictions.loc[asset] = conviction
-                    strengths.loc[asset] = (
-                        conviction / float(volatility_value)
-                    )
+        else:
             pre_governor_targets = prior_targets.copy()
             _, risk_governor = _govern_portfolio_risk(
                 pre_governor_targets,
@@ -1759,7 +1786,6 @@ def construct_signal_policy(
                 risk_covariance_cache=risk_covariance_cache,
             )
             current_targets = prior_targets.copy()
-            allocation_status = "decision_schedule_hold"
         diagonal_risk = current_targets.abs() * row_volatility.fillna(0.0)
         diagonal_total = float(diagonal_risk.sum())
         diagonal_share = (
@@ -1769,78 +1795,91 @@ def construct_signal_policy(
         )
         targets.loc[timestamp] = current_targets
         states.loc[timestamp] = current_states
-        for asset in factors.columns:
-            score = scores.loc[asset]
-            volatility_value = row_volatility.loc[asset]
-            factor_value = row_factor.loc[asset]
-            target = float(current_targets.loc[asset])
-            previous_target = float(prior_targets.loc[asset])
-            ledger_rows.append(
-                {
-                    "timestamp": timestamp,
-                    "asset": str(asset),
-                    "factor": (
-                        float(factor_value)
-                        if math.isfinite(factor_value)
-                        else np.nan
-                    ),
-                    "percentile_score": (
-                        float(score) if math.isfinite(score) else np.nan
-                    ),
-                    "prior_signal_state": int(prior_states.loc[asset]),
-                    "signal_state": int(current_states.loc[asset]),
-                    "signal_event": events[str(asset)],
-                    "decision_eligible": decision_eligible,
-                    "decision_schedule_kind": decision_schedule_kind,
-                    "decision_every_bars": decision_every_bars,
-                    "decision_anchor": decision_anchor,
-                    "decision_session": str(
-                        decision_sessions.loc[timestamp]
-                    ),
-                    "tradable": str(asset) in tradable_assets,
-                    "permitted_direction": family,
-                    "position_role": asset_position_roles[str(asset)],
-                    "long_gross_limit": long_gross_limit,
-                    "short_gross_limit": short_gross_limit,
-                    "mandate_id": str(resolved["id"]),
-                    "conviction": float(convictions.loc[asset]),
-                    "trailing_volatility": (
-                        float(volatility_value)
-                        if math.isfinite(volatility_value)
-                        else np.nan
-                    ),
-                    "risk_strength": float(strengths.loc[asset]),
-                    "allocation_status": (
-                        allocation_status
-                        if str(asset) in tradable_assets
-                        else "context_only"
-                    ),
-                    "pre_governor_target_weight": float(
-                        pre_governor_targets.loc[asset]
-                    ),
-                    "risk_governor_status": str(risk_governor["status"]),
-                    "risk_estimation_observations": int(
-                        risk_governor["observations"]
-                    ),
-                    "risk_forecast_pre_annualized": float(
-                        risk_governor["pre_annualized_volatility"]
-                    ),
-                    "risk_forecast_post_annualized": float(
-                        risk_governor["post_annualized_volatility"]
-                    ),
-                    "risk_volatility_ceiling_annualized": float(
-                        risk_governor["annualized_volatility_ceiling"]
-                    ),
-                    "risk_governor_scale": float(risk_governor["scale"]),
-                    "prior_target_weight": previous_target,
-                    "proposed_target_weight": target,
-                    "target_delta": target - previous_target,
-                    "target_action": _weight_action(previous_target, target),
-                    "diagonal_risk_budget_share": float(
-                        diagonal_share.loc[asset]
-                    ),
-                }
-            )
+        if include_ledger:
+            assert row_factor is not None
+            for asset in factors.columns:
+                score = scores.loc[asset]
+                volatility_value = row_volatility.loc[asset]
+                factor_value = row_factor.loc[asset]
+                target = float(current_targets.loc[asset])
+                previous_target = float(prior_targets.loc[asset])
+                ledger_rows.append(
+                    {
+                        "timestamp": timestamp,
+                        "asset": str(asset),
+                        "factor": (
+                            float(factor_value)
+                            if math.isfinite(factor_value)
+                            else np.nan
+                        ),
+                        "percentile_score": (
+                            float(score) if math.isfinite(score) else np.nan
+                        ),
+                        "prior_signal_state": int(
+                            prior_states.loc[asset]
+                        ),
+                        "signal_state": int(current_states.loc[asset]),
+                        "signal_event": events[str(asset)],
+                        "decision_eligible": decision_eligible,
+                        "decision_schedule_kind": decision_schedule_kind,
+                        "decision_every_bars": decision_every_bars,
+                        "decision_anchor": decision_anchor,
+                        "decision_session": str(
+                            decision_sessions.loc[timestamp]
+                        ),
+                        "tradable": str(asset) in tradable_assets,
+                        "permitted_direction": family,
+                        "position_role": asset_position_roles[str(asset)],
+                        "long_gross_limit": long_gross_limit,
+                        "short_gross_limit": short_gross_limit,
+                        "mandate_id": str(resolved["id"]),
+                        "conviction": float(convictions.loc[asset]),
+                        "trailing_volatility": (
+                            float(volatility_value)
+                            if math.isfinite(volatility_value)
+                            else np.nan
+                        ),
+                        "risk_strength": float(strengths.loc[asset]),
+                        "allocation_status": (
+                            allocation_status
+                            if str(asset) in tradable_assets
+                            else "context_only"
+                        ),
+                        "pre_governor_target_weight": float(
+                            pre_governor_targets.loc[asset]
+                        ),
+                        "risk_governor_status": str(
+                            risk_governor["status"]
+                        ),
+                        "risk_estimation_observations": int(
+                            risk_governor["observations"]
+                        ),
+                        "risk_forecast_pre_annualized": float(
+                            risk_governor["pre_annualized_volatility"]
+                        ),
+                        "risk_forecast_post_annualized": float(
+                            risk_governor["post_annualized_volatility"]
+                        ),
+                        "risk_volatility_ceiling_annualized": float(
+                            risk_governor[
+                                "annualized_volatility_ceiling"
+                            ]
+                        ),
+                        "risk_governor_scale": float(
+                            risk_governor["scale"]
+                        ),
+                        "prior_target_weight": previous_target,
+                        "proposed_target_weight": target,
+                        "target_delta": target - previous_target,
+                        "target_action": _weight_action(
+                            previous_target,
+                            target,
+                        ),
+                        "diagonal_risk_budget_share": float(
+                            diagonal_share.loc[asset]
+                        ),
+                    }
+                )
         prior_states = current_states
         prior_targets = current_targets
 

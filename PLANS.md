@@ -18,7 +18,9 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-There are no active plans.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/governed-rl-real-panel-runtime]] | Complete the unchanged real nine-asset global ETF governed-RL lane inside its fixed 120-second boundary without reducing scientific or evidence authority. | 2026-07-29 |
 
 ## Proposed plans
 

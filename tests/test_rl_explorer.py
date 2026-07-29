@@ -509,11 +509,17 @@ class RlPolicyEvidenceExplorerTests(unittest.TestCase):
             )
             opportunities = json.loads(original_opportunities)
             first_row = opportunities["rows"][0]
-            selected = first_row["selectedAction"]
             first_asset = opportunities["assets"][0]
-            first_row["actions"][selected]["executedWeights"][
-                first_asset
-            ] += 0.01
+            if first_row["sharedExecution"] is None:
+                selected = first_row["selectedAction"]
+                executed = first_row["actions"][selected][
+                    "executedWeights"
+                ]
+            else:
+                executed = first_row["sharedExecution"][
+                    "executedWeights"
+                ]
+            executed[first_asset] += 0.01
             opportunities_path.write_text(
                 json.dumps(opportunities, indent=2, sort_keys=True) + "\n",
                 encoding="utf-8",

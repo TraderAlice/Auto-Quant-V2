@@ -68,6 +68,16 @@ authority policy. Every fold/seed/split/timestamp row preserves:
   reason, risk status, and risk-only override;
 - candidate-minus-selected and candidate-minus-balanced reward differences.
 
+When the caller's fixed schedule marks a timestamp ineligible for ordinary
+rebalancing, all proposed sleeves necessarily share the same held executed
+book, trades, cost, risk status, return, and reward. The immutable artifact
+stores that execution object once as `sharedExecution` while preserving each
+action's distinct `proposedWeights`. On decision-eligible timestamps,
+`sharedExecution` is null and every action retains its complete execution
+object. Public reconstruction expands both forms into the same five-action
+evidence and verifies all vector, accounting, rank, and selected-path
+identities.
+
 The selected action's executed weights, trades, return, reward, turnover, cost,
 and execution state exactly match `policy-actions.csv` and the actual rollout.
 Public reconstruction verifies vector and accounting identities rather than

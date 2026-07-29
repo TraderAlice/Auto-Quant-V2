@@ -555,8 +555,11 @@ New governed RL Runs also declare `policy-opportunities.json`: every fixed
 governed sleeve is evaluated for one next bar from the selected policy path's
 exact actual pretrade book. Proposed/executed weights, trades, costs, reward,
 local ex-post oracle rank/regret, and candidate-factor deltas are immutable
-audit evidence. Alternate books never propagate to a later timestamp; the
-oracle is context-only hindsight, not a strategy or promotion input. See
+audit evidence. Schedule-held rows store one shared actual execution plus each
+sleeve's distinct proposed target; decision-eligible rows retain every full
+counterfactual execution. The Explorer expands and reconciles both forms.
+Alternate books never propagate to a later timestamp; the oracle is
+context-only hindsight, not a strategy or promotion input. See
 [[docs/design/rl-factor-opportunity-audit]].
 New Portfolio ledgers
 also record causal trailing dollar volume, reference-NAV participation,

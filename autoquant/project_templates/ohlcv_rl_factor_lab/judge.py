@@ -57,12 +57,14 @@ from judges.rl_core import (
     build_policy_state,
     build_raw_states,
     chronological_folds,
+    compact_opportunity_rows,
     fixed_selector,
     one_step_action_opportunities,
     q_selector,
     ridge_selector,
     rollout_metrics,
     rollout_policy,
+    training_policy_net_sharpe,
     train_contextual_ridge,
     train_q_policy,
 )
@@ -369,18 +371,14 @@ def _fixed_baselines(
     fixed_rollouts: dict[str, dict[str, Any]] = {}
     training_scores: dict[str, float] = {}
     for action in ACTIONS:
-        training = rollout_policy(
+        training_scores[action] = training_policy_net_sharpe(
             fixed_selector(action),
             raw_states,
             action_targets,
             closes,
-            volumes,
             split["train"],
             mandate=mandate,
             risk_covariance_cache=risk_covariance_cache,
-        )
-        training_scores[action] = float(
-            rollout_metrics(training)["net"]["sharpe"]
         )
         fixed_rollouts[action] = {
             name: rollout_policy(
@@ -2357,7 +2355,7 @@ def _evaluate() -> tuple[
             "0.10-times-gross-return-squared"
         ),
         "policy": FACTOR_OPPORTUNITY_POLICY,
-        "rows": opportunity_rows,
+        "rows": compact_opportunity_rows(opportunity_rows),
     }
     incremental = {
         "schemaVersion": 1,
@@ -2415,7 +2413,12 @@ def main() -> None:
             encoding="utf-8",
         )
         (artifacts / "policy-opportunities.json").write_text(
-            json.dumps(opportunities, indent=2, sort_keys=True) + "\n",
+            json.dumps(
+                opportunities,
+                separators=(",", ":"),
+                sort_keys=True,
+            )
+            + "\n",
             encoding="utf-8",
         )
         (artifacts / "policy-incremental-attribution.json").write_text(

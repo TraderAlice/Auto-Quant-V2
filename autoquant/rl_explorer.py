@@ -2589,6 +2589,7 @@ def _factor_opportunity_projection(
         "pretradeWeights",
         "forwardReturns",
         "actions",
+        "sharedExecution",
     }
     action_fields = {
         "proposedWeights",
@@ -2613,6 +2614,7 @@ def _factor_opportunity_projection(
         "executedConstraintMaximumError",
         "executionReason",
     }
+    execution_fields = action_fields - {"proposedWeights"}
     normalized: list[dict[str, Any]] = []
     cost_bps = _finite(
         configuration.get("costBps"),
@@ -2686,14 +2688,51 @@ def _factor_opportunity_projection(
             for asset in assets
         }
         actions: dict[str, dict[str, Any]] = {}
+        shared_execution = raw.get("sharedExecution")
+        decision_eligible = raw["decisionEligible"]
+        if decision_eligible:
+            if shared_execution is not None:
+                _fail(
+                    f"{path}/sharedExecution",
+                    "rl.factor-opportunity-shared-execution",
+                    "Decision-eligible opportunities cannot share execution",
+                )
+        elif (
+            not isinstance(shared_execution, dict)
+            or set(shared_execution) != execution_fields
+        ):
+            _fail(
+                f"{path}/sharedExecution",
+                "rl.factor-opportunity-shared-execution",
+                "Schedule-held opportunities require one shared execution",
+            )
         for action in configuration["actions"]:
             action_path = f"{path}/actions/{action}"
-            item = action_values[action]
+            stored_item = action_values[action]
+            if decision_eligible:
+                item = stored_item
+                expected_item_fields = action_fields
+            else:
+                expected_item_fields = {"proposedWeights"}
+                item = {
+                    **stored_item,
+                    **shared_execution,
+                }
             if not isinstance(item, dict) or set(item) != action_fields:
                 _fail(
                     action_path,
                     "rl.factor-opportunity-action-row",
                     "Opportunity action shape differs from the fixed contract",
+                )
+            if (
+                not isinstance(stored_item, dict)
+                or set(stored_item) != expected_item_fields
+            ):
+                _fail(
+                    action_path,
+                    "rl.factor-opportunity-action-row",
+                    "Stored opportunity action shape differs from the "
+                    "schedule-aware contract",
                 )
             vectors: dict[str, dict[str, float]] = {}
             for artifact_name in (
@@ -2895,7 +2934,6 @@ def _factor_opportunity_projection(
             ),
         )
         selected_action = raw["selectedAction"]
-        decision_eligible = raw["decisionEligible"]
         oracle_action = ranked[0] if decision_eligible else selected_action
         selected_rank = (
             ranked.index(selected_action) + 1
