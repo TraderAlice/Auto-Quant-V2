@@ -254,13 +254,14 @@ rendered beside it as visible audit only and never changes the stage or next
 research focus. Report and Project Dossier freeze the exact projection and
 hash from the immutable leader Run.
 
-The reference Study keeps a 120-second hard Judge timeout. A real nine-asset,
-4,922-session calendar-month Study with two folds, three seeds, 12 episodes,
-all baselines, and complete validation/test evidence finishes in 96.2 seconds
-on the reference development host. Its schedule-aware opportunity artifact is
-25 MiB rather than 92 MiB and passes the unchanged 32 MiB bounded-reader
-limit. The scientific workload and evidence rows are unchanged; this bound is
-not permission for a longer training job.
+The reference Study keeps a 120-second hard Judge timeout. The clean AutoQuant
+`0.8.6` release replay of a real nine-asset, 4,922-session calendar-month Study
+with two folds, three seeds, 12 episodes, all baselines, and complete
+validation/test evidence finishes in 88.9 seconds on the reference development
+host. Its schedule-aware opportunity artifact is 25 MiB rather than 92 MiB and
+passes the unchanged 32 MiB bounded-reader limit. The scientific workload and
+evidence rows are unchanged; this bound is not permission for a longer
+training job.
 
 ## Studio projection
 

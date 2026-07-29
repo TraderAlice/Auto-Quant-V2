@@ -18,9 +18,7 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-| Plan | Outcome | Updated |
-| --- | --- | --- |
-| [[plans/governed-rl-real-panel-runtime]] | Complete the unchanged real nine-asset global ETF governed-RL lane inside its fixed 120-second boundary without reducing scientific or evidence authority. | 2026-07-29 |
+There are no active plans.
 
 ## Proposed plans
 
@@ -36,6 +34,7 @@ There are no proposed plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/governed-rl-real-panel-runtime]] | Completed the unchanged real nine-asset global ETF governed-RL lane inside its fixed 120-second boundary without reducing scientific or evidence authority; strict evidence rejected adaptive promotion. | 2026-07-29 |
 | [[plans/reported-book-cash-entry-sizing]] | Added and field-tested exact cash-funded one-asset entry sizing under a caller-fixed historical volatility ceiling, preserving unchanged holdings and no-Order authority. | 2026-07-29 |
 | [[plans/global-etf-calendar-month-allocation]] | Preserved one official XNYS calendar-month diversified ETF request through a clean Factor-to-Portfolio handoff and immutable Dossier, with governed RL retained as a bounded optional lane. | 2026-07-29 |
 | [[plans/gold-dollar-hourly-field-trial]] | Added and field-tested observed-only intraday mixed-class Factor research for an hourly gold-futures timing question with dollar context, without inventing contract or execution semantics. | 2026-07-29 |

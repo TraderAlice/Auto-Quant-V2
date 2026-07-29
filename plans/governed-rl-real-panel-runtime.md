@@ -1,6 +1,6 @@
 # Governed RL real-panel runtime
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-07-29`
 - Related design: [[docs/design/rl-factor-policy-lab]],
   [[docs/design/rl-incremental-value-attribution]], and
@@ -62,9 +62,9 @@ identify which repeated work can be shared while preserving exact results.
 - [x] The unchanged nine-asset, 4,922-session governed-RL Study completes
   within 120 seconds from a fresh Project and passes strict Explorer, Project,
   orientation, CLI, and Studio verification.
-- [ ] The final Report/Dossier states whether RL adds validation value beyond
+- [x] The final Report/Dossier states whether RL adds validation value beyond
   the selected mechanical baseline without using test evidence for selection.
-- [ ] Focused/full tests, docs, package smoke, patch version, commit/push, tag,
+- [x] Focused/full tests, docs, package smoke, patch version, commit/push, tag,
   clean release replay, and repository cleanliness pass.
 
 ## Work
@@ -75,7 +75,7 @@ identify which repeated work can be shared while preserving exact results.
 - [x] Complete the real-data development Run and inspect the incremental RL
   diagnosis.
 - [x] Update Agent/human surfaces and durable runtime documentation.
-- [ ] Release, create a fresh clean Project, reproduce under 120 seconds, and
+- [x] Release, create a fresh clean Project, reproduce under 120 seconds, and
   close the field-trial need.
 
 ## Findings and decisions
@@ -132,6 +132,16 @@ identify which repeated work can be shared while preserving exact results.
   wheel. A fresh Python 3.11 environment installs only that wheel with pandas
   3.0.5, reports `aq 0.8.6`, executes the governed-RL template in 13,378 ms,
   and passes strict RL Explorer and Studio checks without diagnostics.
+- Release commit `a9796b2`, tag `v0.8.6`, and `main` were pushed to
+  `luokerenx4/auto-quant-v2`.
+- Clean release Project `global-etf-calendar-month-allocation-v086-clean`
+  Run `run-20260729T024800277277Z-f483dfb0a313` completed in 88,877 ms
+  with Harness `0.8.6`, commit `a9796b2`, and `dirty: false`. Its 25 MiB
+  opportunity artifact, strict RL Explorer, Project validation, orientation,
+  CLI, and Studio pass without diagnostics.
+- Immutable Report `report-20260729T025100457743Z-379fef8ccfac` records the
+  validation-only negative conclusion and baseline-retaining recommendation;
+  its delegated Session completed without candidate promotion.
 
 ## Progress log
 
@@ -142,7 +152,20 @@ identify which repeated work can be shared while preserving exact results.
 - 2026-07-29 — Completed real-panel execution and strict public-surface
   verification in 96.2 seconds; retained the mechanical baseline because RL
   failed validation incremental-value evidence.
+- 2026-07-29 — Released and pushed `v0.8.6`, reproduced the complete result
+  from the clean release in 88.9 seconds, published the immutable negative
+  Report, completed the baseline-retaining Session, and closed the originating
+  Workbench need.
 
 ## Completion
 
-Pending.
+Completed on 2026-07-29. AutoQuant `0.8.6` runs the unchanged real
+nine-asset, 4,922-session, two-fold, three-seed, 12-episode governed-RL
+challenge inside its 120-second product boundary while retaining complete
+validation/test and counterfactual evidence. Exact schedule-aware targets,
+train-only governed array accounting, and shared off-schedule execution reduce
+runtime without changing results; compact immutable opportunity storage keeps
+the artifact below the strict reader bound and remains independently
+reconciled. The clean release evidence rejects adaptive promotion: every
+validation path has non-positive full-path incremental value, so the existing
+mechanical Portfolio remains the supported research handoff.
