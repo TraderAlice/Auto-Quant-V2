@@ -107,8 +107,9 @@ visible audit only and cannot reverse the conclusion.
 `aq run allocation` verifies the Run inventory and frozen dependency, then
 independently rederives split performance, costs, turnover, volatility
 breaches, role/cap/gross compliance, solver counts, latest target/executed/
-reference weights, and validation-only conclusion authority. Studio consumes
-the same strict read model.
+reference weights, component-risk shares, parity error, the end-of-dataset
+drifted book, whether an ordinary rebalance is due, and validation-only
+conclusion authority. Studio consumes the same strict read model.
 
 Latest weights are mechanical historical research targets. They are not
 authenticated holdings, Orders, TPSL instructions, future-volatility
