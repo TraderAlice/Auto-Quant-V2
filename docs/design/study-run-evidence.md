@@ -128,6 +128,9 @@ they do not copy potentially large dataset bytes into the isolated workspace.
 Session worktrees intentionally keep an empty `data/` directory. When their
 Study identity is loaded, Core supplies the owning Project's canonical data
 root, so baseline and candidate evaluations bind and read identical bytes.
+Read-only orientation from a current Session worktree resolves that owning
+Project through the worktree's fixed-inventory-locked Session marker; it does
+not copy or symlink dataset bytes into disposable state.
 
 Judge environment:
 

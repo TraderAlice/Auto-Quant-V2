@@ -211,6 +211,10 @@ canonical Project directly.
 During an active Session:
 
 - `operatingRoot` is the disposable Session Project;
+- the brief's `project.rootDir` is the canonical evidence root, and human
+  orientation prints both roots;
+- `aq orient .` from a locked `operatingRoot` verifies and re-enters the exact
+  owning Project read-only without copying data or widening mutation paths;
 - editable paths are resolved beneath that root;
 - the canonical Project, request, data, Study, program, Judge, mandate,
   dependency closures, Runs, Experiments, Reports, and Dossiers are protected;

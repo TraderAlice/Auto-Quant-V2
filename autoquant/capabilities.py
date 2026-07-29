@@ -196,8 +196,8 @@ CLI_COMMANDS = [
     ),
     descriptor(
         "orient",
-        "aq orient <project-or-workspace-dir> [--project ID] [--json]",
-        "Return one compact verified Agent work brief with focus, edit authority, evidence-driven experiment agenda, blocker, and exact next action.",
+        "aq orient <project-worktree-or-workspace-dir> [--project ID] [--json]",
+        "Return one compact verified Agent work brief with focus, edit authority, evidence-driven experiment agenda, blocker, and exact next action; a locked Session worktree resolves read-only through its owning Project.",
         "read-only",
         [PATH_ARGUMENT, PROJECT_ARGUMENT, JSON_ARGUMENT],
     ),

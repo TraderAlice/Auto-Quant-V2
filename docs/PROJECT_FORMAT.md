@@ -646,6 +646,8 @@ sessions/
     ├── request.json                 # delegated Sessions only
     ├── brief.json                   # delegated Sessions only
     ├── worktree/<project-id>/
+    │   ├── .autoquant-session-worktree.json
+    │   └── ...
     ├── checks/
     │   └── check-<UTC timestamp>-<identity>/
     │       ├── raw-output.json
@@ -682,6 +684,15 @@ sessions/
 - successful baseline and current leader Run/source/metric/value pointers;
 - Study/program/Judge/dataset/dependency/Harness locks;
 - a complete hash inventory of every non-editable worktree file.
+
+Every newly created worktree contains one strict
+`.autoquant-session-worktree.json` marker with its Project and Session ids.
+The marker is always part of the fixed inventory, even if a Study declares a
+broad editable glob. It does not contain an absolute owner path. Read-only
+`aq orient` accepts the worktree only when its real ancestor Project, Session
+manifest, exact `sessions/<session-id>/worktree/<project-id>` topology, and
+locked marker hash all agree. A detached, copied, forged, changed, or
+symlinked marker is rejected.
 
 When Session start receives a strict delegated Research Request,
 `session.json` also pins its `brief` id, normalized request hash, and derived

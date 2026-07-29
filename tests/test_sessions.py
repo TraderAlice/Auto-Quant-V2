@@ -1,19 +1,23 @@
 from __future__ import annotations
 
 import json
+import shutil
 import tempfile
 import unittest
+from pathlib import Path
 from unittest import mock
 
 import autoquant.sessions as session_module
 from autoquant.runs import execute_study, list_runs
 from autoquant.sessions import (
+    SESSION_WORKTREE_MARKER,
     evaluate_experiment,
     list_experiments,
     list_sessions,
     load_experiment,
     load_session,
     promote_session,
+    resolve_session_worktree_owner,
     session_snapshot,
     start_session,
 )
@@ -51,6 +55,133 @@ class GovernedResearchSessionTests(unittest.TestCase):
             self.assertFalse(snapshot["candidate"]["differsFromLeader"])
             self.assertEqual(len(list_runs(project)), 1)
             self.assertEqual([item.id for item in list_sessions(project)], [session.manifest["id"]])
+
+    def test_worktree_marker_resolves_only_its_exact_locked_owner(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project, session = self._setup(directory)
+            marker = session.worktree_project.root_dir / SESSION_WORKTREE_MARKER
+
+            self.assertTrue(marker.is_file())
+            self.assertIn(
+                SESSION_WORKTREE_MARKER,
+                session.manifest["locks"]["fixedHashes"],
+            )
+            self.assertIn(
+                SESSION_WORKTREE_MARKER,
+                session_module._fixed_inventory(
+                    session.worktree_project,
+                    [SESSION_WORKTREE_MARKER],
+                ),
+            )
+            resolved = resolve_session_worktree_owner(
+                session.worktree_project
+            )
+            self.assertIsNotNone(resolved)
+            owner, owning_session = resolved
+            self.assertEqual(owner.root_dir, project.root_dir)
+            self.assertEqual(
+                owning_session.manifest["id"],
+                session.manifest["id"],
+            )
+
+            detached_root = (
+                Path(directory)
+                / "detached"
+                / project.manifest.id
+            )
+            detached_root.parent.mkdir()
+            shutil.copytree(
+                session.worktree_project.root_dir,
+                detached_root,
+            )
+            detached = session_module.load_project(detached_root)
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "detached from its owning Project",
+            ):
+                resolve_session_worktree_owner(detached)
+
+    def test_worktree_marker_rejects_tampering_and_symlinks(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, session = self._setup(directory)
+            marker = session.worktree_project.root_dir / SESSION_WORKTREE_MARKER
+            value = json.loads(marker.read_text(encoding="utf-8"))
+            value["projectId"] = "forged-project"
+            marker.write_text(json.dumps(value), encoding="utf-8")
+            forged = session_module.load_project(
+                session.worktree_project.root_dir
+            )
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "Project id mismatch",
+            ):
+                resolve_session_worktree_owner(forged)
+
+        with tempfile.TemporaryDirectory() as directory:
+            _, session = self._setup(directory)
+            marker = session.worktree_project.root_dir / SESSION_WORKTREE_MARKER
+            value = json.loads(marker.read_text(encoding="utf-8"))
+            marker.write_text(json.dumps(value), encoding="utf-8")
+            reserialized = session_module.load_project(
+                session.worktree_project.root_dir
+            )
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "differs from its fixed lock",
+            ):
+                resolve_session_worktree_owner(reserialized)
+
+        with tempfile.TemporaryDirectory() as directory:
+            _, session = self._setup(directory)
+            marker = session.worktree_project.root_dir / SESSION_WORKTREE_MARKER
+            target = Path(directory) / "outside-marker.json"
+            target.write_text("{}", encoding="utf-8")
+            marker.unlink()
+            marker.symlink_to(target)
+            linked = session_module.load_project(
+                session.worktree_project.root_dir
+            )
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "marker must be a real file",
+            ):
+                resolve_session_worktree_owner(linked)
+
+        with tempfile.TemporaryDirectory() as directory:
+            _, session = self._setup(directory)
+            marker = session.worktree_project.root_dir / SESSION_WORKTREE_MARKER
+            marker.unlink()
+            unmarked = session_module.load_project(
+                session.worktree_project.root_dir
+            )
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "missing its locked owner marker",
+            ):
+                resolve_session_worktree_owner(unmarked)
+
+        with tempfile.TemporaryDirectory() as directory:
+            _, ordinary = make_project(directory)
+            marker = ordinary.root_dir / SESSION_WORKTREE_MARKER
+            marker.write_text(
+                json.dumps(
+                    {
+                        "schemaVersion": 1,
+                        "kind": "autoquant-session-worktree",
+                        "projectId": ordinary.manifest.id,
+                        "sessionId": (
+                            "session-20260729T120000000000Z-aaaaaaaaaaaa"
+                        ),
+                    }
+                ),
+                encoding="utf-8",
+            )
+            forged = session_module.load_project(ordinary.root_dir)
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "detached from its owning Project",
+            ):
+                resolve_session_worktree_owner(forged)
 
     def test_session_reuses_an_exact_successful_baseline_run(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha at `0.8.11`.
+Status: usable pre-alpha at `0.8.12`.
 
 Updated: 2026-07-29.
 
@@ -13,7 +13,7 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 AutoQuant V2 has crossed the line from an architectural prototype into a
 usable Agent-native quantitative research workbench.
 
-At `0.8.11`, a human, local coding Agent, or coworker delegated from OpenAlice
+At `0.8.12`, a human, local coding Agent, or coworker delegated from OpenAlice
 can:
 
 1. clone the repository and immediately discover the Harness plus its
@@ -60,7 +60,13 @@ promotion remains Report-bound and is never advertised without an executable
 `--report` command. The exact passed candidate Check remains attached while
 its source, Study, preflight, and Harness identities are still current.
 
-The latest annotated release tag is `v0.8.11`; `v0.8.10` remains the fixed
+`0.8.12` makes the advertised Session operating root re-enterable. Read-only
+orientation verifies a fixed-inventory-locked worktree marker and its exact
+owning Project/Session topology, then returns the canonical brief without
+copying dataset bytes or redirecting mutation commands.
+
+The latest annotated release tag is `v0.8.12`; `v0.8.11` remains the
+promotion-first orientation milestone, and `v0.8.10` the fixed
 Project-request orientation milestone, `v0.8.9` the
 research-brief orientation milestone at commit `2157d99`, and `v0.8.8` the
 repository-root Workspace milestone at commit `d2e56f0`.
@@ -155,6 +161,31 @@ not only synthetic fixtures:
 
 The canonical results, Run identifiers, versions, and limitations are preserved
 in [[docs/trading-request-field-trials]].
+
+## `0.8.12` verification snapshot
+
+- a fresh `0.8.11` Grok coworker followed the advertised Session
+  `operatingRoot`, reproduced `validation.failed / dataset.directory`, safely
+  fell back to canonical commands, and completed one Check plus one REVERT;
+- a second fresh Grok coworker used only an installed `0.8.12` wheel, entered
+  the exact worktree before opening candidate source, and received the same
+  canonical Agent Work Brief as Project-root orientation while `data/ohlcv`
+  remained absent;
+- that retry completed one passing Check, one KEEP Experiment, one guarded
+  promotion, Project validation, and Studio projection with no second
+  Experiment or framework-source access;
+- marker tests reject detached copies, forged identities, removed markers,
+  changed locks, and symlinks; the marker remains fixed even if an editable
+  pattern would otherwise match it;
+- successful promotion now returns the same post-mutation actions as
+  orientation and Studio instead of requesting a redundant baseline Run;
+- final repository regression: 299/299 tests;
+- documentation graph: 1,048/1,048 checked links;
+- source distribution, wheel build, fresh Python 3.11 install, empty
+  Workspace, Factor Project, baseline, worktree/canonical orientation parity,
+  absent copied data, passing Check, KEEP, guarded promotion,
+  post-promotion action equality, validation, and Studio passed with Harness
+  `0.8.12`, `commit: unavailable`, and `dirty: false`.
 
 ## `0.8.11` verification snapshot
 
@@ -299,7 +330,7 @@ field-trial surface.
 
 ## Maturity and next use
 
-`0.8.11` is suitable for controlled standalone use and initial OpenAlice desk
+`0.8.12` is suitable for controlled standalone use and initial OpenAlice desk
 integration. It is still pre-`1.0`: public contracts are versioned and strict,
 but the project continues to prefer domain correctness and Agent operability
 over backward compatibility while the product shape settles.

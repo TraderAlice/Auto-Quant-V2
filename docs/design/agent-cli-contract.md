@@ -98,6 +98,13 @@ execute, promote, or trade. Studio consumes the exact same object and Core
 hash rather than deriving a competing research decision or experiment order
 in JavaScript. See [[docs/design/evidence-driven-research-agenda]].
 
+The positional path may also be a newly materialized Session worktree. Core
+accepts that re-entry only when the worktree's strict marker is present in the
+owning Session's fixed inventory and its Project id, Session id, ancestor
+Project, exact topology, and marker hash all verify. The returned brief and
+context are canonical-Project projections; `filesystem.operatingRoot` remains
+the worktree. Other commands do not inherit this owner redirection.
+
 The brief's `question` projection has ordered, disclosed provenance. A
 validated delegated intake returns `origin: delegated-request` and its request
 path in both `sourcePath` and `requestPath`. Without intake, a strict
@@ -126,6 +133,11 @@ a fabricated CLI command. A settled handoff retains the exact accepted
 candidate's passed Check pointer when source, Study, preflight, and Harness
 identity still match; this evidence projection does not make the old
 leader-relative Check eligible to preflight a different candidate.
+
+After successful promotion, the mutation response reconstructs the same
+post-mutation Agent Work Brief used by `aq orient` and Studio and projects its
+primary/supporting actions into `nextActions`. It must not recommend a
+redundant baseline Run when the promoted KEEP Run is already current evidence.
 
 ## CLI-to-Studio flow
 

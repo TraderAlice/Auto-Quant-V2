@@ -83,6 +83,10 @@ own Study, Run, evaluation, research-loop, dataset-format, or Studio semantics.
     shipped manifest.
 14. CLI and Studio disclose the effective Projects path, configuration path,
     and whether discovery comes from the Workspace manifest or local override.
+15. A Session worktree is not an independent Project entry. Read-only
+    orientation may resolve it only through a fixed-inventory-locked marker,
+    its exact ancestor Project/Session topology, and the canonical Session
+    manifest; all other Project resolution remains unchanged.
 
 ## File-to-operation flow
 

@@ -51,6 +51,7 @@ from .workspace import (
 
 
 SESSION_MANIFEST = "session.json"
+SESSION_WORKTREE_MARKER = ".autoquant-session-worktree.json"
 EXPERIMENT_RESULT = "result.json"
 EXPERIMENT_CHANGES = "changes.json"
 EXPERIMENT_DIFF = "diff.patch"
@@ -300,7 +301,13 @@ def _fixed_inventory(
             )
         if not path.is_file():
             continue
-        if any(path_matches_pattern(relative, pattern) for pattern in editable_patterns):
+        if (
+            relative != SESSION_WORKTREE_MARKER
+            and any(
+                path_matches_pattern(relative, pattern)
+                for pattern in editable_patterns
+            )
+        ):
             continue
         hashes[relative] = hash_file(path)
     return hashes
@@ -321,10 +328,24 @@ def _materialize_worktree(
     project: ProjectContext,
     study: StudyContext,
     session_staging: Path,
+    session_id: str,
 ) -> ProjectContext:
+    if not SESSION_ID.fullmatch(session_id):
+        raise AutoQuantValidationError(
+            [_issue(session_id, "session.id", "Invalid Session id")]
+        )
     worktree_root = session_staging / "worktree" / project.manifest.id
     worktree_root.mkdir(parents=True)
     shutil.copy2(project.root_dir / PROJECT_MANIFEST, worktree_root / PROJECT_MANIFEST)
+    _write_json(
+        worktree_root / SESSION_WORKTREE_MARKER,
+        {
+            "schemaVersion": SCHEMA_VERSION,
+            "kind": "autoquant-session-worktree",
+            "projectId": project.manifest.id,
+            "sessionId": session_id,
+        },
+    )
     _copy_project_file(
         project,
         project.manifest.research_program,
@@ -545,7 +566,12 @@ def start_session(
         )
     try:
         temporary.mkdir()
-        worktree = _materialize_worktree(project, study, temporary)
+        worktree = _materialize_worktree(
+            project,
+            study,
+            temporary,
+            session_id,
+        )
         worktree_study = load_study(
             worktree,
             study_id,
@@ -1199,6 +1225,171 @@ def load_session(project: ProjectContext, session_id: str) -> SessionContext:
     return context
 
 
+def _load_session_worktree_marker(
+    worktree: ProjectContext,
+) -> dict[str, Any] | None:
+    marker_path = worktree.root_dir / SESSION_WORKTREE_MARKER
+    if marker_path.is_symlink():
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    marker_path,
+                    "session.worktree-marker-symlink",
+                    "Session worktree marker must be a real file",
+                )
+            ]
+        )
+    if not marker_path.exists():
+        return None
+    if not marker_path.is_file():
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    marker_path,
+                    "session.worktree-marker-file",
+                    "Session worktree marker must be a real file",
+                )
+            ]
+        )
+    marker = _read_json(marker_path, "session-worktree-marker")
+    issues = _strict_keys(
+        marker,
+        {"schemaVersion", "kind", "projectId", "sessionId"},
+        marker_path,
+    )
+    if marker.get("schemaVersion") != SCHEMA_VERSION:
+        issues.append(
+            _issue(
+                f"{marker_path}/schemaVersion",
+                "session.worktree-marker-version",
+                f"Expected Session worktree marker schema {SCHEMA_VERSION}",
+            )
+        )
+    if marker.get("kind") != "autoquant-session-worktree":
+        issues.append(
+            _issue(
+                f"{marker_path}/kind",
+                "session.worktree-marker-kind",
+                "Invalid Session worktree marker kind",
+            )
+        )
+    if marker.get("projectId") != worktree.manifest.id:
+        issues.append(
+            _issue(
+                f"{marker_path}/projectId",
+                "session.worktree-marker-project",
+                "Session worktree marker Project id mismatch",
+            )
+        )
+    session_id = marker.get("sessionId")
+    if not isinstance(session_id, str) or not SESSION_ID.fullmatch(session_id):
+        issues.append(
+            _issue(
+                f"{marker_path}/sessionId",
+                "session.worktree-marker-session",
+                "Invalid Session worktree marker Session id",
+            )
+        )
+    if issues:
+        raise AutoQuantValidationError(issues)
+    return marker
+
+
+def resolve_session_worktree_owner(
+    worktree: ProjectContext,
+) -> tuple[ProjectContext, SessionContext] | None:
+    """Resolve a marked worktree through its exact locked owning Session."""
+
+    marker = _load_session_worktree_marker(worktree)
+    marker_path = worktree.root_dir / SESSION_WORKTREE_MARKER
+    for ancestor in worktree.root_dir.parents:
+        manifest_path = ancestor / PROJECT_MANIFEST
+        if manifest_path.is_symlink() or not manifest_path.is_file():
+            continue
+        try:
+            owner = load_project(ancestor)
+        except AutoQuantValidationError:
+            continue
+        if owner.root_dir == worktree.root_dir:
+            continue
+        sessions_root = _sessions_root(owner)
+        try:
+            relative = worktree.root_dir.relative_to(sessions_root)
+        except ValueError:
+            continue
+        if marker is None:
+            if (
+                len(relative.parts) == 3
+                and relative.parts[1] == "worktree"
+                and relative.parts[2] == owner.manifest.id
+            ):
+                raise AutoQuantValidationError(
+                    [
+                        _issue(
+                            marker_path,
+                            "session.worktree-marker-missing",
+                            "Session worktree is missing its locked owner marker",
+                        )
+                    ]
+                )
+            continue
+        session_id = marker["sessionId"]
+        expected = (
+            session_id,
+            "worktree",
+            owner.manifest.id,
+        )
+        if relative.parts != expected:
+            raise AutoQuantValidationError(
+                [
+                    _issue(
+                        worktree.root_dir,
+                        "session.worktree-owner-path",
+                        "Session worktree path does not match its owner marker",
+                    )
+                ]
+            )
+        session = load_session(owner, session_id)
+        if session.worktree_project.root_dir != worktree.root_dir:
+            raise AutoQuantValidationError(
+                [
+                    _issue(
+                        worktree.root_dir,
+                        "session.worktree-owner",
+                        "Session does not own this exact worktree",
+                    )
+                ]
+            )
+        expected_hash = session.manifest["locks"]["fixedHashes"].get(
+            SESSION_WORKTREE_MARKER
+        )
+        if (
+            not isinstance(expected_hash, str)
+            or hash_file(marker_path) != expected_hash
+        ):
+            raise AutoQuantValidationError(
+                [
+                    _issue(
+                        marker_path,
+                        "session.worktree-marker-lock",
+                        "Session worktree marker differs from its fixed lock",
+                    )
+                ]
+            )
+        return owner, session
+    if marker is None:
+        return None
+    raise AutoQuantValidationError(
+        [
+            _issue(
+                marker_path,
+                "session.worktree-detached",
+                "Session worktree is detached from its owning Project",
+            )
+        ]
+    )
+
+
 def list_sessions(project: ProjectContext) -> list[SessionSummary]:
     summaries: list[SessionSummary] = []
     for entry in sorted(_sessions_root(project).iterdir(), key=lambda item: item.name):
@@ -1726,7 +1917,12 @@ def restore_session_worktree(
     backup = session.root_dir / f".worktree-backup-{uuid.uuid4().hex}"
     try:
         staging.mkdir()
-        staged_project = _materialize_worktree(project, canonical, staging)
+        staged_project = _materialize_worktree(
+            project,
+            canonical,
+            staging,
+            session.manifest["id"],
+        )
         staged_study = load_study(
             staged_project,
             session.manifest["studyId"],

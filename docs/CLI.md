@@ -133,6 +133,14 @@ disposable worktree. Human output fits a short terminal readout, while JSON is
 the machine contract defined by `aq schema agent-work-brief --json`. See
 [[docs/design/evidence-driven-research-agenda]].
 
+An Agent may invoke `aq orient .` after changing into that advertised
+worktree. New worktrees carry one fixed-inventory-locked Session marker; Core
+verifies the marker, owning Session, canonical Project, and exact path before
+returning the same canonical brief. Human output prints both the canonical
+Project root and writable operating root. Dataset bytes remain only under the
+canonical Project, and mutation commands still require their existing
+explicit Project path.
+
 Inside an active Session, orientation distinguishes the accepted leader from a
 newer worktree edit. A settled non-delegated KEEP routes directly to guarded
 `session promote` as the primary action. A newer candidate still routes to its
@@ -145,6 +153,11 @@ When the accepted source, Study, preflight, and Harness identities remain
 exact, the promotion/report handoff also retains the passed candidate Check
 id/status even though leader advancement means that Check is no longer a
 pre-evaluation check against the *previous* leader.
+
+After promotion succeeds, its response reconstructs the same post-mutation
+work brief as `aq orient` and Studio and uses that brief for `nextActions`.
+The response therefore does not request a redundant `run execute` when the
+promoted KEEP Run already supplies current evidence.
 
 `blank` is the default construction. `ohlcv-factor-lab` transactionally
 creates a complete, self-contained pandas factor research Project with local

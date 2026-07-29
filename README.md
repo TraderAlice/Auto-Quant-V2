@@ -1,5 +1,5 @@
 ---
-version: 0.8.11
+version: 0.8.12
 ---
 
 # AutoQuant V2
@@ -32,7 +32,7 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current milestone: `0.8.11`
+## Current milestone: `0.8.12`
 
 AutoQuant V2 has crossed from an architectural prototype into a usable
 research workbench.
@@ -85,6 +85,13 @@ instead of contradictorily requesting another edit. Newer worktree changes
 retain check/evaluation priority, and delegated promotion remains unavailable
 until an exact current Report supplies its required `--report` binding. The
 accepted candidate's exact passed Check remains visible through that handoff.
+
+`0.8.12` follows another fresh Grok coworker into the exact writable
+`operatingRoot`. A Session worktree is now a verified read-only orientation
+entry point: its locked marker resolves the owning canonical Project and
+Session, while dataset bytes remain canonical and mutation commands keep their
+explicit Project paths. Detached, forged, changed, or symlinked worktrees are
+rejected.
 
 ## Standalone or an OpenAlice desk
 
@@ -208,6 +215,13 @@ The `0.8.11` release was closed with 296 passing tests, 1,048 checked
 documentation links, two independent editable-Session Grok Build trials, and
 a fresh installed-wheel Python 3.11 baseline → Check → KEEP → guarded
 promotion → Studio smoke whose Harness recorded `0.8.11`,
+`commit: unavailable`, and `dirty: false`.
+
+The `0.8.12` release was closed with 299 passing tests, 1,048 checked
+documentation links, one fresh Grok reproduction under `0.8.11`, one fresh
+installed-wheel Grok retry under `0.8.12`, adversarial owner-marker coverage,
+and a final Python 3.11 wheel baseline → worktree re-entry → Check → KEEP →
+promotion → post-orient/Studio smoke whose Harness recorded `0.8.12`,
 `commit: unavailable`, and `dirty: false`.
 
 `project create` is the normal construction entry point. It creates

@@ -89,7 +89,9 @@ A Session pins:
 
 Session start executes a fresh successful baseline through the ordinary
 Study/Run contract. It then constructs the worktree from exact fixed and
-editable bytes. Canonical Project candidate source is not changed.
+editable bytes. Canonical Project candidate source is not changed. The
+worktree also receives one strict Project/Session marker that is forced into
+the Session fixed inventory regardless of editable globs.
 
 When `--request` is supplied, Core validates it before baseline execution and
 requires every requested symbol and asset class to fit the selected Study. It
@@ -116,6 +118,15 @@ Evaluation rejects stale or modified authority before running:
 For a content-locked Study, canonical and worktree identity checks hash the
 same owning Project data root. Dataset bytes are not copied into the worktree;
 changing them stales the Session before another candidate can run.
+
+The advertised worktree is nevertheless a valid read-only CLI re-entry point.
+`aq orient <worktree>` verifies its strict marker, exact ancestor Project and
+Session topology, Session manifest, and locked marker hash, then builds the
+brief from the canonical Project. JSON context and generated commands continue
+to name that canonical evidence root, while `filesystem.operatingRoot` remains
+the separate writable worktree. Other commands retain their explicit Project
+path semantics; re-entry does not redirect mutation through hidden ownership.
+Detached or forged worktrees fail instead of becoming standalone Projects.
 
 ## Experiment execution
 

@@ -245,6 +245,103 @@ class AgentCliTests(unittest.TestCase):
                 projected["data"]["factorComponents"]["available"]
             )
 
+    def test_orient_reenters_exact_session_worktree_without_copying_data(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace = Path(directory) / "workspace"
+            self.assertEqual(
+                run_cli("workspace", "init", str(workspace), "--json").returncode,
+                0,
+            )
+            created = run_cli(
+                "project",
+                "create",
+                str(workspace),
+                "worktree-reentry",
+                "--template",
+                "ohlcv-factor-lab",
+                "--json",
+            )
+            self.assertEqual(created.returncode, 0, created.stderr)
+            project = Path(json_output(created)["data"]["projectDir"])
+            baseline = run_cli(
+                "run",
+                "execute",
+                str(project),
+                "--study",
+                "ohlcv-factor-quality",
+                "--json",
+            )
+            self.assertEqual(baseline.returncode, 0, baseline.stderr)
+            started = run_cli(
+                "session",
+                "start",
+                str(project),
+                "--study",
+                "ohlcv-factor-quality",
+                "--json",
+            )
+            self.assertEqual(started.returncode, 0, started.stderr)
+            worktree = Path(json_output(started)["data"]["worktree"])
+            self.assertFalse((worktree / "data" / "ohlcv").exists())
+
+            canonical = run_cli("orient", str(project), "--json")
+            reentered = run_cli("orient", str(worktree), "--json")
+
+            self.assertEqual(canonical.returncode, 0, canonical.stderr)
+            self.assertEqual(reentered.returncode, 0, reentered.stderr)
+            canonical_json = json_output(canonical)
+            reentered_json = json_output(reentered)
+            self.assertEqual(reentered_json["data"], canonical_json["data"])
+            self.assertEqual(
+                reentered_json["context"],
+                canonical_json["context"],
+            )
+            self.assertEqual(
+                reentered_json["nextActions"],
+                canonical_json["nextActions"],
+            )
+            canonical_human = run_cli("orient", str(project))
+            reentered_human = run_cli("orient", str(worktree))
+            self.assertEqual(
+                reentered_human.stdout,
+                canonical_human.stdout,
+            )
+            self.assertIn(
+                f"Project root: {project.resolve()}",
+                reentered_human.stdout,
+            )
+            self.assertIn(
+                f"Operating root: {worktree.resolve()}",
+                reentered_human.stdout,
+            )
+            studio = run_cli(
+                "studio",
+                "snapshot",
+                str(project),
+                "--json",
+            )
+            self.assertEqual(studio.returncode, 0, studio.stderr)
+            self.assertEqual(
+                json_output(studio)["data"]["projects"][0]["agentWorkBrief"],
+                canonical_json["data"],
+            )
+
+            direct_mutation = run_cli(
+                "run",
+                "execute",
+                str(worktree),
+                "--study",
+                "ohlcv-factor-quality",
+                "--json",
+            )
+            self.assertNotEqual(direct_mutation.returncode, 0)
+            self.assertEqual(
+                json_output(direct_mutation)["error"]["issues"][0]["code"],
+                "dataset.directory",
+            )
+
     def test_cli_constructs_portfolio_lab_with_correct_next_actions(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             workspace = Path(directory) / "workspace"
@@ -1450,6 +1547,24 @@ class AgentCliTests(unittest.TestCase):
             self.assertEqual(
                 (project / "factors/candidate.py").read_text(),
                 "SCORE = 2.0\n",
+            )
+            post_promotion = run_cli(
+                "orient",
+                str(workspace),
+                "--json",
+            )
+            self.assertEqual(
+                post_promotion.returncode,
+                0,
+                post_promotion.stderr,
+            )
+            self.assertEqual(
+                promoted_json["nextActions"],
+                json_output(post_promotion)["nextActions"],
+            )
+            self.assertEqual(
+                [item["id"] for item in promoted_json["nextActions"]],
+                ["session.start"],
             )
 
     def test_json_cli_runs_and_inspects_a_bounded_external_campaign(self) -> None:

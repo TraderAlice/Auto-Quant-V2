@@ -159,6 +159,7 @@ from .sessions import (
     load_experiment,
     load_session,
     promote_session,
+    resolve_session_worktree_owner,
     session_snapshot,
     start_session,
 )
@@ -385,7 +386,8 @@ def build_parser() -> RaisingArgumentParser:
         "orient",
         help=(
             "give a research Agent one verified work brief and bounded "
-            "evidence-driven experiment agenda"
+            "evidence-driven experiment agenda; locked Session worktrees "
+            "re-enter their owning Project read-only"
         ),
     )
     orient.add_argument("path")
@@ -1400,6 +1402,29 @@ def _project_default(args: argparse.Namespace) -> CommandResult:
 def _selected_project(args: argparse.Namespace):
     directory = resolve_project_directory(args.path, args.project)
     return load_project(directory)
+
+
+def _orientation_project(args: argparse.Namespace):
+    project = _selected_project(args)
+    owner = resolve_session_worktree_owner(project)
+    return owner[0] if owner is not None else project
+
+
+def _brief_next_actions(brief: dict[str, Any]) -> list[dict[str, Any]]:
+    actions = [
+        item
+        for item in [brief["primaryAction"], *brief["supportingActions"]]
+        if item is not None
+    ]
+    return [
+        next_action(
+            item["id"],
+            item["description"],
+            item["argv"],
+            item["effect"],
+        )
+        for item in actions
+    ]
 
 
 def _study_create(args: argparse.Namespace) -> CommandResult:
@@ -2819,23 +2844,7 @@ def _session_promote(args: argparse.Namespace) -> CommandResult:
                 immutable=True,
             )
         ],
-        [
-            next_action(
-                "run.execute",
-                "Execute the preserved Project source through the fixed Study; "
-                "promotion alone does not qualify it.",
-                [
-                    "aq",
-                    "run",
-                    "execute",
-                    str(project.root_dir),
-                    "--study",
-                    session.manifest["studyId"],
-                    "--json",
-                ],
-                "creates-artifact",
-            )
-        ],
+        _brief_next_actions(build_agent_work_brief(project)),
     )
 
 
@@ -3786,7 +3795,7 @@ def _inspect(args: argparse.Namespace) -> CommandResult:
 
 
 def _orient(args: argparse.Namespace) -> CommandResult:
-    project = _selected_project(args)
+    project = _orientation_project(args)
     brief = build_agent_work_brief(project)
     focus = brief["focus"]
     filesystem = brief["filesystem"]
@@ -3805,6 +3814,7 @@ def _orient(args: argparse.Namespace) -> CommandResult:
         question = question[:319].rstrip() + "…"
     human = (
         f"AutoQuant Agent Work Brief: {brief['project']['name']}\n"
+        f"Project root: {brief['project']['rootDir']}\n"
         f"Question: {question}\n"
         f"Focus: {focus['laneName'] or 'single Study'} · "
         f"{focus['studyId'] or 'no Study'}\n"
@@ -3843,11 +3853,6 @@ def _orient(args: argparse.Namespace) -> CommandResult:
             )
         )
     )
-    actions = [
-        item
-        for item in [brief["primaryAction"], *brief["supportingActions"]]
-        if item is not None
-    ]
     return CommandResult(
         "orient",
         brief,
@@ -3861,15 +3866,7 @@ def _orient(args: argparse.Namespace) -> CommandResult:
                 immutable=False,
             )
         ],
-        [
-            next_action(
-                item["id"],
-                item["description"],
-                item["argv"],
-                item["effect"],
-            )
-            for item in actions
-        ],
+        _brief_next_actions(brief),
     )
 
 
