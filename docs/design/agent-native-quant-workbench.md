@@ -43,7 +43,7 @@ identity, scheduling, communication, credentials, and shared tools around the
 Workspace, but AutoQuant Core does not branch on an OpenAlice mode.
 
 The product model is no longer supported only by reference fixtures.
-AutoQuant `0.8.7` has completed materially different real-request field trials
+AutoQuant `0.8.8` has completed materially different real-request field trials
 covering Factor, Portfolio, governed RL, multi-interval Crypto, mixed-class
 observed data, reported-book risk and bounded sizing, fixed price events, and
 Portfolio-native risk parity. The concise release proof and current honest
@@ -82,6 +82,9 @@ The transport does not define the workbench.
 
 An AutoQuant Workspace is a long-lived desk, not one disposable request.
 
+- A repository clone is already that desk: Harness source and immediate
+  `projects/` are colocated so a new coding Agent can discover both with
+  ordinary filesystem search before it knows the SDK.
 - It can contain multiple independent Projects.
 - A new request normally creates or continues a Project on an existing desk.
 - A new Workspace is appropriate when the operator needs a separate
@@ -91,6 +94,10 @@ An AutoQuant Workspace is a long-lived desk, not one disposable request.
   or Run staging directory.
 - Copying a Workspace Template creates the initial desk state. It does not make
   the resulting Workspace temporary or subordinate to the template source.
+- The distributed clone uses internal Git-managed Projects. An ignored strict
+  local Workspace configuration may redirect only a Workbench developer's
+  effective Project discovery to an external collection; CLI and Studio make
+  that exception visible.
 
 The current one-level Project discovery and self-contained Project rule are
 defined in [[docs/design/workspace-project-boundaries]].

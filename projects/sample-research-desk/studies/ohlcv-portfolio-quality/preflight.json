@@ -1,0 +1,13 @@
+{
+  "kind": "autoquant-candidate-preflight",
+  "runner": {
+    "arguments": [],
+    "entrypoint": "judges/preflight_factor.py",
+    "kind": "python",
+    "paths": [
+      "judges/preflight_factor.py"
+    ],
+    "timeoutSeconds": 8
+  },
+  "schemaVersion": 1
+}

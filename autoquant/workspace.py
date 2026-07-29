@@ -13,6 +13,7 @@ from typing import Any
 
 
 WORKSPACE_MANIFEST = "autoquant-workspace.json"
+WORKSPACE_LOCAL_MANIFEST = "autoquant-workspace.local.json"
 PROJECT_MANIFEST = "autoquant.json"
 FRAMEWORK_NEEDS = "framework-needs.md"
 SCHEMA_VERSION = 1
@@ -86,6 +87,8 @@ class WorkspaceContext:
     root_dir: Path
     manifest: WorkspaceManifest
     projects_dir: Path
+    configuration_path: Path
+    configuration_source: str
 
 
 @dataclass(frozen=True)
@@ -122,6 +125,10 @@ def _read_json_object(path: Path) -> dict[str, Any]:
     except FileNotFoundError:
         raise AutoQuantValidationError(
             [_issue(path, "manifest.missing", f"Missing manifest: {path}")]
+        ) from None
+    except OSError as error:
+        raise AutoQuantValidationError(
+            [_issue(path, "manifest.read", f"Cannot read manifest: {error}")]
         ) from None
     except json.JSONDecodeError as error:
         raise AutoQuantValidationError(
@@ -180,6 +187,24 @@ def _valid_relative_path(value: Any, path: str) -> list[ValidationIssue]:
 
 
 def parse_workspace_manifest(raw: dict[str, Any], path: Path) -> WorkspaceManifest:
+    return _parse_workspace_manifest(raw, path, allow_external_projects=False)
+
+
+def parse_local_workspace_manifest(
+    raw: dict[str, Any],
+    path: Path,
+) -> WorkspaceManifest:
+    """Parse an explicit untracked Workspace configuration override."""
+
+    return _parse_workspace_manifest(raw, path, allow_external_projects=True)
+
+
+def _parse_workspace_manifest(
+    raw: dict[str, Any],
+    path: Path,
+    *,
+    allow_external_projects: bool,
+) -> WorkspaceManifest:
     required = {
         "schema_version",
         "name",
@@ -196,12 +221,30 @@ def parse_workspace_manifest(raw: dict[str, Any], path: Path) -> WorkspaceManife
             )
         )
     issues.extend(_valid_non_empty_string(raw.get("name"), f"{path}/name"))
-    issues.extend(
-        _valid_relative_path(
-            raw.get("projects_directory"),
-            f"{path}/projects_directory",
+    if allow_external_projects:
+        issues.extend(
+            _valid_non_empty_string(
+                raw.get("projects_directory"),
+                f"{path}/projects_directory",
+            )
         )
-    )
+        if isinstance(raw.get("projects_directory"), str) and "\x00" in raw[
+            "projects_directory"
+        ]:
+            issues.append(
+                _issue(
+                    f"{path}/projects_directory",
+                    "schema.path",
+                    "Projects directory cannot contain a null byte",
+                )
+            )
+    else:
+        issues.extend(
+            _valid_relative_path(
+                raw.get("projects_directory"),
+                f"{path}/projects_directory",
+            )
+        )
     default_project = raw.get("default_project")
     if default_project is not None:
         issues.extend(_valid_id(default_project, f"{path}/default_project"))
@@ -332,7 +375,11 @@ def confined_path(root: Path, relative: str, issue_path: str) -> Path:
     return _confined_path(root.resolve(), relative, issue_path)
 
 
-def load_workspace(directory: str | Path) -> WorkspaceContext:
+def load_workspace(
+    directory: str | Path,
+    *,
+    use_local_override: bool = True,
+) -> WorkspaceContext:
     root = Path(directory).expanduser().absolute()
     if root.is_symlink():
         raise AutoQuantValidationError(
@@ -340,12 +387,54 @@ def load_workspace(directory: str | Path) -> WorkspaceContext:
         )
     root = root.resolve()
     manifest_path = root / WORKSPACE_MANIFEST
-    manifest = parse_workspace_manifest(_read_json_object(manifest_path), manifest_path)
-    projects_dir = _confined_path(
-        root,
-        manifest.projects_directory,
-        f"{manifest_path}/projects_directory",
+    base_manifest = parse_workspace_manifest(
+        _read_json_object(manifest_path),
+        manifest_path,
     )
+    local_path = root / WORKSPACE_LOCAL_MANIFEST
+    if use_local_override and (local_path.exists() or local_path.is_symlink()):
+        if local_path.is_symlink() or not local_path.is_file():
+            raise AutoQuantValidationError(
+                [
+                    _issue(
+                        local_path,
+                        "workspace.local-configuration",
+                        "Local Workspace configuration must be a real file",
+                    )
+                ]
+            )
+        manifest = parse_local_workspace_manifest(
+            _read_json_object(local_path),
+            local_path,
+        )
+        configured = Path(manifest.projects_directory).expanduser()
+        projects_dir = (
+            configured
+            if configured.is_absolute()
+            else root / configured
+        ).absolute()
+        if projects_dir.is_symlink():
+            raise AutoQuantValidationError(
+                [
+                    _issue(
+                        f"{local_path}/projects_directory",
+                        "path.symlink",
+                        f"Local Projects directory cannot be a symlink: {projects_dir}",
+                    )
+                ]
+            )
+        projects_dir = projects_dir.resolve()
+        configuration_path = local_path
+        configuration_source = "local-override"
+    else:
+        manifest = base_manifest
+        projects_dir = _confined_path(
+            root,
+            manifest.projects_directory,
+            f"{manifest_path}/projects_directory",
+        )
+        configuration_path = manifest_path
+        configuration_source = "workspace-manifest"
     if not projects_dir.is_dir():
         raise AutoQuantValidationError(
             [
@@ -356,7 +445,13 @@ def load_workspace(directory: str | Path) -> WorkspaceContext:
                 )
             ]
         )
-    return WorkspaceContext(root, manifest, projects_dir)
+    return WorkspaceContext(
+        root,
+        manifest,
+        projects_dir,
+        configuration_path,
+        configuration_source,
+    )
 
 
 def load_project(directory: str | Path, *, expected_id: str | None = None) -> ProjectContext:
@@ -458,7 +553,7 @@ def list_workspace_projects(directory: str | Path) -> list[ProjectSummary]:
     ):
         issues.append(
             _issue(
-                f"{workspace.root_dir / WORKSPACE_MANIFEST}/default_project",
+                f"{workspace.configuration_path}/default_project",
                 "workspace.default-project",
                 f"Default Project '{workspace.manifest.default_project}' does not exist",
             )
@@ -519,7 +614,7 @@ def resolve_project_directory(
         raise AutoQuantValidationError(
             [
                 _issue(
-                    root / WORKSPACE_MANIFEST,
+                    workspace.configuration_path,
                     "workspace.selection-required",
                     "Workspace has no default Project; pass --project ID",
                 )
@@ -532,7 +627,7 @@ def resolve_project_directory(
         raise AutoQuantValidationError(
             [
                 _issue(
-                    root / WORKSPACE_MANIFEST,
+                    workspace.configuration_path,
                     "workspace.unknown-project",
                     f"Unknown Workspace Project '{selected}'. Available: {available}",
                 )
@@ -788,7 +883,7 @@ def create_project(
             projects_directory=workspace.manifest.projects_directory,
             default_project=project_id,
         )
-        _atomic_write_json(workspace.root_dir / WORKSPACE_MANIFEST, updated.to_dict())
+        _atomic_write_json(workspace.configuration_path, updated.to_dict())
     return load_project(target, expected_id=project_id)
 
 
@@ -803,7 +898,7 @@ def set_default_project(
         raise AutoQuantValidationError(
             [
                 _issue(
-                    f"{workspace.root_dir / WORKSPACE_MANIFEST}/default_project",
+                    f"{workspace.configuration_path}/default_project",
                     "workspace.unknown-project",
                     f"Unknown Workspace Project '{project_id}'. Available: {available}",
                 )
@@ -815,7 +910,7 @@ def set_default_project(
         projects_directory=workspace.manifest.projects_directory,
         default_project=project_id,
     )
-    _atomic_write_json(workspace.root_dir / WORKSPACE_MANIFEST, updated.to_dict())
+    _atomic_write_json(workspace.configuration_path, updated.to_dict())
     return load_workspace(workspace.root_dir)
 
 

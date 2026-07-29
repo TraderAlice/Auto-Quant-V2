@@ -1,5 +1,5 @@
 ---
-version: 0.8.7
+version: 0.8.8
 ---
 
 # AutoQuant V2
@@ -32,7 +32,7 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current milestone: `0.8.7`
+## Current milestone: `0.8.8`
 
 AutoQuant V2 has crossed from an architectural prototype into a usable
 research workbench.
@@ -56,11 +56,14 @@ Today it can:
 - preserve a rejected hypothesis as useful evidence without manufacturing an
   Order or trading conclusion.
 
-The `0.8.7` release was closed with 277 passing tests, 1,014 checked
-documentation links, source/wheel smoke, and a clean 4,922-session real ETF
-allocation replay. See [current status](docs/STATUS.md) for the supported
-research routes, real-request proof, verification snapshot, maturity, and
-honest boundaries.
+The repository clone is now the Workspace: its checked-in `projects/` is
+immediately visible to ordinary filesystem tools, Git preserves durable
+research state, and `sample-research-desk` demonstrates the complete
+Factor → Portfolio → governed-RL construction with one historical verified
+Factor Run. Workbench developers can explicitly redirect effective Project
+discovery through an ignored local Workspace configuration without changing
+the shipped default. See [current status](docs/STATUS.md) for supported
+research routes, verification, maturity, and honest boundaries.
 
 ## Standalone or an OpenAlice desk
 
@@ -127,18 +130,45 @@ cd Auto-Quant-V2
 uv sync
 uv run aq --version
 uv run aq capabilities --json
-uv run aq workspace init ./quant-workspace --name "Quant Research Desk"
-uv run aq project create ./quant-workspace research-desk \
+uv run aq project list .
+uv run aq validate .
+uv run aq orient . --json
+uv run aq studio serve .
+
+# Start a genuinely new assignment as a sibling Project.
+uv run aq project create . research-desk \
   --name "Research Desk" \
   --description "Coordinate factor, portfolio, and RL evidence" \
   --template ohlcv-research-desk \
   --json
 # A Quant Agent now completes researchBriefPath and records any real
 # framework gap at frameworkNeedsPath.
-uv run aq project program ./quant-workspace --project research-desk
-uv run aq validate ./quant-workspace
-uv run aq orient ./quant-workspace --project research-desk --json
+uv run aq project program . --project research-desk
+uv run aq orient . --project research-desk --json
 ```
+
+The checked-in `autoquant-workspace.json` selects the repository's internal
+`projects/` and `sample-research-desk`. The sample is an ordinary Project, not
+special runtime state. Its first Factor Run truthfully records the clean
+`0.8.7` Harness that created it; it is retained so Studio has inspectable
+evidence on first launch.
+
+Framework contributors with a separate real-research collection may add the
+Git-ignored `autoquant-workspace.local.json`. It is a complete strict Workspace
+manifest and may point `projects_directory` outside the repository:
+
+```json
+{
+  "default_project": "my-current-research",
+  "name": "AutoQuant Development Desk",
+  "projects_directory": "../quant-workspace/projects",
+  "schema_version": 1
+}
+```
+
+CLI and Studio disclose the effective Projects directory and whether this
+local override is active. Invalid overrides fail explicitly. A normal clone
+has no override and remains self-contained.
 
 `project create` is the normal construction entry point. It creates
 `research.md`, `framework-needs.md`, the Project manifest, and the Project-local
@@ -187,7 +217,7 @@ locks every source byte before creating Studies.
 ```bash
 uv run aq schema research-request --json
 uv run aq schema ohlcv-dataset-package --json
-uv run aq project intake ./quant-workspace us-leadership \
+uv run aq project intake . us-leadership \
   --request research-request.json \
   --dataset /path/to/dataset.json \
   --json
@@ -218,21 +248,21 @@ The fixed Judge alone publishes metrics and a KEEP, REVERT, or CRASH verdict.
 Promotion remains a separate guarded operation.
 
 ```bash
-uv run aq session start ./quant-workspace \
+uv run aq session start . \
   --study factor-quality \
   --request research-request.json \
   --json
 
-uv run aq session check ./quant-workspace \
+uv run aq session check . \
   --session session-... \
   --json
 
-uv run aq experiment evaluate ./quant-workspace \
+uv run aq experiment evaluate . \
   --session session-... \
   --hypothesis "Add volatility normalization" \
   --json
 
-uv run aq session promote ./quant-workspace \
+uv run aq session promote . \
   --session session-... \
   --json
 ```
@@ -242,7 +272,7 @@ AutoQuant supplies the verified brief, protects fixed source, and retains every
 turn and evaluation as evidence:
 
 ```bash
-uv run aq research run ./quant-workspace \
+uv run aq research run . \
   --session session-... \
   --agent-command 'my-coding-agent --autoquant-research' \
   --max-turns 5 \
@@ -267,13 +297,13 @@ Agents may publish lane Reports, and the canonical Factor → Portfolio →
 optional RL program can compose them into one immutable Project Dossier:
 
 ```bash
-uv run aq report publish ./quant-workspace \
+uv run aq report publish . \
   --session session-... \
   --analysis report-analysis.json \
   --json
 
-uv run aq dossier status ./quant-workspace --json
-uv run aq dossier publish ./quant-workspace \
+uv run aq dossier status . --json
+uv run aq dossier publish . \
   --analysis dossier-analysis.json \
   --json
 ```
@@ -290,8 +320,8 @@ Studio is a lightweight read-only view over the same verified Core loaders
 used by the CLI:
 
 ```bash
-uv run aq studio snapshot ./quant-workspace --json
-uv run aq studio serve ./quant-workspace
+uv run aq studio snapshot . --json
+uv run aq studio serve .
 ```
 
 It shows current Projects, requests, Agent work briefs, Sessions, experiments,

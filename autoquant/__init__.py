@@ -2,6 +2,7 @@
 
 from .workspace import (
     PROJECT_MANIFEST,
+    WORKSPACE_LOCAL_MANIFEST,
     WORKSPACE_MANIFEST,
     ProjectContext,
     ProjectManifest,
@@ -18,6 +19,7 @@ __all__ = [
     "ProjectContext",
     "ProjectManifest",
     "WORKSPACE_MANIFEST",
+    "WORKSPACE_LOCAL_MANIFEST",
     "WorkspaceContext",
     "WorkspaceManifest",
     "create_project",

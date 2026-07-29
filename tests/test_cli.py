@@ -995,6 +995,66 @@ class AgentCliTests(unittest.TestCase):
                 ],
             )
 
+    def test_project_list_discloses_effective_local_projects_configuration(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            repository = root / "repository"
+            external = root / "external"
+            self.assertEqual(
+                run_cli("workspace", "init", str(repository)).returncode,
+                0,
+            )
+            self.assertEqual(
+                run_cli("workspace", "init", str(external)).returncode,
+                0,
+            )
+            self.assertEqual(
+                run_cli(
+                    "project",
+                    "create",
+                    str(external),
+                    "external-project",
+                ).returncode,
+                0,
+            )
+            local_path = repository / "autoquant-workspace.local.json"
+            local_path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "name": "Local Development Desk",
+                        "projects_directory": "../external/projects",
+                        "default_project": "external-project",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            result = run_cli("project", "list", str(repository), "--json")
+            self.assertEqual(result.returncode, 0, result.stderr)
+            envelope = json_output(result)
+            workspace = envelope["context"]["workspace"]
+            self.assertEqual(
+                workspace["projectsDir"],
+                str((external / "projects").resolve()),
+            )
+            self.assertEqual(workspace["configurationSource"], "local-override")
+            self.assertEqual(
+                workspace["configurationPath"],
+                str(local_path.resolve()),
+            )
+            self.assertEqual(
+                [item["id"] for item in envelope["data"]["projects"]],
+                ["external-project"],
+            )
+
+            human = run_cli("project", "list", str(repository))
+            self.assertEqual(human.returncode, 0, human.stderr)
+            self.assertIn(str((external / "projects").resolve()), human.stdout)
+            self.assertIn("(local-override)", human.stdout)
+
     def test_validation_and_usage_failures_are_structured(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             workspace = Path(directory) / "workspace"

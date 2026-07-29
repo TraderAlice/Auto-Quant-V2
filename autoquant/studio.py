@@ -146,7 +146,7 @@ def _workspace_projects(
             {
                 "category": "workspace",
                 **_issue(
-                    root / WORKSPACE_MANIFEST,
+                    workspace.configuration_path,
                     "workspace.default-project",
                     f"Default Project '{default_project}' does not exist",
                 ).to_dict(),
@@ -168,7 +168,10 @@ def _workspace_projects(
         {
             "name": workspace.manifest.name,
             "rootDir": str(workspace.root_dir),
+            "projectsDir": str(workspace.projects_dir),
             "defaultProject": workspace.manifest.default_project,
+            "configurationSource": workspace.configuration_source,
+            "configurationPath": str(workspace.configuration_path),
         },
         projects,
         diagnostics,

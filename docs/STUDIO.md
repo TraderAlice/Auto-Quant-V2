@@ -9,18 +9,25 @@ Workspaces render the same Core snapshot.
 ## Open a Workspace
 
 ```bash
-aq studio serve ./quant-workspace
+aq studio serve .
 ```
 
 The server binds to `127.0.0.1:8765`, opens the default browser, and runs until
 interrupted. Use a different local port or suppress browser opening with:
 
 ```bash
-aq studio serve ./quant-workspace --port 8877 --no-open
+aq studio serve . --port 8877 --no-open
 ```
 
 A direct Project path is also valid. A Workspace can be restricted to one
 Project with `--project ID`.
+
+The repository clone is already a Workspace and opens with the checked-in
+`sample-research-desk`. The Workspace rail shows the effective Projects path
+and labels an active `autoquant-workspace.local.json` as `LOCAL OVERRIDE`;
+the top source label makes the same distinction from the checked-in Workspace
+manifest. This is observation only—Studio never selects or rewrites the
+configuration.
 
 The default bind is intentionally loopback-only. V1 has no authentication.
 Binding `--host` to a non-loopback address is an explicit operator decision.
@@ -375,7 +382,7 @@ Agents and scripts can inspect the same normalized observation without
 starting a server:
 
 ```bash
-aq studio snapshot ./quant-workspace --json
+aq studio snapshot . --json
 aq schema studio-snapshot --json
 aq schema campaign-progress --json
 aq schema factor-diagnostics --json

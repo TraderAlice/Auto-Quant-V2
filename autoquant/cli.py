@@ -1331,7 +1331,13 @@ def _project_program(args: argparse.Namespace) -> CommandResult:
 def _project_list(args: argparse.Namespace) -> CommandResult:
     workspace = load_workspace(args.workspace)
     projects = list_workspace_projects(workspace.root_dir)
-    lines = [f"AutoQuant Workspace: {workspace.manifest.name}"]
+    lines = [
+        f"AutoQuant Workspace: {workspace.manifest.name}",
+        (
+            f"Projects: {workspace.projects_dir} "
+            f"({workspace.configuration_source})"
+        ),
+    ]
     if projects:
         lines.extend(
             f"{'*' if item.is_default else ' '} {item.id}  {item.name}  {item.path}"

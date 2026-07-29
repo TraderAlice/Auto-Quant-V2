@@ -20,6 +20,14 @@ self-contained: a Workspace owns project discovery and a standardized Harness,
 while each Project owns its research question, source inputs, strategies or
 models, Runs, and durable artifacts.
 
+The repository root is the default Workspace. Start with `aq project list .`
+and `aq orient .`; use the checked-in `projects/sample-research-desk` to learn
+the complete desk without treating its example question as a real assignment.
+Create or continue sibling Projects in the root `projects/`. A framework
+developer may have an ignored `autoquant-workspace.local.json` that explicitly
+redirects effective Project discovery outside the repository; inspect CLI or
+Studio configuration-source output before assuming which Projects are active.
+
 Before adding a host integration or public surface, ask:
 
 1. Can a coding Agent use the same capability in a standalone Workspace?

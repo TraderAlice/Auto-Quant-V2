@@ -951,11 +951,23 @@ function updateDeskNavActive() {
 
 function renderDeskContext(project) {
   const source = state.snapshot?.source;
+  const workspace = source?.workspace;
   const workspaceName =
-    source?.workspace?.name ??
+    workspace?.name ??
     String(source?.rootDir ?? "Local workspace").split("/").filter(Boolean).at(-1);
-  element("workspace-scope").textContent = String(source?.scope ?? "local").toUpperCase();
+  const configurationSource = workspace?.configurationSource ?? "direct-project";
+  element("workspace-scope").textContent =
+    configurationSource === "local-override"
+      ? "LOCAL OVERRIDE"
+      : String(source?.scope ?? "local").toUpperCase();
   element("rail-workspace").textContent = workspaceName || "Local workspace";
+  const projectsDirectory =
+    workspace?.projectsDir ??
+    project?.rootDir ??
+    source?.rootDir ??
+    "Direct Project";
+  element("rail-projects").textContent = projectsDirectory;
+  element("rail-projects").title = projectsDirectory;
   element("rail-project").textContent = project?.name ?? "No project";
   const study = project ? projectFocusStudy(project) : null;
   const run = project ? projectFocusRun(project) : null;
@@ -5351,10 +5363,15 @@ async function refresh({ quiet = false } = {}) {
     }
     state.snapshot = await response.json();
     const source = state.snapshot.source;
+    const configurationSource = source.workspace?.configurationSource;
     element("source-scope").textContent =
-      `${source.scope.toUpperCase()} / LOCAL / READ ONLY`;
+      `${source.scope.toUpperCase()} / ${
+        configurationSource === "local-override" ? "LOCAL OVERRIDE" : "WORKSPACE MANIFEST"
+      } / READ ONLY`;
     element("source-name").textContent =
       source.workspace?.name ?? source.rootDir;
+    element("source-name").title =
+      source.workspace?.projectsDir ?? source.rootDir;
     render();
     setConnection("live", `Synced ${relativeTime(state.snapshot.generatedAt)}`);
   } catch (error) {

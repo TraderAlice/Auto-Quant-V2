@@ -1,0 +1,58 @@
+{
+  "dataset": {
+    "asset_class": "synthetic-multi-asset",
+    "id": "synthetic-ohlcv-research-desk-fixture",
+    "paths": [
+      "ohlcv/**"
+    ],
+    "time_range": {
+      "end": "2025-08-11",
+      "start": "2024-01-02"
+    },
+    "universe": [
+      "ALPHA",
+      "BRAVO",
+      "CHARLIE",
+      "DELTA",
+      "ECHO",
+      "FOXTROT"
+    ],
+    "version": "v1"
+  },
+  "dependencies": {
+    "paths": [
+      "strategies/portfolio-mandate.json",
+      "strategies/research-horizon.json"
+    ]
+  },
+  "description": "Translate the shared candidate factor into constrained, costed target weights",
+  "editable": {
+    "paths": [
+      "factors/**"
+    ]
+  },
+  "id": "ohlcv-portfolio-quality",
+  "judge": {
+    "arguments": [],
+    "entrypoint": "judges/ohlcv_portfolio.py",
+    "kind": "python",
+    "paths": [
+      "judges/ohlcv_portfolio.py",
+      "judges/portfolio_core.py"
+    ],
+    "timeout_seconds": 180
+  },
+  "name": "OHLCV Portfolio Quality",
+  "objective": {
+    "direction": "maximize",
+    "metric": "validation_net_sharpe",
+    "minimum_improvement": 0.05
+  },
+  "program": "program.md",
+  "schema_version": 1,
+  "subject": {
+    "kind": "factor",
+    "name": "portfolio-factor",
+    "version": "working"
+  }
+}

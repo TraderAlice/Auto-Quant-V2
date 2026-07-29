@@ -69,6 +69,23 @@ aq validate <project-or-workspace-dir> [--project ID] [--json]
 aq inspect <project-or-workspace-dir> [--project ID] [--json]
 ```
 
+The repository root is the shipped Workspace, so the first commands after a
+clone are normally:
+
+```bash
+aq project list .
+aq orient . --json
+aq studio serve .
+```
+
+Workspace-scoped JSON context includes the effective `projectsDir`,
+`configurationSource`, and `configurationPath`. Human Project listing prints
+the same Projects directory and source. `workspace-manifest` means the strict
+checked-in confined manifest is active; `local-override` means the ignored
+complete `autoquant-workspace.local.json` selected a local external Projects
+directory. Studio exposes the same effective source. Invalid local
+configuration is an error and never silently falls back.
+
 `validate` and `inspect` resolve exactly one Project before reading its
 manifest. A direct Project path rejects `--project`; a Workspace path selects
 the explicit id or its default.

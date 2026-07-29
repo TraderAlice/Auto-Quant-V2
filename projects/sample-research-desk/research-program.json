@@ -1,0 +1,68 @@
+{
+  "id": "factor-portfolio-rl",
+  "integration": {
+    "factorClaim": "request-bound-factor-evaluation-authority",
+    "factorPredictionUniverse": "claim-aware-portfolio-mandate-or-research-universe",
+    "factorToPortfolio": "shared-candidate-source",
+    "portfolioMandate": "request-bound-shared-fixed-dependency",
+    "researchHorizon": "request-bound-shared-fixed-dependency",
+    "rlFactorDependency": "content-locked-candidate-source",
+    "tradingAuthority": "none"
+  },
+  "kind": "autoquant-research-program",
+  "lanes": [
+    {
+      "dependencyPaths": [
+        "strategies/factor-claim.json",
+        "strategies/portfolio-mandate.json",
+        "strategies/research-horizon.json"
+      ],
+      "dependsOn": [],
+      "editablePaths": [
+        "factors/**"
+      ],
+      "id": "factor",
+      "name": "Factor quality",
+      "optional": false,
+      "role": "causal-predictive-evidence",
+      "studyId": "ohlcv-factor-quality"
+    },
+    {
+      "dependencyPaths": [
+        "strategies/portfolio-mandate.json",
+        "strategies/research-horizon.json"
+      ],
+      "dependsOn": [
+        "factor"
+      ],
+      "editablePaths": [
+        "factors/**"
+      ],
+      "id": "portfolio",
+      "name": "Portfolio implementation",
+      "optional": false,
+      "role": "mechanical-portfolio-evidence",
+      "studyId": "ohlcv-portfolio-quality"
+    },
+    {
+      "dependencyPaths": [
+        "factors/**",
+        "strategies/portfolio-mandate.json",
+        "strategies/research-horizon.json"
+      ],
+      "dependsOn": [
+        "portfolio"
+      ],
+      "editablePaths": [
+        "models/**"
+      ],
+      "id": "rl",
+      "name": "Governed RL value-add",
+      "optional": true,
+      "role": "adaptive-policy-challenge",
+      "studyId": "ohlcv-rl-factor-policy"
+    }
+  ],
+  "schemaVersion": 1,
+  "template": "ohlcv-research-desk"
+}

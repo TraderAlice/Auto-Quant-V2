@@ -18,7 +18,9 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-There are no active plans.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/repository-root-workspace]] | Make the repository clone itself an immediately operable, Git-backed AutoQuant Workspace with one complete sample Project and an explicit local external-Projects override for Workbench development. | 2026-07-29 |
 
 ## Proposed plans
 

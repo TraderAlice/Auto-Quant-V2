@@ -43,7 +43,10 @@ def workspace_context(workspace: WorkspaceContext) -> dict[str, Any]:
         "workspace": {
             "name": workspace.manifest.name,
             "rootDir": str(workspace.root_dir),
+            "projectsDir": str(workspace.projects_dir),
             "defaultProject": workspace.manifest.default_project,
+            "configurationSource": workspace.configuration_source,
+            "configurationPath": str(workspace.configuration_path),
         },
     }
 

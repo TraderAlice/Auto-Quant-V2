@@ -44,6 +44,14 @@ cross-Workspace communication, and authenticated provenance may add context,
 but Project files and Core evidence remain sufficient to orient a replacement
 Agent. Standalone and hosted operation use the same brief contract.
 
+The repository clone is itself the default Workspace. Harness source,
+checked-in `projects/`, and one complete three-lane sample therefore share one
+filesystem search surface. A new Agent can use `aq project list .`,
+`aq orient .`, ordinary grep/glob, and Studio without first constructing or
+locating a second desk. The sample's historical `0.8.7` Factor Run is explicit
+orientation evidence, not authority to reuse that sample for an unrelated
+caller question.
+
 ## Operator and reviewer roles
 
 The Agent is the principal research operator. It may:

@@ -1,6 +1,7 @@
 # Workspace and Project boundaries
 
-Status: implemented for V1 discovery, blank/template construction, and
+Status: implemented for repository-root/default and initialized Workspaces,
+strict local discovery override, blank/template construction, and
 request-driven self-contained Projects.
 
 Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]], and
@@ -19,6 +20,9 @@ own Study, Run, evaluation, research-loop, dataset-format, or Studio semantics.
   `autoquant-workspace.json` and one configured immediate Projects directory.
 - It is a persistent quantitative desk that can be cloned and operated
   standalone or materialized by a host Workspace Template.
+- The AutoQuant source clone is itself the canonical shipped Workspace. Its
+  checked-in manifest discovers the checked-in `projects/` and selects one
+  ordinary complete sample Project.
 - A Project is a directory containing `autoquant.json`, its human research
   program, and every research surface it owns, including fixed Judges and
   immutable Run/Experiment evidence and durable research Sessions.
@@ -32,6 +36,12 @@ own Study, Run, evaluation, research-loop, dataset-format, or Studio semantics.
 - A new research request normally creates or continues a Project. It does not
   require a fresh Workspace unless environment or ownership isolation is
   intentional.
+- Durable Project research state is ordinary Git-managed Workspace state.
+  Project-local data and cache policies remain separate.
+- A Workbench developer may place one ignored complete
+  `autoquant-workspace.local.json` beside the base manifest. Its presence is
+  explicit authority to select an external Projects directory for that
+  checkout; it does not change the default distributed Workspace.
 
 ## Source of truth
 
@@ -48,9 +58,11 @@ own Study, Run, evaluation, research-loop, dataset-format, or Studio semantics.
    names.
 2. Workspace discovery scans exactly one directory level and rejects visible
    files, incomplete entries, and symlink Projects.
-3. Workspace and Project roots, the configured Projects directory, the
+3. Workspace and Project roots, the effective Projects directory, the
    research program, and declared Project directories cannot be symlinks.
-4. Manifest paths are POSIX relative paths confined beneath their owning root.
+4. The checked-in manifest uses POSIX relative paths confined beneath its
+   Workspace. Only the ignored local override may name a relative escape or
+   absolute external Projects path.
 5. Manifest objects are strict; unknown keys and unsupported schema versions
    fail validation.
 6. A directory cannot be both a Workspace and Project.
@@ -64,12 +76,20 @@ own Study, Run, evaluation, research-loop, dataset-format, or Studio semantics.
 10. Changing one Project does not change another Project's files or identity.
 11. Host-specific metadata may surround a Workspace but cannot redefine
     Project discovery, quantitative identity, or evaluation semantics.
+12. An invalid local override fails explicitly; Core never silently falls back
+    to the checked-in Projects.
+13. Project creation and default selection write to the effective
+    configuration file, so local development cannot accidentally mutate the
+    shipped manifest.
+14. CLI and Studio disclose the effective Projects path, configuration path,
+    and whether discovery comes from the Workspace manifest or local override.
 
 ## File-to-operation flow
 
 ```text
 autoquant-workspace.json
-→ strict Workspace load
+→ optional strict autoquant-workspace.local.json
+→ effective Workspace configuration and Projects path
 → confined immediate Project discovery
 → default or explicit Project selection
 → strict autoquant.json load
@@ -92,7 +112,7 @@ first-default Workspace update.
 - Git repositories as Project identity.
 - Owning Study or Run semantics, which are defined in
   [[docs/design/study-run-evidence]].
-- Migrating the repository-root V0.5 compatibility arena in this subsystem.
+- Migrating external real research cases into the shipped repository sample.
 
 ## Change checklist
 
@@ -102,16 +122,17 @@ first-default Workspace update.
 - Prove a Workspace with at least two Projects resolves and inspects them
   independently.
 - Project new operations through both human and JSON CLI paths.
-- Update the future Studio server's confinement tests when it consumes these
-  contexts.
+- Update Studio source projection and browser labeling with every Workspace
+  configuration change.
 
 ## Verification
 
 ```bash
 uv run python -m unittest tests.test_workspace tests.test_cli -v
-uv run aq workspace init /tmp/quant-workspace
-uv run aq project create /tmp/quant-workspace factor-lab
-uv run aq validate /tmp/quant-workspace --json
+uv run python -m unittest tests.test_repository_workspace -v
+uv run aq project list . --json
+uv run aq validate . --json
+uv run aq studio snapshot . --json
 ```
 
 ## Known gaps

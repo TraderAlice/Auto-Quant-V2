@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha at `0.8.7`.
+Status: usable pre-alpha at `0.8.8`.
 
 Updated: 2026-07-29.
 
@@ -13,27 +13,32 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 AutoQuant V2 has crossed the line from an architectural prototype into a
 usable Agent-native quantitative research workbench.
 
-At `0.8.7`, a human, local coding Agent, or coworker delegated from OpenAlice
+At `0.8.8`, a human, local coding Agent, or coworker delegated from OpenAlice
 can:
 
-1. preserve an ordinary-language assignment as an English Project research
+1. clone the repository and immediately discover the Harness plus its
+   Git-backed `projects/`, complete sample, exact next action, and Studio;
+2. preserve an ordinary-language assignment as an English Project research
    brief;
-2. clarify caller-owned intent before binding machine authority;
-3. atomically create a self-contained Project from a strict request and
+3. clarify caller-owned intent before binding machine authority;
+4. atomically create a self-contained Project from a strict request and
    content-locked OHLCV package;
-4. choose a fixed Study or enter a bounded editable Research Session;
-5. run deterministic factor, portfolio, governed-RL, event, reported-book, or
+5. choose a fixed Study or enter a bounded editable Research Session;
+6. run deterministic factor, portfolio, governed-RL, event, reported-book, or
    Portfolio-native allocation research;
-6. retain every measurement as an immutable, versioned Run with exact Harness,
+7. retain every measurement as an immutable, versioned Run with exact Harness,
    data, Judge, dependency, and artifact identity;
-7. inspect the same verified result through human CLI, JSON CLI, orientation,
+8. inspect the same verified result through human CLI, JSON CLI, orientation,
    Studio, Reports, or Dossiers;
-8. return useful negative evidence without turning rejection into a system
+9. return useful negative evidence without turning rejection into a system
    failure or a fabricated trading instruction.
 
-The release tag `v0.8.7` points to commit `f7018ab`, the exact clean Harness
-commit used for the final Portfolio-native allocation replay. Repository
-documentation closure is commit `2944fec`.
+`0.8.8` makes the repository clone the canonical default Workspace. Its
+ordinary `sample-research-desk` contains Factor, Portfolio, and governed-RL
+Studies plus one explicitly historical clean `0.8.7` Factor Run for immediate
+Studio inspection. An ignored strict local Workspace configuration lets
+Workbench development reuse an external real-Project collection without
+shipping those cases or changing the user's internal default.
 
 The canonical repository is
 [TraderAlice/Auto-Quant-V2](https://github.com/TraderAlice/Auto-Quant-V2).
@@ -186,7 +191,7 @@ field-trial surface.
 
 ## Maturity and next use
 
-`0.8.7` is suitable for controlled standalone use and initial OpenAlice desk
+`0.8.8` is suitable for controlled standalone use and initial OpenAlice desk
 integration. It is still pre-`1.0`: public contracts are versioned and strict,
 but the project continues to prefer domain correctness and Agent operability
 over backward compatibility while the product shape settles.

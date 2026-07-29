@@ -18,18 +18,21 @@ self-contained Projects. When AutoQuant receives a local question or delegated
 request, work begins in a Project rather than by cloning and mutating the
 Harness itself.
 
-The target model is:
+The shipped repository now materializes that model directly:
 
 ```text
-Workspace
-├── Harness runtime, schemas, CLI, and project discovery
-└── projects/
-    └── <project-id>/
+Auto-Quant-V2/                     # Workspace root and Git history
+├── autoquant-workspace.json       # checked-in discovery/default
+├── autoquant/                     # Harness runtime, schemas, CLI, Studio
+├── projects/
+│   ├── sample-research-desk/      # ordinary complete reference Project
+│   └── <project-id>/
         ├── research question and configuration
         ├── project-local datasets or dataset identities
         ├── factors, strategies, features, and models
         ├── Studies and Sessions
         └── immutable Runs and artifacts
+└── autoquant-workspace.local.json # optional ignored developer override
 ```
 
 The Workspace is the stable quantitative workbench. A Project is the concrete
@@ -47,7 +50,11 @@ truth. The canonical product model is
 
 The V2 foundation now implements:
 
-- strict `autoquant-workspace.json` and `autoquant.json` manifests;
+- a repository-root checked-in `autoquant-workspace.json`, one complete
+  three-lane sample Project, and strict `autoquant.json` manifests;
+- one optional ignored complete local Workspace configuration that may point
+  development Project discovery outside the repository while the distributed
+  base manifest remains confined and self-contained;
 - self-contained blank or reference-template Project creation and one-level
   Workspace discovery;
 - transactional request-driven Project intake from strict caller-supplied V1
@@ -60,8 +67,9 @@ The V2 foundation now implements:
 - one canonical request-driven research desk that coordinates Factor,
   Portfolio, and governed RL Studies over the same dataset, exposes exact lane
   currentness/conflicts/next actions, and keeps method choice inside AutoQuant;
-- default or explicit Project resolution with root confinement and symlink
-  rejection;
+- default or explicit Project resolution with effective configuration
+  disclosure, base-root confinement, explicit external-local authority, and
+  symlink rejection;
 - a packaged `aq` CLI with versioned JSON envelopes, capability discovery,
   artifacts, next actions, validation, and inspection.
 - one Core-authored Agent Work Brief, exposed by read-only `aq orient` and
@@ -99,9 +107,10 @@ The V2 foundation now implements:
   decisions.
 - one packaged local read-only Studio with a shared versioned snapshot,
   Workspace/Project overview, request → lane Reports → Dossier delivery,
-  exact copyable CLI commands, explicit mutable Campaign progress, defensive
-  HTTP boundary, bounded verified Portfolio decision exploration, and
-  responsive research-first presentation.
+  effective Projects/configuration disclosure, exact copyable CLI commands,
+  explicit mutable Campaign progress, defensive HTTP boundary, bounded
+  verified Portfolio decision exploration, and responsive research-first
+  presentation.
 - one verified Portfolio sizing-anatomy read model that explains conviction,
   inverse volatility, same-side budget, caps/water-filling, covariance
   governance, historical execution, and component risk without becoming an
@@ -284,7 +293,8 @@ location. Git history remains its archive. See
 ### AutoQuant repository and Workbench own
 
 - the standalone package, runtime dependencies, schemas, CLI, Studio, and
-  Workspace Template material;
+  repository-root Workspace Template material;
+- the checked-in internal Projects default and ordinary sample Project;
 - one quantitative Core contract shared by standalone and hosted operation;
 - Agent orientation and bounded quantitative operations;
 - workbench version identity and deliberate managed-asset upgrades.

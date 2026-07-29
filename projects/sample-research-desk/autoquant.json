@@ -1,0 +1,18 @@
+{
+  "description": "A deterministic three-lane reference Project for learning AutoQuant before starting real research.",
+  "directories": {
+    "cache": ".autoquant",
+    "data": "data",
+    "factors": "factors",
+    "judges": "judges",
+    "models": "models",
+    "runs": "runs",
+    "sessions": "sessions",
+    "strategies": "strategies",
+    "studies": "studies"
+  },
+  "id": "sample-research-desk",
+  "name": "Sample Research Desk",
+  "research_program": "research.md",
+  "schema_version": 1
+}

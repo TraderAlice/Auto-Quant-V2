@@ -9,6 +9,7 @@ from pathlib import Path
 from autoquant.templates import PROJECT_TEMPLATE_IDS
 from autoquant.workspace import (
     PROJECT_MANIFEST,
+    WORKSPACE_LOCAL_MANIFEST,
     WORKSPACE_MANIFEST,
     AutoQuantValidationError,
     create_project,
@@ -22,6 +23,27 @@ from autoquant.workspace import (
 
 
 class WorkspaceProjectTests(unittest.TestCase):
+    def _write_local_workspace(
+        self,
+        root: Path,
+        projects_directory: str,
+        *,
+        default_project: str | None,
+    ) -> Path:
+        path = root / WORKSPACE_LOCAL_MANIFEST
+        path.write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "name": "Local Development Desk",
+                    "projects_directory": projects_directory,
+                    "default_project": default_project,
+                }
+            ),
+            encoding="utf-8",
+        )
+        return path
+
     def test_workspace_resolves_default_and_explicit_isolated_projects(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             workspace = initialize_workspace(directory, name="Research Desk")
@@ -170,6 +192,134 @@ class WorkspaceProjectTests(unittest.TestCase):
                 "cannot be symlinks",
             ):
                 load_workspace(root)
+
+    def test_local_configuration_can_select_external_projects_and_owns_writes(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workspace = initialize_workspace(root / "repository")
+            external = initialize_workspace(root / "external")
+            create_project(external.root_dir, "existing-project")
+            base_before = (workspace.root_dir / WORKSPACE_MANIFEST).read_text()
+            local_path = self._write_local_workspace(
+                workspace.root_dir,
+                "../external/projects",
+                default_project="existing-project",
+            )
+
+            selected = load_workspace(workspace.root_dir)
+            self.assertEqual(selected.configuration_source, "local-override")
+            self.assertEqual(selected.configuration_path, local_path)
+            self.assertEqual(selected.projects_dir, external.projects_dir)
+            self.assertEqual(
+                [item.id for item in list_workspace_projects(workspace.root_dir)],
+                ["existing-project"],
+            )
+
+            created = create_project(workspace.root_dir, "new-project")
+            self.assertEqual(created.root_dir.parent, external.projects_dir)
+            set_default_project(workspace.root_dir, "new-project")
+            self.assertEqual(
+                json.loads(local_path.read_text())["default_project"],
+                "new-project",
+            )
+            self.assertEqual(
+                (workspace.root_dir / WORKSPACE_MANIFEST).read_text(),
+                base_before,
+            )
+
+    def test_local_configuration_accepts_an_absolute_projects_directory(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workspace = initialize_workspace(root / "repository")
+            external = initialize_workspace(root / "external")
+            self._write_local_workspace(
+                workspace.root_dir,
+                str(external.projects_dir),
+                default_project=None,
+            )
+
+            selected = load_workspace(workspace.root_dir)
+            self.assertEqual(selected.projects_dir, external.projects_dir)
+            self.assertEqual(selected.configuration_source, "local-override")
+
+    def test_local_configuration_is_strict_and_never_silently_falls_back(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workspace = initialize_workspace(root / "repository")
+            local_path = self._write_local_workspace(
+                workspace.root_dir,
+                "../missing-projects",
+                default_project=None,
+            )
+
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "Missing Workspace projects directory",
+            ):
+                load_workspace(workspace.root_dir)
+
+            value = json.loads(local_path.read_text())
+            value["unexpected"] = True
+            local_path.write_text(json.dumps(value), encoding="utf-8")
+            with self.assertRaisesRegex(AutoQuantValidationError, "Unknown field"):
+                load_workspace(workspace.root_dir)
+
+    def test_local_configuration_rejects_symlink_projects_and_wrong_default(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workspace = initialize_workspace(root / "repository")
+            external = initialize_workspace(root / "external")
+            link = root / "linked-projects"
+            link.symlink_to(external.projects_dir, target_is_directory=True)
+            local_path = self._write_local_workspace(
+                workspace.root_dir,
+                str(link),
+                default_project=None,
+            )
+
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "cannot be a symlink",
+            ):
+                load_workspace(workspace.root_dir)
+
+            local_path.unlink()
+            self._write_local_workspace(
+                workspace.root_dir,
+                str(external.projects_dir),
+                default_project="missing-project",
+            )
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "does not exist",
+            ):
+                list_workspace_projects(workspace.root_dir)
+
+    def test_checked_in_manifest_can_be_loaded_without_a_local_override(
+        self,
+    ) -> None:
+        repository = Path(__file__).resolve().parents[1]
+        workspace = load_workspace(repository, use_local_override=False)
+
+        self.assertEqual(workspace.configuration_source, "workspace-manifest")
+        self.assertEqual(workspace.projects_dir, repository / "projects")
+        self.assertEqual(
+            workspace.manifest.default_project,
+            "sample-research-desk",
+        )
+        sample = load_project(
+            workspace.projects_dir / "sample-research-desk",
+            expected_id="sample-research-desk",
+        )
+        self.assertEqual(sample.manifest.name, "Sample Research Desk")
 
     def test_workspace_rejects_symlink_project_entries(self) -> None:
         with (

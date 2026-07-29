@@ -72,6 +72,18 @@ class StudioObservationTests(unittest.TestCase):
             self.assertEqual(snapshot["kind"], "autoquant-studio-snapshot")
             self.assertEqual(snapshot["source"]["scope"], "workspace")
             self.assertEqual(
+                snapshot["source"]["workspace"]["projectsDir"],
+                str(workspace.projects_dir),
+            )
+            self.assertEqual(
+                snapshot["source"]["workspace"]["configurationSource"],
+                "workspace-manifest",
+            )
+            self.assertEqual(
+                snapshot["source"]["workspace"]["configurationPath"],
+                str(workspace.root_dir / "autoquant-workspace.json"),
+            )
+            self.assertEqual(
                 [item["id"] for item in snapshot["projects"]],
                 ["empty-lab", "factor-project"],
             )
