@@ -1,5 +1,5 @@
 ---
-version: 0.8.16
+version: 0.8.17
 ---
 
 # AutoQuant V2
@@ -32,7 +32,7 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current milestone: `0.8.16`
+## Current milestone: `0.8.17`
 
 AutoQuant V2 has crossed from an architectural prototype into a usable
 research workbench.
@@ -141,6 +141,21 @@ Repository regression passes all 306 tests, the documentation graph resolves
 all 1,069 checked links, and a fresh installed-wheel replay reproduces the
 trial-review, Report, completion, and immutable evidence handoff across CLI
 and Studio.
+
+`0.8.17` follows a fresh Grok coworker from nine raw Yahoo OHLCV files into
+one delegated SPY-relative Factor investigation. Factor preflight now
+exercises up to two position-capable assets together with every fixed context
+and benchmark asset, so a reference-dependent candidate follows the same
+input contract during quick Check and formal evaluation without inventing a
+fallback market. KEEP promotion is also explicit across help, JSON,
+orientation, and human output as one terminal Session close;
+baseline-retaining completion is the mutually exclusive alternative.
+
+The installed retry used a strictly SPY-required implementation with no proxy
+fallback, passed its first Check over the disclosed bounded sample plus SPY,
+spent one Experiment, published one Report, promoted once, and stopped at the
+terminal `promoted` state. Repository regression passes all 307 tests and the
+documentation graph resolves all 1,074 checked links.
 
 ## Standalone or an OpenAlice desk
 

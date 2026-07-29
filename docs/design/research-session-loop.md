@@ -181,6 +181,11 @@ nothing. The content-derived promotion receipt binds the full leader pointer
 and, for a delegated Session, the selected Report
 manifest/result/evidence identity. Local non-delegated Sessions retain
 report-free promotion because there is no caller handoff contract to satisfy.
+Promotion is a terminal close path, not a precursor to completion.
+`session.complete` is the mutually exclusive terminal path for an active
+baseline-retaining delegated Session. Calling it after promotion returns the
+specific `completion.already-promoted` diagnostic and creates no second
+receipt.
 
 V1 promotion is process-atomic with verified rollback, not a cross-filesystem
 transaction. Concurrent writers outside AutoQuant remain prohibited during
@@ -208,6 +213,9 @@ aq session start <path> --study <id> --request request.json --json
   - aq session promote <path> --session <id> --report <id> --json
   - aq session complete <path> --session <id> --report <id> --json
 ```
+
+Choose exactly one terminal branch: promote an improved KEEP, or complete a
+delegated baseline-retaining Session. Neither branch follows the other.
 
 Session start first searches verified successful Runs newest-first. It reuses a
 Run only when the Study, program, editable source, Judge, dataset,

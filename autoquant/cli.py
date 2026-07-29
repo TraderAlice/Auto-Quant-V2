@@ -669,7 +669,10 @@ def build_parser() -> RaisingArgumentParser:
 
     session_promote = session_actions.add_parser(
         "promote",
-        help="promote the exact current KEEP into the owning Project",
+        help=(
+            "promote the exact current KEEP into the owning Project and "
+            "terminally close the Session"
+        ),
     )
     session_promote.add_argument("path")
     session_promote.add_argument("--project")
@@ -685,7 +688,10 @@ def build_parser() -> RaisingArgumentParser:
 
     session_complete = session_actions.add_parser(
         "complete",
-        help="finish a baseline-retaining delegated Session with an exact Report",
+        help=(
+            "finish an active baseline-retaining delegated Session with an "
+            "exact Report; not valid after KEEP promotion"
+        ),
     )
     session_complete.add_argument("path")
     session_complete.add_argument("--project")
@@ -2547,13 +2553,15 @@ def _session_next_actions(project, session) -> list[dict[str, Any]]:
                         "session.promote",
                         (
                             "Promote the exact current KEEP with its immutable "
-                            "Report if the Project base is unchanged. This "
+                            "Report if the Project base is unchanged and "
+                            "terminally close this Session as promoted. This "
                             "preserves the best source; it does not assert "
                             "scientific qualification or downstream admission."
                             if current_report is not None
                             else (
                                 "Promote the exact current KEEP if the Project "
-                                "base is unchanged. Source promotion is not "
+                                "base is unchanged and terminally close this "
+                                "Session as promoted. Source promotion is not "
                                 "scientific qualification."
                             )
                         ),
@@ -2846,6 +2854,18 @@ def _session_promote(args: argparse.Namespace) -> CommandResult:
             "receipt": receipt,
             "session": session.manifest,
             "agentWorkBrief": brief,
+            "terminalClosure": {
+                "terminal": True,
+                "method": "promotion",
+                "sessionStatus": "promoted",
+                "completeCommandApplicable": False,
+                "receiptId": receipt["id"],
+                "reportId": (
+                    receipt["report"]["id"]
+                    if receipt.get("report") is not None
+                    else None
+                ),
+            },
         },
         (
             f"Promoted Session {session.manifest['id']}\n"
@@ -2854,6 +2874,9 @@ def _session_promote(args: argparse.Namespace) -> CommandResult:
             f"{receipt['afterSourceHash']}\n"
             "Authority: source preserved; qualification and downstream "
             "progression remain evidence-gated\n"
+            "Terminal close: promoted; this Session is closed. "
+            "session.complete is the baseline-retaining alternative and is "
+            "not applicable after promotion.\n"
             + (
                 f"Report: {receipt['report']['id']}\n"
                 if receipt.get("report") is not None

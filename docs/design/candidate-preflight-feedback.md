@@ -83,6 +83,14 @@ The process receives:
 Like the formal Judge, this is fixed Project-authored Python, not an OS
 sandbox. It never receives a Broker, UTA, order, account, or trading token.
 
+The reference Factor preflight forms its bounded panel from up to two
+position-capable Study assets plus all fixed `contextAssets` and the named
+benchmark asset in the Study-bound Portfolio mandate. It preserves Study
+universe order, filters references to the locked Study universe, and caps each
+asset at 256 timestamps. Missing reference metadata preserves first-two-asset
+behavior; malformed fixed mandate metadata fails explicitly rather than
+silently changing the exercised contract.
+
 ## Output protocol
 
 Fixed preflight output contains:

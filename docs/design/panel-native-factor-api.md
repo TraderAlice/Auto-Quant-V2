@@ -131,7 +131,8 @@ old candidate source is not executed under new semantics.
 - panel rows: inherited from the content-locked Study dataset;
 - materialized components: 1–12;
 - complete Judge timeout: 60 seconds by default;
-- preflight: at most two assets and 256 timestamps;
+- preflight: at most two position-capable assets, every fixed mandate context
+  or benchmark asset in the Study universe, and 256 timestamps;
 - causality cuts: bounded fixed timestamp prefixes.
 
 ## Invariants

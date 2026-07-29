@@ -34,6 +34,7 @@ There are no proposed plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/reference-aware-preflight-and-promotion-closure]] | Let bounded Factor preflight exercise fixed context/benchmark assets and make KEEP promotion unambiguously terminal to Coding Agents, proved by a fresh installed-CLI Grok retry. | 2026-07-30 |
 | [[plans/post-trial-session-handoff]] | Made completed trial evidence a first-class Session handoff with explicit review choices and durable Experiment/Check traceability, proved by a fresh installed-wheel replay. | 2026-07-29 |
 | [[plans/candidate-contract-and-freeze-handoff]] | Made a factor worker see the exact Project panel/component contract before editing, reject illegal metadata in preflight, and obey a verified freeze agenda after a bounded trial. | 2026-07-29 |
 | [[plans/fixed-study-completion-handoff]] | Let completed fixed Studies hand off to an Agent-owned answer with their exact Explorer optional and Run identity unambiguous. | 2026-07-29 |

@@ -2526,6 +2526,19 @@ def complete_session(
     """Finish one delegated baseline-retaining Session with an exact Report."""
 
     session = load_session(project, session_id)
+    if session.manifest["status"] == "promoted":
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    session.manifest_path,
+                    "completion.already-promoted",
+                    "Session is already terminally closed by KEEP promotion; "
+                    "session.complete applies only to an active "
+                    "baseline-retaining delegated Session and is neither "
+                    "required nor valid after promotion",
+                )
+            ]
+        )
     if session.manifest["status"] != "active":
         raise AutoQuantValidationError(
             [

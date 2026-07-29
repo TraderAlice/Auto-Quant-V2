@@ -700,7 +700,7 @@ CLI_COMMANDS = [
     descriptor(
         "session.promote",
         "aq session promote <path> --session ID [--report ID] [--project ID] [--json]",
-        "Hash-check and promote the exact current KEEP into an unchanged Project base; delegated work requires a current immutable Report.",
+        "Hash-check and promote the exact current KEEP into an unchanged Project base, then terminally close the Session as promoted; delegated work requires a current immutable Report.",
         "mutates-project",
         [
             PATH_ARGUMENT,
@@ -719,7 +719,7 @@ CLI_COMMANDS = [
     descriptor(
         "session.complete",
         "aq session complete <path> --session ID --report ID [--project ID] [--json]",
-        "Finish one active delegated baseline-retaining Session with an exact verified current Report and no Project source mutation.",
+        "Terminally close one active delegated baseline-retaining Session with an exact verified current Report and no Project source mutation; not valid after KEEP promotion.",
         "creates-artifact",
         [
             PATH_ARGUMENT,

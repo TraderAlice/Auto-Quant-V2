@@ -24,6 +24,8 @@ OUTPUT = Path(os.environ["AUTOQUANT_CHECK_OUTPUT"])
 PROJECT = Path(os.environ["AUTOQUANT_PROJECT_ROOT"])
 DATA = Path(os.environ["AUTOQUANT_DATA_ROOT"])
 STUDY = Path(os.environ["AUTOQUANT_STUDY_PATH"])
+MAX_DECISION_ASSETS = 2
+MAX_TIMESTAMPS = 256
 
 
 class CheckFailure(ValueError):
@@ -55,11 +57,94 @@ def _write(status: str, checks: list[dict[str, str]], errors: list[dict[str, str
     )
 
 
+def _fixed_reference_assets(
+    study: dict[str, object],
+    study_universe: list[str],
+) -> list[str]:
+    """Load context/benchmark symbols from the Study-fixed mandate."""
+
+    manifest_path = PROJECT / "autoquant.json"
+    try:
+        project_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        strategies = project_manifest["directories"]["strategies"]
+    except (OSError, KeyError, TypeError, json.JSONDecodeError):
+        return []
+    mandate_relative = f"{strategies}/portfolio-mandate.json"
+    dependencies = study.get("dependencies")
+    if not isinstance(dependencies, dict):
+        return []
+    dependency_paths = dependencies.get("paths")
+    if (
+        not isinstance(dependency_paths, list)
+        or mandate_relative not in dependency_paths
+    ):
+        return []
+    mandate_path = PROJECT / mandate_relative
+    if not mandate_path.is_file():
+        return []
+    try:
+        mandate = json.loads(mandate_path.read_text(encoding="utf-8"))
+        context_assets = mandate["contextAssets"]
+        benchmark_asset = mandate["construction"]["benchmark"]["asset"]
+    except (OSError, KeyError, TypeError, json.JSONDecodeError) as error:
+        raise CheckFailure(
+            "data.reference-contract",
+            f"Cannot read fixed context/benchmark assets: {error}",
+        ) from error
+    if not isinstance(context_assets, list) or any(
+        not isinstance(symbol, str) or not symbol
+        for symbol in context_assets
+    ):
+        raise CheckFailure(
+            "data.reference-contract",
+            "Fixed mandate contextAssets must be an array of symbols",
+        )
+    requested = list(context_assets)
+    if benchmark_asset is not None:
+        if not isinstance(benchmark_asset, str) or not benchmark_asset:
+            raise CheckFailure(
+                "data.reference-contract",
+                "Fixed mandate benchmark asset must be a symbol or null",
+            )
+        requested.append(benchmark_asset)
+    requested_set = set(requested)
+    return [symbol for symbol in study_universe if symbol in requested_set]
+
+
+def _bounded_universe(
+    study: dict[str, object],
+    study_universe: list[str],
+) -> tuple[list[str], list[str], list[str], int]:
+    references = _fixed_reference_assets(study, study_universe)
+    reference_set = set(references)
+    position_assets = [
+        symbol
+        for symbol in study_universe
+        if symbol not in reference_set
+    ]
+    if not position_assets:
+        position_assets = list(study_universe)
+    decisions = position_assets[:MAX_DECISION_ASSETS]
+    selected = set(decisions) | reference_set
+    universe = [
+        symbol
+        for symbol in study_universe
+        if symbol in selected
+    ]
+    return universe, decisions, references, len(position_assets)
+
+
 def main() -> None:
     checks: list[dict[str, str]] = []
     try:
         study = json.loads(STUDY.read_text(encoding="utf-8"))
-        universe = study["dataset"]["universe"][:2]
+        study_universe = study["dataset"]["universe"]
+        (
+            universe,
+            decision_assets,
+            reference_assets,
+            position_asset_count,
+        ) = _bounded_universe(study, study_universe)
         if not universe:
             raise CheckFailure("data.universe", "Study universe is empty")
         module = importlib.import_module("factors.candidate")
@@ -86,7 +171,7 @@ def main() -> None:
                     utc=True,
                     errors="raise",
                 )
-            frames[symbol] = frame.iloc[:256].reset_index(drop=True)
+            frames[symbol] = frame.iloc[:MAX_TIMESTAMPS].reset_index(drop=True)
         try:
             panel = build_factor_panel(frames, universe=universe)
             evaluate_factor(module, panel)
@@ -99,7 +184,12 @@ def main() -> None:
                 "message": (
                     "Panel API, identity, immutability, alignment, numeric, "
                     "deterministic, component declaration, and bounded "
-                    "panel-prefix causality checks passed"
+                    "panel-prefix causality checks passed; bounded decision "
+                    f"sample {', '.join(decision_assets)} "
+                    f"({len(decision_assets)} of {position_asset_count} "
+                    "position-capable assets); fixed context/benchmark "
+                    f"assets {', '.join(reference_assets) or 'none'}; "
+                    f"at most {MAX_TIMESTAMPS} timestamps"
                 ),
             }
         )

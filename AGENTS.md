@@ -73,7 +73,9 @@ brief that another Agent can recover from the filesystem.
    `evidence.latestExperiment` as the immutable trial/check pointer and
    `trial-review-required` as an Agent/caller choice to report/complete or
    explicitly declare another bounded hypothesis. Session writability is not
-   an instruction to continue tuning.
+   an instruction to continue tuning. For an improved KEEP, guarded promotion
+   is itself the terminal `promoted` close; `session.complete` is only the
+   alternative baseline-retaining close and must not follow promotion.
 
 When a caller asks about an existing book, do not substitute historical model
 targets for current holdings. If the caller or delegating Agent can supply one

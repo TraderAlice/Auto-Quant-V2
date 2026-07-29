@@ -796,6 +796,18 @@ class AgentCliTests(unittest.TestCase):
             )
             self.assertEqual(command["exitCodes"]["success"], 0)
             self.assertEqual(command["exitCodes"]["usage"], 2)
+        commands_by_id = {
+            command["id"]: command
+            for command in commands
+        }
+        self.assertIn(
+            "terminally close",
+            commands_by_id["session.promote"]["description"],
+        )
+        self.assertIn(
+            "not valid after KEEP promotion",
+            commands_by_id["session.complete"]["description"],
+        )
         project_create = next(
             command for command in commands if command["id"] == "project.create"
         )
@@ -1715,6 +1727,17 @@ class AgentCliTests(unittest.TestCase):
                 "promoted",
             )
             self.assertEqual(
+                promoted_json["data"]["terminalClosure"],
+                {
+                    "terminal": True,
+                    "method": "promotion",
+                    "sessionStatus": "promoted",
+                    "completeCommandApplicable": False,
+                    "receiptId": promoted_json["data"]["receipt"]["id"],
+                    "reportId": None,
+                },
+            )
+            self.assertEqual(
                 (project / "factors/candidate.py").read_text(),
                 "SCORE = 2.0\n",
             )
@@ -1739,6 +1762,23 @@ class AgentCliTests(unittest.TestCase):
             self.assertEqual(
                 [item["id"] for item in promoted_json["nextActions"]],
                 ["session.start"],
+            )
+            inapplicable_completion = run_cli(
+                "session",
+                "complete",
+                str(workspace),
+                "--session",
+                session_id,
+                "--report",
+                "report-not-applicable",
+                "--json",
+            )
+            self.assertEqual(inapplicable_completion.returncode, 1)
+            self.assertEqual(
+                json_output(inapplicable_completion)["error"]["issues"][0][
+                    "code"
+                ],
+                "completion.already-promoted",
             )
 
     def test_human_experiment_and_promotion_disclose_authority(self) -> None:
@@ -1794,6 +1834,10 @@ class AgentCliTests(unittest.TestCase):
             )
 
             self.assertEqual(promoted.returncode, 0, promoted.stderr)
+            self.assertIn(
+                "Terminal close: promoted; this Session is closed.",
+                promoted.stdout,
+            )
             self.assertIn("Post-promotion: session-required", promoted.stdout)
 
     def test_json_cli_runs_and_inspects_a_bounded_external_campaign(self) -> None:

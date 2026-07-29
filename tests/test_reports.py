@@ -293,6 +293,20 @@ class ResearchHandoffTests(unittest.TestCase):
                 ],
                 "promoted",
             )
+            with self.assertRaises(AutoQuantValidationError) as captured:
+                complete_session(
+                    project,
+                    session.manifest["id"],
+                    report.report["id"],
+                )
+            self.assertEqual(
+                captured.exception.issues[0].code,
+                "completion.already-promoted",
+            )
+            self.assertIn(
+                "already terminally closed by KEEP promotion",
+                captured.exception.issues[0].message,
+            )
 
     def test_request_scope_and_tampering_are_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

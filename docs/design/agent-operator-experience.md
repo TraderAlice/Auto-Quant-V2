@@ -254,11 +254,14 @@ During an active Session:
 - a newer candidate routes through bounded check/evaluation before it can
   replace the leader;
 - a worktree already settled on a non-baseline KEEP routes to guarded
-  promotion instead of another edit;
+  promotion instead of another edit, and successful promotion terminally
+  closes the Session as `promoted`;
 - that settled handoff retains the exact accepted candidate's passed Check
   pointer while its source, Study, preflight, and Harness identities match;
 - delegated promotion is visible only when an exact current Report makes its
   generated `--report` command executable;
+- baseline-retaining completion is the alternative terminal branch and is
+  never advertised after promotion;
 - a first free-form candidate edit or Report analysis remains Agent-owned
   preparation, with exact root/closure/review guidance and no fabricated
   command.

@@ -148,7 +148,11 @@ post-mutation Agent Work Brief used by `aq orient` and Studio, includes that
 brief in `data.agentWorkBrief`, and projects its primary/supporting actions
 into `nextActions`. Human output prints its leading disposition. It must not
 recommend a redundant baseline Run when the promoted KEEP Run is already
-current evidence.
+current evidence. The response also carries `data.terminalClosure`, naming
+promotion as the terminal method, the `promoted` Session status, the immutable
+receipt, and that `session.complete` is inapplicable. Completion remains the
+mutually exclusive terminal method for an active delegated
+baseline-retaining Session.
 
 Experiment evaluation separates local selection from scientific authority.
 Its immutable Experiment result retains the fixed `KEEP`, `REVERT`, or `CRASH`

@@ -20,6 +20,7 @@ from autoquant.checks import (
     load_candidate_check,
     load_candidate_preflight,
 )
+from autoquant.intake import prepare_project_intake
 from autoquant.orientation import (
     AGENT_WORK_BRIEF_JSON_SCHEMA,
     build_agent_work_brief,
@@ -32,6 +33,7 @@ from autoquant.templates import TEMPLATE_STUDY_IDS
 from autoquant.workspace import AutoQuantValidationError
 from autoquant.workspace import create_project, initialize_workspace
 from tests.study_helpers import make_project, study_definition
+from tests.intake_helpers import write_intake_inputs
 
 
 PREFLIGHT = """\
@@ -284,6 +286,10 @@ class CandidateCheckTests(unittest.TestCase):
             brief = build_agent_work_brief(project)
 
             self.assertEqual(brief["primaryAction"]["id"], "session.promote")
+            self.assertIn(
+                "terminally close this Session as promoted",
+                brief["primaryAction"]["description"],
+            )
             self.assertEqual(
                 brief["evidence"]["candidateCheckId"],
                 passed.result["id"],
@@ -473,6 +479,13 @@ class CandidateCheckTests(unittest.TestCase):
                 result = json.loads(output.read_text(encoding="utf-8"))
                 jsonschema.validate(result, CHECK_OUTPUT_JSON_SCHEMA)
                 self.assertEqual(result["status"], "passed", result)
+                if template == "ohlcv-factor-lab":
+                    self.assertIn(
+                        "bounded decision sample ALPHA, BRAVO (2 of 6 "
+                        "position-capable assets); fixed "
+                        "context/benchmark assets none; at most 256 timestamps",
+                        result["checks"][0]["message"],
+                    )
                 output.unlink()
                 if template == "ohlcv-factor-lab":
                     candidate = project.root_dir / "factors" / "candidate.py"
@@ -518,6 +531,78 @@ class CandidateCheckTests(unittest.TestCase):
                 jsonschema.validate(failure, CHECK_OUTPUT_JSON_SCHEMA)
                 self.assertEqual(failure["status"], "failed")
                 self.assertEqual(failure["errors"][0]["code"], expected_code)
+
+    def test_factor_preflight_includes_fixed_context_and_benchmark_assets(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            roles = {
+                "AAPL": "long-only",
+                "MSFT": "long-only",
+                "SPY": "context-only",
+            }
+            request_path, package_path = write_intake_inputs(
+                root,
+                request_assets=tuple(roles),
+                asset_position_roles=roles,
+                benchmark_policy={"kind": "asset", "symbol": "SPY"},
+            )
+            prepared = prepare_project_intake(
+                request_path,
+                package_path,
+                "ohlcv-factor-lab",
+            )
+            project = create_project(
+                initialize_workspace(root / "workspace").root_dir,
+                "reference-aware-factor",
+                template=prepared.template,
+                template_intake=prepared,
+            )
+            request = json.loads(request_path.read_text(encoding="utf-8"))
+            session = start_session(
+                project,
+                TEMPLATE_STUDY_IDS["ohlcv-factor-lab"],
+                request=request,
+            )
+            candidate = (
+                session.worktree_project.root_dir
+                / "factors"
+                / "candidate.py"
+            )
+            candidate.write_text(
+                "import numpy as np\n"
+                "import pandas as pd\n\n"
+                "def compute_factor(panel):\n"
+                "    close = panel.pivot("
+                "index='timestamp', columns='asset', values='close')\n"
+                "    if 'SPY' not in close.columns:\n"
+                "        raise ValueError('SPY reference is required')\n"
+                "    returns = close.pct_change(5, fill_method=None)\n"
+                "    relative = returns.sub(returns['SPY'], axis=0)\n"
+                "    relative['SPY'] = np.nan\n"
+                "    long = relative.stack(future_stack=True)\n"
+                "    long.index = long.index.set_names(['timestamp', 'asset'])\n"
+                "    keys = pd.MultiIndex.from_frame("
+                "panel[['timestamp', 'asset']])\n"
+                "    return pd.Series("
+                "long.reindex(keys).to_numpy(dtype=float), "
+                "index=panel.index, name='spy_relative_5')\n",
+                encoding="utf-8",
+            )
+
+            checked = execute_candidate_check(
+                project,
+                session.manifest["id"],
+            )
+
+            self.assertEqual(checked.result["status"], "passed")
+            self.assertIn(
+                "bounded decision sample AAPL, MSFT (2 of 2 "
+                "position-capable assets); fixed context/benchmark assets "
+                "NVDA, QQQ, SPY; at most 256 timestamps",
+                checked.result["checks"][0]["message"],
+            )
 
     def test_factor_preflight_rejects_partial_and_lookahead_components(
         self,

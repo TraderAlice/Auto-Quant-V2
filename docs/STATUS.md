@@ -1,8 +1,8 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha at `0.8.16`.
+Status: usable pre-alpha at `0.8.17`.
 
-Updated: 2026-07-29.
+Updated: 2026-07-30.
 
 Related: [[README]], [[docs/ARCHITECTURE]],
 [[docs/design/agent-native-quant-workbench]],
@@ -13,7 +13,7 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 AutoQuant V2 has crossed the line from an architectural prototype into a
 usable Agent-native quantitative research workbench.
 
-At `0.8.16`, a human, local coding Agent, or coworker delegated from OpenAlice
+At `0.8.17`, a human, local coding Agent, or coworker delegated from OpenAlice
 can:
 
 1. clone the repository and immediately discover the Harness plus its
@@ -91,7 +91,14 @@ delegated evidence can be reported and completed without hiding the option for
 another explicitly bounded hypothesis. Current-candidate Check state stays
 separate from a durable latest-Experiment/Run/verdict/preceding-Check pointer.
 
-The current release is `v0.8.16`. `v0.8.15` remains the candidate-contract
+`0.8.17` makes fixed-reference candidates truthful in the fast feedback loop.
+Factor preflight uses two bounded decision assets plus all fixed mandate
+context and benchmark assets, discloses that exact surface, and leaves the
+complete Judge unchanged. KEEP promotion and baseline-retaining completion
+are now explicitly projected as mutually exclusive terminal Session paths.
+
+The current release is `v0.8.17`. `v0.8.16` remains the completed
+trial-handoff milestone, while `v0.8.15` remains the candidate-contract
 and freeze-handoff milestone, while `v0.8.14` remains the
 fixed-Study answer-handoff milestone, and `v0.8.13` remains the
 qualification-aware handoff milestone, and `v0.8.12` remains the
@@ -191,6 +198,41 @@ not only synthetic fixtures:
 
 The canonical results, Run identifiers, versions, and limitations are preserved
 in [[docs/trading-request-field-trials]].
+
+## `0.8.17` verification snapshot
+
+- a fresh Grok Build coworker used only installed `aq 0.8.16`, one unchanged
+  English assignment, and nine caller-supplied raw Yahoo OHLCV CSVs; it did not
+  inspect framework source, docs, tests, plans, another Project, or the web;
+- the coworker independently authored strict intake, selected the Factor-only
+  route, established baseline Run
+  `run-20260729T164405479135Z-01a9a24550be`, and implemented a
+  SPY-relative downside-resilience candidate;
+- Check `check-20260729T164527945467Z-fed9c7bfdbb5` exposed that the bounded
+  preflight omitted the fixed SPY context/benchmark, forcing a scientifically
+  different equal-weight fallback; the later formal Experiment still KEEP
+  improved validation mean IC from `-0.115138` to `0.125601`;
+- after exact Report publication and promotion, the worker also exposed that
+  public language did not make `promoted` versus baseline-retaining
+  `completed` sufficiently explicit as mutually exclusive terminal paths;
+- a fresh installed `aq 0.8.17` retry reimplemented the relative factor with
+  an explicit no-SPY failure and no proxy, then passed first Check
+  `check-20260729T170808260744Z-58d2f7e549e6`; its message named bounded
+  decision sample AAPL/MSFT, fixed reference SPY, and the 256-timestamp cap;
+- the retry spent exactly one Experiment
+  `exp-0001-efdb39a4eeb5`, KEEP improved validation mean IC from
+  `-0.115138` to `0.158148`, published Report
+  `report-20260729T170935463829Z-b39635bfac1a`, promoted once, recognized the
+  Session as terminal, and issued no completion command afterward;
+- the retry's negative/weak test evidence remained visible audit only and did
+  not select the candidate; no Portfolio, RL, Order, or trading authority was
+  inferred;
+- one further wording observation was folded into the release by labeling the
+  names as a bounded decision sample with sampled/full counts; the separate
+  unknown-provider-retrieval-time issue remains an explicit intake-contract
+  limit;
+- final repository regression: 307/307 tests in 816.360 seconds;
+- documentation graph: 1,074/1,074 checked links.
 
 ## `0.8.16` verification snapshot
 
@@ -469,6 +511,9 @@ unfinished:
   other methods should be added only when real Projects justify them;
 - external OHLCV acquisition and dataset-package preparation still require
   engineering judgment outside the atomic intake command;
+- caller-supplied packages still require a timezone-aware provider
+  `retrievedAt`; when the original acquisition time is unknown, Core does not
+  yet distinguish that absence from the later packaging timestamp;
 - Studio is a verified observation surface, not a full interactive research
   authoring or orchestration UI;
 - OpenAlice still needs the host-side path that selects an AutoQuant version,
@@ -483,7 +528,7 @@ field-trial surface.
 
 ## Maturity and next use
 
-`0.8.16` is suitable for controlled standalone use and initial OpenAlice desk
+`0.8.17` is suitable for controlled standalone use and initial OpenAlice desk
 integration. It is still pre-`1.0`: public contracts are versioned and strict,
 but the project continues to prefer domain correctness and Agent operability
 over backward compatibility while the product shape settles.

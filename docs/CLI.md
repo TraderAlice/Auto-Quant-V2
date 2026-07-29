@@ -588,8 +588,13 @@ Failure leaves the candidate in place for repair. A later edit makes the old
 Check stale.
 Factor preflight validates static `FACTOR_COMPONENTS` metadata before
 executing the final factor, so an illegal role is rejected without spending a
-formal Experiment. The same edit-time shape is independently discoverable
-through `aq schema factor-candidate-contract --json`.
+formal Experiment. Its bounded panel contains up to two position-capable Study
+assets plus every fixed context asset and named benchmark asset from the
+Study-bound Portfolio mandate, all capped at 256 timestamps. The passing Check
+message names the exact decision and reference assets it exercised. Studies
+without usable fixed reference metadata retain deterministic first-two-asset
+behavior. The same edit-time shape is independently discoverable through
+`aq schema factor-candidate-contract --json`.
 
 `aq orient` uses this feedback tier when present: unchanged candidate asks for
 an edit; a changed unchecked candidate points to `session.check`; a failed
@@ -645,10 +650,13 @@ aq session promote . <session-id> --report <report-id>
 Core records the Report identity in the immutable promotion receipt. A stale
 or partial Report cannot authorize source mutation. Non-delegated local
 Sessions retain the report-free promotion path. Promotion preserves the best
-source and closes the Session; it does not assert Factor qualification,
+source and terminally closes the Session as `promoted`; it does not assert
+Factor qualification,
 Portfolio/RL admission, or trading authority. Consequently an improved KEEP
 that remains scientifically unqualified is still promoted as source while its
-Report records the failed gate; do not call `session complete` afterward.
+Report records the failed gate. `session complete` is the mutually exclusive
+baseline-retaining close path and is neither required nor valid afterward;
+such an attempt returns `completion.already-promoted`.
 
 For the Factor Lab, `run execute/show --json` and Experiment output preserve
 the full purge-aware factor tear sheet: request-bound forward-horizon quality,

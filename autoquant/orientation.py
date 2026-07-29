@@ -298,13 +298,14 @@ def _session_actions(
                 "session.promote",
                 (
                     "Promote the exact current KEEP with its immutable Report "
-                    "after review; promotion preserves source but does not "
-                    "assert scientific qualification."
+                    "after review and terminally close this Session as "
+                    "promoted; source preservation does not assert scientific "
+                    "qualification."
                     if current_report is not None
                     else (
                         "Promote the exact current KEEP after review to "
-                        "preserve the source; promotion is not scientific "
-                        "qualification."
+                        "preserve the source and terminally close this Session "
+                        "as promoted; promotion is not scientific qualification."
                     )
                 ),
                 promotion_argv,
@@ -321,7 +322,8 @@ def _session_actions(
                             "category": "authority",
                             "message": (
                                 "The Session worktree matches its non-baseline "
-                                "KEEP leader and is ready for guarded promotion."
+                                "KEEP leader and is ready for guarded promotion, "
+                                "which terminally closes this Session."
                             ),
                         }
                     ],
@@ -539,7 +541,8 @@ def _session_actions(
                 "category": "authority",
                 "message": (
                     "The Session leader improves on baseline and is eligible "
-                    "for guarded promotion."
+                    "for guarded promotion, which terminally closes this "
+                    "Session."
                 ),
             }
         )
