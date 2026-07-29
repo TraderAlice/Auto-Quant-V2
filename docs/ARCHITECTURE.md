@@ -2,6 +2,10 @@
 
 Status: active, pre-alpha.
 
+For the concise tested capability and release snapshot, see [[docs/STATUS]].
+This document remains the canonical architecture and ownership contract;
+the status page records what has been proven at the current milestone.
+
 ## Purpose
 
 AutoQuant V2 is an Agent-native quantitative research workbench. It converts

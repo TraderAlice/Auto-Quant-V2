@@ -3,6 +3,7 @@
 Status: active, pre-alpha product model.
 
 Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]], [[docs/CLI]],
+[[docs/STATUS]],
 [[docs/design/agent-operator-experience]],
 [[docs/design/workspace-project-boundaries]],
 [[docs/design/quant-research-lifecycle]], and
@@ -40,6 +41,14 @@ These are not separate editions. The repository, CLI, Project formats,
 evaluation semantics, Studio, and evidence remain the same. A host may add
 identity, scheduling, communication, credentials, and shared tools around the
 Workspace, but AutoQuant Core does not branch on an OpenAlice mode.
+
+The product model is no longer supported only by reference fixtures.
+AutoQuant `0.8.7` has completed materially different real-request field trials
+covering Factor, Portfolio, governed RL, multi-interval Crypto, mixed-class
+observed data, reported-book risk and bounded sizing, fixed price events, and
+Portfolio-native risk parity. The concise release proof and current honest
+boundary are recorded in [[docs/STATUS]]; detailed outcomes remain in
+[[docs/trading-request-field-trials]].
 
 ## Why AutoQuant and OpenAlice fit without a private integration
 

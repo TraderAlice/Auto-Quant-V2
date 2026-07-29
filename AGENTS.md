@@ -140,6 +140,8 @@ defined in [[docs/design/documentation-system]].
 
 Read the relevant linked document before changing a subsystem:
 
+- Current tested capability, real-request proof, release verification, honest
+  boundary, and known product gaps: [[docs/STATUS]]
 - Product identity, standalone/hosted parity, desk composition, Agent-first
   requirements, and ownership boundaries:
   [[docs/design/agent-native-quant-workbench]]

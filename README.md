@@ -7,7 +7,7 @@ version: 0.8.7
 AutoQuant turns quantitative research into a versioned, testable,
 Agent-operable engineering workflow.
 
-It is a complete AI-native quantitative workbench, not only a backtest
+It is a usable pre-alpha AI-native quantitative workbench, not only a backtest
 library, strategy generator, or integration backend. A coding Agent can enter
 the filesystem, understand the current question and evidence, take one bounded
 action, edit only an authorized research surface, evaluate through fixed
@@ -31,6 +31,36 @@ One Workspace may hold multiple self-contained Projects. A Project is one
 evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
+
+## Current milestone: `0.8.7`
+
+AutoQuant V2 has crossed from an architectural prototype into a usable
+research workbench.
+
+Today it can:
+
+- create persistent multi-Project quantitative desks from conversational or
+  strict request-driven assignments;
+- lock Project-local OHLCV data, market clocks, assumptions, Studies, Judges,
+  and Harness identity;
+- run cross-sectional or temporal Factor research, mechanical Portfolio
+  construction, governed RL, reported-book risk, caller-bounded sizing,
+  fixed price-event studies, and Portfolio-native risk-parity allocation;
+- use aligned, ragged, continuous, XNYS-session, daily, intraday, and causal
+  multi-interval OHLCV surfaces;
+- give a coding Agent a recoverable research brief, exact edit boundary,
+  bounded next action, deterministic feedback, immutable evidence, and guarded
+  promotion;
+- expose the same verified state through human CLI, JSON CLI, strict
+  Explorers, orientation, Reports/Dossiers, and read-only Studio;
+- preserve a rejected hypothesis as useful evidence without manufacturing an
+  Order or trading conclusion.
+
+The `0.8.7` release was closed with 277 passing tests, 1,014 checked
+documentation links, source/wheel smoke, and a clean 4,922-session real ETF
+allocation replay. See [current status](docs/STATUS.md) for the supported
+research routes, real-request proof, verification snapshot, maturity, and
+honest boundaries.
 
 ## Standalone or an OpenAlice desk
 
@@ -172,6 +202,8 @@ The request may lock:
   complete hypothetical books for a fixed, non-authenticated Book Risk audit.
 - one fixed adjusted-OHLCV opening-gap event, delayed return clock, matched
   reference asset, overlap policy, and minimum useful sample count.
+- one fixed equal-risk-contribution construction and complete funded
+  fixed-weight reference portfolio.
 
 These are immutable research assumptions. They never grant live position or
 execution authority.
@@ -288,6 +320,10 @@ the removed Classic strategies, notebooks, and experiment snapshots. See
 Read [AGENTS.md](AGENTS.md) and [PLANS.md](PLANS.md) before non-trivial
 changes. Do not launch an unbounded autonomous loop or a long multi-year
 backtest as routine validation.
+
+The current release proof and tested capability boundary are recorded in
+[docs/STATUS.md](docs/STATUS.md); detailed real-request outcomes live in
+[docs/trading-request-field-trials.md](docs/trading-request-field-trials.md).
 
 ```bash
 uv run python scripts/check_doc_links.py
