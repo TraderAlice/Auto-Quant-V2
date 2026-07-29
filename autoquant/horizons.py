@@ -144,6 +144,52 @@ def validate_horizon_capacity(
         )
 
 
+def validate_external_holdout_horizon_capacity(
+    policy: dict[str, Any],
+    observations: int,
+    path: Path | str = "horizonPolicy",
+) -> None:
+    """Require a usable fixed validation objective for a frozen later period."""
+
+    if not _valid_policy(policy):
+        raise AutoQuantValidationError(
+            [_issue(path, "horizon.policy", "Invalid horizon policy")]
+        )
+    if (
+        not isinstance(observations, int)
+        or isinstance(observations, bool)
+        or observations < 1
+    ):
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    path,
+                    "horizon.observations",
+                    "Observation count must be a positive integer",
+                )
+            ]
+        )
+    train_end = int(observations * 0.60)
+    validation_end = int(observations * 0.80)
+    validation_rows = validation_end - train_end
+    primary = policy["primaryForwardBars"]
+    eligible = validation_rows - primary
+    if eligible < MIN_PURGED_SPLIT_OBSERVATIONS:
+        required_validation_rows = primary + MIN_PURGED_SPLIT_OBSERVATIONS
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    path,
+                    "horizon.insufficient-holdout-history",
+                    "Primary forward horizon leaves fewer than "
+                    f"{MIN_PURGED_SPLIT_OBSERVATIONS} eligible observations "
+                    "in the frozen holdout validation slice; the slice needs "
+                    f"at least {required_validation_rows} rows",
+                )
+            ]
+        )
+
+
 def build_research_horizon(
     request: dict[str, Any] | None,
 ) -> dict[str, Any]:

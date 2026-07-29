@@ -865,6 +865,12 @@ no trading or authenticated host-provenance authority.
 ## Frozen external holdout commands
 
 ```bash
+aq holdout create-target <source> <workspace-dir> <project-id> \
+  --dossier ID \
+  --dataset <later-dataset-package.json> \
+  [--source-project ID] \
+  [--name NAME] \
+  [--json]
 aq holdout bind <source> <target> \
   --dossier ID \
   [--source-project ID] \
@@ -877,6 +883,19 @@ aq schema holdout-binding --json
 aq schema holdout-result --json
 aq schema holdout-status --json
 ```
+
+`holdout create-target` is the preferred Agent path when the later Project
+does not exist yet. Core loads the source Project's current Dossier, reuses its
+canonical `request.json`, validates the caller-supplied strictly later dataset
+against only the Dossier-included lanes, creates an ordinary
+`ohlcv-research-desk`, and freezes the binding as one atomic operation.
+Factor-only targets require at least 120 rows and enough fixed validation rows
+to retain 20 observations after the primary forward horizon; included
+Portfolio raises the floor to 180 rows and included governed RL to 240. A
+secondary diagnostic horizon with fewer than 20 later observations remains
+visible as insufficient evidence instead of erasing a usable primary
+objective. Any source, compatibility, overlap, target-id, intake, or binding
+failure leaves neither a target Project nor a Workspace configuration change.
 
 `holdout bind` accepts a current immutable source Dossier and a separate fresh
 `ohlcv-research-desk` Project already constructed from caller-supplied later
@@ -894,9 +913,10 @@ terminal invocation returns the same immutable result.
 
 The result compares the original objective with the strictly later-period
 objective and observed delta for each lane. It is an
-`external-temporal-audit`, not another selection round: there is no universal
-pass threshold, automatic promotion, production approval, Broker action, or
-trading authority.
+`external-temporal-audit`, not another selection round. Holdout-authorized
+Runs record that evaluation role separately from ordinary
+`research-selection` Runs. There is no universal pass threshold, automatic
+promotion, production approval, Broker action, or trading authority.
 
 ## Studio commands
 

@@ -114,6 +114,7 @@ from .holdouts import (
     HOLDOUT_RESULT_JSON_SCHEMA,
     HOLDOUT_STATUS_JSON_SCHEMA,
     bind_holdout,
+    create_holdout_target,
     load_holdout_binding,
     load_holdout_result,
     load_holdout_status,
@@ -894,6 +895,43 @@ def build_parser() -> RaisingArgumentParser:
         dest="holdout_action",
         required=True,
     )
+    holdout_create_target = holdout_actions.add_parser(
+        "create-target",
+        help=(
+            "atomically create and bind a lane-aware strictly later target "
+            "from one current Dossier"
+        ),
+    )
+    holdout_create_target.add_argument(
+        "source",
+        help="source Project or Workspace path",
+    )
+    holdout_create_target.add_argument(
+        "workspace",
+        help="Workspace that will own the new frozen target Project",
+    )
+    holdout_create_target.add_argument(
+        "project_id",
+        help="new lowercase kebab-case target Project id",
+    )
+    holdout_create_target.add_argument(
+        "--source-project",
+        help="source Workspace Project id",
+    )
+    holdout_create_target.add_argument(
+        "--dossier",
+        required=True,
+        help="current immutable source Dossier id",
+    )
+    holdout_create_target.add_argument(
+        "--dataset",
+        required=True,
+        help="strictly later dataset-package manifest JSON file",
+    )
+    holdout_create_target.add_argument("--name")
+    holdout_create_target.set_defaults(command_id="holdout.create-target")
+    _json_argument(holdout_create_target)
+
     holdout_bind = holdout_actions.add_parser(
         "bind",
         help="freeze a current Dossier into a fresh later Project",
@@ -3615,6 +3653,63 @@ def _holdout_result_artifacts(
     ]
 
 
+def _holdout_create_target(args: argparse.Namespace) -> CommandResult:
+    source = load_project(
+        resolve_project_directory(args.source, args.source_project)
+    )
+    target, binding = create_holdout_target(
+        source,
+        args.dossier,
+        args.workspace,
+        args.project_id,
+        args.dataset,
+        name=args.name,
+    )
+    return CommandResult(
+        "holdout.create-target",
+        {
+            "project": {
+                "id": target.manifest.id,
+                "name": target.manifest.name,
+                "rootDir": str(target.root_dir),
+            },
+            "manifest": binding.manifest,
+            "binding": binding.binding,
+        },
+        (
+            f"Created frozen holdout target: {target.manifest.id}\n"
+            f"Binding: {binding.binding['id']}\n"
+            f"Source: {source.manifest.id} · Dossier {args.dossier}\n"
+            f"Period: {binding.binding['nonOverlap']['sourceEnd']} → "
+            f"{binding.binding['nonOverlap']['targetStart']}\n"
+            f"Lanes: "
+            + ", ".join(
+                lane["id"] for lane in binding.binding["source"]["lanes"]
+            )
+            + "\nCanonical source request: reused · candidate: frozen · "
+            "selection: disabled · trading: none\n"
+        ),
+        project_context(target),
+        [
+            artifact(
+                "project-manifest",
+                target.manifest.id,
+                target.root_dir / PROJECT_MANIFEST,
+                immutable=False,
+            ),
+            *_holdout_binding_artifacts(binding),
+        ],
+        [
+            next_action(
+                "holdout.run",
+                "Execute the exact frozen external-period challenge once.",
+                ["aq", "holdout", "run", str(target.root_dir), "--json"],
+                "creates-artifact",
+            )
+        ],
+    )
+
+
 def _holdout_bind(args: argparse.Namespace) -> CommandResult:
     source = load_project(
         resolve_project_directory(args.source, args.source_project)
@@ -4209,6 +4304,8 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
         return _dossier_list(args)
     if args.command_id == "dossier.show":
         return _dossier_show(args)
+    if args.command_id == "holdout.create-target":
+        return _holdout_create_target(args)
     if args.command_id == "holdout.bind":
         return _holdout_bind(args)
     if args.command_id == "holdout.status":

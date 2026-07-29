@@ -81,10 +81,12 @@ The V2 foundation now implements:
   validation-only experiment briefs with explicit edit targets, evidence,
   checks, and stop conditions but no automatic execution, promotion, or
   trading authority.
-- one frozen external-holdout transition that imports exact current Dossier
-  leader sources into a separate compatible strictly later Project, disables
-  iterative selection, executes each included lane once, and publishes
-  immutable source-versus-later evidence without a production threshold.
+- one atomic lane-aware frozen external-holdout transition that reuses the
+  current Dossier's canonical request, imports its exact leader sources into a
+  separate compatible strictly later Project, disables iterative selection,
+  executes each included lane once under explicit external-audit identity, and
+  publishes immutable source-versus-later evidence without a production
+  threshold.
 - strict Project-local Study contracts with separate human program, fixed
   Python Judge closure, Agent-editable strategy/factor/model closure, objective,
   and declarative or content-locked dataset identity;

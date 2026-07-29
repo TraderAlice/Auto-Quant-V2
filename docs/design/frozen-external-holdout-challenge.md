@@ -27,7 +27,7 @@ Source Project
   current immutable Dossier
   exact leader Run source closures
              │
-             │ aq holdout bind
+             │ aq holdout create-target
              ▼
 Target Project
   new compatible intake
@@ -43,8 +43,12 @@ Target Project
   immutable holdout result
 ```
 
-The target is created through ordinary `aq project intake`; binding never
-downloads data or creates a Project implicitly.
+The preferred Agent path is one explicit atomic `aq holdout create-target`
+operation. It takes a target Workspace/id and caller-supplied later dataset,
+but derives request and lane authority from the current source Dossier. It
+creates an ordinary research-desk target and binding together; it never
+downloads data. The original two-step `project intake` plus `holdout bind`
+route remains available for an already-created full-length target.
 
 ## Source authority
 
@@ -69,7 +73,7 @@ source Project remaining mounted.
 V1 fails closed unless:
 
 - target template is the coordinated `ohlcv-research-desk`;
-- target request is byte-equivalent to the source request;
+- target canonical request content exactly equals the source request;
 - target asset class, universe, base interval, feature intervals, timestamp
   semantics, market clock, calendar, timezone, and aggregation contract match;
 - target dataset starts strictly after the source dataset ends;
@@ -80,6 +84,14 @@ V1 fails closed unless:
 The exact-universe rule makes V1 a temporal stability challenge. Cross-universe
 transfer, universe drift, and mixed-calendar research need different
 interpretation and remain separate work.
+
+Atomic target creation validates only the Dossier-included lane requirements:
+Factor-only uses a 120-row floor and requires at least 20 fixed validation
+observations after the primary horizon; Portfolio and governed RL raise the
+floor to 180 and 240 rows respectively. Ordinary research-desk intake keeps
+its 240-row/all-diagnostic-horizon policy. This distinction does not weaken a
+new mining Project: the shorter target is bound before publication and cannot
+start a Session or generic Run.
 
 ## Frozen behavior
 
@@ -99,6 +111,16 @@ Repeated invocation returns the verified terminal result; it never creates a
 new trial.
 
 ## Result
+
+Every authorized later Run records
+`execution.evaluationRole=external-temporal-audit`; ordinary Runs record
+`research-selection`. A secondary diagnostic with fewer than 20 observations
+is retained with `sufficient=false`, while target creation still requires the
+exact primary objective to have at least 20 fixed validation observations.
+Atomic creation writes this rule into the bound target's fixed Factor Judge
+closure before any Run exists. It does not change the ordinary research
+template or source Judge, and the holdout Run freezes the actual target Judge
+bytes for reproduction.
 
 The immutable result records:
 

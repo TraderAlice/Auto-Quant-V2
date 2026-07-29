@@ -922,6 +922,64 @@ CLI_COMMANDS = [
         ],
     ),
     descriptor(
+        "holdout.create-target",
+        "aq holdout create-target <source> <workspace-dir> <project-id> "
+        "--dossier ID --dataset FILE [--source-project ID] [--name NAME] "
+        "[--json]",
+        "Atomically create and bind a strictly later target using the source "
+        "Dossier's canonical request, frozen leaders, and lane-aware history "
+        "floor: Factor 120, included Portfolio 180, included RL 240 rows, "
+        "plus primary-horizon validation capacity.",
+        "creates-artifact",
+        [
+            argument(
+                "source",
+                "positional",
+                "string",
+                True,
+                "Source Project or Workspace path.",
+            ),
+            argument(
+                "workspace-dir",
+                "positional",
+                "string",
+                True,
+                "Workspace that will own the new frozen target Project.",
+            ),
+            argument(
+                "project-id",
+                "positional",
+                "string",
+                True,
+                "New lowercase kebab-case target Project id.",
+            ),
+            argument(
+                "source-project",
+                "option",
+                "string",
+                False,
+                "Source Workspace Project id.",
+            ),
+            DOSSIER_ARGUMENT,
+            argument(
+                "dataset",
+                "option",
+                "string",
+                True,
+                "Strictly later OHLCV dataset-package manifest JSON.",
+            ),
+            argument(
+                "name",
+                "option",
+                "string",
+                False,
+                "Target Project display name.",
+                default="Source name plus External Holdout",
+            ),
+            JSON_ARGUMENT,
+        ],
+    ),
+    descriptor(
         "holdout.bind",
         "aq holdout bind <source> <target> --dossier ID [--source-project ID] [--target-project ID] [--json]",
         "Freeze one current Dossier's exact leader sources into a fresh strictly later compatible Project.",

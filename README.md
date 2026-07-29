@@ -1,5 +1,5 @@
 ---
-version: 0.8.20
+version: 0.8.21
 ---
 
 # AutoQuant V2
@@ -32,7 +32,7 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current milestone: `0.8.20`
+## Current milestone: `0.8.21`
 
 AutoQuant V2 has crossed from an architectural prototype into a usable
 research workbench.
@@ -208,6 +208,29 @@ succeeded on that first attempt, and again stopped at the scientific gate
 without manufacturing downstream evidence. Final repository regression passes
 all 311 tests in 796.165 seconds, and the documentation graph resolves all
 1,089 checked links.
+
+`0.8.21` follows a fresh Grok coworker through a source Dossier and caller-fixed
+141-session external period. The worker completed the source Factor lifecycle
+correctly, then discovered that a frozen Factor-only target inherited the
+ordinary three-lane research desk's 240-row and all-diagnostic-horizon gates.
+It stopped without padding history or inventing holdout evidence.
+
+AutoQuant now has an atomic, lane-aware `holdout create-target` path. It reuses
+the current Dossier's canonical request, creates and freezes the later Project
+as one transaction, preserves the ordinary research intake gates, and applies
+120/180/240-row Factor/Portfolio/RL target floors. A holdout-authorized Run
+records `external-temporal-audit` in its execution identity; a sparse secondary
+diagnostic remains visible as insufficient while the primary objective must
+retain at least 20 fixed validation observations.
+
+A second fresh installed-wheel Grok worker then rebuilt the unchanged source
+research from scratch, discovered the new public path, and completed the
+141-session target in one holdout invocation. The exact frozen Factor weakened
+from source validation mean IC `+0.101253` to later-period `-0.284679`
+(`-0.385932` delta). Both Projects validated, Studio reported no diagnostics,
+and no Portfolio, RL, Session, Order, or trading authority was manufactured.
+Final repository regression passes all 312 tests in 799.389 seconds, and the
+documentation graph resolves all 1,094 checked links.
 
 ## Standalone or an OpenAlice desk
 

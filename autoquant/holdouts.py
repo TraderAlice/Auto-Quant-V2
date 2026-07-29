@@ -16,7 +16,7 @@ from typing import Any
 import pandas as pd
 
 from .dossiers import list_dossiers, load_dossier, load_dossier_status
-from .intake import load_project_intake
+from .intake import load_project_intake, prepare_project_intake
 from .runs import execute_study, list_runs, load_run
 from .sessions import list_sessions
 from .studies import hash_file, hash_json, load_study
@@ -27,6 +27,8 @@ from .workspace import (
     ProjectContext,
     ValidationIssue,
     confined_path,
+    create_project,
+    load_workspace,
 )
 
 
@@ -44,6 +46,29 @@ HOLDOUT_RESULT_KIND = "autoquant-frozen-holdout-result"
 HOLDOUT_RESULT_MANIFEST_KIND = "autoquant-frozen-holdout-result-manifest"
 HOLDOUT_STATUS_KIND = "autoquant-frozen-holdout-status"
 HOLDOUT_METHOD = "strictly-later-frozen-dossier-leaders-v1"
+HOLDOUT_LANE_MINIMUM_OBSERVATIONS = {
+    "factor": 120,
+    "portfolio": 180,
+    "rl": 240,
+}
+FACTOR_SELECTION_POPULATION_GATE = """def _split_metrics(values: pd.Series) -> dict[str, Any]:
+    if len(values) < MIN_IC_DATES_PER_SPLIT:
+        raise JudgeFailure(
+            "judge.population",
+            f"Chronological split has only {len(values)} valid IC dates",
+        )
+    return descriptive_ic(
+        values,
+        minimum_observations=MIN_IC_DATES_PER_SPLIT,
+    )
+"""
+FACTOR_HOLDOUT_POPULATION_GATE = """def _split_metrics(values: pd.Series) -> dict[str, Any]:
+    # Selection is already frozen; sparse secondary diagnostics stay descriptive.
+    return descriptive_ic(
+        values,
+        minimum_observations=MIN_IC_DATES_PER_SPLIT,
+    )
+"""
 
 LANE_STUDIES = {
     "factor": OHLCV_STUDY_ID,
@@ -860,6 +885,130 @@ def bind_holdout(
             _restore_source_roots(target_project, backup)
             raise
     return load_holdout_binding(target_project)
+
+
+def create_holdout_target(
+    source_project: ProjectContext,
+    dossier_id: str,
+    target_workspace: str | Path,
+    target_project_id: str,
+    dataset_package: str | Path,
+    *,
+    name: str | None = None,
+) -> tuple[ProjectContext, HoldoutBindingContext]:
+    """Atomically create and bind one lane-aware frozen target Project."""
+
+    source_status = load_dossier_status(source_project)
+    if (
+        source_status is None
+        or source_status["latestDossier"] is None
+        or source_status["latestDossier"]["id"] != dossier_id
+        or not source_status["latestDossier"]["current"]
+    ):
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    dossier_id,
+                    "holdout.source-dossier-current",
+                    "Source Dossier must be the current verified Project Dossier",
+                )
+            ]
+        )
+    source_intake = load_project_intake(source_project)
+    if (
+        source_intake is None
+        or source_intake["manifest"]["template"] != "ohlcv-research-desk"
+    ):
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    source_project.root_dir,
+                    "holdout.intake-required",
+                    "Source must be a verified ohlcv-research-desk intake",
+                )
+            ]
+        )
+    dossier = load_dossier(source_project, dossier_id)
+    lane_ids = [
+        lane["id"] for lane in dossier.dossier["evidence"]["lanes"]
+    ]
+    unknown = [
+        lane_id
+        for lane_id in lane_ids
+        if lane_id not in HOLDOUT_LANE_MINIMUM_OBSERVATIONS
+    ]
+    if unknown or "factor" not in lane_ids:
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    f"{dossier_id}/evidence/lanes",
+                    "holdout.lanes",
+                    "Holdout target requires a Factor lane and only known "
+                    "Factor, Portfolio, or RL lanes",
+                )
+            ]
+        )
+    minimum_observations = max(
+        HOLDOUT_LANE_MINIMUM_OBSERVATIONS[lane_id]
+        for lane_id in lane_ids
+    )
+    with tempfile.TemporaryDirectory(prefix="aq-holdout-request-") as directory:
+        request_path = Path(directory) / "request.json"
+        _write_json(request_path, source_intake["request"])
+        prepared = prepare_project_intake(
+            request_path,
+            dataset_package,
+            "ohlcv-research-desk",
+            minimum_observations_override=minimum_observations,
+            external_holdout=True,
+        )
+
+    workspace = load_workspace(target_workspace)
+    target_path = workspace.projects_dir / target_project_id
+    configuration_bytes = workspace.configuration_path.read_bytes()
+    target: ProjectContext | None = None
+    try:
+        target = create_project(
+            workspace.root_dir,
+            target_project_id,
+            name=name or f"{source_project.manifest.name} — External Holdout",
+            description=source_intake["request"]["question"],
+            template="ohlcv-research-desk",
+            template_intake=prepared,
+        )
+        factor_judge = confined_path(
+            target.root_dir,
+            "judges/ohlcv_factor.py",
+            "holdout/factor-judge",
+        )
+        judge_source = factor_judge.read_text(encoding="utf-8")
+        if judge_source.count(FACTOR_SELECTION_POPULATION_GATE) != 1:
+            raise AutoQuantValidationError(
+                [
+                    _issue(
+                        factor_judge,
+                        "holdout.factor-judge-contract",
+                        "Factor Judge does not expose the expected fixed "
+                        "selection population gate",
+                    )
+                ]
+            )
+        factor_judge.write_text(
+            judge_source.replace(
+                FACTOR_SELECTION_POPULATION_GATE,
+                FACTOR_HOLDOUT_POPULATION_GATE,
+            ),
+            encoding="utf-8",
+        )
+        binding = bind_holdout(source_project, dossier_id, target)
+    except Exception:
+        if target_path.exists() and not target_path.is_symlink():
+            shutil.rmtree(target_path)
+        if workspace.configuration_path.read_bytes() != configuration_bytes:
+            workspace.configuration_path.write_bytes(configuration_bytes)
+        raise
+    assert target is not None
+    return target, binding
 
 
 def _validate_binding_shape(

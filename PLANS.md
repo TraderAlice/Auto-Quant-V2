@@ -34,6 +34,7 @@ There are no proposed plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/atomic-frozen-holdout-target-intake]] | Let an Agent atomically create and bind a lane-aware, strictly later holdout target from a current Dossier without weakening ordinary research intake. | 2026-07-30 |
 | [[plans/agent-readable-report-evidence-references]] | Made Report evidence-reference paths and kind constraints executable and discoverable, then proved first-attempt publication with a fresh installed-wheel worker. | 2026-07-30 |
 | [[plans/book-risk-drawdown-evidence]] | Added immutable static-weight maximum-drawdown evidence to fixed Book Risk, preserved old Runs, and proved the handoff with a fresh installed Grok worker. | 2026-07-30 |
 | [[plans/unknown-provider-retrieval-time]] | Let caller-supplied OHLCV preserve an explicitly unknown provider retrieval time without forcing an Agent to invent a packaging timestamp, proved by a fresh fixed Book Risk worker. | 2026-07-30 |

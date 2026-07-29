@@ -14,6 +14,7 @@ from autoquant.holdouts import (
     HOLDOUT_RESULT_JSON_SCHEMA,
     HOLDOUT_STATUS_JSON_SCHEMA,
     bind_holdout,
+    create_holdout_target,
     load_holdout_binding,
     load_holdout_result,
     load_holdout_status,
@@ -25,7 +26,7 @@ from autoquant.orientation import (
     build_agent_work_brief,
 )
 from autoquant.reports import publish_report
-from autoquant.runs import execute_study
+from autoquant.runs import execute_study, load_run
 from autoquant.sessions import start_session
 from autoquant.studio import STUDIO_SNAPSHOT_JSON_SCHEMA, build_studio_snapshot
 from autoquant.studies import hash_file
@@ -90,6 +91,7 @@ class FrozenExternalHoldoutTests(unittest.TestCase):
         workspace,
         root: Path,
         *,
+        include_portfolio: bool = True,
         include_rl: bool = False,
     ):
         project, request = self._intake_project(
@@ -101,10 +103,9 @@ class FrozenExternalHoldoutTests(unittest.TestCase):
             dataset_version="2024-v1",
         )
         reports = {}
-        lanes = [
-            ("factor", OHLCV_STUDY_ID),
-            ("portfolio", PORTFOLIO_STUDY_ID),
-        ]
+        lanes = [("factor", OHLCV_STUDY_ID)]
+        if include_portfolio:
+            lanes.append(("portfolio", PORTFOLIO_STUDY_ID))
         if include_rl:
             lanes.append(("rl", RL_STUDY_ID))
         for lane_id, study_id in lanes:
@@ -121,6 +122,207 @@ class FrozenExternalHoldoutTests(unittest.TestCase):
             reports[lane_id] = report.report["id"]
         dossier = publish_dossier(project, dossier_analysis(reports))
         return project, dossier
+
+    def test_atomic_factor_only_target_accepts_short_later_period(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workspace = initialize_workspace(root / "workspace", name="Quant Desk")
+            source, source_request_value = self._intake_project(
+                workspace,
+                root / "source-input",
+                "source-desk",
+                start="2024-01-02",
+                dataset_id="source-equities",
+                dataset_version="2024-v1",
+            )
+            source_run = execute_study(source, OHLCV_STUDY_ID)
+            session = start_session(
+                source,
+                OHLCV_STUDY_ID,
+                request=source_request_value,
+            )
+            report = publish_report(
+                source,
+                session.manifest["id"],
+                lane_analysis("factor", source_run.result["id"]),
+            )
+            dossier = publish_dossier(
+                source,
+                {
+                    "schemaVersion": 1,
+                    "kind": "autoquant-research-dossier-analysis",
+                    "title": "Frozen Factor evidence",
+                    "executiveSummary": (
+                        "The exact Factor leader is frozen for a later audit."
+                    ),
+                    "findings": [
+                        {
+                            "id": "factor-only",
+                            "claim": "The Factor leader is the frozen evidence.",
+                            "confidence": "medium",
+                            "evidenceRefs": [
+                                {
+                                    "laneId": "factor",
+                                    "reportId": report.report["id"],
+                                    "findingId": "factor-headline",
+                                }
+                            ],
+                        }
+                    ],
+                    "recommendations": [],
+                    "limitations": ["No Portfolio or RL lane is included."],
+                    "unresolvedQuestions": [],
+                },
+            )
+            target_input = root / "target-input"
+            target_input.mkdir()
+            _, package_path = write_intake_inputs(
+                target_input,
+                observations=141,
+                start="2025-01-02",
+                dataset_id="later-equities",
+                dataset_version="2025-v1",
+            )
+            source_request = (
+                source.root_dir / "request.json"
+            )
+            with self.assertRaises(AutoQuantValidationError) as ordinary_error:
+                prepare_project_intake(
+                    source_request,
+                    package_path,
+                    "ohlcv-research-desk",
+                )
+            self.assertIn(
+                "dataset.observations",
+                {issue.code for issue in ordinary_error.exception.issues},
+            )
+
+            cli_create = run_cli(
+                "holdout",
+                "create-target",
+                str(source.root_dir),
+                str(workspace.root_dir),
+                "short-factor-holdout",
+                "--dossier",
+                dossier.dossier["id"],
+                "--dataset",
+                str(package_path),
+                "--json",
+            )
+            self.assertEqual(cli_create.returncode, 0, cli_create.stderr)
+            self.assertEqual(
+                json.loads(cli_create.stdout)["command"],
+                "holdout.create-target",
+            )
+            target = load_project(
+                workspace.projects_dir / "short-factor-holdout"
+            )
+            binding = load_holdout_binding(target)
+            self.assertEqual(
+                [lane["id"] for lane in binding.binding["source"]["lanes"]],
+                ["factor"],
+            )
+            self.assertEqual(
+                (target.root_dir / "request.json").read_bytes(),
+                source_request.read_bytes(),
+            )
+            target_factor_judge = target.root_dir / "judges/ohlcv_factor.py"
+            self.assertIn(
+                "Selection is already frozen; sparse secondary diagnostics",
+                target_factor_judge.read_text(encoding="utf-8"),
+            )
+            self.assertNotIn(
+                "Selection is already frozen; sparse secondary diagnostics",
+                (source.root_dir / "judges/ohlcv_factor.py").read_text(
+                    encoding="utf-8"
+                ),
+            )
+            self.assertEqual(
+                load_holdout_status(target)["nextAction"]["id"],
+                "holdout.run",
+            )
+            brief = build_agent_work_brief(target)
+            self.assertEqual(brief["primaryAction"]["id"], "holdout.run")
+            self.assertEqual(
+                brief["externalHoldout"]["state"],
+                "bound",
+            )
+            snapshot = build_studio_snapshot(target.root_dir)
+            self.assertEqual(
+                snapshot["projects"][0]["externalHoldout"]["state"],
+                "bound",
+            )
+            result = run_holdout(target)
+            self.assertEqual(result.result["status"], "succeeded")
+            self.assertEqual(
+                [lane["id"] for lane in result.result["lanes"]],
+                ["factor"],
+            )
+            self.assertFalse(result.result["authority"]["selectionAllowed"])
+            self.assertEqual(
+                result.result["authority"]["tradingAuthority"],
+                "none",
+            )
+            holdout_run = load_run(
+                target,
+                result.result["lanes"][0]["holdout"]["runId"],
+            )
+            self.assertEqual(
+                holdout_run.result["execution"]["evaluationRole"],
+                "external-temporal-audit",
+            )
+            frozen_identity = json.loads(
+                (holdout_run.root_dir / "inputs/identity.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(
+                frozen_identity["judgeHashes"]["judges/ohlcv_factor.py"],
+                hash_file(target_factor_judge),
+            )
+            self.assertFalse(
+                holdout_run.result["metrics"]["horizon_quality"]["10"][
+                    "validation"
+                ]["sufficient"]
+            )
+
+            overlap_input = root / "overlap-atomic-input"
+            overlap_input.mkdir()
+            _, overlap_package = write_intake_inputs(
+                overlap_input,
+                observations=141,
+                start="2024-06-03",
+                dataset_id="overlap-equities",
+                dataset_version="2024-v2",
+            )
+            empty_workspace = initialize_workspace(
+                root / "empty-target-workspace",
+                name="Empty Target Desk",
+            )
+            configuration_before = (
+                empty_workspace.configuration_path.read_bytes()
+            )
+            with self.assertRaises(AutoQuantValidationError) as overlap_error:
+                create_holdout_target(
+                    source,
+                    dossier.dossier["id"],
+                    empty_workspace.root_dir,
+                    "overlap-atomic-target",
+                    overlap_package,
+                )
+            self.assertIn(
+                "holdout.period-overlap",
+                {issue.code for issue in overlap_error.exception.issues},
+            )
+            self.assertFalse(
+                (
+                    empty_workspace.projects_dir / "overlap-atomic-target"
+                ).exists()
+            )
+            self.assertEqual(
+                empty_workspace.configuration_path.read_bytes(),
+                configuration_before,
+            )
 
     def _target(self, workspace, root: Path, project_id: str = "holdout-desk"):
         project, _ = self._intake_project(

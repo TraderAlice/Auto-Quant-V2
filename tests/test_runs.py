@@ -46,6 +46,10 @@ class ImmutableRunTests(unittest.TestCase):
             self.assertIn("dirty", run.result["harness"])
             self.assertEqual(run.result["execution"]["exitCode"], 0)
             self.assertFalse(run.result["execution"]["timedOut"])
+            self.assertEqual(
+                run.result["execution"]["evaluationRole"],
+                "research-selection",
+            )
             self.assertTrue((run.root_dir / "sources/factors/candidate.py").is_file())
             self.assertTrue(
                 (run.root_dir / "inputs/judge-sources/judges/evaluate.py").is_file()

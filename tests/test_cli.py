@@ -771,6 +771,7 @@ class AgentCliTests(unittest.TestCase):
                 "dossier.publish",
                 "dossier.list",
                 "dossier.show",
+                "holdout.create-target",
                 "holdout.bind",
                 "holdout.status",
                 "holdout.run",
@@ -820,6 +821,34 @@ class AgentCliTests(unittest.TestCase):
         self.assertIn(
             "Experiment/Campaign artifactPath is null",
             report_analysis_argument["description"],
+        )
+        holdout_target = commands_by_id["holdout.create-target"]
+        self.assertEqual(holdout_target["effect"], "creates-artifact")
+        self.assertIn(
+            "canonical request",
+            holdout_target["description"],
+        )
+        self.assertIn(
+            "Factor 120, included Portfolio 180, included RL 240",
+            holdout_target["description"],
+        )
+        holdout_target_help = run_cli(
+            "holdout",
+            "create-target",
+            "--help",
+        )
+        self.assertEqual(
+            holdout_target_help.returncode,
+            0,
+            holdout_target_help.stderr,
+        )
+        self.assertIn(
+            "current immutable source Dossier id",
+            holdout_target_help.stdout,
+        )
+        self.assertIn(
+            "strictly later dataset-package manifest JSON file",
+            holdout_target_help.stdout,
         )
         project_create = next(
             command for command in commands if command["id"] == "project.create"

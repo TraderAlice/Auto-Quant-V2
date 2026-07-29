@@ -323,6 +323,11 @@ Portfolio and RL still use sequential next-bar accounting and do not relabel
 that accounting as a direct multi-bar forecast.
 
 Project-root `request.json` preserves the exact canonical caller request.
+Canonical JSON uses stable sorted keys and normalized values, so its bytes may
+differ from a caller's whitespace or key order while its content hash remains
+the authority. Frozen `holdout create-target` consumes this Project-local
+canonical object directly; an Agent does not reproduce or reorder a second
+request file.
 For the fixed Book Risk route, optional `positionScenarios` preserves one to
 eight caller-authored complete hypothetical books beside the baseline
 `positionSnapshot`. Core requires the same timestamp and currency, requested

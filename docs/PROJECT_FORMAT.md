@@ -948,8 +948,11 @@ publication opportunity without invalidating an older Dossier. Authority is
 
 ## Frozen external holdout
 
-A fresh request-driven research-desk Project can bind one current source
-Dossier before any target Run or Session exists:
+A frozen target may be created and bound atomically from one current source
+Dossier and one caller-supplied later dataset package. Core copies the source
+Project's canonical request authority; the caller does not rewrite it. The
+older two-step route may instead bind an already-created fresh request-driven
+research-desk Project before any target Run or Session exists:
 
 ```text
 holdout/
@@ -969,6 +972,20 @@ source and target datasets, non-overlap proof, target Studies, and frozen
 authority. Those imported bytes also replace the corresponding target
 candidate closures, then become non-editable operationally. A bound Project
 rejects Sessions, Campaigns, and generic Runs.
+
+Atomic target intake uses the Dossier lane set as minimum-history authority:
+Factor-only requires 120 rows plus 20 primary-horizon validation
+observations, included Portfolio requires 180 rows, and included governed RL
+requires 240. Ordinary `project intake` keeps the full research-desk 240-row
+and all-diagnostic-horizon gates. The external Run still publishes every
+diagnostic, but an underpowered secondary horizon is marked insufficient
+rather than converted into a selection failure. Its execution identity is
+`external-temporal-audit`.
+
+The atomic operation materializes that descriptive-only sparse-diagnostic
+rule in the target Factor Study's fixed Judge closure before binding. The
+ordinary template Judge and source Project remain unchanged, and the later
+Run freezes the exact target Judge bytes in its immutable inputs.
 
 `holdout run` publishes one ordinary immutable Run for every Dossier-included
 lane and then a terminal result that reconciles those Runs with the binding.

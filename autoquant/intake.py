@@ -40,6 +40,7 @@ from .horizons import (
     build_research_horizon,
     load_research_horizon,
     normalize_horizon_policy,
+    validate_external_holdout_horizon_capacity,
     validate_horizon_capacity,
 )
 from .intervals import (
@@ -1362,6 +1363,9 @@ def prepare_project_intake(
     request_path: str | Path,
     package_path: str | Path,
     template: str,
+    *,
+    minimum_observations_override: int | None = None,
+    external_holdout: bool = False,
 ) -> PreparedIntake:
     """Validate external request/data before a Project staging directory exists."""
 
@@ -1390,6 +1394,34 @@ def prepare_project_intake(
                     "dataset.manifest-path-required",
                     "--dataset must point to the dataset-package JSON "
                     "manifest file, not its containing directory",
+                )
+            ]
+        )
+    if external_holdout and template != "ohlcv-research-desk":
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    template,
+                    "holdout.template",
+                    "Frozen holdout target intake requires "
+                    "ohlcv-research-desk",
+                )
+            ]
+        )
+    if (
+        minimum_observations_override is not None
+        and (
+            not isinstance(minimum_observations_override, int)
+            or isinstance(minimum_observations_override, bool)
+            or minimum_observations_override < 1
+        )
+    ):
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    template,
+                    "holdout.minimum-observations",
+                    "Holdout minimum observations must be a positive integer",
                 )
             ]
         )
@@ -1647,6 +1679,8 @@ def prepare_project_intake(
                     )
                 )
     minimum_assets, minimum_observations = INTAKE_TEMPLATE_REQUIREMENTS[template]
+    if minimum_observations_override is not None:
+        minimum_observations = minimum_observations_override
     if observed_intraday:
         minimum_assets = 1
     if len(prepared) < minimum_assets:
@@ -1669,7 +1703,12 @@ def prepare_project_intake(
             _issue(
                 manifest_path,
                 "dataset.observations",
-                f"{template} requires at least {minimum_observations} {unit} rows",
+                (
+                    "Frozen external holdout target"
+                    if external_holdout
+                    else template
+                )
+                + f" requires at least {minimum_observations} {unit} rows",
             )
         )
     if (
@@ -1682,7 +1721,12 @@ def prepare_project_intake(
             _issue(
                 manifest_path,
                 "dataset.factor-breadth-history",
-                f"{template} requires at least {minimum_observations} "
+                (
+                    "Frozen external holdout target"
+                    if external_holdout
+                    else template
+                )
+                + f" requires at least {minimum_observations} "
                 f"timestamps with {FACTOR_MIN_ASSETS_PER_TIMESTAMP} or "
                 "more observed assets",
             )
@@ -1728,7 +1772,11 @@ def prepare_project_intake(
             )
     if panel_dates:
         try:
-            validate_horizon_capacity(
+            (
+                validate_external_holdout_horizon_capacity
+                if external_holdout
+                else validate_horizon_capacity
+            )(
                 normalize_horizon_policy(request.get("horizonPolicy")),
                 len(panel_dates),
                 "request/horizonPolicy",

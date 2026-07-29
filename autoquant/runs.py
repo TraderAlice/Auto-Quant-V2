@@ -52,6 +52,8 @@ from .version import current_version
 RUN_MANIFEST = "manifest.json"
 RUN_RESULT = "result.json"
 JUDGE_OUTPUT = "judge-output.json"
+RESEARCH_EVALUATION_ROLE = "research-selection"
+HOLDOUT_EVALUATION_ROLE = "external-temporal-audit"
 RUN_SCHEMA_VERSION = 1
 JUDGE_OUTPUT_VERSION = 1
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -517,6 +519,7 @@ def _freeze_inputs(
     run_staging: Path,
     harness: dict[str, Any],
     run_input_hash: str,
+    evaluation_role: str,
 ) -> None:
     inputs = run_staging / "inputs"
     inputs.mkdir()
@@ -531,6 +534,7 @@ def _freeze_inputs(
             inputs / "dependency-sources",
         )
     identity = {
+        "evaluationRole": evaluation_role,
         "studyHash": study.study_hash,
         "programHash": study.program_hash,
         "judgeHashes": study.judge_hashes,
@@ -568,6 +572,7 @@ def _run_judge(
     run_staging: Path,
     run_input_hash: str,
     data_root: Path,
+    evaluation_role: str,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     artifacts_root = run_staging / "artifacts"
     artifacts_root.mkdir()
@@ -594,6 +599,7 @@ def _run_judge(
                 "AUTOQUANT_RUN_OUTPUT": str(output_path),
                 "AUTOQUANT_ARTIFACTS_DIR": str(artifacts_root),
                 "AUTOQUANT_INPUT_HASH": run_input_hash,
+                "AUTOQUANT_EVALUATION_ROLE": evaluation_role,
                 "PYTHONPATH": os.pathsep.join(
                     filter(
                         None,
@@ -682,6 +688,7 @@ def _run_judge(
     execution = {
         "kind": "python",
         "command": command,
+        "evaluationRole": evaluation_role,
         "exitCode": exit_code,
         "timedOut": timed_out,
         "timeoutSeconds": study.definition.judge.timeout_seconds,
@@ -792,8 +799,17 @@ def execute_study(
                 ]
             )
     harness = harness_identity()
+    evaluation_role = (
+        HOLDOUT_EVALUATION_ROLE
+        if holdout_authorized
+        else RESEARCH_EVALUATION_ROLE
+    )
     run_input_hash = hash_json(
-        {"studyInputHash": study.input_hash, "harness": harness}
+        {
+            "studyInputHash": study.input_hash,
+            "harness": harness,
+            "evaluationRole": evaluation_role,
+        }
     )
     runs_root = confined_path(
         project.root_dir,
@@ -805,13 +821,21 @@ def execute_study(
     temporary = runs_root / f".run-{uuid.uuid4().hex}"
     temporary.mkdir()
     try:
-        _freeze_inputs(source_project, study, temporary, harness, run_input_hash)
+        _freeze_inputs(
+            source_project,
+            study,
+            temporary,
+            harness,
+            run_input_hash,
+            evaluation_role,
+        )
         normalized, execution = _run_judge(
             source_project,
             study,
             temporary,
             run_input_hash,
             resolved_data_root,
+            evaluation_role,
         )
         completed = datetime.now(timezone.utc)
         completed_at = completed.isoformat()
@@ -1064,7 +1088,23 @@ def _validate_run_result(
                 _issue(f"{path}/{key}", "schema.type", f"{key} must be an object")
             )
             continue
-        issues.extend(_strict_keys(value, nested_required, f"{path}/{key}"))
+        allowed = set(nested_required)
+        if key == "execution" and "evaluationRole" in value:
+            allowed.add("evaluationRole")
+        issues.extend(_strict_keys(value, allowed, f"{path}/{key}"))
+        if (
+            key == "execution"
+            and "evaluationRole" in value
+            and value["evaluationRole"]
+            not in {RESEARCH_EVALUATION_ROLE, HOLDOUT_EVALUATION_ROLE}
+        ):
+            issues.append(
+                _issue(
+                    f"{path}/execution/evaluationRole",
+                    "run.evaluation-role",
+                    "Unknown Run evaluation role",
+                )
+            )
 
     dataset = result.get("dataset")
     if not isinstance(dataset, dict):

@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha at `0.8.20`.
+Status: usable pre-alpha at `0.8.21`.
 
 Updated: 2026-07-30.
 
@@ -13,7 +13,7 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 AutoQuant V2 has crossed the line from an architectural prototype into a
 usable Agent-native quantitative research workbench.
 
-At `0.8.20`, a human, local coding Agent, or coworker delegated from OpenAlice
+At `0.8.21`, a human, local coding Agent, or coworker delegated from OpenAlice
 can:
 
 1. clone the repository and immediately discover the Harness plus its
@@ -116,7 +116,25 @@ that a Run artifact path is null or copied exactly from
 `result.artifacts[].path`, while Experiment and Campaign paths are null. The
 existing semantic evidence validation remains strict and unchanged.
 
-The current release is `v0.8.20`. `v0.8.19` remains the fixed Book Risk
+`0.8.21` makes frozen external target intake atomic and lane-aware. Core
+reuses the current source Dossier's canonical request, applies Factor,
+Portfolio, and governed-RL target history floors of 120, 180, and 240 rows,
+and rolls back the target plus Workspace configuration on any failure.
+Holdout Runs carry explicit external-audit execution identity, keep sparse
+secondary diagnostics visible, and still require 20 usable observations for
+the exact primary objective.
+
+The isolated installed-wheel retry completed the unchanged 141-session
+Factor-only audit through the public atomic path. Its frozen source objective
+was `+0.101253` mean IC and the strictly later objective was `-0.284679`;
+both Projects remained valid, Studio had no diagnostics, and the negative
+external result granted no selection or trading authority.
+Final verification passes all 312 tests in 799.389 seconds, resolves all 1,094
+documentation links, and installs the built `0.8.21` wheel in a fresh Python
+3.11 environment for Workspace/create/orient/validate capability smoke.
+
+The current release is `v0.8.21`. `v0.8.20` remains the self-describing Report
+evidence milestone, `v0.8.19` remains the fixed Book Risk
 drawdown milestone, `v0.8.18` the honest unknown-provider provenance
 milestone, while `v0.8.17` remains the
 reference-aware preflight and terminal-handoff milestone, while `v0.8.16`
