@@ -11,6 +11,9 @@ It must report:
 - component-risk HHI and effective risk bets;
 - first-principal-component share of the held-asset correlation matrix;
 - exact pairwise held-asset correlations;
+- a primary-window daily constant-weight close-to-close equity path, signed
+  maximum drawdown, peak, trough, and recovery interval, plus maximum drawdown
+  on every fixed lookback;
 - one standardized, cash-funded reduction of each position, ranked by
   volatility reduction per unit weight;
 - when supplied, every caller-authored complete hypothetical book under the
@@ -26,5 +29,8 @@ It must report:
 
 The reduction, supplied-book, and one-leg sizing tables are historical
 evidence, not tax-aware recommendations, general optimized targets, or orders.
+The drawdown path applies the supplied weights to every same-clock simple
+return row and therefore describes a research convention, not reconstructed
+broker holdings.
 Never silently replace reported weights, generate hypothetical books, select
 the adjustable asset, or infer a funding leg.

@@ -9,10 +9,14 @@ import unittest
 from pathlib import Path
 
 import jsonschema
+import pandas as pd
 
 from autoquant.book_risk_explorer import (
     BOOK_RISK_DIAGNOSTICS_JSON_SCHEMA,
     load_book_risk_diagnostics,
+)
+from autoquant.project_templates.ohlcv_book_risk_lab.judge import (
+    _drawdown_analysis,
 )
 from autoquant.intake import load_project_intake, prepare_project_intake
 from autoquant.orientation import (
@@ -186,6 +190,80 @@ def _rehash_run(run_root: Path) -> None:
 
 
 class BookRiskLabTests(unittest.TestCase):
+    def test_static_weight_drawdown_conventions_are_deterministic(self) -> None:
+        weights = pd.Series({"AAPL": 1.0})
+        initial = pd.Timestamp("2024-01-01")
+        no_loss = _drawdown_analysis(
+            pd.DataFrame(
+                {"AAPL": [0.10, 0.05]},
+                index=pd.to_datetime(["2024-01-02", "2024-01-03"]),
+            ),
+            weights,
+            initial,
+        )
+        self.assertEqual(no_loss["summary"]["maximumDrawdown"], 0.0)
+        self.assertEqual(
+            no_loss["summary"]["peakTimestamp"],
+            "2024-01-01",
+        )
+        self.assertEqual(
+            no_loss["summary"]["troughTimestamp"],
+            "2024-01-01",
+        )
+        self.assertEqual(
+            no_loss["summary"]["recoveryTimestamp"],
+            "2024-01-01",
+        )
+        self.assertEqual(
+            [round(row["nav"], 6) for row in no_loss["rows"]],
+            [1.0, 1.1, 1.155],
+        )
+
+        unrecovered = _drawdown_analysis(
+            pd.DataFrame(
+                {"AAPL": [0.10, -0.20, 0.05]},
+                index=pd.to_datetime(
+                    ["2024-01-02", "2024-01-03", "2024-01-04"]
+                ),
+            ),
+            weights,
+            initial,
+        )
+        self.assertAlmostEqual(
+            unrecovered["summary"]["maximumDrawdown"],
+            -0.20,
+        )
+        self.assertEqual(
+            unrecovered["summary"]["peakTimestamp"],
+            "2024-01-02",
+        )
+        self.assertEqual(
+            unrecovered["summary"]["troughTimestamp"],
+            "2024-01-03",
+        )
+        self.assertIsNone(unrecovered["summary"]["recoveryTimestamp"])
+        self.assertFalse(unrecovered["summary"]["recovered"])
+        self.assertEqual(
+            [round(row["cumulativeReturn"], 6) for row in unrecovered["rows"]],
+            [0.0, 0.1, -0.12, -0.076],
+        )
+
+        recovered = _drawdown_analysis(
+            pd.DataFrame(
+                {"AAPL": [0.10, -0.20, 0.30]},
+                index=pd.to_datetime(
+                    ["2024-01-02", "2024-01-03", "2024-01-04"]
+                ),
+            ),
+            weights,
+            initial,
+        )
+        self.assertEqual(
+            recovered["summary"]["recoveryTimestamp"],
+            "2024-01-04",
+        )
+        self.assertTrue(recovered["summary"]["recovered"])
+
     def _real_project(self, root: Path):
         request_path, package_path = write_intake_inputs(
             root,
@@ -684,6 +762,35 @@ class BookRiskLabTests(unittest.TestCase):
                 diagnostics["authority"]["tradingAuthority"],
                 "none",
             )
+            self.assertLessEqual(
+                diagnostics["drawdown"]["maximumDrawdown"],
+                0.0,
+            )
+            self.assertEqual(
+                diagnostics["equityPath"]["totalRows"],
+                253,
+            )
+            self.assertEqual(
+                diagnostics["current"]["maximumDrawdown"],
+                diagnostics["drawdown"]["maximumDrawdown"],
+            )
+            self.assertEqual(
+                run.result["metrics"]["current_maximum_drawdown"],
+                diagnostics["drawdown"]["maximumDrawdown"],
+            )
+            human = _run_cli(
+                "run",
+                "book-risk",
+                str(project.root_dir),
+                "--run",
+                run.result["id"],
+            )
+            self.assertEqual(human.returncode, 0, human.stderr)
+            self.assertIn("Historical maximum drawdown:", human.stdout)
+            self.assertIn(
+                "daily constant-weight close-to-close research path",
+                human.stdout,
+            )
 
             brief = build_agent_work_brief(project)
             jsonschema.validate(brief, AGENT_WORK_BRIEF_JSON_SCHEMA)
@@ -721,6 +828,10 @@ class BookRiskLabTests(unittest.TestCase):
                 observed["bookRiskExplorer"]["run"]["id"],
                 run.result["id"],
             )
+            self.assertEqual(
+                observed["bookRiskExplorer"]["drawdown"],
+                diagnostics["drawdown"],
+            )
             self.assertIn(
                 "run.book-risk",
                 {command["id"] for command in observed["commands"]},
@@ -738,6 +849,74 @@ class BookRiskLabTests(unittest.TestCase):
                 "session.descriptive-study",
                 {issue.code for issue in captured.exception.issues},
             )
+
+    def test_pre_0819_book_risk_run_remains_readable_without_drawdown(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = self._real_project(Path(directory))
+            run = execute_study(project, BOOK_RISK_STUDY_ID)
+            report_path = (
+                run.root_dir / "artifacts" / "book-risk-report.json"
+            )
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+            report.pop("drawdown")
+            report["authority"].pop("drawdownMeaning")
+            report["current"].pop("maximumDrawdown")
+            for row in report["lookbacks"]:
+                row.pop("maximumDrawdown")
+            report_path.write_text(
+                json.dumps(report, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            equity_path = (
+                run.root_dir / "artifacts" / "book-risk-equity-path.csv"
+            )
+            equity_path.unlink()
+            result_path = run.root_dir / "result.json"
+            result = json.loads(result_path.read_text(encoding="utf-8"))
+            result["harness"]["version"] = "0.8.18"
+            result["metrics"].pop("current_maximum_drawdown")
+            result["artifacts"] = [
+                item
+                for item in result["artifacts"]
+                if item["kind"] != "book-risk-equity-path"
+            ]
+            result_path.write_text(
+                json.dumps(result, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            _rehash_run(run.root_dir)
+
+            diagnostics = load_book_risk_diagnostics(
+                project,
+                run.result["id"],
+            )
+            jsonschema.validate(
+                diagnostics,
+                BOOK_RISK_DIAGNOSTICS_JSON_SCHEMA,
+            )
+            self.assertFalse(diagnostics["drawdown"]["available"])
+            self.assertFalse(diagnostics["equityPath"]["available"])
+            self.assertNotIn(
+                "book-risk-equity-path",
+                diagnostics["artifacts"],
+            )
+            human = _run_cli(
+                "run",
+                "book-risk",
+                str(project.root_dir),
+                "--run",
+                run.result["id"],
+            )
+            self.assertEqual(human.returncode, 0, human.stderr)
+            self.assertIn(
+                "Historical maximum drawdown: unavailable for this legacy Run",
+                human.stdout,
+            )
+            studio = build_studio_snapshot(project.root_dir)
+            observed = studio["projects"][0]["bookRiskExplorer"]
+            self.assertFalse(observed["drawdown"]["available"])
 
     def test_cli_intake_routes_book_risk_to_fixed_run_only(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -1018,6 +1197,29 @@ class BookRiskLabTests(unittest.TestCase):
                 load_book_risk_diagnostics(project, run.result["id"])
             self.assertIn(
                 "book-risk.contributions",
+                {issue.code for issue in captured.exception.issues},
+            )
+
+        with tempfile.TemporaryDirectory() as directory:
+            project = self._real_project(Path(directory))
+            run = execute_study(project, BOOK_RISK_STUDY_ID)
+            path = (
+                run.root_dir / "artifacts" / "book-risk-equity-path.csv"
+            )
+            with path.open("r", encoding="utf-8", newline="") as handle:
+                reader = csv.DictReader(handle)
+                rows = list(reader)
+                fields = list(reader.fieldnames or [])
+            rows[-1]["drawdown"] = str(float(rows[-1]["drawdown"]) + 0.01)
+            with path.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=fields)
+                writer.writeheader()
+                writer.writerows(rows)
+            _rehash_run(run.root_dir)
+            with self.assertRaises(AutoQuantValidationError) as captured:
+                load_book_risk_diagnostics(project, run.result["id"])
+            self.assertIn(
+                "book-risk.reconcile",
                 {issue.code for issue in captured.exception.issues},
             )
 

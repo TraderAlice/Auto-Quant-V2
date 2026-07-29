@@ -148,7 +148,9 @@ first verifies the frozen external-reported baseline, any caller-specified
 hypothetical books, and every cross-artifact relationship. Studio then shows
 the primary-window summary, 63/126/252-bar stability, per-asset signed and
 absolute component risk, one-percentage-point reductions toward cash, pairwise
-correlations, rolling crowding context, and a same-window scenario table.
+correlations, rolling crowding context, primary-window static-weight equity
+and drawdown evidence, and a same-window scenario table. Runs from before
+`0.8.19` remain visible with drawdown explicitly unavailable.
 For every supplied book the scenario panel exposes volatility rank and delta,
 HHI/effective-bet deltas, largest contributor, and primary-window per-asset
 weight/risk-share changes. The rank orders only the supplied books; it does not

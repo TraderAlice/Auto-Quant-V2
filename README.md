@@ -1,5 +1,5 @@
 ---
-version: 0.8.18
+version: 0.8.19
 ---
 
 # AutoQuant V2
@@ -32,7 +32,7 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current milestone: `0.8.18`
+## Current milestone: `0.8.19`
 
 AutoQuant V2 has crossed from an architectural prototype into a usable
 research workbench.
@@ -175,6 +175,23 @@ method gap is preserved in
 Repository regression passes all 309 tests and the documentation graph
 resolves all 1,085 checked links.
 
+`0.8.19` closes that preserved method gap without turning Book Risk into a
+portfolio backtester. Every new fixed Book Risk Run now applies the supplied
+weights to the same immutable close-to-close return panel, publishes a full
+primary-window NAV/drawdown path, and reports signed maximum drawdown plus
+observed peak, trough, and recovery timestamps. The strict Explorer
+independently rebuilds every row and all 63/126/252-window drawdowns; Run
+metrics, CLI, Studio, and artifacts reconcile. Older Book Risk Runs remain
+readable and explicitly mark this newer evidence unavailable.
+
+A fresh installed Grok worker repeated the unchanged eight-holding assignment,
+preserved `retrievedAt: null`, used one fixed Run and no Session, and answered
+the formerly unsupported drawdown directly from immutable evidence:
+`-0.183079`, from `2025-10-29` to `2026-03-30`, recovered `2026-04-27`. It used
+no replacement pandas calculation and recorded no remaining Workbench blocker.
+Final repository regression passes all 311 tests in 794.604 seconds, and the
+documentation graph resolves all 1,085 checked links.
+
 ## Standalone or an OpenAlice desk
 
 AutoQuant has one product shape in both environments:
@@ -204,8 +221,9 @@ Existing-book questions use the separate `ohlcv-book-risk-lab`. It preserves
 one caller-supplied baseline weight snapshot and may compare up to eight
 caller-specified complete hypothetical books under the same historical
 covariance windows. It returns component-risk, common-movement, standardized
-reduction-sensitivity, and explicit scenario-delta evidence without pretending
-that any snapshot is authenticated account truth or an optimized target.
+reduction-sensitivity, fixed static-weight drawdown, and explicit
+scenario-delta evidence without pretending that any snapshot is authenticated
+account truth, reconstructed broker equity, or an optimized target.
 See [reported-position Book Risk](docs/design/reported-position-book-risk.md).
 
 Price-defined conditional-history questions use

@@ -457,15 +457,19 @@ or trading authority.
 scenario dependency, exact method and dataset description, Run metrics,
 component-risk and standardized-reduction tables, pair count and correlations,
 fixed lookbacks, every scenario metric/delta/rank and primary-window per-asset
-contribution change, and the complete rolling path before sampling 20–400
-points.
+contribution change, the complete rolling path, and—on `0.8.19+` Runs—the
+static-weight equity path plus maximum-drawdown interval before sampling
+20–400 points.
 The human view identifies the largest component-risk contributor, first
 one-percentage-point reduction sensitivity, strongest pair, effective risk
-bets, first-PC share, supplied-scenario count, lowest modeled-volatility
-scenario in the primary window, and the unauthenticated-position warning.
+bets, first-PC share, signed maximum drawdown with peak/trough/recovery,
+supplied-scenario count, lowest modeled-volatility scenario in the primary
+window, and the unauthenticated-position warning.
 JSON returns the same evidence under `book-risk-diagnostics`. Ranking applies
 only to caller-supplied books and has no selection authority. The command
 neither authenticates a snapshot nor emits generated target weights or orders.
+Older immutable Runs remain readable and explicitly return drawdown/equity
+path as unavailable rather than fabricating retroactive evidence.
 
 `run event-study` is the strict read-only projection for a successful
 `ohlcv-event-study-lab` Run. Core verifies the immutable Run, frozen event

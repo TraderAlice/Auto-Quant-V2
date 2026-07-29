@@ -22,3 +22,7 @@ complete hypothetical books explicitly supplied by the caller. It does not
 query an account, prove that reported positions are current, generate nearby
 books, optimize an executable portfolio, or create an order. OpenAlice/UTA
 remains the authority for live positions and execution.
+
+Historical drawdown is measured on the fixed daily constant-weight
+close-to-close research path. Explain that this is not reconstructed account
+equity, fill history, cash yield, taxes, or live broker performance.

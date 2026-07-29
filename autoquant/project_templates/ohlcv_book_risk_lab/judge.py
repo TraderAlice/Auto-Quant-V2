@@ -238,6 +238,67 @@ def _covariance_analysis(
     }
 
 
+def _drawdown_analysis(
+    returns: pd.DataFrame,
+    weights: pd.Series,
+    initial_timestamp: pd.Timestamp,
+) -> dict[str, Any]:
+    """Build one static-weight close-to-close research equity path."""
+
+    portfolio_returns = (
+        returns.loc[:, list(weights.index)].to_numpy(dtype=float)
+        @ weights.to_numpy(dtype=float)
+    )
+    if (
+        len(portfolio_returns) != len(returns)
+        or not np.isfinite(portfolio_returns).all()
+        or (portfolio_returns <= -1.0).any()
+        or pd.Timestamp(initial_timestamp) >= returns.index[0]
+    ):
+        raise JudgeFailure(
+            "book-risk.drawdown-path",
+            "Static-weight book return path is invalid",
+        )
+    path_returns = np.concatenate(([0.0], portfolio_returns))
+    nav = np.cumprod(1.0 + path_returns)
+    running_peak = np.maximum.accumulate(nav)
+    drawdown = nav / running_peak - 1.0
+    timestamps = pd.DatetimeIndex([initial_timestamp]).append(returns.index)
+    trough_index = int(np.argmin(drawdown))
+    peak_index = int(np.argmax(nav[: trough_index + 1]))
+    recovery_index: int | None = None
+    peak_nav = float(nav[peak_index])
+    for index in range(trough_index, len(nav)):
+        if float(nav[index]) >= peak_nav * (1.0 - 1e-12):
+            recovery_index = index
+            break
+    rows = [
+        {
+            "timestamp": timestamp_label(timestamp),
+            "portfolioReturn": float(path_returns[index]),
+            "cumulativeReturn": float(nav[index] - 1.0),
+            "nav": float(nav[index]),
+            "runningPeak": float(running_peak[index]),
+            "drawdown": float(drawdown[index]),
+        }
+        for index, timestamp in enumerate(timestamps)
+    ]
+    return {
+        "summary": {
+            "maximumDrawdown": float(drawdown[trough_index]),
+            "peakTimestamp": rows[peak_index]["timestamp"],
+            "troughTimestamp": rows[trough_index]["timestamp"],
+            "recoveryTimestamp": (
+                rows[recovery_index]["timestamp"]
+                if recovery_index is not None
+                else None
+            ),
+            "recovered": recovery_index is not None,
+        },
+        "rows": rows,
+    }
+
+
 def _write_csv(path: Path, columns: list[str], rows: list[dict[str, Any]]) -> None:
     with path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=columns)
@@ -752,6 +813,7 @@ def main() -> None:
         annualization = annualization_periods(closes.index)
         lookback_results: list[dict[str, Any]] = []
         analyses: dict[int, dict[str, Any]] = {}
+        drawdowns: dict[int, dict[str, Any]] = {}
         for lookback in scenarios["lookbackBars"]:
             selected = baseline_returns.tail(lookback)
             analysis = _covariance_analysis(
@@ -760,6 +822,21 @@ def main() -> None:
                 annualization,
             )
             analyses[lookback] = analysis
+            first_return_position = closes.index.get_loc(selected.index[0])
+            if (
+                not isinstance(first_return_position, (int, np.integer))
+                or first_return_position < 1
+            ):
+                raise JudgeFailure(
+                    "book-risk.drawdown-path",
+                    "Drawdown window lacks an observed initial close",
+                )
+            drawdown = _drawdown_analysis(
+                selected,
+                weights,
+                closes.index[first_return_position - 1],
+            )
+            drawdowns[lookback] = drawdown
             window_reductions = _reduction_rows(
                 selected,
                 weights,
@@ -780,6 +857,9 @@ def main() -> None:
                         if key not in {"contributions", "correlation"}
                     },
                     "largestAbsoluteRiskContributor": largest["asset"],
+                    "maximumDrawdown": drawdown["summary"][
+                        "maximumDrawdown"
+                    ],
                     "firstReductionAsset": window_reductions[0]["asset"],
                     "firstReductionVolatilityPerWeight": window_reductions[0][
                         "volatilityReductionPerWeight"
@@ -788,6 +868,7 @@ def main() -> None:
             )
         primary_lookback = int(scenarios["primaryLookbackBars"])
         primary = analyses[primary_lookback]
+        primary_drawdown = drawdowns[primary_lookback]
         primary_returns = baseline_returns.tail(primary_lookback)
         correlation = primary["correlation"]
         pairwise: list[dict[str, Any]] = []
@@ -1047,6 +1128,9 @@ def main() -> None:
                 "sizingMeaning": (
                     "caller-bounded-historical-target-position"
                 ),
+                "drawdownMeaning": (
+                    "static-weight-close-to-close-research-path"
+                ),
             },
             "method": scenarios,
             "dataset": {
@@ -1069,6 +1153,18 @@ def main() -> None:
                 "grossExposure": float(weights.abs().sum()),
                 "netExposure": float(weights.sum()),
                 "cashWeight": float(snapshot["cashWeight"]),
+                "maximumDrawdown": primary_drawdown["summary"][
+                    "maximumDrawdown"
+                ],
+            },
+            "drawdown": {
+                "method": "daily-constant-weight-close-to-close",
+                "returnConvention": (
+                    "Supplied asset weights are applied to each same-clock "
+                    "close-to-close simple-return row; cash return is zero."
+                ),
+                "initialNav": 1.0,
+                **primary_drawdown["summary"],
             },
             "contributions": sorted(
                 primary["contributions"],
@@ -1175,6 +1271,18 @@ def main() -> None:
             rolling,
         )
         _write_csv(
+            artifacts / "book-risk-equity-path.csv",
+            [
+                "timestamp",
+                "portfolioReturn",
+                "cumulativeReturn",
+                "nav",
+                "runningPeak",
+                "drawdown",
+            ],
+            primary_drawdown["rows"],
+        )
+        _write_csv(
             artifacts / "book-risk-scenario-comparisons.csv",
             [
                 "scenarioId",
@@ -1252,6 +1360,9 @@ def main() -> None:
             "current_first_pc_variance_share": float(
                 primary["firstPrincipalComponentVarianceShare"]
             ),
+            "current_maximum_drawdown": float(
+                primary_drawdown["summary"]["maximumDrawdown"]
+            ),
             "largest_risk_contributor_share": float(
                 primary["largestAbsoluteRiskContributorShare"]
             ),
@@ -1289,6 +1400,8 @@ def main() -> None:
                 "summary": (
                     "Reported book covariance audit; effective risk bets="
                     f"{metrics['current_effective_risk_bets']:.3f}; "
+                    "maximum drawdown="
+                    f"{metrics['current_maximum_drawdown']:.3f}; "
                     f"first standardized reduction={reductions[0]['asset']}; "
                     f"supplied scenarios={len(scenario_results)}"
                     + (
@@ -1310,8 +1423,8 @@ def main() -> None:
                         "kind": "book-risk-report",
                         "path": "book-risk-report.json",
                         "description": (
-                            "Verified reported-book covariance, crowding, "
-                            "contribution, and reduction evidence"
+                            "Verified reported-book covariance, drawdown, "
+                            "crowding, contribution, and reduction evidence"
                         ),
                     },
                     {
@@ -1351,6 +1464,14 @@ def main() -> None:
                         "kind": "book-risk-path",
                         "path": "book-risk-path.csv",
                         "description": "Sampled rolling primary-window risk path",
+                    },
+                    {
+                        "kind": "book-risk-equity-path",
+                        "path": "book-risk-equity-path.csv",
+                        "description": (
+                            "Primary-window static-weight return, NAV, and "
+                            "drawdown path"
+                        ),
                     },
                     {
                         "kind": "book-risk-scenario-comparisons",

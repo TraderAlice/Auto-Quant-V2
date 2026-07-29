@@ -170,9 +170,10 @@ optional `request.positionSizing` and binds them as one fixed Study dependency.
 Its researcher-owned method declaration
 fixes bounded lookbacks, rolling cadence, and the standardized reduction size.
 The Judge owns covariance, component-risk, effective-bet, PCA,
-pair-correlation, reduction, and caller-supplied scenario comparison
-calculations, plus exact one-leg historical volatility-ceiling sizing when
-authorized. The baseline remains external-reported and unauthenticated;
+pair-correlation, reduction, caller-supplied scenario comparison, and a fixed
+daily constant-weight equity/drawdown path, plus exact one-leg historical
+volatility-ceiling sizing when authorized. The baseline remains
+external-reported and unauthenticated;
 scenario books remain caller-hypothetical and unauthenticated. Neither is ever
 replaced with model targets. See
 [[docs/design/reported-position-book-risk]].

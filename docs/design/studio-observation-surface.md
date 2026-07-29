@@ -171,8 +171,10 @@ request → evidence → report surface.
 A standalone Book Risk Study appears as its own evidence lane rather than as
 historical model-target Portfolio evidence. Studio shows effective risk bets,
 first-PC share, component-risk HHI, lookback stability, contributor and
-standardized-reduction rankings, correlations, rolling context, and any
+standardized-reduction rankings, correlations, rolling context, fixed
+static-weight drawdown/equity evidence when emitted by the Run, and any
 caller-supplied complete-book comparisons from the strict Core projection.
+Pre-`0.8.19` Runs remain inspectable with drawdown explicitly unavailable.
 Scenario rows show same-window deltas and primary-window per-asset
 weight/risk-share changes; JavaScript does not calculate or rank them. The
 current Workspace → Project → Study → Run rail must recognize this descriptive

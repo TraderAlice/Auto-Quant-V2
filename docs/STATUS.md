@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha at `0.8.18`.
+Status: usable pre-alpha at `0.8.19`.
 
 Updated: 2026-07-30.
 
@@ -13,7 +13,7 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 AutoQuant V2 has crossed the line from an architectural prototype into a
 usable Agent-native quantitative research workbench.
 
-At `0.8.18`, a human, local coding Agent, or coworker delegated from OpenAlice
+At `0.8.19`, a human, local coding Agent, or coworker delegated from OpenAlice
 can:
 
 1. clone the repository and immediately discover the Harness plus its
@@ -103,7 +103,15 @@ instead of forcing a coding Agent to invent a later packaging timestamp.
 Known timestamps remain strict and timezone-aware, while both forms stay
 content-locked through snapshot validation and Studio.
 
-The current release is `v0.8.18`. `v0.8.17` remains the
+`0.8.19` makes historical drawdown first-class fixed Book Risk evidence.
+New Runs publish the full daily constant-weight close-to-close equity path,
+signed maximum drawdown, and observed peak/trough/recovery interval; the
+Explorer re-derives every row and each fixed lookback scalar before CLI or
+Studio can display it. Pre-`0.8.19` immutable Runs remain readable and mark
+drawdown unavailable instead of being invalidated or silently retrofitted.
+
+The current release is `v0.8.19`. `v0.8.18` remains the honest unknown-provider
+provenance milestone, while `v0.8.17` remains the
 reference-aware preflight and terminal-handoff milestone, while `v0.8.16`
 remains the completed
 trial-handoff milestone, while `v0.8.15` remains the candidate-contract
@@ -130,7 +138,7 @@ line.
 | factor-to-target portfolio research | `ohlcv-portfolio-lab` | editable factor source, fixed Portfolio construction and accounting |
 | adaptive policy value beyond fixed factor sleeves | `ohlcv-rl-factor-lab` | editable causal encoder, fixed actions/reward/risk, bounded seeds and folds |
 | coordinated Factor → Portfolio → optional RL investigation | `ohlcv-research-desk` | multiple Studies in one persistent Project |
-| historical risk of one reported or hypothetical funded book | `ohlcv-book-risk-lab` | fixed Study, no candidate Session |
+| historical volatility, drawdown, and covariance risk of one reported or hypothetical funded book | `ohlcv-book-risk-lab` | fixed Study, no candidate Session |
 | caller-authored complete book scenarios or one-leg cash sizing | `ohlcv-book-risk-lab` | fixed bounded authority, no optimizer or Order |
 | OHLCV-observable conditional price event | `ohlcv-event-study-lab` | fixed event ledger and references, no candidate Session |
 | non-predictive strategic risk-parity allocation | `ohlcv-allocation-lab` | fixed ERC Study and fixed-weight reference, no Factor/RL Session |
@@ -206,6 +214,29 @@ not only synthetic fixtures:
 
 The canonical results, Run identifiers, versions, and limitations are preserved
 in [[docs/trading-request-field-trials]].
+
+## `0.8.19` verification snapshot
+
+- a fresh isolated Grok Build coworker used only installed `aq 0.8.19`, the
+  unchanged prior hypothetical-book assignment, and nine raw caller-supplied
+  Yahoo CSVs; it did not inspect source, repository docs/tests/plans, prior
+  reports, another Project, the web, or memory;
+- it preserved `provider.retrievedAt: null`, created Project
+  `grok-build-book-risk-drawdown-v0819`, executed fixed Study
+  `ohlcv-book-risk` exactly once as Run
+  `run-20260729T182310268777Z-51c5e979a05c`, and started no Session;
+- without an ad-hoc pandas replacement, strict installed evidence reported
+  maximum drawdown `-0.18307858163213264`, peak `2025-10-29`, trough
+  `2026-03-30`, and recovery `2026-04-27` from a 253-row primary path;
+- the same Run retained annualized volatility `0.207404`, HHI `0.138695`,
+  `7.210055` effective risk bets, and NVDA as largest contributor at
+  `0.227376`; no optimization, Order, or trading authority appeared;
+- independent Project validation, strict Explorer, and Studio projection
+  reconciled the same drawdown interval and emitted no diagnostics;
+- hand-calculated no-loss, unrecovered, and recovered fixtures plus rehashed
+  path tampering and pre-`0.8.19` compatibility tests protect the contract.
+- final repository regression: 311/311 tests in 794.604 seconds;
+- documentation graph: 1,085/1,085 checked links.
 
 ## `0.8.18` verification snapshot
 

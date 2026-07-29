@@ -2108,6 +2108,18 @@ def _run_book_risk(args: argparse.Namespace) -> CommandResult:
     snapshot = diagnostics["positionSnapshot"]
     scenario_comparison = diagnostics["scenarioComparison"]
     sizing = diagnostics["positionSizing"]
+    drawdown = diagnostics["drawdown"]
+    drawdown_line = (
+        "Historical maximum drawdown: unavailable for this legacy Run\n"
+        if drawdown.get("available") is False
+        else (
+            f"Historical maximum drawdown: "
+            f"{drawdown['maximumDrawdown']} · peak "
+            f"{drawdown['peakTimestamp']} · trough "
+            f"{drawdown['troughTimestamp']} · recovery "
+            f"{drawdown['recoveryTimestamp'] or 'not recovered'}\n"
+        )
+    )
     primary_lookback = int(current["lookbackBars"])
     primary_scenarios = sorted(
         (
@@ -2162,6 +2174,7 @@ def _run_book_risk(args: argparse.Namespace) -> CommandResult:
             f"{current['componentRiskHhi']}\n"
             f"First principal-component share: "
             f"{current['firstPrincipalComponentVarianceShare']}\n"
+            f"{drawdown_line}"
             f"Largest risk contributor: {largest['asset']} · "
             f"{largest['absoluteRiskShare']}\n"
             f"First standardized reduction: {reduction['asset']} · "
@@ -2175,7 +2188,9 @@ def _run_book_risk(args: argparse.Namespace) -> CommandResult:
             + "Reported weights are not authenticated account truth; reduction "
             "and supplied-scenario evidence are historical sensitivities. "
             "Caller-bounded sizing is a historical target-position calculation, "
-            "not a future-volatility guarantee, optimization search, or order.\n"
+            "not a future-volatility guarantee, optimization search, or order. "
+            "Drawdown uses a daily constant-weight close-to-close research path, "
+            "not reconstructed account performance or a future guarantee.\n"
         ),
         project_context(project),
         [

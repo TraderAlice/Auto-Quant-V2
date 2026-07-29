@@ -28,6 +28,7 @@ ARTIFACTS = {
     "book-risk-reductions": "book-risk-reductions.csv",
     "book-risk-correlations": "book-risk-correlations.csv",
     "book-risk-path": "book-risk-path.csv",
+    "book-risk-equity-path": "book-risk-equity-path.csv",
     "book-risk-scenario-comparisons": (
         "book-risk-scenario-comparisons.csv"
     ),
@@ -68,6 +69,14 @@ PATH_COLUMNS = (
     "componentRiskHhi",
     "effectiveRiskBets",
     "firstPrincipalComponentVarianceShare",
+)
+EQUITY_PATH_COLUMNS = (
+    "timestamp",
+    "portfolioReturn",
+    "cumulativeReturn",
+    "nav",
+    "runningPeak",
+    "drawdown",
 )
 SCENARIO_COMPARISON_COLUMNS = (
     "scenarioId",
@@ -199,19 +208,37 @@ def _csv_rows(
     return rows
 
 
-def _artifact_paths(run) -> dict[str, Path]:
+def _supports_drawdown_evidence(version: Any) -> bool:
+    if not isinstance(version, str):
+        return True
+    try:
+        parts = tuple(int(item) for item in version.split("."))
+    except ValueError:
+        return True
+    return parts >= (0, 8, 19)
+
+
+def _artifact_paths(run) -> tuple[dict[str, Path], bool]:
+    legacy = not _supports_drawdown_evidence(
+        run.result["harness"].get("version")
+    )
+    expected = {
+        kind: filename
+        for kind, filename in ARTIFACTS.items()
+        if not legacy or kind != "book-risk-equity-path"
+    }
     declared = {
         item["kind"]: item["path"]
         for item in run.result["artifacts"]
     }
-    if set(declared) != set(ARTIFACTS):
+    if set(declared) != set(expected):
         _fail(
             run.root_dir,
             "book-risk.artifacts",
             "Book Risk Run artifacts differ from the fixed inventory",
         )
     result: dict[str, Path] = {}
-    for kind, filename in ARTIFACTS.items():
+    for kind, filename in expected.items():
         relative = declared[kind]
         if relative != f"artifacts/{filename}":
             _fail(
@@ -220,7 +247,7 @@ def _artifact_paths(run) -> dict[str, Path]:
                 "Book Risk artifact path differs from the fixed contract",
             )
         result[kind] = run.root_dir / relative
-    return result
+    return result, legacy
 
 
 def _sample(rows: list[dict[str, Any]], limit: int) -> list[dict[str, Any]]:
@@ -845,6 +872,229 @@ def _validate_position_sizing(
     }
 
 
+def _validate_drawdown_evidence(
+    report: dict[str, Any],
+    paths: dict[str, Path],
+    current: dict[str, float],
+    dataset: dict[str, Any],
+    lookbacks: list[dict[str, Any]],
+    point_limit: int,
+    *,
+    legacy: bool,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    if legacy:
+        unavailable = {
+            "available": False,
+            "reason": (
+                "Run predates AutoQuant 0.8.19 fixed Book Risk drawdown "
+                "evidence."
+            ),
+        }
+        return unavailable, {
+            **unavailable,
+            "totalRows": 0,
+            "sampledRows": 0,
+            "points": [],
+        }
+    drawdown = _strict(
+        report["drawdown"],
+        {
+            "method",
+            "returnConvention",
+            "initialNav",
+            "maximumDrawdown",
+            "peakTimestamp",
+            "troughTimestamp",
+            "recoveryTimestamp",
+            "recovered",
+        },
+        f"{paths['book-risk-report']}/drawdown",
+    )
+    expected_return_convention = (
+        "Supplied asset weights are applied to each same-clock close-to-close "
+        "simple-return row; cash return is zero."
+    )
+    if (
+        drawdown["method"] != "daily-constant-weight-close-to-close"
+        or drawdown["returnConvention"] != expected_return_convention
+        or drawdown["initialNav"] != 1.0
+        or not isinstance(drawdown["peakTimestamp"], str)
+        or not drawdown["peakTimestamp"]
+        or not isinstance(drawdown["troughTimestamp"], str)
+        or not drawdown["troughTimestamp"]
+        or (
+            drawdown["recoveryTimestamp"] is not None
+            and (
+                not isinstance(drawdown["recoveryTimestamp"], str)
+                or not drawdown["recoveryTimestamp"]
+            )
+        )
+        or not isinstance(drawdown["recovered"], bool)
+        or drawdown["recovered"]
+        != (drawdown["recoveryTimestamp"] is not None)
+    ):
+        _fail(
+            f"{paths['book-risk-report']}/drawdown",
+            "book-risk.drawdown",
+            "Drawdown method or interval identity is invalid",
+        )
+    maximum_drawdown = _finite(
+        drawdown["maximumDrawdown"],
+        f"{paths['book-risk-report']}/drawdown/maximumDrawdown",
+    )
+    if maximum_drawdown > 1e-12:
+        _fail(
+            f"{paths['book-risk-report']}/drawdown/maximumDrawdown",
+            "book-risk.drawdown",
+            "Maximum drawdown must be non-positive",
+        )
+    rows: list[dict[str, Any]] = []
+    previous_timestamp = ""
+    previous_nav = 1.0
+    previous_peak = 1.0
+    for index, raw in enumerate(
+        _csv_rows(
+            paths["book-risk-equity-path"],
+            EQUITY_PATH_COLUMNS,
+        )
+    ):
+        row_path = f"{paths['book-risk-equity-path']}:{index + 2}"
+        timestamp = raw["timestamp"]
+        if not timestamp or timestamp <= previous_timestamp:
+            _fail(
+                f"{row_path}/timestamp",
+                "book-risk.equity-path-order",
+                "Book equity-path timestamps must be ordered and unique",
+            )
+        row = {
+            "timestamp": timestamp,
+            **{
+                key: _csv_finite(raw[key], f"{row_path}/{key}")
+                for key in EQUITY_PATH_COLUMNS[1:]
+            },
+        }
+        if index == 0:
+            for key, expected in {
+                "portfolioReturn": 0.0,
+                "cumulativeReturn": 0.0,
+                "nav": 1.0,
+                "runningPeak": 1.0,
+                "drawdown": 0.0,
+            }.items():
+                _close(row[key], expected, f"{row_path}/{key}")
+        else:
+            if row["portfolioReturn"] <= -1.0:
+                _fail(
+                    f"{row_path}/portfolioReturn",
+                    "book-risk.equity-path",
+                    "Book path return must preserve positive NAV",
+                )
+            _close(
+                row["nav"],
+                previous_nav * (1.0 + row["portfolioReturn"]),
+                f"{row_path}/nav",
+            )
+            _close(
+                row["cumulativeReturn"],
+                row["nav"] - 1.0,
+                f"{row_path}/cumulativeReturn",
+            )
+            _close(
+                row["runningPeak"],
+                max(previous_peak, row["nav"]),
+                f"{row_path}/runningPeak",
+            )
+            _close(
+                row["drawdown"],
+                row["nav"] / row["runningPeak"] - 1.0,
+                f"{row_path}/drawdown",
+            )
+        previous_timestamp = timestamp
+        previous_nav = row["nav"]
+        previous_peak = row["runningPeak"]
+        rows.append(row)
+    primary_bars = int(current["lookbackBars"])
+    if (
+        len(rows) != primary_bars + 1
+        or rows[-1]["timestamp"] != dataset["marketDataEnd"]
+    ):
+        _fail(
+            paths["book-risk-equity-path"],
+            "book-risk.equity-path-window",
+            "Book equity path differs from the primary lookback interval",
+        )
+    trough_index = min(
+        range(len(rows)),
+        key=lambda index: rows[index]["drawdown"],
+    )
+    peak_index = max(
+        range(trough_index + 1),
+        key=lambda index: rows[index]["nav"],
+    )
+    peak_nav = rows[peak_index]["nav"]
+    recovery_index = next(
+        (
+            index
+            for index in range(trough_index, len(rows))
+            if rows[index]["nav"] >= peak_nav * (1.0 - 1e-12)
+        ),
+        None,
+    )
+    expected_recovery = (
+        rows[recovery_index]["timestamp"]
+        if recovery_index is not None
+        else None
+    )
+    _close(
+        maximum_drawdown,
+        rows[trough_index]["drawdown"],
+        paths["book-risk-equity-path"],
+    )
+    if (
+        drawdown["peakTimestamp"] != rows[peak_index]["timestamp"]
+        or drawdown["troughTimestamp"] != rows[trough_index]["timestamp"]
+        or drawdown["recoveryTimestamp"] != expected_recovery
+    ):
+        _fail(
+            paths["book-risk-equity-path"],
+            "book-risk.drawdown-interval",
+            "Drawdown interval does not reconcile with the equity path",
+        )
+    _close(
+        current["maximumDrawdown"],
+        maximum_drawdown,
+        f"{paths['book-risk-report']}/current/maximumDrawdown",
+    )
+    for lookback in lookbacks:
+        bars = int(lookback["lookbackBars"])
+        nav = 1.0
+        running_peak = 1.0
+        derived_maximum = 0.0
+        for row in rows[-bars:]:
+            nav *= 1.0 + row["portfolioReturn"]
+            running_peak = max(running_peak, nav)
+            derived_maximum = min(
+                derived_maximum,
+                nav / running_peak - 1.0,
+            )
+        _close(
+            lookback["maximumDrawdown"],
+            derived_maximum,
+            (
+                f"{paths['book-risk-report']}/lookbacks/"
+                f"{lookback['lookbackBars']}/maximumDrawdown"
+            ),
+        )
+    sampled = _sample(rows, point_limit)
+    return drawdown, {
+        "available": True,
+        "totalRows": len(rows),
+        "sampledRows": len(sampled),
+        "points": sampled,
+        "summary": drawdown,
+    }
+
+
 def load_book_risk_diagnostics(
     project: ProjectContext,
     run_id: str,
@@ -870,26 +1120,29 @@ def load_book_risk_diagnostics(
             "book-risk.run-kind",
             "Run is not a fixed Book Risk evaluation",
         )
-    paths = _artifact_paths(run)
+    paths, legacy = _artifact_paths(run)
+    report_keys = {
+        "schemaVersion",
+        "kind",
+        "requestHash",
+        "positionSnapshot",
+        "authority",
+        "method",
+        "dataset",
+        "lookbacks",
+        "current",
+        "contributions",
+        "pairwiseCorrelations",
+        "reductions",
+        "scenarioComparison",
+        "positionSizing",
+        "rollingSummary",
+    }
+    if not legacy:
+        report_keys.add("drawdown")
     report = _strict(
         _read_object(paths["book-risk-report"]),
-        {
-            "schemaVersion",
-            "kind",
-            "requestHash",
-            "positionSnapshot",
-            "authority",
-            "method",
-            "dataset",
-            "lookbacks",
-            "current",
-            "contributions",
-            "pairwiseCorrelations",
-            "reductions",
-            "scenarioComparison",
-            "positionSizing",
-            "rollingSummary",
-        },
+        report_keys,
         paths["book-risk-report"],
     )
     if (
@@ -932,27 +1185,34 @@ def load_book_risk_diagnostics(
         "scenarioMeaning": "caller-specified-historical-comparison",
         "sizingMeaning": "caller-bounded-historical-target-position",
     }
+    if not legacy:
+        authority["drawdownMeaning"] = (
+            "static-weight-close-to-close-research-path"
+        )
     if report["authority"] != authority:
         _fail(
             paths["book-risk-report"],
             "book-risk.authority",
             "Book Risk authority boundary differs from the fixed contract",
         )
+    current_keys = {
+        "observations",
+        "annualizedVolatility",
+        "annualizedVariance",
+        "componentRiskHhi",
+        "effectiveRiskBets",
+        "firstPrincipalComponentVarianceShare",
+        "largestAbsoluteRiskContributorShare",
+        "lookbackBars",
+        "grossExposure",
+        "netExposure",
+        "cashWeight",
+    }
+    if not legacy:
+        current_keys.add("maximumDrawdown")
     current = _strict(
         report["current"],
-        {
-            "observations",
-            "annualizedVolatility",
-            "annualizedVariance",
-            "componentRiskHhi",
-            "effectiveRiskBets",
-            "firstPrincipalComponentVarianceShare",
-            "largestAbsoluteRiskContributorShare",
-            "lookbackBars",
-            "grossExposure",
-            "netExposure",
-            "cashWeight",
-        },
+        current_keys,
         f"{paths['book-risk-report']}/current",
     )
     current_numeric = {
@@ -998,6 +1258,8 @@ def load_book_risk_diagnostics(
         ),
         "primary_lookback_bars": "lookbackBars",
     }
+    if not legacy:
+        metric_map["current_maximum_drawdown"] = "maximumDrawdown"
     for metric, field in metric_map.items():
         _close(
             _finite(run.result["metrics"].get(metric), f"metrics/{metric}"),
@@ -1151,6 +1413,8 @@ def load_book_risk_diagnostics(
         "firstReductionAsset",
         "firstReductionVolatilityPerWeight",
     }
+    if not legacy:
+        lookback_keys.add("maximumDrawdown")
     for index, raw in enumerate(raw_lookbacks):
         item = _strict(
             raw,
@@ -1183,6 +1447,10 @@ def load_book_risk_diagnostics(
             or not 0
             <= parsed["largestAbsoluteRiskContributorShare"]
             <= 1
+            or (
+                not legacy
+                and parsed["maximumDrawdown"] > 1e-12
+            )
             or not isinstance(
                 parsed["largestAbsoluteRiskContributor"],
                 str,
@@ -1833,6 +2101,15 @@ def load_book_risk_diagnostics(
         min(row["effectiveRiskBets"] for row in path_rows),
         paths["book-risk-path"],
     )
+    drawdown, equity_path = _validate_drawdown_evidence(
+        report,
+        paths,
+        current_numeric,
+        dataset,
+        lookbacks,
+        point_limit,
+        legacy=legacy,
+    )
     _close(
         _finite(
             rolling["maximumComponentRiskHhi"],
@@ -1908,6 +2185,8 @@ def load_book_risk_diagnostics(
             "ranking": comparison["ranking"],
         },
         "positionSizing": position_sizing,
+        "drawdown": drawdown,
+        "equityPath": equity_path,
         "rollingPath": {
             "totalRows": len(path_rows),
             "sampledRows": len(sampled),
@@ -1919,7 +2198,10 @@ def load_book_risk_diagnostics(
                 "path": f"artifacts/{filename}",
                 "immutable": True,
             }
-            for kind, filename in ARTIFACTS.items()
+            for kind, filename in (
+                (kind, path.name)
+                for kind, path in paths.items()
+            )
         },
     }
 
@@ -1942,6 +2224,8 @@ BOOK_RISK_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "pairwiseCorrelations",
         "scenarioComparison",
         "positionSizing",
+        "drawdown",
+        "equityPath",
         "rollingPath",
         "artifacts",
     ],
@@ -1958,6 +2242,8 @@ BOOK_RISK_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "pairwiseCorrelations": {"type": "array"},
         "scenarioComparison": {"type": "object"},
         "positionSizing": {"type": "object"},
+        "drawdown": {"type": "object"},
+        "equityPath": {"type": "object"},
         "rollingPath": {"type": "object"},
         "artifacts": {"type": "object"},
     },

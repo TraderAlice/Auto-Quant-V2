@@ -1,6 +1,7 @@
 # Reported-position Book Risk
 
-Status: implemented in AutoQuant `0.8.5`.
+Status: implemented in AutoQuant `0.8.5`, with fixed-book drawdown evidence
+added in `0.8.19`.
 
 Related contracts: [[docs/design/agent-native-quant-workbench]],
 [[docs/design/research-intake-and-dataset-snapshots]],
@@ -137,6 +138,25 @@ The first principal-component share is calculated from the held-asset
 correlation matrix. It describes common-movement crowding; it is not a claim
 that the holdings are literally one economic trade.
 
+For every fixed lookback, the Judge also constructs a descriptive equity path.
+NAV begins at `1.0` on the observed close immediately before the first return.
+On every later same-clock row, supplied asset weights are applied to
+close-to-close simple returns while cash earns zero:
+
+```text
+book return       = Σ supplied weightᵢ × asset returnᵢ
+NAVₜ              = NAVₜ₋₁ × (1 + book returnₜ)
+drawdownₜ         = NAVₜ / running maximum NAVₜ - 1
+maximum drawdown  = minimum drawdownₜ
+```
+
+Maximum drawdown is signed and non-positive. The primary window records the
+observed peak and trough timestamps and the first later recovery to the peak,
+or `null` when unrecovered. A no-loss path uses the initial observed timestamp
+for peak, trough, and recovery. This daily constant-weight convention shares
+the covariance audit's immutable return panel, but it is not reconstructed
+broker holdings, fills, taxes, cash yield, or authenticated account equity.
+
 For each asset the Judge moves one percentage point of absolute position
 toward cash, or the whole position when smaller, while holding every other
 weight fixed. It ranks the resulting annualized-volatility reduction per unit
@@ -196,6 +216,7 @@ One successful Run publishes:
 - `book-risk-reductions.csv`;
 - `book-risk-correlations.csv`;
 - `book-risk-path.csv`;
+- `book-risk-equity-path.csv`;
 - `book-risk-scenario-comparisons.csv`;
 - `book-risk-scenario-contributions.csv`;
 - `book-risk-sizing-lookbacks.csv`;
@@ -205,6 +226,9 @@ One successful Run publishes:
 method and dataset description, metric reconciliation, contribution and
 reduction ordering, pair counts, rolling summaries, and cross-artifact
 identity before returning the bounded `book-risk-diagnostics` read model. For
+drawdown it additionally rebuilds NAV, cumulative return, running peaks,
+per-row drawdown, the peak/trough/recovery interval, and the primary-window
+scalar from the immutable equity-path CSV. For
 supplied scenarios it additionally re-derives every delta, rank, HHI/effective
 bet identity, weight change, component-variance sum, risk-share sum and leader
 from the two scenario artifacts and frozen books.
@@ -215,9 +239,16 @@ contribution identities, and both sizing artifacts. A sizing-only asset may
 enter this ledger with baseline weight zero without entering the
 caller-scenario comparison universe.
 
+Run-native compatibility is explicit. Book Risk Runs recorded by Harness
+versions before `0.8.19` keep their original nine-artifact inventory and remain
+readable in CLI and Studio; their read model marks drawdown and equity path
+unavailable. Core never retrofits a new path into an old immutable Run.
+
 Studio exposes the same verified evidence as a Book Risk lane:
 
 - current volatility, effective risk bets, first-PC share, and HHI;
+- current and lookback maximum drawdown plus the primary equity path and
+  peak/trough/recovery interval;
 - the contributor and reduction leader;
 - lookback stability;
 - component-risk tables;
