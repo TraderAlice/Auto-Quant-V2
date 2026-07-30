@@ -6,7 +6,8 @@ Updated: 2026-07-30.
 
 Related: [[README]], [[docs/ARCHITECTURE]],
 [[docs/design/agent-native-quant-workbench]],
-[[docs/trading-request-field-trials]], and [[PLANS]].
+[[docs/trading-request-field-trials]],
+[[docs/agent-employability-validation]], and [[PLANS]].
 
 ## Milestone
 

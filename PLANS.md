@@ -18,7 +18,9 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-There are no active plans.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/agent-employability-validation]] | Prove that fresh coding coworkers can independently turn materially different caller questions into bounded, scientifically truthful AutoQuant handoffs before any OpenAlice consumption interface is frozen. | 2026-07-30 |
 
 ## Proposed plans
 

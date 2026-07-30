@@ -205,6 +205,9 @@ Read the relevant linked document before changing a subsystem:
 - AI-primary operator, human-reviewer roles, compact Agent Work Brief,
   filesystem authority, and CLI/Studio orientation parity:
   [[docs/design/agent-operator-experience]]
+- Fresh-worker isolation, employability evidence grades, trial observation,
+  friction promotion, and the OpenAlice readiness gate:
+  [[docs/agent-employability-validation]]
 - Project-observed capability gaps and their promotion into Workbench design
   and plans: [[docs/design/project-derived-workbench-needs]]
 - Observed-universe ordinary-pandas factor input, aligned/ragged cross-asset
