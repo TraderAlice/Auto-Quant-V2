@@ -454,6 +454,7 @@ class StudioObservationTests(unittest.TestCase):
                     self.assertIn("validationBaselineAdvantage", javascript)
                     self.assertIn("renderFactorComponents", javascript)
                     self.assertIn("renderResearchAgenda", javascript)
+                    self.assertIn("OPTIONAL FOLLOW-UP", javascript)
                     self.assertIn(
                         "project.agentWorkBrief?.researchAgenda",
                         javascript,

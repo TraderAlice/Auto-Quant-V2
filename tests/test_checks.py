@@ -327,6 +327,10 @@ class CandidateCheckTests(unittest.TestCase):
             )
             self.assertIsNone(review["primaryAction"])
             self.assertEqual(
+                review["researchAgenda"]["moveRole"],
+                "unavailable",
+            )
+            self.assertEqual(
                 [item["id"] for item in review["supportingActions"]],
                 ["session.show", "report.publish"],
             )
@@ -365,6 +369,10 @@ class CandidateCheckTests(unittest.TestCase):
                 ready["primaryAction"]["id"],
                 "session.complete",
             )
+            self.assertEqual(
+                ready["researchAgenda"]["moveRole"],
+                "unavailable",
+            )
             complete_session(
                 project,
                 session.manifest["id"],
@@ -379,6 +387,10 @@ class CandidateCheckTests(unittest.TestCase):
             self.assertEqual(
                 completed["evidence"]["sessionStatus"],
                 "completed",
+            )
+            self.assertEqual(
+                completed["researchAgenda"]["moveRole"],
+                "unavailable",
             )
 
     def test_later_same_source_check_is_not_attributed_to_prior_trial(

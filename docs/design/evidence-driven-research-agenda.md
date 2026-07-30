@@ -46,6 +46,7 @@ Every work brief contains:
       "iterationFocus": "distinct-factor-information",
       "explanation": "..."
     },
+    "moveRole": "current-research-guidance",
     "moves": [
       {
         "priority": 1,
@@ -104,10 +105,18 @@ Session, Check, Experiment, Report, promotion, and completion transitions.
 Waiting agendas declare `authority.source: none`; they never imply that a
 missing Run was verified.
 
+`moveRole` is `current-research-guidance` while the lifecycle is actively
+preparing bounded work, `optional-follow-up` when immutable trial history
+exists and the Work Brief has no required primary action (or terminal required
+research is complete), and `unavailable` when `moves` is empty. This field
+controls CLI and Studio presentation; it does not change evidence ordering,
+Session writability, or selection authority.
+
 An available future move does not make another edit mandatory after an
 immutable trial restores the leader. That state is a trial-review handoff:
 orientation lets the Agent report/complete the current prefix or explicitly
-declare another bounded hypothesis. Only a separate
+declare another bounded hypothesis, and labels the agenda
+`optional-follow-up`. Only a separate
 `no-further-in-sample-tuning` diagnosis upgrades that choice to the stronger
 freeze/external-holdout handoff.
 

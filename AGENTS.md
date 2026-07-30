@@ -98,7 +98,9 @@ brief that another Agent can recover from the filesystem.
    alternative baseline-retaining close and must not follow promotion. After a
    valid completion or promotion, treat `required-research-complete` as the
    terminal handoff; a listed `session.start` is an optional explicit follow-
-   up, not unfinished required work.
+   up, not unfinished required work. Read `researchAgenda.moveRole`
+   literally: `optional-follow-up` preserves useful evidence-derived ideas but
+   does not authorize or require another Session or Experiment.
 
 Read `selectionIntegrity.testExposureState` literally. The first candidate is
 fixed before its own audit becomes visible; a later Experiment proves only

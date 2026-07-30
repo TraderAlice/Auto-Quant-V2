@@ -110,7 +110,9 @@ The first viewport prioritizes:
   declared components, typed validation evidence, required checks, and stop
   conditions; a completed Book Risk or Price Event audit instead shows a
   closed descriptive agenda with no candidate moves; JavaScript never creates
-  or reorders moves;
+  or reorders moves; it renders Core's exact `moveRole`, including an
+  `OPTIONAL FOLLOW-UP` label after a completed or reviewing trial has no
+  required primary action;
 - a frozen external-holdout panel when present, showing the exact source
   Dossier, source-end/strictly-later-start boundary, imported lane set, and
   source-versus-later objective/delta cells from Core; it never colors a lane
@@ -130,6 +132,8 @@ Every valid Project snapshot includes `agentWorkBrief` and
 contract: Studio's Current Research Decision card and the CLI cannot disagree
 about the active question, reason, next lifecycle action, or bounded experiment
 order. Agenda moves remain diagnostic-only and cannot execute themselves.
+Their current-guidance/optional/unavailable presentation comes from the same
+hashed Work Brief rather than browser inference.
 Detailed Cockpit and evidence panels remain richer read models and do not
 broaden its filesystem or trading authority. See
 [[docs/design/evidence-driven-research-agenda]].

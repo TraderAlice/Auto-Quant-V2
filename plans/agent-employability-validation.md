@@ -149,6 +149,17 @@ accidental current workflow instead of consuming a stable independent desk.
   `0.8.19` multistage trial has Grade A preserved evidence and a correct answer,
   but its two Report-reference retries make it a high-friction pass rather
   than a zero-retry success; the unchanged `0.8.20` retry later proved the fix.
+- 2026-07-30 — Fresh post-plan worker 1/4 independently handled a sector-ETF
+  Factor-to-Portfolio request on installed `0.8.28`. It preserved SPY as
+  context, spent one formal Experiment, accepted REVERT, and withheld target
+  weights when Factor qualification failed. One failed bounded Check is
+  research feedback rather than a worker-caused CLI retry under the frozen
+  protocol; every immutable claim and input identity independently reconciled.
+- 2026-07-30 — That worker reproduced post-trial agenda ambiguity after the
+  earlier `0.8.28` negative Factor task. The two-assignment recurrence rule is
+  now met, so [[plans/optional-post-trial-research-agenda]] is active. Its
+  252→21 preflight/warmup issue remains a recorded first occurrence rather
+  than immediately expanding Core.
 
 ## Verification
 
@@ -165,6 +176,10 @@ accidental current workflow instead of consuming a stable independent desk.
   `57c6c8c68511481f1170311677858f5bbf03df410d27345f0a1e20f1bf17d904`
   and `7dad9b4eaabe1c4ce364c3ad4e6d2faef00c682d1e6728e59da4c4b8413688e2`.
 - Fresh post-plan cohort execution remains pending; the protocol is frozen.
+- Fresh post-plan cohort execution is underway. Worker 1/4 is Grade A
+  `independent-pass`; its Project, both Runs, Report/Dossier, final Studio,
+  source hashes, normalized hashes, and outward conclusion independently
+  reconcile under the original installed `0.8.28` wheel.
 
 ## Progress log
 
@@ -180,6 +195,10 @@ accidental current workflow instead of consuming a stable independent desk.
 - 2026-07-30 — The representative historical audit is complete. Unreviewed
   trials remain lower-grade/unknown rather than being needed to inflate the
   baseline; the next work is fresh post-plan cohort execution.
+- 2026-07-30 — Completed independent review of
+  `cohort-01-sector-factor-portfolio`, recorded fresh cohort progress at 1/4,
+  activated the recurrent optional-agenda remediation, and deferred the
+  one-off long-lookback preflight observation.
 
 ## Completion
 

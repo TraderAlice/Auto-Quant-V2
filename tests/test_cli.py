@@ -333,7 +333,11 @@ class AgentCliTests(unittest.TestCase):
                 "Research agenda:",
                 human_orientation.stdout,
             )
-            self.assertIn("Experiment 1:", human_orientation.stdout)
+            self.assertIn(
+                "Research agenda: available · current-research-guidance",
+                human_orientation.stdout,
+            )
+            self.assertIn("Research move 1:", human_orientation.stdout)
             self.assertIn("Hypothesis:", human_orientation.stdout)
             self.assertIn(
                 "run.factor",

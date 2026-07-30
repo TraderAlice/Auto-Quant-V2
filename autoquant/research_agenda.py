@@ -12,8 +12,13 @@ from .workspace import SCHEMA_VERSION, ProjectContext
 
 
 RESEARCH_AGENDA_KIND = "autoquant-evidence-driven-research-agenda"
-RESEARCH_AGENDA_METHOD = "verified-lane-diagnostics-to-bounded-moves-v1"
+RESEARCH_AGENDA_METHOD = "verified-lane-diagnostics-to-bounded-moves-v2"
 MAX_RESEARCH_MOVES = 3
+RESEARCH_AGENDA_MOVE_ROLES = {
+    "current-research-guidance",
+    "optional-follow-up",
+    "unavailable",
+}
 
 _OBJECTIVE_LANES = {
     "validation_mean_ic": "factor",
@@ -111,6 +116,11 @@ def _agenda(
         "run": run,
         "diagnosis": diagnosis,
         "moves": bounded,
+        "moveRole": (
+            "current-research-guidance"
+            if bounded
+            else "unavailable"
+        ),
         "authority": _authority(has_run=run is not None),
     }
 
@@ -1390,6 +1400,7 @@ RESEARCH_AGENDA_JSON_SCHEMA: dict[str, Any] = {
         "run",
         "diagnosis",
         "moves",
+        "moveRole",
         "authority",
     ],
     "properties": {
@@ -1448,6 +1459,9 @@ RESEARCH_AGENDA_JSON_SCHEMA: dict[str, Any] = {
             "maxItems": MAX_RESEARCH_MOVES,
             "items": RESEARCH_MOVE_SCHEMA,
         },
+        "moveRole": {
+            "enum": sorted(RESEARCH_AGENDA_MOVE_ROLES),
+        },
         "authority": {
             "type": "object",
             "additionalProperties": False,
@@ -1497,6 +1511,7 @@ RESEARCH_AGENDA_JSON_SCHEMA: dict[str, Any] = {
                     "run": {"type": "object"},
                     "diagnosis": {"type": "object"},
                     "moves": {"maxItems": 0},
+                    "moveRole": {"const": "unavailable"},
                     "authority": {
                         "properties": {
                             "source": {
@@ -1529,6 +1544,12 @@ RESEARCH_AGENDA_JSON_SCHEMA: dict[str, Any] = {
                     "run": {"type": "object"},
                     "diagnosis": {"type": "object"},
                     "moves": {"minItems": 1},
+                    "moveRole": {
+                        "enum": [
+                            "current-research-guidance",
+                            "optional-follow-up",
+                        ]
+                    },
                 }
             },
         },
@@ -1547,6 +1568,7 @@ RESEARCH_AGENDA_JSON_SCHEMA: dict[str, Any] = {
             "then": {
                 "properties": {
                     "moves": {"maxItems": 0},
+                    "moveRole": {"const": "unavailable"},
                 }
             },
         },

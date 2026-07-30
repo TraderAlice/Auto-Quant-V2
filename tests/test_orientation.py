@@ -500,6 +500,10 @@ Do not include this sibling section.
                 [item["id"] for item in brief["supportingActions"]],
                 ["session.show", "session.start"],
             )
+            self.assertEqual(
+                brief["researchAgenda"]["moveRole"],
+                "unavailable",
+            )
             self.assertIn(
                 "Optionally continue",
                 brief["supportingActions"][1]["description"],
@@ -561,6 +565,10 @@ Do not include this sibling section.
             self.assertEqual(
                 [item["id"] for item in brief["supportingActions"]],
                 ["session.show", "session.start"],
+            )
+            self.assertEqual(
+                brief["researchAgenda"]["moveRole"],
+                "unavailable",
             )
             self.assertIn(
                 "does not assert scientific qualification",
@@ -628,6 +636,10 @@ Do not include this sibling section.
                 "no-further-in-sample-tuning",
             )
             self.assertEqual(
+                brief["researchAgenda"]["moveRole"],
+                "optional-follow-up",
+            )
+            self.assertEqual(
                 brief["reasons"][0]["code"],
                 "in-sample-freeze-ready",
             )
@@ -666,7 +678,7 @@ Do not include this sibling section.
             jsonschema.validate(settled, AGENT_WORK_BRIEF_JSON_SCHEMA)
             self.assertEqual(
                 settled["method"],
-                "verified-project-agent-orientation-v9",
+                "verified-project-agent-orientation-v10",
             )
             self.assertEqual(
                 [item["code"] for item in settled["reasons"]],

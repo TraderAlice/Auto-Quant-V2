@@ -157,8 +157,26 @@ contract. Host integration is not part of this validation record.
 | `v0.8.24-capped-erc-fidelity` | `A` | `independent-pass` | fixed Portfolio-native Allocation | 0 | passed | Worker separated positive validation relative performance from 0/6 construction-fidelity decisions and did not collapse them into one strategy claim. |
 | `v0.8.26-manifest-root-event` | `A` | `independent-pass` | fixed Event Study | 0 | passed | One adopted Workspace, one Project, one Run; staged bytes stayed unchanged; 22-event descriptive answer retained wide uncertainty and no trading authority. |
 | `v0.8.28-price-volume-negative` | `A` | `independent-pass` | daily editable Factor | 0 | passed | Nine Yahoo assets; baseline used only real daily inputs; one checked REVERT; Report/completion retained the baseline; no Portfolio, RL, holdout, Order, or second Experiment. |
+| `cohort-01-sector-factor-portfolio` | `A` | `independent-pass` | editable Factor → Portfolio gate | 0 | passed | First fresh post-plan worker. Eleven sector ETFs plus SPY; one failed and one passing bounded Check, one REVERT, and a truthful negative handoff. Fixed Factor qualification withheld Portfolio weights. |
 
 The four pre-plan rows establish strong historical evidence but do not count
 toward the required four fresh post-plan workers. Additional historical rows
 remain pending conservative audit. Fresh rows are added only after independent
 evidence verification.
+
+Fresh post-plan progress: `1/4`. The first worker covers editable Factor and a
+truthful Factor-to-Portfolio gate, but does not yet satisfy the target-weight
+handoff coverage item because the scientific gate correctly blocked
+Portfolio.
+
+Its exact packet and review live outside the product repository at
+`/Users/ame/2607AutoQuant/grok-field-trials/cohort-01-sector-factor-portfolio`.
+The installed `0.8.28` CLI independently revalidated the Project, both Factor
+Runs, Report, Dossier, program gates, orientation, Studio, staged source
+hashes, and normalized intake hashes. A natural 252→21 skip-month candidate
+failed the bounded 256-timestamp/prefix Check and was changed to 126→21 before
+the sole formal Experiment. That scientifically costly first occurrence is
+recorded and deferred pending independent recurrence or a separately justified
+contract fix. Post-trial agenda ambiguity did recur for the second materially
+different assignment, so [[plans/optional-post-trial-research-agenda]] is now
+active.

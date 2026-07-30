@@ -21,12 +21,11 @@ invariants live in `docs/design/`.
 | Plan | Outcome | Updated |
 | --- | --- | --- |
 | [[plans/agent-employability-validation]] | Prove that fresh coding coworkers can independently turn materially different caller questions into bounded, scientifically truthful AutoQuant handoffs before any OpenAlice consumption interface is frozen. | 2026-07-30 |
+| [[plans/optional-post-trial-research-agenda]] | Keep evidence-derived post-trial hypotheses visible while labeling them explicitly optional whenever the Work Brief has no required primary action. | 2026-07-30 |
 
 ## Proposed plans
 
-| Plan | Outcome | Updated |
-| --- | --- | --- |
-| [[plans/optional-post-trial-research-agenda]] | Keep evidence-derived post-trial hypotheses visible while labeling them explicitly optional whenever the Work Brief has no required primary action. | 2026-07-30 |
+None.
 
 ## Paused plans
 

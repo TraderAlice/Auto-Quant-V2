@@ -45,7 +45,7 @@ from .workspace import SCHEMA_VERSION, ProjectContext
 
 
 AGENT_WORK_BRIEF_KIND = "autoquant-agent-work-brief"
-AGENT_WORK_BRIEF_METHOD = "verified-project-agent-orientation-v9"
+AGENT_WORK_BRIEF_METHOD = "verified-project-agent-orientation-v10"
 MAX_RESEARCH_QUESTION_CHARS = 4_000
 PROTECTED_CATEGORIES = [
     "request",
@@ -1735,6 +1735,16 @@ def build_agent_work_brief(project: ProjectContext) -> dict[str, Any]:
         if freeze_session is not None
         else []
     )
+    if (
+        research_agenda["moves"]
+        and projected["primaryAction"] is None
+        and (
+            bool(freeze_experiments)
+            or projected["reasons"][0]["code"]
+            == "required-research-complete"
+        )
+    ):
+        research_agenda["moveRole"] = "optional-follow-up"
     if (
         research_agenda["status"] == "no-further-in-sample-tuning"
         and projected["reasons"][0]["code"] == "candidate-edit-required"

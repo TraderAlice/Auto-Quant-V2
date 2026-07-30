@@ -152,7 +152,8 @@ state. It contains:
 - research agenda: zero to three deterministic Factor, Portfolio, or
   governed-RL experiment briefs derived from the current immutable leader
   evidence, each with editable targets, typed evidence references, validation
-  checks, and stop conditions;
+  checks, stop conditions, and one Core-derived move role distinguishing
+  current research guidance from optional post-trial follow-up;
 - filesystem contract: the exact operating root, candidate-editable patterns,
   and protected authority categories;
 - primary action: at most one existing Core-generated command with exact
@@ -173,6 +174,13 @@ scientific change is worth testing after the lifecycle permits an edit;
 `primaryAction` still says whether the operator must establish a baseline,
 start a Session, run preflight, evaluate, publish, complete, or promote. Agenda
 moves have no operation effect and cannot execute themselves.
+
+`researchAgenda.moveRole` is part of the hashed Work Brief. It is
+`current-research-guidance` during active bounded preparation,
+`optional-follow-up` when immutable trial history exists and no required
+primary action remains (or terminal required research is complete), and
+`unavailable` when there are no moves. Core derives this from verified
+lifecycle state, never by parsing a caller's Markdown experiment budget.
 
 Factor moves can prioritize explicitly declared components, but they never
 infer Python provenance or claim that a fixed diagnostic-blend removal is an

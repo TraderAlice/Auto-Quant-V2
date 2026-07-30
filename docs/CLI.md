@@ -163,7 +163,12 @@ V2 also includes `researchAgenda`: an explicit waiting/unsupported/frozen
 state or up to three deterministic experiment briefs derived from the current
 verified Factor, Portfolio, or governed-RL Run. Each move carries its
 hypothesis, editable paths, optional declared components, typed evidence
-references, validation checks, and stop conditions. Agenda moves are not
+references, validation checks, and stop conditions. `moveRole` is
+`current-research-guidance` while the lifecycle is actively preparing a
+bounded investigation, `optional-follow-up` after immutable trial review or a
+terminal lane has no required primary action, and `unavailable` when no move
+exists. Human output uses `Research move` versus `Optional follow-up` from
+that exact field. Agenda moves are not
 `nextActions`; they cannot execute, promote, or trade, and visible test audit
 cannot affect their order.
 It is read-only. Before a Session exists it never advertises canonical Project

@@ -4369,6 +4369,7 @@ def _orient(args: argparse.Namespace) -> CommandResult:
         f"Authority: {brief['authority']['selectionSplit']} selects · "
         f"{brief['authority']['testRole']} test · trading none\n"
         f"Research agenda: {agenda['status']}"
+        f" · {agenda['moveRole']}"
         + (
             f" · {agenda['diagnosis']['stage']}"
             if agenda["diagnosis"] is not None
@@ -4376,7 +4377,12 @@ def _orient(args: argparse.Namespace) -> CommandResult:
         )
         + "\n"
         + (
-            f"Experiment 1: {agenda_move['title']}\n"
+            (
+                "Optional follow-up 1: "
+                if agenda["moveRole"] == "optional-follow-up"
+                else "Research move 1: "
+            )
+            + f"{agenda_move['title']}\n"
             f"Hypothesis: {agenda_move['hypothesis']}\n"
             f"Edit target: "
             f"{', '.join(agenda_move['target']['editablePaths']) or 'freeze current source'}\n"

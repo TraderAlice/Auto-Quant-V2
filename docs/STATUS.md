@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha at `0.8.28`.
+Status: usable pre-alpha at `0.8.29`.
 
 Updated: 2026-07-30.
 
@@ -14,7 +14,7 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 AutoQuant V2 has crossed the line from an architectural prototype into a
 usable Agent-native quantitative research workbench.
 
-At `0.8.28`, a human, local coding Agent, or coworker delegated from OpenAlice
+At `0.8.29`, a human, local coding Agent, or coworker delegated from OpenAlice
 can:
 
 1. clone the repository and immediately discover the Harness plus its
@@ -264,7 +264,17 @@ Order, or second Experiment was created.
 Full repository regression passes 326 tests in 868.625 seconds and all 1,143
 documentation links resolve.
 
-The current release is `v0.8.28`. `v0.8.27` remains the primary-horizon and
+`0.8.29` adds a lifecycle-aware presentation role to the verified research
+agenda. A move remains `current-research-guidance` while a bounded
+investigation is active. Once an immutable trial is waiting for review or a
+reported lane has no required primary action, the same evidence-derived move
+becomes `optional-follow-up` in shared JSON, terminal output, and Studio.
+Agendas with no move are `unavailable`. This is presentation authority only:
+Core neither infers a prose experiment budget nor executes, promotes, or
+trades from an agenda.
+
+The current release candidate is `v0.8.29`. `v0.8.28` remains the truthful
+first-Factor-surface milestone, while `v0.8.27` remains the primary-horizon and
 terminal Session-handoff milestone, while `v0.8.26` remains the manifest-rooted
 staging and paired request-source milestone, while `v0.8.25` remains the explicit Workspace
 adoption milestone, while `v0.8.24` remains the split Allocation

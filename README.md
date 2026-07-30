@@ -1,5 +1,5 @@
 ---
-version: 0.8.28
+version: 0.8.29
 ---
 
 # AutoQuant V2
@@ -32,7 +32,7 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current milestone: `0.8.28`
+## Current milestone: `0.8.29`
 
 AutoQuant V2 has crossed from an architectural prototype into a usable
 research workbench.
@@ -330,6 +330,15 @@ the unchanged external-holdout requirement. One adjacent optional-agenda
 presentation issue is indexed separately rather than folded into this release.
 Repository regression passes all 326 tests in 868.625 seconds and the
 documentation graph resolves all 1,143 checked links.
+
+`0.8.29` resolves that presentation issue after a second materially different
+fresh worker reproduced it. An evidence-derived agenda now carries one strict
+`moveRole`: `current-research-guidance`, `optional-follow-up`, or
+`unavailable`. After an immutable trial is awaiting review or a completed
+research lane has no required primary action, CLI JSON, human orientation, and
+Studio retain useful hypotheses but label them as optional follow-up. Core
+still does not parse experiment budgets from Markdown, suppress evidence, or
+authorize automatic execution, promotion, or trading.
 
 `0.8.24` followed another isolated Grok coworker into a capped ERC assignment
 with two independent caller questions. The installed `0.8.23` worker could

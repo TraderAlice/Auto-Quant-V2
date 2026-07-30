@@ -687,8 +687,9 @@ function renderResearchAgenda(project) {
   }
   section.hidden = false;
   const agendaStatus = agenda.status.replaceAll("-", " ");
+  const moveRole = agenda.moveRole.replaceAll("-", " ");
   element("research-agenda-meta").textContent = agenda.diagnosis
-    ? `${agendaStatus} · ${
+    ? `${agendaStatus} · ${moveRole} · ${
         agenda.diagnosis.stage === agenda.status
           ? (
               agenda.diagnosis.iterationFocus ?? agenda.diagnosis.stage
@@ -709,7 +710,7 @@ function renderResearchAgenda(project) {
         (move) => `
           <article class="research-move">
             <header>
-              <span>0${move.priority} · ${escapeHtml(agenda.laneId?.toUpperCase() ?? "STUDY")}</span>
+              <span>${agenda.moveRole === "optional-follow-up" ? "OPTIONAL FOLLOW-UP" : `0${move.priority}`} · ${escapeHtml(agenda.laneId?.toUpperCase() ?? "STUDY")}</span>
               <b>${escapeHtml(move.id)}</b>
             </header>
             <h3>${escapeHtml(move.title)}</h3>
