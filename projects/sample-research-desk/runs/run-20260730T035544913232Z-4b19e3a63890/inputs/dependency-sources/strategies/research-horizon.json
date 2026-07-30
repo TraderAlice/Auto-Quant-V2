@@ -1,0 +1,24 @@
+{
+  "authority": "quantitative-decision-support",
+  "diagnosticForwardBars": [
+    1,
+    5,
+    10
+  ],
+  "id": "horizon-c3a43b664e7f6568",
+  "kind": "autoquant-research-horizon",
+  "primaryForwardBars": 1,
+  "schemaVersion": 1,
+  "selectionAuthority": {
+    "diagnostics": "context-only",
+    "primary": "validation-only"
+  },
+  "source": {
+    "horizon": "reference decision-bar horizon",
+    "horizonPolicy": "reference-default",
+    "kind": "template-default",
+    "requestHash": null
+  },
+  "targetSemantics": "close-t-to-close-t-plus-n-decision-bars",
+  "tradingAuthority": "none"
+}

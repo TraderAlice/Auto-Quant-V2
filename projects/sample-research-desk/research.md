@@ -16,9 +16,15 @@ question.
 The immutable Factor Run
 `run-20260729T075403870227Z-6b7cf30b394f` was produced by the clean released
 AutoQuant `0.8.7` Harness at commit `0c9de83`. It is preserved as historical
-first-view evidence for Studio and records that identity in its RunResult. It
-is not relabeled as a `0.8.8` execution. Portfolio and governed-RL baselines
-are deliberately absent.
+evidence and records that identity in its RunResult; it is not relabeled as a
+later execution.
+
+The current surface-aligned Factor Run
+`run-20260730T035544913232Z-4b19e3a63890` was produced by the clean `0.8.28`
+Harness at commit `b5881b6`. Its candidate declares only base-clock momentum
+because this sample dataset has no higher-interval feature surface. Studio
+uses this ordinary immutable Run as the current Factor Explorer. Portfolio and
+governed-RL baselines are deliberately absent.
 
 ## Research brief and clarification
 
