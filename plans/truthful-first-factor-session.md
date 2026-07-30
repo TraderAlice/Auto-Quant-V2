@@ -1,6 +1,6 @@
 # Make the first Factor Session scientifically legible
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-07-30`
 - Target release: `0.8.28`
 - Originating Project:
@@ -68,7 +68,7 @@ Agent may honestly claim after touching it.
       post-audit-iteration state and requires fresh external evidence.
 - [x] Session, Report, Dossier, CLI, Studio, schema, and documentation agree;
       older evidence remains loadable and no test metric enters selection.
-- [ ] Focused/full tests, build/install smoke, exact clean-clone validation, and
+- [x] Focused/full tests, build/install smoke, exact clean-clone validation, and
       a fresh installed-wheel Agent replay pass before `0.8.28`.
 
 ## Work
@@ -81,7 +81,7 @@ Agent may honestly claim after touching it.
       from fixed source hashes and Experiment order.
 - [x] Update public schemas, human/JSON/Studio projections, design documents,
       template/sample consistency, and regression fixtures.
-- [ ] Run an unchanged fresh Agent assignment, audit its scientific answer and
+- [x] Run an unchanged fresh Agent assignment, audit its scientific answer and
       retries, then complete release verification.
 
 ## Findings and decisions
@@ -143,7 +143,14 @@ Agent may honestly claim after touching it.
     orientation, and Studio snapshot all reconciled.
 - Full repository regression passed all 326 tests in 868.625 seconds and all
   1,143 documentation links resolve.
-- Final distribution/install and exact clean-clone smoke remain pending.
+- Commit `09696ac` produced both the `0.8.28` sdist and wheel. A fresh Python
+  3.11 environment installed the wheel, reported `aq 0.8.28`, enumerated 50
+  public commands and 40 schema kinds, and emitted the current strict
+  `session-decision-matrix` schema.
+- An exact no-local clone of `09696ac` loaded `sample-research-desk` as its
+  default from the checked-in Workspace manifest. Installed-wheel `project
+  list`, `orient`, `validate`, and `studio snapshot` all returned `ok=true`
+  with zero diagnostics; the clone remained clean.
 
 ## Progress log
 
@@ -157,7 +164,13 @@ Agent may honestly claim after touching it.
   contracts; one adjacent optional-agenda follow-up was indexed separately.
 - 2026-07-30 — Full repository regression passed all 326 tests in 868.625
   seconds and the documentation graph resolved all 1,143 checked links.
+- 2026-07-30 — The final sdist/wheel, fresh install, public version/capability/
+  schema smoke, and exact no-local clean-clone Workspace flow all passed.
 
 ## Completion
 
-Pending.
+Completed for `0.8.28`. AutoQuant now gives an unfamiliar Agent a truthful
+Factor baseline and a conservative but observable selection-integrity timeline
+without rewriting historical evidence or pretending to observe how visible
+test results influenced a person. The unchanged field assignment completed
+with zero CLI retries and one scientifically useful negative result.

@@ -18,9 +18,7 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-| Plan | Outcome | Updated |
-| --- | --- | --- |
-| [[plans/truthful-first-factor-session]] | Make the first daily Factor Session expose only real baseline inputs and distinguish test visibility from later test-informed edits. | 2026-07-30 |
+There are no active plans.
 
 ## Proposed plans
 
@@ -38,6 +36,7 @@ invariants live in `docs/design/`.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/truthful-first-factor-session]] | Made the first daily Factor Session expose only real baseline inputs and distinguish test visibility from later post-audit candidate iteration, proved by a zero-retry installed-wheel worker. | 2026-07-30 |
 | [[plans/primary-horizon-and-completed-session-handoff]] | Let callers state additional diagnostic horizons without repeating the primary, and make exact completion or promotion a terminal handoff with optional continuation. | 2026-07-30 |
 | [[plans/manifest-rooted-staging-intake]] | Let Agents intake caller-staged nested OHLCV directly by treating the package manifest directory as the safe source root, without weakening confinement. | 2026-07-30 |
 | [[plans/adopt-existing-workspace-directory]] | Let an Agent explicitly turn a pre-staged real directory into a Workspace without moving caller files or weakening default empty-target safety. | 2026-07-30 |
