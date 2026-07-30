@@ -1225,6 +1225,31 @@ def load_session(project: ProjectContext, session_id: str) -> SessionContext:
     return context
 
 
+def load_session_completion(
+    project: ProjectContext,
+    session: SessionContext,
+) -> dict[str, Any] | None:
+    """Return the exact validated completion receipt for a completed Session."""
+
+    if session.manifest["status"] != "completed":
+        return None
+    return _validate_completion_receipt(
+        project,
+        session.root_dir,
+        session.manifest,
+    )
+
+
+def load_session_promotion(
+    session: SessionContext,
+) -> dict[str, Any] | None:
+    """Return the exact already-validated promotion receipt."""
+
+    if session.manifest["status"] != "promoted":
+        return None
+    return _read_json(session.root_dir / PROMOTION_RECEIPT, "promotion")
+
+
 def _load_session_worktree_marker(
     worktree: ProjectContext,
 ) -> dict[str, Any] | None:

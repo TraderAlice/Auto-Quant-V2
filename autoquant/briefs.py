@@ -1190,18 +1190,25 @@ def validate_research_request(
                         "Diagnostic forward bars must be sorted and unique",
                     )
                 )
-            elif isinstance(primary, int) and primary not in diagnostics:
+            elif (
+                isinstance(primary, int)
+                and len({primary, *diagnostics})
+                > MAX_DIAGNOSTIC_HORIZONS
+            ):
                 issues.append(
                     _issue(
-                        f"{horizon_path}/primaryForwardBars",
-                        "request.horizon-primary-missing",
-                        "Primary forward bars must appear in diagnostics",
+                        f"{horizon_path}/diagnosticForwardBars",
+                        "request.horizon-count",
+                        "Primary plus diagnostic forward bars must contain "
+                        "at most five distinct evaluated horizons",
                     )
                 )
             else:
                 normalized_horizon_policy = {
                     "primaryForwardBars": primary,
-                    "diagnosticForwardBars": list(diagnostics),
+                    "diagnosticForwardBars": sorted(
+                        {primary, *diagnostics}
+                    ),
                 }
     for key, allow_empty in (
         ("hypotheses", True),
@@ -2200,6 +2207,11 @@ RESEARCH_REQUEST_JSON_SCHEMA: dict[str, Any] = {
                             "type": "integer",
                             "minimum": MIN_FORWARD_BARS,
                             "maximum": MAX_FORWARD_BARS,
+                            "description": (
+                                "Required validation-selection horizon. Core "
+                                "always evaluates it and adds it to the "
+                                "canonical evaluated horizon set."
+                            ),
                         },
                         "diagnosticForwardBars": {
                             "type": "array",
@@ -2211,6 +2223,11 @@ RESEARCH_REQUEST_JSON_SCHEMA: dict[str, Any] = {
                                 "minimum": MIN_FORWARD_BARS,
                                 "maximum": MAX_FORWARD_BARS,
                             },
+                            "description": (
+                                "Sorted unique additional context horizons. "
+                                "The primary may be omitted here; Core stores "
+                                "the sorted union, capped at five total."
+                            ),
                         },
                     },
                 },

@@ -65,7 +65,12 @@ def _valid_policy(value: Any) -> bool:
 
 
 def normalize_horizon_policy(value: Any) -> dict[str, Any]:
-    """Return the exact caller policy or the documented reference default."""
+    """Return the canonical evaluated set or the reference default.
+
+    The separately declared primary horizon is always evaluated. Callers may
+    therefore list only additional diagnostic horizons; canonical policy stores
+    their sorted union with the primary.
+    """
 
     if value is None:
         return {
@@ -76,7 +81,10 @@ def normalize_horizon_policy(value: Any) -> dict[str, Any]:
                 DEFAULT_HORIZON_POLICY["diagnosticForwardBars"]
             ),
         }
-    if not _valid_policy(value):
+    if not isinstance(value, dict) or set(value) != {
+        "primaryForwardBars",
+        "diagnosticForwardBars",
+    }:
         raise AutoQuantValidationError(
             [
                 _issue(
@@ -86,11 +94,48 @@ def normalize_horizon_policy(value: Any) -> dict[str, Any]:
                 )
             ]
         )
+    primary = value.get("primaryForwardBars")
+    diagnostics = value.get("diagnosticForwardBars")
+    if (
+        not isinstance(primary, int)
+        or isinstance(primary, bool)
+        or not MIN_FORWARD_BARS <= primary <= MAX_FORWARD_BARS
+        or not isinstance(diagnostics, list)
+        or not MIN_DIAGNOSTIC_HORIZONS
+        <= len(diagnostics)
+        <= MAX_DIAGNOSTIC_HORIZONS
+        or any(
+            not isinstance(item, int)
+            or isinstance(item, bool)
+            or not MIN_FORWARD_BARS <= item <= MAX_FORWARD_BARS
+            for item in diagnostics
+        )
+        or diagnostics != sorted(set(diagnostics))
+    ):
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    "horizonPolicy",
+                    "horizon.policy",
+                    "Invalid numerical research horizon policy",
+                )
+            ]
+        )
+    evaluated = sorted({primary, *diagnostics})
+    if len(evaluated) > MAX_DIAGNOSTIC_HORIZONS:
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    "horizonPolicy/diagnosticForwardBars",
+                    "horizon.policy",
+                    "Primary plus diagnostic forward bars exceed the "
+                    "five-horizon evaluated-set limit",
+                )
+            ]
+        )
     return {
-        "primaryForwardBars": int(value["primaryForwardBars"]),
-        "diagnosticForwardBars": list(
-            value["diagnosticForwardBars"]
-        ),
+        "primaryForwardBars": primary,
+        "diagnosticForwardBars": evaluated,
     }
 
 

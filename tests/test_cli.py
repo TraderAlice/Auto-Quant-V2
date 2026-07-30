@@ -1117,6 +1117,17 @@ class AgentCliTests(unittest.TestCase):
             "artifactPath and artifactRevision are a pair",
             source_schema["description"],
         )
+        horizon_schema = request_schema_value["properties"]["horizonPolicy"][
+            "anyOf"
+        ][1]["properties"]
+        self.assertIn(
+            "always evaluates",
+            horizon_schema["primaryForwardBars"]["description"],
+        )
+        self.assertIn(
+            "primary may be omitted",
+            horizon_schema["diagnosticForwardBars"]["description"],
+        )
         self.assertIn(
             "if and only if artifactRevision is non-null",
             source_schema["properties"]["artifactPath"]["description"],
@@ -1152,6 +1163,16 @@ class AgentCliTests(unittest.TestCase):
             "autoquant-research-report-analysis",
         )
         report_schema_value = json_output(report_schema)["data"]["schema"]
+        self.assertIn(
+            "Every recommendation requires",
+            report_schema_value["description"],
+        )
+        report_example = report_schema_value["examples"][0]
+        jsonschema.validate(report_example, report_schema_value)
+        self.assertEqual(
+            set(report_example["recommendations"][0]),
+            {"action", "rationale", "conditions", "evidenceRefs"},
+        )
         evidence_ref_schema = report_schema_value["properties"]["findings"][
             "items"
         ]["properties"]["evidenceRefs"]["items"]
@@ -2205,7 +2226,7 @@ class AgentCliTests(unittest.TestCase):
             )
             self.assertEqual(
                 [item["id"] for item in promoted_json["nextActions"]],
-                ["session.start"],
+                ["session.show", "session.start"],
             )
             inapplicable_completion = run_cli(
                 "session",
@@ -2282,7 +2303,14 @@ class AgentCliTests(unittest.TestCase):
                 "Terminal close: promoted; this Session is closed.",
                 promoted.stdout,
             )
-            self.assertIn("Post-promotion: session-required", promoted.stdout)
+            self.assertIn(
+                "Post-promotion: required-research-complete",
+                promoted.stdout,
+            )
+            self.assertIn(
+                "Further research is optional",
+                promoted.stdout,
+            )
 
     def test_json_cli_runs_and_inspects_a_bounded_external_campaign(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

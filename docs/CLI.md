@@ -648,7 +648,9 @@ two-sided, or context-only. Requested assets and asset classes must fit the
 selected Study. Portfolio policy values are bounded
 research assumptions, not authenticated Broker/account state. Horizon policy
 values are decision-bar counts on the locked dataset base clock; Core does not
-infer them from prose.
+infer them from prose. The primary horizon is always evaluated, so callers may
+list only additional sorted diagnostic horizons. Core records their sorted
+union with the primary, with no more than five total evaluated horizons.
 Core copies canonical `request.json` and derives `brief.json`
 from that request plus the Project, Study, baseline, dataset, Judge, and Harness
 locks. Those files are verified on every Session load and are included in each
@@ -716,6 +718,11 @@ unpromoted KEEP, stale authority, or terminal Session. It writes immutable
 `completion.json`, marks the Session `completed`, and leaves Project source
 unchanged. A completed Session cannot run Experiments/Campaigns, publish later
 Reports, promote, or complete again.
+When that receipt, its exact Report, current Study authority, and retained
+leader all remain valid, `aq orient` treats the work as complete: it has no
+primary action, exposes the Report id, and lists Session inspection plus a new
+Session only as optional supporting work. Core does not infer this state from
+request prose or a trial count.
 
 `session promote` is the source-changing terminal path for a KEEP. A delegated
 Session must first publish a Report that freezes the exact current request,
@@ -728,6 +735,10 @@ aq session promote . <session-id> --report <report-id>
 Core records the Report identity in the immutable promotion receipt. A stale
 or partial Report cannot authorize source mutation. Non-delegated local
 Sessions retain the report-free promotion path. Promotion preserves the best
+source but does not assert scientific qualification. When the terminal receipt
+still matches current authority and leader evidence, `aq orient` has no
+mandatory next Session; inspection and an explicit new Session are supporting
+choices.
 source and terminally closes the Session as `promoted`; it does not assert
 Factor qualification,
 Portfolio/RL admission, or trading authority. Consequently an improved KEEP
@@ -822,10 +833,13 @@ aq report show <path> \
 analysis is strict JSON: title, executive summary, findings with confidence,
 conditional recommendations, limitations, unresolved questions, and exact
 Run/Experiment/Campaign evidence references. A Run reference may also name one
-of that Run's declared artifact paths.
+of that Run's declared artifact paths. Every recommendation contains all four
+fields: `action`, `rationale`, `conditions`, and `evidenceRefs`.
 
 `aq schema report-analysis --json` carries the executable reference contract
-and examples. Copy a Run artifact path exactly from that Run's
+and one complete copyable analysis example. Start from that complete object
+rather than reconstructing nested required fields from a truncated schema
+view. Copy a Run artifact path exactly from that Run's
 `result.artifacts[].path`; it is relative to the Run and already begins with
 `artifacts/`. Do not prefix it with `runs/<id>/`, a Project path, or a
 filesystem path. Experiment and Campaign evidence have no separately

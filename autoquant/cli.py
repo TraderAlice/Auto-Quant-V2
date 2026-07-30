@@ -856,8 +856,11 @@ def build_parser() -> RaisingArgumentParser:
         "--analysis",
         required=True,
         help=(
-            "strict report-analysis JSON; Run artifactPath must be null or "
-            "exactly match result.artifacts[].path (for example "
+            "strict report-analysis JSON; every recommendation requires "
+            "action, rationale, conditions, and evidenceRefs; copy the "
+            "complete `aq schema report-analysis --json` example. Run "
+            "artifactPath must be null or exactly match "
+            "result.artifacts[].path (for example "
             "artifacts/factor-report.json), while Experiment/Campaign "
             "artifactPath must be null"
         ),

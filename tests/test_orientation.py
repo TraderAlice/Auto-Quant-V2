@@ -12,8 +12,14 @@ from autoquant.orientation import (
     AGENT_WORK_BRIEF_JSON_SCHEMA,
     build_agent_work_brief,
 )
+from autoquant.reports import publish_report
 from autoquant.runs import execute_study
-from autoquant.sessions import evaluate_experiment, start_session
+from autoquant.sessions import (
+    complete_session,
+    evaluate_experiment,
+    promote_session,
+    start_session,
+)
 from autoquant.studies import create_study
 from autoquant.studio import build_studio_snapshot
 from autoquant.templates import OHLCV_STUDY_ID
@@ -23,6 +29,7 @@ from tests.intake_helpers import (
     write_multi_interval_inputs,
 )
 from tests.study_helpers import make_project, study_definition
+from tests.test_reports import report_analysis, research_request
 
 
 class AgentOrientationTests(unittest.TestCase):
@@ -446,6 +453,118 @@ Do not include this sibling section.
             self.assertEqual(
                 stale["filesystem"]["operatingRoot"],
                 str(project.root_dir),
+            )
+
+    def test_completed_single_study_is_terminal_with_optional_continuation(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, project = make_project(directory)
+            create_study(project, study_definition())
+            baseline = execute_study(project, "factor-quality")
+            session = start_session(
+                project,
+                "factor-quality",
+                request=research_request(),
+            )
+            report = publish_report(
+                project,
+                session.manifest["id"],
+                report_analysis(baseline.result["id"]),
+            )
+            receipt = complete_session(
+                project,
+                session.manifest["id"],
+                report.report["id"],
+            )
+
+            brief = build_agent_work_brief(project)
+
+            jsonschema.validate(brief, AGENT_WORK_BRIEF_JSON_SCHEMA)
+            self.assertIsNone(brief["primaryAction"])
+            self.assertEqual(
+                brief["reasons"][0]["code"],
+                "required-research-complete",
+            )
+            self.assertEqual(brief["review"]["status"], "complete")
+            self.assertEqual(
+                brief["focus"]["coordinationPhase"],
+                "evidence-ready",
+            )
+            self.assertEqual(brief["focus"]["operatingMode"], "observe")
+            self.assertEqual(
+                brief["evidence"]["reportId"],
+                receipt["report"]["id"],
+            )
+            self.assertEqual(
+                [item["id"] for item in brief["supportingActions"]],
+                ["session.show", "session.start"],
+            )
+            self.assertIn(
+                "Optionally continue",
+                brief["supportingActions"][1]["description"],
+            )
+            snapshot = build_studio_snapshot(project.root_dir)
+            self.assertEqual(
+                snapshot["projects"][0]["agentWorkBrief"],
+                brief,
+            )
+
+    def test_promoted_single_study_is_terminal_with_optional_continuation(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, project = make_project(directory)
+            create_study(project, study_definition())
+            execute_study(project, "factor-quality")
+            session = start_session(
+                project,
+                "factor-quality",
+                request=research_request(),
+            )
+            candidate = (
+                session.worktree_project.root_dir
+                / "factors"
+                / "candidate.py"
+            )
+            candidate.write_text("SCORE = 2.0\n", encoding="utf-8")
+            experiment = evaluate_experiment(
+                project,
+                session.manifest["id"],
+                "Improve the bounded synthetic score once.",
+            )
+            report = publish_report(
+                project,
+                session.manifest["id"],
+                report_analysis(experiment.result["candidate"]["runId"]),
+            )
+            receipt = promote_session(
+                project,
+                session.manifest["id"],
+                report.report["id"],
+            )
+
+            brief = build_agent_work_brief(project)
+
+            jsonschema.validate(brief, AGENT_WORK_BRIEF_JSON_SCHEMA)
+            self.assertIsNone(brief["primaryAction"])
+            self.assertEqual(
+                brief["reasons"][0]["code"],
+                "required-research-complete",
+            )
+            self.assertEqual(brief["review"]["status"], "complete")
+            self.assertEqual(brief["evidence"]["sessionStatus"], "promoted")
+            self.assertEqual(
+                brief["evidence"]["reportId"],
+                receipt["report"]["id"],
+            )
+            self.assertEqual(
+                [item["id"] for item in brief["supportingActions"]],
+                ["session.show", "session.start"],
+            )
+            self.assertIn(
+                "does not assert scientific qualification",
+                brief["reasons"][0]["message"],
             )
 
     def test_crash_restored_strong_baseline_honors_freeze_agenda(self) -> None:

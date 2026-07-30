@@ -1952,6 +1952,11 @@ EVIDENCE_REFERENCE_JSON_SCHEMA: dict[str, Any] = {
 REPORT_ANALYSIS_JSON_SCHEMA: dict[str, Any] = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "title": "AutoQuant Agent-authored report analysis",
+    "description": (
+        "Strict complete analysis. Every recommendation requires action, "
+        "rationale, conditions, and evidenceRefs; copy the complete example "
+        "before replacing its evidence identity and prose."
+    ),
     "type": "object",
     "additionalProperties": False,
     "required": [
@@ -2018,4 +2023,57 @@ REPORT_ANALYSIS_JSON_SCHEMA: dict[str, Any] = {
             "items": {"type": "string", "minLength": 1},
         },
     },
+    "examples": [
+        {
+            "schemaVersion": SCHEMA_VERSION,
+            "kind": REPORT_ANALYSIS_KIND,
+            "title": "Bounded factor research conclusion",
+            "executiveSummary": (
+                "The fixed evidence does not support the tested hypothesis."
+            ),
+            "findings": [
+                {
+                    "id": "validation-edge-absent",
+                    "claim": (
+                        "The candidate did not improve validation evidence."
+                    ),
+                    "confidence": "medium",
+                    "evidenceRefs": [
+                        {
+                            "kind": "run",
+                            "id": (
+                                "run-20260730T120000000000Z-0123456789ab"
+                            ),
+                            "artifactPath": "artifacts/factor-report.json",
+                        }
+                    ],
+                }
+            ],
+            "recommendations": [
+                {
+                    "action": "Retain the current baseline.",
+                    "rationale": (
+                        "The tested candidate did not clear the fixed "
+                        "validation objective."
+                    ),
+                    "conditions": [
+                        "Reopen research only with a new bounded hypothesis."
+                    ],
+                    "evidenceRefs": [
+                        {
+                            "kind": "run",
+                            "id": (
+                                "run-20260730T120000000000Z-0123456789ab"
+                            ),
+                            "artifactPath": "artifacts/factor-report.json",
+                        }
+                    ],
+                }
+            ],
+            "limitations": ["This conclusion covers one fixed candidate."],
+            "unresolvedQuestions": [
+                "Would a predeclared alternative survive new evidence?"
+            ],
+        }
+    ],
 }

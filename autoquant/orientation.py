@@ -36,6 +36,8 @@ from .sessions import (
     list_sessions,
     load_experiment,
     load_session,
+    load_session_completion,
+    load_session_promotion,
     session_snapshot,
 )
 from .studies import StudySummary, hash_json, list_studies, load_study
@@ -1058,19 +1060,48 @@ def _single_study_orientation(
         if item.study_id == study.definition.id
     ]
     latest_session = sessions[-1] if sessions else None
-    active_session = (
+    latest_session_context = (
         load_session(project, latest_session.id)
+        if latest_session is not None
+        else None
+    )
+    active_session = (
+        latest_session_context
         if latest_session is not None and latest_session.status == "active"
         else None
     )
+    completion = (
+        load_session_completion(project, latest_session_context)
+        if latest_session_context is not None
+        else None
+    )
+    promotion = (
+        load_session_promotion(latest_session_context)
+        if latest_session_context is not None
+        else None
+    )
     current_report = None
-    if active_session is not None:
+    if latest_session_context is not None:
+        terminal_report_id = (
+            completion["report"]["id"]
+            if completion is not None
+            else promotion["report"]["id"]
+            if promotion is not None
+            and isinstance(promotion.get("report"), dict)
+            else None
+        )
         current_report = next(
             (
                 report.to_dict()
-                for report in reversed(list_reports(project, active_session))
-                if report.leader_run_id
-                == active_session.manifest["leader"]["runId"]
+                for report in reversed(
+                    list_reports(project, latest_session_context)
+                )
+                if (
+                    report.id == terminal_report_id
+                    if terminal_report_id is not None
+                    else report.leader_run_id
+                    == latest_session_context.manifest["leader"]["runId"]
+                )
             ),
             None,
         )
@@ -1085,6 +1116,11 @@ def _single_study_orientation(
     active_authority_valid = (
         session_snapshot(project, active_session)["authority"]["valid"]
         if active_session is not None
+        else False
+    )
+    latest_authority_valid = (
+        session_snapshot(project, latest_session_context)["authority"]["valid"]
+        if latest_session_context is not None
         else False
     )
     check_state: dict[str, Any] = {"current": None}
@@ -1241,6 +1277,79 @@ def _single_study_orientation(
         editable = []
         mode = "observe"
         phase = "evidence-ready"
+    elif (
+        (completion is not None or promotion is not None)
+        and latest_session_context is not None
+        and latest_authority_valid
+        and (
+            current_report is not None
+            or (
+                promotion is not None
+                and not isinstance(promotion.get("report"), dict)
+            )
+        )
+        and latest_session_context.manifest["leader"]["runId"]
+        == current_run.id
+    ):
+        primary_raw = None
+        supporting_raw = [
+            _command(
+                "session.show",
+                "Inspect the completed Session and its immutable evidence.",
+                [
+                    "aq",
+                    "session",
+                    "show",
+                    str(project.root_dir),
+                    "--session",
+                    latest_session_context.manifest["id"],
+                    "--json",
+                ],
+                "read-only",
+            ),
+            _command(
+                "session.start",
+                "Optionally continue with another explicitly chosen governed Session.",
+                [
+                    "aq",
+                    "session",
+                    "start",
+                    str(project.root_dir),
+                    "--study",
+                    study.definition.id,
+                    "--json",
+                ],
+                "creates-artifact",
+            ),
+        ]
+        reasons = [
+            {
+                "code": "required-research-complete",
+                "category": "scientific",
+                "message": (
+                    (
+                        "The validated completion receipt freezes the current "
+                        "baseline-retaining Session and exact immutable Report."
+                        if completion is not None
+                        else (
+                            "The validated promotion receipt terminally closes "
+                            "the current Session and preserves its leader"
+                            + (
+                                " with the exact immutable Report."
+                                if current_report is not None
+                                else "."
+                            )
+                        )
+                    )
+                    + " Further research is optional; terminal Session state "
+                    "does not assert scientific qualification."
+                ),
+            }
+        ]
+        operating_root = project.root_dir
+        editable = []
+        mode = "observe"
+        phase = "evidence-ready"
     else:
         primary_raw = _command(
             "session.start",
@@ -1368,7 +1477,11 @@ def _single_study_orientation(
                 else "blocked"
                 if active_session is not None
                 else "complete"
-                if reasons[0]["code"] == "descriptive-evidence-ready"
+                if reasons[0]["code"]
+                in {
+                    "descriptive-evidence-ready",
+                    "required-research-complete",
+                }
                 else "pending"
             ),
             "label": reasons[0]["code"].replace("-", " ").upper(),
@@ -1381,8 +1494,16 @@ def _single_study_orientation(
                     "Write and return the decision-support answer from the "
                     "verified evidence; use the supporting Explorer only when "
                     "more detail is needed."
-                    if reasons[0]["code"] == "descriptive-evidence-ready"
-                    else (
+                )
+                if reasons[0]["code"] == "descriptive-evidence-ready"
+                else (
+                    "Write and return the decision-support answer from the "
+                    "completed immutable evidence; open another Session only "
+                    "for a deliberately chosen follow-up."
+                )
+                if reasons[0]["code"] == "required-research-complete"
+                else (
+                    (
                         (
                             "Review the latest immutable trial; publish and "
                             "complete the current evidence, or explicitly "

@@ -75,6 +75,11 @@ sessions/
 Experiment directories are the evidence. `promotion.json` is written once when
 the accepted leader is copied back to the Project. `completion.json` is the
 alternative terminal receipt when a delegated lane retains its baseline.
+When either terminal receipt and its Report still validate against current
+authority and the retained leader remains the current Run, Agent orientation
+exposes that Report as complete evidence and makes a new Session an explicit
+optional continuation rather than required work. Promotion preserves source;
+neither terminal state asserts scientific qualification.
 
 ## Session identity and locks
 

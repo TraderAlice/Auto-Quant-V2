@@ -95,7 +95,14 @@ brief that another Agent can recover from the filesystem.
    explicitly declare another bounded hypothesis. Session writability is not
    an instruction to continue tuning. For an improved KEEP, guarded promotion
    is itself the terminal `promoted` close; `session.complete` is only the
-   alternative baseline-retaining close and must not follow promotion.
+   alternative baseline-retaining close and must not follow promotion. After a
+   valid completion or promotion, treat `required-research-complete` as the
+   terminal handoff; a listed `session.start` is an optional explicit follow-
+   up, not unfinished required work.
+
+When writing `request.horizonPolicy`, declare the required primary horizon
+once. `diagnosticForwardBars` may contain only the additional sorted context
+horizons; Core canonically adds the primary and enforces a five-horizon total.
 
 When a caller asks about an existing book, do not substitute historical model
 targets for current holdings. If the caller or delegating Agent can supply one

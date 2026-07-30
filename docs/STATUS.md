@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha at `0.8.26`.
+Status: usable pre-alpha at `0.8.27`.
 
 Updated: 2026-07-30.
 
@@ -13,7 +13,7 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 AutoQuant V2 has crossed the line from an architectural prototype into a
 usable Agent-native quantitative research workbench.
 
-At `0.8.26`, a human, local coding Agent, or coworker delegated from OpenAlice
+At `0.8.27`, a human, local coding Agent, or coworker delegated from OpenAlice
 can:
 
 1. clone the repository and immediately discover the Harness plus its
@@ -229,7 +229,21 @@ valid strict Explorer, orientation, Project, and Studio evidence.
 Full regression passes 322 tests in 924.699 seconds and all 1,117
 documentation links resolve.
 
-The current release is `v0.8.26`. `v0.8.25` remains the explicit Workspace
+`0.8.27` makes the separately declared primary forward horizon implicit in the
+complete evaluated set, so callers may provide only additional sorted
+diagnostics while Core preserves a five-horizon maximum. It also recognizes a
+current validated baseline-retaining Session completion as terminal evidence:
+the exact Report remains visible, no further Session is required, and an
+explicit new Session remains optional without inferred prose budgets. A
+Report-bound promotion has the same terminal navigation while continuing to
+withhold scientific qualification. Report schema now includes one complete
+copyable analysis example after the first verification worker exposed a nested
+recommendation-field retry.
+Full repository regression passes 325 tests in 959.906 seconds and all 1,129
+documentation links resolve.
+
+The current release is `v0.8.27`. `v0.8.26` remains the manifest-rooted
+staging and paired request-source milestone, while `v0.8.25` remains the explicit Workspace
 adoption milestone, while `v0.8.24` remains the split Allocation
 construction-fidelity milestone, `v0.8.23` remains the mixed-class
 Allocation milestone, `v0.8.22` remains the multi-Project

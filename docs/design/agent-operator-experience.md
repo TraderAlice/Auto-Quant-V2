@@ -374,6 +374,10 @@ Judge authority.
 17. Completed fixed Studies have no mandatory CLI action; answer authoring is
     explicit review guidance and their Explorer is optional supporting
     evidence.
+18. A validated current Report-bound completion or promotion has no mandatory
+    next Session; its exact Report is visible and another Session is optional
+    supporting work, without inferring a trial budget from prose or treating
+    promotion as scientific qualification.
 
 ## Known limitations
 

@@ -873,8 +873,11 @@ CLI_COMMANDS = [
                 "string",
                 True,
                 (
-                    "Strict report-analysis JSON. Run artifactPath is null or "
-                    "an exact result.artifacts[].path such as "
+                    "Strict report-analysis JSON; every recommendation "
+                    "requires action, rationale, conditions, and evidenceRefs. "
+                    "The public schema includes one complete copyable example. "
+                    "Run artifactPath is null or an exact "
+                    "result.artifacts[].path such as "
                     "artifacts/factor-report.json; Experiment/Campaign "
                     "artifactPath is null."
                 ),

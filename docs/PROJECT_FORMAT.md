@@ -160,7 +160,9 @@ contract. It is a Study dependency, not candidate code. See
 The Horizon Mandate derives the primary and bounded diagnostic forward-bar
 targets from optional strict `request.horizonPolicy`, or records the reference
 default primary `1` and diagnostics `[1, 5, 10]`. Factor selection uses the
-primary target. Portfolio and RL bind the same research question while
+primary target. A caller may list only the additional sorted diagnostic bars;
+Core stores their sorted union with the primary, capped at five complete
+evaluated horizons. Portfolio and RL bind the same research question while
 retaining sequential one-bar accounting. See
 [[docs/design/request-bound-research-horizon]].
 
@@ -776,7 +778,7 @@ Brief hash. `request.json` records the exact normalized caller input:
   "horizon": "one to three months",
   "horizonPolicy": {
     "primaryForwardBars": 21,
-    "diagnosticForwardBars": [5, 21, 63]
+    "diagnosticForwardBars": [5, 63]
   },
   "hypotheses": ["Trend quality remains stable out of sample."],
   "constraints": ["Use only the locked dataset and cost assumptions."],
@@ -879,6 +881,9 @@ qualification, Portfolio/RL admission, or trading authority. An improved but
 unqualified KEEP must still use promotion rather than baseline-only completion;
 its Report preserves the negative gate conclusion. Any failure rolls Project
 source and Session state back.
+When a current promotion receipt and its bound Report still validate,
+orientation treats the Session as terminal evidence and makes another Session
+optional. This does not upgrade the KEEP to scientific qualification.
 
 For a delegated Session whose leader still equals baseline, `completion.json`
 can instead bind one explicitly selected current Report and mark the Session
@@ -887,6 +892,10 @@ freezes the Brief, baseline leader, Report manifest/result/evidence hashes,
 Study, Project, and completion time. Completion requires the Report to cover
 the complete current Experiment/Campaign prefix and no Campaign may be
 running. `promoted` and `completed` receipts are mutually exclusive.
+A current validated completion is a terminal Agent handoff: orientation
+projects its exact Report, requires no further research, and retains a fresh
+Session only as an explicit optional continuation. A stale completion cannot
+mask changed Study, source, dataset, or Harness authority.
 
 An immutable Campaign groups a bounded sequence of external Researcher turns.
 Each turn preserves its complete input brief, stdout, stderr, parsed response
@@ -926,7 +935,9 @@ artifact exactly as written in `result.artifacts[].path`—for example,
 Experiment and Campaign references must set the required `artifactPath` field
 to JSON `null`. Every id must belong to the Session baseline or chronological
 Experiment/Campaign history. The public `report-analysis` JSON Schema encodes
-these kind-specific constraints and includes complete examples.
+these kind-specific constraints and includes one complete copyable analysis
+example with every required recommendation field:
+`action`, `rationale`, `conditions`, and `evidenceRefs`.
 
 Core freezes a complete evidence projection into `report.json`: the exact
 request/Brief, Session baseline and leader at publication, fixed locks, Harness,

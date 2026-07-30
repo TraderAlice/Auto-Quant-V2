@@ -18,11 +18,16 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-There are no active plans.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/primary-horizon-and-completed-session-handoff]] | Let callers state additional diagnostic horizons without repeating the primary, and make exact baseline-retaining completion a terminal handoff with optional continuation. | 2026-07-30 |
 
 ## Proposed plans
 
-There are no proposed plans.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/daily-factor-baseline-surface]] | Make a daily-only Factor intake seed a baseline whose declared components match its actual panel surface. | 2026-07-30 |
+| [[plans/test-visibility-integrity-state]] | Distinguish first visible test audit from a later test-informed candidate edit while preserving external-evidence safety. | 2026-07-30 |
 
 ## Paused plans
 

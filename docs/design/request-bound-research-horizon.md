@@ -32,15 +32,17 @@ provides its numerical evaluation contract:
 ```json
 {
   "primaryForwardBars": 21,
-  "diagnosticForwardBars": [5, 21, 63]
+  "diagnosticForwardBars": [5, 63]
 }
 ```
 
 Rules:
 
 - bars are positive non-boolean integers no greater than 252;
-- diagnostics contain one to five sorted unique bars;
-- diagnostics include the primary bar;
+- caller diagnostics contain one to five sorted unique additional bars;
+- Core always evaluates the separately declared primary and canonically stores
+  the sorted union, so the example becomes `[5, 21, 63]`;
+- the complete canonical evaluated set contains no more than five bars;
 - the locked panel must leave at least 20 eligible observations in every
   purged chronological split at the largest diagnostic bar.
 
@@ -66,7 +68,9 @@ The primary bar owns:
 
 Every diagnostic bar owns its own boundary purge, rank/Pearson IC, quantile
 return, component quality, and artifact columns. Non-primary bars remain
-context only and cannot select a candidate.
+context only and cannot select a candidate. The canonical
+`diagnosticForwardBars` name is retained for compatibility even though its
+stored value is the complete evaluated set including the primary.
 
 ## Portfolio and governed RL
 

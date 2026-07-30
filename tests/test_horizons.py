@@ -70,6 +70,26 @@ class ResearchHorizonTests(unittest.TestCase):
             horizon["id"],
         )
 
+    def test_primary_is_added_to_canonical_evaluated_horizons(self) -> None:
+        normalized = validate_research_request(
+            request(
+                {
+                    "primaryForwardBars": 20,
+                    "diagnosticForwardBars": [5, 60],
+                }
+            )
+        )
+
+        self.assertEqual(
+            normalized["horizonPolicy"],
+            {
+                "primaryForwardBars": 20,
+                "diagnosticForwardBars": [5, 20, 60],
+            },
+        )
+        horizon = build_research_horizon(normalized)
+        self.assertEqual(horizon["diagnosticForwardBars"], [5, 20, 60])
+
     def test_omission_is_explicit_reference_default(self) -> None:
         normalized = validate_research_request(request())
         horizon = build_research_horizon(normalized)
@@ -89,10 +109,6 @@ class ResearchHorizonTests(unittest.TestCase):
             },
             {
                 "primaryForwardBars": 5,
-                "diagnosticForwardBars": [1, 10],
-            },
-            {
-                "primaryForwardBars": 5,
                 "diagnosticForwardBars": [5, 1, 5],
             },
             {
@@ -103,6 +119,10 @@ class ResearchHorizonTests(unittest.TestCase):
                 "primaryForwardBars": 5,
                 "diagnosticForwardBars": [1, 5],
                 "unknown": 10,
+            },
+            {
+                "primaryForwardBars": 6,
+                "diagnosticForwardBars": [1, 2, 3, 4, 5],
             },
         )
         for policy in invalid:

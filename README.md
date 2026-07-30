@@ -1,5 +1,5 @@
 ---
-version: 0.8.26
+version: 0.8.27
 ---
 
 # AutoQuant V2
@@ -32,7 +32,7 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current milestone: `0.8.26`
+## Current milestone: `0.8.27`
 
 AutoQuant V2 has crossed from an architectural prototype into a usable
 research workbench.
@@ -296,6 +296,19 @@ Sessions, exact source hashes, no intermediate raw copy, and no CLI failure.
 Strict Explorer, validation, orientation, and Studio all reconciled.
 Repository regression passes all 322 tests in 924.699 seconds and the
 documentation graph resolves all 1,117 checked links.
+
+`0.8.27` follows a fresh editable Factor coworker through primary-20
+price-trend plus dollar-volume research. Callers may now list only additional
+diagnostic horizons: Core canonically adds the separately declared primary,
+retains the five-horizon limit, and exposes that rule in public schema and
+Agent guidance. A validated current baseline-retaining completion now has no
+false `SESSION REQUIRED` action, projects its exact immutable Report, and
+keeps another Session only as an optional explicit follow-up. Report-bound
+promotion now has the same terminal navigation without being mislabeled as
+scientific qualification. Public Report schema also carries one complete
+copyable analysis example. Core still does not infer a trial budget from prose.
+Repository regression passes all 325 tests in 959.906 seconds and the
+documentation graph resolves all 1,129 checked links.
 
 `0.8.24` followed another isolated Grok coworker into a capped ERC assignment
 with two independent caller questions. The installed `0.8.23` worker could
