@@ -320,6 +320,17 @@ conservative, but Core no longer claims that visible test evidence actually
 guided an edit because that human/Agent behavior is not observable. Historical
 Runs and Reports retain their original bytes and remain readable.
 
+A fresh isolated installed-wheel Grok replay completed the unchanged daily
+price-trend plus dollar-volume assignment with no CLI retry. Its baseline
+declared only base-clock momentum, its two-component candidate passed Check
+but worsened validation IC and REVERTed, and its immutable Report/completion
+closed a useful negative result. Selection integrity reported one first
+candidate audit, zero post-audit iterations, unobservable actual guidance, and
+the unchanged external-holdout requirement. One adjacent optional-agenda
+presentation issue is indexed separately rather than folded into this release.
+Repository regression passes all 326 tests in 868.625 seconds and the
+documentation graph resolves all 1,143 checked links.
+
 `0.8.24` followed another isolated Grok coworker into a capped ERC assignment
 with two independent caller questions. The installed `0.8.23` worker could
 answer validation relative performance, but correctly refused to claim that

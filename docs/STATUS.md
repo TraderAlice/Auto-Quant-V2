@@ -253,6 +253,16 @@ unobservable rather than asserting it occurred. The checked-in sample retains
 its immutable `0.8.7` Run and adds current evidence only through an ordinary
 versioned Run.
 
+The final installed-wheel worker used the same nine caller-staged Yahoo daily
+files and one predeclared price-trend plus dollar-volume hypothesis. It
+completed strict intake, baseline, Session, Check, one REVERT Experiment,
+Report, baseline-retaining completion, strict Explorer, final orientation, and
+Studio with no CLI retry. The first-audit/post-audit distinction projected
+exactly, raw staged hashes remained unchanged, and no Portfolio, RL, holdout,
+Order, or second Experiment was created.
+Full repository regression passes 326 tests in 868.625 seconds and all 1,143
+documentation links resolve.
+
 The current release is `v0.8.28`. `v0.8.27` remains the primary-horizon and
 terminal Session-handoff milestone, while `v0.8.26` remains the manifest-rooted
 staging and paired request-source milestone, while `v0.8.25` remains the explicit Workspace

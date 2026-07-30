@@ -66,7 +66,7 @@ Agent may honestly claim after touching it.
       later test-informed edit.
 - [x] A later formal source iteration advances to a distinct conservative
       post-audit-iteration state and requires fresh external evidence.
-- [ ] Session, Report, Dossier, CLI, Studio, schema, and documentation agree;
+- [x] Session, Report, Dossier, CLI, Studio, schema, and documentation agree;
       older evidence remains loadable and no test metric enters selection.
 - [ ] Focused/full tests, build/install smoke, exact clean-clone validation, and
       a fresh installed-wheel Agent replay pass before `0.8.28`.
@@ -79,7 +79,7 @@ Agent may honestly claim after touching it.
       Judge or candidate semantics.
 - [x] Implement a backward-readable selection-integrity state model derived
       from fixed source hashes and Experiment order.
-- [ ] Update public schemas, human/JSON/Studio projections, design documents,
+- [x] Update public schemas, human/JSON/Studio projections, design documents,
       template/sample consistency, and regression fixtures.
 - [ ] Run an unchanged fresh Agent assignment, audit its scientific answer and
       retries, then complete release verification.
@@ -105,10 +105,45 @@ Agent may honestly claim after touching it.
   intentionally makes its `0.8.7` Run historical rather than current. A new
   ordinary `0.8.28` baseline Run will restore current Explorer projection
   without rewriting the historical Run.
+- 2026-07-30 — The fresh installed-wheel worker had zero CLI retries and
+  correctly treated the first candidate audit as negative evidence. Its only
+  new friction was an optional post-trial agenda idea presented too much like
+  a default next experiment; this is separately indexed as
+  [[plans/optional-post-trial-research-agenda]] without inferring a Markdown
+  trial budget.
 
 ## Verification
 
-Pending.
+- V1 daily, V3 partial-feature, V4 ragged-daily, and V5 observed-only intake
+  regressions passed; generated source and component declarations match the
+  exact panel surface.
+- 63 focused Factor, Session, Report, Dossier, Studio, and CLI tests passed.
+  Historical pre-V2 Report projections remained loadable and canonical.
+- Decision-matrix schema validation passed with the strict current
+  selection-integrity projection.
+- The checked-in sample retains its immutable clean `0.8.7` Run and now adds
+  ordinary clean `0.8.28` Run
+  `run-20260730T035544913232Z-4b19e3a63890`; repository template consistency,
+  current Explorer, and Studio projection passed.
+- Fresh installed-wheel Grok Project
+  `grok-price-volume-factor-v0828` completed the unchanged daily price-trend
+  plus dollar-volume assignment with no CLI retry:
+  - baseline `run-20260730T040326848709Z-ade3441a350c` declared only
+    `base_momentum_10`;
+  - Check `check-20260730T040415469562Z-0892a1c2aff0` passed;
+  - Experiment `exp-0001-07bf1d67cd30` REVERTed candidate
+    `run-20260730T040423506626Z-95f4b17fb384`;
+  - Report `report-20260730T040543001414Z-5d7f74c8d7ec` and completion
+    `completion-20260730T040547433726Z-c763de273b7e` closed the negative
+    research truthfully;
+  - current integrity is `first-candidate-audit-visible`, zero post-audit
+    iterations, actual guidance `not-observable`, and external holdout still
+    required;
+  - raw staged hashes, strict Explorers, Project validation, final
+    orientation, and Studio snapshot all reconciled.
+- Full repository regression passed all 326 tests in 868.625 seconds and all
+  1,143 documentation links resolve.
+- Final distribution/install and exact clean-clone smoke remain pending.
 
 ## Progress log
 
@@ -117,6 +152,11 @@ Pending.
 - 2026-07-30 — Surface-aligned V1/V3/V4/V5 tests and 63 focused
   Session/Report/Dossier/Studio/CLI regressions passed. Historical Report
   compatibility remained intact.
+- 2026-07-30 — A fresh isolated installed-wheel Grok worker completed the
+  unchanged one-Experiment assignment with zero retries and proved both public
+  contracts; one adjacent optional-agenda follow-up was indexed separately.
+- 2026-07-30 — Full repository regression passed all 326 tests in 868.625
+  seconds and the documentation graph resolved all 1,143 checked links.
 
 ## Completion
 

@@ -24,7 +24,9 @@ invariants live in `docs/design/`.
 
 ## Proposed plans
 
-There are no proposed plans.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/optional-post-trial-research-agenda]] | Keep evidence-derived post-trial hypotheses visible while labeling them explicitly optional whenever the Work Brief has no required primary action. | 2026-07-30 |
 
 ## Paused plans
 
