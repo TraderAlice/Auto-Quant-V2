@@ -62,9 +62,10 @@ their prose or scripts claim that a provider supports a market.
 - Separate market semantics from provider mechanics and AutoQuant packaging.
 - Extract reusable, tested procedures from existing Yahoo and Binance
   acquisition work.
-- Establish and field-test an Eastmoney route for mainland China A shares.
-- Research and prove at least one daily adjusted or explicitly unadjusted
-  route for every first-batch market.
+- Establish and field-test an Eastmoney route for mainland China A shares and
+  an official TWSE route for Taiwan-listed equities.
+- Research and prove at least two independent daily adjusted or explicitly
+  unadjusted routes for every first-batch asset/market type.
 - Preserve the acquisition script, provider response or closest available raw
   evidence, retrieval time when known, source URI, terms claim, hashes,
   transformation audit, and final package.
@@ -137,12 +138,29 @@ Initial planned provider Skills:
   adjustment audit, raw JSON preservation, retries, and provider metadata;
 - `fetch-eastmoney-ohlcv` — establish and prove the A-share route rather than
   copying an unverified endpoint recipe;
+- `fetch-tencent-ohlcv` — preserve a second observable raw A-share route with
+  explicit lot-to-share semantics and independent comparison;
+- `fetch-twse-ohlcv` — use the official monthly TWSE historical report for
+  venue-authoritative Taiwan daily data and compare it with Yahoo;
+- `fetch-nasdaq-ohlcv` — provide an independent raw U.S. route from
+  Nasdaq.com's displayed historical quotes without confusing it with
+  credentialed Data Link Bars;
+- `fetch-naver-ohlcv` — provide an independent raw South Korean daily route
+  with an exact response-table audit before comparison with Yahoo;
 - `fetch-binance-ohlcv` — preserve the already-proven paginated closed-hour
   public-kline procedure as a non-stock continuous-market reference.
 
-Additional provider Skills are admitted only when a first-batch market lacks a
-reliable route or a real request demonstrates a useful fallback. Provider
-names are not frozen in advance merely to complete a matrix.
+Additional provider Skills are admitted when needed to give each first-batch
+asset/market type at least two independently usable routes or when a real
+request demonstrates a materially better source. Provider names are not frozen
+in advance merely to complete a matrix.
+
+The two routes are peers with disclosed trade-offs, not necessarily
+primary/fallback. The router chooses between them using the task's required
+freshness, history, interval, adjustment, venue authority, credentials, rate
+limits, and observed data quality. Yahoo is expected to remain a broad route
+but must not become the automatic choice when a venue-authoritative or
+materially fresher source is available.
 
 Each provider Skill may contain:
 
@@ -180,8 +198,9 @@ in Skill files, generated manifests, logs, or Projects.
 A market is not “covered” until its ledger row contains:
 
 1. an explicit market and venue scope;
-2. one real, non-toy completed-daily-bar acquisition;
-3. exact provider route and Skill revision;
+2. two real, non-toy completed-daily-bar acquisitions from independent
+   sources;
+3. exact provider routes and Skill revisions;
 4. symbol-mapping evidence;
 5. price-adjustment and volume semantics;
 6. timezone, session-date, suspension, and missing-observation treatment;
@@ -197,7 +216,7 @@ The initial market matrix is:
 | Mainland China | named XSHG/XSHE/XBSE A shares, with venue differences disclosed |
 | Japan | named Tokyo-listed equities |
 | South Korea | named KRX-listed equities |
-| Taiwan | named TWSE/TPEx-listed equities with venue disclosed |
+| Taiwan | named TWSE/TPEx-listed equities; TWSE official data is the first route to prove and the venue remains explicit |
 | Vietnam | named HOSE/HNX/UPCoM-listed equities with venue disclosed |
 | European Union | separately named venues; first proof must not imply one EU calendar |
 
@@ -242,7 +261,8 @@ Every acquisition follows the same improvement loop:
 1. Preserve the ordinary assignment and clarify its data meaning.
 2. Give a fresh worker the current Skill bundle and permitted network/access
    context.
-3. Record the chosen market reference, provider Skill, fallback reasoning,
+3. Record the chosen market reference, provider Skill, source-selection or
+   fallback reasoning,
    commands, retries, raw hashes, elapsed time, and final package identity.
 4. Independently verify provider bytes, transformations, package semantics,
    Project snapshot, and Agent handoff.
@@ -274,11 +294,12 @@ The field-trial ledger must distinguish:
   representative executable tests.
 - [ ] `package-autoquant-ohlcv` produces a strict, confined, provenance-honest
   package and verifies the resulting Project through public `aq` surfaces.
-- [ ] Every first-batch market satisfies the coverage definition with real
-  retained evidence; European coverage names exact venues and never claims a
-  synthetic EU calendar.
-- [ ] At least one route exercises provider fallback or ends with a truthful
-  unsupported/degraded conclusion instead of silently changing semantics.
+- [ ] Every first-batch market satisfies the coverage definition with at least
+  two independently usable real-data routes; European coverage names exact
+  venues and never claims a synthetic EU calendar.
+- [ ] At least one task compares both available routes and records why one was
+  selected; at least one degraded route ends truthfully instead of silently
+  changing semantics.
 - [ ] Fresh-worker field trials cover at least one XNYS-style session market,
   mainland China A shares, one non-U.S. Asian market, and one named EU venue
   before the remaining matrix is accepted.
@@ -305,6 +326,8 @@ The field-trial ledger must distinguish:
   fixture tests plus opt-in bounded live smokes.
 - [ ] Research Eastmoney from current primary/observable behavior, implement
   the narrow A-share procedure, and run the first complete acquisition.
+- [ ] Research and implement the official TWSE daily route, compare it against
+  an independent Taiwan-equity source, and run one complete acquisition.
 - [ ] Establish the market/provider coverage matrix from real tasks, adding a
   provider Skill only where evidence requires it.
 - [ ] Create the acquisition field-trial ledger and execute isolated
@@ -331,9 +354,29 @@ The field-trial ledger must distinguish:
   Workspace-level dataset deduplication is deferred until real storage evidence
   justifies changing the self-contained Project boundary.
 - 2026-07-30 — Existing OpenAlice materializes shared Agent Skills under
-  `.agents/skills/` and Claude-specific copies under `.claude/skills/`; the
-  AutoQuant bundle still needs one canonical source and a no-drift
-  materialization path before implementation.
+  `.agents/skills/` and Claude-specific copies under `.claude/skills/`.
+  AutoQuant now uses one packaged canonical source plus a deterministic
+  no-drift materializer for both roots.
+- 2026-07-30 — Every first-batch asset/market type needs at least two
+  independently usable data sources. They are selected by task requirements,
+  not hard-coded as primary/fallback; official TWSE is the first Taiwan route
+  to prove, while Yahoo remains a broad but potentially delayed alternative.
+- 2026-07-30 — Canonical Skill bytes live inside the versioned AutoQuant
+  package and are transactionally materialized into both `.agents/skills/`
+  and `.claude/skills/`. A deterministic manifest and file hashes make
+  generated-copy drift testable; OpenAlice can consume the unchanged
+  Workspace paths it already supports.
+- 2026-07-30 — The first development Yahoo trial acquired five real assets and
+  produced a valid 645-session Project snapshot. It remains explicitly
+  non-coverage evidence because it used one provider and no isolated worker.
+- 2026-07-30 — Source plurality is a hard coverage rule, not a fallback
+  implementation detail. U.S. Nasdaq/Yahoo, XSHG/XSHE Tencent/Yahoo, and South
+  Korea Naver/Yahoo comparisons exposed real provider-specific missing,
+  placeholder, boundary, and volume behavior; one machine-readable comparison
+  audit now preserves those differences consistently.
+- 2026-07-30 — The official TWSE route is implemented and fixture-tested, but
+  this host receives the venue's security response. Taiwan remains
+  unaccepted; the failure is recorded without substituting Yahoo.
 
 ## Verification
 
@@ -347,6 +390,13 @@ independent verification.
 - 2026-07-30 — Plan created from the existing provider-neutral intake boundary,
   task-local Yahoo/Binance acquisition evidence, OpenAlice Skill discovery
   paths, and the first-batch market request.
+- 2026-07-30 — Initialized and validated the router, packaging, Yahoo, and
+  Binance Skills; added transactional Workspace materialization, deterministic
+  drift tests, and the first real Yahoo acquisition/intake development trial.
+- 2026-07-30 — Added Eastmoney, Tencent, Nasdaq.com, TWSE, and Naver provider
+  Skills plus a reusable two-package comparison audit. Real bounded trials
+  completed for U.S., XSHG/XSHE, South Korea, Taiwan/Yahoo, and Binance;
+  Eastmoney and official TWSE access failures remain visible.
 
 ## Completion
 

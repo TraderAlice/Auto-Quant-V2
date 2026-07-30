@@ -119,6 +119,9 @@ class WorkspaceProjectTests(unittest.TestCase):
             self.assertEqual(
                 {path.name for path in root.iterdir()},
                 {
+                    ".agents",
+                    ".claude",
+                    "autoquant-skills.json",
                     "autoquant-workspace.json",
                     "projects",
                     "staging",

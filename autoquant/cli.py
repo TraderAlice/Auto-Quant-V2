@@ -1052,13 +1052,29 @@ def _workspace_init(args: argparse.Namespace) -> CommandResult:
         name=args.name,
         adopt_existing=args.adopt_existing,
     )
+    from .skill_bundle import (
+        WORKSPACE_SKILLS_MANIFEST,
+        verify_materialized_workspace_skills,
+    )
+
+    skill_bundle = verify_materialized_workspace_skills(workspace.root_dir)
     manifest_path = workspace.root_dir / WORKSPACE_MANIFEST
+    skill_manifest_path = workspace.root_dir / WORKSPACE_SKILLS_MANIFEST
     return CommandResult(
         "workspace.init",
         {
             "workspaceDir": str(workspace.root_dir),
             "manifest": workspace.manifest.to_dict(),
             "adoptExistingRequested": bool(args.adopt_existing),
+            "skillBundle": {
+                "manifest": str(skill_manifest_path),
+                "harnessVersion": skill_bundle["harnessVersion"],
+                "bundleSha256": skill_bundle["bundleSha256"],
+                "discoveryRoots": skill_bundle["discoveryRoots"],
+                "skillIds": [
+                    skill["id"] for skill in skill_bundle["skills"]
+                ],
+            },
         },
         (
             f"Initialized AutoQuant Workspace at {workspace.root_dir}\n"
@@ -1070,7 +1086,20 @@ def _workspace_init(args: argparse.Namespace) -> CommandResult:
             )
         ),
         workspace_context(workspace),
-        [artifact("workspace", workspace.manifest.name, manifest_path, immutable=False)],
+        [
+            artifact(
+                "workspace",
+                workspace.manifest.name,
+                manifest_path,
+                immutable=False,
+            ),
+            artifact(
+                "workspace-skill-bundle",
+                skill_bundle["bundleSha256"],
+                skill_manifest_path,
+                immutable=False,
+            ),
+        ],
         [
             next_action(
                 "project.create",

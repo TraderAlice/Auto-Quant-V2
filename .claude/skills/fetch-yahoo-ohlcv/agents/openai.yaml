@@ -1,0 +1,4 @@
+interface:
+  display_name: "Fetch Yahoo OHLCV"
+  short_description: "Acquire auditable daily OHLCV from Yahoo Chart."
+  default_prompt: "Use $fetch-yahoo-ohlcv to acquire this bounded historical sample from Yahoo and preserve its raw evidence."

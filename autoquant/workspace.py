@@ -745,17 +745,47 @@ def initialize_workspace(
     target.mkdir(parents=True, exist_ok=True)
     projects = target / manifest.projects_directory
     projects.mkdir()
+    from .skill_bundle import (
+        SkillBundleError,
+        materialize_workspace_skills,
+        remove_materialized_workspace_skills,
+    )
+
+    skill_manifest: dict[str, Any] | None = None
     try:
         _atomic_write_json(
             target / WORKSPACE_MANIFEST,
             manifest.to_dict(),
         )
+        skill_manifest = materialize_workspace_skills(target)
+    except Exception as error:
+        if skill_manifest is not None:
+            remove_materialized_workspace_skills(target, skill_manifest)
+        (target / WORKSPACE_MANIFEST).unlink(missing_ok=True)
+        projects.rmdir()
+        if target_created:
+            target.rmdir()
+        if isinstance(error, SkillBundleError):
+            raise AutoQuantValidationError(
+                [
+                    _issue(
+                        target,
+                        "workspace.skill-bundle",
+                        str(error),
+                    )
+                ]
+            ) from error
+        raise
+    try:
+        return load_workspace(target)
     except Exception:
+        if skill_manifest is not None:
+            remove_materialized_workspace_skills(target, skill_manifest)
+        (target / WORKSPACE_MANIFEST).unlink(missing_ok=True)
         projects.rmdir()
         if target_created:
             target.rmdir()
         raise
-    return load_workspace(target)
 
 
 def _research_program(name: str, description: str) -> str:

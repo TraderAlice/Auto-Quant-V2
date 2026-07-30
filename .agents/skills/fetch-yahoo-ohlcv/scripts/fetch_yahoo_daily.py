@@ -1,0 +1,421 @@
+"""Fetch a bounded auditable Yahoo Chart daily OHLCV staging package."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import re
+import time
+import urllib.parse
+import urllib.request
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+import pandas as pd
+
+
+CHART_URL = "https://query1.finance.yahoo.com/v8/finance/chart/{symbol}"
+SAFE_SYMBOL = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._=-]{0,63}$")
+ASSET_CLASSES = {
+    "crypto",
+    "equity",
+    "forex",
+    "fund",
+    "future",
+    "index",
+    "mixed",
+}
+
+
+def sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def parse_date(value: str) -> datetime:
+    try:
+        parsed = datetime.strptime(value, "%Y-%m-%d")
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("expected YYYY-MM-DD") from exc
+    return parsed.replace(tzinfo=timezone.utc)
+
+
+def load_assets(path: Path) -> list[dict[str, str]]:
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(raw, list) or not raw:
+        raise ValueError("assets file must contain a non-empty JSON array")
+    required = {"symbol", "providerSymbol", "venue", "currency", "assetClass"}
+    assets: list[dict[str, str]] = []
+    for index, item in enumerate(raw):
+        if not isinstance(item, dict) or set(item) != required:
+            raise ValueError(
+                f"assets[{index}] must contain exactly {sorted(required)}"
+            )
+        normalized = {
+            key: value.strip() if isinstance(value, str) else value
+            for key, value in item.items()
+        }
+        if not all(isinstance(value, str) and value for value in normalized.values()):
+            raise ValueError(f"assets[{index}] values must be non-empty strings")
+        if not SAFE_SYMBOL.fullmatch(normalized["symbol"]):
+            raise ValueError(f"assets[{index}].symbol is not path-safe")
+        if normalized["assetClass"] not in ASSET_CLASSES - {"mixed"}:
+            raise ValueError(f"assets[{index}].assetClass is unsupported")
+        assets.append(normalized)
+    for key in ("symbol", "providerSymbol"):
+        values = [item[key] for item in assets]
+        if len(values) != len(set(values)):
+            raise ValueError(f"asset {key} values must be unique")
+    return assets
+
+
+def fetch(provider_symbol: str, start: datetime, end_exclusive: datetime) -> dict:
+    query = urllib.parse.urlencode(
+        {
+            "period1": int(start.timestamp()),
+            "period2": int(end_exclusive.timestamp()),
+            "interval": "1d",
+            "events": "div,splits",
+            "includeAdjustedClose": "true",
+        }
+    )
+    encoded = urllib.parse.quote(provider_symbol, safe="")
+    request = urllib.request.Request(
+        f"{CHART_URL.format(symbol=encoded)}?{query}",
+        headers={"User-Agent": "Mozilla/5.0 AutoQuantMarketDataSkill/1.0"},
+    )
+    for attempt in range(4):
+        try:
+            with urllib.request.urlopen(request, timeout=30) as response:
+                return json.load(response)
+        except Exception:
+            if attempt == 3:
+                raise
+            time.sleep(1.0 + attempt)
+    raise AssertionError("unreachable")
+
+
+def result_for(provider_symbol: str, payload: dict) -> dict:
+    chart = payload.get("chart")
+    if not isinstance(chart, dict):
+        raise ValueError(f"{provider_symbol}: Yahoo response lacks chart")
+    if chart.get("error") is not None or not chart.get("result"):
+        raise ValueError(
+            f"{provider_symbol}: Yahoo returned {chart.get('error')!r}"
+        )
+    return chart["result"][0]
+
+
+def frame_for(
+    provider_symbol: str,
+    result: dict,
+    adjustment: str,
+) -> tuple[pd.DataFrame, dict[str, Any]]:
+    timestamps = result.get("timestamp")
+    indicators = result.get("indicators", {})
+    quotes = indicators.get("quote") or []
+    if not timestamps or not quotes:
+        raise ValueError(f"{provider_symbol}: missing timestamps or quote data")
+    quote = quotes[0]
+    raw = pd.DataFrame(
+        {
+            "date": pd.to_datetime(timestamps, unit="s", utc=True).strftime(
+                "%Y-%m-%d"
+            ),
+            "open": quote.get("open"),
+            "high": quote.get("high"),
+            "low": quote.get("low"),
+            "close": quote.get("close"),
+            "volume": quote.get("volume"),
+        }
+    )
+    source_rows = len(raw)
+    adjusted_rows = 0
+    if adjustment == "provider-adjusted":
+        adjusted_values = indicators.get("adjclose") or []
+        if not adjusted_values or "adjclose" not in adjusted_values[0]:
+            raise ValueError(
+                f"{provider_symbol}: adjusted close is unavailable"
+            )
+        raw["adjusted_close"] = adjusted_values[0]["adjclose"]
+        factor = raw["adjusted_close"] / raw["close"]
+        valid_factor = factor.notna() & factor.gt(0)
+        adjusted_rows = int((valid_factor & factor.ne(1.0)).sum())
+        for column in ("open", "high", "low", "close"):
+            raw[column] = raw[column] * factor
+        raw = raw.drop(columns="adjusted_close")
+
+    for column in ("open", "high", "low", "close", "volume"):
+        raw[column] = pd.to_numeric(raw[column], errors="coerce")
+    null_rows = int(raw.isna().any(axis=1).sum())
+    raw = raw.dropna()
+    invalid_rows = int(
+        (
+            ~(raw[["open", "high", "low", "close"]] > 0).all(axis=1)
+            | raw["volume"].lt(0)
+        ).sum()
+    )
+    raw = raw.loc[
+        (raw[["open", "high", "low", "close"]] > 0).all(axis=1)
+        & raw["volume"].ge(0)
+    ]
+    duplicate_rows = int(raw["date"].duplicated(keep="last").sum())
+    raw = (
+        raw.drop_duplicates("date", keep="last")
+        .sort_values("date")
+        .reset_index(drop=True)
+    )
+    invalid_bounds = (
+        raw["high"].lt(raw[["open", "low", "close"]].max(axis=1))
+        | raw["low"].gt(raw[["open", "high", "close"]].min(axis=1))
+    )
+    if invalid_bounds.any():
+        raise ValueError(f"{provider_symbol}: inconsistent OHLC bounds")
+    if raw.empty:
+        raise ValueError(f"{provider_symbol}: no valid observations")
+    return raw, {
+        "sourceRows": source_rows,
+        "normalizedRows": len(raw),
+        "nullRowsDropped": null_rows,
+        "invalidRowsDropped": invalid_rows,
+        "duplicateRowsDropped": duplicate_rows,
+        "adjustedFactorRows": adjusted_rows,
+        "zeroVolumeRows": int(raw["volume"].eq(0).sum()),
+        "firstDate": str(raw["date"].iloc[0]),
+        "lastDate": str(raw["date"].iloc[-1]),
+    }
+
+
+def bound_session_dates(
+    frame: pd.DataFrame,
+    start: datetime,
+    end_exclusive: datetime,
+) -> tuple[pd.DataFrame, int]:
+    """Enforce the caller's Gregorian session-date half-open interval."""
+
+    observed = pd.to_datetime(
+        frame["date"],
+        format="%Y-%m-%d",
+        errors="raise",
+    ).dt.date
+    selected = (
+        (observed >= start.date())
+        & (observed < end_exclusive.date())
+    )
+    bounded = frame.loc[selected].reset_index(drop=True)
+    if bounded.empty:
+        raise ValueError("no observations in explicit session-date range")
+    return bounded, int((~selected).sum())
+
+
+def ensure_output(path: Path) -> None:
+    if path.exists() and (not path.is_dir() or any(path.iterdir())):
+        raise ValueError(f"output must be absent or empty: {path}")
+    path.mkdir(parents=True, exist_ok=True)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--assets", type=Path, required=True)
+    parser.add_argument("--dataset-id", required=True)
+    parser.add_argument("--start", type=parse_date, required=True)
+    parser.add_argument("--end-exclusive", type=parse_date, required=True)
+    parser.add_argument("--calendar", required=True)
+    parser.add_argument("--timezone", required=True)
+    parser.add_argument(
+        "--adjustment",
+        choices=("raw", "provider-adjusted"),
+        required=True,
+    )
+    parser.add_argument(
+        "--panel",
+        choices=("aligned", "observed-only"),
+        default="aligned",
+    )
+    parser.add_argument("--terms", required=True)
+    args = parser.parse_args()
+    if args.end_exclusive <= args.start:
+        parser.error("--end-exclusive must be after --start")
+    if not SAFE_SYMBOL.fullmatch(args.dataset_id):
+        parser.error("--dataset-id must be a path-safe AutoQuant identifier")
+
+    assets = load_assets(args.assets.expanduser().absolute())
+    output = args.output.expanduser().absolute()
+    ensure_output(output)
+    raw_dir = output / "raw"
+    raw_dir.mkdir()
+    retrieved_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+    frames: dict[str, pd.DataFrame] = {}
+    audits: dict[str, Any] = {}
+
+    for asset in assets:
+        payload = fetch(asset["providerSymbol"], args.start, args.end_exclusive)
+        raw_path = raw_dir / f"{asset['symbol']}.json"
+        raw_path.write_text(
+            json.dumps(payload, ensure_ascii=False, separators=(",", ":")),
+            encoding="utf-8",
+        )
+        result = result_for(asset["providerSymbol"], payload)
+        frame, summary = frame_for(
+            asset["providerSymbol"],
+            result,
+            args.adjustment,
+        )
+        frame, out_of_range = bound_session_dates(
+            frame,
+            args.start,
+            args.end_exclusive,
+        )
+        summary["outOfRangeRowsDropped"] = out_of_range
+        summary["normalizedRows"] = len(frame)
+        summary["firstDate"] = str(frame["date"].iloc[0])
+        summary["lastDate"] = str(frame["date"].iloc[-1])
+        summary["zeroVolumeRows"] = int(frame["volume"].eq(0).sum())
+        frames[asset["symbol"]] = frame
+        metadata = result.get("meta", {})
+        audits[asset["symbol"]] = {
+            **summary,
+            "providerSymbol": asset["providerSymbol"],
+            "declaredVenue": asset["venue"],
+            "declaredCurrency": asset["currency"],
+            "declaredAssetClass": asset["assetClass"],
+            "providerMetadata": {
+                key: metadata.get(key)
+                for key in (
+                    "symbol",
+                    "instrumentType",
+                    "exchangeName",
+                    "currency",
+                    "exchangeTimezoneName",
+                    "dataGranularity",
+                    "longName",
+                    "shortName",
+                )
+            },
+            "rawPath": raw_path.relative_to(output).as_posix(),
+            "rawSha256": sha256(raw_path),
+        }
+
+    if args.panel == "aligned":
+        common = sorted(
+            set.intersection(
+                *(set(frame["date"]) for frame in frames.values())
+            )
+        )
+        if not common:
+            raise ValueError("assets have no common observed dates")
+        for symbol in frames:
+            frames[symbol] = (
+                frames[symbol]
+                .set_index("date")
+                .loc[common]
+                .reset_index()
+            )
+
+    for asset in assets:
+        symbol = asset["symbol"]
+        csv_path = output / f"{symbol}.csv"
+        frames[symbol].to_csv(csv_path, index=False)
+        audits[symbol]["outputRows"] = len(frames[symbol])
+        audits[symbol]["csvPath"] = csv_path.relative_to(output).as_posix()
+        audits[symbol]["csvSha256"] = sha256(csv_path)
+
+    classes = {asset["assetClass"] for asset in assets}
+    schema_version = 1 if args.panel == "aligned" else 4
+    all_dates = sorted(
+        set.union(*(set(frame["date"]) for frame in frames.values()))
+    )
+    package: dict[str, Any] = {
+        "schemaVersion": schema_version,
+        "kind": "autoquant-ohlcv-dataset-package",
+        "id": args.dataset_id,
+        "version": f"{all_dates[0]}_{all_dates[-1]}",
+        "assetClass": next(iter(classes)) if len(classes) == 1 else "mixed",
+        "frequency": "1d",
+        "market": {
+            "clock": "session",
+            "calendar": args.calendar,
+            "timezone": args.timezone,
+        },
+        "priceAdjustment": args.adjustment,
+        "provider": {
+            "name": "yahoo-finance-chart",
+            "retrievedAt": retrieved_at,
+            "sourceUri": "https://query1.finance.yahoo.com/v8/finance/chart/",
+            "terms": args.terms,
+        },
+        "assets": [
+            {
+                "symbol": asset["symbol"],
+                "assetClass": asset["assetClass"],
+                "venue": asset["venue"],
+                "currency": asset["currency"],
+                "path": f"{asset['symbol']}.csv",
+            }
+            for asset in assets
+        ],
+    }
+    if schema_version == 4:
+        package["panelPolicy"] = {
+            "alignment": "observed-only",
+            "missingObservation": "absent-no-fill",
+        }
+    package_path = output / "dataset-package.json"
+    package_path.write_text(
+        json.dumps(package, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    audit = {
+        "schemaVersion": 1,
+        "kind": "autoquant-provider-acquisition-audit",
+        "provider": package["provider"],
+        "request": {
+            "start": args.start.isoformat(),
+            "endExclusive": args.end_exclusive.isoformat(),
+            "interval": "1d",
+            "panel": args.panel,
+            "adjustment": args.adjustment,
+        },
+        "transformation": {
+            "provider-adjusted": (
+                "adjusted-close/raw-close ratio applied to OHLC; "
+                "provider volume unchanged"
+            ),
+            "raw": "provider quote OHLCV preserved after validity filtering",
+        }[args.adjustment],
+        "assets": audits,
+        "packagePath": package_path.name,
+        "packageSha256": sha256(package_path),
+        "limitations": [
+            "Yahoo Chart is broad provider evidence, not venue authority.",
+            "Provider metadata and adjustment claims are not authenticated.",
+            "No survivorship, delisting, or official calendar claim follows.",
+        ],
+    }
+    (output / "provider-audit.json").write_text(
+        json.dumps(audit, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    print(
+        json.dumps(
+            {
+                "datasetPackage": str(package_path),
+                "retrievedAt": retrieved_at,
+                "assets": len(assets),
+                "panel": args.panel,
+                "firstDate": all_dates[0],
+                "lastDate": all_dates[-1],
+            },
+            sort_keys=True,
+        )
+    )
+
+
+if __name__ == "__main__":
+    main()

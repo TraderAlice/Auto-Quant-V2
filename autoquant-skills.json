@@ -1,0 +1,249 @@
+{
+  "bundleSha256": "64a429482caa81046591d0de215d857c514acfee1c9aefe8f68e7987119cbb6a",
+  "discoveryRoots": [
+    ".agents/skills",
+    ".claude/skills"
+  ],
+  "harnessVersion": "0.8.30",
+  "kind": "autoquant-workspace-skill-bundle",
+  "schemaVersion": 1,
+  "skills": [
+    {
+      "files": [
+        {
+          "path": "SKILL.md",
+          "sha256": "623b49b6666800bbe67b90d3d7497233ba1bf5afaf894347d755ede8b432ff4f"
+        },
+        {
+          "path": "agents/openai.yaml",
+          "sha256": "15d3817b19cbcc715cc53032c072d5029e49785707aa8fafa7e0bd6640aee45d"
+        },
+        {
+          "path": "references/cn-a-shares.md",
+          "sha256": "c83f7e8902138cdb191319a99d6f11481dedc01d37899e18e332ec790ae3d44a"
+        },
+        {
+          "path": "references/common-acquisition-checklist.md",
+          "sha256": "160f3ed9e69b3daa0d7da744ae553038ffbcad8d9ad54aaf5524a9366c35f92e"
+        },
+        {
+          "path": "references/eu-equity-venues.md",
+          "sha256": "ac189c41827d568c1092a2e1ea861adc1bd07c99a85fa90f19ecdc77ea8c42f8"
+        },
+        {
+          "path": "references/japan-equities.md",
+          "sha256": "9d26d6155a27cd3670a8c78f7523ce7234d1fc08de00dc36fb4d9405851dfc41"
+        },
+        {
+          "path": "references/south-korea-equities.md",
+          "sha256": "07fb82c988a83613b32e89ec3eb8270705d8f18a5286f8f27833178211f6cb6d"
+        },
+        {
+          "path": "references/taiwan-equities.md",
+          "sha256": "bc3009a54fc9982dafc23ddcd29af55013ebe5d3dc1adf4e0c31c571673fb94b"
+        },
+        {
+          "path": "references/us-equities.md",
+          "sha256": "b18a7dd46a71b705534233a8c6875a3af6e41e54f8dbbb58816f9ad5c82d0947"
+        },
+        {
+          "path": "references/vietnam-equities.md",
+          "sha256": "c31a1de199c1b8899b9bdf734944e59c21fad66fa5c1c41f8157f082d0d8df65"
+        }
+      ],
+      "id": "acquire-market-ohlcv"
+    },
+    {
+      "files": [
+        {
+          "path": "SKILL.md",
+          "sha256": "9c9a86ffb6c87ac4cadae9abae35d519f4bbdb0dc22b2792d646172979343c77"
+        },
+        {
+          "path": "agents/openai.yaml",
+          "sha256": "828266b9e14387451355395164720d3b39a293add3359d6a444154656ae0c3bf"
+        },
+        {
+          "path": "references/assets-format.md",
+          "sha256": "2071da80b46a096e74b73cef9b8eb2b9f6fdf42b31d8befaa9648a837dab7609"
+        },
+        {
+          "path": "scripts/fetch_binance_hourly.py",
+          "sha256": "4694fe05b3f9da8e53af54a9bf547e4c0e4f1b249a02ad9e6468a338be30deba"
+        }
+      ],
+      "id": "fetch-binance-ohlcv"
+    },
+    {
+      "files": [
+        {
+          "path": "SKILL.md",
+          "sha256": "462806306e5c7809e1b4a84ad22cfad365233f7613cbe464041a293e7ea378e1"
+        },
+        {
+          "path": "agents/openai.yaml",
+          "sha256": "6f538e30db191f448fb201c765e70c740607bf4ae53d4634360b4bd80c736eb4"
+        },
+        {
+          "path": "references/assets-format.md",
+          "sha256": "371968b1c6682370b959257806c9590560577917c76813a85047ecb60733a18b"
+        },
+        {
+          "path": "references/provider-route.md",
+          "sha256": "bea0df0b42b3b9c6e7ab4db50d798d467a12b9448dab04d9dd84728b2438339f"
+        },
+        {
+          "path": "scripts/fetch_eastmoney_daily.py",
+          "sha256": "2735b9ac39b69800d2da68b87f4f35ed226eddae07588123fcb338ddf8d1f781"
+        }
+      ],
+      "id": "fetch-eastmoney-ohlcv"
+    },
+    {
+      "files": [
+        {
+          "path": "SKILL.md",
+          "sha256": "372806b3b7cab4b6345bad74ec94846f0889c2ce8390263049f656706b44a32b"
+        },
+        {
+          "path": "agents/openai.yaml",
+          "sha256": "0f962103a8d76caab1c6dc88de8eff84b10919e5b17293b2533b4a83934884bf"
+        },
+        {
+          "path": "references/assets-format.md",
+          "sha256": "f35c7c49fda68bd4992955cdfb870b5cc3302b26ae5bb0e50f7ea41048d8adbb"
+        },
+        {
+          "path": "references/provider-route.md",
+          "sha256": "e23f3c7f4e156088f0baf0888e33b1c996379f872731713d5a3a3cef8587f829"
+        },
+        {
+          "path": "scripts/fetch_nasdaq_daily.py",
+          "sha256": "68697e8004906bed8b1cbcc45fe90b54d222e1b54c0acb9c57247bf2646ee06f"
+        }
+      ],
+      "id": "fetch-nasdaq-ohlcv"
+    },
+    {
+      "files": [
+        {
+          "path": "SKILL.md",
+          "sha256": "dac535bb17a881c3e0ec7c13cdab41e1be1ebe3f914b0ecdea44a45783cd2011"
+        },
+        {
+          "path": "agents/openai.yaml",
+          "sha256": "ec810a7d477f993fc807e9f8b6bbc4aa50629a3effb924f9a2d6718afcc43a5f"
+        },
+        {
+          "path": "references/assets-format.md",
+          "sha256": "9ac48224079e41e8c565d318a6fecc37f9abd0120ebfc9def33fe7dc53d5d5d4"
+        },
+        {
+          "path": "references/provider-route.md",
+          "sha256": "1d99efa4c2858c1c340f44781009ba7458229ddfb1b33ef400fefc7441ad3450"
+        },
+        {
+          "path": "scripts/fetch_naver_daily.py",
+          "sha256": "9ee6e1d6418eb51325323c3ee3bde428d4ce5fa74b44779369e58e5ffa7bf9d3"
+        }
+      ],
+      "id": "fetch-naver-ohlcv"
+    },
+    {
+      "files": [
+        {
+          "path": "SKILL.md",
+          "sha256": "786391955c963667abddd8d1a55f5fbeb855ed3190b1bf8b2e4365e123d095f7"
+        },
+        {
+          "path": "agents/openai.yaml",
+          "sha256": "787c4f5848fecd89ebe87f27fa8836e237a832bd883c4abd13057886899c4468"
+        },
+        {
+          "path": "references/assets-format.md",
+          "sha256": "9bbafb1c74972bb0d9af6d1ee28998345854c86852dbefc4e0b875b674b81d0e"
+        },
+        {
+          "path": "references/provider-route.md",
+          "sha256": "59ed23595ab1e3aca998076bdadb380ca978ce3b6cde6866896c34102b5a2a50"
+        },
+        {
+          "path": "scripts/fetch_tencent_daily.py",
+          "sha256": "371583071ca7a11b2e23b26ea758fb649ee3861602bd581eedc47390f6341e52"
+        }
+      ],
+      "id": "fetch-tencent-ohlcv"
+    },
+    {
+      "files": [
+        {
+          "path": "SKILL.md",
+          "sha256": "532f56a10cf70906f0429f98ab41ebea127547e7bf2fc90d4c0c0a59dd5dbad9"
+        },
+        {
+          "path": "agents/openai.yaml",
+          "sha256": "a1f9680e84e20a82f818c3dd47db33eb33506ddc444cee4db0b5c94c8dbbb6c7"
+        },
+        {
+          "path": "references/assets-format.md",
+          "sha256": "eb98df7d43af64e75d137668eca5bd9ab49d678b147ac4bd00debcb330b8f37a"
+        },
+        {
+          "path": "references/provider-route.md",
+          "sha256": "d61daf9f63fa3531c3076c37ecc6b6df4754d83f23c0a5dcb4d821e8b0531c7f"
+        },
+        {
+          "path": "scripts/fetch_twse_daily.py",
+          "sha256": "8e97f59d0dbaef70fd75f5cee282f8028128bfd8e4ad782518bb090f7df475c4"
+        }
+      ],
+      "id": "fetch-twse-ohlcv"
+    },
+    {
+      "files": [
+        {
+          "path": "SKILL.md",
+          "sha256": "1677179057fb607c7873fb15d4fdab2883b7c9e9522a6da68411079aa2e56b75"
+        },
+        {
+          "path": "agents/openai.yaml",
+          "sha256": "3b3b29f2f1340c0f9497a5ea400bf24c670048a30aec17e2e0c0c9ec57227d00"
+        },
+        {
+          "path": "references/assets-format.md",
+          "sha256": "49f95ee78e765907f26884f377f068edec3192bf6e19a3307d49797c52f581aa"
+        },
+        {
+          "path": "scripts/fetch_yahoo_daily.py",
+          "sha256": "394847e7cc83468b62daf4286f02867117e541138b073645a0e3606b94d32721"
+        }
+      ],
+      "id": "fetch-yahoo-ohlcv"
+    },
+    {
+      "files": [
+        {
+          "path": "SKILL.md",
+          "sha256": "cf8d47ff25a7298e2face562e13c1ca97604efff9106557153c758375b0107a7"
+        },
+        {
+          "path": "agents/openai.yaml",
+          "sha256": "9d7bbceff719fe50bee9cf674e4eb32cf6908aeb87ba59d416318b94a193deb2"
+        },
+        {
+          "path": "references/package-contracts.md",
+          "sha256": "15d30396debc1fba3779224d50d52a287dfe7b0b1c6e9db781acd1e479088592"
+        },
+        {
+          "path": "scripts/audit_ohlcv_package.py",
+          "sha256": "d3052690078ddf33bba631580b7eb8fef088f742050745c897a0ddf65880e28a"
+        },
+        {
+          "path": "scripts/compare_ohlcv_packages.py",
+          "sha256": "a9edff1d99e16ec26348ac356d297773780e7997472435e59f09506c6a987694"
+        }
+      ],
+      "id": "package-autoquant-ohlcv"
+    }
+  ]
+}

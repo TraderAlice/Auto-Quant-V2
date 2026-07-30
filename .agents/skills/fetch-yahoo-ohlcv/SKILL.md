@@ -1,0 +1,66 @@
+---
+name: fetch-yahoo-ohlcv
+description: Acquire bounded completed daily OHLCV from Yahoo Finance Chart, preserve raw JSON and metadata, apply an explicit raw or provider-adjusted OHLC transformation, and emit an auditable AutoQuant staging package. Use when the market router selects Yahoo as one broad historical source or when comparing Yahoo against a venue-authoritative provider.
+---
+
+# Fetch Yahoo OHLCV
+
+Use Yahoo as one broad, delayed, unauthenticated provider route. Do not treat
+successful Chart output as official venue, calendar, adjustment, or
+redistribution authority.
+
+## Prepare
+
+1. Read `$acquire-market-ohlcv` and its relevant market reference first.
+2. Create an asset file as described in
+   [assets-format.md](references/assets-format.md).
+3. Choose an end-exclusive date that excludes forming bars.
+4. Obtain and preserve the applicable terms/access understanding. Pass it
+   explicitly; the script does not invent a legal claim.
+
+## Fetch
+
+Run:
+
+```bash
+python3 scripts/fetch_yahoo_daily.py \
+  --output <workspace>/staging/market-data/<dataset-id> \
+  --assets /absolute/path/assets.json \
+  --dataset-id <dataset-id> \
+  --start YYYY-MM-DD \
+  --end-exclusive YYYY-MM-DD \
+  --calendar XNYS \
+  --timezone America/New_York \
+  --adjustment provider-adjusted \
+  --panel aligned \
+  --terms "caller-authorized research retrieval; Yahoo terms apply"
+```
+
+Use the Skill's absolute `scripts/fetch_yahoo_daily.py` path when running from
+outside this folder. The output directory must be absent or empty.
+
+Yahoo's `period1`/`period2` behavior is not trusted as the final session-date
+boundary outside U.S. timezones. The script always applies the requested
+Gregorian `[start, end-exclusive)` filter again after parsing and records any
+out-of-range rows it removed.
+
+Choose `--panel observed-only` only for a compatible Factor-only V4 intake.
+Choose `--adjustment raw` when raw price history is the intended evidence.
+For `provider-adjusted`, the script multiplies every OHLC field by
+`adjusted_close / raw_close` and leaves provider volume unchanged.
+
+## Verify
+
+- Inspect `provider-audit.json`, every raw JSON hash, every CSV hash, returned
+  instrument metadata, source/normalized ranges, dropped rows, and alignment.
+- Spot-check provider symbols and venue identity outside the Chart response.
+- Compare a bounded overlap against the market's second source.
+- Invoke `$package-autoquant-ohlcv`; do not move generated CSVs directly into
+  a Project.
+
+## Stop conditions
+
+Stop rather than silently changing the task when Yahoo lacks the requested
+history, interval, symbol, adjusted close, completed bar, or credible venue
+mapping. Record rate limiting, response errors, or freshness gaps as provider
+evidence.
