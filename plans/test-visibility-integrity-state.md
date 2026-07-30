@@ -1,6 +1,6 @@
 # Distinguish visible test audit from test-guided iteration
 
-- Status: `proposed`
+- Status: `superseded`
 - Updated: `2026-07-30`
 - Originating Project:
   `/Users/ame/2607AutoQuant/grok-field-trials/v0827-final-price-volume/desk/workspace/projects/grok-price-volume-factor-v0827-final`
@@ -62,4 +62,6 @@ no test-guided candidate iteration occurred.
 
 ## Completion
 
-Pending.
+Superseded on 2026-07-30 by [[plans/truthful-first-factor-session]], which
+preserves this integrity distinction while coupling it to the truthful
+baseline surface that defines the same first Factor Session.

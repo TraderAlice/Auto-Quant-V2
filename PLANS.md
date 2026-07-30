@@ -18,14 +18,13 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-There are no active plans.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/truthful-first-factor-session]] | Make the first daily Factor Session expose only real baseline inputs and distinguish test visibility from later test-informed edits. | 2026-07-30 |
 
 ## Proposed plans
 
-| Plan | Outcome | Updated |
-| --- | --- | --- |
-| [[plans/daily-factor-baseline-surface]] | Make a daily-only Factor intake seed a baseline whose declared components match its actual panel surface. | 2026-07-30 |
-| [[plans/test-visibility-integrity-state]] | Distinguish first visible test audit from a later test-informed candidate edit while preserving external-evidence safety. | 2026-07-30 |
+There are no proposed plans.
 
 ## Paused plans
 
@@ -131,7 +130,10 @@ There are no active plans.
 
 ## Superseded plans
 
-There are no superseded plans.
+| Plan | Replacement | Updated |
+| --- | --- | --- |
+| [[plans/daily-factor-baseline-surface]] | [[plans/truthful-first-factor-session]] | 2026-07-30 |
+| [[plans/test-visibility-integrity-state]] | [[plans/truthful-first-factor-session]] | 2026-07-30 |
 
 ## Working rules
 

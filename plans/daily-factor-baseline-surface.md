@@ -1,6 +1,6 @@
 # Align daily Factor baselines with the actual panel surface
 
-- Status: `proposed`
+- Status: `superseded`
 - Updated: `2026-07-30`
 - Originating Project:
   `/Users/ame/2607AutoQuant/grok-field-trials/v0827-final-price-volume/desk/workspace/projects/grok-price-volume-factor-v0827-final`
@@ -62,4 +62,6 @@ intent on a daily-only desk.
 
 ## Completion
 
-Pending.
+Superseded on 2026-07-30 by [[plans/truthful-first-factor-session]], which
+preserves this outcome while coupling it to the test-exposure state that a
+fresh Agent encounters in the same first Factor Session.
