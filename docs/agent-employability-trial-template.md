@@ -123,9 +123,11 @@ plan. One worker preference is not automatically a framework requirement.
 
 ## Independent review
 
-Record the exact read-only validation, Explorer, Report/Dossier reload, Studio,
-artifact/hash, and filesystem-boundary checks performed by the Workbench
-Agent.
+Record the exact read-only validation, applicable Explorer, Report/Dossier
+applicability and reload when identifiers exist, Studio, artifact/hash, and
+filesystem-boundary checks performed by the Workbench Agent. A fixed
+Session-free Study is not required to manufacture a Report or Dossier merely
+to satisfy this observer checklist.
 
 ## Classification
 

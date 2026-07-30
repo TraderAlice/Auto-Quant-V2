@@ -158,16 +158,18 @@ contract. Host integration is not part of this validation record.
 | `v0.8.26-manifest-root-event` | `A` | `independent-pass` | fixed Event Study | 0 | passed | One adopted Workspace, one Project, one Run; staged bytes stayed unchanged; 22-event descriptive answer retained wide uncertainty and no trading authority. |
 | `v0.8.28-price-volume-negative` | `A` | `independent-pass` | daily editable Factor | 0 | passed | Nine Yahoo assets; baseline used only real daily inputs; one checked REVERT; Report/completion retained the baseline; no Portfolio, RL, holdout, Order, or second Experiment. |
 | `cohort-01-sector-factor-portfolio` | `A` | `independent-pass` | editable Factor → Portfolio gate | 0 | passed | First fresh post-plan worker. Eleven sector ETFs plus SPY; one failed and one passing bounded Check, one REVERT, and a truthful negative handoff. Fixed Factor qualification withheld Portfolio weights. |
+| `cohort-02-retail-book-risk` | `A` | `independent-pass` | fixed descriptive Book Risk | 0 | passed | Nine caller-weighted retail/consumer equities; one fixed Run, no Session, direct concentration answer, exact Run-artifact evidence, and no invented safety threshold, replacement book, or trading claim. |
 
 The four pre-plan rows establish strong historical evidence but do not count
 toward the required four fresh post-plan workers. Additional historical rows
 remain pending conservative audit. Fresh rows are added only after independent
 evidence verification.
 
-Fresh post-plan progress: `1/4`. The first worker covers editable Factor and a
+Fresh post-plan progress: `2/4`. The first worker covers editable Factor and a
 truthful Factor-to-Portfolio gate, but does not yet satisfy the target-weight
 handoff coverage item because the scientific gate correctly blocked
-Portfolio.
+Portfolio. The second worker covers fixed descriptive research through a
+reported-book risk audit.
 
 Its exact packet and review live outside the product repository at
 `/Users/ame/2607AutoQuant/grok-field-trials/cohort-01-sector-factor-portfolio`.
@@ -184,4 +186,19 @@ installed-wheel worker and ended with `required-research-complete`,
 `primaryAction: null`, and `moveRole: optional-follow-up`; the worker stopped
 without another Session/Experiment or trading claim. Because that replay
 reused the originating price/volume assignment to verify a Core fix, it does
-not increase materially different fresh-cohort progress beyond `1/4`.
+not itself increase materially different fresh-cohort progress; the cohort
+remained at `1/4` until the later fixed Book Risk assignment.
+
+The second fresh assignment lives at
+`/Users/ame/2607AutoQuant/grok-field-trials/cohort-02-retail-book-risk`.
+Installed `0.8.29` independently created one fixed Book Risk Study and Run,
+reported annualized volatility `0.135960`, maximum drawdown `-0.095495`,
+effective risk bets `6.8003`, and the exact component-risk leaders, then
+stopped at `descriptive-audit-complete`. Independent review reconciled every
+number, Run artifact, normalized/raw hash, final orientation, and Studio
+projection. Its only friction came from the trial packet asking
+unconditionally for Report/Dossier reload on a deliberately Session-free
+fixed Study. The worker correctly reported those objects as nonexistent and
+cited the immutable Run report. Observer language now checks applicability
+first; the already documented absence of one universal outward-deliverable
+type remains an accepted product boundary rather than a new Core plan.

@@ -167,6 +167,18 @@ accidental current workflow instead of consuming a stable independent desk.
   `moveRole: optional-follow-up`, zero CLI retry, and no extra research or
   trading claim. This fix replay does not count as a second materially
   different post-plan cohort assignment.
+- 2026-07-30 — Fresh post-plan worker 2/4 independently handled a fixed
+  reported-book risk question on released `0.8.29`. It created one Project,
+  one fixed Study, one Run, and no Session; reconciled volatility, drawdown,
+  effective-bet and component-risk evidence; refused to invent a “danger”
+  threshold or replacement book; and stopped at
+  `descriptive-audit-complete`. This adds fixed descriptive coverage.
+- 2026-07-30 — The fixed trial exposed an observer-packet wording issue, not a
+  research failure: Session-free fixed Studies have no Session Report or
+  multi-lane Dossier to reload. The worker reported both as inapplicable and
+  cited immutable Run evidence. The trial template now checks applicability
+  before reload; no universal outward-object feature is promoted from this
+  successful case.
 
 ## Verification
 
@@ -182,11 +194,15 @@ accidental current workflow instead of consuming a stable independent desk.
   diagnostics. Event staging hashes remained exactly
   `57c6c8c68511481f1170311677858f5bbf03df410d27345f0a1e20f1bf17d904`
   and `7dad9b4eaabe1c4ce364c3ad4e6d2faef00c682d1e6728e59da4c4b8413688e2`.
-- Fresh post-plan cohort execution remains pending; the protocol is frozen.
 - Fresh post-plan cohort execution is underway. Worker 1/4 is Grade A
   `independent-pass`; its Project, both Runs, Report/Dossier, final Studio,
   source hashes, normalized hashes, and outward conclusion independently
   reconcile under the original installed `0.8.28` wheel.
+- Worker 2/4 is Grade A `independent-pass` under released `0.8.29`. One fixed
+  Book Risk Run, its strict Explorer, final terminal orientation, Studio,
+  every raw/normalized hash, and the outward answer independently reconcile.
+  Zero Session, Experiment, Report, Dossier, replacement Portfolio, or trading
+  claim exists.
 
 ## Progress log
 
@@ -208,8 +224,11 @@ accidental current workflow instead of consuming a stable independent desk.
   one-off long-lookback preflight observation.
 - 2026-07-30 — Closed the optional-agenda remediation after full regression,
   exact wheel installation, and a clean fresh-worker retry. Fresh cohort
-  progress remains 1/4; the next worker must use a materially different
-  assignment rather than counting this unchanged fix replay.
+  progress remained 1/4 at that point; the next worker had to use a materially
+  different assignment rather than counting this unchanged fix replay.
+- 2026-07-30 — Accepted `cohort-02-retail-book-risk` as the second materially
+  different fresh worker. It covers fixed descriptive research with a
+  zero-retry, one-Run terminal answer; cohort progress is 2/4.
 
 ## Completion
 
