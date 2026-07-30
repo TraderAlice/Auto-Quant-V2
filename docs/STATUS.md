@@ -309,6 +309,36 @@ The earlier personal repository remains a historical backup remote; the
 original `TraderAlice/Auto-Quant` repository remains the separate Classic
 line.
 
+## `0.8.31` verification snapshot
+
+- Clean implementation commit `1e00c92` built sdist
+  `auto_quant-0.8.31.tar.gz`
+  (`2cb5f816…22f7203`) and wheel
+  `auto_quant-0.8.31-py3-none-any.whl`
+  (`c365da95…daa2f0`).
+- The wheel installed in a fresh Python 3.11 environment, reported
+  `aq 0.8.31`, exposed the public capability manifest, initialized a clean
+  Workspace, materialized all 16 Skills into both discovery roots, created
+  and selected a Project, and passed orientation, validation, Project list,
+  and Studio snapshot.
+- The canonical and both materialized Skill roots share bundle SHA-256
+  `ad18cef0…361b3`; all 16 Skills pass the maintained validator and
+  deterministic fixture tests.
+- Real bounded two-source field trials cover named U.S.,
+  XSHG/XSHE/XBSE, Tokyo, KRX-listed, TWSE, HOSE, and XPAR equities. Matching
+  raw or adjusted contracts are compared explicitly; unlike contracts prove
+  route plurality only. Official TWSE is authority-first, while Eastmoney's
+  repeated connection closure remains visible degraded evidence.
+- Two isolated Grok Build coworkers received only an installed wheel, a new
+  Workspace, ordinary assignments, materialized Skills, and provider access.
+  Together they exercised every first-batch row, created valid U.S. and Korean
+  Projects, refused an invalid raw-versus-adjusted comparison, and disclosed
+  remaining venue-authority limits. The first found a V4 daily orientation
+  defect; the second proved the repaired `1d` candidate surface.
+- Full repository regression passed 346 tests in 1124.263 seconds. All 1,193
+  documentation links resolve, the build and diff checks pass, and no long
+  backtest, account access, Order, TP/SL, or trading action ran.
+
 ## `0.8.30` verification snapshot
 
 - Candidate wheel

@@ -47,6 +47,13 @@ Vietnamese, and Euronext Paris equities with at least two independently
 executable routes per market; unlike raw and adjusted contracts remain
 distinct.
 
+Two isolated installed-wheel coworkers exercised the complete first-batch
+matrix and created valid U.S. and Korean handoff Projects. The final Python
+3.11 wheel smoke materialized all 16 Skills into both discovery roots and
+passed orientation, validation, Project listing, and Studio projection. Full
+regression passes 346 tests in 1124.263 seconds and all 1,193 documentation
+links resolve.
+
 Today it can:
 
 - create persistent multi-Project quantitative desks from conversational or
