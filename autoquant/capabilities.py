@@ -318,7 +318,9 @@ CLI_COMMANDS = [
                 "option",
                 "string",
                 True,
-                "Strict delegated Research Request JSON.",
+                "Strict delegated Research Request JSON. Its source "
+                "artifactPath and artifactRevision must either both be "
+                "non-null strings or both be null.",
             ),
             argument(
                 "dataset",
@@ -326,9 +328,13 @@ CLI_COMMANDS = [
                 "string",
                 True,
                 "Path to the external OHLCV dataset-package manifest JSON, "
-                "not its directory. V4/V5 are ohlcv-factor-lab only; use "
-                "V1 for aligned daily fixed-Lab intake. V1-V4 may declare "
-                "one complete per-asset assetClass vector.",
+                "not its directory. Asset paths resolve from the manifest "
+                "directory; place the manifest at staged files' common "
+                "ancestor (for example staging/dataset-package.json with "
+                "raw-ohlcv/AAPL.csv) to avoid an intermediate copy. V4/V5 "
+                "are ohlcv-factor-lab only; use V1 for aligned daily "
+                "fixed-Lab intake. V1-V4 may declare one complete per-asset "
+                "assetClass vector.",
             ),
             argument(
                 "template",

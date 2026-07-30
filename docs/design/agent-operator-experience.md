@@ -244,6 +244,13 @@ explicitly adopt a pre-staged directory. Adoption never turns surrounding
 files into research authority and refuses collisions with AutoQuant-owned
 configuration or `projects/`.
 
+The dataset-package manifest directory is the package source root. A worker
+with files below `staging/raw-ohlcv/` places its manifest at `staging/` and
+uses asset paths such as `raw-ohlcv/AAPL.csv`. It does not duplicate those
+bytes beside a deeper manifest. This manifest-rooted layout is portable and
+retains parent/absolute-path and symlink rejection; the Project-local
+normalized content-locked snapshot created by intake remains intentional.
+
 ## Filesystem authority
 
 The distinction between ownership and current edit authority is explicit.

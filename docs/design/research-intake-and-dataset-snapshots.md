@@ -42,6 +42,12 @@ brief. `aq project intake` is therefore an atomic fast path when the clarified
 request and compatible data package already exist, not an automatic
 natural-language classifier.
 
+A Research Request's `source.artifactPath` and `source.artifactRevision` form
+one provenance claim. Both are non-null strings when an exact caller artifact
+is named, or both are JSON `null` when it is unavailable. A local immutable
+artifact may use an explicit content digest such as `sha256:<hex>` as its
+revision; AutoQuant preserves but does not authenticate that caller claim.
+
 ## Authoritative locations
 
 - Package validation, normalization, snapshot materialization, and intake
@@ -92,6 +98,27 @@ V1 accepts one JSON package manifest and its relative source files:
   ]
 }
 ```
+
+The directory containing the manifest is the package source root. Asset
+`path` values are portable POSIX-relative descendants of that directory, not
+paths relative to the command's current directory or Workspace root. Existing
+nested staging therefore needs no intermediate copy:
+
+```text
+workspace/
+└── staging/
+    ├── dataset-package.json
+    └── raw-ohlcv/
+        ├── AAPL.csv
+        └── SPY.csv
+```
+
+In this layout the manifest uses `raw-ohlcv/AAPL.csv` and
+`raw-ohlcv/SPY.csv`. Moving the complete `staging/` package preserves those
+references. Parent traversal, absolute paths, and symlinks are rejected. Core
+then materializes a separate normalized, content-locked snapshot inside the
+Project; that durable copy is intentional and is not the avoidable
+worker-created staging duplicate.
 
 The manifest is caller-supplied context. Provider, adjustment, venue, calendar,
 and terms fields are preserved and hashed but are not authenticated by

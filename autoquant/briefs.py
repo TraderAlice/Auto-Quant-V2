@@ -2231,6 +2231,12 @@ RESEARCH_REQUEST_JSON_SCHEMA: dict[str, Any] = {
             "items": {"type": "string", "minLength": 1},
         },
         "source": {
+            "description": (
+                "Caller-supplied, unauthenticated origin claim. "
+                "artifactPath and artifactRevision are a pair: set both to "
+                "non-empty strings when an exact source artifact is known, "
+                "or set both to null when it is not."
+            ),
             "type": "object",
             "additionalProperties": False,
             "required": [
@@ -2255,18 +2261,48 @@ RESEARCH_REQUEST_JSON_SCHEMA: dict[str, Any] = {
                     ]
                 },
                 "artifactPath": {
+                    "description": (
+                        "Exact caller artifact locator, or null. Must be "
+                        "non-null if and only if artifactRevision is non-null."
+                    ),
                     "anyOf": [
                         {"type": "null"},
                         {"type": "string", "minLength": 1},
                     ]
                 },
                 "artifactRevision": {
+                    "description": (
+                        "Exact revision claim for artifactPath, or null. Must "
+                        "be non-null if and only if artifactPath is non-null; "
+                        "a local immutable file may use an explicit content "
+                        "digest such as sha256:<hex>."
+                    ),
                     "anyOf": [
                         {"type": "null"},
                         {"type": "string", "minLength": 1},
                     ]
                 },
             },
+            "oneOf": [
+                {
+                    "properties": {
+                        "artifactPath": {"type": "null"},
+                        "artifactRevision": {"type": "null"},
+                    }
+                },
+                {
+                    "properties": {
+                        "artifactPath": {
+                            "type": "string",
+                            "minLength": 1,
+                        },
+                        "artifactRevision": {
+                            "type": "string",
+                            "minLength": 1,
+                        },
+                    }
+                },
+            ],
         },
     },
 }

@@ -296,7 +296,23 @@ clarified and translated into a strict request. It defaults to this
 research-desk template and validates the request and a caller-supplied,
 path-confined OHLCV package before creating anything. `--dataset` names the
 package manifest JSON file, not its containing directory; a directory returns
-`dataset.manifest-path-required`. The generated
+`dataset.manifest-path-required`. Every asset `path` is resolved from the
+directory containing that manifest. For already staged nested files, make the
+manifest directory their common ancestor:
+
+```text
+staging/
+├── dataset-package.json
+└── raw-ohlcv/
+    ├── AAPL.csv
+    └── SPY.csv
+```
+
+The manifest then uses `raw-ohlcv/AAPL.csv` and `raw-ohlcv/SPY.csv`. This
+avoids an Agent-managed intermediate copy while keeping portable relative
+paths, parent/absolute-path rejection, and symlink rejection. Intake still
+creates the intentional normalized content-locked snapshot inside the new
+Project. The generated
 `research.md` remains the Agent-maintained narrative source; `request.json`
 locks the understood execution assumptions and does not replace it. V1
 accepts one exact daily session panel. V2 accepts a
@@ -307,6 +323,13 @@ surface, provider, retrieval, calendar, terms, and price-adjustment claims;
 hashes source and normalized bytes; replaces the synthetic Study dataset
 identity; and atomically publishes the Project. It does not download data,
 authenticate provider claims, or fill missing bars.
+
+Research Request `source.artifactPath` and `source.artifactRevision` are an
+explicit pair. Set both to non-empty strings when the exact caller artifact is
+known, or set both to JSON `null`. For a local immutable assignment,
+`artifactRevision` may be an explicit content digest such as
+`sha256:<hex>`; Core records the claim but does not authenticate its host
+origin.
 
 `provider.retrievedAt` is a required but nullable provenance claim. Use a
 timezone-aware ISO-8601 string only when the original provider retrieval time

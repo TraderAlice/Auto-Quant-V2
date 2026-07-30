@@ -229,6 +229,14 @@ construction fixture with a validated caller-supplied OHLCV snapshot. V1
 stores an aligned daily session panel; V4 uses the same paths for a Factor-only
 observed daily panel whose per-asset dates may differ:
 
+External package asset paths are portable POSIX-relative paths rooted at the
+directory containing the package manifest. If caller files are already under
+`staging/raw-ohlcv/`, place `dataset-package.json` at `staging/` and reference
+`raw-ohlcv/<SYMBOL>.csv`; no Project-side intake-materials copy is needed.
+Parent traversal, absolute paths, and symlinks remain invalid. The resulting
+Project-local files below are a separate intentional normalized,
+content-locked snapshot:
+
 ```text
 request.json
 intake.json
@@ -784,7 +792,10 @@ Brief hash. `request.json` records the exact normalized caller input:
 ```
 
 Origin fields are caller-supplied content, not authenticated OpenAlice
-provenance. `positionRole` is optional only as a complete vector: when any
+provenance. `artifactPath` and `artifactRevision` must either both be non-null
+strings or both be JSON `null`; an exact local immutable artifact may use an
+explicit content digest such as `sha256:<hex>` for the revision claim.
+`positionRole` is optional only as a complete vector: when any
 requested asset declares it, every requested asset must declare `long-only`,
 `short-only`, `two-sided`, or `context-only`. Requested symbols and asset
 classes must fit the selected Study and its content-locked dataset snapshot.

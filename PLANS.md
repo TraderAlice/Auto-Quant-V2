@@ -34,6 +34,7 @@ There are no proposed plans.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/manifest-rooted-staging-intake]] | Let Agents intake caller-staged nested OHLCV directly by treating the package manifest directory as the safe source root, without weakening confinement. | 2026-07-30 |
 | [[plans/adopt-existing-workspace-directory]] | Let an Agent explicitly turn a pre-staged real directory into a Workspace without moving caller files or weakening default empty-target safety. | 2026-07-30 |
 | [[plans/allocation-construction-fidelity-by-split]] | Made fixed Allocation evidence distinguish relative performance from split-scoped ERC construction fidelity, so Agents can answer validation parity questions without private recomputation. | 2026-07-30 |
 | [[plans/mixed-class-aligned-ohlcv-allocation]] | Preserved truthful per-instrument classes in aligned OHLCV intake and let fixed Allocation references use context-only assets without admitting them to the ERC candidate set, proved by two fresh installed-wheel workers. | 2026-07-30 |

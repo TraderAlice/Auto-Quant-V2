@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha at `0.8.25`.
+Status: usable pre-alpha at `0.8.26`.
 
 Updated: 2026-07-30.
 
@@ -13,7 +13,7 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 AutoQuant V2 has crossed the line from an architectural prototype into a
 usable Agent-native quantitative research workbench.
 
-At `0.8.25`, a human, local coding Agent, or coworker delegated from OpenAlice
+At `0.8.26`, a human, local coding Agent, or coworker delegated from OpenAlice
 can:
 
 1. clone the repository and immediately discover the Harness plus its
@@ -211,7 +211,26 @@ exclusions; its `observed-advantage` conclusion remained explicitly
 descriptive with no trading authority. Full regression passes 321 tests in
 826.969 seconds and all 1,113 documentation links resolve.
 
-The current release is `v0.8.25`. `v0.8.24` remains the split Allocation
+`0.8.26` makes the dataset-package manifest directory an explicit Agent-facing
+source root without adding another path authority. Asset paths remain confined
+POSIX-relative descendants and symlinks remain invalid. Putting the manifest
+at staged files' common ancestor lets intake consume the original caller bytes
+directly; only the intentional Project-local normalized content-locked
+snapshot is materialized.
+
+The first isolated installed-wheel worker discovered that route from public
+schema/help, made no raw-data duplicate, and completed the fixed Event Study.
+It also exposed a half-present Research Request source artifact/revision retry.
+The final schema now describes and rejects that state before intake, and CLI
+help plus capabilities name the both-values-or-both-null rule. A second fresh
+final-wheel worker completed the same assignment on its first intake with one
+Project, one Run, zero Sessions, unchanged staging hashes, no CLI failure, and
+valid strict Explorer, orientation, Project, and Studio evidence.
+Full regression passes 322 tests in 924.699 seconds and all 1,117
+documentation links resolve.
+
+The current release is `v0.8.26`. `v0.8.25` remains the explicit Workspace
+adoption milestone, while `v0.8.24` remains the split Allocation
 construction-fidelity milestone, `v0.8.23` remains the mixed-class
 Allocation milestone, `v0.8.22` remains the multi-Project
 selection-safety milestone, `v0.8.21` remains the atomic lane-aware

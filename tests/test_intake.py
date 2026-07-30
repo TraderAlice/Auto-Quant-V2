@@ -65,6 +65,67 @@ from tests.intake_helpers import (
 
 
 class RequestDrivenIntakeTests(unittest.TestCase):
+    def test_manifest_root_intakes_nested_staged_sources_without_intermediate_copy(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            request_path, original_package_path = write_intake_inputs(root)
+            package = json.loads(
+                original_package_path.read_text(encoding="utf-8")
+            )
+            staging = root / "workspace" / "staging"
+            raw = staging / "raw-ohlcv"
+            raw.mkdir(parents=True)
+            source_hashes: dict[str, str] = {}
+            for asset in package["assets"]:
+                symbol = asset["symbol"]
+                original = original_package_path.parent / asset["path"]
+                staged = raw / f"{symbol}.csv"
+                original.replace(staged)
+                asset["path"] = f"raw-ohlcv/{symbol}.csv"
+                source_hashes[symbol] = hash_file(staged)
+
+            package_path = staging / "dataset-package.json"
+            package_path.write_text(
+                json.dumps(package, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            original_package_path.unlink()
+
+            prepared = prepare_project_intake(
+                request_path,
+                package_path,
+                "ohlcv-factor-lab",
+            )
+
+            self.assertEqual(
+                {
+                    asset.symbol: asset.source_relative_path
+                    for asset in prepared.assets
+                },
+                {
+                    symbol: f"raw-ohlcv/{symbol}.csv"
+                    for symbol in source_hashes
+                },
+            )
+            self.assertEqual(
+                {
+                    asset.symbol: asset.source_hash
+                    for asset in prepared.assets
+                },
+                source_hashes,
+            )
+            self.assertEqual(
+                sorted(path.name for path in raw.glob("*.csv")),
+                sorted(f"{symbol}.csv" for symbol in source_hashes),
+            )
+            self.assertEqual(
+                list(staging.glob("*.csv")),
+                [],
+                "intake preparation must not create a sibling raw-data copy",
+            )
+
     def test_aligned_package_asset_classes_are_complete_and_truthful(
         self,
     ) -> None:

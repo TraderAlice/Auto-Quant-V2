@@ -3937,6 +3937,14 @@ def intake_dataset_class_context(
     }
 
 
+OHLCV_PACKAGE_ASSET_PATH_DESCRIPTION = (
+    "Portable POSIX-relative source path resolved from the directory "
+    "containing the dataset-package manifest. To intake already staged "
+    "nested files without an intermediate copy, place the manifest at their "
+    "common ancestor (for example staging/dataset-package.json with "
+    "raw-ohlcv/AAPL.csv). Parent traversal, absolute paths, and symlinks are "
+    "rejected."
+)
 OHLCV_PACKAGE_ASSET_PROPERTIES: dict[str, Any] = {
     "symbol": {
         "type": "string",
@@ -3951,7 +3959,11 @@ OHLCV_PACKAGE_ASSET_PROPERTIES: dict[str, Any] = {
     },
     "venue": {"type": "string", "minLength": 1},
     "currency": {"type": "string", "minLength": 1},
-    "path": {"type": "string", "minLength": 1},
+    "path": {
+        "type": "string",
+        "minLength": 1,
+        "description": OHLCV_PACKAGE_ASSET_PATH_DESCRIPTION,
+    },
 }
 OHLCV_PACKAGE_ASSETS_JSON_SCHEMA: dict[str, Any] = {
     "type": "array",
@@ -4285,7 +4297,11 @@ OHLCV_DATASET_PACKAGE_V5_JSON_SCHEMA: dict[str, Any] = {
                     "assetClass": {"enum": sorted(ASSET_CLASSES)},
                     "venue": {"type": "string", "minLength": 1},
                     "currency": {"type": "string", "minLength": 1},
-                    "path": {"type": "string", "minLength": 1},
+                    "path": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": OHLCV_PACKAGE_ASSET_PATH_DESCRIPTION,
+                    },
                     "volumeSemantics": {
                         "enum": sorted(OBSERVED_VOLUME_SEMANTICS)
                     },
@@ -4301,7 +4317,11 @@ OHLCV_DATASET_PACKAGE_JSON_SCHEMA: dict[str, Any] = {
         "Select the package version together with the intake template: V1 "
         "is aligned daily and supports every intake template; V2 is fixed "
         "continuous hourly; V3 is configurable continuous/XNYS; V4 ragged "
-        "daily and V5 observed intraday are ohlcv-factor-lab only."
+        "daily and V5 observed intraday are ohlcv-factor-lab only. Asset "
+        "paths are portable POSIX-relative paths rooted at the directory "
+        "containing this manifest; placing the manifest at staged files' "
+        "common ancestor avoids an intermediate copy without weakening "
+        "confinement."
     ),
     "type": "object",
     "properties": {

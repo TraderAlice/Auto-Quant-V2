@@ -34,6 +34,16 @@ directory, or pass `--adopt-existing` explicitly when caller/host files are
 already inside the intended desk. Adoption preserves those surrounding files
 but refuses any existing Workspace manifest, local override, or `projects`
 entry; never move or delete caller material merely to satisfy initialization.
+Dataset asset paths resolve from the directory containing the package
+manifest. When raw files already live under `staging/raw-ohlcv/`, put
+`dataset-package.json` at `staging/` and use paths such as
+`raw-ohlcv/AAPL.csv`; do not copy the raw bytes beside a deeper manifest.
+Core still creates the intentional Project-local normalized, content-locked
+snapshot. Never use `..`, absolute paths, or symlinks to bypass the manifest
+root. In the strict Research Request `source`, set both `artifactPath` and
+`artifactRevision` when an exact caller artifact is known, or set both to JSON
+`null`; never fill only one. A local immutable artifact may use an explicit
+content digest as its revision claim.
 
 Before adding a host integration or public surface, ask:
 

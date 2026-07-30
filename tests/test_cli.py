@@ -956,6 +956,15 @@ class AgentCliTests(unittest.TestCase):
             command for command in commands if command["id"] == "project.intake"
         )
         self.assertEqual(project_intake["effect"], "creates-artifact")
+        request_argument = next(
+            argument
+            for argument in project_intake["arguments"]
+            if argument["name"] == "request"
+        )
+        self.assertIn(
+            "artifactPath and artifactRevision must either both be",
+            request_argument["description"],
+        )
         dataset_argument = next(
             argument
             for argument in project_intake["arguments"]
@@ -968,6 +977,33 @@ class AgentCliTests(unittest.TestCase):
         self.assertIn(
             "V4/V5 are ohlcv-factor-lab only",
             dataset_argument["description"],
+        )
+        self.assertIn(
+            "manifest at staged files' common ancestor",
+            dataset_argument["description"],
+        )
+        self.assertIn(
+            "raw-ohlcv/AAPL.csv",
+            dataset_argument["description"],
+        )
+        project_intake_help = run_cli("project", "intake", "--help")
+        self.assertEqual(
+            project_intake_help.returncode,
+            0,
+            project_intake_help.stderr,
+        )
+        self.assertIn(
+            "staged files' common",
+            project_intake_help.stdout,
+        )
+        self.assertIn("ancestor (for example", project_intake_help.stdout)
+        self.assertIn(
+            "raw-ohlcv/AAPL.csv",
+            project_intake_help.stdout,
+        )
+        self.assertIn(
+            "artifactPath and artifactRevision must both be",
+            project_intake_help.stdout,
         )
         self.assertEqual(
             next(
@@ -1071,12 +1107,42 @@ class AgentCliTests(unittest.TestCase):
         )
         request_schema = run_cli("schema", "research-request", "--json")
         self.assertEqual(request_schema.returncode, 0, request_schema.stderr)
+        request_schema_value = json_output(request_schema)["data"]["schema"]
         self.assertEqual(
-            json_output(request_schema)["data"]["schema"]["properties"]["kind"][
-                "const"
-            ],
+            request_schema_value["properties"]["kind"]["const"],
             "autoquant-research-request",
         )
+        source_schema = request_schema_value["properties"]["source"]
+        self.assertIn(
+            "artifactPath and artifactRevision are a pair",
+            source_schema["description"],
+        )
+        self.assertIn(
+            "if and only if artifactRevision is non-null",
+            source_schema["properties"]["artifactPath"]["description"],
+        )
+        paired_source = {
+            "system": "openalice",
+            "workspaceId": None,
+            "sessionId": None,
+            "artifactPath": "staging/assignment.md",
+            "artifactRevision": "sha256:example",
+        }
+        jsonschema.validate(paired_source, source_schema)
+        null_source = {
+            **paired_source,
+            "artifactPath": None,
+            "artifactRevision": None,
+        }
+        jsonschema.validate(null_source, source_schema)
+        with self.assertRaises(jsonschema.ValidationError):
+            jsonschema.validate(
+                {
+                    **paired_source,
+                    "artifactRevision": None,
+                },
+                source_schema,
+            )
         report_schema = run_cli("schema", "report-analysis", "--json")
         self.assertEqual(report_schema.returncode, 0, report_schema.stderr)
         self.assertEqual(
@@ -1170,6 +1236,22 @@ class AgentCliTests(unittest.TestCase):
             "V1 is aligned daily and supports every intake template",
             package_schema["description"],
         )
+        self.assertIn(
+            "manifest at staged files' common ancestor",
+            package_schema["description"],
+        )
+        v1_asset_path = package_schema["oneOf"][0]["properties"]["assets"][
+            "oneOf"
+        ][0]["items"]["properties"]["path"]["description"]
+        self.assertIn(
+            "resolved from the directory containing the dataset-package manifest",
+            v1_asset_path,
+        )
+        self.assertIn("raw-ohlcv/AAPL.csv", v1_asset_path)
+        v5_asset_path = package_schema["oneOf"][4]["properties"]["assets"][
+            "items"
+        ]["properties"]["path"]["description"]
+        self.assertEqual(v5_asset_path, v1_asset_path)
         self.assertIn(
             "Only valid with project intake --template ohlcv-factor-lab",
             package_schema["oneOf"][3]["description"],

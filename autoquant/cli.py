@@ -395,14 +395,21 @@ def build_parser() -> RaisingArgumentParser:
     project_intake.add_argument(
         "--request",
         required=True,
-        help="strict delegated Research Request JSON file",
+        help=(
+            "strict delegated Research Request JSON file; source "
+            "artifactPath and artifactRevision must both be non-null or both "
+            "be null"
+        ),
     )
     project_intake.add_argument(
         "--dataset",
         required=True,
         help=(
-            "dataset-package manifest JSON file, not its containing directory; "
-            "V4/V5 are ohlcv-factor-lab only"
+            "dataset-package manifest JSON file, not its containing "
+            "directory; asset paths resolve from the manifest directory, so "
+            "place it at staged files' common ancestor (for example "
+            "staging/dataset-package.json with raw-ohlcv/AAPL.csv) to avoid "
+            "an intermediate copy; V4/V5 are ohlcv-factor-lab only"
         ),
     )
     project_intake.add_argument(

@@ -1,5 +1,5 @@
 ---
-version: 0.8.25
+version: 0.8.26
 ---
 
 # AutoQuant V2
@@ -32,7 +32,7 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current milestone: `0.8.25`
+## Current milestone: `0.8.26`
 
 AutoQuant V2 has crossed from an architectural prototype into a usable
 research workbench.
@@ -278,6 +278,25 @@ Strict Event Explorer and Studio remained valid; no staging relocation or
 rewrite occurred. Repository regression passes all 321 tests in 826.969
 seconds and the documentation graph resolves all 1,113 checked links.
 
+`0.8.26` follows that same worker into dataset packaging. Dataset asset paths
+remain strictly confined, portable, and relative to the package manifest
+directory, but public schema, capability JSON, CLI help, and Agent guidance
+now say explicitly that the manifest may sit at staged files' common ancestor.
+An Agent can therefore intake `staging/raw-ohlcv/AAPL.csv` through
+`staging/dataset-package.json` without creating a second raw staging copy.
+The Project-local normalized content-locked snapshot remains intentional.
+
+The first isolated `0.8.26` worker naturally discovered that layout and exposed
+one adjacent first-attempt retry: Research Request `source.artifactPath` and
+`artifactRevision` were not visibly paired. The final schema describes and
+enforces the existing both-values-or-both-null contract, while CLI and
+capabilities repeat it. A second fresh final-wheel Grok completed the unchanged
+NVDA/SPY Event assignment on its first intake with one Project, one Run, zero
+Sessions, exact source hashes, no intermediate raw copy, and no CLI failure.
+Strict Explorer, validation, orientation, and Studio all reconciled.
+Repository regression passes all 322 tests in 924.699 seconds and the
+documentation graph resolves all 1,117 checked links.
+
 `0.8.24` followed another isolated Grok coworker into a capped ERC assignment
 with two independent caller questions. The installed `0.8.23` worker could
 answer validation relative performance, but correctly refused to claim that
@@ -511,6 +530,13 @@ can derive the strict request and use the atomic intake fast path below. Intake
 validates and normalizes the complete panel, checks its market-clock and
 interval contract, confines all paths, copies the data into the Project, and
 locks every source byte before creating Studies.
+
+Package asset paths resolve from the directory containing the dataset manifest.
+If raw files already exist under `staging/raw-ohlcv/`, place
+`dataset-package.json` at `staging/` and use paths such as
+`raw-ohlcv/AAPL.csv`. This avoids a temporary second raw-data copy; the
+Project-local normalized content-locked snapshot created by intake remains
+intentional. Parent paths, absolute paths, and symlinks are rejected.
 
 ```bash
 uv run aq schema research-request --json
