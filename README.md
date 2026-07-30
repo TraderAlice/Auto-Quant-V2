@@ -1,5 +1,5 @@
 ---
-version: 0.8.29
+version: 0.8.30
 ---
 
 # AutoQuant V2
@@ -32,10 +32,18 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current milestone: `0.8.29`
+## Current milestone: `0.8.30`
 
 AutoQuant V2 has crossed from an architectural prototype into a usable
 research workbench.
+
+`0.8.30` is the current development milestone. It preserves the public
+`fixed-weights` research-request contract through the shared Portfolio
+Mandate and both mechanical Portfolio and governed-RL Judges, instead of
+silently replacing the caller's reference with a direction default. It also
+makes the seconds-scale governed-RL candidate Check exercise the exact raw
+state fields advertised by the full Judge. A fresh installed-wheel coworker
+retry is required before this milestone is tagged as a release.
 
 Today it can:
 

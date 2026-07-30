@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha at `0.8.29`.
+Status: usable pre-alpha at development milestone `0.8.30`.
 
 Updated: 2026-07-30.
 
@@ -14,7 +14,7 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 AutoQuant V2 has crossed the line from an architectural prototype into a
 usable Agent-native quantitative research workbench.
 
-At `0.8.29`, a human, local coding Agent, or coworker delegated from OpenAlice
+At `0.8.30`, a human, local coding Agent, or coworker delegated from OpenAlice
 can:
 
 1. clone the repository and immediately discover the Harness plus its
@@ -273,7 +273,11 @@ Agendas with no move are `unavailable`. This is presentation authority only:
 Core neither infers a prose experiment budget nor executes, promotes, or
 trades from an agenda.
 
-The current release is `v0.8.29`. `v0.8.28` remains the truthful
+The latest tagged release is `v0.8.29`. Development milestone `0.8.30`
+preserves caller fixed-weight references through the shared Portfolio and
+governed-RL contract and aligns fast RL preflight with the full Judge state;
+it remains untagged until fresh-worker and release verification complete.
+`v0.8.28` remains the truthful
 first-Factor-surface milestone, while `v0.8.27` remains the primary-horizon and
 terminal Session-handoff milestone, while `v0.8.26` remains the manifest-rooted
 staging and paired request-source milestone, while `v0.8.25` remains the explicit Workspace
