@@ -1,6 +1,6 @@
 ---
 name: fetch-yahoo-ohlcv
-description: Acquire bounded completed daily OHLCV from Yahoo Finance Chart, preserve raw JSON and metadata, apply an explicit raw or provider-adjusted OHLC transformation, and emit an auditable AutoQuant staging package. Use when the market router selects Yahoo as one broad historical source or when comparing Yahoo against a venue-authoritative provider.
+description: Acquire bounded completed daily OHLCV from Yahoo Finance Chart, preserve raw JSON and metadata, select explicit split-adjusted or split-and-dividend-adjusted semantics, and emit an auditable AutoQuant staging package. Use when the market router selects Yahoo as one broad historical source or when comparing Yahoo against a venue-authoritative provider.
 ---
 
 # Fetch Yahoo OHLCV
@@ -31,7 +31,7 @@ python3 scripts/fetch_yahoo_daily.py \
   --end-exclusive YYYY-MM-DD \
   --calendar XNYS \
   --timezone America/New_York \
-  --adjustment provider-adjusted \
+  --adjustment split-and-dividend-adjusted \
   --panel aligned \
   --terms "caller-authorized research retrieval; Yahoo terms apply"
 ```
@@ -44,10 +44,16 @@ boundary outside U.S. timezones. The script always applies the requested
 Gregorian `[start, end-exclusive)` filter again after parsing and records any
 out-of-range rows it removed.
 
+Session dates are derived only after converting each timestamp to Yahoo's
+returned `exchangeTimezoneName`; UTC calendar dates are not treated as local
+session dates.
+
 Choose `--panel observed-only` only for a compatible Factor-only V4 intake.
-Choose `--adjustment raw` when raw price history is the intended evidence.
-For `provider-adjusted`, the script multiplies every OHLC field by
-`adjusted_close / raw_close` and leaves provider volume unchanged.
+Choose `--adjustment split-adjusted` to preserve Yahoo's historical quote
+OHLC. These are not exchange-unadjusted prices: Yahoo back-adjusts historical
+quotes for split-like corporate actions. For
+`split-and-dividend-adjusted`, the script additionally multiplies every OHLC
+field by `adjusted_close / raw_close` and leaves provider volume unchanged.
 
 ## Verify
 

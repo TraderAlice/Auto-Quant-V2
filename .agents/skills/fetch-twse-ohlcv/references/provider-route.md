@@ -9,7 +9,16 @@ https://www.twse.com.tw/en/trading/historical/stock-day.html
 The narrow monthly JSON route used by this Skill is:
 
 ```text
-https://www.twse.com.tw/rwd/en/afterTrading/STOCK_DAY
+https://www.twse.com.tw/exchangeReport/STOCK_DAY
+
+The newer `/rwd/en/afterTrading/STOCK_DAY` path may return an incomplete 307
+security redirect from non-browser hosts. The older official
+`/exchangeReport/STOCK_DAY` JSON route returned the same monthly report during
+the 2026-07 field trial and is the executable route used by this Skill.
+TWSE's CDN also returned that security redirect for some parameter orders.
+The field trial found `response=json`, then `stockNo`, then `date` consistently
+usable across its bounded symbol set, so the acquisition script deliberately
+preserves that order and audits every exact request URI.
 ```
 
 with `date=YYYYMM01`, `stockNo=<code>`, and `response=json`.

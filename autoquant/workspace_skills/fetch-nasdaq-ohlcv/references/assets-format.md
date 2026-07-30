@@ -25,4 +25,4 @@
 - `providerAssetClass=etf` requires `assetClass=fund`.
 - `venue` remains a caller/researcher claim and may be `XNAS`, `XNYS`,
   `ARCX`, or another independently verified U.S. venue.
-- Initial output is raw USD daily history only.
+- Output is split-adjusted USD daily history.

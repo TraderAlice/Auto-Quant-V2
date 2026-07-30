@@ -8,9 +8,13 @@
 
 ## Routes
 
-- Naver Finance: independent raw route through `$fetch-naver-ohlcv`; verify
-  the six-digit code and board identity outside the response.
+- Naver Finance: raw route through `$fetch-naver-ohlcv`; verify the six-digit
+  code and board identity outside the response.
+- Daum Finance: independent raw route through `$fetch-daum-ohlcv`; preserve
+  pagination evidence and check accumulated trade value against share volume.
 - Yahoo: broad route through `$fetch-yahoo-ohlcv`; verify `.KS` versus `.KQ`,
-  history, freshness, currency, and adjustment on the same sample.
+  history, freshness, currency, and split-adjusted semantics. Do not compare
+  it as equivalent to the two raw routes.
 
-Neither route is KRX authority. Preserve that limitation even when they agree.
+None of these routes is KRX authority. Preserve that limitation even when the
+two raw routes agree.

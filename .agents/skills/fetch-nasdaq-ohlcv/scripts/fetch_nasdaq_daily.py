@@ -1,4 +1,4 @@
-"""Fetch auditable raw U.S. daily OHLCV from Nasdaq.com history."""
+"""Fetch auditable split-adjusted U.S. daily OHLCV from Nasdaq.com history."""
 
 from __future__ import annotations
 
@@ -347,7 +347,7 @@ def main() -> None:
             "calendar": "US-listed-venues",
             "timezone": "America/New_York",
         },
-        "priceAdjustment": "raw",
+        "priceAdjustment": "split-adjusted",
         "provider": {
             "name": "nasdaq-com-historical-quotes",
             "retrievedAt": retrieved_at,
@@ -385,11 +385,11 @@ def main() -> None:
             "providerEndInclusive": end_inclusive.isoformat(),
             "interval": "1d",
             "panel": args.panel,
-            "adjustment": "raw",
+            "adjustment": "split-adjusted",
         },
         "transformation": (
-            "display-formatted raw OHLC and share volume parsed without "
-            "corporate-action adjustment"
+            "display-formatted split-adjusted OHLC and share volume parsed "
+            "without an additional dividend adjustment"
         ),
         "assets": audits,
         "packagePath": package_path.name,

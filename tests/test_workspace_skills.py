@@ -41,11 +41,18 @@ class WorkspaceSkillTests(unittest.TestCase):
         expected_ids = {
             "acquire-market-ohlcv",
             "fetch-binance-ohlcv",
+            "fetch-daum-ohlcv",
             "fetch-eastmoney-ohlcv",
+            "fetch-euronext-ohlcv",
+            "fetch-finmind-ohlcv",
             "fetch-nasdaq-ohlcv",
             "fetch-naver-ohlcv",
+            "fetch-nikkei-ohlcv",
+            "fetch-sina-ohlcv",
+            "fetch-sohu-ohlcv",
             "fetch-tencent-ohlcv",
             "fetch-twse-ohlcv",
+            "fetch-vndirect-ohlcv",
             "fetch-yahoo-ohlcv",
             "package-autoquant-ohlcv",
         }
@@ -90,7 +97,7 @@ class WorkspaceSkillTests(unittest.TestCase):
                 workspace.root_dir
             )
             self.assertTrue((workspace.root_dir / WORKSPACE_SKILLS_MANIFEST).is_file())
-            self.assertEqual(len(verified["skills"]), 9)
+            self.assertEqual(len(verified["skills"]), 16)
 
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / "adopted"
@@ -139,7 +146,7 @@ class WorkspaceSkillTests(unittest.TestCase):
         frame, audit = yahoo.frame_for(
             "SYNTH",
             result,
-            "provider-adjusted",
+            "split-and-dividend-adjusted",
         )
         self.assertEqual(frame.loc[0, "open"], 50.0)
         self.assertEqual(frame.loc[0, "high"], 60.0)
@@ -173,6 +180,43 @@ class WorkspaceSkillTests(unittest.TestCase):
         )
         self.assertEqual(bounded["date"].tolist(), ["2026-07-29"])
         self.assertEqual(dropped, 1)
+
+    def test_yahoo_uses_exchange_timezone_for_session_date(self) -> None:
+        yahoo = load_script(
+            "autoquant_skill_yahoo_timezone",
+            SKILLS
+            / "fetch-yahoo-ohlcv"
+            / "scripts"
+            / "fetch_yahoo_daily.py",
+        )
+        timestamp = int(
+            pd.Timestamp("2025-01-01T17:00:00Z").timestamp()
+        )
+        result = {
+            "meta": {"exchangeTimezoneName": "Asia/Ho_Chi_Minh"},
+            "timestamp": [timestamp],
+            "indicators": {
+                "quote": [
+                    {
+                        "open": [100.0],
+                        "high": [101.0],
+                        "low": [99.0],
+                        "close": [100.0],
+                        "volume": [1_000.0],
+                    }
+                ]
+            },
+        }
+        frame, audit = yahoo.frame_for(
+            "VNM.VN",
+            result,
+            "split-adjusted",
+        )
+        self.assertEqual(frame.loc[0, "date"], "2025-01-02")
+        self.assertEqual(
+            audit["sessionDateTimezone"],
+            "Asia/Ho_Chi_Minh",
+        )
 
     def test_eastmoney_lots_become_shares_only_after_amount_check(self) -> None:
         eastmoney = load_script(
@@ -298,15 +342,15 @@ class WorkspaceSkillTests(unittest.TestCase):
             "stat": "OK",
             "title": "113/07 2330",
             "fields": [
-                "Date",
-                "Trade Volume",
-                "Trade Value",
-                "Opening Price",
-                "Highest Price",
-                "Lowest Price",
-                "Closing Price",
-                "Change",
-                "Transaction",
+                "日期",
+                "成交股數",
+                "成交金額",
+                "開盤價",
+                "最高價",
+                "最低價",
+                "收盤價",
+                "漲跌價差",
+                "成交筆數",
             ],
             "data": [
                 [
@@ -319,7 +363,18 @@ class WorkspaceSkillTests(unittest.TestCase):
                     "970.00",
                     "+10.00",
                     "40,000",
-                ]
+                ],
+                [
+                    "113/07/02",
+                    "0",
+                    "0",
+                    "--",
+                    "--",
+                    "--",
+                    "--",
+                    "--",
+                    "0",
+                ],
             ],
         }
         frame, audit = twse.parse_month(
@@ -329,6 +384,8 @@ class WorkspaceSkillTests(unittest.TestCase):
         self.assertEqual(str(frame.loc[0, "date"]), "2024-07-01")
         self.assertEqual(frame.loc[0, "volume"], 20_000_000.0)
         self.assertEqual(audit["rows"], 1)
+        self.assertEqual(audit["providerRows"], 2)
+        self.assertEqual(audit["unusableRowsDropped"], 1)
         self.assertEqual(
             list(
                 twse.months(
@@ -352,7 +409,57 @@ class WorkspaceSkillTests(unittest.TestCase):
             ],
         )
 
-    def test_nasdaq_display_history_parses_raw_prices_and_shares(self) -> None:
+    def test_finmind_preserves_raw_twd_and_checks_traded_money(self) -> None:
+        finmind = load_script(
+            "autoquant_skill_finmind",
+            SKILLS
+            / "fetch-finmind-ohlcv"
+            / "scripts"
+            / "fetch_finmind_daily.py",
+        )
+        payload = {
+            "msg": "success",
+            "status": 200,
+            "data": [
+                {
+                    "date": "2026-07-28",
+                    "stock_id": "2330",
+                    "Trading_Volume": 20_000_000,
+                    "Trading_money": 19_300_000_000,
+                    "open": 960.0,
+                    "max": 980.0,
+                    "min": 955.0,
+                    "close": 970.0,
+                    "spread": 10.0,
+                    "Trading_turnover": 40_000,
+                },
+                {
+                    "date": "2026-07-29",
+                    "stock_id": "2330",
+                    "Trading_Volume": 10_000_000,
+                    "Trading_money": 9_850_000_000,
+                    "open": 975.0,
+                    "max": 995.0,
+                    "min": 970.0,
+                    "close": 990.0,
+                    "spread": 20.0,
+                    "Trading_turnover": 25_000,
+                },
+            ],
+        }
+        frame, audit = finmind.parse_payload(
+            "2330",
+            json.dumps(payload).encode(),
+            finmind.date(2026, 7, 28),
+            finmind.date(2026, 7, 30),
+        )
+        self.assertEqual(frame["date"].tolist(), ["2026-07-28", "2026-07-29"])
+        self.assertEqual(frame.loc[1, "close"], 990.0)
+        self.assertEqual(frame.loc[1, "volume"], 10_000_000)
+        self.assertEqual(audit["valueVolumeRowsChecked"], 2)
+        self.assertEqual(audit["valueVolumeAnomalyRows"], 0)
+
+    def test_nasdaq_display_history_parses_prices_and_shares(self) -> None:
         nasdaq = load_script(
             "autoquant_skill_nasdaq",
             SKILLS
@@ -434,6 +541,287 @@ class WorkspaceSkillTests(unittest.TestCase):
         self.assertEqual(frame.loc[1, "close"], 207_000)
         self.assertEqual(frame.loc[1, "volume"], 13_000_000)
         self.assertEqual(audit["providerVolumeUnit"], "share")
+
+    def test_daum_page_preserves_raw_krw_and_checks_traded_value(self) -> None:
+        daum = load_script(
+            "autoquant_skill_daum",
+            SKILLS
+            / "fetch-daum-ohlcv"
+            / "scripts"
+            / "fetch_daum_daily.py",
+        )
+        payload = {
+            "code": 200,
+            "message": None,
+            "currentPage": 1,
+            "pageSize": 1000,
+            "totalCount": 2,
+            "totalPages": 1,
+            "data": [
+                {
+                    "symbolCode": "A005930",
+                    "date": "2026-07-29 00:00:00",
+                    "openingPrice": 203000,
+                    "highPrice": 208000,
+                    "lowPrice": 201000,
+                    "tradePrice": 207000,
+                    "accTradeVolume": 13000000,
+                    "accTradePrice": 2665000000000,
+                },
+                {
+                    "symbolCode": "A005930",
+                    "date": "2026-07-28 00:00:00",
+                    "openingPrice": 200000,
+                    "highPrice": 205000,
+                    "lowPrice": 198000,
+                    "tradePrice": 203000,
+                    "accTradeVolume": 12000000,
+                    "accTradePrice": 2418000000000,
+                },
+            ],
+        }
+        records, page_audit = daum.parse_page(
+            "A005930", json.dumps(payload).encode(), 1
+        )
+        frame, audit = daum.frame_for(
+            "A005930",
+            records,
+            daum.date(2026, 7, 28),
+            daum.date(2026, 7, 30),
+        )
+        self.assertEqual(frame["date"].tolist(), ["2026-07-28", "2026-07-29"])
+        self.assertEqual(frame.loc[1, "close"], 207_000)
+        self.assertEqual(frame.loc[1, "volume"], 13_000_000)
+        self.assertEqual(audit["valueVolumeRowsChecked"], 2)
+        self.assertEqual(page_audit["totalCount"], 2)
+
+    def test_vndirect_price_scale_and_invalid_bounds_are_audited(self) -> None:
+        vndirect = load_script(
+            "autoquant_skill_vndirect",
+            SKILLS
+            / "fetch-vndirect-ohlcv"
+            / "scripts"
+            / "fetch_vndirect_daily.py",
+        )
+        asset = {
+            "symbol": "VCB",
+            "providerSymbol": "VCB",
+            "providerFloor": "HOSE",
+            "venue": "HOSE",
+            "currency": "VND",
+            "assetClass": "equity",
+        }
+        records = [
+            {
+                "code": "VCB",
+                "floor": "HOSE",
+                "date": "2026-07-28",
+                "open": 60.0,
+                "high": 62.0,
+                "low": 59.0,
+                "close": 61.0,
+                "adOpen": 30.0,
+                "adHigh": 31.0,
+                "adLow": 29.5,
+                "adClose": 30.5,
+                "nmVolume": 1_000,
+                "nmValue": 60_500_000,
+                "average": 60.5,
+            },
+            {
+                "code": "VCB",
+                "floor": "HOSE",
+                "date": "2026-07-29",
+                "open": 61.0,
+                "high": 62.0,
+                "low": 61.5,
+                "close": 61.2,
+                "adOpen": 30.5,
+                "adHigh": 31.0,
+                "adLow": 30.75,
+                "adClose": 30.6,
+                "nmVolume": 2_000,
+                "nmValue": 122_400_000,
+                "average": 61.2,
+            },
+        ]
+        frame, audit = vndirect.frame_for(
+            asset,
+            records,
+            "raw",
+            vndirect.date(2026, 7, 28),
+            vndirect.date(2026, 7, 30),
+        )
+        self.assertEqual(frame["date"].tolist(), ["2026-07-28"])
+        self.assertEqual(frame.loc[0, "close"], 61_000.0)
+        self.assertEqual(frame.loc[0, "volume"], 1_000.0)
+        self.assertEqual(audit["priceMultiplier"], 1_000)
+        self.assertEqual(audit["normalValueChecks"], 2)
+        self.assertEqual(audit["invalidBoundsRowsDropped"], 1)
+
+    def test_euronext_official_csv_preserves_share_volume(self) -> None:
+        euronext = load_script(
+            "autoquant_skill_euronext",
+            SKILLS
+            / "fetch-euronext-ohlcv"
+            / "scripts"
+            / "fetch_euronext_daily.py",
+        )
+        raw = (
+            "\ufeff\"Historical Data\"\n"
+            "\"From 2026-07-28 to 2026-07-29\"\n"
+            "FR0000121014\n"
+            "Date;Open;High;Low;Last;Close;Number of Shares;"
+            "Number of Trades;Turnover;vwap\n"
+            "29/07/2026;477.00;486.40;465.25;467.95;467.95;"
+            "684597;36414;322427655;470.9744\n"
+            "28/07/2026;469.40;481.15;451.80;470.30;470.30;"
+            "876705;44524;408412667;465.8496\n"
+        ).encode()
+        frame, audit = euronext.parse_payload(
+            "FR0000121014-XPAR",
+            raw,
+            euronext.date(2026, 7, 28),
+            euronext.date(2026, 7, 30),
+        )
+        self.assertEqual(frame["date"].tolist(), ["2026-07-28", "2026-07-29"])
+        self.assertEqual(frame.loc[1, "close"], 467.95)
+        self.assertEqual(frame.loc[1, "volume"], 684_597.0)
+        self.assertEqual(audit["declaredIsin"], "FR0000121014")
+        self.assertEqual(audit["lastCloseMismatchRows"], 0)
+
+    def test_nikkei_recent_table_resolves_year_and_preserves_volume(self) -> None:
+        nikkei = load_script(
+            "autoquant_skill_nikkei",
+            SKILLS
+            / "fetch-nikkei-ohlcv"
+            / "scripts"
+            / "fetch_nikkei_daily.py",
+        )
+        raw = """
+        <html><div class="l-miH02_date">2026年1月5日（月）</div>
+        <table><thead><tr>
+        <th>日付</th><th>始値</th><th>高値</th><th>安値</th>
+        <th>終値</th><th>売買高</th><th>修正後終値</th>
+        </tr></thead><tbody>
+        <tr><th>1/5（月）</th><td>3,100</td><td>3,200</td>
+        <td>3,050</td><td>3,180</td><td>12,345,600</td>
+        <td>3,180.0</td></tr>
+        <tr><th>12/30（火）</th><td>3,000</td><td>3,100</td>
+        <td>2,980</td><td>3,050</td><td>10,000,000</td>
+        <td>3,050.0</td></tr>
+        </tbody></table></html>
+        """.encode()
+        frame, audit = nikkei.parse_payload(
+            "7203",
+            raw,
+            nikkei.date(2025, 12, 30),
+            nikkei.date(2026, 1, 6),
+        )
+        self.assertEqual(frame["date"].tolist(), ["2025-12-30", "2026-01-05"])
+        self.assertEqual(frame.loc[1, "volume"], 12_345_600.0)
+        self.assertEqual(audit["pageAsOf"], "2026-01-05")
+        self.assertEqual(audit["adjustedCloseDifferenceRows"], 0)
+
+    def test_sina_recent_kline_preserves_raw_prices_and_shares(self) -> None:
+        sina = load_script(
+            "autoquant_skill_sina",
+            SKILLS
+            / "fetch-sina-ohlcv"
+            / "scripts"
+            / "fetch_sina_daily.py",
+        )
+        payload = {
+            "result": {
+                "status": {"code": 0},
+                "data": [
+                    {
+                        "day": "2026-07-28",
+                        "open": "1300.000",
+                        "high": "1320.000",
+                        "low": "1290.000",
+                        "close": "1310.000",
+                        "volume": "3569892",
+                    },
+                    {
+                        "day": "2026-07-29",
+                        "open": "1310.000",
+                        "high": "1330.000",
+                        "low": "1300.000",
+                        "close": "1325.000",
+                        "volume": "7187261",
+                    },
+                ],
+            }
+        }
+        frame, audit = sina.parse_payload(
+            "sh600519",
+            json.dumps(payload).encode(),
+            sina.date(2026, 7, 28),
+            sina.date(2026, 7, 30),
+        )
+        self.assertEqual(frame["date"].tolist(), ["2026-07-28", "2026-07-29"])
+        self.assertEqual(frame.loc[1, "close"], 1325.0)
+        self.assertEqual(frame.loc[1, "volume"], 7_187_261.0)
+        self.assertEqual(audit["providerVolumeUnit"], "share")
+
+    def test_sohu_jsonp_converts_lots_and_checks_traded_value(self) -> None:
+        sohu = load_script(
+            "autoquant_skill_sohu",
+            SKILLS
+            / "fetch-sohu-ohlcv"
+            / "scripts"
+            / "fetch_sohu_daily.py",
+        )
+        payload = [
+            {
+                "status": 0,
+                "code": "cn_920019",
+                "hq": [
+                    [
+                        "2026-07-29",
+                        "13.690",
+                        "14.030",
+                        "0.300",
+                        "2.18%",
+                        "13.520",
+                        "14.060",
+                        "16975",
+                        "2352.156",
+                        "1.01%",
+                    ],
+                    [
+                        "2026-07-28",
+                        "13.450",
+                        "13.730",
+                        "0.130",
+                        "0.96%",
+                        "13.400",
+                        "13.940",
+                        "16448",
+                        "2250.000",
+                        "0.98%",
+                    ],
+                ],
+                "stat": ["累计:", "2026-07-28至2026-07-29"],
+            }
+        ]
+        raw = (
+            "historySearchHandler("
+            + json.dumps(payload, ensure_ascii=False)
+            + ")\n"
+        ).encode("gb18030")
+        frame, audit = sohu.parse_payload(
+            "cn_920019",
+            raw,
+            sohu.date(2026, 7, 28),
+            sohu.date(2026, 7, 30),
+        )
+        self.assertEqual(frame["date"].tolist(), ["2026-07-28", "2026-07-29"])
+        self.assertEqual(frame.loc[1, "close"], 14.03)
+        self.assertEqual(frame.loc[1, "volume"], 1_697_500)
+        self.assertEqual(audit["volumeMultiplier"], 100)
+        self.assertEqual(audit["valueVolumeRowsChecked"], 2)
 
     def test_package_audit_reconciles_a_confined_daily_panel(self) -> None:
         package_audit = load_script(

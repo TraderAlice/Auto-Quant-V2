@@ -16,7 +16,7 @@ from typing import Any, Iterator
 import pandas as pd
 
 
-BASE_URL = "https://www.twse.com.tw/rwd/en/afterTrading/STOCK_DAY"
+BASE_URL = "https://www.twse.com.tw/exchangeReport/STOCK_DAY"
 SAFE_SYMBOL = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._=-]{0,63}$")
 STOCK_NO = re.compile(r"^[A-Za-z0-9]{4,8}$")
 
@@ -99,9 +99,12 @@ def months(start: date, end_exclusive: date) -> Iterator[date]:
 def request_uri(stock_no: str, month: date) -> str:
     query = urllib.parse.urlencode(
         {
-            "date": month.strftime("%Y%m01"),
-            "stockNo": stock_no,
+            # TWSE's CDN currently accepts this official route only when the
+            # response selector is the first query parameter. Preserve the
+            # observed ordering rather than sorting these parameters.
             "response": "json",
+            "stockNo": stock_no,
+            "date": month.strftime("%Y%m01"),
         }
     )
     return f"{BASE_URL}?{query}"
@@ -147,7 +150,11 @@ def fetch_bytes(uri: str) -> tuple[bytes, dict[str, str]]:
 
 
 def normalize_field(value: Any) -> str:
-    return re.sub(r"[^a-z0-9]", "", str(value).strip().lower())
+    return "".join(
+        character
+        for character in str(value).strip().casefold()
+        if character.isalnum()
+    )
 
 
 def roc_date(value: Any) -> date:
@@ -195,7 +202,7 @@ def parse_month(
         )
 
     indices = {
-        "date": locate("Date"),
+        "date": locate("Date", "日期"),
         "volume": locate("Trade Volume", "成交股數"),
         "open": locate("Opening Price", "開盤價"),
         "high": locate("Highest Price", "最高價"),
@@ -203,19 +210,30 @@ def parse_month(
         "close": locate("Closing Price", "收盤價"),
     }
     parsed: list[dict[str, Any]] = []
+    unusable_rows: list[dict[str, Any]] = []
     for index, row in enumerate(rows):
         if not isinstance(row, list) or len(row) < len(fields):
             raise ValueError(f"{stock_no}: malformed row {index}")
-        parsed.append(
-            {
-                "date": roc_date(row[indices["date"]]),
+        session_date = roc_date(row[indices["date"]])
+        try:
+            observation = {
+                "date": session_date,
                 "open": number(row[indices["open"]]),
                 "high": number(row[indices["high"]]),
                 "low": number(row[indices["low"]]),
                 "close": number(row[indices["close"]]),
                 "volume": number(row[indices["volume"]]),
             }
-        )
+        except ValueError as exc:
+            unusable_rows.append(
+                {
+                    "date": session_date.isoformat(),
+                    "reason": str(exc),
+                    "row": row,
+                }
+            )
+            continue
+        parsed.append(observation)
     frame = pd.DataFrame(
         parsed,
         columns=["date", "open", "high", "low", "close", "volume"],
@@ -225,6 +243,9 @@ def parse_month(
         "title": payload.get("title"),
         "fields": fields,
         "rows": len(frame),
+        "providerRows": len(rows),
+        "unusableRowsDropped": len(unusable_rows),
+        "unusableRowExamples": unusable_rows[:5],
     }
 
 
@@ -274,12 +295,20 @@ def main() -> None:
         choices=("aligned", "observed-only"),
         default="observed-only",
     )
+    parser.add_argument(
+        "--request-delay",
+        type=float,
+        default=3.0,
+        help="seconds between official monthly requests (default: 3.0)",
+    )
     parser.add_argument("--terms", required=True)
     args = parser.parse_args()
     if args.end_exclusive <= args.start:
         parser.error("--end-exclusive must be after --start")
     if not SAFE_SYMBOL.fullmatch(args.dataset_id):
         parser.error("--dataset-id must be a path-safe AutoQuant identifier")
+    if args.request_delay < 0:
+        parser.error("--request-delay must be nonnegative")
 
     assets = load_assets(args.assets.expanduser().absolute())
     output = args.output.expanduser().absolute()
@@ -314,7 +343,7 @@ def main() -> None:
                     **summary,
                 }
             )
-            time.sleep(0.2)
+            time.sleep(args.request_delay)
         frame = validate_frame(
             stock_no,
             pd.concat(monthly_frames, ignore_index=True),
@@ -411,6 +440,7 @@ def main() -> None:
             "endExclusive": args.end_exclusive.isoformat(),
             "interval": "1d",
             "panel": args.panel,
+            "requestDelaySeconds": args.request_delay,
             "adjustment": "raw",
         },
         "transformation": (

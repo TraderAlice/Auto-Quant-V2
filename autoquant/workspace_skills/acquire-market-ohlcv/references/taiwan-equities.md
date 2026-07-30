@@ -15,11 +15,20 @@
   historical query says individual-security data is available from
   2010-01-04. Verify actual response span, monthly retrieval, price/volume
   units, freshness, access behavior, and terms before calling it accepted.
+- FinMind `TaiwanStockPrice`: independently executable aggregator route
+  through `$fetch-finmind-ohlcv`; preserve traded-money checks and compare raw
+  overlap with official TWSE without calling the aggregator exchange truth.
 - Yahoo: independent broad route through `$fetch-yahoo-ohlcv` and likely more
   delayed. Compare the same TWSE symbols and dates rather than treating it as
   automatic primary.
 - TPEx needs its own official/provider evidence; a TWSE proof does not cover
   TPEx.
+
+The accepted routing order is TWSE official first, then FinMind or Yahoo when
+their broader history or availability fits the task. TWSE and FinMind emit
+`raw` prices; Yahoo quote history emits `split-adjusted` prices. All can be
+useful sources, but a bounded overlap with no observed corporate action does
+not turn unlike contracts into the same semantic series.
 
 Official discovery:
 

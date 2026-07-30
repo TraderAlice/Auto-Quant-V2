@@ -13,11 +13,12 @@
 
 ## Routes
 
-- `$fetch-nasdaq-ohlcv`: independent raw display-history route for named
+- `$fetch-nasdaq-ohlcv`: independent split-adjusted display-history route for named
   equities and ETFs. It does not authenticate primary venue and is distinct
   from credentialed Nasdaq Data Link Bars.
-- `$fetch-yahoo-ohlcv`: broad raw or provider-adjusted historical Chart route;
-  adjustment and venue metadata remain external claims.
-- Compare the same raw assets and dates before route selection. Credentialed
+- `$fetch-yahoo-ohlcv`: broad split-adjusted or
+  split-and-dividend-adjusted historical Chart route; adjustment and venue
+  metadata remain external claims.
+- Compare the same split-adjusted assets and dates before route selection. Credentialed
   alternatives may still be preferable for freshness, adjustment, or
   entitlement.

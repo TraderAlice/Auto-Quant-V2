@@ -140,13 +140,28 @@ Initial planned provider Skills:
   copying an unverified endpoint recipe;
 - `fetch-tencent-ohlcv` — preserve a second observable raw A-share route with
   explicit lot-to-share semantics and independent comparison;
+- `fetch-sina-ohlcv` — provide a recent raw XSHG/XSHE/XBSE route, including
+  post-migration `920` Beijing symbol behavior;
+- `fetch-sohu-ohlcv` — provide a second raw XSHG/XSHE/XBSE route with
+  explicit lot conversion and traded-value checks, including `920` symbols;
 - `fetch-twse-ohlcv` — use the official monthly TWSE historical report for
   venue-authoritative Taiwan daily data and compare it with Yahoo;
-- `fetch-nasdaq-ohlcv` — provide an independent raw U.S. route from
+- `fetch-finmind-ohlcv` — provide an independently executable research-length
+  Taiwan aggregator route with traded-money checks and official TWSE overlap;
+- `fetch-nasdaq-ohlcv` — provide an independent split-adjusted U.S. route from
   Nasdaq.com's displayed historical quotes without confusing it with
   credentialed Data Link Bars;
 - `fetch-naver-ohlcv` — provide an independent raw South Korean daily route
-  with an exact response-table audit before comparison with Yahoo;
+  with an exact response-table audit;
+- `fetch-daum-ohlcv` — provide a second independently executable raw South
+  Korean route with pagination and traded-value checks for comparison with
+  Naver;
+- `fetch-nikkei-ohlcv` — provide a narrow recent raw Japanese route from
+  Nikkei's displayed one-month four-price history for freshness checks;
+- `fetch-vndirect-ohlcv` — preserve explicit raw or provider-adjusted
+  HOSE/HNX/UPCoM observations with thousand-VND and value/volume checks;
+- `fetch-euronext-ohlcv` — use Euronext Live's official adjusted or
+  non-adjusted historical download for one explicitly named venue at a time;
 - `fetch-binance-ohlcv` — preserve the already-proven paginated closed-hour
   public-kline procedure as a non-stock continuous-market reference.
 
@@ -161,6 +176,20 @@ freshness, history, interval, adjustment, venue authority, credentials, rate
 limits, and observed data quality. Yahoo is expected to remain a broad route
 but must not become the automatic choice when a venue-authoritative or
 materially fresher source is available.
+
+For every market/asset type in the accepted matrix, maintain at least two
+independently executable sources. “Two sources” does not mean that unlike
+price contracts may be relabelled until they compare: raw venue prices,
+split-adjusted quote history, and split-and-dividend-adjusted total-return
+history remain distinct. A same-semantics overlap comparison is required
+before claiming cross-source agreement. When two useful routes expose
+different semantics, both remain available and one must pass strict intake,
+but the ledger must say that source plurality—not price equivalence—has been
+proved.
+
+Venue-authoritative routes are listed first when they are practically
+accessible. In particular, Taiwan routes begin with official TWSE data;
+Yahoo is the broad independent route and is expected to be more delayed.
 
 Each provider Skill may contain:
 
@@ -199,14 +228,17 @@ A market is not “covered” until its ledger row contains:
 
 1. an explicit market and venue scope;
 2. two real, non-toy completed-daily-bar acquisitions from independent
-   sources;
+   sources, each with a truthful price contract;
 3. exact provider routes and Skill revisions;
 4. symbol-mapping evidence;
 5. price-adjustment and volume semantics;
 6. timezone, session-date, suspension, and missing-observation treatment;
 7. retained raw/audit evidence and hashes;
-8. a valid AutoQuant dataset package and content-locked Project snapshot;
-9. a fresh-worker handoff that states unresolved limitations honestly.
+8. a same-semantics comparison when the two price contracts match, with no
+   equivalence claim when they do not;
+9. at least one valid AutoQuant dataset package and content-locked Project
+   snapshot;
+10. a fresh-worker handoff that states unresolved limitations honestly.
 
 The initial market matrix is:
 

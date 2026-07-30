@@ -122,11 +122,23 @@ def frame_for(
     if not timestamps or not quotes:
         raise ValueError(f"{provider_symbol}: missing timestamps or quote data")
     quote = quotes[0]
+    exchange_timezone = (
+        result.get("meta", {}).get("exchangeTimezoneName") or "UTC"
+    )
+    try:
+        session_dates = (
+            pd.to_datetime(timestamps, unit="s", utc=True)
+            .tz_convert(exchange_timezone)
+            .strftime("%Y-%m-%d")
+        )
+    except Exception as exc:
+        raise ValueError(
+            f"{provider_symbol}: invalid exchange timezone "
+            f"{exchange_timezone!r}"
+        ) from exc
     raw = pd.DataFrame(
         {
-            "date": pd.to_datetime(timestamps, unit="s", utc=True).strftime(
-                "%Y-%m-%d"
-            ),
+            "date": session_dates,
             "open": quote.get("open"),
             "high": quote.get("high"),
             "low": quote.get("low"),
@@ -136,7 +148,7 @@ def frame_for(
     )
     source_rows = len(raw)
     adjusted_rows = 0
-    if adjustment == "provider-adjusted":
+    if adjustment == "split-and-dividend-adjusted":
         adjusted_values = indicators.get("adjclose") or []
         if not adjusted_values or "adjclose" not in adjusted_values[0]:
             raise ValueError(
@@ -188,6 +200,7 @@ def frame_for(
         "zeroVolumeRows": int(raw["volume"].eq(0).sum()),
         "firstDate": str(raw["date"].iloc[0]),
         "lastDate": str(raw["date"].iloc[-1]),
+        "sessionDateTimezone": exchange_timezone,
     }
 
 
@@ -230,7 +243,7 @@ def main() -> None:
     parser.add_argument("--timezone", required=True)
     parser.add_argument(
         "--adjustment",
-        choices=("raw", "provider-adjusted"),
+        choices=("split-adjusted", "split-and-dividend-adjusted"),
         required=True,
     )
     parser.add_argument(
@@ -383,11 +396,14 @@ def main() -> None:
             "adjustment": args.adjustment,
         },
         "transformation": {
-            "provider-adjusted": (
+            "split-and-dividend-adjusted": (
                 "adjusted-close/raw-close ratio applied to OHLC; "
                 "provider volume unchanged"
             ),
-            "raw": "provider quote OHLCV preserved after validity filtering",
+            "split-adjusted": (
+                "provider quote OHLCV preserved; Yahoo historical quote "
+                "fields are treated as split-adjusted"
+            ),
         }[args.adjustment],
         "assets": audits,
         "packagePath": package_path.name,

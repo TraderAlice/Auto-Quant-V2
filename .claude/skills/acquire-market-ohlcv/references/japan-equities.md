@@ -10,6 +10,17 @@
 
 ## Routes
 
-No two routes are accepted yet. Evaluate a venue-authoritative or licensed
-Japanese source and an independent broad provider such as Yahoo through real
-overlapping daily acquisitions.
+- Nikkei recent displayed history: use `$fetch-nikkei-ohlcv` for a bounded
+  recent raw OHLCV overlap. It is useful for freshness checks but exposes only
+  about one month and is not JPX authority.
+- Yahoo: use `$fetch-yahoo-ohlcv` for broader split-adjusted or
+  split-and-dividend-adjusted history through `.T` symbols.
+- JPX/J-Quants: prefer this credentialed official route when the caller has a
+  suitable individual or corporate access contract. It supplies adjusted and
+  unadjusted OHLC, but no unauthenticated executable route is claimed by this
+  bundle.
+
+Nikkei raw and Yahoo split-adjusted are two independently executable routes
+with distinct price contracts. A current overlap can expose freshness,
+missing-session, and volume differences; it does not prove same-semantics
+historical equivalence.

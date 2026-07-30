@@ -27,6 +27,9 @@ strict Project intake.
    reference has proved them. Compare freshness, history, adjustment, venue
    authority, credentials, limits, and returned data quality. Do not always
    prefer the broadest source.
+   Do not claim cross-source price agreement unless both packages declare the
+   same adjustment semantics; source plurality and semantic equivalence are
+   separate findings.
 5. Invoke the exact provider Skill named by the selected route. Use
    `$fetch-yahoo-ohlcv` or `$fetch-binance-ohlcv` only when their documented
    contract fits. Do not improvise an unproved provider route as accepted

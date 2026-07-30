@@ -21,3 +21,5 @@ Provide a JSON array:
   them.
 - Use unique values for both `symbol` and `providerSymbol`.
 - Supported first-pass output is completed daily data only.
+- Yahoo does not provide exchange-unadjusted OHLC through this procedure.
+  Choose split-adjusted or split-and-dividend-adjusted explicitly.

@@ -25,13 +25,16 @@ python3 scripts/fetch_twse_daily.py \
   --start YYYY-MM-DD \
   --end-exclusive YYYY-MM-DD \
   --panel observed-only \
+  --request-delay 3 \
   --terms "caller-authorized research retrieval; TWSE terms apply"
 ```
 
 The script makes one official monthly request per asset/month, preserves each
 response, converts ROC calendar dates to Gregorian dates, and retains official
-trade volume as shares. It fails on HTML security pages, response-shape
-changes, ambiguous fields, or suspected range truncation.
+trade volume as shares. Keep the default three-second request delay unless
+current official guidance justifies another value; the CDN has returned
+security redirects under bursty access. It fails on HTML security pages,
+response-shape changes, ambiguous fields, or suspected range truncation.
 
 ## Verify
 

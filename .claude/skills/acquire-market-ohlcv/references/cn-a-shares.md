@@ -20,9 +20,16 @@
 - Tencent Finance: independent observable raw route through
   `$fetch-tencent-ohlcv`; compare its explicit lot-to-share conversion before
   accepting it.
+- Sina Finance: independent recent raw route through `$fetch-sina-ohlcv`;
+  unlike the current Tencent route it has returned post-migration `bj920...`
+  Beijing symbols, but it is still provider evidence rather than XBSE
+  authority.
+- Sohu Finance: independent raw route through `$fetch-sohu-ohlcv`; it also
+  returns post-migration Beijing `920` symbols, converts reported lots to
+  shares, and checks traded value against OHLC.
 - Yahoo: broad independent route through `$fetch-yahoo-ohlcv`; prove its
-  symbol, freshness, adjustment, suspension, and history behavior on the same
-  sample before acceptance.
+  symbol, freshness, split-adjustment, suspension, and history behavior on the
+  same sample before acceptance.
 
 No one of these is silently substituted for another. Route selection must
 name the required adjustment, history, freshness, access behavior, and
