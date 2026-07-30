@@ -1,6 +1,7 @@
 # Market-data acquisition Skill field trials
 
-Status: active development evidence.
+Status: accepted `0.8.31` release evidence for the explicitly named venue
+matrix below.
 
 Related: [[plans/market-data-acquisition-skills]],
 [[docs/design/research-intake-and-dataset-snapshots]], and
@@ -19,16 +20,64 @@ friction, but they do not silently satisfy that gate.
 | Trial | Route | Result | Coverage authority |
 | --- | --- | --- | --- |
 | `us-yahoo-v1` | U.S. split-and-dividend-adjusted Yahoo Chart → V1 aligned package → Factor Project | passed | superseded single-source development proof |
-| `us-dual-source-v3` | U.S. split-adjusted daily Nasdaq.com + Yahoo → comparison → selected Yahoo V4 → Factor Project | passed with disclosed volume anomalies | same-semantics dual-source and strict intake pass; fresh-worker handoff remains |
+| `us-dual-source-v3` | U.S. split-adjusted daily Nasdaq.com + Yahoo → comparison → selected Yahoo V4 → Factor Project | passed with disclosed volume anomalies | same-semantics dual-source, strict intake, and fresh-worker handoff pass |
 | `cn-dual-source-v1` | XSHG/XSHE raw Tencent + Yahoo quote-history diagnostic → selected Tencent V4 → Factor Project | superseded comparison semantics | strict Tencent intake is valid, but Yahoo was later identified as split-adjusted; no raw cross-source agreement claim remains |
-| `cn-dual-source-v3` | XSHG/XSHE/XBSE raw Sina + Sohu → comparison → selected Sina V4 → Factor Project | passed with disclosed XBSE volume differences | six-asset same-semantics price comparison and strict intake pass; fresh-worker handoff remains |
+| `cn-dual-source-v3` | XSHG/XSHE/XBSE raw Sina + Sohu → comparison → selected Sina V4 → Factor Project | passed with disclosed XBSE volume differences | six-asset same-semantics price comparison, strict intake, and fresh-worker handoff pass |
 | `cn-eastmoney-v1` | Eastmoney observable historical K-line | degraded | five retries ended in remote connection closure; no package or coverage claim |
-| `tw-dual-source-v1` | official TWSE raw + FinMind raw → exact comparison → selected FinMind V4 → Factor Project; Yahoo diagnostic | passed with authority and aggregator boundaries | official-first same-semantics overlap and strict intake pass; TPEx and fresh-worker handoff remain |
-| `kr-dual-source-v1` | XKRX raw Naver + Daum → comparison → selected Daum V4 → Factor Project | passed with material volume disagreement | same-semantics price comparison and strict intake pass; KRX authority and fresh-worker handoff remain |
-| `jp-dual-source-v1` | recent raw Nikkei + split-adjusted Yahoo → selected research-length Yahoo V4 → Factor Project | passed with distinct history/adjustment contracts | two routes and strict intake pass; JPX authority and fresh-worker handoff remain |
-| `vn-dual-source-v1` | VNDIRECT raw + Yahoo split-adjusted → selected VNDIRECT V4 → Factor Project | passed with distinct contracts and disclosed provider anomalies | two routes and strict intake pass; venue authority and fresh-worker handoff remain |
-| `xpar-dual-source-v1` | official Euronext XPAR raw + Yahoo split-adjusted → selected Euronext V4 → Factor Project | passed for named XPAR venue | two routes and strict official intake pass; other EU venues and fresh-worker handoff remain |
+| `tw-dual-source-v1` | official TWSE raw + FinMind raw → exact comparison → selected FinMind V4 → Factor Project; Yahoo diagnostic | passed with authority and aggregator boundaries | official-first overlap, strict intake, and fresh-worker handoff pass; TPEx remains |
+| `kr-dual-source-v1` | XKRX raw Naver + Daum → comparison → selected Daum V4 → Factor Project | passed with material volume disagreement | same-semantics price comparison, strict intake, and fresh-worker handoff pass; KRX authority remains |
+| `jp-dual-source-v1` | recent raw Nikkei + split-adjusted Yahoo → selected research-length Yahoo V4 → Factor Project | passed with distinct history/adjustment contracts | two routes, strict intake, and fresh-worker handoff pass; JPX authority remains |
+| `vn-dual-source-v1` | VNDIRECT raw + Yahoo split-adjusted → selected VNDIRECT V4 → Factor Project | passed with distinct contracts and disclosed provider anomalies | two routes, strict intake, and fresh-worker handoff pass; venue authority remains |
+| `xpar-dual-source-v1` | official Euronext XPAR raw + Yahoo split-adjusted → selected Euronext V4 → Factor Project | passed for named XPAR venue | two routes, strict official intake, and fresh-worker handoff pass; other EU venues remain |
 | `crypto-binance-v1` | Binance Spot exact closed UTC hourly V2 package | passed | executable provider-Skill smoke; crypto is outside the first equity coverage matrix |
+
+### Fresh installed-wheel handoffs
+
+Two isolated Grok Build coworkers received only an installed `0.8.31` wheel,
+a newly initialized Workspace, ordinary assignments, the materialized Skill
+bundle, and public provider access used by those Skills. They had no source
+checkout, repository docs/tests/plans, prior field-trial paths, memory,
+subagents, web search, or live coaching.
+
+The first worker independently completed:
+
+- U.S. Yahoo/Nasdaq split-adjusted acquisition and comparison for AAPL, MSFT,
+  NVDA, QQQ, and SPY;
+- strict Project `us-market-data-handoff`, request hash
+  `e81df16eb5c55831d875eb97508ab41c5d5f1891eb1616c84c03835bee5d7adf`,
+  snapshot hash
+  `ac8c6d077f0658ba3333613bfaaca62e33be7f5be12929b987b9a1bd3999f80c`,
+  and `aq validate: valid`;
+- XSHG Tencent/Sina, XBSE Sina/Sohu, official-TWSE/FinMind, and
+  official-Euronext/Yahoo smokes;
+- truthful Eastmoney degradation and refusal to compare XPAR raw against
+  split-adjusted history.
+
+That worker exposed a real orientation defect: V4 daily Factor intake
+validated, but `aq orient` incorrectly required a V2/V3/V5 interval surface.
+Core now represents V4 as a content-locked `1d` surface with no feature
+intervals and has a deterministic regression test.
+
+The second worker used the rebuilt final candidate wheel
+`auto_quant-0.8.31-py3-none-any.whl` with SHA-256
+`c365da953d458699b5be7e6eef030400f1309a951e916493ccae8311eadaa2f0`.
+It independently:
+
+- acquired five Korean assets from Naver and Daum, found exact OHLC agreement
+  across 383 sessions and material volume disagreement;
+- selected Naver under an explicitly non-authoritative volume claim;
+- created Project `kr-market-data-handoff`, request hash
+  `894909378a7f9a211e7bc36836c8d50d2e692553a3b128e0b555f69c54c9900d`,
+  snapshot hash
+  `288d5c810cad1e4e3151eec32f02334e297039690666f5df88bbd66f904cfba2`;
+- passed both `aq validate` and the repaired `aq orient`, which exposed
+  `baseInterval: 1d`, no feature intervals, and `tradingAuthority: none`;
+- completed Nikkei/Yahoo and VNDIRECT/Yahoo dual-route smokes without
+  comparing unlike adjustment contracts.
+
+Together these handoffs cover the required XNYS-style, mainland-China,
+non-U.S. Asian, and named-EU paths plus the remaining Japan, Korea, and
+Vietnam rows. No long backtest or trading action was run.
 
 ### `us-yahoo-v1`
 
@@ -221,7 +270,8 @@ row. Official TWSE is therefore first for authority, FinMind supplies the
 independently executable raw research panel, and Yahoo remains a
 split-adjusted diagnostic. A burst-sensitive attempt to extend official
 history ended in a 307 security response and was not silently substituted.
-TPEx and the fresh-worker handoff remain open.
+TPEx remains a separate future venue route and is not claimed by this TWSE
+acceptance. The later installed-wheel worker completed the Taiwan handoff.
 
 ### U.S. dual-source development comparison
 
@@ -249,8 +299,8 @@ created Project `us-dual-source-split-v3` with request hash
 `68ea6ecd8f18cbd2e4a23c238b30ec92b65624e9a0b1e247789d59e9135ed2a6`
 and snapshot hash
 `1724d188aadc34061db37da522aa4013b649fd07f44cc1d5246be6f015a02ec8`;
-`aq validate` returned `valid: true` with no diagnostics. U.S. coverage still
-needs the required fresh-worker handoff.
+`aq validate` returned `valid: true` with no diagnostics. The later installed-
+wheel worker completed the required U.S. handoff.
 
 ### South Korea dual-source development comparison
 
@@ -296,7 +346,8 @@ so the accepted claim is raw price consistency, not volume equivalence.
 
 Daum was selected because its accumulated traded value permits a per-row
 consistency check. Strict intake and `aq validate` passed. Neither raw route
-is KRX authority, and the fresh-worker handoff remains open.
+is KRX authority. The later installed-wheel worker completed the required
+Korean handoff while preserving that limitation.
 
 ### Vietnam dual-route development evidence
 
@@ -318,9 +369,9 @@ to Project `vn-raw-v1`; request hash
 `98de9755c38895195a204cff823c22083e79b12bda3fb7498b99716e91cf1b39`,
 snapshot hash
 `596da6b3413b286eb838eaca97d37a5896992a3bcdebccfa011d3ffef2d7a32c`,
-and `aq validate` returned `valid: true`. A venue-authoritative route or an
-explicit provider-only acceptance decision, plus the fresh-worker handoff,
-remain open.
+and `aq validate` returned `valid: true`. Coverage is accepted only for these
+named provider-observed HOSE listings, not as venue-authoritative history; the
+later installed-wheel worker completed the required handoff.
 
 ### Japan dual-route development evidence
 
@@ -344,7 +395,8 @@ Nikkei is useful as a recent independent freshness route but deliberately too
 short for Factor intake. Yahoo's 2024-01-04 through 2026-07-30 panel was
 therefore selected for strict intake, which passed validation. Neither route
 is JPX authority. Credentialed J-Quants remains a documented future
-authoritative option, and the fresh-worker handoff remains open.
+authoritative option; the later installed-wheel worker completed the required
+handoff without overstating authority.
 
 ### Euronext Paris dual-route development evidence
 
@@ -365,8 +417,8 @@ route plurality but are not numerically compared as equivalent.
 
 The official raw package passed strict intake and `aq validate`. This proves
 only the explicitly named XPAR venue; “EU equities” is not treated as one
-calendar, venue, or data contract. Other named European venues and the
-fresh-worker handoff remain open.
+calendar, venue, or data contract. Other named European venues remain future
+coverage; the installed-wheel worker completed the required XPAR handoff.
 
 ### Binance executable smoke
 

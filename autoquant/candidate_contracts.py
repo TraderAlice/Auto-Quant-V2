@@ -75,6 +75,14 @@ def _snapshot_surface(
     surface = value.get("intervalSurface")
     if schema_version == 1:
         return None
+    if schema_version == 4:
+        return (
+            "content-locked-snapshot-v4",
+            {
+                "baseInterval": "1d",
+                "featureIntervals": [],
+            },
+        )
     if schema_version not in {2, 3, 5} or not isinstance(surface, dict):
         raise AutoQuantValidationError(
             [

@@ -18,9 +18,7 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-| Plan | Outcome | Updated |
-| --- | --- | --- |
-| [[plans/market-data-acquisition-skills]] | Give fresh coding Agents a versioned, progressively disclosed Skill bundle for selecting, acquiring, auditing, packaging, and strictly intaking real OHLCV across the first-batch listed-equity markets without adding a universal downloader to Core. | 2026-07-30 |
+None.
 
 ## Proposed plans
 
@@ -36,6 +34,7 @@ None.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/market-data-acquisition-skills]] | Gave fresh coding Agents a versioned 16-Skill bundle for selecting peer market-data sources, retaining provider evidence, packaging truthful OHLCV, and strictly intaking named first-batch equity venues without adding a universal Core downloader. | 2026-07-30 |
 | [[plans/agent-employability-validation]] | Proved across five final workers that fresh coding coworkers can turn materially different caller questions into bounded, scientifically truthful handoffs, and froze the minimum non-trading OpenAlice desk-consumption boundary. | 2026-07-30 |
 | [[plans/caller-fixed-weight-benchmark-and-rl-preflight-parity]] | Preserved caller fixed-weight benchmark intent through Portfolio/governed-RL mandates, aligned fast RL Check state with runtime, and proved both fixes with a fresh installed-wheel worker. | 2026-07-30 |
 | [[plans/optional-post-trial-research-agenda]] | Kept evidence-derived hypotheses visible while making post-trial continuation explicitly optional in the shared Work Brief, CLI, and Studio, proved by a fresh installed-wheel worker. | 2026-07-30 |

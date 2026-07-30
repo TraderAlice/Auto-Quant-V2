@@ -1,5 +1,5 @@
 ---
-version: 0.8.30
+version: 0.8.31
 ---
 
 # AutoQuant V2
@@ -32,20 +32,20 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current milestone: `0.8.30`
+## Current milestone: `0.8.31`
 
 AutoQuant V2 has crossed from an architectural prototype into a usable
 research workbench.
 
-`0.8.30` is the current release. It preserves the public
-`fixed-weights` research-request contract through the shared Portfolio
-Mandate and both mechanical Portfolio and governed-RL Judges, instead of
-silently replacing the caller's reference with a direction default. It also
-makes the seconds-scale governed-RL candidate Check exercise the exact raw
-state fields advertised by the full Judge. A fresh installed-wheel coworker
-then completed a corrected standalone governed-RL assignment, retained the
-mechanical baseline on negative incremental evidence, and closed the final
-Agent-employability cohort.
+`0.8.31` is the current candidate release. It makes historical market-data
+acquisition an Agent-native, versioned Skill bundle rather than a universal
+Core downloader. A small router now sends a coding Agent to market-specific
+semantics, narrow provider procedures, exact raw-response audits, truthful
+V1–V5 packaging, and strict Project intake. The first field-trial matrix
+covers named U.S., mainland-China, Japanese, South Korean, Taiwanese,
+Vietnamese, and Euronext Paris equities with at least two independently
+executable routes per market; unlike raw and adjusted contracts remain
+distinct.
 
 Today it can:
 
@@ -68,6 +68,10 @@ Today it can:
   Explorers, orientation, Reports/Dossiers, and read-only Studio;
 - preserve a rejected hypothesis as useful evidence without manufacturing an
   Order or trading conclusion.
+- materialize 16 canonical acquisition/package Skills into both Agent
+  discovery roots, route by venue and data semantics, retain provider bytes
+  and hashes, compare same-semantics sources, and bind accepted OHLCV through
+  the existing content-locked intake contract.
 
 The repository clone is now the Workspace: its checked-in `projects/` is
 immediately visible to ordinary filesystem tools, Git preserves durable
@@ -611,6 +615,17 @@ can derive the strict request and use the atomic intake fast path below. Intake
 validates and normalizes the complete panel, checks its market-clock and
 interval contract, confines all paths, copies the data into the Project, and
 locks every source byte before creating Studies.
+
+If the package does not exist yet, start from the Workspace's
+`$acquire-market-ohlcv` Skill. It routes one market at a time to exact
+provider procedures, requires two independently executable sources for
+accepted coverage, preserves raw responses and transformation audits under
+Workspace staging, and compares only matching price contracts. Official
+routes come first when practical; Yahoo is broad but not an automatic primary.
+`$package-autoquant-ohlcv` then bridges the selected staging package into the
+same strict intake below. See
+[Agent-native market-data acquisition](docs/design/agent-native-market-data-acquisition.md)
+and the [field-trial ledger](docs/market-data-acquisition-field-trials.md).
 
 Package asset paths resolve from the directory containing the dataset manifest.
 If raw files already exist under `staging/raw-ohlcv/`, place

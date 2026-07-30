@@ -64,6 +64,51 @@ class AgentOrientationTests(unittest.TestCase):
                 legacy_contract["data"]["panelColumns"],
             )
 
+            daily_root = root / "daily"
+            daily_root.mkdir()
+            daily_request, daily_package = write_intake_inputs(
+                daily_root,
+                observations=260,
+            )
+            package = json.loads(
+                daily_package.read_text(encoding="utf-8")
+            )
+            package["schemaVersion"] = 4
+            package["panelPolicy"] = {
+                "alignment": "observed-only",
+                "missingObservation": "absent-no-fill",
+            }
+            daily_package.write_text(
+                json.dumps(package, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            daily_prepared = prepare_project_intake(
+                daily_request,
+                daily_package,
+                "ohlcv-factor-lab",
+            )
+            daily = create_project(
+                workspace.root_dir,
+                "daily-factor",
+                template=daily_prepared.template,
+                template_intake=daily_prepared,
+            )
+
+            daily_contract = build_agent_work_brief(daily)[
+                "candidateContract"
+            ]
+
+            self.assertEqual(
+                daily_contract["data"]["surfaceSource"],
+                "content-locked-snapshot-v4",
+            )
+            self.assertEqual(daily_contract["data"]["baseInterval"], "1d")
+            self.assertEqual(daily_contract["data"]["featureIntervals"], [])
+            self.assertNotIn(
+                "close__12h",
+                daily_contract["data"]["panelColumns"],
+            )
+
             multi_root = root / "multi"
             multi_root.mkdir()
             request_path, package_path = write_multi_interval_inputs(

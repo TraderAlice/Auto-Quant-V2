@@ -66,6 +66,11 @@ The V2 foundation now implements:
   with normalized local bytes, completed higher intervals,
   version-locked calendar authority, explicit provider/adjustment claims,
   source/snapshot hashes, and exact Study identity;
+- one packaged canonical market-data Skill bundle that materializes into both
+  Agent discovery roots, routes by market semantics, preserves bounded
+  provider evidence, requires two independently executable sources per
+  accepted market, and hands only truthful V1–V5 packages to provider-neutral
+  Core intake;
 - one canonical request-driven research desk that coordinates Factor,
   Portfolio, and governed RL Studies over the same dataset, exposes exact lane
   currentness/conflicts/next actions, and keeps method choice inside AutoQuant;
@@ -478,6 +483,8 @@ cannot own Workspace, Project, or evidence semantics.
   [[docs/design/mechanical-position-lifecycle-evidence]]
 - Research intake and dataset snapshot design:
   [[docs/design/research-intake-and-dataset-snapshots]]
+- Agent-native market-data acquisition:
+  [[docs/design/agent-native-market-data-acquisition]]
 - Evidence-gated Research Program progression:
   [[docs/design/evidence-gated-research-progression]]
 - Governed RL Factor-Policy Lab design:

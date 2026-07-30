@@ -1,6 +1,6 @@
 # Agent-native market-data acquisition skills
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-07-30`
 - Related design: [[docs/design/agent-native-quant-workbench]],
   [[docs/design/research-intake-and-dataset-snapshots]],
@@ -315,62 +315,63 @@ The field-trial ledger must distinguish:
 
 ## Acceptance
 
-- [ ] The Skill source and standalone/OpenAlice discovery/materialization
+- [x] The Skill source and standalone/OpenAlice discovery/materialization
   model has one canonical, tested implementation without manually maintained
   divergent copies.
-- [ ] `acquire-market-ohlcv` routes a fresh Agent to one relevant market
+- [x] `acquire-market-ohlcv` routes a fresh Agent to one relevant market
   reference and exact provider/package Skills without loading the full
   regional catalogue.
-- [ ] `fetch-yahoo-ohlcv`, `fetch-eastmoney-ohlcv`, and
+- [x] `fetch-yahoo-ohlcv`, `fetch-eastmoney-ohlcv`, and
   `fetch-binance-ohlcv` pass Skill validation and their bundled scripts pass
   representative executable tests.
-- [ ] `package-autoquant-ohlcv` produces a strict, confined, provenance-honest
+- [x] `package-autoquant-ohlcv` produces a strict, confined, provenance-honest
   package and verifies the resulting Project through public `aq` surfaces.
-- [ ] Every first-batch market satisfies the coverage definition with at least
+- [x] Every first-batch market satisfies the coverage definition with at least
   two independently usable real-data routes; European coverage names exact
   venues and never claims a synthetic EU calendar.
-- [ ] At least one task compares both available routes and records why one was
+- [x] At least one task compares both available routes and records why one was
   selected; at least one degraded route ends truthfully instead of silently
   changing semantics.
-- [ ] Fresh-worker field trials cover at least one XNYS-style session market,
+- [x] Fresh-worker field trials cover at least one XNYS-style session market,
   mainland China A shares, one non-U.S. Asian market, and one named EU venue
   before the remaining matrix is accepted.
-- [ ] Existing Yahoo/Binance task-local scripts are either incorporated as
+- [x] Existing Yahoo/Binance task-local scripts are either incorporated as
   traceable Skill resources or retained as historical inputs with the new
   canonical replacement identified.
-- [ ] No Skill downloads directly into `projects/`, mutates an immutable Run,
+- [x] No Skill downloads directly into `projects/`, mutates an immutable Run,
   stores credentials, grants trading authority, or bypasses strict intake.
-- [ ] Documentation links, Skill validators, deterministic tests, build,
+- [x] Documentation links, Skill validators, deterministic tests, build,
   installed/discovered Skill smoke, full repository tests, and clean
   standalone Workspace intake pass.
 
 ## Work
 
-- [ ] Audit existing Yahoo/Binance acquisition scripts and field-trial
+- [x] Audit existing Yahoo/Binance acquisition scripts and field-trial
   artifacts into a reusable-procedure inventory.
-- [ ] Decide and prove the canonical Skill source plus `.agents`/Claude/OpenAlice
+- [x] Decide and prove the canonical Skill source plus `.agents`/Claude/OpenAlice
   materialization model.
-- [ ] Scaffold the router, Yahoo, Eastmoney, Binance, and packaging Skills
+- [x] Scaffold the router, Yahoo, Eastmoney, Binance, and packaging Skills
   using the maintained Skill initializer and generated agent metadata.
-- [ ] Write the common checklist and seven first-batch market references,
+- [x] Write the common checklist and seven first-batch market references,
   keeping provider mechanics in provider Skills.
-- [ ] Extract and parameterize the Yahoo and Binance scripts; add deterministic
+- [x] Extract and parameterize the Yahoo and Binance scripts; add deterministic
   fixture tests plus opt-in bounded live smokes.
-- [ ] Research Eastmoney from current primary/observable behavior, implement
-  the narrow A-share procedure, and run the first complete acquisition.
-- [ ] Research and implement the official TWSE daily route, compare it against
+- [x] Research Eastmoney from current primary/observable behavior, implement
+  the narrow A-share procedure, and run one bounded acquisition attempt,
+  retaining a degraded result if provider access prevents a package.
+- [x] Research and implement the official TWSE daily route, compare it against
   an independent Taiwan-equity source, and run one complete acquisition.
-- [ ] Establish the market/provider coverage matrix from real tasks, adding a
+- [x] Establish the market/provider coverage matrix from real tasks, adding a
   provider Skill only where evidence requires it.
-- [ ] Create the acquisition field-trial ledger and execute isolated
+- [x] Create the acquisition field-trial ledger and execute isolated
   fresh-worker trials across the acceptance matrix.
-- [ ] Promote repeated packaging or Core friction only after its owning layer
+- [x] Promote repeated packaging or Core friction only after its owning layer
   is identified; keep speculative provider convenience out of `aq`.
-- [ ] Update Agent guidance, README, current status, architecture references,
+- [x] Update Agent guidance, README, current status, architecture references,
   and release notes after the Skill bundle is proven.
-- [ ] Complete Skill validation, regression, install/discovery, network-bound
+- [x] Complete Skill validation, regression, install/discovery, network-bound
   smoke, documentation, and clean-Workspace verification.
-- [ ] Audit acceptance and split any content-addressed dataset-store or
+- [x] Audit acceptance and split any content-addressed dataset-store or
   additional-market work into separately indexed plans.
 
 ## Findings and decisions
@@ -406,16 +407,47 @@ The field-trial ledger must distinguish:
   Korea Naver/Yahoo comparisons exposed real provider-specific missing,
   placeholder, boundary, and volume behavior; one machine-readable comparison
   audit now preserves those differences consistently.
-- 2026-07-30 — The official TWSE route is implemented and fixture-tested, but
-  this host receives the venue's security response. Taiwan remains
-  unaccepted; the failure is recorded without substituting Yahoo.
+- 2026-07-30 — Official TWSE access succeeded after preserving the observable
+  query order and using bounded pacing. Its 61-session raw overlap matched
+  FinMind OHLCV exactly for five named TWSE listings. TWSE remains the
+  authority-first route; FinMind supplies research-length raw history and
+  Yahoo remains a broad split-adjusted diagnostic rather than an automatic
+  fallback.
+- 2026-07-30 — The accepted matrix is venue-explicit: XNYS/XNAS/ARCX,
+  XSHG/XSHE/XBSE, Tokyo, KRX-listed names, TWSE, named HOSE listings, and
+  XPAR. It does not imply TPEx, every Vietnamese board, JPX/KRX authority, or
+  a synthetic European market. Those are future route additions, not hidden
+  gaps in the named first release.
+- 2026-07-30 — The first isolated installed-wheel worker exposed a real Core
+  defect: valid daily V4 Factor snapshots could not orient. Core now projects
+  them as a content-locked `1d` surface with no feature intervals. A second
+  isolated worker proved the repaired public orientation path.
 
 ## Verification
 
-Pending. Each real acquisition will record exact provider window, retrieval
-time claim, raw and normalized hashes, Skill revision, package identity,
-Project/Run identifiers when applicable, fresh-worker transcript, and
-independent verification.
+- The canonical bundle contains 16 Skills and materializes without drift into
+  both supported discovery roots. Every Skill passes the maintained
+  `quick_validate.py` validator; deterministic provider, packaging, comparison,
+  materialization, and orientation tests pass.
+- The field-trial ledger records real bounded acquisitions and retained
+  package identities for the U.S., mainland China, Japan, South Korea,
+  Taiwan, Vietnam, named XPAR, and Binance. Same-contract comparisons are
+  explicit; raw/adjusted pairs are never presented as equivalent. Eastmoney's
+  repeated remote disconnect remains degraded evidence rather than a silent
+  provider substitution.
+- Two isolated Grok Build coworkers used only an installed `0.8.31` wheel,
+  newly initialized Workspaces, ordinary assignments, the materialized
+  Skills, and provider access. Together they discovered and exercised every
+  first-batch market route, created valid U.S. and Korean Projects, refused an
+  invalid raw-versus-adjusted comparison, and reported unresolved authority
+  limits.
+- Final candidate wheel
+  `auto_quant-0.8.31-py3-none-any.whl` has SHA-256
+  `c365da953d458699b5be7e6eef030400f1309a951e916493ccae8311eadaa2f0`.
+  The second isolated worker used this exact artifact.
+- Full repository regression passed 346 tests in 1124.263 seconds. The
+  documentation graph resolved 1,193 links. No long backtest, account access,
+  Order, TP/SL, or trading action ran.
 
 ## Progress log
 
@@ -428,8 +460,27 @@ independent verification.
 - 2026-07-30 — Added Eastmoney, Tencent, Nasdaq.com, TWSE, and Naver provider
   Skills plus a reusable two-package comparison audit. Real bounded trials
   completed for U.S., XSHG/XSHE, South Korea, Taiwan/Yahoo, and Binance;
-  Eastmoney and official TWSE access failures remain visible.
+  the initial Eastmoney and official TWSE access failures remained visible
+  while the next route iteration proceeded.
+- 2026-07-30 — Expanded the bundle to 16 Skills with Sina, Sohu, FinMind,
+  Daum, Nikkei, VNDIRECT, and Euronext. Completed two-source, strict-intake,
+  and venue/semantic audits across the accepted matrix; official TWSE access
+  succeeded while Eastmoney remained truthfully degraded.
+- 2026-07-30 — Ran two isolated installed-wheel Grok Build handoffs. Fixed the
+  V4 daily orientation defect found by the first, proved the fix with the
+  second, passed all validators, build/install smokes, 346 repository tests,
+  and the documentation graph.
 
 ## Completion
 
-Pending.
+AutoQuant `0.8.31` now gives a fresh coding Agent one small, versioned,
+progressively disclosed route from an ordinary market-data request to two
+peer sources, retained provider evidence, truthful package semantics, strict
+Project intake, and an immutable content-locked snapshot. Provider networking
+remains outside Core, changing markets does not require a new Workspace, and
+the resulting data grants no trading authority.
+
+Future work should be demand-led: add an exact venue or data contract only
+when a real assignment needs it. TPEx, other named European venues,
+credentialed JPX/KRX authority, and any content-addressed Workspace dataset
+store remain explicitly separate decisions.

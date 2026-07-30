@@ -102,6 +102,20 @@ brief that another Agent can recover from the filesystem.
    literally: `optional-follow-up` preserves useful evidence-derived ideas but
    does not authorize or require another Session or Experiment.
 
+When the assignment requires market data that is not already staged, use the
+Workspace's `$acquire-market-ohlcv` Skill after the research question fixes
+the venue, assets, completed-bar interval, date range, research clock, and
+required adjustment meaning. Read only its relevant market reference, then
+use at least two suitable provider routes for an accepted market. Preserve
+exact provider bytes and audits under Workspace staging; compare numerically
+only when price contracts match; select a route by the task's authority,
+freshness, history, and observed quality rather than a global primary/fallback
+rule. Run `$package-autoquant-ohlcv` and strict intake before treating data as
+Project authority. Never download directly into `projects/`, relabel raw and
+adjusted series, fill provider placeholders silently, or claim that an
+unofficial route is exchange truth. See
+[[docs/design/agent-native-market-data-acquisition]].
+
 Read `selectionIntegrity.testExposureState` literally. The first candidate is
 fixed before its own audit becomes visible; a later Experiment proves only
 that another source iteration followed prior visible evidence. Core cannot
@@ -322,6 +336,9 @@ Read the relevant linked document before changing a subsystem:
   package validation, normalized dataset snapshots, and pre-Session intake
   state:
   [[docs/design/research-intake-and-dataset-snapshots]]
+- Agent-native market-data routing, source diversity, staged evidence, and
+  provider-neutral intake:
+  [[docs/design/agent-native-market-data-acquisition]]
 - Completed-bar multi-interval aggregation, causal as-of alignment, ordinary
   pandas candidate surface, and shared Factor/Portfolio/RL input authority:
   [[docs/design/causal-multi-interval-factor-inputs]]
