@@ -1,6 +1,6 @@
 # Make post-trial research agendas explicitly optional
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-07-30`
 - Originating Project:
   `/Users/ame/2607AutoQuant/grok-field-trials/v0828-truthful-first-factor/desk/workspace/projects/grok-price-volume-factor-v0828`
@@ -46,13 +46,13 @@ until an Agent/caller deliberately chooses another bounded hypothesis.
 - [x] A post-Experiment review with no primary action labels every agenda move
       optional and never describes another edit as required.
 - [x] Active pre-Experiment candidate-edit routing remains unchanged.
-- [ ] CLI, Studio, docs, and a fresh Agent replay agree.
+- [x] CLI, Studio, docs, and a fresh Agent replay agree.
 
 ## Work
 
 - [x] Audit agenda status/priority fields against Work Brief phases.
 - [x] Add the smallest explicit optionality contract and regressions.
-- [ ] Retest the originating one-Experiment negative assignment.
+- [x] Retest the originating one-Experiment negative assignment.
 
 ## Findings and decisions
 
@@ -83,7 +83,22 @@ until an Agent/caller deliberately chooses another bounded hypothesis.
   role in Studio under the changed development Harness. Studio correctly
   marked the old Session Harness stale rather than treating new source as its
   historical `0.8.28` runtime.
-- Fresh installed-wheel replay and full release verification remain pending.
+- Fresh isolated Grok Build replay used the exact `0.8.29` wheel
+  (`1d1e37a…307fcc`) from clean commit `d45b100`. It independently adopted
+  the unchanged staged task, created one Project, wrote the brief before Runs,
+  passed one Check, and spent one Experiment. Its candidate KEEP improved
+  validation mean IC from `-0.119921` to `-0.097214` but remained
+  `raw-predictive-edge-absent`; the worker correctly published, promoted,
+  stopped, and made no Portfolio/RL/Order claim.
+- Final installed-wheel orientation returned method v10,
+  `required-research-complete`, `primaryAction: null`, and
+  `moveRole: optional-follow-up`. Studio was valid with zero diagnostics and
+  projected the same role. All staged input hashes remained unchanged.
+- Full repository regression: 326 tests passed in 851.125 seconds.
+- Documentation graph: all 1,162 links resolve. Python compilation, Studio
+  JavaScript syntax, lock check, diff check, source/wheel build, fresh Python
+  3.11 wheel install, public version discovery, strict Explorer, Report,
+  promotion, Project validation, and Studio smoke passed.
 
 ## Progress log
 
@@ -94,7 +109,11 @@ until an Agent/caller deliberately chooses another bounded hypothesis.
   post-trial presentation ambiguity.
 - 2026-07-30 — Implemented the shared move-role contract and its CLI/Studio
   presentation; focused regression and preserved-Project projection pass.
+- 2026-07-30 — The fresh installed-wheel worker stopped at the correct
+  terminal boundary on a KEEP-but-scientifically-negative result. Independent
+  replay reconciled every material claim and the optional role.
 
 ## Completion
 
-Pending.
+Completed. Post-trial hypotheses remain inspectable without being presented as
+unfinished required work, and active pre-trial routing is unchanged.

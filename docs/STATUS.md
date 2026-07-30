@@ -273,7 +273,7 @@ Agendas with no move are `unavailable`. This is presentation authority only:
 Core neither infers a prose experiment budget nor executes, promotes, or
 trades from an agenda.
 
-The current release candidate is `v0.8.29`. `v0.8.28` remains the truthful
+The current release is `v0.8.29`. `v0.8.28` remains the truthful
 first-Factor-surface milestone, while `v0.8.27` remains the primary-horizon and
 terminal Session-handoff milestone, while `v0.8.26` remains the manifest-rooted
 staging and paired request-source milestone, while `v0.8.25` remains the explicit Workspace
@@ -302,6 +302,30 @@ The canonical repository is
 The earlier personal repository remains a historical backup remote; the
 original `TraderAlice/Auto-Quant` repository remains the separate Classic
 line.
+
+## `0.8.29` verification snapshot
+
+- Fresh isolated Grok Build used only an installed `0.8.29` wheel from clean
+  commit `d45b100`, the unchanged caller assignment, and nine staged Yahoo
+  CSVs; no source, repository docs/tests/plans, web, memory, subagents, or
+  coaching were available.
+- It created one Project, wrote `research.md` before Runs, established one
+  baseline, passed one Check, and spent one Experiment. Candidate validation
+  mean IC improved from `-0.119921` to `-0.097214`, earning KEEP while fixed
+  scientific diagnosis remained `raw-predictive-edge-absent`.
+- Report and guarded promotion preserved the relatively better source without
+  granting scientific qualification. Terminal orientation returned
+  `required-research-complete`, `primaryAction: null`, and
+  `researchAgenda.moveRole: optional-follow-up`; the worker stopped with no
+  second Session, Portfolio, RL, holdout, Order, or trading claim.
+- Independent installed-wheel replay reconciled Project validity, both strict
+  Factor Explorers, Report, promotion, final orientation, and Studio
+  (`valid: true`, zero diagnostics). Every staged input hash remained
+  unchanged.
+- Full repository regression passed 326 tests in 851.125 seconds; all 1,162
+  documentation links resolve. Python/JavaScript syntax, lock/diff checks,
+  source and wheel build, fresh Python 3.11 install, and public version/schema
+  smoke passed.
 
 ## What works today
 

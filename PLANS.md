@@ -21,7 +21,6 @@ invariants live in `docs/design/`.
 | Plan | Outcome | Updated |
 | --- | --- | --- |
 | [[plans/agent-employability-validation]] | Prove that fresh coding coworkers can independently turn materially different caller questions into bounded, scientifically truthful AutoQuant handoffs before any OpenAlice consumption interface is frozen. | 2026-07-30 |
-| [[plans/optional-post-trial-research-agenda]] | Keep evidence-derived post-trial hypotheses visible while labeling them explicitly optional whenever the Work Brief has no required primary action. | 2026-07-30 |
 
 ## Proposed plans
 
@@ -37,6 +36,7 @@ None.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/optional-post-trial-research-agenda]] | Kept evidence-derived hypotheses visible while making post-trial continuation explicitly optional in the shared Work Brief, CLI, and Studio, proved by a fresh installed-wheel worker. | 2026-07-30 |
 | [[plans/truthful-first-factor-session]] | Made the first daily Factor Session expose only real baseline inputs and distinguish test visibility from later post-audit candidate iteration, proved by a zero-retry installed-wheel worker. | 2026-07-30 |
 | [[plans/primary-horizon-and-completed-session-handoff]] | Let callers state additional diagnostic horizons without repeating the primary, and make exact completion or promotion a terminal handoff with optional continuation. | 2026-07-30 |
 | [[plans/manifest-rooted-staging-intake]] | Let Agents intake caller-staged nested OHLCV directly by treating the package manifest directory as the safe source root, without weakening confinement. | 2026-07-30 |

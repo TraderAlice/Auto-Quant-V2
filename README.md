@@ -340,6 +340,16 @@ Studio retain useful hypotheses but label them as optional follow-up. Core
 still does not parse experiment budgets from Markdown, suppress evidence, or
 authorize automatic execution, promotion, or trading.
 
+A different fresh installed-wheel Grok replay then repeated the originating
+price/volume assignment. Its one candidate improved validation mean IC from
+`-0.119921` to `-0.097214` and therefore earned Session KEEP, while fixed
+diagnosis remained `raw-predictive-edge-absent`. It correctly published,
+promoted the relatively better source, returned a negative scientific answer,
+and stopped at `required-research-complete` with
+`moveRole: optional-follow-up`; no second Session, Portfolio, RL, Order, or
+trading claim followed. Full regression passes 326 tests in 851.125 seconds
+and all 1,162 documentation links resolve.
+
 `0.8.24` followed another isolated Grok coworker into a capped ERC assignment
 with two independent caller questions. The installed `0.8.23` worker could
 answer validation relative performance, but correctly refused to claim that

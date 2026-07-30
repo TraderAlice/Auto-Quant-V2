@@ -157,9 +157,16 @@ accidental current workflow instead of consuming a stable independent desk.
   protocol; every immutable claim and input identity independently reconciled.
 - 2026-07-30 — That worker reproduced post-trial agenda ambiguity after the
   earlier `0.8.28` negative Factor task. The two-assignment recurrence rule is
-  now met, so [[plans/optional-post-trial-research-agenda]] is active. Its
+  now met, so [[plans/optional-post-trial-research-agenda]] was activated. Its
   252→21 preflight/warmup issue remains a recorded first occurrence rather
   than immediately expanding Core.
+- 2026-07-30 — The bounded agenda remediation is complete in `0.8.29`. A
+  different fresh installed-wheel worker repeated the original price/volume
+  assignment, reached a KEEP that remained scientifically negative, and
+  stopped at `required-research-complete` with
+  `moveRole: optional-follow-up`, zero CLI retry, and no extra research or
+  trading claim. This fix replay does not count as a second materially
+  different post-plan cohort assignment.
 
 ## Verification
 
@@ -199,6 +206,10 @@ accidental current workflow instead of consuming a stable independent desk.
   `cohort-01-sector-factor-portfolio`, recorded fresh cohort progress at 1/4,
   activated the recurrent optional-agenda remediation, and deferred the
   one-off long-lookback preflight observation.
+- 2026-07-30 — Closed the optional-agenda remediation after full regression,
+  exact wheel installation, and a clean fresh-worker retry. Fresh cohort
+  progress remains 1/4; the next worker must use a materially different
+  assignment rather than counting this unchanged fix replay.
 
 ## Completion
 

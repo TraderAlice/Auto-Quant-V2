@@ -178,5 +178,10 @@ failed the bounded 256-timestamp/prefix Check and was changed to 126→21 before
 the sole formal Experiment. That scientifically costly first occurrence is
 recorded and deferred pending independent recurrence or a separately justified
 contract fix. Post-trial agenda ambiguity did recur for the second materially
-different assignment, so [[plans/optional-post-trial-research-agenda]] is now
-active.
+different assignment, so [[plans/optional-post-trial-research-agenda]] was
+completed in `0.8.29`. Its unchanged-task fix replay used a different fresh
+installed-wheel worker and ended with `required-research-complete`,
+`primaryAction: null`, and `moveRole: optional-follow-up`; the worker stopped
+without another Session/Experiment or trading claim. Because that replay
+reused the originating price/volume assignment to verify a Core fix, it does
+not increase materially different fresh-cohort progress beyond `1/4`.
