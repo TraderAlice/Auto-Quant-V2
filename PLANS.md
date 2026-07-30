@@ -18,7 +18,9 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-None.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/market-data-acquisition-skills]] | Give fresh coding Agents a versioned, progressively disclosed Skill bundle for selecting, acquiring, auditing, packaging, and strictly intaking real OHLCV across the first-batch listed-equity markets without adding a universal downloader to Core. | 2026-07-30 |
 
 ## Proposed plans
 
