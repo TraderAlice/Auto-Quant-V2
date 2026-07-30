@@ -1,6 +1,6 @@
 # Make primary horizons and terminal Sessions Agent-native
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-07-30`
 - Originating Project:
   `/Users/ame/2607AutoQuant/grok-field-trials/v0826-price-volume-factor/desk/workspace/projects/grok-price-volume-factor-v0826`
@@ -78,7 +78,7 @@ is already an explicit immutable terminal decision for its Session.
       and explicit fresh-Session routes retain their existing semantics.
 - [x] CLI and Studio project the same strict Work Brief and human output no
       longer says `SESSION REQUIRED` for the completed branch.
-- [ ] Focused/full tests, docs, build/install smoke, clean clone, and a fresh
+- [x] Focused/full tests, docs, build/install smoke, clean clone, and a fresh
       installed-wheel Grok replay agree before `0.8.27`.
 
 ## Work
@@ -91,7 +91,7 @@ is already an explicit immutable terminal decision for its Session.
 - [x] Extend the same handoff to Report-bound promotion after the final worker
       reproduced the same false required action.
 - [x] Add regression coverage and update public/design/status documentation.
-- [ ] Run a fresh installed-wheel Grok replay and complete release verification.
+- [x] Run a fresh installed-wheel Grok replay and complete release verification.
 
 ## Findings and decisions
 
@@ -140,7 +140,13 @@ is already an explicit immutable terminal decision for its Session.
   - left two separately indexed proposed follow-ups:
     [[plans/daily-factor-baseline-surface]] and
     [[plans/test-visibility-integrity-state]].
-- Final distribution, fresh install, and exact clean-clone smoke pending.
+- The definitive source distribution and wheel built successfully. A fresh
+  Python 3.11 environment installed the wheel as `aq 0.8.27`, discovered 50
+  commands, exposed the canonical horizon wording, and validated the complete
+  Report-analysis example.
+- A no-local-override clone of the fixed release-candidate commit discovered
+  `sample-research-desk` as its default, passed Project validation, oriented
+  successfully, and produced a valid Studio snapshot with zero diagnostics.
 
 ## Progress log
 
@@ -152,4 +158,9 @@ is already an explicit immutable terminal decision for its Session.
 
 ## Completion
 
-Pending.
+Completed on 2026-07-30. Two independent installed-wheel Grok workers proved
+the REVERT/completion and KEEP/promotion branches. The released contract removes
+their reproducible horizon and terminal-handoff friction without inferring
+research budgets, weakening qualification, or changing trading authority.
+Daily-baseline declaration fidelity and test-visibility state remain separate
+proposed plans rather than hidden unfinished work.
