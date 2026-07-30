@@ -14,7 +14,8 @@ import numpy as np
 OUTPUT = Path(os.environ["AUTOQUANT_CHECK_OUTPUT"])
 MAX_FEATURES = 64
 FEATURE_ABS_LIMIT = 20.0
-EXPERTS = ("activity", "intraday", "reversal", "balanced")
+ACTIONS = ("candidate", "activity", "intraday", "reversal", "balanced")
+EXPERTS = ACTIONS[:4]
 
 
 class CheckFailure(ValueError):
@@ -25,19 +26,20 @@ class CheckFailure(ValueError):
 
 def _state(offset: float) -> dict[str, float]:
     values = {
-        "market_return_1": 0.01 + offset,
         "market_return_5": -0.02 + offset,
-        "market_volatility_10": 0.015 + abs(offset),
-        "cross_sectional_dispersion": 0.03 + abs(offset),
+        "market_volatility_20": 0.015 + abs(offset),
         "volume_regime": 0.4 - offset,
         "pretrade_gross_exposure": 0.8,
-        "pretrade_turnover": 0.12,
+        "pretrade_net_exposure": 0.2,
+        "pretrade_cash_weight": 0.2,
+        "pretrade_max_abs_weight": 0.24,
         "pretrade_concentration_hhi": 0.24,
     }
     for index, expert in enumerate(EXPERTS):
         values[f"{expert}_trailing_reward_10"] = (index - 1.5) * 0.02 + offset
-        values[f"{expert}_target_distance"] = 0.05 * (index + 1)
-        values[f"previous_{expert}"] = 1.0 if index == 0 else 0.0
+    for index, action in enumerate(ACTIONS):
+        values[f"{action}_target_distance"] = 0.05 * (index + 1)
+        values[f"previous_{action}"] = 1.0 if index == 0 else 0.0
     return values
 
 
