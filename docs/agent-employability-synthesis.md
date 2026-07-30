@@ -1,6 +1,6 @@
 # AutoQuant employability synthesis and OpenAlice gate
 
-Status: accepted cohort; `0.8.30` release verification in progress.
+Status: accepted cohort under `v0.8.30`.
 
 Related: [[plans/agent-employability-validation]],
 [[docs/agent-employability-validation]],
@@ -174,4 +174,3 @@ The employability gate is passed. OpenAlice consumption work may begin only
 as a thin desk lifecycle and coworker-handoff integration around the minimum
 boundary above. It should not freeze AutoQuant's current internal CLI command
 sequence or turn quantitative research into a trading-execution subsystem.
-

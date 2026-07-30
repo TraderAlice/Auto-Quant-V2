@@ -37,13 +37,15 @@ measurement.
 AutoQuant V2 has crossed from an architectural prototype into a usable
 research workbench.
 
-`0.8.30` is the current development milestone. It preserves the public
+`0.8.30` is the current release. It preserves the public
 `fixed-weights` research-request contract through the shared Portfolio
 Mandate and both mechanical Portfolio and governed-RL Judges, instead of
 silently replacing the caller's reference with a direction default. It also
 makes the seconds-scale governed-RL candidate Check exercise the exact raw
 state fields advertised by the full Judge. A fresh installed-wheel coworker
-retry is required before this milestone is tagged as a release.
+then completed a corrected standalone governed-RL assignment, retained the
+mechanical baseline on negative incremental evidence, and closed the final
+Agent-employability cohort.
 
 Today it can:
 
@@ -357,6 +359,24 @@ and stopped at `required-research-complete` with
 `moveRole: optional-follow-up`; no second Session, Portfolio, RL, Order, or
 trading claim followed. Full regression passes 326 tests in 851.125 seconds
 and all 1,162 documentation links resolve.
+
+`0.8.30` closes two public-contract contradictions exposed by the fresh
+governed-RL worker. Caller-supplied `fixed-weights` now remain one distinct,
+complete, content-locked benchmark through the Portfolio Mandate and both
+Portfolio and RL Judges. Fast RL preflight now supplies every raw state field
+advertised by the full Judge, including candidate action, pretrade, distance,
+and previous-action fields.
+
+A different fresh Grok Build used only the exact installed `0.8.30` wheel,
+corrected caller assignment, and nine immutable global-ETF CSVs. Fixed-weight
+intake succeeded directly, the first candidate Check passed, one richer state
+encoder REVERTed (`0.568435` versus leader `0.613754`), and the delegated
+Session published and completed one negative-evidence Report. Strict evidence
+showed validation advantage `-0.096473` versus the best mechanical baseline,
+so the worker correctly retained the mechanical sleeves and made no trading
+claim. This gives the final employability cohort four independent passes and
+one recoverable pass across five materially different assignments.
+Full repository regression passes 327 tests in 1034.965 seconds.
 
 `0.8.24` followed another isolated Grok coworker into a capped ERC assignment
 with two independent caller questions. The installed `0.8.23` worker could

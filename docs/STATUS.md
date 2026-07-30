@@ -1,13 +1,14 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha at development milestone `0.8.30`.
+Status: usable pre-alpha at release `v0.8.30`.
 
 Updated: 2026-07-30.
 
 Related: [[README]], [[docs/ARCHITECTURE]],
 [[docs/design/agent-native-quant-workbench]],
 [[docs/trading-request-field-trials]],
-[[docs/agent-employability-validation]], and [[PLANS]].
+[[docs/agent-employability-validation]],
+[[docs/agent-employability-synthesis]], and [[PLANS]].
 
 ## Milestone
 
@@ -273,10 +274,10 @@ Agendas with no move are `unavailable`. This is presentation authority only:
 Core neither infers a prose experiment budget nor executes, promotes, or
 trades from an agenda.
 
-The latest tagged release is `v0.8.29`. Development milestone `0.8.30`
+The current release is `v0.8.30`. It
 preserves caller fixed-weight references through the shared Portfolio and
 governed-RL contract and aligns fast RL preflight with the full Judge state;
-it remains untagged until fresh-worker and release verification complete.
+the final fresh-worker retry completed and independently reconciled.
 `v0.8.28` remains the truthful
 first-Factor-surface milestone, while `v0.8.27` remains the primary-horizon and
 terminal Session-handoff milestone, while `v0.8.26` remains the manifest-rooted
@@ -306,6 +307,35 @@ The canonical repository is
 The earlier personal repository remains a historical backup remote; the
 original `TraderAlice/Auto-Quant` repository remains the separate Classic
 line.
+
+## `0.8.30` verification snapshot
+
+- Candidate wheel
+  `auto_quant-0.8.30-py3-none-any.whl`
+  (`90ea4f4…2cbdbb`) was built from clean commit `2636c5b` and installed in a
+  fresh Python 3.11 environment.
+- A fresh isolated Grok Build received only that installed CLI, the corrected
+  caller assignment, and nine staged Yahoo CSVs. No repository source,
+  docs/tests/plans, prior trials, web, memory, subagents, or coaching were
+  available.
+- Caller fixed-weight intake succeeded directly and materialized nine complete
+  `1/9` weights in Portfolio Mandate `mandate-91200d039b7e0a29`.
+  The first RL candidate Check passed on the complete advertised state.
+- Accepted leader Run `run-20260730T100311246926Z-22d3892442e1` returned
+  validation mean net Sharpe `0.613754` but validation advantage
+  `-0.096473` versus the best fixed mechanical baseline. One Experiment
+  scored `0.568435` and REVERTed. The worker published
+  `report-20260730T100838822783Z-3dd7edc89b7b`, completed the delegated
+  Session as `baseline-reported`, and made no trading claim.
+- Independent installed-wheel replay reconciled packet hashes, intake,
+  caller benchmark, all Run records, strict RL Explorer, Check, Experiment,
+  Report, completion, final orientation, Project validation, and Studio.
+- The final employability cohort contains four independent passes and one
+  recoverable pass. The minimum OpenAlice desk-consumption gate is recorded in
+  [[docs/agent-employability-synthesis]]; no OpenAlice code changed.
+- Full repository regression passed 327 tests in 1034.965 seconds. Python and
+  Studio JavaScript syntax, lock/diff checks, and the repository sample/fresh-
+  template parity test pass.
 
 ## `0.8.29` verification snapshot
 
