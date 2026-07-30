@@ -20,6 +20,7 @@ invariants live in `docs/design/`.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/caller-fixed-weight-benchmark-and-rl-preflight-parity]] | Preserve caller fixed-weight benchmark intent through Portfolio/governed-RL mandates and make fast RL Check state match the real runtime before a fresh worker retry. | 2026-07-30 |
 | [[plans/agent-employability-validation]] | Prove that fresh coding coworkers can independently turn materially different caller questions into bounded, scientifically truthful AutoQuant handoffs before any OpenAlice consumption interface is frozen. | 2026-07-30 |
 
 ## Proposed plans

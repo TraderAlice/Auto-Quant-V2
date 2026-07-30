@@ -219,6 +219,7 @@ def _valid_benchmark_contract(
         or benchmark.get("kind")
         not in {
             "cash",
+            "fixed-weights",
             "equal-weight-long-research-universe",
             "equal-weight-long-tradable",
             "equal-weight-short-tradable",
@@ -241,6 +242,22 @@ def _valid_benchmark_contract(
     if kind == "cash":
         expected = {asset: 0.0 for asset in universe}
         valid_asset = benchmark_asset is None
+    elif kind == "fixed-weights":
+        expected = {
+            asset: float(benchmark["weights"][asset])
+            for asset in universe
+        }
+        valid_asset = (
+            benchmark_asset is None
+            and all(0.0 <= weight <= 1.0 for weight in expected.values())
+            and any(weight > 0.0 for weight in expected.values())
+            and math.isclose(
+                sum(expected.values()),
+                1.0,
+                rel_tol=0.0,
+                abs_tol=1e-9,
+            )
+        )
     elif kind == "equal-weight-long-research-universe":
         expected = {
             asset: 1.0 / len(universe) for asset in universe
@@ -296,7 +313,7 @@ def _valid_benchmark_contract(
         }
     if kind == "cash":
         source_matches = True
-    elif kind == "single-asset-long":
+    elif kind in {"fixed-weights", "single-asset-long"}:
         source_matches = benchmark["source"] == "caller-supplied"
     else:
         source_matches = benchmark["source"] == "direction-default"

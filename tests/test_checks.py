@@ -25,6 +25,9 @@ from autoquant.orientation import (
     AGENT_WORK_BRIEF_JSON_SCHEMA,
     build_agent_work_brief,
 )
+from autoquant.project_templates.ohlcv_rl_factor_lab.rl_core import (
+    POLICY_STATE_COLUMNS,
+)
 from autoquant.reports import publish_report
 from autoquant.sessions import evaluate_experiment, load_session, start_session
 from autoquant.sessions import complete_session
@@ -497,6 +500,41 @@ class CandidateCheckTests(unittest.TestCase):
                         "position-capable assets); fixed "
                         "context/benchmark assets none; at most 256 timestamps",
                         result["checks"][0]["message"],
+                    )
+                if template == "ohlcv-rl-factor-lab":
+                    candidate = project.root_dir / "models" / "candidate.py"
+                    candidate.write_text(
+                        "FEATURE_NAMES = "
+                        + repr(POLICY_STATE_COLUMNS)
+                        + "\n\n"
+                        + "def encode_state(state):\n"
+                        + "    return [state[name] for name in FEATURE_NAMES]\n",
+                        encoding="utf-8",
+                    )
+                    advertised = subprocess.run(
+                        [
+                            sys.executable,
+                            preflight.definition["runner"]["entrypoint"],
+                        ],
+                        cwd=project.root_dir,
+                        env=environment,
+                        capture_output=True,
+                        text=True,
+                        timeout=8,
+                        check=False,
+                    )
+                    self.assertEqual(
+                        advertised.returncode,
+                        0,
+                        advertised.stderr,
+                    )
+                    advertised_result = json.loads(
+                        output.read_text(encoding="utf-8")
+                    )
+                    self.assertEqual(
+                        advertised_result["status"],
+                        "passed",
+                        advertised_result,
                     )
                 output.unlink()
                 if template == "ohlcv-factor-lab":

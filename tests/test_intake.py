@@ -2235,6 +2235,23 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                 root,
                 observations=420,
             )
+            request_payload = json.loads(
+                request_path.read_text(encoding="utf-8")
+            )
+            benchmark_assets = [
+                asset["symbol"] for asset in request_payload["assets"]
+            ]
+            request_payload["benchmarkPolicy"] = {
+                "kind": "fixed-weights",
+                "weights": {
+                    asset: 1.0 / len(benchmark_assets)
+                    for asset in benchmark_assets
+                },
+            }
+            request_path.write_text(
+                json.dumps(request_payload, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
             workspace = initialize_workspace(root / "workspace")
             prepared = prepare_project_intake(
                 request_path,
@@ -2258,6 +2275,14 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                     "annualizationPeriods"
                 ],
                 24 * 365,
+            )
+            self.assertEqual(
+                mandate["construction"]["benchmark"]["kind"],
+                "fixed-weights",
+            )
+            self.assertEqual(
+                mandate["construction"]["benchmark"]["source"],
+                "caller-supplied",
             )
             session = start_session(
                 project,

@@ -61,6 +61,7 @@ PORTFOLIO_BENCHMARKS = {
 }
 BENCHMARK_KINDS = {
     "cash",
+    "fixed-weights",
     "equal-weight-long-research-universe",
     "equal-weight-long-tradable",
     "equal-weight-short-tradable",
@@ -310,6 +311,9 @@ def _canonical_payload(
     elif benchmark_policy["kind"] == "cash":
         benchmark_kind = "cash"
         benchmark_asset = None
+    elif benchmark_policy["kind"] == "fixed-weights":
+        benchmark_kind = "fixed-weights"
+        benchmark_asset = None
     else:
         benchmark_kind = "single-asset-long"
         benchmark_asset = benchmark_policy["symbol"]
@@ -348,6 +352,11 @@ def _canonical_payload(
         equal_weight = -1.0 / len(short_capable)
         benchmark_weights = {
             asset: equal_weight if asset in short_capable else 0.0
+            for asset in research_universe
+        }
+    elif benchmark_kind == "fixed-weights":
+        benchmark_weights = {
+            asset: float(benchmark_policy["weights"].get(asset, 0.0))
             for asset in research_universe
         }
     elif (
@@ -551,26 +560,49 @@ def build_portfolio_mandate(
             )
         supplied_benchmark = request.get("benchmarkPolicy")
         if supplied_benchmark is not None:
-            if (
-                not isinstance(supplied_benchmark, dict)
-                or set(supplied_benchmark) != {"kind", "symbol"}
-                or supplied_benchmark.get("kind") not in {"cash", "asset"}
-                or (
-                    supplied_benchmark.get("kind") == "cash"
-                    and supplied_benchmark.get("symbol") is not None
+            valid_cash_or_asset = (
+                isinstance(supplied_benchmark, dict)
+                and set(supplied_benchmark) == {"kind", "symbol"}
+                and supplied_benchmark.get("kind") in {"cash", "asset"}
+                and (
+                    supplied_benchmark.get("kind") != "cash"
+                    or supplied_benchmark.get("symbol") is None
                 )
-                or (
-                    supplied_benchmark.get("kind") == "asset"
-                    and (
-                        not isinstance(
-                            supplied_benchmark.get("symbol"),
-                            str,
-                        )
-                        or supplied_benchmark["symbol"]
-                        not in research_universe
+                and (
+                    supplied_benchmark.get("kind") != "asset"
+                    or (
+                        isinstance(supplied_benchmark.get("symbol"), str)
+                        and supplied_benchmark["symbol"] in research_universe
                     )
                 )
-            ):
+            )
+            supplied_weights = (
+                supplied_benchmark.get("weights")
+                if isinstance(supplied_benchmark, dict)
+                else None
+            )
+            valid_fixed_weights = (
+                isinstance(supplied_benchmark, dict)
+                and set(supplied_benchmark) == {"kind", "weights"}
+                and supplied_benchmark.get("kind") == "fixed-weights"
+                and isinstance(supplied_weights, dict)
+                and bool(supplied_weights)
+                and set(supplied_weights) <= set(requested)
+                and all(
+                    isinstance(weight, (int, float))
+                    and not isinstance(weight, bool)
+                    and math.isfinite(float(weight))
+                    and 0.0 < float(weight) <= 1.0
+                    for weight in supplied_weights.values()
+                )
+                and math.isclose(
+                    sum(float(weight) for weight in supplied_weights.values()),
+                    1.0,
+                    rel_tol=0.0,
+                    abs_tol=1e-9,
+                )
+            )
+            if not (valid_cash_or_asset or valid_fixed_weights):
                 raise ValueError("request has an invalid benchmark policy")
         payload = _canonical_payload(
             source_kind="research-request",
@@ -940,12 +972,42 @@ def validate_portfolio_mandate(
                             "kind": "asset",
                             "symbol": benchmark_asset,
                         }
+                    elif (
+                        benchmark_kind == "fixed-weights"
+                        and benchmark_asset is None
+                        and all(
+                            0.0 <= float(weight) <= 1.0
+                            for weight in benchmark_weights.values()
+                        )
+                        and any(
+                            float(weight) > 0.0
+                            for weight in benchmark_weights.values()
+                        )
+                        and math.isclose(
+                            sum(
+                                float(weight)
+                                for weight in benchmark_weights.values()
+                            ),
+                            1.0,
+                            rel_tol=0.0,
+                            abs_tol=1e-9,
+                        )
+                    ):
+                        normalized_benchmark_policy = {
+                            "kind": "fixed-weights",
+                            "weights": {
+                                asset: float(benchmark_weights[asset])
+                                for asset in research
+                                if float(benchmark_weights[asset]) > 0.0
+                            },
+                        }
                     else:
                         issues.append(
                             _issue(
                                 f"{path}/construction/benchmark",
                                 "mandate.caller-benchmark",
-                                "Caller benchmark must be cash or one unlevered long asset",
+                                "Caller benchmark must be cash, one unlevered "
+                                "long asset, or a funded fixed-weight reference",
                             )
                         )
             annualization_periods = (

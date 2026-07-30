@@ -584,6 +584,16 @@ class RlEnvironmentTests(unittest.TestCase):
                 "hypotheses": [],
                 "constraints": [],
                 "deliverables": ["runtime evidence"],
+                "benchmarkPolicy": {
+                    "kind": "fixed-weights",
+                    "weights": {
+                        "A": 0.4,
+                        "B": 0.3,
+                        "C": 0.2,
+                        "D": 0.05,
+                        "E": 0.05,
+                    },
+                },
                 "portfolioPolicy": {
                     "grossLimit": 1.0,
                     "maxAbsWeight": 0.3,
@@ -617,6 +627,17 @@ class RlEnvironmentTests(unittest.TestCase):
             volumes,
             index,
             mandate=mandate,
+        )
+        expected_benchmark = (
+            (closes.shift(-1) / closes - 1.0)
+            * pd.Series(
+                {"A": 0.4, "B": 0.3, "C": 0.2, "D": 0.05, "E": 0.05}
+            )
+        ).sum(axis=1, min_count=1).reindex(index)
+        pd.testing.assert_series_equal(
+            rollout.simulation.daily["benchmark_return"],
+            expected_benchmark.rename("benchmark_return"),
+            check_freq=False,
         )
         eligible = decision_schedule_mask(
             dates,

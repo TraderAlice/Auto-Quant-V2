@@ -833,6 +833,82 @@ class PortfolioMandateTests(unittest.TestCase):
             },
         )
 
+    def test_fixed_weight_benchmark_round_trips_and_drives_returns(self) -> None:
+        factors, closes = panels()
+        volumes = pd.DataFrame(
+            1_000_000.0,
+            index=closes.index,
+            columns=closes.columns,
+        )
+        raw = request("long", ["A", "B", "C"])
+        raw["benchmarkPolicy"] = {
+            "kind": "fixed-weights",
+            "weights": {
+                "A": 0.5,
+                "B": 0.3,
+                "C": 0.2,
+            },
+        }
+        normalized = validate_research_request(raw)
+        mandate = build_portfolio_mandate(normalized, UNIVERSE)
+
+        self.assertEqual(
+            mandate["construction"]["benchmark"],
+            {
+                "source": "caller-supplied",
+                "kind": "fixed-weights",
+                "asset": None,
+                "weights": {
+                    "A": 0.5,
+                    "B": 0.3,
+                    "C": 0.2,
+                    "D": 0.0,
+                    "E": 0.0,
+                },
+            },
+        )
+        self.assertEqual(validate_portfolio_mandate(mandate), mandate)
+        jsonschema.validate(mandate, PORTFOLIO_MANDATE_JSON_SCHEMA)
+
+        construction = construct_signal_policy(
+            factors,
+            closes,
+            mandate=mandate,
+        )
+        simulation = simulate_targets(
+            construction.targets,
+            closes,
+            volumes,
+            mandate=mandate,
+        )
+        expected = (
+            closes.pct_change().shift(-1)
+            * pd.Series(
+                {"A": 0.5, "B": 0.3, "C": 0.2, "D": 0.0, "E": 0.0}
+            )
+        ).sum(axis=1, min_count=1).reindex(simulation.daily.index)
+        pd.testing.assert_series_equal(
+            simulation.daily["benchmark_return"],
+            expected.rename("benchmark_return"),
+            check_freq=False,
+        )
+
+        tampered = copy.deepcopy(mandate)
+        tampered["construction"]["benchmark"]["weights"]["A"] = 0.4
+        with self.assertRaisesRegex(
+            AutoQuantValidationError,
+            "benchmark|fixed request contract",
+        ):
+            validate_portfolio_mandate(tampered)
+
+        unknown = copy.deepcopy(raw)
+        unknown["benchmarkPolicy"]["weights"] = {"A": 0.5, "Z": 0.5}
+        with self.assertRaisesRegex(
+            AutoQuantValidationError,
+            "requested",
+        ):
+            validate_research_request(unknown)
+
     def test_underfunded_relative_value_stays_flat_instead_of_trading_peers(self) -> None:
         factors, closes = panels()
         mandate = build_portfolio_mandate(
