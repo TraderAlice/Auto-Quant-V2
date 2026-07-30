@@ -4,6 +4,7 @@ Status: active acceptance record.
 
 Related: [[plans/agent-employability-validation]],
 [[docs/agent-employability-trial-template]],
+[[docs/agent-employability-synthesis]],
 [[docs/trading-request-field-trials]],
 [[docs/design/agent-native-quant-workbench]],
 [[docs/design/agent-operator-experience]], and
@@ -160,18 +161,21 @@ contract. Host integration is not part of this validation record.
 | `cohort-01-sector-factor-portfolio` | `A` | `independent-pass` | editable Factor → Portfolio gate | 0 | passed | First fresh post-plan worker. Eleven sector ETFs plus SPY; one failed and one passing bounded Check, one REVERT, and a truthful negative handoff. Fixed Factor qualification withheld Portfolio weights. |
 | `cohort-02-retail-book-risk` | `A` | `independent-pass` | fixed descriptive Book Risk | 0 | passed | Nine caller-weighted retail/consumer equities; one fixed Run, no Session, direct concentration answer, exact Run-artifact evidence, and no invented safety threshold, replacement book, or trading claim. |
 | `cohort-03-btc-multiinterval-target-weights` | `A` | `recoverable-pass` | supplied multi-interval Factor → fixed Portfolio | 1 | passed | Byte-identical caller factor qualified, the fixed 20%-cap Portfolio ran once, and the worker returned the valid flat BTC 0/Cash 1 current book with explicit same-data and no-trading limits. |
+| `cohort-04-global-etf-governed-rl-v0830-retry` | `A` | `independent-pass` | standalone governed RL incremental-value decision | 0 | passed | Corrected `0.8.30` retry preserved the caller's nine-ETF fixed-weight benchmark, passed its first Check, accepted one REVERT, completed one delegated Session, and truthfully retained the mechanical baseline. One initial 120-second Core timeout required an independently recovered execution sequence but no worker-caused CLI retry or scientific drift. |
 
 The four pre-plan rows establish strong historical evidence but do not count
 toward the required four fresh post-plan workers. Additional historical rows
 remain pending conservative audit. Fresh rows are added only after independent
 evidence verification.
 
-Fresh post-plan progress: `3/4`. The first worker covers editable Factor and a
+Fresh post-plan progress: `4/4`. The first worker covers editable Factor and a
 truthful Factor-to-Portfolio gate, but does not yet satisfy the target-weight
 handoff coverage item because the scientific gate correctly blocked
 Portfolio. The second worker covers fixed descriptive research through a
 reported-book risk audit. The third worker covers multi-interval/context
-research and an admitted Factor-to-Portfolio target-weight handoff.
+research and an admitted Factor-to-Portfolio target-weight handoff. The fourth
+worker covers a fresh worker-owned governed-RL decision and a truthful negative
+adaptive-value conclusion.
 
 Its exact packet and review live outside the product repository at
 `/Users/ame/2607AutoQuant/grok-field-trials/cohort-01-sector-factor-portfolio`.
@@ -215,3 +219,31 @@ translation as cost-fragile and did not enter RL. One rejected staging symlink
 then successful physical-copy intake makes this a `recoverable-pass`; all
 scientific evidence, exact candidate bytes, mandate, input hashes, Report,
 promotion, Explorers, and Studio independently reconcile.
+
+The initial fourth packet at
+`/Users/ame/2607AutoQuant/grok-field-trials/cohort-04-global-etf-governed-rl`
+was excluded from the final cohort because the public fixed-weight benchmark
+schema contradicted Portfolio Mandate construction, fast RL preflight omitted
+advertised runtime fields, and the caller packet misstated the supplied data
+dates. Its useful negative result remains preserved rather than rewritten.
+
+The corrected retry lives at
+`/Users/ame/2607AutoQuant/grok-field-trials/cohort-04-global-etf-governed-rl-v0830-retry`.
+The exact `0.8.30` wheel preserved nine `1/9` caller benchmark weights through
+the shared Mandate and RL Judge. A fresh worker established an intake-matched
+leader at validation mean net Sharpe `0.613754`, correctly interpreted mean
+validation advantage `-0.096473` versus the best fixed baseline, passed its
+first candidate Check, and accepted one REVERT (`0.568435`, improvement
+`-0.045319`). Report and baseline-retaining completion leave no trading claim.
+All packet hashes, Project intake, four Run records, strict Explorer,
+Experiment, Report, completion, final orientation, and Studio independently
+reconcile.
+
+The first baseline execution timed out at the fixed 120-second template
+boundary. The worker briefly tested the caller-authorized 180-second ceiling,
+noticed the resulting intake-hash mismatch, discarded that success, restored
+the locked Study, and completed the accepted baseline in about 93 seconds.
+This is one disclosed Core runtime-recovery episode, not a worker-caused CLI
+usage retry or hidden contract change. It is deferred as a first occurrence;
+the final cohort still has four of five independent passes when the clean
+`0.8.28` seed is included, meeting the 80% gate exactly.

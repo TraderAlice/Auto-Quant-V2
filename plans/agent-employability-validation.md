@@ -5,6 +5,7 @@
 - Goal: continue the thread Goal that separates fresh Grok research workers
   from the Agent improving AutoQuant.
 - Related: [[docs/agent-employability-validation]],
+  [[docs/agent-employability-synthesis]],
   [[docs/trading-request-field-trials]],
   [[docs/design/agent-native-quant-workbench]],
   [[docs/design/agent-operator-experience]], and
@@ -78,25 +79,25 @@ accidental current workflow instead of consuming a stable independent desk.
 - [x] The protocol fixes worker isolation, supplied inputs, preserved records,
       retry counting, outcome classification, friction severity, and
       independent verification before new trials begin.
-- [ ] At least four new qualifying workers receive materially different
+- [x] At least four new qualifying workers receive materially different
       assignments after this plan is activated; together with the clean
       `0.8.28` Factor trial, the final cohort covers fixed descriptive work,
       editable Factor work, Factor-to-Portfolio target weights,
       multi-interval/context research, and governed RL or an honest RL gate.
-- [ ] Every final-cohort task ends in a verified useful answer or explicit
+- [x] Every final-cohort task ends in a verified useful answer or explicit
       supported boundary, with zero scientific/authority breach, zero
       unintended trading claim, and zero hidden change to caller intent.
-- [ ] At least 80% of the final cohort completes construction and handoff with
+- [x] At least 80% of the final cohort completes construction and handoff with
       no worker-caused CLI retry; no qualifying trial requires live coaching,
       source inspection, or more than one recoverable retry.
-- [ ] Every observed friction has a recorded disposition. A severe
+- [x] Every observed friction has a recorded disposition. A severe
       scientific/authority defect is fixed immediately; lower-severity Core
       work requires recurrence across two independent workers or an explicit
       documented exception.
-- [ ] Final reports answer the caller's question in plain language, cite exact
+- [x] Final reports answer the caller's question in plain language, cite exact
       immutable evidence, distinguish validation/test/qualification, and stop
       without unnecessary additional research.
-- [ ] The final synthesis states whether AutoQuant is employable, the remaining
+- [x] The final synthesis states whether AutoQuant is employable, the remaining
       boundaries, and the minimum stable contract OpenAlice may consume.
 - [ ] Any resulting Core change passes focused/full regression, docs,
       distribution/install, clean-clone, and fresh-worker retry gates before
@@ -109,15 +110,15 @@ accidental current workflow instead of consuming a stable independent desk.
       than reconstructing them optimistically.
 - [x] Freeze the Markdown trial brief, worker packet, observation record, and
       independent-review checklist.
-- [ ] Select four fresh assignments from coverage gaps without reusing the
+- [x] Select four fresh assignments from coverage gaps without reusing the
       original asset/date/question combination merely to obtain an easy pass.
-- [ ] Run each assignment with a fresh isolated worker and preserve its exact
+- [x] Run each assignment with a fresh isolated worker and preserve its exact
       prompt, outward handoff, command/retry record, staged-input hashes, Project
       evidence, final answer, and reviewer disposition.
-- [ ] For any promoted Workbench defect, create or activate a separate bounded
+- [x] For any promoted Workbench defect, create or activate a separate bounded
       plan, implement the smallest general fix, and use a different fresh
       worker for the unchanged retry.
-- [ ] Publish the cohort synthesis and OpenAlice readiness gate; complete the
+- [x] Publish the cohort synthesis and OpenAlice readiness gate; complete the
       Goal only when every acceptance item is evidenced.
 
 ## Findings and decisions
@@ -190,6 +191,17 @@ accidental current workflow instead of consuming a stable independent desk.
   Symlink rejection is an intentional safety boundary. The absent
   Portfolio-Session Dossier remains the documented universal-outward-object
   limitation and does not justify forcing a Session or expanding Core here.
+- 2026-07-30 — Fresh worker 4/4 independently completed the corrected
+  standalone global-ETF governed-RL assignment on the exact `0.8.30`
+  candidate wheel. Fixed-weight intake and first-pass state Check prove the
+  two promoted Core fixes; one Experiment returned REVERT, one immutable
+  Report and baseline-retaining completion answer the caller, and all
+  scientific claims independently reconcile.
+- 2026-07-30 — One first baseline hit the 120-second Core timeout. The worker
+  recovered without coaching, restored intake integrity after a temporary
+  caller-authorized timeout probe, and selected only the locked baseline. This
+  is a disclosed first-occurrence runtime friction, not a worker-caused CLI
+  retry or scientific/authority breach; no timeout feature is promoted.
 
 ## Verification
 
@@ -219,6 +231,11 @@ accidental current workflow instead of consuming a stable independent desk.
   fixed mandate, current book, packet hashes, and Studio independently
   reconcile. It covers the multi-interval/context and actual target-weight
   handoff requirements.
+- Worker 4/4 is Grade A `independent-pass` with one disclosed Core runtime
+  recovery. Exact packet/wheel hashes, caller fixed-weight Mandate, locked
+  accepted baseline, first-pass Check, REVERT, Report, completion, strict RL
+  Explorer, validation, orientation, and Studio reconcile. It covers the
+  governed-RL decision requirement with a truthful negative answer.
 
 ## Progress log
 
@@ -249,6 +266,10 @@ accidental current workflow instead of consuming a stable independent desk.
   `cohort-03-btc-multiinterval-target-weights` as a one-retry
   `recoverable-pass`; fresh cohort progress is 3/4. The remaining material
   coverage target is a fresh governed-RL decision or honest RL gate.
+- 2026-07-30 — Accepted the corrected global-ETF governed-RL worker as the
+  fourth materially different fresh assignment. Fresh cohort progress is
+  4/4; together with the clean `0.8.28` seed, four of five final workers are
+  independent passes and one is a recoverable pass.
 
 ## Completion
 

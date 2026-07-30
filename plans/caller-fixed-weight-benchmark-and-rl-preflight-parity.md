@@ -71,7 +71,8 @@ byte-identical.
       passes the fast Check; a missing/invalid field still fails normally.
 - [ ] Focused and full regressions, docs, build/install, version/capability,
       clean-clone, and Studio smoke pass for `0.8.30`.
-- [ ] A different fresh worker receives only the installed release, corrected
+- [x] A different fresh worker receives only the installed release candidate,
+      corrected
       caller assignment, and staged data; its evidence and final answer are
       independently reviewed under the employability protocol.
 
@@ -82,10 +83,10 @@ byte-identical.
 - [x] Align the generic governed-RL preflight state with the exact runtime
       policy-state columns.
 - [x] Add regression coverage for both contradictions.
-- [ ] Update version, public milestone docs, and validation records.
-- [ ] Build and install the exact wheel from a clean fixed commit.
-- [ ] Freeze and execute a corrected fresh-worker retry packet.
-- [ ] Record the retry and return to cohort synthesis.
+- [x] Update version, public milestone docs, and validation records.
+- [x] Build and install the exact wheel from a clean fixed commit.
+- [x] Freeze and execute a corrected fresh-worker retry packet.
+- [x] Record the retry and return to cohort synthesis.
 
 ## Findings and decisions
 
@@ -106,6 +107,16 @@ byte-identical.
 - 2026-07-30 — Generic RL preflight now constructs exactly the current
   `POLICY_STATE_COLUMNS` surface. A regression candidate reads every field by
   its public name before any full Judge evaluation.
+- 2026-07-30 — The fresh `0.8.30` candidate-wheel worker passed fixed-weight
+  intake and its first state-encoder Check, then returned one evidence-backed
+  REVERT and completed the delegated Session. This directly closes both
+  originating contradictions.
+- 2026-07-30 — One first baseline execution hit the intake template's
+  120-second timeout; later locked executions completed in roughly 93–113
+  seconds. The worker transparently discarded one temporary 180-second probe
+  whose Study hash did not match intake. This is a first-occurrence runtime
+  observation, not a reason to change the scientific contract or immediately
+  raise every RL timeout.
 
 ## Verification
 
@@ -114,6 +125,16 @@ byte-identical.
 - One shared three-lane intake Project with a fixed-weight caller benchmark
   completed Factor, Portfolio, and governed-RL Runs successfully in 48.201
   seconds.
+- Candidate wheel
+  `auto_quant-0.8.30-py3-none-any.whl`
+  (`90ea4f4…2cbdbb`) was built from clean commit `2636c5b`, installed in a
+  fresh Python 3.11 environment, and exposed public version `0.8.30`.
+- Fresh isolated Grok Build completed the corrected task in 939.45 seconds
+  without source, docs/tests/plans, web, memory, subagents, or coaching.
+  Fixed-weight intake succeeded directly; one Check passed on the first
+  attempt; one Experiment returned REVERT; Report, completion, strict
+  Explorer, final orientation, validation, and Studio independently
+  reconcile. Full release regression remains in progress.
 
 ## Progress log
 
@@ -121,3 +142,5 @@ byte-identical.
   and preflight/runtime contract mismatches in cohort worker 4.
 - 2026-07-30 — Core contracts and regressions implemented; patch release and
   fresh-worker retry remain.
+- 2026-07-30 — Corrected fresh-worker retry completed and independently
+  reconciled. Only full release verification, tag, and push remain.
