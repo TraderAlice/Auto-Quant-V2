@@ -170,6 +170,9 @@ const selectionContext = (integrity) => {
   );
 };
 
+const testExposureContext = (integrity) =>
+  integrity.testExposureState ?? integrity.testRole;
+
 const selectionRiskSection = (integrity) => {
   const evidence = selectionEvidence(integrity);
   const family = evidence.family;
@@ -204,6 +207,9 @@ const selectionRiskSection = (integrity) => {
         <dt>Unique trials</dt><dd>${family.uniqueSourceTrials}</dd>
         <dt>Executions / duplicates</dt><dd>${family.totalExecutions} / ${family.duplicateExecutions}</dd>
         <dt>Reproducible</dt><dd>${family.reproducible ? "yes" : "no"}</dd>
+        <dt>Test exposure</dt><dd>${escapeHtml(testExposureContext(integrity))}</dd>
+        <dt>Post-audit candidate iterations</dt><dd>${integrity.postAuditCandidateIterations ?? "unknown"}</dd>
+        <dt>Actual test guidance</dt><dd>${escapeHtml(integrity.testGuidanceObservability ?? "not recorded")}</dd>
         ${statisticalRows}
       </dl>
       <p>${escapeHtml(adjustment.interpretation ?? "Core published the selection-adjustment evidence shown above.")} Project-wide fixed-evaluation family; restarting a Session does not reset the trial count.</p>
@@ -1522,7 +1528,7 @@ function renderHandoff(project) {
         <span><b>${session.selectionIntegrity.researchFamily?.uniqueSourceTrials ?? session.experiments.length}</b><small>family trials</small></span>
         <span><b>${session.campaigns.length}</b><small>campaigns</small></span>
       </div>
-      <span class="context-note">${escapeHtml(session.selectionIntegrity.selectionMetric)} · ${escapeHtml(session.selectionIntegrity.selectionSplit)} selection · ${escapeHtml(selectionContext(session.selectionIntegrity))} · ${escapeHtml(session.selectionIntegrity.testRole)} test${session.selectionIntegrity.externalHoldoutRequired ? " · new holdout required" : ""}</span>
+      <span class="context-note">${escapeHtml(session.selectionIntegrity.selectionMetric)} · ${escapeHtml(session.selectionIntegrity.selectionSplit)} selection · ${escapeHtml(selectionContext(session.selectionIntegrity))} · ${escapeHtml(testExposureContext(session.selectionIntegrity))}${session.selectionIntegrity.externalHoldoutRequired ? " · new holdout required" : ""}</span>
     </article>
     <article class="handoff-card report-card ${latestReport ? "ready" : ""}">
       <small>03 · Decision-support report</small>
@@ -4819,7 +4825,7 @@ function renderTrajectory(project) {
     session?.selectionIntegrity.candidateTrials ??
     0;
   element("trajectory-meta").textContent = session
-    ? `${session.session.studyId} · ${familyTrials} Project-family trials · ${selectionContext(session.selectionIntegrity)} · ${session.selectionIntegrity.selectionSplit} selection · ${session.selectionIntegrity.externalHoldoutRequired ? "new holdout required" : session.selectionIntegrity.testRole}`
+    ? `${session.session.studyId} · ${familyTrials} Project-family trials · ${selectionContext(session.selectionIntegrity)} · ${session.selectionIntegrity.selectionSplit} selection · ${testExposureContext(session.selectionIntegrity)} · ${session.selectionIntegrity.externalHoldoutRequired ? "new holdout required" : "no new holdout yet"}`
     : "No Experiments";
   if (!experiments.length) {
     element("trajectory-chart").innerHTML =
@@ -5160,6 +5166,8 @@ function renderInspector(project) {
         <dt>Value</dt><dd>${metric(manifest.leader.value)}</dd>
         <dt>Baseline</dt><dd>${metric(manifest.baseline.value)}</dd>
         <dt>Experiments</dt><dd>${session.experiments.length}</dd>
+        <dt>Test exposure</dt><dd>${escapeHtml(testExposureContext(session.selectionIntegrity))}</dd>
+        <dt>Post-audit edits</dt><dd>${session.selectionIntegrity.postAuditCandidateIterations ?? "unknown"}</dd>
         <dt>Authority</dt><dd>${session.authority.valid ? "verified" : "stale"}</dd>
       </dl>
     </section>

@@ -90,6 +90,14 @@ The API deliberately uses ordinary pandas and NumPy expressions. AutoQuant
 does not wrap them in a legacy event/line abstraction. The canonical details
 are in [[docs/design/panel-native-factor-api]].
 
+New Projects receive a surface-aligned baseline. The candidate records
+`AVAILABLE_FEATURE_INTERVALS` from the content-locked dataset snapshot; daily
+or observed-only packages therefore begin with only `base_momentum_10`, while
+available 3h, 12h, and 1d bars enable their matching reference components.
+This is baseline construction, not request-specific factor selection, and the
+preflight still rejects any Agent declaration that exceeds the fixed panel
+surface.
+
 ## Fixed Judge semantics
 
 The Judge owns target construction and evaluation:

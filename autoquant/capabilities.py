@@ -693,7 +693,9 @@ CLI_COMMANDS = [
     descriptor(
         "session.show",
         "aq session show <path> --session ID [--project ID] [--json]",
-        "Inspect a Session Agent brief, authority, candidate, leader, and history.",
+        "Inspect a Session Agent brief, authority, candidate, leader, history, "
+        "and verified test-exposure state without inferring whether visible "
+        "test evidence guided an edit.",
         "read-only",
         [PATH_ARGUMENT, PROJECT_ARGUMENT, SESSION_ARGUMENT, JSON_ARGUMENT],
     ),

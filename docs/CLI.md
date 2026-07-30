@@ -762,7 +762,10 @@ immutable Run artifacts; Studio is the concise human projection.
 
 `session show --json` also projects selection integrity from verified evidence:
 selection metric/split, exact candidate and evaluated-Run counts, verdict
-counts, test visibility/use, and whether a new external holdout is required.
+counts, test visibility/use, first-candidate versus post-audit iteration state,
+and whether a new external holdout is required. `testGuidanceObservability`
+remains `not-observable`: Experiment order proves when source changed relative
+to visible evidence, not whether a person or Agent actually used it.
 It additionally includes the Project-wide fixed-evaluation `researchFamily`
 with unique-source and duplicate-execution counts plus a Core-authored
 `selectionAdjustment`. Factor Studies use Bonferroni-adjusted HAC evidence,
@@ -770,6 +773,9 @@ Portfolio Studies use probabilistic/deflated Sharpe and minimum track record,
 and aggregate fold/seed RL objectives return an explicit unsupported reason.
 The adjustment is diagnostic only. Reference templates select on validation
 only; generic Studies return explicit `unspecified` or unsupported values.
+Human `session show` output repeats the exposure state, post-audit candidate
+count, and holdout requirement rather than collapsing them into a
+“test-guided” label.
 
 `session compare` verifies the immutable Session, Experiment chain, and
 referenced Runs before producing one bounded baseline/candidate/leader matrix.

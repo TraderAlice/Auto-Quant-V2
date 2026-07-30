@@ -58,14 +58,14 @@ Agent may honestly claim after touching it.
 
 ## Acceptance
 
-- [ ] Daily V1/V4/V5 Factor intake produces a baseline whose source and
+- [x] Daily V1/V4/V5 Factor intake produces a baseline whose source and
       component declarations use only the base interval.
-- [ ] Multi-interval Factor intake retains its complete feature-aware baseline,
+- [x] Multi-interval Factor intake retains its complete feature-aware baseline,
       with baseline Run and candidate contract in agreement.
-- [ ] First formal evaluation records visible-test exposure without claiming a
+- [x] First formal evaluation records visible-test exposure without claiming a
       later test-informed edit.
-- [ ] A source change after that exposure advances to a distinct conservative
-      test-guided-iteration-risk state and requires fresh external evidence.
+- [x] A later formal source iteration advances to a distinct conservative
+      post-audit-iteration state and requires fresh external evidence.
 - [ ] Session, Report, Dossier, CLI, Studio, schema, and documentation agree;
       older evidence remains loadable and no test metric enters selection.
 - [ ] Focused/full tests, build/install smoke, exact clean-clone validation, and
@@ -73,11 +73,11 @@ Agent may honestly claim after touching it.
 
 ## Work
 
-- [ ] Reproduce both `0.8.27` descriptions and identify the smallest baseline
+- [x] Reproduce both `0.8.27` descriptions and identify the smallest baseline
       selection and immutable exposure boundaries.
-- [ ] Implement surface-aligned baseline construction without duplicating
+- [x] Implement surface-aligned baseline construction without duplicating
       Judge or candidate semantics.
-- [ ] Implement a backward-readable selection-integrity state model derived
+- [x] Implement a backward-readable selection-integrity state model derived
       from fixed source hashes and Experiment order.
 - [ ] Update public schemas, human/JSON/Studio projections, design documents,
       template/sample consistency, and regression fixtures.
@@ -92,8 +92,19 @@ Agent may honestly claim after touching it.
   first editable Factor Session tells a new Agent the truth about its starting
   surface and consumed evidence.
 - 2026-07-30 — The safe boundary remains conservative: first exposure consumes
-  the internal test's untouched status, while only a later source change earns
-  the stronger test-guided-iteration description.
+  the internal test's untouched status, while only a later formal Experiment
+  earns the stronger post-audit-iteration timing description.
+- 2026-07-30 — Core cannot prove that visible evidence guided a person or
+  Agent. V2 therefore records `testGuidanceObservability=not-observable`; the
+  stronger post-audit state proves only that another immutable Experiment
+  followed a completed candidate audit.
+- 2026-07-30 — Baseline alignment is a construction-time seed over the exact
+  interval surface. Known-style intake still replaces it, and the fixed
+  preflight remains the authority that rejects unavailable component inputs.
+- 2026-07-30 — Updating the checked-in sample to the current truthful template
+  intentionally makes its `0.8.7` Run historical rather than current. A new
+  ordinary `0.8.28` baseline Run will restore current Explorer projection
+  without rewriting the historical Run.
 
 ## Verification
 
@@ -103,6 +114,9 @@ Pending.
 
 - 2026-07-30 — Plan activated from the final `0.8.27` installed-wheel field
   trial; implementation audit started.
+- 2026-07-30 — Surface-aligned V1/V3/V4/V5 tests and 63 focused
+  Session/Report/Dossier/Studio/CLI regressions passed. Historical Report
+  compatibility remained intact.
 
 ## Completion
 

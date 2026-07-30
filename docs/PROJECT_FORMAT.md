@@ -217,7 +217,13 @@ The Factor, Portfolio, and RL templates publish a nested `research_integrity`
 metric
 declaring validation-only selection, visible diagnostic test evidence, and the
 external-holdout rule. Session snapshots derive exact candidate/verdict counts
-from immutable Experiments. They also discover every verified Project Run with
+from immutable Experiments. Current projections distinguish
+`baseline-test-visible`, `first-candidate-audit-visible`, and
+`post-audit-candidate-iteration`, count only the later immutable source
+iterations as `postAuditCandidateIterations`, and state that actual test
+guidance is not observable. The conservative external-holdout requirement
+remains active after visible test and candidate iteration. They also discover
+every verified Project Run with
 the same Study/program/Judge/dataset/dependency/objective contract, deduplicate
 editable source hashes, and publish a content-derived research-family ledger
 summary plus the supported selection adjustment. Reports freeze that family
@@ -230,6 +236,12 @@ exact reason. See [[docs/design/research-selection-integrity]] and
 construction fixture with a validated caller-supplied OHLCV snapshot. V1
 stores an aligned daily session panel; V4 uses the same paths for a Factor-only
 observed daily panel whose per-asset dates may differ:
+
+Factor baseline construction uses that verified panel surface.
+`AVAILABLE_FEATURE_INTERVALS` is empty for V1/V4 and observed-only V5, while
+V2/V3 candidates receive the exact declared feature intervals. The baseline
+therefore never declares a 3h, 12h, or 1d component unless that input exists;
+known-style intake still replaces the generic baseline.
 
 External package asset paths are portable POSIX-relative paths rooted at the
 directory containing the package manifest. If caller files are already under

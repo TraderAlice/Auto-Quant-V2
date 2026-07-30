@@ -1,5 +1,5 @@
 ---
-version: 0.8.27
+version: 0.8.28
 ---
 
 # AutoQuant V2
@@ -32,7 +32,7 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current milestone: `0.8.27`
+## Current milestone: `0.8.28`
 
 AutoQuant V2 has crossed from an architectural prototype into a usable
 research workbench.
@@ -309,6 +309,16 @@ scientific qualification. Public Report schema also carries one complete
 copyable analysis example. Core still does not infer a trial budget from prose.
 Repository regression passes all 325 tests in 959.906 seconds and the
 documentation graph resolves all 1,129 checked links.
+
+`0.8.28` makes the first editable Factor Session describe its scientific
+surface truthfully. Intake now seeds the baseline from the verified interval
+surface: daily and observed-only inputs declare only base-clock momentum,
+while actual 3h/12h/1d inputs enable only their available components. Selection
+integrity separately reports first candidate-audit visibility and later
+post-audit source iteration. The external-holdout boundary remains
+conservative, but Core no longer claims that visible test evidence actually
+guided an edit because that human/Agent behavior is not observable. Historical
+Runs and Reports retain their original bytes and remain readable.
 
 `0.8.24` followed another isolated Grok coworker into a capped ERC assignment
 with two independent caller questions. The installed `0.8.23` worker could

@@ -1150,6 +1150,20 @@ def _render_markdown(report: dict[str, Any]) -> str:
             f"`{integrity['testEntersSelection']}`",
             f"- External holdout required: "
             f"`{integrity['externalHoldoutRequired']}`",
+            *(
+                [
+                    f"- Test exposure state: "
+                    f"`{integrity['testExposureState']}`",
+                    f"- Candidate iterations after first candidate audit: "
+                    f"`{integrity['postAuditCandidateIterations']}`",
+                    f"- Test guidance observability: "
+                    f"`{integrity['testGuidanceObservability']}`",
+                    f"- External holdout reason: "
+                    f"`{integrity['externalHoldoutReason']}`",
+                ]
+                if "testExposureState" in integrity
+                else []
+            ),
             f"- Warning: {integrity['warning']}",
         ]
     )
@@ -1754,6 +1768,33 @@ def _verify_frozen_evidence(
             ],
             cutoff=report["publishedAt"],
         )
+        selection_v3_keys = {
+            "testExposureState",
+            "postAuditCandidateIterations",
+            "testGuidanceObservability",
+            "declaredExternalHoldoutRule",
+            "externalHoldoutReason",
+        }
+        if (
+            isinstance(frozen_integrity, dict)
+            and selection_v3_keys.isdisjoint(frozen_integrity)
+        ):
+            expected_integrity["externalHoldoutRule"] = (
+                expected_integrity["declaredExternalHoldoutRule"]
+            )
+            if expected_integrity["externalHoldoutRequired"]:
+                expected_integrity["warning"] = (
+                    "Visible test evidence and candidate iteration share this "
+                    "Session; use a new external holdout before a fresh "
+                    "production-grade claim."
+                )
+            elif expected_integrity["selectionSplit"] != "unspecified":
+                expected_integrity["warning"] = (
+                    "Test evidence is visible diagnostic output; changing a "
+                    "candidate after inspecting it consumes its holdout value."
+                )
+            for key in selection_v3_keys:
+                expected_integrity.pop(key)
         selection_v2_keys = {
             "researchFamily",
             "selectionAdjustment",

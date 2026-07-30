@@ -1982,7 +1982,7 @@ def _evaluate() -> tuple[
             "test_role": "visible-diagnostic",
             "test_enters_selection": False,
             "external_holdout_rule": (
-                "required-after-test-guided-iteration"
+                "required-after-visible-test-and-candidate-iteration"
             ),
         },
     }

@@ -410,6 +410,37 @@ def _write_template_source(
     )
 
 
+def _write_surface_aligned_factor_candidate(
+    project: ProjectContext,
+    intake: PreparedIntake | None,
+    *,
+    template: str,
+) -> None:
+    """Seed a baseline whose declared features exist on the intake surface."""
+
+    source = _template_text("candidate.py", template=template)
+    marker = 'AVAILABLE_FEATURE_INTERVALS = ["3h", "12h", "1d"]'
+    if marker not in source:
+        raise RuntimeError(
+            f"{template} candidate is missing the interval seed marker"
+        )
+    surface = intake.interval_surface if intake is not None else None
+    feature_intervals = (
+        list(surface["featureIntervals"])
+        if isinstance(surface, dict)
+        else []
+    )
+    source = source.replace(
+        marker,
+        "AVAILABLE_FEATURE_INTERVALS = "
+        + json.dumps(feature_intervals),
+        1,
+    )
+    target = project.root_dir / "factors/candidate.py"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(source, encoding="utf-8")
+
+
 def _write_portfolio_mandate(
     project: ProjectContext,
     intake: PreparedIntake | None,
@@ -607,7 +638,11 @@ def _apply_ohlcv_factor_lab(
         intake,
         list(dataset["universe"]),
     )
-    _write_template_source(project, "factors/candidate.py", "candidate.py")
+    _write_surface_aligned_factor_candidate(
+        project,
+        intake,
+        template="ohlcv_factor_lab",
+    )
     _seed_known_style_candidate(project, intake)
     _write_template_source(project, "judges/ohlcv_factor.py", "judge.py")
     _write_template_source(
@@ -697,10 +732,9 @@ def _apply_ohlcv_portfolio_lab(
         list(dataset["universe"]),
     )
     _write_research_horizon(project, intake)
-    _write_template_source(
+    _write_surface_aligned_factor_candidate(
         project,
-        "factors/candidate.py",
-        "candidate.py",
+        intake,
         template=template,
     )
     _seed_known_style_candidate(project, intake)
@@ -798,10 +832,9 @@ def _apply_ohlcv_rl_factor_lab(
         "candidate.py",
         template=template,
     )
-    _write_template_source(
+    _write_surface_aligned_factor_candidate(
         project,
-        "factors/candidate.py",
-        "candidate.py",
+        intake,
         template="ohlcv_portfolio_lab",
     )
     _seed_known_style_candidate(project, intake)
@@ -1363,10 +1396,9 @@ def _apply_ohlcv_research_desk(
     _write_factor_claim(project, intake)
 
     # Write every fixed/editable source before creating any Study identity.
-    _write_template_source(
+    _write_surface_aligned_factor_candidate(
         project,
-        "factors/candidate.py",
-        "candidate.py",
+        intake,
         template="ohlcv_portfolio_lab",
     )
     _seed_known_style_candidate(project, intake)

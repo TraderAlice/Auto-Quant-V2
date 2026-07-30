@@ -1229,11 +1229,17 @@ def _render_markdown(dossier: dict[str, Any]) -> str:
             if isinstance(adjustment, dict)
             else ""
         )
+        test_summary = (
+            f"test={integrity['testExposureState']}; "
+            if "testExposureState" in integrity
+            else ""
+        )
         lines.append(
             f"| {lane['name']} | `{lane['study']['id']}` | "
             f"`{lane['report']['id']}` | `{lane['leaderRun']['id']}` | "
             f"{integrity['selectionMetric']} / {integrity['selectionSplit']}; "
             f"{integrity['candidateTrials']} trials; "
+            f"{test_summary}"
             f"holdout required={integrity['externalHoldoutRequired']}"
             f"{family_summary}{adjustment_summary} |"
         )
@@ -1677,6 +1683,18 @@ def _render_markdown(dossier: dict[str, Any]) -> str:
                 "",
                 f"Selection warning: "
                 f"{integrity['warning']}",
+                *(
+                    [
+                        f"Test exposure: "
+                        f"`{integrity['testExposureState']}`; "
+                        f"post-audit candidate iterations="
+                        f"`{integrity['postAuditCandidateIterations']}`; "
+                        "actual test guidance is "
+                        f"`{integrity['testGuidanceObservability']}`.",
+                    ]
+                    if "testExposureState" in integrity
+                    else []
+                ),
                 "",
             ]
         )

@@ -100,6 +100,13 @@ brief that another Agent can recover from the filesystem.
    terminal handoff; a listed `session.start` is an optional explicit follow-
    up, not unfinished required work.
 
+Read `selectionIntegrity.testExposureState` literally. The first candidate is
+fixed before its own audit becomes visible; a later Experiment proves only
+that another source iteration followed prior visible evidence. Core cannot
+observe whether a human or Agent actually used that evidence, so never rewrite
+`testGuidanceObservability=not-observable` as a factual test-guided claim.
+The external-holdout requirement remains conservative in both cases.
+
 When writing `request.horizonPolicy`, declare the required primary horizon
 once. `diagnosticForwardBars` may contain only the additional sorted context
 horizons; Core canonically adds the primary and enforces a five-horizon total.

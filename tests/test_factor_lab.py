@@ -545,6 +545,22 @@ class OhlcvFactorLabTests(unittest.TestCase):
             self.assertEqual(integrity["candidateTrials"], 1)
             self.assertTrue(integrity["externalHoldoutRequired"])
             self.assertEqual(
+                integrity["testExposureState"],
+                "first-candidate-audit-visible",
+            )
+            self.assertEqual(
+                integrity["postAuditCandidateIterations"],
+                0,
+            )
+            self.assertEqual(
+                integrity["testGuidanceObservability"],
+                "not-observable",
+            )
+            self.assertEqual(
+                integrity["externalHoldoutRule"],
+                "required-after-visible-test-and-candidate-iteration",
+            )
+            self.assertEqual(
                 integrity["researchFamily"]["uniqueSourceTrials"],
                 2,
             )
@@ -572,6 +588,16 @@ class OhlcvFactorLabTests(unittest.TestCase):
             )
             self.assertEqual(crashed.result["verdict"], "CRASH")
             self.assertEqual(crashed.result["errors"][0]["code"], "factor.lookahead")
+            reused = session_snapshot(
+                project,
+                load_session(project, session.manifest["id"]),
+            )["selectionIntegrity"]
+            self.assertEqual(
+                reused["testExposureState"],
+                "post-audit-candidate-iteration",
+            )
+            self.assertEqual(reused["postAuditCandidateIterations"], 1)
+            self.assertIn("timing, not whether", reused["warning"])
 
     def test_decision_signal_can_advance_without_novelty(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -886,6 +912,18 @@ print(json.dumps({
             self.assertEqual(observed["counts"]["campaigns"], 1)
             self.assertEqual(observed["counts"]["verdicts"]["KEEP"], 1)
             self.assertEqual(observed["counts"]["runs"], 2)
+            self.assertEqual(
+                observed["sessions"][0]["selectionIntegrity"][
+                    "testExposureState"
+                ],
+                "first-candidate-audit-visible",
+            )
+            self.assertEqual(
+                observed["sessions"][0]["selectionIntegrity"][
+                    "postAuditCandidateIterations"
+                ],
+                0,
+            )
             self.assertTrue(
                 any(item["kind"] == "experiment" for item in observed["timeline"])
             )

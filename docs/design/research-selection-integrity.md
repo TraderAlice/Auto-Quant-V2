@@ -1,6 +1,6 @@
 # Research selection and visible-test integrity
 
-Status: V1 implemented.
+Status: V2 implemented.
 
 Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]],
 [[docs/design/research-session-loop]],
@@ -31,7 +31,7 @@ Every successful reference Judge publishes:
     "selection_split": "validation",
     "test_role": "visible-diagnostic",
     "test_enters_selection": false,
-    "external_holdout_rule": "required-after-test-guided-iteration"
+    "external_holdout_rule": "required-after-visible-test-and-candidate-iteration"
   }
 }
 ```
@@ -59,12 +59,32 @@ Core derives selection integrity only from verified state:
 - KEEP, REVERT, and CRASH counts from immutable verdicts;
 - evaluated Runs as baseline plus candidate trials;
 - test visibility and objective use from the Run contract;
+- `testExposureState=baseline-test-visible` before a candidate trial,
+  `first-candidate-audit-visible` after exactly one trial, and
+  `post-audit-candidate-iteration` after a later Experiment proves another
+  source iteration followed the first completed candidate audit;
+- `postAuditCandidateIterations`, derived as immutable candidate trials after
+  the first one rather than from conversation or process telemetry;
 - `externalHoldoutRequired=true` when at least one candidate trial exists and
   test evidence is visible.
 
 Core cannot know whether a person or Agent read a particular field. It uses a
 conservative rule: after visible test evidence and candidate iteration, the
-same test range no longer supports a fresh holdout claim.
+same test range no longer supports a fresh holdout claim. It therefore records
+`testGuidanceObservability=not-observable`: a later source iteration proves
+timing and opportunity to use prior evidence, not actual psychological or
+causal guidance.
+
+The first candidate is fixed before its own test audit becomes visible, so its
+state does not claim a later post-audit edit. Baseline test evidence was already
+visible, however, so this distinction does not restore production-grade
+holdout authority or weaken the external-evidence requirement.
+
+Already published Runs may retain the historical declared rule
+`required-after-test-guided-iteration`. Current projections preserve that raw
+value as `declaredExternalHoldoutRule` but expose the truthful effective
+`externalHoldoutRule`; historical Reports without V2 fields continue to verify
+against their original projection and Markdown.
 
 ## Report evidence
 
@@ -78,6 +98,8 @@ Core renders a Markdown section containing:
 - selection metric and split;
 - candidate/evaluated Run count and verdict counts;
 - test role and whether it enters selection;
+- test-exposure state, post-audit candidate count, and the explicit
+  non-observability of actual guidance;
 - whether a new external holdout is required;
 - the fixed warning.
 
@@ -87,7 +109,8 @@ Core-authored disclosure.
 ## Studio projection
 
 Studio receives the same Session projection. It shows Project-family trial
-count, selection adjustment, and holdout status beside the leader, and labels
+count, selection adjustment, test-exposure state, post-audit iteration count,
+and holdout status beside the leader, and labels
 test values on Run cards as audit evidence. It never computes the correction
 in browser code, decides that a holdout is fresh, or resets history.
 

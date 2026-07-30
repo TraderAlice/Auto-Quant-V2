@@ -3061,6 +3061,7 @@ def _session_show(args: argparse.Namespace) -> CommandResult:
     session = load_session(project, args.session)
     data = session_snapshot(project, session)
     candidate = data["candidate"]
+    integrity = data["selectionIntegrity"]
     return CommandResult(
         "session.show",
         data,
@@ -3071,6 +3072,12 @@ def _session_show(args: argparse.Namespace) -> CommandResult:
             f"Leader: {session.manifest['leader']['metric']}="
             f"{session.manifest['leader']['value']}\n"
             f"Experiments: {len(data['experiments'])}\n"
+            f"Test exposure: "
+            f"{integrity.get('testExposureState', integrity['testRole'])}\n"
+            f"Post-audit candidate iterations: "
+            f"{integrity.get('postAuditCandidateIterations', 'unknown')}\n"
+            f"External holdout required: "
+            f"{integrity['externalHoldoutRequired']}\n"
             f"Authority: {'valid' if data['authority']['valid'] else 'stale'}\n"
             f"Candidate changed: "
             f"{candidate['differsFromLeader'] if candidate else 'invalid'}\n"

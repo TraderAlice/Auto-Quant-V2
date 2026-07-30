@@ -93,6 +93,20 @@ def compute_factor_components(panel: pandas.DataFrame) -> pandas.DataFrame:
 The component DataFrame uses the exact panel index. The 1–12 materialized
 component bound and metadata/evidence contract remain fixed.
 
+## Surface-aligned baseline
+
+Project construction seeds the editable baseline from the verified interval
+surface, not from every interval the reference implementation knows how to
+consume. `AVAILABLE_FEATURE_INTERVALS` is empty for daily V1/V4 and
+observed-only V5 intake, and equals the package's exact `featureIntervals` for
+V2/V3 intake. The baseline always declares base-clock momentum; it declares
+3h, 12h, or 1d components only when those bars are present.
+
+The source may retain generic helper definitions for supported feature
+components, but `FACTOR_COMPONENTS` and `compute_factor_components` materialize
+only the seeded available set. A request-predeclared known-style candidate
+still replaces this baseline completely.
+
 ## Shared runtime
 
 One Core runtime serves candidate preflight, Factor, Portfolio, and governed

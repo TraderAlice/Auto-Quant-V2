@@ -5,7 +5,9 @@ from __future__ import annotations
 import pandas as pd
 
 
-FACTOR_COMPONENTS = {
+AVAILABLE_FEATURE_INTERVALS = []
+
+_BASE_COMPONENT = {
     "base_momentum_10": {
         "label": "10-base-bar momentum",
         "role": "cross-sectional-score",
@@ -14,32 +16,51 @@ FACTOR_COMPONENTS = {
             "Recent relative strength persists over the next base bar."
         ),
     },
-    "momentum_3h_4": {
-        "label": "Four completed 3-hour bars momentum",
-        "role": "cross-sectional-score",
-        "intervals": ["3h"],
-        "hypothesis": (
-            "Short intraday trend persists beyond the latest completed "
-            "3-hour bar."
-        ),
-    },
-    "momentum_12h_2": {
-        "label": "Two completed 12-hour bars momentum",
-        "role": "cross-sectional-score",
-        "intervals": ["12h"],
-        "hypothesis": (
-            "Half-day trend filters noisy base-bar momentum."
-        ),
-    },
-    "momentum_1d_3": {
-        "label": "Three completed daily bars momentum",
-        "role": "cross-sectional-score",
-        "intervals": ["1d"],
-        "hypothesis": (
-            "Multi-day relative strength persists at the next base close."
-        ),
-    },
 }
+
+_FEATURE_COMPONENTS = {
+    "3h": (
+        "momentum_3h_4",
+        4,
+        {
+            "label": "Four completed 3-hour bars momentum",
+            "role": "cross-sectional-score",
+            "intervals": ["3h"],
+            "hypothesis": (
+                "Short intraday trend persists beyond the latest completed "
+                "3-hour bar."
+            ),
+        },
+    ),
+    "12h": (
+        "momentum_12h_2",
+        2,
+        {
+            "label": "Two completed 12-hour bars momentum",
+            "role": "cross-sectional-score",
+            "intervals": ["12h"],
+            "hypothesis": "Half-day trend filters noisy base-bar momentum.",
+        },
+    ),
+    "1d": (
+        "momentum_1d_3",
+        3,
+        {
+            "label": "Three completed daily bars momentum",
+            "role": "cross-sectional-score",
+            "intervals": ["1d"],
+            "hypothesis": (
+                "Multi-day relative strength persists at the next base close."
+            ),
+        },
+    ),
+}
+
+FACTOR_COMPONENTS = dict(_BASE_COMPONENT)
+for _interval in AVAILABLE_FEATURE_INTERVALS:
+    if _interval in _FEATURE_COMPONENTS:
+        _name, _periods, _declaration = _FEATURE_COMPONENTS[_interval]
+        FACTOR_COMPONENTS[_name] = _declaration
 
 
 def _completed_bar_return(
@@ -81,12 +102,9 @@ def compute_factor_components(panel: pd.DataFrame) -> pd.DataFrame:
             sort=False,
         )["close"].pct_change(10, fill_method=None),
     }
-    for name, interval, periods in (
-        ("momentum_3h_4", "3h", 4),
-        ("momentum_12h_2", "12h", 2),
-        ("momentum_1d_3", "1d", 3),
-    ):
-        if f"close__{interval}" in panel:
+    for interval in AVAILABLE_FEATURE_INTERVALS:
+        if interval in _FEATURE_COMPONENTS:
+            name, periods, _declaration = _FEATURE_COMPONENTS[interval]
             components[name] = _completed_bar_return(
                 panel,
                 interval,

@@ -74,6 +74,10 @@ REFERENCE_INTEGRITY_KEYS = {
     "test_enters_selection",
     "external_holdout_rule",
 }
+LEGACY_EXTERNAL_HOLDOUT_RULE = "required-after-test-guided-iteration"
+VISIBLE_TEST_EXTERNAL_HOLDOUT_RULE = (
+    "required-after-visible-test-and-candidate-iteration"
+)
 
 
 @dataclass(frozen=True)
@@ -1701,11 +1705,18 @@ def build_selection_integrity(
         selection_split = raw["selection_split"]
         test_role = raw["test_role"]
         test_enters_selection: bool | None = raw["test_enters_selection"]
-        external_holdout_rule = raw["external_holdout_rule"]
+        declared_external_holdout_rule = raw["external_holdout_rule"]
+        external_holdout_rule = (
+            VISIBLE_TEST_EXTERNAL_HOLDOUT_RULE
+            if declared_external_holdout_rule
+            == LEGACY_EXTERNAL_HOLDOUT_RULE
+            else declared_external_holdout_rule
+        )
     else:
         selection_split = "unspecified"
         test_role = "unspecified"
         test_enters_selection = None
+        declared_external_holdout_rule = "unspecified"
         external_holdout_rule = "unspecified"
     counts = {
         verdict: verdicts.count(verdict)
@@ -1717,10 +1728,43 @@ def build_selection_integrity(
         if declared
         else None
     )
-    if declared and external_required:
+    if declared and test_role == "visible-diagnostic":
+        post_audit_candidate_iterations = max(0, candidate_trials - 1)
+        test_exposure_state = (
+            "baseline-test-visible"
+            if candidate_trials == 0
+            else "first-candidate-audit-visible"
+            if candidate_trials == 1
+            else "post-audit-candidate-iteration"
+        )
+        test_guidance_observability = "not-observable"
+    else:
+        post_audit_candidate_iterations = None
+        test_exposure_state = "unspecified"
+        test_guidance_observability = "not-declared"
+    if (
+        declared
+        and external_required
+        and post_audit_candidate_iterations == 0
+    ):
         warning = (
-            "Visible test evidence and candidate iteration share this Session; "
-            "use a new external holdout before a fresh production-grade claim."
+            "The first candidate was fixed before its own test audit became "
+            "visible, but baseline test evidence was already visible in this "
+            "Session. Use a new external holdout before a fresh "
+            "production-grade claim; Core does not infer whether anyone used "
+            "the visible evidence."
+        )
+    elif (
+        declared
+        and external_required
+        and isinstance(post_audit_candidate_iterations, int)
+        and post_audit_candidate_iterations > 0
+    ):
+        warning = (
+            f"{post_audit_candidate_iterations} later candidate source "
+            "iteration(s) followed a completed candidate test audit. Use a "
+            "new external holdout before a fresh production-grade claim; "
+            "Core records timing, not whether visible evidence guided the edit."
         )
     elif declared:
         warning = (
@@ -1743,7 +1787,14 @@ def build_selection_integrity(
         "selectionSplit": selection_split,
         "testRole": test_role,
         "testEntersSelection": test_enters_selection,
+        "testExposureState": test_exposure_state,
+        "postAuditCandidateIterations": post_audit_candidate_iterations,
+        "testGuidanceObservability": test_guidance_observability,
+        "declaredExternalHoldoutRule": declared_external_holdout_rule,
         "externalHoldoutRule": external_holdout_rule,
+        "externalHoldoutReason": (
+            external_holdout_rule if external_required else None
+        ),
         "candidateTrials": candidate_trials,
         "evaluatedRuns": candidate_trials + 1,
         "verdicts": counts,
@@ -1753,6 +1804,81 @@ def build_selection_integrity(
         "selectionAdjustment": adjustment,
         "verdictAuthority": "diagnostic-only",
     }
+
+
+SELECTION_INTEGRITY_JSON_SCHEMA: dict[str, Any] = {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "AutoQuant verified selection-integrity projection",
+    "type": "object",
+    "additionalProperties": False,
+    "required": [
+        "selectionMetric",
+        "selectionSplit",
+        "testRole",
+        "testEntersSelection",
+        "testExposureState",
+        "postAuditCandidateIterations",
+        "testGuidanceObservability",
+        "declaredExternalHoldoutRule",
+        "externalHoldoutRule",
+        "externalHoldoutReason",
+        "candidateTrials",
+        "evaluatedRuns",
+        "verdicts",
+        "externalHoldoutRequired",
+        "warning",
+        "researchFamily",
+        "selectionAdjustment",
+        "verdictAuthority",
+    ],
+    "properties": {
+        "selectionMetric": {"type": "string", "minLength": 1},
+        "selectionSplit": {"type": "string", "minLength": 1},
+        "testRole": {"type": "string", "minLength": 1},
+        "testEntersSelection": {"type": ["boolean", "null"]},
+        "testExposureState": {
+            "enum": [
+                "baseline-test-visible",
+                "first-candidate-audit-visible",
+                "post-audit-candidate-iteration",
+                "unspecified",
+            ]
+        },
+        "postAuditCandidateIterations": {
+            "type": ["integer", "null"],
+            "minimum": 0,
+        },
+        "testGuidanceObservability": {
+            "enum": ["not-observable", "not-declared"]
+        },
+        "declaredExternalHoldoutRule": {
+            "type": "string",
+            "minLength": 1,
+        },
+        "externalHoldoutRule": {"type": "string", "minLength": 1},
+        "externalHoldoutReason": {
+            "type": ["string", "null"],
+            "minLength": 1,
+        },
+        "candidateTrials": {"type": "integer", "minimum": 0},
+        "evaluatedRuns": {"type": "integer", "minimum": 1},
+        "verdicts": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["KEEP", "REVERT", "CRASH"],
+            "properties": {
+                "KEEP": {"type": "integer", "minimum": 0},
+                "REVERT": {"type": "integer", "minimum": 0},
+                "CRASH": {"type": "integer", "minimum": 0},
+            },
+        },
+        "externalHoldoutRequired": {"type": ["boolean", "null"]},
+        "warning": {"type": "string", "minLength": 1},
+        "researchFamily": {"type": "object"},
+        "selectionAdjustment": {"type": "object"},
+        "verdictAuthority": {"const": "diagnostic-only"},
+    },
+}
 
 
 def _source_changes(

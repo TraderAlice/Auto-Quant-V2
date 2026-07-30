@@ -8,6 +8,7 @@ from typing import Any, Callable
 
 from .runs import RunContext, load_run
 from .sessions import (
+    SELECTION_INTEGRITY_JSON_SCHEMA,
     SessionContext,
     build_selection_integrity,
     list_experiments,
@@ -1424,7 +1425,7 @@ SESSION_DECISION_MATRIX_JSON_SCHEMA: dict[str, Any] = {
             "enum": ["factor", "portfolio", "rl-policy", "generic"]
         },
         "objective": {"type": "object"},
-        "selectionIntegrity": {"type": "object"},
+        "selectionIntegrity": SELECTION_INTEGRITY_JSON_SCHEMA,
         "scope": {
             "type": "object",
             "additionalProperties": False,

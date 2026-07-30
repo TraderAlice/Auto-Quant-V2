@@ -65,6 +65,44 @@ from tests.intake_helpers import (
 
 
 class RequestDrivenIntakeTests(unittest.TestCase):
+    def test_daily_factor_baseline_declares_only_base_surface(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            request_path, package_path = write_intake_inputs(root)
+            prepared = prepare_project_intake(
+                request_path,
+                package_path,
+                "ohlcv-factor-lab",
+            )
+            project = create_project(
+                initialize_workspace(root / "workspace").root_dir,
+                "daily-factor-baseline",
+                template=prepared.template,
+                template_intake=prepared,
+            )
+            candidate = (
+                project.root_dir / "factors" / "candidate.py"
+            ).read_text(encoding="utf-8")
+            self.assertIn(
+                "AVAILABLE_FEATURE_INTERVALS = []",
+                candidate,
+            )
+            run = execute_study(project, OHLCV_STUDY_ID)
+            self.assertEqual(
+                run.result["status"],
+                "succeeded",
+                run.result["errors"],
+            )
+            self.assertEqual(
+                [
+                    item["id"]
+                    for item in run.result["metrics"]["factor_components"][
+                        "declaration"
+                    ]["components"]
+                ],
+                ["base_momentum_10"],
+            )
+
     def test_manifest_root_intakes_nested_staged_sources_without_intermediate_copy(
         self,
     ) -> None:
@@ -1809,6 +1847,12 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                 template=prepared.template,
                 template_intake=prepared,
             )
+            self.assertIn(
+                'AVAILABLE_FEATURE_INTERVALS = ["3h", "1d"]',
+                (
+                    project.root_dir / "factors" / "candidate.py"
+                ).read_text(encoding="utf-8"),
+            )
             intake = load_project_intake(project)
             self.assertIsNotNone(intake)
             mandate = load_portfolio_mandate(
@@ -1839,6 +1883,19 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                     prepared.interval_surface,
                 )
                 jsonschema.validate(run.result, RUN_RESULT_JSON_SCHEMA)
+            self.assertEqual(
+                [
+                    item["id"]
+                    for item in runs[0].result["metrics"][
+                        "factor_components"
+                    ]["declaration"]["components"]
+                ],
+                [
+                    "base_momentum_10",
+                    "momentum_3h_4",
+                    "momentum_1d_3",
+                ],
+            )
             self.assertEqual(
                 runs[1].result["metrics"]["portfolio"]["validation"]["net"][
                     "annualization_periods"
@@ -2698,10 +2755,6 @@ class RequestDrivenIntakeTests(unittest.TestCase):
             request_path, package_path = write_intake_inputs(
                 root,
                 observations=260,
-                factor_policy={
-                    "claim": "known-style-validation",
-                    "knownStyle": "reversal_5",
-                },
             )
             package = json.loads(
                 package_path.read_text(encoding="utf-8")
@@ -2747,6 +2800,12 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                 "ragged-factor",
                 template=prepared.template,
                 template_intake=prepared,
+            )
+            self.assertIn(
+                "AVAILABLE_FEATURE_INTERVALS = []",
+                (
+                    project.root_dir / "factors" / "candidate.py"
+                ).read_text(encoding="utf-8"),
             )
             intake = load_project_intake(project)
             assert intake is not None
@@ -2838,6 +2897,12 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                 "observed-hourly-factor",
                 template=prepared.template,
                 template_intake=prepared,
+            )
+            self.assertIn(
+                "AVAILABLE_FEATURE_INTERVALS = []",
+                (
+                    project.root_dir / "factors" / "candidate.py"
+                ).read_text(encoding="utf-8"),
             )
             intake = load_project_intake(project)
             assert intake is not None
