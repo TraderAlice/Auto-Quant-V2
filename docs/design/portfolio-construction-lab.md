@@ -184,7 +184,8 @@ claim. See [[docs/design/research-selection-integrity]].
 ## Benchmark
 
 The fixed benchmark follows the Portfolio Mandate. If the caller supplies
-`benchmarkPolicy`, it is cash or one unlevered long dataset asset such as SPY.
+`benchmarkPolicy`, it is cash, one unlevered long dataset asset such as SPY,
+or one funded non-negative `fixed-weights` basket over requested assets.
 Otherwise Core records the direction-derived default:
 
 - long: equal-weight long requested/tradable assets;

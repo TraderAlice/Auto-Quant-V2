@@ -233,9 +233,10 @@ default cap, requested-asset cap overrides, ceiling, base cost, no-trade band,
 reference NAV, every-N-base-bars ordinary decision cadence, and its
 dataset/session anchor; when absent, documented defaults are recorded
 explicitly.
-Optional `benchmarkPolicy` separately locks cash or one named dataset asset as
-the evaluation reference shared by Portfolio and governed RL. A context-only
-benchmark remains non-tradable and carries no order authority.
+Optional `benchmarkPolicy` separately locks cash, one named dataset asset, or
+one funded non-negative `fixed-weights` basket as the evaluation reference
+shared by Portfolio and governed RL. Named/context-only benchmark membership
+remains non-tradable and carries no order authority.
 Portfolio accounting and RL rollout then recheck the final post-drift book;
 risk may bypass the no-trade band using the minimum proportional repair.
 `ohlcv-rl-factor-lab` adds a deterministic causal state encoder surface over

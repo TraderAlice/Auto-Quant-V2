@@ -92,10 +92,11 @@ corresponding role-capable assets; two-sided/relative-value requests default
 to cash. A caller benchmark continues to override only evaluation.
 
 Optional strict `request.benchmarkPolicy` replaces only the evaluation
-reference with cash or one named dataset-universe asset. A named benchmark may
+reference with cash, one named dataset-universe asset, or one funded
+non-negative fixed-weight basket over requested assets. A benchmark leg may
 be context-only; it does not change `tradableAssets`, position caps, signal
 states, or construction family. The Mandate materializes source, kind, asset,
-and a complete fixed weight vector. See
+and one complete fixed weight vector. See
 [[docs/design/caller-owned-benchmark-reference]].
 
 The optional complete `request.portfolioPolicy` owns the numeric gross,

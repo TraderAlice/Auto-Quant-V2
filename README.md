@@ -612,7 +612,8 @@ The request may lock:
 
 - long-only, short-only, two-sided, or context-only duties per asset;
 - gross, per-asset, volatility, cost, no-trade, and reference-NAV assumptions;
-- cash or one named dataset asset as the evaluation benchmark;
+- cash, one named dataset asset, or one funded non-negative fixed-weight
+  basket as the evaluation benchmark;
 - primary and diagnostic forward horizons;
 - Portfolio/RL decision cadence and dataset/session clock anchor;
 - one reported or hypothetical funded baseline plus optional caller-authored

@@ -140,9 +140,10 @@ claim-aware prediction population; Portfolio and governed RL additionally use
 it as their construction authority. For request intake the Mandate derives the
 tradable/context asset partition, direction, cash, gross/net, cap, and
 structured benchmark from the canonical request. Optional strict
-`request.benchmarkPolicy` selects cash or one named dataset asset as the
-evaluation reference; omission records a direction-derived default. The
-benchmark asset may remain context-only and never receives position authority.
+`request.benchmarkPolicy` selects cash, one named dataset asset, or one funded
+non-negative `fixed-weights` basket over requested assets as the evaluation
+reference; omission records a direction-derived default. Benchmark assets may
+remain context-only and never receive position authority.
 An optional strict
 `request.portfolioPolicy` supplies gross, a global fallback cap, requested-
 asset cap overrides, annualized volatility ceiling, base linear cost, one-way

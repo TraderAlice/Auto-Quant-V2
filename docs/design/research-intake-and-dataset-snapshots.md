@@ -364,14 +364,15 @@ Portfolio and RL Studies bind the same file as a
 dependency. Intake reconstructs it on every load, so request or mandate
 tampering fails rather than changing the position or risk question silently.
 
-For Portfolio and governed RL, `benchmarkPolicy` locks cash or one named
-dataset-universe asset into a complete benchmark weight vector. The asset may
-remain context-only; benchmark membership never expands position authority.
-The fixed Allocation route instead accepts one funded non-negative
-`fixed-weights` reference over requested long-only and/or context-only assets.
-Context-only reference legs remain excluded from candidate construction,
-caps, and risk contributions. Omission records the direction-derived
-benchmark rather than treating it as caller intent. See
+For Portfolio and governed RL, `benchmarkPolicy` locks cash, one named
+dataset-universe asset, or one funded non-negative `fixed-weights` basket over
+requested assets into a complete benchmark weight vector. Benchmark legs may
+remain context-only; membership never expands position authority. The fixed
+Allocation route consumes the same request form but simulates its reference
+as a separately funded, drifted, and costed portfolio. Context-only reference
+legs remain excluded from candidate construction, caps, and risk
+contributions. Omission records the direction-derived benchmark rather than
+treating it as caller intent. See
 [[docs/design/caller-owned-benchmark-reference]].
 
 Every intake also writes
