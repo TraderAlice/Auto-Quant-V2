@@ -179,6 +179,17 @@ accidental current workflow instead of consuming a stable independent desk.
   cited immutable Run evidence. The trial template now checks applicability
   before reload; no universal outward-object feature is promoted from this
   successful case.
+- 2026-07-30 — Fresh worker 3/4 completed a materially different supplied
+  multi-interval Factor-to-Portfolio assignment. One byte-identical candidate
+  KEEP passed Factor qualification; one fixed Portfolio Run returned BTC
+  `0.0` / Cash `1.0` and exposed negative post-cost validation Sharpe. The
+  worker preserved the same-data/no-fresh-holdout limitation and stopped
+  before RL.
+- 2026-07-30 — One rejected staging symlink followed by successful physical
+  copy makes worker 3 a Grade A `recoverable-pass`, not an independent-pass.
+  Symlink rejection is an intentional safety boundary. The absent
+  Portfolio-Session Dossier remains the documented universal-outward-object
+  limitation and does not justify forcing a Session or expanding Core here.
 
 ## Verification
 
@@ -203,6 +214,11 @@ accidental current workflow instead of consuming a stable independent desk.
   every raw/normalized hash, and the outward answer independently reconcile.
   Zero Session, Experiment, Report, Dossier, replacement Portfolio, or trading
   claim exists.
+- Worker 3/4 is Grade A `recoverable-pass`. Exact supplied factor bytes,
+  Factor/Portfolio Runs, Check, Experiment, Report, promotion, program gates,
+  fixed mandate, current book, packet hashes, and Studio independently
+  reconcile. It covers the multi-interval/context and actual target-weight
+  handoff requirements.
 
 ## Progress log
 
@@ -229,6 +245,10 @@ accidental current workflow instead of consuming a stable independent desk.
 - 2026-07-30 — Accepted `cohort-02-retail-book-risk` as the second materially
   different fresh worker. It covers fixed descriptive research with a
   zero-retry, one-Run terminal answer; cohort progress is 2/4.
+- 2026-07-30 — Accepted
+  `cohort-03-btc-multiinterval-target-weights` as a one-retry
+  `recoverable-pass`; fresh cohort progress is 3/4. The remaining material
+  coverage target is a fresh governed-RL decision or honest RL gate.
 
 ## Completion
 

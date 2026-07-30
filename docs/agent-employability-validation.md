@@ -159,17 +159,19 @@ contract. Host integration is not part of this validation record.
 | `v0.8.28-price-volume-negative` | `A` | `independent-pass` | daily editable Factor | 0 | passed | Nine Yahoo assets; baseline used only real daily inputs; one checked REVERT; Report/completion retained the baseline; no Portfolio, RL, holdout, Order, or second Experiment. |
 | `cohort-01-sector-factor-portfolio` | `A` | `independent-pass` | editable Factor → Portfolio gate | 0 | passed | First fresh post-plan worker. Eleven sector ETFs plus SPY; one failed and one passing bounded Check, one REVERT, and a truthful negative handoff. Fixed Factor qualification withheld Portfolio weights. |
 | `cohort-02-retail-book-risk` | `A` | `independent-pass` | fixed descriptive Book Risk | 0 | passed | Nine caller-weighted retail/consumer equities; one fixed Run, no Session, direct concentration answer, exact Run-artifact evidence, and no invented safety threshold, replacement book, or trading claim. |
+| `cohort-03-btc-multiinterval-target-weights` | `A` | `recoverable-pass` | supplied multi-interval Factor → fixed Portfolio | 1 | passed | Byte-identical caller factor qualified, the fixed 20%-cap Portfolio ran once, and the worker returned the valid flat BTC 0/Cash 1 current book with explicit same-data and no-trading limits. |
 
 The four pre-plan rows establish strong historical evidence but do not count
 toward the required four fresh post-plan workers. Additional historical rows
 remain pending conservative audit. Fresh rows are added only after independent
 evidence verification.
 
-Fresh post-plan progress: `2/4`. The first worker covers editable Factor and a
+Fresh post-plan progress: `3/4`. The first worker covers editable Factor and a
 truthful Factor-to-Portfolio gate, but does not yet satisfy the target-weight
 handoff coverage item because the scientific gate correctly blocked
 Portfolio. The second worker covers fixed descriptive research through a
-reported-book risk audit.
+reported-book risk audit. The third worker covers multi-interval/context
+research and an admitted Factor-to-Portfolio target-weight handoff.
 
 Its exact packet and review live outside the product repository at
 `/Users/ame/2607AutoQuant/grok-field-trials/cohort-01-sector-factor-portfolio`.
@@ -202,3 +204,14 @@ fixed Study. The worker correctly reported those objects as nonexistent and
 cited the immutable Run report. Observer language now checks applicability
 first; the already documented absence of one universal outward-deliverable
 type remains an accepted product boundary rather than a new Core plan.
+
+The third packet lives at
+`/Users/ame/2607AutoQuant/grok-field-trials/cohort-03-btc-multiinterval-target-weights`.
+Released `0.8.29` reproduced one explicitly same-data caller factor with one
+KEEP, admitted the fixed Portfolio lane, and returned the latest verified flat
+book: BTC `0.0`, Cash `1.0`. Validation gross Sharpe `2.2295` became net
+Sharpe `-0.9312` at the caller's 20 bps cost, so the worker described the
+translation as cost-fragile and did not enter RL. One rejected staging symlink
+then successful physical-copy intake makes this a `recoverable-pass`; all
+scientific evidence, exact candidate bytes, mandate, input hashes, Report,
+promotion, Explorers, and Studio independently reconcile.
