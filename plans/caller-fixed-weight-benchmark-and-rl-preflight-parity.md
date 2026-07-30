@@ -1,6 +1,6 @@
 # Preserve caller fixed-weight benchmarks and exact RL preflight state
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-07-30`
 - Originating trial:
   `/Users/ame/2607AutoQuant/grok-field-trials/cohort-04-global-etf-governed-rl`
@@ -69,7 +69,7 @@ byte-identical.
       benchmark without a fallback to direction defaults.
 - [x] An RL candidate that directly reads every advertised runtime state field
       passes the fast Check; a missing/invalid field still fails normally.
-- [ ] Focused and full regressions, docs, build/install, version/capability,
+- [x] Focused and full regressions, docs, build/install, version/capability,
       clean-clone, and Studio smoke pass for `0.8.30`.
 - [x] A different fresh worker receives only the installed release candidate,
       corrected
@@ -134,7 +134,18 @@ byte-identical.
   Fixed-weight intake succeeded directly; one Check passed on the first
   attempt; one Experiment returned REVERT; Report, completion, strict
   Explorer, final orientation, validation, and Studio independently
-  reconcile. Full release regression remains in progress.
+  reconcile.
+- Full repository regression passed 327 tests in 1034.965 seconds after the
+  repository sample's two template-owned Judge files were synchronized with
+  the repaired fresh template. The exact parity regression then passed.
+- Final clean commit `d1f8863` built sdist
+  `c6aaad2…5b98e` and wheel `7ea801a…b1531`. Fresh Python 3.11 installation,
+  public version, fixed-weight schema, capability, package-content, root
+  Workspace, sample orientation/validation/Studio, Project creation, and new
+  Project validation smokes passed.
+- Python compilation, Studio JavaScript syntax, lock/diff checks, four focused
+  documentation/repository-Workspace tests, and all 1,177 documentation links
+  passed.
 
 ## Progress log
 
@@ -144,3 +155,12 @@ byte-identical.
   fresh-worker retry remain.
 - 2026-07-30 — Corrected fresh-worker retry completed and independently
   reconciled. Only full release verification, tag, and push remain.
+- 2026-07-30 — Full and installed-distribution release gates passed. Plan
+  completed for `v0.8.30`.
+
+## Completion
+
+Completed. Caller fixed-weight intent now survives public request intake,
+Mandate construction/reload, and shared Portfolio/RL accounting; fast RL Check
+state matches the full Judge; and a different fresh worker proved both fixes
+through one terminal negative-evidence governed-RL handoff.

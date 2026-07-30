@@ -18,10 +18,7 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-| Plan | Outcome | Updated |
-| --- | --- | --- |
-| [[plans/caller-fixed-weight-benchmark-and-rl-preflight-parity]] | Preserve caller fixed-weight benchmark intent through Portfolio/governed-RL mandates and make fast RL Check state match the real runtime before a fresh worker retry. | 2026-07-30 |
-| [[plans/agent-employability-validation]] | Prove that fresh coding coworkers can independently turn materially different caller questions into bounded, scientifically truthful AutoQuant handoffs before any OpenAlice consumption interface is frozen. | 2026-07-30 |
+None.
 
 ## Proposed plans
 
@@ -37,6 +34,8 @@ None.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/agent-employability-validation]] | Proved across five final workers that fresh coding coworkers can turn materially different caller questions into bounded, scientifically truthful handoffs, and froze the minimum non-trading OpenAlice desk-consumption boundary. | 2026-07-30 |
+| [[plans/caller-fixed-weight-benchmark-and-rl-preflight-parity]] | Preserved caller fixed-weight benchmark intent through Portfolio/governed-RL mandates, aligned fast RL Check state with runtime, and proved both fixes with a fresh installed-wheel worker. | 2026-07-30 |
 | [[plans/optional-post-trial-research-agenda]] | Kept evidence-derived hypotheses visible while making post-trial continuation explicitly optional in the shared Work Brief, CLI, and Studio, proved by a fresh installed-wheel worker. | 2026-07-30 |
 | [[plans/truthful-first-factor-session]] | Made the first daily Factor Session expose only real baseline inputs and distinguish test visibility from later post-audit candidate iteration, proved by a zero-retry installed-wheel worker. | 2026-07-30 |
 | [[plans/primary-horizon-and-completed-session-handoff]] | Let callers state additional diagnostic horizons without repeating the primary, and make exact completion or promotion a terminal handoff with optional continuation. | 2026-07-30 |

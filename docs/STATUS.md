@@ -336,6 +336,12 @@ line.
 - Full repository regression passed 327 tests in 1034.965 seconds. Python and
   Studio JavaScript syntax, lock/diff checks, and the repository sample/fresh-
   template parity test pass.
+- Final clean commit `d1f8863` built sdist
+  `c6aaad2…5b98e` and wheel `7ea801a…b1531`. A fresh Python 3.11 install
+  passed public version/schema/capability and package-content smoke. A
+  no-local-override clone loaded and validated the checked-in sample, produced
+  a valid zero-diagnostic Studio snapshot, created a fresh research-desk
+  Project, and validated it. All 1,177 documentation links resolve.
 
 ## `0.8.29` verification snapshot
 

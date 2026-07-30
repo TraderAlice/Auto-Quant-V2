@@ -1,6 +1,6 @@
 # Validate AutoQuant as an employable quantitative coworker
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-07-30`
 - Goal: continue the thread Goal that separates fresh Grok research workers
   from the Agent improving AutoQuant.
@@ -99,7 +99,7 @@ accidental current workflow instead of consuming a stable independent desk.
       without unnecessary additional research.
 - [x] The final synthesis states whether AutoQuant is employable, the remaining
       boundaries, and the minimum stable contract OpenAlice may consume.
-- [ ] Any resulting Core change passes focused/full regression, docs,
+- [x] Any resulting Core change passes focused/full regression, docs,
       distribution/install, clean-clone, and fresh-worker retry gates before
       its patch release.
 
@@ -208,16 +208,15 @@ accidental current workflow instead of consuming a stable independent desk.
 - Initial repository audit found real-data evidence for every requested method
   family, plus qualifying installed-worker evidence for several fixed and
   editable routes.
-- The strongest remaining employability gaps are a fresh end-to-end
-  Factor-to-Portfolio handoff and a fresh worker-owned governed-RL decision;
-  multi-interval worker evidence needs conservative historical audit before it
-  can count.
+- The final cohort closes the strongest original gaps: one fresh worker
+  returned actual multi-interval Factor-to-Portfolio target weights and one
+  fresh worker completed a governed-RL incremental-value decision.
 - Original installed CLIs independently revalidated the `0.8.19`, `0.8.22`,
   `0.8.24`, and `0.8.26` Projects and strict Explorers/Studio with zero
   diagnostics. Event staging hashes remained exactly
   `57c6c8c68511481f1170311677858f5bbf03df410d27345f0a1e20f1bf17d904`
   and `7dad9b4eaabe1c4ce364c3ad4e6d2faef00c682d1e6728e59da4c4b8413688e2`.
-- Fresh post-plan cohort execution is underway. Worker 1/4 is Grade A
+- Fresh post-plan cohort execution is complete. Worker 1/4 is Grade A
   `independent-pass`; its Project, both Runs, Report/Dossier, final Studio,
   source hashes, normalized hashes, and outward conclusion independently
   reconcile under the original installed `0.8.28` wheel.
@@ -236,6 +235,10 @@ accidental current workflow instead of consuming a stable independent desk.
   accepted baseline, first-pass Check, REVERT, Report, completion, strict RL
   Explorer, validation, orientation, and Studio reconcile. It covers the
   governed-RL decision requirement with a truthful negative answer.
+- The `0.8.30` Core remediation passed 327 repository tests, 1,175
+  documentation links, source/wheel build, fresh install, public
+  version/schema/capability smoke, and no-local-override clean-clone root
+  Workspace/sample/Studio/Project-create validation.
 
 ## Progress log
 
@@ -270,7 +273,14 @@ accidental current workflow instead of consuming a stable independent desk.
   fourth materially different fresh assignment. Fresh cohort progress is
   4/4; together with the clean `0.8.28` seed, four of five final workers are
   independent passes and one is a recoverable pass.
+- 2026-07-30 — Published [[docs/agent-employability-synthesis]], passed every
+  final release gate, and closed the validation plan. OpenAlice may consume
+  only the documented thin desk/handoff boundary; no integration code changed.
 
 ## Completion
 
-Pending.
+Completed. AutoQuant is employable as an independent quantitative coworker
+under the recorded boundary. Five materially different final workers produced
+five useful verified answers/boundaries, four were independent passes, one was
+a recoverable pass, and the minimum non-trading OpenAlice consumption contract
+is frozen in [[docs/agent-employability-synthesis]].
