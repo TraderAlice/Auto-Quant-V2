@@ -1287,7 +1287,15 @@ def validate_research_request(
                 "requested asset must declare one",
             )
         )
-    if declared_position_roles == len(assets) and position_capable_roles == 0:
+    descriptive_event_roles = (
+        normalized_event_policy is not None
+        and value.get("direction") == "research-only"
+    )
+    if (
+        declared_position_roles == len(assets)
+        and position_capable_roles == 0
+        and not descriptive_event_roles
+    ):
         issues.append(
             _issue(
                 f"{path}/assets",

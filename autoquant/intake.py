@@ -344,23 +344,41 @@ def _read_source(path: Path) -> pd.DataFrame:
     )
 
 
-def _canonical_frame(path: Path, *, market_clock: str) -> pd.DataFrame:
+def _canonical_frame(
+    path: Path,
+    *,
+    market_clock: str,
+    allow_zero_volume: bool = False,
+) -> pd.DataFrame:
     try:
         frame = normalize_ohlcv(_read_source(path), source=str(path))
     except (ValueError, TypeError) as error:
         raise AutoQuantValidationError(
             [_issue(path, "dataset.ohlcv", str(error))]
         ) from error
-    numeric = frame[["open", "high", "low", "close", "volume"]].to_numpy(
-        dtype=float
-    )
-    if not np.isfinite(numeric).all() or (numeric <= 0).any():
+    prices = frame[["open", "high", "low", "close"]].to_numpy(dtype=float)
+    volume = frame["volume"].to_numpy(dtype=float)
+    if not np.isfinite(prices).all() or (prices <= 0).any():
         raise AutoQuantValidationError(
             [
                 _issue(
                     path,
-                    "dataset.non-positive",
-                    "Daily OHLCV values must be finite and strictly positive",
+                    "dataset.non-positive-price",
+                    "Daily OHLC prices must be finite and strictly positive",
+                )
+            ]
+        )
+    invalid_volume = (
+        (volume < 0).any() if allow_zero_volume else (volume <= 0).any()
+    )
+    if not np.isfinite(volume).all() or invalid_volume:
+        qualifier = "non-negative" if allow_zero_volume else "strictly positive"
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    path,
+                    "dataset.invalid-volume",
+                    f"Daily volume must be finite and {qualifier}",
                 )
             ]
         )
@@ -1710,6 +1728,7 @@ def prepare_project_intake(
             frame = _canonical_frame(
                 source,
                 market_clock=package["market"]["clock"],
+                allow_zero_volume=(template == "ohlcv-event-study-lab"),
             )
         dates = frame["timestamp"].tolist()
         if expected_dates is None:

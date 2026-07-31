@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha released as `v0.9.5`; `v0.8.31` remains the Harness
+Status: usable pre-alpha released as `v0.9.6`; `v0.8.31` remains the Harness
 currently consumed by OpenAlice until the host deliberately selects a newer
 tag.
 
@@ -17,6 +17,23 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 
 AutoQuant V2 has crossed the line from an architectural prototype into a
 usable Agent-native quantitative research workbench.
+
+The `0.9.6` patch proves the market-data path begins with research demand, not
+available inventory. A fresh installed `0.9.5` worker received a fixed CATL
+opening-gap question and no OHLCV, attempted three named mainland routes,
+preserved raw/adjusted incompatibility, selected one adjusted package, and
+completed exactly one negative Event Run. Its reusable friction became narrow
+Core and Skill repairs: descriptive Event intake retains finite zero-volume
+sessions, accepts all-context-only roles, mainland raw routes preserve caller-
+verified fund classes, cross-adjustment comparison supports coverage-only
+evidence, and failed provider processes leave a standard bounded record.
+Yahoo's one-session adjusted freshness lag and the absence of a second
+adjusted mainland route remain explicit external limitations. OpenAlice stays
+pinned to `0.8.31`.
+
+The pre-final source audit passed 371 tests, 1,276 documentation links, and the
+complete old-Run compatibility suite. Final installed-wheel and clean-clone
+evidence is recorded in [[plans/demand-led-market-data-field-trial]].
 
 The `0.9.5` patch makes Agent route choice and evidence publication more
 truthful. A public Project-template catalog now states each construction's

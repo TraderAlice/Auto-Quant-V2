@@ -1,6 +1,6 @@
 ---
 name: fetch-sina-ohlcv
-description: Acquire bounded recent raw completed daily OHLCV for named Shanghai, Shenzhen, or Beijing A shares from Sina Finance's observable K-line route, preserve exact JSON and status evidence, validate venue prefixes and share-volume semantics, and emit an auditable AutoQuant staging package. Use as an independent raw mainland-China route when Eastmoney is degraded or when proving XBSE symbol behavior.
+description: Acquire bounded recent raw completed daily OHLCV for named Shanghai, Shenzhen, or Beijing listed equities or funds from Sina Finance's observable K-line route, preserve exact JSON and status evidence, validate venue prefixes and share-volume semantics, and emit an auditable AutoQuant staging package. Use as an independent raw mainland-China route when Eastmoney is degraded or when proving XBSE symbol behavior.
 ---
 
 # Fetch Sina OHLCV
@@ -29,6 +29,8 @@ python3 scripts/fetch_sina_daily.py \
 
 The script requests exactly 1,023 recent daily rows per symbol, preserves the
 response, reapplies the date boundary, and preserves provider volume as shares.
+It preserves the caller-verified `equity` or `fund` class rather than deriving
+instrument type from the six-digit code.
 
 ## Verify
 

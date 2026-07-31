@@ -95,13 +95,18 @@ def _load_asset(
     for column in REQUIRED_COLUMNS[1:]:
         frame[column] = pd.to_numeric(frame[column], errors="raise")
     frame["timestamp"] = pd.to_datetime(frame["timestamp"], errors="raise")
-    numeric = frame.loc[:, REQUIRED_COLUMNS[1:]].to_numpy(dtype=float)
+    prices = frame.loc[:, ("open", "high", "low", "close")].to_numpy(
+        dtype=float
+    )
+    volume = frame["volume"].to_numpy(dtype=float)
     if (
         frame.empty
         or frame["timestamp"].duplicated().any()
         or not frame["timestamp"].is_monotonic_increasing
-        or not np.isfinite(numeric).all()
-        or (numeric <= 0).any()
+        or not np.isfinite(prices).all()
+        or (prices <= 0).any()
+        or not np.isfinite(volume).all()
+        or (volume < 0).any()
     ):
         raise JudgeFailure("dataset.asset", f"{asset} OHLCV is invalid")
     return frame.reset_index(drop=True)

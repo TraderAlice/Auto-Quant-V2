@@ -271,7 +271,10 @@ Before any Project is visible, Core:
    symlinks, duplicates, and unsafe symbols;
 3. reads CSV, Parquet, or Feather;
 4. for V1/V4, accepts a conventional timestamp alias, requires finite positive
-   daily OHLCV and no weekend session rows, then orders canonical output;
+   daily OHLC prices and no weekend session rows, then orders canonical output;
+   volume remains finite and strictly positive for execution- or
+   volume-sensitive lanes, while the fixed descriptive Event Study accepts
+   finite non-negative volume because its authority consumes prices only;
 5. for V2/V3, requires explicit timezone-aware base-bar-close timestamps,
    exact UTC-hour boundaries, consecutive rows with no gaps, strict OHLCV
    geometry, and complete UTC-midnight-anchored aggregation groups;

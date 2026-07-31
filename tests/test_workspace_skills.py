@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import contextlib
 import importlib.util
+import io
 import json
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -37,6 +40,41 @@ def load_script(name: str, path: Path):
 
 
 class WorkspaceSkillTests(unittest.TestCase):
+    def test_route_attempt_preserves_standard_failure_without_false_success(
+        self,
+    ) -> None:
+        runner = load_script(
+            "autoquant_skill_route_attempt",
+            SKILLS
+            / "acquire-market-ohlcv"
+            / "scripts"
+            / "run_route_attempt.py",
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            audit_path = Path(directory) / "route-failure.json"
+            with contextlib.redirect_stderr(io.StringIO()):
+                exit_code = runner.run_route(
+                    "fixture-provider",
+                    audit_path,
+                    [
+                        sys.executable,
+                        "-c",
+                        (
+                            "import sys; print('blocked', file=sys.stderr); "
+                            "sys.exit(7)"
+                        ),
+                    ],
+                )
+            self.assertEqual(exit_code, 7)
+            record = json.loads(audit_path.read_text(encoding="utf-8"))
+            self.assertEqual(
+                record["kind"],
+                "autoquant-provider-route-failure",
+            )
+            self.assertEqual(record["provider"], "fixture-provider")
+            self.assertEqual(record["exitCode"], 7)
+            self.assertIn("blocked", record["stderrTail"])
+
     def test_canonical_bundle_materializes_and_detects_drift(self) -> None:
         expected_ids = {
             "acquire-market-ohlcv",
@@ -329,6 +367,59 @@ class WorkspaceSkillTests(unittest.TestCase):
             )
             with self.assertRaisesRegex(ValueError, "prefix mismatches"):
                 tencent.load_assets(assets)
+
+    def test_mainland_raw_routes_preserve_listed_fund_class(self) -> None:
+        routes = (
+            (
+                "eastmoney",
+                "fetch-eastmoney-ohlcv/scripts/fetch_eastmoney_daily.py",
+                "providerSecid",
+                "1.510300",
+            ),
+            (
+                "tencent",
+                "fetch-tencent-ohlcv/scripts/fetch_tencent_daily.py",
+                "providerSymbol",
+                "sh510300",
+            ),
+            (
+                "sina",
+                "fetch-sina-ohlcv/scripts/fetch_sina_daily.py",
+                "providerSymbol",
+                "sh510300",
+            ),
+            (
+                "sohu",
+                "fetch-sohu-ohlcv/scripts/fetch_sohu_daily.py",
+                "providerSymbol",
+                "cn_510300",
+            ),
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for name, relative, provider_key, provider_value in routes:
+                with self.subTest(route=name):
+                    route = load_script(
+                        f"autoquant_skill_{name}_fund",
+                        SKILLS / relative,
+                    )
+                    path = root / f"{name}.json"
+                    path.write_text(
+                        json.dumps(
+                            [
+                                {
+                                    "symbol": "510300",
+                                    provider_key: provider_value,
+                                    "venue": "XSHG",
+                                    "currency": "CNY",
+                                    "assetClass": "fund",
+                                }
+                            ]
+                        ),
+                        encoding="utf-8",
+                    )
+                    loaded = route.load_assets(path)
+                    self.assertEqual(loaded[0]["assetClass"], "fund")
 
     def test_twse_monthly_rows_preserve_official_share_volume(self) -> None:
         twse = load_script(
@@ -948,3 +1039,20 @@ class WorkspaceSkillTests(unittest.TestCase):
                     volume_atol=100.0,
                     volume_rtol=0.0,
                 )
+            coverage = comparison.compare(
+                paths[0],
+                paths[1],
+                price_atol=0.011,
+                price_rtol=0.0,
+                volume_atol=100.0,
+                volume_rtol=0.0,
+                mode="coverage-only",
+            )
+            self.assertFalse(coverage["semanticCompatibility"])
+            self.assertFalse(coverage["pricesCompared"])
+            self.assertFalse(coverage["volumeCompared"])
+            self.assertEqual(
+                coverage["priceAdjustmentClaims"],
+                {"left": "raw", "right": "provider-adjusted"},
+            )
+            self.assertNotIn("prices", coverage["assets"]["AAPL"])

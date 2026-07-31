@@ -65,6 +65,15 @@ assets are requested and present in the content-locked dataset, then derives
 timing, references, overlap/inference method, request hash, no-trading
 authority, and content-derived id. It is a fixed Study dependency.
 
+Because this route is descriptive and grants no position authority, a
+`research-only` Event request may explicitly mark every requested asset
+`context-only`. It must not invent a long-capable event leg merely to satisfy
+a Portfolio role contract. The fixed Judge consumes OHLC only; aligned daily
+inputs therefore keep finite zero-volume observations rather than deleting a
+valid session from both assets. Prices remain finite and strictly positive,
+volume must remain finite and non-negative, and execution-sensitive templates
+retain their stricter volume policy.
+
 For event session `t`:
 
 ```text

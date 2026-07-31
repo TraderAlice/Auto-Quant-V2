@@ -270,6 +270,50 @@ class EventStudyLabTests(unittest.TestCase):
                 "none",
             )
 
+    def test_descriptive_event_keeps_zero_volume_session_and_context_roles(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            request_path, package_path = _event_inputs(root)
+            request = json.loads(request_path.read_text(encoding="utf-8"))
+            for asset in request["assets"]:
+                asset["positionRole"] = "context-only"
+            request_path.write_text(
+                json.dumps(request, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            package = json.loads(package_path.read_text(encoding="utf-8"))
+            reference = next(
+                item for item in package["assets"] if item["symbol"] == "SPY"
+            )
+            source = package_path.parent / reference["path"]
+            frame = pd.read_csv(source)
+            zero_date = frame.loc[25, "date"]
+            frame.loc[25, "volume"] = 0.0
+            frame.to_csv(source, index=False)
+
+            intake = prepare_project_intake(
+                request_path,
+                package_path,
+                "ohlcv-event-study-lab",
+            )
+            self.assertEqual(len(intake.assets[0].frame), 260)
+            self.assertEqual(len(intake.assets[1].frame), 260)
+            self.assertIn(zero_date, intake.assets[1].frame["timestamp"].tolist())
+            project = create_project(
+                initialize_workspace(root / "workspace").root_dir,
+                "context-event",
+                template=intake.template,
+                template_intake=intake,
+            )
+            run = execute_study(project, EVENT_STUDY_ID)
+            self.assertEqual(run.result["status"], "succeeded")
+            self.assertEqual(
+                {asset["positionRole"] for asset in request["assets"]},
+                {"context-only"},
+            )
+
     def test_zero_event_study_succeeds_with_insufficient_conclusion(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

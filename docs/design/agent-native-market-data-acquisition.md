@@ -1,6 +1,6 @@
 # Agent-native market-data acquisition
 
-Status: accepted at `0.8.31`.
+Status: accepted at `0.8.31`; demand-led completion hardened for `0.9.6`.
 
 Related: [[docs/design/research-intake-and-dataset-snapshots]],
 [[docs/design/workspace-project-boundaries]],
@@ -20,7 +20,7 @@ research question
 → one market reference
 → two suitable provider Skills
 → retained raw bytes and provider audits
-→ same-semantics comparison when allowed
+→ same-semantics numerical or cross-semantics coverage comparison
 → package-autoquant-ohlcv
 → strict Project intake
 → content-locked Project snapshot
@@ -83,8 +83,14 @@ aggregator route, and Yahoo is a broad split-adjusted route.
 Source plurality is not semantic equivalence. Raw and adjusted packages are
 never relabelled to permit comparison. When contracts match, the common
 comparison tool records date overlap, OHLC tolerances, volume ratios, missing
-rows, and exact package hashes. When contracts differ, a numerical comparison
-must fail and the ledger records only route plurality.
+rows, and exact package hashes. When adjustment contracts differ, its explicit
+`coverage-only` mode records row/date overlap, first/last observations,
+freshness, and zero-volume counts while emitting no numerical price or volume
+comparison. Default numerical mode still fails closed on the mismatch.
+
+Mainland raw Skills accept caller-verified listed `equity` and `fund` assets.
+They preserve every asset's class and summarize a mixed package truthfully;
+provider codes and prefixes never infer instrument class.
 
 ## Evidence and lifecycle
 
@@ -128,6 +134,11 @@ Provider access is expected to degrade. A route stops truthfully on blocking,
 shape changes, ambiguous symbols, stale or truncated output, or contradictory
 semantics. It records the failure and may try another named peer route, but it
 never silently changes adjustment, venue, interval, or authority claims.
+The router's bounded route-attempt wrapper preserves one standard
+`autoquant-provider-route-failure` record for a nonzero or unlaunchable
+provider command, including its provider id, attempt time, exit status, and
+bounded stdout/stderr tails. A failure record is local route evidence, not a
+claim that the provider was globally unavailable.
 
 The first field-trial matrix proves named U.S., XSHG/XSHE/XBSE, Tokyo, KRX,
 TWSE, HOSE, and XPAR routes. It does not imply all securities, TPEx, all

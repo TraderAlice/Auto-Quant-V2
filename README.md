@@ -1,5 +1,5 @@
 ---
-version: 0.9.5
+version: 0.9.6
 ---
 
 # AutoQuant V2
@@ -32,12 +32,12 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current release: `v0.9.5`
+## Current release: `v0.9.6`
 
 AutoQuant V2 has crossed from an architectural prototype into a usable
 research workbench.
 
-`v0.9.5` is the current AutoQuant release. `v0.8.31` remains the Harness
+`v0.9.6` is the current AutoQuant release. `v0.8.31` remains the Harness
 currently consumed by OpenAlice until the host deliberately selects the newer
 tag; this is version provenance, not an automatic Workspace-migration promise.
 The minor-version boundary marks the next phase: improve the real delegated-
@@ -45,6 +45,26 @@ research loop from OpenAlice request through AutoQuant evidence handoff without
 weakening standalone Workspace operation or prematurely freezing a
 host-specific API. Bounded follow-up work defaults to patch releases such as
 `v0.9.1`, `v0.9.2`, `v0.9.3`, and onward.
+
+`v0.9.6` makes market-data work demand-led instead of inventory-led. A fresh
+installed `0.9.5` coworker began with a fixed CATL/CSI 300 ETF Event question
+and zero staged OHLCV, independently attempted Yahoo, Eastmoney, and Tencent,
+selected truthful split-adjusted data, and completed one negative fixed Run.
+The field trial then promoted only observed friction: price-only Event Studies
+retain valid zero-volume sessions and may keep every asset `context-only`;
+mainland raw routes preserve listed-fund classes; cross-adjustment comparison
+has an explicit coverage-only mode; and failed provider commands leave a
+standard local route audit. Existing data still never narrows a caller's
+question, and duplicate task-coherent Project snapshots remain acceptable.
+OpenAlice is intentionally unchanged at `0.8.31`. See
+[[plans/demand-led-market-data-field-trial]] and
+[[docs/design/agent-native-market-data-acquisition]].
+
+The pre-final source audit passed all 371 tests in 923.813 seconds and all
+1,276 documentation links. The installed-wheel coworker replay and clean-clone
+release checks are recorded in the completed plan.
+
+### `v0.9.5`
 
 `v0.9.5` removes two forms of avoidable work observed in a clean delegated
 trial. `aq project templates` now publishes the fit, anti-fit, lane set, and

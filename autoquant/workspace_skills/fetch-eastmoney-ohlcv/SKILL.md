@@ -1,6 +1,6 @@
 ---
 name: fetch-eastmoney-ohlcv
-description: Acquire bounded raw completed daily OHLCV for named mainland China A shares from Eastmoney's observable historical K-line route, preserve exact response bytes, convert reported lots to shares with an amount-derived audit, and emit an AutoQuant staging package. Use when the market router selects Eastmoney for XSHG, XSHE, or XBSE research or when comparing it with an independent A-share source.
+description: Acquire bounded raw completed daily OHLCV for named mainland China listed equities or funds from Eastmoney's observable historical K-line route, preserve exact response bytes, convert reported lots to shares with an amount-derived audit, and emit an AutoQuant staging package. Use when the market router selects Eastmoney for XSHG, XSHE, or XBSE research or when comparing it with an independent mainland source.
 ---
 
 # Fetch Eastmoney OHLCV
@@ -39,7 +39,8 @@ python3 scripts/fetch_eastmoney_daily.py \
 Use the Skill's absolute script path outside this directory. The output must
 be absent or empty. Initial scope is deliberately narrow:
 
-- A-share equities on declared `XSHG`, `XSHE`, or `XBSE`;
+- caller-verified listed equities or funds on declared `XSHG`, `XSHE`, or
+  `XBSE`;
 - raw completed daily prices (`fqt=0`);
 - CNY;
 - Eastmoney `f56` volume converted from lots to shares by multiplying by 100.

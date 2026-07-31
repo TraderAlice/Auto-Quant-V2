@@ -3514,8 +3514,8 @@ def compute_factor(panel: pd.DataFrame) -> pd.Series:
         def duplicate(frame: pd.DataFrame) -> pd.DataFrame:
             return pd.concat([frame, frame.iloc[[-1]]], ignore_index=True)
 
-        def non_positive(frame: pd.DataFrame) -> pd.DataFrame:
-            frame.loc[0, "volume"] = 0.0
+        def negative_volume(frame: pd.DataFrame) -> pd.DataFrame:
+            frame.loc[0, "volume"] = -1.0
             return frame
 
         def weekend(frame: pd.DataFrame) -> pd.DataFrame:
@@ -3524,7 +3524,7 @@ def compute_factor(panel: pd.DataFrame) -> pd.Series:
 
         for label, mutate, expected in (
             ("duplicate", duplicate, "duplicate candle timestamps"),
-            ("non-positive", non_positive, "strictly positive"),
+            ("negative-volume", negative_volume, "non-negative"),
             ("weekend", weekend, "cannot contain weekend"),
         ):
             with self.subTest(case=label), tempfile.TemporaryDirectory() as directory:

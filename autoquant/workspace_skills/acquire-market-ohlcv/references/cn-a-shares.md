@@ -1,5 +1,9 @@
 # Mainland China A shares
 
+The current raw routes also accept caller-verified exchange-listed funds such
+as `510300`. Preserve the per-asset `equity` or `fund` class; never infer it
+from a six-digit provider code.
+
 - Preserve `XSHG`, `XSHE`, or `XBSE` explicitly and keep the research symbol
   separate from each provider's prefixed/suffixed code.
 - Use `Asia/Shanghai`; verify closures and suspensions without filling missing

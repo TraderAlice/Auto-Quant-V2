@@ -88,7 +88,7 @@ equivalent.
 
 - [x] Choose one materially different real assignment that begins with no
   staged bytes and cannot be answered from data inventory.
-- [ ] Prepare an isolated installed `0.9.5` baseline trial and capture its full
+- [x] Prepare an isolated installed `0.9.5` baseline trial and capture its full
   transcript and filesystem evidence.
 - [ ] Triage observed friction against current Core/Skill authority.
 - [ ] Implement the minimum reusable `0.9.6` repairs and regressions.
@@ -103,15 +103,41 @@ equivalent.
   A-share identity/access evidence but cannot satisfy the adjusted Event Study
   contract. Yahoo is currently the broad split-adjusted route. Source diversity
   does not imply semantic equivalence or permission to compare prices.
+- 2026-08-01 — Demand owns data scope. Available Workspace bytes, prior
+  Projects, and provider convenience must never narrow or reshape the caller's
+  research question. A Project may deliberately reacquire and freeze duplicate
+  task-coherent bytes; reusable value belongs in routing knowledge, semantic
+  checks, and acquisition audits rather than a central inventory.
+- 2026-08-01 — The isolated installed `0.9.5` worker completed the fixed CATL
+  Event Study from zero staged data on its first research attempt. It attempted
+  Yahoo, Eastmoney, and Tencent; selected Yahoo's split-adjusted package;
+  retained the raw-route evidence; and published one negative fixed Run with
+  24 primary events and no Session, Check, Experiment, Order, or trading claim.
+- 2026-08-01 — The baseline exposed bounded reusable friction: one valid Yahoo
+  zero-volume row forced scientifically costly date deletion; a descriptive
+  Event request could not keep both assets `context-only`; mainland raw Skills
+  mislabeled the CSI 300 ETF as equity; incompatible packages lacked a
+  coverage-only comparison; and a failed provider lacked a standard audit
+  artifact. Yahoo adjusted freshness and the absence of a second adjusted
+  mainland route remain explicit provider limitations rather than Core fixes.
 
 ## Verification
 
-Pending.
+- Baseline transcript:
+  `../grok-field-trials/cohort-10-demand-led-a-share-event-v095/grok-transcript.md`
+- Baseline Project:
+  `../grok-field-trials/cohort-10-demand-led-a-share-event-v095/desk/workspace/projects/catl-opening-gap-event`
+- Baseline result: `no-observed-advantage`; 30 complete events, 24 primary
+  non-overlapping events, mean five-bar event return `-0.085%`, matched excess
+  versus `510300` `+0.566%`, with confidence intervals including zero.
 
 ## Progress log
 
 - 2026-08-01 — Plan created and indexed from the released clean `v0.9.5`
   baseline before field-trial setup.
+- 2026-08-01 — Completed and preserved the installed `0.9.5` baseline, then
+  began the minimum repair pass without changing the caller-fixed Event design
+  or touching OpenAlice's `0.8.31` installation.
 
 ## Completion
 

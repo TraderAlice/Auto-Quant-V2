@@ -20,3 +20,5 @@ Venue prefixes are fixed:
 
 The security code must contain six digits. Verify code migrations and listing
 identity outside Sina.
+`assetClass` is caller-verified `equity` or `fund`; Sina does not infer it from
+the code.
