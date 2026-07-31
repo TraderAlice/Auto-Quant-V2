@@ -18,7 +18,9 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-None.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/same-project-book-risk-follow-up-field-trial]] | Prove a related caller-supplied Book Risk scenario question can add one independently fixed Study/Run/Report inside the completed Project without mutating old evidence or multiplying Projects. | 2026-08-01 |
 
 ## Proposed plans
 
