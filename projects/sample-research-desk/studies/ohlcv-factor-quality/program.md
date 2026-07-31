@@ -58,6 +58,13 @@ that absence as an explicit protocol boundary, not positive evidence.
 
 ## Iteration protocol
 
+Before this protocol begins on a new caller assignment, replace the generic
+scaffold candidate with the first predeclared caller-relevant candidate
+without executing the scaffold. Start the governed Session only after that
+source is fixed; its baseline Run is the first visible audit. Never rewrite
+Core's `testGuidanceObservability=not-observable` as a factual claim that test
+evidence was unused.
+
 1. Run `aq orient . --json` and read the current immutable leader's
    `researchAgenda`. Treat its ordered moves as validation-only scientific
    priorities, not executable actions or permission to inspect test for
