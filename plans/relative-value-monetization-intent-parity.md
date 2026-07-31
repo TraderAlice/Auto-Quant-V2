@@ -1,6 +1,6 @@
 # Relative-value monetization intent parity
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-08-01`
 - Target release: `0.9.4`
 - Related design: [[docs/design/prediction-mode-target-weight-translation]],
@@ -69,29 +69,29 @@ read-model behavior.
 
 ## Acceptance
 
-- [ ] An active explicit relative-value pair receives normalized intent equal
+- [x] An active explicit relative-value pair receives normalized intent equal
   to the capped complementary pair, even when both legs leave gross budget in
   Cash.
-- [ ] Relative-value equal intent and pre-governor sizing reconcile when the
+- [x] Relative-value equal intent and pre-governor sizing reconcile when the
   fixed pair constructor has no separate conviction allocation stage.
-- [ ] Ordinary cross-sectional dollar-neutral intent retains its full-side-
+- [x] Ordinary cross-sectional dollar-neutral intent retains its full-side-
   breadth rule and context-only assets remain exactly zero.
-- [ ] Explorer semantics disclose evaluation mode and intent construction;
+- [x] Explorer semantics disclose evaluation mode and intent construction;
   schema, CLI, Studio, Reports/Dossiers, and durable docs agree.
-- [ ] Validation-only diagnosis and research agenda identify the true first
+- [x] Validation-only diagnosis and research agenda identify the true first
   failing layer; visible test and descriptive profile performance remain
   non-selective.
-- [ ] Focused tests, full regression, docs/build/install/clean-clone smoke,
+- [x] Focused tests, full regression, docs/build/install/clean-clone smoke,
   and a fresh non-baseline-factor Grok field trial pass before `v0.9.4`.
 
 ## Work
 
 - [x] Reproduce the contradictory `v0.9.3` field evidence and locate the
   cross-sectional side-capacity assumption in the Explorer bridge.
-- [ ] Implement prediction-mode-aware intent construction and strict public
+- [x] Implement prediction-mode-aware intent construction and strict public
   projection.
-- [ ] Update downstream human/Agent surfaces, docs, and regression evidence.
-- [ ] Run the fresh worker and complete the release audit.
+- [x] Update downstream human/Agent surfaces, docs, and regression evidence.
+- [x] Run the fresh worker and complete the release audit.
 
 ## Findings and decisions
 
@@ -108,16 +108,51 @@ read-model behavior.
   Its normalized intent is the exact complementary pair bounded by the lesser
   side budget and both leg caps. Cross-sectional side breadth remains a
   separate construction.
+- 2026-08-01 — The first fresh non-baseline trial deliberately doubled the
+  centered score without changing ranks. Check passed, Experiment returned
+  `REVERT` with improvement `0.0`, and the extra trial caused adjusted Factor
+  evidence to block Portfolio. The worker correctly returned no weights. This
+  is not a failed acceptance test; it proves selection authority cannot be
+  bypassed merely to reach a desired downstream screen.
+- 2026-08-01 — A second frozen-factor worker then isolated downstream
+  acceptance without spending selection budget. Its installed-wheel Portfolio
+  Explorer reported 75 normalized-intent active dates for 75 raw-target dates,
+  exact pair-target error `0.0`, zero context intent, and trading cost as the
+  true largest adverse layer.
 
 ## Verification
 
-Pending.
+- Focused Portfolio/intake/Report/Dossier/agenda/Studio regression: 101 tests
+  passed in 451.431 seconds.
+- Repository-sample regression: 4 tests passed, including strict projection
+  of the clean `0.9.4` Run bound to commit `f17d261`.
+- Source-level reproduction against the accepted `0.9.3` field Run changed
+  normalized intent from 0/103 active dates to 75/103, equal to raw targets;
+  normalized-intent and pre-governor annualized contribution both became
+  `0.10636426185891273` with exact pair parity.
+- Two isolated installed-wheel Grok 4.5 trials completed: one correct negative
+  adjusted-gate result and one accepted Factor-to-Portfolio/Dossier handoff.
+  The latter reported current NVDA/QQQ targets `-0.30/+0.30`, context zero,
+  pair-target error `0.0`, and `stable-target-path`.
+- Full regression passed all 361 tests in 1066.637 seconds. All 1,253
+  documentation double-links, Studio JavaScript syntax, and lock validation
+  passed.
+- Build/install/capability and clean-clone evidence were recorded during the
+  final release audit.
 
 ## Progress log
 
 - 2026-08-01 — Plan created from the first post-`v0.9.3` field-evidence
   audit.
+- 2026-08-01 — Core implementation, strict schema, CLI/Studio/Report surfaces,
+  docs, and focused regression committed as `f17d261`.
+- 2026-08-01 — Clean current sample Portfolio evidence committed as `d4a9920`.
+- 2026-08-01 — Fresh workers completed the rank-invariant negative gate and
+  frozen-factor positive downstream acceptance cases.
 
 ## Completion
 
-Pending.
+`v0.9.4` replaces the misleading cross-sectional fallback for explicit
+relative-value intent with the same capped complementary pair used by actual
+construction. Diagnostics now identify the real first adverse layer without
+changing immutable Runs, target weights, performance, or trading authority.

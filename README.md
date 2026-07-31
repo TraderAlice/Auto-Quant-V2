@@ -32,12 +32,12 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current release: `v0.9.3`
+## Current release: `v0.9.4`
 
 AutoQuant V2 has crossed from an architectural prototype into a usable
 research workbench.
 
-`v0.9.3` is the current AutoQuant release. `v0.8.31` remains the Harness
+`v0.9.4` is the current AutoQuant release. `v0.8.31` remains the Harness
 currently consumed by OpenAlice until the host deliberately selects the newer
 tag; this is version provenance, not an automatic Workspace-migration promise.
 The minor-version boundary marks the next phase: improve the real delegated-
@@ -45,6 +45,35 @@ research loop from OpenAlice request through AutoQuant evidence handoff without
 weakening standalone Workspace operation or prematurely freezing a
 host-specific API. Bounded follow-up work defaults to patch releases such as
 `v0.9.1`, `v0.9.2`, `v0.9.3`, and onward.
+
+`v0.9.4` makes normalized signal-intent attribution obey the same fixed
+prediction-mode contract as actual Portfolio construction. An explicit
+two-asset relative-value signal now becomes one capped complementary pair:
+each side is bounded by the lesser side budget and both per-leg caps, and
+unused gross capacity remains Cash. Ordinary cross-sectional dollar-neutral
+research keeps its full-side breadth rule. The strict Explorer discloses both
+evaluation mode and intent construction and proves exact relative-pair parity
+with the pre-governor target; historical Run bytes and Portfolio performance
+remain unchanged. See [[docs/design/signal-policy-and-attribution]] and
+[[plans/relative-value-monetization-intent-parity]].
+
+Two isolated Grok 4.5 trials exercised opposite scientific outcomes using
+only the installed `0.9.4` wheel. A deliberately rank-invariant score-rescale
+candidate passed Check but correctly received `REVERT`; its additional trial
+caused the adjusted Factor gate to block Portfolio, and the worker returned no
+weights. A second frozen-factor reproduction passed Factor-to-Portfolio and
+reported NVDA `-0.30`, QQQ `+0.30`, and zero context weights. Its normalized
+intent was active on all 75 raw-target validation dates, used
+`capped-complementary-relative-value-pair`, reconciled to the pre-governor pair
+with maximum error `0.0`, and correctly identified trading cost rather than
+signal intent as the largest adverse stage.
+
+The `v0.9.4` release audit passed all 361 unit tests in 1066.637 seconds and
+all 1,253 documentation links. Studio JavaScript syntax and the locked package
+environment also passed; source/wheel, fresh installed-wheel capability, and
+clean-clone smoke are recorded in the completed release plan.
+
+### `v0.9.3`
 
 `v0.9.3` makes temporal Factor-to-target translation locally auditable without
 turning robustness analysis into a parameter search. Single-asset timing and

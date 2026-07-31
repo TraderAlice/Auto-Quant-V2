@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha released as `v0.9.3`; `v0.8.31` remains the Harness
+Status: usable pre-alpha released as `v0.9.4`; `v0.8.31` remains the Harness
 currently consumed by OpenAlice until the host deliberately selects a newer
 tag.
 
@@ -17,6 +17,25 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 
 AutoQuant V2 has crossed the line from an architectural prototype into a
 usable Agent-native quantitative research workbench.
+
+The `0.9.4` patch aligns normalized signal-intent attribution with actual
+prediction-mode-aware Portfolio construction. Explicit two-asset relative
+value now uses the same capped complementary pair at intent and pre-governor
+target stages, including intentional Cash when per-leg caps are below the
+available gross budget. Ordinary cross-sectional dollar-neutral research
+retains its full-side breadth rule. Explorer schema, CLI, Studio, Reports,
+Dossiers, agenda, docs, and sample evidence disclose the mode and construction
+and strictly reconcile pair parity without rewriting immutable Run bytes.
+
+Two fresh installed-wheel Grok 4.5 workers exercised both sides of the
+scientific gate. A non-baseline rank-invariant rescaling passed Check, received
+`REVERT`, consumed selection budget, and correctly stopped without weights
+when adjusted evidence blocked Portfolio. A frozen-factor reproduction reached
+Portfolio and reported NVDA/QQQ `-0.30/+0.30`, zero context exposure, 75/75
+normalized-intent/raw-target active dates, exact pair-target error `0.0`, and
+`monetized-positive` with trading cost as the largest adverse stage. This
+separates honest negative selection evidence from the corrected downstream
+attribution rather than forcing one trial to demonstrate both.
 
 The `0.9.3` patch adds predeclared target-translation robustness for the two
 temporal prediction modes without changing the fixed 60-observation / 20-
@@ -118,8 +137,10 @@ Studies, retains explicitly historical clean `0.8.7` and `0.8.28` Factor
 Runs, preserves its `0.9.0` development Run, and adds one clean current
 `0.9.1` candidate Run with component-v3 evidence, plus a clean current `0.9.2`
 Run that binds the shared prediction population for immediate Studio
-inspection and a clean `0.9.3` Portfolio Run that explicitly marks temporal
-translation robustness not applicable for its cross-sectional mode. An
+inspection, a clean `0.9.3` Portfolio Run that explicitly marks temporal
+translation robustness not applicable for its cross-sectional mode, and a
+clean `0.9.4` Portfolio Run that preserves the cross-sectional normalized-
+intent construction after the relative-value repair. An
 ignored strict local Workspace configuration lets
 Workbench development reuse an external real-Project collection without
 shipping those cases or changing the user's internal default.
@@ -356,7 +377,7 @@ Agendas with no move are `unavailable`. This is presentation authority only:
 Core neither infers a prose experiment budget nor executes, promotes, or
 trades from an agenda.
 
-The current release is `v0.9.2`; `v0.8.31` remains the selected OpenAlice
+The current release is `v0.9.4`; `v0.8.31` remains the selected OpenAlice
 consumption baseline until the host deliberately changes its pin. That older
 release adds a canonical 16-Skill
 market-data acquisition bundle, two-source field evidence for every
@@ -392,6 +413,19 @@ The canonical repository is
 The earlier personal repository remains a historical backup remote; the
 original `TraderAlice/Auto-Quant` repository remains the separate Classic
 line.
+
+## `0.9.4` verification snapshot
+
+- the repository sample contains a clean `0.9.4` cross-sectional Portfolio
+  Run bound to commit `f17d261` and projected through strict CLI and Studio;
+- a fresh non-baseline-factor Grok trial proved honest REVERT and adjusted-
+  evidence blocking without manufacturing targets;
+- a second fresh Grok trial proved exact relative-value normalized-intent /
+  pre-governor target parity through the installed wheel;
+- all 361 unit tests passed in 1066.637 seconds and all 1,253 documentation
+  double-links resolve;
+- build/install/capability and clean-clone evidence are recorded in the
+  completed release plan.
 
 ## `0.9.2` verification snapshot
 
