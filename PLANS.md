@@ -18,7 +18,9 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-None.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/same-project-data-vintage-refresh-field-trial]] | Prove one completed Project can answer the same fixed Book Risk question on a newer task-specific data vintage while preserving every old snapshot, Run, and Report. | 2026-08-01 |
 
 ## Proposed plans
 
