@@ -488,7 +488,7 @@ class StudioObservationTests(unittest.TestCase):
                         javascript,
                     )
                     self.assertIn(
-                        'data-label="Validation raw IC"',
+                        'data-label="Validation raw ${scoreLabel}"',
                         javascript,
                     )
                     self.assertIn("data-evidence-lane", javascript)
