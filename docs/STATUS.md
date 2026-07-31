@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha released as `v0.9.0`; `v0.8.31` remains the Harness
+Status: usable pre-alpha released as `v0.9.1`; `v0.8.31` remains the Harness
 currently consumed by OpenAlice until the host deliberately selects a newer
 tag.
 
@@ -17,6 +17,23 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 
 AutoQuant V2 has crossed the line from an architectural prototype into a
 usable Agent-native quantitative research workbench.
+
+The `0.9.1` patch generalizes candidate-declared Factor component evidence to
+single-asset temporal and two-asset relative-value evaluation. Temporal Runs
+now disclose raw and nearest-peer-residual rank-correlation contributions,
+pairwise redundancy, fixed diagnostic-blend removal evidence, and train-fixed
+conditional context states without mislabeling them as cross-sectional IC or
+changing the immutable Factor objective. Strict Explorer, research agenda,
+CLI, Studio, Reports, Dossiers, templates, and the repository sample consume
+the same component-v3 contract.
+
+One fresh Grok 4.5 worker completed a real LINK-versus-ETH multi-interval
+relative-value assignment over 13,800 Binance Spot 1h bars per asset and used
+the new evidence to return a truthful negative result without spending an
+unnecessary Experiment. A second fresh worker verified the resulting mandate
+repair: exactly two explicit `two-sided` relative-value assets plus named
+`context-only` assets retain the dollar-neutral zero-net pair construction,
+caller role provenance, and no-trading authority.
 
 The `0.9.0` real-delegation cohort adds six materially different Grok 4.5
 assignment families over source-authority boundaries, fixed Event and Book
@@ -290,7 +307,7 @@ Agendas with no move are `unavailable`. This is presentation authority only:
 Core neither infers a prose experiment budget nor executes, promotes, or
 trades from an agenda.
 
-The current release is `v0.9.0`; `v0.8.31` remains the selected OpenAlice
+The current release is `v0.9.1`; `v0.8.31` remains the selected OpenAlice
 consumption baseline until the host deliberately changes its pin. That older
 release adds a canonical 16-Skill
 market-data acquisition bundle, two-source field evidence for every

@@ -32,12 +32,12 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current release: `v0.9.0`
+## Current release: `v0.9.1`
 
 AutoQuant V2 has crossed from an architectural prototype into a usable
 research workbench.
 
-`v0.9.0` is the current AutoQuant release. `v0.8.31` remains the Harness
+`v0.9.1` is the current AutoQuant release. `v0.8.31` remains the Harness
 currently consumed by OpenAlice until the host deliberately selects the newer
 tag; this is version provenance, not an automatic Workspace-migration promise.
 The minor-version boundary marks the next phase: improve the real delegated-
@@ -45,6 +45,24 @@ research loop from OpenAlice request through AutoQuant evidence handoff without
 weakening standalone Workspace operation or prematurely freezing a
 host-specific API. Bounded follow-up work defaults to patch releases such as
 `v0.9.1`, `v0.9.2`, and onward.
+
+`v0.9.1` makes explicit Factor-component evidence useful in every supported
+prediction mode. Cross-sectional Runs retain per-date rank IC, while
+single-asset and two-asset relative-value Runs now expose within-split temporal
+rank-correlation contribution, train-selected nearest-peer residual evidence,
+fixed diagnostic-blend leave-one-out, pairwise redundancy, and conditional
+context states through the same immutable RunResult, artifact, Explorer,
+agenda, CLI, Studio, Report, and Dossier contract. The diagnostics remain
+research-prioritization evidence and never enter Factor promotion or grant
+Portfolio/RL/trading authority.
+
+A fresh Grok 4.5 worker used the installed candidate to acquire 13,800 Binance
+Spot 1h bars per asset, author a five-component LINK-versus-ETH multi-interval
+Factor, publish one truthful negative-evidence Report, and stop without an
+unnecessary Experiment. Its one reusable friction was repaired: an explicit
+two-sided relative-value pair now remains dollar-neutral and zero-net even
+when the caller also names context-only assets. A second fresh worker verified
+that exact three-role intake without omitting context or editing the mandate.
 
 Six isolated Grok 4.5 assignment families now cover mainland-China and Taiwan
 source boundaries, a Korean price event, a reported semiconductor book,

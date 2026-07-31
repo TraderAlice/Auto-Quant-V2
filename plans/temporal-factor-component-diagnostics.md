@@ -57,20 +57,20 @@ the template contract changes.
 
 ## Acceptance
 
-- [ ] Declared score components in both temporal modes publish complete
+- [x] Declared score components in both temporal modes publish complete
   train/validation/test-audit evidence at every request-bound horizon.
-- [ ] Nearest-peer selection and transforms are target-free; validation alone
+- [x] Nearest-peer selection and transforms are target-free; validation alone
   drives diagnosis, while test remains visible audit and no component metric
   enters the immutable Factor objective.
-- [ ] Timestamp context has truthful temporal contribution semantics and never
+- [x] Timestamp context has truthful temporal contribution semantics and never
   masquerades as cross-sectional IC.
-- [ ] RunResult, immutable component artifact, Explorer JSON, research agenda,
+- [x] RunResult, immutable component artifact, Explorer JSON, research agenda,
   Studio, and documentation reconcile one bounded contract.
-- [ ] Cross-sectional behavior remains correct under the new contract;
+- [x] Cross-sectional behavior remains correct under the new contract;
   obsolete schema behavior may break explicitly rather than silently adapt.
 - [ ] Fast focused tests, full regression, documentation/build/install smoke,
   and repository-root clean-clone smoke pass.
-- [ ] A fresh Grok 4.5 worker completes a realistic causal multi-interval task
+- [x] A fresh Grok 4.5 worker completes a realistic causal multi-interval task
   using the installed candidate release and demonstrates whether the new
   evidence is sufficient for a useful handoff.
 - [ ] The audited state is published as `v0.9.1`.
@@ -81,7 +81,7 @@ the template contract changes.
 - [x] Implement Judge evidence and deterministic artifact tests.
 - [x] Implement strict Core projection, agenda, CLI, and Studio parity.
 - [x] Update template/operator/design documentation and current sample evidence.
-- [ ] Run a fresh Grok 4.5 field trial and repair only observed reusable defects.
+- [x] Run a fresh Grok 4.5 field trial and repair only observed reusable defects.
 - [ ] Complete release audit, publish `v0.9.1`, and close the plan.
 
 ## Findings and decisions
@@ -96,7 +96,22 @@ the template contract changes.
 
 ## Verification
 
-Pending.
+- Temporal single-asset, two-asset relative-value, timestamp-context, and
+  cross-sectional Explorer focused regression passed.
+- Factor Lab and Factor Explorer suites: 20 tests passed in 83.835 seconds.
+- Mandate plus temporal intake focused regression: 18 tests passed in 4.816
+  seconds.
+- Repository sample Run
+  `run-20260731T131547748789Z-d99c9e66a888` records clean Harness `0.9.1` at
+  `39a2e38`, component method v3, and passes strict Studio projection.
+- Full Grok 4.5 trial: 43 turns, approximately 10 minutes, 13,800 Binance Spot
+  1h bars per asset, one successful relative-value Run, one completed Session,
+  one Report, zero Experiments, and clean worker commit `e4eb0a2`.
+- Fresh explicit-role retry: 29 turns, 216 Binance Spot 1h bars per asset,
+  strict three-role request preserved through dollar-neutral intake, no Run or
+  Session, and clean worker commit `bbf3d72`.
+- Full regression, documentation/build/install, clean-clone smoke, and final
+  tag verification remain pending.
 
 ## Progress log
 
@@ -123,8 +138,12 @@ Pending.
 - 2026-07-31 — Repaired mandate derivation so exactly two explicit two-sided
   relative-value assets retain the dollar-neutral zero-net pair family while
   any explicit context-only names remain context. Generic mixed role vectors
-  remain asset-role. Added unit, intake, and durable-contract documentation;
-  a fresh focused retry remains before release.
+  remain asset-role. Added unit, intake, and durable-contract documentation.
+- 2026-07-31 — A fresh 29-turn Grok 4.5 retry retained LINK, ETH, and explicit
+  context-only BTC in the strict request; public intake produced
+  dollar-neutral/zero with only LINK/ETH tradable and caller-supplied role
+  provenance. The worker hand-edited no mandate, executed no Study, passed
+  validation/orientation, committed durable records only, and left clean Git.
 
 ## Completion
 
