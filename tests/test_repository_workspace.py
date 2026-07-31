@@ -35,6 +35,15 @@ def _template_owned_files(root: Path) -> dict[str, bytes]:
 
 
 class RepositoryWorkspaceTests(unittest.TestCase):
+    def test_repository_ignores_workspace_staging(self) -> None:
+        ignore_rules = (
+            (REPOSITORY_ROOT / ".gitignore")
+            .read_text(encoding="utf-8")
+            .splitlines()
+        )
+
+        self.assertIn("/staging/", ignore_rules)
+
     def test_sample_is_a_complete_three_lane_project_with_historical_evidence(
         self,
     ) -> None:

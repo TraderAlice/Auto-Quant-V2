@@ -40,7 +40,10 @@ own Study, Run, evaluation, research-loop, dataset-format, or Studio semantics.
   require a fresh Workspace unless environment or ownership isolation is
   intentional.
 - Durable Project research state is ordinary Git-managed Workspace state.
-  Project-local data and cache policies remain separate.
+  Project-local data/cache and Workspace staging remain persistent local
+  evidence under their explicit ignore policies. The checked-in sample fixture
+  is the narrow distribution exception; Agents do not force-add ordinary
+  market bytes by analogy.
 - A Workbench developer may place one ignored complete
   `autoquant-workspace.local.json` beside the base manifest. Its presence is
   explicit authority to select an external Projects directory for that

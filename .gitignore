@@ -1,6 +1,7 @@
 # Runtime logs
 *.log
 autoquant-workspace.local.json
+/staging/
 
 # Python / uv
 __pycache__/

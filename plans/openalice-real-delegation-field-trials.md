@@ -195,6 +195,21 @@ unsupported weights, provider-semantic relabelling, or trading claims fail.
   retirement path, OpenAlice provenance was downgraded to generic external
   provenance, and the worker force-added ordinary Project data after inferring
   from the sample's special tracked fixture.
+- 2026-07-31 — A third fresh Grok 4.5 worker on commit `986d188` correctly
+  routed a Samsung opening-gap question to the fixed Event Study, used Naver
+  and Daum raw routes plus an explicitly separate Yahoo split-adjusted intake
+  route, and published a useful `no-observed-advantage` Run over 31
+  non-overlapping primary events. This is the first accepted final cohort
+  case.
+- 2026-07-31 — The Event worker independently proved pristine-scaffold
+  hydration: it wrote `research.md` before intake, intook the same existing
+  Project without deletion, and found its brief preserved exactly.
+- 2026-07-31 — OpenAlice provenance mislabelling and forced Git addition of
+  normal market data both recurred. Repository guidance now defines source
+  system semantics, prohibits invented host ids, ignores root `staging/`, and
+  makes the sample's tracked deterministic fixture an explicit exception to
+  ordinary Project data/cache ignores. Fresh-worker verification remains
+  pending.
 
 ## Verification
 
@@ -219,6 +234,16 @@ unsupported weights, provider-semantic relabelling, or trading claims fail.
   tests.test_intake.RequestDrivenIntakeTests.test_intake_refuses_to_replace_scaffold_with_candidate_work
   tests.test_cli.AgentCliTests.test_cli_intake_hydrates_brief_first_pristine_scaffold`
   — 3 tests passed in 1.871 seconds.
+- Intake/CLI/Workspace regression after the lifecycle fix:
+  `.venv/bin/python -m unittest tests.test_intake tests.test_cli
+  tests.test_workspace tests.test_repository_workspace` — 79 tests passed in
+  255.414 seconds.
+- Grok 4.5 Korean Event trial: 47 turns, approximately 9 minutes, two local
+  worker commits, one immutable fixed Event Run, three provider routes, and no
+  Session or trading output.
+- Independent Korean Event review:
+  `../openalice-field-trials/cohort-03-kr-gap-event-v090/review.md`
+  (external trial ledger, intentionally not a repository documentation link).
 
 ## Completion
 

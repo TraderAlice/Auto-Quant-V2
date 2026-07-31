@@ -810,6 +810,11 @@ Origin fields are caller-supplied content, not authenticated OpenAlice
 provenance. `artifactPath` and `artifactRevision` must either both be non-null
 strings or both be JSON `null`; an exact local immutable artifact may use an
 explicit content digest such as `sha256:<hex>` for the revision claim.
+`source.system` preserves the known origin: `openalice` for an OpenAlice
+coworker delegation, `local` for a direct standalone-desk request, and
+`external` for another external origin. Workspace, Session, path, and revision
+identifiers are copied only when actually supplied; an Agent uses JSON `null`
+rather than constructing provenance from its checkout path or trial name.
 `positionRole` is optional only as a complete vector: when any
 requested asset declares it, every requested asset must declare `long-only`,
 `short-only`, `two-sided`, or `context-only`. Requested symbols and asset

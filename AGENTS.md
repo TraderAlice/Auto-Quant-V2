@@ -45,6 +45,16 @@ root. In the strict Research Request `source`, set both `artifactPath` and
 `null`; never fill only one. A local immutable artifact may use an explicit
 content digest as its revision claim.
 
+Workspace staging and Project `data/`/cache are persistent local working
+evidence, not ordinary Git research state. The repository desk ignores
+`staging/`, and every Project ignores its normalized data/cache by default.
+Do not use `git add -f` to copy normal market data into history merely because
+the checked-in teaching Project tracks its small deterministic fixture; that
+sample is the explicit exception. Commit briefs, request/Study contracts,
+candidate source, Runs, Sessions, Reports, Dossiers, and other durable
+research records. Track market bytes only when the caller explicitly requests
+a distributable fixture and its source terms permit it.
+
 Before adding a host integration or public surface, ask:
 
 1. Can a coding Agent use the same capability in a standalone Workspace?
@@ -89,6 +99,12 @@ brief that another Agent can recover from the filesystem.
    Preserve provider retrieval time only when the supplied provenance knows
    it. Use explicit JSON `null` for an unknown original `retrievedAt`; never
    invent the current or packaging time.
+   The request `source.system` is provenance, not a generic label: use
+   `openalice` when an OpenAlice coworker delegated the assignment, `local`
+   only for a direct standalone desk request, and `external` only for another
+   external origin. Preserve exact Workspace, Session, artifact, and revision
+   identifiers only when supplied; otherwise use JSON `null` rather than
+   inventing trial or path-derived ids.
 8. After every Experiment, re-read `aq orient`. Treat
    `evidence.latestExperiment` as the immutable trial/check pointer and
    `trial-review-required` as an Agent/caller choice to report/complete or

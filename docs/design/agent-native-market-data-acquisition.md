@@ -90,6 +90,14 @@ limitations. Staging remains caller/host-owned working evidence. A package
 becomes quantitative input authority only after strict `aq project intake`
 creates the Project-local normalized snapshot and `aq validate` passes.
 
+In the repository-root desk, `staging/` and each Project's `data/` and cache
+are Git-ignored persistent local evidence. Agents do not force-add ordinary
+provider bytes or normalized market data. The checked-in sample's small
+deterministic fixture is a teaching/distribution exception, not a precedent
+for real Projects. Briefs, contracts, source, Runs, Reports, and Dossiers
+remain ordinary Git-managed research state; provider redistribution terms and
+an explicit caller request govern any deliberately distributable data fixture.
+
 Changing markets does not require a new Workspace. Separate research
 questions normally become sibling Projects; their immutable snapshots may
 currently duplicate bytes. A shared mutable “latest data” cache is not part of
