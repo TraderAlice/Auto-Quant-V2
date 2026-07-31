@@ -106,7 +106,7 @@ A negative factor result is fully acceptable. A single-source result is not.
   data-authority condition.
 - [x] Prepare the exact installed-wheel, zero-data worker boundary and baseline
   evidence inventory.
-- [ ] Run and independently review the fresh `0.9.8` worker.
+- [x] Run and independently review the fresh `0.9.8` worker.
 - [ ] Implement only reproduced reusable friction and rerun the assignment.
 - [ ] Complete final verification, release documentation, tag, and push.
 
@@ -123,6 +123,16 @@ A negative factor result is fully acceptable. A single-source result is not.
 - 2026-08-01 — A truthful blocked result can pass the worker-compliance part of
   the trial while leaving provider availability external. It does not justify
   inventing a `0.9.9` feature or weakening the caller's requirement.
+- 2026-08-01 — The fresh `0.9.8` Grok worker passed the authority gate: it
+  wrote the English brief first, attempted official TWSE and FinMind, retained
+  the 307 route failure and complete six-name FinMind peer package, performed
+  no Project intake, Run, or Report, and returned `UNSUPPORTED` rather than a
+  single-source Factor answer.
+- 2026-08-01 — The TWSE provider script did not itself retain the 307 response
+  body or request-level receipt. The worker manually probed the same authorized
+  URI to make its handoff auditable. `0.9.9` makes that failure evidence a
+  deterministic provider-Skill output and corrects same-raw comparison
+  guidance to FinMind; Yahoo remains coverage-only when semantics differ.
 
 ## Verification
 
@@ -136,6 +146,14 @@ Pending.
   exact released wheel, Python 3.11.14, all 16 materialized Skills, zero
   Projects, zero staged data, and an explicit no-single-source-completion
   worker contract.
+- 2026-08-01 — Grok session `019fba62-c38f-7292-ad58-cf2ad1e6ddb7`
+  completed in 12 turns without repository/package source inspection. Host
+  review confirmed zero Projects/Runs/Reports, a standard official route
+  failure, a valid FinMind V4 peer package, and no unauthorized source.
+- 2026-08-01 — A live Python 3.9-compatible source smoke reproduced TWSE's
+  HTTP 307 and automatically preserved all five exact security bodies, safe
+  response headers, request hashes/paths, provider failure, and standard route
+  failure without a second probe or false dataset package.
 
 ## Completion
 

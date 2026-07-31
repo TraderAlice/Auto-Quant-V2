@@ -1,5 +1,5 @@
 {
-  "bundleSha256": "44a43bea3a7fe6f7c3f0222d58e081941e34336b390a12e8d6609d97831076df",
+  "bundleSha256": "279fe1e66af8bd5d634af708d7082ce8f969105d341b8383de071cf3a66ed2fc",
   "discoveryRoots": [
     ".agents/skills",
     ".claude/skills"
@@ -332,7 +332,7 @@
       "files": [
         {
           "path": "SKILL.md",
-          "sha256": "a68c761a91e271160ad9b9b5b781209549c12db1fcb69b60579d2b78fee6e7cd"
+          "sha256": "60a766246029d937d1f0f555fafe9b7ff62d1599b46c533b8c381dadb20db3c5"
         },
         {
           "path": "agents/openai.yaml",
@@ -344,11 +344,11 @@
         },
         {
           "path": "references/provider-route.md",
-          "sha256": "fc96f9e402c95caebb7406760a5b4807cbdc790fa311c8031c2c53376b8d3ed8"
+          "sha256": "f82af1d2e2da60f3a3863ba245815048ccc78956218f3a578d37033015760921"
         },
         {
           "path": "scripts/fetch_twse_daily.py",
-          "sha256": "5ab1e365f093e2af7f8808fc8bfd50f962e070846c0b452238f0cc7ec9b259b2"
+          "sha256": "4af5e55a7dc3b5d78e292acb2aeca85d9956da9d6e8c020bcee80df88219b691"
         }
       ],
       "id": "fetch-twse-ohlcv"

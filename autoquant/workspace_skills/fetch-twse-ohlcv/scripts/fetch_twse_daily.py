@@ -7,6 +7,7 @@ import hashlib
 import json
 import re
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import date, datetime, timezone
@@ -19,6 +20,28 @@ import pandas as pd
 BASE_URL = "https://www.twse.com.tw/exchangeReport/STOCK_DAY"
 SAFE_SYMBOL = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._=-]{0,63}$")
 STOCK_NO = re.compile(r"^[A-Za-z0-9]{4,8}$")
+RECEIPT_HEADERS = (
+    "Content-Type",
+    "Content-Length",
+    "Location",
+    "Server",
+    "Date",
+    "Retry-After",
+)
+
+
+class TwseResponseError(ValueError):
+    """A successful HTTP response that is not usable official JSON."""
+
+    def __init__(
+        self,
+        message: str,
+        body: bytes,
+        metadata: dict[str, str],
+    ) -> None:
+        super().__init__(message)
+        self.body = body
+        self.metadata = metadata
 
 
 def sha256(path: Path) -> str:
@@ -110,7 +133,98 @@ def request_uri(stock_no: str, month: date) -> str:
     return f"{BASE_URL}?{query}"
 
 
-def fetch_bytes(uri: str) -> tuple[bytes, dict[str, str]]:
+def _write_request_attempts(
+    directory: Path,
+    uri: str,
+    attempts: list[dict[str, Any]],
+    bodies: list[bytes],
+    *,
+    status: str,
+) -> Path:
+    directory.mkdir(parents=True, exist_ok=True)
+    recorded: list[dict[str, Any]] = []
+    for attempt, body in zip(attempts, bodies):
+        current = dict(attempt)
+        response = current.get("response")
+        if isinstance(response, dict) and body:
+            suffix = (
+                ".html"
+                if body.lstrip().lower().startswith((b"<html", b"<!doctype html"))
+                else ".body"
+            )
+            body_path = directory / f"attempt-{current['attempt']:02d}{suffix}"
+            body_path.write_bytes(body)
+            response = dict(response)
+            response["bodyPath"] = body_path.name
+            response["bodySha256"] = sha256(body_path)
+            response["bodyBytes"] = len(body)
+            current["response"] = response
+        recorded.append(current)
+    receipt = {
+        "schemaVersion": 1,
+        "kind": "autoquant-twse-request-attempts",
+        "status": status,
+        "requestUri": uri,
+        "attempts": recorded,
+        "limitations": [
+            "This receipt proves only what the official route returned to this local process."
+        ],
+    }
+    path = directory / "request-attempts.json"
+    path.write_text(
+        json.dumps(receipt, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return path
+
+
+def _failure_attempt(
+    attempt: int,
+    error: Exception,
+) -> tuple[dict[str, Any], bytes]:
+    recorded: dict[str, Any] = {
+        "attempt": attempt,
+        "attemptedAt": datetime.now(timezone.utc)
+        .replace(microsecond=0)
+        .isoformat(),
+        "errorType": type(error).__name__,
+        "message": str(error),
+    }
+    body = b""
+    if isinstance(error, urllib.error.HTTPError):
+        try:
+            body = error.read()
+        except OSError:
+            body = b""
+        recorded["response"] = {
+            "status": error.code,
+            "reason": str(error.reason),
+            "finalUri": error.geturl(),
+            "headers": {
+                name: value
+                for name in RECEIPT_HEADERS
+                if (value := error.headers.get(name)) is not None
+            },
+        }
+    elif isinstance(error, TwseResponseError):
+        body = error.body
+        recorded["response"] = {
+            "status": int(error.metadata["status"]),
+            "reason": "unusable-response-body",
+            "finalUri": error.metadata["finalUri"],
+            "headers": {
+                "Content-Type": error.metadata["contentType"],
+                "Content-Length": error.metadata["contentLength"],
+            },
+        }
+    return recorded, body
+
+
+def fetch_bytes(
+    uri: str,
+    *,
+    attempt_directory: Path | None = None,
+) -> tuple[bytes, dict[str, str]]:
     request = urllib.request.Request(
         uri,
         headers={
@@ -123,6 +237,8 @@ def fetch_bytes(uri: str) -> tuple[bytes, dict[str, str]]:
         },
     )
     errors: list[str] = []
+    attempts: list[dict[str, Any]] = []
+    bodies: list[bytes] = []
     for attempt in range(5):
         try:
             with urllib.request.urlopen(request, timeout=30) as response:
@@ -134,13 +250,42 @@ def fetch_bytes(uri: str) -> tuple[bytes, dict[str, str]]:
                     "finalUri": response.geturl(),
                 }
             if not payload:
-                raise ValueError("official route returned an empty body")
-            if payload.lstrip().lower().startswith(b"<html"):
-                raise ValueError("official TWSE security page blocked the request")
+                raise TwseResponseError(
+                    "official route returned an empty body",
+                    payload,
+                    metadata,
+                )
+            if payload.lstrip().lower().startswith(
+                (b"<html", b"<!doctype html")
+            ):
+                raise TwseResponseError(
+                    "official TWSE security page blocked the request",
+                    payload,
+                    metadata,
+                )
+            if attempts and attempt_directory is not None:
+                _write_request_attempts(
+                    attempt_directory,
+                    uri,
+                    attempts,
+                    bodies,
+                    status="succeeded-after-retry",
+                )
             return payload, metadata
         except Exception as exc:
             errors.append(f"{type(exc).__name__}: {exc}")
+            recorded, body = _failure_attempt(attempt + 1, exc)
+            attempts.append(recorded)
+            bodies.append(body)
             if attempt == 4:
+                if attempt_directory is not None:
+                    _write_request_attempts(
+                        attempt_directory,
+                        uri,
+                        attempts,
+                        bodies,
+                        status="failed",
+                    )
                 raise RuntimeError(
                     "TWSE official route failed after 5 attempts: "
                     + " | ".join(errors)
@@ -283,6 +428,63 @@ def ensure_output(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
 
 
+def write_provider_failure(
+    output: Path,
+    *,
+    retrieved_at: str,
+    args: argparse.Namespace,
+    symbol: str,
+    stock_no: str,
+    month: date,
+    uri: str,
+    attempt_receipt: Path,
+    error: Exception,
+) -> Path:
+    failure = {
+        "schemaVersion": 1,
+        "kind": "autoquant-provider-acquisition-failure",
+        "status": "failed",
+        "provider": {
+            "name": "twse-official-stock-day",
+            "sourceUri": BASE_URL,
+            "terms": args.terms,
+        },
+        "startedAt": retrieved_at,
+        "failedAt": datetime.now(timezone.utc)
+        .replace(microsecond=0)
+        .isoformat(),
+        "request": {
+            "start": args.start.isoformat(),
+            "endExclusive": args.end_exclusive.isoformat(),
+            "interval": "1d",
+            "panel": args.panel,
+            "requestDelaySeconds": args.request_delay,
+            "adjustment": "raw",
+        },
+        "failedRequest": {
+            "symbol": symbol,
+            "providerStockNo": stock_no,
+            "month": month.isoformat(),
+            "requestUri": uri,
+            "attemptReceipt": attempt_receipt.relative_to(output).as_posix(),
+        },
+        "error": {
+            "type": type(error).__name__,
+            "message": str(error),
+        },
+        "limitations": [
+            "This receipt proves a local official-route failure, not global TWSE unavailability.",
+            "No dataset package or provider success audit was produced.",
+        ],
+    }
+    path = output / "provider-failure.json"
+    path.write_text(
+        json.dumps(failure, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return path
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, required=True)
@@ -328,7 +530,32 @@ def main() -> None:
         monthly_audits: list[dict[str, Any]] = []
         for month in months(args.start, args.end_exclusive):
             uri = request_uri(stock_no, month)
-            raw_bytes, response_metadata = fetch_bytes(uri)
+            attempt_directory = (
+                output
+                / "request-attempts"
+                / symbol
+                / month.strftime("%Y-%m")
+            )
+            try:
+                raw_bytes, response_metadata = fetch_bytes(
+                    uri,
+                    attempt_directory=attempt_directory,
+                )
+            except Exception as error:
+                write_provider_failure(
+                    output,
+                    retrieved_at=retrieved_at,
+                    args=args,
+                    symbol=symbol,
+                    stock_no=stock_no,
+                    month=month,
+                    uri=uri,
+                    attempt_receipt=(
+                        attempt_directory / "request-attempts.json"
+                    ),
+                    error=error,
+                )
+                raise
             raw_path = asset_raw_dir / f"{month.strftime('%Y-%m')}.json"
             raw_path.write_bytes(raw_bytes)
             frame, summary = parse_month(stock_no, raw_bytes)

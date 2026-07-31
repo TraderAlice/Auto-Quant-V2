@@ -8,6 +8,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import pandas as pd
 
@@ -499,6 +500,167 @@ class WorkspaceSkillTests(unittest.TestCase):
                 twse.date(2024, 9, 1),
             ],
         )
+
+    def test_twse_security_block_preserves_provider_response_receipts(
+        self,
+    ) -> None:
+        twse = load_script(
+            "autoquant_skill_twse_failure",
+            SKILLS
+            / "fetch-twse-ohlcv"
+            / "scripts"
+            / "fetch_twse_daily.py",
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            assets = root / "assets.json"
+            assets.write_text(
+                json.dumps(
+                    [
+                        {
+                            "symbol": "2330",
+                            "providerStockNo": "2330",
+                            "venue": "TWSE",
+                            "currency": "TWD",
+                            "assetClass": "equity",
+                        }
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            output = root / "output"
+
+            def blocked():
+                return twse.urllib.error.HTTPError(
+                    twse.request_uri("2330", twse.date(2025, 1, 1)),
+                    307,
+                    "Temporary Redirect",
+                    {
+                        "Content-Type": "text/html",
+                        "Location": "https://www.twse.com.tw/security",
+                        "Set-Cookie": "must-not-be-retained",
+                    },
+                    io.BytesIO(b"<html>security block</html>"),
+                )
+
+            argv = [
+                "fetch_twse_daily.py",
+                "--output",
+                str(output),
+                "--assets",
+                str(assets),
+                "--dataset-id",
+                "twse-fixture",
+                "--start",
+                "2025-01-01",
+                "--end-exclusive",
+                "2025-02-01",
+                "--request-delay",
+                "0",
+                "--terms",
+                "fixture research retrieval",
+            ]
+            with mock.patch.object(
+                twse.urllib.request,
+                "urlopen",
+                side_effect=[blocked() for _ in range(5)],
+            ), mock.patch.object(twse.time, "sleep"), mock.patch.object(
+                sys,
+                "argv",
+                argv,
+            ):
+                with self.assertRaisesRegex(
+                    RuntimeError,
+                    "failed after 5 attempts",
+                ):
+                    twse.main()
+
+            provider_failure = json.loads(
+                (output / "provider-failure.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(
+                provider_failure["kind"],
+                "autoquant-provider-acquisition-failure",
+            )
+            self.assertEqual(
+                provider_failure["failedRequest"]["providerStockNo"],
+                "2330",
+            )
+            self.assertFalse((output / "dataset-package.json").exists())
+            receipt_root = output / "request-attempts" / "2330" / "2025-01"
+            receipt = json.loads(
+                (receipt_root / "request-attempts.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(receipt["status"], "failed")
+            self.assertEqual(len(receipt["attempts"]), 5)
+            for attempt in receipt["attempts"]:
+                response = attempt["response"]
+                self.assertEqual(response["status"], 307)
+                self.assertEqual(response["bodyBytes"], 27)
+                self.assertNotIn("Set-Cookie", response["headers"])
+                body = receipt_root / response["bodyPath"]
+                self.assertEqual(
+                    body.read_bytes(),
+                    b"<html>security block</html>",
+                )
+
+    def test_twse_http_200_security_page_is_preserved(self) -> None:
+        twse = load_script(
+            "autoquant_skill_twse_html_failure",
+            SKILLS
+            / "fetch-twse-ohlcv"
+            / "scripts"
+            / "fetch_twse_daily.py",
+        )
+
+        class SecurityPage:
+            status = 200
+            headers = {
+                "Content-Type": "text/html",
+                "Content-Length": "32",
+            }
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, _kind, _value, _traceback):
+                return False
+
+            def read(self):
+                return b"<!doctype html><html>blocked</html>"
+
+            def geturl(self):
+                return twse.BASE_URL
+
+        with tempfile.TemporaryDirectory() as directory:
+            attempts = Path(directory) / "attempts"
+            with mock.patch.object(
+                twse.urllib.request,
+                "urlopen",
+                side_effect=[SecurityPage() for _ in range(5)],
+            ), mock.patch.object(twse.time, "sleep"):
+                with self.assertRaisesRegex(
+                    RuntimeError,
+                    "security page blocked",
+                ):
+                    twse.fetch_bytes(
+                        twse.request_uri("2330", twse.date(2025, 1, 1)),
+                        attempt_directory=attempts,
+                    )
+            receipt = json.loads(
+                (attempts / "request-attempts.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(receipt["status"], "failed")
+            self.assertEqual(receipt["attempts"][0]["response"]["status"], 200)
+            body = attempts / receipt["attempts"][0]["response"]["bodyPath"]
+            self.assertEqual(
+                body.read_bytes(),
+                b"<!doctype html><html>blocked</html>",
+            )
 
     def test_finmind_preserves_raw_twd_and_checks_traded_money(self) -> None:
         finmind = load_script(

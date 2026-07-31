@@ -1,6 +1,6 @@
 ---
 name: fetch-twse-ohlcv
-description: Acquire bounded raw completed daily OHLCV for named TWSE-listed equities from the official TWSE monthly historical report, preserve every exact response, normalize ROC dates and numeric separators, and emit an auditable AutoQuant staging package. Use as the venue-authoritative Taiwan route before comparing the same assets with an independent broad provider such as Yahoo.
+description: Acquire bounded raw completed daily OHLCV for named TWSE-listed equities from the official TWSE monthly historical report, preserve exact success or failure responses, normalize ROC dates and numeric separators, and emit an auditable AutoQuant staging package. Use as the venue-authoritative Taiwan route before same-raw comparison with FinMind; use Yahoo only for explicitly different split-adjusted coverage context.
 ---
 
 # Fetch TWSE OHLCV
@@ -34,14 +34,22 @@ response, converts ROC calendar dates to Gregorian dates, and retains official
 trade volume as shares. Keep the default three-second request delay unless
 current official guidance justifies another value; the CDN has returned
 security redirects under bursty access. It fails on HTML security pages,
-response-shape changes, ambiguous fields, or suspected range truncation.
+response-shape changes, ambiguous fields, or suspected range truncation. On a
+failed monthly request it writes `provider-failure.json`, a bounded
+`request-attempts/.../request-attempts.json` receipt, and any exact HTTP error
+body before returning nonzero. Use the common route-attempt wrapper as well so
+the provider-specific receipt and standard process failure remain together.
 
 ## Verify
 
 - Inspect all monthly response hashes, field declarations, missing months,
   date conversion, price/volume invariants, and final CSV hashes.
-- Compare the same raw sessions with `$fetch-yahoo-ohlcv`. Record freshness,
-  price differences, volume agreement, and missing observations.
+- Compare the same raw sessions with `$fetch-finmind-ohlcv`. Record freshness,
+  price differences, volume agreement, traded-money checks, and missing
+  observations without calling FinMind exchange truth.
+- Use `$fetch-yahoo-ohlcv` only for explicitly split-adjusted coverage or
+  freshness context, and compare it in coverage-only mode. Do not use Yahoo as
+  the same-raw peer.
 - Run `$package-autoquant-ohlcv` and strict intake.
 - Keep `TWSE` explicit. Never claim that this route covers `TPEx`.
 
@@ -49,4 +57,6 @@ response-shape changes, ambiguous fields, or suspected range truncation.
 
 Record the official route as degraded when TWSE returns its security block,
 throttles the caller, or omits the requested history. Do not proxy through an
-unidentified mirror or silently replace it with Yahoo.
+unidentified mirror or silently replace it with FinMind or Yahoo. Preserve the
+generated provider and route failure receipts; do not manually probe the same
+blocked request merely to reconstruct evidence the script already recorded.

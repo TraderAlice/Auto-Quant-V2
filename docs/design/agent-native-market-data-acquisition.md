@@ -140,6 +140,15 @@ provider command, including its provider id, attempt time, exit status, and
 bounded stdout/stderr tails. A failure record is local route evidence, not a
 claim that the provider was globally unavailable.
 
+When a provider route can safely preserve more specific response evidence, it
+does so before returning nonzero. The TWSE monthly Skill writes one
+`provider-failure.json`, a per-request attempt receipt, selected non-secret
+response headers, and exact HTTP error bodies. The generic route receipt stays
+beside this provider-specific evidence. This avoids asking an Agent to probe a
+blocked endpoint again merely to reconstruct the response, while deliberately
+excluding cookies or other authentication-bearing headers. A provider failure
+never creates a dataset package or intake authority.
+
 The first field-trial matrix proves named U.S., XSHG/XSHE/XBSE, Tokyo, KRX,
 TWSE, HOSE, and XPAR routes. It does not imply all securities, TPEx, all
 Vietnamese boards, one synthetic European calendar, survivorship-free
