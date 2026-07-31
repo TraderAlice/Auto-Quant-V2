@@ -5,7 +5,7 @@
 - Target release: `0.9.2`
 - Related design: [[docs/design/factor-evidence-explorer]],
   [[docs/design/request-bound-portfolio-mandates]],
-  [[docs/design/mechanical-signal-policy-and-attribution]], and
+  [[plans/mechanical-signal-policy-and-attribution]], and
   [[plans/temporal-factor-component-diagnostics]].
 
 ## Outcome
