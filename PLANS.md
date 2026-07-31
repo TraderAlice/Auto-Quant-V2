@@ -18,7 +18,9 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-None.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/openalice-real-delegation-field-trials]] | Use isolated Grok 4.5 coworkers on realistic delegated quantitative-support assignments, repair only severe or recurrent observed friction on `0.9.0`, and prove the resulting OpenAlice-facing work loop without adding host-specific orchestration. | 2026-07-31 |
 
 ## Proposed plans
 
