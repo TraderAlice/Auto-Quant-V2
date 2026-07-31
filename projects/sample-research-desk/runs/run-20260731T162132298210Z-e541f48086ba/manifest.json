@@ -1,0 +1,33 @@
+{
+  "completed": true,
+  "completedAt": "2026-07-31T16:21:43.327125+00:00",
+  "files": {
+    "artifacts/daily-portfolio.csv": "f9932d04a51145ff4a0063051f2ff9a2edad27b15f33b1ea238cbc1361fcf5da",
+    "artifacts/executed-weights.csv": "87b087008c2d0b717fa724ec949535723dfac9ba1d6713a33985fae6168550a6",
+    "artifacts/portfolio-decisions.csv": "71402c6aee5d0add91ba8731438669511b7888ced514d409da3a34d7254d9807",
+    "artifacts/portfolio-parameter-neighborhood.json": "3e8de3ad14e410990cfd4efd1e6a1e816a7f70058add30042c6a0e221626c20e",
+    "artifacts/portfolio-report.json": "0838746eef1e0c474f955c5ca4b4a044223ada62cb08b24938b4cc9179d50700",
+    "artifacts/position-episodes.csv": "5b89b47284a22442dfd8af79af200aefcb51cac3e432a04439dd85ca86eeda4b",
+    "artifacts/proposed-target-weights.csv": "1eb65341e2479dbb5d1bd67dedbe2095ddd84bbe678e570941c99169d24edb88",
+    "inputs/dataset-files.json": "f8e57cd17a3aa185c616e3d2fe8dde51bb3b17c5531a4be428ce03c961c4993f",
+    "inputs/dependency-sources/strategies/factor-claim.json": "61981777bd8b81bf57dc05bb63b5df085eef018dd9e3d83593c511bf21637a83",
+    "inputs/dependency-sources/strategies/portfolio-mandate.json": "74e9ded83a8287df0f8df955b147960a3926c5bca176704a99f7d7feb0b5259b",
+    "inputs/dependency-sources/strategies/research-horizon.json": "ebf6fa40cbcbcdc18490439865e6a7de1a0322abc8853b528b3745bc5e70618d",
+    "inputs/identity.json": "4fbca10d4b07dd383ae36fbc76e5e1bf1485ffcc9412be4cbcfdfcaba93b8789",
+    "inputs/judge-sources/judges/ohlcv_portfolio.py": "f320cf4ace0206092a35b0459a5fa6704e997474206a5ce455a884325e82711d",
+    "inputs/judge-sources/judges/portfolio_core.py": "17ddff2421921cf940811f2f531ab81222eeb879d876764f6301ee70e2001406",
+    "inputs/program.md": "07b90bfb86c554b5228f772e49135d990c53bb640d915a90352ac8e40bb89518",
+    "inputs/study.json": "79d3567a5bb375fa79cb9993d73737c01c87bd8640d35cb92a37e25b6683cb78",
+    "judge-output.json": "66e392d7e0ffff95cb897233c0d22c46d80fd93c1e868cff7133dfb954e23a43",
+    "result.json": "7dd89848ec8057f19731098beeb937b4893877830aba4ccaa5750d69dc5afadf",
+    "sources/factors/candidate.py": "1e29d70f72ce3afaf3d018f9d60c77026148423f57b52fb22f55f8127679ba6a",
+    "stderr.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stdout.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "id": "run-20260731T162132298210Z-e541f48086ba",
+  "inputHash": "69811ba5c322469a0a944c2f08d32c4dab96eb4641d3a53f1a34fa1a32a01ac8",
+  "resultHash": "7dd89848ec8057f19731098beeb937b4893877830aba4ccaa5750d69dc5afadf",
+  "schemaVersion": 1,
+  "startedAt": "2026-07-31T16:21:32.298210+00:00",
+  "status": "succeeded"
+}

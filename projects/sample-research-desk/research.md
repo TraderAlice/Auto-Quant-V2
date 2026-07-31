@@ -31,11 +31,15 @@ contract. The current Factor Run
 `run-20260731T151103497628Z-f9adc26d1b95` was produced by the clean `0.9.2`
 candidate Harness at commit `1166a78` after the shared prediction-population
 contract was bound into all three Study lanes. No development execution is
-relabeled as a released version. The
+relabeled as a released version. The current Portfolio Run
+`run-20260731T162132298210Z-e541f48086ba` was produced by the clean `0.9.3`
+candidate Harness at commit `ed61378`. It preserves the complete mechanical
+loss-attribution chain and truthfully records that temporal translation-window
+stress is not applicable to this cross-sectional prediction population. The
 candidate declares only base-clock momentum because this sample dataset has no
 higher-interval feature surface. Studio uses the latest ordinary immutable Run
-as the current Factor Explorer. Portfolio and governed-RL baselines are
-deliberately absent.
+in each lane: the `0.9.2` Run for the Factor Explorer and the `0.9.3` Run for
+the Portfolio Explorer. A governed-RL baseline remains deliberately absent.
 
 ## Research brief and clarification
 
