@@ -527,8 +527,9 @@ or trading authority.
 `ohlcv-book-risk-lab` Run. Core verifies the frozen baseline and hypothetical
 scenario dependency, exact method and dataset description, Run metrics,
 component-risk and standardized-reduction tables, pair count and correlations,
-fixed lookbacks, every scenario metric/delta/rank and primary-window per-asset
-contribution change, the complete rolling path, and—on `0.8.19+` Runs—the
+fixed lookbacks, complete per-lookback reduction rankings on new Runs, every
+scenario metric/delta/rank and primary-window per-asset contribution change,
+the complete rolling path, and—on `0.8.19+` Runs—the
 static-weight equity path plus maximum-drawdown interval before sampling
 20–400 points.
 The human view identifies the largest component-risk contributor, first

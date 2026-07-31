@@ -226,6 +226,10 @@ One successful Run publishes:
 method and dataset description, metric reconciliation, contribution and
 reduction ordering, pair counts, rolling summaries, and cross-artifact
 identity before returning the bounded `book-risk-diagnostics` read model. For
+new Runs, every declared lookback in `book-risk-report.json` carries its full
+standardized reduction ranking. The primary-window CSV remains the compact
+tabular artifact, while the immutable report lets an Agent compare complete
+63/126/252-style ordering without recomputing evidence outside the Run. For
 drawdown it additionally rebuilds NAV, cumulative return, running peaks,
 per-row drawdown, the peak/trough/recovery interval, and the primary-window
 scalar from the immutable equity-path CSV. For

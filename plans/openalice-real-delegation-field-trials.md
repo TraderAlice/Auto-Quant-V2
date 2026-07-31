@@ -210,6 +210,21 @@ unsupported weights, provider-semantic relabelling, or trading claims fail.
   makes the sample's tracked deterministic fixture an explicit exception to
   ordinary Project data/cache ignores. Fresh-worker verification remains
   pending.
+- 2026-07-31 — A fourth fresh Grok 4.5 worker on commit `4525012` completed an
+  unauthenticated AVGO/AMD/TSM/SMH reported-book audit. It independently chose
+  the fixed Book Risk route, cross-checked 753 Yahoo and Nasdaq.com
+  split-adjusted sessions, ran one immutable Study, preserved no-trading
+  authority, and returned a useful crowding/sensitivity answer.
+- 2026-07-31 — The fourth worker proved both recurring guidance fixes:
+  `source.system` is `openalice` with every unavailable host id null, and its
+  commit contains durable contracts/Run/handoff but no ignored staging or
+  normalized market bytes.
+- 2026-07-31 — The Book Risk Run preserved only the first 63/126-session
+  reduction and the full 252-session ranking. Grok had to recompute the shorter
+  complete rankings outside the Run to answer the caller. `0.9.0` now embeds,
+  verifies, and projects the complete standardized ranking for every declared
+  lookback while retaining readability for older Runs. Fresh-worker
+  verification remains pending.
 
 ## Verification
 
@@ -244,6 +259,15 @@ unsupported weights, provider-semantic relabelling, or trading claims fail.
 - Independent Korean Event review:
   `../openalice-field-trials/cohort-03-kr-gap-event-v090/review.md`
   (external trial ledger, intentionally not a repository documentation link).
+- Grok 4.5 reported-book trial: one fixed Run completed in 313 ms, two public
+  provider routes agreed over 753 common sessions, one local research commit,
+  no Session, and no market-data bytes committed.
+- Independent reported-book review:
+  `../openalice-field-trials/cohort-04-us-semiconductor-book-v090/review.md`
+  (external trial ledger, intentionally not a repository documentation link).
+- Full per-lookback Book Risk ranking regression:
+  `.venv/bin/python -m unittest tests.test_book_risk_lab -v` — 16 tests passed
+  in 10.922 seconds, including an older Run without the new ranking surface.
 
 ## Completion
 

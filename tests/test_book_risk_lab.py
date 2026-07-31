@@ -758,6 +758,30 @@ class BookRiskLabTests(unittest.TestCase):
                     for row in diagnostics["lookbacks"]
                 )
             )
+            self.assertTrue(
+                all(
+                    [item["rank"] for item in row["reductionRanking"]]
+                    == [1, 2, 3, 4]
+                    for row in diagnostics["lookbacks"]
+                )
+            )
+            self.assertTrue(
+                all(
+                    row["reductionRanking"][0]["asset"]
+                    == row["firstReductionAsset"]
+                    for row in diagnostics["lookbacks"]
+                )
+            )
+            primary_lookback = next(
+                row
+                for row in diagnostics["lookbacks"]
+                if row["lookbackBars"]
+                == diagnostics["current"]["lookbackBars"]
+            )
+            self.assertEqual(
+                primary_lookback["reductionRanking"],
+                diagnostics["reductionPriority"],
+            )
             self.assertEqual(
                 diagnostics["authority"]["tradingAuthority"],
                 "none",
@@ -865,6 +889,7 @@ class BookRiskLabTests(unittest.TestCase):
             report["current"].pop("maximumDrawdown")
             for row in report["lookbacks"]:
                 row.pop("maximumDrawdown")
+                row.pop("reductionRanking")
             report_path.write_text(
                 json.dumps(report, indent=2, sort_keys=True) + "\n",
                 encoding="utf-8",
@@ -898,6 +923,12 @@ class BookRiskLabTests(unittest.TestCase):
             )
             self.assertFalse(diagnostics["drawdown"]["available"])
             self.assertFalse(diagnostics["equityPath"]["available"])
+            self.assertTrue(
+                all(
+                    "reductionRanking" not in row
+                    for row in diagnostics["lookbacks"]
+                )
+            )
             self.assertNotIn(
                 "book-risk-equity-path",
                 diagnostics["artifacts"],

@@ -1400,6 +1400,16 @@ def load_book_risk_diagnostics(
             "Lookback evidence differs from the declared method",
         )
     lookbacks: list[dict[str, Any]] = []
+    lookback_ranking_flags = [
+        "reductionRanking" in item for item in raw_lookbacks
+    ]
+    if any(lookback_ranking_flags) and not all(lookback_ranking_flags):
+        _fail(
+            f"{paths['book-risk-report']}/lookbacks",
+            "book-risk.lookback-reduction-rankings",
+            "Lookback reduction rankings must be present for every lookback",
+        )
+    has_lookback_rankings = all(lookback_ranking_flags)
     lookback_keys = {
         "lookbackBars",
         "observations",
@@ -1415,6 +1425,8 @@ def load_book_risk_diagnostics(
     }
     if not legacy:
         lookback_keys.add("maximumDrawdown")
+    if has_lookback_rankings:
+        lookback_keys.add("reductionRanking")
     for index, raw in enumerate(raw_lookbacks):
         item = _strict(
             raw,
@@ -1428,6 +1440,7 @@ def load_book_risk_diagnostics(
                 in {
                     "largestAbsoluteRiskContributor",
                     "firstReductionAsset",
+                    "reductionRanking",
                 }
                 else _finite(
                     item[key],
@@ -1436,6 +1449,72 @@ def load_book_risk_diagnostics(
             )
             for key in lookback_keys
         }
+        if has_lookback_rankings:
+            raw_ranking = parsed["reductionRanking"]
+            if (
+                not isinstance(raw_ranking, list)
+                or not raw_ranking
+                or not all(isinstance(row, dict) for row in raw_ranking)
+            ):
+                _fail(
+                    (
+                        f"{paths['book-risk-report']}/lookbacks/{index}/"
+                        "reductionRanking"
+                    ),
+                    "book-risk.lookback-reduction-ranking",
+                    "Lookback reduction ranking must be a non-empty list",
+                )
+            ranking: list[dict[str, Any]] = []
+            for ranking_index, raw_row in enumerate(raw_ranking):
+                row_path = (
+                    f"{paths['book-risk-report']}/lookbacks/{index}/"
+                    f"reductionRanking/{ranking_index}"
+                )
+                row = _strict(raw_row, set(REDUCTION_COLUMNS), row_path)
+                if (
+                    not isinstance(row["rank"], int)
+                    or isinstance(row["rank"], bool)
+                    or not isinstance(row["asset"], str)
+                    or not row["asset"]
+                ):
+                    _fail(
+                        row_path,
+                        "book-risk.lookback-reduction-row",
+                        "Lookback reduction row identity is invalid",
+                    )
+                ranking.append(
+                    {
+                        "rank": row["rank"],
+                        "asset": row["asset"],
+                        **{
+                            key: _finite(row[key], f"{row_path}/{key}")
+                            for key in REDUCTION_COLUMNS[2:]
+                        },
+                    }
+                )
+            if (
+                [row["rank"] for row in ranking]
+                != list(range(1, len(ranking) + 1))
+                or len({row["asset"] for row in ranking}) != len(ranking)
+                or any(
+                    ranking[position]["volatilityReductionPerWeight"]
+                    < ranking[position + 1][
+                        "volatilityReductionPerWeight"
+                    ]
+                    - 1e-12
+                    for position in range(len(ranking) - 1)
+                )
+                or ranking[0]["asset"] != parsed["firstReductionAsset"]
+            ):
+                _fail(
+                    (
+                        f"{paths['book-risk-report']}/lookbacks/{index}/"
+                        "reductionRanking"
+                    ),
+                    "book-risk.lookback-reduction-order",
+                    "Lookback reduction ranking is invalid",
+                )
+            parsed["reductionRanking"] = ranking
         if (
             parsed["observations"] != parsed["lookbackBars"]
             or parsed["annualizedVolatility"] <= 0
@@ -2138,6 +2217,15 @@ def load_book_risk_diagnostics(
             "book-risk.lookback-assets",
             "Lookback priority evidence names an unreported asset",
         )
+    if has_lookback_rankings and any(
+        set(item["asset"] for item in row["reductionRanking"]) != held_assets
+        for row in lookbacks
+    ):
+        _fail(
+            paths["book-risk-report"],
+            "book-risk.lookback-reduction-assets",
+            "Lookback reduction rankings differ from reported held assets",
+        )
     primary_lookback = next(
         (
             row
@@ -2152,6 +2240,10 @@ def load_book_risk_diagnostics(
         != contributions[0]["asset"]
         or primary_lookback["firstReductionAsset"]
         != reductions[0]["asset"]
+        or (
+            has_lookback_rankings
+            and primary_lookback["reductionRanking"] != reductions
+        )
     ):
         _fail(
             paths["book-risk-report"],

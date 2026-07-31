@@ -864,6 +864,7 @@ def main() -> None:
                     "firstReductionVolatilityPerWeight": window_reductions[0][
                         "volatilityReductionPerWeight"
                     ],
+                    "reductionRanking": window_reductions,
                 }
             )
         primary_lookback = int(scenarios["primaryLookbackBars"])
