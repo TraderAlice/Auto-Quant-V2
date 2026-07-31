@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha released as `v0.9.8`; `v0.8.31` remains the Harness
+Status: usable pre-alpha released as `v0.9.9`; `v0.8.31` remains the Harness
 currently consumed by OpenAlice until the host deliberately selects a newer
 tag.
 
@@ -17,6 +17,25 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 
 AutoQuant V2 has crossed the line from an architectural prototype into a
 usable Agent-native quantitative research workbench.
+
+The `0.9.9` patch revisits the unaccepted `0.9.0` Taiwan Factor assignment
+without changing its caller-owned data authority. A fresh installed `0.9.8`
+worker started with zero market data, declared official TWSE plus independent
+FinMind raw evidence as a gate, obtained the full FinMind peer panel, and hit
+TWSE's documented HTTP 307 security block. Unlike the earlier worker, it
+stopped at `UNSUPPORTED` before Project intake and produced no Run, Report, or
+single-provider factor interpretation.
+
+The provider route itself now preserves evidence that the worker previously
+had to reconstruct manually: `provider-failure.json`, a per-request attempt
+ledger, safe response headers, and exact error bodies are written before the
+process returns nonzero, beside the standard bounded route receipt. Cookies
+and other unapproved response headers are excluded; failure creates no dataset
+package or quantitative authority. TWSE raw comparison guidance names FinMind
+as the peer and keeps Yahoo split-adjusted history coverage-only. Acquisition
+remains demand-led, provider networking remains outside Core, and OpenAlice
+stays pinned to `0.8.31`. Exact trial evidence is recorded in
+[[plans/authority-gated-twse-factor-field-trial]].
 
 The `0.9.8` patch proves one completed Project can accept a related second
 fixed Book Risk question without overwriting its original intake or creating a

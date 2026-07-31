@@ -1,5 +1,5 @@
 ---
-version: 0.9.8
+version: 0.9.9
 ---
 
 # AutoQuant V2
@@ -32,12 +32,12 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current release: `v0.9.8`
+## Current release: `v0.9.9`
 
 AutoQuant V2 has crossed from an architectural prototype into a usable
 research workbench.
 
-`v0.9.8` is the current AutoQuant release. `v0.8.31` remains the Harness
+`v0.9.9` is the current AutoQuant release. `v0.8.31` remains the Harness
 currently consumed by OpenAlice until the host deliberately selects the newer
 tag; this is version provenance, not an automatic Workspace-migration promise.
 The minor-version boundary marks the next phase: improve the real delegated-
@@ -45,6 +45,30 @@ research loop from OpenAlice request through AutoQuant evidence handoff without
 weakening standalone Workspace operation or prematurely freezing a
 host-specific API. Bounded follow-up work defaults to patch releases within
 the `0.9.x` line.
+
+`v0.9.9` retries the previously rejected Taiwan Factor delegation as a strict
+data-authority test. A fresh zero-data `0.9.8` coworker wrote the research
+brief first, attempted official TWSE and FinMind raw routes, preserved the
+official HTTP 307 security block and complete FinMind peer package, and stopped
+at `UNSUPPORTED` with no Project intake, Run, Report, or single-provider factor
+claim. This closes the earlier worker-compliance defect without weakening the
+caller's official-plus-peer requirement.
+
+The bounded Skill repair makes official-provider failure evidence automatic.
+`fetch-twse-ohlcv` now preserves a provider-level failure receipt, every
+request attempt, selected non-secret response headers, and exact HTTP error
+bodies before returning nonzero; the common route receipt remains alongside
+it. The same-raw peer guidance now points to FinMind, while Yahoo remains
+explicitly split-adjusted coverage context. No central downloader, cache,
+fallback substitution, or new research authority was added. OpenAlice remains
+intentionally pinned to `0.8.31`. See
+[[plans/authority-gated-twse-factor-field-trial]] and
+[[docs/design/agent-native-market-data-acquisition]].
+
+Final installed-worker and release verification are recorded in the completed
+plan.
+
+### `v0.9.8`
 
 `v0.9.8` proves a Project is an evolving body of research rather than a
 one-request container. A fresh installed `0.9.7` coworker correctly continued
