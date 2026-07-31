@@ -18,7 +18,9 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-None.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/temporal-factor-component-diagnostics]] | Give single-asset temporal and two-asset relative-value Factor research complete declared-component diagnosis across immutable evidence, Explorer, agenda, and Studio, then prove the `0.9.1` candidate with a fresh Grok 4.5 multi-interval assignment. | 2026-07-31 |
 
 ## Proposed plans
 
