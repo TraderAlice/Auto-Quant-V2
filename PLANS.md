@@ -18,7 +18,9 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-None.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/demand-led-market-data-field-trial]] | Prove a fresh coworker can turn a caller question and zero staged OHLCV into truthful two-route acquisition, strict task-local intake, fixed Event evidence, and a bounded handoff. | 2026-08-01 |
 
 ## Proposed plans
 
