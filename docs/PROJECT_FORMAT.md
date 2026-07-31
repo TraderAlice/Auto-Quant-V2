@@ -1042,6 +1042,13 @@ An older Report remains valid when a Session later adds evidence. Rewriting a
 conclusion requires a new immutable Report. Report authority is
 `quantitative-decision-support`; `tradingAuthority` is always `none`.
 
+For a Project-owned Run Report, “exact request” means the request frozen by the
+Run. Primary Studies use verified Project intake. Independently fixed Book Risk
+follow-ups use their Study-owned `request.json` plus the corresponding position
+snapshot from immutable Run dependency sources. Core verifies the
+snapshot/request hash relationship before publishing or loading the Report, so
+multiple Study questions can coexist without rewriting Project-root authority.
+
 ## Immutable Project Research Dossier
 
 A request-driven canonical Research Program can compose verified lane Reports

@@ -28,6 +28,7 @@ from autoquant.position_snapshots import (
     load_position_snapshot,
 )
 from autoquant.runs import execute_study
+from autoquant.run_reports import load_run_report, publish_run_report
 from autoquant.sessions import start_session
 from autoquant.studies import hash_file, load_study
 from autoquant.studio import build_studio_snapshot
@@ -220,6 +221,33 @@ def _book_entry_sizing_request(
         json.dumps(request, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+
+
+def _book_report_analysis(run_id: str, title: str) -> dict:
+    reference = {
+        "kind": "run",
+        "id": run_id,
+        "artifactPath": "artifacts/book-risk-report.json",
+    }
+    return {
+        "schemaVersion": 1,
+        "kind": "autoquant-research-report-analysis",
+        "title": title,
+        "executiveSummary": (
+            "The fixed Book Risk Run provides bounded historical evidence."
+        ),
+        "findings": [
+            {
+                "id": "fixed-book-risk-evidence",
+                "claim": "The conclusion is anchored to one immutable Run.",
+                "confidence": "high",
+                "evidenceRefs": [reference],
+            }
+        ],
+        "recommendations": [],
+        "limitations": ["This evidence grants no trading authority."],
+        "unresolvedQuestions": [],
+    }
 
 
 def _rehash_run(run_root: Path) -> None:
@@ -1125,6 +1153,15 @@ class BookRiskLabTests(unittest.TestCase):
             root = Path(directory)
             project = self._real_project(root)
             original_run = execute_study(project, BOOK_RISK_STUDY_ID)
+            original_report = publish_run_report(
+                project,
+                BOOK_RISK_STUDY_ID,
+                original_run.result["id"],
+                _book_report_analysis(
+                    original_run.result["id"],
+                    "Original Book Risk conclusion",
+                ),
+            )
             original_diagnostics = load_book_risk_diagnostics(
                 project,
                 original_run.result["id"],
@@ -1136,6 +1173,7 @@ class BookRiskLabTests(unittest.TestCase):
                 project.root_dir / "strategies" / "position-snapshot.json",
                 project.root_dir / "studies" / BOOK_RISK_STUDY_ID,
                 original_run.root_dir,
+                original_report.root_dir,
             ]
             original_hashes = {
                 path.relative_to(project.root_dir).as_posix(): hash_file(path)
@@ -1197,6 +1235,35 @@ class BookRiskLabTests(unittest.TestCase):
                 ],
                 ["fund-aapl-from-nvda", "fund-msft-from-nvda"],
             )
+            follow_up_report = publish_run_report(
+                project,
+                "scenario-follow-up",
+                follow_up_run.result["id"],
+                _book_report_analysis(
+                    follow_up_run.result["id"],
+                    "Scenario follow-up conclusion",
+                ),
+            )
+            self.assertEqual(
+                follow_up_report.report["request"]["title"],
+                "Compare two retained-book reallocations",
+            )
+            self.assertEqual(
+                [
+                    item["id"]
+                    for item in follow_up_report.report["request"][
+                        "positionScenarios"
+                    ]
+                ],
+                ["fund-aapl-from-nvda", "fund-msft-from-nvda"],
+            )
+            self.assertEqual(
+                load_run_report(
+                    project,
+                    original_report.report["id"],
+                ).report["request"]["title"],
+                "US leadership durability",
+            )
             self.assertEqual(
                 load_book_risk_diagnostics(
                     project,
@@ -1212,6 +1279,7 @@ class BookRiskLabTests(unittest.TestCase):
                     relative,
                 )
             studio = build_studio_snapshot(project.root_dir)["projects"][0]
+            self.assertEqual(studio["counts"]["reports"], 2)
             self.assertEqual(
                 studio["bookRiskExplorer"]["run"]["id"],
                 follow_up_run.result["id"],

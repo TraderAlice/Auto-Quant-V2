@@ -866,3 +866,15 @@ Do not include this sibling section.
                 [item["id"] for item in brief["supportingActions"]],
                 ["study.inspect", "study.inspect"],
             )
+            self.assertEqual(
+                brief["researchAgenda"]["status"],
+                "waiting-evidence",
+            )
+            self.assertIn(
+                "evidence remains available",
+                brief["researchAgenda"]["reason"],
+            )
+            self.assertNotIn(
+                "No current successful verified Run",
+                brief["researchAgenda"]["reason"],
+            )

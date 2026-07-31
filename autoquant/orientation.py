@@ -1748,6 +1748,20 @@ def build_agent_work_brief(project: ProjectContext) -> dict[str, Any]:
             ),
         )
         if holdout is not None
+        else waiting_research_agenda(
+            None,
+            reason=(
+                f"The Project has {len(studies)} independent fixed Studies. "
+                "Their evidence remains available, but one Study must be "
+                "selected explicitly before AutoQuant can project a current "
+                "research agenda."
+            ),
+        )
+        if (
+            len(studies) > 1
+            and projected["focus"]["scientificStage"]
+            == "study-selection-required"
+        )
         else descriptive_audit_agenda(
             project,
             agenda_run_id,

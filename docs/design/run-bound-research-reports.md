@@ -1,6 +1,7 @@
 # Run-bound Research Reports
 
-Status: implemented in `0.9.5`.
+Status: implemented in `0.9.5`; Study-owned follow-up request binding added in
+`0.9.8`.
 
 Related: [[docs/design/quant-research-lifecycle]],
 [[docs/design/research-session-loop]],
@@ -54,6 +55,15 @@ identifiers remain globally unique within a Project.
 The frozen evidence contains the exact Run projection, selection-integrity
 snapshot at publication time, and derived leader decision support. It contains
 no Experiment or Campaign catalog and cannot cite those evidence kinds.
+
+The Report request follows immutable Run authority, not merely Project-root
+intake. A primary Study freezes the Project request. A same-Project fixed
+follow-up may instead freeze a Study-owned request and its corresponding
+position snapshot beneath the Run dependency sources. Publication and loading
+verify that the snapshot request hash matches that frozen request, then use it
+in both `report.json` and Report identity. Older and newer Studies can therefore
+answer different questions over one retained dataset without relabeling either
+Report.
 
 ## Shared Report anchor
 

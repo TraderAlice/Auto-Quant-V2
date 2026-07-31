@@ -456,6 +456,9 @@ Project-root request, original Study, Runs, and Reports untouched. The result
 is another fixed descriptive Study with no editable candidate or Session. A
 different universe, roles, clock, range, or dataset meaning requires acquiring
 task-complete data for a new Project instead of stretching the old snapshot.
+When the follow-up Run is published directly, its Research Report binds the
+Study-owned request frozen inside that Run; it does not inherit the original
+Project-root request merely because both Studies share one Project.
 
 `--dataset-path` is optional and repeatable. When provided it is relative to
 the selected Project's `data/` directory and binds matching file bytes into

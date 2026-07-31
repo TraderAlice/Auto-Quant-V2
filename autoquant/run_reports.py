@@ -9,12 +9,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .book_risk_studies import BOOK_RISK_STUDY_SOURCES
+from .briefs import load_research_request
 from .decision_support import (
     build_leader_decision_support,
     summarize_leader_decision_support,
     verify_leader_decision_support,
 )
 from .intake import load_project_intake
+from .position_snapshots import validate_position_snapshot
 from .reports import (
     REPORT_ANALYSIS,
     REPORT_ID,
@@ -215,6 +218,59 @@ def _evidence(
     return evidence, {("run", run.result["id"]): projection}
 
 
+def _request_for_run(
+    run,
+    intake: dict[str, Any],
+) -> tuple[dict[str, Any], str]:
+    """Resolve request authority from immutable Run inputs when Study-owned."""
+
+    study_id = run.result["study"]["id"]
+    relative = f"{BOOK_RISK_STUDY_SOURCES}/{study_id}/request.json"
+    dependencies = run.result.get("dependencies")
+    source_hashes = (
+        dependencies.get("sourceHashes")
+        if isinstance(dependencies, dict)
+        else None
+    )
+    if isinstance(source_hashes, dict) and relative in source_hashes:
+        path = run.root_dir / "inputs" / "dependency-sources" / relative
+        request = load_research_request(path)
+        request_hash = hash_json(request)
+        snapshot_relative = (
+            f"{BOOK_RISK_STUDY_SOURCES}/{study_id}/position-snapshot.json"
+        )
+        if snapshot_relative not in source_hashes:
+            raise AutoQuantValidationError(
+                [
+                    _issue(
+                        run.root_dir,
+                        "report.request-snapshot",
+                        "Study-owned request lacks its fixed position snapshot",
+                    )
+                ]
+            )
+        snapshot_path = (
+            run.root_dir
+            / "inputs"
+            / "dependency-sources"
+            / snapshot_relative
+        )
+        snapshot = _read_json(snapshot_path, "position snapshot")
+        validate_position_snapshot(snapshot, snapshot_path)
+        if snapshot["source"]["requestHash"] != request_hash:
+            raise AutoQuantValidationError(
+                [
+                    _issue(
+                        path,
+                        "report.request-snapshot",
+                        "Study-owned request differs from its fixed position snapshot",
+                    )
+                ]
+            )
+        return request, request_hash
+    return intake["request"], intake["manifest"]["requestHash"]
+
+
 def _label(reference: dict[str, Any]) -> str:
     label = f"{reference['kind']}:{reference['id']}"
     if reference["artifactPath"] is not None:
@@ -331,6 +387,7 @@ def publish_run_report(
 ) -> ReportContext:
     normalized = validate_report_analysis(analysis)
     anchor, _study, run, intake = _anchor(project, study_id, run_id)
+    request, request_hash = _request_for_run(run, intake)
     published = datetime.now(timezone.utc)
     published_at = published.isoformat()
     evidence, catalog = _evidence(project, run, published_at=published_at)
@@ -340,7 +397,7 @@ def publish_run_report(
     identity = hash_json(
         {
             "anchor": anchor,
-            "requestHash": intake["manifest"]["requestHash"],
+            "requestHash": request_hash,
             "analysisHash": analysis_hash,
             "evidenceHash": evidence_hash,
             "publishedAt": published_at,
@@ -363,7 +420,7 @@ def publish_run_report(
         "publishedAt": published_at,
         "project": {"id": project.manifest.id, "name": project.manifest.name},
         "anchor": anchor,
-        "request": intake["request"],
+        "request": request,
         "harness": run.result["harness"],
         "analysisHash": analysis_hash,
         "evidenceHash": evidence_hash,
@@ -476,8 +533,18 @@ def _validate_result(
         if report.get("harness") != run.result["harness"]:
             issues.append(_issue(f"{path}/harness", "report.harness", "Report Harness differs from Run"))
     intake = load_project_intake(project)
-    if intake is None or report.get("request") != intake["request"]:
-        issues.append(_issue(f"{path}/request", "report.request", "Report request differs from Project intake"))
+    request = None
+    request_hash = None
+    if intake is not None and run is not None:
+        request, request_hash = _request_for_run(run, intake)
+    if request is None or report.get("request") != request:
+        issues.append(
+            _issue(
+                f"{path}/request",
+                "report.request",
+                "Report request differs from its immutable Run authority",
+            )
+        )
     try:
         normalized = validate_report_analysis(report.get("analysis"), f"{path}/analysis")
         if hash_json(normalized) != report.get("analysisHash"):
@@ -491,7 +558,11 @@ def _validate_result(
     if not isinstance(evidence, dict) or hash_json(evidence) != report.get("evidenceHash"):
         issues.append(_issue(f"{path}/evidenceHash", "report.evidence-hash", "Evidence hash mismatch"))
     published_at = report.get("publishedAt")
-    if isinstance(published_at, str) and isinstance(anchor, dict) and intake is not None:
+    if (
+        isinstance(published_at, str)
+        and isinstance(anchor, dict)
+        and request_hash is not None
+    ):
         try:
             published = datetime.fromisoformat(published_at)
             if published.utcoffset() is None or published.utcoffset().total_seconds() != 0:
@@ -499,7 +570,7 @@ def _validate_result(
             identity = hash_json(
                 {
                     "anchor": anchor,
-                    "requestHash": intake["manifest"]["requestHash"],
+                    "requestHash": request_hash,
                     "analysisHash": report.get("analysisHash"),
                     "evidenceHash": report.get("evidenceHash"),
                     "publishedAt": published_at,

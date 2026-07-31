@@ -126,6 +126,15 @@ the caller question may not be narrowed or silently mixed across snapshots.
   evolving Project notes are intentionally mutable. Preservation applies to
   fixed authorities and immutable evidence, not to truthful append-only
   research and framework-needs logs.
+- 2026-08-01 — The first installed `0.9.8` worker completed the new Study, Run,
+  and Report and preserved the original evidence, but revealed that direct
+  Reports still copied the Project-root request. Report publication and loading
+  now resolve request authority from immutable Run inputs and verify the
+  Study-owned request against its frozen position snapshot.
+- 2026-08-01 — Multiple independent fixed Studies still require explicit
+  selection; AutoQuant must not guess their order. Orientation now states that
+  their evidence remains available instead of incorrectly claiming that no
+  successful verified Run exists.
 
 ## Verification
 
@@ -140,6 +149,10 @@ Pending.
   original fixed evidence, and stopped honestly after one failed Run proved
   the singleton Book Risk input defect. Transcript and filesystem evidence
   are retained in `cohort-14-same-project-book-risk-followup-v097`.
+- 2026-08-01 — Source-checkout smoke created an independent follow-up Study,
+  successful Run, and direct Report while all 47 original files remained
+  unchanged. The first installed-wheel replay then exposed and reproduced the
+  Report request-binding defect before release.
 
 ## Completion
 
