@@ -118,18 +118,21 @@ brief that another Agent can recover from the filesystem.
    literally: `optional-follow-up` preserves useful evidence-derived ideas but
    does not authorize or require another Session or Experiment.
 
-When the assignment requires market data that is not already staged, use the
-Workspace's `$acquire-market-ohlcv` Skill after the research question fixes
-the venue, assets, completed-bar interval, date range, research clock, and
-required adjustment meaning. Read only its relevant market reference, then
-use at least two suitable provider routes for an accepted market. Preserve
-exact provider bytes and audits under Workspace staging; compare numerically
-only when price contracts match; select a route by the task's authority,
-freshness, history, and observed quality rather than a global primary/fallback
-rule. Run `$package-autoquant-ohlcv` and strict intake before treating data as
-Project authority. Never download directly into `projects/`, relabel raw and
-adjusted series, fill provider placeholders silently, or claim that an
-unofficial route is exchange truth. See
+When the assignment requires market data, use the Workspace's
+`$acquire-market-ohlcv` Skill after the research question fixes the venue,
+assets, completed-bar interval, date range, research clock, and required
+adjustment meaning. Local staging is only a possible source; never shrink or
+reshape the question around available inventory. Verify the complete current
+contract and acquire or complete one task-coherent package whenever coverage
+or alignment is uncertain, even if that duplicates prior bytes. Read only the
+relevant market reference, then use at least two suitable provider routes for
+an accepted market. Preserve exact provider bytes and audits under Workspace
+staging; compare numerically only when price contracts match; select a route
+by the task's authority, freshness, history, and observed quality rather than
+a global primary/fallback rule. Run `$package-autoquant-ohlcv` and strict
+intake before treating data as Project authority. Never download directly
+into `projects/`, relabel raw and adjusted series, fill provider placeholders
+silently, or claim that an unofficial route is exchange truth. See
 [[docs/design/agent-native-market-data-acquisition]].
 
 Read `selectionIntegrity.testExposureState` literally. The first candidate is

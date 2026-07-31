@@ -31,6 +31,25 @@ OHLCV invariants, market clocks, interval semantics, and content identity. It
 does not authenticate a provider's venue, adjustment, volume, calendar,
 terms, or redistribution claim.
 
+## Demand-led dataset principle
+
+Available local data never defines the research question. The caller's
+question first determines the complete universe, context assets, interval,
+history, market clock, and adjustment contract; acquisition then supplies one
+internally coherent snapshot for that exact need.
+
+Previously staged bytes are only a possible input source. An Agent must still
+verify that they satisfy the complete current contract. It must not shrink a
+universe, shorten a horizon, omit context, mix incompatible vintages, or
+otherwise reshape research around local inventory. When coverage is partial
+or alignment is uncertain, acquiring or completing the task-specific package
+is preferable to preserving download reuse.
+
+The reusable Workbench assets are provider-selection knowledge, acquisition
+Skills, audit procedures, packaging rules, and immutable dataset identity—not
+a centrally curated stock of supposedly universal market data. This keeps
+research demand-led while preserving exact evidence for each Run.
+
 ## Canonical Skill bundle
 
 Canonical Skill bytes live under `autoquant/workspace_skills/` and ship in the
@@ -101,7 +120,7 @@ an explicit caller request govern any deliberately distributable data fixture.
 Changing markets does not require a new Workspace. Separate research
 questions normally become sibling Projects; their immutable snapshots may
 currently duplicate bytes. A shared mutable “latest data” cache is not part of
-this contract.
+this contract, and duplicate task-coherent snapshots are acceptable.
 
 ## Failure behavior
 
