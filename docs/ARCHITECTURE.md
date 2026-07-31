@@ -489,6 +489,8 @@ cannot own Workspace, Project, or evidence semantics.
   [[docs/design/research-intake-and-dataset-snapshots]]
 - Agent-native market-data acquisition:
   [[docs/design/agent-native-market-data-acquisition]]
+- Prediction-mode Factor-to-target translation:
+  [[docs/design/prediction-mode-target-weight-translation]]
 - Evidence-gated Research Program progression:
   [[docs/design/evidence-gated-research-progression]]
 - Governed RL Factor-Policy Lab design:

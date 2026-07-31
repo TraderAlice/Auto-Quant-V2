@@ -611,7 +611,7 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                 )
             self.assertEqual(sorted(observed_versions), [1, 2, 3, 4, 5])
 
-    def test_complete_pre_factor_claim_intake_remains_valid(self) -> None:
+    def test_research_desk_rejects_pre_factor_claim_intake(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             request_path, package_path = write_intake_inputs(root)
@@ -628,7 +628,6 @@ class RequestDrivenIntakeTests(unittest.TestCase):
             )
 
             claim_path = project.root_dir / FACTOR_CLAIM
-            claim_bytes = claim_path.read_bytes()
             study_path = (
                 project.root_dir
                 / "studies"
@@ -653,16 +652,11 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            loaded = load_project_intake(project)
-            self.assertTrue(loaded["study"]["current"])
-
-            claim_path.write_bytes(claim_bytes)
-            with self.assertRaises(AutoQuantValidationError) as captured:
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "strategies/factor-claim.json",
+            ):
                 load_project_intake(project)
-            self.assertIn(
-                "intake.factor-claim-dependency",
-                {issue.code for issue in captured.exception.issues},
-            )
 
     def test_request_predeclares_and_locks_known_style_claim(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

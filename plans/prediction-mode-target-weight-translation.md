@@ -3,7 +3,8 @@
 - Status: `active`
 - Updated: `2026-07-31`
 - Target release: `0.9.2`
-- Related design: [[docs/design/factor-evidence-explorer]],
+- Related design: [[docs/design/prediction-mode-target-weight-translation]],
+  [[docs/design/factor-evidence-explorer]],
   [[docs/design/request-bound-portfolio-mandates]],
   [[plans/mechanical-signal-policy-and-attribution]], and
   [[plans/temporal-factor-component-diagnostics]].

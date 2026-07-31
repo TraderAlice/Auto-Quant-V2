@@ -1,5 +1,5 @@
 ---
-version: 0.9.1
+version: 0.9.2
 ---
 
 # AutoQuant V2
@@ -32,12 +32,12 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current release: `v0.9.1`
+## Current release: `v0.9.2`
 
 AutoQuant V2 has crossed from an architectural prototype into a usable
 research workbench.
 
-`v0.9.1` is the current AutoQuant release. `v0.8.31` remains the Harness
+`v0.9.2` is the current AutoQuant release. `v0.8.31` remains the Harness
 currently consumed by OpenAlice until the host deliberately selects the newer
 tag; this is version provenance, not an automatic Workspace-migration promise.
 The minor-version boundary marks the next phase: improve the real delegated-
@@ -45,6 +45,19 @@ research loop from OpenAlice request through AutoQuant evidence handoff without
 weakening standalone Workspace operation or prematurely freezing a
 host-specific API. Bounded follow-up work defaults to patch releases such as
 `v0.9.1`, `v0.9.2`, and onward.
+
+`v0.9.2` makes the Factor-to-target-weight boundary prediction-mode aware.
+Cross-sectional research ranks only its true prediction population;
+single-asset timing uses a causal 60-observation own-history percentile with
+20 observations required; and two-asset relative value uses the caller-ordered
+factor spread with exact complementary leg scores. Context-only assets remain
+available to editable factor construction but receive no fixed decision score
+or target weight. Portfolio and governed RL now bind the same Factor claim,
+prediction population, and immutable translation contract, while strict
+Explorers recompute and reject rehashed score or role tampering. This remains
+target-weight research with no Order, Broker, TPSL, account, or trading
+authority. See
+[[docs/design/prediction-mode-target-weight-translation]].
 
 `v0.9.1` makes explicit Factor-component evidence useful in every supported
 prediction mode. Cross-sectional Runs retain per-date rank IC, while

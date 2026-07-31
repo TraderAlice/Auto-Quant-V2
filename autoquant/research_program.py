@@ -55,6 +55,7 @@ CANONICAL_LANES: tuple[dict[str, Any], ...] = (
         "dependsOn": ["factor"],
         "editablePaths": ["factors/**"],
         "dependencyPaths": [
+            "strategies/factor-claim.json",
             "strategies/portfolio-mandate.json",
             "strategies/research-horizon.json",
         ],
@@ -69,6 +70,7 @@ CANONICAL_LANES: tuple[dict[str, Any], ...] = (
         "editablePaths": ["models/**"],
         "dependencyPaths": [
             "factors/**",
+            "strategies/factor-claim.json",
             "strategies/portfolio-mandate.json",
             "strategies/research-horizon.json",
         ],

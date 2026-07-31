@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha released as `v0.9.1`; `v0.8.31` remains the Harness
+Status: usable pre-alpha released as `v0.9.2`; `v0.8.31` remains the Harness
 currently consumed by OpenAlice until the host deliberately selects a newer
 tag.
 
@@ -17,6 +17,15 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 
 AutoQuant V2 has crossed the line from an architectural prototype into a
 usable Agent-native quantitative research workbench.
+
+The `0.9.2` patch gives every supported Factor prediction mode one causal,
+request-bound path into mechanical target-weight research. Cross-sectional
+signals exclude context-only assets, single-asset timing ranks only its own
+causal history, and two-asset relative value ranks the caller-ordered spread
+into exact complementary leg scores. Factor, Portfolio, and governed RL bind
+the same Factor claim and prediction population; decision artifacts,
+Explorers, and Studio disclose and strictly reconcile that contract. The
+boundary remains historical target weights with no Order or trading authority.
 
 The `0.9.1` patch generalizes candidate-declared Factor component evidence to
 single-asset temporal and two-asset relative-value evaluation. Temporal Runs

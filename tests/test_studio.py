@@ -550,9 +550,10 @@ class StudioObservationTests(unittest.TestCase):
                         javascript,
                     )
                     self.assertIn(
-                        "Current cross-sectional percentile buffers",
+                        "Same-timestamp percentile across prediction assets only",
                         javascript,
                     )
+                    self.assertIn("Causal own-history percentile", javascript)
                     self.assertIn("NO-TRADE HOLD", javascript)
                     self.assertIn("Authorized positions", javascript)
                     self.assertIn("syncEvidenceSelection", javascript)
