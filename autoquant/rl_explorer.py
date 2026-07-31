@@ -10,6 +10,7 @@ from itertools import combinations
 from pathlib import Path
 from typing import Any
 
+from .factor_claims import FACTOR_CLAIM, validate_factor_claim
 from .horizons import (
     RESEARCH_HORIZON,
     RESEARCH_HORIZON_JSON_SCHEMA,
@@ -19,6 +20,11 @@ from .intervals import annualization_periods, timestamp_label
 from .mandates import (
     PORTFOLIO_MANDATE,
     validate_portfolio_mandate,
+)
+from .prediction_modes import (
+    PredictionModeError,
+    resolve_prediction_population,
+    signal_translation_contract,
 )
 from .runs import RunContext, load_run
 from .workspace import (
@@ -5109,6 +5115,66 @@ def load_rl_diagnostics(
             "riskPolicy": construction["riskPolicy"],
             "implementationPolicy": implementation,
         }
+    raw_factor_claim = metrics.get("factor_claim")
+    raw_prediction_population = metrics.get("prediction_universe")
+    raw_signal_translation = metrics.get("signal_translation")
+    if (
+        not isinstance(raw_factor_claim, dict)
+        or report.get("factorClaim") != raw_factor_claim
+        or not isinstance(raw_mandate, dict)
+    ):
+        _fail(
+            "RunResult/metrics/factor_claim",
+            "rl.factor-claim",
+            "RL Run and report must bind one identical Factor claim",
+        )
+    factor_claim = validate_factor_claim(
+        raw_factor_claim,
+        "RunResult/metrics/factor_claim",
+    )
+    try:
+        expected_population = resolve_prediction_population(
+            list(run.result["dataset"]["universe"]),
+            factor_claim,
+            raw_mandate,
+        ).as_metrics()
+        expected_translation = signal_translation_contract(
+            expected_population
+        )
+    except PredictionModeError as error:
+        _fail(
+            "RunResult/metrics/prediction_universe",
+            error.code,
+            str(error),
+        )
+    if (
+        raw_prediction_population != expected_population
+        or report.get("predictionUniverse") != expected_population
+    ):
+        _fail(
+            "RunResult/metrics/prediction_universe",
+            "rl.prediction-universe",
+            "RL prediction population differs from fixed request authority",
+        )
+    if (
+        raw_signal_translation != expected_translation
+        or report.get("signalTranslation") != expected_translation
+    ):
+        _fail(
+            "RunResult/metrics/signal_translation",
+            "rl.signal-translation",
+            "RL signal translation differs from fixed prediction-mode semantics",
+        )
+    if (
+        not isinstance(dependencies, dict)
+        or FACTOR_CLAIM not in dependencies.get("paths", [])
+        or FACTOR_CLAIM not in dependencies.get("sourceHashes", {})
+    ):
+        _fail(
+            "RunResult/dependencies",
+            "rl.factor-claim-dependency",
+            "RL Run does not bind its fixed Factor claim",
+        )
     raw_horizon = metrics.get("research_horizon")
     if (
         not isinstance(raw_horizon, dict)
@@ -5218,6 +5284,42 @@ def load_rl_diagnostics(
         "harness": run.result["harness"],
         "artifacts": artifacts,
         "portfolioMandate": mandate_projection,
+        "predictionUniverse": {
+            "authority": expected_population["authority"],
+            "evaluationMode": expected_population["evaluation_mode"],
+            "researchAssets": expected_population["research_assets"],
+            "predictionAssets": expected_population["prediction_assets"],
+            "contextAssets": expected_population["context_assets"],
+            "assetPositionRoles": expected_population[
+                "asset_position_roles"
+            ],
+            "relativeValuePair": expected_population[
+                "relative_value_pair"
+            ],
+            "tradingAuthority": expected_population["trading_authority"],
+        },
+        "signalTranslation": {
+            "method": expected_translation["method"],
+            "evaluationMode": expected_translation["evaluation_mode"],
+            "predictionAssets": expected_translation["prediction_assets"],
+            "contextAssets": expected_translation["context_assets"],
+            "authority": expected_translation["authority"],
+            "scoreBasis": expected_translation["score_basis"],
+            "windowObservations": expected_translation[
+                "window_observations"
+            ],
+            "minimumObservations": expected_translation[
+                "minimum_observations"
+            ],
+            "relativeValuePair": expected_translation[
+                "relative_value_pair"
+            ],
+            "contextScore": expected_translation["context_score"],
+            "selectionAuthority": expected_translation[
+                "selection_authority"
+            ],
+            "tradingAuthority": expected_translation["trading_authority"],
+        },
         "researchHorizon": research_horizon,
         "decisionCadence": {
             **mandate_projection["implementationPolicy"][
@@ -5737,6 +5839,8 @@ RL_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "harness",
         "artifacts",
         "portfolioMandate",
+        "predictionUniverse",
+        "signalTranslation",
         "researchHorizon",
         "decisionCadence",
         "policyBehavior",
@@ -5764,6 +5868,36 @@ RL_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "harness": {"type": "object"},
         "artifacts": {"type": "object"},
         "portfolioMandate": {"type": "object"},
+        "predictionUniverse": {
+            "type": "object",
+            "required": [
+                "authority",
+                "evaluationMode",
+                "researchAssets",
+                "predictionAssets",
+                "contextAssets",
+                "assetPositionRoles",
+                "relativeValuePair",
+                "tradingAuthority",
+            ],
+        },
+        "signalTranslation": {
+            "type": "object",
+            "required": [
+                "method",
+                "evaluationMode",
+                "predictionAssets",
+                "contextAssets",
+                "authority",
+                "scoreBasis",
+                "windowObservations",
+                "minimumObservations",
+                "relativeValuePair",
+                "contextScore",
+                "selectionAuthority",
+                "tradingAuthority",
+            ],
+        },
         "researchHorizon": RESEARCH_HORIZON_JSON_SCHEMA,
         "decisionCadence": {
             "type": "object",

@@ -3746,7 +3746,13 @@ def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
             )
     factor_claim_studies = {
         "ohlcv-factor-lab": ("ohlcv-factor-quality",),
-        "ohlcv-research-desk": ("ohlcv-factor-quality",),
+        "ohlcv-portfolio-lab": ("ohlcv-portfolio-quality",),
+        "ohlcv-rl-factor-lab": ("ohlcv-rl-factor-policy",),
+        "ohlcv-research-desk": (
+            "ohlcv-factor-quality",
+            "ohlcv-portfolio-quality",
+            "ohlcv-rl-factor-policy",
+        ),
     }.get(manifest.get("template"), ())
     factor_claim_path = project.root_dir / FACTOR_CLAIM
     factor_claim_present = (

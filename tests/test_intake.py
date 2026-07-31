@@ -2871,6 +2871,7 @@ def compute_factor(panel: pd.DataFrame) -> pd.Series:
                 study.definition.dependencies,
                 {
                     "paths": [
+                        FACTOR_CLAIM,
                         PORTFOLIO_MANDATE,
                         RESEARCH_HORIZON,
                     ]

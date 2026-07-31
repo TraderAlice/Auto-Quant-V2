@@ -32,6 +32,14 @@ from autoquant.mandates import (
     PORTFOLIO_MANDATE,
     load_portfolio_mandate,
 )
+from autoquant.prediction_modes import (
+    CROSS_SECTIONAL_MODE,
+    SINGLE_ASSET_TEMPORAL_MODE,
+    TEMPORAL_EVALUATION_MODES,
+    TWO_ASSET_RELATIVE_VALUE_MODE,
+    PredictionModeError,
+    resolve_prediction_population,
+)
 from autoquant.horizons import (
     RESEARCH_HORIZON,
     load_research_horizon,
@@ -61,13 +69,6 @@ REQUIRED_COLUMNS = ("timestamp", "open", "high", "low", "close", "volume")
 MIN_ASSETS_PER_DATE = 4
 MIN_IC_DATES_PER_SPLIT = 20
 PRIMARY_HORIZON = 1
-CROSS_SECTIONAL_MODE = "cross-sectional"
-SINGLE_ASSET_TEMPORAL_MODE = "single-asset-temporal"
-TWO_ASSET_RELATIVE_VALUE_MODE = "two-asset-relative-value"
-TEMPORAL_EVALUATION_MODES = {
-    SINGLE_ASSET_TEMPORAL_MODE,
-    TWO_ASSET_RELATIVE_VALUE_MODE,
-}
 TEMPORAL_QUALIFICATION_METHOD = (
     "request-claim-aware-one-style-temporal-neutralization-v1"
 )
@@ -130,68 +131,20 @@ def _load_prediction_universe(
             "prediction-universe.contract",
             f"Invalid fixed prediction-universe authority: {error}",
         ) from error
-    if mandate["researchUniverse"] != research_universe:
-        raise JudgeFailure(
-            "prediction-universe.research-universe",
-            "Portfolio Mandate researchUniverse must equal the Factor Study universe",
+    try:
+        population = resolve_prediction_population(
+            research_universe,
+            factor_claim,
+            mandate,
         )
-    if factor_claim["claim"] == "decision-signal":
-        prediction_assets = list(mandate["tradableAssets"])
-        authority = "portfolio-mandate-tradable-assets"
-    else:
-        prediction_assets = list(research_universe)
-        authority = "factor-claim-research-universe"
-    context_assets = [
-        asset for asset in research_universe if asset not in prediction_assets
-    ]
-    if len(prediction_assets) == 1:
-        if factor_claim["claim"] != "decision-signal":
-            raise JudgeFailure(
-                "prediction-universe.claim",
-                "Single-asset temporal evaluation is available only for a "
-                "request-bound decision-signal claim",
-            )
-        evaluation_mode = SINGLE_ASSET_TEMPORAL_MODE
-    elif len(prediction_assets) == 2:
-        if factor_claim["claim"] != "decision-signal":
-            raise JudgeFailure(
-                "prediction-universe.claim",
-                "Two-asset relative-value evaluation is available only for "
-                "a request-bound decision-signal claim",
-            )
-        construction = mandate["construction"]
-        if (
-            construction["family"] != "dollar-neutral"
-            or construction["netRule"] != "zero"
-            or any(
-                construction["assetPositionRoles"][asset] != "two-sided"
-                for asset in prediction_assets
-            )
-        ):
-            raise JudgeFailure(
-                "prediction-universe.relative-value-mandate",
-                "Two-asset relative-value evaluation requires a symmetric "
-                "two-sided dollar-neutral Portfolio Mandate",
-            )
-        evaluation_mode = TWO_ASSET_RELATIVE_VALUE_MODE
-    elif len(prediction_assets) >= MIN_ASSETS_PER_DATE:
-        evaluation_mode = CROSS_SECTIONAL_MODE
-    else:
-        raise JudgeFailure(
-            "prediction-universe.population",
-            "Factor evaluation supports one request-bound temporal asset, "
-            "exactly two symmetric dollar-neutral relative-value assets, or "
-            f"at least {MIN_ASSETS_PER_DATE} cross-sectional prediction "
-            f"assets; received {len(prediction_assets)}. A three-asset "
-            "relative basket requires explicit caller-owned contrast weights "
-            "instead of borrowing target observations from context-only assets.",
-        )
+    except PredictionModeError as error:
+        raise JudgeFailure(error.code, str(error)) from error
     return (
         mandate,
-        prediction_assets,
-        context_assets,
-        authority,
-        evaluation_mode,
+        list(population.prediction_assets),
+        list(population.context_assets),
+        population.authority,
+        population.evaluation_mode,
     )
 
 

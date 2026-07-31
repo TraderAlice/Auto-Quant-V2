@@ -121,9 +121,18 @@ class RlPolicyEvidenceExplorerTests(unittest.TestCase):
                 diagnostics["factorFusion"]["dependency"]["paths"],
                 [
                     "factors/**",
+                    "strategies/factor-claim.json",
                     "strategies/portfolio-mandate.json",
                     "strategies/research-horizon.json",
                 ],
+            )
+            self.assertEqual(
+                diagnostics["predictionUniverse"]["evaluationMode"],
+                "cross-sectional",
+            )
+            self.assertEqual(
+                diagnostics["signalTranslation"]["method"],
+                "prediction-mode-causal-percentile-v2",
             )
             self.assertTrue(diagnostics["portfolioMandate"]["available"])
             self.assertEqual(

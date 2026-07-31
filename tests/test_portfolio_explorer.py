@@ -895,6 +895,31 @@ class PortfolioDecisionExplorerTests(unittest.TestCase):
             ):
                 load_portfolio_diagnostics(project, run.result["id"])
 
+    def test_rehashed_translation_score_tamper_is_rejected(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, project, run = make_lab(Path(directory))
+            path = run.root_dir / "artifacts" / "portfolio-decisions.csv"
+            with path.open(encoding="utf-8", newline="") as handle:
+                rows = list(csv.DictReader(handle))
+                fields = list(rows[0])
+            selected = next(
+                row for row in rows if row["translation_score"]
+            )
+            selected["translation_score"] = str(
+                float(selected["translation_score"]) + 0.01
+            )
+            with path.open("w", encoding="utf-8", newline="") as handle:
+                writer = csv.DictWriter(handle, fieldnames=fields)
+                writer.writeheader()
+                writer.writerows(rows)
+            rehash_run(run.root_dir)
+
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "Decision score does not reconcile",
+            ):
+                load_portfolio_diagnostics(project, run.result["id"])
+
     def test_rehashed_cost_stress_metric_tamper_is_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             _, project, run = make_lab(Path(directory))

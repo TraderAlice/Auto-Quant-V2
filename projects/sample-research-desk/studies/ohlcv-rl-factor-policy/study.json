@@ -22,6 +22,7 @@
   "dependencies": {
     "paths": [
       "factors/**",
+      "strategies/factor-claim.json",
       "strategies/portfolio-mandate.json",
       "strategies/research-horizon.json"
     ]

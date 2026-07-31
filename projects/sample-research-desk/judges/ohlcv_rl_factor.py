@@ -13,6 +13,7 @@ from typing import Any, Callable
 import numpy as np
 import pandas as pd
 
+from autoquant.factor_claims import FACTOR_CLAIM, load_factor_claim
 from autoquant.factor_runtime import (
     FactorRuntimeError,
     build_factor_panel,
@@ -34,10 +35,15 @@ from autoquant.mandates import (
     PORTFOLIO_MANDATE,
     load_portfolio_mandate,
 )
+from autoquant.prediction_modes import (
+    PredictionModeError,
+    resolve_prediction_population,
+)
 from judges.portfolio_core import (
     build_risk_covariance_cache,
     constraint_audit,
     resolve_implementation_policy,
+    translate_factor_scores,
 )
 from judges.rl_core import (
     ACTIONS,
@@ -147,6 +153,17 @@ def _load_mandate() -> dict[str, Any]:
         raise JudgeFailure(
             "mandate.invalid",
             f"Invalid fixed Portfolio Mandate: {error}",
+        ) from error
+
+
+def _load_factor_claim() -> dict[str, Any]:
+    path = Path(os.environ["AUTOQUANT_PROJECT_ROOT"]) / FACTOR_CLAIM
+    try:
+        return load_factor_claim(path)
+    except Exception as error:
+        raise JudgeFailure(
+            "factor-claim.invalid",
+            f"Invalid fixed Factor claim: {error}",
         ) from error
 
 
@@ -1705,6 +1722,7 @@ def _evaluate() -> tuple[
 ]:
     study, data_root = _load_contract()
     mandate = _load_mandate()
+    factor_claim = _load_factor_claim()
     research_horizon = _load_horizon()
     implementation_policy = resolve_implementation_policy(mandate)
     model_module = importlib.import_module("models.candidate")
@@ -1712,6 +1730,14 @@ def _evaluate() -> tuple[
     feature_names, encoder = _candidate_encoder(model_module)
     frames, opens, closes, volumes = _panels(study, data_root)
     universe = study["dataset"]["universe"]
+    try:
+        prediction_population = resolve_prediction_population(
+            universe,
+            factor_claim,
+            mandate,
+        ).as_metrics()
+    except PredictionModeError as error:
+        raise JudgeFailure(error.code, str(error)) from error
     try:
         factor_panel = build_factor_panel(frames, universe=universe)
         factor_evaluation = evaluate_factor(
@@ -1729,6 +1755,11 @@ def _evaluate() -> tuple[
         _factor_panels(opens, closes, volumes, candidate_panel),
         closes,
         mandate=mandate,
+        prediction_population=prediction_population,
+    )
+    _, _, _, signal_translation = translate_factor_scores(
+        candidate_panel,
+        prediction_population,
     )
     risk_covariance_cache = build_risk_covariance_cache(
         closes,
@@ -2156,6 +2187,9 @@ def _evaluate() -> tuple[
     metrics = {
         "validation_mean_net_sharpe": float(np.mean(validation_sharpes)),
         "factor_api": factor_contract(factor_evaluation),
+        "factor_claim": factor_claim,
+        "prediction_universe": prediction_population,
+        "signal_translation": signal_translation,
         "portfolio_mandate": mandate,
         "research_horizon": research_horizon,
         "rl": {
@@ -2263,6 +2297,9 @@ def _evaluate() -> tuple[
             "timeRange": dataset["time_range"],
         },
         "portfolioMandate": mandate,
+        "factorClaim": factor_claim,
+        "predictionUniverse": prediction_population,
+        "signalTranslation": signal_translation,
         "researchHorizon": research_horizon,
         "semantics": {
             "simulation": "governed-factor-mixture-q-policy",

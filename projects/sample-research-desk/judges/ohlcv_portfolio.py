@@ -12,6 +12,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from autoquant.factor_claims import FACTOR_CLAIM, load_factor_claim
 from autoquant.factor_runtime import (
     FactorRuntimeError,
     build_factor_panel,
@@ -32,6 +33,10 @@ from autoquant.horizons import (
 from autoquant.mandates import (
     PORTFOLIO_MANDATE,
     load_portfolio_mandate,
+)
+from autoquant.prediction_modes import (
+    PredictionModeError,
+    resolve_prediction_population,
 )
 from judges.portfolio_core import (
     LONG_ENTRY_PERCENTILE,
@@ -146,6 +151,17 @@ def _load_mandate() -> dict[str, Any]:
         ) from error
 
 
+def _load_factor_claim() -> dict[str, Any]:
+    path = Path(os.environ["AUTOQUANT_PROJECT_ROOT"]) / FACTOR_CLAIM
+    try:
+        return load_factor_claim(path)
+    except Exception as error:
+        raise JudgeFailure(
+            "factor-claim.invalid",
+            f"Invalid fixed Factor claim: {error}",
+        ) from error
+
+
 def _load_horizon() -> dict[str, Any]:
     path = Path(os.environ["AUTOQUANT_PROJECT_ROOT"]) / RESEARCH_HORIZON
     try:
@@ -223,13 +239,34 @@ def _load_asset(data_root: Path, asset: str, start: str, end: str) -> pd.DataFra
 def _daily_factor_evidence(
     factors: pd.DataFrame,
     forward_returns: pd.DataFrame,
+    prediction_population: dict[str, Any],
 ) -> pd.DataFrame:
+    mode = prediction_population["evaluation_mode"]
+    prediction_assets = prediction_population["prediction_assets"]
+    if mode != "cross-sectional":
+        if mode == "single-asset-temporal":
+            asset = prediction_assets[0]
+            signal = factors[asset]
+            target = forward_returns[asset]
+        else:
+            left, right = prediction_assets
+            signal = factors[left] - factors[right]
+            target = forward_returns[left] - forward_returns[right]
+        return pd.DataFrame(
+            {
+                "factor_value": signal,
+                "forward_return": target,
+            },
+            index=factors.index,
+        )
     rows: list[dict[str, Any]] = []
-    for timestamp in factors.index.intersection(forward_returns.index):
+    selected_factors = factors[prediction_assets]
+    selected_returns = forward_returns[prediction_assets]
+    for timestamp in selected_factors.index.intersection(selected_returns.index):
         pair = pd.DataFrame(
             {
-                "factor": factors.loc[timestamp],
-                "forward_return": forward_returns.loc[timestamp],
+                "factor": selected_factors.loc[timestamp],
+                "forward_return": selected_returns.loc[timestamp],
             }
         ).dropna()
         if (
@@ -264,6 +301,7 @@ def _factor_metrics(
     evidence: pd.DataFrame,
     index: pd.Index,
     factors: pd.DataFrame,
+    evaluation_mode: str,
 ) -> dict[str, float | int]:
     selected = evidence.reindex(index).dropna()
     if len(selected) < MIN_SPLIT_OBSERVATIONS:
@@ -271,7 +309,33 @@ def _factor_metrics(
             "factor.population",
             f"Chronological split has only {len(selected)} factor dates",
         )
-    ic = selected["rank_ic"]
+    if evaluation_mode == "cross-sectional":
+        ic = selected["rank_ic"]
+        top_bottom_spread = float(selected["top_bottom_spread"].mean())
+    else:
+        ranked = selected[["factor_value", "forward_return"]].rank(
+            method="average",
+            pct=True,
+        )
+        left = ranked["factor_value"] - float(ranked["factor_value"].mean())
+        right = ranked["forward_return"] - float(
+            ranked["forward_return"].mean()
+        )
+        denominator = math.sqrt(
+            float((left**2).mean()) * float((right**2).mean())
+        )
+        if denominator <= 1e-12:
+            raise JudgeFailure(
+                "factor.population",
+                "Temporal Factor or forward return is constant in one split",
+            )
+        ic = left * right / denominator
+        ordered = selected.sort_values("factor_value")
+        breadth = max(1, len(ordered) // 3)
+        top_bottom_spread = float(
+            ordered["forward_return"].iloc[-breadth:].mean()
+            - ordered["forward_return"].iloc[:breadth].mean()
+        )
     mean_ic = float(ic.mean())
     std_ic = float(ic.std(ddof=0))
     coverage = float(factors.loc[index].notna().mean().mean())
@@ -280,9 +344,7 @@ def _factor_metrics(
         "mean_rank_ic": mean_ic,
         "rank_icir": mean_ic / std_ic if std_ic > 1e-12 else 0.0,
         "rank_ic_hit_rate": float((ic > 0).mean()),
-        "mean_top_bottom_spread": float(
-            selected["top_bottom_spread"].mean()
-        ),
+        "mean_top_bottom_spread": top_bottom_spread,
         "mean_coverage": coverage,
     }
     if not all(math.isfinite(float(value)) for value in result.values()):
@@ -422,6 +484,7 @@ def _parameter_neighborhood(
     volume_panel: pd.DataFrame,
     splits: dict[str, pd.DatetimeIndex],
     mandate: dict[str, Any],
+    prediction_population: dict[str, Any],
     *,
     base_construction: Any,
     base_simulation: Any,
@@ -468,6 +531,7 @@ def _parameter_neighborhood(
                 short_exit=float(profile["short_exit"]),
                 short_entry=float(profile["short_entry"]),
                 mandate=mandate,
+                prediction_population=prediction_population,
                 risk_covariance_cache=risk_covariance_cache,
             )
             construction_cache[signature] = construction
@@ -715,10 +779,19 @@ def _evaluate() -> tuple[
 ]:
     study, data_root = _load_contract()
     mandate = _load_mandate()
+    factor_claim = _load_factor_claim()
     research_horizon = _load_horizon()
     implementation_policy = resolve_implementation_policy(mandate)
     dataset = study["dataset"]
     universe = dataset["universe"]
+    try:
+        prediction_population = resolve_prediction_population(
+            universe,
+            factor_claim,
+            mandate,
+        ).as_metrics()
+    except PredictionModeError as error:
+        raise JudgeFailure(error.code, str(error)) from error
     time_range = dataset["time_range"]
     module = importlib.import_module("factors.candidate")
 
@@ -758,11 +831,16 @@ def _evaluate() -> tuple[
         close_panel,
         mandate=mandate,
     )
-    factor_evidence = _daily_factor_evidence(factor_panel, forward_returns)
+    factor_evidence = _daily_factor_evidence(
+        factor_panel,
+        forward_returns,
+        prediction_population,
+    )
     construction = construct_signal_policy(
         factor_panel,
         close_panel,
         mandate=mandate,
+        prediction_population=prediction_population,
         risk_covariance_cache=risk_covariance_cache,
     )
     targets = construction.targets
@@ -797,7 +875,8 @@ def _evaluate() -> tuple[
         factor_metrics[name] = _factor_metrics(
             factor_evidence,
             index,
-            factor_panel,
+            factor_panel[prediction_population["prediction_assets"]],
+            str(prediction_population["evaluation_mode"]),
         )
         portfolio_metrics[name] = {
             "gross": performance_metrics(
@@ -904,6 +983,7 @@ def _evaluate() -> tuple[
             volume_panel,
             splits,
             mandate,
+            prediction_population,
             base_construction=construction,
             base_simulation=base,
             risk_covariance_cache=risk_covariance_cache,
@@ -962,6 +1042,7 @@ def _evaluate() -> tuple[
         long_exit=LONG_ENTRY_PERCENTILE,
         short_exit=SHORT_ENTRY_PERCENTILE,
         mandate=mandate,
+        prediction_population=prediction_population,
         risk_covariance_cache=risk_covariance_cache,
     )
     no_hysteresis_simulation = simulate_targets(
@@ -1029,6 +1110,7 @@ def _evaluate() -> tuple[
         factor_panel,
         close_panel,
         mandate=mandate,
+        prediction_population=prediction_population,
         apply_risk_governor=False,
         risk_covariance_cache=risk_covariance_cache,
     )
@@ -1104,12 +1186,15 @@ def _evaluate() -> tuple[
     metrics = {
         "validation_net_sharpe": validation_net_sharpe,
         "factor_api": factor_contract(factor_evaluation),
+        "factor_claim": factor_claim,
+        "prediction_universe": prediction_population,
         "portfolio_mandate": mandate,
         "research_horizon": research_horizon,
         "factor": factor_metrics,
         "portfolio": portfolio_metrics,
         "implementation": implementation,
         "signal_policy": {
+            "translation": construction.translation,
             "parameters": {
                 "long_entry_percentile": LONG_ENTRY_PERCENTILE,
                 "long_exit_percentile": LONG_EXIT_PERCENTILE,
@@ -1168,8 +1253,11 @@ def _evaluate() -> tuple[
             "universe": universe,
             "timeRange": time_range,
         },
+        "factorClaim": factor_claim,
+        "predictionUniverse": prediction_population,
         "portfolioMandate": mandate,
         "researchHorizon": research_horizon,
+        "signalTranslation": construction.translation,
         "semantics": {
             "simulation": "bar-target-weight",
             "decision": "OHLCV and factor known through close t",
@@ -1179,9 +1267,11 @@ def _evaluate() -> tuple[
                 "accounting is not a direct multi-bar forecast"
             ),
             "factorTransform": (
-                "cross-sectional percentile state machine with inverse-volatility "
-                "conviction sizing followed by a causal one-sided portfolio "
-                "volatility ceiling"
+                f"{construction.translation['method']} / "
+                f"{construction.translation['evaluation_mode']} / "
+                f"{construction.translation['score_basis']}; percentile state "
+                "machine with inverse-volatility conviction sizing followed "
+                "by a causal one-sided portfolio volatility ceiling"
             ),
             "signalState": (
                 "long entry/exit 0.75/0.55; short entry/exit 0.25/0.45; "

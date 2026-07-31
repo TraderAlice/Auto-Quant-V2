@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import math
+from bisect import bisect_left, bisect_right, insort
+from collections import deque
 from dataclasses import dataclass
 
 import exchange_calendars
@@ -10,6 +12,15 @@ import numpy as np
 import pandas as pd
 
 from autoquant.intervals import annualization_periods
+from autoquant.prediction_modes import (
+    CROSS_SECTIONAL_MODE,
+    SIGNAL_TRANSLATION_METHOD,
+    SINGLE_ASSET_TEMPORAL_MODE,
+    TEMPORAL_SCORE_MINIMUM,
+    TEMPORAL_SCORE_WINDOW,
+    TWO_ASSET_RELATIVE_VALUE_MODE,
+    signal_translation_contract,
+)
 VOLATILITY_WINDOW = 20
 GROSS_TARGET = 1.0
 SIDE_BUDGET = GROSS_TARGET / 2.0
@@ -88,9 +99,175 @@ class SignalConstruction:
     targets: pd.DataFrame
     states: pd.DataFrame
     ledger: pd.DataFrame
+    scores: pd.DataFrame
+    translation_values: pd.DataFrame
+    translation_observations: pd.DataFrame
+    translation: dict[str, object]
 
 
 RiskCovarianceCache = dict[object, tuple[int, np.ndarray | None]]
+
+
+def _causal_empirical_percentile(
+    values: pd.Series,
+    *,
+    window: int = TEMPORAL_SCORE_WINDOW,
+    minimum: int = TEMPORAL_SCORE_MINIMUM,
+) -> tuple[pd.Series, pd.Series]:
+    """Rank each finite value inside the latest observed causal window."""
+
+    if minimum < 2 or window < minimum:
+        raise PortfolioFailure(
+            "portfolio.translation-window",
+            "Temporal score window must contain its fixed minimum",
+        )
+    scores = pd.Series(np.nan, index=values.index, dtype=float)
+    observations = pd.Series(0, index=values.index, dtype=int)
+    ordered: list[float] = []
+    history: deque[float] = deque()
+    for timestamp, raw in values.items():
+        value = float(raw) if pd.notna(raw) else math.nan
+        if not math.isfinite(value):
+            continue
+        history.append(value)
+        insort(ordered, value)
+        if len(history) > window:
+            expired = history.popleft()
+            position = bisect_left(ordered, expired)
+            if position >= len(ordered) or ordered[position] != expired:
+                raise PortfolioFailure(
+                    "portfolio.translation-window",
+                    "Temporal score window could not remove prior value",
+                )
+            ordered.pop(position)
+        count = len(ordered)
+        observations.loc[timestamp] = count
+        if count < minimum:
+            continue
+        lower = bisect_left(ordered, value)
+        upper = bisect_right(ordered, value)
+        average_one_based_rank = (lower + 1 + upper) / 2.0
+        scores.loc[timestamp] = average_one_based_rank / count
+    return scores, observations
+
+
+def translate_factor_scores(
+    factors: pd.DataFrame,
+    prediction_population: dict[str, object] | None = None,
+) -> tuple[
+    pd.DataFrame,
+    pd.DataFrame,
+    pd.DataFrame,
+    dict[str, object],
+]:
+    """Translate causal Factor values into one fixed decision-score surface."""
+
+    if factors.empty or factors.columns.has_duplicates:
+        raise PortfolioFailure(
+            "portfolio.translation-input",
+            "Factor panel must have rows and unique asset columns",
+        )
+    population = prediction_population or {
+        "evaluation_mode": CROSS_SECTIONAL_MODE,
+        "prediction_assets": list(factors.columns),
+        "context_assets": [],
+        "authority": "reference-default-research-universe",
+        "relative_value_pair": None,
+    }
+    mode = population.get("evaluation_mode")
+    prediction_assets = population.get("prediction_assets")
+    context_assets = population.get("context_assets")
+    if (
+        mode not in {
+            CROSS_SECTIONAL_MODE,
+            SINGLE_ASSET_TEMPORAL_MODE,
+            TWO_ASSET_RELATIVE_VALUE_MODE,
+        }
+        or not isinstance(prediction_assets, list)
+        or not prediction_assets
+        or len(prediction_assets) != len(set(prediction_assets))
+        or any(asset not in factors.columns for asset in prediction_assets)
+        or not isinstance(context_assets, list)
+        or set(prediction_assets).intersection(context_assets)
+        or set(prediction_assets).union(context_assets) != set(factors.columns)
+    ):
+        raise PortfolioFailure(
+            "portfolio.translation-population",
+            "Prediction population does not partition the Factor panel",
+        )
+    scores = pd.DataFrame(np.nan, index=factors.index, columns=factors.columns)
+    translation_values = pd.DataFrame(
+        np.nan,
+        index=factors.index,
+        columns=factors.columns,
+    )
+    observations = pd.DataFrame(
+        0,
+        index=factors.index,
+        columns=factors.columns,
+        dtype=int,
+    )
+    relative_value_pair = population.get("relative_value_pair")
+
+    if mode == CROSS_SECTIONAL_MODE:
+        if len(prediction_assets) < 4:
+            raise PortfolioFailure(
+                "portfolio.translation-population",
+                "Cross-sectional translation requires at least four prediction assets",
+            )
+        selected = factors[prediction_assets].where(
+            np.isfinite(factors[prediction_assets].to_numpy(dtype=float))
+        )
+        counts = selected.notna().sum(axis=1)
+        distinct = selected.nunique(axis=1)
+        available = counts.ge(4) & distinct.ge(2)
+        ranks = selected.rank(axis=1, method="average")
+        translated = ranks.sub(1.0).div(counts.sub(1.0), axis=0)
+        scores.loc[:, prediction_assets] = translated.where(available)
+        translation_values.loc[:, prediction_assets] = selected
+        for asset in prediction_assets:
+            observations.loc[:, asset] = counts.astype(int)
+    elif mode == SINGLE_ASSET_TEMPORAL_MODE:
+        if len(prediction_assets) != 1 or relative_value_pair is not None:
+            raise PortfolioFailure(
+                "portfolio.translation-population",
+                "Single-asset temporal translation requires exactly one prediction asset",
+            )
+        asset = prediction_assets[0]
+        values = factors[asset].where(np.isfinite(factors[asset]))
+        temporal_scores, temporal_observations = _causal_empirical_percentile(
+            values
+        )
+        scores.loc[:, asset] = temporal_scores
+        translation_values.loc[:, asset] = values
+        observations.loc[:, asset] = temporal_observations
+    else:
+        if len(prediction_assets) != 2 or not isinstance(relative_value_pair, dict):
+            raise PortfolioFailure(
+                "portfolio.translation-population",
+                "Relative-value translation requires one ordered two-asset pair",
+            )
+        left = relative_value_pair.get("left_asset")
+        right = relative_value_pair.get("right_asset")
+        if prediction_assets != [left, right]:
+            raise PortfolioFailure(
+                "portfolio.translation-pair",
+                "Relative-value pair order differs from the prediction population",
+            )
+        spread = (factors[left] - factors[right]).where(
+            np.isfinite(factors[left]) & np.isfinite(factors[right])
+        )
+        spread_scores, spread_observations = _causal_empirical_percentile(
+            spread
+        )
+        scores.loc[:, left] = spread_scores
+        scores.loc[:, right] = 1.0 - spread_scores
+        translation_values.loc[:, left] = spread
+        translation_values.loc[:, right] = -spread
+        observations.loc[:, left] = spread_observations
+        observations.loc[:, right] = spread_observations
+    semantics = signal_translation_contract(population)
+    return scores, translation_values, observations, semantics
 
 
 def _valid_decision_policy(
@@ -1485,6 +1662,7 @@ def construct_signal_policy(
     short_exit: float = SHORT_EXIT_PERCENTILE,
     short_entry: float = SHORT_ENTRY_PERCENTILE,
     mandate: dict[str, object] | None = None,
+    prediction_population: dict[str, object] | None = None,
     apply_risk_governor: bool = True,
     risk_covariance_cache: RiskCovarianceCache | None = None,
     include_ledger: bool = True,
@@ -1565,35 +1743,28 @@ def construct_signal_policy(
         factors.index,
         decision_policy,
     )
-    finite_factors = pd.DataFrame(
-        np.isfinite(factors.to_numpy(dtype=float)),
-        index=factors.index,
-        columns=factors.columns,
-    )
     finite_volatility = pd.DataFrame(
         np.isfinite(volatility.to_numpy(dtype=float)),
         index=volatility.index,
         columns=volatility.columns,
     )
-    valid_panel = (
-        factors.notna()
-        & volatility.notna()
-        & finite_factors
-        & finite_volatility
+    (
+        score_panel,
+        translation_values,
+        translation_observations,
+        translation_semantics,
+    ) = translate_factor_scores(
+        factors,
+        prediction_population,
     )
-    valid_counts = valid_panel.sum(axis=1)
-    sufficient_rows = (
-        valid_counts.ge(4)
-        & factors.where(valid_panel).nunique(axis=1).ge(2)
+    insufficient_score_status = (
+        "insufficient_temporal_history"
+        if translation_semantics["evaluation_mode"]
+        == SINGLE_ASSET_TEMPORAL_MODE
+        else "insufficient_cross_section"
     )
-    factor_ranks = factors.where(valid_panel).rank(
-        axis=1,
-        method="average",
-    )
-    score_panel = factor_ranks.sub(1.0).div(
-        valid_counts.sub(1.0),
-        axis=0,
-    ).where(sufficient_rows, np.nan)
+    valid_panel = score_panel.notna() & volatility.notna() & finite_volatility
+    sufficient_rows = valid_panel.any(axis=1)
 
     for timestamp in factors.index:
         decision_eligible = bool(decision_mask.loc[timestamp])
@@ -1603,7 +1774,8 @@ def construct_signal_policy(
             else None
         )
         row_volatility = volatility.loc[timestamp].astype(float)
-        scores = score_panel.loc[timestamp]
+        scores = score_panel.loc[timestamp].where(valid_panel.loc[timestamp])
+        translated_scores = score_panel.loc[timestamp]
         sufficient = bool(sufficient_rows.loc[timestamp])
 
         current_states = pd.Series(0, index=factors.columns, dtype=int)
@@ -1669,34 +1841,80 @@ def construct_signal_policy(
             current_targets = prior_targets.copy()
             allocation_status = "decision_schedule_hold"
         elif family == "dollar-neutral":
-            long_weights = _allocate_capped_side(
-                strengths.where(current_states.eq(1), 0.0),
-                budget=side_budget,
-                cap=asset_caps,
-            )
-            short_weights = _allocate_capped_side(
-                strengths.where(current_states.eq(-1), 0.0),
-                budget=side_budget,
-                cap=asset_caps,
-            )
-            allocated = (
-                abs(float(long_weights.sum()) - side_budget) <= 1e-9
-                and abs(float(short_weights.sum()) - side_budget) <= 1e-9
-            )
-            current_targets = (
-                long_weights - short_weights
-                if allocated
-                else pd.Series(0.0, index=factors.columns, dtype=float)
-            )
-            allocation_status = (
-                "allocated"
-                if allocated
-                else (
-                    "insufficient_cross_section"
-                    if not sufficient
-                    else "insufficient_side_breadth"
+            if (
+                translation_semantics["evaluation_mode"]
+                == TWO_ASSET_RELATIVE_VALUE_MODE
+            ):
+                pair = translation_semantics["relative_value_pair"]
+                assert isinstance(pair, dict)
+                left = str(pair["left_asset"])
+                right = str(pair["right_asset"])
+                left_state = int(current_states.loc[left])
+                right_state = int(current_states.loc[right])
+                paired = (
+                    abs(left_state) == 1
+                    and right_state == -left_state
                 )
-            )
+                pair_budget = min(
+                    side_budget,
+                    float(asset_caps.loc[left]),
+                    float(asset_caps.loc[right]),
+                )
+                current_targets = pd.Series(
+                    0.0,
+                    index=factors.columns,
+                    dtype=float,
+                )
+                if paired:
+                    current_targets.loc[left] = left_state * pair_budget
+                    current_targets.loc[right] = right_state * pair_budget
+                allocation_status = (
+                    "insufficient_temporal_history"
+                    if not sufficient
+                    else (
+                        "no_permitted_signal"
+                        if not paired
+                        else (
+                            "allocated"
+                            if math.isclose(
+                                pair_budget,
+                                side_budget,
+                                rel_tol=0.0,
+                                abs_tol=1e-9,
+                            )
+                            else "allocated_with_cash"
+                        )
+                    )
+                )
+            else:
+                long_weights = _allocate_capped_side(
+                    strengths.where(current_states.eq(1), 0.0),
+                    budget=side_budget,
+                    cap=asset_caps,
+                )
+                short_weights = _allocate_capped_side(
+                    strengths.where(current_states.eq(-1), 0.0),
+                    budget=side_budget,
+                    cap=asset_caps,
+                )
+                allocated = (
+                    abs(float(long_weights.sum()) - side_budget) <= 1e-9
+                    and abs(float(short_weights.sum()) - side_budget) <= 1e-9
+                )
+                current_targets = (
+                    long_weights - short_weights
+                    if allocated
+                    else pd.Series(0.0, index=factors.columns, dtype=float)
+                )
+                allocation_status = (
+                    "allocated"
+                    if allocated
+                    else (
+                        "insufficient_cross_section"
+                        if not sufficient
+                        else "insufficient_side_breadth"
+                    )
+                )
         elif family == "asset-role":
             long_weights = _allocate_capped_up_to(
                 strengths.where(current_states.eq(1), 0.0),
@@ -1712,7 +1930,7 @@ def construct_signal_policy(
             used_long = float(long_weights.sum())
             used_short = float(short_weights.sum())
             allocation_status = (
-                "insufficient_cross_section"
+                insufficient_score_status
                 if not sufficient
                 else (
                     "no_permitted_signal"
@@ -1742,7 +1960,7 @@ def construct_signal_policy(
                 cap=asset_caps,
             )
             allocation_status = (
-                "insufficient_cross_section"
+                insufficient_score_status
                 if not sufficient
                 else (
                     "no_permitted_signal"
@@ -1762,7 +1980,7 @@ def construct_signal_policy(
                 cap=asset_caps,
             )
             allocation_status = (
-                "insufficient_cross_section"
+                insufficient_score_status
                 if not sufficient
                 else (
                     "no_permitted_signal"
@@ -1816,8 +2034,14 @@ def construct_signal_policy(
             assert row_factor is not None
             for asset in factors.columns:
                 score = scores.loc[asset]
+                translation_score = translated_scores.loc[asset]
                 volatility_value = row_volatility.loc[asset]
                 factor_value = row_factor.loc[asset]
+                translation_value = translation_values.loc[timestamp, asset]
+                translation_count = translation_observations.loc[
+                    timestamp,
+                    asset,
+                ]
                 target = float(current_targets.loc[asset])
                 previous_target = float(prior_targets.loc[asset])
                 ledger_rows.append(
@@ -1832,6 +2056,21 @@ def construct_signal_policy(
                         "percentile_score": (
                             float(score) if math.isfinite(score) else np.nan
                         ),
+                        "translation_score": (
+                            float(translation_score)
+                            if math.isfinite(translation_score)
+                            else np.nan
+                        ),
+                        "translation_value": (
+                            float(translation_value)
+                            if math.isfinite(translation_value)
+                            else np.nan
+                        ),
+                        "translation_observations": int(translation_count),
+                        "translation_method": translation_semantics["method"],
+                        "evaluation_mode": translation_semantics[
+                            "evaluation_mode"
+                        ],
                         "prior_signal_state": int(
                             prior_states.loc[asset]
                         ),
@@ -1904,6 +2143,10 @@ def construct_signal_policy(
         targets=targets,
         states=states,
         ledger=pd.DataFrame(ledger_rows),
+        scores=score_panel,
+        translation_values=translation_values,
+        translation_observations=translation_observations,
+        translation=translation_semantics,
     )
 
 

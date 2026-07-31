@@ -134,6 +134,7 @@ def build_action_targets(
     closes: pd.DataFrame,
     *,
     mandate: dict[str, object] | None = None,
+    prediction_population: dict[str, object] | None = None,
 ) -> dict[str, pd.DataFrame]:
     if set(factor_panels) != set(EXPERTS):
         raise PolicyFailure(
@@ -150,6 +151,7 @@ def build_action_targets(
             combined,
             closes,
             mandate=mandate,
+            prediction_population=prediction_population,
             include_ledger=False,
         ).targets
     return targets

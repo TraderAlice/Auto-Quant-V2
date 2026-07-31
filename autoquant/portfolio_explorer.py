@@ -12,6 +12,7 @@ from typing import Any
 
 import pandas as pd
 
+from .factor_claims import FACTOR_CLAIM, validate_factor_claim
 from .intervals import annualization_periods, timestamp_label
 from .horizons import (
     RESEARCH_HORIZON,
@@ -37,6 +38,16 @@ from .project_templates.ohlcv_portfolio_lab.portfolio_core import (
     decision_schedule_mask,
     performance_metrics,
     position_episode_metrics,
+    translate_factor_scores,
+)
+from .prediction_modes import (
+    CROSS_SECTIONAL_MODE,
+    PredictionModeError,
+    SIGNAL_TRANSLATION_METHOD,
+    TEMPORAL_SCORE_MINIMUM,
+    TEMPORAL_SCORE_WINDOW,
+    resolve_prediction_population,
+    signal_translation_contract,
 )
 from .runs import RunContext, load_run
 from .workspace import (
@@ -197,6 +208,11 @@ DAILY_NUMERIC_COLUMNS = (
 DECISION_REQUIRED_COLUMNS = {
     "factor",
     "percentile_score",
+    "translation_score",
+    "translation_value",
+    "translation_observations",
+    "translation_method",
+    "evaluation_mode",
     "prior_signal_state",
     "signal_state",
     "signal_event",
@@ -242,6 +258,8 @@ DECISION_REQUIRED_COLUMNS = {
 DECISION_OPTIONAL_FLOATS = {
     "factor",
     "percentile_score",
+    "translation_score",
+    "translation_value",
     "trailing_volatility",
 }
 DECISION_FLOATS = {
@@ -1105,6 +1123,39 @@ def _parse_decisions(
             field: _optional_finite(raw[field], f"{row_path}/{field}")
             for field in DECISION_OPTIONAL_FLOATS
         }
+        try:
+            translation_observations = int(raw["translation_observations"])
+        except ValueError:
+            _fail(
+                f"{row_path}/translation_observations",
+                "portfolio.translation-observations",
+                "translation_observations must be a non-negative integer",
+            )
+        if (
+            str(translation_observations) != raw["translation_observations"]
+            or translation_observations < 0
+        ):
+            _fail(
+                f"{row_path}/translation_observations",
+                "portfolio.translation-observations",
+                "translation_observations must be a non-negative integer",
+            )
+        translation_method = raw["translation_method"]
+        evaluation_mode = raw["evaluation_mode"]
+        if (
+            translation_method != SIGNAL_TRANSLATION_METHOD
+            or evaluation_mode
+            not in {
+                "cross-sectional",
+                "single-asset-temporal",
+                "two-asset-relative-value",
+            }
+        ):
+            _fail(
+                row_path,
+                "portfolio.translation-semantics",
+                "Decision translation method or evaluation mode is invalid",
+            )
         numeric = {
             field: _finite(raw[field], f"{row_path}/{field}")
             for field in DECISION_FLOATS
@@ -1480,6 +1531,9 @@ def _parse_decisions(
             "decision_anchor": decision_anchor,
             "decision_session": decision_session,
             "position_role": position_role,
+            "translation_observations": translation_observations,
+            "translation_method": translation_method,
+            "evaluation_mode": evaluation_mode,
             "long_gross_limit": long_gross_limit,
             "short_gross_limit": short_gross_limit,
             "signal_event": raw["signal_event"],
@@ -4471,6 +4525,8 @@ def _recent_transitions(
 def _signal_policy_projection(
     result: dict[str, Any],
     mandate: dict[str, Any],
+    prediction_population: dict[str, Any],
+    report: dict[str, Any],
 ) -> dict[str, Any]:
     policy = result["metrics"].get("signal_policy")
     if not isinstance(policy, dict):
@@ -4478,6 +4534,17 @@ def _signal_policy_projection(
             "RunResult/metrics/signal_policy",
             "portfolio.signal-policy",
             "Portfolio Run is missing mechanical signal-policy evidence",
+        )
+    translation = policy.get("translation")
+    expected_translation = signal_translation_contract(prediction_population)
+    if (
+        translation != expected_translation
+        or report.get("signalTranslation") != expected_translation
+    ):
+        _fail(
+            "RunResult/metrics/signal_policy/translation",
+            "portfolio.signal-translation",
+            "Signal translation differs from fixed prediction-mode semantics",
         )
     parameters = policy.get("parameters")
     if not isinstance(parameters, dict):
@@ -4559,7 +4626,23 @@ def _signal_policy_projection(
             "portfolio.signal-policy-parameters",
             "Signal-policy parameters differ from the fixed contract",
         )
-    output: dict[str, Any] = {"parameters": normalized_parameters}
+    output: dict[str, Any] = {
+        "translation": {
+            "method": translation["method"],
+            "evaluationMode": translation["evaluation_mode"],
+            "predictionAssets": translation["prediction_assets"],
+            "contextAssets": translation["context_assets"],
+            "authority": translation["authority"],
+            "scoreBasis": translation["score_basis"],
+            "windowObservations": translation["window_observations"],
+            "minimumObservations": translation["minimum_observations"],
+            "relativeValuePair": translation["relative_value_pair"],
+            "contextScore": translation["context_score"],
+            "selectionAuthority": translation["selection_authority"],
+            "tradingAuthority": translation["trading_authority"],
+        },
+        "parameters": normalized_parameters,
+    }
     for split_name in ("validation", "test"):
         split = policy.get(split_name)
         if not isinstance(split, dict):
@@ -4595,6 +4678,135 @@ def _signal_policy_projection(
             ),
         }
     return output
+
+
+def _prediction_population_projection(
+    run: RunContext,
+    report: dict[str, Any],
+    universe: list[str],
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    raw_claim = run.result["metrics"].get("factor_claim")
+    raw_mandate = run.result["metrics"].get("portfolio_mandate")
+    raw_population = run.result["metrics"].get("prediction_universe")
+    if (
+        not isinstance(raw_claim, dict)
+        or report.get("factorClaim") != raw_claim
+        or not isinstance(raw_mandate, dict)
+    ):
+        _fail(
+            "RunResult/metrics/factor_claim",
+            "portfolio.factor-claim",
+            "Portfolio Run and report must bind one identical Factor claim",
+        )
+    claim = validate_factor_claim(
+        raw_claim,
+        "RunResult/metrics/factor_claim",
+    )
+    try:
+        expected = resolve_prediction_population(
+            universe,
+            claim,
+            raw_mandate,
+        ).as_metrics()
+    except PredictionModeError as error:
+        _fail(
+            "RunResult/metrics/prediction_universe",
+            error.code,
+            str(error),
+        )
+    if raw_population != expected or report.get("predictionUniverse") != expected:
+        _fail(
+            "RunResult/metrics/prediction_universe",
+            "portfolio.prediction-universe",
+            "Portfolio prediction population differs from fixed request authority",
+        )
+    dependencies = run.result.get("dependencies")
+    if (
+        not isinstance(dependencies, dict)
+        or FACTOR_CLAIM not in dependencies.get("paths", [])
+        or FACTOR_CLAIM not in dependencies.get("sourceHashes", {})
+    ):
+        _fail(
+            "RunResult/dependencies",
+            "portfolio.factor-claim-dependency",
+            "Portfolio Run does not bind its fixed Factor claim",
+        )
+    return expected, {
+        "authority": expected["authority"],
+        "evaluationMode": expected["evaluation_mode"],
+        "researchAssets": expected["research_assets"],
+        "predictionAssets": expected["prediction_assets"],
+        "contextAssets": expected["context_assets"],
+        "assetPositionRoles": expected["asset_position_roles"],
+        "relativeValuePair": expected["relative_value_pair"],
+        "tradingAuthority": expected["trading_authority"],
+    }
+
+
+def _verify_signal_translation(
+    ordered_decisions: list[dict[str, Any]],
+    dates: list[str],
+    universe: list[str],
+    prediction_population: dict[str, Any],
+) -> dict[str, Any]:
+    factors = pd.DataFrame(
+        math.nan,
+        index=dates,
+        columns=universe,
+        dtype=float,
+    )
+    for row in ordered_decisions:
+        factor = row["factor"]
+        factors.loc[row["timestamp"], row["asset"]] = (
+            math.nan if factor is None else float(factor)
+        )
+    try:
+        scores, values, observations, semantics = translate_factor_scores(
+            factors,
+            prediction_population,
+        )
+    except PortfolioFailure as error:
+        _fail(
+            "portfolio-decisions.csv",
+            error.code,
+            str(error),
+        )
+
+    def matches(actual: float | None, expected: object) -> bool:
+        if expected is None or pd.isna(expected):
+            return actual is None
+        return actual is not None and math.isclose(
+            float(actual),
+            float(expected),
+            rel_tol=1e-10,
+            abs_tol=1e-12,
+        )
+
+    for row in ordered_decisions:
+        timestamp = row["timestamp"]
+        asset = row["asset"]
+        translated_score = scores.loc[timestamp, asset]
+        translation_value = values.loc[timestamp, asset]
+        expected_decision_score = (
+            translated_score
+            if row["trailing_volatility"] is not None
+            else math.nan
+        )
+        if (
+            not matches(row["translation_score"], translated_score)
+            or not matches(row["translation_value"], translation_value)
+            or row["translation_observations"]
+            != int(observations.loc[timestamp, asset])
+            or row["translation_method"] != semantics["method"]
+            or row["evaluation_mode"] != semantics["evaluation_mode"]
+            or not matches(row["percentile_score"], expected_decision_score)
+        ):
+            _fail(
+                f"portfolio-decisions.csv/{timestamp}/{asset}",
+                "portfolio.signal-translation-reconciliation",
+                "Decision score does not reconcile from the fixed Factor translation",
+            )
+    return semantics
 
 
 def _mandate_projection(
@@ -6504,6 +6716,9 @@ def load_portfolio_diagnostics(
             "portfolio.report-json",
             "Portfolio report must be a UTF-8 JSON object",
         )
+    prediction_population, prediction_population_projection = (
+        _prediction_population_projection(run, report, universe)
+    )
     mandate = _mandate_projection(run, report, universe)
     research_horizon = _research_horizon_projection(run, report)
     reference_nav = float(
@@ -6584,6 +6799,12 @@ def load_portfolio_diagnostics(
         reference_nav,
         mandate,
     )
+    _verify_signal_translation(
+        ordered_decisions,
+        daily.dates,
+        universe,
+        prediction_population,
+    )
     splits, split_names = _split_contract(run.result)
     research_integrity = run.result["metrics"].get("research_integrity")
     if not isinstance(research_integrity, dict):
@@ -6592,7 +6813,12 @@ def load_portfolio_diagnostics(
             "portfolio.selection",
             "Portfolio Run must disclose selection integrity",
         )
-    signal_policy = _signal_policy_projection(run.result, mandate)
+    signal_policy = _signal_policy_projection(
+        run.result,
+        mandate,
+        prediction_population,
+        report,
+    )
     mechanical_decision = _mechanical_decision_projection(
         daily,
         universe,
@@ -6616,6 +6842,7 @@ def load_portfolio_diagnostics(
             ],
         },
         "universe": universe,
+        "predictionUniverse": prediction_population_projection,
         "mandate": mandate,
         "researchHorizon": research_horizon,
         "decisionCadence": {
@@ -7933,6 +8160,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "kind",
         "run",
         "universe",
+        "predictionUniverse",
         "mandate",
         "researchHorizon",
         "decisionCadence",
@@ -8050,6 +8278,104 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
             "maxItems": MAX_UNIVERSE,
             "items": {"type": "string", "minLength": 1},
             "uniqueItems": True,
+        },
+        "predictionUniverse": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "authority",
+                "evaluationMode",
+                "researchAssets",
+                "predictionAssets",
+                "contextAssets",
+                "assetPositionRoles",
+                "relativeValuePair",
+                "tradingAuthority",
+            ],
+            "properties": {
+                "authority": {
+                    "enum": [
+                        "factor-claim-research-universe",
+                        "portfolio-mandate-tradable-assets",
+                    ]
+                },
+                "evaluationMode": {
+                    "enum": [
+                        "cross-sectional",
+                        "single-asset-temporal",
+                        "two-asset-relative-value",
+                    ]
+                },
+                "researchAssets": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": MAX_UNIVERSE,
+                    "items": {"type": "string", "minLength": 1},
+                    "uniqueItems": True,
+                },
+                "predictionAssets": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": MAX_UNIVERSE,
+                    "items": {"type": "string", "minLength": 1},
+                    "uniqueItems": True,
+                },
+                "contextAssets": {
+                    "type": "array",
+                    "maxItems": MAX_UNIVERSE,
+                    "items": {"type": "string", "minLength": 1},
+                    "uniqueItems": True,
+                },
+                "assetPositionRoles": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "enum": [
+                            "two-sided",
+                            "long-only",
+                            "short-only",
+                            "context-only",
+                        ]
+                    },
+                },
+                "relativeValuePair": {
+                    "oneOf": [
+                        {"type": "null"},
+                        {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "required": [
+                                "left_asset",
+                                "right_asset",
+                                "factor_contrast",
+                                "target_contrast",
+                                "construction",
+                                "beta_neutral",
+                            ],
+                            "properties": {
+                                "left_asset": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                },
+                                "right_asset": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                },
+                                "factor_contrast": {
+                                    "const": "factor(left_asset)-factor(right_asset)"
+                                },
+                                "target_contrast": {
+                                    "const": "forward_return(left_asset)-forward_return(right_asset)"
+                                },
+                                "construction": {
+                                    "const": "symmetric-dollar-neutral-equal-funded"
+                                },
+                                "beta_neutral": {"const": False},
+                            },
+                        },
+                    ]
+                },
+                "tradingAuthority": {"const": "none"},
+            },
         },
         "mandate": {
             "type": "object",
@@ -9257,8 +9583,124 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         },
         "signalPolicy": {
             "type": "object",
-            "required": ["parameters", "validation", "test"],
+            "additionalProperties": False,
+            "required": [
+                "translation",
+                "parameters",
+                "validation",
+                "test",
+            ],
             "properties": {
+                "translation": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": [
+                        "method",
+                        "evaluationMode",
+                        "predictionAssets",
+                        "contextAssets",
+                        "authority",
+                        "scoreBasis",
+                        "windowObservations",
+                        "minimumObservations",
+                        "relativeValuePair",
+                        "contextScore",
+                        "selectionAuthority",
+                        "tradingAuthority",
+                    ],
+                    "properties": {
+                        "method": {"const": SIGNAL_TRANSLATION_METHOD},
+                        "evaluationMode": {
+                            "enum": [
+                                "cross-sectional",
+                                "single-asset-temporal",
+                                "two-asset-relative-value",
+                            ]
+                        },
+                        "predictionAssets": {
+                            "type": "array",
+                            "minItems": 1,
+                            "maxItems": MAX_UNIVERSE,
+                            "items": {"type": "string", "minLength": 1},
+                            "uniqueItems": True,
+                        },
+                        "contextAssets": {
+                            "type": "array",
+                            "maxItems": MAX_UNIVERSE,
+                            "items": {"type": "string", "minLength": 1},
+                            "uniqueItems": True,
+                        },
+                        "authority": {
+                            "enum": [
+                                "factor-claim-research-universe",
+                                "portfolio-mandate-tradable-assets",
+                            ]
+                        },
+                        "scoreBasis": {
+                            "enum": [
+                                "same-timestamp-prediction-population",
+                                "causal-own-factor-history",
+                                "causal-ordered-factor-spread-history",
+                            ]
+                        },
+                        "windowObservations": {
+                            "oneOf": [
+                                {"type": "null"},
+                                {"type": "integer", "minimum": 1},
+                            ]
+                        },
+                        "minimumObservations": {
+                            "type": "integer",
+                            "minimum": 1,
+                        },
+                        "relativeValuePair": {
+                            "oneOf": [
+                                {"type": "null"},
+                                {
+                                    "type": "object",
+                                    "additionalProperties": False,
+                                    "required": [
+                                        "left_asset",
+                                        "right_asset",
+                                        "factor_contrast",
+                                        "target_contrast",
+                                        "construction",
+                                        "beta_neutral",
+                                    ],
+                                    "properties": {
+                                        "left_asset": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                        },
+                                        "right_asset": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                        },
+                                        "factor_contrast": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                        },
+                                        "target_contrast": {
+                                            "type": "string",
+                                            "minLength": 1,
+                                        },
+                                        "construction": {
+                                            "const": "symmetric-dollar-neutral-equal-funded"
+                                        },
+                                        "beta_neutral": {"const": False},
+                                    },
+                                },
+                            ]
+                        },
+                        "contextScore": {
+                            "const": "unavailable-never-ranked"
+                        },
+                        "selectionAuthority": {
+                            "const": "fixed-mechanical-translation"
+                        },
+                        "tradingAuthority": {"const": "none"},
+                    },
+                },
                 "parameters": {"type": "object"},
                 "validation": {"type": "object"},
                 "test": {"type": "object"},

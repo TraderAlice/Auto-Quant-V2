@@ -29,8 +29,11 @@ from autoquant.project_templates.ohlcv_portfolio_lab.portfolio_core import (
     position_episode_metrics,
     signal_policy_metrics,
     simulate_targets,
+    translate_factor_scores,
 )
+from autoquant.factor_claims import build_factor_claim
 from autoquant.mandates import build_portfolio_mandate
+from autoquant.prediction_modes import resolve_prediction_population
 from autoquant.briefs import validate_research_request
 from autoquant.research import run_campaign
 from autoquant.runs import execute_study
@@ -84,6 +87,185 @@ def make_portfolio_lab(directory: str | Path):
         template="ohlcv-portfolio-lab",
     )
     return workspace, project
+
+
+class PredictionModeTranslationTests(unittest.TestCase):
+    def test_single_asset_temporal_scores_are_causal_and_context_invariant(
+        self,
+    ) -> None:
+        index = pd.bdate_range("2026-01-02", periods=100)
+        target = pd.Series(
+            np.sin(np.arange(len(index)) / 5.0)
+            + np.arange(len(index)) / 100.0,
+            index=index,
+        )
+        first = pd.DataFrame(
+            {
+                "TARGET": target,
+                "CONTEXT_A": np.arange(len(index), dtype=float) ** 2,
+                "CONTEXT_B": -np.arange(len(index), dtype=float),
+            },
+            index=index,
+        )
+        second = first.copy()
+        second["CONTEXT_A"] = np.cos(np.arange(len(index))) * 1e9
+        second["CONTEXT_B"] = np.nan
+        population = {
+            "evaluation_mode": "single-asset-temporal",
+            "prediction_assets": ["TARGET"],
+            "context_assets": ["CONTEXT_A", "CONTEXT_B"],
+            "authority": "portfolio-mandate-tradable-assets",
+            "relative_value_pair": None,
+        }
+
+        scores, values, observations, semantics = translate_factor_scores(
+            first,
+            population,
+        )
+        changed, _, _, _ = translate_factor_scores(second, population)
+        prefix, _, _, _ = translate_factor_scores(
+            first.iloc[:70],
+            population,
+        )
+
+        pd.testing.assert_series_equal(scores["TARGET"], changed["TARGET"])
+        pd.testing.assert_series_equal(
+            scores.loc[prefix.index, "TARGET"],
+            prefix["TARGET"],
+        )
+        self.assertTrue(scores[["CONTEXT_A", "CONTEXT_B"]].isna().all().all())
+        self.assertTrue(values[["CONTEXT_A", "CONTEXT_B"]].isna().all().all())
+        self.assertEqual(int(observations.loc[index[18], "TARGET"]), 19)
+        self.assertTrue(math.isnan(scores.loc[index[18], "TARGET"]))
+        self.assertTrue(math.isfinite(scores.loc[index[19], "TARGET"]))
+        self.assertEqual(
+            semantics["score_basis"],
+            "causal-own-factor-history",
+        )
+
+    def test_cross_section_ranks_only_prediction_assets(self) -> None:
+        index = pd.bdate_range("2026-01-02", periods=2)
+        factors = pd.DataFrame(
+            {
+                "A": [1.0, 4.0],
+                "B": [2.0, 3.0],
+                "C": [3.0, 2.0],
+                "D": [4.0, 1.0],
+                "CONTEXT": [-1e12, 1e12],
+            },
+            index=index,
+        )
+        population = {
+            "evaluation_mode": "cross-sectional",
+            "prediction_assets": ["A", "B", "C", "D"],
+            "context_assets": ["CONTEXT"],
+            "authority": "portfolio-mandate-tradable-assets",
+            "relative_value_pair": None,
+        }
+        scores, _, _, _ = translate_factor_scores(factors, population)
+
+        self.assertTrue(scores["CONTEXT"].isna().all())
+        self.assertEqual(scores.loc[index[0], ["A", "B", "C", "D"]].tolist(), [0.0, 1 / 3, 2 / 3, 1.0])
+        self.assertEqual(scores.loc[index[1], ["A", "B", "C", "D"]].tolist(), [1.0, 2 / 3, 1 / 3, 0.0])
+
+    def test_relative_value_scores_and_targets_are_exact_pairs(self) -> None:
+        index = pd.bdate_range("2026-01-02", periods=100)
+        universe = ["LEFT", "RIGHT", "CONTEXT"]
+        raw = {
+            "schemaVersion": 1,
+            "kind": "autoquant-research-request",
+            "title": "Pair translation",
+            "question": "How should one relative-value signal map to weights?",
+            "decisionContext": "Bounded target-weight research.",
+            "assets": [
+                {
+                    "symbol": "LEFT",
+                    "assetClass": "equity",
+                    "venue": "TEST",
+                    "positionRole": "two-sided",
+                },
+                {
+                    "symbol": "RIGHT",
+                    "assetClass": "equity",
+                    "venue": "TEST",
+                    "positionRole": "two-sided",
+                },
+                {
+                    "symbol": "CONTEXT",
+                    "assetClass": "equity",
+                    "venue": "TEST",
+                    "positionRole": "context-only",
+                },
+            ],
+            "direction": "relative-value",
+            "horizon": "one month",
+            "hypotheses": [],
+            "constraints": [],
+            "deliverables": ["target-weight evidence"],
+            "factorPolicy": {
+                "claim": "decision-signal",
+                "knownStyle": None,
+            },
+            "source": {
+                "system": "openalice",
+                "workspaceId": "desk",
+                "sessionId": "pair",
+                "artifactPath": None,
+                "artifactRevision": None,
+            },
+        }
+        request = validate_research_request(raw)
+        mandate = build_portfolio_mandate(request, universe)
+        population = resolve_prediction_population(
+            universe,
+            build_factor_claim(request),
+            mandate,
+        ).as_metrics()
+        factors = pd.DataFrame(
+            {
+                "LEFT": np.arange(len(index), dtype=float),
+                "RIGHT": np.zeros(len(index)),
+                "CONTEXT": np.sin(np.arange(len(index))) * 1e12,
+            },
+            index=index,
+        )
+        time = np.arange(len(index), dtype=float)
+        closes = pd.DataFrame(
+            {
+                asset: 100.0
+                * np.exp(np.cumsum(0.001 + 0.003 * np.sin(time / (4 + n))))
+                for n, asset in enumerate(universe)
+            },
+            index=index,
+        )
+
+        construction = construct_signal_policy(
+            factors,
+            closes,
+            mandate=mandate,
+            prediction_population=population,
+            apply_risk_governor=False,
+        )
+        available = construction.scores["LEFT"].notna()
+        paired_scores = construction.scores.loc[available, ["LEFT", "RIGHT"]]
+        self.assertTrue(
+            np.allclose(paired_scores.sum(axis=1).to_numpy(), 1.0)
+        )
+        self.assertTrue(construction.scores["CONTEXT"].isna().all())
+        active = construction.targets.loc[
+            construction.targets[["LEFT", "RIGHT"]].abs().sum(axis=1) > 0
+        ]
+        self.assertFalse(active.empty)
+        self.assertTrue(np.allclose(active.sum(axis=1).to_numpy(), 0.0))
+        self.assertTrue(
+            np.allclose(
+                active["LEFT"].abs().to_numpy(),
+                active["RIGHT"].abs().to_numpy(),
+            )
+        )
+        self.assertTrue((active["LEFT"] * active["RIGHT"] < 0).all())
+        self.assertTrue((construction.targets["CONTEXT"] == 0).all())
+        self.assertAlmostEqual(float(active.iloc[0]["LEFT"]), 0.30)
 
 
 class PortfolioAccountingTests(unittest.TestCase):
@@ -850,6 +1032,25 @@ class PortfolioAccountingTests(unittest.TestCase):
                     for asset in targets.columns
                 ]
             ),
+            scores=pd.DataFrame(
+                0.5,
+                index=index,
+                columns=targets.columns,
+            ),
+            translation_values=pd.DataFrame(
+                0.0,
+                index=index,
+                columns=targets.columns,
+            ),
+            translation_observations=pd.DataFrame(
+                4,
+                index=index,
+                columns=targets.columns,
+            ),
+            translation={
+                "method": "test-fixture",
+                "evaluation_mode": "cross-sectional",
+            },
         )
         simulation = simulate_targets(
             targets,
@@ -1028,6 +1229,7 @@ class OhlcvPortfolioLabTests(unittest.TestCase):
                 study.definition.dependencies,
                 {
                     "paths": [
+                        "strategies/factor-claim.json",
                         "strategies/portfolio-mandate.json",
                         "strategies/research-horizon.json",
                     ]

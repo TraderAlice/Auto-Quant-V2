@@ -3042,6 +3042,7 @@ function percentilePointDistance(value) {
 
 function renderPortfolioMechanicalDecision(explorer) {
   const decision = explorer.mechanicalDecision;
+  const translation = explorer.signalPolicy?.translation;
   const signal = decision.signalGate;
   const target = decision.targetGate;
   const execution = decision.executionGate;
@@ -3058,6 +3059,12 @@ function renderPortfolioMechanicalDecision(explorer) {
   const signalLabel = signal.stateChanges
     ? `${signal.stateChanges} state change${signal.stateChanges === 1 ? "" : "s"}`
     : "State retained";
+  const scoreDisclosure =
+    translation?.evaluationMode === "single-asset-temporal"
+      ? `Causal own-history percentile · latest ${translation.windowObservations} observed values · minimum ${translation.minimumObservations}`
+      : translation?.evaluationMode === "two-asset-relative-value"
+        ? `Causal ordered factor-spread percentile · latest ${translation.windowObservations} observed spreads · complementary pair scores`
+        : "Same-timestamp percentile across prediction assets only";
   document.getElementById("portfolio-mechanical-decision").innerHTML = `
     <div class="mechanical-chain" role="list" aria-label="Mechanical portfolio decision chain">
       <span role="listitem">
@@ -3082,7 +3089,7 @@ function renderPortfolioMechanicalDecision(explorer) {
       </span>
     </div>
     <div class="trigger-disclosure">
-      Current cross-sectional percentile buffers with peer ranks held fixed · not price targets,
+      ${escapeHtml(scoreDisclosure)} · context assets are never ranked · not price targets,
       probabilities, orders, or account positions · ${escapeHtml(execution.reason)}
     </div>
     <div class="mechanical-table-scroll">

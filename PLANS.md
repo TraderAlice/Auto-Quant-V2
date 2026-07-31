@@ -18,7 +18,9 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-None.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/prediction-mode-target-weight-translation]] | Carry cross-sectional, single-asset temporal, and two-asset relative-value Factor claims into causal mechanical target weights without allowing context-only assets to change decision scores, then prove `v0.9.2` with a fresh Grok 4.5 assignment. | 2026-07-31 |
 
 ## Proposed plans
 
@@ -28,7 +30,6 @@ None.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
-| [[plans/prediction-mode-target-weight-translation]] | Carry cross-sectional, single-asset temporal, and two-asset relative-value Factor claims into causal mechanical target weights without allowing context-only assets to change decision scores, then prove `v0.9.2` with a fresh Grok 4.5 assignment. | 2026-07-31 |
 | [[plans/order-native-portfolio-decisions]] | Return evidence-backed target weights together with bounded Order/TPSL realization plans shared by mechanical and RL research. Paused until the workbench product model is canonical. | 2026-07-27 |
 
 ## Completed plans

@@ -731,6 +731,7 @@ def _apply_ohlcv_portfolio_lab(
         intake,
         list(dataset["universe"]),
     )
+    _write_factor_claim(project, intake)
     _write_research_horizon(project, intake)
     _write_surface_aligned_factor_candidate(
         project,
@@ -785,7 +786,11 @@ def _apply_ohlcv_portfolio_lab(
             ["ohlcv/**"],
         ),
         dependencies={
-            "paths": [PORTFOLIO_MANDATE, RESEARCH_HORIZON]
+            "paths": [
+                FACTOR_CLAIM,
+                PORTFOLIO_MANDATE,
+                RESEARCH_HORIZON,
+            ]
         },
     )
     study = create_study(project, definition)
@@ -825,6 +830,7 @@ def _apply_ohlcv_rl_factor_lab(
         intake,
         list(dataset["universe"]),
     )
+    _write_factor_claim(project, intake)
     _write_research_horizon(project, intake)
     _write_template_source(
         project,
@@ -899,6 +905,7 @@ def _apply_ohlcv_rl_factor_lab(
         dependencies={
             "paths": [
                 "factors/**",
+                FACTOR_CLAIM,
                 PORTFOLIO_MANDATE,
                 RESEARCH_HORIZON,
             ]
@@ -1524,7 +1531,11 @@ def _apply_ohlcv_research_desk(
                 ),
                 dataset=shared_dataset,
                 dependencies={
-                    "paths": [PORTFOLIO_MANDATE, RESEARCH_HORIZON]
+                    "paths": [
+                        FACTOR_CLAIM,
+                        PORTFOLIO_MANDATE,
+                        RESEARCH_HORIZON,
+                    ]
                 },
             ),
             "ohlcv_portfolio_lab",
@@ -1561,6 +1572,7 @@ def _apply_ohlcv_research_desk(
                 dependencies={
                     "paths": [
                         "factors/**",
+                        FACTOR_CLAIM,
                         PORTFOLIO_MANDATE,
                         RESEARCH_HORIZON,
                     ]
