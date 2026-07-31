@@ -139,6 +139,16 @@ observe whether a human or Agent actually used that evidence, so never rewrite
 `testGuidanceObservability=not-observable` as a factual test-guided claim.
 The external-holdout requirement remains conservative in both cases.
 
+For a new editable Factor assignment, the scaffold `candidate.py` is an API
+demonstrator, not the caller's baseline. Finish the brief and intake, inspect
+the candidate contract, author the first predeclared caller-relevant candidate
+before any evaluation, and then start the governed Session; `session start`
+creates or reuses that candidate's baseline Run. Do not execute and inspect
+the generic scaffold Run and then edit the canonical candidate. If any prior
+Run's visible test evidence preceded a later source edit, disclose that timing,
+preserve `externalHoldoutRequired`, and never call the process test-blind or
+claim that test evidence was not used.
+
 When writing `request.horizonPolicy`, declare the required primary horizon
 once. `diagnosticForwardBars` may contain only the additional sorted context
 horizons; Core canonically adds the primary and enforces a five-horizon total.

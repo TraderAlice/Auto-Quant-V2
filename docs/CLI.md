@@ -215,7 +215,10 @@ one decision asset uses temporal evaluation; exactly two symmetric,
 dollar-neutral decision assets use temporal first-minus-second factor/return
 spread evaluation; four or more use cross-sectional evaluation. Three assets
 remain unsupported until the caller supplies an explicit relative-basket
-contrast.
+contrast. A request-bound one- or two-asset temporal decision signal may use a
+package containing only those prediction assets; Core does not require
+unrequested context padding merely to satisfy the cross-sectional breadth
+floor.
 `ohlcv-portfolio-lab` uses the same causal candidate API and
 adds fixed constrained target construction, drift-aware accounting,
 transaction costs, layered professional metrics, and cost/delay/risk-governor

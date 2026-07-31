@@ -80,6 +80,15 @@ state does not claim a later post-audit edit. Baseline test evidence was already
 visible, however, so this distinction does not restore production-grade
 holdout authority or weaken the external-evidence requirement.
 
+For a new caller assignment, the generated Factor candidate is an API
+demonstrator rather than a meaningful baseline. The Agent writes the first
+predeclared caller-relevant source before evaluation and starts the Session
+from that source; it does not run the generic scaffold, inspect its test
+audit, and then author the real candidate. When visible test evidence does
+precede a source edit, handoff language preserves the Core-derived timing and
+`not-observable` guidance state rather than asserting that the evidence was
+unused.
+
 Already published Runs may retain the historical declared rule
 `required-after-test-guided-iteration`. Current projections preserve that raw
 value as `declaredExternalHoldoutRule` but expose the truthful effective

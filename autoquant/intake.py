@@ -1788,6 +1788,14 @@ def prepare_project_intake(
         minimum_observations = minimum_observations_override
     if observed_intraday:
         minimum_assets = 1
+    factor_policy = request.get("factorPolicy")
+    if (
+        template == "ohlcv-factor-lab"
+        and isinstance(factor_policy, dict)
+        and factor_policy.get("claim") == "decision-signal"
+        and len(observed_target_symbols) in {1, 2}
+    ):
+        minimum_assets = len(observed_target_symbols)
     if len(prepared) < minimum_assets:
         issues.append(
             _issue(

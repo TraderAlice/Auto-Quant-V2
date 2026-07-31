@@ -1,4 +1,4 @@
-"""Agent-editable baseline factor for the OHLCV Factor Lab."""
+"""Agent-editable API demonstrator for the OHLCV Factor Lab."""
 
 from __future__ import annotations
 

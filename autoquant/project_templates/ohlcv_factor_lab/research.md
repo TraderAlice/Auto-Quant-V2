@@ -56,8 +56,16 @@ artifacts when a conclusion depends on a specific date or slice.
 
 ## First commands
 
+For a real incoming assignment, this scaffold candidate only demonstrates the
+API. Do not execute it as the caller's baseline. Complete this brief and
+intake, inspect the contract, author the first predeclared caller-relevant
+candidate before any evaluation, and let `session start` create or reuse its
+baseline Run. Once any Run's test audit is visible, a later source edit cannot
+be described as test-blind and requires fresh external holdout evidence for a
+new production-grade claim.
+
 ```bash
+aq orient . --json
 aq study inspect . --study ohlcv-factor-quality --json
-aq run execute . --study ohlcv-factor-quality --json
 aq session start . --study ohlcv-factor-quality --json
 ```

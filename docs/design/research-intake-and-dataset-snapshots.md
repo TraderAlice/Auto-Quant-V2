@@ -284,7 +284,10 @@ Before any Project is visible, Core:
    records the complete observed-only availability surface; V5 requires at
    least 120 observations per asset but derives its Factor timeline from the
    one explicit prediction asset;
-8. enforces template-specific breadth and history floors;
+8. enforces template-specific breadth and history floors; a request-bound
+   `decision-signal` with exactly one temporal target or two relative-value
+   targets uses the matching one- or two-asset package floor rather than the
+   four-asset cross-sectional Factor floor;
 9. requires each requested asset and non-null venue to exist in the package;
    V1–V4 legacy packages match the request against their one package class,
    while a supplied complete per-asset vector and every V5 package match each

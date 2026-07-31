@@ -160,7 +160,7 @@ class RequestDrivenIntakeTests(unittest.TestCase):
             self.assertEqual(candidate.read_bytes(), before)
             self.assertIsNone(load_project_intake(scaffold))
 
-    def test_daily_factor_baseline_declares_only_base_surface(self) -> None:
+    def test_daily_factor_demonstrator_declares_only_base_surface(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             request_path, package_path = write_intake_inputs(root)
@@ -182,6 +182,12 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                 "AVAILABLE_FEATURE_INTERVALS = []",
                 candidate,
             )
+            self.assertIn("API demonstrator", candidate)
+            research = (
+                project.root_dir / "research.md"
+            ).read_text(encoding="utf-8")
+            self.assertIn("Do not execute it as the caller's baseline", research)
+            self.assertNotIn("aq run execute", research)
             run = execute_study(project, OHLCV_STUDY_ID)
             self.assertEqual(
                 run.result["status"],
@@ -1143,6 +1149,80 @@ class RequestDrivenIntakeTests(unittest.TestCase):
             jsonschema.validate(
                 projection,
                 FACTOR_DIAGNOSTICS_JSON_SCHEMA,
+            )
+
+    def test_single_asset_temporal_intake_does_not_require_context_padding(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            request_path, package_path = write_multi_interval_inputs(root)
+            request = json.loads(request_path.read_text(encoding="utf-8"))
+            request["assets"] = [
+                {
+                    "symbol": "BTC",
+                    "assetClass": "crypto",
+                    "venue": "CRYPTO-COMPOSITE",
+                    "positionRole": "long-only",
+                }
+            ]
+            request["factorPolicy"] = {
+                "claim": "decision-signal",
+                "knownStyle": None,
+            }
+            request_path.write_text(
+                json.dumps(request, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            package = json.loads(package_path.read_text(encoding="utf-8"))
+            package["assets"] = [
+                item for item in package["assets"] if item["symbol"] == "BTC"
+            ]
+            package_path.write_text(
+                json.dumps(package, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+
+            prepared = prepare_project_intake(
+                request_path,
+                package_path,
+                "ohlcv-factor-lab",
+            )
+            project = create_project(
+                initialize_workspace(root / "workspace").root_dir,
+                "single-asset-without-context-padding",
+                template=prepared.template,
+                template_intake=prepared,
+            )
+            (project.root_dir / "factors" / "candidate.py").write_text(
+                (
+                    "from __future__ import annotations\n\n"
+                    "import pandas as pd\n\n"
+                    "def compute_factor(panel: pd.DataFrame) -> pd.Series:\n"
+                    "    return panel.groupby('asset', sort=False)['close']"
+                    ".pct_change(10, fill_method=None)\n"
+                ),
+                encoding="utf-8",
+            )
+            run = execute_study(project, OHLCV_STUDY_ID)
+
+            self.assertEqual(
+                run.result["status"],
+                "succeeded",
+                run.result["errors"],
+            )
+            population = run.result["metrics"]["prediction_universe"]
+            self.assertEqual(
+                population["evaluation_mode"],
+                "single-asset-temporal",
+            )
+            self.assertEqual(population["prediction_assets"], ["BTC"])
+            self.assertEqual(population["context_assets"], [])
+            self.assertEqual(
+                run.result["metrics"]["input_availability"][
+                    "minimum_assets_per_factor_timestamp"
+                ],
+                1,
             )
 
     def test_caller_portfolio_policy_governs_portfolio_and_rl(self) -> None:

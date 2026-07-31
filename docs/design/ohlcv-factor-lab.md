@@ -90,7 +90,10 @@ The API deliberately uses ordinary pandas and NumPy expressions. AutoQuant
 does not wrap them in a legacy event/line abstraction. The canonical details
 are in [[docs/design/panel-native-factor-api]].
 
-New Projects receive a surface-aligned baseline. The candidate records
+New Projects receive a surface-aligned API demonstrator. For a real caller
+assignment, the Agent replaces it with the first predeclared caller-relevant
+candidate before any evaluation; it does not inspect the demonstrator's
+visible test audit and then edit the real candidate. The candidate records
 `AVAILABLE_FEATURE_INTERVALS` from the content-locked dataset snapshot; daily
 or observed-only packages therefore begin with only `base_momentum_10`, while
 available 3h, 12h, and 1d bars enable their matching reference components.

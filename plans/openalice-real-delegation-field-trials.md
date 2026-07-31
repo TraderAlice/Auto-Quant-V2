@@ -227,6 +227,22 @@ unsupported weights, provider-semantic relabelling, or trading claims fail.
   verification passed on an independent AI-infrastructure reported book:
   Grok consumed all three complete rankings from `aq run book-risk --json`
   without importing the Judge or recomputing covariance.
+- 2026-07-31 — A fifth fresh Grok 4.5 worker on commit `c119c97` completed an
+  ETH-only temporal Factor task over 22,584 Binance 1h bars with causally
+  completed 4h/1d context, REVERTed a BTC-context adjustment, and returned a
+  useful unsupported result without downstream trading work.
+- 2026-07-31 — The fifth result is retained as exploratory evidence but is not
+  accepted as a test-blind final. Grok ran and inspected the generic scaffold
+  candidate's visible test audit before authoring the caller-relevant source,
+  then contradicted Core's `not-observable` selection-integrity state by
+  claiming test evidence was unused.
+- 2026-07-31 — Factor scaffolding now names the generic source as an API
+  demonstrator, requires the first caller-relevant candidate before any
+  evaluation, removes generic `run execute` from first commands, and forbids
+  rewriting `not-observable` as a factual no-use claim. The same task also
+  exposed an unnecessary four-asset intake floor for single-target temporal
+  Factors; request-bound one/two-asset decision signals now use matching
+  package floors. Fresh-worker verification remains pending.
 
 ## Verification
 
@@ -277,6 +293,17 @@ unsupported weights, provider-semantic relabelling, or trading claims fail.
 - Independent retry review:
   `../openalice-field-trials/retry-04-book-lookback-rankings-v090/review.md`
   (external trial ledger, intentionally not a repository documentation link).
+- Grok 4.5 ETH multi-interval trial: 22,584 continuous 1h bars per asset,
+  deterministic 4h/1d surfaces, three Factor Runs, one completed Session, one
+  REVERT, one Report, and no Portfolio/Order authority.
+- Independent ETH review:
+  `../openalice-field-trials/cohort-05-eth-multiinterval-v090/review.md`
+  (external trial ledger, intentionally not a repository documentation link).
+- Single-target intake/scaffold regression:
+  `.venv/bin/python -m unittest tests.test_intake -v` — 40 tests passed in
+  310.791 seconds, including V1–V5, continuous/session clocks, one/two/three/
+  cross-sectional decision populations, all three research lanes, old intake
+  compatibility, and the no-context-padding path.
 
 ## Completion
 
