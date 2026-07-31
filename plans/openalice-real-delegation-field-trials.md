@@ -40,21 +40,28 @@ matrix.
 
 Every qualifying first-pass worker receives only:
 
-- an installed released AutoQuant wheel or exact checked-out release;
-- one newly initialized persistent Workspace;
+- one fresh clone of the exact released AutoQuant tag used by OpenAlice, with
+  its original `.git` history and remote preserved, plus that release's
+  installed environment;
+- the clone's repository-root Workspace and checked-in teaching Project;
 - the ordinary caller-style assignment and any caller-supplied facts;
 - public network access and the Skills materialized by that release;
 - normal shell and filesystem tools inside its desk.
 
 It does not receive:
 
-- the AutoQuant source checkout, repository tests, design docs, plans, or
-  previous field-trial directories;
+- any newer AutoQuant checkout, unreleased fixes, external previous
+  field-trial directories, or hidden answer Project;
 - private framework explanations, prepared commands, hidden answer keys, or
   corrective live coaching;
 - prior Grok memory, web-search summaries, subagents, or another model's
   research;
 - permission to access accounts, place Orders, or claim trading authority.
+
+A worker may inspect the checked-out Harness source and documentation because
+that is a deliberate benefit of the real OpenAlice clone model. The
+observation record notes whether ordinary orientation was sufficient or the
+worker had to reverse-engineer Core.
 
 A worker may ask a material clarification question. The delegating reviewer
 answers only the caller-owned ambiguity and records the exchange; it does not
