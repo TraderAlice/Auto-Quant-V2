@@ -637,11 +637,13 @@ support into a novelty claim, or relabel a familiar style as novel.
 Declaring Factor Runs add `metrics.factor_components` and
 `artifacts/factor-components.json`. Both appear together and describe only
 candidate-declared materialized components. Cross-sectional scores receive
-fixed split/horizon IC, final-factor association, pairwise redundancy,
-train-selected nearest-peer residual IC, and leave-one-out impact on a fixed
-equal-rank diagnostic blend. Timestamp contexts receive train-tertile
-occupancy, transitions, and conditional final-factor IC; they never receive
-invented standalone cross-sectional IC.
+evaluation-mode-correct split/horizon evidence, final-factor association,
+pairwise redundancy, train-selected nearest-peer residual evidence, and
+leave-one-out impact on a fixed equal-rank diagnostic blend. Cross-sectional
+Runs use per-date rank IC; single-asset and two-asset relative-value Runs use
+within-split temporal rank-correlation contributions. Timestamp contexts
+receive train-tertile occupancy, transitions, and matching conditional
+contribution evidence; they never receive an invented standalone score.
 Historical and non-declaring Runs omit both. The evidence has no
 final-factor-selection, Portfolio, RL-action, or trading authority.
 

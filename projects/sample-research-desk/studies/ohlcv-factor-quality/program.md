@@ -39,8 +39,7 @@ returned Series must align exactly with the input index. Missing warm-up values
 are allowed. Future timestamps, centered windows, negative shifts, global
 full-sample normalization, external data, and mutation of the input are not.
 
-For cross-sectional evaluation, when a hypothesis has meaningful sub-signals,
-also export
+When a hypothesis has meaningful sub-signals, also export
 `FACTOR_COMPONENTS` and
 `compute_factor_components(panel) -> pandas.DataFrame`. Declare one causal
 column per falsifiable source component, including its label, role, claimed
@@ -48,13 +47,15 @@ column per falsifiable source component, including its label, role, claimed
 `cross-sectional-score` for values meant to rank assets and
 `timestamp-context` for one market/regime value shared by every asset at a
 timestamp. Context components must be exactly cross-sectionally constant;
-Core evaluates their train-tertile occupancy, transitions, and conditional
-final-factor IC instead of inventing meaningless standalone cross-sectional
-IC. The component table must remain aligned, deterministic, numeric,
-immutable, and prefix causal. Do not declare presentation-only duplicates or
-imply that Core inferred column use. Single-asset temporal V1 validates the
-final factor but does not yet publish component or quantile attribution; treat
-that absence as an explicit protocol boundary, not positive evidence.
+Core evaluates their train-tertile occupancy and transitions. Cross-sectional
+Runs measure score components with per-date rank IC and context with
+conditional final-factor IC. Single-asset and two-asset relative-value Runs
+measure score components and context with within-split temporal rank-
+correlation contributions. The component table must remain aligned,
+deterministic, numeric, immutable, and prefix causal. Do not declare
+presentation-only duplicates or imply that Core inferred column use. Temporal
+quantile attribution remains unavailable; do not treat that explicit protocol
+boundary as positive evidence.
 
 ## Iteration protocol
 
@@ -80,7 +81,8 @@ evidence was unused.
 6. Inspect validation/test primary-horizon IC, HAC strength, diagnostic
    horizon decay, tertile monotonicity/spread, train-selected dominant style,
    style-neutral residual
-   IC, equal-blend uplift, declared-component raw/residual IC, pairwise
+   primary-horizon association, equal-blend uplift, declared-component
+   raw/residual association, pairwise
    redundancy, fixed diagnostic-blend leave-one-out delta, residual fold
    stability, asset/regime stability, observed input/factor/target-pair
    availability, coverage, turnover, errors, verdict, Project-family trial

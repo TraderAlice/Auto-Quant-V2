@@ -441,6 +441,20 @@ def factor_research_agenda(
 
     moves: list[dict[str, Any]] = []
     components = diagnostics["factorComponents"]
+    temporal_components = (
+        components.get("evaluationMode")
+        in {"single-asset-temporal", "two-asset-relative-value"}
+    )
+    component_measure_label = (
+        "temporal rank contribution"
+        if temporal_components
+        else "rank IC"
+    )
+    component_measure_unit = (
+        "rank-correlation-contribution"
+        if temporal_components
+        else "rank-ic"
+    )
     component_diagnosis = (
         components["validationDiagnosis"]
         if components["available"]
@@ -514,12 +528,14 @@ def factor_research_agenda(
                         _evidence(
                             evidence_path,
                             (
-                                "Validation nearest-peer residual rank IC"
+                                "Validation nearest-peer residual "
+                                f"{component_measure_label}"
                                 if use_residual
-                                else "Validation raw component rank IC"
+                                else "Validation raw component "
+                                f"{component_measure_label}"
                             ),
                             evidence_value,
-                            "rank-ic",
+                            component_measure_unit,
                         )
                     ],
                     objective_metric="validation_mean_ic",
@@ -636,7 +652,11 @@ def factor_research_agenda(
                     objective_metric="validation_mean_ic",
                     required_checks=[
                         "Choose one residual or representative rule before evaluation.",
-                        "Keep the transformation causal and same-timestamp.",
+                        (
+                            "Keep the transformation causal and within-split."
+                            if temporal_components
+                            else "Keep the transformation causal and same-timestamp."
+                        ),
                         "Use validation, never train association, for the formal verdict.",
                     ],
                     stop_conditions=[
@@ -697,6 +717,11 @@ def factor_research_agenda(
             if gap > 0.0:
                 strongest_state = max(state_ics, key=state_ics.get)
                 weakest_state = min(state_ics, key=state_ics.get)
+                conditional_label = (
+                    "conditional temporal rank-contribution range"
+                    if temporal_components
+                    else "conditional factor-IC range"
+                )
                 context_move = _move(
                         priority=min(
                             len(moves) + 1,
@@ -718,8 +743,8 @@ def factor_research_agenda(
                         rationale=(
                             "Train-only tertiles fix the context states and "
                             "validation shows the largest declared conditional "
-                            f"factor-IC range ({gap:+.4f}). This is a regime "
-                            "hypothesis, not standalone cross-sectional IC or "
+                            f"{conditional_label} ({gap:+.4f}). This is a regime "
+                            "hypothesis, not a standalone predictive score or "
                             "permission to tune state thresholds."
                         ),
                         editable_paths=editable_paths,
@@ -729,9 +754,13 @@ def factor_research_agenda(
                                 f"/factorComponents/components/{index}/"
                                 "validation/context/"
                                 "conditionalFactorHorizonProfile",
-                                "Validation conditional factor IC range",
+                                f"Validation {conditional_label}",
                                 gap,
-                                "rank-ic-range",
+                                (
+                                    "rank-correlation-contribution-range"
+                                    if temporal_components
+                                    else "rank-ic-range"
+                                ),
                             )
                         ],
                         objective_metric="validation_mean_ic",

@@ -59,6 +59,7 @@ def factor_diagnostics(
         },
         "factorComponents": {
             "available": True,
+            "evaluationMode": "cross-sectional",
             "validationDiagnosis": {
                 "strongestRawComponent": "base_momentum",
                 "strongestRawMeanIc": 0.31,
@@ -269,6 +270,32 @@ class EvidenceDrivenResearchAgendaTests(unittest.TestCase):
         )
         self.assertIn("Train-only tertiles", context_move["rationale"])
         self.assertNotIn("test", context_move["evidenceRefs"][0]["path"])
+
+        temporal = copy.deepcopy(diagnostics)
+        temporal["factorComponents"]["evaluationMode"] = (
+            "single-asset-temporal"
+        )
+        temporal_agenda = factor_research_agenda(
+            temporal,
+            ["factors/**"],
+        )
+        self.assertIn(
+            "temporal rank contribution",
+            temporal_agenda["moves"][0]["evidenceRefs"][0]["label"],
+        )
+        temporal_context = next(
+            move
+            for move in temporal_agenda["moves"]
+            if move["id"] == "factor-test-context-interaction"
+        )
+        self.assertIn(
+            "conditional temporal rank-contribution range",
+            temporal_context["rationale"],
+        )
+        self.assertEqual(
+            temporal_context["evidenceRefs"][0]["unit"],
+            "rank-correlation-contribution-range",
+        )
 
     def test_factor_legacy_components_fall_back_and_positive_edge_freezes(self) -> None:
         diagnostics = factor_diagnostics(stage="raw-predictive-edge-absent")

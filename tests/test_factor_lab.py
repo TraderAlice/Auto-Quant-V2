@@ -400,7 +400,7 @@ class OhlcvFactorLabTests(unittest.TestCase):
             components = metrics["factor_components"]
             self.assertEqual(
                 components["method"],
-                "candidate-declared-components-v2",
+                "candidate-declared-components-v3",
             )
             self.assertEqual(
                 components["trial_disclosure"],

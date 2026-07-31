@@ -1051,8 +1051,21 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                 set(metrics["stability"]["per_asset"]["validation"]),
                 {"NVDA", "QQQ"},
             )
-            self.assertNotIn("factor_components", metrics)
-
+            components = metrics["factor_components"]
+            self.assertEqual(
+                components["method"],
+                "candidate-declared-components-v3",
+            )
+            self.assertEqual(
+                components["semantics"]["evaluation_mode"],
+                "two-asset-relative-value",
+            )
+            self.assertEqual(
+                components["validation_diagnosis"][
+                    "strongest_raw_component"
+                ],
+                "base_momentum_10",
+            )
             projection = load_factor_diagnostics(project, run.result["id"])
             self.assertEqual(
                 projection["predictionUniverse"]["evaluationMode"],
@@ -1065,6 +1078,11 @@ class RequestDrivenIntakeTests(unittest.TestCase):
             self.assertEqual(
                 projection["factorQualification"]["method"],
                 "request-claim-aware-one-style-temporal-neutralization-v1",
+            )
+            self.assertTrue(projection["factorComponents"]["available"])
+            self.assertEqual(
+                projection["factorComponents"]["evaluationMode"],
+                "two-asset-relative-value",
             )
             jsonschema.validate(
                 projection,
@@ -1129,7 +1147,41 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                 set(metrics["stability"]["per_asset"]["validation"]),
                 {"BTC"},
             )
-            self.assertNotIn("factor_components", metrics)
+            components = metrics["factor_components"]
+            self.assertEqual(
+                components["method"],
+                "candidate-declared-components-v3",
+            )
+            self.assertEqual(
+                components["semantics"]["evaluation_mode"],
+                "single-asset-temporal",
+            )
+            self.assertEqual(
+                components["validation_diagnosis"][
+                    "strongest_raw_component"
+                ],
+                "base_momentum_10",
+            )
+            self.assertEqual(
+                components["trial_disclosure"],
+                {
+                    "materialized_components": 4,
+                    "cross_sectional_score_components": 4,
+                    "timestamp_context_components": 0,
+                    "pairwise_comparisons": 6,
+                    "component_diagnostics_enter_promotion_score": False,
+                },
+            )
+            self.assertIsNotNone(
+                components["validation_diagnosis"][
+                    "strongest_residual_component"
+                ]
+            )
+            self.assertIsNotNone(
+                components["validation_diagnosis"][
+                    "removal_most_improves_fixed_blend"
+                ]
+            )
 
             projection = load_factor_diagnostics(project, run.result["id"])
             self.assertEqual(
@@ -1146,8 +1198,119 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                 projection["factorQualification"]["method"],
                 "request-claim-aware-one-style-temporal-neutralization-v1",
             )
+            self.assertTrue(projection["factorComponents"]["available"])
+            self.assertEqual(
+                projection["factorComponents"]["evaluationMode"],
+                "single-asset-temporal",
+            )
+            self.assertEqual(
+                len(projection["factorComponents"]["pairwise"]),
+                6,
+            )
             jsonschema.validate(
                 projection,
+                FACTOR_DIAGNOSTICS_JSON_SCHEMA,
+            )
+
+    def test_single_asset_temporal_context_uses_contribution_semantics(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            request_path, package_path = write_multi_interval_inputs(root)
+            request = json.loads(request_path.read_text(encoding="utf-8"))
+            request["assets"] = [
+                {
+                    "symbol": "BTC",
+                    "assetClass": "crypto",
+                    "venue": "CRYPTO-COMPOSITE",
+                }
+            ]
+            request["factorPolicy"] = {
+                "claim": "decision-signal",
+                "knownStyle": None,
+            }
+            request_path.write_text(
+                json.dumps(request, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            prepared = prepare_project_intake(
+                request_path,
+                package_path,
+                "ohlcv-factor-lab",
+            )
+            project = create_project(
+                initialize_workspace(root / "workspace").root_dir,
+                "single-asset-temporal-context",
+                template=prepared.template,
+                template_intake=prepared,
+            )
+            (project.root_dir / "factors" / "candidate.py").write_text(
+                """from __future__ import annotations
+
+import pandas as pd
+
+FACTOR_COMPONENTS = {
+    "asset_momentum": {
+        "label": "Asset momentum",
+        "role": "cross-sectional-score",
+        "intervals": ["base"],
+        "hypothesis": "Recent returns persist for the target asset.",
+    },
+    "market_state": {
+        "label": "Market state",
+        "role": "timestamp-context",
+        "intervals": ["base"],
+        "hypothesis": "Target timing differs with the causal market state.",
+    },
+}
+
+def compute_factor_components(panel: pd.DataFrame) -> pd.DataFrame:
+    momentum = panel.groupby("asset", sort=False)["close"].pct_change(
+        10, fill_method=None
+    )
+    context = momentum.groupby(panel["timestamp"], sort=False).transform(
+        "mean"
+    )
+    return pd.DataFrame(
+        {"asset_momentum": momentum, "market_state": context},
+        index=panel.index,
+    )
+
+def compute_factor(panel: pd.DataFrame) -> pd.Series:
+    return compute_factor_components(panel)["asset_momentum"]
+""",
+                encoding="utf-8",
+            )
+
+            run = execute_study(project, OHLCV_STUDY_ID)
+            self.assertEqual(run.result["status"], "succeeded")
+            metrics = run.result["metrics"]["factor_components"]
+            context = next(
+                item
+                for item in metrics["components"]
+                if item["id"] == "market_state"
+            )["timestamp_context"]
+            self.assertEqual(
+                context["method"],
+                "train-tertile-temporal-context-v2",
+            )
+            self.assertEqual(
+                context["conditional_measure"],
+                "within-split-temporal-rank-correlation-contribution",
+            )
+            diagnostics = load_factor_diagnostics(project, run.result["id"])
+            projected = next(
+                item
+                for item in diagnostics["factorComponents"]["components"]
+                if item["id"] == "market_state"
+            )["timestampContext"]
+            self.assertEqual(
+                projected["conditionalMeasure"],
+                "within-split-temporal-rank-correlation-contribution",
+            )
+            jsonschema.validate(
+                diagnostics,
                 FACTOR_DIAGNOSTICS_JSON_SCHEMA,
             )
 

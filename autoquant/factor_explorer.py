@@ -89,7 +89,7 @@ TEMPORAL_EVALUATION_MODES = {
     SINGLE_ASSET_TEMPORAL_MODE,
     TWO_ASSET_RELATIVE_VALUE_MODE,
 }
-COMPONENT_METHOD = "candidate-declared-components-v2"
+COMPONENT_METHOD = "candidate-declared-components-v3"
 MAX_COMPONENTS = 12
 QUALIFICATION_MIN_POSITIVE_HAC_T = 1.96
 QUALIFICATION_SIGNALS = (
@@ -2150,19 +2150,37 @@ def _context_distribution_projection(value: Any, path: str) -> dict[str, Any]:
     }
 
 
-def _timestamp_context_projection(value: Any, path: str) -> dict[str, Any]:
-    if not isinstance(value, dict) or set(value) != {
+def _timestamp_context_projection(
+    value: Any,
+    path: str,
+    evaluation_mode: str,
+) -> dict[str, Any]:
+    temporal = evaluation_mode in TEMPORAL_EVALUATION_MODES
+    expected_keys = {
         "method",
         "state_selection",
         "splits",
         "authority",
         "test_enters_diagnosis",
         "trading_authority",
-    }:
+    }
+    if temporal:
+        expected_keys.add("conditional_measure")
+    if not isinstance(value, dict) or set(value) != expected_keys:
         _fail(path, "factor.component-context", "Invalid timestamp-context evidence")
     selection = value.get("state_selection")
     if (
-        value.get("method") != "train-tertile-timestamp-context-v1"
+        value.get("method")
+        != (
+            "train-tertile-temporal-context-v2"
+            if temporal
+            else "train-tertile-timestamp-context-v1"
+        )
+        or (
+            temporal
+            and value.get("conditional_measure")
+            != "within-split-temporal-rank-correlation-contribution"
+        )
         or value.get("authority") != "research-prioritization-only"
         or value.get("test_enters_diagnosis") is not False
         or value.get("trading_authority") != "none"
@@ -2298,6 +2316,11 @@ def _timestamp_context_projection(value: Any, path: str) -> dict[str, Any]:
         }
     return {
         "method": value["method"],
+        "conditionalMeasure": (
+            value["conditional_measure"]
+            if temporal
+            else "per-date-cross-sectional-rank-ic"
+        ),
         "stateSelection": {
             "split": "train",
             "targetEntersThresholds": False,
@@ -2315,9 +2338,11 @@ def _timestamp_context_projection(value: Any, path: str) -> dict[str, Any]:
 def _factor_components_projection(
     evidence: Any,
     universe: list[str],
+    evaluation_mode: str,
 ) -> dict[str, Any]:
     base = {
         "method": COMPONENT_METHOD,
+        "evaluationMode": evaluation_mode,
         "authority": "research-prioritization-only",
         "tradingAuthority": "none",
     }
@@ -2415,14 +2440,26 @@ def _factor_components_projection(
         declared_by_id[component_id] = item
 
     semantics = evidence.get("semantics")
+    temporal = evaluation_mode in TEMPORAL_EVALUATION_MODES
     expected_semantics = {
+        "evaluation_mode": evaluation_mode,
         "prediction_target": "fixed-purged-forward-base-bar-return",
+        "score_measure": (
+            "within-split-temporal-rank-correlation-contribution"
+            if temporal
+            else "per-date-cross-sectional-rank-ic"
+        ),
         "nearest_peer_selection": "train-only-target-free",
         "residualization": (
-            "same-timestamp-cross-sectional-centered-rank-ols"
+            "within-split-temporal-centered-rank-ols"
+            if temporal
+            else "same-timestamp-cross-sectional-centered-rank-ols"
         ),
         "diagnostic_blend": (
-            "equal-weight-cross-sectional-percentile-ranks-with-"
+            "equal-weight-within-split-temporal-percentile-ranks-with-"
+            "common-component-availability"
+            if temporal
+            else "equal-weight-cross-sectional-percentile-ranks-with-"
             "common-component-availability"
         ),
         "ablation_target": "fixed-diagnostic-blend-not-candidate-factor",
@@ -2431,7 +2468,10 @@ def _factor_components_projection(
             "timestamp-context",
         ],
         "timestamp_context": (
-            "train-tertile-occupancy-transition-and-conditional-factor-ic"
+            "train-tertile-occupancy-transition-and-conditional-temporal-"
+            "rank-correlation-contribution"
+            if temporal
+            else "train-tertile-occupancy-transition-and-conditional-factor-ic"
         ),
         "selection_authority": "research-prioritization-only",
         "test_role": "visible-audit",
@@ -2581,6 +2621,7 @@ def _factor_components_projection(
             context = _timestamp_context_projection(
                 raw.get("timestamp_context"),
                 f"{path}/timestamp_context",
+                evaluation_mode,
             )
             projected_components.append(
                 {
@@ -3184,7 +3225,9 @@ def _factor_components_projection(
             "components": declared,
         },
         "semantics": {
+            "evaluationMode": semantics["evaluation_mode"],
             "predictionTarget": semantics["prediction_target"],
+            "scoreMeasure": semantics["score_measure"],
             "nearestPeerSelection": semantics["nearest_peer_selection"],
             "residualization": semantics["residualization"],
             "diagnosticBlend": semantics["diagnostic_blend"],
@@ -3875,24 +3918,46 @@ def _load_factor_diagnostics_unlocked(
             "Factor report qualification semantics are invalid",
         )
     component_semantics = semantics.get("components")
-    if component_evidence is not None and component_semantics != {
-        "method": COMPONENT_METHOD,
-        "declaration": "candidate-explicit-not-source-inferred",
-        "roles": [
-            "cross-sectional-score",
-            "timestamp-context",
-        ],
-        "exhaustiveCompositionClaim": False,
-        "nearestPeerSelection": "train-only-target-free",
-        "ablationTarget": "fixed-diagnostic-blend-not-candidate-factor",
-        "timestampContext": (
-            "train-tertile-occupancy-transition-and-conditional-factor-ic"
-        ),
-        "testRole": "visible audit only",
-        "portfolioAuthority": "none",
-        "rlActionAuthority": "none",
-        "tradingAuthority": "none",
-    }:
+    raw_component_semantics = (
+        component_evidence.get("semantics")
+        if isinstance(component_evidence, dict)
+        else None
+    )
+    expected_component_semantics = (
+        {
+            "method": COMPONENT_METHOD,
+            "evaluationMode": raw_component_semantics["evaluation_mode"],
+            "scoreMeasure": raw_component_semantics["score_measure"],
+            "declaration": "candidate-explicit-not-source-inferred",
+            "roles": [
+                "cross-sectional-score",
+                "timestamp-context",
+            ],
+            "exhaustiveCompositionClaim": False,
+            "nearestPeerSelection": "train-only-target-free",
+            "ablationTarget": "fixed-diagnostic-blend-not-candidate-factor",
+            "residualization": raw_component_semantics["residualization"],
+            "diagnosticBlend": raw_component_semantics["diagnostic_blend"],
+            "timestampContext": raw_component_semantics["timestamp_context"],
+            "testRole": "visible audit only",
+            "portfolioAuthority": "none",
+            "rlActionAuthority": "none",
+            "tradingAuthority": "none",
+        }
+        if isinstance(raw_component_semantics, dict)
+        and {
+            "evaluation_mode",
+            "score_measure",
+            "residualization",
+            "diagnostic_blend",
+            "timestamp_context",
+        }.issubset(raw_component_semantics)
+        else None
+    )
+    if component_evidence is not None and (
+        expected_component_semantics is None
+        or component_semantics != expected_component_semantics
+    ):
         _fail(
             paths["factor-report"],
             "factor.component-semantics",
@@ -3947,6 +4012,7 @@ def _load_factor_diagnostics_unlocked(
         "factorComponents": _factor_components_projection(
             component_evidence,
             universe,
+            prediction_universe["evaluationMode"],
         ),
         "horizonProfile": _horizon_profile(metrics),
         "quantileSummary": _quantile_summary(metrics),
@@ -4187,6 +4253,7 @@ _FACTOR_COMPONENTS_SCHEMA: dict[str, Any] = {
             "additionalProperties": False,
             "required": [
                 "method",
+                "evaluationMode",
                 "authority",
                 "tradingAuthority",
                 "available",
@@ -4194,6 +4261,13 @@ _FACTOR_COMPONENTS_SCHEMA: dict[str, Any] = {
             ],
             "properties": {
                 "method": {"const": COMPONENT_METHOD},
+                "evaluationMode": {
+                    "enum": [
+                        CROSS_SECTIONAL_MODE,
+                        SINGLE_ASSET_TEMPORAL_MODE,
+                        TWO_ASSET_RELATIVE_VALUE_MODE,
+                    ]
+                },
                 "authority": {"const": "research-prioritization-only"},
                 "tradingAuthority": {"const": "none"},
                 "available": {"const": False},
@@ -4207,6 +4281,7 @@ _FACTOR_COMPONENTS_SCHEMA: dict[str, Any] = {
             "additionalProperties": False,
             "required": [
                 "method",
+                "evaluationMode",
                 "authority",
                 "tradingAuthority",
                 "available",
@@ -4221,6 +4296,13 @@ _FACTOR_COMPONENTS_SCHEMA: dict[str, Any] = {
             ],
             "properties": {
                 "method": {"const": COMPONENT_METHOD},
+                "evaluationMode": {
+                    "enum": [
+                        CROSS_SECTIONAL_MODE,
+                        SINGLE_ASSET_TEMPORAL_MODE,
+                        TWO_ASSET_RELATIVE_VALUE_MODE,
+                    ]
+                },
                 "authority": {"const": "research-prioritization-only"},
                 "tradingAuthority": {"const": "none"},
                 "available": {"const": True},
@@ -4237,6 +4319,8 @@ _FACTOR_COMPONENTS_SCHEMA: dict[str, Any] = {
                     "type": "object",
                     "required": [
                         "predictionTarget",
+                        "evaluationMode",
+                        "scoreMeasure",
                         "nearestPeerSelection",
                         "residualization",
                         "diagnosticBlend",

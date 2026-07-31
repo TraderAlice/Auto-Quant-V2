@@ -147,8 +147,9 @@ Every successful reference Run publishes:
   and candidate/style/style-neutral/equal-blend daily rank IC for fixed
   request-bound horizons.
 - optional `factor-components.json`: bounded candidate-declared component
-  roles; score quality/association/redundancy/residual/fixed-blend evidence;
-  and timestamp-context occupancy, transitions, and conditional factor IC.
+  roles; evaluation-mode-correct score quality, association, redundancy,
+  residual, and fixed-blend evidence; and timestamp-context occupancy,
+  transitions, and matching conditional contribution evidence.
 
 The Run metric object contains the complete machine-readable summary. The
 bounded Core projection in [[docs/design/factor-evidence-explorer]] verifies
@@ -182,8 +183,9 @@ an unbounded backtest.
   inference or multiple-testing corrections.
 - OHLCV style proxies are intentionally small and do not represent a complete
   commercial risk model.
-- Per-asset time-series correlation answers a different question from
-  cross-sectional IC and must not be averaged into the promotion score.
+- Temporal rank-correlation contribution answers a different question from
+  cross-sectional IC. The Judge selects the request-bound evaluation mode;
+  neither component diagnostic enters the promotion score.
 - Causal regime labels are descriptive conditioning variables, not a guarantee
   that the same states recur in live markets.
 - Portfolio capacity, constraints, costs, and execution remain owned by the

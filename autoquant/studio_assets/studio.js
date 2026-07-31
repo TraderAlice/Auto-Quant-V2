@@ -2099,6 +2099,11 @@ function renderFactorQualification(explorer) {
       </div>`;
     return;
   }
+  const temporal = ["single-asset-temporal", "two-asset-relative-value"].includes(
+    explorer.predictionUniverse?.evaluationMode,
+  );
+  const scoreLabel = temporal ? "temporal rank contribution" : "IC";
+  const observationLabel = temporal ? "observations" : "dates";
   const diagnosis = qualification.diagnosis;
   const validation = qualification.validation;
   const test = qualification.testAudit;
@@ -2140,8 +2145,8 @@ function renderFactorQualification(explorer) {
     <div class="factor-qualification-chain" role="list" aria-label="Validation factor qualification funnel">
       <span class="${rawTone}" role="listitem">
         <small>01 · Raw candidate edge</small>
-        <b>${signedMetric(validation.candidate.meanRankIc)} IC</b>
-        <i>HAC t ${signedMetric(validation.candidate.hacTStatistic)} · ${validation.candidate.observations} dates</i>
+        <b>${signedMetric(validation.candidate.meanRankIc)} ${scoreLabel}</b>
+        <i>HAC t ${signedMetric(validation.candidate.hacTStatistic)} · ${validation.candidate.observations} ${observationLabel}</i>
       </span>
       <span class="context" role="listitem">
         <small>02 · ${knownStyleClaim ? "Request-predeclared style identity" : "Train-selected style"}</small>
@@ -2150,18 +2155,18 @@ function renderFactorQualification(explorer) {
       </span>
       <span class="${knownStyleClaim ? rawTone : residualTone}" role="listitem">
         <small>03 · ${knownStyleClaim ? "Known-style raw evidence" : "Style-neutral edge"}</small>
-        <b>${signedMetric(knownStyleClaim ? validation.candidate.meanRankIc : residual.meanRankIc)} IC</b>
+        <b>${signedMetric(knownStyleClaim ? validation.candidate.meanRankIc : residual.meanRankIc)} ${scoreLabel}</b>
         <i>${knownStyleClaim ? `identity ≥ ${metric(qualification.semantics.diagnosticThresholds.minimumKnownStyleRankIdentity)}` : `HAC t ${signedMetric(residual.hacTStatistic)} · Δ raw ${signedMetric(incremental.styleNeutralIcDelta)}`}</i>
       </span>
       <span class="${incremental.blendUpliftVsStyle > 0 ? "positive" : "adverse"}" role="listitem">
         <small>04 · Blend uplift vs style</small>
-        <b>${signedMetric(incremental.blendUpliftVsStyle)} IC</b>
-        <i>equal rank blend ${signedMetric(validation.equalRankBlend.meanRankIc)} IC</i>
+        <b>${signedMetric(incremental.blendUpliftVsStyle)} ${scoreLabel}</b>
+        <i>equal rank blend ${signedMetric(validation.equalRankBlend.meanRankIc)} ${scoreLabel}</i>
       </span>
       <span class="${worst?.meanRankIc > 0 ? "positive" : "adverse"}" role="listitem">
         <small>05 · ${knownStyleClaim ? "Candidate time breadth" : "Residual time breadth"}</small>
-        <b>${signedMetric(worst?.meanRankIc)} worst IC</b>
-        <i>${escapeHtml(worst?.id ?? "unavailable")} · ${worst?.observations ?? 0} dates</i>
+        <b>${signedMetric(worst?.meanRankIc)} worst ${scoreLabel}</b>
+        <i>${escapeHtml(worst?.id ?? "unavailable")} · ${worst?.observations ?? 0} ${observationLabel}</i>
       </span>
     </div>
     <div class="factor-qualification-audit">
@@ -2172,7 +2177,7 @@ function renderFactorQualification(explorer) {
     </div>
     <div class="factor-qualification-test">
       <small>TEST · VISIBLE AUDIT ONLY · NEVER ENTERS DIAGNOSIS</small>
-      <span>raw → residual IC <b>${signedMetric(test.candidate.meanRankIc)} → ${signedMetric(test.styleNeutralCandidate.meanRankIc)}</b></span>
+      <span>raw → residual ${scoreLabel} <b>${signedMetric(test.candidate.meanRankIc)} → ${signedMetric(test.styleNeutralCandidate.meanRankIc)}</b></span>
       <span>blend uplift vs style <b>${signedMetric(test.incremental.blendUpliftVsStyle)}</b></span>
       <span>worst residual fold <b>${signedMetric(test.weakestStyleNeutralFold?.meanRankIc)}</b></span>
     </div>
@@ -2181,7 +2186,7 @@ function renderFactorQualification(explorer) {
       claim${qualification.claim.knownStyle ? ` for <b>${escapeHtml(qualification.claim.knownStyle)}</b>` : ""}.
       ${knownStyleClaim ? "The comparison style is fixed by the request." : "Dominant style is selected by train-only overlap."}
       Neutralization is a
-      same-timestamp cross-sectional rank projection and never sees forward
+      ${temporal ? "within-split temporal" : "same-timestamp cross-sectional"} rank projection and never sees forward
       returns. Positive raw/residual evidence requires HAC t ≥
       ${metric(qualification.semantics.diagnosticThresholds.minimumPositiveHacTStatistic)};
       Project-family selection adjustment remains separate. This funnel
@@ -2200,6 +2205,10 @@ function renderFactorComponents(explorer) {
       </div>`;
     return;
   }
+  const temporal = ["single-asset-temporal", "two-asset-relative-value"].includes(
+    evidence.evaluationMode,
+  );
+  const scoreLabel = temporal ? "temporal contribution" : "IC";
   const diagnosis = evidence.validationDiagnosis;
   const redundant = diagnosis.mostRedundantPair;
   root.innerHTML = `
@@ -2207,12 +2216,12 @@ function renderFactorComponents(explorer) {
       <span>
         <small>Strongest raw component</small>
         <b>${escapeHtml(diagnosis.strongestRawComponent)}</b>
-        <i>validation IC ${signedMetric(diagnosis.strongestRawMeanIc)}</i>
+        <i>validation ${scoreLabel} ${signedMetric(diagnosis.strongestRawMeanIc)}</i>
       </span>
       <span>
         <small>Strongest nearest-peer residual</small>
         <b>${escapeHtml(diagnosis.strongestResidualComponent ?? "unavailable")}</b>
-        <i>validation IC ${signedMetric(diagnosis.strongestResidualMeanIc)}</i>
+        <i>validation ${scoreLabel} ${signedMetric(diagnosis.strongestResidualMeanIc)}</i>
       </span>
       <span>
         <small>Removal most improves fixed blend</small>
@@ -2231,10 +2240,10 @@ function renderFactorComponents(explorer) {
           <tr>
             <th>Component / interval</th>
             <th>Coverage</th>
-            <th>Validation raw IC</th>
-            <th>Nearest peer / residual IC</th>
+            <th>Validation raw ${scoreLabel}</th>
+            <th>Nearest peer / residual ${scoreLabel}</th>
             <th>Fixed-blend removal Δ</th>
-            <th>Test raw IC</th>
+            <th>Test raw ${scoreLabel}</th>
           </tr>
         </thead>
         <tbody>
@@ -2257,7 +2266,7 @@ function renderFactorComponents(explorer) {
                       <small>transition ${percent(context.transitions.rate)}</small>
                     </td>
                     <td data-label="Conditional evidence">
-                      <b>conditional factor IC</b>
+                      <b>${temporal ? "conditional temporal contribution" : "conditional factor IC"}</b>
                       <small>train-tertile states; target-free thresholds</small>
                     </td>
                     <td data-label="Fixed-blend removal Δ">not applicable</td>
@@ -2271,15 +2280,15 @@ function renderFactorComponents(explorer) {
                     <small>${escapeHtml(component.id)} · ${escapeHtml(component.intervals.join(" + "))}</small>
                   </td>
                   <td data-label="Coverage">${percent(component.meanCoverage)}</td>
-                  <td data-label="Validation raw IC" class="${valueTone(validation.raw.meanRankIc)}">${signedMetric(validation.raw.meanRankIc)}</td>
-                  <td data-label="Nearest peer / residual IC">
+                  <td data-label="Validation raw ${scoreLabel}" class="${valueTone(validation.raw.meanRankIc)}">${signedMetric(validation.raw.meanRankIc)}</td>
+                  <td data-label="Nearest peer / residual ${scoreLabel}">
                     <b>${escapeHtml(component.nearestPeer.id ?? "unavailable")}</b>
-                    <small>${signedMetric(residual?.meanRankIc)} residual IC</small>
+                    <small>${signedMetric(residual?.meanRankIc)} residual ${scoreLabel}</small>
                   </td>
                   <td data-label="Fixed-blend removal Δ" class="${valueTone(-(validation.fixedBlendRemovalDeltaMeanIc ?? 0))}">
                     ${signedMetric(validation.fixedBlendRemovalDeltaMeanIc)}
                   </td>
-                  <td data-label="Test raw IC" class="${valueTone(component.testAudit.raw.meanRankIc)}">${signedMetric(component.testAudit.raw.meanRankIc)}</td>
+                  <td data-label="Test raw ${scoreLabel}" class="${valueTone(component.testAudit.raw.meanRankIc)}">${signedMetric(component.testAudit.raw.meanRankIc)}</td>
                 </tr>`;
             })
             .join("")}

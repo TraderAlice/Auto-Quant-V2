@@ -142,14 +142,17 @@ requires exact metric reconciliation, then validates component count,
 declarations, coverage, fixed horizons/splits, pair identities, residual peer,
 fixed-blend ablation deltas, diagnosis, and authority.
 
-The bounded projection separates cross-sectional scores from timestamp
-context. Scores show validation raw IC, association with the final factor,
-train-selected nearest-peer redundancy, residual IC, fixed equal-rank blend
-removal delta, and visible-test audit. Context shows train-fixed state
-occupancy, transitions, and conditional final-factor IC. Historical
-Runs project `factorComponents.available=false`. The UI explicitly says the
-declaration is a candidate claim and the ablation target is not the arbitrary
-final factor.
+The bounded projection separates predictive score components from timestamp
+context and declares its evaluation mode. Cross-sectional scores show
+per-date validation rank IC; single-asset and two-asset relative-value scores
+show within-split temporal rank-correlation contribution. Both modes expose
+association with the final factor, train-selected nearest-peer redundancy,
+matching residual evidence, fixed equal-rank blend removal delta, and visible-
+test audit. Context shows train-fixed state occupancy, transitions, and
+evaluation-mode-correct conditional contribution. Historical incompatible
+Runs project `factorComponents.available=false`; pre-1.0 mutable Workspaces are
+not silently adapted. The UI explicitly says the declaration is a candidate
+claim and the ablation target is not the arbitrary final factor.
 
 ## HCI
 

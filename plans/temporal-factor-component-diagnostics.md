@@ -77,9 +77,9 @@ the template contract changes.
 
 ## Work
 
-- [ ] Define generalized temporal component math and the new evidence schema.
-- [ ] Implement Judge evidence and deterministic artifact tests.
-- [ ] Implement strict Core projection, agenda, CLI, and Studio parity.
+- [x] Define generalized temporal component math and the new evidence schema.
+- [x] Implement Judge evidence and deterministic artifact tests.
+- [x] Implement strict Core projection, agenda, CLI, and Studio parity.
 - [ ] Update template/operator/design documentation and current sample evidence.
 - [ ] Run a fresh Grok 4.5 field trial and repair only observed reusable defects.
 - [ ] Complete release audit, publish `v0.9.1`, and close the plan.
@@ -102,6 +102,15 @@ Pending.
 
 - 2026-07-31 — Plan created from the accepted `v0.9.0` real-delegation limit
   and activated as the first `0.9.x` patch milestone.
+- 2026-07-31 — Generalized the explicit component contract to schema v3.
+  Single-asset and two-asset relative-value Runs now publish bounded temporal
+  raw, nearest-peer residual, fixed-blend removal, pairwise, and context-state
+  contribution evidence with train-only target-free transforms and visible-
+  audit test semantics. Strict Explorer projection, research agenda, CLI,
+  Studio, Report/Dossier wording, templates, and focused tests now agree on
+  evaluation-mode-specific semantics. The preserved v2 sample Run correctly
+  fails current Explorer projection and will be superseded, not mutated, by a
+  clean v0.9.1 sample execution.
 
 ## Completion
 

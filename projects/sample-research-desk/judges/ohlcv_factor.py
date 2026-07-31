@@ -471,6 +471,38 @@ def _equal_rank_component_blend(
     return (sum(ranks) / float(len(ranks))).where(common_available)
 
 
+def _temporal_equal_rank_component_blend(
+    panels: dict[str, pd.DataFrame],
+    masks: dict[str, pd.Series],
+    *,
+    common_available: pd.Series | None = None,
+) -> pd.DataFrame:
+    """Build one target-free equal-rank blend within each fixed split."""
+
+    names = list(panels)
+    first = panels[names[0]]
+    column = first.columns[0]
+    if common_available is None:
+        common_available = pd.Series(True, index=first.index)
+        for panel in panels.values():
+            common_available &= panel.iloc[:, 0].notna()
+    blend = pd.DataFrame(index=first.index, columns=[column], dtype=float)
+    for split in ("train", "validation", "test"):
+        index = masks[split].index[masks[split]]
+        values = pd.DataFrame(
+            {
+                name: panels[name].iloc[:, 0].reindex(index)
+                for name in names
+            }
+        )
+        ranks = values.rank(method="average", pct=True)
+        selected = ranks.mean(axis=1).where(
+            common_available.reindex(index).fillna(False)
+        )
+        blend.loc[selected.index, column] = selected
+    return blend.astype(float)
+
+
 def _context_distribution(values: pd.Series) -> dict[str, Any]:
     clean = values.dropna().astype(float)
     if clean.empty:
@@ -603,6 +635,117 @@ def _timestamp_context_evidence(
     }
 
 
+def _temporal_timestamp_context_evidence(
+    panel: pd.DataFrame,
+    factor_panel: pd.DataFrame,
+    forward_panels: dict[int, pd.DataFrame],
+    split_masks: dict[int, dict[str, pd.Series]],
+) -> dict[str, Any]:
+    """Condition temporal Factor correlation contributions on fixed states."""
+
+    values = panel.bfill(axis=1).iloc[:, 0].astype(float)
+    train = _masked(values, split_masks[PRIMARY_HORIZON]["train"])
+    if train.empty:
+        raise JudgeFailure(
+            "factor.component-context-train",
+            "Timestamp-context component has no finite training observation",
+        )
+    lower = float(train.quantile(1.0 / 3.0))
+    upper = float(train.quantile(2.0 / 3.0))
+    states = pd.Series("middle", index=values.index, dtype="object")
+    states.loc[values <= lower] = "low"
+    states.loc[values > upper] = "high"
+    states.loc[values.isna()] = "unavailable"
+    factor_contributions = {
+        horizon: _temporal_daily(
+            factor_panel,
+            forward_panels[horizon],
+            split_masks[horizon],
+            rank=True,
+        )
+        for horizon in HORIZONS
+    }
+    split_evidence: dict[str, Any] = {}
+    for split in ("train", "validation", "test"):
+        primary_mask = split_masks[PRIMARY_HORIZON][split]
+        selected_values = values.reindex(
+            primary_mask.index[primary_mask]
+        )
+        selected_states = states.reindex(
+            primary_mask.index[primary_mask]
+        )
+        available_states = selected_states[
+            selected_states.ne("unavailable")
+        ]
+        observations = int(len(available_states))
+        occupancy = {
+            state: {
+                "observations": int(available_states.eq(state).sum()),
+                "rate": (
+                    float(available_states.eq(state).mean())
+                    if observations
+                    else None
+                ),
+            }
+            for state in ("low", "middle", "high")
+        }
+        transition_observations = max(observations - 1, 0)
+        transitions = (
+            int(
+                available_states.ne(
+                    available_states.shift(1)
+                ).iloc[1:].sum()
+            )
+            if transition_observations
+            else 0
+        )
+        split_evidence[split] = {
+            "distribution": _context_distribution(selected_values),
+            "state_occupancy": occupancy,
+            "transitions": {
+                "observations": transition_observations,
+                "changes": transitions,
+                "rate": (
+                    float(transitions / transition_observations)
+                    if transition_observations
+                    else None
+                ),
+            },
+            "conditional_factor_horizon_quality": {
+                str(horizon): {
+                    state: _temporal_split_metrics(
+                        _masked(
+                            factor_contributions[horizon],
+                            split_masks[horizon][split]
+                            & states.eq(state),
+                        ),
+                        horizon=horizon,
+                        minimum_observations=3,
+                    )
+                    for state in ("low", "middle", "high")
+                }
+                for horizon in HORIZONS
+            },
+        }
+    return {
+        "method": "train-tertile-temporal-context-v2",
+        "state_selection": {
+            "split": "train",
+            "target_enters_thresholds": False,
+            "lower": lower,
+            "upper": upper,
+            "labels": ["low", "middle", "high"],
+        },
+        "splits": split_evidence,
+        "conditional_measure": (
+            "within-split-temporal-rank-correlation-contribution"
+        ),
+        "authority": "research-prioritization-only",
+        "test_enters_diagnosis": False,
+        "trading_authority": "none",
+    }
+
+
 def _component_evidence(
     declarations: list[dict[str, Any]],
     component_panels: dict[str, pd.DataFrame],
@@ -610,9 +753,11 @@ def _component_evidence(
     forward_panels: dict[int, pd.DataFrame],
     split_masks: dict[int, dict[str, pd.Series]],
     coverage: dict[str, dict[str, float]],
+    evaluation_mode: str,
 ) -> dict[str, Any]:
     """Build target-fixed diagnostics for candidate-declared components."""
 
+    temporal = evaluation_mode in TEMPORAL_EVALUATION_MODES
     metadata_by_name = {item["id"]: item for item in declarations}
     all_names = list(component_panels)
     names = [
@@ -625,13 +770,73 @@ def _component_evidence(
         for name in all_names
         if metadata_by_name[name]["role"] == "timestamp-context"
     ]
+    score_panels = {
+        name: (
+            _relative_value_spread_panel(
+                component_panels[name],
+                list(component_panels[name].columns),
+            )
+            if evaluation_mode == TWO_ASSET_RELATIVE_VALUE_MODE
+            else component_panels[name].iloc[:, :1]
+            if temporal
+            else component_panels[name]
+        )
+        for name in names
+    }
+
+    def target_daily(
+        panel: pd.DataFrame,
+        horizon: int,
+        *,
+        constant_left_value: float | None = None,
+    ) -> pd.Series:
+        if temporal:
+            return _temporal_daily(
+                panel,
+                forward_panels[horizon],
+                split_masks[horizon],
+                rank=True,
+                constant_left_value=constant_left_value,
+            )
+        return daily_rank_correlation(
+            panel,
+            forward_panels[horizon],
+            minimum_assets=MIN_ASSETS_PER_DATE,
+            constant_left_value=constant_left_value,
+        )
+
+    def split_quality(
+        daily: pd.Series,
+        horizon: int,
+        split: str,
+    ) -> dict[str, Any]:
+        selected = _masked(daily, split_masks[horizon][split])
+        return (
+            _temporal_split_metrics(selected, horizon=horizon)
+            if temporal
+            else _component_split_metrics(selected)
+        )
+
+    def association_daily(
+        left: pd.DataFrame,
+        right: pd.DataFrame,
+    ) -> pd.Series:
+        if temporal:
+            return _temporal_daily(
+                left,
+                right,
+                split_masks[PRIMARY_HORIZON],
+                rank=True,
+            )
+        return daily_rank_correlation(
+            left,
+            right,
+            minimum_assets=MIN_ASSETS_PER_DATE,
+        )
+
     raw_daily = {
         name: {
-            horizon: daily_rank_correlation(
-                component_panels[name],
-                forward_panels[horizon],
-                minimum_assets=MIN_ASSETS_PER_DATE,
-            )
+            horizon: target_daily(score_panels[name], horizon)
             for horizon in HORIZONS
         }
         for name in names
@@ -639,11 +844,10 @@ def _component_evidence(
     raw_quality = {
         name: {
             str(horizon): {
-                split: _component_split_metrics(
-                    _masked(
-                        raw_daily[name][horizon],
-                        split_masks[horizon][split],
-                    )
+                split: split_quality(
+                    raw_daily[name][horizon],
+                    horizon,
+                    split,
                 )
                 for split in ("train", "validation", "test")
             }
@@ -652,11 +856,7 @@ def _component_evidence(
         for name in names
     }
     composite_association_daily = {
-        name: daily_rank_correlation(
-            component_panels[name],
-            factor_panel,
-            minimum_assets=MIN_ASSETS_PER_DATE,
-        )
+        name: association_daily(score_panels[name], factor_panel)
         for name in names
     }
     composite_association = {
@@ -676,10 +876,9 @@ def _component_evidence(
     pairwise: list[dict[str, Any]] = []
     for left_index, left in enumerate(names):
         for right in names[left_index + 1 :]:
-            daily = daily_rank_correlation(
-                component_panels[left],
-                component_panels[right],
-                minimum_assets=MIN_ASSETS_PER_DATE,
+            daily = association_daily(
+                score_panels[left],
+                score_panels[right],
             )
             pair_daily[frozenset((left, right))] = daily
             pairwise.append(
@@ -734,16 +933,23 @@ def _component_evidence(
                 "horizon_quality": None,
             }
             continue
-        residual = cross_sectional_rank_residual(
-            component_panels[name],
-            component_panels[peer],
-            minimum_assets=MIN_ASSETS_PER_DATE,
+        residual = (
+            _temporal_transform_panels(
+                score_panels[name],
+                score_panels[peer],
+                split_masks[PRIMARY_HORIZON],
+            )[0]
+            if temporal
+            else cross_sectional_rank_residual(
+                score_panels[name],
+                score_panels[peer],
+                minimum_assets=MIN_ASSETS_PER_DATE,
+            )
         )
         residual_daily = {
-            horizon: daily_rank_correlation(
+            horizon: target_daily(
                 residual,
-                forward_panels[horizon],
-                minimum_assets=MIN_ASSETS_PER_DATE,
+                horizon,
                 constant_left_value=0.0,
             )
             for horizon in HORIZONS
@@ -751,15 +957,16 @@ def _component_evidence(
         residual_quality[name] = {
             "peer": peer,
             "selection": (
-                "maximum-absolute-mean-train-daily-rank-association"
+                "maximum-absolute-train-temporal-rank-association"
+                if temporal
+                else "maximum-absolute-mean-train-daily-rank-association"
             ),
             "horizon_quality": {
                 str(horizon): {
-                    split: _component_split_metrics(
-                        _masked(
-                            residual_daily[horizon],
-                            split_masks[horizon][split],
-                        )
+                    split: split_quality(
+                        residual_daily[horizon],
+                        horizon,
+                        split,
                     )
                     for split in ("train", "validation", "test")
                 }
@@ -767,36 +974,41 @@ def _component_evidence(
             },
         }
 
-    common_available: pd.DataFrame | None = None
+    common_available: pd.DataFrame | pd.Series | None = None
     full_blend_quality: dict[str, Any] | None = None
     if names:
-        first = component_panels[names[0]]
-        common_available = pd.DataFrame(
-            True,
-            index=first.index,
-            columns=first.columns,
-        )
-        for name in names:
-            common_available &= component_panels[name].notna()
-        full_blend = _equal_rank_component_blend(
-            {name: component_panels[name] for name in names},
-            common_available=common_available,
-        )
-        full_blend_daily = {
-            horizon: daily_rank_correlation(
-                full_blend,
-                forward_panels[horizon],
-                minimum_assets=MIN_ASSETS_PER_DATE,
+        first = score_panels[names[0]]
+        if temporal:
+            common_available = pd.Series(True, index=first.index)
+            for name in names:
+                common_available &= score_panels[name].iloc[:, 0].notna()
+            full_blend = _temporal_equal_rank_component_blend(
+                {name: score_panels[name] for name in names},
+                split_masks[PRIMARY_HORIZON],
+                common_available=common_available,
             )
+        else:
+            common_available = pd.DataFrame(
+                True,
+                index=first.index,
+                columns=first.columns,
+            )
+            for name in names:
+                common_available &= score_panels[name].notna()
+            full_blend = _equal_rank_component_blend(
+                {name: score_panels[name] for name in names},
+                common_available=common_available,
+            )
+        full_blend_daily = {
+            horizon: target_daily(full_blend, horizon)
             for horizon in HORIZONS
         }
         full_blend_quality = {
             str(horizon): {
-                split: _component_split_metrics(
-                    _masked(
-                        full_blend_daily[horizon],
-                        split_masks[horizon][split],
-                    )
+                split: split_quality(
+                    full_blend_daily[horizon],
+                    horizon,
+                    split,
                 )
                 for split in ("train", "validation", "test")
             }
@@ -805,7 +1017,7 @@ def _component_evidence(
     ablations: dict[str, Any] = {}
     for name in names:
         remaining = {
-            candidate: component_panels[candidate]
+            candidate: score_panels[candidate]
             for candidate in names
             if candidate != name
         }
@@ -817,27 +1029,30 @@ def _component_evidence(
                 "removal_delta_mean_ic": None,
             }
             continue
-        leave_one_out = _equal_rank_component_blend(
-            remaining,
-            # score-only common availability is intentionally fixed before
-            # leave-one-out so every ablation uses the same population.
-            common_available=common_available,
+        leave_one_out = (
+            _temporal_equal_rank_component_blend(
+                remaining,
+                split_masks[PRIMARY_HORIZON],
+                # Score-only common availability is intentionally fixed
+                # before leave-one-out so every ablation uses one population.
+                common_available=common_available,
+            )
+            if temporal
+            else _equal_rank_component_blend(
+                remaining,
+                common_available=common_available,
+            )
         )
         leave_daily = {
-            horizon: daily_rank_correlation(
-                leave_one_out,
-                forward_panels[horizon],
-                minimum_assets=MIN_ASSETS_PER_DATE,
-            )
+            horizon: target_daily(leave_one_out, horizon)
             for horizon in HORIZONS
         }
         quality = {
             str(horizon): {
-                split: _component_split_metrics(
-                    _masked(
-                        leave_daily[horizon],
-                        split_masks[horizon][split],
-                    )
+                split: split_quality(
+                    leave_daily[horizon],
+                    horizon,
+                    split,
                 )
                 for split in ("train", "validation", "test")
             }
@@ -932,11 +1147,20 @@ def _component_evidence(
                     "horizon_quality": None,
                     "removal_delta_mean_ic": None,
                 },
-                "timestamp_context": _timestamp_context_evidence(
-                    component_panels[name],
-                    factor_panel,
-                    forward_panels,
-                    split_masks,
+                "timestamp_context": (
+                    _temporal_timestamp_context_evidence(
+                        component_panels[name],
+                        factor_panel,
+                        forward_panels,
+                        split_masks,
+                    )
+                    if temporal
+                    else _timestamp_context_evidence(
+                        component_panels[name],
+                        factor_panel,
+                        forward_panels,
+                        split_masks,
+                    )
                 ),
                 "validation_priority_inputs": {
                     "raw_mean_ic": None,
@@ -1029,29 +1253,44 @@ def _component_evidence(
         else None
     )
     return {
-        "method": "candidate-declared-components-v2",
+        "method": "candidate-declared-components-v3",
         "declaration": {
             "exhaustive_composition_claim": False,
             "source_inference": False,
             "components": declarations,
         },
         "semantics": {
+            "evaluation_mode": evaluation_mode,
             "prediction_target": "fixed-purged-forward-base-bar-return",
+            "score_measure": (
+                "within-split-temporal-rank-correlation-contribution"
+                if temporal
+                else "per-date-cross-sectional-rank-ic"
+            ),
             "component_roles": [
                 "cross-sectional-score",
                 "timestamp-context",
             ],
             "nearest_peer_selection": "train-only-target-free",
             "residualization": (
-                "same-timestamp-cross-sectional-centered-rank-ols"
+                "within-split-temporal-centered-rank-ols"
+                if temporal
+                else "same-timestamp-cross-sectional-centered-rank-ols"
             ),
             "diagnostic_blend": (
-                "equal-weight-cross-sectional-percentile-ranks-with-"
+                "equal-weight-within-split-temporal-percentile-ranks-with-"
+                "common-component-availability"
+                if temporal
+                else "equal-weight-cross-sectional-percentile-ranks-with-"
                 "common-component-availability"
             ),
             "ablation_target": "fixed-diagnostic-blend-not-candidate-factor",
             "timestamp_context": (
-                "train-tertile-occupancy-transition-and-conditional-factor-ic"
+                "train-tertile-occupancy-transition-and-conditional-temporal-"
+                "rank-correlation-contribution"
+                if temporal
+                else "train-tertile-occupancy-transition-and-conditional-"
+                "factor-ic"
             ),
             "selection_authority": "research-prioritization-only",
             "test_role": "visible-audit",
@@ -1692,13 +1931,21 @@ def _evaluate() -> tuple[
         _component_evidence(
             component_declarations,
             component_panels,
-            factor_panel,
-            forward_panels,
+            (
+                association_factor_panel
+                if evaluation_mode in TEMPORAL_EVALUATION_MODES
+                else factor_panel
+            ),
+            (
+                association_forward_panels
+                if evaluation_mode in TEMPORAL_EVALUATION_MODES
+                else forward_panels
+            ),
             split_masks,
             component_coverage,
+            evaluation_mode,
         )
         if component_declarations is not None
-        and evaluation_mode == CROSS_SECTIONAL_MODE
         else None
     )
     if evaluation_mode in TEMPORAL_EVALUATION_MODES:
@@ -2086,6 +2333,12 @@ def _evaluate() -> tuple[
             "components": (
                 {
                     "method": component_evidence["method"],
+                    "evaluationMode": component_evidence["semantics"][
+                        "evaluation_mode"
+                    ],
+                    "scoreMeasure": component_evidence["semantics"][
+                        "score_measure"
+                    ],
                     "declaration": "candidate-explicit-not-source-inferred",
                     "roles": [
                         "cross-sectional-score",
@@ -2096,10 +2349,15 @@ def _evaluate() -> tuple[
                     "ablationTarget": (
                         "fixed-diagnostic-blend-not-candidate-factor"
                     ),
-                    "timestampContext": (
-                        "train-tertile-occupancy-transition-and-conditional-"
-                        "factor-ic"
-                    ),
+                    "residualization": component_evidence["semantics"][
+                        "residualization"
+                    ],
+                    "diagnosticBlend": component_evidence["semantics"][
+                        "diagnostic_blend"
+                    ],
+                    "timestampContext": component_evidence["semantics"][
+                        "timestamp_context"
+                    ],
                     "testRole": "visible audit only",
                     "portfolioAuthority": "none",
                     "rlActionAuthority": "none",

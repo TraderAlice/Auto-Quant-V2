@@ -109,35 +109,40 @@ misdescribe the code.
 All predictive targets and split masks are the same purged request-bound
 decision-bar contract used by the final factor.
 
-For every materialized cross-sectional score, the Judge records:
+For every materialized score component, the Judge records coverage and
+train, validation, and test-audit evidence at every request-bound diagnostic
+horizon. The statistical operation is fixed by the Factor prediction mode:
 
-- coverage;
-- train, validation, and test-audit rank IC summaries at every declared
-  diagnostic bar;
-- same-date cross-sectional rank association with the final factor;
-- the closest other component selected only by maximum absolute train rank
-  association;
-- rank-residual IC after that fixed nearest peer is removed;
-- validation and test-audit effect of removing the component from a fixed
-  equal-weight cross-sectional percentile-rank blend.
+| Evaluation mode | Score measure | Association / residualization | Fixed blend |
+| --- | --- | --- | --- |
+| `cross-sectional` | per-date cross-sectional rank IC | same-date rank association and centered-rank OLS | equal mean of same-date percentile ranks |
+| `single-asset-temporal` | within-split temporal rank-correlation contribution | within-split temporal rank association and centered-rank OLS | equal mean of within-split percentile ranks on common availability |
+| `two-asset-relative-value` | within-split temporal rank-correlation contribution on first-minus-second score and forward-return contrasts | within-split temporal rank association and centered-rank OLS | equal mean of within-split percentile ranks on common availability |
 
-Every component pair also records mean and mean-absolute same-date rank
+In all three modes the closest other component is selected only by maximum
+absolute train rank association. The Judge then records predictive evidence
+after that fixed peer is removed and the effect of removing the component from
+the fixed diagnostic blend. Every pair records mean and mean-absolute rank
 association by split. Pairwise, residual, blend, and leave-one-out evidence is
-score-only. Ties are deterministic by component name. Sparse cells
-retain observations and null statistics.
+score-only. Ties are deterministic by component name. Sparse cells retain
+observations and null statistics. Temporal summaries use the same bounded HAC
+contract as the final temporal Factor evidence.
 
 For every timestamp context, train target-free tertiles define fixed
 `low` / `middle` / `high` states. The Judge records each split's distribution,
-state occupancy, transition rate, and final-factor IC conditional on state at
-every request-bound horizon. Validation may guide a regime hypothesis; test
+state occupancy, transition rate, and final-factor contribution conditional on
+state at every request-bound horizon. Cross-sectional Runs use conditional
+per-date factor IC; temporal Runs use conditional within-split temporal rank-
+correlation contribution. Validation may guide a regime hypothesis; test
 remains visible audit and never selects thresholds or a candidate.
 
-The fixed blend is a diagnostic reference:
+The fixed blend is an evaluation-mode-specific diagnostic reference:
 
 ```text
-each component
-→ same-date cross-sectional percentile rank
-→ equal mean across available components
+each score component
+→ per-date cross-sectional rank or within-split temporal rank
+→ common component availability
+→ equal mean
 ```
 
 Leave-one-out compares this all-component reference with the same reference
@@ -215,15 +220,19 @@ fixed baselines. This contract does not grant it implicitly.
 6. Fixed-blend ablation is not candidate-factor attribution.
 7. Validation diagnoses; test only audits.
 8. Final-factor `validation_mean_ic` remains the sole promotion objective.
-9. CLI, Studio, Report, and Dossier consume one verified bounded Core object.
+9. RunResult, artifact, Explorer, agenda, CLI, Studio, Report, and Dossier
+   consume one verified bounded Core object and disclose its evaluation mode.
 10. Portfolio, RL, host, Broker, order, and account authority remain unchanged.
 
 ## Known limits
 
 - Metadata is a candidate claim, not instrumented proof of column access.
 - Pairwise residualization does not solve multivariate collinearity.
-- A component can be economically meaningful even when standalone
-  cross-sectional IC is weak.
+- A component can be economically meaningful even when its standalone
+  evaluation-mode-correct predictive association is weak.
 - Equal-rank leave-one-out describes one fixed reference blend, not every
   nonlinear or regime-dependent composition.
 - Small universes can make daily cross-sectional correlations coarse.
+- Temporal contribution is an association diagnostic, not causal economic
+  attribution and not permission to inspect validation or test while forming
+  many undisclosed candidates.

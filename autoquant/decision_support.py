@@ -766,6 +766,8 @@ def factor_qualification_markdown_lines(
     diagnosis = qualification["diagnosis"]
     selection = qualification["selection"]
     claim = qualification["claim"]
+    temporal = "temporal-neutralization" in qualification["method"]
+    score_label = "temporal rank contribution" if temporal else "IC"
     raw_only_claim = claim["claim"] in {
         "decision-signal",
         "known-style-validation",
@@ -787,8 +789,13 @@ def factor_qualification_markdown_lines(
         "- Comparison style / selection rule: "
         f"`{selection['dominantStyle']}` / "
         f"`{selection['criterion']}`.",
-        "- Neutralization: same-timestamp cross-sectional centered-rank OLS; "
-        "forward targets do not enter the projection.",
+        "- Neutralization: "
+        + (
+            "within-split temporal centered-rank OLS; "
+            if temporal
+            else "same-timestamp cross-sectional centered-rank OLS; "
+        )
+        + "forward targets do not enter the projection.",
         qualification_threshold_line
         + f"`>= {qualification['semantics']['diagnosticThresholds']['minimumPositiveHacTStatistic']}`; "
         + "Project-family selection-adjusted significance remains separately "
@@ -798,8 +805,9 @@ def factor_qualification_markdown_lines(
         "diagnosis; test is visible audit only; Factor promotion, RL "
         "admission, and trading authority remain `none`.",
         "",
-        "| Split / role | Raw candidate IC | Dominant style IC | "
-        "Style-neutral IC / delta | Equal-blend IC / uplift vs style | "
+        f"| Split / role | Raw candidate {score_label} | "
+        f"Dominant style {score_label} | "
+        f"Style-neutral {score_label} / delta | Equal-blend {score_label} / uplift vs style | "
         f"Weakest {'candidate' if raw_only_claim else 'residual'} fold |",
         "| --- | --- | --- | --- | --- | --- |",
     ]
@@ -857,6 +865,11 @@ def factor_components_markdown_lines(
         return []
     prefix = f"{lane_name}: " if lane_name else ""
     diagnosis = evidence["validationDiagnosis"]
+    temporal = evidence["evaluationMode"] in {
+        "single-asset-temporal",
+        "two-asset-relative-value",
+    }
+    score_label = "temporal rank contribution" if temporal else "IC"
 
     def metric(value: Any) -> str:
         return "unavailable" if value is None else f"{float(value):+.4f}"
@@ -871,10 +884,10 @@ def factor_components_markdown_lines(
         "- Cross-sectional score / timestamp-context components: "
         f"`{evidence['trialDisclosure']['crossSectionalScoreComponents']}` / "
         f"`{evidence['trialDisclosure']['timestampContextComponents']}`.",
-        "- Strongest validation raw component / IC: "
+        f"- Strongest validation raw component / {score_label}: "
         f"`{diagnosis['strongestRawComponent']}` / "
         f"`{metric(diagnosis['strongestRawMeanIc'])}`.",
-        "- Strongest nearest-peer residual component / IC: "
+        f"- Strongest nearest-peer residual component / {score_label}: "
         f"`{diagnosis['strongestResidualComponent']}` / "
         f"`{diagnosis['strongestResidualMeanIc']}`.",
         "- Removal that most improves the fixed diagnostic blend / IC delta: "
@@ -890,7 +903,8 @@ def factor_components_markdown_lines(
         "and trading authority remain `none`.",
         "",
         "| Component | Role | Claimed intervals | Coverage | Validation evidence | "
-        "Nearest peer / residual IC | Fixed-blend removal Δ | Test raw IC |",
+        f"Nearest peer / residual {score_label} | Fixed-blend removal Δ | "
+        f"Test raw {score_label} |",
         "| --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for component in evidence["components"]:

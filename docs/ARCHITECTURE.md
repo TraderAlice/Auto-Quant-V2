@@ -158,10 +158,12 @@ The V2 foundation now implements:
   caller-owned relative-basket-weight boundary.
 - one optional explicit factor-component contract that checks declared
   score and timestamp-context components for determinism and causality. Scores
-  expose predictive quality, association, redundancy, residual IC, and
-  fixed-blend leave-one-out; contexts expose train-fixed states, occupancy,
-  transitions, and conditional final-factor IC without source inference or
-  downstream authority.
+  expose evaluation-mode-correct predictive quality, association, redundancy,
+  residual evidence, and fixed-blend leave-one-out. Cross-sectional Runs use
+  per-date rank IC; single-asset and two-asset relative-value Runs use
+  within-split temporal rank-correlation contributions. Contexts expose
+  train-fixed states, occupancy, transitions, and matching conditional
+  contribution evidence without source inference or downstream authority.
 - one self-contained OHLCV Portfolio Lab reference Project that mechanically
   translates the same causal factor API through explicit signal state into
   capped target weights, drift-aware execution, reconciled contribution/risk

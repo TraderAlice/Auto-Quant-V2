@@ -2127,6 +2127,11 @@ def _run_factor(args: argparse.Namespace) -> CommandResult:
     if qualification["available"]:
         qualified = qualification["validation"]
         incremental = qualified["incremental"]
+        qualification_measure = (
+            "temporal rank contribution"
+            if "temporal-neutralization" in qualification["method"]
+            else "IC"
+        )
         qualification_line = (
             "Factor qualification: "
             f"{qualification['diagnosis']['stage']} · focus "
@@ -2134,7 +2139,7 @@ def _run_factor(args: argparse.Namespace) -> CommandResult:
             f"claim {qualification['claim']['claim']} · "
             f"comparison style "
             f"{qualification['selection']['dominantStyle']} · "
-            "raw/residual/blend validation IC "
+            f"raw/residual/blend validation {qualification_measure} "
             f"{qualified['candidate']['meanRankIc']}/"
             f"{qualified['styleNeutralCandidate']['meanRankIc']}/"
             f"{qualified['equalRankBlend']['meanRankIc']} · "
@@ -2145,13 +2150,19 @@ def _run_factor(args: argparse.Namespace) -> CommandResult:
     component_line = ""
     if components["available"]:
         diagnosis = components["validationDiagnosis"]
+        component_measure = (
+            "temporal rank contribution"
+            if components["evaluationMode"]
+            in {"single-asset-temporal", "two-asset-relative-value"}
+            else "rank IC"
+        )
         component_line = (
             "Declared components: "
             f"{components['trialDisclosure']['materializedComponents']} · "
-            "strongest raw "
+            f"strongest raw {component_measure} "
             f"{diagnosis['strongestRawComponent']} "
             f"({diagnosis['strongestRawMeanIc']}) · "
-            "strongest residual "
+            f"strongest residual {component_measure} "
             f"{diagnosis['strongestResidualComponent']} "
             f"({diagnosis['strongestResidualMeanIc']}) · "
             "best fixed-blend removal "
