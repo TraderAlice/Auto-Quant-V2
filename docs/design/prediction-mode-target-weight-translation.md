@@ -1,6 +1,6 @@
 # Prediction-mode target-weight translation
 
-Status: release candidate for `0.9.2`.
+Status: accepted at `0.9.2`.
 
 Related: [[docs/design/ohlcv-factor-lab]],
 [[docs/design/request-bound-portfolio-mandates]],

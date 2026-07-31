@@ -1,6 +1,6 @@
 # Prediction-mode target-weight translation
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-07-31`
 - Target release: `0.9.2`
 - Related design: [[docs/design/prediction-mode-target-weight-translation]],
@@ -122,7 +122,7 @@ factor, promotion criterion, Order, or trading instruction.
   and repository-root clean-clone smoke pass.
 - [x] A fresh Grok 4.5 worker completes a realistic target-weight handoff using
   only the installed release candidate and public Workbench surfaces.
-- [ ] The audited state is published as `v0.9.2`.
+- [x] The audited state is published as `v0.9.2`.
 
 ## Work
 
@@ -132,7 +132,7 @@ factor, promotion criterion, Order, or trading instruction.
 - [x] Update templates, operator/design documentation, and sample evidence if
   its fixed contract changes.
 - [x] Run a fresh Grok 4.5 field trial and repair reusable friction.
-- [ ] Complete release audit, publish `v0.9.2`, and close the plan.
+- [x] Complete release audit, publish `v0.9.2`, and close the plan.
 
 ## Findings and decisions
 
@@ -174,4 +174,8 @@ install, and no-hardlink clean-clone smoke.
 
 ## Completion
 
-Pending.
+Completed on 2026-07-31. AutoQuant now carries all supported Factor prediction
+modes into one causal fixed target-weight contract shared by Portfolio and
+governed RL. Strict evidence, the repository sample, a fresh isolated Grok
+trial, all 360 tests, 1,227 documentation links, build/install smoke, and
+clean-clone smoke passed before tagging `v0.9.2`.
