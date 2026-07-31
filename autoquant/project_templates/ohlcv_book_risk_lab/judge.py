@@ -745,6 +745,15 @@ def main() -> None:
                 "Position sizing cannot coexist with supplied scenarios",
             )
         scenarios = _load_scenarios(project_root)
+        if sizing_policy is not None:
+            # A caller-authorized sizing path is governed by one exact
+            # covariance window. Keep every fixed diagnostic lookback, but
+            # make that governing window the report's primary/current view so
+            # the ordinary ledger cannot answer a different question.
+            scenarios = {
+                **scenarios,
+                "primaryLookbackBars": int(sizing_policy["lookbackBars"]),
+            }
         dataset = study.get("dataset")
         if not isinstance(dataset, dict):
             raise JudgeFailure("study.dataset", "Study dataset is invalid")
@@ -1281,7 +1290,7 @@ def main() -> None:
                 "runningPeak",
                 "drawdown",
             ],
-            primary_drawdown["rows"],
+            drawdowns[max(scenarios["lookbackBars"])]["rows"],
         )
         _write_csv(
             artifacts / "book-risk-scenario-comparisons.csv",

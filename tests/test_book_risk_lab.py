@@ -132,7 +132,12 @@ def _book_scenario_request(path: Path) -> None:
     )
 
 
-def _book_sizing_request(path: Path, *, ceiling: float = 0.15) -> None:
+def _book_sizing_request(
+    path: Path,
+    *,
+    ceiling: float = 0.15,
+    lookback: int = 252,
+) -> None:
     _book_request(path)
     request = json.loads(path.read_text(encoding="utf-8"))
     request["positionSizing"] = {
@@ -140,7 +145,7 @@ def _book_sizing_request(path: Path, *, ceiling: float = 0.15) -> None:
         "asset": "NVDA",
         "direction": "decrease",
         "annualizedVolatilityCeiling": ceiling,
-        "lookbackBars": 252,
+        "lookbackBars": lookback,
     }
     path.write_text(
         json.dumps(request, indent=2, sort_keys=True) + "\n",
@@ -318,7 +323,13 @@ class BookRiskLabTests(unittest.TestCase):
             template_intake=prepared,
         )
 
-    def _sizing_project(self, root: Path, *, ceiling: float = 0.15):
+    def _sizing_project(
+        self,
+        root: Path,
+        *,
+        ceiling: float = 0.15,
+        lookback: int = 252,
+    ):
         request_path, package_path = write_intake_inputs(
             root,
             observations=260,
@@ -330,7 +341,11 @@ class BookRiskLabTests(unittest.TestCase):
                 "QQQ": "long-only",
             },
         )
-        _book_sizing_request(request_path, ceiling=ceiling)
+        _book_sizing_request(
+            request_path,
+            ceiling=ceiling,
+            lookback=lookback,
+        )
         prepared = prepare_project_intake(
             request_path,
             package_path,
@@ -683,6 +698,70 @@ class BookRiskLabTests(unittest.TestCase):
             self.assertAlmostEqual(
                 sizing["result"]["weightChange"],
                 0.0,
+            )
+
+    def test_sizing_lookback_is_the_primary_book_risk_window(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = self._sizing_project(
+                Path(directory),
+                ceiling=0.027,
+                lookback=126,
+            )
+            run = execute_study(project, BOOK_RISK_STUDY_ID)
+            self.assertEqual(run.result["status"], "succeeded")
+            diagnostics = load_book_risk_diagnostics(
+                project,
+                run.result["id"],
+            )
+            report_path = (
+                run.root_dir / "artifacts" / "book-risk-report.json"
+            )
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+            governing = next(
+                row
+                for row in diagnostics["lookbacks"]
+                if row["lookbackBars"] == 126
+            )
+
+            self.assertEqual(report["method"]["primaryLookbackBars"], 126)
+            self.assertEqual(diagnostics["current"]["lookbackBars"], 126)
+            self.assertEqual(
+                run.result["metrics"]["primary_lookback_bars"],
+                126,
+            )
+            self.assertEqual(diagnostics["equityPath"]["totalRows"], 127)
+            self.assertAlmostEqual(
+                diagnostics["current"]["annualizedVolatility"],
+                governing["annualizedVolatility"],
+            )
+            self.assertEqual(
+                diagnostics["reductionPriority"],
+                governing["reductionRanking"],
+            )
+            human = _run_cli(
+                "run",
+                "book-risk",
+                str(project.root_dir),
+                "--run",
+                run.result["id"],
+            )
+            self.assertEqual(human.returncode, 0, human.stderr)
+            self.assertIn(
+                "Annualized volatility (126-bar primary):",
+                human.stdout,
+            )
+
+            report["method"]["primaryLookbackBars"] = 252
+            report_path.write_text(
+                json.dumps(report, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            _rehash_run(run.root_dir)
+            with self.assertRaises(AutoQuantValidationError) as captured:
+                load_book_risk_diagnostics(project, run.result["id"])
+            self.assertIn(
+                "book-risk.position-sizing-primary-lookback",
+                {issue.code for issue in captured.exception.issues},
             )
 
     def test_position_sizing_explorer_rejects_rehashed_solution_tamper(

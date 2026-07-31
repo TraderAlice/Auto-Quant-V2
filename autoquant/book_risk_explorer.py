@@ -1014,45 +1014,79 @@ def _validate_drawdown_evidence(
         previous_peak = row["runningPeak"]
         rows.append(row)
     primary_bars = int(current["lookbackBars"])
+    evidence_bars = max(int(row["lookbackBars"]) for row in lookbacks)
     if (
-        len(rows) != primary_bars + 1
+        len(rows) != evidence_bars + 1
         or rows[-1]["timestamp"] != dataset["marketDataEnd"]
     ):
         _fail(
             paths["book-risk-equity-path"],
             "book-risk.equity-path-window",
-            "Book equity path differs from the primary lookback interval",
+            "Book equity path differs from the longest fixed lookback interval",
         )
+
+    def normalized_window(bars: int) -> list[dict[str, Any]]:
+        source = rows[-(bars + 1) :]
+        normalized = [
+            {
+                "timestamp": source[0]["timestamp"],
+                "portfolioReturn": 0.0,
+                "cumulativeReturn": 0.0,
+                "nav": 1.0,
+                "runningPeak": 1.0,
+                "drawdown": 0.0,
+            }
+        ]
+        nav = 1.0
+        running_peak = 1.0
+        for source_row in source[1:]:
+            portfolio_return = source_row["portfolioReturn"]
+            nav *= 1.0 + portfolio_return
+            running_peak = max(running_peak, nav)
+            normalized.append(
+                {
+                    "timestamp": source_row["timestamp"],
+                    "portfolioReturn": portfolio_return,
+                    "cumulativeReturn": nav - 1.0,
+                    "nav": nav,
+                    "runningPeak": running_peak,
+                    "drawdown": nav / running_peak - 1.0,
+                }
+            )
+        return normalized
+
+    primary_rows = normalized_window(primary_bars)
     trough_index = min(
-        range(len(rows)),
-        key=lambda index: rows[index]["drawdown"],
+        range(len(primary_rows)),
+        key=lambda index: primary_rows[index]["drawdown"],
     )
     peak_index = max(
         range(trough_index + 1),
-        key=lambda index: rows[index]["nav"],
+        key=lambda index: primary_rows[index]["nav"],
     )
-    peak_nav = rows[peak_index]["nav"]
+    peak_nav = primary_rows[peak_index]["nav"]
     recovery_index = next(
         (
             index
-            for index in range(trough_index, len(rows))
-            if rows[index]["nav"] >= peak_nav * (1.0 - 1e-12)
+            for index in range(trough_index, len(primary_rows))
+            if primary_rows[index]["nav"] >= peak_nav * (1.0 - 1e-12)
         ),
         None,
     )
     expected_recovery = (
-        rows[recovery_index]["timestamp"]
+        primary_rows[recovery_index]["timestamp"]
         if recovery_index is not None
         else None
     )
     _close(
         maximum_drawdown,
-        rows[trough_index]["drawdown"],
+        primary_rows[trough_index]["drawdown"],
         paths["book-risk-equity-path"],
     )
     if (
-        drawdown["peakTimestamp"] != rows[peak_index]["timestamp"]
-        or drawdown["troughTimestamp"] != rows[trough_index]["timestamp"]
+        drawdown["peakTimestamp"] != primary_rows[peak_index]["timestamp"]
+        or drawdown["troughTimestamp"]
+        != primary_rows[trough_index]["timestamp"]
         or drawdown["recoveryTimestamp"] != expected_recovery
     ):
         _fail(
@@ -1067,16 +1101,8 @@ def _validate_drawdown_evidence(
     )
     for lookback in lookbacks:
         bars = int(lookback["lookbackBars"])
-        nav = 1.0
-        running_peak = 1.0
-        derived_maximum = 0.0
-        for row in rows[-bars:]:
-            nav *= 1.0 + row["portfolioReturn"]
-            running_peak = max(running_peak, nav)
-            derived_maximum = min(
-                derived_maximum,
-                nav / running_peak - 1.0,
-            )
+        window = normalized_window(bars)
+        derived_maximum = min(row["drawdown"] for row in window)
         _close(
             lookback["maximumDrawdown"],
             derived_maximum,
@@ -1085,10 +1111,10 @@ def _validate_drawdown_evidence(
                 f"{lookback['lookbackBars']}/maximumDrawdown"
             ),
         )
-    sampled = _sample(rows, point_limit)
+    sampled = _sample(primary_rows, point_limit)
     return drawdown, {
         "available": True,
-        "totalRows": len(rows),
+        "totalRows": len(primary_rows),
         "sampledRows": len(sampled),
         "points": sampled,
         "summary": drawdown,
@@ -1344,6 +1370,15 @@ def load_book_risk_diagnostics(
             f"{paths['book-risk-report']}/method",
             "book-risk.method",
             "Book Risk method differs from the bounded contract",
+        )
+    if (
+        sizing_policy is not None
+        and method["primaryLookbackBars"] != sizing_policy["lookbackBars"]
+    ):
+        _fail(
+            f"{paths['book-risk-report']}/method/primaryLookbackBars",
+            "book-risk.position-sizing-primary-lookback",
+            "Book Risk primary window differs from the caller-fixed sizing lookback",
         )
     dataset = _strict(
         report["dataset"],

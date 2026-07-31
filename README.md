@@ -1,5 +1,5 @@
 ---
-version: 0.9.6
+version: 0.9.7
 ---
 
 # AutoQuant V2
@@ -32,19 +32,42 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current release: `v0.9.6`
+## Current release: `v0.9.7`
 
 AutoQuant V2 has crossed from an architectural prototype into a usable
 research workbench.
 
-`v0.9.6` is the current AutoQuant release. `v0.8.31` remains the Harness
+`v0.9.7` is the current AutoQuant release. `v0.8.31` remains the Harness
 currently consumed by OpenAlice until the host deliberately selects the newer
 tag; this is version provenance, not an automatic Workspace-migration promise.
 The minor-version boundary marks the next phase: improve the real delegated-
 research loop from OpenAlice request through AutoQuant evidence handoff without
 weakening standalone Workspace operation or prematurely freezing a
-host-specific API. Bounded follow-up work defaults to patch releases such as
-`v0.9.1`, `v0.9.2`, `v0.9.3`, and onward.
+host-specific API. Bounded follow-up work defaults to patch releases within
+the `0.9.x` line.
+
+`v0.9.7` proves that one AutoQuant Workspace can retain completed research and
+accept a materially unrelated market and method without becoming a disposable
+task directory. An installed `0.9.6` coworker preserved a 30-file A-share Event
+Project byte-for-byte, kept its Run and Workspace-default identity, then added
+one isolated U.S. Book Risk Project from two freshly acquired provider routes.
+No nested Workspace, cross-Project write, Session, search loop, or second Run
+was created.
+
+The trial promoted two precise Agent-trust repairs. A one-leg Book Risk sizing
+request now makes its caller-fixed covariance lookback the primary/current
+metrics, contribution, reduction, drawdown, path, and rolling window while
+retaining every fixed lookback as independently verified diagnostics. Nasdaq
+acquisition guidance now selects aligned V1 panels for fixed Labs and reserves
+observed-only V4 for genuinely ragged Factor work. Existing explicit
+multi-Project command identity already worked, so Core gained no speculative
+active-Project process state. OpenAlice remains intentionally unchanged at
+`0.8.31`. See [[plans/long-lived-cross-market-workspace-field-trial]] and
+[[docs/design/reported-position-book-risk]].
+
+Final release verification is recorded in the completed plan.
+
+### `v0.9.6`
 
 `v0.9.6` makes market-data work demand-led instead of inventory-led. A fresh
 installed `0.9.5` coworker began with a fixed CATL/CSI 300 ETF Event question

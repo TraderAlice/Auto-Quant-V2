@@ -71,25 +71,25 @@ not a reason to narrow or reshape the question.
 
 ## Acceptance
 
-- [ ] The initial A-share Project tree hash, default Project, Run count, and
+- [x] The initial A-share Project tree hash, default Project, Run count, and
   result identity remain byte-for-byte unchanged.
-- [ ] A fresh installed worker discovers the existing Workspace and creates no
+- [x] A fresh installed worker discovers the existing Workspace and creates no
   second Workspace or nested manifest.
-- [ ] The worker identifies the U.S. request as a new sibling Project and uses
+- [x] The worker identifies the U.S. request as a new sibling Project and uses
   explicit Project identity for every state-changing multi-Project command.
-- [ ] The new English brief preserves the exact book, clock, lookback, ceiling,
+- [x] The new English brief preserves the exact book, clock, lookback, ceiling,
   authorized leg, acquisition requirement, and no-trading boundary before
   provider work.
-- [ ] At least two U.S. routes are attempted and audited; one task-complete
+- [x] At least two U.S. routes are attempted and audited; one task-complete
   adjusted package reaches strict Book Risk intake without using A-share data
   or a central inventory.
-- [ ] Exactly one current fixed Book Risk Run and one direct Run Report answer
+- [x] Exactly one current fixed Book Risk Run and one direct Run Report answer
   baseline risk plus the one-leg NVDA-to-Cash path; no Session, Check,
   Experiment, candidate, Factor, Portfolio, RL, or second Run is created.
-- [ ] Workspace validation, explicit orientation for both Projects, and one
+- [x] Workspace validation, explicit orientation for both Projects, and one
   Studio snapshot truthfully project two isolated Projects and unchanged
   default selection.
-- [ ] Every material trial failure becomes a bounded repair with regression or
+- [x] Every material trial failure becomes a bounded repair with regression or
   an explicit worker/provider/external limitation.
 - [ ] Complete tests, documentation links, build/install smoke, clean-clone
   checks, and a fresh final worker pass before `v0.9.7` is tagged and pushed.
@@ -98,10 +98,10 @@ not a reason to narrow or reshape the question.
 
 - [x] Choose a cross-market, cross-template request that cannot reuse the
   existing Project's data or method.
-- [ ] Prepare a file-faithful existing-Workspace handoff and immutable baseline
+- [x] Prepare a file-faithful existing-Workspace handoff and immutable baseline
   inventory.
-- [ ] Run and preserve the installed `0.9.6` coworker baseline.
-- [ ] Triage real reuse friction and implement the minimum `0.9.7` repairs.
+- [x] Run and preserve the installed `0.9.6` coworker baseline.
+- [x] Triage real reuse friction and implement the minimum `0.9.7` repairs.
 - [ ] Run final verification, installed-wheel coworker replay, and release.
 
 ## Findings and decisions
@@ -115,15 +115,49 @@ not a reason to narrow or reshape the question.
 - 2026-08-01 — The old Project's default identity is preserved deliberately.
   Creating a sibling Project must not silently reinterpret the desk's default
   or mutate old evidence merely to make the new task convenient.
+- 2026-08-01 — The installed `0.9.6` baseline completed with no CLI retry,
+  provider retry, Core failure, clarification, Session, or second Run. The old
+  Project retained all 30 files at tree hash
+  `ddaad48809f5281c35b69f609fbbee172a304a55e81e28ed630bb698240a944c`,
+  its sole Run identities, and Workspace-default status.
+- 2026-08-01 — The new sibling Project acquired Yahoo and Nasdaq data from
+  zero supplied U.S. bytes, admitted the aligned Yahoo package, and published
+  one fixed Book Risk Run plus one direct Run Report. The 126-bar governing
+  model found the NVDA-to-Cash path feasible at a largest NVDA weight of
+  `0.15007817661003228` under the 20% ceiling.
+- 2026-08-01 — Promote two bounded repairs. A caller-fixed sizing lookback must
+  become the Book Risk primary/current window, and U.S. acquisition guidance
+  must direct fixed Labs to aligned provider packages. Do not add speculative
+  active-Project process state: explicit Project identity already worked.
+- 2026-08-01 — The sizing-window repair exposed a hidden 252-primary
+  assumption in drawdown verification. New Runs therefore retain the longest
+  fixed equity path as immutable validation evidence while Explorer, CLI, and
+  Studio normalize and project only the caller-governing primary path. This
+  preserves complete 63/126/252 reconstruction without reverting the caller's
+  126-bar current definition.
 
 ## Verification
 
-Pending.
+- Installed `0.9.6` baseline transcript and compact inventory/triage record:
+  `../grok-field-trials/cohort-12-long-lived-us-book-risk-v096/`.
+- Focused Book Risk, Skill, and version regression: 40 tests passed.
+- `uv run python scripts/check_doc_links.py`: 1,288 links resolved during the
+  repair pass.
+- `uv lock --check` and `git diff --check`: passed during the repair pass.
+- Complete regression, build/install, clean-clone, and final installed-worker
+  evidence pending.
 
 ## Progress log
 
 - 2026-08-01 — Plan created and indexed from the clean released `v0.9.6`
   baseline before constructing the long-lived Workspace handoff.
+- 2026-08-01 — Preserved the installed-worker transcript and a compact trial
+  record in `grok-field-trials/cohort-12-long-lived-us-book-risk-v096` after
+  auditing both Project trees, Run counts, Workspace manifests, and default
+  identity.
+- 2026-08-01 — Implemented the two promoted repairs, added strict governing-
+  lookback and Agent-guidance regressions, updated the public Book Risk design,
+  and advanced the package identity to `0.9.7` without touching OpenAlice.
 
 ## Completion
 

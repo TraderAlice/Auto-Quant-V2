@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha released as `v0.9.6`; `v0.8.31` remains the Harness
+Status: usable pre-alpha released as `v0.9.7`; `v0.8.31` remains the Harness
 currently consumed by OpenAlice until the host deliberately selects a newer
 tag.
 
@@ -17,6 +17,25 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 
 AutoQuant V2 has crossed the line from an architectural prototype into a
 usable Agent-native quantitative research workbench.
+
+The `0.9.7` patch proves a long-lived Workspace can preserve completed A-share
+Event research byte-for-byte while accepting a separate U.S. Book Risk task
+with newly acquired task-local data. The installed `0.9.6` baseline worker
+kept all 30 old Project files, its sole Run, the Workspace default, and one
+Workspace manifest unchanged; it created one sibling Project, one fixed Run,
+one direct Run Report, and no Session or search loop.
+
+Observed friction became two bounded repairs. For caller-bounded one-leg Book
+Risk sizing, the authorized covariance lookback is now the primary/current
+window across metrics, contribution and reduction ledgers, drawdown, equity
+path, rolling evidence, CLI, and Studio. The immutable equity artifact retains
+the longest fixed path so every diagnostic lookback remains independently
+reconstructable. U.S. provider guidance now directs fixed Labs to aligned V1
+packages and reserves observed-only V4 for intentionally ragged Factor work.
+Existing explicit Project identity prevented cross-Project writes, so no new
+process-local “active Project” state was added. OpenAlice stays pinned to
+`0.8.31`. Exact trial and release evidence is recorded in
+[[plans/long-lived-cross-market-workspace-field-trial]].
 
 The `0.9.6` patch proves the market-data path begins with research demand, not
 available inventory. A fresh installed `0.9.5` worker received a fixed CATL

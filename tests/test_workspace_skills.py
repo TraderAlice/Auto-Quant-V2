@@ -609,6 +609,26 @@ class WorkspaceSkillTests(unittest.TestCase):
         self.assertEqual(audit["declaredTotalRecords"], 3)
         self.assertEqual(audit["unusableRowsDropped"], 1)
 
+    def test_us_provider_guidance_uses_aligned_panels_for_fixed_labs(
+        self,
+    ) -> None:
+        nasdaq_skill = (
+            SKILLS / "fetch-nasdaq-ohlcv" / "SKILL.md"
+        ).read_text(encoding="utf-8")
+        us_reference = (
+            SKILLS
+            / "acquire-market-ohlcv"
+            / "references"
+            / "us-equities.md"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("--panel aligned", nasdaq_skill)
+        self.assertIn("fixed Event, Book Risk, Allocation", nasdaq_skill)
+        self.assertIn("emits an aligned V1 package", nasdaq_skill)
+        self.assertIn("Book Risk", us_reference)
+        self.assertIn("require `aligned`", us_reference)
+        self.assertIn("observed-only V4", us_reference)
+
     def test_naver_literal_table_preserves_raw_krw_and_share_volume(self) -> None:
         naver = load_script(
             "autoquant_skill_naver",

@@ -119,8 +119,14 @@ not a fabricated zero holding, authorize its market data and target-book role.
 ## Fixed analysis
 
 The default bounded method uses 63, 126, and 252 closed-bar lookbacks, with 252
-as the primary window. The snapshot `asOf` must lie inside the closed dataset
-range. Held-asset closes are inner-aligned and converted to simple returns.
+as the primary window when no sizing question exists. When the caller supplies
+`positionSizing`, its exact `lookbackBars` becomes the primary window for the
+current metrics, contribution/reduction ledgers, drawdown and equity path, and
+rolling evidence. All three fixed windows remain available as diagnostics.
+This prevents the ordinary Explorer surface from answering a different
+covariance question than the caller-authorized sizing path. The snapshot
+`asOf` must lie inside the closed dataset range. Held-asset closes are
+inner-aligned and converted to simple returns.
 
 For annualized covariance matrix \(\Sigma\) and reported weights \(w\):
 
@@ -207,6 +213,12 @@ coefficients and domain, governing contribution ledger, and diagnostic
 behavior on the other fixed lookbacks. It is a historical target-position
 calculation, not a forecast guarantee or execution plan.
 
+The immutable report's `method.primaryLookbackBars`, `current`, primary
+contribution and reduction CSVs, and sizing policy must all name that same
+governing lookback. The Explorer rejects a Run that diverges across those
+surfaces instead of asking an Agent to reconcile conflicting definitions of
+“current.”
+
 ## Immutable evidence
 
 One successful Run publishes:
@@ -221,6 +233,12 @@ One successful Run publishes:
 - `book-risk-scenario-contributions.csv`;
 - `book-risk-sizing-lookbacks.csv`;
 - `book-risk-sizing-contributions.csv`.
+
+The equity-path CSV retains the longest declared fixed-lookback path so the
+Explorer can independently rebuild every 63/126/252-style drawdown even when
+a shorter caller-fixed sizing window is primary. CLI and Studio project only
+the normalized primary-window path and interval; the longer artifact is
+validation evidence, not a competing definition of “current.”
 
 `aq run book-risk` revalidates Run hashes, the frozen position snapshot, exact
 method and dataset description, metric reconciliation, contribution and
