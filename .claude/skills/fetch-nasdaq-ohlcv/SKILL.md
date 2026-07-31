@@ -23,7 +23,7 @@ python3 scripts/fetch_nasdaq_daily.py \
   --dataset-id <dataset-id> \
   --start YYYY-MM-DD \
   --end-exclusive YYYY-MM-DD \
-  --panel observed-only \
+  --panel aligned \
   --terms "caller-authorized research retrieval; Nasdaq terms apply"
 ```
 
@@ -31,6 +31,19 @@ The script requests at most 5,000 displayed observations per symbol and fails
 if the response declares more records than were returned or appears to omit
 either range boundary. A row containing display `N/A` is omitted as a complete
 observation and counted in the audit; it is never coerced to zero.
+
+Choose panel semantics from the research contract, not from provider
+convenience:
+
+- use `--panel aligned` for fixed Event, Book Risk, Allocation, Portfolio, and
+  RL intake; the script intersects sessions, records per-asset row loss, and
+  emits an aligned V1 package;
+- use `--panel observed-only` for Factor research that must preserve genuinely
+  ragged listing histories or missing sessions; it emits V4 and is not an
+  interchangeable fixed-Lab package.
+
+A provider route can succeed under either mode. Do not choose V4 merely
+because the source observations happen to be fully aligned after retrieval.
 
 ## Verify
 

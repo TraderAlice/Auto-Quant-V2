@@ -1,6 +1,6 @@
 ---
 name: fetch-tencent-ohlcv
-description: Acquire bounded raw completed daily OHLCV for named mainland China A shares from Tencent Finance's observable K-line route, preserve exact response bytes, convert reported lots to shares explicitly, and emit an AutoQuant staging package. Use when the market router selects Tencent as an independent XSHG or XSHE route or when comparing it against Yahoo or Eastmoney.
+description: Acquire bounded raw completed daily OHLCV for named mainland China listed equities or funds from Tencent Finance's observable K-line route, preserve exact response bytes, convert reported lots to shares explicitly, and emit an AutoQuant staging package. Use when the market router selects Tencent as an independent XSHG or XSHE route or when comparing it against Yahoo or Eastmoney.
 ---
 
 # Fetch Tencent OHLCV
@@ -31,6 +31,8 @@ The initial procedure accepts raw `day` rows only. It converts Tencent volume
 from lots to shares by multiplying by 100 and discloses that conversion in
 the audit. Confirm it against an independent shares-based route before
 accepting coverage.
+The asset inventory preserves a caller-verified `equity` or `fund` class; the
+provider code does not infer that class.
 
 ## Verify
 

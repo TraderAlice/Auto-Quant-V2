@@ -1,6 +1,6 @@
 ---
 name: fetch-sohu-ohlcv
-description: Acquire bounded raw completed daily OHLCV for named XSHG, XSHE, or XBSE equities from Sohu Finance's observable historical-quotes route, preserve exact JSONP bytes and request evidence, convert provider lots to shares, check traded value against OHLC, and emit an auditable AutoQuant staging package. Use as an independent mainland-China raw route, especially for validating post-migration Beijing 920 symbols against Sina.
+description: Acquire bounded raw completed daily OHLCV for named XSHG, XSHE, or XBSE listed equities or funds from Sohu Finance's observable historical-quotes route, preserve exact JSONP bytes and request evidence, convert provider lots to shares, check traded value against OHLC, and emit an auditable AutoQuant staging package. Use as an independent mainland-China raw route, especially for validating post-migration Beijing 920 symbols against Sina.
 ---
 
 # Fetch Sohu OHLCV
@@ -29,6 +29,8 @@ python3 scripts/fetch_sohu_daily.py \
 The script preserves the exact GB18030 JSONP response, verifies the echoed
 provider code and requested date bounds, maps raw OHLC, converts provider lots
 to shares, and uses reported traded value as an internal consistency check.
+The inventory's caller-verified `equity` or `fund` class is preserved in the
+package; Sohu's provider code does not establish instrument class.
 
 ## Verify
 

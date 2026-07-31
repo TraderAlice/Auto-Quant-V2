@@ -15,3 +15,5 @@ Use a non-empty JSON array with exactly:
 Supported venues are `XSHG`, `XSHE`, and `XBSE`. The provider symbol is
 `cn_` plus the six-digit security code. Verify the issuer and venue outside
 Sohu; the provider prefix does not encode the venue.
+`assetClass` may be caller-verified `equity` or `fund`; the provider prefix
+does not establish instrument class.

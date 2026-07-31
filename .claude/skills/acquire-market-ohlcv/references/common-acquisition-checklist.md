@@ -11,6 +11,8 @@
 - State whether the Study needs a common aligned panel or observed-only bars.
 - Prefer two independently usable sources. Select by task fitness rather than
   a permanent global priority.
+- Do not reduce the requested universe, history, or semantics because staged
+  data happens to exist. Reacquiring duplicate task-complete bytes is valid.
 
 ## Preserve
 
@@ -39,6 +41,12 @@
 For an overlapping sample, compare dates, row counts, split/dividend regions,
 OHLC returns, volume scale, latest completed date, and missing observations.
 Explain differences; do not average conflicting providers.
+Use numerical comparison only for compatible adjustment claims. Use explicit
+coverage-only comparison for incompatible raw/adjusted packages.
+
+When an independently attempted provider command fails, preserve the standard
+route-failure audit through `scripts/run_route_attempt.py`; do not handwrite a
+success-shaped package or describe one local failure as global unavailability.
 
 ## Hand off
 

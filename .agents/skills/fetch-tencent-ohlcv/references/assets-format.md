@@ -10,11 +10,11 @@
     "assetClass": "equity"
   },
   {
-    "symbol": "000001",
-    "providerSymbol": "sz000001",
-    "venue": "XSHE",
+    "symbol": "510300",
+    "providerSymbol": "sh510300",
+    "venue": "XSHG",
     "currency": "CNY",
-    "assetClass": "equity"
+    "assetClass": "fund"
   }
 ]
 ```
@@ -22,7 +22,8 @@
 - `providerSymbol` must use the explicit observed `sh` or `sz` prefix plus a
   six-digit code.
 - The Skill verifies prefix/declared-venue consistency but not listing truth.
-- Initial scope is XSHG/XSHE A-share equity in CNY. XBSE requires separately
+- Initial scope is caller-verified XSHG/XSHE listed equity or fund in CNY.
+  Provider symbols do not prove instrument class. XBSE requires separately
   proved symbol semantics.
 - Output volume is shares; the observed provider lot value is multiplied by
   100 and retained in the audit.

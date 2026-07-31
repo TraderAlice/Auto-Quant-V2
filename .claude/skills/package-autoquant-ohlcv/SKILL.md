@@ -43,6 +43,20 @@ date coverage, latest common observation, price differences, volume ratios,
 and each provider's raw audit before choosing a route. Agreement does not turn
 two unofficial sources into venue authority.
 
+When adjustment claims differ, compare coverage only and preserve the
+incompatibility explicitly:
+
+```bash
+python3 scripts/compare_ohlcv_packages.py \
+  --left /absolute/path/raw/dataset-package.json \
+  --right /absolute/path/adjusted/dataset-package.json \
+  --mode coverage-only \
+  --write-audit /absolute/path/coverage-comparison.json
+```
+
+Coverage-only reports dates, row counts, overlap, freshness, and zero-volume
+counts. It deliberately emits no price or volume comparison.
+
 ## Choose the contract
 
 - V1: aligned completed daily session panel.

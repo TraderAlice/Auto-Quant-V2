@@ -97,10 +97,16 @@ def compare(
     price_rtol: float,
     volume_atol: float,
     volume_rtol: float,
+    mode: str = "same-semantics",
 ) -> dict[str, Any]:
     left, left_assets = load_package(left_path)
     right, right_assets = load_package(right_path)
-    if left.get("priceAdjustment") != right.get("priceAdjustment"):
+    if mode not in {"same-semantics", "coverage-only"}:
+        raise ValueError(f"unsupported comparison mode: {mode}")
+    semantic_compatibility = (
+        left.get("priceAdjustment") == right.get("priceAdjustment")
+    )
+    if not semantic_compatibility and mode == "same-semantics":
         raise ValueError(
             "packages have different priceAdjustment claims: "
             f"{left.get('priceAdjustment')!r} vs "
@@ -124,6 +130,34 @@ def compare(
         overlap = merged.loc[merged["_merge"] == "both"].copy()
         if overlap.empty:
             raise ValueError(f"{symbol}: no overlapping observations")
+        common_dates = set(overlap["date"])
+        all_common_dates = (
+            common_dates
+            if all_common_dates is None
+            else all_common_dates & common_dates
+        )
+        coverage = {
+            "leftRows": len(left_frame),
+            "rightRows": len(right_frame),
+            "overlapRows": len(overlap),
+            "leftOnlyRows": int((merged["_merge"] == "left_only").sum()),
+            "rightOnlyRows": int((merged["_merge"] == "right_only").sum()),
+            "leftFirst": left_frame["date"].iloc[0].isoformat(),
+            "leftLast": left_frame["date"].iloc[-1].isoformat(),
+            "rightFirst": right_frame["date"].iloc[0].isoformat(),
+            "rightLast": right_frame["date"].iloc[-1].isoformat(),
+            "firstOverlap": overlap["date"].iloc[0].isoformat(),
+            "lastOverlap": overlap["date"].iloc[-1].isoformat(),
+            "leftZeroVolumeRows": int(left_frame["volume"].eq(0).sum()),
+            "rightZeroVolumeRows": int(right_frame["volume"].eq(0).sum()),
+        }
+        if mode == "coverage-only":
+            summaries[symbol] = {
+                **coverage,
+                "pricesCompared": False,
+                "volumeCompared": False,
+            }
+            continue
         price_fields: dict[str, Any] = {}
         for field in FIELDS:
             left_values = overlap[f"{field}_left"]
@@ -164,20 +198,10 @@ def compare(
         volume_difference = (left_volume - right_volume).abs()
         comparable = volume_scale.gt(0)
         ratio_rows = left_volume.gt(0) & right_volume.gt(0)
-        common_dates = set(overlap["date"])
-        all_common_dates = (
-            common_dates
-            if all_common_dates is None
-            else all_common_dates & common_dates
-        )
         summaries[symbol] = {
-            "leftRows": len(left_frame),
-            "rightRows": len(right_frame),
-            "overlapRows": len(overlap),
-            "leftOnlyRows": int((merged["_merge"] == "left_only").sum()),
-            "rightOnlyRows": int((merged["_merge"] == "right_only").sum()),
-            "firstOverlap": overlap["date"].iloc[0].isoformat(),
-            "lastOverlap": overlap["date"].iloc[-1].isoformat(),
+            **coverage,
+            "pricesCompared": True,
+            "volumeCompared": True,
             "prices": price_fields,
             "volume": {
                 "mismatchRows": int(
@@ -242,7 +266,17 @@ def compare(
             "datasetId": right.get("id"),
             "provider": right.get("provider"),
         },
-        "priceAdjustment": left.get("priceAdjustment"),
+        "mode": mode,
+        "semanticCompatibility": semantic_compatibility,
+        "pricesCompared": mode == "same-semantics",
+        "volumeCompared": mode == "same-semantics",
+        "priceAdjustment": (
+            left.get("priceAdjustment") if semantic_compatibility else None
+        ),
+        "priceAdjustmentClaims": {
+            "left": left.get("priceAdjustment"),
+            "right": right.get("priceAdjustment"),
+        },
         "thresholds": {
             "priceAbsolute": price_atol,
             "priceRelative": price_rtol,
@@ -257,6 +291,13 @@ def compare(
         "limitations": [
             "Cross-provider agreement is consistency evidence, not venue truth.",
             "Different corporate-action, rounding, and volume policies can be legitimate.",
+            *(
+                [
+                    "Coverage-only mode compares dates and row availability, not numerical prices or volume."
+                ]
+                if mode == "coverage-only"
+                else []
+            ),
         ],
     }
 
@@ -269,6 +310,11 @@ def main() -> None:
     parser.add_argument("--price-rtol", type=float, default=1e-6)
     parser.add_argument("--volume-atol", type=float, default=100.0)
     parser.add_argument("--volume-rtol", type=float, default=1e-9)
+    parser.add_argument(
+        "--mode",
+        choices=("same-semantics", "coverage-only"),
+        default="same-semantics",
+    )
     parser.add_argument("--write-audit", type=Path)
     args = parser.parse_args()
     if min(
@@ -285,6 +331,7 @@ def main() -> None:
         price_rtol=args.price_rtol,
         volume_atol=args.volume_atol,
         volume_rtol=args.volume_rtol,
+        mode=args.mode,
     )
     rendered = json.dumps(result, indent=2, sort_keys=True) + "\n"
     if args.write_audit:

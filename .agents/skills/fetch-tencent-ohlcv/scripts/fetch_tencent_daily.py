@@ -79,8 +79,10 @@ def load_assets(path: Path) -> list[dict[str, str]]:
             )
         if normalized["currency"] != "CNY":
             raise ValueError(f"assets[{index}].currency must be CNY")
-        if normalized["assetClass"] != "equity":
-            raise ValueError(f"assets[{index}].assetClass must be equity")
+        if normalized["assetClass"] not in {"equity", "fund"}:
+            raise ValueError(
+                f"assets[{index}].assetClass must be equity or fund"
+            )
         assets.append(normalized)
     for key in ("symbol", "providerSymbol"):
         values = [item[key] for item in assets]
@@ -324,12 +326,16 @@ def main() -> None:
         set.union(*(set(frame["date"]) for frame in frames.values()))
     )
     schema_version = 1 if args.panel == "aligned" else 4
+    asset_classes = {asset["assetClass"] for asset in assets}
+    package_asset_class = (
+        next(iter(asset_classes)) if len(asset_classes) == 1 else "mixed"
+    )
     package: dict[str, Any] = {
         "schemaVersion": schema_version,
         "kind": "autoquant-ohlcv-dataset-package",
         "id": args.dataset_id,
         "version": f"{all_dates[0]}_{all_dates[-1]}",
-        "assetClass": "equity",
+        "assetClass": package_asset_class,
         "frequency": "1d",
         "market": {
             "clock": "session",
@@ -346,7 +352,7 @@ def main() -> None:
         "assets": [
             {
                 "symbol": asset["symbol"],
-                "assetClass": "equity",
+                "assetClass": asset["assetClass"],
                 "venue": asset["venue"],
                 "currency": "CNY",
                 "path": f"{asset['symbol']}.csv",

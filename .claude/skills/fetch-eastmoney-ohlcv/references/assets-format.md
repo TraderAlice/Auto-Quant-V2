@@ -12,11 +12,11 @@ Provide a JSON array:
     "assetClass": "equity"
   },
   {
-    "symbol": "000001",
-    "providerSecid": "0.000001",
-    "venue": "XSHE",
+    "symbol": "510300",
+    "providerSecid": "1.510300",
+    "venue": "XSHG",
     "currency": "CNY",
-    "assetClass": "equity"
+    "assetClass": "fund"
   }
 ]
 ```
@@ -28,6 +28,7 @@ Provide a JSON array:
 - This Skill also permits caller-verified XBSE mappings but does not infer
   them from a code prefix.
 - `venue` must be `XSHG`, `XSHE`, or `XBSE`; `currency` must be `CNY`; and
-  `assetClass` must be `equity`.
+  `assetClass` must be caller-verified `equity` or `fund`; the numeric code
+  does not prove instrument class.
 - Provider volume is interpreted as lots and converted to shares only after
   the returned amount/price consistency check passes.

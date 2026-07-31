@@ -1,10 +1,10 @@
 {
-  "bundleSha256": "ad18cef027e42d312e69a179f899ca778186fc9914a898150c5407879ca361b3",
+  "bundleSha256": "44a43bea3a7fe6f7c3f0222d58e081941e34336b390a12e8d6609d97831076df",
   "discoveryRoots": [
     ".agents/skills",
     ".claude/skills"
   ],
-  "harnessVersion": "0.9.0",
+  "harnessVersion": "0.9.7",
   "kind": "autoquant-workspace-skill-bundle",
   "schemaVersion": 1,
   "skills": [
@@ -12,7 +12,7 @@
       "files": [
         {
           "path": "SKILL.md",
-          "sha256": "38a50ce4dc6b359d5707e9a81684ea024c82b8a8ef0b064372569d8c23859caa"
+          "sha256": "f87ae76c868ae76e78bbae2ba8becbc3eeb59493477b7e430fd2bb1ead8e58c7"
         },
         {
           "path": "agents/openai.yaml",
@@ -20,11 +20,11 @@
         },
         {
           "path": "references/cn-a-shares.md",
-          "sha256": "4fef7f4dd7a9fedd046d85db956eefc4b962b5370fe4c18c6d93557b18a1847a"
+          "sha256": "c891a87c5a8fdbd8af6ec42a248bb7a59dafddf6664d744dfbf3510141e3df17"
         },
         {
           "path": "references/common-acquisition-checklist.md",
-          "sha256": "160f3ed9e69b3daa0d7da744ae553038ffbcad8d9ad54aaf5524a9366c35f92e"
+          "sha256": "7f22d010d48ef8c13edb43a4ea5baf537b0353daf1cee34ae906ac1d36330087"
         },
         {
           "path": "references/eu-equity-venues.md",
@@ -44,11 +44,15 @@
         },
         {
           "path": "references/us-equities.md",
-          "sha256": "e0ba4e9947cbbd070b8e93c17aa9b2041738677148410b940e70a20d22f7aba7"
+          "sha256": "79869b587a8ac243d68864b6fdf39130d452ca63ded890ed3ea74d095d079a93"
         },
         {
           "path": "references/vietnam-equities.md",
           "sha256": "3c1d83e876a2866babc500fa500430a4a6798e5fa7e7d64d9123db6248558168"
+        },
+        {
+          "path": "scripts/run_route_attempt.py",
+          "sha256": "0c71cb31b0db35c1a1afd303e246392a1e4849f1317bf08dbe46830c7a5cac24"
         }
       ],
       "id": "acquire-market-ohlcv"
@@ -103,7 +107,7 @@
       "files": [
         {
           "path": "SKILL.md",
-          "sha256": "462806306e5c7809e1b4a84ad22cfad365233f7613cbe464041a293e7ea378e1"
+          "sha256": "1f76cd0dec9690941b2b5ae0e8373d49fe96469e7cab9c0ba65efd91b3fb6608"
         },
         {
           "path": "agents/openai.yaml",
@@ -111,7 +115,7 @@
         },
         {
           "path": "references/assets-format.md",
-          "sha256": "371968b1c6682370b959257806c9590560577917c76813a85047ecb60733a18b"
+          "sha256": "6f0e0e785cd71f4c833edf40c008ca22461b89cf1b28f8c2e3dc2b3434b4c3bd"
         },
         {
           "path": "references/provider-route.md",
@@ -119,7 +123,7 @@
         },
         {
           "path": "scripts/fetch_eastmoney_daily.py",
-          "sha256": "2735b9ac39b69800d2da68b87f4f35ed226eddae07588123fcb338ddf8d1f781"
+          "sha256": "39235056ce3fa27c4f1036f7f3dcc63c9ae4588ee2fb3329c01a1d6fecf6e9fc"
         }
       ],
       "id": "fetch-eastmoney-ohlcv"
@@ -178,7 +182,7 @@
       "files": [
         {
           "path": "SKILL.md",
-          "sha256": "40e5f8abea28f943e865773b9f74d11cc90010c54be3cbb55176f227722f532c"
+          "sha256": "52846874d8a13f164d58398a7a6cc43cb7d6c6fb68761b43b2fe3f53e16bb2f3"
         },
         {
           "path": "agents/openai.yaml",
@@ -253,7 +257,7 @@
       "files": [
         {
           "path": "SKILL.md",
-          "sha256": "b1590278b0d3f2d9ac91f60fa723aba492eae0f9b95273340973f8e068e48332"
+          "sha256": "b85be4c3d420e3f8ca92782c866b463b8e6d70170c38f3e0036b3cb65e5b0814"
         },
         {
           "path": "agents/openai.yaml",
@@ -261,7 +265,7 @@
         },
         {
           "path": "references/assets-format.md",
-          "sha256": "36a6d4c653084df47a79368420c9d3ce9c1a5c93b708d1468f8981345d0e1b43"
+          "sha256": "c386ba8544fb702e7c9ef2c9796afb1422a941e6b76bed5d0c0b9551f5bb63e6"
         },
         {
           "path": "references/provider-route.md",
@@ -269,7 +273,7 @@
         },
         {
           "path": "scripts/fetch_sina_daily.py",
-          "sha256": "4e541df1deeebc23c89f83c43c7aa780bc4befa0360553f28be102d363c4a815"
+          "sha256": "db5a170fa14e564ae8251ba43f539e8ca514b00acae9c151f9c7e971f859d379"
         }
       ],
       "id": "fetch-sina-ohlcv"
@@ -278,7 +282,7 @@
       "files": [
         {
           "path": "SKILL.md",
-          "sha256": "baa243413b1ecf218303de3f4823e844411fe7784593d138abfe064973e7c597"
+          "sha256": "208a7fd9c69593de92c6a2d229d614fefc6e3975e9c28abce9ccb9a692725402"
         },
         {
           "path": "agents/openai.yaml",
@@ -286,7 +290,7 @@
         },
         {
           "path": "references/assets-format.md",
-          "sha256": "f0697cca103547da71f59f09659025f24318050989436e1f6988f9dd4bdf8e8d"
+          "sha256": "db7b6c83386e62418a6d7c20e77017d5d458d35eeffcc1f7c45bd93950c136dd"
         },
         {
           "path": "references/provider-route.md",
@@ -294,7 +298,7 @@
         },
         {
           "path": "scripts/fetch_sohu_daily.py",
-          "sha256": "6030433b4a7a8ac1b6147e9b6163e594402fbe4e153652daafc613933f713d71"
+          "sha256": "011b6c9c7d5c6aae9537c7a77310b6c08d6c425d1675eced65237116fdfe1e94"
         }
       ],
       "id": "fetch-sohu-ohlcv"
@@ -303,7 +307,7 @@
       "files": [
         {
           "path": "SKILL.md",
-          "sha256": "786391955c963667abddd8d1a55f5fbeb855ed3190b1bf8b2e4365e123d095f7"
+          "sha256": "b005dd90793011f2f96cf02a6a95b115f6f83d75c69d21a1fc4c4f817f4a763e"
         },
         {
           "path": "agents/openai.yaml",
@@ -311,7 +315,7 @@
         },
         {
           "path": "references/assets-format.md",
-          "sha256": "9bbafb1c74972bb0d9af6d1ee28998345854c86852dbefc4e0b875b674b81d0e"
+          "sha256": "7bac4a6e78972aadae8ebd7aa230ef4145a091b950551259150064f1c0c5f666"
         },
         {
           "path": "references/provider-route.md",
@@ -319,7 +323,7 @@
         },
         {
           "path": "scripts/fetch_tencent_daily.py",
-          "sha256": "371583071ca7a11b2e23b26ea758fb649ee3861602bd581eedc47390f6341e52"
+          "sha256": "2f11fffc3d7f0f7c663b941db23d0381a7da16d601fe1b0fde41079b1581adb0"
         }
       ],
       "id": "fetch-tencent-ohlcv"
@@ -399,7 +403,7 @@
       "files": [
         {
           "path": "SKILL.md",
-          "sha256": "cf8d47ff25a7298e2face562e13c1ca97604efff9106557153c758375b0107a7"
+          "sha256": "5c735771f609a262154a09b03bd8d53d7e948cd28c3b85e6f6b66ed5eaf5efc6"
         },
         {
           "path": "agents/openai.yaml",
@@ -415,7 +419,7 @@
         },
         {
           "path": "scripts/compare_ohlcv_packages.py",
-          "sha256": "a9edff1d99e16ec26348ac356d297773780e7997472435e59f09506c6a987694"
+          "sha256": "258515f401a7f18a7b549e74abf25937ed36b39d422a3f9159474a9804f0eaa0"
         }
       ],
       "id": "package-autoquant-ohlcv"

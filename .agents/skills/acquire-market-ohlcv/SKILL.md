@@ -34,6 +34,20 @@ strict Project intake.
    `$fetch-yahoo-ohlcv` or `$fetch-binance-ohlcv` only when their documented
    contract fits. Do not improvise an unproved provider route as accepted
    coverage.
+   Wrap independently attempted provider commands when failure evidence is
+   material:
+
+   ```bash
+   python3 scripts/run_route_attempt.py \
+     --provider <provider-id> \
+     --write-failure <workspace>/staging/market-data/<route>/route-failure.json \
+     -- python3 /absolute/path/to/provider-script.py <arguments>
+   ```
+
+   A successful provider command writes its ordinary package/audit and no
+   failure file. A nonzero or unlaunchable command preserves one bounded
+   standard failure record and returns the original failure status; never
+   handwrite a substitute success package.
 6. Invoke `$package-autoquant-ohlcv` to inspect, package, and strictly intake
    the acquired bytes.
 

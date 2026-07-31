@@ -10,12 +10,18 @@
   listed instrument trades every session.
 - Treat current index/ETF constituents as a current-universe sample, not a
   survivorship-free historical universe.
+- Choose package panel semantics before retrieval. Fixed Event, Book Risk,
+  Allocation, Portfolio, and RL Studies require `aligned`; use
+  `observed-only` for Factor research only when the question must retain
+  ragged histories. Both Yahoo and Nasdaq provider scripts support this
+  choice.
 
 ## Routes
 
-- `$fetch-nasdaq-ohlcv`: independent split-adjusted display-history route for named
-  equities and ETFs. It does not authenticate primary venue and is distinct
-  from credentialed Nasdaq Data Link Bars.
+- `$fetch-nasdaq-ohlcv`: independent split-adjusted display-history route for
+  named equities and ETFs. It can emit aligned V1 or observed-only V4 packages;
+  it does not authenticate primary venue and is distinct from credentialed
+  Nasdaq Data Link Bars.
 - `$fetch-yahoo-ohlcv`: broad split-adjusted or
   split-and-dividend-adjusted historical Chart route; adjustment and venue
   metadata remain external claims.

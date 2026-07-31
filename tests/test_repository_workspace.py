@@ -6,6 +6,7 @@ from pathlib import Path
 
 from autoquant.runs import list_runs, load_run
 from autoquant.sessions import list_sessions
+from autoquant.skill_bundle import verify_materialized_workspace_skills
 from autoquant.studies import list_studies
 from autoquant.studio import build_studio_snapshot
 from autoquant.workspace import create_project, initialize_workspace, load_project
@@ -40,6 +41,12 @@ def _template_owned_files(root: Path) -> dict[str, bytes]:
 
 
 class RepositoryWorkspaceTests(unittest.TestCase):
+    def test_repository_skill_bundle_matches_current_harness(self) -> None:
+        manifest = verify_materialized_workspace_skills(REPOSITORY_ROOT)
+
+        self.assertEqual(manifest["harnessVersion"], "0.9.7")
+        self.assertEqual(len(manifest["skills"]), 16)
+
     def test_repository_ignores_workspace_staging(self) -> None:
         ignore_rules = (
             (REPOSITORY_ROOT / ".gitignore")
