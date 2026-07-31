@@ -18,9 +18,7 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-| Plan | Outcome | Updated |
-| --- | --- | --- |
-| [[plans/openalice-real-delegation-field-trials]] | Use isolated Grok 4.5 coworkers on realistic delegated quantitative-support assignments, repair only severe or recurrent observed friction on `0.9.0`, and prove the resulting OpenAlice-facing work loop without adding host-specific orchestration. | 2026-07-31 |
+None.
 
 ## Proposed plans
 
@@ -36,6 +34,7 @@ None.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/openalice-real-delegation-field-trials]] | Proved with isolated Grok 4.5 coworkers across six materially different quantitative-support assignments that `0.9.0` is a useful standalone desk, repaired every severe or recurrent framework defect, and passed the complete release-readiness audit without adding host-specific orchestration or an upgrade framework. | 2026-07-31 |
 | [[plans/market-data-acquisition-skills]] | Gave fresh coding Agents a versioned 16-Skill bundle for selecting peer market-data sources, retaining provider evidence, packaging truthful OHLCV, and strictly intaking named first-batch equity venues without adding a universal Core downloader. | 2026-07-30 |
 | [[plans/agent-employability-validation]] | Proved across five final workers that fresh coding coworkers can turn materially different caller questions into bounded, scientifically truthful handoffs, and froze the minimum non-trading OpenAlice desk-consumption boundary. | 2026-07-30 |
 | [[plans/caller-fixed-weight-benchmark-and-rl-preflight-parity]] | Preserved caller fixed-weight benchmark intent through Portfolio/governed-RL mandates, aligned fast RL Check state with runtime, and proved both fixes with a fresh installed-wheel worker. | 2026-07-30 |

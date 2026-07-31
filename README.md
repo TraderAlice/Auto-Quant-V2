@@ -52,6 +52,12 @@ manufacturing trading authority. Repeated Agent friction produced narrowly
 tested `0.9.0` repairs; the synthesis and remaining honest limits are recorded
 in [[docs/openalice-real-delegation-synthesis]].
 
+The `0.9.0` release-readiness audit now passes all 354 unit tests, all
+documentation links, lock and distribution builds, a fresh Python 3.11 wheel
+install with all 16 Skills, and the complete remote clean-clone repository-root
+workflow. This makes the line release-ready; it does not silently create or
+claim a `v0.9.0` release.
+
 `0.8.31` made historical market-data
 acquisition an Agent-native, versioned Skill bundle rather than a universal
 Core downloader. A small router now sends a coding Agent to market-specific

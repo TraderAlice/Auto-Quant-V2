@@ -143,10 +143,10 @@ unsupported weights, provider-semantic relabelling, or trading claims fail.
   regression-tested, and retried by a fresh worker.
 - [x] Harness upgrades remain ordinary Agent/Git work; no upgrade framework is
   introduced without contrary real-task evidence.
-- [ ] The final synthesis distinguishes demonstrated strengths, repaired
+- [x] The final synthesis distinguishes demonstrated strengths, repaired
   weaknesses, remaining honest limits, and the smallest OpenAlice consumption
   boundary.
-- [ ] Full tests, documentation, build/install, clean Workspace, Skill
+- [x] Full tests, documentation, build/install, clean Workspace, Skill
   discovery, Studio, and version smoke pass before a `0.9.0` release.
 
 ## Progress log
@@ -287,6 +287,12 @@ unsupported weights, provider-semantic relabelling, or trading claims fail.
   worker proof. The remaining work is the final synthesis and complete
   regression/build/install/clean-clone release-readiness audit, not another
   research feature.
+- 2026-07-31 — Completed the release-readiness audit. Synchronizing the
+  checked-in sample protocol correctly made its older evidence stale, so the
+  sample retained the real `0.8.7` and `0.8.28` Runs and added one clean
+  `0.9.0` Run rather than weakening current-evidence selection or rewriting
+  historical Harness identity. Full regression, documentation, build,
+  installed-wheel, Skill, and remote clean-clone checks then passed.
 
 ## Verification
 
@@ -378,7 +384,30 @@ unsupported weights, provider-semantic relabelling, or trading claims fail.
 - Independent governed-RL review:
   `../openalice-field-trials/cohort-06-us-sector-governed-rl-v090/review.md`
   (external trial ledger, intentionally not a repository documentation link).
+- Final sample evidence:
+  `run-20260731T120304794599Z-6d6cdab313fe` completed in 4.682 seconds from
+  clean `0.9.0` commit `37b0029`; strict validation and Studio select it as
+  the current Factor Explorer while retaining both older immutable Runs.
+- Full regression:
+  `.venv/bin/python -m unittest discover` — 354 tests passed in 986.812
+  seconds.
+- Documentation graph: 1,209 double-links resolve.
+- Lock and distribution:
+  `uv lock --check` passed; `uv build` produced both
+  `auto_quant-0.9.0.tar.gz` and `auto_quant-0.9.0-py3-none-any.whl`.
+- Fresh Python 3.11 wheel install:
+  `aq --version` returned `0.9.0`; all 50 public commands were discoverable;
+  Workspace initialization materialized all 16 Skills; Project creation,
+  orientation, strict validation, and Studio snapshot passed.
+- Remote clean clone at `30616fa`:
+  repository-root orientation selected `sample-research-desk`; validation,
+  Project listing, Studio snapshot/current Factor Explorer, and creation of a
+  sibling Project all passed with the installed wheel.
 
 ## Completion
 
-Pending.
+Completed. The cohort demonstrates a useful standalone quantitative coworker
+desk, records the smallest OpenAlice consumption boundary, and closes every
+severe or recurrent framework defect observed by the six assignment families.
+The `0.9.0` line is release-ready; creating a release tag remains a separate
+maintainer decision.

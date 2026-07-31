@@ -22,7 +22,10 @@ assignment families over source-authority boundaries, fixed Event and Book
 Risk evidence, causal multi-interval Factor research, and governed RL. The
 accepted workers preserved useful negative evidence and no-trading authority;
 every severe or recurring Workbench defect received a regression and a fresh
-worker retry. See [[docs/openalice-real-delegation-synthesis]].
+worker retry. The complete 354-test, documentation, build, installed-wheel,
+Skill-discovery, and remote clean-clone audit also passed; creating a
+`v0.9.0` release remains a separate maintainer decision. See
+[[docs/openalice-real-delegation-synthesis]].
 
 On the `0.9.0` development line, a human, local coding Agent, or coworker
 delegated from OpenAlice
@@ -47,8 +50,9 @@ can:
 
 `0.8.8` made the repository clone the canonical default Workspace. Its
 ordinary `sample-research-desk` contains Factor, Portfolio, and governed-RL
-Studies plus one explicitly historical clean `0.8.7` Factor Run for immediate
-Studio inspection. An ignored strict local Workspace configuration lets
+Studies, retains explicitly historical clean `0.8.7` and `0.8.28` Factor
+Runs, and adds one clean current `0.9.0` development Run for immediate Studio
+inspection. An ignored strict local Workspace configuration lets
 Workbench development reuse an external real-Project collection without
 shipping those cases or changing the user's internal default.
 

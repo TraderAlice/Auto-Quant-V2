@@ -1,6 +1,6 @@
 # AutoQuant 0.9 real-delegation synthesis
 
-Status: field cohort accepted; release-readiness audit pending.
+Status: field cohort and release-readiness audit accepted.
 
 Related: [[plans/openalice-real-delegation-field-trials]],
 [[docs/agent-employability-synthesis]],
@@ -159,16 +159,19 @@ compatibility matrix while its research model is still evolving. Immutable
 Runs retain the exact Harness identity under which they were produced; that is
 evidence provenance, not a promise to migrate every old mutable desk.
 
-## Release gate
+## Release-readiness result
 
-The field cohort is accepted. `0.9.0` release readiness additionally requires:
+The `0.9.0` audit passed:
 
-1. complete unit regression;
-2. documentation-link validation;
-3. source and wheel build;
-4. fresh installed-wheel version/capability smoke;
-5. repository-root clean-clone orientation, validation, Project listing, and
-   Studio snapshot.
+1. all 354 unit tests passed;
+2. all 1,209 documentation double-links resolved;
+3. lock validation and source/wheel builds passed;
+4. a fresh Python 3.11 wheel install exposed version `0.9.0`, all 50 public
+   commands, all 16 Skills, and completed Workspace/Project/Studio smoke;
+5. a remote clean clone oriented to the checked-in sample, validated, listed
+   Projects, projected its current Factor Explorer, and created a sibling
+   Project through the installed wheel.
 
-Until those checks pass, the conclusion is “field-ready development line,”
-not “released `v0.9.0`”.
+The line is release-ready. It is still described as the `0.9.0` development
+line rather than “released `v0.9.0`” until a maintainer deliberately creates
+that release.
