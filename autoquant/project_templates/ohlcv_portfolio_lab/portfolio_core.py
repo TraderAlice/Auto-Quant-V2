@@ -154,6 +154,9 @@ def _causal_empirical_percentile(
 def translate_factor_scores(
     factors: pd.DataFrame,
     prediction_population: dict[str, object] | None = None,
+    *,
+    temporal_window: int = TEMPORAL_SCORE_WINDOW,
+    temporal_minimum: int = TEMPORAL_SCORE_MINIMUM,
 ) -> tuple[
     pd.DataFrame,
     pd.DataFrame,
@@ -236,7 +239,9 @@ def translate_factor_scores(
         asset = prediction_assets[0]
         values = factors[asset].where(np.isfinite(factors[asset]))
         temporal_scores, temporal_observations = _causal_empirical_percentile(
-            values
+            values,
+            window=temporal_window,
+            minimum=temporal_minimum,
         )
         scores.loc[:, asset] = temporal_scores
         translation_values.loc[:, asset] = values
@@ -258,7 +263,9 @@ def translate_factor_scores(
             np.isfinite(factors[left]) & np.isfinite(factors[right])
         )
         spread_scores, spread_observations = _causal_empirical_percentile(
-            spread
+            spread,
+            window=temporal_window,
+            minimum=temporal_minimum,
         )
         scores.loc[:, left] = spread_scores
         scores.loc[:, right] = 1.0 - spread_scores
@@ -266,7 +273,11 @@ def translate_factor_scores(
         translation_values.loc[:, right] = -spread
         observations.loc[:, left] = spread_observations
         observations.loc[:, right] = spread_observations
-    semantics = signal_translation_contract(population)
+    semantics = signal_translation_contract(
+        population,
+        temporal_window=temporal_window,
+        temporal_minimum=temporal_minimum,
+    )
     return scores, translation_values, observations, semantics
 
 
@@ -1448,76 +1459,6 @@ def execute_risk_compliant_book(
     return current, result
 
 
-def construct_targets(
-    factors: pd.DataFrame,
-    closes: pd.DataFrame,
-    *,
-    volatility_window: int = VOLATILITY_WINDOW,
-    gross_target: float = GROSS_TARGET,
-    max_abs_weight: float = MAX_ABS_WEIGHT,
-) -> pd.DataFrame:
-    """Map causal factor values to dollar-neutral capped target weights."""
-
-    if not factors.index.equals(closes.index) or list(factors.columns) != list(
-        closes.columns
-    ):
-        raise PortfolioFailure(
-            "portfolio.alignment",
-            "Factor and close panels must have identical index and columns",
-        )
-    if (
-        volatility_window < 2
-        or not 0 < gross_target <= 2
-        or not 0 < max_abs_weight <= gross_target / 2
-    ):
-        raise PortfolioFailure(
-            "portfolio.parameters",
-            "Invalid fixed target-construction parameters",
-        )
-    returns = closes.pct_change(fill_method=None)
-    volatility = (
-        returns.rolling(
-            volatility_window,
-            min_periods=volatility_window,
-        )
-        .std(ddof=0)
-        .clip(lower=1e-6)
-    )
-    side_budget = gross_target / 2.0
-    targets = pd.DataFrame(0.0, index=factors.index, columns=factors.columns)
-    for timestamp in factors.index:
-        pair = pd.DataFrame(
-            {
-                "factor": factors.loc[timestamp],
-                "volatility": volatility.loc[timestamp],
-            }
-        ).dropna()
-        if len(pair) < 4 or pair["factor"].nunique() < 2:
-            continue
-        ranks = pair["factor"].rank(method="average")
-        centered = ranks - ranks.mean()
-        scaled = centered / pair["volatility"]
-        positive = scaled[scaled > 0]
-        negative = -scaled[scaled < 0]
-        long_weights = _allocate_capped_side(
-            positive.reindex(pair.index, fill_value=0.0),
-            budget=side_budget,
-            cap=max_abs_weight,
-        )
-        short_weights = _allocate_capped_side(
-            negative.reindex(pair.index, fill_value=0.0),
-            budget=side_budget,
-            cap=max_abs_weight,
-        )
-        if (
-            abs(float(long_weights.sum()) - side_budget) > 1e-9
-            or abs(float(short_weights.sum()) - side_budget) > 1e-9
-        ):
-            continue
-        targets.loc[timestamp, pair.index] = long_weights - short_weights
-    return targets
-
-
 def _signal_transition(
     previous: int,
     score: float | None,
@@ -1663,6 +1604,8 @@ def construct_signal_policy(
     short_entry: float = SHORT_ENTRY_PERCENTILE,
     mandate: dict[str, object] | None = None,
     prediction_population: dict[str, object] | None = None,
+    temporal_translation_window: int = TEMPORAL_SCORE_WINDOW,
+    temporal_translation_minimum: int = TEMPORAL_SCORE_MINIMUM,
     apply_risk_governor: bool = True,
     risk_covariance_cache: RiskCovarianceCache | None = None,
     include_ledger: bool = True,
@@ -1756,6 +1699,8 @@ def construct_signal_policy(
     ) = translate_factor_scores(
         factors,
         prediction_population,
+        temporal_window=temporal_translation_window,
+        temporal_minimum=temporal_translation_minimum,
     )
     insufficient_score_status = (
         "insufficient_temporal_history"

@@ -256,6 +256,8 @@ Bounded immutable Portfolio artifact projection is defined in
 [[docs/design/portfolio-decision-explorer]].
 Predeclared local mechanical-parameter stability is defined in
 [[docs/design/portfolio-parameter-neighborhood]].
+Predeclared temporal translation-history stability is defined in
+[[docs/design/target-translation-robustness]].
 Bounded governed RL artifact projection is defined in
 [[docs/design/rl-policy-evidence-explorer]].
 Exact governed-RL action persistence and chosen-versus-runner-up linear
@@ -491,6 +493,8 @@ cannot own Workspace, Project, or evidence semantics.
   [[docs/design/agent-native-market-data-acquisition]]
 - Prediction-mode Factor-to-target translation:
   [[docs/design/prediction-mode-target-weight-translation]]
+- Target-translation history-window robustness:
+  [[docs/design/target-translation-robustness]]
 - Evidence-gated Research Program progression:
   [[docs/design/evidence-gated-research-progression]]
 - Governed RL Factor-Policy Lab design:

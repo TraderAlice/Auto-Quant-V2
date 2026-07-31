@@ -106,6 +106,12 @@ lifecycle evidence is contextual and cannot select a candidate. The
 `portfolio-parameter-neighborhood.json` artifact preserves exact
 validation/test return, turnover, cost, rebalance, and signal-transition paths.
 Use it to detect a one-point result, not to choose the strongest cell. The
+`portfolio-translation-robustness.json` artifact, when the Factor claim is
+temporal or two-asset relative value, preserves the fixed 40/60/120 causal
+history-window score, state, target, return, turnover, and cost paths. Use it
+to detect translation sensitivity; never select a stress window or change the
+ordinary 60/20 contract. Cross-sectional Runs correctly omit that artifact.
+The
 ungoverned comparison is diagnostic only and cannot
 select a candidate. A higher primary score is not enough when coverage
 collapses, hysteresis adds no value,

@@ -685,6 +685,12 @@ complete-versus-censored status, decision bars, additive net contribution,
 cumulative-contribution MFE/MAE, and signal/execution mismatch counts. Its
 aggregate `position_lifecycle` metrics reconcile exactly to the decision
 ledger and remain contextual only.
+Temporal and two-asset relative-value Portfolio Runs additionally declare
+`portfolio-translation-robustness`: exact 40/60/120 causal score, state,
+governed-target, validation/test return, turnover, and cost paths. The base
+profile reconciles the ordinary Portfolio artifacts. Cross-sectional Runs
+record a metric-only not-applicable state and do not emit this artifact. See
+[[docs/design/target-translation-robustness]].
 
 `manifest.json` is written last and pins every other Run file hash. Run listing
 ignores incomplete directories; opening a completed Run rejects changed,

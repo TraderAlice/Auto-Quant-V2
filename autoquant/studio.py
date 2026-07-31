@@ -437,6 +437,7 @@ def _portfolio_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
         layers["executedBookRisk"] = None
         layers["positionLifecycle"] = None
         layers["parameterNeighborhood"] = None
+        layers["translationRobustness"] = None
         if isinstance(signal_policy, dict):
             validation_policy = signal_policy.get("validation", {})
             comparison = signal_policy.get(
@@ -612,6 +613,24 @@ def _portfolio_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
                         "policy",
                         {},
                     ).get("selection_authority"),
+                }
+        translation = metrics.get("translation_robustness")
+        if isinstance(translation, dict):
+            diagnosis = translation.get("diagnosis")
+            if isinstance(diagnosis, dict):
+                layers["translationRobustness"] = {
+                    "applicable": translation.get("applicable"),
+                    "reason": translation.get("reason"),
+                    "validationStatus": diagnosis.get("status"),
+                    "minimumActiveStateAgreementRate": diagnosis.get(
+                        "minimum_active_state_agreement_rate"
+                    ),
+                    "maximumMeanAbsoluteTargetDelta": diagnosis.get(
+                        "maximum_mean_absolute_target_delta"
+                    ),
+                    "selectionAuthority": translation.get("policy", {}).get(
+                        "selection_authority"
+                    ),
                 }
         return layers
     except (KeyError, TypeError):

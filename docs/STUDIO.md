@@ -387,6 +387,13 @@ Inspector to that lane's latest Session and Report. This prevents a Portfolio
 chart from appearing beside RL Session authority while preserving the
 Project-level Dossier delivery above it.
 
+The Portfolio explorer also shows target-translation robustness. Temporal and
+relative-value Runs present the fixed 40/60/120 validation profiles, their
+active-state agreement, target-weight delta, and net Sharpe beside an explicit
+no-window-selection disclosure. Cross-sectional Runs show not applicable;
+older Runs show unavailable. The browser consumes the strict Core projection
+and never recomputes or promotes a profile.
+
 For a request-driven Project with no Session, the delivery board shows
 `research mandate → dataset → immutable baseline → iterate`. The hero promotes
 the latest verified Run's decision metrics over generic object counts, and the

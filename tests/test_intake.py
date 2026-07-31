@@ -1090,6 +1090,122 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                 FACTOR_DIAGNOSTICS_JSON_SCHEMA,
             )
 
+    def test_relative_value_portfolio_reconciles_translation_window_stress(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            request_path, package_path = write_intake_inputs(
+                root,
+                request_assets=("NVDA", "QQQ", "SPY"),
+                asset_position_roles={
+                    "NVDA": "two-sided",
+                    "QQQ": "two-sided",
+                    "SPY": "context-only",
+                },
+                factor_policy={
+                    "claim": "decision-signal",
+                    "knownStyle": None,
+                },
+            )
+            request = json.loads(request_path.read_text(encoding="utf-8"))
+            request["direction"] = "relative-value"
+            request_path.write_text(
+                json.dumps(request, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            prepared = prepare_project_intake(
+                request_path,
+                package_path,
+                "ohlcv-research-desk",
+            )
+            project = create_project(
+                initialize_workspace(root / "workspace").root_dir,
+                "relative-value-translation-stress",
+                template=prepared.template,
+                template_intake=prepared,
+            )
+
+            run = execute_study(project, PORTFOLIO_STUDY_ID)
+
+            self.assertEqual(run.result["status"], "succeeded", run.result["errors"])
+            metric = run.result["metrics"]["translation_robustness"]
+            self.assertTrue(metric["applicable"])
+            self.assertEqual(
+                [
+                    profile["window"]
+                    for profile in metric["policy"]["profiles"]
+                ],
+                [40, 60, 120],
+            )
+            self.assertEqual(
+                metric["diagnosis"]["selection_split"],
+                "validation",
+            )
+            self.assertFalse(
+                metric["diagnosis"]["test_enters_diagnosis"]
+            )
+            self.assertIn(
+                "portfolio-translation-robustness",
+                {artifact["kind"] for artifact in run.result["artifacts"]},
+            )
+            projection = load_portfolio_diagnostics(
+                project,
+                run.result["id"],
+            )
+            robustness = projection["translationRobustness"]
+            self.assertTrue(robustness["applicable"])
+            self.assertEqual(
+                [
+                    profile["windowObservations"]
+                    for profile in robustness["validation"]["profiles"]
+                ],
+                [40, 60, 120],
+            )
+            self.assertEqual(
+                robustness["policy"]["selectionAuthority"],
+                "context-only",
+            )
+            self.assertEqual(
+                set(robustness["current"]["profiles"]),
+                {"short-history", "base", "long-history"},
+            )
+            jsonschema.validate(
+                projection,
+                PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA,
+            )
+            artifact_path = (
+                run.root_dir
+                / "artifacts"
+                / "portfolio-translation-robustness.json"
+            )
+            artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
+            first_scored = next(
+                row for row in artifact["assetRows"] if row["score"] is not None
+            )
+            first_scored["score"] = float(first_scored["score"]) + 0.01
+            artifact_path.write_text(
+                json.dumps(artifact, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            manifest_path = run.root_dir / "manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["files"] = {
+                path.relative_to(run.root_dir).as_posix(): hash_file(path)
+                for path in sorted(run.root_dir.rglob("*"))
+                if path.is_file() and path != manifest_path
+            }
+            manifest["resultHash"] = manifest["files"]["result.json"]
+            manifest_path.write_text(
+                json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "Translation score does not reconcile",
+            ):
+                load_portfolio_diagnostics(project, run.result["id"])
+
     def test_single_asset_decision_signal_uses_temporal_evaluation(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

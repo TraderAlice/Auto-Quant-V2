@@ -514,6 +514,14 @@ extra-delay delta, monthly breadth, best-day dependence, and underwater
 duration. The human command prints the validation stage and next bounded
 research focus. This has `research-prioritization-only` authority and cannot
 change KEEP/REVERT or trading authority.
+For temporal and two-asset relative-value Runs, `translationRobustness`
+strictly reconstructs the fixed 40/60/120 causal history-window surface. It
+reports score availability, active-state and target-direction agreement,
+target-weight delta, performance, turnover, cost, and the last reconciled
+target under each profile. Validation alone labels target-path stability;
+test is visible audit and no profile can be selected. Cross-sectional Runs
+return an explicit not-applicable state because they have no temporal history
+window. See [[docs/design/target-translation-robustness]].
 For new Runs it also verifies `portfolio-position-episodes`, reconstructs
 every split-bounded executed-position episode from the decision ledger, and
 returns complete-episode holding/win/payoff, per-asset contribution/cost,

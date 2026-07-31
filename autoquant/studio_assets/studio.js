@@ -3667,8 +3667,53 @@ function renderPortfolioExplorer(project) {
   renderPortfolioBook(explorer);
   renderPortfolioAttribution(explorer);
   renderPortfolioTransitions(explorer);
+  renderPortfolioTranslationRobustness(explorer);
   renderPortfolioParameterNeighborhood(explorer);
   renderPortfolioLifecycle(explorer);
+}
+
+function renderPortfolioTranslationRobustness(explorer) {
+  const target = element("portfolio-translation-robustness");
+  const robustness = explorer.translationRobustness;
+  if (!robustness || robustness.reason === "legacy-run-evidence-unavailable") {
+    target.innerHTML =
+      '<div class="empty-panel">Legacy Run: target-translation robustness evidence is unavailable.</div>';
+    return;
+  }
+  if (!robustness.applicable) {
+    target.innerHTML = `
+      <div class="empty-panel">
+        Not applicable: cross-sectional scores use the same-timestamp prediction population and have no temporal history window.
+      </div>`;
+    return;
+  }
+  const diagnosis = robustness.diagnosis;
+  const profiles = robustness.validation.profiles;
+  const tone = diagnosis.status === "stable-target-path" ? "positive" : "adverse";
+  target.innerHTML = `
+    <div class="monetization-diagnosis ${tone}">
+      <span>
+        <small>Validation target path</small>
+        <b>${escapeHtml(diagnosis.status.replaceAll("-", " ").toUpperCase())}</b>
+        <i>60/20 remains the fixed production translation</i>
+      </span>
+      <p>${escapeHtml(diagnosis.explanation)}</p>
+    </div>
+    <div class="monetization-chain" role="list" aria-label="Target translation history-window profiles">
+      ${profiles
+        .map(
+          (profile) => `
+            <span class="${profile.isBase ? "positive" : ""}" role="listitem">
+              <small>${escapeHtml(profile.label)} · ${profile.windowObservations} bars</small>
+              <b>${metric(profile.netSharpe)} Sharpe</b>
+              <i>active-state agreement ${profile.activeStateAgreementWithBaseRate == null ? "N/A" : percent(profile.activeStateAgreementWithBaseRate)} · target MAE ${percent(profile.meanAbsoluteTargetDeltaVsBase)}</i>
+            </span>`,
+        )
+        .join("")}
+    </div>
+    <p class="monetization-disclosure">
+      Validation alone determines the stability label. Test remains visible audit; no profile can be selected, promoted, or treated as an Order.
+    </p>`;
 }
 
 function renderPortfolioParameterNeighborhood(explorer) {

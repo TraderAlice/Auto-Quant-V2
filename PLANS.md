@@ -18,7 +18,9 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-None.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/target-translation-robustness-and-loss-attribution]] | Test temporal target translation across fixed causal history windows, connect that evidence to the existing loss diagnosis, and remove the obsolete cross-sectional-only construction path. | 2026-07-31 |
 
 ## Proposed plans
 

@@ -411,6 +411,46 @@ class EvidenceDrivenResearchAgendaTests(unittest.TestCase):
             [],
         )
 
+    def test_translation_sensitive_portfolio_repairs_factor_not_window(self) -> None:
+        diagnostics = portfolio_diagnostics(
+            stage="post-cost-edge-positive",
+            outcome="monetized-positive",
+        )
+        diagnostics["translationRobustness"] = {
+            "applicable": True,
+            "diagnosis": {
+                "status": "translation-sensitive-target-path",
+                "minimumActiveStateAgreementRate": 0.62,
+                "maximumMeanAbsoluteTargetDelta": 0.09,
+            },
+            "test": {"profiles": "must-not-enter-prioritization"},
+        }
+
+        agenda = portfolio_research_agenda(diagnostics, ["factors/**"])
+
+        jsonschema.validate(agenda, RESEARCH_AGENDA_JSON_SCHEMA)
+        self.assertEqual(agenda["status"], "available")
+        move = agenda["moves"][0]
+        self.assertEqual(
+            move["id"],
+            "portfolio-stabilize-temporal-factor-representation",
+        )
+        self.assertEqual(move["target"]["editablePaths"], ["factors/**"])
+        self.assertIn("not select", move["rationale"])
+        self.assertTrue(
+            all(
+                "translationRobustness/diagnosis" in evidence["path"]
+                for evidence in move["evidenceRefs"]
+            )
+        )
+
+        changed_test = copy.deepcopy(diagnostics)
+        changed_test["translationRobustness"]["test"] = {"tampered": True}
+        self.assertEqual(
+            agenda,
+            portfolio_research_agenda(changed_test, ["factors/**"]),
+        )
+
     def test_rl_recipes_only_target_the_causal_encoder(self) -> None:
         recipes = {
             "adaptive-book-selection-negative": (

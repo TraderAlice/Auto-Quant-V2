@@ -906,6 +906,36 @@ def _render_markdown(report: dict[str, Any]) -> str:
                     "authority.",
                 ]
             )
+        translation = leader_run["metrics"].get(
+            "translation_robustness"
+        )
+        translation_diagnosis = (
+            translation.get("diagnosis")
+            if isinstance(translation, dict)
+            else None
+        )
+        if isinstance(translation_diagnosis, dict):
+            if translation.get("applicable") is True:
+                lines.extend(
+                    [
+                        "- Target translation robustness: "
+                        "`predeclared-temporal-translation-window-stability-v1` "
+                        "(40/60/120 causal observations; context only; no window selection)",
+                        "- Validation status / minimum active-state agreement / "
+                        "maximum mean absolute target delta: "
+                        f"`{translation_diagnosis['status']}` / "
+                        f"`{translation_diagnosis['minimum_active_state_agreement_rate']}` / "
+                        f"`{translation_diagnosis['maximum_mean_absolute_target_delta']}`",
+                        "- Net-Sharpe range and sign agreement are descriptive; "
+                        "the ordinary target policy remains the fixed 60/20 "
+                        "translation and test never selects a window.",
+                    ]
+                )
+            else:
+                lines.append(
+                    "- Target translation robustness: `not-applicable` "
+                    "(cross-sectional scores have no temporal history window)."
+                )
         lines.append("")
     leader_decision_support = evidence.get("leaderDecisionSupport")
     if isinstance(leader_decision_support, dict):

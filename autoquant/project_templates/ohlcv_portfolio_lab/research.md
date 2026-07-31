@@ -39,6 +39,11 @@ Use `portfolio-parameter-neighborhood.json` to test whether the fixed result
 survives the predeclared local entry/exit and no-trade neighborhood. It is
 context-only robustness evidence: never pick a better-looking cell or use it
 to rewrite KEEP/REVERT.
+For temporal or two-asset relative-value work, also inspect
+`portfolio-translation-robustness.json`. It compares the same Factor and fixed
+portfolio mechanics across 40/60/120 causal history windows. Do not select a
+window; improve the causal Factor representation when the target path is
+sensitive.
 
 The fixed Judge owns timing, percentile entry/hold/exit state,
 inverse-volatility conviction sizing, request-bound tradable/context assets,

@@ -34,6 +34,7 @@ from .project_templates.ohlcv_portfolio_lab.portfolio_core import (
     SHORT_ENTRY_PERCENTILE,
     SHORT_EXIT_PERCENTILE,
     VOLATILITY_WINDOW,
+    _position_role_signal_transition,
     build_position_episodes,
     decision_schedule_mask,
     performance_metrics,
@@ -46,6 +47,7 @@ from .prediction_modes import (
     SIGNAL_TRANSLATION_METHOD,
     TEMPORAL_SCORE_MINIMUM,
     TEMPORAL_SCORE_WINDOW,
+    TEMPORAL_EVALUATION_MODES,
     resolve_prediction_population,
     signal_translation_contract,
 )
@@ -68,6 +70,7 @@ MAX_DAILY_ROWS = 100_000
 MAX_DECISION_ROWS = 1_000_000
 MAX_EPISODE_ROWS = 100_000
 MAX_NEIGHBORHOOD_ROWS = 100_000
+MAX_TRANSLATION_ROBUSTNESS_ROWS = 500_000
 MAX_UNIVERSE = 256
 MAX_RECENT_TRANSITIONS = 40
 TIMESTAMP_JSON_SCHEMA = {
@@ -142,13 +145,45 @@ POSITION_EPISODE_ARTIFACT_KIND = "portfolio-position-episodes"
 PARAMETER_NEIGHBORHOOD_ARTIFACT_KIND = (
     "portfolio-parameter-neighborhood"
 )
+TRANSLATION_ROBUSTNESS_ARTIFACT_KIND = (
+    "portfolio-translation-robustness"
+)
 EXPECTED_ARTIFACT_KINDS = BASE_ARTIFACT_KINDS | {
     POSITION_EPISODE_ARTIFACT_KIND,
     PARAMETER_NEIGHBORHOOD_ARTIFACT_KIND,
+    TRANSLATION_ROBUSTNESS_ARTIFACT_KIND,
 }
 PARAMETER_NEIGHBORHOOD_METHOD = (
     "predeclared-signal-threshold-no-trade-neighborhood-v1"
 )
+TRANSLATION_ROBUSTNESS_METHOD = (
+    "predeclared-temporal-translation-window-stability-v1"
+)
+TRANSLATION_ROBUSTNESS_PROFILES: tuple[dict[str, Any], ...] = (
+    {
+        "id": "short-history",
+        "label": "Short history",
+        "window": 40,
+        "minimum": TEMPORAL_SCORE_MINIMUM,
+        "is_base": False,
+    },
+    {
+        "id": "base",
+        "label": "Base",
+        "window": TEMPORAL_SCORE_WINDOW,
+        "minimum": TEMPORAL_SCORE_MINIMUM,
+        "is_base": True,
+    },
+    {
+        "id": "long-history",
+        "label": "Long history",
+        "window": 120,
+        "minimum": TEMPORAL_SCORE_MINIMUM,
+        "is_base": False,
+    },
+)
+TRANSLATION_ACTIVE_AGREEMENT_FLOOR = 0.80
+TRANSLATION_TARGET_MAE_CEILING = 0.05
 PARAMETER_SIGNAL_PROFILES: tuple[dict[str, Any], ...] = (
     {
         "id": "broad-entry",
@@ -2567,6 +2602,673 @@ def _parameter_neighborhood_projection(
         },
         "validation": split_projection("validation"),
         "test": split_projection("test"),
+    }
+
+
+def _translation_robustness_projection(
+    result: dict[str, Any],
+    artifact_path: Path | None,
+    ordered_decisions: list[dict[str, Any]],
+    daily: ParsedDaily,
+    splits: dict[str, Any],
+    prediction_population: dict[str, Any],
+    mandate: dict[str, Any],
+) -> dict[str, Any]:
+    metric = result["metrics"].get("translation_robustness")
+    if metric is None and artifact_path is None:
+        return {
+            "applicable": False,
+            "reason": "legacy-run-evidence-unavailable",
+            "policy": None,
+            "diagnosis": None,
+            "validation": None,
+            "test": None,
+            "current": None,
+        }
+    if not isinstance(metric, dict):
+        _fail(
+            "RunResult/metrics/translation_robustness",
+            "portfolio.translation-robustness-availability",
+            "Portfolio Run must disclose target-translation robustness",
+        )
+    mode = str(prediction_population["evaluation_mode"])
+    policy = {
+        "method": TRANSLATION_ROBUSTNESS_METHOD,
+        "evaluation_mode": mode,
+        "role": "robustness-only",
+        "selection_authority": "context-only",
+        "test_enters_diagnosis": False,
+        "trading_authority": "none",
+        "base_profile_id": "base",
+        "profiles": [dict(profile) for profile in TRANSLATION_ROBUSTNESS_PROFILES],
+        "stability_thresholds": {
+            "minimum_active_state_agreement_rate": (
+                TRANSLATION_ACTIVE_AGREEMENT_FLOOR
+            ),
+            "maximum_mean_absolute_target_delta": (
+                TRANSLATION_TARGET_MAE_CEILING
+            ),
+        },
+    }
+    if mode not in TEMPORAL_EVALUATION_MODES:
+        if artifact_path is not None:
+            _fail(
+                artifact_path,
+                "portfolio.translation-robustness-applicability",
+                "Cross-sectional Runs must not publish temporal-window paths",
+            )
+        expected = {
+            "applicable": False,
+            "reason": "cross-sectional-mode-has-no-temporal-window",
+            "policy": policy,
+            "diagnosis": {
+                "selection_split": "validation",
+                "status": "not-applicable",
+                "explanation": (
+                    "Cross-sectional decision scores use the same-timestamp "
+                    "prediction population and have no temporal history window."
+                ),
+            },
+            "validation": None,
+            "test": None,
+            "current": None,
+        }
+        _compare_parameter_value(
+            metric,
+            expected,
+            "RunResult/metrics/translation_robustness",
+        )
+        return {
+            "applicable": False,
+            "reason": expected["reason"],
+            "policy": {
+                "method": policy["method"],
+                "evaluationMode": mode,
+                "role": policy["role"],
+                "selectionAuthority": policy["selection_authority"],
+                "testEntersDiagnosis": False,
+                "tradingAuthority": "none",
+                "profiles": policy["profiles"],
+                "stabilityThresholds": policy["stability_thresholds"],
+            },
+            "diagnosis": expected["diagnosis"],
+            "validation": None,
+            "test": None,
+            "current": None,
+        }
+    if artifact_path is None:
+        _fail(
+            "RunResult/metrics/translation_robustness",
+            "portfolio.translation-robustness-availability",
+            "Temporal translation robustness requires its immutable artifact",
+        )
+    try:
+        payload = json.loads(artifact_path.read_text(encoding="utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        _fail(
+            artifact_path,
+            "portfolio.translation-robustness-json",
+            "Translation-robustness artifact must be UTF-8 JSON",
+        )
+    root_fields = {
+        "schemaVersion",
+        "inputHash",
+        "method",
+        "evaluationMode",
+        "predictionAssets",
+        "profiles",
+        "assetRows",
+        "dailyRows",
+    }
+    prediction_assets = list(prediction_population["prediction_assets"])
+    if (
+        not isinstance(payload, dict)
+        or set(payload) != root_fields
+        or payload["schemaVersion"] != 1
+        or payload["inputHash"] != result["inputHash"]
+        or payload["method"] != TRANSLATION_ROBUSTNESS_METHOD
+        or payload["evaluationMode"] != mode
+        or payload["predictionAssets"] != prediction_assets
+        or payload["profiles"]
+        != [dict(profile) for profile in TRANSLATION_ROBUSTNESS_PROFILES]
+    ):
+        _fail(
+            artifact_path,
+            "portfolio.translation-robustness-contract",
+            "Translation-robustness fixed contract does not reconcile",
+        )
+    asset_rows = payload["assetRows"]
+    daily_rows = payload["dailyRows"]
+    if (
+        not isinstance(asset_rows, list)
+        or not isinstance(daily_rows, list)
+        or len(asset_rows) + len(daily_rows)
+        > MAX_TRANSLATION_ROBUSTNESS_ROWS
+    ):
+        _fail(
+            artifact_path,
+            "portfolio.translation-robustness-rows",
+            "Translation-robustness rows exceed the bounded contract",
+        )
+
+    dates = list(dict.fromkeys(row["timestamp"] for row in ordered_decisions))
+    decisions = {
+        (row["timestamp"], row["asset"]): row for row in ordered_decisions
+    }
+    factor_panel = pd.DataFrame(
+        math.nan,
+        index=dates,
+        columns=list(prediction_population["research_assets"]),
+        dtype=float,
+    )
+    for row in ordered_decisions:
+        factor_panel.loc[row["timestamp"], row["asset"]] = (
+            math.nan if row["factor"] is None else float(row["factor"])
+        )
+    expected_asset_order = [
+        (str(profile["id"]), timestamp, asset)
+        for profile in TRANSLATION_ROBUSTNESS_PROFILES
+        for timestamp in dates
+        for asset in prediction_assets
+    ]
+    if len(asset_rows) != len(expected_asset_order):
+        _fail(
+            artifact_path,
+            "portfolio.translation-robustness-coverage",
+            "Translation-robustness asset rows do not cover every profile/date/asset",
+        )
+    asset_fields = {
+        "profileId",
+        "timestamp",
+        "asset",
+        "score",
+        "observations",
+        "signalState",
+        "targetWeight",
+    }
+    parsed_assets: dict[str, dict[str, dict[str, dict[str, Any]]]] = {
+        str(profile["id"]): {} for profile in TRANSLATION_ROBUSTNESS_PROFILES
+    }
+    observed_asset_order: list[tuple[str, str, str]] = []
+    roles = mandate["assetPositionRoles"]
+    caps = mandate["assetMaxAbsWeights"]
+    pair = prediction_population.get("relative_value_pair")
+    for profile in TRANSLATION_ROBUSTNESS_PROFILES:
+        profile_id = str(profile["id"])
+        scores, _, observations, semantics = translate_factor_scores(
+            factor_panel,
+            prediction_population,
+            temporal_window=int(profile["window"]),
+            temporal_minimum=int(profile["minimum"]),
+        )
+        if (
+            semantics["window_observations"] != profile["window"]
+            or semantics["minimum_observations"] != profile["minimum"]
+        ):
+            _fail(
+                artifact_path,
+                "portfolio.translation-robustness-semantics",
+                "Translation profile does not use its fixed causal window",
+            )
+        prior_states = {asset: 0 for asset in prediction_assets}
+        for timestamp in dates:
+            parsed_assets[profile_id][timestamp] = {}
+            decision_eligible = bool(
+                decisions[(timestamp, prediction_assets[0])]["decision_eligible"]
+            )
+            for asset in prediction_assets:
+                row_index = len(observed_asset_order)
+                row = asset_rows[row_index]
+                path = f"{artifact_path}/assetRows/{row_index}"
+                if not isinstance(row, dict) or set(row) != asset_fields:
+                    _fail(
+                        path,
+                        "portfolio.translation-robustness-row",
+                        "Translation asset row has an unexpected shape",
+                    )
+                observed_asset_order.append(
+                    (row["profileId"], row["timestamp"], row["asset"])
+                )
+                expected_score = scores.loc[timestamp, asset]
+                actual_score = row["score"]
+                score_matches = (
+                    actual_score is None and pd.isna(expected_score)
+                ) or (
+                    actual_score is not None
+                    and math.isclose(
+                        _finite(actual_score, f"{path}/score"),
+                        float(expected_score),
+                        rel_tol=1e-10,
+                        abs_tol=1e-12,
+                    )
+                )
+                if (
+                    not score_matches
+                    or row["observations"]
+                    != int(observations.loc[timestamp, asset])
+                ):
+                    _fail(
+                        path,
+                        "portfolio.translation-robustness-score",
+                        "Translation score does not reconcile from causal Factor history",
+                    )
+                decision = decisions[(timestamp, asset)]
+                usable_score = (
+                    None
+                    if pd.isna(expected_score)
+                    or decision["trailing_volatility"] is None
+                    else float(expected_score)
+                )
+                if decision_eligible:
+                    expected_state, _ = _position_role_signal_transition(
+                        prior_states[asset],
+                        usable_score,
+                        role=str(roles[asset]),
+                        long_entry=LONG_ENTRY_PERCENTILE,
+                        long_exit=LONG_EXIT_PERCENTILE,
+                        short_exit=SHORT_EXIT_PERCENTILE,
+                        short_entry=SHORT_ENTRY_PERCENTILE,
+                    )
+                else:
+                    expected_state = prior_states[asset]
+                if (
+                    not isinstance(row["signalState"], int)
+                    or isinstance(row["signalState"], bool)
+                    or row["signalState"] != expected_state
+                ):
+                    _fail(
+                        path,
+                        "portfolio.translation-robustness-state",
+                        "Translation signal state does not reconcile",
+                    )
+                target = _finite(row["targetWeight"], f"{path}/targetWeight")
+                if (
+                    abs(target) > float(caps[asset]) + 1e-9
+                    or target * expected_state < -1e-12
+                    or (expected_state == 0 and abs(target) > 1e-12)
+                    or (
+                        profile_id == "base"
+                        and not math.isclose(
+                            target,
+                            float(decision["proposed_target_weight"]),
+                            rel_tol=1e-9,
+                            abs_tol=1e-11,
+                        )
+                    )
+                ):
+                    _fail(
+                        path,
+                        "portfolio.translation-robustness-target",
+                        "Translation target violates state, cap, or base reconciliation",
+                    )
+                parsed_assets[profile_id][timestamp][asset] = {
+                    "score": None if actual_score is None else float(actual_score),
+                    "observations": int(row["observations"]),
+                    "signal_state": expected_state,
+                    "target_weight": target,
+                }
+                prior_states[asset] = expected_state
+            if isinstance(pair, dict):
+                left = str(pair["left_asset"])
+                right = str(pair["right_asset"])
+                left_target = parsed_assets[profile_id][timestamp][left][
+                    "target_weight"
+                ]
+                right_target = parsed_assets[profile_id][timestamp][right][
+                    "target_weight"
+                ]
+                if not math.isclose(
+                    left_target,
+                    -right_target,
+                    rel_tol=1e-9,
+                    abs_tol=1e-11,
+                ):
+                    _fail(
+                        artifact_path,
+                        "portfolio.translation-robustness-pair",
+                        "Relative-value translation targets must remain exact opposites",
+                    )
+    if observed_asset_order != expected_asset_order:
+        _fail(
+            artifact_path,
+            "portfolio.translation-robustness-order",
+            "Translation asset rows must follow fixed deterministic order",
+        )
+
+    expected_daily_order = [
+        (str(profile["id"]), split, timestamp)
+        for profile in TRANSLATION_ROBUSTNESS_PROFILES
+        for split in ("validation", "test")
+        for timestamp in dates
+        if splits[split]["start"] <= timestamp <= splits[split]["signalEnd"]
+    ]
+    if len(daily_rows) != len(expected_daily_order):
+        _fail(
+            artifact_path,
+            "portfolio.translation-robustness-daily-coverage",
+            "Translation daily rows do not cover every fixed profile/split/date",
+        )
+    daily_fields = {
+        "profileId",
+        "split",
+        "timestamp",
+        "netReturn",
+        "benchmarkReturn",
+        "oneWayTurnover",
+        "cost",
+        "rebalanced",
+    }
+    parsed_daily: dict[tuple[str, str], list[dict[str, Any]]] = {
+        (str(profile["id"]), split): []
+        for profile in TRANSLATION_ROBUSTNESS_PROFILES
+        for split in ("validation", "test")
+    }
+    observed_daily_order: list[tuple[str, str, str]] = []
+    base_daily = {row["timestamp"]: row for row in daily.rows}
+    for index, row in enumerate(daily_rows):
+        path = f"{artifact_path}/dailyRows/{index}"
+        if not isinstance(row, dict) or set(row) != daily_fields:
+            _fail(
+                path,
+                "portfolio.translation-robustness-daily-row",
+                "Translation daily row has an unexpected shape",
+            )
+        identity = (row["profileId"], row["split"], row["timestamp"])
+        observed_daily_order.append(identity)
+        numeric = {
+            key: _finite(row[key], f"{path}/{key}")
+            for key in (
+                "netReturn",
+                "benchmarkReturn",
+                "oneWayTurnover",
+                "cost",
+            )
+        }
+        if (
+            numeric["oneWayTurnover"] < 0
+            or numeric["cost"] < 0
+            or type(row["rebalanced"]) is not bool
+        ):
+            _fail(
+                path,
+                "portfolio.translation-robustness-accounting",
+                "Translation daily accounting values are invalid",
+            )
+        if identity[0] == "base":
+            expected_base = base_daily.get(identity[2])
+            if expected_base is None or any(
+                not math.isclose(
+                    numeric[key],
+                    float(expected_base[expected_key]),
+                    rel_tol=1e-9,
+                    abs_tol=1e-11,
+                )
+                for key, expected_key in (
+                    ("netReturn", "net_return"),
+                    ("benchmarkReturn", "benchmark_return"),
+                    ("oneWayTurnover", "one_way_turnover"),
+                    ("cost", "cost"),
+                )
+            ) or row["rebalanced"] != bool(expected_base["rebalanced"]):
+                _fail(
+                    path,
+                    "portfolio.translation-robustness-base-accounting",
+                    "Base translation profile does not reconcile ordinary Portfolio accounting",
+                )
+        parsed_daily[(identity[0], identity[1])].append(
+            {"timestamp": identity[2], **numeric, "rebalanced": row["rebalanced"]}
+        )
+    if observed_daily_order != expected_daily_order:
+        _fail(
+            artifact_path,
+            "portfolio.translation-robustness-daily-order",
+            "Translation daily rows must follow fixed deterministic order",
+        )
+
+    split_output: dict[str, Any] = {}
+    for split in ("validation", "test"):
+        base_rows = parsed_assets["base"]
+        profiles: dict[str, Any] = {}
+        split_dates = [
+            timestamp
+            for timestamp in dates
+            if splits[split]["start"] <= timestamp <= splits[split]["signalEnd"]
+        ]
+        for profile in TRANSLATION_ROBUSTNESS_PROFILES:
+            profile_id = str(profile["id"])
+            state_equal: list[bool] = []
+            direction_equal: list[bool] = []
+            target_deltas: list[float] = []
+            score_available = 0
+            total = 0
+            for timestamp in split_dates:
+                for asset in prediction_assets:
+                    current = parsed_assets[profile_id][timestamp][asset]
+                    base = base_rows[timestamp][asset]
+                    total += 1
+                    score_available += int(current["score"] is not None)
+                    target_deltas.append(
+                        abs(current["target_weight"] - base["target_weight"])
+                    )
+                    if current["signal_state"] != 0 or base["signal_state"] != 0:
+                        state_equal.append(
+                            current["signal_state"] == base["signal_state"]
+                        )
+                        current_sign = (
+                            1 if current["target_weight"] > 0 else -1
+                            if current["target_weight"] < 0 else 0
+                        )
+                        base_sign = (
+                            1 if base["target_weight"] > 0 else -1
+                            if base["target_weight"] < 0 else 0
+                        )
+                        direction_equal.append(current_sign == base_sign)
+            frame = pd.DataFrame(parsed_daily[(profile_id, split)]).set_index(
+                "timestamp"
+            )
+            profiles[profile_id] = {
+                "window_observations": int(profile["window"]),
+                "minimum_observations": int(profile["minimum"]),
+                "is_base": bool(profile["is_base"]),
+                "score_availability_rate": score_available / total,
+                "active_union_observations": len(state_equal),
+                "active_state_agreement_with_base_rate": (
+                    sum(state_equal) / len(state_equal) if state_equal else None
+                ),
+                "active_target_direction_agreement_with_base_rate": (
+                    sum(direction_equal) / len(direction_equal)
+                    if direction_equal
+                    else None
+                ),
+                "mean_absolute_target_delta_vs_base": sum(target_deltas) / total,
+                "performance": performance_metrics(
+                    frame["netReturn"], frame["benchmarkReturn"]
+                ),
+                "implementation": {
+                    "annualized_one_way_turnover": float(
+                        frame["oneWayTurnover"].mean()
+                        * annualization_periods(frame.index)
+                    ),
+                    "total_cost_drag": float(frame["cost"].sum()),
+                    "rebalance_rate": float(frame["rebalanced"].mean()),
+                },
+            }
+        split_output[split] = {"profiles": profiles}
+
+    validation_profiles = split_output["validation"]["profiles"]
+    non_base = [
+        validation_profiles[str(profile["id"])]
+        for profile in TRANSLATION_ROBUSTNESS_PROFILES
+        if not profile["is_base"]
+    ]
+    agreements = [
+        float(profile["active_state_agreement_with_base_rate"])
+        for profile in non_base
+        if profile["active_state_agreement_with_base_rate"] is not None
+    ]
+    maximum_target_delta = max(
+        float(profile["mean_absolute_target_delta_vs_base"])
+        for profile in non_base
+    )
+    if not agreements:
+        status = "insufficient-active-targets"
+        explanation = (
+            "No validation target was active under the base or adjacent causal "
+            "translation windows, so active-path stability is unavailable."
+        )
+    elif (
+        min(agreements) >= TRANSLATION_ACTIVE_AGREEMENT_FLOOR
+        and maximum_target_delta <= TRANSLATION_TARGET_MAE_CEILING
+    ):
+        status = "stable-target-path"
+        explanation = (
+            "Validation signal states and target weights remain locally stable "
+            "across the predeclared causal history windows."
+        )
+    else:
+        status = "translation-sensitive-target-path"
+        explanation = (
+            "Validation signal states or target weights change materially across "
+            "the predeclared causal history windows; do not treat one 60-bar "
+            "target path as structurally robust."
+        )
+    sharpes = [
+        float(profile["performance"]["sharpe"])
+        for profile in validation_profiles.values()
+    ]
+    base_sharpe = float(validation_profiles["base"]["performance"]["sharpe"])
+    base_sign = 1 if base_sharpe > 0 else -1 if base_sharpe < 0 else 0
+    diagnosis = {
+        "selection_split": "validation",
+        "test_enters_diagnosis": False,
+        "status": status,
+        "minimum_active_state_agreement_rate": min(agreements) if agreements else None,
+        "maximum_mean_absolute_target_delta": maximum_target_delta,
+        "net_sharpe_range": [min(sharpes), max(sharpes)],
+        "net_sharpe_sign_agreement_with_base": all(
+            (1 if value > 0 else -1 if value < 0 else 0) == base_sign
+            for value in sharpes
+        ),
+        "explanation": explanation,
+    }
+    latest = dates[-1]
+    current = {
+        "timestamp": latest,
+        "profiles": {
+            str(profile["id"]): [
+                {
+                    "asset": asset,
+                    "score": parsed_assets[str(profile["id"])][latest][asset]["score"],
+                    "signal_state": parsed_assets[str(profile["id"])][latest][asset]["signal_state"],
+                    "target_weight": parsed_assets[str(profile["id"])][latest][asset]["target_weight"],
+                }
+                for asset in prediction_assets
+            ]
+            for profile in TRANSLATION_ROBUSTNESS_PROFILES
+        },
+    }
+    expected_metric = {
+        "applicable": True,
+        "reason": None,
+        "policy": policy,
+        "diagnosis": diagnosis,
+        "validation": split_output["validation"],
+        "test": split_output["test"],
+        "current": current,
+    }
+    _compare_parameter_value(
+        metric,
+        expected_metric,
+        "RunResult/metrics/translation_robustness",
+    )
+
+    def project_split(split: str) -> dict[str, Any]:
+        return {
+            "profiles": [
+                {
+                    "id": str(profile["id"]),
+                    "label": str(profile["label"]),
+                    "windowObservations": int(profile["window"]),
+                    "minimumObservations": int(profile["minimum"]),
+                    "isBase": bool(profile["is_base"]),
+                    "scoreAvailabilityRate": split_output[split]["profiles"][
+                        str(profile["id"])
+                    ]["score_availability_rate"],
+                    "activeUnionObservations": split_output[split]["profiles"][
+                        str(profile["id"])
+                    ]["active_union_observations"],
+                    "activeStateAgreementWithBaseRate": split_output[split]["profiles"][
+                        str(profile["id"])
+                    ]["active_state_agreement_with_base_rate"],
+                    "activeTargetDirectionAgreementWithBaseRate": split_output[split]["profiles"][
+                        str(profile["id"])
+                    ]["active_target_direction_agreement_with_base_rate"],
+                    "meanAbsoluteTargetDeltaVsBase": split_output[split]["profiles"][
+                        str(profile["id"])
+                    ]["mean_absolute_target_delta_vs_base"],
+                    "netSharpe": split_output[split]["profiles"][str(profile["id"])][
+                        "performance"
+                    ]["sharpe"],
+                    "totalReturn": split_output[split]["profiles"][str(profile["id"])][
+                        "performance"
+                    ]["total_return"],
+                    "annualizedOneWayTurnover": split_output[split]["profiles"][
+                        str(profile["id"])
+                    ]["implementation"]["annualized_one_way_turnover"],
+                    "totalCostDrag": split_output[split]["profiles"][str(profile["id"])][
+                        "implementation"
+                    ]["total_cost_drag"],
+                }
+                for profile in TRANSLATION_ROBUSTNESS_PROFILES
+            ]
+        }
+
+    return {
+        "applicable": True,
+        "reason": None,
+        "policy": {
+            "method": policy["method"],
+            "evaluationMode": mode,
+            "role": policy["role"],
+            "selectionAuthority": policy["selection_authority"],
+            "testEntersDiagnosis": False,
+            "tradingAuthority": "none",
+            "profiles": policy["profiles"],
+            "stabilityThresholds": policy["stability_thresholds"],
+        },
+        "diagnosis": {
+            "selectionSplit": "validation",
+            "testEntersDiagnosis": False,
+            "status": diagnosis["status"],
+            "minimumActiveStateAgreementRate": diagnosis[
+                "minimum_active_state_agreement_rate"
+            ],
+            "maximumMeanAbsoluteTargetDelta": diagnosis[
+                "maximum_mean_absolute_target_delta"
+            ],
+            "netSharpeRange": diagnosis["net_sharpe_range"],
+            "netSharpeSignAgreementWithBase": diagnosis[
+                "net_sharpe_sign_agreement_with_base"
+            ],
+            "explanation": diagnosis["explanation"],
+        },
+        "validation": project_split("validation"),
+        "test": project_split("test"),
+        "current": {
+            "timestamp": current["timestamp"],
+            "profiles": {
+                profile_id: [
+                    {
+                        "asset": item["asset"],
+                        "score": item["score"],
+                        "signalState": item["signal_state"],
+                        "targetWeight": item["target_weight"],
+                    }
+                    for item in items
+                ]
+                for profile_id, items in current["profiles"].items()
+            },
+        },
     }
 
 
@@ -6934,6 +7636,15 @@ def load_portfolio_diagnostics(
             mandate,
             universe,
         ),
+        "translationRobustness": _translation_robustness_projection(
+            run.result,
+            paths.get(TRANSLATION_ROBUSTNESS_ARTIFACT_KIND),
+            ordered_decisions,
+            daily,
+            splits,
+            prediction_population,
+            mandate,
+        ),
         "recentTransitions": _recent_transitions(
             ordered_decisions,
             universe,
@@ -8173,6 +8884,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "diversificationStress",
         "strategyViability",
         "signalMonetization",
+        "translationRobustness",
         "recentTransitions",
         "signalPolicy",
         "riskGovernor",
@@ -9576,6 +10288,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                 "test": {"$ref": "#/$defs/monetizationSplit"},
             },
         },
+        "translationRobustness": {"type": "object"},
         "recentTransitions": {
             "type": "array",
             "maxItems": MAX_RECENT_TRANSITIONS,

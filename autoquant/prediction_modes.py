@@ -66,6 +66,9 @@ class PredictionPopulation:
 
 def signal_translation_contract(
     population: dict[str, Any],
+    *,
+    temporal_window: int = TEMPORAL_SCORE_WINDOW,
+    temporal_minimum: int = TEMPORAL_SCORE_MINIMUM,
 ) -> dict[str, Any]:
     """Return the fixed Factor-to-decision-score semantics for one mode."""
 
@@ -78,6 +81,18 @@ def signal_translation_contract(
         raise PredictionModeError(
             "prediction-universe.evaluation-mode",
             "Prediction population has no supported evaluation mode",
+        )
+    if (
+        not isinstance(temporal_window, int)
+        or isinstance(temporal_window, bool)
+        or not isinstance(temporal_minimum, int)
+        or isinstance(temporal_minimum, bool)
+        or temporal_minimum < 2
+        or temporal_window < temporal_minimum
+    ):
+        raise PredictionModeError(
+            "prediction-universe.translation-window",
+            "Temporal translation window must contain its integer minimum",
         )
     return {
         "method": SIGNAL_TRANSLATION_METHOD,
@@ -93,12 +108,12 @@ def signal_translation_contract(
             else "causal-ordered-factor-spread-history"
         ),
         "window_observations": (
-            None if mode == CROSS_SECTIONAL_MODE else TEMPORAL_SCORE_WINDOW
+            None if mode == CROSS_SECTIONAL_MODE else temporal_window
         ),
         "minimum_observations": (
             MIN_CROSS_SECTIONAL_ASSETS
             if mode == CROSS_SECTIONAL_MODE
-            else TEMPORAL_SCORE_MINIMUM
+            else temporal_minimum
         ),
         "relative_value_pair": population.get("relative_value_pair"),
         "context_score": "unavailable-never-ranked",

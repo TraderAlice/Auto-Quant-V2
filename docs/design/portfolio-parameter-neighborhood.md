@@ -5,7 +5,8 @@ Status: V1 implemented.
 Related: [[docs/design/portfolio-construction-lab]],
 [[docs/design/signal-policy-and-attribution]],
 [[docs/design/research-selection-integrity]],
-[[docs/design/portfolio-decision-explorer]], and
+[[docs/design/portfolio-decision-explorer]],
+[[docs/design/target-translation-robustness]], and
 [[docs/design/session-decision-matrix]].
 
 ## Purpose
@@ -56,6 +57,9 @@ The neighborhood does not vary:
 - causal covariance estimation or final executed-book compliance.
 
 Those assumptions already have separate fixed stresses or authority contracts.
+Temporal score-history stability is deliberately separate under
+[[docs/design/target-translation-robustness]] and is not crossed with this
+threshold/no-trade grid.
 
 ## Exact evidence
 

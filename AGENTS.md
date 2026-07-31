@@ -321,6 +321,9 @@ Read the relevant linked document before changing a subsystem:
 - Predeclared local entry/exit and no-trade parameter stability without
   parameter-selection authority:
   [[docs/design/portfolio-parameter-neighborhood]]
+- Predeclared temporal Factor-to-target history-window stability without
+  window-selection authority:
+  [[docs/design/target-translation-robustness]]
 - Governed causal state encoding, fixed factor-mixture actions, RL reward,
   seeds/folds/baselines, and policy evidence:
   [[docs/design/rl-factor-policy-lab]]

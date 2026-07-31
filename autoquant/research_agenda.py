@@ -905,6 +905,7 @@ def portfolio_research_agenda(
     run = diagnostics["run"]
     viability = diagnostics["strategyViability"]
     monetization = diagnostics["signalMonetization"]
+    translation_robustness = diagnostics.get("translationRobustness")
     diagnosis = viability["diagnosis"]
     monetization_diagnosis = monetization["diagnosis"]
     diagnosis_projection = {
@@ -912,6 +913,79 @@ def portfolio_research_agenda(
         "iterationFocus": diagnosis["iterationFocus"],
         "explanation": diagnosis["explanation"],
     }
+    translation_diagnosis = (
+        translation_robustness.get("diagnosis")
+        if isinstance(translation_robustness, dict)
+        and translation_robustness.get("applicable") is True
+        else None
+    )
+    if (
+        isinstance(translation_diagnosis, dict)
+        and translation_diagnosis.get("status")
+        == "translation-sensitive-target-path"
+    ):
+        move = _move(
+            priority=1,
+            move_id="portfolio-stabilize-temporal-factor-representation",
+            title="Stabilize the causal temporal factor representation",
+            hypothesis=(
+                "One predeclared causal factor representation preserves its "
+                "validation signal states and target direction across the fixed "
+                "40/60/120 history-window stress without changing the production "
+                "60/20 translation contract."
+            ),
+            rationale=(
+                "The current target path changes materially across nearby fixed "
+                "causal history windows. The response is to improve the Factor's "
+                "temporal representation, not select the best stress window."
+            ),
+            editable_paths=editable_paths,
+            components=[],
+            evidence_refs=[
+                _evidence(
+                    "/translationRobustness/diagnosis/"
+                    "minimumActiveStateAgreementRate",
+                    "Minimum active-state agreement across fixed windows",
+                    translation_diagnosis[
+                        "minimumActiveStateAgreementRate"
+                    ],
+                    "rate",
+                ),
+                _evidence(
+                    "/translationRobustness/diagnosis/"
+                    "maximumMeanAbsoluteTargetDelta",
+                    "Maximum mean absolute target-weight delta",
+                    translation_diagnosis[
+                        "maximumMeanAbsoluteTargetDelta"
+                    ],
+                    "weight",
+                ),
+            ],
+            objective_metric="validation_net_sharpe",
+            required_checks=[
+                "Change only the declared factor closure.",
+                "Keep the ordinary 60/20 target translation and Portfolio Mandate fixed.",
+                "Use all 40/60/120 profiles as context; do not select or promote a stress window.",
+                "Pass bounded factor causality before formal Portfolio evaluation.",
+            ],
+            stop_conditions=[
+                "Stop if validation target-path stability does not improve under the fixed thresholds.",
+                "Revert unless the formal Portfolio Judge returns KEEP.",
+                "Do not use visible test audit or the best window for selection.",
+            ],
+        )
+        return _agenda(
+            status="available",
+            lane_id="portfolio",
+            run={"id": run["id"], "inputHash": run["inputHash"]},
+            diagnosis=diagnosis_projection,
+            moves=[move],
+            reason=(
+                "Validation target translation is locally sensitive; repair the "
+                "causal Factor representation before freezing or attributing the "
+                "60-bar target path as structurally robust."
+            ),
+        )
     if diagnosis["stage"] == "post-cost-edge-positive":
         return _agenda(
             status="no-further-in-sample-tuning",

@@ -4,7 +4,8 @@ Status: accepted at `0.9.2`.
 
 Related: [[docs/design/ohlcv-factor-lab]],
 [[docs/design/request-bound-portfolio-mandates]],
-[[docs/design/signal-policy-and-attribution]], and
+[[docs/design/signal-policy-and-attribution]],
+[[docs/design/target-translation-robustness]], and
 [[plans/prediction-mode-target-weight-translation]].
 
 ## Decision
@@ -56,7 +57,9 @@ clock, adjustment, and content identity.
 
 ## Deliberate limits
 
-- The 60/20 temporal window is fixed and is not tuned on validation or test.
+- The ordinary 60/20 temporal window is fixed and is not tuned on validation
+  or test. Its predeclared 40/60/120 context stress is defined in
+  [[docs/design/target-translation-robustness]] and cannot select a window.
 - Three-asset relative baskets remain unsupported without explicit
   caller-owned contrast weights.
 - Context influence inside editable factor source must be diagnosed as factor

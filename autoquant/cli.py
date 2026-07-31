@@ -2365,6 +2365,26 @@ def _run_portfolio(args: argparse.Namespace) -> CommandResult:
             "context only, no parameter selection\n"
         )
     )
+    translation = diagnostics["translationRobustness"]
+    if translation["reason"] == "legacy-run-evidence-unavailable":
+        translation_summary = (
+            "Target translation robustness: legacy evidence unavailable\n"
+        )
+    elif not translation["applicable"]:
+        translation_summary = (
+            "Target translation robustness: not applicable to "
+            "cross-sectional scores\n"
+        )
+    else:
+        translation_summary = (
+            "Validation target translation: "
+            f"{translation['diagnosis']['status']} · minimum active-state "
+            "agreement "
+            f"{translation['diagnosis']['minimumActiveStateAgreementRate']} · "
+            "maximum target MAE "
+            f"{translation['diagnosis']['maximumMeanAbsoluteTargetDelta']} · "
+            "40/60/120 causal windows, context only, no window selection\n"
+        )
     return CommandResult(
         "run.portfolio",
         diagnostics,
@@ -2395,6 +2415,7 @@ def _run_portfolio(args: argparse.Namespace) -> CommandResult:
             f"{execution_risk_summary}"
             f"{capacity_summary}"
             f"{lifecycle_summary}"
+            f"{translation_summary}"
             f"{neighborhood_summary}"
         ),
         project_context(project),

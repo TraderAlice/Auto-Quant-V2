@@ -36,6 +36,9 @@ from autoquant.mandates import (
 )
 from autoquant.prediction_modes import (
     PredictionModeError,
+    TEMPORAL_EVALUATION_MODES,
+    TEMPORAL_SCORE_MINIMUM,
+    TEMPORAL_SCORE_WINDOW,
     resolve_prediction_population,
 )
 from judges.portfolio_core import (
@@ -73,6 +76,34 @@ MIN_SPLIT_OBSERVATIONS = 20
 PARAMETER_NEIGHBORHOOD_METHOD = (
     "predeclared-signal-threshold-no-trade-neighborhood-v1"
 )
+TRANSLATION_ROBUSTNESS_METHOD = (
+    "predeclared-temporal-translation-window-stability-v1"
+)
+TRANSLATION_ROBUSTNESS_PROFILES: tuple[dict[str, Any], ...] = (
+    {
+        "id": "short-history",
+        "label": "Short history",
+        "window": 40,
+        "minimum": TEMPORAL_SCORE_MINIMUM,
+        "is_base": False,
+    },
+    {
+        "id": "base",
+        "label": "Base",
+        "window": TEMPORAL_SCORE_WINDOW,
+        "minimum": TEMPORAL_SCORE_MINIMUM,
+        "is_base": True,
+    },
+    {
+        "id": "long-history",
+        "label": "Long history",
+        "window": 120,
+        "minimum": TEMPORAL_SCORE_MINIMUM,
+        "is_base": False,
+    },
+)
+TRANSLATION_ACTIVE_AGREEMENT_FLOOR = 0.80
+TRANSLATION_TARGET_MAE_CEILING = 0.05
 PARAMETER_SIGNAL_PROFILES: tuple[dict[str, Any], ...] = (
     {
         "id": "broad-entry",
@@ -768,6 +799,304 @@ def _parameter_neighborhood(
     return metrics, artifact
 
 
+def _translation_robustness(
+    factor_panel: pd.DataFrame,
+    close_panel: pd.DataFrame,
+    volume_panel: pd.DataFrame,
+    splits: dict[str, pd.DatetimeIndex],
+    mandate: dict[str, Any],
+    prediction_population: dict[str, Any],
+    *,
+    base_construction: Any,
+    base_simulation: Any,
+    risk_covariance_cache: Any,
+) -> tuple[dict[str, Any], dict[str, Any] | None]:
+    """Stress only the causal temporal history used to translate a Factor."""
+
+    mode = str(prediction_population["evaluation_mode"])
+    policy = {
+        "method": TRANSLATION_ROBUSTNESS_METHOD,
+        "evaluation_mode": mode,
+        "role": "robustness-only",
+        "selection_authority": "context-only",
+        "test_enters_diagnosis": False,
+        "trading_authority": "none",
+        "base_profile_id": "base",
+        "profiles": [dict(profile) for profile in TRANSLATION_ROBUSTNESS_PROFILES],
+        "stability_thresholds": {
+            "minimum_active_state_agreement_rate": (
+                TRANSLATION_ACTIVE_AGREEMENT_FLOOR
+            ),
+            "maximum_mean_absolute_target_delta": (
+                TRANSLATION_TARGET_MAE_CEILING
+            ),
+        },
+    }
+    if mode not in TEMPORAL_EVALUATION_MODES:
+        return (
+            {
+                "applicable": False,
+                "reason": "cross-sectional-mode-has-no-temporal-window",
+                "policy": policy,
+                "diagnosis": {
+                    "selection_split": "validation",
+                    "status": "not-applicable",
+                    "explanation": (
+                        "Cross-sectional decision scores use the same-timestamp "
+                        "prediction population and have no temporal history window."
+                    ),
+                },
+                "validation": None,
+                "test": None,
+                "current": None,
+            },
+            None,
+        )
+
+    prediction_assets = list(prediction_population["prediction_assets"])
+    constructions: dict[str, Any] = {"base": base_construction}
+    simulations: dict[str, Any] = {"base": base_simulation}
+    for profile in TRANSLATION_ROBUSTNESS_PROFILES:
+        profile_id = str(profile["id"])
+        if profile_id == "base":
+            continue
+        construction = construct_signal_policy(
+            factor_panel,
+            close_panel,
+            mandate=mandate,
+            prediction_population=prediction_population,
+            temporal_translation_window=int(profile["window"]),
+            temporal_translation_minimum=int(profile["minimum"]),
+            risk_covariance_cache=risk_covariance_cache,
+        )
+        constructions[profile_id] = construction
+        simulations[profile_id] = simulate_targets(
+            construction.targets,
+            close_panel,
+            volume_panel,
+            mandate=mandate,
+            risk_covariance_cache=risk_covariance_cache,
+        )
+
+    split_metrics: dict[str, Any] = {}
+    for split in ("validation", "test"):
+        index = splits[split]
+        base_states = constructions["base"].states.loc[index, prediction_assets]
+        base_targets = constructions["base"].targets.loc[index, prediction_assets]
+        profiles: dict[str, Any] = {}
+        for profile in TRANSLATION_ROBUSTNESS_PROFILES:
+            profile_id = str(profile["id"])
+            construction = constructions[profile_id]
+            simulation = simulations[profile_id]
+            states = construction.states.loc[index, prediction_assets]
+            targets = construction.targets.loc[index, prediction_assets]
+            scores = construction.scores.loc[index, prediction_assets]
+            active_union = states.ne(0) | base_states.ne(0)
+            active_count = int(active_union.to_numpy().sum())
+            state_agreement = (
+                float(states.eq(base_states).where(active_union).stack().mean())
+                if active_count
+                else None
+            )
+            target_direction_agreement = (
+                float(
+                    np.sign(targets)
+                    .eq(np.sign(base_targets))
+                    .where(active_union)
+                    .stack()
+                    .mean()
+                )
+                if active_count
+                else None
+            )
+            profile_implementation = implementation_metrics(simulation, index)
+            profiles[profile_id] = {
+                "window_observations": int(profile["window"]),
+                "minimum_observations": int(profile["minimum"]),
+                "is_base": bool(profile["is_base"]),
+                "score_availability_rate": float(
+                    scores.notna().to_numpy().mean()
+                ),
+                "active_union_observations": active_count,
+                "active_state_agreement_with_base_rate": state_agreement,
+                "active_target_direction_agreement_with_base_rate": (
+                    target_direction_agreement
+                ),
+                "mean_absolute_target_delta_vs_base": float(
+                    (targets - base_targets).abs().to_numpy().mean()
+                ),
+                "performance": performance_metrics(
+                    simulation.daily.loc[index, "net_return"],
+                    simulation.daily.loc[index, "benchmark_return"],
+                ),
+                "implementation": {
+                    "annualized_one_way_turnover": profile_implementation[
+                        "annualized_one_way_turnover"
+                    ],
+                    "total_cost_drag": profile_implementation[
+                        "total_cost_drag"
+                    ],
+                    "rebalance_rate": profile_implementation[
+                        "rebalance_rate"
+                    ],
+                },
+            }
+        split_metrics[split] = {"profiles": profiles}
+
+    validation_profiles = split_metrics["validation"]["profiles"]
+    non_base = [
+        validation_profiles[str(profile["id"])]
+        for profile in TRANSLATION_ROBUSTNESS_PROFILES
+        if not profile["is_base"]
+    ]
+    agreements = [
+        float(profile["active_state_agreement_with_base_rate"])
+        for profile in non_base
+        if profile["active_state_agreement_with_base_rate"] is not None
+    ]
+    maximum_target_delta = max(
+        float(profile["mean_absolute_target_delta_vs_base"])
+        for profile in non_base
+    )
+    if not agreements:
+        status = "insufficient-active-targets"
+        explanation = (
+            "No validation target was active under the base or adjacent causal "
+            "translation windows, so active-path stability is unavailable."
+        )
+    elif (
+        min(agreements) >= TRANSLATION_ACTIVE_AGREEMENT_FLOOR
+        and maximum_target_delta <= TRANSLATION_TARGET_MAE_CEILING
+    ):
+        status = "stable-target-path"
+        explanation = (
+            "Validation signal states and target weights remain locally stable "
+            "across the predeclared causal history windows."
+        )
+    else:
+        status = "translation-sensitive-target-path"
+        explanation = (
+            "Validation signal states or target weights change materially across "
+            "the predeclared causal history windows; do not treat one 60-bar "
+            "target path as structurally robust."
+        )
+    sharpes = [
+        float(profile["performance"]["sharpe"])
+        for profile in validation_profiles.values()
+    ]
+    base_sharpe = float(validation_profiles["base"]["performance"]["sharpe"])
+    base_sign = 1 if base_sharpe > 0 else -1 if base_sharpe < 0 else 0
+    diagnosis = {
+        "selection_split": "validation",
+        "test_enters_diagnosis": False,
+        "status": status,
+        "minimum_active_state_agreement_rate": (
+            min(agreements) if agreements else None
+        ),
+        "maximum_mean_absolute_target_delta": maximum_target_delta,
+        "net_sharpe_range": [min(sharpes), max(sharpes)],
+        "net_sharpe_sign_agreement_with_base": all(
+            (1 if value > 0 else -1 if value < 0 else 0) == base_sign
+            for value in sharpes
+        ),
+        "explanation": explanation,
+    }
+
+    reconciled_index = base_simulation.daily.index
+    current_timestamp = reconciled_index[-1]
+    current = {
+        "timestamp": timestamp_label(current_timestamp),
+        "profiles": {
+            str(profile["id"]): [
+                {
+                    "asset": asset,
+                    "score": (
+                        float(constructions[str(profile["id"])].scores.loc[current_timestamp, asset])
+                        if pd.notna(constructions[str(profile["id"])].scores.loc[current_timestamp, asset])
+                        else None
+                    ),
+                    "signal_state": int(
+                        constructions[str(profile["id"])].states.loc[
+                            current_timestamp, asset
+                        ]
+                    ),
+                    "target_weight": float(
+                        constructions[str(profile["id"])].targets.loc[
+                            current_timestamp, asset
+                        ]
+                    ),
+                }
+                for asset in prediction_assets
+            ]
+            for profile in TRANSLATION_ROBUSTNESS_PROFILES
+        },
+    }
+
+    asset_rows: list[dict[str, Any]] = []
+    daily_rows: list[dict[str, Any]] = []
+    for profile in TRANSLATION_ROBUSTNESS_PROFILES:
+        profile_id = str(profile["id"])
+        construction = constructions[profile_id]
+        simulation = simulations[profile_id]
+        for timestamp in reconciled_index:
+            for asset in prediction_assets:
+                score = construction.scores.loc[timestamp, asset]
+                asset_rows.append(
+                    {
+                        "profileId": profile_id,
+                        "timestamp": timestamp_label(timestamp),
+                        "asset": asset,
+                        "score": float(score) if pd.notna(score) else None,
+                        "observations": int(
+                            construction.translation_observations.loc[
+                                timestamp, asset
+                            ]
+                        ),
+                        "signalState": int(construction.states.loc[timestamp, asset]),
+                        "targetWeight": float(
+                            construction.targets.loc[timestamp, asset]
+                        ),
+                    }
+                )
+        for split in ("validation", "test"):
+            for timestamp in splits[split]:
+                row = simulation.daily.loc[timestamp]
+                daily_rows.append(
+                    {
+                        "profileId": profile_id,
+                        "split": split,
+                        "timestamp": timestamp_label(timestamp),
+                        "netReturn": float(row["net_return"]),
+                        "benchmarkReturn": float(row["benchmark_return"]),
+                        "oneWayTurnover": float(row["one_way_turnover"]),
+                        "cost": float(row["cost"]),
+                        "rebalanced": bool(row["rebalanced"]),
+                    }
+                )
+    artifact = {
+        "schemaVersion": 1,
+        "inputHash": os.environ["AUTOQUANT_INPUT_HASH"],
+        "method": TRANSLATION_ROBUSTNESS_METHOD,
+        "evaluationMode": mode,
+        "predictionAssets": prediction_assets,
+        "profiles": [dict(profile) for profile in TRANSLATION_ROBUSTNESS_PROFILES],
+        "assetRows": asset_rows,
+        "dailyRows": daily_rows,
+    }
+    return (
+        {
+            "applicable": True,
+            "reason": None,
+            "policy": policy,
+            "diagnosis": diagnosis,
+            "validation": split_metrics["validation"],
+            "test": split_metrics["test"],
+            "current": current,
+        },
+        artifact,
+    )
+
+
 def _evaluate() -> tuple[
     dict[str, Any],
     dict[str, Any],
@@ -978,6 +1307,19 @@ def _evaluate() -> tuple[
     }
     parameter_neighborhood, parameter_neighborhood_artifact = (
         _parameter_neighborhood(
+            factor_panel,
+            close_panel,
+            volume_panel,
+            splits,
+            mandate,
+            prediction_population,
+            base_construction=construction,
+            base_simulation=base,
+            risk_covariance_cache=risk_covariance_cache,
+        )
+    )
+    translation_robustness, translation_robustness_artifact = (
+        _translation_robustness(
             factor_panel,
             close_panel,
             volume_panel,
@@ -1220,6 +1562,7 @@ def _evaluate() -> tuple[
         "execution_risk": execution_risk,
         "position_lifecycle": position_lifecycle,
         "parameter_neighborhood": parameter_neighborhood,
+        "translation_robustness": translation_robustness,
         "split_protocol": split_protocol,
         "robustness": {
             "cost_stress": cost_stress,
@@ -1363,6 +1706,7 @@ def _evaluate() -> tuple[
         decision_ledger,
         position_episodes,
         parameter_neighborhood_artifact,
+        translation_robustness_artifact,
     )
 
 
@@ -1376,6 +1720,7 @@ def main() -> None:
             decision_ledger,
             position_episodes,
             parameter_neighborhood,
+            translation_robustness,
         ) = _evaluate()
         artifacts = Path(os.environ["AUTOQUANT_ARTIFACTS_DIR"])
         report_path = artifacts / "portfolio-report.json"
@@ -1439,6 +1784,86 @@ def main() -> None:
             + "\n",
             encoding="utf-8",
         )
+        if translation_robustness is not None:
+            (artifacts / "portfolio-translation-robustness.json").write_text(
+                json.dumps(
+                    translation_robustness,
+                    indent=2,
+                    sort_keys=True,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+        declared_artifacts = [
+            {
+                "kind": "portfolio-report",
+                "path": "portfolio-report.json",
+                "description": (
+                    "Timing, construction, split, cost, risk, stress, "
+                    "constraint, and causality evidence"
+                ),
+            },
+            {
+                "kind": "portfolio-daily",
+                "path": "daily-portfolio.csv",
+                "description": (
+                    "Daily gross/net/benchmark returns, turnover, costs, "
+                    "exposures, rebalance state, and participation"
+                ),
+            },
+            {
+                "kind": "portfolio-targets",
+                "path": "proposed-target-weights.csv",
+                "description": (
+                    "Exact per-date signal-policy proposed target weights"
+                ),
+            },
+            {
+                "kind": "portfolio-weights",
+                "path": "executed-weights.csv",
+                "description": (
+                    "Exact post-drift and no-trade-band executed weights"
+                ),
+            },
+            {
+                "kind": "portfolio-decisions",
+                "path": "portfolio-decisions.csv",
+                "description": (
+                    "Per-asset signal state, sizing, execution reason, "
+                    "trade, contribution, cost, regime, variance, "
+                    "executed-book risk compliance, and causal "
+                    "liquidity-capacity ledger"
+                ),
+            },
+            {
+                "kind": "portfolio-position-episodes",
+                "path": "position-episodes.csv",
+                "description": (
+                    "Split-bounded executed-position episodes with holding, "
+                    "contribution, cost, excursion, censoring, and "
+                    "signal/execution mismatch evidence"
+                ),
+            },
+            {
+                "kind": "portfolio-parameter-neighborhood",
+                "path": "portfolio-parameter-neighborhood.json",
+                "description": (
+                    "Exact predeclared local signal-threshold and "
+                    "no-trade-band validation/test paths"
+                ),
+            },
+        ]
+        if translation_robustness is not None:
+            declared_artifacts.append(
+                {
+                    "kind": "portfolio-translation-robustness",
+                    "path": "portfolio-translation-robustness.json",
+                    "description": (
+                        "Exact predeclared causal temporal-window score, "
+                        "state, target, and validation/test paths"
+                    ),
+                }
+            )
         _write_output(
             {
                 "schema_version": 1,
@@ -1449,65 +1874,7 @@ def main() -> None:
                     f"{metrics['validation_net_sharpe']:.6f}"
                 ),
                 "metrics": metrics,
-                "artifacts": [
-                    {
-                        "kind": "portfolio-report",
-                        "path": "portfolio-report.json",
-                        "description": (
-                            "Timing, construction, split, cost, risk, stress, "
-                            "constraint, and causality evidence"
-                        ),
-                    },
-                    {
-                        "kind": "portfolio-daily",
-                        "path": "daily-portfolio.csv",
-                        "description": (
-                            "Daily gross/net/benchmark returns, turnover, costs, "
-                            "exposures, rebalance state, and participation"
-                        ),
-                    },
-                    {
-                        "kind": "portfolio-targets",
-                        "path": "proposed-target-weights.csv",
-                        "description": (
-                            "Exact per-date signal-policy proposed target weights"
-                        ),
-                    },
-                    {
-                        "kind": "portfolio-weights",
-                        "path": "executed-weights.csv",
-                        "description": (
-                            "Exact post-drift and no-trade-band executed weights"
-                        ),
-                    },
-                    {
-                        "kind": "portfolio-decisions",
-                        "path": "portfolio-decisions.csv",
-                        "description": (
-                            "Per-asset signal state, sizing, execution reason, "
-                            "trade, contribution, cost, regime, variance, "
-                            "executed-book risk compliance, and causal "
-                            "liquidity-capacity ledger"
-                        ),
-                    },
-                    {
-                        "kind": "portfolio-position-episodes",
-                        "path": "position-episodes.csv",
-                        "description": (
-                            "Split-bounded executed-position episodes with "
-                            "holding, contribution, cost, excursion, censoring, "
-                            "and signal/execution mismatch evidence"
-                        ),
-                    },
-                    {
-                        "kind": "portfolio-parameter-neighborhood",
-                        "path": "portfolio-parameter-neighborhood.json",
-                        "description": (
-                            "Exact predeclared local signal-threshold and "
-                            "no-trade-band validation/test paths"
-                        ),
-                    },
-                ],
+                "artifacts": declared_artifacts,
                 "errors": [],
             }
         )

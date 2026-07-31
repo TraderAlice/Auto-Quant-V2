@@ -21,7 +21,6 @@ from autoquant.project_templates.ohlcv_portfolio_lab.portfolio_core import (
     build_risk_covariance_cache,
     constraint_audit,
     construct_signal_policy,
-    construct_targets,
     drift_weights,
     execute_risk_compliant_book,
     execution_risk_metrics,
@@ -521,38 +520,6 @@ class PortfolioAccountingTests(unittest.TestCase):
             evidence["executed_constraint_maximum_error"],
             1e-12,
         )
-
-    def test_constructed_targets_obey_gross_net_and_asset_caps(self) -> None:
-        index = pd.bdate_range("2026-01-01", periods=50)
-        assets = list("ABCDEF")
-        factors = pd.DataFrame(
-            np.tile(np.arange(6, dtype=float), (len(index), 1)),
-            index=index,
-            columns=assets,
-        )
-        closes = pd.DataFrame(
-            {
-                asset: 100.0
-                * np.exp(
-                    np.cumsum(
-                        0.001 * (column + 1)
-                        + 0.002
-                        * np.sin(np.arange(len(index)) / (4.0 + column))
-                    )
-                )
-                for column, asset in enumerate(assets)
-            },
-            index=index,
-        )
-
-        targets = construct_targets(factors, closes)
-        audit = constraint_audit(targets)
-
-        self.assertTrue(audit["passed"])
-        self.assertGreater(audit["active_dates"], 20)
-        self.assertLessEqual(audit["maximum_gross_error"], 1e-8)
-        self.assertLessEqual(audit["maximum_abs_net_target"], 1e-8)
-        self.assertLessEqual(audit["maximum_abs_target_weight"], 0.30 + 1e-8)
 
     def test_target_earns_only_the_return_after_its_decision_bar(self) -> None:
         index = pd.bdate_range("2026-01-01", periods=4)
@@ -1263,6 +1230,12 @@ class OhlcvPortfolioLabTests(unittest.TestCase):
             self.assertIn("liquidity_capacity", metrics)
             self.assertIn("position_lifecycle", metrics)
             self.assertIn("parameter_neighborhood", metrics)
+            self.assertIn("translation_robustness", metrics)
+            self.assertFalse(metrics["translation_robustness"]["applicable"])
+            self.assertEqual(
+                metrics["translation_robustness"]["reason"],
+                "cross-sectional-mode-has-no-temporal-window",
+            )
             neighborhood = metrics["parameter_neighborhood"]
             self.assertEqual(
                 neighborhood["policy"]["base_configuration_id"],
@@ -1405,6 +1378,8 @@ class OhlcvPortfolioLabTests(unittest.TestCase):
             )
             self.assertIsNotNone(layers["positionLifecycle"])
             self.assertIsNotNone(layers["parameterNeighborhood"])
+            self.assertIsNotNone(layers["translationRobustness"])
+            self.assertFalse(layers["translationRobustness"]["applicable"])
             self.assertEqual(
                 layers["parameterNeighborhood"][
                     "validationConfigurationCount"
