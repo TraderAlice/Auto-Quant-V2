@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha released as `v0.9.7`; `v0.8.31` remains the Harness
+Status: usable pre-alpha released as `v0.9.8`; `v0.8.31` remains the Harness
 currently consumed by OpenAlice until the host deliberately selects a newer
 tag.
 
@@ -17,6 +17,26 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 
 AutoQuant V2 has crossed the line from an architectural prototype into a
 usable Agent-native quantitative research workbench.
+
+The `0.9.8` patch proves one completed Project can accept a related second
+fixed Book Risk question without overwriting its original intake or creating a
+duplicate Project. The installed `0.9.7` baseline worker chose the correct
+Project and exposed one concrete defect: it could declare and freeze an
+alternate position snapshot, but the Book Risk Judge and Explorer still read
+the Project-singleton path.
+
+`aq study intake` now validates a new strict request against the retained
+asset descriptions and dataset range, then writes Study-owned request,
+position-snapshot, covariance-method, and current-Judge paths. The fixed Judge
+receives those paths explicitly; Explorer resolves the same snapshot from the
+Run's frozen Study arguments. A source-checkout replay against the actual
+completed `0.9.7` Project produced a second successful Run and direct Report,
+kept both Reports independently readable, and changed none of the 47 original
+files. Evolving `research.md` and `framework-needs.md` remain longitudinal
+notes; preservation applies to fixed authority and immutable evidence. Data
+acquisition remains demand-led rather than inventory-led, and OpenAlice stays
+pinned to `0.8.31`. Exact field and final release evidence is recorded in
+[[plans/same-project-book-risk-follow-up-field-trial]].
 
 The `0.9.7` patch proves a long-lived Workspace can preserve completed A-share
 Event research byte-for-byte while accepting a separate U.S. Book Risk task

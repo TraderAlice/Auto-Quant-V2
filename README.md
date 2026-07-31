@@ -1,5 +1,5 @@
 ---
-version: 0.9.7
+version: 0.9.8
 ---
 
 # AutoQuant V2
@@ -32,12 +32,12 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current release: `v0.9.7`
+## Current release: `v0.9.8`
 
 AutoQuant V2 has crossed from an architectural prototype into a usable
 research workbench.
 
-`v0.9.7` is the current AutoQuant release. `v0.8.31` remains the Harness
+`v0.9.8` is the current AutoQuant release. `v0.8.31` remains the Harness
 currently consumed by OpenAlice until the host deliberately selects the newer
 tag; this is version provenance, not an automatic Workspace-migration promise.
 The minor-version boundary marks the next phase: improve the real delegated-
@@ -45,6 +45,29 @@ research loop from OpenAlice request through AutoQuant evidence handoff without
 weakening standalone Workspace operation or prematurely freezing a
 host-specific API. Bounded follow-up work defaults to patch releases within
 the `0.9.x` line.
+
+`v0.9.8` proves a Project is an evolving body of research rather than a
+one-request container. A fresh installed `0.9.7` coworker correctly continued
+the completed U.S. mega-cap Book Risk Project but demonstrated that its second
+Study could not execute: the Run froze the alternate position snapshot while
+the Judge and Explorer still read a Project-singleton path.
+
+The bounded repair adds `aq study intake` for a related Book Risk request over
+the exact retained dataset. It creates Study-owned request, position snapshot,
+method, and current Judge paths without touching any old fixed authority or
+immutable evidence. Judges receive explicit fixed-input paths and Explorer
+reconstructs the snapshot binding from the frozen Study definition, so old and
+new Runs remain independently inspectable. A local replay on the real `0.9.7`
+Project added a second successful Run and direct Report while all 47 original
+files remained byte-for-byte unchanged. Data remains demand-led: exact bytes
+may be reused for a true same-dataset follow-up, but inventory never limits the
+research question. OpenAlice remains intentionally pinned to `0.8.31`. See
+[[plans/same-project-book-risk-follow-up-field-trial]] and
+[[docs/design/research-intake-and-dataset-snapshots]].
+
+Final release verification is recorded in the completed plan.
+
+### `v0.9.7`
 
 `v0.9.7` proves that one AutoQuant Workspace can retain completed research and
 accept a materially unrelated market and method without becoming a disposable
