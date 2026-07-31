@@ -18,9 +18,7 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-| Plan | Outcome | Updated |
-| --- | --- | --- |
-| [[plans/long-lived-cross-market-workspace-field-trial]] | Prove a fresh coworker can preserve a completed A-share Project while adding one isolated U.S. Book Risk sibling from task-local data in the same long-lived Workspace. | 2026-08-01 |
+None.
 
 ## Proposed plans
 
@@ -36,6 +34,7 @@ None.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/long-lived-cross-market-workspace-field-trial]] | Proved a long-lived desk can preserve a completed A-share Project byte-for-byte while a fresh coworker adds one isolated U.S. Book Risk sibling from aligned task-local data and answers the caller's exact governing window. | 2026-08-01 |
 | [[plans/demand-led-market-data-field-trial]] | Proved a fresh coworker can turn a caller question and zero staged OHLCV into truthful peer-route acquisition, task-local intake, fixed Event evidence, and a bounded handoff without a central inventory. | 2026-08-01 |
 | [[plans/agent-route-and-run-bound-reports]] | Let fresh Agents choose the correct Project construction before intake and report immutable delegated Runs without manufacturing empty editable Sessions. | 2026-08-01 |
 | [[plans/relative-value-monetization-intent-parity]] | Aligned normalized intent with capped complementary relative-value pair construction, preserved ordinary cross-sectional breadth semantics, and proved honest negative selection plus exact downstream parity with two fresh installed-wheel workers. | 2026-08-01 |

@@ -37,6 +37,14 @@ process-local “active Project” state was added. OpenAlice stays pinned to
 `0.8.31`. Exact trial and release evidence is recorded in
 [[plans/long-lived-cross-market-workspace-field-trial]].
 
+The release audit passed 374 tests in 923.926 seconds, 1,288 documentation
+links, lock and syntax checks, source/wheel builds, fresh Python 3.11.14 wheel
+installation with 51 public commands, a fresh installed-wheel Grok 4.5 replay,
+and a no-hardlink clean-clone root-Workspace smoke. The final worker completed
+with no Core or provider failure and one disclosed accidental probe-Project
+create/remove retry; final research state still contains exactly two Projects,
+one new Run, one direct Report, zero Sessions, and one Workspace manifest.
+
 The `0.9.6` patch proves the market-data path begins with research demand, not
 available inventory. A fresh installed `0.9.5` worker received a fixed CATL
 opening-gap question and no OHLCV, attempted three named mainland routes,

@@ -65,7 +65,13 @@ active-Project process state. OpenAlice remains intentionally unchanged at
 `0.8.31`. See [[plans/long-lived-cross-market-workspace-field-trial]] and
 [[docs/design/reported-position-book-risk]].
 
-Final release verification is recorded in the completed plan.
+The release audit passed all 374 tests in 923.926 seconds and all 1,288
+documentation links, plus lock validation, Python and Studio syntax, source
+and wheel builds, fresh Python 3.11.14 installation with 51 public commands, a
+fresh installed-wheel Grok 4.5 replay, and a no-hardlink clean-clone root-
+Workspace smoke. The worker completed the research with no Core/provider
+failure and one disclosed accidental probe-Project retry. Exact evidence is
+recorded in the completed plan.
 
 ### `v0.9.6`
 

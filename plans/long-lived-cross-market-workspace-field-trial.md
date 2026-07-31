@@ -1,6 +1,6 @@
 # Long-lived cross-market Workspace field trial
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-08-01`
 - Target release: `0.9.7`
 - Related design: [[docs/design/workspace-project-boundaries]],
@@ -91,7 +91,7 @@ not a reason to narrow or reshape the question.
   default selection.
 - [x] Every material trial failure becomes a bounded repair with regression or
   an explicit worker/provider/external limitation.
-- [ ] Complete tests, documentation links, build/install smoke, clean-clone
+- [x] Complete tests, documentation links, build/install smoke, clean-clone
   checks, and a fresh final worker pass before `v0.9.7` is tagged and pushed.
 
 ## Work
@@ -102,7 +102,7 @@ not a reason to narrow or reshape the question.
   inventory.
 - [x] Run and preserve the installed `0.9.6` coworker baseline.
 - [x] Triage real reuse friction and implement the minimum `0.9.7` repairs.
-- [ ] Run final verification, installed-wheel coworker replay, and release.
+- [x] Run final verification, installed-wheel coworker replay, and release.
 
 ## Findings and decisions
 
@@ -135,17 +135,37 @@ not a reason to narrow or reshape the question.
   Studio normalize and project only the caller-governing primary path. This
   preserves complete 63/126/252 reconstruction without reverting the caller's
   126-bar current definition.
+- 2026-08-01 — Repository-root materialized Skills had not been refreshed
+  since `0.9.0`. The release now checks in the exact `0.9.7` bundle and adds a
+  regression that verifies the root Workspace snapshot against current
+  Harness authority. This is release materialization, not a general Workspace
+  upgrade protocol.
+- 2026-08-01 — The final installed `0.9.7` worker used aligned V1 packages for
+  both Yahoo and Nasdaq on its first provider attempts. It reported 126
+  consistently across primary/current/sizing evidence, kept the CATL Project
+  byte-identical, and left exactly one new Run, one direct Report, and zero
+  Sessions. One accidental probe-Project create/remove was recorded as a
+  worker retry rather than hidden or promoted into speculative Core state.
 
 ## Verification
 
 - Installed `0.9.6` baseline transcript and compact inventory/triage record:
   `../grok-field-trials/cohort-12-long-lived-us-book-risk-v096/`.
 - Focused Book Risk, Skill, and version regression: 40 tests passed.
-- `uv run python scripts/check_doc_links.py`: 1,288 links resolved during the
-  repair pass.
-- `uv lock --check` and `git diff --check`: passed during the repair pass.
-- Complete regression, build/install, clean-clone, and final installed-worker
-  evidence pending.
+- Final `uv run python -m unittest discover -s tests -q`: 374 tests passed in
+  923.926 seconds.
+- `uv run python scripts/check_doc_links.py`: 1,288 links resolved.
+- `uv lock --check`, Python compile, Studio JavaScript syntax, and
+  `git diff --check`: passed.
+- `uv build` produced source and wheel distributions; a fresh Python 3.11.14
+  environment installed the wheel, reported `aq 0.9.7`, and exposed 51 public
+  commands.
+- Final installed-wheel transcript and independent audit:
+  `../grok-field-trials/cohort-13-long-lived-us-book-risk-v097/`. Grok session
+  `019fb9f8-cc7a-7512-9b02-8a98a0038db7` completed the full two-Project task.
+- A no-hardlink local clone at `974026f` contained no local override and passed
+  Project list, orientation, validation, Studio snapshot, and current Skill-
+  bundle verification with the checked-in sample as default.
 
 ## Progress log
 
@@ -158,7 +178,16 @@ not a reason to narrow or reshape the question.
 - 2026-08-01 — Implemented the two promoted repairs, added strict governing-
   lookback and Agent-guidance regressions, updated the public Book Risk design,
   and advanced the package identity to `0.9.7` without touching OpenAlice.
+- 2026-08-01 — Refreshed the checked-in root Workspace Skill snapshot, passed
+  the full release audit, accepted the fresh installed `0.9.7` worker with its
+  one disclosed Agent retry, and completed the patch without changing
+  OpenAlice's `0.8.31` selection.
 
 ## Completion
 
-Pending.
+Completed. One retained desk now demonstrates two isolated Projects across
+markets and fixed research methods without old-data authority, hidden default
+changes, or disposable-Workspace semantics. The caller's governing covariance
+window is the ordinary answer surface, provider panel guidance reaches fixed
+Labs directly, and remaining worker/provider friction stays explicit rather
+than expanding Core without evidence.
