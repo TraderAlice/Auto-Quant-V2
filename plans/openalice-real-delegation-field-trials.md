@@ -254,7 +254,21 @@ unsupported weights, provider-semantic relabelling, or trading claims fail.
   wrote Variant B source only after inspecting the baseline's visible test.
   The worker disclosed this correctly. No batch-preregistration subsystem is
   justified yet; one fresh, exact single-candidate task with no post-baseline
-  source edit remains required for the accepted multi-interval final.
+  source edit remained required for the accepted multi-interval final.
+- 2026-07-31 — A fresh AVAX worker on commit `24019ef` completed that final:
+  exactly three assets, 10,176 continuous 1h bars each, causal completed
+  4h/1d features, one caller-fixed source authored before evaluation, one
+  immutable Run, no Experiment or later source edit, and an honest unsupported
+  validation conclusion. The canonical, Run, and Session candidate copies
+  share one exact hash. This is the accepted multi-interval cohort case.
+- 2026-07-31 — The AVAX worker independently reproduced the previously
+  observed accidental local Session problem. Single-lane template guidance
+  omitted `--request`, but terminal Reports require a delegated Session, so
+  the worker opened a second delegated Session and left an empty active local
+  one. `0.9.0` now defaults omitted `--request` to strict intake's verified
+  canonical Project request and shows the explicit option in every iterative
+  single-lane template. Unbound Projects retain local request-free Sessions.
+  A fresh RL worker must verify the repaired entry path.
 
 ## Verification
 
@@ -323,6 +337,18 @@ unsupported weights, provider-semantic relabelling, or trading claims fail.
 - Independent SOL retry review:
   `../openalice-field-trials/retry-05-sol-multiinterval-v090/review.md`
   (external trial ledger, intentionally not a repository documentation link).
+- Fresh AVAX multi-interval final: 10,176 continuous Binance 1h bars per
+  caller-named asset, one successful immutable Run, one completed delegated
+  Report, no Experiment or source iteration, and a stable candidate hash
+  across canonical/Run/Session copies.
+- Independent AVAX review:
+  `../openalice-field-trials/cohort-05b-avax-single-multiinterval-v090/review.md`
+  (external trial ledger, intentionally not a repository documentation link).
+- Delegated Session default regression:
+  `.venv/bin/python -m unittest
+  tests.test_workspace.WorkspaceProjectTests.test_every_builtin_template_requires_the_same_research_start_gate
+  tests.test_cli.AgentCliTests.test_cli_intake_hydrates_brief_first_pristine_scaffold
+  -v` — 2 tests passed in 6.236 seconds.
 
 ## Completion
 

@@ -28,7 +28,7 @@ constraints, costs, risk, and path-consistent simple baselines.
 ```bash
 aq study inspect . --study ohlcv-rl-factor-policy --json
 aq run execute . --study ohlcv-rl-factor-policy --json
-aq session start . --study ohlcv-rl-factor-policy --json
+aq session start . --study ohlcv-rl-factor-policy --request request.json --json
 aq orient . --json
 ```
 

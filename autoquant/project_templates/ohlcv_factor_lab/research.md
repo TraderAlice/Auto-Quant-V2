@@ -67,5 +67,5 @@ new production-grade claim.
 ```bash
 aq orient . --json
 aq study inspect . --study ohlcv-factor-quality --json
-aq session start . --study ohlcv-factor-quality --json
+aq session start . --study ohlcv-factor-quality --request request.json --json
 ```

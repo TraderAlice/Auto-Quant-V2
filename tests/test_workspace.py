@@ -283,6 +283,12 @@ class WorkspaceProjectTests(unittest.TestCase):
         self,
     ) -> None:
         template_root = resources.files("autoquant").joinpath("project_templates")
+        iterative_templates = {
+            "ohlcv-factor-lab",
+            "ohlcv-portfolio-lab",
+            "ohlcv-rl-factor-lab",
+            "ohlcv-research-desk",
+        }
         for template in PROJECT_TEMPLATE_IDS:
             if template == "blank":
                 continue
@@ -303,6 +309,11 @@ class WorkspaceProjectTests(unittest.TestCase):
                     "ask the delegating Agent or user",
                     normalized_research,
                 )
+                if template in iterative_templates:
+                    self.assertIn(
+                        "--request request.json",
+                        research,
+                    )
 
     def test_framework_needs_is_required_real_project_state(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

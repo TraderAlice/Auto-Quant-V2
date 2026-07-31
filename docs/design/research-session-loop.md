@@ -227,6 +227,13 @@ aq session start <path> --study <id> --request request.json --json
   - aq session complete <path> --session <id> --report <id> --json
 ```
 
+The first form starts a request-free local Session only when the Project has
+no strict request-bound intake. If intake has already verified and bound the
+Project's canonical `request.json`, omission of `--request` reuses that request
+instead of silently creating a non-delegated Session. Agent-facing templates
+show the second form explicitly so delegated authority is visible before the
+baseline is created or reused.
+
 Choose exactly one terminal branch: promote an improved KEEP, or complete a
 delegated baseline-retaining Session. Neither branch follows the other.
 

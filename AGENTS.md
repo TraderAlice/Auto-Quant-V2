@@ -149,6 +149,12 @@ Run's visible test evidence preceded a later source edit, disclose that timing,
 preserve `externalHoldoutRequired`, and never call the process test-blind or
 claim that test evidence was not used.
 
+When strict Project intake has already bound `request.json`, start the Session
+with `--request request.json` so the delegated brief is visible before research
+and a terminal Report can be published. The CLI also binds that verified
+Project request by default when `--request` is omitted; an unbound local
+Project keeps the optional request-free Session behavior.
+
 When writing `request.horizonPolicy`, declare the required primary horizon
 once. `diagnosticForwardBars` may contain only the additional sorted context
 horizons; Core canonically adds the primary and enforces a five-horizon total.

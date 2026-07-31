@@ -25,7 +25,7 @@ mechanical translation into constrained cross-asset target weights.
 ```bash
 aq study inspect . --study ohlcv-portfolio-quality --json
 aq run execute . --study ohlcv-portfolio-quality --json
-aq session start . --study ohlcv-portfolio-quality --json
+aq session start . --study ohlcv-portfolio-quality --request request.json --json
 ```
 
 Work only inside the returned Session worktree and edit `factors/**`. State one

@@ -673,6 +673,13 @@ locks. Those files are verified on every Session load and are included in each
 external Researcher turn. Existing local Sessions without a request remain
 valid.
 
+When strict Project intake already binds a canonical `request.json`,
+`session start` uses that verified Project request by default if `--request`
+is omitted. Passing `--request` remains explicit and is preferred in
+Agent-facing commands because it makes delegated authority visible at the
+call site. A Project without bound intake still starts an ordinary local
+request-free Session when the option is absent.
+
 Reference Studies include an optional fixed `preflight.json`. After the caller
 edits a candidate, `session check` runs its short structural contract in an
 isolated source workspace. It publishes an immutable passed/failed

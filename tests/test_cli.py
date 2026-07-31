@@ -1502,6 +1502,31 @@ class AgentCliTests(unittest.TestCase):
             self.assertTrue(
                 (workspace / "projects/brief-first/intake.json").is_file()
             )
+            started = run_cli(
+                "session",
+                "start",
+                str(workspace),
+                "--project",
+                "brief-first",
+                "--study",
+                "ohlcv-factor-quality",
+                "--json",
+            )
+            self.assertEqual(started.returncode, 0, started.stderr)
+            session = json_output(started)["data"]
+            self.assertEqual(
+                session["delegation"]["request"]["title"],
+                "US leadership durability",
+            )
+            self.assertTrue(
+                (
+                    workspace
+                    / "projects/brief-first"
+                    / "sessions"
+                    / session["session"]["id"]
+                    / "request.json"
+                ).is_file()
+            )
 
     def test_cli_intake_defaults_to_multi_study_research_desk(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

@@ -2999,7 +2999,11 @@ def _session_next_actions(project, session) -> list[dict[str, Any]]:
 
 def _session_start(args: argparse.Namespace) -> CommandResult:
     project = _selected_project(args)
-    request = load_research_request(args.request) if args.request else None
+    if args.request:
+        request = load_research_request(args.request)
+    else:
+        intake = load_project_intake(project)
+        request = intake["request"] if intake is not None else None
     session = start_session(project, args.study, request=request)
     data = session_snapshot(project, session)
     delegation_line = (
