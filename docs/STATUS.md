@@ -37,6 +37,16 @@ remains demand-led, provider networking remains outside Core, and OpenAlice
 stays pinned to `0.8.31`. Exact trial evidence is recorded in
 [[plans/authority-gated-twse-factor-field-trial]].
 
+The final installed `0.9.9` Grok replay used the unchanged assignment and
+public Workbench surfaces, preserved the five official 307 response bodies
+without a second probe, and again stopped at `UNSUPPORTED` with no dataset
+intake, Study, Session, Run, Report, or factor interpretation. The release
+audit passed 378 tests in 928.146 seconds, 1,306 documentation links, lock and
+Python/JavaScript syntax checks, source/wheel build, fresh Python 3.11.14
+installation with 52 public commands, and a no-hardlink clean-clone root-
+Workspace smoke. The final wheel SHA-256 is
+`049369a2178cab7b4efdf92c8d89615912c695cf233ecb38701141e7e6599c6d`.
+
 The `0.9.8` patch proves one completed Project can accept a related second
 fixed Book Risk question without overwriting its original intake or creating a
 duplicate Project. The installed `0.9.7` baseline worker chose the correct

@@ -1,6 +1,6 @@
 # Authority-gated TWSE Factor field trial
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-08-01`
 - Target release: `0.9.9`
 - Related design: [[docs/design/agent-native-market-data-acquisition]],
@@ -79,25 +79,25 @@ A negative factor result is fully acceptable. A single-source result is not.
 
 ## Acceptance
 
-- [ ] A fresh worker starts from the exact `v0.9.8` wheel, no staged OHLCV,
+- [x] A fresh worker starts from the exact `v0.9.8` wheel, no staged OHLCV,
   public CLI/schema/Skills only, and preserves a complete transcript.
-- [ ] The English research brief fixes the six TWSE listings, raw daily
+- [x] The English research brief fixes the six TWSE listings, raw daily
   semantics, date window, 10-session horizon, official-plus-peer authority
   gate, research-only scope, and truthful stop condition before acquisition.
-- [ ] Official TWSE and FinMind attempts use the bundled routes and preserve
+- [x] Official TWSE and FinMind attempts use the bundled routes and preserve
   exact success or standard bounded failure evidence without hidden fallback.
-- [ ] No numerical cross-source agreement is claimed unless adjustment,
+- [x] No numerical cross-source agreement is claimed unless adjustment,
   sessions, symbols, and price/volume semantics are compatible; Yahoo cannot
   masquerade as a raw peer.
-- [ ] Project intake and quantitative interpretation occur only if both
+- [x] Project intake and quantitative interpretation occur only if both
   required raw routes and their bounded comparison pass. Otherwise the final
   handoff is explicitly unsupported and contains no authoritative Run/Report.
-- [ ] If admitted, exactly one bounded Factor investigation answers the fixed
+- [x] If admitted, exactly one bounded Factor investigation answers the fixed
   hypothesis, separates train/validation/test audit, and grants no target-
   weight or trading authority.
-- [ ] Every material baseline failure is either a reproducible Workbench gap
+- [x] Every material baseline failure is either a reproducible Workbench gap
   repaired with regression coverage or an explicit provider/worker limitation.
-- [ ] Final wheel replay, complete tests, documentation links, build/install,
+- [x] Final wheel replay, complete tests, documentation links, build/install,
   and clean-clone Workspace smoke pass before `v0.9.9` is tagged and pushed.
 
 ## Work
@@ -107,8 +107,8 @@ A negative factor result is fully acceptable. A single-source result is not.
 - [x] Prepare the exact installed-wheel, zero-data worker boundary and baseline
   evidence inventory.
 - [x] Run and independently review the fresh `0.9.8` worker.
-- [ ] Implement only reproduced reusable friction and rerun the assignment.
-- [ ] Complete final verification, release documentation, tag, and push.
+- [x] Implement only reproduced reusable friction and rerun the assignment.
+- [x] Complete final verification, release documentation, tag, and push.
 
 ## Findings and decisions
 
@@ -133,10 +133,42 @@ A negative factor result is fully acceptable. A single-source result is not.
   URI to make its handoff auditable. `0.9.9` makes that failure evidence a
   deterministic provider-Skill output and corrects same-raw comparison
   guidance to FinMind; Yahoo remains coverage-only when semantics differ.
+- 2026-08-01 — The final installed-`0.9.9` replay reproduced the same local
+  TWSE 307 block without a manual probe. The provider Skill automatically
+  retained five exact 800-byte security bodies, their hashes and paths, the
+  exact official URI, status/reason, and safe response headers, then emitted
+  provider- and route-level failure receipts without a success package.
+- 2026-08-01 — The final worker created a blank brief-first Project scaffold
+  but performed no dataset intake, Study, Session, Run, Report, or quantitative
+  interpretation. This respects the acceptance boundary: construction notes
+  may exist before the gate, while authoritative Project intake may not. The
+  conditional admitted-Factor requirement was not exercised because G1 failed.
 
 ## Verification
 
-Pending.
+- `uv run python -m unittest discover` — 378 tests passed in 928.146 seconds.
+- `uv run python scripts/check_doc_links.py` — all 1,306 double-links resolve.
+- `uv lock --check`, `git diff --check`, complete Python compile, explicit
+  Python 3.9 TWSE-script compile, Studio JavaScript syntax, and canonical
+  `fetch-twse-ohlcv` Skill validation passed.
+- `uv build` rebuilt the source distribution and wheel. A fresh Python 3.11.14
+  environment installed the wheel, reported `aq 0.9.9`, exposed all 52 public
+  commands, initialized an empty Workspace, created and validated one blank
+  smoke Project, and passed orientation.
+- Final wheel SHA-256:
+  `049369a2178cab7b4efdf92c8d89615912c695cf233ecb38701141e7e6599c6d`.
+- A no-hardlink clone without local override passed root `aq orient`,
+  `aq validate`, `aq project list`, and `aq studio snapshot` while retaining a
+  clean worktree.
+- Final Grok 4.5 session `019fba6f-cb96-7a30-8a29-6fcf8cc714d5`
+  used 17 turns and candidate wheel SHA-256
+  `eaf14173a280ba8d923cbea6e5ac4cbefa140eeed191d0a3210664366b8921d9`.
+  The final artifact rebuild changed only packaged release documentation and
+  was freshly installed and capability-smoked afterward. Host audit of the
+  replay confirmed automatic official failure receipts, a valid FinMind peer
+  package, no manual
+  probe or private implementation inspection, and no authoritative research
+  artifacts after the failed gate.
 
 ## Progress log
 
@@ -154,7 +186,17 @@ Pending.
   HTTP 307 and automatically preserved all five exact security bodies, safe
   response headers, request hashes/paths, provider failure, and standard route
   failure without a second probe or false dataset package.
+- 2026-08-01 — Grok session `019fba6f-cb96-7a30-8a29-6fcf8cc714d5`
+  replayed the unchanged assignment from an empty installed-`0.9.9` Workspace
+  in 17 turns. Host review confirmed automatic provider receipts, a valid
+  six-name FinMind raw peer package, no Yahoo fallback or manual TWSE probe,
+  no private package/repository source inspection, and an explicit
+  `UNSUPPORTED` handoff with no authoritative research artifacts.
 
 ## Completion
 
-Pending.
+Completed in `v0.9.9`. AutoQuant now preserves exact bounded TWSE provider
+failure evidence at the Skill boundary, guides raw Taiwan peer comparison to
+FinMind rather than Yahoo, and has independently proved that a fresh coworker
+can stop truthfully when the caller's data authority remains unavailable.
+OpenAlice remains unchanged at `0.8.31`.

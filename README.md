@@ -65,8 +65,13 @@ intentionally pinned to `0.8.31`. See
 [[plans/authority-gated-twse-factor-field-trial]] and
 [[docs/design/agent-native-market-data-acquisition]].
 
-Final installed-worker and release verification are recorded in the completed
-plan.
+The final installed `0.9.9` replay reproduced the truthful unsupported result
+without the baseline worker's manual TWSE probe. The release audit passed all
+378 tests in 928.146 seconds, resolved all 1,306 documentation links, passed
+lock and Python/JavaScript syntax checks, rebuilt and freshly installed the
+source/wheel, exposed all 52 public commands, and passed a no-hardlink
+clean-clone root-Workspace smoke. The exact artifact hash and field evidence
+are recorded in the completed plan.
 
 ### `v0.9.8`
 
