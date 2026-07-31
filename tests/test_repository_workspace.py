@@ -18,7 +18,8 @@ PRIOR_SAMPLE_RUN_ID = "run-20260730T035544913232Z-4b19e3a63890"
 PREVIOUS_SAMPLE_RUN_ID = "run-20260731T120304794599Z-6d6cdab313fe"
 CURRENT_SAMPLE_RUN_ID = "run-20260731T131547748789Z-d99c9e66a888"
 LATEST_SAMPLE_RUN_ID = "run-20260731T151103497628Z-f9adc26d1b95"
-PORTFOLIO_SAMPLE_RUN_ID = "run-20260731T162132298210Z-e541f48086ba"
+PRIOR_PORTFOLIO_SAMPLE_RUN_ID = "run-20260731T162132298210Z-e541f48086ba"
+PORTFOLIO_SAMPLE_RUN_ID = "run-20260731T172357866325Z-4f640b413ddf"
 SAMPLE_DESCRIPTION = (
     "A deterministic three-lane reference Project for learning AutoQuant "
     "before starting real research."
@@ -71,6 +72,7 @@ class RepositoryWorkspaceTests(unittest.TestCase):
                 PREVIOUS_SAMPLE_RUN_ID,
                 CURRENT_SAMPLE_RUN_ID,
                 LATEST_SAMPLE_RUN_ID,
+                PRIOR_PORTFOLIO_SAMPLE_RUN_ID,
                 PORTFOLIO_SAMPLE_RUN_ID,
             ],
         )
@@ -135,27 +137,43 @@ class RepositoryWorkspaceTests(unittest.TestCase):
             ],
             "cross-sectional",
         )
+        prior_portfolio = load_run(project, PRIOR_PORTFOLIO_SAMPLE_RUN_ID)
+        self.assertEqual(prior_portfolio.result["status"], "succeeded")
+        self.assertEqual(
+            prior_portfolio.result["study"]["id"],
+            "ohlcv-portfolio-quality",
+        )
+        self.assertEqual(
+            prior_portfolio.result["harness"]["version"], "0.9.3"
+        )
+        self.assertEqual(
+            prior_portfolio.result["harness"]["commit"],
+            "ed61378d51b940892353ff39035e458cce255030",
+        )
+        self.assertFalse(prior_portfolio.result["harness"]["dirty"])
+        self.assertFalse(
+            prior_portfolio.result["metrics"]["translation_robustness"][
+                "applicable"
+            ]
+        )
+        self.assertEqual(
+            prior_portfolio.result["metrics"]["translation_robustness"][
+                "reason"
+            ],
+            "cross-sectional-mode-has-no-temporal-window",
+        )
         portfolio = load_run(project, PORTFOLIO_SAMPLE_RUN_ID)
         self.assertEqual(portfolio.result["status"], "succeeded")
         self.assertEqual(
             portfolio.result["study"]["id"],
             "ohlcv-portfolio-quality",
         )
-        self.assertEqual(portfolio.result["harness"]["version"], "0.9.3")
+        self.assertEqual(portfolio.result["harness"]["version"], "0.9.4")
         self.assertEqual(
             portfolio.result["harness"]["commit"],
-            "ed61378d51b940892353ff39035e458cce255030",
+            "f17d261c49f8b5895a8147446e05ae7bfe9fe9b7",
         )
         self.assertFalse(portfolio.result["harness"]["dirty"])
-        self.assertFalse(
-            portfolio.result["metrics"]["translation_robustness"][
-                "applicable"
-            ]
-        )
-        self.assertEqual(
-            portfolio.result["metrics"]["translation_robustness"]["reason"],
-            "cross-sectional-mode-has-no-temporal-window",
-        )
 
         research = (project.root_dir / "research.md").read_text(encoding="utf-8")
         self.assertIn("## About this sample", research)
@@ -191,7 +209,7 @@ class RepositoryWorkspaceTests(unittest.TestCase):
         sample = snapshot["projects"][0]
         self.assertTrue(sample["valid"])
         self.assertEqual(sample["counts"]["studies"], 3)
-        self.assertEqual(sample["counts"]["runs"], 6)
+        self.assertEqual(sample["counts"]["runs"], 7)
         self.assertEqual(sample["counts"]["sessions"], 0)
         self.assertIsNotNone(sample["factorExplorer"])
         self.assertEqual(
@@ -206,6 +224,20 @@ class RepositoryWorkspaceTests(unittest.TestCase):
         self.assertEqual(
             sample["portfolioExplorer"]["translationRobustness"]["reason"],
             "cross-sectional-mode-has-no-temporal-window",
+        )
+        self.assertEqual(
+            sample["portfolioExplorer"]["signalMonetization"]["semantics"],
+            {
+                "contribution": "additive-weight-times-next-bar-return",
+                "evaluationMode": "cross-sectional",
+                "intentConstruction": "mandate-equal-active-side-budget",
+                "equalIntent": (
+                    "prediction-mode-aware-mandate-constrained-"
+                    "signal-state-diagnostic"
+                ),
+                "counterfactualCompounding": False,
+                "entersSelection": False,
+            },
         )
 
 
