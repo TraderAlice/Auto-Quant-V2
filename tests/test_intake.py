@@ -1170,6 +1170,73 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                 set(robustness["current"]["profiles"]),
                 {"short-history", "base", "long-history"},
             )
+            monetization = projection["signalMonetization"]
+            self.assertEqual(
+                monetization["semantics"],
+                {
+                    "contribution": (
+                        "additive-weight-times-next-bar-return"
+                    ),
+                    "evaluationMode": "two-asset-relative-value",
+                    "intentConstruction": (
+                        "capped-complementary-relative-value-pair"
+                    ),
+                    "equalIntent": (
+                        "prediction-mode-aware-mandate-constrained-"
+                        "signal-state-diagnostic"
+                    ),
+                    "counterfactualCompounding": False,
+                    "entersSelection": False,
+                },
+            )
+            validation_monetization = monetization["validation"]
+            self.assertGreater(
+                validation_monetization["coverage"][
+                    "equalIntentActiveDates"
+                ],
+                0,
+            )
+            self.assertEqual(
+                validation_monetization["coverage"][
+                    "equalIntentActiveDates"
+                ],
+                validation_monetization["coverage"][
+                    "rawTargetActiveDates"
+                ],
+            )
+            monetization_stages = {
+                item["id"]: item
+                for item in validation_monetization["stages"]
+            }
+            self.assertAlmostEqual(
+                monetization_stages["equalIntent"]["totalContribution"],
+                monetization_stages["preGovernorSizing"][
+                    "totalContribution"
+                ],
+                places=12,
+            )
+            self.assertEqual(
+                monetization["diagnosis"]["outcome"],
+                "monetized-positive",
+            )
+            self.assertTrue(
+                validation_monetization["reconciliation"][
+                    "relativeValueIntentTargetParityApplicable"
+                ]
+            )
+            self.assertAlmostEqual(
+                validation_monetization["reconciliation"][
+                    "maximumRelativeValueIntentTargetError"
+                ],
+                0.0,
+                places=12,
+            )
+            context_assets = {
+                item["asset"]: item
+                for item in validation_monetization["byAsset"]
+                if item["asset"] == "SPY"
+            }
+            self.assertEqual(context_assets["SPY"]["equalIntent"], 0.0)
             jsonschema.validate(
                 projection,
                 PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA,

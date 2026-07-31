@@ -181,17 +181,22 @@ estimates.
 
 When viability stops at `factor-not-monetized`, the same verified ledger
 provides a more precise `signalMonetization` bridge. For validation and visible
-test, Core projects normalized equal signal intent, fixed pre-governor sizing,
-governed targets, historical executed gross, and historical executed net as
+test, Core projects prediction-mode-aware normalized signal intent, fixed
+pre-governor sizing, governed targets, historical executed gross, and
+historical executed net as
 additive annualized contributions. Consecutive stage deltas isolate
 sizing/caps, covariance governance, execution/no-trade retention, and cost.
 
-The equal-intent stage is Mandate constrained and explicitly non-compounding.
-It is diagnostic normalization, not another strategy, benchmark, objective, or
-selection candidate. Per-asset totals, formula checks, daily gross/cost/net
-reconciliation, context-only zeros, gross limit, and asset caps must all pass
-before Core exposes the bridge. Diagnosis and its largest adverse stage use
-validation only; test remains visible audit.
+The normalized-intent stage is prediction-mode and Mandate constrained and
+explicitly non-compounding. Explicit two-asset relative value uses the exact
+capped complementary pair and permits unused budget to remain Cash; ordinary
+cross-sectional dollar-neutral construction still requires full side breadth.
+This is diagnostic normalization, not another strategy, benchmark, objective,
+or selection candidate. Per-asset totals, formula checks, daily gross/cost/net
+reconciliation, context-only zeros, gross limit, asset caps, and applicable
+pair-intent/pre-governor parity must all pass before Core exposes the bridge.
+Diagnosis and its largest adverse stage use validation only; test remains
+visible audit.
 
 Validation and visible-test attribution preserve the exact RunResult
 per-asset annualized net contribution, average absolute weight, cost,
@@ -231,7 +236,8 @@ The first explorer version provides:
 - one validation-only strategy viability diagnosis with gross-to-net
   implementation wedge, cost curve/break-even, delay sensitivity, temporal
   breadth, best-day dependence, and explicit next research focus;
-- one validation-only signal-monetization bridge from normalized equal intent
+- one validation-only signal-monetization bridge from prediction-mode-aware
+  normalized intent
   through sizing, risk governance, historical execution, and cost, with exact
   additive deltas and per-asset reconciliation;
 - net/gross/benchmark growth and net drawdown;
@@ -277,7 +283,8 @@ The first explorer version provides:
 17. Gross/net performance and fixed cost stresses reconcile the immutable
     daily gross, traded-notional, cost, net, and benchmark path.
 18. Signal-monetization diagnosis and largest adverse stage use validation
-    only; equal intent never becomes a selection candidate.
+    only; normalized intent never becomes a selection candidate. Explicit
+    relative-value pair intent must equal its pre-governor pair target.
 
 ## Verification and change checklist
 

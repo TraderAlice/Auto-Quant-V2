@@ -3479,7 +3479,7 @@ function renderPortfolioSignalMonetization(explorer) {
         .join("")}
     </div>
     <div class="monetization-audit">
-      <span><small>Signal-active dates</small><b>${validation.coverage.equalIntentActiveDates} / ${validation.coverage.decisionDates}</b></span>
+      <span><small>Normalized-intent active dates</small><b>${validation.coverage.equalIntentActiveDates} / ${validation.coverage.decisionDates}</b></span>
       <span><small>Risk-limited dates</small><b>${validation.coverage.riskLimitedDates}</b></span>
       <span><small>No-trade retention</small><b>${validation.coverage.noTradeRetentionDates}</b></span>
       <span><small>Rebalanced dates</small><b>${validation.coverage.rebalancedDates}</b></span>
@@ -3487,9 +3487,10 @@ function renderPortfolioSignalMonetization(explorer) {
       <span><small>Reconciliation</small><b>${validation.reconciliation.passed ? "PASS" : "FAIL"}</b></span>
     </div>
     <p class="monetization-disclosure">
-      Equal intent is a normalized Mandate-constrained signal-state diagnostic—not an investable
-      comparator. Values are additive weight × next-bar return; no counterfactual compounding,
-      KEEP/REVERT, promotion, order, or account authority. Largest adverse:
+      Normalized intent uses ${escapeHtml(monetization.semantics.evaluationMode)} ·
+      ${escapeHtml(monetization.semantics.intentConstruction)}—not an investable comparator.
+      Values are additive weight × next-bar return; no counterfactual compounding, KEEP/REVERT,
+      promotion, order, or account authority. Largest adverse:
       ${escapeHtml(diagnosis.largestAdverseStage)} (${signedPercent(diagnosis.largestAdverseAnnualizedDelta)}).
     </p>`;
 }

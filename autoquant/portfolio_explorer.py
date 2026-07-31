@@ -48,6 +48,7 @@ from .prediction_modes import (
     TEMPORAL_SCORE_MINIMUM,
     TEMPORAL_SCORE_WINDOW,
     TEMPORAL_EVALUATION_MODES,
+    TWO_ASSET_RELATIVE_VALUE_MODE,
     resolve_prediction_population,
     signal_translation_contract,
 )
@@ -95,7 +96,7 @@ STRATEGY_VIABILITY_METHOD = (
     "validation-factor-gross-friction-net-viability-diagnosis-v1"
 )
 SIGNAL_MONETIZATION_METHOD = (
-    "normalized-intent-sizing-governance-execution-cost-bridge-v1"
+    "prediction-mode-intent-sizing-governance-execution-cost-bridge-v2"
 )
 DIVERSIFICATION_STRESS_METHOD = (
     "causal-executed-book-diversification-stress-v1"
@@ -3819,10 +3820,28 @@ def _signal_monetization_projection(
     splits: dict[str, Any],
     mandate: dict[str, Any],
     universe: list[str],
+    prediction_population: dict[str, Any],
 ) -> dict[str, Any]:
     """Explain additive signal-to-net-return transmission from fixed evidence."""
 
     family = mandate["family"]
+    evaluation_mode = str(prediction_population["evaluation_mode"])
+    relative_value_pair = prediction_population["relative_value_pair"]
+    relative_value_intent = (
+        family == "dollar-neutral"
+        and evaluation_mode == TWO_ASSET_RELATIVE_VALUE_MODE
+    )
+    if relative_value_intent and not isinstance(relative_value_pair, dict):
+        _fail(
+            "predictionUniverse/relativeValuePair",
+            "portfolio.monetization-prediction-mode",
+            "Relative-value monetization requires the verified pair contract",
+        )
+    intent_construction = (
+        "capped-complementary-relative-value-pair"
+        if relative_value_intent
+        else "mandate-equal-active-side-budget"
+    )
     gross_limit = float(mandate["grossLimit"])
     asset_caps = {
         asset: float(mandate["assetMaxAbsWeights"][asset])
@@ -3875,7 +3894,23 @@ def _signal_monetization_projection(
             for item in rows
             if item["tradable"] and item["signal_state"] == -1
         ]
-        if family == "dollar-neutral":
+        if relative_value_intent:
+            assert isinstance(relative_value_pair, dict)
+            left = str(relative_value_pair["left_asset"])
+            right = str(relative_value_pair["right_asset"])
+            rows_by_asset = {item["asset"]: item for item in rows}
+            left_state = int(rows_by_asset[left]["signal_state"])
+            right_state = int(rows_by_asset[right]["signal_state"])
+            paired = abs(left_state) == 1 and right_state == -left_state
+            if paired:
+                pair_budget = min(
+                    gross_limit / 2.0,
+                    asset_caps[left],
+                    asset_caps[right],
+                )
+                weights[left] = left_state * pair_budget
+                weights[right] = right_state * pair_budget
+        elif family == "dollar-neutral":
             side_budget = gross_limit / 2.0
             if (
                 not capped_equal_side(longs, side_budget, 1.0)
@@ -3994,6 +4029,7 @@ def _signal_monetization_projection(
             "maximumEqualIntentGrossLimitExcess": 0.0,
             "maximumEqualIntentCapExcess": 0.0,
             "maximumContextIntentExposure": 0.0,
+            "maximumRelativeValueIntentTargetError": 0.0,
         }
         for timestamp in selected_dates:
             rows = by_date.get(timestamp, [])
@@ -4089,6 +4125,14 @@ def _signal_monetization_projection(
                     ),
                     "executedNet": item["net_return_contribution"],
                 }
+                if relative_value_intent:
+                    errors["maximumRelativeValueIntentTargetError"] = max(
+                        errors["maximumRelativeValueIntentTargetError"],
+                        abs(
+                            intent_weights[asset]
+                            - item["pre_governor_target_weight"]
+                        ),
+                    )
                 errors["maximumGrossFormulaError"] = max(
                     errors["maximumGrossFormulaError"],
                     abs(
@@ -4156,6 +4200,9 @@ def _signal_monetization_projection(
         reconciliation = {
             "passed": all(value <= tolerance for value in errors.values()),
             "tolerance": tolerance,
+            "relativeValueIntentTargetParityApplicable": (
+                relative_value_intent
+            ),
             **errors,
         }
         if not reconciliation["passed"]:
@@ -4231,8 +4278,11 @@ def _signal_monetization_projection(
         "tradingAuthority": "none",
         "semantics": {
             "contribution": "additive-weight-times-next-bar-return",
+            "evaluationMode": evaluation_mode,
+            "intentConstruction": intent_construction,
             "equalIntent": (
-                "normalized-mandate-constrained-signal-state-diagnostic"
+                "prediction-mode-aware-mandate-constrained-"
+                "signal-state-diagnostic"
             ),
             "counterfactualCompounding": False,
             "entersSelection": False,
@@ -7635,6 +7685,7 @@ def load_portfolio_diagnostics(
             splits,
             mandate,
             universe,
+            prediction_population,
         ),
         "translationRobustness": _translation_robustness_projection(
             run.result,
@@ -8812,6 +8863,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                     "required": [
                         "passed",
                         "tolerance",
+                        "relativeValueIntentTargetParityApplicable",
                         "maximumGrossFormulaError",
                         "maximumNetFormulaError",
                         "maximumDailyGrossError",
@@ -8820,12 +8872,16 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                         "maximumEqualIntentGrossLimitExcess",
                         "maximumEqualIntentCapExcess",
                         "maximumContextIntentExposure",
+                        "maximumRelativeValueIntentTargetError",
                     ],
                     "properties": {
                         "passed": {"const": True},
                         "tolerance": {
                             "type": "number",
                             "exclusiveMinimum": 0,
+                        },
+                        "relativeValueIntentTargetParityApplicable": {
+                            "type": "boolean"
                         },
                         "maximumGrossFormulaError": {
                             "type": "number",
@@ -8856,6 +8912,10 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                             "minimum": 0,
                         },
                         "maximumContextIntentExposure": {
+                            "type": "number",
+                            "minimum": 0,
+                        },
+                        "maximumRelativeValueIntentTargetError": {
                             "type": "number",
                             "minimum": 0,
                         },
@@ -10215,6 +10275,8 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                     "additionalProperties": False,
                     "required": [
                         "contribution",
+                        "evaluationMode",
+                        "intentConstruction",
                         "equalIntent",
                         "counterfactualCompounding",
                         "entersSelection",
@@ -10225,9 +10287,22 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                                 "additive-weight-times-next-bar-return"
                             )
                         },
+                        "evaluationMode": {
+                            "enum": [
+                                "cross-sectional",
+                                "single-asset-temporal",
+                                "two-asset-relative-value",
+                            ]
+                        },
+                        "intentConstruction": {
+                            "enum": [
+                                "mandate-equal-active-side-budget",
+                                "capped-complementary-relative-value-pair",
+                            ]
+                        },
                         "equalIntent": {
                             "const": (
-                                "normalized-mandate-constrained-"
+                                "prediction-mode-aware-mandate-constrained-"
                                 "signal-state-diagnostic"
                             )
                         },

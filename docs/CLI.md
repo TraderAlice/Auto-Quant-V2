@@ -514,6 +514,14 @@ extra-delay delta, monthly breadth, best-day dependence, and underwater
 duration. The human command prints the validation stage and next bounded
 research focus. This has `research-prioritization-only` authority and cannot
 change KEEP/REVERT or trading authority.
+`signalMonetization` then rebuilds normalized intent under the verified
+prediction mode before comparing fixed sizing/caps, governed target,
+historical executed gross, and executed net additive contribution. Explicit
+two-asset relative value uses the capped complementary pair and permits Cash;
+ordinary cross-sectional dollar-neutral intent retains the full-side-breadth
+rule. The projection discloses the construction id and strictly requires pair
+intent to equal the pre-governor pair target before assigning a validation-only
+failure layer. Test remains visible audit.
 For temporal and two-asset relative-value Runs, `translationRobustness`
 strictly reconstructs the fixed 40/60/120 causal history-window surface. It
 reports score availability, active-state and target-direction agreement,

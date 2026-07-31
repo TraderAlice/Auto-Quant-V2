@@ -192,7 +192,9 @@ Portfolio agendas consume `strategyViability` and `signalMonetization`.
 closure is.
 
 - Negative signal intent proposes sign, threshold separability, or breadth in
-  the factor representation.
+  the factor representation only after normalized intent has been rebuilt
+  under the verified prediction mode. An explicit relative-value pair may not
+  be declared intent-negative merely because its capped legs leave Cash.
 - Positive IC with non-positive gross monetization proposes a signal whose
   ranks remain separated under fixed hysteresis, caps, and inverse-volatility
   sizing.

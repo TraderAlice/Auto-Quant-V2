@@ -209,19 +209,28 @@ The bounded Portfolio diagnostics also reconstruct a validation and
 visible-test additive transmission bridge:
 
 ```text
-normalized equal signal intent
+prediction-mode-aware normalized signal intent
 → fixed conviction / inverse-volatility sizing and caps
 → covariance-governed target
 → historical executed gross contribution
 → historical executed net contribution
 ```
 
-The equal-intent layer gives every active permitted signal on the same side an
-equal share of the fixed Mandate budget. Directional mandates allocate only
-their permitted side and respect the per-asset cap. Dollar-neutral intent is
-flat unless both long and short sides can fully fund their fixed side budgets,
-matching the allocator's side-breadth rule. Context-only assets always receive
-zero diagnostic weight.
+The normalized-intent layer follows the verified prediction mode. Directional
+and ordinary cross-sectional modes give active permitted signals equal shares
+of the applicable fixed Mandate side budget and respect per-asset caps.
+Ordinary cross-sectional dollar-neutral intent is flat unless both long and
+short sides can fully fund their fixed side budgets, matching that allocator's
+side-breadth rule.
+
+An explicit `two-asset-relative-value` pair is a different construction. Its
+two signal states must be complementary; both legs receive the same absolute
+weight bounded by the half-gross budget and both leg caps, and unused capacity
+remains Cash. This normalized pair intent therefore matches the fixed
+pre-governor pair exactly instead of being zeroed merely because a leg cap is
+below the full side budget. Strict reconciliation exposes the evaluation mode,
+construction id, and maximum pair-intent/target error. Context-only assets
+always receive zero diagnostic weight.
 
 Every stage is arithmetic `weight × next-bar asset return`, aggregated by split
 and asset. It is not a separately compounded counterfactual portfolio:
@@ -292,8 +301,10 @@ long backtest.
     pretrade vectors before the execution gate is shown.
 13. Signal-monetization stages are additive diagnostics; they cannot be
     presented as independently compounded portfolios or selection baselines.
-14. Normalized equal intent obeys the fixed Mandate's tradability, direction,
-    gross, cap, cash, and dollar-neutral side-funding rules.
+14. Normalized intent obeys both the verified prediction mode and fixed
+    Mandate. Explicit relative value uses a capped complementary pair with
+    Cash; ordinary cross-sectional dollar-neutral construction retains the
+    full-side-breadth rule.
 
 ## Known limits
 

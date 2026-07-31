@@ -2286,7 +2286,7 @@ def _run_portfolio(args: argparse.Namespace) -> CommandResult:
     monetization_summary = (
         "Validation signal monetization: "
         f"{monetization['diagnosis']['outcome']} · focus "
-        f"{monetization['diagnosis']['iterationFocus']} · equal intent/raw/"
+        f"{monetization['diagnosis']['iterationFocus']} · normalized intent/raw/"
         "governed/executed gross/net annualized additive contribution "
         f"{monetization_stages['equalIntent']['annualizedContribution']}/"
         f"{monetization_stages['preGovernorSizing']['annualizedContribution']}/"

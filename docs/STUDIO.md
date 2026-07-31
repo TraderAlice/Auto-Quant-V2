@@ -209,6 +209,15 @@ shown separately as visible audit and never changes the stage or research
 focus. JavaScript receives the diagnosis from Core and does not infer or tune
 it.
 
+The Signal Monetization panel starts from the same verified prediction mode.
+Its disclosure names the normalized-intent construction before showing the
+intent → sized → governed → executed gross → executed net additive chain.
+Explicit two-asset relative value uses its capped complementary pair even when
+unused budget remains Cash; ordinary cross-sectional dollar-neutral intent
+still requires full side breadth. JavaScript only formats Core's reconciled
+diagnosis and cannot infer a failing layer, choose parameters, or create a
+trade.
+
 The Current Mechanical Decision panel precedes the path/book detail. Its four
 stages show current signal-state changes, raw-to-risk-governed gross target,
 proposed one-way turnover versus the fixed no-trade band, and whether the

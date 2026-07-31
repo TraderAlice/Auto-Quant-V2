@@ -18,7 +18,9 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-None.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/relative-value-monetization-intent-parity]] | Make normalized signal intent honor the same capped complementary-pair semantics as explicit two-asset relative-value construction, then prove the corrected loss diagnosis with a fresh non-baseline-factor worker. | 2026-08-01 |
 
 ## Proposed plans
 

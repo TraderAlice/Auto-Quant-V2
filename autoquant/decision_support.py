@@ -1407,16 +1407,18 @@ def signal_monetization_markdown_lines(
         f"`{diagnosis['largestAdverseStage']}` / "
         f"`{diagnosis['largestAdverseAnnualizedDelta']}`",
         f"- Interpretation: {diagnosis['explanation']}",
-        "- The equal-intent layer is a normalized Mandate-constrained "
-        "diagnostic. Contributions are additive weight × next-bar return, "
-        "not separately compounded counterfactual portfolios.",
+        "- Normalized-intent mode / construction: "
+        f"`{monetization['semantics']['evaluationMode']}` / "
+        f"`{monetization['semantics']['intentConstruction']}`. "
+        "Contributions are additive weight × next-bar return, not separately "
+        "compounded counterfactual portfolios.",
         "- Diagnosis authority: `research-prioritization-only`; selection "
         "split: `validation`; test enters diagnosis: `False`; trading "
         "authority: `none`.",
         f"- Monetization hash: "
         f"`{support['portfolioSignalMonetizationHash']}`",
         "",
-        "| Split / role | Equal intent | Sized raw | Governed target | "
+        "| Split / role | Normalized intent | Sized raw | Governed target | "
         "Executed gross | Executed net | No-trade retention |",
         "| --- | --- | --- | --- | --- | --- | --- |",
     ]

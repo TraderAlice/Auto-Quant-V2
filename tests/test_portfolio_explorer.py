@@ -739,6 +739,14 @@ class PortfolioDecisionExplorerTests(unittest.TestCase):
             self.assertFalse(
                 monetization["semantics"]["counterfactualCompounding"]
             )
+            self.assertEqual(
+                monetization["semantics"]["evaluationMode"],
+                "cross-sectional",
+            )
+            self.assertEqual(
+                monetization["semantics"]["intentConstruction"],
+                "mandate-equal-active-side-budget",
+            )
             self.assertFalse(
                 monetization["diagnosis"]["testEntersDiagnosis"]
             )
@@ -749,6 +757,17 @@ class PortfolioDecisionExplorerTests(unittest.TestCase):
             self.assertEqual(
                 monetization["test"]["role"],
                 "visible-audit",
+            )
+            self.assertFalse(
+                monetization["validation"]["reconciliation"][
+                    "relativeValueIntentTargetParityApplicable"
+                ]
+            )
+            self.assertEqual(
+                monetization["validation"]["reconciliation"][
+                    "maximumRelativeValueIntentTargetError"
+                ],
+                0.0,
             )
             self.assertEqual(
                 [

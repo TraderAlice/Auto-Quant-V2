@@ -251,13 +251,16 @@ Reports and Dossiers freeze the exact point-in-time diagnosis for any later
 reviewer or collaborating Agent.
 
 For the `factor-not-monetized` case, the read model further decomposes
-normalized equal signal intent into fixed pre-governor sizing, governed target,
-historical executed gross, and historical executed net additive contribution.
-The consecutive deltas isolate sizing/caps, risk governance,
-execution/no-trade retention, and cost. Equal intent obeys the Portfolio
-Mandate but is a non-compounded diagnostic, not another candidate or
-benchmark. Validation alone names the largest adverse transformation; test is
-visible audit and the bridge has no selection or trading authority.
+prediction-mode-aware normalized signal intent into fixed pre-governor sizing,
+governed target, historical executed gross, and historical executed net
+additive contribution. The consecutive deltas isolate sizing/caps, risk
+governance, execution/no-trade retention, and cost. Normalized intent obeys the
+verified prediction mode and Portfolio Mandate: explicit relative value uses
+its capped complementary pair and Cash, while ordinary cross-sectional
+dollar-neutral research retains full-side breadth. It is a non-compounded
+diagnostic, not another candidate or benchmark. Validation alone names the
+largest adverse transformation; test is visible audit and the bridge has no
+selection or trading authority.
 
 Tolerance bands are a first-class implementation choice: research on
 rebalancing frames the problem as tracking-error versus transaction-cost
