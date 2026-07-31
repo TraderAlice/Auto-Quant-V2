@@ -104,7 +104,7 @@ A negative factor result is fully acceptable. A single-source result is not.
 
 - [x] Recover the rejected `0.9.0` Taiwan assignment and isolate its unclosed
   data-authority condition.
-- [ ] Prepare the exact installed-wheel, zero-data worker boundary and baseline
+- [x] Prepare the exact installed-wheel, zero-data worker boundary and baseline
   evidence inventory.
 - [ ] Run and independently review the fresh `0.9.8` worker.
 - [ ] Implement only reproduced reusable friction and rerun the assignment.
@@ -132,6 +132,10 @@ Pending.
 
 - 2026-08-01 — Created the `0.9.9` field plan from clean released `v0.9.8`
   after auditing the prior Taiwan trial and current acquisition Skills.
+- 2026-08-01 — Prepared `cohort-17-authority-gated-twse-factor-v098` with the
+  exact released wheel, Python 3.11.14, all 16 materialized Skills, zero
+  Projects, zero staged data, and an explicit no-single-source-completion
+  worker contract.
 
 ## Completion
 
