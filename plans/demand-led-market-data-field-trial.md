@@ -1,6 +1,6 @@
 # Demand-led market-data research field trial
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-08-01`
 - Target release: `0.9.6`
 - Related design: [[docs/design/agent-native-market-data-acquisition]],
@@ -65,22 +65,22 @@ equivalent.
 
 ## Acceptance
 
-- [ ] A clean installed-wheel worker receives no OHLCV and preserves the full
+- [x] A clean installed-wheel worker receives no OHLCV and preserves the full
   caller question before provider selection.
-- [ ] The worker discovers the A-share router and attempts at least two source
+- [x] The worker discovers the A-share router and attempts at least two source
   routes without treating one as a silent fallback.
-- [ ] Raw/adjusted, venue, volume, calendar, freshness, and access differences
+- [x] Raw/adjusted, venue, volume, calendar, freshness, and access differences
   remain explicit; incompatible packages are never numerically compared.
-- [ ] One task-complete adjusted, aligned, content-locked package reaches
+- [x] One task-complete adjusted, aligned, content-locked package reaches
   `ohlcv-event-study-lab` through strict intake with no global data inventory.
-- [ ] Exactly one fixed Event Run is reloaded through the strict Explorer and
+- [x] Exactly one fixed Event Run is reloaded through the strict Explorer and
   produces an evidence-backed answer, including an honest insufficient or
   negative result when that is what the data show.
-- [ ] Project validation, orientation, Studio snapshot, provider/package
+- [x] Project validation, orientation, Studio snapshot, provider/package
   audits, and the final handoff all disclose no trading authority.
-- [ ] Every material trial failure becomes either a bounded repair with a
+- [x] Every material trial failure becomes either a bounded repair with a
   regression or an explicit provider/external limitation.
-- [ ] Focused and complete tests, documentation links, JavaScript syntax,
+- [x] Focused and complete tests, documentation links, JavaScript syntax,
   build, installed-wheel smoke, clean-clone checks, and a fresh final worker
   pass before `v0.9.6` is tagged and pushed.
 
@@ -90,9 +90,9 @@ equivalent.
   staged bytes and cannot be answered from data inventory.
 - [x] Prepare an isolated installed `0.9.5` baseline trial and capture its full
   transcript and filesystem evidence.
-- [ ] Triage observed friction against current Core/Skill authority.
-- [ ] Implement the minimum reusable `0.9.6` repairs and regressions.
-- [ ] Run a fresh final coworker and complete the release audit.
+- [x] Triage observed friction against current Core/Skill authority.
+- [x] Implement the minimum reusable `0.9.6` repairs and regressions.
+- [x] Run a fresh final coworker and complete the release audit.
 
 ## Findings and decisions
 
@@ -120,6 +120,19 @@ equivalent.
   coverage-only comparison; and a failed provider lacked a standard audit
   artifact. Yahoo adjusted freshness and the absence of a second adjusted
   mainland route remain explicit provider limitations rather than Core fixes.
+- 2026-08-01 — `0.9.6` keeps finite zero volume only for the fixed price-only
+  Event route. Factor/Portfolio/RL and other execution- or volume-sensitive
+  daily contracts remain strictly positive; this is template authority, not a
+  global relaxation.
+- 2026-08-01 — The final installed `0.9.6` worker completed with zero CLI
+  retry, Core failure, or clarification. It retained the Yahoo zero-volume
+  session, emitted a truthful mixed-class Tencent package, used coverage-only
+  comparison, and captured Eastmoney failure through the standard wrapper.
+  It created exactly one Project and one Run, with no Session or search loop.
+- 2026-08-01 — Final worker observations about a single mixed-venue calendar
+  label, Yahoo instrument metadata, and visible teaching fixtures are useful
+  follow-up evidence but caused no retry, false claim, or scientific repair.
+  They do not justify expanding this patch or creating a central inventory.
 
 ## Verification
 
@@ -130,6 +143,23 @@ equivalent.
 - Baseline result: `no-observed-advantage`; 30 complete events, 24 primary
   non-overlapping events, mean five-bar event return `-0.085%`, matched excess
   versus `510300` `+0.566%`, with confidence intervals including zero.
+- Final transcript:
+  `../grok-field-trials/cohort-11-demand-led-a-share-event-v096/grok-transcript.md`
+- Final installed-wheel result: `no-observed-advantage`; the same 30 complete
+  and 24 primary events over 1,592 unchanged aligned rows per asset. Run
+  `run-20260731T201158094330Z-c0c064362556`; dataset hash
+  `6961b5b1d7443901fb48d821d9c8ade2560963854a861d5e912456dea7077f37`.
+- `uv run python -m unittest discover -s tests -v`: 371 passed in 923.813s.
+- `uv run python scripts/check_doc_links.py`: 1,279 links resolved after final
+  release documentation.
+- Focused Event/Skill/version suite: 29 passed; `uv lock --check`, Python
+  compile, Studio JavaScript syntax, `git diff --check`, source distribution,
+  and wheel build passed.
+- Fresh Python 3.11 wheel installation reported `aq 0.9.6`; the final Grok
+  worker used that isolated installation only.
+- A no-hardlink local clone with no local override loaded the checked-in sample
+  Workspace and passed version, Project list, orientation, validation, and
+  Studio snapshot smoke.
 
 ## Progress log
 
@@ -138,7 +168,14 @@ equivalent.
 - 2026-08-01 — Completed and preserved the installed `0.9.5` baseline, then
   began the minimum repair pass without changing the caller-fixed Event design
   or touching OpenAlice's `0.8.31` installation.
+- 2026-08-01 — Implemented and documented the five bounded repairs, completed
+  full regression/build/install checks, and accepted the fresh `0.9.6` worker
+  plus clean-clone replay. OpenAlice remained unchanged at `0.8.31`.
 
 ## Completion
 
-Pending.
+Completed. Demand now owns data scope in both Agent guidance and demonstrated
+behavior. The task-local A-share route is repeatable without date deletion,
+asset-class fiction, cross-adjustment numerical comparison, or handwritten
+provider failure evidence. Remaining adjusted-source freshness and diversity
+limits stay explicit rather than changing the research contract.

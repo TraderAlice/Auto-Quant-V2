@@ -60,9 +60,11 @@ OpenAlice is intentionally unchanged at `0.8.31`. See
 [[plans/demand-led-market-data-field-trial]] and
 [[docs/design/agent-native-market-data-acquisition]].
 
-The pre-final source audit passed all 371 tests in 923.813 seconds and all
-1,276 documentation links. The installed-wheel coworker replay and clean-clone
-release checks are recorded in the completed plan.
+The release audit passed all 371 tests in 923.813 seconds and all 1,279
+documentation links, plus Studio JavaScript syntax, source/wheel builds, fresh
+Python 3.11 installation, a zero-retry installed-wheel Grok 4.5 replay, and a
+no-hardlink clean-clone Workspace smoke. Exact evidence is recorded in the
+completed plan.
 
 ### `v0.9.5`
 

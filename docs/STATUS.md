@@ -31,9 +31,11 @@ Yahoo's one-session adjusted freshness lag and the absence of a second
 adjusted mainland route remain explicit external limitations. OpenAlice stays
 pinned to `0.8.31`.
 
-The pre-final source audit passed 371 tests, 1,276 documentation links, and the
-complete old-Run compatibility suite. Final installed-wheel and clean-clone
-evidence is recorded in [[plans/demand-led-market-data-field-trial]].
+The release audit passed 371 tests, 1,279 documentation links, the complete
+old-Run compatibility suite, Studio JavaScript syntax, source/wheel builds,
+fresh Python 3.11 installation, a zero-retry installed-wheel Grok 4.5 replay,
+and a no-hardlink clean-clone Workspace smoke. Exact evidence is recorded in
+[[plans/demand-led-market-data-field-trial]].
 
 The `0.9.5` patch makes Agent route choice and evidence publication more
 truthful. A public Project-template catalog now states each construction's

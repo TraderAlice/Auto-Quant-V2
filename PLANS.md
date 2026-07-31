@@ -18,9 +18,7 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-| Plan | Outcome | Updated |
-| --- | --- | --- |
-| [[plans/demand-led-market-data-field-trial]] | Prove a fresh coworker can turn a caller question and zero staged OHLCV into truthful two-route acquisition, strict task-local intake, fixed Event evidence, and a bounded handoff. | 2026-08-01 |
+None.
 
 ## Proposed plans
 
@@ -36,6 +34,7 @@ None.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/demand-led-market-data-field-trial]] | Proved a fresh coworker can turn a caller question and zero staged OHLCV into truthful peer-route acquisition, task-local intake, fixed Event evidence, and a bounded handoff without a central inventory. | 2026-08-01 |
 | [[plans/agent-route-and-run-bound-reports]] | Let fresh Agents choose the correct Project construction before intake and report immutable delegated Runs without manufacturing empty editable Sessions. | 2026-08-01 |
 | [[plans/relative-value-monetization-intent-parity]] | Aligned normalized intent with capped complementary relative-value pair construction, preserved ordinary cross-sectional breadth semantics, and proved honest negative selection plus exact downstream parity with two fresh installed-wheel workers. | 2026-08-01 |
 | [[plans/target-translation-robustness-and-loss-attribution]] | Tested temporal target translation across fixed 40/60/120 causal history windows, connected the validation-only stability diagnosis to the existing loss chain, removed the obsolete construction path, and proved `v0.9.3` with a fresh Grok 4.5 assignment. | 2026-07-31 |
