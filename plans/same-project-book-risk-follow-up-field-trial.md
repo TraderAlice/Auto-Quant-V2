@@ -14,10 +14,12 @@
 Prove that “one Project is one evolving body of research” is executable rather
 than documentary language. A fresh coworker must enter the completed
 `0.9.7` U.S. mega-cap Book Risk Project, recognize a caller-specified
-reallocation comparison as a related follow-up, preserve every existing
+reallocation comparison as a related follow-up, preserve every existing fixed
 request, Study, Run, Report, and artifact byte, and add one separately fixed
 Study/Run/Report inside that same Project without creating a duplicate Project
-or weakening immutable evidence.
+or weakening immutable evidence. Agent-maintained `research.md` and
+`framework-needs.md` remain appendable longitudinal notes rather than frozen
+Run evidence.
 
 ## Field assignment
 
@@ -72,8 +74,10 @@ the caller question may not be narrowed or silently mixed across snapshots.
 
 - [ ] The fresh worker chooses the existing U.S. Book Risk Project and creates
   no sibling or nested Project/Workspace.
-- [ ] Every pre-existing Project file remains byte-for-byte unchanged; new
-  state occupies explicit follow-up-owned paths.
+- [ ] Every pre-existing fixed authority and immutable evidence file remains
+  byte-for-byte unchanged; new fixed state occupies explicit follow-up-owned
+  paths. Longitudinal `research.md` and `framework-needs.md` may only receive
+  truthful append-only updates about the follow-up.
 - [ ] The caller's two complete scenarios, common baseline, dataset identity,
   fixed method, and no-selection/no-trading authority are preserved before
   execution.
@@ -96,9 +100,9 @@ the caller question may not be narrowed or silently mixed across snapshots.
 
 - [x] Select a related fixed follow-up that cannot honestly overwrite the old
   request or be dismissed as an unrelated new Project.
-- [ ] Prepare the immutable completed-Project handoff and installed `0.9.7`
+- [x] Prepare the immutable completed-Project handoff and installed `0.9.7`
   worker boundary.
-- [ ] Run the fresh baseline and preserve its transcript/filesystem evidence.
+- [x] Run the fresh baseline and preserve its transcript/filesystem evidence.
 - [ ] Design and implement only the lifecycle repair demonstrated necessary.
 - [ ] Complete final verification, installed-wheel replay, release, and push.
 
@@ -114,6 +118,14 @@ the caller question may not be narrowed or silently mixed across snapshots.
 - 2026-08-01 — Old Runs are not proof that singleton Project inputs may be
   overwritten. The new Study must remain reproducible alongside the old one
   from durable files after conversation context disappears.
+- 2026-08-01 — The installed `0.9.7` baseline correctly continued the existing
+  Project but could not execute the second Study. Its declared alternate
+  snapshot reached the frozen Run dependencies while the fixed Judge and
+  Explorer still required singleton `strategies/position-snapshot.json`.
+- 2026-08-01 — The baseline also exposed an acceptance-language mistake:
+  evolving Project notes are intentionally mutable. Preservation applies to
+  fixed authorities and immutable evidence, not to truthful append-only
+  research and framework-needs logs.
 
 ## Verification
 
@@ -123,6 +135,11 @@ Pending.
 
 - 2026-08-01 — Created and indexed the `0.9.8` plan from the clean released
   `v0.9.7` tag before constructing the follow-up handoff.
+- 2026-08-01 — Fresh Grok baseline used only installed `aq 0.9.7`, stayed in
+  `us-mega-cap-book-risk-v097`, created no Project or Workspace, preserved the
+  original fixed evidence, and stopped honestly after one failed Run proved
+  the singleton Book Risk input defect. Transcript and filesystem evidence
+  are retained in `cohort-14-same-project-book-risk-followup-v097`.
 
 ## Completion
 

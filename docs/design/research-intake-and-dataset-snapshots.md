@@ -26,6 +26,25 @@ It does not fetch market data, authenticate provider claims, compute corporate
 actions, create live subscriptions, start an autonomous Campaign, or deliver
 the result through an optional host.
 
+## Demand-led data, not inventory-led research
+
+AutoQuant acquires and freezes the data required by the clarified research
+question. Existing Project-local bytes may be reused when they exactly satisfy
+the new Study's assets, clock, range, adjustment, provider, and provenance
+contract, but their existence never narrows what the Agent is allowed to
+research. A missing market, symbol, interval, or history segment is a prompt to
+obtain a task-complete package, not a reason to reformulate the caller's
+question around the current inventory.
+
+Cross-Project data deduplication and a Workspace-wide reusable data catalog are
+therefore optional storage optimizations, not Core research semantics. The
+default remains simple and reproducible: each Project or Study binds the exact
+normalized bytes it used, even when that means reacquiring data already held
+elsewhere. This avoids silent snapshot drift, partial-universe reuse, and
+research choices determined by cache accidents. Acquisition Skills may help an
+Agent find suitable sources, but they do not turn source availability into
+scientific authority.
+
 ## Before strict intake
 
 An external assignment may arrive as ordinary conversation in any language.

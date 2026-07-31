@@ -679,6 +679,10 @@ reduction-sensitivity, fixed static-weight drawdown, and explicit
 scenario-delta evidence without pretending that any snapshot is authenticated
 account truth, reconstructed broker equity, or an optimized target.
 See [reported-position Book Risk](docs/design/reported-position-book-risk.md).
+When a later question uses the exact same dataset but needs an independent
+position snapshot, `aq study intake . <study-id> --request <request.json>` adds
+a Study-owned fixed request/Judge/input set inside the same Project. It does
+not overwrite the original Study or manufacture a duplicate Project.
 
 Price-defined conditional-history questions use
 `ohlcv-event-study-lab`. Its first fixed contract preserves a downside opening
@@ -848,6 +852,12 @@ If raw files already exist under `staging/raw-ohlcv/`, place
 `raw-ohlcv/AAPL.csv`. This avoids a temporary second raw-data copy; the
 Project-local normalized content-locked snapshot created by intake remains
 intentional. Parent paths, absolute paths, and symlinks are rejected.
+
+Data acquisition is demand-led. Existing local bytes may satisfy a later
+Study only when their complete identity matches the clarified question; their
+availability never limits which market, symbol, interval, or history the Agent
+may research. Cross-Project deduplication is optional storage work, not a Core
+research contract.
 
 ```bash
 uv run aq schema research-request --json

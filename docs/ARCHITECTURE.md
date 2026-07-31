@@ -350,6 +350,14 @@ assets whose changes silently alter multiple Projects. Disposable caches may
 be shared only when their content identity is explicit and Projects remain
 reproducible without treating the cache as authoritative state.
 
+Likewise, existing data inventory never governs what research may be asked.
+An Agent acquires a task-complete package when required and each Study binds
+its exact normalized bytes. Reusing exact Project-local data for a genuinely
+same-dataset follow-up is valid; a Workspace-wide catalog or cross-Project
+deduplication is only a storage optimization and may not narrow the caller's
+universe, clock, interval, or history. See
+[[docs/design/research-intake-and-dataset-snapshots]].
+
 ### Optional host Harness owns
 
 - materializing or discovering the Workspace desk;

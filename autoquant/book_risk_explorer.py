@@ -182,6 +182,45 @@ def _read_object(path: Path) -> dict[str, Any]:
     return value
 
 
+def _frozen_book_risk_dependency(
+    run,
+    *,
+    flag: str,
+    default: str,
+    code: str,
+) -> Path:
+    frozen_study_path = run.root_dir / "inputs" / "study.json"
+    frozen_study = _read_object(frozen_study_path)
+    judge = frozen_study.get("judge")
+    arguments = judge.get("arguments") if isinstance(judge, dict) else None
+    if not isinstance(arguments, list) or not all(
+        isinstance(item, str) for item in arguments
+    ):
+        _fail(frozen_study_path, code, "Frozen Study Judge arguments are invalid")
+    positions = [index for index, item in enumerate(arguments) if item == flag]
+    if len(positions) > 1 or (
+        positions and positions[0] + 1 >= len(arguments)
+    ):
+        _fail(frozen_study_path, code, f"Frozen Study {flag} binding is invalid")
+    relative = arguments[positions[0] + 1] if positions else default
+    dependencies = run.result.get("dependencies")
+    dependency_hashes = (
+        dependencies.get("sourceHashes")
+        if isinstance(dependencies, dict)
+        else None
+    )
+    if (
+        not isinstance(dependency_hashes, dict)
+        or relative not in dependency_hashes
+    ):
+        _fail(
+            run.root_dir / "inputs" / "dependency-sources",
+            code,
+            f"Book Risk Run did not freeze declared dependency {relative}",
+        )
+    return run.root_dir / "inputs" / "dependency-sources" / relative
+
+
 def _csv_rows(
     path: Path,
     columns: tuple[str, ...],
@@ -1180,12 +1219,11 @@ def load_book_risk_diagnostics(
             "book-risk.report-kind",
             "Invalid Book Risk report identity",
         )
-    frozen_snapshot_path = (
-        run.root_dir
-        / "inputs"
-        / "dependency-sources"
-        / "strategies"
-        / "position-snapshot.json"
+    frozen_snapshot_path = _frozen_book_risk_dependency(
+        run,
+        flag="--position-snapshot",
+        default="strategies/position-snapshot.json",
+        code="book-risk.position-snapshot-dependency",
     )
     frozen_snapshot = _read_object(frozen_snapshot_path)
     validate_position_snapshot(frozen_snapshot, frozen_snapshot_path)

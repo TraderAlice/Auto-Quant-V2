@@ -29,7 +29,7 @@ from autoquant.position_snapshots import (
 )
 from autoquant.runs import execute_study
 from autoquant.sessions import start_session
-from autoquant.studies import hash_file
+from autoquant.studies import hash_file, load_study
 from autoquant.studio import build_studio_snapshot
 from autoquant.templates import BOOK_RISK_STUDY_ID
 from autoquant.workspace import (
@@ -122,6 +122,49 @@ def _book_scenario_request(path: Path) -> None:
                 "NVDA": 0.30,
                 "QQQ": 0.15,
                 "TSLA": 0.10,
+            },
+            "cashWeight": 0.0,
+        },
+    ]
+    path.write_text(
+        json.dumps(request, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _same_book_scenario_request(path: Path) -> None:
+    _book_request(path)
+    request = json.loads(path.read_text(encoding="utf-8"))
+    request["title"] = "Compare two retained-book reallocations"
+    request["question"] = (
+        "How do two caller-supplied reallocations change historical book risk?"
+    )
+    request["positionScenarios"] = [
+        {
+            "id": "fund-aapl-from-nvda",
+            "name": "Fund AAPL from NVDA",
+            "kind": "hypothetical-weights",
+            "asOf": "2024-12-30T21:00:00Z",
+            "baseCurrency": "USD",
+            "weights": {
+                "AAPL": 0.30,
+                "MSFT": 0.25,
+                "NVDA": 0.20,
+                "QQQ": 0.25,
+            },
+            "cashWeight": 0.0,
+        },
+        {
+            "id": "fund-msft-from-nvda",
+            "name": "Fund MSFT from NVDA",
+            "kind": "hypothetical-weights",
+            "asOf": "2024-12-30T21:00:00Z",
+            "baseCurrency": "USD",
+            "weights": {
+                "AAPL": 0.20,
+                "MSFT": 0.35,
+                "NVDA": 0.20,
+                "QQQ": 0.25,
             },
             "cashWeight": 0.0,
         },
@@ -1064,7 +1107,7 @@ class BookRiskLabTests(unittest.TestCase):
                 "ohlcv-book-risk-lab",
                 "--json",
             )
-            self.assertEqual(created.returncode, 0, created.stderr)
+            self.assertEqual(created.returncode, 0, created.stderr or created.stdout)
             envelope = json.loads(created.stdout)
             self.assertEqual(
                 envelope["data"]["intake"]["manifest"]["status"],
@@ -1073,6 +1116,146 @@ class BookRiskLabTests(unittest.TestCase):
             self.assertEqual(
                 [action["id"] for action in envelope["nextActions"]],
                 ["study.inspect", "run.execute"],
+            )
+
+    def test_cli_appends_independent_book_risk_study_over_retained_dataset(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = self._real_project(root)
+            original_run = execute_study(project, BOOK_RISK_STUDY_ID)
+            original_diagnostics = load_book_risk_diagnostics(
+                project,
+                original_run.result["id"],
+                point_limit=20,
+            )
+            fixed_roots = [
+                project.root_dir / "request.json",
+                project.root_dir / "intake.json",
+                project.root_dir / "strategies" / "position-snapshot.json",
+                project.root_dir / "studies" / BOOK_RISK_STUDY_ID,
+                original_run.root_dir,
+            ]
+            original_hashes = {
+                path.relative_to(project.root_dir).as_posix(): hash_file(path)
+                for root_path in fixed_roots
+                for path in (
+                    sorted(root_path.rglob("*"))
+                    if root_path.is_dir()
+                    else [root_path]
+                )
+                if path.is_file()
+            }
+
+            follow_up = root / "follow-up-request.json"
+            follow_up.write_bytes((project.root_dir / "request.json").read_bytes())
+            _same_book_scenario_request(follow_up)
+            created = _run_cli(
+                "study",
+                "intake",
+                str(project.root_dir),
+                "scenario-follow-up",
+                "--request",
+                str(follow_up),
+                "--json",
+            )
+            self.assertEqual(created.returncode, 0, created.stderr or created.stdout)
+            envelope = json.loads(created.stdout)
+            self.assertEqual(envelope["command"], "study.intake")
+            self.assertEqual(
+                envelope["data"]["intake"]["sourceProjectStudyId"],
+                BOOK_RISK_STUDY_ID,
+            )
+            study = load_study(project, "scenario-follow-up")
+            self.assertEqual(study.editable_hashes, {})
+            self.assertEqual(
+                study.definition.judge.arguments,
+                [
+                    "--position-snapshot",
+                    "strategies/book-risk-studies/scenario-follow-up/position-snapshot.json",
+                    "--scenarios",
+                    "strategies/book-risk-studies/scenario-follow-up/book-risk-scenarios.json",
+                ],
+            )
+            self.assertEqual(
+                study.dataset_hash,
+                load_study(project, BOOK_RISK_STUDY_ID).dataset_hash,
+            )
+
+            follow_up_run = execute_study(project, "scenario-follow-up")
+            self.assertEqual(follow_up_run.result["status"], "succeeded")
+            follow_up_diagnostics = load_book_risk_diagnostics(
+                project,
+                follow_up_run.result["id"],
+                point_limit=20,
+            )
+            self.assertEqual(
+                [
+                    row["id"]
+                    for row in follow_up_diagnostics["scenarioComparison"]["scenarios"]
+                ],
+                ["fund-aapl-from-nvda", "fund-msft-from-nvda"],
+            )
+            self.assertEqual(
+                load_book_risk_diagnostics(
+                    project,
+                    original_run.result["id"],
+                    point_limit=20,
+                )["positionSnapshot"],
+                original_diagnostics["positionSnapshot"],
+            )
+            for relative, expected in original_hashes.items():
+                self.assertEqual(
+                    hash_file(project.root_dir / relative),
+                    expected,
+                    relative,
+                )
+            studio = build_studio_snapshot(project.root_dir)["projects"][0]
+            self.assertEqual(
+                studio["bookRiskExplorer"]["run"]["id"],
+                follow_up_run.result["id"],
+            )
+
+    def test_book_risk_study_intake_rejects_dataset_drift_without_artifacts(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = self._real_project(root)
+            follow_up = root / "follow-up-request.json"
+            follow_up.write_bytes((project.root_dir / "request.json").read_bytes())
+            _same_book_scenario_request(follow_up)
+            request = json.loads(follow_up.read_text(encoding="utf-8"))
+            request["assets"][0]["venue"] = "XNYS"
+            follow_up.write_text(
+                json.dumps(request, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+
+            rejected = _run_cli(
+                "study",
+                "intake",
+                str(project.root_dir),
+                "dataset-drift",
+                "--request",
+                str(follow_up),
+                "--json",
+            )
+            self.assertEqual(rejected.returncode, 1)
+            envelope = json.loads(rejected.stdout)
+            self.assertEqual(
+                envelope["error"]["issues"][0]["code"],
+                "study-intake.dataset-assets",
+            )
+            self.assertFalse(
+                (project.root_dir / "studies" / "dataset-drift").exists()
+            )
+            self.assertFalse(
+                (project.root_dir / "strategies" / "book-risk-studies").exists()
+            )
+            self.assertFalse(
+                (project.root_dir / "judges" / "book-risk-studies").exists()
             )
 
     def test_caller_supplied_funded_scenarios_share_one_fixed_run(

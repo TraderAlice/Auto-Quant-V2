@@ -25,6 +25,7 @@ from .book_risk_explorer import (
     MIN_BOOK_RISK_POINTS,
     load_book_risk_diagnostics,
 )
+from .book_risk_studies import create_book_risk_study_intake
 from .capabilities import CLI_COMMANDS
 from .candidate_contracts import (
     FACTOR_CANDIDATE_CONTRACT_JSON_SCHEMA,
@@ -494,6 +495,28 @@ def build_parser() -> RaisingArgumentParser:
 
     study = subcommands.add_parser("study", help="manage fixed quantitative Studies")
     study_actions = study.add_subparsers(dest="study_action", required=True)
+    study_intake = study_actions.add_parser(
+        "intake",
+        help=(
+            "append one request-owned fixed Book Risk Study over an existing "
+            "Project dataset"
+        ),
+    )
+    study_intake.add_argument("path")
+    study_intake.add_argument("study_id")
+    study_intake.add_argument("--project")
+    study_intake.add_argument(
+        "--request",
+        required=True,
+        help=(
+            "strict Research Request with the same asset descriptions as the "
+            "retained Book Risk Project"
+        ),
+    )
+    study_intake.add_argument("--name")
+    study_intake.set_defaults(command_id="study.intake")
+    _json_argument(study_intake)
+
     study_create = study_actions.add_parser(
         "create",
         help="create one fixed Project-local Study",
@@ -1902,6 +1925,68 @@ def _study_create(args: argparse.Namespace) -> CommandResult:
             next_action(
                 "run.execute",
                 "Execute the fixed Study through its bounded Python Judge.",
+                [
+                    "aq",
+                    "run",
+                    "execute",
+                    str(project.root_dir),
+                    "--study",
+                    study.definition.id,
+                    "--json",
+                ],
+                "creates-artifact",
+            )
+        ],
+    )
+
+
+def _study_intake(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    study, intake = create_book_risk_study_intake(
+        project,
+        args.study_id,
+        args.request,
+        name=args.name,
+    )
+    return CommandResult(
+        "study.intake",
+        {
+            "study": _study_data(project, study),
+            "intake": intake,
+        },
+        (
+            f"Created fixed Book Risk Study '{study.definition.id}' at "
+            f"{study.root_dir}\n"
+            f"Request: {intake['requestPath']}\n"
+            f"Position snapshot: {intake['positionSnapshotPath']}\n"
+            f"Retained dataset hash: {intake['datasetHash']}\n"
+            "Authority: historical decision support only; no trading authority\n"
+        ),
+        project_context(project),
+        [
+            artifact(
+                "study",
+                study.definition.id,
+                study.manifest_path,
+                immutable=False,
+            ),
+            artifact(
+                "research-request",
+                f"{study.definition.id}:request",
+                project.root_dir / intake["requestPath"],
+                immutable=False,
+            ),
+            artifact(
+                "position-snapshot",
+                intake["positionSnapshotId"],
+                project.root_dir / intake["positionSnapshotPath"],
+                immutable=False,
+            ),
+        ],
+        [
+            next_action(
+                "run.execute",
+                "Execute this independently fixed Book Risk Study.",
                 [
                     "aq",
                     "run",
@@ -4817,6 +4902,8 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
         return _validate(args)
     if args.command_id == "inspect":
         return _inspect(args)
+    if args.command_id == "study.intake":
+        return _study_intake(args)
     if args.command_id == "study.create":
         return _study_create(args)
     if args.command_id == "study.list":

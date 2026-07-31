@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import argparse
 import csv
 import hashlib
 import json
 import math
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 import numpy as np
@@ -60,8 +61,46 @@ def _read_object(path: Path, code: str) -> dict[str, Any]:
     return value
 
 
-def _load_scenarios(project_root: Path) -> dict[str, Any]:
-    path = project_root / "strategies" / "book-risk-scenarios.json"
+def _fixed_input_path(project_root: Path, value: str, code: str) -> Path:
+    relative = PurePosixPath(value)
+    if (
+        "\\" in value
+        or relative.is_absolute()
+        or value in {"", ".", ".."}
+        or ".." in relative.parts
+    ):
+        raise JudgeFailure(code, "Fixed input must be a confined Project-relative path")
+    path = (project_root / Path(*relative.parts)).resolve()
+    try:
+        path.relative_to(project_root)
+    except ValueError:
+        raise JudgeFailure(code, "Fixed input escapes the execution Project") from None
+    return path
+
+
+def _arguments() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(add_help=False, exit_on_error=False)
+    parser.add_argument(
+        "--position-snapshot",
+        default="strategies/position-snapshot.json",
+    )
+    parser.add_argument(
+        "--scenarios",
+        default="strategies/book-risk-scenarios.json",
+    )
+    try:
+        arguments, unknown = parser.parse_known_args()
+    except argparse.ArgumentError as error:
+        raise JudgeFailure("book-risk.arguments", str(error)) from error
+    if unknown:
+        raise JudgeFailure(
+            "book-risk.arguments",
+            "Unsupported fixed Judge arguments: " + ", ".join(unknown),
+        )
+    return arguments
+
+
+def _load_scenarios(path: Path) -> dict[str, Any]:
     value = _read_object(path, "book-risk.scenarios")
     if set(value) != {
         "schemaVersion",
@@ -668,12 +707,17 @@ def main() -> None:
         project_root = Path(os.environ["AUTOQUANT_PROJECT_ROOT"]).resolve()
         data_root = Path(os.environ["AUTOQUANT_DATA_ROOT"]).resolve()
         artifacts = Path(os.environ["AUTOQUANT_ARTIFACTS_DIR"]).resolve()
+        arguments = _arguments()
         study = _read_object(
             Path(os.environ["AUTOQUANT_STUDY_PATH"]),
             "study.invalid",
         )
         snapshot = _read_object(
-            project_root / "strategies" / "position-snapshot.json",
+            _fixed_input_path(
+                project_root,
+                arguments.position_snapshot,
+                "book-risk.position-snapshot",
+            ),
             "book-risk.position-snapshot",
         )
         weights_raw = snapshot.get("weights")
@@ -744,7 +788,13 @@ def main() -> None:
                 "book-risk.position-sizing",
                 "Position sizing cannot coexist with supplied scenarios",
             )
-        scenarios = _load_scenarios(project_root)
+        scenarios = _load_scenarios(
+            _fixed_input_path(
+                project_root,
+                arguments.scenarios,
+                "book-risk.scenarios",
+            )
+        )
         if sizing_policy is not None:
             # A caller-authorized sizing path is governed by one exact
             # covariance window. Keep every fixed diagnostic lookback, but

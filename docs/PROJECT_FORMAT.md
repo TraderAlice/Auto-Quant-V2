@@ -196,6 +196,29 @@ scenario books remain caller-hypothetical and unauthenticated. Neither is ever
 replaced with model targets. See
 [[docs/design/reported-position-book-risk]].
 
+A completed Book Risk Project may later own another related request without
+overwriting that singleton intake. `aq study intake` writes the continuation
+under explicit Study-owned namespaces:
+
+```text
+strategies/book-risk-studies/<study-id>/
+├── request.json
+├── position-snapshot.json
+└── book-risk-scenarios.json
+
+judges/book-risk-studies/<study-id>/judge.py
+studies/<study-id>/
+├── study.json
+└── program.md
+```
+
+The new Study declares all three strategy-side files as fixed dependencies and
+passes their paths to its own current Judge. Its dataset definition and hashes
+must exactly equal the retained primary Book Risk Study. Old Project-root
+request/snapshot/Judge bytes and immutable evidence remain independently
+loadable. Project research notes may continue to record the longitudinal
+question; they are not Run inputs.
+
 The Event Study template derives `strategies/event-study.json` from strict
 `request.eventPolicy`. The first policy supports one downside opening-gap
 event, one event asset, one reference asset, exact wait/holding bars,

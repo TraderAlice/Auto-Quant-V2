@@ -796,6 +796,7 @@ class AgentCliTests(unittest.TestCase):
                 "project.program",
                 "validate",
                 "inspect",
+                "study.intake",
                 "study.create",
                 "study.list",
                 "study.inspect",

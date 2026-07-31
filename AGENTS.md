@@ -108,6 +108,12 @@ brief that another Agent can recover from the filesystem.
    external origin. Preserve exact Workspace, Session, artifact, and revision
    identifiers only when supplied; otherwise use JSON `null` rather than
    inventing trial or path-derived ids.
+   For a related fixed Book Risk question over the exact retained dataset,
+   use `aq study intake <project> <study-id> --request <request.json>` to add
+   Study-owned authority. Do not overwrite the Project-root request/snapshot
+   or create a duplicate Project merely to represent the follow-up. If its
+   asset descriptions or data meaning differ, acquire a task-complete package
+   for a new Project instead.
 8. After every Experiment, re-read `aq orient`. Treat
    `evidence.latestExperiment` as the immutable trial/check pointer and
    `trial-review-required` as an Agent/caller choice to report/complete or

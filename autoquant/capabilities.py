@@ -444,6 +444,41 @@ CLI_COMMANDS = [
         ],
     ),
     descriptor(
+        "study.intake",
+        "aq study intake <path> <study-id> --request FILE [--project ID] [--json]",
+        "Append one independently fixed request-owned Book Risk Study over "
+        "an existing Project dataset.",
+        "creates-artifact",
+        [
+            PATH_ARGUMENT,
+            argument(
+                "study-id",
+                "positional",
+                "string",
+                True,
+                "Lowercase kebab-case Study id.",
+            ),
+            PROJECT_ARGUMENT,
+            argument(
+                "request",
+                "option",
+                "string",
+                True,
+                "Strict Book Risk Research Request preserving the retained "
+                "dataset asset descriptions.",
+            ),
+            argument(
+                "name",
+                "option",
+                "string",
+                False,
+                "Study display name.",
+                default="Request title",
+            ),
+            JSON_ARGUMENT,
+        ],
+    ),
+    descriptor(
         "study.create",
         "aq study create <path> <study-id> [contract options] [--json]",
         "Create and validate one fixed Project-local quantitative Study.",

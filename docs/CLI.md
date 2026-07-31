@@ -410,6 +410,10 @@ with no completed Session still requires its first Session. See
 ## Study and Run commands
 
 ```bash
+aq study intake <path> <study-id> \
+  --request <book-risk-request.json> \
+  [--project ID] [--json]
+
 aq study create <path> <study-id> \
   --subject-kind factor \
   --judge judges/evaluate.py \
@@ -442,6 +446,16 @@ aq run allocation <path> --run ID \
 aq run rl <path> --run ID \
   [--points 180] [--project ID] [--json]
 ```
+
+`study intake` is a deliberately narrow continuation path for an already
+request-bound `ohlcv-book-risk-lab` Project. The new strict Research Request
+must preserve the original asset descriptions and fit the retained dataset
+range. Core creates Study-owned request, position-snapshot, covariance-method,
+and current Judge files, binds the exact existing dataset bytes, and leaves the
+Project-root request, original Study, Runs, and Reports untouched. The result
+is another fixed descriptive Study with no editable candidate or Session. A
+different universe, roles, clock, range, or dataset meaning requires acquiring
+task-complete data for a new Project instead of stretching the old snapshot.
 
 `--dataset-path` is optional and repeatable. When provided it is relative to
 the selected Project's `data/` directory and binds matching file bytes into
