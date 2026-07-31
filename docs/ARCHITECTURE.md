@@ -339,7 +339,8 @@ location. Git history remains its archive. See
 - factors, features, strategies, models, and project-local research code;
 - Study and Session history;
 - immutable Researcher Campaign evidence;
-- exact delegated request/Brief context and immutable Research Reports;
+- exact delegated request/Brief context and immutable Run- or Session-bound
+  Research Reports;
 - immutable Run evidence and reviewed candidates;
 - project-specific notebooks, reports, and presentation assets.
 - Project-observed reusable Workbench gaps in `framework-needs.md`.
@@ -383,7 +384,7 @@ local question or delegated request
 → execute
 → structured metrics and artifacts
 → review
-→ keep, revert, branch, or promote
+→ either direct Run Report or keep, revert, branch, or promote in a Session
 → evidence-bound lane Report
 → Project Research Dossier
 → local review or optional host delivery
@@ -444,8 +445,8 @@ cannot own Workspace, Project, or evidence semantics.
 - Bounded external Researcher orchestration and Campaign evidence:
   `autoquant/research.py`
 - Delegated request and derived Brief contracts: `autoquant/briefs.py`
-- Immutable Research Report publication and verification:
-  `autoquant/reports.py`
+- Immutable Session- and Run-bound Research Report publication and
+  verification: `autoquant/reports.py` and `autoquant/run_reports.py`
 - Immutable Project Research Dossier composition and verification:
   `autoquant/dossiers.py`
 - Frozen cross-Project external-period binding and result verification:
@@ -513,6 +514,8 @@ cannot own Workspace, Project, or evidence semantics.
   [[docs/design/agent-native-quant-workbench]]
 - Quantitative research lifecycle and durable delivery:
   [[docs/design/quant-research-lifecycle]]
+- Direct immutable-Run and governed-Session Report anchors:
+  [[docs/design/run-bound-research-reports]]
 - Studio operator guide: [[docs/STUDIO]]
 - Retired Classic/Freqtrade boundary:
   [[docs/design/retired-flat-freqtrade-harness]]

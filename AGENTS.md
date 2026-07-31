@@ -73,9 +73,12 @@ brief that another Agent can recover from the filesystem.
    assignment belongs to its evolving research question; do not create a new
    Project merely because a new coworker or conversation arrived.
 2. When the assignment is genuinely new, create its construction site with
-   `aq project create <workspace> <project-id>`. Use `--template blank` while
-   the appropriate research method is still unclear. Select a specialized
-   template only when the understood question already fits that contract.
+   `aq project create <workspace> <project-id>`. First inspect
+   `aq project templates`; use its fit and anti-fit contracts rather than
+   guessing from template names. Use `--template blank` while the appropriate
+   research method is still unclear. Factor evidence that must feed Portfolio
+   or governed RL belongs in `ohlcv-research-desk`, not a standalone Portfolio
+   Lab.
 3. Before quantitative work, read and update the Project-root `research.md`.
    Rewrite the incoming assignment in English and preserve useful source
    context, including a verbatim caller statement when precision requires it.
@@ -157,6 +160,14 @@ with `--request request.json` so the delegated brief is visible before research
 and a terminal Report can be published. The CLI also binds that verified
 Project request by default when `--request` is omitted; an unbound local
 Project keeps the optional request-free Session behavior.
+
+Do not create a Session merely to obtain a Report directory. When one
+successful current immutable Run already answers the bounded request and no
+candidate editing occurred, publish directly with `aq report publish --study
+ID --run ID --analysis FILE`. Start a Session only for a real editable
+investigation; once it exists for a lane, its evidence and Report take
+precedence over an older direct Run Report. See
+[[docs/design/run-bound-research-reports]].
 
 When writing `request.horizonPolicy`, declare the required primary horizon
 once. `diagnosticForwardBars` may contain only the additional sorted context
@@ -256,6 +267,8 @@ Read the relevant linked document before changing a subsystem:
 - AI-primary operator, human-reviewer roles, compact Agent Work Brief,
   filesystem authority, and CLI/Studio orientation parity:
   [[docs/design/agent-operator-experience]]
+- Direct immutable-Run versus governed-Session Report ownership, anchors, and
+  coordinated-program precedence: [[docs/design/run-bound-research-reports]]
 - Fresh-worker isolation, employability evidence grades, trial observation,
   friction promotion, and the OpenAlice readiness gate:
   [[docs/agent-employability-validation]]

@@ -404,14 +404,16 @@ older Runs show unavailable. The browser consumes the strict Core projection
 and never recomputes or promotes a profile.
 
 For a request-driven Project with no Session, the delivery board shows
-`research mandate → dataset → immutable baseline → iterate`. The hero promotes
+`research mandate → dataset → immutable baseline → report or iterate`. The hero promotes
 the latest verified Run's decision metrics over generic object counts, and the
 Inspector presents request scope, dataset authority, baseline evidence, and a
-copy-only start command before the long research program. Positive values are
-not coloured as success without a fixed pass threshold; negative return/risk
-evidence is visibly adverse. Once the delegated Session exists, the established
-`request → governed evidence → decision-support report` projection replaces
-that pre-Session state.
+copy-only Run-report or Session-start command before the long research program.
+If a Project-owned Run Report already exists, Studio projects it as immutable
+decision support while truthfully showing zero Sessions, Checks, and
+Experiments. Positive values are not coloured as success without a fixed pass
+threshold; negative return/risk evidence is visibly adverse. Once the
+delegated Session exists, its established `request → governed evidence →
+decision-support report` projection takes precedence over an older Run Report.
 
 ## Machine-readable snapshot
 

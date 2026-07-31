@@ -16,8 +16,10 @@ KEEP/REVERT/CRASH comparison, leader restoration, and guarded promotion.
 
 It does not own the Researcher's model/provider, proposal quality, parallel
 search, portfolio guardrails, or Studio presentation. Delegated request/Brief
-and Report files compose the Session boundary, while their end-to-end handoff
-semantics are owned by [[docs/design/quant-research-lifecycle]].
+and Session-bound Report files compose this boundary. A Project-owned Report
+over a current immutable Run is deliberately outside the Session model; see
+[[docs/design/run-bound-research-reports]]. End-to-end handoff semantics are
+owned by [[docs/design/quant-research-lifecycle]].
 
 ## Authority model
 

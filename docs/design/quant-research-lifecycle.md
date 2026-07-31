@@ -13,6 +13,7 @@ Related: [[docs/design/agent-native-quant-workbench]],
 [[docs/design/request-bound-portfolio-mandates]],
 [[docs/design/executed-book-risk-compliance]],
 [[docs/design/rl-factor-policy-lab]],
+[[docs/design/run-bound-research-reports]],
 [[docs/design/research-selection-integrity]], and
 [[docs/design/session-decision-matrix]].
 
@@ -40,8 +41,9 @@ The durable lifecycle is:
 local question or delegated coworker request
 → optional strict Research Request
 → self-contained Project and fixed Study
-→ governed Session with derived Research Brief
-→ bounded Runs, Experiments, and Campaigns
+→ immutable Run
+→ either direct Run Report or governed Session investigation
+→ bounded Experiments and Campaigns when candidate iteration is required
 → immutable lane Research Reports
 → immutable Project Research Dossier
 → local review, Agent-to-Agent delivery, or optional host publication
@@ -49,11 +51,13 @@ local question or delegated coworker request
 ```
 
 A Project is the construction site for one evolving research problem. A Study
-is one fixed evaluation question inside it. A Session is one active line of
-candidate research against that fixed authority and ends by either promoting
-an improved KEEP or completing against an exact baseline-retaining Report. A Run is one immutable
-execution. A Report is one lane's content-hashed deliverable over an exact
-evidence snapshot. A Dossier composes verified current lane Reports into the
+is one fixed evaluation question inside it. A Run is one immutable execution.
+A Session is one active line of candidate research against that fixed
+authority and ends by either promoting an improved KEEP or completing against
+an exact baseline-retaining Report. A Report is one lane's content-hashed
+deliverable over either a current immutable Run or a governed Session evidence
+prefix. A frozen reproduction needs no Session; a conclusion based on candidate
+search does. A Dossier composes verified current lane Reports into the
 Project-level answer without re-evaluating raw Runs. Neither artifact is
 required to communicate through a private service protocol; another Agent or
 human can read the same files directly.

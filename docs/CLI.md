@@ -864,22 +864,33 @@ protocol in their own sandbox.
 
 ```bash
 aq report publish <path> \
-  --session ID \
+  (--session ID | --study ID --run ID) \
   --analysis report-analysis.json \
   [--project ID] [--json]
-aq report list <path> --session ID [--project ID] [--json]
+aq report list <path> \
+  [--session ID | --study ID] \
+  [--project ID] [--json]
 aq report show <path> \
-  --session ID \
+  [--session ID] \
   --report ID \
   [--project ID] [--json]
 ```
 
-`report publish` is available only for a delegated Session. The Agent-authored
-analysis is strict JSON: title, executive summary, findings with confidence,
-conditional recommendations, limitations, unresolved questions, and exact
-Run/Experiment/Campaign evidence references. A Run reference may also name one
-of that Run's declared artifact paths. Every recommendation contains all four
-fields: `action`, `rationale`, `conditions`, and `evidenceRefs`.
+`report publish` accepts exactly one evidence anchor. `--session` publishes a
+Session-owned Report over the verified Experiment/Campaign prefix. `--study`
+plus `--run` publishes a Project-owned Report directly over one successful,
+current immutable Run in a verified request-driven Project. The direct Run
+route creates no Session, Check, Experiment, completion, or promotion state.
+Use it for a frozen baseline or fixed delegated reproduction; use the Session
+route when the conclusion depends on candidate iteration.
+
+The Agent-authored analysis is strict JSON: title, executive summary, findings
+with confidence, conditional recommendations, limitations, unresolved
+questions, and exact evidence references. A Run reference may also name one of
+that Run's declared artifact paths. Session Reports may additionally cite
+Experiments and Campaigns; Run Reports reject those kinds. Every
+recommendation contains all four fields: `action`, `rationale`, `conditions`,
+and `evidenceRefs`.
 
 `aq schema report-analysis --json` carries the executable reference contract
 and one complete copyable analysis example. Start from that complete object
@@ -907,16 +918,15 @@ selectable declared artifact, so their required `artifactPath` field is
 ```
 
 Core does not write the conclusions. It validates every reference against the
-verified Session history, freezes the current baseline/leader, Run metrics,
-Experiments, Campaigns, Study locks, Harness, dataset, request, and Brief, then
-atomically publishes:
+selected anchor and freezes its exact Run metrics, Study locks, Harness,
+dataset, request, selection integrity, and decision-support evidence. A
+Session Report additionally freezes the current baseline/leader, Experiment
+and Campaign prefix, and Brief. Publication is atomic. Run Reports live at the
+Project root; Session Reports remain under their owning Session:
 
 ```text
-reports/report-<UTC timestamp>-<identity>/
-├── analysis.json
-├── report.json
-├── report.md
-└── manifest.json
+<project>/reports/report-.../             # anchor.kind = run
+<project>/sessions/<session>/reports/...  # anchor.kind = session
 ```
 
 `report.md` is rendered deterministically for human or Agent review.
@@ -932,6 +942,10 @@ execution gate, cap count, effective risk bets, correlation-breakdown ladder,
 and validation failure stage. Reports created before newer optional snapshots
 remain loadable without backfilling; legacy Reports may omit the entire
 decision-support field.
+Every CLI/JSON summary exposes `anchor.kind`, Study, Run, and nullable Session
+identity. `report list` with `--session` searches that Session; without it the
+command searches Project-owned Run Reports and may filter by `--study`.
+
 Later Session research does not reinterpret an older report; its frozen
 Experiment/Campaign catalogs must remain chronological prefixes of the
 verified history. The artifact is complete for standalone review or direct

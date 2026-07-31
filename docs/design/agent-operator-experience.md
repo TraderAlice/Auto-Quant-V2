@@ -311,6 +311,12 @@ Stable Project-level reason categories distinguish:
 - `baseline-completion-ready`;
 - `required-research-complete`.
 
+For a current immutable Run with no Session, `report-required` is primary when
+the verified research agenda freezes in-sample work and exposes no editable
+target. `session-required` remains correct when a real bounded candidate
+investigation is still proposed. Orientation must not make an Agent infer this
+distinction by comparing lower-level commands manually.
+
 Implementation may add more specific codes, but it must not collapse
 scientific rejection into missing workflow state or describe an immutable
 negative result as an infrastructure failure.

@@ -102,7 +102,8 @@ writer-reader conflict: finish promotion, then start a fresh RL Session.
   Project source, falling back to the latest attempt only when no current
   evidence exists;
 - latest Session, experiment count, leader, and active state;
-- immutable Reports for that Session;
+- immutable Reports for that Session, or a Project-owned current Run Report
+  only when no Session exists for the lane;
 - shared writer/writer and writer/reader concurrency conflicts.
 
 Each lane is projected as:
@@ -110,7 +111,8 @@ Each lane is projected as:
 - `not-started`: no Run or Session evidence;
 - `baseline-ready`: current immutable Run exists, no Session;
 - `researching`: an active Session exists;
-- `reported`: the latest Session has an immutable Report;
+- `reported`: the latest Session has an immutable Report, or no Session exists
+  and the current Run has a Project-owned immutable Report;
 - `stale`: Project Runs exist, but no successful Run matches current Study
   input.
 
@@ -145,6 +147,8 @@ it from metric signs or lane phases.
 Core generates exact copy-only commands. It may recommend:
 
 - inspect or execute a missing/stale Study baseline;
+- publish a Run-bound Report over current immutable evidence when no candidate
+  investigation is needed;
 - start a delegated Session using the preserved request;
 - inspect an active Session;
 - inspect an immutable Report;
@@ -182,3 +186,6 @@ the identical object through CLI JSON.
 12. Gate authority is research prioritization only: validation evidence and
    visible test audit may govern which experiment to run next, but no gate has
    trading authority.
+13. A Session takes precedence over an older Project-owned Run Report for its
+   lane. Starting an editable investigation cannot be bypassed by reporting an
+   earlier baseline.

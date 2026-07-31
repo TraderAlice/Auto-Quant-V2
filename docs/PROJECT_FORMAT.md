@@ -75,6 +75,12 @@ special Core behavior.
 
 ## Project
 
+Use `aq project templates` before choosing a construction. Its public
+human/JSON catalog gives every route a purpose, lane set, positive fit, and
+anti-fit. In particular, `ohlcv-portfolio-lab` is a standalone Portfolio lane;
+when Factor evidence must feed Portfolio or governed RL in the same assignment,
+the required construction is `ohlcv-research-desk`.
+
 `aq project create` produces a complete blank Project. The optional
 `--template ohlcv-factor-lab`, `--template ohlcv-portfolio-lab`, or
 `--template ohlcv-rl-factor-lab` construction input additionally creates an
@@ -695,6 +701,28 @@ record a metric-only not-applicable state and do not emit this artifact. See
 `manifest.json` is written last and pins every other Run file hash. Run listing
 ignores incomplete directories; opening a completed Run rejects changed,
 deleted, or added files.
+
+## Project-owned Run Reports
+
+An already immutable current Study Run can be interpreted without starting an
+editable Session. A request-bound Project may therefore contain:
+
+```text
+reports/
+└── report-<UTC timestamp>-<identity>/
+    ├── analysis.json
+    ├── report.json
+    ├── report.md
+    └── manifest.json
+```
+
+This Report has an explicit `anchor.kind: run`, the exact Study/Run/result and
+Study-input hashes, and `sessionId: null`. It freezes the verified Project
+request, Run, Harness, dataset, selection-integrity, and decision-support
+evidence. It cannot cite Experiments or Campaigns and creates no Session,
+Check, Experiment, completion, or promotion state. Session-owned Reports below
+remain the correct path when a conclusion depends on editable candidate-search
+history. See [[docs/design/run-bound-research-reports]].
 
 ## Research Session and Experiment
 
