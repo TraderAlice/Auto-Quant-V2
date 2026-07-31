@@ -94,13 +94,13 @@ or trading authority is requested.
 - [ ] The follow-up request fixes the same universe, weights, method, ceiling,
   and research-only authority while moving only the completed-session as-of
   boundary to `2026-07-31`.
-- [ ] A fresh worker uses public installed Workbench surfaces, keeps one
+- [x] A fresh worker uses public installed Workbench surfaces, keeps one
   Project, and does not inspect repository or private package implementation.
 - [ ] Fresh acquisition and package evidence satisfy the complete updated
   request before quantitative intake; local inventory never narrows the task.
 - [ ] The new request, dataset snapshot, fixed Study, Run, and Report have
   explicit independent identities and remain loadable beside the original.
-- [ ] Every original fixed-authority and immutable-evidence file remains
+- [x] Every original fixed-authority and immutable-evidence file remains
   byte-identical; any allowed `research.md` append is separately disclosed.
 - [ ] The refreshed handoff compares old and new findings without treating
   historical-model changes as forecasts, orders, or live-account authority.
@@ -114,7 +114,7 @@ or trading authority is requested.
 - [x] Audit the singleton Project intake and dataset closure in released
   `v0.9.9`.
 - [x] Prepare and independently verify the historical-cutoff baseline Project.
-- [ ] Run and review the fresh `0.9.9` follow-up worker.
+- [x] Run and review the fresh `0.9.9` follow-up worker.
 - [ ] Implement only reproduced reusable friction and rerun the assignment.
 - [ ] Complete release documentation and final verification, tag, and push.
 
@@ -136,6 +136,22 @@ or trading authority is requested.
   mismatch under the fixed tolerance and retained provider volume differences.
   Strict intake, fixed Book Risk Run, direct Report, validation, orientation,
   and public Report loading all passed.
+- 2026-08-01 — Fresh Grok `0.9.9` independently reproduced the singleton
+  boundary using only public surfaces. `project intake` refused to replace the
+  completed Project (`project.intake-scaffold-modified`); `study intake`
+  refused the later snapshot as-of because it could only bind the retained
+  `2026-07-30` dataset (`study-intake.dataset-range`). It did not create a
+  second Project or misleading Study/Run/Report.
+- 2026-08-01 — Yahoo supplied all five names through `2026-07-31`; Nasdaq.com's
+  display route still ended `2026-07-30` at baseline retrieval. The 1,399-row
+  overlap was semantically compatible with zero close mismatches under the
+  fixed tolerance, and the one-session freshness gap remained explicit. This
+  is a provider-timing limitation separate from the reproduced Core gap.
+- 2026-08-01 — The smallest coherent repair is not a mutable Project refresh.
+  Extend request-owned Book Risk Study intake to optionally admit a complete
+  Study-owned dataset package and bind the new Study to that immutable closure.
+  Project-root intake remains the original construction record; old Studies
+  keep their old dataset paths and hashes.
 
 ## Verification
 
@@ -153,6 +169,12 @@ Pending.
   `run-20260731T233720467155Z-1a227c68d6c1`, and Report
   `report-20260731T233804152663Z-e0f3a05e93d6`; a pristine Project copy and
   exact tree hashes are retained for host-side preservation review.
+- 2026-08-01 — Grok session `019fba8d-1970-7402-82fb-ee94b807bd39`
+  stopped truthfully in 16 turns. It wrote the refresh brief before
+  acquisition, preserved both new provider packages and public failure
+  envelopes, changed only longitudinal `research.md` and `framework-needs.md`,
+  kept all 44 fixed/immutable original files byte-identical, and left the
+  original Project valid with exactly one Study, Run, and Report.
 
 ## Completion
 
