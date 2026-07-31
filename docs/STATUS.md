@@ -29,14 +29,28 @@ the Project-singleton path.
 asset descriptions and dataset range, then writes Study-owned request,
 position-snapshot, covariance-method, and current-Judge paths. The fixed Judge
 receives those paths explicitly; Explorer resolves the same snapshot from the
-Run's frozen Study arguments. A source-checkout replay against the actual
-completed `0.9.7` Project produced a second successful Run and direct Report,
-kept both Reports independently readable, and changed none of the 47 original
-files. Evolving `research.md` and `framework-needs.md` remain longitudinal
-notes; preservation applies to fixed authority and immutable evidence. Data
+Run's frozen Study arguments. Direct Report publication resolves the request
+from immutable Run inputs and verifies it against the frozen position snapshot,
+so the follow-up Report cannot be mislabeled with the Project-root question.
+Multiple independent fixed Studies remain explicit-selection territory;
+orientation preserves that boundary while acknowledging their existing
+evidence.
+
+The final installed-wheel Grok 4.5 replay used public CLI, schemas, and
+materialized Skills without reading package implementation. It produced the
+second successful Study, Run, Explorer answer, and direct Report inside the
+existing Project, kept both old and new Reports independently readable, and
+changed none of the original 47 files except the explicitly longitudinal
+`research.md`. Evolving `research.md` and `framework-needs.md` remain notes;
+preservation applies to fixed authority and immutable evidence. Data
 acquisition remains demand-led rather than inventory-led, and OpenAlice stays
 pinned to `0.8.31`. Exact field and final release evidence is recorded in
 [[plans/same-project-book-risk-follow-up-field-trial]].
+
+The release audit passed 376 tests in 925.726 seconds, 1,298 documentation
+links, lock and Python/JavaScript syntax checks, source/wheel build, fresh
+Python 3.11.14 wheel installation with 52 public commands, the final isolated
+Grok replay, and a no-hardlink clean-clone root-Workspace smoke.
 
 The `0.9.7` patch proves a long-lived Workspace can preserve completed A-share
 Event research byte-for-byte while accepting a separate U.S. Book Risk task

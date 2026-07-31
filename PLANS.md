@@ -18,9 +18,7 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-| Plan | Outcome | Updated |
-| --- | --- | --- |
-| [[plans/same-project-book-risk-follow-up-field-trial]] | Prove a related caller-supplied Book Risk scenario question can add one independently fixed Study/Run/Report inside the completed Project without mutating old evidence or multiplying Projects. | 2026-08-01 |
+None.
 
 ## Proposed plans
 
@@ -36,6 +34,7 @@ None.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/same-project-book-risk-follow-up-field-trial]] | Proved a related caller-supplied Book Risk scenario question can add one independently fixed Study/Run/Report inside the completed Project without mutating old evidence, multiplying Projects, or inheriting the wrong Report request. | 2026-08-01 |
 | [[plans/long-lived-cross-market-workspace-field-trial]] | Proved a long-lived desk can preserve a completed A-share Project byte-for-byte while a fresh coworker adds one isolated U.S. Book Risk sibling from aligned task-local data and answers the caller's exact governing window. | 2026-08-01 |
 | [[plans/demand-led-market-data-field-trial]] | Proved a fresh coworker can turn a caller question and zero staged OHLCV into truthful peer-route acquisition, task-local intake, fixed Event evidence, and a bounded handoff without a central inventory. | 2026-08-01 |
 | [[plans/agent-route-and-run-bound-reports]] | Let fresh Agents choose the correct Project construction before intake and report immutable delegated Runs without manufacturing empty editable Sessions. | 2026-08-01 |

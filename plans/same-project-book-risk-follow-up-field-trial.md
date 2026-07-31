@@ -1,6 +1,6 @@
 # Same-Project Book Risk follow-up field trial
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-08-01`
 - Target release: `0.9.8`
 - Related design: [[docs/design/workspace-project-boundaries]],
@@ -72,27 +72,27 @@ the caller question may not be narrowed or silently mixed across snapshots.
 
 ## Acceptance
 
-- [ ] The fresh worker chooses the existing U.S. Book Risk Project and creates
+- [x] The fresh worker chooses the existing U.S. Book Risk Project and creates
   no sibling or nested Project/Workspace.
-- [ ] Every pre-existing fixed authority and immutable evidence file remains
+- [x] Every pre-existing fixed authority and immutable evidence file remains
   byte-for-byte unchanged; new fixed state occupies explicit follow-up-owned
   paths. Longitudinal `research.md` and `framework-needs.md` may only receive
   truthful append-only updates about the follow-up.
-- [ ] The caller's two complete scenarios, common baseline, dataset identity,
+- [x] The caller's two complete scenarios, common baseline, dataset identity,
   fixed method, and no-selection/no-trading authority are preserved before
   execution.
-- [ ] Exactly one additional fixed Book Risk Study, Run, and direct Run Report
+- [x] Exactly one additional fixed Book Risk Study, Run, and direct Run Report
   answer the follow-up; no Session, candidate, Check, Experiment, or search
   loop is created.
-- [ ] Old and new Study inputs remain independently current and inspectable;
+- [x] Old and new Study inputs remain independently current and inspectable;
   neither Judge reads mutable singleton request/strategy state owned by the
   other Study.
-- [ ] Validation, explicit orientation, Run Explorer, Report listing, and
+- [x] Validation, explicit orientation, Run Explorer, Report listing, and
   Studio expose the follow-up without erasing or relabeling the original
   sizing evidence.
-- [ ] Every material baseline failure becomes a bounded repair with regression
+- [x] Every material baseline failure becomes a bounded repair with regression
   or an explicit worker/external limitation.
-- [ ] Complete tests, documentation links, build/install smoke, clean-clone
+- [x] Complete tests, documentation links, build/install smoke, clean-clone
   checks, and a fresh final installed-worker pass before `v0.9.8` is tagged
   and pushed.
 
@@ -103,8 +103,8 @@ the caller question may not be narrowed or silently mixed across snapshots.
 - [x] Prepare the immutable completed-Project handoff and installed `0.9.7`
   worker boundary.
 - [x] Run the fresh baseline and preserve its transcript/filesystem evidence.
-- [ ] Design and implement only the lifecycle repair demonstrated necessary.
-- [ ] Complete final verification, installed-wheel replay, release, and push.
+- [x] Design and implement only the lifecycle repair demonstrated necessary.
+- [x] Complete final verification, installed-wheel replay, release, and push.
 
 ## Findings and decisions
 
@@ -138,7 +138,27 @@ the caller question may not be narrowed or silently mixed across snapshots.
 
 ## Verification
 
-Pending.
+- `uv run python -m unittest discover` — 376 tests passed in 925.726 seconds.
+- `uv run python scripts/check_doc_links.py` — all 1,298 double-links resolve.
+- `uv lock --check`, Python compile, Studio JavaScript syntax, source/wheel
+  build, and fresh Python 3.11.14 wheel installation passed.
+- Final wheel SHA-256:
+  `df80cf0ca3f46cb3526eff11f6d4a1d3d11e2e0c12a5da10a46b29a15fa72f26`.
+- Fresh Grok 4.5 session `019fba4a-3429-7db1-b283-fef6ca81b3b4`
+  used 13 turns, inspected no package/repository implementation, created one
+  new Study, successful Run, and direct Report, and registered no framework
+  need. Transcript and handoff evidence are retained in
+  `cohort-16-same-project-book-risk-followup-v098`.
+- Host diff against the pristine completed Project found only the new
+  follow-up-owned paths and the allowed append to `research.md`; all prior
+  fixed authority and immutable evidence remained byte-identical.
+- Installed CLI validation, old/new Report loading, explicit orientation,
+  Book Risk Explorer, Report listing, and Studio projection passed. The new
+  Report embeds the Study-owned scenario request, not Project-root sizing
+  intake.
+- A no-hardlink clone without local override passed `aq orient`, `aq validate`,
+  `aq project list`, and `aq studio snapshot` against the repository-root
+  sample Workspace.
 
 ## Progress log
 
@@ -153,7 +173,16 @@ Pending.
   successful Run, and direct Report while all 47 original files remained
   unchanged. The first installed-wheel replay then exposed and reproduced the
   Report request-binding defect before release.
+- 2026-08-01 — The final installed-wheel coworker stayed inside the existing
+  Project, used public contracts only, completed the requested evidence chain,
+  understood explicit multi-Study selection as intentional, and recorded no
+  framework need. Host-side validation and immutable diff independently
+  confirmed the handoff.
 
 ## Completion
 
-Pending.
+`v0.9.8` establishes a narrow, proven continuation contract: a completed Book
+Risk Project can add another independently fixed question over the exact same
+retained dataset without overwriting original authority, duplicating the
+Project, or mislabeling the new Report. It does not generalize this command
+into automatic intent routing or make existing data an admission boundary.

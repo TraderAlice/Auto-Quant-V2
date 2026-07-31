@@ -57,15 +57,21 @@ the exact retained dataset. It creates Study-owned request, position snapshot,
 method, and current Judge paths without touching any old fixed authority or
 immutable evidence. Judges receive explicit fixed-input paths and Explorer
 reconstructs the snapshot binding from the frozen Study definition, so old and
-new Runs remain independently inspectable. A local replay on the real `0.9.7`
-Project added a second successful Run and direct Report while all 47 original
-files remained byte-for-byte unchanged. Data remains demand-led: exact bytes
-may be reused for a true same-dataset follow-up, but inventory never limits the
-research question. OpenAlice remains intentionally pinned to `0.8.31`. See
+new Runs remain independently inspectable. Direct Reports also bind the
+Study-owned request frozen in that Run instead of silently inheriting the
+Project-root question. A fresh installed-wheel Grok 4.5 replay used only public
+CLI/schema/Skill surfaces, added exactly one Study, Run, and Report, and kept all
+47 original files byte-for-byte unchanged except the explicitly longitudinal
+`research.md`. Data remains demand-led: exact bytes may be reused for a true
+same-dataset follow-up, but inventory never limits the research question.
+OpenAlice remains intentionally pinned to `0.8.31`. See
 [[plans/same-project-book-risk-follow-up-field-trial]] and
 [[docs/design/research-intake-and-dataset-snapshots]].
 
-Final release verification is recorded in the completed plan.
+The release audit passed all 376 tests in 925.726 seconds, resolved all 1,298
+documentation links, passed lock and syntax checks, rebuilt the source/wheel,
+installed the wheel under Python 3.11.14, completed the isolated Grok replay,
+and passed a no-hardlink clean-clone root-Workspace smoke.
 
 ### `v0.9.7`
 
