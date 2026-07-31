@@ -18,7 +18,9 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-None.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/long-lived-cross-market-workspace-field-trial]] | Prove a fresh coworker can preserve a completed A-share Project while adding one isolated U.S. Book Risk sibling from task-local data in the same long-lived Workspace. | 2026-08-01 |
 
 ## Proposed plans
 
