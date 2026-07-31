@@ -59,6 +59,21 @@ target-weight research with no Order, Broker, TPSL, account, or trading
 authority. See
 [[docs/design/prediction-mode-target-weight-translation]].
 
+A fresh isolated Grok 4.5 worker then replayed a supplied BTC timing factor
+over 47,040 fixed hourly rows using only the installed `0.9.2` wheel. With zero
+retries or Core failures it completed Factor qualification, Report/promotion,
+one fixed Portfolio Run, strict Explorers, final orientation, and Studio. The
+corrected Explorer showed BTC-only causal-history scoring and unavailable
+context scores; validation net Sharpe was `-3.2244` versus about `-0.9312`
+under the obsolete context-ranked path, while the latest historical model
+target remained BTC `0` / Cash `1`. The negative monetization result is
+preserved rather than hidden behind the positive predictive Factor gate.
+
+The `v0.9.2` release audit passed all 360 unit tests in 995.694 seconds and all
+1,227 documentation links. The release also passed Studio syntax, source and
+wheel builds, fresh Python 3.11 installed-wheel version/capability smoke, and a
+no-hardlink clean-clone repository-root validation and Studio snapshot.
+
 `v0.9.1` makes explicit Factor-component evidence useful in every supported
 prediction mode. Cross-sectional Runs retain per-date rank IC, while
 single-asset and two-asset relative-value Runs now expose within-split temporal

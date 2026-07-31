@@ -27,6 +27,15 @@ the same Factor claim and prediction population; decision artifacts,
 Explorers, and Studio disclose and strictly reconcile that contract. The
 boundary remains historical target weights with no Order or trading authority.
 
+One fresh installed-wheel Grok 4.5 worker independently replayed a supplied
+single-asset BTC timing assignment with four context-only assets. It completed
+the bounded Factor-to-Portfolio handoff with zero retries and verified
+`single-asset-temporal`, BTC-only causal-history scoring, unavailable context
+scores, and a flat BTC/Cash latest model target. Corrected validation net
+Sharpe was `-3.2244`, materially worse than the old context-ranked path, so the
+trial directly demonstrates why prediction qualification and portfolio
+monetization must remain separate gates.
+
 The `0.9.1` patch generalizes candidate-declared Factor component evidence to
 single-asset temporal and two-asset relative-value evaluation. Temporal Runs
 now disclose raw and nearest-peer-residual rank-correlation contributions,
@@ -317,7 +326,7 @@ Agendas with no move are `unavailable`. This is presentation authority only:
 Core neither infers a prose experiment budget nor executes, promotes, or
 trades from an agenda.
 
-The current release is `v0.9.1`; `v0.8.31` remains the selected OpenAlice
+The current release is `v0.9.2`; `v0.8.31` remains the selected OpenAlice
 consumption baseline until the host deliberately changes its pin. That older
 release adds a canonical 16-Skill
 market-data acquisition bundle, two-source field evidence for every
@@ -353,6 +362,19 @@ The canonical repository is
 The earlier personal repository remains a historical backup remote; the
 original `TraderAlice/Auto-Quant` repository remains the separate Classic
 line.
+
+## `0.9.2` verification snapshot
+
+- all 360 unit tests pass in 995.694 seconds;
+- all 1,227 documentation double-links resolve;
+- Studio JavaScript syntax, source and wheel builds, fresh Python 3.11
+  installed-wheel version/capability smoke, and a no-hardlink clean-clone
+  repository-root workflow pass;
+- the repository sample contains a clean `0.9.2` Factor Run bound to commit
+  `1166a78` and projects through strict CLI and Studio evidence;
+- fresh Grok 4.5 independently completed the exact supplied BTC Factor-to-
+  Portfolio handoff with zero retries or Core failures and exposed the fixed
+  temporal translation in its outward report.
 
 ## `0.9.1` verification snapshot
 

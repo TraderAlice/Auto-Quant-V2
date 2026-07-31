@@ -104,34 +104,34 @@ factor, promotion criterion, Order, or trading instruction.
 
 ## Acceptance
 
-- [ ] Factor, Portfolio, and RL derive one identical prediction population,
+- [x] Factor, Portfolio, and RL derive one identical prediction population,
   evaluation mode, context set, and relative-value pair identity.
-- [ ] Single-asset temporal weights are invariant to every context-only factor
+- [x] Single-asset temporal weights are invariant to every context-only factor
   value and become available from causal target history alone.
-- [ ] Relative-value scores are exact complements of the causal ordered spread
+- [x] Relative-value scores are exact complements of the causal ordered spread
   percentile; non-flat targets remain opposite-sided and zero-net before the
   existing risk/cost machinery.
-- [ ] Cross-sectional scores exclude context-only assets while retaining the
+- [x] Cross-sectional scores exclude context-only assets while retaining the
   established breadth and ranking semantics.
-- [ ] Every Portfolio/RL variant and robustness path uses the same frozen
+- [x] Every Portfolio/RL variant and robustness path uses the same frozen
   translation contract; no private alternate rank path remains.
-- [ ] RunResult, decision ledger, Explorer, agenda, CLI, Studio, Report, and
+- [x] RunResult, decision ledger, Explorer, agenda, CLI, Studio, Report, and
   Dossier disclose and reconcile method, mode, population, window, coverage,
   pair order, and no-trading authority.
-- [ ] Fast focused tests, full regression, documentation/build/install smoke,
+- [x] Fast focused tests, full regression, documentation/build/install smoke,
   and repository-root clean-clone smoke pass.
-- [ ] A fresh Grok 4.5 worker completes a realistic target-weight handoff using
+- [x] A fresh Grok 4.5 worker completes a realistic target-weight handoff using
   only the installed release candidate and public Workbench surfaces.
 - [ ] The audited state is published as `v0.9.2`.
 
 ## Work
 
-- [ ] Centralize and bind prediction-mode authority.
-- [ ] Replace the cross-section-only target-score implementation.
-- [ ] Publish and strictly project immutable translation evidence.
-- [ ] Update templates, operator/design documentation, and sample evidence if
+- [x] Centralize and bind prediction-mode authority.
+- [x] Replace the cross-section-only target-score implementation.
+- [x] Publish and strictly project immutable translation evidence.
+- [x] Update templates, operator/design documentation, and sample evidence if
   its fixed contract changes.
-- [ ] Run a fresh Grok 4.5 field trial and repair reusable friction.
+- [x] Run a fresh Grok 4.5 field trial and repair reusable friction.
 - [ ] Complete release audit, publish `v0.9.2`, and close the plan.
 
 ## Findings and decisions
@@ -150,12 +150,27 @@ factor, promotion criterion, Order, or trading instruction.
 
 ## Verification
 
-Pending.
+Focused translation, accounting, Portfolio/RL Explorer, three-lane Program,
+CLI, intake, sample, Studio, version, and documentation tests pass. The first
+full regression found obsolete Program dependency declarations and one
+pre-Factor-claim compatibility test; the contract and tests were upgraded
+directly. The post-fix audit passes all 360 tests in 995.694 seconds, Studio
+syntax, 1,227 documentation links, source/wheel build, fresh Python 3.11
+install, and no-hardlink clean-clone smoke.
 
 ## Progress log
 
 - 2026-07-31 — Plan created after auditing the newly complete temporal Factor
   contract against the older Portfolio/RL target-score implementation.
+- 2026-07-31 — Shared prediction authority and fixed causal score translation
+  landed in commit `926dd3c`; Program/version/design preparation landed in
+  `1166a78`, and clean `0.9.2` sample evidence in `2ed2b15`.
+- 2026-07-31 — Fresh isolated Grok 4.5 completed the supplied BTC timing
+  handoff with zero retries or Core failures. Strict Explorer exposed BTC-only
+  causal-history scoring and unavailable context scores. The corrected
+  Portfolio validation net Sharpe was `-3.2244`, materially below the old
+  context-ranked `-0.9312`, while the latest target remained BTC `0` / Cash
+  `1`. No reusable friction was found.
 
 ## Completion
 
