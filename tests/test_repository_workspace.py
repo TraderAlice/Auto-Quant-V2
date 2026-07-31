@@ -17,6 +17,7 @@ SAMPLE_RUN_ID = "run-20260729T075403870227Z-6b7cf30b394f"
 PRIOR_SAMPLE_RUN_ID = "run-20260730T035544913232Z-4b19e3a63890"
 PREVIOUS_SAMPLE_RUN_ID = "run-20260731T120304794599Z-6d6cdab313fe"
 CURRENT_SAMPLE_RUN_ID = "run-20260731T131547748789Z-d99c9e66a888"
+LATEST_SAMPLE_RUN_ID = "run-20260731T151103497628Z-f9adc26d1b95"
 SAMPLE_DESCRIPTION = (
     "A deterministic three-lane reference Project for learning AutoQuant "
     "before starting real research."
@@ -68,6 +69,7 @@ class RepositoryWorkspaceTests(unittest.TestCase):
                 PRIOR_SAMPLE_RUN_ID,
                 PREVIOUS_SAMPLE_RUN_ID,
                 CURRENT_SAMPLE_RUN_ID,
+                LATEST_SAMPLE_RUN_ID,
             ],
         )
         run = load_run(project, SAMPLE_RUN_ID)
@@ -117,11 +119,26 @@ class RepositoryWorkspaceTests(unittest.TestCase):
             ],
             ["base_momentum_10"],
         )
+        latest = load_run(project, LATEST_SAMPLE_RUN_ID)
+        self.assertEqual(latest.result["status"], "succeeded")
+        self.assertEqual(latest.result["harness"]["version"], "0.9.2")
+        self.assertEqual(
+            latest.result["harness"]["commit"],
+            "1166a780272e4ff7be62503ef96d1c4cbae64a74",
+        )
+        self.assertFalse(latest.result["harness"]["dirty"])
+        self.assertEqual(
+            latest.result["metrics"]["prediction_universe"][
+                "evaluation_mode"
+            ],
+            "cross-sectional",
+        )
 
         research = (project.root_dir / "research.md").read_text(encoding="utf-8")
         self.assertIn("## About this sample", research)
         self.assertIn(SAMPLE_RUN_ID, research)
         self.assertIn(CURRENT_SAMPLE_RUN_ID, research)
+        self.assertIn(LATEST_SAMPLE_RUN_ID, research)
         self.assertIn("not relabeled as a", research)
 
     def test_sample_template_owned_files_match_a_fresh_research_desk(
@@ -150,12 +167,12 @@ class RepositoryWorkspaceTests(unittest.TestCase):
         sample = snapshot["projects"][0]
         self.assertTrue(sample["valid"])
         self.assertEqual(sample["counts"]["studies"], 3)
-        self.assertEqual(sample["counts"]["runs"], 4)
+        self.assertEqual(sample["counts"]["runs"], 5)
         self.assertEqual(sample["counts"]["sessions"], 0)
         self.assertIsNotNone(sample["factorExplorer"])
         self.assertEqual(
             sample["researchProgramStatus"]["lanes"][0]["latestRun"]["id"],
-            CURRENT_SAMPLE_RUN_ID,
+            LATEST_SAMPLE_RUN_ID,
         )
 
 

@@ -24,10 +24,14 @@ The earlier surface-aligned Factor Run
 Harness at commit `b5881b6`. The preserved `0.9.0` Factor Run
 `run-20260731T120304794599Z-6d6cdab313fe` was produced by the clean `0.9.0`
 development Harness at commit `37b0029` after the sample protocol was brought
-up to date. The current Factor Run
+up to date. The preserved `0.9.1` Factor Run
 `run-20260731T131547748789Z-d99c9e66a888` was produced by the clean `0.9.1`
 candidate Harness at commit `39a2e38` and records the generalized component-v3
-contract. No development execution is relabeled as a released version. The
+contract. The current Factor Run
+`run-20260731T151103497628Z-f9adc26d1b95` was produced by the clean `0.9.2`
+candidate Harness at commit `1166a78` after the shared prediction-population
+contract was bound into all three Study lanes. No development execution is
+relabeled as a released version. The
 candidate declares only base-clock momentum because this sample dataset has no
 higher-interval feature surface. Studio uses the latest ordinary immutable Run
 as the current Factor Explorer. Portfolio and governed-RL baselines are
