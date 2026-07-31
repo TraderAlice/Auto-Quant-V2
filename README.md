@@ -1,5 +1,5 @@
 ---
-version: 0.8.31
+version: 0.9.0
 ---
 
 # AutoQuant V2
@@ -32,12 +32,18 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current milestone: `0.8.31`
+## Current development line: `0.9.0`
 
 AutoQuant V2 has crossed from an architectural prototype into a usable
 research workbench.
 
-`0.8.31` is the current candidate release. It makes historical market-data
+`0.9.0` is the current development line. Its compatibility baseline is the
+released `0.8.31` Harness already consumed by OpenAlice. The minor-version
+boundary marks the next phase: improve the real delegated-research loop from
+OpenAlice request through AutoQuant evidence handoff without weakening
+standalone Workspace operation or prematurely freezing a host-specific API.
+
+`0.8.31` made historical market-data
 acquisition an Agent-native, versioned Skill bundle rather than a universal
 Core downloader. A small router now sends a coding Agent to market-specific
 semantics, narrow provider procedures, exact raw-response audits, truthful
