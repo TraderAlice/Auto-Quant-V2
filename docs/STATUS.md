@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha released as `v0.9.2`; `v0.8.31` remains the Harness
+Status: usable pre-alpha released as `v0.9.3`; `v0.8.31` remains the Harness
 currently consumed by OpenAlice until the host deliberately selects a newer
 tag.
 
@@ -17,6 +17,34 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 
 AutoQuant V2 has crossed the line from an architectural prototype into a
 usable Agent-native quantitative research workbench.
+
+The `0.9.3` patch adds predeclared target-translation robustness for the two
+temporal prediction modes without changing the fixed 60-observation / 20-
+minimum construction contract. Single-asset timing and two-asset
+relative-value Portfolio Runs now retain exact 40/60/120 state, target,
+performance, turnover, cost, and current-book evidence. Validation alone
+diagnoses stable versus translation-sensitive target paths; visible test is
+audit-only, and alternate windows have no selection or recommendation
+authority. Cross-sectional Runs explicitly disclose that the diagnostic does
+not apply.
+
+The strict Explorer reconstructs every alternate path from immutable Factor
+decision evidence and rejects rehashed score tampering. CLI, Studio, Reports,
+research agenda, and sample evidence share the same result. A translation-
+sensitive result routes back to factor representation rather than window
+tuning, while the existing monetization evidence continues to isolate
+factor-intent, sizing/caps, covariance governance, execution/no-trade, and
+cost.
+
+One fresh installed-wheel Grok 4.5 worker completed a bounded NVDA/QQQ
+relative-value assignment with three context-only assets. It preserved the
+pair-only target population, independently found the new 40/60/120 evidence,
+kept 60 as the fixed base despite different descriptive Sharpes, and returned
+`stable-target-path` with current NVDA/QQQ targets of `-0.30` / `+0.30` under
+all profiles. The full release audit passed 361 tests in 1009.615 seconds,
+1,246 documentation links, Studio syntax, source/wheel builds, fresh Python
+3.11 installation with all 50 public capabilities, and the no-hardlink clean-
+clone repository-root workflow.
 
 The `0.9.2` patch gives every supported Factor prediction mode one causal,
 request-bound path into mechanical target-weight research. Cross-sectional
@@ -90,7 +118,9 @@ Studies, retains explicitly historical clean `0.8.7` and `0.8.28` Factor
 Runs, preserves its `0.9.0` development Run, and adds one clean current
 `0.9.1` candidate Run with component-v3 evidence, plus a clean current `0.9.2`
 Run that binds the shared prediction population for immediate Studio
-inspection. An ignored strict local Workspace configuration lets
+inspection and a clean `0.9.3` Portfolio Run that explicitly marks temporal
+translation robustness not applicable for its cross-sectional mode. An
+ignored strict local Workspace configuration lets
 Workbench development reuse an external real-Project collection without
 shipping those cases or changing the user's internal default.
 

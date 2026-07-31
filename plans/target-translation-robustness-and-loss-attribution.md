@@ -1,6 +1,6 @@
 # Target-translation robustness and loss attribution
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-07-31`
 - Target release: `0.9.3`
 - Related design: [[docs/design/prediction-mode-target-weight-translation]],
@@ -64,19 +64,19 @@ preserving a misleading compatibility surface.
 
 ## Acceptance
 
-- [ ] Temporal and relative-value Portfolio Runs expose exact predeclared
+- [x] Temporal and relative-value Portfolio Runs expose exact predeclared
   40/60/120 translation evidence while the ordinary policy remains 60/20.
-- [ ] Cross-sectional Runs truthfully disclose that temporal-window stress is
+- [x] Cross-sectional Runs truthfully disclose that temporal-window stress is
   not applicable and do not perform synthetic alternate constructions.
-- [ ] Validation alone classifies stable versus translation-sensitive target
+- [x] Validation alone classifies stable versus translation-sensitive target
   behavior; visible test is audit-only and no profile enters selection.
-- [ ] Explorer, agenda, CLI JSON, Studio, Reports/Dossiers, and immutable Run
+- [x] Explorer, agenda, CLI JSON, Studio, Reports/Dossiers, and immutable Run
   evidence agree on the same diagnosis and authority.
-- [ ] Rehashed, missing, extra, misordered, non-causal, or numerically
+- [x] Rehashed, missing, extra, misordered, non-causal, or numerically
   inconsistent profile evidence is rejected.
-- [ ] No executable public or template path retains the obsolete
+- [x] No executable public or template path retains the obsolete
   cross-sectional-only `construct_targets` helper.
-- [ ] Focused tests, full regression, docs/build/install smoke, clean-clone
+- [x] Focused tests, full regression, docs/build/install smoke, clean-clone
   smoke, and a fresh Grok relative-value field trial pass before `v0.9.3`.
 
 ## Work
@@ -88,7 +88,7 @@ preserving a misleading compatibility surface.
 - [x] Strictly project the evidence through Explorer, agenda, CLI, Studio, and
   downstream handoff surfaces.
 - [x] Remove the obsolete construction path and update templates/docs/tests.
-- [ ] Run the fresh worker, repair reusable friction, and complete the release
+- [x] Run the fresh worker, repair reusable friction, and complete the release
   audit.
 
 ## Findings and decisions
@@ -102,10 +102,37 @@ preserving a misleading compatibility surface.
 - 2026-07-31 — The demand-led dataset principle remains unchanged: the fresh
   worker acquires one task-coherent package and no shared inventory constrains
   its research question.
+- 2026-07-31 — Fresh Grok 4.5 field trial
+  `cohort-06-relative-target-robustness-v093` independently preserved the
+  NVDA/QQQ prediction pair, kept three context assets at zero, interpreted 60
+  as fixed and 40/120 as context-only stress, and refused window selection.
+  Its accidentally byte-identical caller factor correctly produced
+  `check.unchanged`; this host-fixture limitation does not justify a zero-diff
+  Experiment path in the release.
+- 2026-07-31 — Session-free Portfolio Dossier publication remains out of
+  scope. The field assignment deliberately prohibited a Portfolio Session, so
+  the resulting Dossier blocker is the existing lifecycle contract rather
+  than a target-translation defect.
 
 ## Verification
 
-- Pending.
+- Focused implementation suites passed, including relative-value end-to-end
+  projection and rehashed translation-score tamper rejection.
+- Fresh installed-wheel Grok 4.5 trial passed Project validation, strict
+  Factor and Portfolio Explorers, immutable Factor Report reload, final
+  orientation, and Studio snapshot. Portfolio Run:
+  `run-20260731T163146284864Z-978fe85b8e63`.
+- `uv run python -m unittest discover -s tests -v` passed all 361 tests in
+  1009.615 seconds.
+- `uv run python scripts/check_doc_links.py` resolved all 1,246 links;
+  `node --check autoquant/studio_assets/studio.js` and `git diff --check`
+  passed.
+- `uv build` produced the source archive and wheel. A fresh Python 3.11
+  environment installed the wheel, reported `aq 0.9.3`, and exposed all 50
+  public capabilities.
+- A `git clone --no-hardlinks` checkout with no local override selected
+  `sample-research-desk`, passed root validation and Project listing, and
+  produced a valid one-Project Studio snapshot.
 
 ## Progress log
 
@@ -114,7 +141,11 @@ preserving a misleading compatibility surface.
   research agenda, CLI, Studio, Report, templates, and focused tamper tests now
   share the fixed robustness contract. Cross-sectional evidence is explicitly
   not applicable and the obsolete `construct_targets` path is gone.
+- 2026-07-31 — Clean sample evidence, fresh installed-wheel field trial, full
+  regression, documentation, build/install, and clean-clone audits passed.
 
 ## Completion
 
-Pending.
+Completed in `v0.9.3`. Temporal target translation now exposes local causal
+robustness and upstream loss context without changing the production policy or
+creating a hidden parameter optimizer.

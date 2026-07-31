@@ -18,9 +18,7 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-| Plan | Outcome | Updated |
-| --- | --- | --- |
-| [[plans/target-translation-robustness-and-loss-attribution]] | Test temporal target translation across fixed causal history windows, connect that evidence to the existing loss diagnosis, and remove the obsolete cross-sectional-only construction path. | 2026-07-31 |
+None.
 
 ## Proposed plans
 
@@ -36,6 +34,7 @@ None.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/target-translation-robustness-and-loss-attribution]] | Tested temporal target translation across fixed 40/60/120 causal history windows, connected the validation-only stability diagnosis to the existing loss chain, removed the obsolete construction path, and proved `v0.9.3` with a fresh Grok 4.5 assignment. | 2026-07-31 |
 | [[plans/prediction-mode-target-weight-translation]] | Carried cross-sectional, single-asset temporal, and two-asset relative-value Factor claims into one causal mechanical target-weight contract without allowing context-only assets to change decision scores, then proved `v0.9.2` with a fresh Grok 4.5 assignment. | 2026-07-31 |
 | [[plans/temporal-factor-component-diagnostics]] | Gave single-asset temporal and two-asset relative-value Factor research complete declared-component diagnosis across immutable evidence, Explorer, agenda, and Studio, then proved `v0.9.1` with two fresh Grok 4.5 assignments. | 2026-07-31 |
 | [[plans/openalice-real-delegation-field-trials]] | Proved with isolated Grok 4.5 coworkers across six materially different quantitative-support assignments that `0.9.0` is a useful standalone desk, repaired every severe or recurrent framework defect, and passed the complete release-readiness audit without adding host-specific orchestration or an upgrade framework. | 2026-07-31 |

@@ -32,19 +32,47 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current release: `v0.9.2`
+## Current release: `v0.9.3`
 
 AutoQuant V2 has crossed from an architectural prototype into a usable
 research workbench.
 
-`v0.9.2` is the current AutoQuant release. `v0.8.31` remains the Harness
+`v0.9.3` is the current AutoQuant release. `v0.8.31` remains the Harness
 currently consumed by OpenAlice until the host deliberately selects the newer
 tag; this is version provenance, not an automatic Workspace-migration promise.
 The minor-version boundary marks the next phase: improve the real delegated-
 research loop from OpenAlice request through AutoQuant evidence handoff without
 weakening standalone Workspace operation or prematurely freezing a
 host-specific API. Bounded follow-up work defaults to patch releases such as
-`v0.9.1`, `v0.9.2`, and onward.
+`v0.9.1`, `v0.9.2`, `v0.9.3`, and onward.
+
+`v0.9.3` makes temporal Factor-to-target translation locally auditable without
+turning robustness analysis into a parameter search. Single-asset timing and
+two-asset relative-value Portfolio Runs retain the fixed 60-observation causal
+percentile with a 20-observation minimum, then publish predeclared 40/60/120
+paths for validation-only state and target agreement. Visible test remains
+audit-only; no alternate window enters selection or becomes a recommendation.
+The strict Portfolio Explorer reconstructs every path from the immutable
+Factor decision ledger and joins the diagnosis to the existing
+factor-intent, sizing/caps, risk-governor, execution/no-trade, and cost chain.
+Cross-sectional Runs explicitly report the temporal-window stress as not
+applicable. See [[docs/design/target-translation-robustness]].
+
+A fresh isolated Grok 4.5 worker used only the installed `0.9.3` wheel to
+complete a fixed NVDA/QQQ relative-value assignment with AAPL/MSFT/SPY as
+context-only assets. It independently reached the Portfolio gate, kept all
+context targets at zero, treated 60 as the immutable base rather than choosing
+the best profile, and reported validation-only `stable-target-path` from a
+minimum active-state agreement of `0.8214` and maximum mean absolute target
+delta of `0.04369`. All three current profiles agreed on NVDA `-0.30` and QQQ
+`+0.30`. The worker also preserved the separate monetization-loss diagnosis
+and no-trading authority.
+
+The `v0.9.3` release audit passed all 361 unit tests in 1009.615 seconds and
+all 1,246 documentation links. It also passed Studio JavaScript syntax, source
+and wheel builds, fresh Python 3.11 installed-wheel version and all-50-
+capability smoke, and a no-hardlink clean clone that selected and validated
+the repository sample through CLI and Studio.
 
 `v0.9.2` makes the Factor-to-target-weight boundary prediction-mode aware.
 Cross-sectional research ranks only its true prediction population;
