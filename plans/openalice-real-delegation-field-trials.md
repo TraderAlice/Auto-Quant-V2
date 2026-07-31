@@ -224,7 +224,9 @@ unsupported weights, provider-semantic relabelling, or trading claims fail.
   complete rankings outside the Run to answer the caller. `0.9.0` now embeds,
   verifies, and projects the complete standardized ranking for every declared
   lookback while retaining readability for older Runs. Fresh-worker
-  verification remains pending.
+  verification passed on an independent AI-infrastructure reported book:
+  Grok consumed all three complete rankings from `aq run book-risk --json`
+  without importing the Judge or recomputing covariance.
 
 ## Verification
 
@@ -268,6 +270,13 @@ unsupported weights, provider-semantic relabelling, or trading claims fail.
 - Full per-lookback Book Risk ranking regression:
   `.venv/bin/python -m unittest tests.test_book_risk_lab -v` — 16 tests passed
   in 10.922 seconds, including an older Run without the new ranking surface.
+- Fresh Book Risk ranking retry: one 300 ms fixed Run over 753
+  common sessions, three complete five-asset rankings projected identically by
+  the strict CLI and Studio, no Session, and no post-Run quantitative
+  calculation.
+- Independent retry review:
+  `../openalice-field-trials/retry-04-book-lookback-rankings-v090/review.md`
+  (external trial ledger, intentionally not a repository documentation link).
 
 ## Completion
 
