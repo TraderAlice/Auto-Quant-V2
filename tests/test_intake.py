@@ -51,6 +51,7 @@ from autoquant.templates import (
 )
 from autoquant.workspace import (
     AutoQuantValidationError,
+    create_or_intake_project,
     create_project,
     initialize_workspace,
     load_workspace,
@@ -65,6 +66,100 @@ from tests.intake_helpers import (
 
 
 class RequestDrivenIntakeTests(unittest.TestCase):
+    def test_intake_hydrates_pristine_scaffold_and_preserves_agent_notes(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            request_path, package_path = write_intake_inputs(root)
+            workspace = initialize_workspace(root / "workspace")
+            scaffold = create_project(
+                workspace.root_dir,
+                "brief-first-factor",
+                name="Brief First Factor",
+                description="Clarify before binding strict authority.",
+                template="ohlcv-factor-lab",
+            )
+            research = "# Preserved research brief\n\nCaller intent is clear.\n"
+            needs = "# Preserved framework needs\n\nNo needs yet.\n"
+            (scaffold.root_dir / "research.md").write_text(
+                research,
+                encoding="utf-8",
+            )
+            (scaffold.root_dir / "framework-needs.md").write_text(
+                needs,
+                encoding="utf-8",
+            )
+            prepared = prepare_project_intake(
+                request_path,
+                package_path,
+                "ohlcv-factor-lab",
+            )
+
+            project = create_or_intake_project(
+                workspace.root_dir,
+                scaffold.manifest.id,
+                name="Strict Factor Project",
+                description=prepared.request["question"],
+                template="ohlcv-factor-lab",
+                template_intake=prepared,
+            )
+
+            self.assertEqual(
+                (project.root_dir / "research.md").read_text(encoding="utf-8"),
+                research,
+            )
+            self.assertEqual(
+                (project.root_dir / "framework-needs.md").read_text(
+                    encoding="utf-8"
+                ),
+                needs,
+            )
+            self.assertEqual(project.manifest.name, "Strict Factor Project")
+            self.assertIsNotNone(load_project_intake(project))
+            self.assertTrue((project.root_dir / "data/ohlcv/snapshot.json").is_file())
+
+    def test_intake_refuses_to_replace_scaffold_with_candidate_work(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            request_path, package_path = write_intake_inputs(root)
+            workspace = initialize_workspace(root / "workspace")
+            scaffold = create_project(
+                workspace.root_dir,
+                "worked-factor",
+                template="ohlcv-factor-lab",
+            )
+            candidate = scaffold.root_dir / "factors/candidate.py"
+            candidate.write_text(
+                candidate.read_text(encoding="utf-8") + "\n# researched\n",
+                encoding="utf-8",
+            )
+            before = candidate.read_bytes()
+            prepared = prepare_project_intake(
+                request_path,
+                package_path,
+                "ohlcv-factor-lab",
+            )
+
+            with self.assertRaises(AutoQuantValidationError) as caught:
+                create_or_intake_project(
+                    workspace.root_dir,
+                    scaffold.manifest.id,
+                    name=None,
+                    description=prepared.request["question"],
+                    template="ohlcv-factor-lab",
+                    template_intake=prepared,
+                )
+
+            self.assertIn(
+                "project.intake-scaffold-modified",
+                {issue.code for issue in caught.exception.issues},
+            )
+            self.assertEqual(candidate.read_bytes(), before)
+            self.assertIsNone(load_project_intake(scaffold))
+
     def test_daily_factor_baseline_declares_only_base_surface(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

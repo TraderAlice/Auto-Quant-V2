@@ -188,6 +188,7 @@ from .workspace import (
     PROJECT_MANIFEST,
     WORKSPACE_MANIFEST,
     ValidationIssue,
+    create_or_intake_project,
     create_project,
     initialize_workspace,
     inspect_project,
@@ -388,7 +389,10 @@ def build_parser() -> RaisingArgumentParser:
 
     project_intake = project_actions.add_parser(
         "intake",
-        help="create a Project from a research request and OHLCV package",
+        help=(
+            "create or hydrate a pristine Project from a research request "
+            "and OHLCV package"
+        ),
     )
     project_intake.add_argument("workspace")
     project_intake.add_argument("project_id")
@@ -1264,7 +1268,7 @@ def _project_intake(args: argparse.Namespace) -> CommandResult:
         args.dataset,
         args.template,
     )
-    project = create_project(
+    project = create_or_intake_project(
         args.workspace,
         args.project_id,
         name=args.name or prepared.request["title"],

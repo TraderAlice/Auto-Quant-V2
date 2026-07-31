@@ -80,8 +80,10 @@ The current CLI supports:
 Study/Session creation, Run execution, and Experiment evaluation use
 `creates-artifact`. Transactional `project.intake` also uses
 `creates-artifact`: it validates request/data before atomically exposing a
-self-contained Project and does not start a Run. Bounded `research.run` also
-uses `creates-artifact`: it may
+self-contained Project and does not start a Run. The same operation may
+hydrate an exact pristine template scaffold while preserving its research and
+Workbench-needs Markdown; any worked-in state is rejected before replacement.
+Bounded `research.run` also uses `creates-artifact`: it may
 advance the Session leader through ordinary KEEP Experiments but never copies
 source into the owning Project. `report.publish` uses `creates-artifact` after
 strict analysis and evidence-reference validation. Only

@@ -40,7 +40,11 @@ the understood inputs used by Studies, Sessions, Runs, Reports, and Dossiers;
 it is not the user-facing submission format and does not replace the Markdown
 brief. `aq project intake` is therefore an atomic fast path when the clarified
 request and compatible data package already exist, not an automatic
-natural-language classifier.
+natural-language classifier. It may create a new Project directly or hydrate
+an already created pristine Project of the exact selected template. Hydration
+preserves the Agent-maintained `research.md` and `framework-needs.md`; any
+candidate edit, data file, Run, Session, or unknown artifact makes the
+existing Project ineligible rather than silently overwriting work.
 
 A Research Request's `source.artifactPath` and `source.artifactRevision` form
 one provenance claim. Both are non-null strings when an exact caller artifact
@@ -431,10 +435,18 @@ aq project intake <workspace> <project-id>
   --template ohlcv-research-desk
 ```
 
-Validation and construction occur inside the existing hidden Project staging
-directory. Any failure removes that staging directory and leaves Workspace
-discovery/default selection unchanged. A successful operation atomically
-publishes the Project and returns exact commands to:
+Validation and construction occur outside the visible target. For an absent
+Project, any failure removes the hidden construction directory and leaves
+Workspace discovery/default selection unchanged. For an existing pristine
+template scaffold, Core first proves every file other than `autoquant.json`,
+`research.md`, and `framework-needs.md` is byte-identical to a fresh scaffold.
+It constructs the complete intake replacement separately, preserves the two
+Markdown notes, and swaps only after verification; failure restores the
+original scaffold. A worked-in Project is rejected with
+`project.intake-scaffold-modified`.
+
+A successful operation atomically publishes the Project and returns exact
+commands to:
 
 1. inspect the coordinated research program;
 2. execute a bounded baseline Run in the recommended lane;

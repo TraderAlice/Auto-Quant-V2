@@ -174,6 +174,27 @@ unsupported weights, provider-semantic relabelling, or trading claims fail.
   Session authority, baseline reuse, and Candidate Check reuse now compare
   executable identity while retaining commit/dirty provenance in immutable
   evidence. A fresh worker retry remains pending.
+- 2026-07-31 — A fresh Grok 4.5 Taiwan Factor worker on development commit
+  `20716ce` proved the preserved-Git fix after two research commits: the Run
+  and Sessions retained the same Harness source hash while HEAD advanced from
+  `963f087` to `cdcb279`; validation, orientation, and Studio remained valid
+  with no stale-Harness diagnostic.
+- 2026-07-31 — The Taiwan research answer itself was not accepted. Official
+  TWSE retrieval was blocked by the venue CDN, yet the worker continued on a
+  single FinMind raw panel. It disclosed the authority degradation and made no
+  trading claim, but did not satisfy the caller's required official-plus-peer
+  evidence contract. The valid weak Factor Run is retained as exploratory
+  evidence, not relabelled as request completion.
+- 2026-07-31 — The second independent worker reproduced the brief-first
+  `project create` versus atomic `project intake` conflict. `0.9.0` now lets
+  intake hydrate only an exact pristine scaffold of the selected template
+  while preserving `research.md` and `framework-needs.md`; any worked-in state
+  is rejected. A fresh-worker retry remains pending.
+- 2026-07-31 — Recorded, but did not yet generalize, three first-observation
+  issues from the Taiwan trial: an accidental non-delegated Session has no
+  retirement path, OpenAlice provenance was downgraded to generic external
+  provenance, and the worker force-added ordinary Project data after inferring
+  from the sample's special tracked fixture.
 
 ## Verification
 
@@ -186,6 +207,18 @@ unsupported weights, provider-semantic relabelling, or trading claims fail.
 - Focused `0.9.0` runtime-identity regression:
   `.venv/bin/python -m unittest tests.test_runs tests.test_sessions
   tests.test_checks` — 28 tests passed in 24.955 seconds.
+- Grok 4.5 Taiwan trial: 41 turns, approximately 7 minutes, two local worker
+  commits, one Factor Run, two Sessions, one completed delegated Report, and
+  one explicitly degraded official-provider acquisition.
+- Independent Taiwan review:
+  `../openalice-field-trials/cohort-02-twse-factor-v090/review.md`
+  (external trial ledger, intentionally not a repository documentation link).
+- Focused pristine-scaffold intake regression:
+  `.venv/bin/python -m unittest
+  tests.test_intake.RequestDrivenIntakeTests.test_intake_hydrates_pristine_scaffold_and_preserves_agent_notes
+  tests.test_intake.RequestDrivenIntakeTests.test_intake_refuses_to_replace_scaffold_with_candidate_work
+  tests.test_cli.AgentCliTests.test_cli_intake_hydrates_brief_first_pristine_scaffold`
+  — 3 tests passed in 1.871 seconds.
 
 ## Completion
 

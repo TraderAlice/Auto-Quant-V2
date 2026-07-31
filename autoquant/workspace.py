@@ -7,6 +7,7 @@ import os
 import re
 import shutil
 import tempfile
+import uuid
 from dataclasses import asdict, dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -986,6 +987,172 @@ def create_project(
             default_project=project_id,
         )
         _atomic_write_json(workspace.configuration_path, updated.to_dict())
+    return load_project(target, expected_id=project_id)
+
+
+def _scaffold_inventory(project: ProjectContext) -> dict[str, bytes]:
+    mutable_markdown = {
+        project.manifest.research_program,
+        FRAMEWORK_NEEDS,
+        PROJECT_MANIFEST,
+    }
+    inventory: dict[str, bytes] = {}
+    for path in sorted(project.root_dir.rglob("*")):
+        relative = path.relative_to(project.root_dir).as_posix()
+        if path.is_symlink():
+            raise AutoQuantValidationError(
+                [
+                    _issue(
+                        path,
+                        "project.intake-scaffold-symlink",
+                        "An intake scaffold cannot contain symlinks",
+                    )
+                ]
+            )
+        if path.is_file() and relative not in mutable_markdown:
+            inventory[relative] = path.read_bytes()
+    return inventory
+
+
+def create_or_intake_project(
+    workspace_directory: str | Path,
+    project_id: str,
+    *,
+    name: str | None,
+    description: str,
+    template: str,
+    template_intake: Any,
+) -> ProjectContext:
+    """Create an intake Project or hydrate an untouched Project scaffold.
+
+    Agents establish and clarify ``research.md`` before binding strict request
+    and dataset authority. If that created the target Project first, intake may
+    replace only an otherwise pristine scaffold of the exact selected template
+    while preserving its two Agent-owned Markdown notes. Any source edit, Run,
+    Session, data file, or unknown artifact makes the Project ineligible.
+    """
+
+    workspace = load_workspace(workspace_directory)
+    target = workspace.projects_dir / project_id
+    if not target.exists() and not target.is_symlink():
+        return create_project(
+            workspace_directory,
+            project_id,
+            name=name,
+            description=description,
+            template=template,
+            template_intake=template_intake,
+        )
+
+    existing = load_project(target, expected_id=project_id)
+    preserved_name = name or existing.manifest.name
+    research_path = existing.root_dir / existing.manifest.research_program
+    framework_path = existing.root_dir / FRAMEWORK_NEEDS
+    if (
+        research_path.is_symlink()
+        or not research_path.is_file()
+        or framework_path.is_symlink()
+        or not framework_path.is_file()
+    ):
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    target,
+                    "project.intake-scaffold",
+                    "Existing Project is not a preservable intake scaffold",
+                )
+            ]
+        )
+    preserved_research = research_path.read_bytes()
+    preserved_framework = framework_path.read_bytes()
+
+    with tempfile.TemporaryDirectory(
+        prefix="autoquant-intake-scaffold-"
+    ) as directory:
+        temporary_root = Path(directory)
+        expected_workspace = initialize_workspace(temporary_root / "expected")
+        expected = create_project(
+            expected_workspace.root_dir,
+            project_id,
+            name=existing.manifest.name,
+            description=existing.manifest.description,
+            template=template,
+        )
+        existing_structure = {
+            "schema_version": existing.manifest.schema_version,
+            "id": existing.manifest.id,
+            "research_program": existing.manifest.research_program,
+            "directories": existing.manifest.directories,
+        }
+        expected_structure = {
+            "schema_version": expected.manifest.schema_version,
+            "id": expected.manifest.id,
+            "research_program": expected.manifest.research_program,
+            "directories": expected.manifest.directories,
+        }
+        actual_inventory = _scaffold_inventory(existing)
+        expected_inventory = _scaffold_inventory(expected)
+        if (
+            existing_structure != expected_structure
+            or actual_inventory != expected_inventory
+        ):
+            changed = sorted(
+                set(actual_inventory) ^ set(expected_inventory)
+                | {
+                    relative
+                    for relative in set(actual_inventory) & set(expected_inventory)
+                    if actual_inventory[relative] != expected_inventory[relative]
+                }
+            )
+            detail = ", ".join(changed[:5])
+            if len(changed) > 5:
+                detail += ", …"
+            raise AutoQuantValidationError(
+                [
+                    _issue(
+                        target,
+                        "project.intake-scaffold-modified",
+                        "Existing Project contains work beyond research.md and "
+                        "framework-needs.md; intake refuses to replace it"
+                        + (f": {detail}" if detail else ""),
+                    )
+                ]
+            )
+
+        replacement_workspace = initialize_workspace(
+            temporary_root / "replacement"
+        )
+        replacement = create_project(
+            replacement_workspace.root_dir,
+            project_id,
+            name=preserved_name,
+            description=description,
+            template=template,
+            template_intake=template_intake,
+        )
+        (
+            replacement.root_dir / replacement.manifest.research_program
+        ).write_bytes(preserved_research)
+        (replacement.root_dir / FRAMEWORK_NEEDS).write_bytes(
+            preserved_framework
+        )
+        load_project(replacement.root_dir, expected_id=project_id)
+
+        backup = workspace.projects_dir / (
+            f".{project_id}.intake-backup-{uuid.uuid4().hex}"
+        )
+        try:
+            os.replace(target, backup)
+            os.replace(replacement.root_dir, target)
+        except Exception:
+            if target.exists():
+                shutil.rmtree(target)
+            if backup.exists():
+                os.replace(backup, target)
+            raise
+        else:
+            shutil.rmtree(backup)
+
     return load_project(target, expected_id=project_id)
 
 

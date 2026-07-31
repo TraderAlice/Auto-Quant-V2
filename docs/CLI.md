@@ -300,11 +300,17 @@ Portfolio lane, so factor or mandate changes stale its Run evidence.
 `project intake` is the atomic fast path after research intent has been
 clarified and translated into a strict request. It defaults to this
 research-desk template and validates the request and a caller-supplied,
-path-confined OHLCV package before creating anything. `--dataset` names the
-package manifest JSON file, not its containing directory; a directory returns
-`dataset.manifest-path-required`. Every asset `path` is resolved from the
-directory containing that manifest. For already staged nested files, make the
-manifest directory their common ancestor:
+path-confined OHLCV package before binding anything. If `project create`
+already established the exact selected template so an Agent could clarify
+`research.md` first, intake safely hydrates that pristine scaffold and
+preserves `research.md` plus `framework-needs.md`. It refuses any existing
+candidate edit, data, Run, Session, or unknown file instead of replacing
+worked-in research. An absent target is created atomically as before.
+
+`--dataset` names the package manifest JSON file, not its containing directory;
+a directory returns `dataset.manifest-path-required`. Every asset `path` is
+resolved from the directory containing that manifest. For already staged
+nested files, make the manifest directory their common ancestor:
 
 ```text
 staging/

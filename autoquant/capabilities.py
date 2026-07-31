@@ -295,8 +295,9 @@ CLI_COMMANDS = [
     descriptor(
         "project.intake",
         "aq project intake <workspace-dir> <project-id> --request FILE --dataset FILE [options]",
-        "Create a content-locked research Project after clarified intent has "
-        "been translated into a strict request and OHLCV package.",
+        "Create a content-locked research Project, or hydrate an exact pristine "
+        "template scaffold while preserving its Agent notes, after clarified "
+        "intent has been translated into a strict request and OHLCV package.",
         "creates-artifact",
         [
             argument(

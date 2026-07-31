@@ -1453,6 +1453,56 @@ class AgentCliTests(unittest.TestCase):
                 },
             )
 
+    def test_cli_intake_hydrates_brief_first_pristine_scaffold(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            request_path, package_path = write_intake_inputs(root)
+            workspace = root / "workspace"
+            self.assertEqual(
+                run_cli("workspace", "init", str(workspace), "--json").returncode,
+                0,
+            )
+            created = run_cli(
+                "project",
+                "create",
+                str(workspace),
+                "brief-first",
+                "--template",
+                "ohlcv-factor-lab",
+                "--json",
+            )
+            self.assertEqual(created.returncode, 0, created.stderr)
+            research_path = workspace / "projects/brief-first/research.md"
+            research = "# Clarified first\n\nPreserve this caller brief.\n"
+            research_path.write_text(research, encoding="utf-8")
+
+            intaken = run_cli(
+                "project",
+                "intake",
+                str(workspace),
+                "brief-first",
+                "--request",
+                str(request_path),
+                "--dataset",
+                str(package_path),
+                "--template",
+                "ohlcv-factor-lab",
+                "--json",
+            )
+
+            self.assertEqual(intaken.returncode, 0, intaken.stderr)
+            self.assertEqual(
+                json_output(intaken)["command"],
+                "project.intake",
+            )
+            self.assertEqual(
+                research_path.read_text(encoding="utf-8"),
+                research,
+            )
+            self.assertTrue(
+                (workspace / "projects/brief-first/intake.json").is_file()
+            )
+
     def test_cli_intake_defaults_to_multi_study_research_desk(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
