@@ -1,5 +1,5 @@
 ---
-version: 0.9.4
+version: 0.9.5
 ---
 
 # AutoQuant V2
@@ -32,12 +32,12 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current release: `v0.9.4`
+## Current release: `v0.9.5`
 
 AutoQuant V2 has crossed from an architectural prototype into a usable
 research workbench.
 
-`v0.9.4` is the current AutoQuant release. `v0.8.31` remains the Harness
+`v0.9.5` is the current AutoQuant release. `v0.8.31` remains the Harness
 currently consumed by OpenAlice until the host deliberately selects the newer
 tag; this is version provenance, not an automatic Workspace-migration promise.
 The minor-version boundary marks the next phase: improve the real delegated-
@@ -45,6 +45,29 @@ research loop from OpenAlice request through AutoQuant evidence handoff without
 weakening standalone Workspace operation or prematurely freezing a
 host-specific API. Bounded follow-up work defaults to patch releases such as
 `v0.9.1`, `v0.9.2`, `v0.9.3`, and onward.
+
+`v0.9.5` removes two forms of avoidable work observed in a clean delegated
+trial. `aq project templates` now publishes the fit, anti-fit, lane set, and
+composition rule for every construction, so coordinated Factor-to-Portfolio
+or Factor-to-RL work selects `ohlcv-research-desk` before intake rather than
+discovering that requirement after a standalone baseline. A verified current
+Run can now receive a Project-owned immutable Research Report directly through
+`aq report publish --study ... --run ...`; no empty Session, Check, Experiment,
+completion, or promotion history is manufactured. Real editable Sessions keep
+their own Reports and take precedence once started. Research Program, Dossier,
+orientation, CLI, and Studio consume the same explicit `run | session` anchor.
+See [[docs/design/run-bound-research-reports]] and
+[[plans/agent-route-and-run-bound-reports]].
+
+A fresh installed-wheel Grok 4.5 worker compared public routes, selected the
+Research Desk on its first attempt, executed one Factor and one Portfolio Run,
+published two direct Run Reports and one Dossier, and finished with zero
+Sessions, Checks, or Experiments. The `v0.9.5` release audit passed all 368
+tests in 929.173 seconds and all 1,271 documentation links, plus JavaScript
+syntax, build, fresh Python 3.11 installation, capability/template discovery,
+and clean-clone checks.
+
+### `v0.9.4`
 
 `v0.9.4` makes normalized signal-intent attribution obey the same fixed
 prediction-mode contract as actual Portfolio construction. An explicit

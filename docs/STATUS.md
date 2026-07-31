@@ -1,10 +1,10 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha released as `v0.9.4`; `v0.8.31` remains the Harness
+Status: usable pre-alpha released as `v0.9.5`; `v0.8.31` remains the Harness
 currently consumed by OpenAlice until the host deliberately selects a newer
 tag.
 
-Updated: 2026-07-31.
+Updated: 2026-08-01.
 
 Related: [[README]], [[docs/ARCHITECTURE]],
 [[docs/design/agent-native-quant-workbench]],
@@ -17,6 +17,25 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 
 AutoQuant V2 has crossed the line from an architectural prototype into a
 usable Agent-native quantitative research workbench.
+
+The `0.9.5` patch makes Agent route choice and evidence publication more
+truthful. A public Project-template catalog now states each construction's
+lanes, purpose, positive fit, and anti-fit and explicitly routes coordinated
+Factor-to-Portfolio or Factor-to-RL assignments to the Research Desk. A
+successful current request-bound Run can be reported directly without
+inventing an editable Session. These Project-owned Reports carry an explicit
+Run anchor, exact request/Study/Run/Harness/dataset/selection-integrity and
+decision-support evidence, and zero Check/Experiment authority. Session-owned
+Reports remain the path for actual candidate investigation and take precedence
+after a Session exists. Program, Dossier, orientation, CLI, and Studio verify
+and disclose the same distinction.
+
+One fresh installed-wheel Grok 4.5 worker selected the coordinated Research
+Desk on its first attempt, executed exactly one Factor and one Portfolio Run,
+published two Run-bound Reports and one Dossier, and finished with zero
+Sessions, Checks, or Experiments. The final release audit passed 368 tests,
+1,271 documentation links, Studio syntax, source/wheel build, fresh Python
+3.11 installation, capability/template discovery, and clean-clone operation.
 
 The `0.9.4` patch aligns normalized signal-intent attribution with actual
 prediction-mode-aware Portfolio construction. Explicit two-asset relative
