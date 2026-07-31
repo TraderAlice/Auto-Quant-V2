@@ -88,7 +88,7 @@ or trading authority is requested.
 
 ## Acceptance
 
-- [ ] The baseline uses the exact released `v0.9.9` wheel, public CLI/Skills,
+- [x] The baseline uses the exact released `v0.9.9` wheel, public CLI/Skills,
   a real split-adjusted five-asset panel ending `2026-07-30`, and one verified
   fixed Book Risk Study/Run/Report.
 - [ ] The follow-up request fixes the same universe, weights, method, ceiling,
@@ -113,7 +113,7 @@ or trading authority is requested.
 
 - [x] Audit the singleton Project intake and dataset closure in released
   `v0.9.9`.
-- [ ] Prepare and independently verify the historical-cutoff baseline Project.
+- [x] Prepare and independently verify the historical-cutoff baseline Project.
 - [ ] Run and review the fresh `0.9.9` follow-up worker.
 - [ ] Implement only reproduced reusable friction and rerun the assignment.
 - [ ] Complete release documentation and final verification, tag, and push.
@@ -130,6 +130,12 @@ or trading authority is requested.
   The field trial will determine whether a later Study-owned request plus
   Study-owned dataset closure is the smallest truthful extension; it will not
   assume that implementation before the baseline worker encounters the gap.
+- 2026-08-01 — The released-wheel baseline selected Yahoo only after an
+  independent Nasdaq.com peer package covered the same five assets and all
+  1,399 sessions through `2026-07-30`; bounded comparison found no OHLC
+  mismatch under the fixed tolerance and retained provider volume differences.
+  Strict intake, fixed Book Risk Run, direct Report, validation, orientation,
+  and public Report loading all passed.
 
 ## Verification
 
@@ -140,6 +146,13 @@ Pending.
 - 2026-08-01 — Created the `0.9.10` field plan from clean released `v0.9.9`
   after verifying that current strict intake and every primary construction
   Study bind the singleton `data/ohlcv/**` closure.
+- 2026-08-01 — Prepared `cohort-19-same-project-data-refresh-v099` from wheel
+  SHA-256
+  `049369a2178cab7b4efdf92c8d89615912c695cf233ecb38701141e7e6599c6d`.
+  Its sole Project contains 45 files, one `2026-07-30` snapshot, Run
+  `run-20260731T233720467155Z-1a227c68d6c1`, and Report
+  `report-20260731T233804152663Z-e0f3a05e93d6`; a pristine Project copy and
+  exact tree hashes are retained for host-side preservation review.
 
 ## Completion
 
