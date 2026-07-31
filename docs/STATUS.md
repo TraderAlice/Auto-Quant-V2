@@ -1,7 +1,7 @@
 # AutoQuant V2 current status
 
 Status: usable pre-alpha on the `0.9.0` development line; `v0.8.31` is the
-released OpenAlice consumption baseline.
+last released Harness currently consumed by OpenAlice.
 
 Updated: 2026-07-31.
 
@@ -9,12 +9,20 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 [[docs/design/agent-native-quant-workbench]],
 [[docs/trading-request-field-trials]],
 [[docs/agent-employability-validation]],
-[[docs/agent-employability-synthesis]], and [[PLANS]].
+[[docs/agent-employability-synthesis]],
+[[docs/openalice-real-delegation-synthesis]], and [[PLANS]].
 
 ## Milestone
 
 AutoQuant V2 has crossed the line from an architectural prototype into a
 usable Agent-native quantitative research workbench.
+
+The `0.9.0` real-delegation cohort adds six materially different Grok 4.5
+assignment families over source-authority boundaries, fixed Event and Book
+Risk evidence, causal multi-interval Factor research, and governed RL. The
+accepted workers preserved useful negative evidence and no-trading authority;
+every severe or recurring Workbench defect received a regression and a fresh
+worker retry. See [[docs/openalice-real-delegation-synthesis]].
 
 On the `0.9.0` development line, a human, local coding Agent, or coworker
 delegated from OpenAlice

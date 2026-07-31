@@ -37,11 +37,20 @@ measurement.
 AutoQuant V2 has crossed from an architectural prototype into a usable
 research workbench.
 
-`0.9.0` is the current development line. Its compatibility baseline is the
-released `0.8.31` Harness already consumed by OpenAlice. The minor-version
-boundary marks the next phase: improve the real delegated-research loop from
-OpenAlice request through AutoQuant evidence handoff without weakening
-standalone Workspace operation or prematurely freezing a host-specific API.
+`0.9.0` is the current development line. `v0.8.31` remains the last released
+Harness currently consumed by OpenAlice; this is version provenance, not an
+automatic Workspace-migration promise. The minor-version boundary marks the
+next phase: improve the real delegated-research loop from OpenAlice request
+through AutoQuant evidence handoff without weakening standalone Workspace
+operation or prematurely freezing a host-specific API.
+
+Six isolated Grok 4.5 assignment families now cover mainland-China and Taiwan
+source boundaries, a Korean price event, a reported semiconductor book,
+causal Crypto multi-interval Factor research, and US-sector governed RL.
+Accepted workers returned useful negative or bounded evidence without
+manufacturing trading authority. Repeated Agent friction produced narrowly
+tested `0.9.0` repairs; the synthesis and remaining honest limits are recorded
+in [[docs/openalice-real-delegation-synthesis]].
 
 `0.8.31` made historical market-data
 acquisition an Agent-native, versioned Skill bundle rather than a universal

@@ -131,17 +131,17 @@ unsupported weights, provider-semantic relabelling, or trading claims fail.
 
 ## Acceptance
 
-- [ ] At least six materially different ordinary delegated assignments cover
+- [x] At least six materially different ordinary delegated assignments cover
   the cohort above with Grok 4.5 workers.
-- [ ] Every final task has a durable independent review of intent, data,
+- [x] Every final task has a durable independent review of intent, data,
   immutable evidence, authority, and outward-answer usefulness.
-- [ ] At least one task returns useful negative or unsupported evidence, and
+- [x] At least one task returns useful negative or unsupported evidence, and
   no accepted task manufactures target weights or a trading instruction.
-- [ ] At least one task independently uses the `0.8.31` market-data router and
+- [x] At least one task independently uses the `0.8.31` market-data router and
   two peer sources through strict intake without source-code coaching.
-- [ ] Every severe or recurrent reusable friction is fixed on `0.9.0`,
+- [x] Every severe or recurrent reusable friction is fixed on `0.9.0`,
   regression-tested, and retried by a fresh worker.
-- [ ] Harness upgrades remain ordinary Agent/Git work; no upgrade framework is
+- [x] Harness upgrades remain ordinary Agent/Git work; no upgrade framework is
   introduced without contrary real-task evidence.
 - [ ] The final synthesis distinguishes demonstrated strengths, repaired
   weaknesses, remaining honest limits, and the smallest OpenAlice consumption
@@ -269,6 +269,24 @@ unsupported weights, provider-semantic relabelling, or trading claims fail.
   canonical Project request and shows the explicit option in every iterative
   single-lane template. Unbound Projects retain local request-free Sessions.
   A fresh RL worker must verify the repaired entry path.
+- 2026-07-31 — A sixth fresh Grok 4.5 worker on commit `e09246c` completed a
+  governed-RL incremental-value decision for five US sector ETFs. It acquired
+  2,657 aligned Yahoo daily bars per asset, used Nasdaq only as a
+  different-adjustment coverage peer, bound the complete caller mandate, and
+  completed exactly one request-bound Session with no accidental local
+  Session. This independently verifies the repaired entry path.
+- 2026-07-31 — The stock RL encoder trailed the best mechanical baseline by
+  `-0.6113` mean validation Sharpe advantage. One richer causal-state
+  Experiment improved the RL objective by `+0.0861` and sharply reduced
+  fold/seed dispersion, but remained `-0.5252` behind the best mechanical
+  baseline and failed the fixed `+0.2` KEEP threshold. Grok accepted REVERT,
+  retained baseline, preserved the external-holdout warning, and truthfully
+  concluded that RL added no stable incremental value.
+- 2026-07-31 — All six materially different assignment families are now
+  covered and every recurring severe friction has a regression plus fresh
+  worker proof. The remaining work is the final synthesis and complete
+  regression/build/install/clean-clone release-readiness audit, not another
+  research feature.
 
 ## Verification
 
@@ -349,6 +367,17 @@ unsupported weights, provider-semantic relabelling, or trading claims fail.
   tests.test_workspace.WorkspaceProjectTests.test_every_builtin_template_requires_the_same_research_start_gate
   tests.test_cli.AgentCliTests.test_cli_intake_hydrates_brief_first_pristine_scaffold
   -v` — 2 tests passed in 6.236 seconds.
+- Full CLI/Workspace regression after request-default repair:
+  `.venv/bin/python -m unittest tests.test_cli tests.test_workspace -v` —
+  37 tests passed in 95.052 seconds.
+- Documentation graph after the repair: 1,199 double-links resolve.
+- Fresh governed-RL final: 2,657 aligned Yahoo daily bars for each of five
+  caller-owned sector ETFs, one request-bound Session, two successful Runs,
+  one passed Check, one REVERT, one Report/completion, six successful
+  fold/seed paths per Run, and zero executed volatility-ceiling breaches.
+- Independent governed-RL review:
+  `../openalice-field-trials/cohort-06-us-sector-governed-rl-v090/review.md`
+  (external trial ledger, intentionally not a repository documentation link).
 
 ## Completion
 

@@ -256,6 +256,9 @@ Read the relevant linked document before changing a subsystem:
 - Fresh-worker isolation, employability evidence grades, trial observation,
   friction promotion, and the OpenAlice readiness gate:
   [[docs/agent-employability-validation]]
+- The `0.9.0` real-delegation cohort, demonstrated strengths, repaired
+  friction, honest limits, and thin OpenAlice boundary:
+  [[docs/openalice-real-delegation-synthesis]]
 - Project-observed capability gaps and their promotion into Workbench design
   and plans: [[docs/design/project-derived-workbench-needs]]
 - Observed-universe ordinary-pandas factor input, aligned/ragged cross-asset
