@@ -788,6 +788,7 @@ class AgentCliTests(unittest.TestCase):
                 "schema",
                 "orient",
                 "workspace.init",
+                "project.templates",
                 "project.create",
                 "project.intake",
                 "project.list",
@@ -2593,6 +2594,17 @@ print(json.dumps({
             published_json = json_output(published)
             report_id = published_json["data"]["report"]["id"]
             self.assertEqual(
+                published_json["data"]["anchor"],
+                {
+                    "kind": "session",
+                    "studyId": "factor-quality",
+                    "runId": published_json["data"]["report"]["evidence"][
+                        "session"
+                    ]["leader"]["runId"],
+                    "sessionId": session_id,
+                },
+            )
+            self.assertEqual(
                 published_json["data"]["report"]["tradingAuthority"],
                 "none",
             )
@@ -2632,6 +2644,10 @@ print(json.dumps({
             self.assertEqual(
                 json_output(shown)["data"]["report"]["analysisHash"],
                 published_json["data"]["report"]["analysisHash"],
+            )
+            self.assertEqual(
+                json_output(shown)["data"]["anchor"],
+                published_json["data"]["anchor"],
             )
 
             completed = run_cli(

@@ -72,7 +72,7 @@ class ReportContext:
 class ReportSummary:
     id: str
     title: str
-    session_id: str
+    session_id: str | None
     leader_run_id: str
     findings: int
     recommendations: int
@@ -83,12 +83,20 @@ class ReportSummary:
     authority: str
     leader_decision_support: dict[str, Any]
     selection_integrity: dict[str, Any]
+    anchor_kind: str = "session"
+    study_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.id,
             "title": self.title,
             "sessionId": self.session_id,
+            "anchor": {
+                "kind": self.anchor_kind,
+                "studyId": self.study_id,
+                "runId": self.leader_run_id,
+                "sessionId": self.session_id,
+            },
             "leaderRunId": self.leader_run_id,
             "findings": self.findings,
             "recommendations": self.recommendations,
@@ -1946,6 +1954,8 @@ def list_reports(
                 selection_integrity=report.report["evidence"][
                     "selectionIntegrity"
                 ],
+                anchor_kind="session",
+                study_id=session.manifest["studyId"],
             )
         )
     return summaries
@@ -1954,7 +1964,7 @@ def list_reports(
 EVIDENCE_REFERENCE_JSON_SCHEMA: dict[str, Any] = {
     "type": "object",
     "description": (
-        "One exact Session evidence reference. Run artifactPath is null or "
+        "One exact Report-anchor evidence reference. Run artifactPath is null or "
         "must exactly match one path in that Run's result.artifacts array, "
         "for example artifacts/factor-report.json. Experiment and Campaign "
         "artifactPath must be null."
@@ -1977,14 +1987,15 @@ EVIDENCE_REFERENCE_JSON_SCHEMA: dict[str, Any] = {
         "kind": {
             "enum": sorted(EVIDENCE_KINDS),
             "description": (
-                "Evidence identity kind from the current delegated Session."
+                "Evidence identity kind available from the selected Report anchor. "
+                "A direct Run anchor exposes only kind=run."
             ),
         },
         "id": {
             "type": "string",
             "minLength": 1,
             "description": (
-                "Exact Run, Experiment, or Campaign id present in the Session."
+                "Exact Run, Experiment, or Campaign id present in the selected anchor."
             ),
         },
         "artifactPath": {

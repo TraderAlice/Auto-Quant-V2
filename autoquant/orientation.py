@@ -30,6 +30,7 @@ from .research_agenda import (
 )
 from .research_program import load_research_program
 from .reports import list_reports
+from .run_reports import list_run_reports
 from .runs import list_runs, load_run
 from .sessions import (
     list_experiments,
@@ -1113,6 +1114,21 @@ def _single_study_orientation(
         if run.result["studyInputHash"] == study.input_hash:
             current_runs.append(item)
     current_run = current_runs[-1] if current_runs else None
+    if (
+        current_run is not None
+        and current_report is None
+        and latest_session_context is None
+    ):
+        current_report = next(
+            (
+                report.to_dict()
+                for report in reversed(
+                    list_run_reports(project, study.definition.id)
+                )
+                if report.leader_run_id == current_run.id
+            ),
+            None,
+        )
     active_authority_valid = (
         session_snapshot(project, active_session)["authority"]["valid"]
         if active_session is not None
@@ -1350,6 +1366,57 @@ def _single_study_orientation(
         editable = []
         mode = "observe"
         phase = "evidence-ready"
+    elif (
+        current_report is not None
+        and current_report.get("anchor", {}).get("kind") == "run"
+        and current_report["leaderRunId"] == current_run.id
+    ):
+        primary_raw = None
+        supporting_raw = [
+            _command(
+                "report.show",
+                "Inspect the immutable Run-bound Research Report.",
+                [
+                    "aq",
+                    "report",
+                    "show",
+                    str(project.root_dir),
+                    "--report",
+                    current_report["id"],
+                    "--json",
+                ],
+                "read-only",
+            ),
+            _command(
+                "session.start",
+                "Optionally begin a separate governed candidate investigation.",
+                [
+                    "aq",
+                    "session",
+                    "start",
+                    str(project.root_dir),
+                    "--study",
+                    study.definition.id,
+                    "--json",
+                ],
+                "creates-artifact",
+            ),
+        ]
+        reasons = [
+            {
+                "code": "frozen-run-reported",
+                "category": "evidence",
+                "message": (
+                    "The current successful Run has an immutable request-bound "
+                    "Research Report. No Session, Check, or Experiment was "
+                    "created; further candidate research is optional."
+                ),
+            }
+        ]
+        operating_root = project.root_dir
+        editable = []
+        mode = "observe"
+        phase = "evidence-ready"
     else:
         primary_raw = _command(
             "session.start",
@@ -1407,7 +1474,11 @@ def _single_study_orientation(
             "leaderRunId": (
                 latest_session.leader_run_id
                 if latest_session is not None
-                else None
+                else (
+                    current_report["leaderRunId"]
+                    if current_report is not None
+                    else None
+                )
             ),
             "reportId": (
                 current_report["id"] if current_report is not None else None
@@ -1724,6 +1795,71 @@ def build_agent_work_brief(project: ProjectContext) -> dict[str, Any]:
             editable_paths=projected["filesystem"]["declaredEditablePaths"],
         )
     )
+    agenda_moves = research_agenda.get("moves", [])
+    agenda_has_editable_target = any(
+        isinstance(move, dict)
+        and isinstance(move.get("target"), dict)
+        and bool(move["target"].get("editablePaths"))
+        for move in agenda_moves
+    )
+    if (
+        program is not None
+        and research_agenda["status"] == "no-further-in-sample-tuning"
+        and not agenda_has_editable_target
+        and projected["primaryAction"] is not None
+        and projected["primaryAction"]["id"] == "session.start"
+        and projected["evidence"]["sessionId"] is None
+    ):
+        focus_lane = next(
+            (
+                lane
+                for lane in program["lanes"]
+                if lane["id"] == projected["focus"]["laneId"]
+            ),
+            None,
+        )
+        report_command = (
+            next(
+                (
+                    command
+                    for command in focus_lane["commands"]
+                    if command["id"] == "report.publish"
+                ),
+                None,
+            )
+            if focus_lane is not None
+            else None
+        )
+        if report_command is not None:
+            report_action = _action(
+                report_command,
+                working_directory=project.root_dir,
+            )
+            message = (
+                "The diagnostic agenda freezes the current immutable Run and "
+                "has no candidate-edit target; publish its Run-bound Report "
+                "without creating a Session."
+            )
+            projected["primaryAction"] = report_action
+            projected["supportingActions"] = []
+            projected["reasons"] = [
+                {
+                    "code": "report-required",
+                    "category": "evidence",
+                    "message": message,
+                }
+            ]
+            projected["focus"]["operatingMode"] = "publish-evidence"
+            projected["review"] = {
+                "status": "pending",
+                "label": "REPORT REQUIRED",
+                "title": projected["focus"]["laneName"],
+                "detail": message,
+                "next": report_action["description"],
+                "boundary": (
+                    "validation selects · visible test audits · no trading authority"
+                ),
+            }
     freeze_session_id = projected["evidence"]["sessionId"]
     freeze_session = (
         load_session(project, freeze_session_id)

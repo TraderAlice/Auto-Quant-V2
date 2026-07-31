@@ -19,10 +19,12 @@ from autoquant.dossiers import (
     publish_dossier,
 )
 from autoquant.intake import prepare_project_intake
+from autoquant.orientation import build_agent_work_brief
 from autoquant.reports import load_report, publish_report
+from autoquant.run_reports import publish_run_report
 from autoquant.research_program import load_research_program
-from autoquant.runs import execute_study
-from autoquant.sessions import complete_session, start_session
+from autoquant.runs import execute_study, list_runs
+from autoquant.sessions import complete_session, list_sessions, start_session
 from autoquant.studio import build_studio_snapshot
 from autoquant.studies import hash_json
 from autoquant.templates import (
@@ -241,7 +243,7 @@ class ProgramResearchDossierTests(unittest.TestCase):
             self.assertFalse(initial["ready"])
             self.assertEqual(
                 {blocker["code"] for blocker in initial["blockers"]},
-                {"dossier.session-missing"},
+                {"dossier.report-missing"},
             )
 
             factor_session, factor_report = self._publish_lane(
@@ -250,6 +252,7 @@ class ProgramResearchDossierTests(unittest.TestCase):
                 "factor",
                 OHLCV_STUDY_ID,
             )
+
             factor_support = factor_report.report["evidence"][
                 "leaderDecisionSupport"
             ]
@@ -706,6 +709,94 @@ class ProgramResearchDossierTests(unittest.TestCase):
                     portfolio_session,
                     forged_id,
                 )
+
+    def test_current_factor_and_portfolio_runs_need_no_report_only_sessions(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            request_path, package_path = write_intake_inputs(
+                root,
+                benchmark_policy={"kind": "asset", "symbol": "SPY"},
+                factor_policy={
+                    "claim": "known-style-validation",
+                    "knownStyle": "momentum_20",
+                },
+            )
+            prepared = prepare_project_intake(
+                request_path,
+                package_path,
+                "ohlcv-research-desk",
+            )
+            project = create_project(
+                initialize_workspace(root / "workspace").root_dir,
+                "run-reported-desk",
+                template=prepared.template,
+                template_intake=prepared,
+            )
+            for study_id in (
+                OHLCV_STUDY_ID,
+                PORTFOLIO_STUDY_ID,
+            ):
+                execute_study(project, study_id)
+            run_ids = {
+                summary.study_id: summary.id
+                for summary in list_runs(project)
+            }
+            brief = build_agent_work_brief(project)
+            self.assertEqual(brief["primaryAction"]["id"], "report.publish")
+            self.assertEqual(brief["focus"]["operatingMode"], "publish-evidence")
+            self.assertEqual(brief["reasons"][0]["code"], "report-required")
+            self.assertIn("--study", brief["primaryAction"]["argv"])
+            self.assertNotIn("--session", brief["primaryAction"]["argv"])
+            factor_report = publish_run_report(
+                project,
+                OHLCV_STUDY_ID,
+                run_ids[OHLCV_STUDY_ID],
+                lane_analysis("factor", run_ids[OHLCV_STUDY_ID]),
+            )
+            portfolio_report = publish_run_report(
+                project,
+                PORTFOLIO_STUDY_ID,
+                run_ids[PORTFOLIO_STUDY_ID],
+                lane_analysis("portfolio", run_ids[PORTFOLIO_STUDY_ID]),
+            )
+
+            self.assertEqual(list_sessions(project), [])
+            program = load_research_program(project)
+            self.assertEqual(
+                program["progression"]["stage"],
+                "required-research-complete",
+            )
+            self.assertEqual(
+                [lane["phase"] for lane in program["lanes"][:2]],
+                ["reported", "reported"],
+            )
+            status = load_dossier_status(project)
+            self.assertTrue(status["ready"])
+            self.assertEqual(status["includedLaneIds"], ["factor", "portfolio"])
+            self.assertEqual(
+                [lane["session"] for lane in status["lanes"][:2]],
+                [None, None],
+            )
+            self.assertEqual(
+                [lane["report"]["anchor"]["kind"] for lane in status["lanes"][:2]],
+                ["run", "run"],
+            )
+            dossier = publish_dossier(
+                project,
+                dossier_analysis(
+                    {
+                        "factor": factor_report.report["id"],
+                        "portfolio": portfolio_report.report["id"],
+                    }
+                ),
+            )
+            self.assertEqual(
+                [
+                    lane["report"]["anchor"]["kind"]
+                    for lane in dossier.dossier["evidence"]["lanes"]
+                ],
+                ["run", "run"],
+            )
 
     def test_rl_report_is_included_and_analysis_must_cover_every_lane(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

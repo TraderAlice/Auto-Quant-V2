@@ -26,13 +26,14 @@ from .decision_support import (
 )
 from .intake import load_project_intake
 from .reports import REPORT_ID, list_reports, load_report
+from .run_reports import list_run_reports, load_run_report
 from .research_program import (
     RESEARCH_PROGRAM_MANIFEST,
     load_research_program,
 )
-from .runs import load_run
+from .runs import list_runs, load_run
 from .sessions import list_sessions, load_session, validate_session_authority
-from .studies import hash_file, hash_json
+from .studies import hash_file, hash_json, load_study
 from .workspace import (
     SCHEMA_VERSION,
     AutoQuantValidationError,
@@ -482,21 +483,45 @@ def _run_projection(run) -> dict[str, Any]:
 
 
 def _report_projection(report) -> dict[str, Any]:
-    frozen_session = report.report["evidence"]["session"]
+    run_bound = report.report.get("kind") == "autoquant-run-research-report"
+    if run_bound:
+        anchor = report.report["anchor"]
+        frozen_run = report.report["evidence"]["run"]
+        metric = frozen_run["objective"]["metric"]
+        leader = {
+            "runId": anchor["runId"],
+            "metric": metric,
+            "value": frozen_run["metrics"].get(metric),
+            "sourceHash": frozen_run["subject"]["sourceHash"],
+        }
+        brief = None
+        session_id = None
+    else:
+        frozen_session = report.report["evidence"]["session"]
+        anchor = {
+            "kind": "session",
+            "studyId": frozen_session["studyId"],
+            "runId": frozen_session["leader"]["runId"],
+            "sessionId": report.report["sessionId"],
+        }
+        leader = frozen_session["leader"]
+        brief = report.report["brief"]
+        session_id = report.report["sessionId"]
     projection = {
         "id": report.report["id"],
         "reportHash": report.manifest["reportHash"],
         "analysisHash": report.report["analysisHash"],
         "evidenceHash": report.report["evidenceHash"],
         "publishedAt": report.report["publishedAt"],
-        "sessionId": report.report["sessionId"],
-        "brief": report.report["brief"],
+        "anchor": anchor,
+        "sessionId": session_id,
+        "brief": brief,
         "title": report.analysis["title"],
         "executiveSummary": report.analysis["executiveSummary"],
         "analysis": report.analysis,
         "selectionIntegrity": report.report["evidence"]["selectionIntegrity"],
         "harness": report.report["harness"],
-        "leader": frozen_session["leader"],
+        "leader": leader,
         "authority": report.report["authority"],
     }
     if "leaderDecisionSupport" in report.report["evidence"]:
@@ -507,12 +532,24 @@ def _report_projection(report) -> dict[str, Any]:
 
 
 def _status_report_projection(report) -> dict[str, Any]:
+    run_bound = report.report.get("kind") == "autoquant-run-research-report"
+    anchor = (
+        report.report["evidence"]["anchor"]
+        if run_bound
+        else {
+            "kind": "session",
+            "studyId": report.report["evidence"]["session"]["studyId"],
+            "runId": report.report["evidence"]["session"]["leader"]["runId"],
+            "sessionId": report.report["sessionId"],
+        }
+    )
     projection = {
         "id": report.report["id"],
         "title": report.analysis["title"],
         "executiveSummary": report.analysis["executiveSummary"],
-        "sessionId": report.report["sessionId"],
-        "leaderRunId": report.report["evidence"]["session"]["leader"]["runId"],
+        "anchor": anchor,
+        "sessionId": anchor["sessionId"],
+        "leaderRunId": anchor["runId"],
         "publishedAt": report.report["publishedAt"],
         "findings": [
             {
@@ -538,20 +575,43 @@ def _current_lane_report(
     request: dict[str, Any],
 ) -> tuple[Any | None, Any | None, Any | None, list[dict[str, Any]]]:
     blockers: list[dict[str, Any]] = []
+    study = load_study(project, lane["studyId"])
+    current_run = None
+    for summary in reversed(list_runs(project, lane["studyId"])):
+        candidate = load_run(project, summary.id)
+        if (
+            candidate.result["status"] == "succeeded"
+            and candidate.result["studyInputHash"] == study.input_hash
+        ):
+            current_run = candidate
+            break
     summaries = [
         item
         for item in list_sessions(project)
         if item.study_id == lane["studyId"]
     ]
     if not summaries:
+        for summary in reversed(list_run_reports(project, lane["studyId"])):
+            report = load_run_report(project, summary.id)
+            if (
+                current_run is not None
+                and report.report["request"] == request
+                and report.report["anchor"]["runId"]
+                == current_run.result["id"]
+            ):
+                return None, report, current_run, []
         return (
             None,
             None,
-            None,
+            current_run,
             [
                 _blocker(
-                    "dossier.session-missing",
-                    f"{lane['name']} has no delegated Session",
+                    "dossier.report-missing",
+                    (
+                        f"{lane['name']} has current Run evidence but no current Run-bound Report"
+                        if current_run is not None
+                        else f"{lane['name']} has no current Run or delegated Session evidence"
+                    ),
                     lane["id"],
                 )
             ],
@@ -900,7 +960,29 @@ def _readiness(
                 for lane in program["lanes"]
                 if lane["id"] == first_blocked["id"]
             )
-            if first_blocked["session"] is None:
+            if (
+                first_blocked["session"] is None
+                and first_blocked["leaderRun"] is not None
+            ):
+                next_action = _command(
+                    "report.publish",
+                    f"Publish analysis over the current immutable Run for {first_blocked['name']} without creating a Session.",
+                    [
+                        "aq",
+                        "report",
+                        "publish",
+                        str(project.root_dir),
+                        "--study",
+                        first_blocked["study"]["id"],
+                        "--run",
+                        first_blocked["leaderRun"]["id"],
+                        "--analysis",
+                        "report-analysis.json",
+                        "--json",
+                    ],
+                    "creates-artifact",
+                )
+            elif first_blocked["session"] is None:
                 next_action = next(
                     (
                         command
@@ -2154,15 +2236,27 @@ def _verify_frozen_evidence(
             continue
         lane_id = lane.get("id")
         lane_ids.append(lane_id)
-        session_id = lane.get("report", {}).get("sessionId")
-        report_id = lane.get("report", {}).get("id")
-        if not isinstance(session_id, str) or not isinstance(report_id, str):
+        report_projection = lane.get("report", {})
+        anchor = report_projection.get("anchor", {})
+        report_id = report_projection.get("id")
+        if not isinstance(report_id, str) or not isinstance(anchor, dict):
             issues.append(
                 _issue(path, "dossier.report", "Invalid frozen lane Report identity")
             )
             continue
-        session = load_session(project, session_id)
-        report = load_report(project, session, report_id)
+        if anchor.get("kind") == "run" and anchor.get("sessionId") is None:
+            report = load_run_report(project, report_id)
+        elif (
+            anchor.get("kind") == "session"
+            and isinstance(anchor.get("sessionId"), str)
+        ):
+            session = load_session(project, anchor["sessionId"])
+            report = load_report(project, session, report_id)
+        else:
+            issues.append(
+                _issue(path, "dossier.report-anchor", "Invalid frozen lane Report anchor")
+            )
+            continue
         expected_report = _report_projection(report)
         if lane.get("report") != expected_report:
             issues.append(

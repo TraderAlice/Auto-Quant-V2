@@ -1234,6 +1234,8 @@ function renderSessions(project) {
       ? '<div class="empty-panel">Sessions are disabled in this frozen external-audit Project.</div>'
       : project.bookRiskExplorer || project.eventStudyExplorer || project.allocationExplorer
         ? '<div class="empty-panel">This fixed descriptive Project has no editable research surface or Session lifecycle.</div>'
+      : project.runReports?.length
+        ? `<div class="empty-panel">${project.runReports.length} immutable Run-bound Research Report${project.runReports.length === 1 ? "" : "s"} published; no editable Session, Check, or Experiment was created.</div>`
       : '<div class="empty-panel">No Sessions yet. Start one with <code>aq session start</code>.</div>');
   document.querySelectorAll("[data-session]").forEach((button) => {
     button.addEventListener("click", () => {

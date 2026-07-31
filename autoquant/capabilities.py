@@ -244,10 +244,16 @@ CLI_COMMANDS = [
         ],
     ),
     descriptor(
+        "project.templates",
+        "aq project templates [--json]",
+        "List strict fit and anti-fit contracts for every Project construction route; Factor-to-Portfolio, Factor-to-RL, and coordinated Dossier work route to ohlcv-research-desk.",
+        "read-only",
+        [JSON_ARGUMENT],
+    ),
+    descriptor(
         "project.create",
         "aq project create <workspace-dir> <project-id> [options]",
-        "Create one self-contained Project with English research and "
-        "Project-derived Workbench-needs Markdown surfaces.",
+        "Create one self-contained Project after using project.templates to distinguish single-lane Labs from the coordinated Research Desk, with English research and Project-derived Workbench-needs Markdown surfaces.",
         "creates-artifact",
         [
             argument(
@@ -863,13 +869,33 @@ CLI_COMMANDS = [
     ),
     descriptor(
         "report.publish",
-        "aq report publish <path> --session ID --analysis FILE [--project ID] [--json]",
-        "Verify Agent-authored analysis references and publish immutable JSON plus Markdown over one delegated Session evidence snapshot.",
+        "aq report publish <path> (--session ID | --study ID --run ID) --analysis FILE [--project ID] [--json]",
+        "Publish immutable analysis over either a delegated Session evidence prefix or one successful current request-bound Study Run without creating a Session.",
         "creates-artifact",
         [
             PATH_ARGUMENT,
             PROJECT_ARGUMENT,
-            SESSION_ARGUMENT,
+            argument(
+                "session",
+                "option",
+                "string",
+                False,
+                "Delegated editable Session anchor; mutually exclusive with --study/--run.",
+            ),
+            argument(
+                "study",
+                "option",
+                "string",
+                False,
+                "Study id for a Session-free Run anchor; requires --run.",
+            ),
+            argument(
+                "run",
+                "option",
+                "string",
+                False,
+                "Successful current Run id for a Session-free anchor; requires --study.",
+            ),
             argument(
                 "analysis",
                 "option",
@@ -890,20 +916,26 @@ CLI_COMMANDS = [
     ),
     descriptor(
         "report.list",
-        "aq report list <path> --session ID [--project ID] [--json]",
-        "List verified immutable Research Reports in one Session.",
-        "read-only",
-        [PATH_ARGUMENT, PROJECT_ARGUMENT, SESSION_ARGUMENT, JSON_ARGUMENT],
-    ),
-    descriptor(
-        "report.show",
-        "aq report show <path> --session ID --report ID [--project ID] [--json]",
-        "Verify and inspect one immutable evidence-bound Research Report.",
+        "aq report list <path> [--session ID | --study ID] [--project ID] [--json]",
+        "List verified immutable Project-owned Run Reports, optionally filtered by Study, or Reports in one Session.",
         "read-only",
         [
             PATH_ARGUMENT,
             PROJECT_ARGUMENT,
-            SESSION_ARGUMENT,
+            argument("session", "option", "string", False, "Session-bound Report scope."),
+            argument("study", "option", "string", False, "Run-bound Report Study filter."),
+            JSON_ARGUMENT,
+        ],
+    ),
+    descriptor(
+        "report.show",
+        "aq report show <path> [--session ID] --report ID [--project ID] [--json]",
+        "Verify one immutable Research Report; omit --session for a Project-owned Run anchor.",
+        "read-only",
+        [
+            PATH_ARGUMENT,
+            PROJECT_ARGUMENT,
+            argument("session", "option", "string", False, "Owning Session for a Session-bound Report."),
             REPORT_ARGUMENT,
             JSON_ARGUMENT,
         ],

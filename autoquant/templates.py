@@ -69,6 +69,124 @@ PROJECT_TEMPLATE_IDS = (
     "ohlcv-allocation-lab",
     "ohlcv-research-desk",
 )
+PROJECT_TEMPLATE_ROUTES: tuple[dict[str, Any], ...] = (
+    {
+        "id": "blank",
+        "kind": "construction-site",
+        "lanes": [],
+        "purpose": "Clarify a new assignment before its quantitative method is known.",
+        "fits": [
+            "The caller-owned question is still materially ambiguous.",
+            "No existing fixed Lab or coordinated desk contract is yet justified.",
+        ],
+        "doesNotFit": [
+            "Do not use it to bypass an existing fixed quantitative contract.",
+        ],
+    },
+    {
+        "id": "ohlcv-factor-lab",
+        "kind": "single-lane-lab",
+        "lanes": ["factor"],
+        "purpose": "Evaluate one causal OHLCV factor without downstream portfolio work.",
+        "fits": [
+            "The deliverable is factor quality, qualification, or diagnostics only.",
+        ],
+        "doesNotFit": [
+            "The same Project must translate the factor into target weights or RL.",
+        ],
+    },
+    {
+        "id": "ohlcv-portfolio-lab",
+        "kind": "single-lane-lab",
+        "lanes": ["portfolio"],
+        "purpose": "Evaluate target-weight construction from an already fixed factor contract.",
+        "fits": [
+            "Portfolio evidence is standalone and no Factor-to-Portfolio admission is required.",
+        ],
+        "doesNotFit": [
+            "Factor evidence must be established, reported, or admitted before Portfolio work.",
+            "A coordinated Dossier or optional governed-RL continuation is expected.",
+        ],
+    },
+    {
+        "id": "ohlcv-rl-factor-lab",
+        "kind": "single-lane-lab",
+        "lanes": ["rl"],
+        "purpose": "Evaluate one governed RL factor-policy Study with fixed dependencies.",
+        "fits": [
+            "The Factor and Portfolio dependencies are already fixed outside this Project.",
+        ],
+        "doesNotFit": [
+            "The same Project must first establish Factor or Portfolio evidence.",
+        ],
+    },
+    {
+        "id": "ohlcv-book-risk-lab",
+        "kind": "fixed-lab",
+        "lanes": ["book-risk"],
+        "purpose": "Audit one caller-supplied funded position book or bounded cash sizing path.",
+        "fits": [
+            "The caller supplies the exact current or hypothetical funded weights.",
+        ],
+        "doesNotFit": [
+            "The task is to discover a predictive factor or optimize an unrestricted portfolio.",
+        ],
+    },
+    {
+        "id": "ohlcv-event-study-lab",
+        "kind": "fixed-lab",
+        "lanes": ["event-study"],
+        "purpose": "Measure post-event OHLCV behavior under one fixed event rule.",
+        "fits": [
+            "The event rule, horizon, overlap policy, and comparison meaning are fixed.",
+        ],
+        "doesNotFit": [
+            "The caller needs continuous cross-sectional ranking or target weights.",
+        ],
+    },
+    {
+        "id": "ohlcv-allocation-lab",
+        "kind": "fixed-lab",
+        "lanes": ["allocation"],
+        "purpose": "Evaluate fixed portfolio-native allocation against a fixed reference.",
+        "fits": [
+            "The construction is allocation-native and does not depend on a predictive factor.",
+        ],
+        "doesNotFit": [
+            "Factor selection must precede target-weight construction.",
+        ],
+    },
+    {
+        "id": "ohlcv-research-desk",
+        "kind": "coordinated-research-desk",
+        "lanes": ["factor", "portfolio", "rl"],
+        "purpose": "Coordinate Factor to Portfolio and optional governed-RL evidence in one Project.",
+        "fits": [
+            "Factor evidence must feed target-weight construction in the same assignment.",
+            "Factor or Portfolio evidence may feed governed RL in the same assignment.",
+            "The deliverable needs a coordinated multi-Study Dossier.",
+        ],
+        "doesNotFit": [
+            "A single fixed Lab fully answers the question without cross-lane admission.",
+        ],
+    },
+)
+
+
+def project_template_routes() -> list[dict[str, Any]]:
+    """Return the public ordered Project-construction route catalog."""
+
+    return [
+        {
+            "id": route["id"],
+            "kind": route["kind"],
+            "lanes": list(route["lanes"]),
+            "purpose": route["purpose"],
+            "fits": list(route["fits"]),
+            "doesNotFit": list(route["doesNotFit"]),
+        }
+        for route in PROJECT_TEMPLATE_ROUTES
+    ]
 OHLCV_STUDY_ID = "ohlcv-factor-quality"
 PORTFOLIO_STUDY_ID = "ohlcv-portfolio-quality"
 RL_STUDY_ID = "ohlcv-rl-factor-policy"

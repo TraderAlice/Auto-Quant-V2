@@ -102,6 +102,11 @@ from .reports import (
     load_report_analysis,
     publish_report,
 )
+from .run_reports import (
+    list_run_reports,
+    load_run_report,
+    publish_run_report,
+)
 from .intake import (
     INTAKE_TEMPLATE_REQUIREMENTS,
     OHLCV_DATASET_PACKAGE_JSON_SCHEMA,
@@ -155,6 +160,7 @@ from .templates import (
     PROJECT_TEMPLATE_IDS,
     TEMPLATE_STUDY_IDS,
     TEMPLATE_STUDY_SEQUENCES,
+    project_template_routes,
 )
 from .sessions import (
     EXPERIMENT_JSON_SCHEMA,
@@ -371,9 +377,15 @@ def build_parser() -> RaisingArgumentParser:
 
     project = subcommands.add_parser("project", help="manage Projects")
     project_actions = project.add_subparsers(dest="project_action", required=True)
+    project_templates = project_actions.add_parser(
+        "templates",
+        help="show fit and anti-fit contracts for every Project construction route",
+    )
+    project_templates.set_defaults(command_id="project.templates")
+    _json_argument(project_templates)
     project_create = project_actions.add_parser(
         "create",
-        help="create a self-contained Project",
+        help="create a self-contained Project; inspect 'aq project templates' first",
     )
     project_create.add_argument("workspace")
     project_create.add_argument("project_id")
@@ -383,6 +395,10 @@ def build_parser() -> RaisingArgumentParser:
         "--template",
         choices=PROJECT_TEMPLATE_IDS,
         default="blank",
+        help=(
+            "Project construction route; run 'aq project templates' before "
+            "choosing a single-lane Lab or coordinated Research Desk"
+        ),
     )
     project_create.set_defaults(command_id="project.create")
     _json_argument(project_create)
@@ -420,6 +436,11 @@ def build_parser() -> RaisingArgumentParser:
         "--template",
         choices=tuple(INTAKE_TEMPLATE_REQUIREMENTS),
         default=RESEARCH_DESK_TEMPLATE,
+        help=(
+            "request-bound construction route; Factor-to-Portfolio or "
+            "Factor-to-RL work requires ohlcv-research-desk; inspect "
+            "'aq project templates'"
+        ),
     )
     project_intake.add_argument("--name")
     project_intake.set_defaults(command_id="project.intake")
@@ -851,11 +872,22 @@ def build_parser() -> RaisingArgumentParser:
     report_actions = report.add_subparsers(dest="report_action", required=True)
     report_publish = report_actions.add_parser(
         "publish",
-        help="publish Agent-authored analysis over verified Session evidence",
+        help="publish analysis over one Session prefix or one immutable current Run",
     )
     report_publish.add_argument("path")
     report_publish.add_argument("--project")
-    report_publish.add_argument("--session", required=True)
+    report_publish.add_argument(
+        "--session",
+        help="delegated editable Session evidence anchor",
+    )
+    report_publish.add_argument(
+        "--study",
+        help="Study id for a Session-free immutable Run anchor; requires --run",
+    )
+    report_publish.add_argument(
+        "--run",
+        help="successful current Run id for a Session-free anchor; requires --study",
+    )
     report_publish.add_argument(
         "--analysis",
         required=True,
@@ -874,11 +906,12 @@ def build_parser() -> RaisingArgumentParser:
 
     report_list = report_actions.add_parser(
         "list",
-        help="list immutable Research Reports in one Session",
+        help="list Project-owned Run Reports or Reports in one Session",
     )
     report_list.add_argument("path")
     report_list.add_argument("--project")
-    report_list.add_argument("--session", required=True)
+    report_list.add_argument("--session")
+    report_list.add_argument("--study", help="filter Project-owned Run Reports by Study")
     report_list.set_defaults(command_id="report.list")
     _json_argument(report_list)
 
@@ -888,7 +921,10 @@ def build_parser() -> RaisingArgumentParser:
     )
     report_show.add_argument("path")
     report_show.add_argument("--project")
-    report_show.add_argument("--session", required=True)
+    report_show.add_argument(
+        "--session",
+        help="owning Session for a Session-bound Report; omit for a Run-bound Report",
+    )
     report_show.add_argument("--report", required=True)
     report_show.set_defaults(command_id="report.show")
     _json_argument(report_show)
@@ -1259,6 +1295,70 @@ def _project_create(args: argparse.Namespace) -> CommandResult:
         project_context(project),
         artifacts,
         next_actions,
+    )
+
+
+def _project_templates(args: argparse.Namespace) -> CommandResult:
+    routes = project_template_routes()
+    recommendation_rules = [
+        {
+            "when": "method-unclear",
+            "template": "blank",
+            "reason": "Clarify caller intent before choosing fixed quantitative authority.",
+        },
+        {
+            "when": "factor-to-portfolio-or-rl",
+            "template": RESEARCH_DESK_TEMPLATE,
+            "reason": "Cross-lane admission and Dossier evidence require the coordinated desk.",
+        },
+        {
+            "when": "single-fixed-lane",
+            "template": "matching-specialized-lab",
+            "reason": "Use the narrow Lab only when it fully answers the assignment.",
+        },
+    ]
+    lines = [
+        "AutoQuant Project construction routes",
+        "Rule: if Factor evidence must feed Portfolio or RL in one assignment, "
+        f"use {RESEARCH_DESK_TEMPLATE}.",
+        "Rule: if the method is unclear, use blank and finish research.md first.",
+        "",
+    ]
+    for route in routes:
+        lanes = ", ".join(route["lanes"]) or "none yet"
+        lines.extend(
+            [
+                f"{route['id']} [{route['kind']}; {lanes}]",
+                f"  {route['purpose']}",
+                f"  Fit: {route['fits'][0]}",
+                f"  Not fit: {route['doesNotFit'][0]}",
+            ]
+        )
+    return CommandResult(
+        "project.templates",
+        {
+            "default": "blank",
+            "routes": routes,
+            "recommendationRules": recommendation_rules,
+        },
+        "\n".join(lines) + "\n",
+        next_actions=[
+            next_action(
+                "project.create",
+                "After clarifying research.md intent, create exactly one fitting Project.",
+                [
+                    "aq",
+                    "project",
+                    "create",
+                    "<workspace-dir>",
+                    "<project-id>",
+                    "--template",
+                    "<template-id>",
+                    "--json",
+                ],
+                "creates-artifact",
+            )
+        ],
     )
 
 
@@ -3614,8 +3714,30 @@ def _report_artifacts(report) -> list[dict[str, Any]]:
 def _report_publish(args: argparse.Namespace) -> CommandResult:
     project = _selected_project(args)
     analysis = load_report_analysis(args.analysis)
-    report = publish_report(project, args.session, analysis)
-    session = load_session(project, args.session)
+    session_mode = args.session is not None
+    run_mode = args.study is not None or args.run is not None
+    if session_mode == run_mode:
+        raise CliUsageError(
+            "report publish requires exactly one anchor: --session ID, or "
+            "--study ID together with --run ID"
+        )
+    if run_mode and (args.study is None or args.run is None):
+        raise CliUsageError("Run-bound report publication requires both --study and --run")
+    report = (
+        publish_report(project, args.session, analysis)
+        if session_mode
+        else publish_run_report(project, args.study, args.run, analysis)
+    )
+    anchor = (
+        {
+            "kind": "session",
+            "studyId": report.report["evidence"]["session"]["studyId"],
+            "runId": report.report["evidence"]["session"]["leader"]["runId"],
+            "sessionId": report.report["sessionId"],
+        }
+        if session_mode
+        else report.report["evidence"]["anchor"]
+    )
     actions = [
         next_action(
             "report.show",
@@ -3625,8 +3747,11 @@ def _report_publish(args: argparse.Namespace) -> CommandResult:
                 "report",
                 "show",
                 str(project.root_dir),
-                "--session",
-                report.report["sessionId"],
+                *(
+                    ["--session", report.report["sessionId"]]
+                    if session_mode
+                    else []
+                ),
                 "--report",
                 report.report["id"],
                 "--json",
@@ -3634,7 +3759,11 @@ def _report_publish(args: argparse.Namespace) -> CommandResult:
             "read-only",
         )
     ]
-    if session.manifest["leader"] == session.manifest["baseline"]:
+    if session_mode:
+        session = load_session(project, args.session)
+    else:
+        session = None
+    if session is not None and session.manifest["leader"] == session.manifest["baseline"]:
         actions.append(
             next_action(
                 "session.complete",
@@ -3653,7 +3782,7 @@ def _report_publish(args: argparse.Namespace) -> CommandResult:
                 "creates-artifact",
             )
         )
-    else:
+    elif session is not None:
         actions.append(
             next_action(
                 "session.promote",
@@ -3677,14 +3806,21 @@ def _report_publish(args: argparse.Namespace) -> CommandResult:
         {
             "manifest": report.manifest,
             "report": report.report,
+            "anchor": anchor,
             "markdownPath": str(report.root_dir / "report.md"),
         },
         (
             f"Research Report: {report.report['id']}\n"
             f"Title: {report.analysis['title']}\n"
-            f"Session: {report.report['sessionId']}\n"
-            f"Leader: {report.report['evidence']['session']['leader']['runId']}\n"
-            f"{_report_decision_support_line(report.report)}"
+            f"Anchor: {anchor['kind']}\n"
+            f"Study: {anchor['studyId']}\n"
+            f"Run: {anchor['runId']}\n"
+            + (
+                f"Session: {anchor['sessionId']}\n"
+                if anchor["sessionId"] is not None
+                else "Session: none (frozen Run evidence)\n"
+            )
+            + f"{_report_decision_support_line(report.report)}"
             f"Markdown: {report.root_dir / 'report.md'}\n"
             "Authority: quantitative decision support; trading authority: none\n"
         ),
@@ -3696,9 +3832,20 @@ def _report_publish(args: argparse.Namespace) -> CommandResult:
 
 def _report_list(args: argparse.Namespace) -> CommandResult:
     project = _selected_project(args)
-    session = load_session(project, args.session)
-    reports = list_reports(project, session)
-    lines = [f"Research Reports in {session.manifest['id']}:"]
+    if args.session is not None and args.study is not None:
+        raise CliUsageError("report list accepts --session or --study, not both")
+    session = load_session(project, args.session) if args.session is not None else None
+    reports = (
+        list_reports(project, session)
+        if session is not None
+        else list_run_reports(project, args.study)
+    )
+    scope = session.manifest["id"] if session is not None else (
+        f"Project Run anchors for Study {args.study}"
+        if args.study is not None
+        else "Project Run anchors"
+    )
+    lines = [f"Research Reports in {scope}:"]
     lines.extend(
         f"  {item.id}  {item.title}  findings={item.findings}  "
         f"recommendations={item.recommendations}"
@@ -3717,8 +3864,11 @@ def _report_list(args: argparse.Namespace) -> CommandResult:
                     "report",
                     "show",
                     str(project.root_dir),
-                    "--session",
-                    session.manifest["id"],
+                    *(
+                        ["--session", session.manifest["id"]]
+                        if session is not None
+                        else []
+                    ),
                     "--report",
                     reports[-1].id,
                     "--json",
@@ -3737,20 +3887,39 @@ def _report_list(args: argparse.Namespace) -> CommandResult:
 
 def _report_show(args: argparse.Namespace) -> CommandResult:
     project = _selected_project(args)
-    session = load_session(project, args.session)
-    report = load_report(project, session, args.report)
+    report = (
+        load_report(project, load_session(project, args.session), args.report)
+        if args.session is not None
+        else load_run_report(project, args.report)
+    )
+    anchor = (
+        {
+            "kind": "session",
+            "studyId": report.report["evidence"]["session"]["studyId"],
+            "runId": report.report["evidence"]["session"]["leader"]["runId"],
+            "sessionId": report.report["sessionId"],
+        }
+        if args.session is not None
+        else report.report["evidence"]["anchor"]
+    )
     return CommandResult(
         "report.show",
         {
             "manifest": report.manifest,
             "report": report.report,
+            "anchor": anchor,
             "markdownPath": str(report.root_dir / "report.md"),
         },
         (
             f"Immutable Research Report: {report.report['id']}\n"
             f"Title: {report.analysis['title']}\n"
-            f"Session: {report.report['sessionId']}\n"
-            f"Findings: {len(report.analysis['findings'])}\n"
+            f"Anchor: {anchor['kind']} · Study {anchor['studyId']} · Run {anchor['runId']}\n"
+            + (
+                f"Session: {anchor['sessionId']}\n"
+                if anchor["sessionId"] is not None
+                else "Session: none\n"
+            )
+            + f"Findings: {len(report.analysis['findings'])}\n"
             f"{_report_decision_support_line(report.report)}"
             f"Markdown: {report.root_dir / 'report.md'}\n"
         ),
@@ -4631,6 +4800,8 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
         return _workspace_init(args)
     if args.command_id == "project.create":
         return _project_create(args)
+    if args.command_id == "project.templates":
+        return _project_templates(args)
     if args.command_id == "project.intake":
         return _project_intake(args)
     if args.command_id == "project.list":

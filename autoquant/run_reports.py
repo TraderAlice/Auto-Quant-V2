@@ -1,0 +1,653 @@
+"""Immutable Project-owned Research Reports over one current Study Run."""
+
+from __future__ import annotations
+
+import json
+import os
+import shutil
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+from .decision_support import (
+    build_leader_decision_support,
+    summarize_leader_decision_support,
+    verify_leader_decision_support,
+)
+from .intake import load_project_intake
+from .reports import (
+    REPORT_ANALYSIS,
+    REPORT_ID,
+    REPORT_MANIFEST,
+    REPORT_MARKDOWN,
+    REPORT_RESULT,
+    ReportContext,
+    ReportSummary,
+    _read_json,
+    _report_files,
+    _resolve_analysis_evidence,
+    _strict_keys,
+    _write_json,
+    validate_report_analysis,
+)
+from .runs import list_runs, load_run
+from .sessions import build_selection_integrity, list_sessions
+from .studies import hash_file, hash_json, load_study
+from .workspace import (
+    SCHEMA_VERSION,
+    AutoQuantValidationError,
+    ProjectContext,
+    ValidationIssue,
+    confined_path,
+)
+
+
+RUN_REPORT_KIND = "autoquant-run-research-report"
+RUN_REPORTS_DIRECTORY = "reports"
+
+
+def _issue(path: Path | str, code: str, message: str) -> ValidationIssue:
+    return ValidationIssue(str(path), code, message)
+
+
+def _run_projection(run) -> dict[str, Any]:
+    return {
+        "id": run.result["id"],
+        "resultHash": run.manifest["resultHash"],
+        "status": run.result["status"],
+        "study": run.result["study"],
+        "studyInputHash": run.result["studyInputHash"],
+        "subject": run.result["subject"],
+        "dataset": run.result["dataset"],
+        "objective": run.result["objective"],
+        "metrics": run.result["metrics"],
+        "artifacts": run.result["artifacts"],
+        "harness": run.result["harness"],
+        **(
+            {"dependencies": run.result["dependencies"]}
+            if "dependencies" in run.result
+            else {}
+        ),
+    }
+
+
+def _reports_root(project: ProjectContext, *, create: bool) -> Path:
+    root = confined_path(project.root_dir, RUN_REPORTS_DIRECTORY, "project/reports")
+    if root.is_symlink():
+        raise AutoQuantValidationError(
+            [_issue(root, "path.symlink", "Project Reports directory cannot be a symlink")]
+        )
+    if create:
+        root.mkdir(exist_ok=True)
+    if not root.is_dir():
+        raise AutoQuantValidationError(
+            [_issue(root, "report.directory", "Missing Project Reports directory")]
+        )
+    return root
+
+
+def _report_root(project: ProjectContext, report_id: str) -> Path:
+    if not REPORT_ID.fullmatch(report_id):
+        raise AutoQuantValidationError(
+            [_issue(report_id, "report.id", "Invalid Research Report id")]
+        )
+    return confined_path(_reports_root(project, create=False), report_id, report_id)
+
+
+def _anchor(
+    project: ProjectContext,
+    study_id: str,
+    run_id: str,
+) -> tuple[dict[str, Any], Any, Any, dict[str, Any]]:
+    intake = load_project_intake(project)
+    if intake is None:
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    project.root_dir,
+                    "report.request-required",
+                    "Run-bound Research Reports require verified request-driven Project intake",
+                )
+            ]
+        )
+    study = load_study(project, study_id)
+    run = load_run(project, run_id)
+    issues: list[ValidationIssue] = []
+    if any(
+        summary.study_id == study_id
+        for summary in list_sessions(project)
+    ):
+        issues.append(
+            _issue(
+                project.root_dir,
+                "report.session-history",
+                "Run-bound Reports cannot omit existing Session history for the Study",
+            )
+        )
+    if run.result["study"]["id"] != study_id:
+        issues.append(
+            _issue(
+                run.root_dir,
+                "report.study-run",
+                "Run does not belong to the selected Study",
+            )
+        )
+    if run.result["status"] != "succeeded":
+        issues.append(
+            _issue(
+                run.root_dir,
+                "report.run-failed",
+                "Run-bound Reports require a successful Run",
+            )
+        )
+    if run.result["studyInputHash"] != study.input_hash:
+        issues.append(
+            _issue(
+                run.root_dir,
+                "report.run-stale",
+                "Run does not match the current Study, source, dependency, or dataset identity",
+            )
+        )
+    current_run_id = None
+    for summary in reversed(list_runs(project, study_id)):
+        candidate = load_run(project, summary.id)
+        if (
+            candidate.result["status"] == "succeeded"
+            and candidate.result["studyInputHash"] == study.input_hash
+        ):
+            current_run_id = summary.id
+            break
+    if current_run_id is not None and current_run_id != run_id:
+        issues.append(
+            _issue(
+                run.root_dir,
+                "report.run-superseded",
+                "A newer successful Run is the current immutable Study evidence",
+            )
+        )
+    if run.result["dataset"]["hash"] != intake["manifest"]["datasetHash"]:
+        issues.append(
+            _issue(
+                run.root_dir,
+                "report.dataset",
+                "Run dataset differs from the verified Project intake",
+            )
+        )
+    if issues:
+        raise AutoQuantValidationError(issues)
+    anchor = {
+        "kind": "run",
+        "studyId": study_id,
+        "runId": run_id,
+        "sessionId": None,
+        "resultHash": run.manifest["resultHash"],
+        "studyInputHash": run.result["studyInputHash"],
+    }
+    return anchor, study, run, intake
+
+
+def _evidence(
+    project: ProjectContext,
+    run,
+    *,
+    published_at: str,
+) -> tuple[dict[str, Any], dict[tuple[str, str], dict[str, Any]]]:
+    projection = _run_projection(run)
+    evidence = {
+        "anchor": {
+            "kind": "run",
+            "studyId": run.result["study"]["id"],
+            "runId": run.result["id"],
+            "sessionId": None,
+        },
+        "run": projection,
+        "selectionIntegrity": build_selection_integrity(
+            project,
+            run,
+            [],
+            cutoff=published_at,
+        ),
+        "leaderDecisionSupport": build_leader_decision_support(
+            project,
+            run.result["id"],
+        ),
+    }
+    return evidence, {("run", run.result["id"]): projection}
+
+
+def _label(reference: dict[str, Any]) -> str:
+    label = f"{reference['kind']}:{reference['id']}"
+    if reference["artifactPath"] is not None:
+        label += f"#{reference['artifactPath']}"
+    return f"`{label}`"
+
+
+def _render_markdown(report: dict[str, Any]) -> str:
+    request = report["request"]
+    analysis = report["analysis"]
+    evidence = report["evidence"]
+    run = evidence["run"]
+    integrity = evidence["selectionIntegrity"]
+    assets = ", ".join(item["symbol"] for item in request["assets"])
+    lines = [
+        f"# {analysis['title']}",
+        "",
+        "> Authority: quantitative decision support only. This report is not a",
+        "> trade order, broker confirmation, or authenticated OpenAlice origin.",
+        "",
+        "## Research request",
+        "",
+        f"**Question:** {request['question']}",
+        "",
+        f"**Decision context:** {request['decisionContext']}",
+        "",
+        f"**Assets:** {assets}",
+        "",
+        f"**Direction / horizon:** {request['direction']} / {request['horizon']}",
+        "",
+        "## Executive summary",
+        "",
+        analysis["executiveSummary"],
+        "",
+        "## Frozen evidence",
+        "",
+        "- Anchor: `run` (no Session, Check, Experiment, or candidate-edit authority)",
+        f"- Study: `{report['anchor']['studyId']}`",
+        f"- Run: `{report['anchor']['runId']}`",
+        f"- Status: `{run['status']}`",
+        f"- Objective: `{run['objective']['metric']}` / `{run['objective']['direction']}`",
+        f"- Dataset: `{run['dataset']['id']}@{run['dataset']['version']}` hash `{run['dataset']['hash']}`",
+        f"- Selection split / test role: `{integrity['selectionSplit']}` / `{integrity['testRole']}`",
+        f"- Candidate trials: `{integrity['candidateTrials']}`",
+        f"- Warning: {integrity['warning']}",
+        "",
+        "## Findings",
+        "",
+    ]
+    for finding in analysis["findings"]:
+        refs = ", ".join(_label(item) for item in finding["evidenceRefs"])
+        lines.extend(
+            [
+                f"### {finding['id']}",
+                "",
+                finding["claim"],
+                "",
+                f"Confidence: **{finding['confidence']}**. Evidence: {refs}.",
+                "",
+            ]
+        )
+    lines.extend(["## Recommendations", ""])
+    if analysis["recommendations"]:
+        for index, recommendation in enumerate(analysis["recommendations"], start=1):
+            refs = ", ".join(_label(item) for item in recommendation["evidenceRefs"])
+            conditions = "; ".join(recommendation["conditions"]) or "none declared"
+            lines.extend(
+                [
+                    f"{index}. **{recommendation['action']}** — {recommendation['rationale']}",
+                    "",
+                    f"   Conditions: {conditions}. Evidence: {refs}.",
+                    "",
+                ]
+            )
+    else:
+        lines.extend(["No action recommendation was made.", ""])
+    lines.extend(["## Limitations", ""])
+    lines.extend(
+        [f"- {item}" for item in analysis["limitations"]]
+        or ["- No additional limitations were declared."]
+    )
+    lines.extend(["", "## Unresolved questions", ""])
+    lines.extend(
+        [f"- {item}" for item in analysis["unresolvedQuestions"]]
+        or ["- No unresolved questions were declared."]
+    )
+    lines.extend(
+        [
+            "",
+            "## Reproducibility and handoff",
+            "",
+            f"- Report: `{report['id']}`",
+            "- Evidence anchor: `run`",
+            f"- Study: `{report['anchor']['studyId']}`",
+            f"- Run: `{report['anchor']['runId']}`",
+            f"- Harness: `{report['harness']['id']}@{report['harness']['version']}` commit `{report['harness']['commit']}`",
+            f"- Result hash: `{report['anchor']['resultHash']}`",
+            f"- Study input hash: `{report['anchor']['studyInputHash']}`",
+            "",
+            "Publish this exact Markdown through OpenAlice Inbox only if the host",
+            "needs authenticated conversation provenance. The research evidence",
+            "itself is complete without a Session.",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def publish_run_report(
+    project: ProjectContext,
+    study_id: str,
+    run_id: str,
+    analysis: dict[str, Any],
+) -> ReportContext:
+    normalized = validate_report_analysis(analysis)
+    anchor, _study, run, intake = _anchor(project, study_id, run_id)
+    published = datetime.now(timezone.utc)
+    published_at = published.isoformat()
+    evidence, catalog = _evidence(project, run, published_at=published_at)
+    _resolve_analysis_evidence(normalized, catalog, "analysis")
+    analysis_hash = hash_json(normalized)
+    evidence_hash = hash_json(evidence)
+    identity = hash_json(
+        {
+            "anchor": anchor,
+            "requestHash": intake["manifest"]["requestHash"],
+            "analysisHash": analysis_hash,
+            "evidenceHash": evidence_hash,
+            "publishedAt": published_at,
+        }
+    )
+    report_id = f"report-{published.strftime('%Y%m%dT%H%M%S%fZ')}-{identity[:12]}"
+    root = _reports_root(project, create=True)
+    target = confined_path(root, report_id, f"report/{report_id}")
+    staging = root / f".{report_id}.creating"
+    if target.exists() or target.is_symlink() or staging.exists():
+        raise AutoQuantValidationError(
+            [_issue(target, "report.collision", "Research Report already exists")]
+        )
+    report = {
+        "schemaVersion": SCHEMA_VERSION,
+        "kind": RUN_REPORT_KIND,
+        "id": report_id,
+        "authority": "quantitative-decision-support",
+        "tradingAuthority": "none",
+        "publishedAt": published_at,
+        "project": {"id": project.manifest.id, "name": project.manifest.name},
+        "anchor": anchor,
+        "request": intake["request"],
+        "harness": run.result["harness"],
+        "analysisHash": analysis_hash,
+        "evidenceHash": evidence_hash,
+        "analysis": normalized,
+        "evidence": evidence,
+        "openAliceHandoff": {
+            "document": REPORT_MARKDOWN,
+            "provenance": "openalice-authoritative-on-inbox-publication",
+            "sourceContext": "caller-supplied-content-locked",
+        },
+    }
+    try:
+        staging.mkdir()
+        _write_json(staging / REPORT_ANALYSIS, normalized)
+        _write_json(staging / REPORT_RESULT, report)
+        (staging / REPORT_MARKDOWN).write_text(_render_markdown(report), encoding="utf-8")
+        files = {
+            path.name: hash_file(path)
+            for path in sorted(staging.iterdir(), key=lambda item: item.name)
+            if path.is_file()
+        }
+        manifest = {
+            "schemaVersion": SCHEMA_VERSION,
+            "id": report_id,
+            "anchor": anchor,
+            "completed": True,
+            "reportHash": files[REPORT_RESULT],
+            "files": files,
+        }
+        _write_json(staging / REPORT_MANIFEST, manifest)
+        os.replace(staging, target)
+    except Exception:
+        if staging.exists():
+            shutil.rmtree(staging)
+        raise
+    return load_run_report(project, report_id)
+
+
+def _validate_result(
+    project: ProjectContext,
+    report: dict[str, Any],
+    path: Path,
+    report_id: str,
+) -> None:
+    required = {
+        "schemaVersion",
+        "kind",
+        "id",
+        "authority",
+        "tradingAuthority",
+        "publishedAt",
+        "project",
+        "anchor",
+        "request",
+        "harness",
+        "analysisHash",
+        "evidenceHash",
+        "analysis",
+        "evidence",
+        "openAliceHandoff",
+    }
+    issues = _strict_keys(report, required, path)
+    if (
+        report.get("schemaVersion") != SCHEMA_VERSION
+        or report.get("kind") != RUN_REPORT_KIND
+        or report.get("id") != report_id
+        or report.get("authority") != "quantitative-decision-support"
+        or report.get("tradingAuthority") != "none"
+    ):
+        issues.append(_issue(path, "report.identity", "Invalid Run-bound Report identity"))
+    if report.get("project") != {"id": project.manifest.id, "name": project.manifest.name}:
+        issues.append(_issue(f"{path}/project", "report.project", "Report Project differs"))
+    anchor = report.get("anchor")
+    if not isinstance(anchor, dict):
+        issues.append(_issue(f"{path}/anchor", "schema.type", "Invalid Report anchor"))
+        anchor = {}
+    else:
+        issues.extend(
+            _strict_keys(
+                anchor,
+                {"kind", "studyId", "runId", "sessionId", "resultHash", "studyInputHash"},
+                f"{path}/anchor",
+            )
+        )
+        if anchor.get("kind") != "run" or anchor.get("sessionId") is not None:
+            issues.append(_issue(f"{path}/anchor", "report.anchor", "Invalid Run Report anchor"))
+    run = None
+    if isinstance(anchor.get("runId"), str):
+        try:
+            run = load_run(project, anchor["runId"])
+        except AutoQuantValidationError as error:
+            issues.extend(error.issues)
+    if run is not None:
+        expected_anchor = {
+            "kind": "run",
+            "studyId": run.result["study"]["id"],
+            "runId": run.result["id"],
+            "sessionId": None,
+            "resultHash": run.manifest["resultHash"],
+            "studyInputHash": run.result["studyInputHash"],
+        }
+        if anchor != expected_anchor:
+            issues.append(
+                _issue(
+                    f"{path}/anchor",
+                    "report.anchor-evidence",
+                    "Report anchor differs from immutable Run",
+                )
+            )
+        if report.get("harness") != run.result["harness"]:
+            issues.append(_issue(f"{path}/harness", "report.harness", "Report Harness differs from Run"))
+    intake = load_project_intake(project)
+    if intake is None or report.get("request") != intake["request"]:
+        issues.append(_issue(f"{path}/request", "report.request", "Report request differs from Project intake"))
+    try:
+        normalized = validate_report_analysis(report.get("analysis"), f"{path}/analysis")
+        if hash_json(normalized) != report.get("analysisHash"):
+            issues.append(_issue(f"{path}/analysisHash", "report.analysis-hash", "Analysis hash mismatch"))
+    except (AutoQuantValidationError, TypeError) as error:
+        if isinstance(error, AutoQuantValidationError):
+            issues.extend(error.issues)
+        else:
+            issues.append(_issue(f"{path}/analysis", "schema.type", "Invalid analysis"))
+    evidence = report.get("evidence")
+    if not isinstance(evidence, dict) or hash_json(evidence) != report.get("evidenceHash"):
+        issues.append(_issue(f"{path}/evidenceHash", "report.evidence-hash", "Evidence hash mismatch"))
+    published_at = report.get("publishedAt")
+    if isinstance(published_at, str) and isinstance(anchor, dict) and intake is not None:
+        try:
+            published = datetime.fromisoformat(published_at)
+            if published.utcoffset() is None or published.utcoffset().total_seconds() != 0:
+                raise ValueError
+            identity = hash_json(
+                {
+                    "anchor": anchor,
+                    "requestHash": intake["manifest"]["requestHash"],
+                    "analysisHash": report.get("analysisHash"),
+                    "evidenceHash": report.get("evidenceHash"),
+                    "publishedAt": published_at,
+                }
+            )
+            expected_id = f"report-{published.strftime('%Y%m%dT%H%M%S%fZ')}-{identity[:12]}"
+            if report_id != expected_id:
+                issues.append(_issue(path, "report.derived-id", "Research Report id is not derived"))
+        except ValueError:
+            issues.append(_issue(f"{path}/publishedAt", "schema.datetime", "Invalid publishedAt"))
+    else:
+        issues.append(_issue(f"{path}/publishedAt", "schema.string", "Invalid publishedAt"))
+    if issues:
+        raise AutoQuantValidationError(issues)
+
+
+def _verify_evidence(project: ProjectContext, report: dict[str, Any], path: Path) -> None:
+    evidence = report["evidence"]
+    required = {"anchor", "run", "selectionIntegrity", "leaderDecisionSupport"}
+    issues = _strict_keys(evidence, required, f"{path}/evidence")
+    anchor = report["anchor"]
+    if evidence.get("anchor") != {
+        "kind": "run",
+        "studyId": anchor["studyId"],
+        "runId": anchor["runId"],
+        "sessionId": None,
+    }:
+        issues.append(_issue(path, "report.evidence-anchor", "Frozen evidence anchor differs"))
+    run = load_run(project, anchor["runId"])
+    projection = _run_projection(run)
+    if evidence.get("run") != projection:
+        issues.append(_issue(path, "report.run-evidence", "Frozen Run evidence differs"))
+    expected_integrity = build_selection_integrity(
+        project,
+        run,
+        [],
+        cutoff=report["publishedAt"],
+    )
+    if evidence.get("selectionIntegrity") != expected_integrity:
+        issues.append(
+            _issue(
+                path,
+                "report.selection-integrity",
+                "Frozen selection integrity differs from the Run evidence",
+            )
+        )
+    try:
+        verify_leader_decision_support(
+            project,
+            evidence.get("leaderDecisionSupport"),
+            anchor["runId"],
+            f"{path}/evidence/leaderDecisionSupport",
+        )
+    except AutoQuantValidationError as error:
+        issues.extend(error.issues)
+    catalog = {("run", anchor["runId"]): projection}
+    try:
+        _resolve_analysis_evidence(report["analysis"], catalog, path)
+    except AutoQuantValidationError as error:
+        issues.extend(error.issues)
+    if issues:
+        raise AutoQuantValidationError(issues)
+
+
+def load_run_report(project: ProjectContext, report_id: str) -> ReportContext:
+    root = _report_root(project, report_id)
+    if root.is_symlink() or not root.is_dir():
+        raise AutoQuantValidationError(
+            [_issue(root, "report.missing", f"Unknown Run-bound Research Report: {report_id}")]
+        )
+    manifest = _read_json(root / REPORT_MANIFEST, "report manifest")
+    required = {"schemaVersion", "id", "anchor", "completed", "reportHash", "files"}
+    issues = _strict_keys(manifest, required, root / REPORT_MANIFEST)
+    if (
+        manifest.get("schemaVersion") != SCHEMA_VERSION
+        or manifest.get("id") != report_id
+        or manifest.get("completed") is not True
+    ):
+        issues.append(_issue(root / REPORT_MANIFEST, "report.manifest", "Invalid terminal manifest"))
+    actual = _report_files(root)
+    files = manifest.get("files")
+    if not isinstance(files, dict) or files != actual:
+        issues.append(_issue(root, "report.tampered", "Research Report files changed"))
+    if isinstance(files, dict) and files.get(REPORT_RESULT) != manifest.get("reportHash"):
+        issues.append(_issue(root, "report.result-hash", "Research Report hash mismatch"))
+    if issues:
+        raise AutoQuantValidationError(issues)
+    analysis = validate_report_analysis(
+        _read_json(root / REPORT_ANALYSIS, "report analysis"),
+        root / REPORT_ANALYSIS,
+    )
+    report = _read_json(root / REPORT_RESULT, "research report")
+    _validate_result(project, report, root / REPORT_RESULT, report_id)
+    if report["analysis"] != analysis:
+        raise AutoQuantValidationError(
+            [_issue(root, "report.analysis", "Stored analysis differs from report")]
+        )
+    if manifest["anchor"] != report["anchor"]:
+        raise AutoQuantValidationError(
+            [_issue(root, "report.anchor", "Manifest anchor differs from Report")]
+        )
+    if (root / REPORT_MARKDOWN).read_text(encoding="utf-8") != _render_markdown(report):
+        raise AutoQuantValidationError(
+            [_issue(root / REPORT_MARKDOWN, "report.markdown", "Report Markdown is not canonical")]
+        )
+    _verify_evidence(project, report, root / REPORT_RESULT)
+    return ReportContext(root, manifest, report, analysis)
+
+
+def list_run_reports(
+    project: ProjectContext,
+    study_id: str | None = None,
+) -> list[ReportSummary]:
+    root = project.root_dir / RUN_REPORTS_DIRECTORY
+    if not root.exists() and not root.is_symlink():
+        return []
+    root = _reports_root(project, create=False)
+    summaries: list[ReportSummary] = []
+    for entry in sorted(root.iterdir(), key=lambda item: item.name):
+        if entry.name.startswith("."):
+            continue
+        if entry.is_symlink() or not entry.is_dir():
+            raise AutoQuantValidationError(
+                [_issue(entry, "report.entry", "Report entries must be real directories")]
+            )
+        report = load_run_report(project, entry.name)
+        anchor = report.report["anchor"]
+        if study_id is not None and anchor["studyId"] != study_id:
+            continue
+        summaries.append(
+            ReportSummary(
+                id=report.report["id"],
+                title=report.analysis["title"],
+                session_id=None,
+                leader_run_id=anchor["runId"],
+                findings=len(report.analysis["findings"]),
+                recommendations=len(report.analysis["recommendations"]),
+                published_at=report.report["publishedAt"],
+                path=str(report.root_dir),
+                markdown_path=str(report.root_dir / REPORT_MARKDOWN),
+                executive_summary=report.analysis["executiveSummary"],
+                authority=report.report["authority"],
+                leader_decision_support=summarize_leader_decision_support(
+                    report.report["evidence"].get("leaderDecisionSupport")
+                ),
+                selection_integrity=report.report["evidence"]["selectionIntegrity"],
+                anchor_kind="run",
+                study_id=anchor["studyId"],
+            )
+        )
+    return summaries

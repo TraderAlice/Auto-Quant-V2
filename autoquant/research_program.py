@@ -11,6 +11,7 @@ from .factor_explorer import load_factor_diagnostics
 from .intake import PROJECT_REQUEST, load_project_intake
 from .portfolio_explorer import load_portfolio_diagnostics
 from .reports import list_reports
+from .run_reports import list_run_reports
 from .runs import list_runs, load_run
 from .sessions import list_sessions, load_session
 from .studies import hash_json, load_study
@@ -623,15 +624,30 @@ def _lane_state(
     reports: list[dict[str, Any]] = []
     if latest_session is not None:
         session = load_session(project, latest_session.id)
-        reports = [item.to_dict() for item in list_reports(project, session)]
+        reports.extend(
+            item.to_dict() for item in list_reports(project, session)
+        )
+    else:
+        reports.extend(
+            item.to_dict()
+            for item in list_run_reports(project, lane["studyId"])
+        )
+    reports.sort(key=lambda item: (item["publishedAt"], item["id"]))
     current_run = (
         latest_run is not None
         and latest_run["status"] == "succeeded"
         and latest_run["studyInputHash"] == study.input_hash
     )
+    current_report = _current_report(
+        {
+            "latestRun": latest_run,
+            "currentRun": current_run,
+            "reports": reports,
+        }
+    )
     if latest_run is not None and not current_run:
         phase = "stale"
-    elif latest_session is not None and reports:
+    elif current_report is not None:
         phase = "reported"
     elif latest_session is not None and latest_session.status == "active":
         phase = "researching"
@@ -668,6 +684,27 @@ def _lane_state(
                     str(project.root_dir),
                     "--study",
                     lane["studyId"],
+                    "--json",
+                ],
+                "creates-artifact",
+            )
+        )
+    elif current_report is None:
+        commands.append(
+            _command(
+                "report.publish",
+                f"Publish analysis over the current immutable Run for {lane['name']} without creating a Session.",
+                [
+                    "aq",
+                    "report",
+                    "publish",
+                    str(project.root_dir),
+                    "--study",
+                    lane["studyId"],
+                    "--run",
+                    latest_run["id"],
+                    "--analysis",
+                    "report-analysis.json",
                     "--json",
                 ],
                 "creates-artifact",

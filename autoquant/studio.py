@@ -43,6 +43,7 @@ from .rl_explorer import DEFAULT_RL_POINTS, load_rl_diagnostics
 from .research import list_campaign_progress, list_campaigns
 from .research_program import load_research_program
 from .reports import list_reports
+from .run_reports import list_run_reports
 from .runs import list_runs, load_run
 from .sessions import list_sessions, load_session, session_snapshot
 from .studies import hash_json, list_studies
@@ -226,6 +227,7 @@ def _resolve_source(
 def _timeline(
     runs: list[dict[str, Any]],
     sessions: list[dict[str, Any]],
+    run_reports: list[dict[str, Any]],
     dossiers: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
     events: list[dict[str, Any]] = []
@@ -297,6 +299,17 @@ def _timeline(
                     "mutable": True,
                 }
             )
+    for report in run_reports:
+        events.append(
+            {
+                "kind": "report",
+                "id": report["id"],
+                "at": report["publishedAt"],
+                "status": "published",
+                "title": report["title"],
+                "value": report["findings"],
+            }
+        )
     for dossier in dossiers:
         events.append(
             {
@@ -1245,6 +1258,11 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
                     error,
                 )
             )
+    run_reports: list[dict[str, Any]] = []
+    try:
+        run_reports = [item.to_dict() for item in list_run_reports(project)]
+    except AutoQuantValidationError as error:
+        diagnostics.extend(_diagnostics("run-reports", error))
     sessions: list[dict[str, Any]] = []
     for summary in sessions_raw:
         try:
@@ -1444,6 +1462,7 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
         "externalHoldout": external_holdout,
         "dossierStatus": dossier_status,
         "dossiers": dossiers,
+        "runReports": run_reports,
         "intake": intake,
         "factorExplorer": factor_explorer,
         "portfolioExplorer": portfolio_explorer,
@@ -1466,14 +1485,14 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
             "delegatedSessions": sum(
                 item["delegation"] is not None for item in sessions
             ),
-            "reports": sum(len(item["reports"]) for item in sessions),
+            "reports": len(run_reports) + sum(len(item["reports"]) for item in sessions),
             "dossiers": len(dossiers),
             "verdicts": verdicts,
         },
         "studies": studies,
         "runs": runs,
         "sessions": sessions,
-        "timeline": _timeline(runs, sessions, dossiers),
+        "timeline": _timeline(runs, sessions, run_reports, dossiers),
     }
 
 
@@ -1909,6 +1928,7 @@ STUDIO_SNAPSHOT_JSON_SCHEMA: dict[str, Any] = {
                 "externalHoldout",
                 "dossierStatus",
                 "dossiers",
+                "runReports",
                 "intake",
                 "factorExplorer",
                 "portfolioExplorer",
@@ -1948,6 +1968,7 @@ STUDIO_SNAPSHOT_JSON_SCHEMA: dict[str, Any] = {
                 "externalHoldout": {"type": ["object", "null"]},
                 "dossierStatus": {"type": ["object", "null"]},
                 "dossiers": {"type": "array"},
+                "runReports": {"type": "array"},
                 "intake": {"type": ["object", "null"]},
                 "factorExplorer": {"type": ["object", "null"]},
                 "portfolioExplorer": {"type": ["object", "null"]},
