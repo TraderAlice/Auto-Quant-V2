@@ -462,6 +462,12 @@ coworker at the AutoQuant desk and receive a report when the work is useful.
 There is no separate OpenAlice edition and no private service API defining the
 research lifecycle.
 
+OpenAlice keeps the desk's original Git checkout. AutoQuant V2 does not add an
+`aq upgrade` workflow or promise automatic Workspace migration: a coding Agent
+may pull and reconcile ordinary Git changes, or retire an old desk and create a
+fresh one. Immutable Runs keep the Harness identity under which they were
+produced even when the mutable checkout later moves.
+
 AutoQuant owns quantitative research and historical simulation. An optional
 host owns cross-Workspace communication and authenticated provenance. Brokers,
 live accounts, approvals, and real order submission remain outside AutoQuant;

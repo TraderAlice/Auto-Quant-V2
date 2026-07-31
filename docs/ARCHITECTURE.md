@@ -312,7 +312,9 @@ location. Git history remains its archive. See
 - the checked-in internal Projects default and ordinary sample Project;
 - one quantitative Core contract shared by standalone and hosted operation;
 - Agent orientation and bounded quantitative operations;
-- workbench version identity and deliberate managed-asset upgrades.
+- workbench version identity. Checkout changes remain ordinary visible Git
+  work; V2 does not own automatic Workspace migration or compatibility
+  reconciliation.
 
 ### Workspace and Harness own
 

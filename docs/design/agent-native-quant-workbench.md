@@ -261,23 +261,22 @@ TPSL because execution assumptions affect quantitative validity. Such evidence
 remains simulation under declared inputs. It never becomes a claim that a live
 order was staged, approved, submitted, or filled.
 
-## Template and upgrade boundary
+## Template and checkout boundary
 
-An OpenAlice AutoQuant Template should eventually be a thin materializer of a
-pinned AutoQuant release or commit plus host-owned context injection. It should
-not maintain a second fork of quantitative code, schemas, prompts, or Project
-logic.
+An OpenAlice AutoQuant Template is a thin materializer of a pinned AutoQuant
+release or commit plus host-owned context injection. It does not maintain a
+second fork of quantitative code, schemas, prompts, or Project logic.
 
-The Workspace records the AutoQuant version from which it was created. Later
-upgrade design must distinguish:
+AutoQuant V2 deliberately has no managed Workspace-upgrade protocol while its
+research model is still taking shape. A coding Agent may use ordinary Git to
+pull a newer checkout and resolve conflicts. When that is not worthwhile, the
+old desk may be retired and a fresh checkout created. Project evidence remains
+interpreted under the Harness identity recorded by each immutable Run; that
+does not imply that every old mutable desk must be migrated.
 
-- workbench-managed assets that may be reconciled deliberately;
-- Project-owned research state that must be preserved;
-- immutable evidence that remains interpreted under its recorded Harness
-  version;
-- local Agent or human customization that cannot be overwritten silently.
-
-Copying a newer template over a worked-in desk is not an upgrade strategy.
+Blindly copying newer template files over a worked-in desk is not a supported
+operation. Any such reconciliation is ordinary visible coding work, not a
+hidden AutoQuant compatibility service.
 
 ## Invariants
 

@@ -8,9 +8,11 @@ import tempfile
 import unittest
 from dataclasses import replace
 from pathlib import Path
+from unittest import mock
 
 import jsonschema
 
+import autoquant.checks as checks_module
 from autoquant.checks import (
     CANDIDATE_CHECK_RESULT_JSON_SCHEMA,
     CHECK_OUTPUT_JSON_SCHEMA,
@@ -223,6 +225,21 @@ class CandidateCheckTests(unittest.TestCase):
             )
             self.assertEqual(
                 passed_brief["evidence"]["candidateCheckId"],
+                passed.result["id"],
+            )
+            after_research_commit = {
+                **passed.result["harness"],
+                "commit": "f" * 40,
+                "dirty": not passed.result["harness"]["dirty"],
+            }
+            with mock.patch.object(
+                checks_module,
+                "harness_identity",
+                return_value=after_research_commit,
+            ):
+                committed_state = candidate_check_state(project, session)
+            self.assertEqual(
+                committed_state["current"]["id"],
                 passed.result["id"],
             )
             self.assertEqual(

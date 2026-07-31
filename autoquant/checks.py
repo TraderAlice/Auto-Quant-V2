@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from .runs import harness_identity
+from .runs import harness_identity, same_harness_runtime
 from .studies import (
     StudyContext,
     copy_hashed_files,
@@ -1025,7 +1025,7 @@ def candidate_check_state(
             and result["study"]["inputHash"] == candidate.input_hash
             and result["study"]["datasetHash"] == candidate.dataset_hash
             and result["preflight"]["hash"] == preflight.preflight_hash
-            and result["harness"] == current_harness
+            and same_harness_runtime(result["harness"], current_harness)
         )
         if exact_identity and exact_candidate is None:
             exact_candidate = summary.to_dict()

@@ -173,6 +173,23 @@ def harness_identity() -> dict[str, Any]:
     }
 
 
+def same_harness_runtime(
+    left: dict[str, Any],
+    right: dict[str, Any],
+) -> bool:
+    """Compare the executable Harness identity, excluding Git provenance.
+
+    A repository Workspace can commit research Projects without changing the
+    installed Harness. In that case ``commit`` and ``dirty`` may change while
+    the executable runtime remains byte-for-byte identical. Those provenance
+    fields stay in RunResult, but they must not invalidate reusable evidence or
+    an active Session.
+    """
+
+    runtime_fields = ("id", "version", "sourceHash", "python")
+    return all(left.get(field) == right.get(field) for field in runtime_fields)
+
+
 def _dataset_interval_surface(
     study: StudyContext,
     data_root: Path,

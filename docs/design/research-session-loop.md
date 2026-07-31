@@ -114,11 +114,19 @@ Evaluation rejects stale or modified authority before running:
 1. the owning Project and worktree Project manifests still agree;
 2. canonical and worktree Study/program/Judge/dataset hashes equal Session
    locks;
-3. the installed Harness identity equals the baseline lock;
+3. the installed Harness executable identity equals the baseline lock;
 4. every worktree file outside the editable closure equals the fixed inventory;
 5. the mutable leader and sequence reconstruct exactly from immutable
    Experiment history;
 6. the candidate source differs from the current leader.
+
+Harness executable identity is the id, semantic version, Harness source hash,
+and Python version. RunResult also preserves repository commit and dirty state
+as provenance, but those fields do not define runtime equality: committing
+Project research in a repository-root Workspace changes Git HEAD without
+changing the installed Harness. That ordinary research commit must not stale a
+Session or force a duplicate baseline Run. A changed Harness source hash or
+runtime version still stales the Session.
 
 For a content-locked Study, canonical and worktree identity checks hash the
 same owning Project data root. Dataset bytes are not copied into the worktree;
@@ -224,7 +232,9 @@ delegated baseline-retaining Session. Neither branch follows the other.
 
 Session start first searches verified successful Runs newest-first. It reuses a
 Run only when the Study, program, editable source, Judge, dataset,
-dependencies, and installed Harness identities exactly match current inputs.
+dependencies, and installed Harness executable identities exactly match
+current inputs. Repository commit and dirty-state differences remain visible
+provenance but do not prevent reuse when the executable identity is unchanged.
 Otherwise it executes one fresh baseline. This keeps Session construction from
 silently duplicating an already established one-shot evaluation while
 preserving strict currentness after any scientific or runtime change.
@@ -269,12 +279,12 @@ skip checking a later edit.
 11. A delegated Brief is exactly derived from caller content and fixed
     Session/Study authority; caller context cannot alter the Judge.
 12. Session start does not duplicate an exact successful current baseline Run.
-12. Reports freeze chronological evidence prefixes and have no trading
+13. Reports freeze chronological evidence prefixes and have no trading
     authority.
-13. `promoted` and `completed` are mutually exclusive terminal states.
-14. Completion is baseline-only, Report-bound, and never mutates Project
+14. `promoted` and `completed` are mutually exclusive terminal states.
+15. Completion is baseline-only, Report-bound, and never mutates Project
     source.
-15. Delegated KEEP promotion is Report-bound; local non-delegated promotion
+16. Delegated KEEP promotion is Report-bound; local non-delegated promotion
     cannot invent a Report.
 
 ## Known gaps

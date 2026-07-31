@@ -4,7 +4,12 @@ import json
 import tempfile
 import unittest
 
-from autoquant.runs import execute_study, list_runs, load_run
+from autoquant.runs import (
+    execute_study,
+    list_runs,
+    load_run,
+    same_harness_runtime,
+)
 from autoquant.studies import create_study, hash_file
 from autoquant.workspace import AutoQuantValidationError
 from tests.study_helpers import (
@@ -17,6 +22,29 @@ from tests.study_helpers import (
 
 
 class ImmutableRunTests(unittest.TestCase):
+    def test_harness_runtime_identity_excludes_repository_provenance(self) -> None:
+        recorded = {
+            "id": "autoquant.python-judge",
+            "version": "0.9.0",
+            "commit": "a" * 40,
+            "dirty": False,
+            "sourceHash": "b" * 64,
+            "python": "3.11.14",
+        }
+        research_commit = {
+            **recorded,
+            "commit": "c" * 40,
+            "dirty": True,
+        }
+
+        self.assertTrue(same_harness_runtime(recorded, research_commit))
+        self.assertFalse(
+            same_harness_runtime(
+                recorded,
+                {**research_commit, "sourceHash": "d" * 64},
+            )
+        )
+
     def test_successful_run_freezes_complete_identity_metrics_and_artifacts(
         self,
     ) -> None:

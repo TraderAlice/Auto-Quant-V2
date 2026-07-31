@@ -159,10 +159,33 @@ unsupported weights, provider-semantic relabelling, or trading claims fail.
 - 2026-07-31 — Activated this real-delegation cohort with Grok 4.5 as the
   fixed worker model and mainland-China Factor-to-Portfolio support as the
   first assignment.
+- 2026-07-31 — Completed the first isolated Grok 4.5 pilot from an exact
+  `v0.8.31` clone. It acquired Sina and Sohu raw-compatible evidence, published
+  a scientifically blocked negative Factor Run, correctly withheld target
+  weights, completed one Report and Dossier, and committed its Project.
+- 2026-07-31 — Classified the first case as a recoverable pilot rather than a
+  final cohort pass because the exact source route already appeared in public
+  release documentation and the strict request invented unused caller-owned
+  Portfolio assumptions. Recorded late-listing, ragged-to-aligned, intake
+  lifecycle, and authority-wording friction for independent recurrence.
+- 2026-07-31 — Reproduced a severe preserved-Git defect after the worker's
+  final commit: unchanged `0.8.31` Harness source was marked
+  `session.harness-stale` solely because repository HEAD changed. On `0.9.0`,
+  Session authority, baseline reuse, and Candidate Check reuse now compare
+  executable identity while retaining commit/dirty provenance in immutable
+  evidence. A fresh worker retry remains pending.
 
 ## Verification
 
-Pending first worker.
+- Grok 4.5 pilot: 53 turns, approximately 8 minutes, one local worker commit,
+  two Factor Runs (one failed and one succeeded), one completed Session, one
+  Report, and one Dossier.
+- Independent pilot review:
+  `../openalice-field-trials/cohort-01-cn-factor-portfolio-v0831/review.md`
+  (external trial ledger, intentionally not a repository documentation link).
+- Focused `0.9.0` runtime-identity regression:
+  `.venv/bin/python -m unittest tests.test_runs tests.test_sessions
+  tests.test_checks` — 28 tests passed in 24.955 seconds.
 
 ## Completion
 

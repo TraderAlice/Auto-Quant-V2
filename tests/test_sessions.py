@@ -202,6 +202,65 @@ class GovernedResearchSessionTests(unittest.TestCase):
             )
             self.assertEqual(len(list_runs(project)), 1)
 
+    def test_repository_research_commit_does_not_stale_or_duplicate_baseline(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, project = make_project(directory)
+            create_study(project, study_definition())
+            baseline = execute_study(project, "factor-quality")
+            recorded = baseline.result["harness"]
+            after_research_commit = {
+                **recorded,
+                "commit": "f" * 40,
+                "dirty": not recorded["dirty"],
+            }
+
+            with (
+                mock.patch.object(
+                    session_module,
+                    "harness_identity",
+                    return_value=after_research_commit,
+                ),
+                mock.patch.object(
+                    session_module,
+                    "execute_study",
+                    side_effect=AssertionError(
+                        "a research-only commit must reuse the exact runtime"
+                    ),
+                ),
+            ):
+                session = start_session(project, "factor-quality")
+                snapshot = session_snapshot(project, session)
+
+            self.assertEqual(
+                session.manifest["baseline"]["runId"],
+                baseline.result["id"],
+            )
+            self.assertTrue(snapshot["authority"]["valid"])
+            self.assertEqual(len(list_runs(project)), 1)
+
+    def test_harness_source_change_stales_session(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project, session = self._setup(directory)
+            changed_runtime = {
+                **session.manifest["locks"]["harness"],
+                "sourceHash": "f" * 64,
+            }
+
+            with mock.patch.object(
+                session_module,
+                "harness_identity",
+                return_value=changed_runtime,
+            ):
+                snapshot = session_snapshot(project, session)
+
+            self.assertFalse(snapshot["authority"]["valid"])
+            self.assertIn(
+                "session.harness-stale",
+                {item["code"] for item in snapshot["authority"]["issues"]},
+            )
+
     def test_keep_revert_and_crash_advance_or_restore_the_linear_leader(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             project, session = self._setup(directory)

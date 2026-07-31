@@ -28,6 +28,7 @@ from .runs import (
     harness_identity,
     list_runs,
     load_run,
+    same_harness_runtime,
 )
 from .selection import build_research_family, build_selection_adjustment
 from .studies import (
@@ -447,7 +448,7 @@ def _reusable_baseline(
             and result["judge"].get("hash") == study.judge_hash
             and result["dataset"].get("hash") == study.dataset_hash
             and dependency_hash == expected_dependency_hash
-            and result.get("harness") == current_harness
+            and same_harness_runtime(result.get("harness", {}), current_harness)
         ):
             return run
     return None
@@ -1603,7 +1604,7 @@ def _authority_issues(
             )
     except AutoQuantValidationError as error:
         issues.extend(error.issues)
-    if harness_identity() != locks["harness"]:
+    if not same_harness_runtime(harness_identity(), locks["harness"]):
         issues.append(
             _issue(
                 session.manifest_path,
@@ -2051,7 +2052,7 @@ def restore_session_worktree(
         for key, value in fixed_identity.items()
         if value != locks[key]
     ]
-    if harness_identity() != locks["harness"]:
+    if not same_harness_runtime(harness_identity(), locks["harness"]):
         issues.append(
             _issue(
                 session.manifest_path,
