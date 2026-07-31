@@ -242,7 +242,19 @@ unsupported weights, provider-semantic relabelling, or trading claims fail.
   rewriting `not-observable` as a factual no-use claim. The same task also
   exposed an unnecessary four-asset intake floor for single-target temporal
   Factors; request-bound one/two-asset decision signals now use matching
-  package floors. Fresh-worker verification remains pending.
+  package floors.
+- 2026-07-31 — A fresh SOL retry on commit `02b5c6f` independently verified
+  those framework repairs: three caller-named assets intook without padding,
+  the first evaluated source was caller-relevant rather than the generic
+  demonstrator, and the handoff preserved Core's conservative visible-test
+  semantics. Both Runs and the completed Session validate and project through
+  Studio.
+- 2026-07-31 — The retry did not satisfy the caller's stricter two-source
+  preregistration rule. Both formulas appeared in `research.md`, but Grok
+  wrote Variant B source only after inspecting the baseline's visible test.
+  The worker disclosed this correctly. No batch-preregistration subsystem is
+  justified yet; one fresh, exact single-candidate task with no post-baseline
+  source edit remains required for the accepted multi-interval final.
 
 ## Verification
 
@@ -304,6 +316,13 @@ unsupported weights, provider-semantic relabelling, or trading claims fail.
   310.791 seconds, including V1–V5, continuous/session clocks, one/two/three/
   cross-sectional decision populations, all three research lanes, old intake
   compatibility, and the no-context-padding path.
+- Fresh SOL multi-interval retry: 13,800 continuous Binance 1h bars for each
+  of exactly three caller-named assets, two successful Runs, one REVERT, one
+  completed Report, zero validation diagnostics, and no post-research market
+  bytes committed.
+- Independent SOL retry review:
+  `../openalice-field-trials/retry-05-sol-multiinterval-v090/review.md`
+  (external trial ledger, intentionally not a repository documentation link).
 
 ## Completion
 
