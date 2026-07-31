@@ -137,8 +137,14 @@ read-model behavior.
 - Full regression passed all 361 tests in 1066.637 seconds. All 1,253
   documentation double-links, Studio JavaScript syntax, and lock validation
   passed.
-- Build/install/capability and clean-clone evidence were recorded during the
-  final release audit.
+- Clean sdist and wheel builds passed. The wheel installed into fresh Python
+  3.11, reported `aq 0.9.4`, and exposed all 50 public commands through the
+  capability manifest.
+- A no-hardlink clone without the ignored local override selected
+  `sample-research-desk` from the committed Workspace manifest. Installed-
+  wheel orientation, validation, Project listing, and Studio snapshot passed;
+  Studio projected all 7 Runs and the cross-sectional
+  `mandate-equal-active-side-budget` intent construction.
 
 ## Progress log
 
