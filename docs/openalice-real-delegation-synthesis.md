@@ -172,6 +172,6 @@ The `0.9.0` audit passed:
    Projects, projected its current Factor Explorer, and created a sibling
    Project through the installed wheel.
 
-The line is release-ready. It is still described as the `0.9.0` development
-line rather than “released `v0.9.0`” until a maintainer deliberately creates
-that release.
+These checks became the release proof for `v0.9.0`. Subsequent bounded work
+stays on the `0.9.x` patch line unless a later change genuinely warrants a new
+minor boundary.

@@ -32,17 +32,19 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current development line: `0.9.0`
+## Current release: `v0.9.0`
 
 AutoQuant V2 has crossed from an architectural prototype into a usable
 research workbench.
 
-`0.9.0` is the current development line. `v0.8.31` remains the last released
-Harness currently consumed by OpenAlice; this is version provenance, not an
-automatic Workspace-migration promise. The minor-version boundary marks the
-next phase: improve the real delegated-research loop from OpenAlice request
-through AutoQuant evidence handoff without weakening standalone Workspace
-operation or prematurely freezing a host-specific API.
+`v0.9.0` is the current AutoQuant release. `v0.8.31` remains the Harness
+currently consumed by OpenAlice until the host deliberately selects the newer
+tag; this is version provenance, not an automatic Workspace-migration promise.
+The minor-version boundary marks the next phase: improve the real delegated-
+research loop from OpenAlice request through AutoQuant evidence handoff without
+weakening standalone Workspace operation or prematurely freezing a
+host-specific API. Bounded follow-up work defaults to patch releases such as
+`v0.9.1`, `v0.9.2`, and onward.
 
 Six isolated Grok 4.5 assignment families now cover mainland-China and Taiwan
 source boundaries, a Korean price event, a reported semiconductor book,
@@ -52,11 +54,10 @@ manufacturing trading authority. Repeated Agent friction produced narrowly
 tested `0.9.0` repairs; the synthesis and remaining honest limits are recorded
 in [[docs/openalice-real-delegation-synthesis]].
 
-The `0.9.0` release-readiness audit now passes all 354 unit tests, all
+The `v0.9.0` release audit passed all 354 unit tests, all
 documentation links, lock and distribution builds, a fresh Python 3.11 wheel
 install with all 16 Skills, and the complete remote clean-clone repository-root
-workflow. This makes the line release-ready; it does not silently create or
-claim a `v0.9.0` release.
+workflow.
 
 `0.8.31` made historical market-data
 acquisition an Agent-native, versioned Skill bundle rather than a universal

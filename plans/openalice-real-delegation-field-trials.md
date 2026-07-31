@@ -293,6 +293,8 @@ unsupported weights, provider-semantic relabelling, or trading claims fail.
   `0.9.0` Run rather than weakening current-evidence selection or rewriting
   historical Harness identity. Full regression, documentation, build,
   installed-wheel, Skill, and remote clean-clone checks then passed.
+- 2026-07-31 — Published the audited state as annotated tag `v0.9.0`. Bounded
+  follow-up work now defaults to the `0.9.x` patch series.
 
 ## Verification
 
@@ -409,5 +411,5 @@ unsupported weights, provider-semantic relabelling, or trading claims fail.
 Completed. The cohort demonstrates a useful standalone quantitative coworker
 desk, records the smallest OpenAlice consumption boundary, and closes every
 severe or recurrent framework defect observed by the six assignment families.
-The `0.9.0` line is release-ready; creating a release tag remains a separate
-maintainer decision.
+The completed audit is the release proof for `v0.9.0`; subsequent bounded work
+continues through `0.9.x` patch releases.

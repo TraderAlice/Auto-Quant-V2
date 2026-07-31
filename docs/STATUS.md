@@ -1,7 +1,8 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha on the `0.9.0` development line; `v0.8.31` is the
-last released Harness currently consumed by OpenAlice.
+Status: usable pre-alpha released as `v0.9.0`; `v0.8.31` remains the Harness
+currently consumed by OpenAlice until the host deliberately selects a newer
+tag.
 
 Updated: 2026-07-31.
 
@@ -23,12 +24,12 @@ Risk evidence, causal multi-interval Factor research, and governed RL. The
 accepted workers preserved useful negative evidence and no-trading authority;
 every severe or recurring Workbench defect received a regression and a fresh
 worker retry. The complete 354-test, documentation, build, installed-wheel,
-Skill-discovery, and remote clean-clone audit also passed; creating a
-`v0.9.0` release remains a separate maintainer decision. See
+Skill-discovery, and remote clean-clone audit also passed for the `v0.9.0`
+release. See
 [[docs/openalice-real-delegation-synthesis]].
 
-On the `0.9.0` development line, a human, local coding Agent, or coworker
-delegated from OpenAlice
+With `v0.9.0`, a human, local coding Agent, or coworker delegated from
+OpenAlice
 can:
 
 1. clone the repository and immediately discover the Harness plus its
@@ -288,8 +289,9 @@ Agendas with no move are `unavailable`. This is presentation authority only:
 Core neither infers a prose experiment budget nor executes, promotes, or
 trades from an agenda.
 
-The current development version is `0.9.0`; `v0.8.31` remains the released
-OpenAlice consumption baseline. That release adds a canonical 16-Skill
+The current release is `v0.9.0`; `v0.8.31` remains the selected OpenAlice
+consumption baseline until the host deliberately changes its pin. That older
+release adds a canonical 16-Skill
 market-data acquisition bundle, two-source field evidence for every
 first-batch market, strict provider-neutral intake, and truthful route,
 adjustment, volume, authority, and degraded-access boundaries. `v0.8.30`
