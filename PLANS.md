@@ -18,7 +18,9 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-None.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/authority-gated-twse-factor-field-trial]] | Prove a zero-data coworker obeys a caller-fixed official-TWSE-plus-peer authority gate before admitting and interpreting one causal Taiwan Factor study. | 2026-08-01 |
 
 ## Proposed plans
 
