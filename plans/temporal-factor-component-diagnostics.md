@@ -1,6 +1,6 @@
 # Temporal Factor component diagnostics
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-07-31`
 - Target release: `0.9.1`
 - Related design: [[docs/design/factor-component-attribution]],
@@ -68,12 +68,12 @@ the template contract changes.
   Studio, and documentation reconcile one bounded contract.
 - [x] Cross-sectional behavior remains correct under the new contract;
   obsolete schema behavior may break explicitly rather than silently adapt.
-- [ ] Fast focused tests, full regression, documentation/build/install smoke,
+- [x] Fast focused tests, full regression, documentation/build/install smoke,
   and repository-root clean-clone smoke pass.
 - [x] A fresh Grok 4.5 worker completes a realistic causal multi-interval task
   using the installed candidate release and demonstrates whether the new
   evidence is sufficient for a useful handoff.
-- [ ] The audited state is published as `v0.9.1`.
+- [x] The audited state is published as `v0.9.1`.
 
 ## Work
 
@@ -82,7 +82,7 @@ the template contract changes.
 - [x] Implement strict Core projection, agenda, CLI, and Studio parity.
 - [x] Update template/operator/design documentation and current sample evidence.
 - [x] Run a fresh Grok 4.5 field trial and repair only observed reusable defects.
-- [ ] Complete release audit, publish `v0.9.1`, and close the plan.
+- [x] Complete release audit, publish `v0.9.1`, and close the plan.
 
 ## Findings and decisions
 
@@ -110,8 +110,15 @@ the template contract changes.
 - Fresh explicit-role retry: 29 turns, 216 Binance Spot 1h bars per asset,
   strict three-role request preserved through dollar-neutral intake, no Run or
   Session, and clean worker commit `bbf3d72`.
-- Full regression, documentation/build/install, clean-clone smoke, and final
-  tag verification remain pending.
+- Full repository regression passed 356 tests in 960.878 seconds; all 1,214
+  documentation links resolve and `uv lock --check` passes.
+- Clean sdist and wheel builds passed. A fresh Python 3.11 install reports
+  `aq 0.9.1`, projects all 50 public commands, and materializes all 16 Skills
+  into both Agent discovery roots.
+- A no-hardlink clone without a local override passed root orientation,
+  validation, Project listing, Studio snapshot, and current sample Factor
+  Explorer projection with component method v3.
+- The final audited commit is tagged and pushed as `v0.9.1`.
 
 ## Progress log
 
@@ -144,7 +151,15 @@ the template contract changes.
   dollar-neutral/zero with only LINK/ETH tradable and caller-supplied role
   provenance. The worker hand-edited no mandate, executed no Study, passed
   validation/orientation, committed durable records only, and left clean Git.
+- 2026-07-31 — Closed the release audit with 356 passing tests, 1,214 resolved
+  documentation links, lock/build/install/Skill-discovery smoke, and a clean
+  no-hardlink repository-root replay. Published the audited state as
+  `v0.9.1`.
 
 ## Completion
 
-Pending.
+AutoQuant `v0.9.1` gives cross-sectional, single-asset temporal, and two-asset
+relative-value Factor research one strict component-diagnostics contract. Two
+fresh Grok 4.5 workers demonstrated both a useful evidence-led negative answer
+and repaired explicit pair-plus-context intake. The full release audit passed
+without long backtests or trading authority.

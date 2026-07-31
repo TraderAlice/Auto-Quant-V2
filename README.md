@@ -72,10 +72,13 @@ manufacturing trading authority. Repeated Agent friction produced narrowly
 tested `0.9.0` repairs; the synthesis and remaining honest limits are recorded
 in [[docs/openalice-real-delegation-synthesis]].
 
-The `v0.9.0` release audit passed all 354 unit tests, all
-documentation links, lock and distribution builds, a fresh Python 3.11 wheel
-install with all 16 Skills, and the complete remote clean-clone repository-root
-workflow.
+The `v0.9.1` release audit passed all 356 unit tests and all 1,214
+documentation links. Lock validation, sdist/wheel builds, a fresh Python 3.11
+wheel install, all 50 public CLI capabilities, all 16 Skills in both Agent
+discovery roots, and the complete no-hardlink clean-clone repository-root
+workflow also passed. The clone selected `sample-research-desk` from the
+committed Workspace manifest and strictly projected its current
+`candidate-declared-components-v3` Run through CLI and Studio.
 
 `0.8.31` made historical market-data
 acquisition an Agent-native, versioned Skill bundle rather than a universal

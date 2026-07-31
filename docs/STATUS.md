@@ -344,6 +344,27 @@ The earlier personal repository remains a historical backup remote; the
 original `TraderAlice/Auto-Quant` repository remains the separate Classic
 line.
 
+## `0.9.1` verification snapshot
+
+- Full repository regression passed 356 tests in 960.878 seconds and all
+  1,214 documentation links resolve.
+- Lock validation and clean sdist/wheel builds passed. The wheel installed in
+  a fresh Python 3.11 environment, reported `aq 0.9.1`, and exposed all 50
+  public commands through the machine-readable capability manifest.
+- A fresh empty Workspace initialized successfully and materialized all 16
+  market-data Skills into both `.agents/skills/` and `.claude/skills/`; its
+  missing default Project failed with the expected structured selection error.
+- A no-hardlink clone with no local override selected the committed
+  `sample-research-desk` from `autoquant-workspace.json`. Orientation,
+  validation, Project listing, Studio snapshot, and strict Factor Explorer all
+  passed; the current sample Run reports
+  `candidate-declared-components-v3`.
+- One full Grok 4.5 relative-value trial and one focused explicit-role retry
+  proved that temporal component evidence is sufficient for a useful negative
+  handoff and that a named context asset no longer destroys the caller's
+  dollar-neutral pair mandate.
+- No long backtest, account access, Order, TP/SL, or trading action ran.
+
 ## `0.8.31` verification snapshot
 
 - Clean implementation commit `1e00c92` built sdist
