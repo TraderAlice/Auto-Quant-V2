@@ -821,6 +821,9 @@ rather than constructing provenance from its checkout path or trial name.
 requested asset declares it, every requested asset must declare `long-only`,
 `short-only`, `two-sided`, or `context-only`. Requested symbols and asset
 classes must fit the selected Study and its content-locked dataset snapshot.
+A `relative-value` vector with exactly two `two-sided` assets plus named
+`context-only` assets retains the dollar-neutral zero-net pair contract; other
+complete mixed vectors use the generic asset-role construction.
 A classified V1–V4 package, like V5, matches the request per symbol rather
 than flattening a mixed panel to one class.
 The optional `positionSnapshot` is used by the Book Risk route only. It names

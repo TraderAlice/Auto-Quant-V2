@@ -80,7 +80,7 @@ the template contract changes.
 - [x] Define generalized temporal component math and the new evidence schema.
 - [x] Implement Judge evidence and deterministic artifact tests.
 - [x] Implement strict Core projection, agenda, CLI, and Studio parity.
-- [ ] Update template/operator/design documentation and current sample evidence.
+- [x] Update template/operator/design documentation and current sample evidence.
 - [ ] Run a fresh Grok 4.5 field trial and repair only observed reusable defects.
 - [ ] Complete release audit, publish `v0.9.1`, and close the plan.
 
@@ -111,6 +111,20 @@ Pending.
   evaluation-mode-specific semantics. The preserved v2 sample Run correctly
   fails current Explorer projection and will be superseded, not mutated, by a
   clean v0.9.1 sample execution.
+- 2026-07-31 — A fresh isolated Grok 4.5 worker completed a realistic
+  LINK-versus-ETH relative-value assignment on 13,800 Binance Spot 1h bars per
+  asset. Its one baseline Run materialized four score components, one BTC
+  timestamp context, six pairwise comparisons, and useful v3 temporal
+  diagnosis; the worker stopped on negative validation evidence, completed a
+  Report without an Experiment, and returned a precise Chinese handoff. The
+  trial exposed one reusable intake defect: explicit two-sided pair roles plus
+  named context produced the generic asset-role mandate and disabled relative-
+  value evaluation.
+- 2026-07-31 — Repaired mandate derivation so exactly two explicit two-sided
+  relative-value assets retain the dollar-neutral zero-net pair family while
+  any explicit context-only names remain context. Generic mixed role vectors
+  remain asset-role. Added unit, intake, and durable-contract documentation;
+  a fresh focused retry remains before release.
 
 ## Completion
 

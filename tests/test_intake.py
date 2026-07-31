@@ -988,7 +988,12 @@ class RequestDrivenIntakeTests(unittest.TestCase):
             root = Path(directory)
             request_path, package_path = write_intake_inputs(
                 root,
-                request_assets=("NVDA", "QQQ"),
+                request_assets=("NVDA", "QQQ", "SPY"),
+                asset_position_roles={
+                    "NVDA": "two-sided",
+                    "QQQ": "two-sided",
+                    "SPY": "context-only",
+                },
                 factor_policy={
                     "claim": "decision-signal",
                     "knownStyle": None,
@@ -1025,6 +1030,8 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                 population["evaluation_mode"],
                 "two-asset-relative-value",
             )
+            self.assertEqual(population["prediction_assets"], ["NVDA", "QQQ"])
+            self.assertIn("SPY", population["context_assets"])
             self.assertEqual(
                 population["relative_value_pair"],
                 {

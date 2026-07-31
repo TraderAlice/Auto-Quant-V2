@@ -294,6 +294,15 @@ def _canonical_payload(
         for asset in tradable_assets
         if asset_position_roles[asset] in {"short-only", "two-sided"}
     ]
+    explicit_relative_value_pair = (
+        explicit_roles
+        and direction == "relative-value"
+        and len(tradable_assets) == 2
+        and all(
+            asset_position_roles[asset] == "two-sided"
+            for asset in tradable_assets
+        )
+    )
     if benchmark_policy is None:
         if not explicit_roles:
             benchmark_kind = PORTFOLIO_BENCHMARKS[direction]
@@ -405,7 +414,7 @@ def _canonical_payload(
         "construction": {
             "family": (
                 "asset-role"
-                if explicit_roles
+                if explicit_roles and not explicit_relative_value_pair
                 else PORTFOLIO_FAMILIES[direction]
             ),
             "grossLimit": portfolio_policy["grossLimit"],
@@ -413,7 +422,7 @@ def _canonical_payload(
             "shortGrossLimit": short_gross_limit,
             "netRule": (
                 "bounded-by-side-limits"
-                if explicit_roles
+                if explicit_roles and not explicit_relative_value_pair
                 else PORTFOLIO_NET_RULES[direction]
             ),
             "maxAbsWeight": portfolio_policy["maxAbsWeight"],

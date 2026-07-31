@@ -77,6 +77,41 @@ def panels() -> tuple[pd.DataFrame, pd.DataFrame]:
 
 
 class PortfolioMandateTests(unittest.TestCase):
+    def test_explicit_relative_value_pair_retains_named_context(self) -> None:
+        raw = request("relative-value", ["A", "B", "C"])
+        roles = {
+            "A": "two-sided",
+            "B": "two-sided",
+            "C": "context-only",
+        }
+        for asset in raw["assets"]:
+            asset["positionRole"] = roles[asset["symbol"]]
+
+        mandate = build_portfolio_mandate(
+            validate_research_request(raw),
+            UNIVERSE,
+        )
+
+        self.assertEqual(
+            mandate["source"]["assetPositionRoles"],
+            "caller-supplied",
+        )
+        self.assertEqual(mandate["construction"]["family"], "dollar-neutral")
+        self.assertEqual(mandate["construction"]["netRule"], "zero")
+        self.assertEqual(mandate["tradableAssets"], ["A", "B"])
+        self.assertEqual(mandate["contextAssets"], ["C", "D", "E"])
+        self.assertEqual(
+            mandate["construction"]["assetPositionRoles"],
+            {
+                "A": "two-sided",
+                "B": "two-sided",
+                "C": "context-only",
+                "D": "context-only",
+                "E": "context-only",
+            },
+        )
+        self.assertEqual(validate_portfolio_mandate(mandate), mandate)
+
     def test_caller_asset_roles_govern_mixed_signs_and_context(self) -> None:
         factors, closes = panels()
         raw = request("relative-value", UNIVERSE)

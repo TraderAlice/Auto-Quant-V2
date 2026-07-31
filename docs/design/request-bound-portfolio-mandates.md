@@ -77,14 +77,18 @@ Requested assets are intentionally conservative authorization. Other dataset
 assets may improve ranking, regime, style, or benchmark context, but they
 cannot become positions or implicit hedges without caller intent.
 
-If every requested asset supplies `positionRole`, Core uses the explicit
-`asset-role` family rather than applying one sign permission to every name.
-Roles are `long-only`, `short-only`, `two-sided`, and `context-only`. When
-both long- and short-capable assets exist, each side may use up to half the
-gross limit; a single capable side may use the full gross limit. Side limits
-are maximums, not forced allocations, and unused capacity remains cash.
-Direction still describes the research question and must be compatible with
-the explicit capabilities.
+If every requested asset supplies `positionRole`, Core normally uses the
+explicit `asset-role` family rather than applying one sign permission to every
+name. Roles are `long-only`, `short-only`, `two-sided`, and `context-only`.
+One narrow identity-preserving exception applies: a `relative-value` request
+with exactly two `two-sided` assets and any number of named `context-only`
+assets remains the ordinary `dollar-neutral` / zero-net pair family. This lets
+the caller name causal context without disabling the two-asset Factor
+contrast. When both long- and short-capable assets exist, each side may use up
+to half the gross limit; a single capable side may use the full gross limit.
+Side limits are maximums, not forced allocations, and unused capacity remains
+cash. Direction still describes the research question and must be compatible
+with the explicit capabilities.
 
 Direction-default benchmarks remain unchanged for requests without roles.
 Explicit long/short requests use an equal-weight reference over only the
