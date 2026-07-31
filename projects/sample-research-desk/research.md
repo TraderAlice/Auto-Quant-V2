@@ -21,14 +21,17 @@ later execution.
 
 The earlier surface-aligned Factor Run
 `run-20260730T035544913232Z-4b19e3a63890` was produced by the clean `0.8.28`
-Harness at commit `b5881b6`. The current Factor Run
+Harness at commit `b5881b6`. The preserved `0.9.0` Factor Run
 `run-20260731T120304794599Z-6d6cdab313fe` was produced by the clean `0.9.0`
 development Harness at commit `37b0029` after the sample protocol was brought
-up to date. Neither development execution is relabeled as a released version.
-The candidate declares only base-clock momentum because this sample dataset
-has no higher-interval feature surface. Studio uses the latest ordinary
-immutable Run as the current Factor Explorer. Portfolio and governed-RL
-baselines are deliberately absent.
+up to date. The current Factor Run
+`run-20260731T131547748789Z-d99c9e66a888` was produced by the clean `0.9.1`
+candidate Harness at commit `39a2e38` and records the generalized component-v3
+contract. No development execution is relabeled as a released version. The
+candidate declares only base-clock momentum because this sample dataset has no
+higher-interval feature surface. Studio uses the latest ordinary immutable Run
+as the current Factor Explorer. Portfolio and governed-RL baselines are
+deliberately absent.
 
 ## Research brief and clarification
 

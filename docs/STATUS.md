@@ -52,7 +52,8 @@ can:
 `0.8.8` made the repository clone the canonical default Workspace. Its
 ordinary `sample-research-desk` contains Factor, Portfolio, and governed-RL
 Studies, retains explicitly historical clean `0.8.7` and `0.8.28` Factor
-Runs, and adds one clean current `0.9.0` development Run for immediate Studio
+Runs, preserves its `0.9.0` development Run, and adds one clean current
+`0.9.1` candidate Run with component-v3 evidence for immediate Studio
 inspection. An ignored strict local Workspace configuration lets
 Workbench development reuse an external real-Project collection without
 shipping those cases or changing the user's internal default.

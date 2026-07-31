@@ -15,7 +15,8 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 SAMPLE_ROOT = REPOSITORY_ROOT / "projects" / "sample-research-desk"
 SAMPLE_RUN_ID = "run-20260729T075403870227Z-6b7cf30b394f"
 PRIOR_SAMPLE_RUN_ID = "run-20260730T035544913232Z-4b19e3a63890"
-CURRENT_SAMPLE_RUN_ID = "run-20260731T120304794599Z-6d6cdab313fe"
+PREVIOUS_SAMPLE_RUN_ID = "run-20260731T120304794599Z-6d6cdab313fe"
+CURRENT_SAMPLE_RUN_ID = "run-20260731T131547748789Z-d99c9e66a888"
 SAMPLE_DESCRIPTION = (
     "A deterministic three-lane reference Project for learning AutoQuant "
     "before starting real research."
@@ -62,7 +63,12 @@ class RepositoryWorkspaceTests(unittest.TestCase):
         runs = list_runs(project)
         self.assertEqual(
             [item.id for item in runs],
-            [SAMPLE_RUN_ID, PRIOR_SAMPLE_RUN_ID, CURRENT_SAMPLE_RUN_ID],
+            [
+                SAMPLE_RUN_ID,
+                PRIOR_SAMPLE_RUN_ID,
+                PREVIOUS_SAMPLE_RUN_ID,
+                CURRENT_SAMPLE_RUN_ID,
+            ],
         )
         run = load_run(project, SAMPLE_RUN_ID)
         self.assertEqual(run.result["status"], "succeeded")
@@ -82,14 +88,26 @@ class RepositoryWorkspaceTests(unittest.TestCase):
             "b5881b6a81db665afa96dbcdcaaa16d114eb53c0",
         )
         self.assertFalse(prior.result["harness"]["dirty"])
-        current = load_run(project, CURRENT_SAMPLE_RUN_ID)
-        self.assertEqual(current.result["status"], "succeeded")
-        self.assertEqual(current.result["harness"]["version"], "0.9.0")
+        previous = load_run(project, PREVIOUS_SAMPLE_RUN_ID)
+        self.assertEqual(previous.result["status"], "succeeded")
+        self.assertEqual(previous.result["harness"]["version"], "0.9.0")
         self.assertEqual(
-            current.result["harness"]["commit"],
+            previous.result["harness"]["commit"],
             "37b002921ad2caaba2fbc0d78fc8cb5c4e7c524e",
         )
+        self.assertFalse(previous.result["harness"]["dirty"])
+        current = load_run(project, CURRENT_SAMPLE_RUN_ID)
+        self.assertEqual(current.result["status"], "succeeded")
+        self.assertEqual(current.result["harness"]["version"], "0.9.1")
+        self.assertEqual(
+            current.result["harness"]["commit"],
+            "39a2e382ee4413f576812b0234bddd396dfd3b58",
+        )
         self.assertFalse(current.result["harness"]["dirty"])
+        self.assertEqual(
+            current.result["metrics"]["factor_components"]["method"],
+            "candidate-declared-components-v3",
+        )
         self.assertEqual(
             [
                 item["id"]
@@ -132,7 +150,7 @@ class RepositoryWorkspaceTests(unittest.TestCase):
         sample = snapshot["projects"][0]
         self.assertTrue(sample["valid"])
         self.assertEqual(sample["counts"]["studies"], 3)
-        self.assertEqual(sample["counts"]["runs"], 3)
+        self.assertEqual(sample["counts"]["runs"], 4)
         self.assertEqual(sample["counts"]["sessions"], 0)
         self.assertIsNotNone(sample["factorExplorer"])
         self.assertEqual(
