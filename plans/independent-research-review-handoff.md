@@ -1,6 +1,6 @@
 # Independent research review handoff field trial
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-08-01`
 - Target release: `0.9.16`
 - Related design: [[docs/design/agent-native-quant-workbench]],
@@ -108,7 +108,7 @@ or silently promote mutable staging into immutable authority.
 - [x] A fresh candidate reviewer completes the unchanged assignment using only
       installed public surfaces and produces a strict, portable, tamper-evident
       review when the admitted repair requires one.
-- [ ] Focused/full tests, documentation links, lock/syntax, build/install,
+- [x] Focused/full tests, documentation links, lock/syntax, build/install,
       Studio, root Workspace, and no-local-override clean-clone smokes pass
       before publication.
 
@@ -119,7 +119,7 @@ or silently promote mutable staging into immutable authority.
 - [x] Run and audit one fresh reviewer without coaching.
 - [x] Admit and implement only reproduced reusable product friction.
 - [x] Replay the unchanged task with a fresh candidate-wheel reviewer.
-- [ ] Complete the release audit and publish `v0.9.16` if warranted.
+- [x] Complete the release audit and publish `v0.9.16` if warranted.
 
 ## Findings and decisions
 
@@ -211,6 +211,30 @@ Candidate trial:
 - Independent post-run `diff` confirmed 233 identical file hashes and 396
   identical paths; output contained exactly one detached `review-*` package.
 
+Release audit:
+
+- Focused Review, Studio, repository Workspace, and CLI regression passed all
+  37 tests in 103.131 seconds.
+- Complete regression passed all 400 tests in 1,090.736 seconds.
+- Documentation validation resolved all 1,374 double-links; `uv lock --check`,
+  Python compile, Studio JavaScript syntax, and diff hygiene passed.
+- Release artifacts built from clean implementation/field-trial commit
+  `611f067e2bf65a4837b369679ea783141a8c965c`:
+  - wheel `dist/release-0.9.16/auto_quant-0.9.16-py3-none-any.whl`,
+    SHA-256
+    `116f6bb2c3054713538c26d9b9a3a4114a0ac89d58c7ff3375c47ac4a359dad5`;
+  - source distribution `dist/release-0.9.16/auto_quant-0.9.16.tar.gz`,
+    SHA-256
+    `cc42939e2facf7976c5b02d645fee524c33a65225155b080aa9bdb7106df35d5`.
+- A fresh Python 3.11.14 environment installed the exact wheel with pandas
+  3.0.5, reported `aq 0.9.16`, discovered all 57 public commands, loaded the
+  Review schema, and exposed the observed-file Workspace-entry guidance in
+  both capabilities and CLI help.
+- A `git clone --no-local` checkout at
+  `611f067e2bf65a4837b369679ea783141a8c965c` contained no local override,
+  selected only `sample-research-desk`, and passed installed-wheel `validate`,
+  `orient`, `project list`, and valid Studio snapshot.
+
 ## Progress log
 
 - 2026-08-01 — Plan activated from clean released `v0.9.15`; OpenAlice remains
@@ -222,8 +246,18 @@ Candidate trial:
   no-mutation contract. One observed-file entry-root retry was retained and
   repaired as public discoverability wording without widening filesystem
   authority.
+- 2026-08-01 — The clean full suite passed all 400 tests. Documentation,
+  lock/syntax, source/wheel build, isolated install, 57-command
+  capability/schema/help, and no-local-override clone smokes passed; release
+  artifacts and hashes are frozen above.
 
 ## Completion
 
-Complete this section only after every acceptance item is independently
-verified and the release, if any, is published.
+`v0.9.16` closes the reproduced independent-review handoff gap. A fresh
+reviewer can now classify one frozen completed Report against its exact Run,
+preserve provider declarations and unbound Workspace observations at their
+real authority, publish one portable tamper-evident no-target-mutation Review,
+and expose attached history to Studio. Baseline and candidate workers found
+the same Nasdaq evidence-reference defect; all acceptance, regression,
+documentation, build, install, and clean-clone checks pass. OpenAlice remains
+independently pinned to `v0.8.31`.

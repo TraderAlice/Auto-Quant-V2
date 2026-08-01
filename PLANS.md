@@ -18,9 +18,7 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-| Plan | Outcome | Updated |
-| --- | --- | --- |
-| [[plans/independent-research-review-handoff]] | Prove a fresh coworker can independently classify completed Project claims by immutable evidence authority and leave a durable no-mutation review. | 2026-08-01 |
+None.
 
 ## Proposed plans
 
@@ -36,6 +34,7 @@ None.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/independent-research-review-handoff]] | Proved a fresh coworker can independently classify completed Project claims by immutable evidence authority and leave a durable portable no-mutation Review. | 2026-08-01 |
 | [[plans/reported-book-path-stress-field-trial]] | Proved a fresh coworker can turn one reported book and zero staged data into fixed historical worst-window loss, exact holding attribution, immutable evidence, and a no-trading handoff. | 2026-08-01 |
 | [[plans/clarification-first-delegation-field-trial]] | Proved a fresh coworker can stop and clarify an underspecified portfolio request before acquiring data, then resume the same dialogue into one fixed no-trading sizing handoff. | 2026-08-01 |
 | [[plans/korea-delayed-gap-event-field-trial]] | Proved a fresh coworker can turn one fixed Korean downside-gap question and zero staged data into truthful multi-route Event evidence while preserving distinct Yahoo split-adjusted, Naver provider-adjusted, and Daum raw semantics. | 2026-08-01 |

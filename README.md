@@ -92,13 +92,14 @@ research authority, automatic dataset selection, or a reason to reshape the
 question. OpenAlice remains intentionally unchanged on `v0.8.31`. See
 [[plans/reported-book-path-stress-field-trial]].
 
-The final repository audit passed all 395 tests in 1,103.490 seconds and
-resolved all 1,359 documentation links. Lock validation, Python and Studio
+The final repository audit passed all 400 tests in 1,090.736 seconds and
+resolved all 1,374 documentation links. Lock validation, Python and Studio
 JavaScript syntax, source/wheel builds, isolated installed-wheel capability
 and schema smoke, and a no-local-override clean-clone root Workspace smoke all
 passed. The verified wheel SHA-256 is
-`12a47491595f30b54dab0a4ea3bbbd25705f4a614e99a2b4fb2357e3cf5e1bf2`.
-Exact evidence is recorded in [[plans/reported-book-path-stress-field-trial]].
+`116f6bb2c3054713538c26d9b9a3a4114a0ac89d58c7ff3375c47ac4a359dad5`.
+Exact evidence is recorded in
+[[plans/independent-research-review-handoff]].
 
 ### `v0.9.14`
 

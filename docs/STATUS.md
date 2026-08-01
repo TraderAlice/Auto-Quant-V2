@@ -63,12 +63,12 @@ the question. Duplicate bytes are acceptable evidence isolation, and any
 deduplication remains a transparent storage optimization only. OpenAlice
 remains pinned to `0.8.31`.
 
-Final repository verification passed all 395 tests in 1,103.490 seconds and
-resolved all 1,359 documentation links. Lock and Python/Studio syntax checks
+Final repository verification passed all 400 tests in 1,090.736 seconds and
+resolved all 1,374 documentation links. Lock and Python/Studio syntax checks
 also passed, together with source/wheel builds, isolated installed-wheel
 capability/schema smoke, and a no-local-override clean-clone root Workspace
 smoke. Verified wheel SHA-256:
-`12a47491595f30b54dab0a4ea3bbbd25705f4a614e99a2b4fb2357e3cf5e1bf2`.
+`116f6bb2c3054713538c26d9b9a3a4114a0ac89d58c7ff3375c47ac4a359dad5`.
 
 ### `v0.9.14`
 
