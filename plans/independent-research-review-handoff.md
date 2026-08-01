@@ -115,8 +115,8 @@ or silently promote mutable staging into immutable authority.
 ## Work
 
 - [x] Define and index the independent review assignment.
-- [ ] Build an isolated installed-`0.9.15` review desk from completed evidence.
-- [ ] Run and audit one fresh reviewer without coaching.
+- [x] Build an isolated installed-`0.9.15` review desk from completed evidence.
+- [x] Run and audit one fresh reviewer without coaching.
 - [ ] Admit and implement only reproduced reusable product friction.
 - [ ] Replay the unchanged task with a fresh candidate-wheel reviewer.
 - [ ] Complete the release audit and publish `v0.9.16` if warranted.
@@ -133,15 +133,49 @@ or silently promote mutable staging into immutable authority.
 - 2026-08-01 — Existing Holdout Assessment is intentionally not generalized
   before the baseline. It interprets one frozen source-versus-later result and
   does not yet prove a general completed-Project review contract.
+- 2026-08-01 — The untouched `0.9.15` reviewer completed the assignment in
+  four minutes using installed public readers, independently hash-verified the
+  Run and Report, reconstructed the fixed path-stress identities from strict
+  Explorer output and bound artifacts, and left the inherited Workspace
+  byte-for-byte unchanged (233/233 file hashes and the full path inventory).
+- 2026-08-01 — Baseline review correctly separated the reported position and
+  split-adjustment semantics as declarations, and classified the Nasdaq route
+  failure and overlap comparison as `observed-unbound`. It found that Report
+  finding `coverage-window` cited a bound artifact containing no Nasdaq
+  evidence, so that clause is unverified as published.
+- 2026-08-01 — The reusable defect is not missing quantitative readers. It is
+  the absence of a Project-owned immutable Review identity: the reviewer could
+  only leave loose Markdown that explicitly has no Workbench authority.
+  `0.9.16` will add one narrow completed-Report Review contract with exact
+  Report/Run identity, Core-resolved evidence classifications, canonical
+  Markdown, and CLI/Studio discovery. It will not import staging into evidence,
+  mutate the target, replace the primary Report, or generalize Holdout
+  Assessment.
 
 ## Verification
 
-Pending baseline and candidate trials.
+Baseline trial:
+
+- Released wheel: exact `auto_quant-0.9.15-py3-none-any.whl`.
+- Fresh reviewer session: `019fbc45-acf9-71d1-ba76-dd7011ebff5f`.
+- Durable loose review:
+  `/Users/ame/autoquant-v0916-review-baseline/independent-review.md` with SHA-256
+  `f19b3d98871b86e10b497700744afc7271ea6e49e3f71dcc3b4a17792a7d3de5`.
+- Transcript:
+  `/Users/ame/autoquant-v0916-review-baseline/baseline-transcript.md`.
+- The worker used Python only to parse/hash strict reader output and immutable
+  Run metrics; it did not re-price OHLCV or substitute ad hoc quantitative
+  authority.
+- Independent post-run `diff` confirmed identical pre/post Workspace hashes
+  and paths.
 
 ## Progress log
 
 - 2026-08-01 — Plan activated from clean released `v0.9.15`; OpenAlice remains
   independently pinned to `v0.8.31`.
+- 2026-08-01 — Baseline field review passed the scientific task and exposed one
+  product gap: no immutable general Review handoff and no machine-enforced
+  distinction between Report-bound and merely visible Workspace evidence.
 
 ## Completion
 
