@@ -77,6 +77,12 @@ class StudioObservationTests(unittest.TestCase):
 
             snapshot = build_studio_snapshot(workspace.root_dir)
             self.assertEqual(snapshot["kind"], "autoquant-studio-snapshot")
+            self.assertEqual(snapshot["harness"]["version"], "0.9.23")
+            self.assertRegex(snapshot["harness"]["sourceHash"], r"^[0-9a-f]{64}$")
+            self.assertIn(
+                snapshot["harness"]["buildProvenance"],
+                {"source-checkout", "embedded-distribution"},
+            )
             self.assertEqual(snapshot["source"]["scope"], "workspace")
             self.assertEqual(
                 snapshot["source"]["workspace"]["projectsDir"],

@@ -1146,6 +1146,7 @@ class AgentCliTests(unittest.TestCase):
         self.assertEqual(
             [command["id"] for command in commands],
             [
+                "version",
                 "capabilities",
                 "schema",
                 "orient",
@@ -1204,6 +1205,11 @@ class AgentCliTests(unittest.TestCase):
                 "studio.snapshot",
                 "studio.serve",
             ],
+        )
+        self.assertEqual(envelope["data"]["harness"]["version"], "0.9.23")
+        self.assertIn(
+            envelope["data"]["buildProvenance"],
+            {"source-checkout", "embedded-distribution"},
         )
         study_create = next(
             command for command in commands if command["id"] == "study.create"

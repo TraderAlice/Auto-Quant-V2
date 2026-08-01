@@ -1,5 +1,5 @@
 ---
-version: 0.9.22
+version: 0.9.23
 ---
 
 # AutoQuant V2
@@ -32,12 +32,12 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current release: `v0.9.22`
+## Current release: `v0.9.23`
 
-`v0.9.22` preserves a current failed Run as real re-entry evidence. Agents now
-inspect `repair-required` failures before changing anything, while an explicit
-`scientific-limit` can become one immutable bounded Report and a terminal
-handoff without repeating identical inputs or opening downstream research.
+`v0.9.23` makes source and installed AutoQuant distributions self-identifying.
+Agents can inspect one exact Harness version, build commit, dirty state, Python
+runtime, and complete runtime-closure hash before research; new immutable Runs
+then preserve the same identity instead of losing commit provenance in a wheel.
 OpenAlice remains independently pinned to `v0.8.31` until the host deliberately
 selects another tag; publishing AutoQuant does not migrate a Workspace or move
 a host pin.
@@ -122,6 +122,7 @@ git clone git@github.com:TraderAlice/Auto-Quant-V2.git
 cd Auto-Quant-V2
 uv sync
 uv run aq --version
+uv run aq version --json
 uv run aq capabilities --json
 uv run aq project list .
 uv run aq validate .

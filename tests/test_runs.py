@@ -3,12 +3,15 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
+from pathlib import Path
 
 import jsonschema
 
 from autoquant.runs import (
     RUN_RESULT_JSON_SCHEMA,
+    _harness_source_hash,
     execute_study,
+    harness_identity,
     list_runs,
     load_run,
     same_harness_runtime,
@@ -31,6 +34,42 @@ from tests.study_helpers import (
 
 
 class ImmutableRunTests(unittest.TestCase):
+    def test_harness_source_hash_covers_complete_runtime_closure(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            package = Path(directory) / "autoquant"
+            (package / "project_templates" / "factor").mkdir(parents=True)
+            (package / "studio_assets").mkdir()
+            (package / "workspace_skills" / "fetch").mkdir(parents=True)
+            (package / "runtime.py").write_text("VALUE = 1\n")
+            template = package / "project_templates" / "factor" / "program.md"
+            template.write_text("factor contract\n")
+            studio = package / "studio_assets" / "studio.js"
+            studio.write_text("export const value = 1;\n")
+            skill = package / "workspace_skills" / "fetch" / "SKILL.md"
+            skill.write_text("fetch contract\n")
+
+            baseline = _harness_source_hash(package)
+            for path, replacement in (
+                (package / "runtime.py", "VALUE = 2\n"),
+                (template, "factor contract v2\n"),
+                (studio, "export const value = 2;\n"),
+                (skill, "fetch contract v2\n"),
+            ):
+                original = path.read_text()
+                path.write_text(replacement)
+                changed = _harness_source_hash(package)
+                self.assertNotEqual(changed, baseline, path)
+                path.write_text(original)
+                self.assertEqual(_harness_source_hash(package), baseline)
+
+            (package / "_build_identity.py").write_text(
+                "BUILD_COMMIT = 'a' * 40\n"
+            )
+            cache = package / "__pycache__"
+            cache.mkdir()
+            (cache / "runtime.cpython-311.pyc").write_bytes(b"cache")
+            self.assertEqual(_harness_source_hash(package), baseline)
+
     def test_run_freezes_study_request_and_exact_upstream_evidence(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             _, project = make_project(directory)
@@ -152,6 +191,7 @@ class ImmutableRunTests(unittest.TestCase):
             self.assertEqual(run.result["studyInputHash"], study.input_hash)
             self.assertNotEqual(run.result["inputHash"], study.input_hash)
             self.assertEqual(run.result["harness"]["id"], "autoquant.python-judge")
+            self.assertEqual(run.result["harness"], harness_identity())
             self.assertIn("sourceHash", run.result["harness"])
             self.assertIn("dirty", run.result["harness"])
             self.assertEqual(run.result["execution"]["exitCode"], 0)

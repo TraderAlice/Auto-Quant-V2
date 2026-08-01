@@ -66,6 +66,9 @@ Study/Run evaluation rules.
     Explicit adoption is discoverable through both parser help and capability
     JSON; it preserves surrounding files and refuses existing AutoQuant-owned
     configuration or Projects paths.
+13. `version` and `capabilities` project the same current Harness identity and
+    build provenance. Machine discovery never requires parsing `--version` or
+    terminal prose.
 
 ## Operation effects
 

@@ -10,6 +10,9 @@ receive compact text by default. `--json` emits exactly one versioned envelope.
 ## Discovery
 
 ```bash
+aq --version
+aq version
+aq version --json
 aq capabilities
 aq capabilities --json
 aq schema
@@ -36,6 +39,14 @@ aq schema candidate-preflight --json
 aq schema candidate-check-output --json
 aq schema candidate-check-result --json
 ```
+
+`aq --version` is the stable concise package-version probe. `aq version
+--json` returns the exact current Harness id/version, source build commit,
+dirty state, complete runtime closure hash, Python version, and whether that
+build provenance came from the installed distribution, an exact-root source
+checkout, or nowhere trustworthy. `capabilities --json` embeds the same
+identity, so an Agent does not need a separate probe after ordinary discovery.
+See [[docs/design/distribution-build-identity]].
 
 `capabilities --json` is the authoritative machine discovery surface. Each
 command descriptor includes:

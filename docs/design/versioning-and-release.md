@@ -23,6 +23,7 @@ One release version must agree across:
 - `uv.lock` lock metadata;
 - `autoquant/version.py` runtime reporting of installed package metadata (it
   has no separately edited version literal);
+- `hatch_build.py` embedded commit/dirty provenance for built distributions;
 - the README front matter and concise current-release pointer;
 - the Git tag `v<version>`.
 
@@ -30,6 +31,8 @@ Changing those files creates only a release candidate. The immutable Git tag is
 the published version authority. Every Run independently records Harness
 version, commit, dirty state, source hash, and Python version, so research
 evidence never relies on the mutable checkout's current label alone.
+Exact build and runtime-closure semantics are defined in
+[[docs/design/distribution-build-identity]].
 
 ## Increment policy
 
@@ -95,7 +98,9 @@ uv build
 
 Then install the built wheel into a fresh Python 3.11 environment and verify:
 
-- `aq --version` and `aq-python` resolve to the installed candidate;
+- `aq --version`, `aq version --json`, and `aq-python` resolve to the installed
+  candidate; exact version/commit/dirty/source-hash identity agrees across
+  version discovery, capabilities, Studio, and a newly executed Run;
 - capability and changed schema discovery work from the installed package;
 - the repository-root Workspace can orient, validate, list Projects, and build
   a Studio snapshot without an ignored local override;

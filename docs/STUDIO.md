@@ -29,6 +29,12 @@ the top source label makes the same distinction from the checked-in Workspace
 manifest. This is observation only—Studio never selects or rewrites the
 configuration.
 
+The same top source label also shows `AQ <version>@<short-commit>`, with
+`+dirty` when relevant. The snapshot carries the full current Harness identity
+and `buildProvenance`; Studio formats that verified Core data and never probes
+Git or package metadata independently. See
+[[docs/design/distribution-build-identity]].
+
 The default bind is intentionally loopback-only. V1 has no authentication.
 Binding `--host` to a non-loopback address is an explicit operator decision.
 

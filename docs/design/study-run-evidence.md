@@ -91,7 +91,11 @@ The Core derives:
   unchanged.
 
 The complete Run `inputHash` additionally binds the installed AutoQuant
-Harness id/version/commit, dirty state, source hash, and Python version.
+Harness id/version/commit, dirty state, complete runtime-closure source hash,
+and Python version. Installed distributions recover the source commit from
+build-time embedded provenance rather than probing a runtime parent repository;
+direct source checkouts require an exact Git root. See
+[[docs/design/distribution-build-identity]].
 Identical Study/source/Harness inputs preserve the same `inputHash`; repeated
 executions still receive unique immutable Run ids.
 

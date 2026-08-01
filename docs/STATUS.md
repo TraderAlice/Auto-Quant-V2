@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha at `v0.9.22`; `v0.8.31` remains the Harness currently
+Status: usable pre-alpha at `v0.9.23`; `v0.8.31` remains the Harness currently
 consumed by OpenAlice until the host deliberately selects a newer tag.
 
 Updated: 2026-08-02.
@@ -13,6 +13,32 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 [[docs/openalice-real-delegation-synthesis]], and [[PLANS]].
 
 ## Milestone
+
+The `0.9.23` candidate makes an installed AutoQuant distribution preserve the
+exact Git commit and relevant dirty state that built it. A generated identity
+module is included in both sdist and wheel without modifying the checkout; a
+wheel rebuilt from the sdist retains the original identity. Installed code
+prefers that embedded provenance before Git discovery, so a virtual environment
+inside another repository cannot misattribute AutoQuant to the consumer's
+commit. Direct source operation accepts Git only at the exact checkout root and
+otherwise reports `unavailable`.
+
+Harness `sourceHash` now covers the complete regular runtime closure beneath
+`autoquant/`, including Python, Project templates, Studio assets, and all
+Workspace Skills, while excluding generated build identity and caches. `aq
+version --json`, capability discovery, Studio snapshot/UI, Runs, Candidate
+Checks, and Session locks consume one shared identity. The concise `aq
+--version` remains a stable package-version probe. Historical immutable Runs
+remain unchanged, including older honest `commit: unavailable` evidence.
+
+Focused version/Run/CLI/Studio regression passed 45 tests in 77.990 seconds,
+including dirty and exact-root behavior, sdist-to-wheel provenance preservation,
+complete closure hashing, and installation beneath an unrelated parent Git
+repository. Fresh-worker and final release audit evidence is pending in
+[[plans/distribution-build-provenance]]. OpenAlice remains independently pinned
+to `0.8.31`.
+
+### `v0.9.22`
 
 The `0.9.22` release makes a current failed Run a truthful Agent re-entry point
 rather than silently reverting the Study to “baseline evidence missing.” Every

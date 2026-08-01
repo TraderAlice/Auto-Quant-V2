@@ -150,6 +150,13 @@ def descriptor(
 
 CLI_COMMANDS = [
     descriptor(
+        "version",
+        "aq version [--json]",
+        "Report the current Harness version, exact build commit, dirty state, runtime closure hash, Python version, and provenance source.",
+        "read-only",
+        [JSON_ARGUMENT],
+    ),
+    descriptor(
         "capabilities",
         "aq capabilities [--json]",
         "Describe every public command, argument, effect, and exit behavior.",

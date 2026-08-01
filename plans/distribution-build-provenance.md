@@ -2,7 +2,8 @@
 
 - Status: `active`
 - Updated: `2026-08-02`
-- Related design: [[docs/design/study-run-evidence]],
+- Related design: [[docs/design/distribution-build-identity]],
+  [[docs/design/study-run-evidence]],
   [[docs/design/agent-cli-contract]], [[docs/STUDIO]], and
   [[docs/design/versioning-and-release]].
 
@@ -76,12 +77,12 @@ runtime-package closure.
 
 ## Work
 
-- [ ] Add the build hook and runtime build-identity reader.
-- [ ] Complete runtime-closure hashing and share one Harness identity contract.
-- [ ] Add CLI, capability, Studio JSON, and Studio UI projection.
-- [ ] Add deterministic source, dirty, sdist, wheel, parent-repository, closure,
+- [x] Add the build hook and runtime build-identity reader.
+- [x] Complete runtime-closure hashing and share one Harness identity contract.
+- [x] Add CLI, capability, Studio JSON, and Studio UI projection.
+- [x] Add deterministic source, dirty, sdist, wheel, parent-repository, closure,
   and historical-evidence regressions.
-- [ ] Update Agent, architecture, CLI, Studio, evidence, versioning, status, and
+- [x] Update Agent, architecture, CLI, Studio, evidence, versioning, status, and
   release documentation.
 - [ ] Build the candidate wheel and run a fresh Grok field assignment.
 - [ ] Complete the release audit, commit, push, tag, and verify `v0.9.23`.
@@ -103,6 +104,11 @@ runtime-package closure.
 
 - 2026-08-02 — Plan created from the `0.9.22` field worker's installed-wheel
   `harness.commit: unavailable` observation.
+- 2026-08-02 — Build hook, exact-root runtime resolution, complete package
+  closure hashing, `aq version`, capabilities, and Studio projection landed.
+  Focused version/Run/CLI/Studio regression passed 45 tests in 77.990 seconds,
+  including sdist-to-wheel preservation and installation beneath an unrelated
+  parent Git repository.
 
 ## Completion
 

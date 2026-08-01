@@ -50,7 +50,7 @@ from .research_program import load_research_program
 from .reports import list_reports
 from .run_reports import list_run_reports
 from .reviews import list_reviews
-from .runs import list_runs, load_run, run_failure_disposition
+from .runs import harness_identity, list_runs, load_run, run_failure_disposition
 from .sessions import list_sessions, load_session, session_snapshot
 from .studies import hash_json, list_studies, load_study
 from .workspace import (
@@ -64,6 +64,7 @@ from .workspace import (
     load_project,
     load_workspace,
 )
+from .version import current_build_identity
 
 
 STUDIO_KIND = "autoquant-studio-snapshot"
@@ -1725,10 +1726,13 @@ def build_studio_snapshot(
         project_id,
     )
     observations = [_project_snapshot(project) for project in projects]
+    harness = harness_identity()
+    harness["buildProvenance"] = current_build_identity()["provenance"]
     return {
         "schemaVersion": SCHEMA_VERSION,
         "kind": STUDIO_KIND,
         "generatedAt": datetime.now(timezone.utc).isoformat(),
+        "harness": harness,
         "source": {
             "scope": scope,
             "rootDir": str(root),
@@ -1984,6 +1988,7 @@ STUDIO_SNAPSHOT_JSON_SCHEMA: dict[str, Any] = {
         "schemaVersion",
         "kind",
         "generatedAt",
+        "harness",
         "source",
         "valid",
         "diagnostics",
@@ -1993,6 +1998,37 @@ STUDIO_SNAPSHOT_JSON_SCHEMA: dict[str, Any] = {
         "schemaVersion": {"const": SCHEMA_VERSION},
         "kind": {"const": STUDIO_KIND},
         "generatedAt": {"type": "string", "minLength": 1},
+        "harness": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "id",
+                "version",
+                "commit",
+                "dirty",
+                "sourceHash",
+                "python",
+                "buildProvenance",
+            ],
+            "properties": {
+                "id": {"type": "string", "minLength": 1},
+                "version": {"type": "string", "minLength": 1},
+                "commit": {"type": "string", "minLength": 1},
+                "dirty": {"type": "boolean"},
+                "sourceHash": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$",
+                },
+                "python": {"type": "string", "minLength": 1},
+                "buildProvenance": {
+                    "enum": [
+                        "embedded-distribution",
+                        "source-checkout",
+                        "unavailable",
+                    ]
+                },
+            },
+        },
         "source": {
             "type": "object",
             "additionalProperties": False,

@@ -5618,15 +5618,20 @@ async function refresh({ quiet = false } = {}) {
     }
     state.snapshot = await response.json();
     const source = state.snapshot.source;
+    const harness = state.snapshot.harness;
     const configurationSource = source.workspace?.configurationSource;
+    const harnessBuild =
+      harness.commit === "unavailable"
+        ? `${harness.version}@unavailable`
+        : `${harness.version}@${shortHash(harness.commit)}${harness.dirty ? "+dirty" : ""}`;
     element("source-scope").textContent =
-      `${source.scope.toUpperCase()} / ${
+      `AQ ${harnessBuild} / ${source.scope.toUpperCase()} / ${
         configurationSource === "local-override" ? "LOCAL OVERRIDE" : "WORKSPACE MANIFEST"
       } / READ ONLY`;
     element("source-name").textContent =
       source.workspace?.name ?? source.rootDir;
     element("source-name").title =
-      source.workspace?.projectsDir ?? source.rootDir;
+      `${source.workspace?.projectsDir ?? source.rootDir}\nHarness source ${harness.sourceHash}`;
     render();
     setConnection("live", `Synced ${relativeTime(state.snapshot.generatedAt)}`);
   } catch (error) {

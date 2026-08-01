@@ -303,6 +303,10 @@ host pin independence are defined in
 [[docs/design/versioning-and-release]]. Every immutable Run separately records
 Harness version, commit, source hash, Python version, and dirty state, so a
 Project can distinguish a released runtime from an untagged development trial.
+Installed wheels and sdists freeze the exact build commit, while runtime
+closure hashing covers Python, templates, Studio, and Skills; discovery and
+anti-misattribution rules live in
+[[docs/design/distribution-build-identity]].
 
 The repository-root V0.5 Freqtrade arena inherited from Auto-Quant Classic is
 retired. It is not an alternate execution path, package dependency, or data

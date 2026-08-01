@@ -347,6 +347,8 @@ Read the relevant linked document before changing a subsystem:
   [[docs/design/documentation-system]]
 - Version increments, compatibility boundary, release audit, tagging, and host
   pin independence: [[docs/design/versioning-and-release]]
+- Installed/source Harness commit provenance, dirty meaning, runtime closure
+  hashing, and identity discovery: [[docs/design/distribution-build-identity]]
 - System direction, Workspace/Project ownership, and runtime boundaries:
   [[docs/ARCHITECTURE]]
 - Workspace discovery, Project identity, self-contained construction, and path
@@ -528,6 +530,10 @@ version and newcomer navigation. Put current tested capability and concise
 release history in [[docs/STATUS]], and preserve exact candidate/final evidence
 in the active plan. A version bump alone is not a release; do not move a host
 pin or promise Workspace migration as a side effect of publishing AutoQuant.
+Read [[docs/design/distribution-build-identity]] before changing build hooks,
+Harness identity fields, runtime hashing, or installed-distribution discovery.
+Use `aq version --json` when exact current Harness identity matters; `aq
+--version` intentionally remains the concise distribution version.
 
 ## Required change loop
 

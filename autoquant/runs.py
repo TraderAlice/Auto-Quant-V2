@@ -47,7 +47,7 @@ from .workspace import (
     ValidationIssue,
     confined_path,
 )
-from .version import current_version
+from .version import current_build_identity, current_version
 
 
 RUN_MANIFEST = "manifest.json"
@@ -126,66 +126,27 @@ def _write_json(path: Path, value: Any) -> None:
     )
 
 
-def _harness_commit() -> str:
-    source_root = Path(__file__).resolve().parents[1]
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=source_root,
-            capture_output=True,
-            check=True,
-            text=True,
-            timeout=5,
-        )
-        return result.stdout.strip()
-    except (OSError, subprocess.SubprocessError):
-        return "unavailable"
-
-
-def _harness_dirty() -> bool:
-    source_root = Path(__file__).resolve().parents[1]
-    try:
-        result = subprocess.run(
-            [
-                "git",
-                "status",
-                "--porcelain",
-                "--",
-                "autoquant",
-                "pyproject.toml",
-                "uv.lock",
-            ],
-            cwd=source_root,
-            capture_output=True,
-            check=True,
-            text=True,
-            timeout=5,
-        )
-        return bool(result.stdout.strip())
-    except (OSError, subprocess.SubprocessError):
-        return False
-
-
-def _harness_source_hash() -> str:
-    source_root = Path(__file__).resolve().parents[1]
+def _harness_source_hash(package_root: Path | None = None) -> str:
+    package_root = package_root or Path(__file__).resolve().parent
     files = {
-        path.relative_to(source_root).as_posix(): hash_file(path)
-        for path in sorted((source_root / "autoquant").rglob("*.py"))
-        if "__pycache__" not in path.parts
+        f"autoquant/{path.relative_to(package_root).as_posix()}": hash_file(path)
+        for path in sorted(package_root.rglob("*"))
+        if path.is_file()
+        and not path.is_symlink()
+        and "__pycache__" not in path.parts
+        and path.suffix != ".pyc"
+        and path.name != "_build_identity.py"
     }
-    for name in ("pyproject.toml", "uv.lock"):
-        path = source_root / name
-        if path.is_file():
-            files[name] = hash_file(path)
     return hash_json(files)
 
 
 def harness_identity() -> dict[str, Any]:
+    build = current_build_identity()
     return {
         "id": "autoquant.python-judge",
         "version": current_version(),
-        "commit": _harness_commit(),
-        "dirty": _harness_dirty(),
+        "commit": build["commit"],
+        "dirty": build["dirty"],
         "sourceHash": _harness_source_hash(),
         "python": platform.python_version(),
     }
