@@ -18,7 +18,9 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-None.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/caller-owned-factor-outcomes]] | Let delegated Factor research bind future return or fixed forward realized volatility without granting risk forecasts Portfolio, RL, or trading meaning. | 2026-08-02 |
 
 ## Proposed plans
 
