@@ -79,6 +79,13 @@ be a transparent storage optimization, never research authority or automatic
 dataset selection. OpenAlice remains intentionally unchanged on `v0.8.31`.
 See [[plans/korea-delayed-gap-event-field-trial]].
 
+The release audit passed all 390 tests in 1,102.837 seconds and resolved all
+1,335 documentation links. Lock validation, Python and Studio JavaScript
+syntax, source/wheel builds, a fresh Python 3.11.14 wheel install with pandas
+3.0.5 and all 53 public commands, and a no-hardlink clean-clone root Workspace
+validation/Studio smoke also passed. The verified wheel SHA-256 is
+`8657e6a0b6d3a232a19cb861ca6eb053060ef7827ca427f5624a546faddcd0e4`.
+
 ### `v0.9.12`
 
 `v0.9.12` comes from a fresh zero-data Japanese Factor-to-Portfolio field

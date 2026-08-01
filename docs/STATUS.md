@@ -53,6 +53,13 @@ task-complete package, available inventory never narrows it, and intentional
 duplication is acceptable evidence isolation. Storage deduplication may be an
 invisible optimization only. OpenAlice remains pinned to `0.8.31`.
 
+Final repository verification passed 390 tests in 1,102.837 seconds and all
+1,335 documentation links. Lock, Python, and Studio JavaScript syntax checks,
+source/wheel builds, a fresh Python 3.11.14 installation with pandas 3.0.5 and
+53 public commands, and a no-hardlink clean-clone root Workspace validation
+and Studio snapshot all passed. Verified wheel SHA-256:
+`8657e6a0b6d3a232a19cb861ca6eb053060ef7827ca427f5624a546faddcd0e4`.
+
 ### `v0.9.12`
 
 The `0.9.12` patch comes from a zero-data Japanese Factor-to-Portfolio field

@@ -1,6 +1,6 @@
 # Korea delayed-gap Event Study field trial
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-08-01`
 - Target release: `0.9.13`
 - Related design: [[docs/design/agent-native-market-data-acquisition]],
@@ -93,7 +93,7 @@ Korean semiconductor peer.
       trading authority is created.
 - [x] Every material retry or failure becomes either deterministic regression
       coverage and a bounded repair or an explicit provider/research limit.
-- [ ] Final replay, full tests, documentation, build/install, Studio, and
+- [x] Final replay, full tests, documentation, build/install, Studio, and
       no-hardlink clean-clone smoke pass before `v0.9.13` is tagged and pushed.
 
 ## Work
@@ -105,7 +105,7 @@ Korean semiconductor peer.
 - [x] Audit transcript, filesystem, provider evidence, and scientific answer.
 - [x] Implement only reproduced reusable friction with deterministic tests.
 - [x] Replay with a fresh candidate-wheel worker.
-- [ ] Complete the `v0.9.13` release audit and publish the tag.
+- [x] Complete the `v0.9.13` release audit and publish the tag.
 
 ## Findings and decisions
 
@@ -206,6 +206,14 @@ Korean semiconductor peer.
   Its Project is `samsung-kospi-open-gap-event`, Run
   `run-20260801T042015447193Z-bfda0fb28bce`, and Report
   `report-20260801T042047635746Z-5dfcd5d47744`.
+- Final repository audit passed 390 tests in 1,102.837 seconds, 1,335
+  documentation links, lock validation, Python compileall, Studio JavaScript
+  syntax, source/wheel builds, and root Workspace validation. A fresh Python
+  3.11.14 install exposed pandas 3.0.5 and all 53 public commands. A no-
+  hardlink clone selected `sample-research-desk`, validated successfully, and
+  produced a valid one-Project Studio snapshot while remaining Git-clean.
+  Verified wheel SHA-256:
+  `8657e6a0b6d3a232a19cb861ca6eb053060ef7827ca427f5624a546faddcd0e4`.
 
 ## Progress log
 
@@ -213,14 +221,20 @@ Korean semiconductor peer.
   implementation change is authorized until a fresh baseline worker exposes
   concrete reusable friction.
 - 2026-08-01 — Baseline cohort 28 completed the unchanged assignment and
-  proved the Event workflow itself is usable. The two independent Korean raw
-  routes exposed bounded provider-normalization defects, so implementation is
-  now authorized only on those Skill surfaces.
+  proved the Event workflow itself is usable. The two independent Korean peer
+  routes exposed bounded provider-normalization defects, so implementation was
+  authorized only on those Skill surfaces.
 - 2026-08-01 — Two candidate replays completed. The first surfaced a false
   Naver adjustment label after provider execution succeeded; the second used
   the corrected semantic contract and completed without framework friction.
-  Full repository and release verification is the only remaining work.
+  Full repository and release verification then passed without another code
+  change.
+- 2026-08-01 — Released `v0.9.13` to `TraderAlice/Auto-Quant-V2`. OpenAlice
+  remains deliberately pinned to `v0.8.31`.
 
 ## Completion
 
-Complete this section only when status becomes `completed`.
+`v0.9.13` completes the Korean delayed-gap field topic. Fresh coworkers can
+acquire the exact task-local evidence they need without an inventory gate,
+execute the fixed Event question, and preserve distinct Yahoo, Naver, and Daum
+price semantics through a durable no-trading handoff.
