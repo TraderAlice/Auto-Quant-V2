@@ -182,8 +182,6 @@ or trading authority is requested.
   source distribution, and wheel build passed.
 - Final wheel SHA-256:
   `d3e2ca7d8fd6c26a1a4382f9e5871925a092f7957b51c765ac5b42396bf387cd`.
-- Final sdist SHA-256:
-  `878d2878cf2e3365901f54ce0ce70418f0f22a4cdefe88c6dd1824a4347d8b48`.
 - Fresh Python `3.11.14` final-wheel installation exposed `aq 0.9.10` and all
   `52` public commands, then validated and projected both candidate-vintage
   Runs and Reports through CLI and Studio without diagnostics.
