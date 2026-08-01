@@ -106,6 +106,10 @@ not become a downloader or calendar oracle.
   adjustment, and retrieval provenance remain singular and exact. Combining
   independently acquired packages would require truthful per-source
   provenance rather than a synthetic top-level provider claim.
+- 2026-08-02 — V5 has one fixed `provider-observed`/UTC top-level market
+  surface. The source V4 market claim is therefore preserved in the
+  transformation audit rather than copied into V5; per-asset venue, class,
+  explicit calendar, timezone, and volume authority remain exact.
 
 ## Verification
 
@@ -115,6 +119,10 @@ Pending.
 
 - 2026-08-02 — Plan created from the private calendar-labeling setup required
   by the otherwise successful `0.9.24` Toyota/SPY field trial.
+- 2026-08-02 — Added the transactional bundled materializer, strict authority
+  contract, real XNYS DST/XTKS close-extension fixtures, negative failure
+  cases, and a deterministic V4 → V5 → intake → Factor → Explorer → Report
+  integration proof.
 
 ## Completion
 

@@ -22,6 +22,7 @@ research question
 → retained raw bytes and provider audits
 → same-semantics numerical or cross-semantics coverage comparison
 → package-autoquant-ohlcv
+→ optional explicit calendar-derived V4 daily → V5 close-time materialization
 → strict Project intake
 → content-locked Project snapshot
 ```
@@ -170,6 +171,32 @@ no package. The procedure does not delete a session, reconstruct a terminal
 bar, change interval, or fall back to observed-only semantics. A daily peer
 does not become independent hourly confirmation merely because it names the
 same asset.
+
+Date-only daily rows are also not exact completed-close authority. For a
+cross-market Factor question, a provider route may first retain one V4
+observed-only package whose per-asset session dates came from the provider's
+returned exchange timezones. Its top-level mixed-market claim is the neutral
+`provider-observed`/UTC container; it must not pretend every asset follows one
+named exchange calendar.
+
+The packaging Skill supplies the canonical conversion from that V4 surface to
+close-time-aware V5. The caller/Agent authors one strict authority manifest
+that binds the exact source package hash, pins the installed
+`exchange_calendars` version, and names every asset's canonical calendar,
+timezone, and volume semantics. The bundled
+`materialize_daily_close_time.py` maps each observed date to that calendar's
+scheduled regular close, preserves all OHLCV and absent rows, and publishes a
+transactional V5 package plus a transformation audit. The audit records source
+and output hashes, observed-date and scheduled-timestamp hashes, real UTC close
+transitions, and explicit limitations.
+
+Unknown calendars, alias names, timezone or inventory mismatches, non-session
+dates, unsafe paths, source-contract drift, or an occupied output fail before
+the output directory is published. The procedure never infers authority from
+a symbol or venue, appends a fixed nominal clock, aligns markets, fills
+absence, drops rows, or authenticates an exchange. Core still begins at the
+generated V5 package boundary and does not load the transformation audit as
+hidden runtime authority.
 
 Canonical research symbols belong to the cross-provider dataset contract;
 route-specific lookup codes do not. Peer Japanese packages therefore retain a

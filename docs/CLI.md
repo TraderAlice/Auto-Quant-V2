@@ -405,6 +405,10 @@ At one target close, candidate code may use only context rows at or before that
 exact timestamp. Asynchronous context therefore requires an explicit backward
 as-of operation; the Harness does not manufacture a filled common calendar.
 Portfolio, governed RL, and the coordinated research desk reject V5.
+For date-only cross-market daily source, use the bundled
+`$package-autoquant-ohlcv` `materialize_daily_close_time.py` procedure with an
+exact per-asset calendar authority manifest; Core does not infer or append
+close times during intake.
 
 The JSON result contains Project-level `request.json`, `intake.json`,
 `data/ohlcv/snapshot.json`, the template's verified Study identities, and

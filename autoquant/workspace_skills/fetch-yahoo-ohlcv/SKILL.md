@@ -61,6 +61,14 @@ returned `exchangeTimezoneName`; UTC calendar dates are not treated as local
 session dates.
 
 Choose `--panel observed-only` only for a compatible Factor-only V4 intake.
+For a cross-market date-only package, use the neutral top-level container claim
+`--calendar provider-observed --timezone UTC`; each asset's actual session date
+still comes from Yahoo's returned exchange timezone and remains visible in the
+provider audit. That V4 package does not yet claim exact close instants. Invoke
+`$package-autoquant-ohlcv`, supply explicit per-asset calendar authority, and
+run its `materialize_daily_close_time.py` procedure before V5 intake. Never use
+one asset's calendar/timezone as the top-level claim for a mixed-market package.
+
 Choose `--adjustment split-adjusted` to preserve Yahoo's historical quote
 OHLC. These are not exchange-unadjusted prices: Yahoo back-adjusts historical
 quotes for split-like corporate actions. For

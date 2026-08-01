@@ -296,6 +296,24 @@ exchange-calendar authority outside intake, with that derivation disclosed in
 the provider and acquisition evidence. Merely appending a nominal UTC time is
 not proof of a market close.
 
+The public `$package-autoquant-ohlcv` Skill makes one such derivation
+deterministic without moving calendar inference into Core. Its
+`materialize_daily_close_time.py` procedure accepts only a strict
+observed-only V4 daily package plus an exact content-bound authority manifest.
+That manifest pins the installed `exchange_calendars` version and explicitly
+maps every source asset to a canonical calendar, matching timezone, and V5
+volume semantics. The procedure requires every observed date to be a session,
+uses the scheduled regular close in UTC, preserves asset/provider/adjustment
+provenance and all OHLCV rows, and emits a complete audit before atomically
+publishing V5.
+
+The source V4 top-level market claim remains in the audit; V5 uses its fixed
+`provider-observed`/UTC surface while retaining per-asset venue and class.
+Calendar schedules remain declared research authority, not authenticated
+exchange records, and do not reconstruct unscheduled halts. Intake validates
+the resulting V5 bytes exactly as it validates any other external package; it
+does not trust a private materializer or recover authority from the audit.
+
 ## Validation and normalization
 
 Before any Project is visible, Core:

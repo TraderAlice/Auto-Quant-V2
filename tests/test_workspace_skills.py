@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import importlib.util
 import io
 import json
+import shutil
 import sys
 import tempfile
 import unittest
@@ -12,7 +14,10 @@ from unittest import mock
 
 import pandas as pd
 
+from autoquant.factor_explorer import load_factor_diagnostics
 from autoquant.intake import prepare_project_intake
+from autoquant.run_reports import publish_run_report
+from autoquant.runs import execute_study
 from autoquant.skill_bundle import (
     SKILL_DISCOVERY_ROOTS,
     WORKSPACE_SKILLS_MANIFEST,
@@ -24,8 +29,10 @@ from autoquant.skill_bundle import (
 from autoquant.workspace import (
     WORKSPACE_MANIFEST,
     AutoQuantValidationError,
+    create_project,
     initialize_workspace,
 )
+from autoquant.templates import OHLCV_STUDY_ID
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -37,8 +44,208 @@ def load_script(name: str, path: Path):
     if spec is None or spec.loader is None:
         raise AssertionError(f"cannot load {path}")
     module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
     spec.loader.exec_module(module)
     return module
+
+
+def file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    digest.update(path.read_bytes())
+    return digest.hexdigest()
+
+
+def write_daily_close_time_inputs(
+    root: Path,
+    materializer,
+    *,
+    long_history: bool = False,
+) -> tuple[Path, Path, Path]:
+    source = root / "daily-source"
+    source.mkdir()
+    if long_history:
+        calendars = {
+            name: materializer.xcals.get_calendar(
+                name,
+                start="2024-01-01",
+                end="2025-03-31",
+            )
+            for name in ("XTKS", "XNYS")
+        }
+        dates_by_calendar = {
+            name: [timestamp.date() for timestamp in calendar.sessions[:240]]
+            for name, calendar in calendars.items()
+        }
+    else:
+        dates = [
+            pd.Timestamp(value).date()
+            for value in (
+                "2024-10-31",
+                "2024-11-01",
+                "2024-11-05",
+                "2024-11-06",
+            )
+        ]
+        dates_by_calendar = {"XTKS": dates, "XNYS": dates}
+
+    asset_specs = (
+        ("7203.T", "equity", "XTKS", "JPY", "XTKS"),
+        ("SPY", "fund", "XNYS", "USD", "XNYS"),
+    )
+    assets: list[dict[str, str]] = []
+    for asset_number, (
+        symbol,
+        asset_class,
+        venue,
+        currency,
+        calendar,
+    ) in enumerate(asset_specs):
+        rows: list[dict[str, float | str]] = []
+        close = 100.0 + 1_000.0 * asset_number
+        for row_number, session_date in enumerate(dates_by_calendar[calendar]):
+            close *= 1.0 + 0.0004 + 0.002 * ((row_number % 11) - 5) / 5
+            open_value = close * (1.0 - 0.001 * ((row_number % 3) - 1))
+            rows.append(
+                {
+                    "date": session_date.isoformat(),
+                    "open": open_value,
+                    "high": max(open_value, close) * 1.002,
+                    "low": min(open_value, close) * 0.998,
+                    "close": close,
+                    "volume": 1_000_000.0 + 10_000 * row_number,
+                }
+            )
+        filename = f"{symbol}.csv"
+        pd.DataFrame(rows).to_csv(source / filename, index=False)
+        assets.append(
+            {
+                "symbol": symbol,
+                "assetClass": asset_class,
+                "venue": venue,
+                "currency": currency,
+                "path": filename,
+            }
+        )
+
+    package = {
+        "schemaVersion": 4,
+        "kind": "autoquant-ohlcv-dataset-package",
+        "id": "date-labelled-cross-market-daily",
+        "version": "2024-v1",
+        "assetClass": "mixed",
+        "frequency": "1d",
+        "panelPolicy": {
+            "alignment": "observed-only",
+            "missingObservation": "absent-no-fill",
+        },
+        "market": {
+            "clock": "session",
+            "calendar": "provider-observed",
+            "timezone": "UTC",
+        },
+        "priceAdjustment": "provider-adjusted",
+        "provider": {
+            "name": "deterministic-close-time-fixture",
+            "retrievedAt": "2026-08-02T00:00:00Z",
+            "sourceUri": None,
+            "terms": "deterministic test fixture only",
+        },
+        "assets": assets,
+    }
+    package_path = source / "dataset-package.json"
+    package_path.write_text(
+        json.dumps(package, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    authority = {
+        "schemaVersion": 1,
+        "kind": "autoquant-daily-close-time-authority",
+        "sourcePackage": {
+            "id": package["id"],
+            "version": package["version"],
+            "sha256": file_sha256(package_path),
+        },
+        "outputDataset": {
+            "id": "calendar-close-cross-market-daily",
+            "version": "2024-close-v1",
+        },
+        "calendarAuthority": {
+            "library": "exchange_calendars",
+            "version": materializer.distribution_version(
+                "exchange-calendars"
+            ),
+            "closeSemantics": "scheduled-regular-session-close",
+            "limitations": [
+                "Library schedules are research authority, not authenticated exchange records."
+            ],
+        },
+        "assets": [
+            {
+                "symbol": "7203.T",
+                "calendar": "XTKS",
+                "timezone": "Asia/Tokyo",
+                "volumeSemantics": "provider-reported-nonnegative",
+            },
+            {
+                "symbol": "SPY",
+                "calendar": "XNYS",
+                "timezone": "America/New_York",
+                "volumeSemantics": "provider-reported-nonnegative",
+            },
+        ],
+    }
+    authority_path = root / "close-time-authority.json"
+    authority_path.write_text(
+        json.dumps(authority, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    request = {
+        "schemaVersion": 1,
+        "kind": "autoquant-research-request",
+        "title": "Tokyo target with completed New York context",
+        "question": (
+            "Does prior completed SPY daily momentum predict the next "
+            "observed Toyota close return?"
+        ),
+        "decisionContext": "Deterministic close-time packaging integration test.",
+        "assets": [
+            {
+                "symbol": "7203.T",
+                "assetClass": "equity",
+                "venue": "XTKS",
+                "positionRole": "long-only",
+            },
+            {
+                "symbol": "SPY",
+                "assetClass": "fund",
+                "venue": "XNYS",
+                "positionRole": "context-only",
+            },
+        ],
+        "direction": "long",
+        "factorPolicy": {"claim": "decision-signal", "knownStyle": None},
+        "horizonPolicy": {
+            "primaryForwardBars": 1,
+            "diagnosticForwardBars": [1, 5],
+        },
+        "horizon": "The next observed Toyota close.",
+        "hypotheses": ["Prior completed context may be measurable."],
+        "constraints": ["No same-date future New York close or trading authority."],
+        "deliverables": ["Causal Factor evidence"],
+        "source": {
+            "system": "local",
+            "workspaceId": None,
+            "sessionId": None,
+            "artifactPath": None,
+            "artifactRevision": None,
+        },
+    }
+    request_path = root / "research-request.json"
+    request_path.write_text(
+        json.dumps(request, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return request_path, package_path, authority_path
 
 
 def yahoo_intraday_payload(
@@ -198,6 +405,283 @@ class WorkspaceSkillTests(unittest.TestCase):
             drifted.write_text("drift\n", encoding="utf-8")
             with self.assertRaisesRegex(SkillBundleError, "drifted"):
                 verify_materialized_workspace_skills(root)
+
+    def test_daily_close_time_materializer_preserves_values_and_real_transitions(
+        self,
+    ) -> None:
+        materializer = load_script(
+            "autoquant_skill_daily_close_time",
+            SKILLS
+            / "package-autoquant-ohlcv"
+            / "scripts"
+            / "materialize_daily_close_time.py",
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _, package_path, authority_path = write_daily_close_time_inputs(
+                root,
+                materializer,
+            )
+            output = root / "close-time-output"
+            result = materializer.materialize(
+                package_path,
+                authority_path,
+                output,
+            )
+
+            self.assertEqual(result["assets"], 2)
+            self.assertEqual(result["observations"], 8)
+            package = json.loads(
+                (output / "dataset-package.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(package["schemaVersion"], 5)
+            self.assertEqual(package["baseInterval"], "1d")
+            self.assertEqual(package["timestampSemantics"], "bar-close")
+            self.assertEqual(
+                package["market"],
+                {
+                    "clock": "observed",
+                    "calendar": "provider-observed",
+                    "timezone": "UTC",
+                },
+            )
+            audit = json.loads(
+                (output / "close-time-audit.json").read_text(encoding="utf-8")
+            )
+            self.assertIn(
+                {
+                    "sessionDate": "2024-11-05",
+                    "previousCloseTimeUtc": "20:00:00Z",
+                    "scheduledCloseTimeUtc": "21:00:00Z",
+                },
+                audit["assets"]["SPY"]["closeTimeTransitions"],
+            )
+            self.assertIn(
+                {
+                    "sessionDate": "2024-11-05",
+                    "previousCloseTimeUtc": "06:00:00Z",
+                    "scheduledCloseTimeUtc": "06:30:00Z",
+                },
+                audit["assets"]["7203.T"]["closeTimeTransitions"],
+            )
+            self.assertEqual(
+                audit["assets"]["SPY"]["sourceOhlcvSha256"],
+                audit["assets"]["SPY"]["outputOhlcvSha256"],
+            )
+            self.assertTrue(
+                audit["assets"]["7203.T"]["preservation"][
+                    "ohlcvValuesUnchanged"
+                ]
+            )
+            toyota = pd.read_csv(output / "assets" / "7203.T.csv")
+            spy = pd.read_csv(output / "assets" / "SPY.csv")
+            self.assertEqual(
+                toyota["timestamp"].tolist(),
+                [
+                    "2024-10-31T06:00:00Z",
+                    "2024-11-01T06:00:00Z",
+                    "2024-11-05T06:30:00Z",
+                    "2024-11-06T06:30:00Z",
+                ],
+            )
+            self.assertEqual(
+                spy["timestamp"].tolist(),
+                [
+                    "2024-10-31T20:00:00Z",
+                    "2024-11-01T20:00:00Z",
+                    "2024-11-05T21:00:00Z",
+                    "2024-11-06T21:00:00Z",
+                ],
+            )
+
+    def test_daily_close_time_materializer_fails_closed_without_partial_output(
+        self,
+    ) -> None:
+        materializer = load_script(
+            "autoquant_skill_daily_close_time_failures",
+            SKILLS
+            / "package-autoquant-ohlcv"
+            / "scripts"
+            / "materialize_daily_close_time.py",
+        )
+
+        def mutate_unknown_calendar(root, package_path, authority_path):
+            authority = json.loads(authority_path.read_text(encoding="utf-8"))
+            authority["assets"][0]["calendar"] = "NOT-A-CALENDAR"
+            authority_path.write_text(json.dumps(authority), encoding="utf-8")
+
+        def mutate_timezone(root, package_path, authority_path):
+            authority = json.loads(authority_path.read_text(encoding="utf-8"))
+            authority["assets"][0]["timezone"] = "UTC"
+            authority_path.write_text(json.dumps(authority), encoding="utf-8")
+
+        def mutate_inventory(root, package_path, authority_path):
+            authority = json.loads(authority_path.read_text(encoding="utf-8"))
+            authority["assets"].pop()
+            authority_path.write_text(json.dumps(authority), encoding="utf-8")
+
+        def mutate_non_session(root, package_path, authority_path):
+            source = package_path.parent / "7203.T.csv"
+            frame = pd.read_csv(source)
+            frame.loc[len(frame) - 1, "date"] = "2024-11-09"
+            frame.to_csv(source, index=False)
+
+        def mutate_symlink(root, package_path, authority_path):
+            source = package_path.parent / "7203.T.csv"
+            outside = root / "outside.csv"
+            shutil.move(source, outside)
+            source.symlink_to(outside)
+
+        def mutate_source_contract(root, package_path, authority_path):
+            package = json.loads(package_path.read_text(encoding="utf-8"))
+            package["schemaVersion"] = 3
+            package_path.write_text(json.dumps(package), encoding="utf-8")
+            authority = json.loads(authority_path.read_text(encoding="utf-8"))
+            authority["sourcePackage"]["sha256"] = file_sha256(package_path)
+            authority_path.write_text(json.dumps(authority), encoding="utf-8")
+
+        cases = (
+            ("unknown-calendar", mutate_unknown_calendar, "unknown or unavailable"),
+            ("timezone", mutate_timezone, "differs from XTKS timezone"),
+            ("inventory", mutate_inventory, "inventory must exactly match"),
+            ("non-session", mutate_non_session, "is not a XTKS session"),
+            ("symlink", mutate_symlink, "cannot traverse a symlink"),
+            ("source-contract", mutate_source_contract, "must be strict AutoQuant V4"),
+        )
+        for label, mutate, expected in cases:
+            with self.subTest(case=label), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                _, package_path, authority_path = write_daily_close_time_inputs(
+                    root,
+                    materializer,
+                )
+                output = root / "output"
+                mutate(root, package_path, authority_path)
+                with self.assertRaisesRegex(ValueError, expected):
+                    materializer.materialize(package_path, authority_path, output)
+                self.assertFalse(output.exists())
+                self.assertEqual(list(root.glob(".output.creating-*")), [])
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _, package_path, authority_path = write_daily_close_time_inputs(
+                root,
+                materializer,
+            )
+            output = root / "output"
+            output.mkdir()
+            with self.assertRaisesRegex(ValueError, "output must be absent"):
+                materializer.materialize(package_path, authority_path, output)
+            self.assertEqual(list(output.iterdir()), [])
+
+    def test_daily_close_time_package_runs_through_factor_report(self) -> None:
+        materializer = load_script(
+            "autoquant_skill_daily_close_time_integration",
+            SKILLS
+            / "package-autoquant-ohlcv"
+            / "scripts"
+            / "materialize_daily_close_time.py",
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            request_path, package_path, authority_path = (
+                write_daily_close_time_inputs(
+                    root,
+                    materializer,
+                    long_history=True,
+                )
+            )
+            output = root / "close-time-output"
+            materializer.materialize(package_path, authority_path, output)
+            prepared = prepare_project_intake(
+                request_path,
+                output / "dataset-package.json",
+                "ohlcv-factor-lab",
+            )
+            self.assertEqual(prepared.package["schemaVersion"], 5)
+            self.assertEqual(prepared.package["baseInterval"], "1d")
+            project = create_project(
+                initialize_workspace(root / "workspace").root_dir,
+                "calendar-close-factor",
+                template=prepared.template,
+                template_intake=prepared,
+            )
+            (project.root_dir / "factors" / "candidate.py").write_text(
+                """\
+from __future__ import annotations
+
+import pandas as pd
+
+
+def compute_factor(panel: pd.DataFrame) -> pd.Series:
+    result = pd.Series(float("nan"), index=panel.index, dtype=float)
+    target = (
+        panel.loc[panel["asset"].eq("7203.T"), ["timestamp"]]
+        .assign(row_index=lambda frame: frame.index)
+        .sort_values("timestamp", kind="stable")
+    )
+    context = (
+        panel.loc[panel["asset"].eq("SPY"), ["timestamp", "close"]]
+        .sort_values("timestamp", kind="stable")
+    )
+    context["completed_return"] = context["close"].pct_change(fill_method=None)
+    aligned = pd.merge_asof(
+        target,
+        context[["timestamp", "completed_return"]],
+        on="timestamp",
+        direction="backward",
+        allow_exact_matches=True,
+    )
+    result.loc[aligned["row_index"].to_numpy()] = aligned[
+        "completed_return"
+    ].to_numpy()
+    return result
+""",
+                encoding="utf-8",
+            )
+            run = execute_study(project, OHLCV_STUDY_ID)
+            self.assertEqual(run.result["status"], "succeeded", run.result["errors"])
+            diagnostics = load_factor_diagnostics(project, run.result["id"])
+            self.assertEqual(
+                diagnostics["inputAvailability"]["timestamps"],
+                run.result["metrics"]["input_availability"]["timestamps"],
+            )
+            report = publish_run_report(
+                project,
+                OHLCV_STUDY_ID,
+                run.result["id"],
+                {
+                    "schemaVersion": 1,
+                    "kind": "autoquant-research-report-analysis",
+                    "title": "Calendar-derived close-time evidence",
+                    "executiveSummary": (
+                        "The deterministic package completed the public Factor path."
+                    ),
+                    "findings": [
+                        {
+                            "id": "calendar-close-path",
+                            "claim": "The V4 source was admitted only after exact close materialization.",
+                            "confidence": "high",
+                            "evidenceRefs": [
+                                {
+                                    "kind": "run",
+                                    "id": run.result["id"],
+                                    "artifactPath": "artifacts/factor-report.json",
+                                }
+                            ],
+                        }
+                    ],
+                    "recommendations": [],
+                    "limitations": [
+                        "The deterministic fixture is not market evidence."
+                    ],
+                    "unresolvedQuestions": [],
+                },
+            )
+            self.assertEqual(
+                report.report["anchor"]["runId"],
+                run.result["id"],
+            )
 
     def test_workspace_init_materializes_skills_and_conflict_rolls_back(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

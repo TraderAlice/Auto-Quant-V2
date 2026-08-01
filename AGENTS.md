@@ -192,6 +192,14 @@ into `projects/`, relabel raw and adjusted series, fill provider placeholders
 silently, or claim that an unofficial route is exchange truth. See
 [[docs/design/agent-native-market-data-acquisition]].
 
+For a cross-market Factor request whose provider supplies only daily session
+dates, retain one strict observed-only V4 package first. Then use the packaging
+Skill's bundled `materialize_daily_close_time.py` with an exact source-hash,
+per-asset calendar/timezone/volume authority manifest. Do not infer calendars
+from symbols, reuse one market's close for another, append a nominal UTC hour,
+or write a private converter. Inspect the emitted transformation audit before
+strict V5 intake.
+
 Run bundled Python Skill scripts with `aq-python`, never an ambient `python`
 or `python3`. The bridge uses the interpreter that owns the installed Harness.
 Do not install dependencies into a system or user Python to work around an
