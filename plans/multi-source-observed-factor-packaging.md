@@ -81,7 +81,7 @@ provenance graph.
   inputs fail without a partial output package.
 - [x] V6 passes strict Factor intake, snapshot reload/tamper checks, one Run,
   Explorer, Report, CLI, and Studio while showing source-level provenance.
-- [ ] Generated Agent Skill bundles explain and expose the single-source V5 →
+- [x] Generated Agent Skill bundles explain and expose the single-source V5 →
   multi-source V6 route without implementation inspection.
 - [ ] A fresh installed-wheel Grok coworker uses two distinct source packages
   for one bounded cross-market Factor question and stops truthfully on the
@@ -126,6 +126,9 @@ Pending.
   integration separately proved JSON Schema, exact byte preservation, strict
   intake, CLI projection, Run, Factor Explorer, immutable Report, Studio, and
   rejection of a rehashed unknown-source snapshot.
+- 2026-08-02 — Advanced the candidate to `0.9.26` and regenerated both Agent
+  discovery roots plus `autoquant-skills.json` from the canonical Skill; Skill
+  validation and all 1,460 documentation links pass.
 
 ## Completion
 

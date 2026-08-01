@@ -1,8 +1,8 @@
 # AutoQuant V2 current status
 
-Status: `v0.9.25` is the latest published AutoQuant tag; `v0.8.31` remains the
-Harness currently consumed by OpenAlice until the host deliberately selects a
-newer tag.
+Status: `0.9.26` is the current release candidate; `v0.9.25` remains the
+latest published AutoQuant tag and `v0.8.31` remains the Harness currently
+consumed by OpenAlice until the host deliberately selects a newer tag.
 
 Updated: 2026-08-02.
 
@@ -17,30 +17,34 @@ historical proof remains in completed plans and immutable Git tags.
 
 ## Current milestone
 
-The `0.9.25` release closes the remaining acquisition-side gap in
-cross-market daily Factor research. The public packaging Skill can now turn
-one strict date-only observed V4 package plus explicit content-bound per-asset
-calendar authority into a transactional V5 package with exact scheduled UTC
-closes. It preserves provider, adjustment, assets, absence, row counts, and
-OHLCV values, while its audit records source/output hashes, calendar-library
-identity, scheduled-close transitions, and limitations.
+The `0.9.26` candidate closes the provenance gap that appears when one
+cross-market Factor question needs assets from distinct providers. V6 retains
+V5's exact completed-close, observed-only, absent-no-fill, one-target semantics
+while replacing one synthetic top-level provider with an ordered vector of
+content-addressed source packages. Every asset freezes its exact source id;
+every source retains its own provider claim.
 
-The procedure fails before publishing an output directory on source drift,
-unknown or aliased calendars, timezone or inventory mismatch, non-session
-dates, unsafe paths, invalid OHLCV, or an occupied destination. Deterministic
-fixtures cover the XNYS daylight-saving transition and XTKS's November 2024
-close extension, then pass V5 intake, Factor execution, Explorer, and immutable
-Report publication. A fresh installed-wheel Grok coworker also completed the
-public date-only V4 → calendar authority → V5 → intake → one Factor Run →
-negative Report route without private conversion code. Exact proof is retained
-in [[plans/calendar-derived-daily-close-time-packaging]].
+The public packaging Skill now composes at least two complete, compatible,
+disjoint strict V5 packages transactionally. It copies every CSV, Parquet, or
+Feather byte unchanged and emits a composition audit binding source manifests,
+providers, assets, hashes, rows, timestamps, and preservation claims. It never
+subsets, aligns, fills, transforms, converts adjustment, or resolves duplicate
+symbols. Drift, unsafe paths, symlinks, conflicting authority, duplicate
+identity, provider ambiguity, or an occupied output fail without partial V6
+state.
 
-The published `v0.9.24` baseline already makes cross-market daily Factor
-research preserve information availability by exact completed close instant
-instead of civil date. V5 accepts observed base bars through `1d`, retains
-timezone-aware UTC close claims, ragged absent-no-fill rows, per-asset class
-and volume semantics, one explicit temporal target, and a horizon advancing
-only on that target's observed bars.
+Deterministic evidence already passes V5 → V6 → JSON Schema and independent
+package audit → strict Factor intake → CLI → Run → Factor Explorer → immutable
+Report → Studio, plus rehashed snapshot-tamper rejection. Generated Workspace
+Skills disclose the same route without requiring Core inspection. The fresh
+installed-wheel Grok trial and final release audit remain pending; exact
+progress is retained in [[plans/multi-source-observed-factor-packaging]].
+
+The published `v0.9.25` baseline already materializes exact scheduled daily
+closes from strict date-only V4 plus explicit exchange-calendar authority. V5
+accepts observed bars through `1d`, retains timezone-aware UTC close claims,
+ragged absent-no-fill rows, per-asset class and volume semantics, one explicit
+temporal target, and a horizon advancing only on that target's observed bars.
 
 Candidate code must express asynchronous context through an explicit causal
 backward as-of operation. Core never manufactures a common calendar or implicit
@@ -48,18 +52,11 @@ fill. Factor availability distinguishes the complete source panel from the
 target evaluation timeline, and deterministic Toyota/SPY evidence proves that
 a Tokyo decision cannot see the later same-date New York close.
 
-The root sample now preserves fourteen historical Runs and projects a clean
-`0.9.25` Factor Run without rewriting old evidence. A fresh
-installed-wheel Grok 4.5 coworker completed one bounded cross-market daily
-assignment from a date-only V4 source, used the public calendar materializer
-and ordinary Workbench surfaces, and stopped honestly on weak validation and
-negative test evidence. Exact implementation, field, and release proof is in
-[[plans/calendar-derived-daily-close-time-packaging]].
-
-The `v0.9.25` release audit passed 437 tests, 1,455 documentation links,
-source/wheel builds, fresh Python 3.11 installed-distribution smoke, and a
-no-local-override clean-clone Workspace replay. OpenAlice remains independently
-pinned to `v0.8.31`.
+The root sample preserves fourteen historical Runs and its clean `0.9.25`
+Factor evidence without rewriting old results. A clean `0.9.26` sample Run,
+fresh Grok field evidence, complete regression/build/install/clone audit, and
+published tag remain the candidate's release gates. OpenAlice remains
+independently pinned to `v0.8.31`.
 
 ## What works today
 
@@ -91,6 +88,7 @@ The current OHLCV contracts have been exercised with:
 - configurable base intervals and causally completed higher intervals;
 - observed-only ragged daily and mixed-class intraday panels;
 - exact close-time asynchronous cross-market daily panels;
+- exact per-asset provider provenance across compatible V5 source packages;
 - long-only, short-only, two-sided, and context-only asset roles.
 
 CSV works in the base environment. Parquet and Feather are optional. Provider,

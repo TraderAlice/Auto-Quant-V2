@@ -1,6 +1,6 @@
 ---
 name: package-autoquant-ohlcv
-description: Audit provider-acquired OHLCV, choose the narrowest truthful AutoQuant V1-V5 package contract, materialize exact exchange-calendar daily closes from date-only V4 into V5, create a confined provenance-honest dataset manifest, and complete strict Project intake and validation. Use after any market-data provider acquisition, for cross-market daily close-time packaging, or when repairing an external dataset package before AutoQuant research.
+description: Audit provider-acquired OHLCV, choose the narrowest truthful AutoQuant V1-V6 package contract, materialize exact exchange-calendar daily closes from date-only V4 into V5, compose complete compatible V5 packages from distinct providers into V6, create a confined provenance-honest dataset manifest, and complete strict Project intake and validation. Use after any market-data provider acquisition, for cross-market or multi-provider packaging, or when repairing an external dataset package before AutoQuant research.
 ---
 
 # Package AutoQuant OHLCV
@@ -65,6 +65,8 @@ counts. It deliberately emits no price or volume comparison.
 - V4: observed-only ragged daily Factor input.
 - V5: close-time-aware observed base-bar Factor input through `1d`, with one
   temporal target and optional mixed-class asynchronous context.
+- V6: the same observed Factor semantics with each asset bound to one of at
+  least two content-addressed V5 source packages and distinct provider claims.
 
 Choose the narrowest contract that describes the acquired bytes. A provider
 claiming an interval or calendar does not prove the corresponding AutoQuant
@@ -103,6 +105,33 @@ This route treats the pinned calendar schedule as explicit research authority,
 not an authenticated exchange record. It does not reconstruct unscheduled
 halts or provider corrections. Run `audit_ohlcv_package.py` again on the V5
 output, then complete strict Factor intake.
+
+## Compose distinct observed sources
+
+When one Factor question needs assets acquired from distinct providers, do not
+rewrite several provider claims as one top-level provider and do not hand-edit
+a merged manifest. First make every source a complete, independently audited,
+strict V5 package. Then bind the exact source manifests in one composition
+authority and run:
+
+```bash
+aq-python scripts/compose_observed_packages.py \
+  --authority /absolute/path/observed-package-composition.json \
+  --output /absolute/path/v6-multi-source
+```
+
+Read the exact authority in
+[package-contracts.md](references/package-contracts.md). Sources must have
+disjoint symbol inventories, distinct manifest hashes and at least two
+distinct provider claims. Their base interval, completed-close semantics,
+panel policy, observed UTC market, and price-adjustment claim must match.
+
+The procedure includes every asset from every source and copies asset bytes
+unchanged. It never subsets, aligns, fills, transforms, resolves symbol
+conflicts, or changes adjustment. Inspect `composition-audit.json`, run
+`audit_ohlcv_package.py` on the V6 output, and complete strict Factor intake.
+Any incompatibility, unsafe path, symlink, hash drift, or occupied output fails
+without a partial package.
 
 ## Preserve provenance
 
@@ -152,7 +181,7 @@ evidence only with an exact `--upstream-run` plus repeatable
 `--upstream-artifact`. Do not pass manual dataset identity flags with external
 `--request/--dataset`, impersonate a specialized template, inspect installed
 AutoQuant source, or write a private materialization script. This generic route
-accepts aligned V1-V3 packages; V4/V5 remain Factor-only.
+accepts aligned V1-V3 packages; V4-V6 remain Factor-only.
 
 Return the Project id, content-locked snapshot identity, source hashes,
 coverage, unresolved provider limitations, and no trading authority. A valid

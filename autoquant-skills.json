@@ -1,10 +1,10 @@
 {
-  "bundleSha256": "b66f222654d47bd7e28751d2b90e7734c22e17ca479c81f6e77827da334ddde5",
+  "bundleSha256": "c69568a13b4b442fe7a50131264d0268e99e4afd06bccb37ad3832e5f0977f24",
   "discoveryRoots": [
     ".agents/skills",
     ".claude/skills"
   ],
-  "harnessVersion": "0.9.25",
+  "harnessVersion": "0.9.26",
   "kind": "autoquant-workspace-skill-bundle",
   "schemaVersion": 1,
   "skills": [
@@ -407,7 +407,7 @@
       "files": [
         {
           "path": "SKILL.md",
-          "sha256": "0ede3ab68b530aa738186cb737f49919c8a20eabcb8f670029a1eda5f9c08f54"
+          "sha256": "a8dcce80d24de366c8eb20e3e04ff6f90baaef432b41f8c17432f49ad507bf2f"
         },
         {
           "path": "agents/openai.yaml",
@@ -415,15 +415,19 @@
         },
         {
           "path": "references/package-contracts.md",
-          "sha256": "eb186850a40068875b94e93f055ac597380b9bfc1c4729a9b4409af599e83442"
+          "sha256": "d92a49d076b853e54f6b8332a3b7b863aec8ce36a800ba4ead0124f030c0ebdb"
         },
         {
           "path": "scripts/audit_ohlcv_package.py",
-          "sha256": "d3f9ec04934a9abd699f3198b640062ac48b16c0b0378a0b2b9ea0ee8150b9ca"
+          "sha256": "0e65f3abb22d9890df357c018360ed37bf450efd2067666cfa240b45ef94c571"
         },
         {
           "path": "scripts/compare_ohlcv_packages.py",
           "sha256": "258515f401a7f18a7b549e74abf25937ed36b39d422a3f9159474a9804f0eaa0"
+        },
+        {
+          "path": "scripts/compose_observed_packages.py",
+          "sha256": "f9b6075a1fed3496ca30bef3db9f6c706bd526298cca09f26be5a4e0495eb523"
         },
         {
           "path": "scripts/materialize_daily_close_time.py",

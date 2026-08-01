@@ -330,7 +330,7 @@ class RepositoryWorkspaceTests(unittest.TestCase):
         )
         self.assertEqual(
             calendar_package_factor.result["harness"]["version"],
-            "0.9.25",
+            "0.9.26",
         )
         self.assertEqual(
             calendar_package_factor.result["harness"]["commit"],
