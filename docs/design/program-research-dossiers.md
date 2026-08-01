@@ -81,6 +81,15 @@ Readiness is a publication-time condition. A published Dossier is a valid
 point-in-time snapshot when later research adds evidence or changes the current
 leader, just as an older lane Report remains valid.
 
+When its frozen evidence hash still equals the current publication evidence,
+the latest Dossier is also the terminal Agent handoff for that Project state.
+This applies equally to full multi-lane synthesis and a gated Factor-only early
+stop. `aq orient` does not reinterpret a downstream gate as unfinished work or
+require another Session after that handoff; it offers exact Dossier inspection
+and labels any later hypothesis as optional. If current evidence changes, the
+older Dossier remains verifiable history but no longer suppresses the new
+Program lifecycle.
+
 The status object exposes every lane, blockers, omission reasons, the current
 Report/finding catalog, latest Dossier, and exact next headless action. It is
 read-only and does not author analysis.

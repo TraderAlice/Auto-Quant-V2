@@ -1,5 +1,5 @@
 ---
-version: 0.9.11
+version: 0.9.12
 ---
 
 # AutoQuant V2
@@ -32,12 +32,12 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current release: `v0.9.11`
+## Current release: `v0.9.12`
 
 AutoQuant V2 has crossed from an architectural prototype into a usable
 research workbench.
 
-`v0.9.11` is the current AutoQuant release. `v0.8.31` remains the Harness
+`v0.9.12` is the current AutoQuant release. `v0.8.31` remains the Harness
 currently consumed by OpenAlice until the host deliberately selects the newer
 tag; this is version provenance, not an automatic Workspace-migration promise.
 The minor-version boundary marks the next phase: improve the real delegated-
@@ -45,6 +45,25 @@ research loop from OpenAlice request through AutoQuant evidence handoff without
 weakening standalone Workspace operation or prematurely freezing a
 host-specific API. Bounded follow-up work defaults to patch releases within
 the `0.9.x` line.
+
+`v0.9.12` comes from a fresh zero-data Japanese Factor-to-Portfolio field
+trial. It keeps Yahoo's strict OHLC rejection as the default while offering one
+explicit, tightly bounded `drop-observation` policy for isolated impossible
+provider geometry. The policy preserves raw responses and exact removed
+OHLCV, never repairs prices, and makes aligned-panel loss visible. Japanese
+peer routes now keep a shared canonical research symbol such as `7203.T`
+separate from provider lookup codes such as Nikkei `7203`, so coverage
+comparison no longer requires an Agent-written remapping package.
+
+The same trial exposed a lifecycle problem after a truthful Factor-only early
+stop: a current immutable Dossier had already answered the request, but
+orientation still invited the next Agent to tune the blocked lane. A matching
+Dossier is now terminal `required-research-complete` state in CLI and Studio;
+exact Dossier inspection remains available and any further research agenda is
+explicitly optional. A stale Dossier never hides newer required evidence.
+OpenAlice remains intentionally unchanged on `v0.8.31`.
+
+### `v0.9.11`
 
 `v0.9.11` closes the research handoff after a frozen external-period
 challenge. `aq holdout show` now exposes one bounded, verified comparison of

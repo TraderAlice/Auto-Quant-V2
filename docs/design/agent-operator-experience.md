@@ -238,6 +238,14 @@ truthful stopping point, not a prohibition on further research. The first
 Session after an unqualified baseline remains primary because no bounded
 attempt has yet completed.
 
+A verified current Research Dossier supersedes lower-level lane progression as
+the caller-handoff state. This includes a scientifically valid early-stop
+Dossier whose upstream rejection intentionally gates later lanes. Orientation
+uses `required-research-complete`, returns no primary action, exposes exact
+`dossier.show` only as supporting inspection, and marks any remaining
+evidence-derived agenda as optional follow-up. A Dossier whose evidence no
+longer matches current publication evidence does not hide newer required work.
+
 After a fixed Book Risk, Price Event, or Allocation Study has current
 successful evidence, `observe` likewise has no primary action. `review.next`
 instructs the Agent to write and return the decision-support answer; the exact
@@ -397,6 +405,9 @@ Judge authority.
     next Session; its exact Report is visible and another Session is optional
     supporting work, without inferring a trial budget from prose or treating
     promotion as scientific qualification.
+19. A current immutable Research Dossier is a terminal caller handoff even
+    when it records an upstream early stop; lower-level gate state cannot turn
+    its optional next hypothesis into required tuning.
 
 ## Known limitations
 

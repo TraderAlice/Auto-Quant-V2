@@ -653,7 +653,29 @@ def _program_orientation(
     ):
         session = load_session(project, session_summary["id"])
 
-    if program["conflicts"]:
+    dossier_status = load_dossier_status(project, optional=True)
+    current_dossier = (
+        dossier_status.get("latestDossier")
+        if dossier_status is not None
+        and isinstance(dossier_status.get("latestDossier"), dict)
+        and dossier_status["latestDossier"].get("current") is True
+        else None
+    )
+
+    if current_dossier is not None:
+        reasons.append(
+            {
+                "code": "required-research-complete",
+                "category": "scientific",
+                "message": (
+                    "The current immutable Research Dossier already freezes "
+                    "the verified evidence required for this caller handoff."
+                ),
+            }
+        )
+        if dossier_status is not None and dossier_status["nextAction"] is not None:
+            supporting_raw.append(dossier_status["nextAction"])
+    elif program["conflicts"]:
         reasons.append(
             {
                 "code": "shared-source-conflict",
@@ -790,7 +812,6 @@ def _program_orientation(
             {"code": code, "category": category, "message": message}
         )
     else:
-        dossier_status = load_dossier_status(project, optional=True)
         if (
             dossier_status is not None
             and dossier_status["nextAction"] is not None
@@ -872,8 +893,16 @@ def _program_orientation(
             "laneName": focus_lane["name"],
             "studyId": focus_lane["study"]["id"],
             "studyName": focus_lane["study"]["name"],
-            "coordinationPhase": focus_lane["phase"],
-            "scientificStage": progression["stage"],
+            "coordinationPhase": (
+                "dossier-published"
+                if current_dossier is not None
+                else focus_lane["phase"]
+            ),
+            "scientificStage": (
+                "required-research-complete"
+                if current_dossier is not None
+                else progression["stage"]
+            ),
             "operatingMode": operating_mode,
         },
         "evidence": {

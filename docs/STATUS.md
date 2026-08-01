@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha released as `v0.9.11`; `v0.8.31` remains the Harness
+Status: usable pre-alpha released as `v0.9.12`; `v0.8.31` remains the Harness
 currently consumed by OpenAlice until the host deliberately selects a newer
 tag.
 
@@ -17,6 +17,26 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 
 AutoQuant V2 has crossed the line from an architectural prototype into a
 usable Agent-native quantitative research workbench.
+
+The `0.9.12` patch comes from a fresh installed-`0.9.11`, zero-data Japanese
+Factor-to-Portfolio assignment. The coworker independently acquired two
+routes, authored the fixed trend-efficiency factor, preserved `1306.T` as
+context-only, and returned the correct weak/inconclusive Factor plus
+benchmark-inferior Portfolio conclusion. It nevertheless needed ad hoc code
+to survive two isolated Yahoo split-adjusted OHLC geometry defects, remap
+Nikkei provider codes back to canonical `.T` symbols, and ignore a misleading
+post-Dossier prompt to continue tuning.
+
+Yahoo acquisition now defaults to the same strict rejection and adds only an
+explicit bounded `drop-observation` route. It retains exact raw bytes and the
+removed OHLCV receipt, never repairs prices, aborts above its small quality
+bound, and discloses common-panel loss. Nikkei examples keep canonical research
+symbols separate from provider lookup codes. A current immutable Dossier,
+including an upstream early-stop Dossier, now projects terminal
+`required-research-complete` state with `dossier.show` as read-only support and
+all later hypotheses explicitly optional. OpenAlice remains pinned to
+`0.8.31`. Exact evidence is in
+[[plans/japan-trend-efficiency-research-field-trial]].
 
 The `0.9.11` patch makes the end of a frozen external-period audit a durable
 research handoff. A fresh installed-`0.9.10` coworker correctly froze and ran

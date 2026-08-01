@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import re
 import time
 import urllib.parse
@@ -115,7 +116,13 @@ def frame_for(
     provider_symbol: str,
     result: dict,
     adjustment: str,
+    invalid_ohlc_policy: str = "reject",
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
+    if invalid_ohlc_policy not in {"reject", "drop-observation"}:
+        raise ValueError(
+            f"{provider_symbol}: unsupported invalid OHLC policy "
+            f"{invalid_ohlc_policy!r}"
+        )
     timestamps = result.get("timestamp")
     indicators = result.get("indicators", {})
     quotes = indicators.get("quote") or []
@@ -186,8 +193,38 @@ def frame_for(
         raw["high"].lt(raw[["open", "low", "close"]].max(axis=1))
         | raw["low"].gt(raw[["open", "high", "close"]].min(axis=1))
     )
-    if invalid_bounds.any():
-        raise ValueError(f"{provider_symbol}: inconsistent OHLC bounds")
+    invalid_bound_rows = int(invalid_bounds.sum())
+    invalid_bound_observations = [
+        {
+            "date": str(row["date"]),
+            **{
+                column: float(row[column])
+                for column in ("open", "high", "low", "close", "volume")
+            },
+        }
+        for _, row in raw.loc[invalid_bounds].iterrows()
+    ]
+    invalid_bound_drop_limit = min(
+        10,
+        max(1, math.ceil(len(raw) * 0.001)),
+    )
+    if invalid_bound_rows and invalid_ohlc_policy == "reject":
+        dates = ", ".join(
+            item["date"] for item in invalid_bound_observations[:5]
+        )
+        raise ValueError(
+            f"{provider_symbol}: {invalid_bound_rows} inconsistent OHLC "
+            f"bounds observation(s) on {dates}; use the explicit "
+            "drop-observation policy only when the research contract permits "
+            "audited observation removal"
+        )
+    if invalid_bound_rows > invalid_bound_drop_limit:
+        raise ValueError(
+            f"{provider_symbol}: {invalid_bound_rows} inconsistent OHLC bounds "
+            f"observations exceed audited drop limit {invalid_bound_drop_limit}"
+        )
+    if invalid_bound_rows:
+        raw = raw.loc[~invalid_bounds].reset_index(drop=True)
     if raw.empty:
         raise ValueError(f"{provider_symbol}: no valid observations")
     return raw, {
@@ -196,6 +233,15 @@ def frame_for(
         "nullRowsDropped": null_rows,
         "invalidRowsDropped": invalid_rows,
         "duplicateRowsDropped": duplicate_rows,
+        "invalidOhlcPolicy": invalid_ohlc_policy,
+        "invalidOhlcBoundsRows": invalid_bound_rows,
+        "invalidOhlcBoundsRowsDropped": (
+            invalid_bound_rows
+            if invalid_ohlc_policy == "drop-observation"
+            else 0
+        ),
+        "invalidOhlcBoundsDropLimit": invalid_bound_drop_limit,
+        "invalidOhlcBoundsObservations": invalid_bound_observations,
         "adjustedFactorRows": adjusted_rows,
         "zeroVolumeRows": int(raw["volume"].eq(0).sum()),
         "firstDate": str(raw["date"].iloc[0]),
@@ -251,6 +297,15 @@ def main() -> None:
         choices=("aligned", "observed-only"),
         default="aligned",
     )
+    parser.add_argument(
+        "--invalid-ohlc-policy",
+        choices=("reject", "drop-observation"),
+        default="reject",
+        help=(
+            "reject inconsistent provider OHLC geometry, or explicitly drop "
+            "a tightly bounded observation while retaining its audit"
+        ),
+    )
     parser.add_argument("--terms", required=True)
     args = parser.parse_args()
     if args.end_exclusive <= args.start:
@@ -279,6 +334,7 @@ def main() -> None:
             asset["providerSymbol"],
             result,
             args.adjustment,
+            args.invalid_ohlc_policy,
         )
         frame, out_of_range = bound_session_dates(
             frame,
@@ -394,6 +450,7 @@ def main() -> None:
             "interval": "1d",
             "panel": args.panel,
             "adjustment": args.adjustment,
+            "invalidOhlcPolicy": args.invalid_ohlc_policy,
         },
         "transformation": {
             "split-and-dividend-adjusted": (
@@ -411,6 +468,11 @@ def main() -> None:
         "limitations": [
             "Yahoo Chart is broad provider evidence, not venue authority.",
             "Provider metadata and adjustment claims are not authenticated.",
+            (
+                "Explicit drop-observation removes only tightly bounded "
+                "provider rows with impossible OHLC geometry; it never repairs "
+                "prices and every removed observation remains in the audit."
+            ),
             "No survivorship, delisting, or official calendar claim follows.",
         ],
     }

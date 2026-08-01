@@ -1,7 +1,9 @@
 # Japan listed equities
 
-- Name the exact Tokyo listing and provider symbol. A numeric code plus suffix
-  is a provider convention, not venue proof.
+- Name the exact Tokyo listing once with one canonical research symbol across
+  peer packages (for example `7203.T`). Keep a route's numeric lookup code
+  (for example Nikkei `7203`) in its separate provider-code field. Neither
+  convention is venue proof.
 - Use `Asia/Tokyo` and verify completed session dates, holidays, and any
   historical session-structure change relevant to intraday work.
 - Verify split adjustment and volume units independently.
@@ -23,4 +25,6 @@
 Nikkei raw and Yahoo split-adjusted are two independently executable routes
 with distinct price contracts. A current overlap can expose freshness,
 missing-session, and volume differences; it does not prove same-semantics
-historical equivalence.
+historical equivalence. Coverage comparison still requires exact canonical
+symbol identity; do not create a second package namespace just to mirror a
+provider's shorter lookup code.

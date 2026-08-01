@@ -257,6 +257,115 @@ class WorkspaceSkillTests(unittest.TestCase):
             "Asia/Ho_Chi_Minh",
         )
 
+    def test_yahoo_invalid_ohlc_requires_explicit_audited_drop(self) -> None:
+        yahoo = load_script(
+            "autoquant_skill_yahoo_invalid_ohlc",
+            SKILLS
+            / "fetch-yahoo-ohlcv"
+            / "scripts"
+            / "fetch_yahoo_daily.py",
+        )
+        result = {
+            "timestamp": [1_704_153_600, 1_704_240_000],
+            "indicators": {
+                "quote": [
+                    {
+                        "open": [100.0, 110.0],
+                        "high": [101.0, 109.9],
+                        "low": [99.0, 100.0],
+                        "close": [100.5, 110.0],
+                        "volume": [1_000.0, 2_000.0],
+                    }
+                ]
+            },
+        }
+
+        with self.assertRaisesRegex(ValueError, "drop-observation"):
+            yahoo.frame_for("SYNTH", result, "split-adjusted")
+
+        frame, audit = yahoo.frame_for(
+            "SYNTH",
+            result,
+            "split-adjusted",
+            "drop-observation",
+        )
+        self.assertEqual(frame["date"].tolist(), ["2024-01-02"])
+        self.assertEqual(audit["invalidOhlcPolicy"], "drop-observation")
+        self.assertEqual(audit["invalidOhlcBoundsRows"], 1)
+        self.assertEqual(audit["invalidOhlcBoundsRowsDropped"], 1)
+        self.assertEqual(audit["invalidOhlcBoundsDropLimit"], 1)
+        self.assertEqual(
+            audit["invalidOhlcBoundsObservations"],
+            [
+                {
+                    "date": "2024-01-03",
+                    "open": 110.0,
+                    "high": 109.9,
+                    "low": 100.0,
+                    "close": 110.0,
+                    "volume": 2_000.0,
+                }
+            ],
+        )
+
+        excessive = {
+            "timestamp": list(
+                range(
+                    1_704_153_600,
+                    1_704_153_600 + 100 * 86_400,
+                    86_400,
+                )
+            ),
+            "indicators": {
+                "quote": [
+                    {
+                        "open": [100.0] * 100,
+                        "high": [99.0, 99.0] + [101.0] * 98,
+                        "low": [99.0] * 100,
+                        "close": [100.0] * 100,
+                        "volume": [1_000.0] * 100,
+                    }
+                ]
+            },
+        }
+        with self.assertRaisesRegex(ValueError, "exceed audited drop limit 1"):
+            yahoo.frame_for(
+                "SYNTH",
+                excessive,
+                "split-adjusted",
+                "drop-observation",
+            )
+
+    def test_nikkei_keeps_peer_canonical_symbol_separate_from_code(self) -> None:
+        nikkei = load_script(
+            "autoquant_skill_nikkei_canonical_symbol",
+            SKILLS
+            / "fetch-nikkei-ohlcv"
+            / "scripts"
+            / "fetch_nikkei_daily.py",
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "assets.json"
+            path.write_text(
+                json.dumps(
+                    [
+                        {
+                            "symbol": "7203.T",
+                            "providerCode": "7203",
+                            "providerMarket": "1",
+                            "venue": "XTKS",
+                            "currency": "JPY",
+                            "assetClass": "equity",
+                        }
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            assets = nikkei.load_assets(path)
+
+        self.assertEqual(assets[0]["symbol"], "7203.T")
+        self.assertEqual(assets[0]["providerCode"], "7203")
+
     def test_eastmoney_lots_become_shares_only_after_amount_check(self) -> None:
         eastmoney = load_script(
             "autoquant_skill_eastmoney",

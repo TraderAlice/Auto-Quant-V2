@@ -999,6 +999,29 @@ class ProgramResearchDossierTests(unittest.TestCase):
                 },
                 {"portfolio", "rl"},
             )
+            brief = build_agent_work_brief(project)
+            self.assertIsNone(brief["primaryAction"])
+            self.assertEqual(
+                brief["reasons"][0]["code"],
+                "required-research-complete",
+            )
+            self.assertEqual(brief["review"]["status"], "complete")
+            self.assertEqual(
+                brief["focus"]["coordinationPhase"],
+                "dossier-published",
+            )
+            self.assertEqual(
+                brief["focus"]["scientificStage"],
+                "required-research-complete",
+            )
+            self.assertEqual(
+                [action["id"] for action in brief["supportingActions"]],
+                ["dossier.show"],
+            )
+            self.assertEqual(
+                brief["researchAgenda"]["moveRole"],
+                "optional-follow-up",
+            )
 
 
 if __name__ == "__main__":

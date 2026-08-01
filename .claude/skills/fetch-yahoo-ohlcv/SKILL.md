@@ -55,10 +55,24 @@ quotes for split-like corporate actions. For
 `split-and-dividend-adjusted`, the script additionally multiplies every OHLC
 field by `adjusted_close / raw_close` and leaves provider volume unchanged.
 
+The default `--invalid-ohlc-policy reject` fails closed if Yahoo returns a row
+whose high/low cannot contain its open and close. For price-only research, the
+caller may explicitly authorize `--invalid-ohlc-policy drop-observation` when
+an isolated provider rounding defect is preferable to abandoning the complete
+task panel. That policy never clamps or repairs a price. It retains the raw
+JSON and the exact removed date/OHLCV in `provider-audit.json`, and aborts when
+the anomaly count exceeds the ceiling of 0.1% of normalized source rows, with
+a minimum allowance of one isolated row and a maximum of 10 per asset. With an
+aligned panel, inspect the final `outputRows`: removing one asset-date also
+removes that date from the common panel for every asset.
+
 ## Verify
 
 - Inspect `provider-audit.json`, every raw JSON hash, every CSV hash, returned
   instrument metadata, source/normalized ranges, dropped rows, and alignment.
+- If `drop-observation` was selected, disclose why it was authorized and cite
+  `invalidOhlcBoundsObservations`; do not describe the resulting panel as
+  repaired provider history.
 - Spot-check provider symbols and venue identity outside the Chart response.
 - Compare a bounded overlap against the market's second source.
 - Invoke `$package-autoquant-ohlcv`; do not move generated CSVs directly into

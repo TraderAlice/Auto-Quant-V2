@@ -102,9 +102,9 @@ translation after costs.
 
 - [x] Define one caller-fixed non-U.S. Factor-to-Portfolio assignment from a
       clean released `v0.9.11` baseline.
-- [ ] Prepare an isolated installed-wheel desk and immutable host inventory.
-- [ ] Run the unchanged baseline assignment with a fresh Grok worker.
-- [ ] Audit the transcript, files, evidence, and scientific answer.
+- [x] Prepare an isolated installed-wheel desk and immutable host inventory.
+- [x] Run the unchanged baseline assignment with a fresh Grok worker.
+- [x] Audit the transcript, files, evidence, and scientific answer.
 - [ ] Implement only reproduced reusable friction with deterministic tests.
 - [ ] Replay with a second fresh worker and complete the `v0.9.12` release.
 
@@ -123,6 +123,25 @@ translation after costs.
   carry the exact signal through position roles, benchmark-relative evidence,
   costs, caps, cadence, and risk governance before describing portfolio
   viability.
+- 2026-08-01 — The fresh `0.9.11` worker completed the assignment and returned
+  a truthful negative/inconclusive Factor conclusion plus a mechanically
+  feasible but benchmark-inferior Portfolio diagnosis. It kept `1306.T` out
+  of rankings and positions, published a Factor-only early-stop Dossier, and
+  made no trading claim.
+- 2026-08-01 — Yahoo returned one impossible split-adjusted OHLC row for each
+  of `8306.T` and `8035.T`. The strict Skill correctly stopped, but the worker
+  needed two ad hoc wrappers to retain raw evidence and drop those isolated
+  observations. The reusable repair is an explicit, tightly bounded, audited
+  `drop-observation` policy; strict rejection remains the default and price
+  repair remains forbidden.
+- 2026-08-01 — Nikkei's asset example used provider code `7203` as the dataset
+  symbol, so exact peer-package coverage comparison rejected it against Yahoo
+  `7203.T`. Canonical research identity must stay stable across routes while
+  the shorter numeric lookup remains provider metadata.
+- 2026-08-01 — After the current early-stop Dossier was published, orientation
+  still projected the blocked Factor lane and a new Session as current work.
+  A matching immutable Dossier is already the caller handoff; further research
+  must be explicitly optional until newer evidence makes it stale.
 
 ## Verification
 
@@ -133,6 +152,10 @@ Pending.
 - 2026-08-01 — Plan created and indexed from clean released `v0.9.11`. No
   implementation change is authorized until the fresh baseline worker exposes
   concrete friction.
+- 2026-08-01 — Baseline cohort 22 completed from the exact `v0.9.11` wheel in
+  an empty desk. Host validation, orientation, program, Dossier, Studio, and
+  pre-existing-file mutation audits passed; three reproducible Agent-facing
+  frictions above were admitted for the candidate release.
 
 ## Completion
 

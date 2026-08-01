@@ -115,6 +115,19 @@ limitations. Staging remains caller/host-owned working evidence. A package
 becomes quantitative input authority only after strict `aq project intake`
 creates the Project-local normalized snapshot and `aq validate` passes.
 
+Provider-shape rejection remains the default. A narrow provider Skill may
+offer an explicit audited observation-drop policy for isolated impossible OHLC
+geometry caused by provider rounding after adjustment. Such a policy preserves
+the exact raw response and removed date/OHLCV, never clamps or reconstructs a
+price, applies a small hard quality bound, and records the resulting aligned
+panel loss. It is a caller/research-contract choice, not a silent fallback;
+Core's packaged OHLCV invariants remain strict.
+
+Canonical research symbols belong to the cross-provider dataset contract;
+route-specific lookup codes do not. Peer Japanese packages therefore retain a
+shared symbol such as `7203.T` while a Nikkei route separately records `7203`
+as its provider code. Comparison fails closed rather than inventing aliases.
+
 In the repository-root desk, `staging/` and each Project's `data/` and cache
 are Git-ignored persistent local evidence. Agents do not force-add ordinary
 provider bytes or normalized market data. The checked-in sample's small
