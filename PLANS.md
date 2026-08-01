@@ -18,7 +18,9 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-None.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/post-drawdown-recovery-continuation-field-trial]] | Prove a fresh coworker can extend a corrected long-lived Project with one distinct recovery Study and exact prior-evidence plus new-data provenance. | 2026-08-01 |
 
 ## Proposed plans
 
