@@ -40,7 +40,7 @@ Independent reconstruction reproduced five full-sample gap events, five
 emitted ones, three warm-up missing values, and zero validation events.
 
 The final regression passed all 425 tests in 1,131.865 seconds and resolved
-all 1,401 documentation links. The checked-in Skill bundle and template files
+all 1,402 documentation links. The checked-in Skill bundle and template files
 match the current Harness. The root sample preserves nine historical Runs and
 projects a clean current `0.9.21` Factor baseline with the same
 `-0.031325301204819286` validation IC as `0.9.20`; no old evidence was

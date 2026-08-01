@@ -18,9 +18,7 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-| Plan | Outcome | Updated |
-| --- | --- | --- |
-| [[plans/truthful-unevaluable-factor-diagnostics]] | Make unevaluable temporal Factors fail with exact research diagnostics and preserve Event Study as the authority for fixed conditional price-event questions. | 2026-08-01 |
+None.
 
 ## Proposed plans
 
@@ -36,6 +34,7 @@ None.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/truthful-unevaluable-factor-diagnostics]] | Made unevaluable temporal Factors fail with exact research diagnostics, preserved Event Study as fixed conditional price-event authority, and proved the boundary with a one-Run fresh coworker trial. | 2026-08-01 |
 | [[plans/truthful-us-equity-intraday-acquisition]] | Turned a fixed U.S. equity/ETF hourly request into either one exact XNYS V3 package or one durable no-authority provider-gap result, then proved both paths with fresh installed-wheel coworkers. | 2026-08-01 |
 | [[plans/atomic-study-owned-dataset-intake]] | Let a coworker atomically turn one external Research Request and complete OHLCV package into a new fixed Study inside an existing Project without template impersonation or private source inspection. | 2026-08-01 |
 | [[plans/post-drawdown-recovery-continuation-field-trial]] | Proved a fresh coworker can extend a corrected long-lived Project with one distinct recovery Study and exact prior-evidence plus new-data provenance. | 2026-08-01 |

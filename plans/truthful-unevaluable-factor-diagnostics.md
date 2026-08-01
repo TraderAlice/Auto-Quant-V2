@@ -1,6 +1,6 @@
 # Truthful unevaluable Factor diagnostics
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-08-01`
 - Target release: `0.9.21`
 - Related design: [[docs/design/ohlcv-factor-lab]],
@@ -91,7 +91,7 @@ Factor defect is diagnostic truthfulness, not missing event functionality.
       to the candidate API.
 - [x] A fresh installed-wheel coworker reaches and explains the intended
       structured failure without source inspection or framework repair.
-- [ ] Focused/full tests, documentation links, lock/syntax, build/install,
+- [x] Focused/full tests, documentation links, lock/syntax, build/install,
       root Workspace, and clean-clone smokes pass before publication.
 
 ## Work
@@ -101,7 +101,7 @@ Factor defect is diagnostic truthfulness, not missing event functionality.
 - [x] Add a fixed temporal primary-population preflight and regression fixtures.
 - [x] Update durable Factor diagnostics and Agent-facing routing documentation.
 - [x] Build an isolated `0.9.21` candidate and run a fresh-worker failure trial.
-- [ ] Complete release verification, publish `v0.9.21`, and leave OpenAlice
+- [x] Complete release verification, publish `v0.9.21`, and leave OpenAlice
       independently pinned to `v0.8.31`.
 
 ## Findings and decisions
@@ -154,4 +154,25 @@ Candidate evidence:
 - focused Factor/Intake regression: 62 tests passed in 243.503 seconds;
 - documentation links: 1,401 resolved at candidate implementation.
 
-Final release audit pending.
+Final release evidence:
+
+- complete regression: 425 tests passed in 1,131.865 seconds;
+- documentation: 1,402 links resolved;
+- lock, Python syntax, diff, template/sample parity, and 16-Skill bundle
+  verification passed;
+- final wheel SHA-256
+  `2963f186383cdf480ea41cb16e488df3017ccdbad52c5087f0cc872973811dd5`;
+- fresh Python 3.11.14 / Pandas 3.0.5 installation loaded AutoQuant from
+  `site-packages`, exposed 57 public commands, and materialized 16 Skills;
+- the final installed wheel replayed the exact NVDA/SPY package and fixed
+  candidate into the same structured 124/1/124 failure;
+- no-local-override clone at commit
+  `f263280391620ddda2ad47a6f9f84856f164e281` passed root validation,
+  orientation, Project listing, and Studio snapshot with zero diagnostics and
+  remained Git-clean;
+- the checked-in sample preserves nine immutable Runs; its current clean
+  `0.9.21` Factor Run is
+  `run-20260801T153801145739Z-a387a53aff40` and retains validation IC
+  `-0.031325301204819286`.
+
+OpenAlice was not changed and remains independently pinned to `v0.8.31`.
