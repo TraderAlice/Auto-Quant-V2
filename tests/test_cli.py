@@ -910,6 +910,22 @@ class AgentCliTests(unittest.TestCase):
                 "studio.serve",
             ],
         )
+        study_create = next(
+            command for command in commands if command["id"] == "study.create"
+        )
+        argument_names = {
+            argument["name"] for argument in study_create["arguments"]
+        }
+        self.assertTrue(
+            {
+                "editable",
+                "no-editable",
+                "request-path",
+                "position-snapshot-path",
+                "upstream-run",
+                "upstream-artifact",
+            }.issubset(argument_names)
+        )
         workspace_init = next(
             command
             for command in commands

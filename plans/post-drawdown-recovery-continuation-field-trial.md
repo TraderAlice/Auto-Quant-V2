@@ -108,27 +108,27 @@ product evidence rather than hidden.
 
 ## Acceptance
 
-- [ ] A fresh worker begins with no source checkout or original conversation,
+- [x] A fresh worker begins with no source checkout or original conversation,
       reads the current corrected handoff through public installed surfaces,
       and distinguishes it from the superseded Report and governing Review.
-- [ ] The worker recognizes the request as a related new Study in the same
+- [x] The worker recognizes the request as a related new Study in the same
       Project, not a new Project, Report correction, editable Session, or
       continuation of the old evaluation objective.
-- [ ] Every prior Run, Report, Review, and correction byte remains unchanged;
+- [x] Every prior Run, Report, Review, and correction byte remains unchanged;
       only authorized new task data, Study/source, Run, Report, and durable
       research-brief state are added.
-- [ ] The new Run binds the exact prior episode identity and complete new
+- [x] The new Run binds the exact prior episode identity and complete new
       task-local OHLCV identity without relying on prose or ambient inventory.
-- [ ] The fixed arithmetic independently reconstructs five episodes, 60 XNYS
+- [x] The fixed arithmetic independently reconstructs five episodes, 60 XNYS
       sessions, recovery/censoring, peak/trough/terminal book paths, and exact
       reconciled per-holding contributions.
-- [ ] The new Report cites only bound Run evidence, remains independent of the
+- [x] The new Report cites only bound Run evidence, remains independent of the
       old correction chain, and grants no forecast, Order, or trading authority.
-- [ ] Public CLI, Orientation, and Studio expose the relation between the new
+- [x] Public CLI, Orientation, and Studio expose the relation between the new
       Study and prior evidence without implying correction or supersession.
-- [ ] Every material baseline failure is retained and classified; only a
+- [x] Every material baseline failure is retained and classified; only a
       reproduced reusable Workbench defect enters the candidate release.
-- [ ] A fresh candidate worker completes the unchanged assignment using only
+- [x] A fresh candidate worker completes the unchanged assignment using only
       installed public surfaces and independently acquired task data.
 - [ ] Focused/full tests, documentation links, lock/syntax, build/install,
       Studio, root Workspace, and clean-clone smokes pass before publication.
@@ -138,8 +138,8 @@ product evidence rather than hidden.
 - [x] Define and index the long-lived Project continuation assignment.
 - [x] Build an isolated installed-`0.9.17` desk from the corrected evidence.
 - [x] Run and audit one fresh worker without coaching.
-- [ ] Admit and implement only reproduced reusable product friction.
-- [ ] Replay the unchanged task with a fresh candidate-wheel worker.
+- [x] Admit and implement only reproduced reusable product friction.
+- [x] Replay the unchanged task with a fresh candidate-wheel worker.
 - [ ] Complete the release audit and publish `v0.9.18` if warranted.
 
 ## Findings and decisions
@@ -264,6 +264,37 @@ First candidate replay evidence:
   `0.80653455214537`. Maximum contribution residual was
   `1.1796119636642288e-16`.
 
+Final candidate replay evidence:
+
+- wheel: `auto_quant-0.9.18-py3-none-any.whl`, SHA-256
+  `85838bcdc2d85251b1cc1ab0d943426bd6578a6dfd7fa5b8a700aedf6e65bc43`;
+- isolated root: `/Users/ame/autoquant-v0918-recovery-final-candidate`;
+- fresh Grok 4.5 session: `019fbd14-3acb-7120-b69b-c6d58dd67d23`,
+  exported as `final-candidate-transcript.md` beside the desk;
+- the unchanged assignment completed with exactly one new fixed Study
+  (`ohlcv-book-path-recovery`), one successful Run
+  (`run-20260801T113412099979Z-5b156acfd245`), one independent current Report
+  (`report-20260801T113445204292Z-5cbd86fd7828`), and zero Sessions;
+- every pre-existing file except the explicitly maintained `research.md` is
+  byte-identical. Recursive hashes separately prove the original Study, Run,
+  original Report, corrected Report, and its embedded governing Review are
+  unchanged;
+- installed public `validate`, `orient`, Study/Run/Report/Session lists,
+  `study inspect`, and Studio snapshot all pass. Orientation selects the
+  recovery Study, exposes the exact upstream binding, reports complete, and
+  offers only `report.show`—no impossible Session action;
+- the new Run records installed Harness `0.9.18`, Python `3.11.14`,
+  `dirty=false`, request SHA-256
+  `1d727441a762b8423e3dae3d869d28455e3a695a8021605e27958a53171564d5`,
+  upstream episode SHA-256
+  `5aae52ecefb84a2db8557bd9e8a96325032972896fa5c874c8cb3480b31dca14`,
+  exact prior result/Study-input identities, and complete task-local Yahoo
+  package identity. The Report projects the same Run-owned request/upstream
+  evidence and has `correction: null`;
+- independent standard-library recomputation again reproduced the exact five
+  recovery outcomes and a maximum contribution residual of
+  `1.1796119636642288e-16`.
+
 ## Progress log
 
 - 2026-08-01 — Plan activated from clean released `v0.9.17`; OpenAlice remains
@@ -287,6 +318,18 @@ First candidate replay evidence:
   CLI/repository regression passes 85 tests in 123.288 seconds after the final
   fixed-Study repair. `uv lock --check`, Python compilation, capability/help
   discovery, diff checks, and all 1,380 documentation links also pass.
+- 2026-08-01 — Final installed-candidate Grok replay completed the unchanged
+  assignment with the requested one-Study/one-Run/one-Report/zero-Session shape.
+  The worker used `--no-editable`; every immutable predecessor remained exact;
+  installed Orientation terminated at Report inspection without Session
+  authority; independent arithmetic and public CLI/Studio audits passed.
+- 2026-08-01 — Installed capability smoke found that `study.create` help and
+  behavior exposed request/upstream binding while the machine-readable
+  capability descriptor still omitted those four options. Added exact
+  `request-path`, `position-snapshot-path`, `upstream-run`, and
+  `upstream-artifact` arguments plus a capability regression. This is a
+  disclosure-only repair after the successful replay, not a change to its
+  executed semantics.
 
 ## Completion
 
