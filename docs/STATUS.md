@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: `v0.9.26` is the current AutoQuant release and `v0.8.31` remains the
+Status: `v0.9.27` is the current AutoQuant release and `v0.8.31` remains the
 Harness currently consumed by OpenAlice until the host deliberately selects a
 newer tag.
 
@@ -17,44 +17,30 @@ historical proof remains in completed plans and immutable Git tags.
 
 ## Current milestone
 
-The `0.9.26` candidate closes the provenance gap that appears when one
-cross-market Factor question needs assets from distinct providers. V6 retains
-V5's exact completed-close, observed-only, absent-no-fill, one-target semantics
-while replacing one synthetic top-level provider with an ordered vector of
-content-addressed source packages. Every asset freezes its exact source id;
-every source retains its own provider claim.
+The `0.9.27` candidate closes the first-baseline lifecycle gap for editable
+research. Orientation now sends a fresh editable Study directly to
+`session.start`. When no exact successful baseline is reusable, Session start
+runs the Study's fixed seconds-scale preflight against the canonical first
+candidate before spending the complete Judge. A failed, malformed, timed-out,
+or crashing guard returns structured repair evidence with zero Runs, Sessions,
+Checks, or partial lifecycle directories.
 
-The public packaging Skill now composes at least two complete, compatible,
-disjoint strict V5 packages transactionally. It copies every CSV, Parquet, or
-Feather byte unchanged and emits a composition audit binding source manifests,
-providers, assets, hashes, rows, timestamps, and preservation claims. It never
-subsets, aligns, fills, transforms, converts adjustment, or resolves duplicate
-symbols. Drift, unsafe paths, symlinks, conflicting authority, duplicate
-identity, provider ambiguity, or an occupied output fail without partial V6
-state.
+After a pass, Core executes the ordinary full baseline and creates the Session.
+Its immutable `baselineGuard` records whether the path used a fresh preflight,
+a fresh Study without preflight, or an exact reusable successful Run. A retained
+receipt binds Study, dataset, candidate, preflight, Harness, output, and
+execution identity while explicitly granting no selection, promotion, or
+trading authority. It is verified on every Session load and projected through
+CLI JSON, human output, orientation, and Studio. Post-edit `session.check`
+remains a separate changed-candidate diagnostic and cannot be manufactured for
+the unchanged baseline.
 
-Deterministic evidence passes V5 → V6 → JSON Schema and independent
-package audit → strict Factor intake → CLI → Run → Factor Explorer → immutable
-Report → Studio, plus rehashed snapshot-tamper rejection. Generated Workspace
-Skills disclose the same route without requiring Core inspection. A fresh
-installed-wheel Grok coworker independently materialized Nasdaq V4 to V5,
-composed distinct Yahoo and Nasdaq V5 sources into V6, confirmed the public
-ragged observed-only Candidate Contract, produced exactly one causal Factor
-Run and one evidence-bound Report, and stopped on an unsupported result. The
-full 439-test regression and final packaging audit pass; exact proof is retained
-in [[plans/multi-source-observed-factor-packaging]].
-
-The published `v0.9.25` baseline already materializes exact scheduled daily
-closes from strict date-only V4 plus explicit exchange-calendar authority. V5
-accepts observed bars through `1d`, retains timezone-aware UTC close claims,
-ragged absent-no-fill rows, per-asset class and volume semantics, one explicit
-temporal target, and a horizon advancing only on that target's observed bars.
-
-Candidate code must express asynchronous context through an explicit causal
-backward as-of operation. Core never manufactures a common calendar or implicit
-fill. Factor availability distinguishes the complete source panel from the
-target evaluation timeline, and deterministic Toyota/SPY evidence proves that
-a Tokyo decision cannot see the later same-date New York close.
+The existing V6 surface continues to preserve byte-exact, per-source provider
+authority across compatible close-time-aware packages. V5/V6 retain exact
+completed-close, observed-only, absent-no-fill, one-target semantics, and
+candidate code must express asynchronous context through explicit causal
+backward as-of operations. Core never manufactures a common calendar or
+implicit fill.
 
 The root sample preserves fifteen historical Runs without rewriting old
 results and now projects a clean `0.9.26` Factor Run bound to candidate commit

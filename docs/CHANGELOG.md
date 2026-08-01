@@ -22,6 +22,7 @@ It is deliberately not a second current-status page or release checklist:
 
 | Release | Bounded outcome | Exact evidence |
 | --- | --- | --- |
+| `v0.9.27` | Guarded a fresh editable Study's first canonical candidate before its complete baseline and retained explicit no-authority provenance. | [[plans/first-baseline-candidate-preflight]] |
 | `v0.9.26` | Added byte-preserving, source-addressed composition of compatible close-time-aware V5 packages into one strict multi-provider V6 Factor surface. | [[plans/multi-source-observed-factor-packaging]] |
 | `v0.9.25` | Added public, audited conversion from strict date-only daily packages and explicit exchange-calendar authority to close-time-aware V5 evidence. | [[plans/calendar-derived-daily-close-time-packaging]] |
 | `v0.9.24` | Preserved exact daily close-time availability for causal cross-market Factor research. | [[plans/close-time-aware-cross-market-daily-factor]] |
