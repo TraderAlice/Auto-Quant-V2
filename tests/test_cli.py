@@ -621,7 +621,7 @@ class AgentCliTests(unittest.TestCase):
             )
             self.assertEqual(
                 orientation["data"]["primaryAction"]["id"],
-                "run.execute",
+                "session.start",
             )
             self.assertFalse(
                 orientation["data"]["filesystem"]["writable"]
@@ -663,7 +663,7 @@ class AgentCliTests(unittest.TestCase):
             )
             self.assertEqual(
                 [item["id"] for item in orientation["nextActions"]],
-                ["run.execute"],
+                ["session.start"],
             )
 
             executed = run_cli(
@@ -1122,7 +1122,7 @@ class AgentCliTests(unittest.TestCase):
             )
             self.assertEqual(
                 [action["id"] for action in envelope["nextActions"]],
-                ["project.program", "run.execute"],
+                ["project.program", "session.start"],
             )
             projected = run_cli(
                 "project",
@@ -1152,7 +1152,7 @@ class AgentCliTests(unittest.TestCase):
                 ],
                 ["waiting-current-evidence", "blocked-prerequisite"],
             )
-            self.assertEqual(status["nextActions"][0]["id"], "run.execute")
+            self.assertEqual(status["nextActions"][0]["id"], "session.start")
 
     def test_capabilities_describe_every_public_command(self) -> None:
         result = run_cli("capabilities", "--json")
@@ -2041,7 +2041,7 @@ class AgentCliTests(unittest.TestCase):
             )
             self.assertEqual(
                 [action["id"] for action in envelope["nextActions"]],
-                ["project.program", "run.execute"],
+                ["project.program", "session.start"],
             )
 
     def test_json_cli_completes_a_two_project_workspace_flow(self) -> None:
