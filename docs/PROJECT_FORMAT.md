@@ -1087,6 +1087,23 @@ An older Report remains valid when a Session later adds evidence. Rewriting a
 conclusion requires a new immutable Report. Report authority is
 `quantitative-decision-support`; `tradingAuthority` is always `none`.
 
+Project-owned Run Reports may make that relationship executable rather than
+leaving it in prose. A correction Report freezes:
+
+- the exact prior Report id, Report hash, publication time, and Run anchor;
+- one governing attached or detached Review id, Review/result and manifest
+  hashes, conclusion, and canonical embedded package path;
+- one non-empty correction reason.
+
+The complete Review package is copied under
+`reports/<new-report>/governing-review/<review-id>/` and every nested file is
+covered by the new Report manifest. Old Report and Review bytes are never
+changed. Core recursively verifies the linear chain and derives current versus
+superseded status when Reports are listed. Independent later interpretations
+without an explicit correction object remain separate terminal Reports; file
+order or timestamp alone does not rewrite their meaning. The full contract is
+[[docs/design/run-bound-research-reports]].
+
 For a Project-owned Run Report, “exact request” means the request frozen by the
 Run. Primary Studies use verified Project intake. Independently fixed Book Risk
 follow-ups use their Study-owned `request.json` plus the corresponding position

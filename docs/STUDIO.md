@@ -88,6 +88,9 @@ The first viewport prioritizes:
 - the latest attached Independent Review's target Report, conclusion, four
   evidence-class counts, and exact verification command; detached Reviews stay
   outside Studio because their contract leaves the Workspace unchanged;
+- the current Run Report correction's exact prior Report, governing Review,
+  durable reason, and lineage depth, derived from verified append-only state
+  while the superseded Report remains inspectable;
 - a three-lane Research Cockpit showing Factor validation IC, costed Portfolio
   validation Sharpe, RL validation advantage versus the best selected
   baseline, lane phase, evidence-gated admission, Session progress,

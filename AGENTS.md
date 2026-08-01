@@ -208,6 +208,16 @@ Workspace and verify the resulting detached package directly with
 `aq review show <review-directory>`. See
 [[docs/design/independent-research-reviews]].
 
+When a verified Review requires a material correction to a Project-owned Run
+Report, do not edit, delete, or merely out-date the prior Report, and do not
+encode currentness only in prose. Publish a new Report over the same exact Run
+with `--corrects`, `--correction-review`, and `--correction-reason` together.
+Retain supported Run-bound conclusions, remove or qualify the reviewed defect,
+and never promote `observed-unbound` files into Run authority. Verify the new
+Report through `aq report show`; its embedded Review and linear correction
+graph determine currentness while every earlier package remains immutable.
+Session-bound Report correction is not part of this contract.
+
 A frozen Holdout is not handed off merely because its one-shot Runs succeeded.
 After `aq holdout run`, inspect the bounded source/later comparison with
 `aq holdout show`, author `holdout-analysis.json`, and publish it with

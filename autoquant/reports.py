@@ -85,9 +85,13 @@ class ReportSummary:
     selection_integrity: dict[str, Any]
     anchor_kind: str = "session"
     study_id: str | None = None
+    correction: dict[str, Any] | None = None
+    current: bool | None = None
+    superseded_by: str | None = None
+    lineage_depth: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        value = {
             "id": self.id,
             "title": self.title,
             "sessionId": self.session_id,
@@ -108,6 +112,16 @@ class ReportSummary:
             "leaderDecisionSupport": self.leader_decision_support,
             "selectionIntegrity": self.selection_integrity,
         }
+        if self.current is not None:
+            value.update(
+                {
+                    "correction": self.correction,
+                    "current": self.current,
+                    "supersededBy": self.superseded_by,
+                    "lineageDepth": self.lineage_depth,
+                }
+            )
+        return value
 
 
 def _issue(path: Path | str, code: str, message: str) -> ValidationIssue:
@@ -1453,14 +1467,25 @@ def publish_report(
 
 def _report_files(root: Path) -> dict[str, str]:
     files: dict[str, str] = {}
-    for path in sorted(root.iterdir(), key=lambda item: item.name):
-        if path.name == REPORT_MANIFEST:
-            continue
-        if path.is_symlink() or not path.is_file():
-            raise AutoQuantValidationError(
-                [_issue(path, "report.entry", "Report entries must be real files")]
-            )
-        files[path.name] = hash_file(path)
+
+    def visit(directory: Path) -> None:
+        for path in sorted(directory.iterdir(), key=lambda item: item.name):
+            if path == root / REPORT_MANIFEST:
+                continue
+            if path.is_symlink():
+                raise AutoQuantValidationError(
+                    [_issue(path, "report.entry", "Report entries cannot be symlinks")]
+                )
+            if path.is_dir():
+                visit(path)
+                continue
+            if not path.is_file():
+                raise AutoQuantValidationError(
+                    [_issue(path, "report.entry", "Report entries must be real files")]
+                )
+            files[path.relative_to(root).as_posix()] = hash_file(path)
+
+    visit(root)
     return files
 
 

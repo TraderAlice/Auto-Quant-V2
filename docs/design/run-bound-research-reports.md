@@ -1,7 +1,7 @@
 # Run-bound Research Reports
 
 Status: implemented in `0.9.5`; Study-owned follow-up request binding added in
-`0.9.8`.
+`0.9.8`; immutable correction lineage added in `0.9.17`.
 
 Related: [[docs/design/quant-research-lifecycle]],
 [[docs/design/research-session-loop]],
@@ -36,6 +36,20 @@ reports/
     └── manifest.json
 ```
 
+A corrected Run Report additionally carries the complete governing Review
+package inside its own immutable directory:
+
+```text
+report-.../
+└── governing-review/
+    └── review-.../
+        ├── analysis.json
+        ├── evidence.json
+        ├── review.json
+        ├── review.md
+        └── manifest.json
+```
+
 Session-bound Reports remain beneath the Session because their evidence prefix
 belongs to that investigation. Discovery is explicit across both locations;
 identifiers remain globally unique within a Project.
@@ -65,6 +79,42 @@ verify that the snapshot request hash matches that frozen request, then use it
 in both `report.json` and Report identity. Older and newer Studies can therefore
 answer different questions over one retained dataset without relabeling either
 Report.
+
+## Append-only correction lineage
+
+A materially wrong published interpretation is corrected by another immutable
+Run Report, never by editing or marking the prior package in place:
+
+```bash
+aq report publish <path> \
+  --study STUDY_ID --run RUN_ID \
+  --analysis corrected-analysis.json \
+  --corrects PRIOR_REPORT_ID \
+  --correction-review REVIEW_ID_OR_PACKAGE_PATH \
+  --correction-reason "Remove the unsupported provider-coverage clause."
+```
+
+All three correction arguments are required together. The prior Report must be
+a current terminal Project-owned Run Report over the same exact Run anchor.
+The governing attached or detached Review must target that exact Report hash,
+Run id, and result hash. Core copies the verified Review package into the new
+Report, freezes the prior Report identity and reason in `report.json`, and
+includes the correction object in the derived Report id.
+
+Loading recursively verifies every prior Report and embedded Review. Listing
+builds a linear graph and rejects missing, cyclic, cross-Project,
+cross-anchor, semantically stale, or branched relationships. The prior package
+remains independently valid. Its summary derives `current: false` and
+`supersededBy`; the terminal correction derives `current: true`, its lineage
+depth, exact prior identity, governing Review, and reason. CLI Orientation and
+Studio consume that verified projection instead of trusting prose or a later
+timestamp.
+
+An ordinary later Report is not silently interpreted as a correction. It
+starts an independent interpretation unless the explicit correction contract
+is present. Correction publication is initially limited to Project-owned Run
+Reports; Session-bound investigation history is not flattened into this
+contract.
 
 ## Shared Report anchor
 
@@ -108,8 +158,9 @@ a shortcut around needed investigation.
 ## Non-goals
 
 - Reports do not turn Runs into selection or trading authority.
-- A later Independent Review classifies a Report; it does not rewrite or
-  replace the primary researcher's Report.
+- A later Independent Review classifies a Report; it never rewrites it. A
+  primary researcher may publish a separate Review-governed correction that
+  preserves both packages and extends their verified lineage.
 - A Report does not make a scientifically blocked lane admissible.
 - Fixed single-lane Studies remain free to return Run/Explorer evidence without
   manufacturing a Report.

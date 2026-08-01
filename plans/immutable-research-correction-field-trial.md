@@ -110,7 +110,7 @@ retained as product evidence rather than hidden.
 - [x] Build an isolated installed-`0.9.16` correction desk from reviewed
       evidence.
 - [x] Run and audit one fresh correction worker without coaching.
-- [ ] Admit and implement only reproduced reusable product friction.
+- [x] Admit and implement only reproduced reusable product friction.
 - [ ] Replay the unchanged task with a fresh candidate-wheel worker.
 - [ ] Complete the release audit and publish `v0.9.17` if warranted.
 
@@ -140,6 +140,19 @@ retained as product evidence rather than hidden.
   will freeze exact prior-Report and governing-Review identity in its own
   immutable package. Currentness will be derived from a verified linear
   correction graph rather than written into or beside the prior Report.
+- 2026-08-01 — The admitted contract is deliberately narrow: Project-owned
+  Run Reports only, same exact anchor, one current terminal predecessor, one
+  exact governing attached/detached Review, and one durable reason. Session
+  investigation history is not flattened into this publication path.
+- 2026-08-01 — The corrected Report copies the complete verified Review
+  package beneath `governing-review/<review-id>/`; the outer Report manifest
+  hashes every nested file. Review authority governs editorial lineage but
+  never becomes quantitative evidence or promotes observed staging.
+- 2026-08-01 — Currentness is derived at load/list time. Core recursively
+  verifies the chain, rejects branches and cycles, and exposes current,
+  superseded-by, lineage depth, prior Report, governing Review, and reason to
+  CLI, Orientation, and Studio. A two-correction unit fixture derives
+  `false / false / true` without changing either predecessor.
 
 ## Verification
 
@@ -167,6 +180,18 @@ no machine-readable correction relation: list and Studio showed two ordinary
 published Reports, while orientation selected the later one only as its latest
 Report.
 
+Candidate implementation focused verification:
+
+- `uv run python -m unittest tests.test_run_reports tests.test_cli
+  tests.test_orientation tests.test_studio tests.test_reviews` — 55 tests
+  passed in 163.628 seconds;
+- `uv run python scripts/check_doc_links.py` — 1,381 links resolved;
+- the correction fixture published through the public CLI, preserved every
+  prior Project file, reloaded its copied detached Review, projected exact
+  lineage through Work Brief and Studio, rejected an already-superseded
+  predecessor, detected embedded-package tampering, and extended cleanly to a
+  second independently reviewed correction.
+
 ## Progress log
 
 - 2026-08-01 — Plan activated from clean released `v0.9.16`; OpenAlice remains
@@ -175,6 +200,10 @@ Report.
   solved the scientific edit on its first publication attempt and explicitly
   diagnosed the missing formal supersession contract instead of mutating old
   evidence or promoting staging.
+- 2026-08-01 — Implemented the reproduced append-only correction contract and
+  bumped the candidate package to `0.9.17`. Focused CLI/Core/Orientation/Studio
+  regression and documentation-link suites pass; fresh installed-wheel replay
+  remains the acceptance gate.
 
 ## Completion
 

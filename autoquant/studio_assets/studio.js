@@ -1420,6 +1420,26 @@ function reviewInspectorSection(project) {
     </section>`;
 }
 
+function reportCorrectionInspectorSection(project) {
+  const current = project.runReports?.filter((report) => report.current).at(-1);
+  const correction = current?.correction;
+  if (!correction) return "";
+  return `
+    <section class="inspector-section report-correction-inspector">
+      <small>Current immutable correction</small>
+      <h3>${escapeHtml(current.title)}</h3>
+      <span class="status-chip published">CURRENT · DEPTH ${current.lineageDepth}</span>
+      <p>${escapeHtml(correction.reason)}</p>
+      <dl class="inspector-kv">
+        <dt>Current Report</dt><dd>${escapeHtml(current.id)}</dd>
+        <dt>Corrects Report</dt><dd>${escapeHtml(correction.corrects.reportId)}</dd>
+        <dt>Governing Review</dt><dd>${escapeHtml(correction.governingReview.id)}</dd>
+        <dt>Review conclusion</dt><dd>${escapeHtml(correction.governingReview.conclusion)}</dd>
+      </dl>
+      <p>The prior Report remains immutable. Currentness is derived from the verified linear correction graph.</p>
+    </section>`;
+}
+
 function renderHandoff(project) {
   const session = selectedSession(project);
   const delegation = session?.delegation;
@@ -5273,6 +5293,7 @@ function renderInspector(project) {
           ${copyCommandButton(next, holdout ? (holdout.state === "assessed" ? "Copy holdout show command" : holdout.state === "completed" ? "Copy holdout assess command" : "Copy holdout run command") : program ? "Copy recommended command" : "Copy start command")}
         </section>
         ${dossierInspectorSection(project)}
+        ${reportCorrectionInspectorSection(project)}
         ${reviewInspectorSection(project)}
         ${holdout ? "" : `<details class="program-details">
           <summary>Research program</summary>
@@ -5390,6 +5411,7 @@ function renderInspector(project) {
       ${delegation ? copyCommandButton(commandFor(session, latestReport ? "report.show" : "report.publish")) : ""}
     </section>
     ${dossierInspectorSection(project)}
+    ${reportCorrectionInspectorSection(project)}
     ${reviewInspectorSection(project)}
     <section class="inspector-section">
       <small>Agent control surface</small>

@@ -86,6 +86,30 @@ EXPECTED_EVIDENCE = {
 }
 
 
+def _report_lineage_projection(
+    report: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    if not isinstance(report, dict) or "current" not in report:
+        return None
+    correction = report.get("correction")
+    return {
+        "current": report["current"],
+        "correctsReportId": (
+            correction["corrects"]["reportId"]
+            if isinstance(correction, dict)
+            else None
+        ),
+        "governingReviewId": (
+            correction["governingReview"]["id"]
+            if isinstance(correction, dict)
+            else None
+        ),
+        "reason": correction["reason"] if isinstance(correction, dict) else None,
+        "supersededBy": report.get("supersededBy"),
+        "lineageDepth": report.get("lineageDepth"),
+    }
+
+
 _MARKDOWN_HEADING = re.compile(r"^(#{1,6})[ \t]+(.+?)[ \t]*$")
 _MARKDOWN_FENCE = re.compile(r"^[ \t]*(`{3,}|~{3,})")
 
@@ -925,6 +949,7 @@ def _program_orientation(
             "reportId": (
                 latest_report["id"] if latest_report is not None else None
             ),
+            "reportLineage": _report_lineage_projection(latest_report),
             "candidateCheckId": (
                 visible_check["id"] if visible_check is not None else None
             ),
@@ -1033,6 +1058,7 @@ def _single_study_orientation(
                 "sessionStatus": None,
                 "leaderRunId": None,
                 "reportId": None,
+                "reportLineage": None,
                 "candidateCheckId": None,
                 "candidateCheckStatus": None,
             },
@@ -1159,6 +1185,7 @@ def _single_study_orientation(
                     list_run_reports(project, study.definition.id)
                 )
                 if report.leader_run_id == current_run.id
+                and report.current is True
             ),
             None,
         )
@@ -1533,6 +1560,7 @@ def _single_study_orientation(
             "reportId": (
                 current_report["id"] if current_report is not None else None
             ),
+            "reportLineage": _report_lineage_projection(current_report),
             "candidateCheckId": (
                 visible_check["id"] if visible_check is not None else None
             ),
@@ -1714,6 +1742,7 @@ def _holdout_orientation(
                 if holdout["assessment"] is not None
                 else None
             ),
+            "reportLineage": None,
             "candidateCheckId": None,
             "candidateCheckStatus": None,
         },
@@ -2273,6 +2302,7 @@ AGENT_WORK_BRIEF_JSON_SCHEMA: dict[str, Any] = {
                 "sessionStatus",
                 "leaderRunId",
                 "reportId",
+                "reportLineage",
                 "candidateCheckId",
                 "candidateCheckStatus",
                 "latestExperiment",
@@ -2345,6 +2375,31 @@ AGENT_WORK_BRIEF_JSON_SCHEMA: dict[str, Any] = {
                                         },
                                     ]
                                 },
+                            },
+                        },
+                    ]
+                },
+                "reportLineage": {
+                    "oneOf": [
+                        {"type": "null"},
+                        {
+                            "type": "object",
+                            "additionalProperties": False,
+                            "required": [
+                                "current",
+                                "correctsReportId",
+                                "governingReviewId",
+                                "reason",
+                                "supersededBy",
+                                "lineageDepth",
+                            ],
+                            "properties": {
+                                "current": {"type": "boolean"},
+                                "correctsReportId": {"type": ["string", "null"]},
+                                "governingReviewId": {"type": ["string", "null"]},
+                                "reason": {"type": ["string", "null"]},
+                                "supersededBy": {"type": ["string", "null"]},
+                                "lineageDepth": {"type": "integer", "minimum": 0},
                             },
                         },
                     ]

@@ -7,8 +7,10 @@ from pathlib import Path
 
 from autoquant.dossiers import load_dossier, load_dossier_status, publish_dossier
 from autoquant.intake import load_project_intake, prepare_project_intake
+from autoquant.orientation import build_agent_work_brief
 from autoquant.reports import REPORT_MARKDOWN
 from autoquant.research_program import load_research_program
+from autoquant.reviews import load_review_package, publish_review
 from autoquant.run_reports import (
     list_run_reports,
     load_run_report,
@@ -25,6 +27,7 @@ from autoquant.workspace import (
 )
 from tests.intake_helpers import write_intake_inputs
 from tests.test_cli import json_output, run_cli
+from tests.test_reviews import review_analysis
 
 
 def analysis(run_id: str, artifact_path: str = "artifacts/factor-report.json") -> dict:
@@ -255,6 +258,192 @@ class RunBoundResearchReportTests(unittest.TestCase):
             )
             self.assertEqual(mixed.returncode, 2)
             self.assertIn("exactly one anchor", json_output(mixed)["error"]["message"])
+
+    def test_run_report_correction_freezes_review_and_derives_currentness(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workspace, project = self._request_project(root)
+            run = execute_study(project, "ohlcv-factor-quality")
+            prior = publish_run_report(
+                project,
+                "ohlcv-factor-quality",
+                run.result["id"],
+                analysis(run.result["id"]),
+            )
+            staging = workspace.root_dir / "staging"
+            staging.mkdir()
+            (staging / "comparison.json").write_text(
+                '{"status":"supporting-only"}\n',
+                encoding="utf-8",
+            )
+            review = publish_review(
+                project,
+                prior.report["id"],
+                review_analysis(prior.report["id"], run.result["id"]),
+                observation_root=workspace.root_dir,
+                observation_scope="workspace",
+                output_root=root / "detached-reviews",
+            )
+            old_files = {
+                path.relative_to(project.root_dir).as_posix(): path.read_bytes()
+                for path in project.root_dir.rglob("*")
+                if path.is_file()
+            }
+            corrected_analysis = analysis(run.result["id"])
+            corrected_analysis["title"] = "Corrected frozen baseline evidence"
+            corrected_analysis["executiveSummary"] = (
+                "The current handoff removes one unsupported clause identified "
+                "by the governing Review."
+            )
+            corrected_analysis_path = root / "corrected-analysis.json"
+            corrected_analysis_path.write_text(
+                json.dumps(corrected_analysis, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            publication = run_cli(
+                "report",
+                "publish",
+                str(project.root_dir),
+                "--study",
+                "ohlcv-factor-quality",
+                "--run",
+                run.result["id"],
+                "--analysis",
+                str(corrected_analysis_path),
+                "--corrects",
+                prior.report["id"],
+                "--correction-review",
+                str(review.root_dir),
+                "--correction-reason",
+                "Remove the unsupported reviewed clause.",
+                "--json",
+            )
+            self.assertEqual(publication.returncode, 0, publication.stderr)
+            corrected = load_run_report(
+                project,
+                json_output(publication)["data"]["report"]["id"],
+            )
+
+            for relative, content in old_files.items():
+                self.assertEqual((project.root_dir / relative).read_bytes(), content)
+            loaded = load_run_report(project, corrected.report["id"])
+            correction = loaded.report["correction"]
+            self.assertEqual(correction["corrects"]["reportId"], prior.report["id"])
+            self.assertEqual(
+                correction["governingReview"]["id"],
+                review.review["id"],
+            )
+            embedded = loaded.root_dir / correction["governingReview"]["packagePath"]
+            self.assertEqual(load_review_package(embedded, project=project).review, review.review)
+            summaries = list_run_reports(project)
+            self.assertFalse(summaries[0].current)
+            self.assertEqual(summaries[0].superseded_by, corrected.report["id"])
+            self.assertTrue(summaries[1].current)
+            self.assertEqual(summaries[1].lineage_depth, 1)
+            self.assertEqual(
+                summaries[1].to_dict()["correction"]["governingReview"]["id"],
+                review.review["id"],
+            )
+            markdown = (corrected.root_dir / REPORT_MARKDOWN).read_text(encoding="utf-8")
+            self.assertIn("## Immutable correction lineage", markdown)
+            self.assertIn(prior.report["id"], markdown)
+            self.assertIn(review.review["id"], markdown)
+
+            shown = run_cli(
+                "report",
+                "show",
+                str(project.root_dir),
+                "--report",
+                corrected.report["id"],
+                "--json",
+            )
+            self.assertEqual(shown.returncode, 0, shown.stderr)
+            shown_lineage = json_output(shown)["data"]["lineage"]
+            self.assertTrue(shown_lineage["current"])
+            self.assertEqual(
+                shown_lineage["correction"]["corrects"]["reportId"],
+                prior.report["id"],
+            )
+            listed = run_cli(
+                "report",
+                "list",
+                str(project.root_dir),
+                "--json",
+            )
+            self.assertEqual(listed.returncode, 0, listed.stderr)
+            listed_reports = json_output(listed)["data"]["reports"]
+            self.assertFalse(listed_reports[0]["current"])
+            self.assertTrue(listed_reports[1]["current"])
+            brief = build_agent_work_brief(project)
+            self.assertEqual(brief["evidence"]["reportId"], corrected.report["id"])
+            self.assertEqual(
+                brief["evidence"]["reportLineage"]["governingReviewId"],
+                review.review["id"],
+            )
+            snapshot = build_studio_snapshot(workspace.root_dir)
+            run_reports = snapshot["projects"][0]["runReports"]
+            self.assertFalse(run_reports[0]["current"])
+            self.assertTrue(run_reports[1]["current"])
+            self.assertEqual(
+                run_reports[1]["correction"]["corrects"]["reportId"],
+                prior.report["id"],
+            )
+
+            help_result = run_cli("report", "publish", "--help")
+            self.assertEqual(help_result.returncode, 0, help_result.stderr)
+            self.assertIn("--correction-review", help_result.stdout)
+
+            second_review = publish_review(
+                project,
+                corrected.report["id"],
+                review_analysis(corrected.report["id"], run.result["id"]),
+                observation_root=workspace.root_dir,
+                observation_scope="workspace",
+                output_root=root / "second-detached-review",
+            )
+            second_analysis = analysis(run.result["id"])
+            second_analysis["title"] = "Second corrected frozen baseline evidence"
+            second = publish_run_report(
+                project,
+                "ohlcv-factor-quality",
+                run.result["id"],
+                second_analysis,
+                corrects_report_id=corrected.report["id"],
+                correction_review=second_review.root_dir,
+                correction_reason="Apply the second independently reviewed correction.",
+            )
+            chained = list_run_reports(project)
+            self.assertEqual([item.current for item in chained], [False, False, True])
+            self.assertEqual(chained[-1].lineage_depth, 2)
+            self.assertEqual(
+                load_run_report(project, second.report["id"]).report["correction"][
+                    "corrects"
+                ]["reportId"],
+                corrected.report["id"],
+            )
+
+            with self.assertRaises(AutoQuantValidationError) as stale:
+                publish_run_report(
+                    project,
+                    "ohlcv-factor-quality",
+                    run.result["id"],
+                    corrected_analysis,
+                    corrects_report_id=prior.report["id"],
+                    correction_review=review.root_dir,
+                    correction_reason="Attempt a branch.",
+                )
+            self.assertIn(
+                "report.correction-stale",
+                {item.code for item in stale.exception.issues},
+            )
+
+            (embedded / "review.md").write_text("tampered\n", encoding="utf-8")
+            with self.assertRaises(AutoQuantValidationError) as tampered:
+                load_run_report(project, corrected.report["id"])
+            self.assertIn(
+                "report.tampered",
+                {item.code for item in tampered.exception.issues},
+            )
 
     def test_run_report_cannot_bypass_a_later_editable_session(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

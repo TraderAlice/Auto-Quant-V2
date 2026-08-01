@@ -24,6 +24,7 @@ from .reports import (
     REPORT_MANIFEST,
     REPORT_MARKDOWN,
     REPORT_RESULT,
+    SHA256,
     ReportContext,
     ReportSummary,
     _read_json,
@@ -47,6 +48,8 @@ from .workspace import (
 
 RUN_REPORT_KIND = "autoquant-run-research-report"
 RUN_REPORTS_DIRECTORY = "reports"
+REPORT_CORRECTION_KIND = "autoquant-research-report-correction"
+GOVERNING_REVIEW_DIRECTORY = "governing-review"
 
 
 def _issue(path: Path | str, code: str, message: str) -> ValidationIssue:
@@ -317,9 +320,24 @@ def _render_markdown(report: dict[str, Any]) -> str:
         f"- Candidate trials: `{integrity['candidateTrials']}`",
         f"- Warning: {integrity['warning']}",
         "",
-        "## Findings",
-        "",
     ]
+    correction = report.get("correction")
+    if isinstance(correction, dict):
+        corrects = correction["corrects"]
+        review = correction["governingReview"]
+        lines.extend(
+            [
+                "## Immutable correction lineage",
+                "",
+                f"- Corrects Report: `{corrects['reportId']}` hash `{corrects['reportHash']}`",
+                f"- Governing Review: `{review['id']}` hash `{review['reviewHash']}`",
+                f"- Frozen Review package: `{review['packagePath']}`",
+                f"- Reason: {correction['reason']}",
+                "- Currentness is derived from the verified linear correction graph; the prior Report remains immutable.",
+                "",
+            ]
+        )
+    lines.extend(["## Findings", ""])
     for finding in analysis["findings"]:
         refs = ", ".join(_label(item) for item in finding["evidenceRefs"])
         lines.extend(
@@ -379,14 +397,133 @@ def _render_markdown(report: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _prepare_correction(
+    project: ProjectContext,
+    anchor: dict[str, Any],
+    *,
+    corrects_report_id: str | None,
+    correction_review: str | Path | None,
+    correction_reason: str | None,
+) -> tuple[dict[str, Any] | None, Any | None]:
+    configured = (
+        corrects_report_id is not None,
+        correction_review is not None,
+        correction_reason is not None,
+    )
+    if not any(configured):
+        return None, None
+    if not all(configured):
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    project.root_dir,
+                    "report.correction-arguments",
+                    "Report correction requires corrects Report, governing Review, and reason together",
+                )
+            ]
+        )
+    assert corrects_report_id is not None
+    assert correction_review is not None
+    assert correction_reason is not None
+    reason = correction_reason.strip()
+    if not reason:
+        raise AutoQuantValidationError(
+            [_issue(project.root_dir, "report.correction-reason", "Correction reason must be non-empty")]
+        )
+    prior = load_run_report(project, corrects_report_id)
+    if prior.report["anchor"] != anchor:
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    prior.root_dir,
+                    "report.correction-anchor",
+                    "Corrected and prior Reports must freeze the same exact Run anchor",
+                )
+            ]
+        )
+    prior_summary = next(
+        (item for item in list_run_reports(project) if item.id == corrects_report_id),
+        None,
+    )
+    if prior_summary is None or prior_summary.current is not True:
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    prior.root_dir,
+                    "report.correction-stale",
+                    "A correction must extend a current terminal Report, not an already superseded Report",
+                )
+            ]
+        )
+
+    from .reviews import REVIEW_ID, load_review, load_review_package
+
+    review_input = str(correction_review)
+    review = (
+        load_review(project, review_input)
+        if REVIEW_ID.fullmatch(review_input)
+        else load_review_package(correction_review, project=project)
+    )
+    target = review.manifest["target"]
+    if (
+        target["reportId"] != prior.report["id"]
+        or target["reportHash"] != prior.manifest["reportHash"]
+        or target["sessionId"] is not None
+        or target["runId"] != anchor["runId"]
+        or target["resultHash"] != anchor["resultHash"]
+    ):
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    review.root_dir,
+                    "report.correction-review-target",
+                    "Governing Review must target the exact prior Run-bound Report and Run",
+                )
+            ]
+        )
+    package_path = (
+        Path(GOVERNING_REVIEW_DIRECTORY) / review.review["id"]
+    ).as_posix()
+    correction = {
+        "schemaVersion": SCHEMA_VERSION,
+        "kind": REPORT_CORRECTION_KIND,
+        "corrects": {
+            "reportId": prior.report["id"],
+            "reportHash": prior.manifest["reportHash"],
+            "publishedAt": prior.report["publishedAt"],
+            "anchor": prior.report["anchor"],
+        },
+        "governingReview": {
+            "id": review.review["id"],
+            "reviewHash": review.manifest["reviewHash"],
+            "manifestHash": hash_file(review.root_dir / "manifest.json"),
+            "conclusion": review.analysis["conclusion"],
+            "packagePath": package_path,
+        },
+        "reason": reason,
+    }
+    return correction, review
+
+
 def publish_run_report(
     project: ProjectContext,
     study_id: str,
     run_id: str,
     analysis: dict[str, Any],
+    *,
+    corrects_report_id: str | None = None,
+    correction_review: str | Path | None = None,
+    correction_reason: str | None = None,
 ) -> ReportContext:
     normalized = validate_report_analysis(analysis)
     anchor, _study, run, intake = _anchor(project, study_id, run_id)
+    correction, governing_review = _prepare_correction(
+        project,
+        anchor,
+        corrects_report_id=corrects_report_id,
+        correction_review=correction_review,
+        correction_reason=correction_reason,
+    )
     request, request_hash = _request_for_run(run, intake)
     published = datetime.now(timezone.utc)
     published_at = published.isoformat()
@@ -401,6 +538,7 @@ def publish_run_report(
             "analysisHash": analysis_hash,
             "evidenceHash": evidence_hash,
             "publishedAt": published_at,
+            **({"correction": correction} if correction is not None else {}),
         }
     )
     report_id = f"report-{published.strftime('%Y%m%dT%H%M%S%fZ')}-{identity[:12]}"
@@ -426,6 +564,7 @@ def publish_run_report(
         "evidenceHash": evidence_hash,
         "analysis": normalized,
         "evidence": evidence,
+        **({"correction": correction} if correction is not None else {}),
         "openAliceHandoff": {
             "document": REPORT_MARKDOWN,
             "provenance": "openalice-authoritative-on-inbox-publication",
@@ -437,11 +576,15 @@ def publish_run_report(
         _write_json(staging / REPORT_ANALYSIS, normalized)
         _write_json(staging / REPORT_RESULT, report)
         (staging / REPORT_MARKDOWN).write_text(_render_markdown(report), encoding="utf-8")
-        files = {
-            path.name: hash_file(path)
-            for path in sorted(staging.iterdir(), key=lambda item: item.name)
-            if path.is_file()
-        }
+        if governing_review is not None:
+            embedded_root = (
+                staging
+                / GOVERNING_REVIEW_DIRECTORY
+                / governing_review.review["id"]
+            )
+            embedded_root.parent.mkdir()
+            shutil.copytree(governing_review.root_dir, embedded_root)
+        files = _report_files(staging)
         manifest = {
             "schemaVersion": SCHEMA_VERSION,
             "id": report_id,
@@ -482,6 +625,8 @@ def _validate_result(
         "evidence",
         "openAliceHandoff",
     }
+    if "correction" in report:
+        required.add("correction")
     issues = _strict_keys(report, required, path)
     if (
         report.get("schemaVersion") != SCHEMA_VERSION
@@ -493,6 +638,14 @@ def _validate_result(
         issues.append(_issue(path, "report.identity", "Invalid Run-bound Report identity"))
     if report.get("project") != {"id": project.manifest.id, "name": project.manifest.name}:
         issues.append(_issue(f"{path}/project", "report.project", "Report Project differs"))
+    if "correction" in report:
+        issues.extend(
+            _validate_correction_shape(
+                report.get("correction"),
+                f"{path}/correction",
+                report_id,
+            )
+        )
     anchor = report.get("anchor")
     if not isinstance(anchor, dict):
         issues.append(_issue(f"{path}/anchor", "schema.type", "Invalid Report anchor"))
@@ -574,6 +727,11 @@ def _validate_result(
                     "analysisHash": report.get("analysisHash"),
                     "evidenceHash": report.get("evidenceHash"),
                     "publishedAt": published_at,
+                    **(
+                        {"correction": report.get("correction")}
+                        if "correction" in report
+                        else {}
+                    ),
                 }
             )
             expected_id = f"report-{published.strftime('%Y%m%dT%H%M%S%fZ')}-{identity[:12]}"
@@ -585,6 +743,75 @@ def _validate_result(
         issues.append(_issue(f"{path}/publishedAt", "schema.string", "Invalid publishedAt"))
     if issues:
         raise AutoQuantValidationError(issues)
+
+
+def _validate_correction_shape(
+    value: Any,
+    path: Path | str,
+    report_id: str,
+) -> list[ValidationIssue]:
+    if not isinstance(value, dict):
+        return [_issue(path, "schema.type", "Report correction must be an object")]
+    issues = _strict_keys(
+        value,
+        {"schemaVersion", "kind", "corrects", "governingReview", "reason"},
+        path,
+    )
+    if value.get("schemaVersion") != SCHEMA_VERSION or value.get("kind") != REPORT_CORRECTION_KIND:
+        issues.append(_issue(path, "report.correction-kind", "Invalid Report correction identity"))
+    reason = value.get("reason")
+    if not isinstance(reason, str) or not reason.strip():
+        issues.append(_issue(f"{path}/reason", "schema.string", "Correction reason must be non-empty"))
+    corrects = value.get("corrects")
+    if not isinstance(corrects, dict):
+        issues.append(_issue(f"{path}/corrects", "schema.type", "Correction target must be an object"))
+    else:
+        issues.extend(
+            _strict_keys(
+                corrects,
+                {"reportId", "reportHash", "publishedAt", "anchor"},
+                f"{path}/corrects",
+            )
+        )
+        target_id = corrects.get("reportId")
+        if not isinstance(target_id, str) or not REPORT_ID.fullmatch(target_id) or target_id == report_id:
+            issues.append(_issue(f"{path}/corrects/reportId", "report.correction-target", "Invalid prior Report id"))
+        if not isinstance(corrects.get("reportHash"), str) or not SHA256.fullmatch(
+            corrects.get("reportHash", "")
+        ):
+            issues.append(_issue(f"{path}/corrects/reportHash", "schema.hash", "Invalid prior Report hash"))
+        if not isinstance(corrects.get("publishedAt"), str):
+            issues.append(_issue(f"{path}/corrects/publishedAt", "schema.string", "Invalid prior publication time"))
+        if not isinstance(corrects.get("anchor"), dict):
+            issues.append(_issue(f"{path}/corrects/anchor", "schema.type", "Invalid prior Report anchor"))
+    review = value.get("governingReview")
+    if not isinstance(review, dict):
+        issues.append(_issue(f"{path}/governingReview", "schema.type", "Governing Review must be an object"))
+    else:
+        issues.extend(
+            _strict_keys(
+                review,
+                {"id", "reviewHash", "manifestHash", "conclusion", "packagePath"},
+                f"{path}/governingReview",
+            )
+        )
+        from .reviews import REVIEW_CONCLUSIONS, REVIEW_ID
+
+        review_id = review.get("id")
+        if not isinstance(review_id, str) or not REVIEW_ID.fullmatch(review_id):
+            issues.append(_issue(f"{path}/governingReview/id", "review.id", "Invalid governing Review id"))
+        for key in ("reviewHash", "manifestHash"):
+            digest = review.get(key)
+            if not isinstance(digest, str) or not SHA256.fullmatch(digest):
+                issues.append(_issue(f"{path}/governingReview/{key}", "schema.hash", f"Invalid {key}"))
+        if review.get("conclusion") not in REVIEW_CONCLUSIONS:
+            issues.append(_issue(f"{path}/governingReview/conclusion", "schema.choice", "Invalid Review conclusion"))
+        expected_path = (
+            Path(GOVERNING_REVIEW_DIRECTORY) / review_id
+        ).as_posix() if isinstance(review_id, str) else None
+        if review.get("packagePath") != expected_path:
+            issues.append(_issue(f"{path}/governingReview/packagePath", "schema.path", "Governing Review package path is not canonical"))
+    return issues
 
 
 def _verify_evidence(project: ProjectContext, report: dict[str, Any], path: Path) -> None:
@@ -635,7 +862,98 @@ def _verify_evidence(project: ProjectContext, report: dict[str, Any], path: Path
         raise AutoQuantValidationError(issues)
 
 
-def load_run_report(project: ProjectContext, report_id: str) -> ReportContext:
+def _verify_correction(
+    project: ProjectContext,
+    context: ReportContext,
+    chain: frozenset[str],
+) -> None:
+    correction = context.report.get("correction")
+    if correction is None:
+        return
+    corrects = correction["corrects"]
+    prior = load_run_report(
+        project,
+        corrects["reportId"],
+        _correction_chain=chain,
+    )
+    issues: list[ValidationIssue] = []
+    if corrects != {
+        "reportId": prior.report["id"],
+        "reportHash": prior.manifest["reportHash"],
+        "publishedAt": prior.report["publishedAt"],
+        "anchor": prior.report["anchor"],
+    }:
+        issues.append(
+            _issue(
+                context.root_dir,
+                "report.correction-target",
+                "Frozen prior Report identity differs from immutable Project evidence",
+            )
+        )
+    if prior.report["anchor"] != context.report["anchor"]:
+        issues.append(
+            _issue(
+                context.root_dir,
+                "report.correction-anchor",
+                "Correction and prior Report do not share the exact Run anchor",
+            )
+        )
+    try:
+        prior_at = datetime.fromisoformat(prior.report["publishedAt"])
+        current_at = datetime.fromisoformat(context.report["publishedAt"])
+        if prior_at >= current_at:
+            raise ValueError
+    except (TypeError, ValueError):
+        issues.append(
+            _issue(
+                context.root_dir,
+                "report.correction-order",
+                "Correction must be published after its prior Report",
+            )
+        )
+    review_identity = correction["governingReview"]
+    package_root = confined_path(
+        context.root_dir,
+        review_identity["packagePath"],
+        "report/governing-review",
+    )
+    from .reviews import load_review_package
+
+    review = load_review_package(package_root, project=project)
+    target = review.manifest["target"]
+    if (
+        review.review["id"] != review_identity["id"]
+        or review.manifest["reviewHash"] != review_identity["reviewHash"]
+        or hash_file(review.root_dir / "manifest.json") != review_identity["manifestHash"]
+        or review.analysis["conclusion"] != review_identity["conclusion"]
+        or target["reportId"] != prior.report["id"]
+        or target["reportHash"] != prior.manifest["reportHash"]
+        or target["sessionId"] is not None
+        or target["runId"] != prior.report["anchor"]["runId"]
+        or target["resultHash"] != prior.report["anchor"]["resultHash"]
+    ):
+        issues.append(
+            _issue(
+                package_root,
+                "report.correction-review-target",
+                "Embedded governing Review does not target the exact prior Report",
+            )
+        )
+    if issues:
+        raise AutoQuantValidationError(issues)
+
+
+def load_run_report(
+    project: ProjectContext,
+    report_id: str,
+    *,
+    _correction_chain: frozenset[str] = frozenset(),
+) -> ReportContext:
+    if report_id in _correction_chain:
+        raise AutoQuantValidationError(
+            [_issue(report_id, "report.correction-cycle", "Report correction lineage contains a cycle")]
+        )
+    chain = _correction_chain | {report_id}
     root = _report_root(project, report_id)
     if root.is_symlink() or not root.is_dir():
         raise AutoQuantValidationError(
@@ -677,7 +995,9 @@ def load_run_report(project: ProjectContext, report_id: str) -> ReportContext:
             [_issue(root / REPORT_MARKDOWN, "report.markdown", "Report Markdown is not canonical")]
         )
     _verify_evidence(project, report, root / REPORT_RESULT)
-    return ReportContext(root, manifest, report, analysis)
+    context = ReportContext(root, manifest, report, analysis)
+    _verify_correction(project, context, chain)
+    return context
 
 
 def list_run_reports(
@@ -688,7 +1008,7 @@ def list_run_reports(
     if not root.exists() and not root.is_symlink():
         return []
     root = _reports_root(project, create=False)
-    summaries: list[ReportSummary] = []
+    contexts: list[ReportContext] = []
     for entry in sorted(root.iterdir(), key=lambda item: item.name):
         if entry.name.startswith("."):
             continue
@@ -696,13 +1016,50 @@ def list_run_reports(
             raise AutoQuantValidationError(
                 [_issue(entry, "report.entry", "Report entries must be real directories")]
             )
-        report = load_run_report(project, entry.name)
+        contexts.append(load_run_report(project, entry.name))
+    successors: dict[str, str] = {}
+    by_id = {item.report["id"]: item for item in contexts}
+    for context in contexts:
+        correction = context.report.get("correction")
+        if correction is None:
+            continue
+        prior_id = correction["corrects"]["reportId"]
+        if prior_id in successors:
+            raise AutoQuantValidationError(
+                [
+                    _issue(
+                        context.root_dir,
+                        "report.correction-branch",
+                        "One Report cannot have multiple current correction successors",
+                    )
+                ]
+            )
+        successors[prior_id] = context.report["id"]
+
+    depths: dict[str, int] = {}
+
+    def lineage_depth(report_id: str) -> int:
+        if report_id in depths:
+            return depths[report_id]
+        context = by_id[report_id]
+        correction = context.report.get("correction")
+        depth = (
+            0
+            if correction is None
+            else lineage_depth(correction["corrects"]["reportId"]) + 1
+        )
+        depths[report_id] = depth
+        return depth
+
+    summaries: list[ReportSummary] = []
+    for report in contexts:
         anchor = report.report["anchor"]
         if study_id is not None and anchor["studyId"] != study_id:
             continue
+        report_id = report.report["id"]
         summaries.append(
             ReportSummary(
-                id=report.report["id"],
+                id=report_id,
                 title=report.analysis["title"],
                 session_id=None,
                 leader_run_id=anchor["runId"],
@@ -719,6 +1076,10 @@ def list_run_reports(
                 selection_integrity=report.report["evidence"]["selectionIntegrity"],
                 anchor_kind="run",
                 study_id=anchor["studyId"],
+                correction=report.report.get("correction"),
+                current=report_id not in successors,
+                superseded_by=successors.get(report_id),
+                lineage_depth=lineage_depth(report_id),
             )
         )
     return summaries

@@ -20,6 +20,12 @@ edit a candidate, create a Session, replace the primary Report, authenticate a
 provider or account, or grant quantitative/trading authority. The target
 Report and Run remain byte-identical.
 
+A primary researcher may later use the Review as the governing trigger for a
+new append-only Run Report correction. That operation still does not mutate
+the Review or target Report; it copies the verified Review package into the
+new Report and derives currentness from explicit correction lineage. See
+[[docs/design/run-bound-research-reports]].
+
 ## Four evidence classes
 
 Every Review claim uses exactly one class:
@@ -115,13 +121,28 @@ Studio projects attached Reviews and their conclusion/classification counts.
 Detached packages remain deliberately absent from the target Studio because
 their defining contract is that the reviewed Workspace was not changed.
 
+## Governing a correction
+
+An attached Review id or detached package path may be supplied to `aq report
+publish --corrects ... --correction-review ... --correction-reason ...`.
+Core reconnects the Review to its exact immutable target before publication.
+The complete five-file package is then copied beneath the new Report, so the
+correction remains self-contained even if the original detached location is
+later unavailable.
+
+Review authority does not become quantitative evidence. The corrected
+analysis still cites only its Run anchor. The embedded Review proves the
+editorial lineage—what prior Report was challenged and why another primary
+handoff exists—while the Run continues to govern every retained quantitative
+claim.
+
 ## Non-goals
 
 - universal certification, reviewer reputation, signatures, or provider
   attestation;
 - automatic semantic judgment of prose;
 - importing mutable staging into a Run after the fact;
-- rewriting or withdrawing the reviewed Report;
+- rewriting or withdrawing the reviewed Report in place;
 - treating Review acceptance as selection, forecast, allocation, Order, or
   execution authority;
 - replacing the strictly-later source-versus-target Holdout Assessment.

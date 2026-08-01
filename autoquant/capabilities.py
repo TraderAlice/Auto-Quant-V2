@@ -950,8 +950,8 @@ CLI_COMMANDS = [
     ),
     descriptor(
         "report.publish",
-        "aq report publish <path> (--session ID | --study ID --run ID) --analysis FILE [--project ID] [--json]",
-        "Publish immutable analysis over either a delegated Session evidence prefix or one successful current request-bound Study Run without creating a Session.",
+        "aq report publish <path> (--session ID | --study ID --run ID) --analysis FILE [--corrects REPORT --correction-review REVIEW_OR_PATH --correction-reason TEXT] [--project ID] [--json]",
+        "Publish immutable analysis over either a delegated Session evidence prefix or one successful current request-bound Study Run; Run-bound Reports may extend one verified linear correction lineage.",
         "creates-artifact",
         [
             PATH_ARGUMENT,
@@ -991,6 +991,27 @@ CLI_COMMANDS = [
                     "artifacts/factor-report.json; Experiment/Campaign "
                     "artifactPath is null."
                 ),
+            ),
+            argument(
+                "corrects",
+                "option",
+                "string",
+                False,
+                "Current terminal Run-bound Report corrected by this publication.",
+            ),
+            argument(
+                "correction-review",
+                "option",
+                "string",
+                False,
+                "Attached Review id or detached Review package path that targets --corrects.",
+            ),
+            argument(
+                "correction-reason",
+                "option",
+                "string",
+                False,
+                "Concise durable reason frozen into the correction lineage.",
             ),
             JSON_ARGUMENT,
         ],

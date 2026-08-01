@@ -967,6 +967,21 @@ def build_parser() -> RaisingArgumentParser:
             "artifactPath must be null"
         ),
     )
+    report_publish.add_argument(
+        "--corrects",
+        help="current terminal Run-bound Report id corrected by this publication",
+    )
+    report_publish.add_argument(
+        "--correction-review",
+        help=(
+            "attached Review id or detached Review package path governing the "
+            "correction; requires --corrects and --correction-reason"
+        ),
+    )
+    report_publish.add_argument(
+        "--correction-reason",
+        help="concise durable reason for the immutable correction",
+    )
     report_publish.set_defaults(command_id="report.publish")
     _json_argument(report_publish)
 
@@ -3995,10 +4010,26 @@ def _report_publish(args: argparse.Namespace) -> CommandResult:
         )
     if run_mode and (args.study is None or args.run is None):
         raise CliUsageError("Run-bound report publication requires both --study and --run")
+    correction_requested = any(
+        value is not None
+        for value in (args.corrects, args.correction_review, args.correction_reason)
+    )
+    if session_mode and correction_requested:
+        raise CliUsageError(
+            "immutable correction lineage currently requires a Project-owned Run anchor"
+        )
     report = (
         publish_report(project, args.session, analysis)
         if session_mode
-        else publish_run_report(project, args.study, args.run, analysis)
+        else publish_run_report(
+            project,
+            args.study,
+            args.run,
+            analysis,
+            corrects_report_id=args.corrects,
+            correction_review=args.correction_review,
+            correction_reason=args.correction_reason,
+        )
     )
     anchor = (
         {
@@ -4121,6 +4152,21 @@ def _report_list(args: argparse.Namespace) -> CommandResult:
     lines.extend(
         f"  {item.id}  {item.title}  findings={item.findings}  "
         f"recommendations={item.recommendations}"
+        + (
+            f"  current={str(item.current).lower()}"
+            + (
+                f"  corrects={item.correction['corrects']['reportId']}"
+                if item.correction is not None
+                else ""
+            )
+            + (
+                f"  supersededBy={item.superseded_by}"
+                if item.superseded_by is not None
+                else ""
+            )
+            if item.current is not None
+            else ""
+        )
         for item in reports
     )
     if not reports:
@@ -4174,12 +4220,26 @@ def _report_show(args: argparse.Namespace) -> CommandResult:
         if args.session is not None
         else report.report["evidence"]["anchor"]
     )
+    lineage = None
+    if args.session is None:
+        summary = next(
+            item
+            for item in list_run_reports(project)
+            if item.id == report.report["id"]
+        )
+        lineage = {
+            "current": summary.current,
+            "correction": summary.correction,
+            "supersededBy": summary.superseded_by,
+            "lineageDepth": summary.lineage_depth,
+        }
     return CommandResult(
         "report.show",
         {
             "manifest": report.manifest,
             "report": report.report,
             "anchor": anchor,
+            "lineage": lineage,
             "markdownPath": str(report.root_dir / "report.md"),
         },
         (
@@ -4192,7 +4252,24 @@ def _report_show(args: argparse.Namespace) -> CommandResult:
                 else "Session: none\n"
             )
             + f"Findings: {len(report.analysis['findings'])}\n"
-            f"{_report_decision_support_line(report.report)}"
+            + (
+                f"Current: {str(lineage['current']).lower()}\n"
+                + (
+                    f"Corrects: {lineage['correction']['corrects']['reportId']}\n"
+                    f"Governing Review: {lineage['correction']['governingReview']['id']}\n"
+                    f"Correction reason: {lineage['correction']['reason']}\n"
+                    if lineage["correction"] is not None
+                    else ""
+                )
+                + (
+                    f"Superseded by: {lineage['supersededBy']}\n"
+                    if lineage["supersededBy"] is not None
+                    else ""
+                )
+                if lineage is not None
+                else ""
+            )
+            + f"{_report_decision_support_line(report.report)}"
             f"Markdown: {report.root_dir / 'report.md'}\n"
         ),
         project_context(project),

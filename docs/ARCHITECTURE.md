@@ -464,7 +464,8 @@ cannot own Workspace, Project, or evidence semantics.
   `autoquant/research.py`
 - Delegated request and derived Brief contracts: `autoquant/briefs.py`
 - Immutable Session- and Run-bound Research Report publication and
-  verification: `autoquant/reports.py` and `autoquant/run_reports.py`
+  verification, including append-only Review-governed Run Report correction
+  lineage: `autoquant/reports.py` and `autoquant/run_reports.py`
 - Immutable Project Research Dossier composition and verification:
   `autoquant/dossiers.py`
 - Frozen cross-Project external-period binding and result verification:

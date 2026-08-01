@@ -915,6 +915,9 @@ protocol in their own sandbox.
 aq report publish <path> \
   (--session ID | --study ID --run ID) \
   --analysis report-analysis.json \
+  [--corrects REPORT_ID \
+   --correction-review REVIEW_ID_OR_PACKAGE_PATH \
+   --correction-reason TEXT] \
   [--project ID] [--json]
 aq report list <path> \
   [--session ID | --study ID] \
@@ -932,6 +935,13 @@ current immutable Run in a verified request-driven Project. The direct Run
 route creates no Session, Check, Experiment, completion, or promotion state.
 Use it for a frozen baseline or fixed delegated reproduction; use the Session
 route when the conclusion depends on candidate iteration.
+
+The three correction options are an all-or-none extension of the direct Run
+route. `--corrects` must name a current terminal Run Report over the same exact
+Run anchor. `--correction-review` accepts either an attached Review id or a
+detached Review package path and must target that exact prior Report.
+`--correction-reason` is frozen as durable lineage. Session Report correction
+is intentionally unsupported.
 
 The Agent-authored analysis is strict JSON: title, executive summary, findings
 with confidence, conditional recommendations, limitations, unresolved
@@ -994,6 +1004,15 @@ decision-support field.
 Every CLI/JSON summary exposes `anchor.kind`, Study, Run, and nullable Session
 identity. `report list` with `--session` searches that Session; without it the
 command searches Project-owned Run Reports and may filter by `--study`.
+Run Report summaries also expose `current`, `supersededBy`, `lineageDepth`,
+and the exact optional correction object. `report show` verifies and returns
+the same lineage. A later timestamp alone never means correction authority.
+
+A corrected Report embeds the complete governing Review package beneath
+`governing-review/<review-id>/`. Loading verifies that package against the
+prior Report and Run, while listing rejects missing, cyclic, branched,
+cross-Project, cross-anchor, or already-superseded correction targets. The
+prior Report and original attached/detached Review remain unchanged.
 
 Later Session research does not reinterpret an older report; its frozen
 Experiment/Campaign catalogs must remain chronological prefixes of the
