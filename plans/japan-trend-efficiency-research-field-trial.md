@@ -250,9 +250,7 @@ translation after costs.
 - Final source and wheel distributions built successfully. The Python 3.11.14
   wheel environment installed pandas 3.0.5, exposed all 53 public `aq`
   commands, and resolved `aq-python` to its own interpreter. Wheel SHA-256 is
-  `0503714efb42ac0593c3e48dd7a9cad54596515edc2df823226a5a427d2e17da`;
-  sdist SHA-256 is
-  `7a38163d38d14275edbec727cd953c9b9ccf8980dd202ec2083d09106d97a0da`.
+  `0503714efb42ac0593c3e48dd7a9cad54596515edc2df823226a5a427d2e17da`.
 - Fresh Grok 4.5 cohort 27 completed the exact installed-runtime smoke in
   three turns. It read only the generated acquisition and Yahoo Skills, chose
   `aq-python` itself, ran provider `--help`, printed the trial venv's exact
@@ -260,6 +258,11 @@ translation after costs.
   Workspace file. Session `019fbb6a-9e85-7850-9401-3143a3f49b2a` and its
   76-line transcript remain under
   `grok-field-trials/cohort-27-aq-python-runtime-v0912`.
+- A no-hardlink clone of release commit `581116e` remained Git-clean after
+  creating its ignored venv. Root `validate`, `orient`, `project list`, and
+  `studio snapshot` all returned `ok`; orientation selected the checked-in
+  `sample-research-desk`, exactly one Project was visible, and the generated
+  Agent Skills contained 21 `aq-python` references.
 
 ## Progress log
 
