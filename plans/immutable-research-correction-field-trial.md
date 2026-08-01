@@ -81,25 +81,25 @@ retained as product evidence rather than hidden.
 
 ## Acceptance
 
-- [ ] A fresh worker begins with no source checkout or original conversation,
+- [x] A fresh worker begins with no source checkout or original conversation,
       verifies the detached Review through public installed surfaces, and
       identifies the exact target Report and anchor Run.
-- [ ] Every prior Project/Run/Report byte and path remains unchanged; the
+- [x] Every prior Project/Run/Report byte and path remains unchanged; the
       detached Review also remains unchanged; only explicitly authorized new
       correction state is added.
-- [ ] The corrected handoff retains all supported Path Stress findings and
+- [x] The corrected handoff retains all supported Path Stress findings and
       removes the unsupported Nasdaq clause without promoting observed-unbound
       staging evidence.
-- [ ] Public CLI and Studio make the exact correction lineage, prior Report,
+- [x] Public CLI and Studio make the exact correction lineage, prior Report,
       governing Review, reason, and current handoff unambiguous without private
       filesystem inference.
-- [ ] Loading verifies every immutable identity and rejects forged, missing,
+- [x] Loading verifies every immutable identity and rejects forged, missing,
       cyclic, cross-Project, or semantically stale correction relationships.
-- [ ] Existing unrelated Reports remain truthful and do not become stale or
+- [x] Existing unrelated Reports remain truthful and do not become stale or
       superseded merely because a later interpretation exists.
-- [ ] Every material baseline failure is retained and classified; only a
+- [x] Every material baseline failure is retained and classified; only a
       reproduced reusable Workbench defect enters the candidate release.
-- [ ] A fresh candidate worker completes the unchanged assignment using only
+- [x] A fresh candidate worker completes the unchanged assignment using only
       installed public surfaces, with no private coaching or research rerun.
 - [ ] Focused/full tests, documentation links, lock/syntax, build/install,
       Studio, root Workspace, and clean-clone smokes pass before publication.
@@ -111,7 +111,7 @@ retained as product evidence rather than hidden.
       evidence.
 - [x] Run and audit one fresh correction worker without coaching.
 - [x] Admit and implement only reproduced reusable product friction.
-- [ ] Replay the unchanged task with a fresh candidate-wheel worker.
+- [x] Replay the unchanged task with a fresh candidate-wheel worker.
 - [ ] Complete the release audit and publish `v0.9.17` if warranted.
 
 ## Findings and decisions
@@ -153,6 +153,11 @@ retained as product evidence rather than hidden.
   superseded-by, lineage depth, prior Report, governing Review, and reason to
   CLI, Orientation, and Studio. A two-correction unit fixture derives
   `false / false / true` without changing either predecessor.
+- 2026-08-01 — A fresh candidate-wheel worker discovered the correction
+  contract from installed public help, verified the detached Review, and
+  published the corrected handoff on its first attempt. It retained all four
+  supported findings, removed the unsupported coverage assertion, and made
+  the unbound Nasdaq material an explicit non-authoritative limitation.
 
 ## Verification
 
@@ -192,6 +197,28 @@ Candidate implementation focused verification:
   predecessor, detected embedded-package tampering, and extended cleanly to a
   second independently reviewed correction.
 
+Candidate installed-wheel replay:
+
+- root: `/Users/ame/autoquant-v0917-correction-candidate`;
+- candidate wheel: `auto_quant-0.9.17-py3-none-any.whl`, SHA-256
+  `16d182ce4e7800ca8b28576e185300014ac199909fd5dadc2563fbe2562235a0`;
+- Grok session: `019fbc9e-26ac-7410-8135-e52b378c4526`;
+- transcript: `candidate-transcript.md`, SHA-256
+  `864b4255fd8b22bf051b9afc6a861dfc1ccb6a28680df8b7bcb5e5f59cb03a8a`;
+- corrected Report: `report-20260801T092031071246Z-aa0ef463c745`;
+- corrected Report hash:
+  `617cb13af1ed2b1a857e62d59b84c4a9cc84d57c6c8a54c6efc19aa923072253`.
+
+The unchanged assignment completed in 2m45s with one publication attempt and
+no source-checkout inspection, data acquisition, research execution, Session,
+or staging promotion. Recursive directory comparison found exactly one new
+Report directory and no changed inherited path. The supplied Review and the
+Report's embedded governing Review both compare byte-for-byte with the
+original five-file package. Public `report show/list`, `review show`, `orient`,
+`run book-path-stress`, and `studio snapshot` all verify; the prior Report is
+`current: false` with the exact `supersededBy`, while the correction is
+`current: true` at lineage depth one.
+
 ## Progress log
 
 - 2026-08-01 — Plan activated from clean released `v0.9.16`; OpenAlice remains
@@ -204,6 +231,10 @@ Candidate implementation focused verification:
   bumped the candidate package to `0.9.17`. Focused CLI/Core/Orientation/Studio
   regression and documentation-link suites pass; fresh installed-wheel replay
   remains the acceptance gate.
+- 2026-08-01 — The fresh installed-`0.9.17` replay passed without private
+  coaching or retry. The worker added only the nine-file correction package,
+  including the exact five-file governing Review copy; complete release audit
+  remains the final publication gate.
 
 ## Completion
 
