@@ -46,8 +46,8 @@ fill. Factor availability distinguishes the complete source panel from the
 target evaluation timeline, and deterministic Toyota/SPY evidence proves that
 a Tokyo decision cannot see the later same-date New York close.
 
-The root sample currently preserves thirteen historical Runs and projects a
-clean `0.9.24` Factor Run without rewriting old evidence. A fresh installed-wheel
+The root sample now preserves fourteen historical Runs and projects a clean
+`0.9.25` candidate Factor Run without rewriting old evidence. A fresh installed-wheel
 Grok 4.5 coworker completed one bounded cross-market daily assignment, used
 only public surfaces, and stopped honestly on weak validation and negative
 test evidence. Exact implementation, field, and release proof is in

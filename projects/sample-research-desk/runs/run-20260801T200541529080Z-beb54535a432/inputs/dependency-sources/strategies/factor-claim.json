@@ -1,0 +1,16 @@
+{
+  "authority": "quantitative-decision-support",
+  "claim": "novel-factor",
+  "id": "factor-claim-a002cb5137e5253b",
+  "kind": "autoquant-factor-claim",
+  "knownStyle": null,
+  "schemaVersion": 1,
+  "selectionAuthority": "validation-only",
+  "source": {
+    "factorPolicy": "reference-default",
+    "kind": "template-default",
+    "requestHash": null
+  },
+  "testRole": "visible-audit",
+  "tradingAuthority": "none"
+}

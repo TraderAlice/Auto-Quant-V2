@@ -123,6 +123,10 @@ Pending.
   contract, real XNYS DST/XTKS close-extension fixtures, negative failure
   cases, and a deterministic V4 → V5 → intake → Factor → Explorer → Report
   integration proof.
+- 2026-08-02 — Version and generated discovery bundles advanced to `0.9.25`.
+  The root sample retained thirteen prior Runs and added clean Factor Run
+  `run-20260801T200541529080Z-beb54535a432` from candidate commit `643b713`
+  with unchanged validation IC `-0.031325301204819286`.
 
 ## Completion
 

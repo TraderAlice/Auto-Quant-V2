@@ -28,6 +28,7 @@ LATEST_FACTOR_SAMPLE_RUN_ID = "run-20260801T170126912006Z-b163fe166951"
 CURRENT_HARNESS_FACTOR_RUN_ID = "run-20260801T175812734661Z-2105d3af241b"
 CLOSE_TIME_FACTOR_RUN_ID = "run-20260801T184617432326Z-503eb77b044e"
 SOURCE_AVAILABILITY_FACTOR_RUN_ID = "run-20260801T190954461897Z-2e8462aa4547"
+CALENDAR_PACKAGE_FACTOR_RUN_ID = "run-20260801T200541529080Z-beb54535a432"
 SAMPLE_DESCRIPTION = (
     "A deterministic three-lane reference Project for learning AutoQuant "
     "before starting real research."
@@ -94,6 +95,7 @@ class RepositoryWorkspaceTests(unittest.TestCase):
                 CURRENT_HARNESS_FACTOR_RUN_ID,
                 CLOSE_TIME_FACTOR_RUN_ID,
                 SOURCE_AVAILABILITY_FACTOR_RUN_ID,
+                CALENDAR_PACKAGE_FACTOR_RUN_ID,
             ],
         )
         run = load_run(project, SAMPLE_RUN_ID)
@@ -317,6 +319,36 @@ class RepositoryWorkspaceTests(unittest.TestCase):
             source_availability_factor.result["metrics"]["validation_mean_ic"],
             -0.031325301204819286,
         )
+        calendar_package_factor = load_run(
+            project,
+            CALENDAR_PACKAGE_FACTOR_RUN_ID,
+        )
+        self.assertEqual(calendar_package_factor.result["status"], "succeeded")
+        self.assertEqual(
+            calendar_package_factor.result["study"]["id"],
+            "ohlcv-factor-quality",
+        )
+        self.assertEqual(
+            calendar_package_factor.result["harness"]["version"],
+            "0.9.25",
+        )
+        self.assertEqual(
+            calendar_package_factor.result["harness"]["commit"],
+            "643b71313a674559dc474afb20ee5be92384e876",
+        )
+        self.assertFalse(calendar_package_factor.result["harness"]["dirty"])
+        self.assertEqual(
+            calendar_package_factor.result["harness"]["buildProvenance"],
+            "source-checkout",
+        )
+        self.assertEqual(
+            calendar_package_factor.result["harness"]["sourceHash"],
+            "b1b83f033c20cb5a8bd4bcd269bd2338e8b9cd8ee2463a11bb1ec28663d4a93f",
+        )
+        self.assertEqual(
+            calendar_package_factor.result["metrics"]["validation_mean_ic"],
+            -0.031325301204819286,
+        )
 
         research = (project.root_dir / "research.md").read_text(encoding="utf-8")
         self.assertIn("## About this sample", research)
@@ -330,6 +362,7 @@ class RepositoryWorkspaceTests(unittest.TestCase):
         self.assertIn(CURRENT_HARNESS_FACTOR_RUN_ID, research)
         self.assertIn(CLOSE_TIME_FACTOR_RUN_ID, research)
         self.assertIn(SOURCE_AVAILABILITY_FACTOR_RUN_ID, research)
+        self.assertIn(CALENDAR_PACKAGE_FACTOR_RUN_ID, research)
         self.assertIn("not relabeled as a", research)
 
     def test_sample_template_owned_files_match_a_fresh_research_desk(
@@ -358,16 +391,16 @@ class RepositoryWorkspaceTests(unittest.TestCase):
         sample = snapshot["projects"][0]
         self.assertTrue(sample["valid"])
         self.assertEqual(sample["counts"]["studies"], 3)
-        self.assertEqual(sample["counts"]["runs"], 13)
+        self.assertEqual(sample["counts"]["runs"], 14)
         self.assertEqual(sample["counts"]["sessions"], 0)
         self.assertIsNotNone(sample["factorExplorer"])
         self.assertEqual(
             sample["factorExplorer"]["run"]["id"],
-            SOURCE_AVAILABILITY_FACTOR_RUN_ID,
+            CALENDAR_PACKAGE_FACTOR_RUN_ID,
         )
         self.assertEqual(
             sample["researchProgramStatus"]["lanes"][0]["latestRun"]["id"],
-            SOURCE_AVAILABILITY_FACTOR_RUN_ID,
+            CALENDAR_PACKAGE_FACTOR_RUN_ID,
         )
         self.assertIsNotNone(sample["portfolioExplorer"])
         self.assertEqual(
