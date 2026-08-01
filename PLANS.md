@@ -18,7 +18,9 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-None.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/immutable-research-correction-field-trial]] | Prove a fresh coworker can consume a strict Review and publish one exact current correction without rewriting prior evidence. | 2026-08-01 |
 
 ## Proposed plans
 
