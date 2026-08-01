@@ -18,7 +18,9 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-None.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/distribution-build-provenance]] | Preserve exact Git build provenance in installed distributions and make one complete runtime-package identity discoverable before and after research. | 2026-08-02 |
 
 ## Proposed plans
 
