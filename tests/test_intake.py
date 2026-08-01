@@ -3954,6 +3954,66 @@ def compute_factor(panel: pd.DataFrame) -> pd.Series:
                 ],
                 219,
             )
+            diagnostics = load_factor_diagnostics(
+                project,
+                run.result["id"],
+                point_limit=40,
+            )
+            self.assertEqual(
+                diagnostics["inputAvailability"]["timestamps"],
+                439,
+            )
+            self.assertEqual(
+                diagnostics["inputAvailability"]["observedRows"],
+                439,
+            )
+            self.assertEqual(
+                diagnostics["availabilityPath"]["totalRows"],
+                439,
+            )
+            report = publish_run_report(
+                project,
+                OHLCV_STUDY_ID,
+                run.result["id"],
+                {
+                    "schemaVersion": 1,
+                    "kind": "autoquant-research-report-analysis",
+                    "title": "Cross-market close-time Factor evidence",
+                    "executiveSummary": (
+                        "The fixed fixture verifies causal prior-close context."
+                    ),
+                    "findings": [
+                        {
+                            "id": "prior-completed-context",
+                            "claim": (
+                                "Toyota targets use only an already completed "
+                                "SPY close."
+                            ),
+                            "confidence": "high",
+                            "evidenceRefs": [
+                                {
+                                    "kind": "run",
+                                    "id": run.result["id"],
+                                    "artifactPath": (
+                                        "artifacts/factor-report.json"
+                                    ),
+                                }
+                            ],
+                        }
+                    ],
+                    "recommendations": [],
+                    "limitations": [
+                        "The deterministic fixture is not market evidence."
+                    ],
+                    "unresolvedQuestions": [],
+                },
+            )
+            self.assertEqual(
+                report.report["evidence"]["leaderDecisionSupport"][
+                    "factorInputAvailability"
+                ]["timestamps"],
+                439,
+            )
             self.assertGreater(
                 metrics["validation_mean_ic"],
                 0.95,

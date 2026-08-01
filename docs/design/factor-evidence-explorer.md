@@ -83,9 +83,14 @@ observed/possible rows, complete timestamps, eligible timestamps, per-asset
 observed start/end/coverage, and the explicit
 `observed-only-no-fill-v1` method.
 
-The Explorer exposes this evidence as `inputAvailability` and samples the
-availability path on the same deterministic anchors as the IC path. Historical
-Runs without the paired metric/artifact remain readable as
+The availability artifact owns the complete source-panel union and is not
+required to share the prediction clock used by daily IC evidence. This matters
+for asynchronous cross-market research: context closes remain visible as
+source evidence even when no target closes at the same instant. The Explorer
+exposes the reconciled union as `inputAvailability`; its bounded path retains
+only source rows that coincide with deterministic IC anchors, without claiming
+that the two complete timelines are identical. Historical Runs without the
+paired metric/artifact remain readable as
 `available=false, reason=legacy-run`; partial or mismatched new evidence fails
 closed.
 

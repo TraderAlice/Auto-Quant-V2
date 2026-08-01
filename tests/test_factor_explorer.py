@@ -310,6 +310,22 @@ class FactorEvidenceExplorerTests(unittest.TestCase):
                 original_availability,
                 encoding="utf-8",
             )
+            reordered = original_availability.splitlines()
+            reordered[1], reordered[2] = reordered[2], reordered[1]
+            availability_path.write_text(
+                "\n".join(reordered) + "\n",
+                encoding="utf-8",
+            )
+            rehash_run(run.root_dir)
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "unique and chronological",
+            ):
+                load_factor_diagnostics(project, run.result["id"])
+            availability_path.write_text(
+                original_availability,
+                encoding="utf-8",
+            )
 
             qualification_path = (
                 run.root_dir / "artifacts" / "factor-qualification.csv"

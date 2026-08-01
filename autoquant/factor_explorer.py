@@ -584,7 +584,6 @@ def _csv_integer(
 
 def _availability(
     path: Path,
-    daily: ParsedDaily,
     metrics: dict[str, Any],
     report: dict[str, Any],
     universe: list[str],
@@ -609,26 +608,22 @@ def _availability(
         columns=AVAILABILITY_COLUMNS,
         maximum_rows=MAX_DAILY_ROWS,
     )
-    if len(raw_rows) != len(daily.rows):
-        _fail(
-            path,
-            "factor.availability-rows",
-            "Availability rows must match the Factor timeline",
-        )
     rows: list[dict[str, Any]] = []
     maximum_assets = len(universe)
+    previous_timestamp: str | None = None
     for index, raw in enumerate(raw_rows):
         row_path = f"{path}:{index + 2}"
         timestamp = _session_date(
             raw["timestamp"],
             f"{row_path}/timestamp",
         )
-        if timestamp != daily.dates[index]:
+        if previous_timestamp is not None and timestamp <= previous_timestamp:
             _fail(
                 row_path,
-                "factor.availability-timestamp",
-                "Availability timeline must match daily Factor evidence",
+                "factor.availability-order",
+                "Availability timestamps must be unique and chronological",
             )
+        previous_timestamp = timestamp
         input_assets = _csv_integer(
             raw["input_assets"],
             f"{row_path}/input_assets",
@@ -3794,7 +3789,6 @@ def _load_factor_diagnostics_unlocked(
     if AVAILABILITY_ARTIFACT_KIND in paths:
         input_availability, availability_rows = _availability(
             paths[AVAILABILITY_ARTIFACT_KIND],
-            daily,
             metrics,
             report,
             universe,
@@ -3857,7 +3851,7 @@ def _load_factor_diagnostics_unlocked(
     availability_path = {
         "totalRows": len(availability_rows),
         "sampledRows": len(availability_points),
-        "sampling": "aligned-to-ic-path-timestamps",
+        "sampling": "source-panel-filtered-to-ic-path-timestamps",
         "points": availability_points,
     }
     semantics = report.get("semantics")
@@ -4649,7 +4643,9 @@ FACTOR_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                     "maximum": MAX_FACTOR_POINTS,
                 },
                 "sampling": {
-                    "const": "aligned-to-ic-path-timestamps"
+                    "const": (
+                        "source-panel-filtered-to-ic-path-timestamps"
+                    )
                 },
                 "points": {
                     "type": "array",

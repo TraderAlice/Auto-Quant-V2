@@ -95,6 +95,11 @@ can therefore make same-date context look available several hours too early.
   may use only context observations whose exact close timestamp is at or before
   the target decision timestamp; no-fill input and prefix causality audits stay
   authoritative.
+- 2026-08-02 — Source availability and prediction evidence own different
+  clocks. `factor-availability.csv` retains the complete asynchronous source
+  union; daily IC, targets, splits, and purge evidence retain the target's
+  observed clock. Explorer reconciliation must not require those complete
+  timelines to be identical.
 
 ## Verification
 
@@ -116,6 +121,15 @@ Pending.
   projection erased fully offset context before availability reporting and
   attempted to index an empty series. The Factor Judge now reports source-panel
   availability separately from the target evaluation timeline.
+- 2026-08-02 — The first installed `0.9.24` Grok 4.5 candidate trial authored
+  the correct explicit backward-as-of SPY context and completed one negative
+  Run, but normal Report publication exposed a second clock-coupling defect:
+  aggregate availability described the 3,749-row source union while its CSV
+  still described Toyota's 1,847-row prediction clock. Grok used a runtime
+  monkeypatch to omit optional leader decision support, so this attempt is
+  diagnostic evidence rather than a passing employability trial. The Judge,
+  Explorer, and Run-to-Report regression are being corrected before a fresh
+  installed-wheel retry.
 
 ## Completion
 

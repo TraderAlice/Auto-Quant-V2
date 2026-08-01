@@ -55,9 +55,10 @@ evidence includes observed/possible rows, complete and eligible timestamps,
 input/factor/pair breadth summaries, and each asset's observed range and
 coverage. V4/V5 missing, closed-market, and pre-listing combinations stay
 absent; no fill or global intersection occurs. V5 single-asset temporal
-evidence reports the prediction asset's observed timeline; context-only
-timestamps cannot shorten an observed-bar forward return or move a purge
-boundary.
+availability retains the complete asynchronous source-panel union. Its daily
+IC, target, split, and purge evidence separately follows only the prediction
+asset's observed timeline, so context-only timestamps cannot shorten an
+observed-bar forward return or move a purge boundary.
 
 ### Horizon quality and inference
 
@@ -159,8 +160,10 @@ Every successful reference Run publishes:
   purge-aware request-bound daily rank/Pearson IC;
 - `factor-quantiles.csv`: timestamp, split, horizon, low/middle/high return,
   and high-minus-low spread.
-- `factor-availability.csv`: timestamp-level observed input, finite-factor,
-  and per-horizon target-pair breadth reconciled to aggregate availability.
+- `factor-availability.csv`: source-panel-union timestamp-level observed
+  input, finite-factor, and per-horizon target-pair breadth reconciled to
+  aggregate availability. Its timeline is intentionally independent from the
+  prediction-clock `daily-factor-evidence.csv` timeline.
 - `factor-qualification.csv`: timestamp, split, request-fixed or train-selected
   comparison style,
   and candidate/style/style-neutral/equal-blend daily rank IC for fixed

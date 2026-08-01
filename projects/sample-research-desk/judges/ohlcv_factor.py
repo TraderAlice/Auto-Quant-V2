@@ -1838,7 +1838,6 @@ def _evaluate() -> tuple[
         )
     source_input_counts = source_close_panel.notna().sum(axis=1).astype(int)
     source_factor_counts = source_factor_panel.notna().sum(axis=1).astype(int)
-    research_input_counts = research_close_panel.notna().sum(axis=1).astype(int)
     input_counts = close_panel.notna().sum(axis=1).astype(int)
     factor_counts = factor_panel.notna().sum(axis=1).astype(int)
     paired_counts = {
@@ -1848,6 +1847,13 @@ def _evaluate() -> tuple[
         for horizon in HORIZONS
     }
     source_timeline = pd.DatetimeIndex(source_factor_panel.index)
+    source_paired_counts = {
+        horizon: paired_counts[horizon]
+        .reindex(source_timeline)
+        .fillna(0)
+        .astype(int)
+        for horizon in HORIZONS
+    }
     possible_rows = int(len(source_timeline) * len(universe))
     observed_rows = int(source_input_counts.sum())
     prediction_possible_rows = int(len(timeline) * len(prediction_assets))
@@ -1891,7 +1897,7 @@ def _evaluate() -> tuple[
             "input": _count_summary(source_input_counts),
             "factor": _count_summary(source_factor_counts),
             "primary_pair": _count_summary(
-                paired_counts[PRIMARY_HORIZON]
+                source_paired_counts[PRIMARY_HORIZON]
             ),
         },
         "by_asset": {
@@ -2422,14 +2428,14 @@ def _evaluate() -> tuple[
     daily_evidence.index.name = "timestamp"
     availability_evidence = pd.DataFrame(
         {
-            "input_assets": research_input_counts,
-            "factor_assets": factor_counts,
+            "input_assets": source_input_counts,
+            "factor_assets": source_factor_counts,
             **{
-                f"paired_assets_h{horizon}": paired_counts[horizon]
+                f"paired_assets_h{horizon}": source_paired_counts[horizon]
                 for horizon in HORIZONS
             },
         },
-        index=timeline,
+        index=source_timeline,
     )
     availability_evidence.index.name = "timestamp"
 
