@@ -31,8 +31,11 @@ panel from the target evaluation timeline, so fully asynchronous context is no
 longer misreported as zero observations.
 
 A deterministic Toyota/SPY fixture proves exact close-time visibility,
-prefix causality, and target-observed forward-bar alignment. Installed-wheel
-field evidence, the final sample Run, and complete release audit are pending in
+prefix causality, and target-observed forward-bar alignment. The root sample
+now preserves twelve historical Runs and projects a clean `0.9.24` Factor Run
+from commit `ea9a01e`; its aligned-panel validation IC remains exactly
+`-0.031325301204819286`. Installed-wheel field evidence and the complete
+release audit are pending in
 [[plans/close-time-aware-cross-market-daily-factor]]. OpenAlice remains
 independently pinned to `0.8.31`.
 

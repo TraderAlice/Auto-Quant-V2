@@ -40,14 +40,19 @@ candidate Harness at commit `df13d13` after temporal primary-objective
 failures gained exact population diagnostics. The preserved Factor Run
 `run-20260801T170126912006Z-b163fe166951` was produced by the clean `0.9.22`
 candidate Harness at commit `eebbd1b` after failed Run disposition and
-handoff became explicit. The current Factor Run
+handoff became explicit. The preserved Factor Run
 `run-20260801T175812734661Z-2105d3af241b` was produced by the clean `0.9.23`
 source Harness at commit `f4843fa` after installed-distribution provenance and
 the complete runtime closure became part of the shared Harness identity. It
 preserves the same deterministic cross-sectional candidate result under the
 current Study authority; the older Runs remain immutable historical evidence.
-No development
-execution is relabeled as a released version. The prior Portfolio Run
+The current Factor Run
+`run-20260801T184617432326Z-503eb77b044e` was produced by the clean `0.9.24`
+source Harness at commit `ea9a01e` after observed daily Factors gained exact
+close-time context semantics and source-panel availability evidence. It keeps
+the same `-0.031325301204819286` validation IC on this aligned sample while
+recording the generalized same-or-prior-timestamp causal context contract. No
+development execution is relabeled as a released version. The prior Portfolio Run
 `run-20260731T162132298210Z-e541f48086ba` was produced by the clean `0.9.3`
 candidate Harness at commit `ed61378`. It preserves the complete mechanical
 loss-attribution chain and truthfully records that temporal translation-window
@@ -59,7 +64,7 @@ cross-sectional normalized-intent construction remains explicit and valid
 after relative-value intent semantics were aligned with the capped
 complementary pair constructor. The candidate declares only base-clock
 momentum because this sample dataset has no higher-interval feature surface.
-Studio uses the latest ordinary immutable Run in each lane: the `0.9.23` Run
+Studio uses the latest ordinary immutable Run in each lane: the `0.9.24` Run
 for the Factor Explorer and the `0.9.4` Run for the Portfolio Explorer. A
 governed-RL baseline remains deliberately absent.
 

@@ -25,6 +25,7 @@ CURRENT_FACTOR_SAMPLE_RUN_ID = "run-20260801T145000180368Z-1fd810b3fe0e"
 NEW_FACTOR_SAMPLE_RUN_ID = "run-20260801T153801145739Z-a387a53aff40"
 LATEST_FACTOR_SAMPLE_RUN_ID = "run-20260801T170126912006Z-b163fe166951"
 CURRENT_HARNESS_FACTOR_RUN_ID = "run-20260801T175812734661Z-2105d3af241b"
+CLOSE_TIME_FACTOR_RUN_ID = "run-20260801T184617432326Z-503eb77b044e"
 SAMPLE_DESCRIPTION = (
     "A deterministic three-lane reference Project for learning AutoQuant "
     "before starting real research."
@@ -89,6 +90,7 @@ class RepositoryWorkspaceTests(unittest.TestCase):
                 NEW_FACTOR_SAMPLE_RUN_ID,
                 LATEST_FACTOR_SAMPLE_RUN_ID,
                 CURRENT_HARNESS_FACTOR_RUN_ID,
+                CLOSE_TIME_FACTOR_RUN_ID,
             ],
         )
         run = load_run(project, SAMPLE_RUN_ID)
@@ -255,6 +257,35 @@ class RepositoryWorkspaceTests(unittest.TestCase):
             current_harness_factor.result["metrics"]["validation_mean_ic"],
             -0.031325301204819286,
         )
+        close_time_factor = load_run(project, CLOSE_TIME_FACTOR_RUN_ID)
+        self.assertEqual(close_time_factor.result["status"], "succeeded")
+        self.assertEqual(
+            close_time_factor.result["study"]["id"], "ohlcv-factor-quality"
+        )
+        self.assertEqual(
+            close_time_factor.result["harness"]["version"], "0.9.24"
+        )
+        self.assertEqual(
+            close_time_factor.result["harness"]["commit"],
+            "ea9a01ea379d0c7f030344eafbca5d39f5c54dba",
+        )
+        self.assertFalse(close_time_factor.result["harness"]["dirty"])
+        self.assertEqual(
+            close_time_factor.result["metrics"]["factor_api"][
+                "cross_asset_context"
+            ],
+            "same-or-prior-timestamp-explicit-candidate",
+        )
+        self.assertEqual(
+            close_time_factor.result["metrics"]["input_availability"][
+                "prediction_universe"
+            ]["timeline_timestamps"],
+            420,
+        )
+        self.assertEqual(
+            close_time_factor.result["metrics"]["validation_mean_ic"],
+            -0.031325301204819286,
+        )
 
         research = (project.root_dir / "research.md").read_text(encoding="utf-8")
         self.assertIn("## About this sample", research)
@@ -266,6 +297,7 @@ class RepositoryWorkspaceTests(unittest.TestCase):
         self.assertIn(NEW_FACTOR_SAMPLE_RUN_ID, research)
         self.assertIn(LATEST_FACTOR_SAMPLE_RUN_ID, research)
         self.assertIn(CURRENT_HARNESS_FACTOR_RUN_ID, research)
+        self.assertIn(CLOSE_TIME_FACTOR_RUN_ID, research)
         self.assertIn("not relabeled as a", research)
 
     def test_sample_template_owned_files_match_a_fresh_research_desk(
@@ -294,16 +326,16 @@ class RepositoryWorkspaceTests(unittest.TestCase):
         sample = snapshot["projects"][0]
         self.assertTrue(sample["valid"])
         self.assertEqual(sample["counts"]["studies"], 3)
-        self.assertEqual(sample["counts"]["runs"], 11)
+        self.assertEqual(sample["counts"]["runs"], 12)
         self.assertEqual(sample["counts"]["sessions"], 0)
         self.assertIsNotNone(sample["factorExplorer"])
         self.assertEqual(
             sample["factorExplorer"]["run"]["id"],
-            CURRENT_HARNESS_FACTOR_RUN_ID,
+            CLOSE_TIME_FACTOR_RUN_ID,
         )
         self.assertEqual(
             sample["researchProgramStatus"]["lanes"][0]["latestRun"]["id"],
-            CURRENT_HARNESS_FACTOR_RUN_ID,
+            CLOSE_TIME_FACTOR_RUN_ID,
         )
         self.assertIsNotNone(sample["portfolioExplorer"])
         self.assertEqual(
