@@ -112,8 +112,8 @@ The research interpretation is frozen before the worker starts:
 ## Work
 
 - [x] Define and index the fixed historical path-stress assignment.
-- [ ] Build an isolated installed-`0.9.14` baseline desk with zero staged data.
-- [ ] Run and audit one fresh baseline worker without coaching.
+- [x] Build an isolated installed-`0.9.14` baseline desk with zero staged data.
+- [x] Run and audit one fresh baseline worker without coaching.
 - [ ] Admit and implement only reproduced reusable product friction.
 - [ ] Replay the unchanged task with a fresh candidate-wheel worker.
 - [ ] Complete the `v0.9.15` release audit and publish the tag.
@@ -134,15 +134,45 @@ The research interpretation is frozen before the worker starts:
 - 2026-08-01 — No implementation is authorized before the released baseline
   worker establishes whether public Workbench surfaces already support a
   truthful immutable answer or expose a concrete method gap.
+- 2026-08-01 — Baseline session
+  `019fbbf2-fcc4-75c1-ba13-b9caa87d559e` independently stopped at a useful
+  boundary with zero OHLCV, Projects, Studies, Sessions, Runs, or Reports. It
+  preserved the brief first and refused to relabel ad hoc pandas arithmetic as
+  immutable Workbench evidence.
+- 2026-08-01 — The exact installed `0.9.14` surfaces reproduce one coherent
+  method gap. Book Risk uses daily constant-weight trailing paths and covariance
+  risk contribution; the caller requires window-start fixed units, exhaustive
+  historical 20-following-session endpoints, greedy non-overlap selection,
+  terminal-loss ranking, and return contribution. Changing Book Risk lookbacks
+  cannot make those contracts equivalent.
+- 2026-08-01 — Admit one narrow fixed `ohlcv-book-path-stress-lab`, not a
+  generic scenario engine. The caller must freeze weights, history, horizon,
+  episode count, overlap policy, calendar, and adjustment meaning before the
+  Run. Core owns deterministic enumeration, selection, attribution,
+  reconciliation, immutable artifacts, strict inspection, and projection.
 
 ## Verification
 
-Pending baseline worker evidence.
+Baseline trial:
+`/Users/ame/autoquant-v0915-path-stress-baseline`. The exact released wheel
+SHA-256 is
+`d21d3cc3b86eebc18d4a3805a71507f316c7eef8a15bf4e70bbcf096d11af553`;
+Python is 3.11.14 and the installed CLI reports `aq 0.9.14`. The 262-line
+transcript, assignment, English brief, copied public-contract evidence, and
+caller-facing boundary handoff are preserved in that directory.
+
+The baseline created no market-data package or quantitative object. Its
+handoff accurately distinguishes the exact five unsupported semantics and
+does not claim loss numbers, future stress, authentication, optimization, an
+Order, or trading authority.
 
 ## Progress log
 
 - 2026-08-01 — Plan activated from clean released `v0.9.14`; OpenAlice remains
   independently pinned to `v0.8.31`.
+- 2026-08-01 — Released-wheel baseline completed without coaching in three
+  minutes. Its useful unsupported boundary authorizes the narrow fixed method
+  described above; implementation now begins.
 
 ## Completion
 
