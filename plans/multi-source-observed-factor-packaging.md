@@ -128,7 +128,11 @@ Pending.
   rejection of a rehashed unknown-source snapshot.
 - 2026-08-02 — Advanced the candidate to `0.9.26` and regenerated both Agent
   discovery roots plus `autoquant-skills.json` from the canonical Skill; Skill
-  validation and all 1,460 documentation links pass.
+  validation and all 1,459 documentation links pass.
+- 2026-08-02 — Added sample Run
+  `run-20260801T212920787441Z-4fafdd0a9412` from clean candidate commit
+  `3cd8cd99de9602b1903dc6bbd8ec8714c64026cc`; the immutable result reports
+  Harness `0.9.26`, `dirty=false`, and preserves all fourteen earlier Runs.
 
 ## Completion
 

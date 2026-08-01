@@ -63,7 +63,13 @@ gained audited calendar-derived daily close-time materialization. This aligned
 teaching dataset does not need that transformation, so the Run intentionally
 preserves the same `-0.031325301204819286` validation IC while recording the
 candidate's complete runtime identity. No development execution is relabeled
-as a released version. The prior Portfolio Run
+as a released version. The current Factor Run
+`run-20260801T212920787441Z-4fafdd0a9412` was produced by the clean `0.9.26`
+candidate source Harness at commit `3cd8cd9` after observed Factor packages
+gained exact multi-source provider identity. This aligned teaching fixture is
+still single-source synthetic evidence, so the Run verifies the new Harness
+runtime without pretending to demonstrate V6 market provenance and preserves
+the same `-0.031325301204819286` validation IC. The prior Portfolio Run
 `run-20260731T162132298210Z-e541f48086ba` was produced by the clean `0.9.3`
 candidate Harness at commit `ed61378`. It preserves the complete mechanical
 loss-attribution chain and truthfully records that temporal translation-window
@@ -75,7 +81,7 @@ cross-sectional normalized-intent construction remains explicit and valid
 after relative-value intent semantics were aligned with the capped
 complementary pair constructor. The candidate declares only base-clock
 momentum because this sample dataset has no higher-interval feature surface.
-Studio uses the latest ordinary immutable Run in each lane: the `0.9.25`
+Studio uses the latest ordinary immutable Run in each lane: the `0.9.26`
 candidate Run for the Factor Explorer and the `0.9.4` Run for the Portfolio
 Explorer. A governed-RL baseline remains deliberately absent.
 

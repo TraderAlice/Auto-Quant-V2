@@ -52,11 +52,11 @@ fill. Factor availability distinguishes the complete source panel from the
 target evaluation timeline, and deterministic Toyota/SPY evidence proves that
 a Tokyo decision cannot see the later same-date New York close.
 
-The root sample preserves fourteen historical Runs and its clean `0.9.25`
-Factor evidence without rewriting old results. A clean `0.9.26` sample Run,
-fresh Grok field evidence, complete regression/build/install/clone audit, and
-published tag remain the candidate's release gates. OpenAlice remains
-independently pinned to `v0.8.31`.
+The root sample preserves fifteen historical Runs without rewriting old
+results and now projects a clean `0.9.26` Factor Run bound to candidate commit
+`3cd8cd9`. Fresh Grok field evidence, complete regression/build/install/clone
+audit, and the published tag remain the candidate's release gates. OpenAlice
+remains independently pinned to `v0.8.31`.
 
 ## What works today
 
