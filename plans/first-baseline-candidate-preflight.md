@@ -1,6 +1,6 @@
 # First-baseline candidate preflight
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-08-02`
 - Target release: `0.9.27`
 - Related design: [[docs/design/candidate-preflight-feedback]],
@@ -80,28 +80,28 @@ require Agents to manufacture a candidate edit merely to obtain a Check.
 
 ## Acceptance
 
-- [ ] A fresh invalid first candidate fails before any full Run or Session and
+- [x] A fresh invalid first candidate fails before any full Run or Session and
   leaves the Project lifecycle count and filesystem free of partial artifacts.
-- [ ] A valid first candidate passes the exact fixed guard, creates one
+- [x] A valid first candidate passes the exact fixed guard, creates one
   baseline and Session, and retains tamper-checked baseline-preflight
   provenance with explicit no-selection/no-trading authority.
-- [ ] Exact reusable baselines and Studies without preflight preserve their
+- [x] Exact reusable baselines and Studies without preflight preserve their
   established behavior and disclose why no new guard ran.
-- [ ] CLI, JSON, orientation, Studio, schemas, capabilities, generated Skills,
+- [x] CLI, JSON, orientation, Studio, schemas, capabilities, generated Skills,
   and Agent documentation describe the same first-candidate route.
-- [ ] A fresh installed-wheel coworker independently recovers from one rejected
+- [x] A fresh installed-wheel coworker independently recovers from one rejected
   first candidate and produces exactly one formal scientific Run after repair.
-- [ ] Focused tests, full regression, documentation links, build, installed
+- [x] Focused tests, full regression, documentation links, build, installed
   smoke, clean-clone smoke, and remote branch/tag identity pass for `v0.9.27`.
 
 ## Work
 
-- [ ] Define the reusable preflight executor and baseline receipt contract.
-- [ ] Integrate atomic pre-baseline gating into Session start and strict load.
-- [ ] Complete CLI/orientation/Studio/schema/capability surfaces and tests.
-- [ ] Advance version and public documentation; run a fresh coworker field
+- [x] Define the reusable preflight executor and baseline receipt contract.
+- [x] Integrate atomic pre-baseline gating into Session start and strict load.
+- [x] Complete CLI/orientation/Studio/schema/capability surfaces and tests.
+- [x] Advance version and public documentation; run a fresh coworker field
   assignment from a clean installed wheel.
-- [ ] Complete release verification, tag, push, and remote identity audit.
+- [x] Complete release verification, tag, push, and remote identity audit.
 
 ## Findings and decisions
 
@@ -120,13 +120,56 @@ require Agents to manufacture a candidate edit merely to obtain a Check.
 
 ## Verification
 
-Pending.
+- Focused Core, Session, CLI, orientation, Studio, template, and repository
+  tests passed, including atomic failed/malformed/timed-out guards, exact
+  successful receipt validation, no-preflight Studies, reusable baselines, and
+  tamper rejection. Python compilation passed and all 1,465 documentation
+  double-links resolved.
+- The complete deterministic suite passed: `442` tests in `1072.298s`.
+- Candidate build audit at commit `65b030e` produced wheel SHA-256
+  `f5e885a3db86876417e20b4f241675f714026ee579459845768ccfb207af1524`
+  and sdist SHA-256
+  `e6e4f79bb6ed8406759db2ff7e0117c201d383d07ed390042bfc59e5e907509d`.
+  A fresh Python 3.11 install reported exact clean embedded provenance, exposed
+  all three `baselineGuard` modes in the public Session schema, and passed
+  root orientation, validation, Project discovery, and Studio snapshot in a
+  `git clone --no-local` checkout without local override.
+- Fresh Grok 4.5 field trial:
+  `/Users/ame/2607AutoQuant/grok-field-trials/cohort-40-first-baseline-preflight-v0927`.
+  The isolated installed wheel at candidate commit `246a43e` has SHA-256
+  `bec31ede775160f3e03cd5fccd921e503e828fe04dc8a6f6838cd95aed2dbc70`;
+  Grok Session `019fbf8e-41f4-7802-bfc1-0865651853c1` and transcript SHA-256
+  `bd1c49b755562dffa0942ac7e7ffc86b1682d9a8ec0c2051b6c10b565a4bf4ec`
+  preserve the independent route.
+- The coworker authored the requested type-invalid first candidate, received
+  `session.baseline-preflight-failed` plus `session.factor.type`, and verified
+  zero Runs and Sessions. It repaired only the output contract, then created
+  exactly Run `run-20260801T230149722345Z-73c382029b18`, completed Session
+  `session-20260801T230201616729Z-77392a101e3a`, and published Report
+  `report-20260801T230357510388Z-635a46928d5a`. Receipt
+  `b0d5782c01646e7f7d82742ba60393f60e6df45927a27fed21a95dd5ea713242`
+  retained explicit no-selection/no-promotion/no-trading authority. There were
+  zero CandidateChecks and zero Experiments; the negative Factor result was
+  reported without tuning. Independent `verify_field.py` passed.
 
 ## Progress log
 
 - 2026-08-02 — Plan created immediately after publishing `v0.9.26`, from the
   common lifecycle friction retained by both installed-wheel field trials.
+- 2026-08-02 — Core made `session start` the atomic owner of fresh candidate
+  preflight plus baseline creation; public orientation, Studio, schemas,
+  capabilities, templates, and documentation converged on that route.
+- 2026-08-02 — A fresh installed Grok coworker recovered from the intentional
+  zero-artifact guard failure, created exactly one formal Run, retained a
+  verifiable no-authority receipt, reported a negative result, and stopped.
+- 2026-08-02 — Full regression, documentation, build, installed-runtime, and
+  clean-clone audits passed for the release candidate.
 
 ## Completion
 
-Pending.
+Completed for `v0.9.27`. The first caller-relevant candidate now has a real
+fast feedback path before complete evaluation, while the fixed Judge remains
+the sole source of scientific metrics and selection evidence. Failed guards
+leave no lifecycle artifacts; passed guard provenance is durable, exact, and
+explicitly powerless. The independent coworker required no source inspection
+or framework workaround.

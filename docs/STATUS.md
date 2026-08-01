@@ -42,6 +42,16 @@ candidate code must express asynchronous context through explicit causal
 backward as-of operations. Core never manufactures a common calendar or
 implicit fill.
 
+A fresh installed-wheel Grok coworker independently followed the public route:
+one intentionally malformed first candidate was rejected with zero Runs and
+Sessions, the same hypothesis was repaired, and exactly one complete baseline
+plus one Session were created. The coworker inspected the retained guard,
+published a negative evidence-bound Report, completed without any Check,
+Experiment, or tuning, and recorded no Workbench gap. The complete 442-test
+regression, documentation links, build, installed-runtime, and clean-clone
+audits pass; exact proof is retained in
+[[plans/first-baseline-candidate-preflight]].
+
 The root sample preserves fifteen historical Runs without rewriting old
 results and now projects a clean `0.9.26` Factor Run bound to candidate commit
 `3cd8cd9`. OpenAlice remains independently pinned to `v0.8.31`.
