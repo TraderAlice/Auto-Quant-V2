@@ -1,8 +1,8 @@
 # AutoQuant V2 current status
 
-Status: `0.9.26` is the current release candidate; `v0.9.25` remains the
-latest published AutoQuant tag and `v0.8.31` remains the Harness currently
-consumed by OpenAlice until the host deliberately selects a newer tag.
+Status: `v0.9.26` is the current AutoQuant release and `v0.8.31` remains the
+Harness currently consumed by OpenAlice until the host deliberately selects a
+newer tag.
 
 Updated: 2026-08-02.
 
@@ -33,12 +33,16 @@ symbols. Drift, unsafe paths, symlinks, conflicting authority, duplicate
 identity, provider ambiguity, or an occupied output fail without partial V6
 state.
 
-Deterministic evidence already passes V5 → V6 → JSON Schema and independent
+Deterministic evidence passes V5 → V6 → JSON Schema and independent
 package audit → strict Factor intake → CLI → Run → Factor Explorer → immutable
 Report → Studio, plus rehashed snapshot-tamper rejection. Generated Workspace
-Skills disclose the same route without requiring Core inspection. The fresh
-installed-wheel Grok trial and final release audit remain pending; exact
-progress is retained in [[plans/multi-source-observed-factor-packaging]].
+Skills disclose the same route without requiring Core inspection. A fresh
+installed-wheel Grok coworker independently materialized Nasdaq V4 to V5,
+composed distinct Yahoo and Nasdaq V5 sources into V6, confirmed the public
+ragged observed-only Candidate Contract, produced exactly one causal Factor
+Run and one evidence-bound Report, and stopped on an unsupported result. The
+full 439-test regression and final packaging audit pass; exact proof is retained
+in [[plans/multi-source-observed-factor-packaging]].
 
 The published `v0.9.25` baseline already materializes exact scheduled daily
 closes from strict date-only V4 plus explicit exchange-calendar authority. V5
@@ -54,9 +58,7 @@ a Tokyo decision cannot see the later same-date New York close.
 
 The root sample preserves fifteen historical Runs without rewriting old
 results and now projects a clean `0.9.26` Factor Run bound to candidate commit
-`3cd8cd9`. Fresh Grok field evidence, complete regression/build/install/clone
-audit, and the published tag remain the candidate's release gates. OpenAlice
-remains independently pinned to `v0.8.31`.
+`3cd8cd9`. OpenAlice remains independently pinned to `v0.8.31`.
 
 ## What works today
 
