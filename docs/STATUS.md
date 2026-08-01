@@ -31,11 +31,18 @@ panel from the target evaluation timeline, so fully asynchronous context is no
 longer misreported as zero observations.
 
 A deterministic Toyota/SPY fixture proves exact close-time visibility,
-prefix causality, and target-observed forward-bar alignment. The root sample
-now preserves twelve historical Runs and projects a clean `0.9.24` Factor Run
-from commit `ea9a01e`; its aligned-panel validation IC remains exactly
-`-0.031325301204819286`. Installed-wheel field evidence and the complete
-release audit are pending in
+prefix causality, and target-observed forward-bar alignment. The first
+installed-wheel field attempt then exposed a remaining Report-path mismatch:
+aggregate availability owned the source union while its artifact still owned
+the prediction clock. The corrected Judge now emits the full source-union
+artifact, and Explorer verifies that independent clock before filtering its
+bounded path to IC anchors. Deterministic Run-to-Explorer-to-Report regression
+passes.
+
+The root sample now preserves thirteen historical Runs and projects a clean
+`0.9.24` Factor Run from commit `ef3b9c2`; its aligned-panel validation IC
+remains exactly `-0.031325301204819286`. A fresh installed-wheel retry and the
+complete release audit are pending in
 [[plans/close-time-aware-cross-market-daily-factor]]. OpenAlice remains
 independently pinned to `0.8.31`.
 

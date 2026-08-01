@@ -26,6 +26,7 @@ NEW_FACTOR_SAMPLE_RUN_ID = "run-20260801T153801145739Z-a387a53aff40"
 LATEST_FACTOR_SAMPLE_RUN_ID = "run-20260801T170126912006Z-b163fe166951"
 CURRENT_HARNESS_FACTOR_RUN_ID = "run-20260801T175812734661Z-2105d3af241b"
 CLOSE_TIME_FACTOR_RUN_ID = "run-20260801T184617432326Z-503eb77b044e"
+SOURCE_AVAILABILITY_FACTOR_RUN_ID = "run-20260801T190954461897Z-2e8462aa4547"
 SAMPLE_DESCRIPTION = (
     "A deterministic three-lane reference Project for learning AutoQuant "
     "before starting real research."
@@ -91,6 +92,7 @@ class RepositoryWorkspaceTests(unittest.TestCase):
                 LATEST_FACTOR_SAMPLE_RUN_ID,
                 CURRENT_HARNESS_FACTOR_RUN_ID,
                 CLOSE_TIME_FACTOR_RUN_ID,
+                SOURCE_AVAILABILITY_FACTOR_RUN_ID,
             ],
         )
         run = load_run(project, SAMPLE_RUN_ID)
@@ -286,6 +288,34 @@ class RepositoryWorkspaceTests(unittest.TestCase):
             close_time_factor.result["metrics"]["validation_mean_ic"],
             -0.031325301204819286,
         )
+        source_availability_factor = load_run(
+            project,
+            SOURCE_AVAILABILITY_FACTOR_RUN_ID,
+        )
+        self.assertEqual(source_availability_factor.result["status"], "succeeded")
+        self.assertEqual(
+            source_availability_factor.result["study"]["id"],
+            "ohlcv-factor-quality",
+        )
+        self.assertEqual(
+            source_availability_factor.result["harness"]["version"],
+            "0.9.24",
+        )
+        self.assertEqual(
+            source_availability_factor.result["harness"]["commit"],
+            "ef3b9c230de346bb5923f983d2f728487e0d5c7a",
+        )
+        self.assertFalse(source_availability_factor.result["harness"]["dirty"])
+        self.assertEqual(
+            source_availability_factor.result["metrics"]["input_availability"][
+                "timestamps"
+            ],
+            420,
+        )
+        self.assertEqual(
+            source_availability_factor.result["metrics"]["validation_mean_ic"],
+            -0.031325301204819286,
+        )
 
         research = (project.root_dir / "research.md").read_text(encoding="utf-8")
         self.assertIn("## About this sample", research)
@@ -298,6 +328,7 @@ class RepositoryWorkspaceTests(unittest.TestCase):
         self.assertIn(LATEST_FACTOR_SAMPLE_RUN_ID, research)
         self.assertIn(CURRENT_HARNESS_FACTOR_RUN_ID, research)
         self.assertIn(CLOSE_TIME_FACTOR_RUN_ID, research)
+        self.assertIn(SOURCE_AVAILABILITY_FACTOR_RUN_ID, research)
         self.assertIn("not relabeled as a", research)
 
     def test_sample_template_owned_files_match_a_fresh_research_desk(
@@ -326,16 +357,16 @@ class RepositoryWorkspaceTests(unittest.TestCase):
         sample = snapshot["projects"][0]
         self.assertTrue(sample["valid"])
         self.assertEqual(sample["counts"]["studies"], 3)
-        self.assertEqual(sample["counts"]["runs"], 12)
+        self.assertEqual(sample["counts"]["runs"], 13)
         self.assertEqual(sample["counts"]["sessions"], 0)
         self.assertIsNotNone(sample["factorExplorer"])
         self.assertEqual(
             sample["factorExplorer"]["run"]["id"],
-            CLOSE_TIME_FACTOR_RUN_ID,
+            SOURCE_AVAILABILITY_FACTOR_RUN_ID,
         )
         self.assertEqual(
             sample["researchProgramStatus"]["lanes"][0]["latestRun"]["id"],
-            CLOSE_TIME_FACTOR_RUN_ID,
+            SOURCE_AVAILABILITY_FACTOR_RUN_ID,
         )
         self.assertIsNotNone(sample["portfolioExplorer"])
         self.assertEqual(
