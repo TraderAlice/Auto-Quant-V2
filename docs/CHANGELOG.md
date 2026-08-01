@@ -22,6 +22,7 @@ It is deliberately not a second current-status page or release checklist:
 
 | Release | Bounded outcome | Exact evidence |
 | --- | --- | --- |
+| `v0.9.25` | Added public, audited conversion from strict date-only daily packages and explicit exchange-calendar authority to close-time-aware V5 evidence. | [[plans/calendar-derived-daily-close-time-packaging]] |
 | `v0.9.24` | Preserved exact daily close-time availability for causal cross-market Factor research. | [[plans/close-time-aware-cross-market-daily-factor]] |
 | `v0.9.23` | Preserved trustworthy build provenance and one complete installed-runtime identity. | [[plans/distribution-build-provenance]] |
 | `v0.9.22` | Made current failed Runs explicit, resumable research evidence with truthful scientific-limit handling. | [[plans/failed-run-research-handoff]] |

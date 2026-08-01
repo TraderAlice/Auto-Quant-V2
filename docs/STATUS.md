@@ -1,8 +1,8 @@
 # AutoQuant V2 current status
 
-Status: `0.9.25` release candidate under bounded validation; `v0.9.24` is the
-latest published AutoQuant tag and `v0.8.31` remains the Harness currently
-consumed by OpenAlice until the host deliberately selects a newer tag.
+Status: `v0.9.25` is the latest published AutoQuant tag; `v0.8.31` remains the
+Harness currently consumed by OpenAlice until the host deliberately selects a
+newer tag.
 
 Updated: 2026-08-02.
 
@@ -17,7 +17,7 @@ historical proof remains in completed plans and immutable Git tags.
 
 ## Current milestone
 
-The `0.9.25` candidate closes the remaining acquisition-side gap in
+The `0.9.25` release closes the remaining acquisition-side gap in
 cross-market daily Factor research. The public packaging Skill can now turn
 one strict date-only observed V4 package plus explicit content-bound per-asset
 calendar authority into a transactional V5 package with exact scheduled UTC
@@ -32,9 +32,8 @@ fixtures cover the XNYS daylight-saving transition and XTKS's November 2024
 close extension, then pass V5 intake, Factor execution, Explorer, and immutable
 Report publication. A fresh installed-wheel Grok coworker also completed the
 public date-only V4 → calendar authority → V5 → intake → one Factor Run →
-negative Report route without private conversion code. Only the complete
-release audit remains pending in
-[[plans/calendar-derived-daily-close-time-packaging]].
+negative Report route without private conversion code. Exact proof is retained
+in [[plans/calendar-derived-daily-close-time-packaging]].
 
 The published `v0.9.24` baseline already makes cross-market daily Factor
 research preserve information availability by exact completed close instant
@@ -50,17 +49,17 @@ target evaluation timeline, and deterministic Toyota/SPY evidence proves that
 a Tokyo decision cannot see the later same-date New York close.
 
 The root sample now preserves fourteen historical Runs and projects a clean
-`0.9.25` candidate Factor Run without rewriting old evidence. A fresh
+`0.9.25` Factor Run without rewriting old evidence. A fresh
 installed-wheel Grok 4.5 coworker completed one bounded cross-market daily
 assignment from a date-only V4 source, used the public calendar materializer
 and ordinary Workbench surfaces, and stopped honestly on weak validation and
 negative test evidence. Exact implementation, field, and release proof is in
 [[plans/calendar-derived-daily-close-time-packaging]].
 
-The `v0.9.24` release audit passed 433 tests, 1,436 documentation links, source/wheel
-builds, fresh Python 3.11 installed-distribution smoke, and a no-local-override
-clean-clone Workspace replay. OpenAlice remains independently pinned to
-`v0.8.31`.
+The `v0.9.25` release audit passed 437 tests, 1,455 documentation links,
+source/wheel builds, fresh Python 3.11 installed-distribution smoke, and a
+no-local-override clean-clone Workspace replay. OpenAlice remains independently
+pinned to `v0.8.31`.
 
 ## What works today
 
@@ -158,8 +157,8 @@ AutoQuant evidence without moving live-trading authority into the quant desk.
   supervised ML, richer portfolio constructors, clustering/HRP, probabilistic
   models, and other methods should follow demonstrated research demand.
 - External OHLCV acquisition and package preparation still require Agent
-  judgment. The active `0.9.25` work addresses one observed daily close-time
-  materialization gap without turning Core into a downloader.
+  judgment. The public Skill now covers one observed daily close-time
+  materialization route without turning Core into a downloader.
 - Studio is a verified observation surface, not a full interactive research
   authoring or orchestration UI.
 - OpenAlice remains deliberately pinned to `0.8.31`; host-side adoption of a
@@ -171,4 +170,5 @@ AutoQuant evidence without moving live-trading authority into the quant desk.
 
 Continue driving `0.9.x` from bounded real assignments and Project-local
 `framework-needs.md`. Prefer correctness and Agent operability over speculative
-surface or pre-1.0 compatibility. The active work item is indexed in [[PLANS]].
+surface or pre-1.0 compatibility; [[PLANS]] owns the next active item when one
+is selected.

@@ -1,6 +1,6 @@
 # Calendar-derived daily close-time packaging
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-08-02`
 - Target release: `0.9.25`
 - Related design: [[docs/design/agent-native-market-data-acquisition]],
@@ -84,7 +84,7 @@ not become a downloader or calendar oracle.
 - [x] A fresh installed-wheel Grok coworker completes one bounded cross-market
   daily assignment from the date-based source package and stops truthfully on
   the resulting evidence.
-- [ ] Focused tests, full regression, docs links, build, installed smoke,
+- [x] Focused tests, full regression, docs links, build, installed smoke,
   clean-clone smoke, and remote branch/tag identity pass for `v0.9.25`.
 
 ## Work
@@ -94,7 +94,7 @@ not become a downloader or calendar oracle.
 - [x] Add source-to-V5-to-Report integration tests and public guidance.
 - [x] Refresh version/sample evidence and run a fresh installed-wheel field
   assignment.
-- [ ] Complete the release audit, commit, tag, push, and verify `v0.9.25`.
+- [x] Complete the release audit, commit, tag, push, and verify `v0.9.25`.
 
 ## Findings and decisions
 
@@ -113,7 +113,31 @@ not become a downloader or calendar oracle.
 
 ## Verification
 
-Pending.
+- Focused CLI, Studio, repository-Workspace, documentation, and bundled-Skill
+  coverage passed 45 tests before the complete gate.
+- The first complete pass exposed only two stale assertions that hard-coded
+  current runtime version `0.9.24`; current-surface tests now compare with the
+  package version authority while immutable historical Run identities remain
+  exact. Both corrected tests passed independently.
+- `uv run python -m unittest discover -s tests -q` passed all 437 tests in
+  1,058.463 seconds. `uv lock --check`, Python compilation, `git diff --check`,
+  and all 1,455 documentation links passed.
+- Candidate commit `6b41714` built wheel SHA
+  `e23da3b412ba94eb8f1766dd5c82721bd7799ab54c138e83fa1728026e5480f8`
+  and sdist SHA
+  `af3514a4d6234c7aa75b7decd4ef7949d2b5c8cf783cf7228df34ad9b8572d45`.
+  Both distributions contain the public materializer; the wheel contains the
+  canonical 16-Skill runtime bundle and embedded build identity.
+- A fresh Python 3.11.14 wheel install reported `0.9.25`, clean embedded commit
+  `6b417145d636df1c06f43cc53a74a2a55f983702`, runtime source hash
+  `b1b83f033c20cb5a8bd4bcd269bd2338e8b9cd8ee2463a11bb1ec28663d4a93f`,
+  `exchange_calendars@4.13.2`, and usable public materializer help.
+- A no-hardlink clone without `autoquant-workspace.local.json` selected only
+  `sample-research-desk`, validated and oriented successfully, and projected
+  three Studies and fourteen Runs through installed Studio with the same
+  Harness identity.
+- Final release commit, `main`, and annotated `v0.9.25` were published and
+  verified at one remote identity.
 
 ## Progress log
 
@@ -149,4 +173,10 @@ Pending.
 
 ## Completion
 
-Pending.
+Completed. An installed coding coworker can now start with a truthful
+date-labelled daily package, apply explicit pinned exchange-calendar authority
+through the public packaging Skill, and obtain an audited close-time-aware V5
+package without private conversion code. The procedure changes no OHLCV value
+or availability row, fails without partial publication, and preserves the
+boundary that calendars are declared research authority rather than facts
+silently inferred by Core.
