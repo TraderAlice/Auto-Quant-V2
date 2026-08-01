@@ -50,7 +50,12 @@ The root sample now preserves ten historical Runs and projects a clean
 and release evidence is in [[plans/failed-run-research-handoff]]. OpenAlice
 remains independently pinned to `0.8.31`.
 
-Final release audit evidence is pending.
+The final regression passed all 427 tests in 1,052.884 seconds and resolved all
+1,408 documentation links. Lock, Python/Studio syntax, diff, source/wheel
+build, fresh Python 3.11.14 installed-wheel version/capability/16-Skill smoke,
+field-Workspace replay, and a no-local-override clean-clone root Workspace
+smoke all passed. Exact verification evidence remains in
+[[plans/failed-run-research-handoff]].
 
 ### `v0.9.21`
 

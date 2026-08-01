@@ -1,6 +1,6 @@
 # Failed Run research handoff
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-08-02`
 - Related design: [[docs/design/study-run-evidence]],
   [[docs/design/agent-operator-experience]],
@@ -66,7 +66,7 @@ conclusion, but neither class should be hidden or blindly repeated.
 - [x] A fresh installed-wheel Grok worker can receive the sparse Factor task,
   create exactly one failed Run, publish or explain the exact bounded outcome,
   and stop without retrying or manufacturing a usable Factor.
-- [ ] Focused tests, complete unit tests, docs links, build, installed smoke,
+- [x] Focused tests, complete unit tests, docs links, build, installed smoke,
   clean-clone smoke, and remote branch/tag identity pass for `v0.9.22`.
 
 ## Work
@@ -77,10 +77,10 @@ conclusion, but neither class should be hidden or blindly repeated.
   actions, agendas, Reports, and Studio projections.
 - [x] Add deterministic scientific-limit, repair-required, stale-attempt,
   downstream-gate, and terminal-report tests.
-- [ ] Update Agent, CLI, Studio, Run evidence, orchestration, lifecycle, status,
+- [x] Update Agent, CLI, Studio, Run evidence, orchestration, lifecycle, status,
   and release documentation.
 - [x] Build the candidate wheel and run the fresh-worker field assignment.
-- [ ] Complete the release audit, commit, push, tag, and verify `v0.9.22`.
+- [x] Complete the release audit, commit, push, tag, and verify `v0.9.22`.
 
 ## Findings and decisions
 
@@ -104,7 +104,24 @@ conclusion, but neither class should be hidden or blindly repeated.
 
 ## Verification
 
-- Pending.
+- Focused Run/Report/Orientation/Program/intake regression: 90 tests passed in
+  308.306 seconds.
+- Complete unit suite: 427 tests passed in 1,052.884 seconds.
+- `uv lock --check`, Python byte compilation, Studio JavaScript syntax,
+  `git diff --check`, and all 1,408 documentation links passed.
+- Source distribution and wheel built successfully. A fresh Python 3.11.14
+  environment installed the wheel as `aq 0.9.22` from `site-packages`, exposed
+  57 public commands and all 16 packaged Skills, and disclosed the exact
+  scientific-limit Report exception through both CLI help and capability
+  discovery.
+- The final installed wheel revalidated the isolated field Workspace with zero
+  diagnostics and projected its terminal one-Run/one-Report result through
+  orientation and Studio without mutation.
+- A no-local-override clone independently passed root `validate`, `orient`,
+  `project list`, and `studio snapshot` with zero diagnostics and a clean Git
+  worktree.
+- The published `origin/main` and annotated `v0.9.22` tag were verified to
+  resolve to the same release commit.
 
 ## Progress log
 
@@ -117,7 +134,14 @@ conclusion, but neither class should be hidden or blindly repeated.
   `report-20260801T165826235891Z-8a6f53803c20`; independent validate,
   orientation, and Studio audit returned zero diagnostics and exactly one Run,
   one Report, zero Sessions, and zero Dossiers.
+- 2026-08-02 — Complete regression passed all 427 tests in 1,052.884 seconds;
+  the release audit resolved 1,408 documentation links and passed lock, source,
+  installed-wheel, package-content, field-replay, and clean-clone checks.
 
 ## Completion
 
-Pending.
+Completed on 2026-08-02. AutoQuant now preserves an unchanged failed attempt as
+first-class re-entry evidence, distinguishes reportable scientific limits from
+repair-required defects, and makes only the exact reported scientific limit a
+terminal no-retry handoff. The release was published as `v0.9.22`; OpenAlice's
+independent `v0.8.31` Harness selection was not changed.
