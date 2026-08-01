@@ -224,7 +224,8 @@ Full artifacts are reconciled before these response bounds apply.
 
 ## Known limits
 
-- V1 supports the fixed cross-sectional OHLCV Factor Lab only.
+- V1 supports the fixed OHLCV Factor Lab across cross-sectional,
+  single-asset-temporal, and two-asset-relative-value evaluation modes.
 - HAC and style evidence are Judge-authored summaries; Core reconciles the
   underlying mean paths but does not reimplement every statistical estimator.
 - The explorer does not estimate capacity or portfolio performance.

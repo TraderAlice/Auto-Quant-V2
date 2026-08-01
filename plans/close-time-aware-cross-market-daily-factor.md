@@ -72,7 +72,7 @@ can therefore make same-date context look available several hours too early.
   pattern understandable without implementation inspection.
 - [ ] Historical V1–V5 Projects and immutable evidence remain truthfully
   readable unless an intentional breaking contract is explicitly documented.
-- [ ] A fresh installed-wheel Grok coworker completes one bounded cross-market
+- [x] A fresh installed-wheel Grok coworker completes one bounded cross-market
   daily Factor assignment and hands off the exact limitation/authority state.
 - [ ] Focused tests, full regression, docs links, build, installed smoke,
   clean-clone smoke, and remote branch/tag identity pass for `v0.9.24`.
@@ -82,7 +82,7 @@ can therefore make same-date context look available several hours too early.
 - [x] Generalize the observed-bar schema and implementation.
 - [x] Add asynchronous close-time correctness and regression fixtures.
 - [x] Update Agent, CLI, Project format, architecture, Studio, and design docs.
-- [ ] Run a fresh installed-wheel cross-market field assignment.
+- [x] Run a fresh installed-wheel cross-market field assignment.
 - [ ] Refresh release evidence, publish, tag, and verify `v0.9.24`.
 
 ## Findings and decisions
@@ -103,7 +103,43 @@ can therefore make same-date context look available several hours too early.
 
 ## Verification
 
-Pending.
+- Clean retry candidate commit:
+  `2868f4aefa72a591834ff771abf5395c5208380b`.
+- Wheel:
+  `auto_quant-0.9.24-py3-none-any.whl`, SHA-256
+  `25213600792e4b68a2e414f7823b097a204238e9071e22e8e8edfbea5dfcdd13`.
+  Installed identity was `autoquant.python-judge@0.9.24`, embedded clean commit
+  `2868f4a`, Python `3.11.14`, runtime source hash
+  `ee73ba7f2a81d034e255f2081997afedb2f4baea03c2c8404a70562aa5ee604c`.
+- Fresh Grok 4.5 retry:
+  `/Users/ame/2607AutoQuant/grok-field-trials/cohort-36-cross-market-daily-v0924-retry`.
+  It completed in 16 model turns using only the installed public surface and
+  produced exactly one Factor Study, Run, Session, and Report, with no
+  Portfolio, RL, or Dossier lane.
+- Immutable identities:
+  Run `run-20260801T191512297218Z-ac8a044f8273`, Session
+  `session-20260801T191512863288Z-011c79dc60db`, Report
+  `report-20260801T191714694932Z-56274f8f184a`, completion
+  `completion-20260801T191721941073Z-ac030b682110`.
+- Independent public CLI verification passed Workspace validation,
+  orientation, strict Run/Factor/Report/Session readers, and Studio snapshot.
+  Explorer reconciled 3,749 source-union timestamps, 1,847 Toyota target
+  timestamps, 3,749 observed rows, and 0.5 ragged observation coverage.
+- Independent candidate replay reconciled every one of 1,845 finite Toyota
+  factor rows to the most recent SPY return whose completed close was no later
+  than the Toyota close. All 1,778 Toyota rows with a later same-civil-date SPY
+  close ignored that unavailable observation.
+- The research result was correctly negative: validation mean rank IC
+  `0.014908492563816994`, HAC t `0.2901765741438921`, p
+  `0.7716811566958051`, with chronological folds `0.11135016641709361` and
+  `-0.07202354808686726`; visible test audit mean IC was
+  `-0.0444362920627448`. The Agent reported that the candidate is not useful
+  decision support and stopped without retuning.
+- Field audit SHA-256:
+  `823892b846db642723ed8594f3b205f4f07080b1afa4a30749bd37b3bf4a0cbb`;
+  Grok event log SHA-256:
+  `c23f7821a70559dda37b318614eb04facc64d943fa747c6baa563edc18f1cb18`.
+- Full repository and release verification remains pending.
 
 ## Progress log
 
@@ -130,6 +166,11 @@ Pending.
   diagnostic evidence rather than a passing employability trial. The Judge,
   Explorer, and Run-to-Report regression are being corrected before a fresh
   installed-wheel retry.
+- 2026-08-02 — After the source-union availability correction, a second fresh
+  installed-wheel Grok 4.5 coworker completed the same bounded assignment in
+  16 turns through public APIs only. Normal Report publication and Session
+  completion passed with one immutable Run. The coworker preserved the weak,
+  unstable negative answer and did not retune against visible test evidence.
 
 ## Completion
 

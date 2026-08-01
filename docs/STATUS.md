@@ -41,8 +41,17 @@ passes.
 
 The root sample now preserves thirteen historical Runs and projects a clean
 `0.9.24` Factor Run from commit `ef3b9c2`; its aligned-panel validation IC
-remains exactly `-0.031325301204819286`. A fresh installed-wheel retry and the
-complete release audit are pending in
+remains exactly `-0.031325301204819286`.
+
+A fresh Grok 4.5 retry used only the clean installed wheel from commit
+`2868f4a`, public CLI/schema surfaces, and the fixed Toyota/SPY V5 package. In
+16 turns it authored the explicit backward-as-of Factor, completed exactly one
+Run, published one Report through the ordinary verified path, completed its
+Session, and opened no Portfolio/RL/Dossier lane. Independent replay proved
+that all 1,778 Toyota rows with a later same-date SPY close ignored that
+unavailable close. The Agent truthfully stopped on weak evidence: validation
+IC `+0.0149` with HAC p `0.7717` and opposing folds, followed by test-audit IC
+`-0.0444`. The complete release audit remains pending in
 [[plans/close-time-aware-cross-market-daily-factor]]. OpenAlice remains
 independently pinned to `0.8.31`.
 
