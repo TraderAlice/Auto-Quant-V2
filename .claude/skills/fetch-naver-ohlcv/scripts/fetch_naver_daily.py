@@ -162,10 +162,52 @@ def parse_payload(
         raise ValueError(f"{provider_symbol}: no rows in requested range")
     if frame["date"].duplicated().any():
         raise ValueError(f"{provider_symbol}: duplicate session dates")
+    placeholder_mask = (
+        frame[["open", "high", "low"]].eq(0).all(axis=1)
+        & frame["close"].gt(0)
+        & frame["volume"].eq(0)
+    )
+    placeholder_observations = [
+        {
+            "providerSymbol": provider_symbol,
+            "date": row.date.isoformat(),
+            "open": float(row.open),
+            "high": float(row.high),
+            "low": float(row.low),
+            "close": float(row.close),
+            "volume": float(row.volume),
+        }
+        for row in frame.loc[placeholder_mask].itertuples(index=False)
+    ]
+    frame = frame.loc[~placeholder_mask].copy()
+    if frame.empty:
+        raise ValueError(f"{provider_symbol}: no traded observations in requested range")
     if not (frame[["open", "high", "low", "close"]] > 0).all(axis=None):
         raise ValueError(f"{provider_symbol}: nonpositive price")
     if frame["volume"].lt(0).any():
         raise ValueError(f"{provider_symbol}: negative volume")
+    expected_high = frame[["open", "low", "close"]].max(axis=1)
+    expected_low = frame[["open", "high", "close"]].min(axis=1)
+    high_gap = (expected_high - frame["high"]).clip(lower=0)
+    low_gap = (frame["low"] - expected_low).clip(lower=0)
+    rounded_bound_mask = (
+        (high_gap.gt(0) | low_gap.gt(0))
+        & high_gap.le(1)
+        & low_gap.le(1)
+    )
+    rounded_bound_observations = [
+        {
+            "providerSymbol": provider_symbol,
+            "date": row.date.isoformat(),
+            "rawHigh": float(row.high),
+            "normalizedHigh": float(max(row.high, row.open, row.low, row.close)),
+            "rawLow": float(row.low),
+            "normalizedLow": float(min(row.low, row.open, row.high, row.close)),
+        }
+        for row in frame.loc[rounded_bound_mask].itertuples(index=False)
+    ]
+    frame.loc[rounded_bound_mask, "high"] = expected_high.loc[rounded_bound_mask]
+    frame.loc[rounded_bound_mask, "low"] = expected_low.loc[rounded_bound_mask]
     invalid_bounds = (
         frame["high"].lt(frame[["open", "low", "close"]].max(axis=1))
         | frame["low"].gt(frame[["open", "high", "close"]].min(axis=1))
@@ -188,6 +230,10 @@ def parse_payload(
         "zeroVolumeRows": int(frame["volume"].eq(0).sum()),
         "providerVolumeUnit": "share",
         "outputVolumeUnit": "share",
+        "nonTradingPlaceholderRows": len(placeholder_observations),
+        "nonTradingPlaceholderObservations": placeholder_observations,
+        "roundedBoundRows": len(rounded_bound_observations),
+        "roundedBoundObservations": rounded_bound_observations,
         "headers": headers,
     }
 
@@ -310,6 +356,16 @@ def main() -> None:
         json.dumps(package, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+    placeholder_observations = [
+        {"symbol": symbol, **observation}
+        for symbol, summary in audits.items()
+        for observation in summary["nonTradingPlaceholderObservations"]
+    ]
+    rounded_bound_observations = [
+        {"symbol": symbol, **observation}
+        for symbol, summary in audits.items()
+        for observation in summary["roundedBoundObservations"]
+    ]
     audit = {
         "schemaVersion": 1,
         "kind": "autoquant-provider-acquisition-audit",
@@ -321,13 +377,43 @@ def main() -> None:
             "panel": args.panel,
             "adjustment": "raw",
         },
-        "transformation": "raw KRW OHLC and provider share volume preserved",
+        "transformation": (
+            "raw KRW OHLC and provider share volume preserved; exact no-trade "
+            "placeholder rows omitted from normalized observed history"
+        ),
+        "nonTradingPlaceholders": {
+            "policy": "omit-exact-no-trade-placeholder",
+            "affectedAssets": sorted(
+                {
+                    observation["symbol"]
+                    for observation in placeholder_observations
+                }
+            ),
+            "observationsFound": len(placeholder_observations),
+            "observationsOmitted": len(placeholder_observations),
+            "observations": placeholder_observations,
+        },
+        "roundedBounds": {
+            "policy": "expand-violated-bound-by-at-most-one-krw",
+            "affectedAssets": sorted(
+                {
+                    observation["symbol"]
+                    for observation in rounded_bound_observations
+                }
+            ),
+            "observationsNormalized": len(rounded_bound_observations),
+            "observations": rounded_bound_observations,
+        },
         "assets": audits,
         "packagePath": package_path.name,
         "packageSha256": sha256(package_path),
         "limitations": [
             "Naver Finance is not KRX venue or calendar authority.",
             "Board identity and access terms remain external claims.",
+            "Exact zero-OHLC, positive-close, zero-volume provider placeholders "
+            "are not traded observations and remain available only in raw evidence.",
+            "A violated OHLC bound is expanded only when the exact provider "
+            "difference is at most one KRW; every normalized value is audited.",
             "No adjustment, survivorship, or delisting claim follows.",
         ],
     }
@@ -344,6 +430,8 @@ def main() -> None:
                 "panel": args.panel,
                 "firstDate": all_dates[0],
                 "lastDate": all_dates[-1],
+                "nonTradingPlaceholders": len(placeholder_observations),
+                "roundedBounds": len(rounded_bound_observations),
             },
             sort_keys=True,
         )

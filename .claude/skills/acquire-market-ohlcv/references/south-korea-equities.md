@@ -9,9 +9,13 @@
 ## Routes
 
 - Naver Finance: raw route through `$fetch-naver-ohlcv`; verify the six-digit
-  code and board identity outside the response.
+  code and board identity outside the response. Inspect exact no-trade
+  placeholders omitted from normalized observed history and any audited
+  one-KRW rounded-bound normalization.
 - Daum Finance: independent raw route through `$fetch-daum-ohlcv`; preserve
-  pagination evidence and check accumulated trade value against share volume.
+  pagination evidence and retain accumulated trade value/share-volume ratios
+  as diagnostics. Do not assume those aggregates share daily OHLC session
+  scope.
 - Yahoo: broad route through `$fetch-yahoo-ohlcv`; verify `.KS` versus `.KQ`,
   history, freshness, currency, and split-adjusted semantics. Do not compare
   it as equivalent to the two raw routes.

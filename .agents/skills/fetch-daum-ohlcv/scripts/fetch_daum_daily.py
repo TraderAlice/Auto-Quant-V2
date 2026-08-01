@@ -159,7 +159,7 @@ def frame_for(
     end_exclusive: date,
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
     parsed: list[dict[str, Any]] = []
-    value_checks = 0
+    value_volume_diagnostics: list[dict[str, Any]] = []
     for index, row in enumerate(records):
         if not isinstance(row, dict) or row.get("symbolCode") != symbol:
             raise ValueError(f"{symbol}: malformed or mismatched row {index}")
@@ -178,13 +178,48 @@ def frame_for(
             }
         except (KeyError, TypeError, ValueError) as exc:
             raise ValueError(f"{symbol}: unusable row {index}") from exc
+        if not math.isfinite(volume) or not math.isfinite(value) or value < 0:
+            raise ValueError(f"{symbol}: invalid accumulated trade fields")
         if volume > 0:
-            vwap = value / volume
-            if not observation["low"] <= vwap <= observation["high"]:
-                raise ValueError(f"{symbol}: value/volume check failed")
-            value_checks += 1
+            derived_value_per_share = value / volume
+            if derived_value_per_share < observation["low"]:
+                relation = "below-low"
+                relative_distance = (
+                    observation["low"] - derived_value_per_share
+                ) / observation["low"]
+            elif derived_value_per_share > observation["high"]:
+                relation = "above-high"
+                relative_distance = (
+                    derived_value_per_share - observation["high"]
+                ) / observation["high"]
+            else:
+                relation = "within-ohlc"
+                relative_distance = 0.0
+            value_volume_diagnostics.append(
+                {
+                    "date": observation["date"],
+                    "accTradePrice": value,
+                    "accTradeVolume": volume,
+                    "derivedValuePerShare": derived_value_per_share,
+                    "low": observation["low"],
+                    "high": observation["high"],
+                    "relation": relation,
+                    "relativeDistanceFromNearestBound": relative_distance,
+                }
+            )
         elif value != 0:
-            raise ValueError(f"{symbol}: value with zero volume")
+            value_volume_diagnostics.append(
+                {
+                    "date": observation["date"],
+                    "accTradePrice": value,
+                    "accTradeVolume": volume,
+                    "derivedValuePerShare": None,
+                    "low": observation["low"],
+                    "high": observation["high"],
+                    "relation": "positive-value-zero-volume",
+                    "relativeDistanceFromNearestBound": None,
+                }
+            )
         parsed.append(observation)
     source = pd.DataFrame(parsed)
     source_first = source["date"].min()
@@ -207,6 +242,19 @@ def frame_for(
         | frame["low"].gt(frame[["open", "high", "close"]].min(axis=1))
     ).any():
         raise ValueError(f"{symbol}: invalid OHLC bounds")
+    scoped_value_volume = [
+        {
+            **diagnostic,
+            "date": diagnostic["date"].isoformat(),
+        }
+        for diagnostic in value_volume_diagnostics
+        if start <= diagnostic["date"] < end_exclusive
+    ]
+    value_volume_anomalies = [
+        diagnostic
+        for diagnostic in scoped_value_volume
+        if diagnostic["relation"] != "within-ohlc"
+    ]
     frame = frame.reset_index(drop=True)
     frame["date"] = frame["date"].astype(str)
     return frame, {
@@ -219,7 +267,12 @@ def frame_for(
         "zeroVolumeRows": int(frame["volume"].eq(0).sum()),
         "providerVolumeUnit": "share",
         "outputVolumeUnit": "share",
-        "valueVolumeRowsChecked": value_checks,
+        "valueVolumeRowsChecked": sum(
+            diagnostic["accTradeVolume"] > 0
+            for diagnostic in scoped_value_volume
+        ),
+        "valueVolumeAnomalyRows": len(value_volume_anomalies),
+        "valueVolumeAnomalies": value_volume_anomalies,
     }
 
 
@@ -359,6 +412,11 @@ def main() -> None:
         json.dumps(package, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+    value_volume_observations = [
+        {"symbol": symbol, **observation}
+        for symbol, summary in audits.items()
+        for observation in summary["valueVolumeAnomalies"]
+    ]
     audit = {
         "schemaVersion": 1,
         "kind": "autoquant-provider-acquisition-audit",
@@ -372,14 +430,28 @@ def main() -> None:
         },
         "transformation": (
             "provider daily OHLC parsed as KRW per share; accTradeVolume "
-            "preserved as shares and checked against accTradePrice"
+            "preserved as shares; accTradePrice/accTradeVolume retained as a "
+            "diagnostic without assuming identical provider session scope"
         ),
+        "valueVolume": {
+            "interpretation": "diagnostic-only-provider-aggregate-scope-unknown",
+            "rowsChecked": sum(
+                summary["valueVolumeRowsChecked"] for summary in audits.values()
+            ),
+            "anomalyRows": len(value_volume_observations),
+            "affectedAssets": sorted(
+                {observation["symbol"] for observation in value_volume_observations}
+            ),
+            "observations": value_volume_observations,
+        },
         "assets": audits,
         "packagePath": package_path.name,
         "packageSha256": sha256(package_path),
         "limitations": [
             "Daum is an observable provider, not KRX authority.",
             "KOSPI/KOSDAQ identity and access terms remain external claims.",
+            "accTradePrice and accTradeVolume may not share the exact session "
+            "scope of daily OHLC; their derived ratio is diagnostic only.",
             "No corporate-action, survivorship, or delisting claim follows.",
         ],
     }
@@ -396,6 +468,7 @@ def main() -> None:
                 "panel": args.panel,
                 "firstDate": all_dates[0],
                 "lastDate": all_dates[-1],
+                "valueVolumeAnomalies": len(value_volume_observations),
             },
             sort_keys=True,
         )

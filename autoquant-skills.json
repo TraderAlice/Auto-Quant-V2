@@ -1,10 +1,10 @@
 {
-  "bundleSha256": "61db87c914af4fe923a87be959a616894476d202f62567657c066b43f230c598",
+  "bundleSha256": "29fb618627ccf4c9529c4576ef574e9264e8fc30f6ba94de671f66ff98e5decb",
   "discoveryRoots": [
     ".agents/skills",
     ".claude/skills"
   ],
-  "harnessVersion": "0.9.12",
+  "harnessVersion": "0.9.13",
   "kind": "autoquant-workspace-skill-bundle",
   "schemaVersion": 1,
   "skills": [
@@ -36,7 +36,7 @@
         },
         {
           "path": "references/south-korea-equities.md",
-          "sha256": "aa9e124348f1a7a3362340fa990c826f30931fd022b9aa6b8452d597820e743d"
+          "sha256": "1ee4efa48382447629945ffd46d31892c7634687667b8463ace41f55c9822278"
         },
         {
           "path": "references/taiwan-equities.md",
@@ -82,7 +82,7 @@
       "files": [
         {
           "path": "SKILL.md",
-          "sha256": "2ac0d9466ea6fee4e8728a307ff3f6271f1ba13ddbec9abaae47240983a664d4"
+          "sha256": "40fd42d74db0ae4659787023e49c53a742290dfa50e9f194df0841b152c23f42"
         },
         {
           "path": "agents/openai.yaml",
@@ -94,11 +94,11 @@
         },
         {
           "path": "references/provider-route.md",
-          "sha256": "02e0040cd59e8b941faa2d0bef8e11308989290f8999cdaa72795ad1a7b21d53"
+          "sha256": "2bf56303d0450ead7364a28d141ee06fe449ceeabbcb34d85e5f3e9f1c076107"
         },
         {
           "path": "scripts/fetch_daum_daily.py",
-          "sha256": "7743305c9e53c8c3cac3913e46324d7a02ef237ea346c777f96d87cfcfea393a"
+          "sha256": "b67c03e3cd279b775f2be5dd300499f732baf02d14e82da28cdcee7602359046"
         }
       ],
       "id": "fetch-daum-ohlcv"
@@ -207,7 +207,7 @@
       "files": [
         {
           "path": "SKILL.md",
-          "sha256": "2a79bcb10513d88b14a51b231dc334701fecd4937e927c0048c0ccd887c2d385"
+          "sha256": "11bfca98d0f2d7e3490f26d5774a8ac35e4983293fdabd4da64bd0474e43b811"
         },
         {
           "path": "agents/openai.yaml",
@@ -219,11 +219,11 @@
         },
         {
           "path": "references/provider-route.md",
-          "sha256": "1d99efa4c2858c1c340f44781009ba7458229ddfb1b33ef400fefc7441ad3450"
+          "sha256": "e2683e5e7afd2f0a062415394aa580c01356e7c4dfcb5371bbd69963b37a4a41"
         },
         {
           "path": "scripts/fetch_naver_daily.py",
-          "sha256": "9ee6e1d6418eb51325323c3ee3bde428d4ce5fa74b44779369e58e5ffa7bf9d3"
+          "sha256": "a48fa8da71e1188dfecfdfff1dd8d8260d4755981d762de98d0c2730efa24476"
         }
       ],
       "id": "fetch-naver-ohlcv"

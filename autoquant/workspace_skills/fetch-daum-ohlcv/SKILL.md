@@ -29,11 +29,18 @@ aq-python scripts/fetch_daum_daily.py \
 The script requests enough reverse-chronological rows in pages of at most
 1,000, preserves every page, verifies page identity and total counts, and maps
 `openingPrice`, `highPrice`, `lowPrice`, `tradePrice`, and `accTradeVolume`.
+It also records `accTradePrice / accTradeVolume` as a diagnostic. Daum does not
+establish that those aggregates use the exact same session scope as daily
+OHLC, so an out-of-range ratio neither repairs nor invalidates otherwise valid
+OHLCV.
 
 ## Verify
 
 - Inspect exact pages, status, source range, price/volume invariants, and
   hashes.
+- Inspect `valueVolume`, including every out-of-range derived ratio and its
+  distance from the nearest OHLC bound; treat it as provider-scope evidence,
+  not a synthetic price.
 - Compare the same raw assets and dates with `$fetch-naver-ohlcv`.
 - Verify KOSPI/KOSDAQ listing identity independently; this first proof uses
   the exact `XKRX` label as a broad venue claim.

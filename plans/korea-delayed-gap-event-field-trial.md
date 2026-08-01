@@ -118,6 +118,10 @@ Korean semiconductor peer.
   worker must acquire one task-complete package even if equivalent bytes exist
   elsewhere, and any duplication is valid evidence isolation rather than a
   reason to introduce shared mutable inventory.
+- 2026-08-01 — This is a durable `0.9.x` product principle, not a temporary
+  field-trial convenience: provider Skills and audit knowledge are reusable;
+  market-data inventory is not research authority. Storage deduplication may
+  exist only as an invisible optimization that preserves task-local identity.
 - 2026-08-01 — Baseline cohort 28 used the exact released `0.9.12` wheel,
   wrote the English brief before retrieval, attempted Yahoo, Naver, and Daum,
   created exactly one Event Project, one successful fixed Run, one direct
@@ -142,6 +146,12 @@ Korean semiconductor peer.
   aggregates share one session scope, so the ratio becomes a retained exact
   diagnostic rather than a hard price-validity gate. No provider value, price,
   or volume is repaired.
+- 2026-08-01 — Candidate replay against the retained Naver response exposed a
+  second, previously masked provider shape: 11 pre-split Samsung rows place
+  close exactly one KRW above high. This is deterministic integer rounding,
+  not a usable OHLC bound. Preserve the exact raw row, expand only a bound
+  whose violation is at most one KRW, and audit each normalized value; any
+  larger or non-bound inconsistency still fails closed.
 - 2026-08-01 — No Event Core, template, Report, or Studio defect prevented the
   assignment. The candidate patch is limited to truthful Naver placeholder
   normalization, truthful Daum aggregate diagnostics, their command/audit

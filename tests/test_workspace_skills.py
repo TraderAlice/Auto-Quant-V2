@@ -1027,6 +1027,107 @@ class WorkspaceSkillTests(unittest.TestCase):
         self.assertEqual(frame.loc[1, "close"], 207_000)
         self.assertEqual(frame.loc[1, "volume"], 13_000_000)
         self.assertEqual(audit["providerVolumeUnit"], "share")
+        self.assertEqual(audit["nonTradingPlaceholderRows"], 0)
+        self.assertEqual(audit["nonTradingPlaceholderObservations"], [])
+        self.assertEqual(audit["roundedBoundRows"], 0)
+        self.assertEqual(audit["roundedBoundObservations"], [])
+
+    def test_naver_omits_only_exact_non_trading_placeholders(self) -> None:
+        naver = load_script(
+            "autoquant_skill_naver_placeholders",
+            SKILLS
+            / "fetch-naver-ohlcv"
+            / "scripts"
+            / "fetch_naver_daily.py",
+        )
+        headers = ["날짜", "시가", "고가", "저가", "종가", "거래량"]
+        table = [
+            headers,
+            ["20260728", 200000, 205000, 198000, 203000, 12000000],
+            ["20260729", 0, 0, 0, 203000, 0],
+            ["20260730", 203000, 208000, 201000, 207000, 13000000],
+        ]
+        frame, audit = naver.parse_payload(
+            "005930",
+            repr(table).encode(),
+            naver.date(2026, 7, 28),
+            naver.date(2026, 7, 31),
+        )
+        self.assertEqual(frame["date"].tolist(), ["2026-07-28", "2026-07-30"])
+        self.assertEqual(audit["nonTradingPlaceholderRows"], 1)
+        self.assertEqual(
+            audit["nonTradingPlaceholderObservations"],
+            [
+                {
+                    "providerSymbol": "005930",
+                    "date": "2026-07-29",
+                    "open": 0.0,
+                    "high": 0.0,
+                    "low": 0.0,
+                    "close": 203000.0,
+                    "volume": 0.0,
+                }
+            ],
+        )
+
+        for invalid_row in (
+            ["20260729", 0, 0, 0, 203000, 1],
+            ["20260729", 0, 205000, 198000, 203000, 0],
+            ["20260729", 0, 0, 0, 0, 0],
+        ):
+            with self.subTest(invalid_row=invalid_row):
+                invalid_table = [table[0], table[1], invalid_row, table[3]]
+                with self.assertRaisesRegex(ValueError, "nonpositive price"):
+                    naver.parse_payload(
+                        "005930",
+                        repr(invalid_table).encode(),
+                        naver.date(2026, 7, 28),
+                        naver.date(2026, 7, 31),
+                    )
+
+    def test_naver_normalizes_only_one_krw_rounded_bounds(self) -> None:
+        naver = load_script(
+            "autoquant_skill_naver_rounding",
+            SKILLS
+            / "fetch-naver-ohlcv"
+            / "scripts"
+            / "fetch_naver_daily.py",
+        )
+        table = [
+            ["날짜", "시가", "고가", "저가", "종가", "거래량"],
+            ["20260728", 200000, 205000, 198000, 205001, 12000000],
+            ["20260729", 203000, 208000, 201000, 207000, 13000000],
+        ]
+        frame, audit = naver.parse_payload(
+            "005930",
+            repr(table).encode(),
+            naver.date(2026, 7, 28),
+            naver.date(2026, 7, 30),
+        )
+        self.assertEqual(frame.loc[0, "high"], 205001)
+        self.assertEqual(audit["roundedBoundRows"], 1)
+        self.assertEqual(
+            audit["roundedBoundObservations"],
+            [
+                {
+                    "providerSymbol": "005930",
+                    "date": "2026-07-28",
+                    "rawHigh": 205000.0,
+                    "normalizedHigh": 205001.0,
+                    "rawLow": 198000.0,
+                    "normalizedLow": 198000.0,
+                }
+            ],
+        )
+
+        table[1][4] = 205002
+        with self.assertRaisesRegex(ValueError, "inconsistent OHLC bounds"):
+            naver.parse_payload(
+                "005930",
+                repr(table).encode(),
+                naver.date(2026, 7, 28),
+                naver.date(2026, 7, 30),
+            )
 
     def test_daum_page_preserves_raw_krw_and_checks_traded_value(self) -> None:
         daum = load_script(
@@ -1079,7 +1180,71 @@ class WorkspaceSkillTests(unittest.TestCase):
         self.assertEqual(frame.loc[1, "close"], 207_000)
         self.assertEqual(frame.loc[1, "volume"], 13_000_000)
         self.assertEqual(audit["valueVolumeRowsChecked"], 2)
+        self.assertEqual(audit["valueVolumeAnomalyRows"], 0)
+        self.assertEqual(audit["valueVolumeAnomalies"], [])
         self.assertEqual(page_audit["totalCount"], 2)
+
+    def test_daum_value_volume_scope_mismatch_is_diagnostic_only(self) -> None:
+        daum = load_script(
+            "autoquant_skill_daum_diagnostic",
+            SKILLS
+            / "fetch-daum-ohlcv"
+            / "scripts"
+            / "fetch_daum_daily.py",
+        )
+        records = [
+            {
+                "symbolCode": "A005930",
+                "date": "2026-07-29 00:00:00",
+                "openingPrice": 203000,
+                "highPrice": 208000,
+                "lowPrice": 201000,
+                "tradePrice": 207000,
+                "accTradeVolume": 13000000,
+                "accTradePrice": 13000000 * 190000,
+            },
+            {
+                "symbolCode": "A005930",
+                "date": "2026-07-28 00:00:00",
+                "openingPrice": 200000,
+                "highPrice": 205000,
+                "lowPrice": 198000,
+                "tradePrice": 203000,
+                "accTradeVolume": 12000000,
+                "accTradePrice": 2418000000000,
+            },
+        ]
+        frame, audit = daum.frame_for(
+            "A005930",
+            records,
+            daum.date(2026, 7, 28),
+            daum.date(2026, 7, 30),
+        )
+        self.assertEqual(frame["date"].tolist(), ["2026-07-28", "2026-07-29"])
+        self.assertEqual(audit["valueVolumeRowsChecked"], 2)
+        self.assertEqual(audit["valueVolumeAnomalyRows"], 1)
+        self.assertEqual(
+            audit["valueVolumeAnomalies"][0]["relation"], "below-low"
+        )
+        self.assertEqual(
+            audit["valueVolumeAnomalies"][0]["date"], "2026-07-29"
+        )
+        self.assertAlmostEqual(
+            audit["valueVolumeAnomalies"][0][
+                "relativeDistanceFromNearestBound"
+            ],
+            11_000 / 201_000,
+        )
+
+        invalid_records = [dict(record) for record in records]
+        invalid_records[0]["accTradePrice"] = -1
+        with self.assertRaisesRegex(ValueError, "invalid accumulated trade fields"):
+            daum.frame_for(
+                "A005930",
+                invalid_records,
+                daum.date(2026, 7, 28),
+                daum.date(2026, 7, 30),
+            )
 
     def test_vndirect_price_scale_and_invalid_bounds_are_audited(self) -> None:
         vndirect = load_script(

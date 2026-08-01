@@ -26,12 +26,22 @@ aq-python scripts/fetch_naver_daily.py \
 ```
 
 The initial route supports raw KRW equity daily bars and preserves provider
-volume as shares.
+volume as shares. Naver may emit a no-trade placeholder with zero open, high,
+low, and volume but a positive carried close. The script retains the exact raw
+row, omits only that exact shape from normalized observed history, and records
+every omission. Historical split-adjusted integer rounding may also put close
+exactly one KRW outside high/low; the script expands only that violated bound
+by at most one KRW and audits the raw and normalized values. Any other
+nonpositive-price shape or larger bound violation still fails closed.
 
 ## Verify
 
 - Inspect exact raw hashes, Korean header mapping, ranges, row counts, and CSV
   hashes.
+- Inspect `nonTradingPlaceholders`, including every raw date and affected
+  asset; do not treat an omitted placeholder as an observed trading session.
+- Inspect `roundedBounds`; every normalized high/low must differ from the raw
+  provider value by no more than one KRW.
 - Independently verify security/board identity.
 - Compare the same raw observations with `$fetch-yahoo-ohlcv`, including
   freshness and suspension gaps.

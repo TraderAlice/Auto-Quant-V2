@@ -45,6 +45,11 @@ otherwise reshape research around local inventory. When coverage is partial
 or alignment is uncertain, acquiring or completing the task-specific package
 is preferable to preserving download reuse.
 
+Task-local duplication is acceptable evidence isolation. Deduplication may be
+added later as a transparent storage optimization, but it must never become
+research authority, automatic dataset selection, or a reason to constrain the
+caller's question.
+
 The reusable Workbench assets are provider-selection knowledge, acquisition
 Skills, audit procedures, packaging rules, and immutable dataset identity—not
 a centrally curated stock of supposedly universal market data. This keeps
