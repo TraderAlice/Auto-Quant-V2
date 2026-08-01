@@ -18,7 +18,9 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-None.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/japan-trend-efficiency-research-field-trial]] | Prove a fresh coworker can turn one fixed Japanese large-cap trend-efficiency question and zero staged data into truthful Factor, Portfolio, and durable handoff evidence. | 2026-08-01 |
 
 ## Proposed plans
 
