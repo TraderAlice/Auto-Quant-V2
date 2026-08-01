@@ -20,7 +20,7 @@ invariants live in `docs/design/`.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
-| [[plans/same-project-data-vintage-refresh-field-trial]] | Prove one completed Project can answer the same fixed Book Risk question on a newer task-specific data vintage while preserving every old snapshot, Run, and Report. | 2026-08-01 |
+| [[plans/frozen-holdout-research-handoff]] | Prove a fresh coworker can turn one completed Factor/Portfolio Dossier and a strictly later task-specific dataset into a frozen external-period audit and a durable answer to whether the original conclusion still holds. | 2026-08-01 |
 
 ## Proposed plans
 
@@ -36,6 +36,7 @@ None.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/same-project-data-vintage-refresh-field-trial]] | Proved one completed Project can answer the same fixed Book Risk question on a newer task-specific data vintage while preserving every old snapshot, Run, and Report. | 2026-08-01 |
 | [[plans/authority-gated-twse-factor-field-trial]] | Proved a zero-data coworker obeys a caller-fixed official-TWSE-plus-peer authority gate, preserves exact official failure evidence automatically, and stops without single-source factor authority when the gate fails. | 2026-08-01 |
 | [[plans/same-project-book-risk-follow-up-field-trial]] | Proved a related caller-supplied Book Risk scenario question can add one independently fixed Study/Run/Report inside the completed Project without mutating old evidence, multiplying Projects, or inheriting the wrong Report request. | 2026-08-01 |
 | [[plans/long-lived-cross-market-workspace-field-trial]] | Proved a long-lived desk can preserve a completed A-share Project byte-for-byte while a fresh coworker adds one isolated U.S. Book Risk sibling from aligned task-local data and answers the caller's exact governing window. | 2026-08-01 |
