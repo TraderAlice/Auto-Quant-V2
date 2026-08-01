@@ -18,7 +18,9 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-None.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/multi-source-observed-factor-packaging]] | Preserve exact per-source provider authority while composing multiple audited V5 packages into one observed Factor dataset. | 2026-08-02 |
 
 ## Proposed plans
 
