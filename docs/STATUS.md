@@ -56,8 +56,10 @@ remains pinned to `0.8.31`.
 
 Final repository verification passed all 395 tests in 1,103.490 seconds and
 resolved all 1,359 documentation links. Lock and Python/Studio syntax checks
-also passed; installed-wheel and clean-clone evidence is recorded in the
-field-trial plan.
+also passed, together with source/wheel builds, isolated installed-wheel
+capability/schema smoke, and a no-local-override clean-clone root Workspace
+smoke. Verified wheel SHA-256:
+`12a47491595f30b54dab0a4ea3bbbd25705f4a614e99a2b4fb2357e3cf5e1bf2`.
 
 ### `v0.9.14`
 

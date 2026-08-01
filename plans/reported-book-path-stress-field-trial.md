@@ -1,6 +1,6 @@
 # Reported-book historical path-stress field trial
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-08-01`
 - Target release: `0.9.15`
 - Related design: [[docs/design/reported-position-book-risk]],
@@ -105,7 +105,7 @@ The research interpretation is frozen before the worker starts:
 - [x] A fresh candidate worker completes the unchanged assignment without
       source/private-trial access, manual post-Run quantitative authority, or
       trading overclaim.
-- [ ] Focused/full tests, documentation links, lock/syntax, build/install,
+- [x] Focused/full tests, documentation links, lock/syntax, build/install,
       Studio, root Workspace, and no-local-override clean-clone smokes pass
       before publication.
 
@@ -116,7 +116,7 @@ The research interpretation is frozen before the worker starts:
 - [x] Run and audit one fresh baseline worker without coaching.
 - [x] Admit and implement only reproduced reusable product friction.
 - [x] Replay the unchanged task with a fresh candidate-wheel worker.
-- [ ] Complete the `v0.9.15` release audit and publish the tag.
+- [x] Complete the `v0.9.15` release audit and publish the tag.
 
 ## Findings and decisions
 
@@ -209,6 +209,23 @@ transcript is preserved as `candidate-transcript.md`. Project
 validation, strict Explorer reconstruction, Orientation, and Studio snapshot.
 The research brief timestamp precedes provider retrieval and Project intake.
 
+Release artifacts built from clean commit
+`d500dc17644cb196a35aeac9195ff21c95a0acdf`:
+
+- wheel:
+  `dist/release-0.9.15/auto_quant-0.9.15-py3-none-any.whl`, SHA-256
+  `12a47491595f30b54dab0a4ea3bbbd25705f4a614e99a2b4fb2357e3cf5e1bf2`;
+- source distribution:
+  `dist/release-0.9.15/auto_quant-0.9.15.tar.gz`, SHA-256
+  `5e9cbf991ac82d572389d7d5154b85be0f204bce14026f89c4446643956bafbe`.
+
+A fresh Python 3.11.14 environment installed the exact wheel with pandas
+3.0.5, reported `aq 0.9.15`, discovered all 54 public commands including
+`run.book-path-stress`, and loaded both Path Stress schemas. A `--no-local`
+temporary clone at the same commit contained no local override, selected only
+`sample-research-desk`, and passed installed-wheel `validate`, `orient`,
+`project list`, and valid Studio snapshot.
+
 ## Progress log
 
 - 2026-08-01 — Plan activated from clean released `v0.9.14`; OpenAlice remains
@@ -235,8 +252,17 @@ The research brief timestamp precedes provider retrieval and Project intake.
   validation, Python compile, Studio JavaScript syntax, diff hygiene, and all
   1,359 documentation links also pass. Final build/install/clone publication
   smokes remain.
+- 2026-08-01 — Final source and wheel builds, isolated install/capability/schema
+  smoke, and a no-local-override `--no-local` clone root-Workspace validation,
+  orientation, Project discovery, and Studio snapshot all pass. The release
+  artifacts and exact hashes are frozen above; `v0.9.15` is ready to publish.
 
 ## Completion
 
-Complete this section only after every acceptance item is independently
-verified and the release, if any, is published.
+`v0.9.15` closes the gap reproduced by the untouched released-`0.9.14`
+baseline: a fresh coworker can now transform one caller-fixed reported book
+and zero staged data into a complete fixed-unit worst-path audit, exact
+holding attribution, strict immutable evidence, and a durable no-trading
+handoff. The candidate replay, full regression suite, documentation graph,
+build/install, and clean-clone checks all pass. OpenAlice remains independently
+pinned to `0.8.31`.

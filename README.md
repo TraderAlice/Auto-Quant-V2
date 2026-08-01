@@ -83,8 +83,11 @@ question. OpenAlice remains intentionally unchanged on `v0.8.31`. See
 
 The final repository audit passed all 395 tests in 1,103.490 seconds and
 resolved all 1,359 documentation links. Lock validation, Python and Studio
-JavaScript syntax, installed-wheel, and clean-clone verification are recorded
-in [[plans/reported-book-path-stress-field-trial]].
+JavaScript syntax, source/wheel builds, isolated installed-wheel capability
+and schema smoke, and a no-local-override clean-clone root Workspace smoke all
+passed. The verified wheel SHA-256 is
+`12a47491595f30b54dab0a4ea3bbbd25705f4a614e99a2b4fb2357e3cf5e1bf2`.
+Exact evidence is recorded in [[plans/reported-book-path-stress-field-trial]].
 
 ### `v0.9.14`
 

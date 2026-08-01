@@ -18,9 +18,7 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-| Plan | Outcome | Updated |
-| --- | --- | --- |
-| [[plans/reported-book-path-stress-field-trial]] | Prove whether a fresh coworker can turn one reported book into fixed historical worst-window loss and holding-level attribution evidence without inventing scenarios, execution, or trading authority. | 2026-08-01 |
+None.
 
 ## Proposed plans
 
@@ -36,6 +34,7 @@ None.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/reported-book-path-stress-field-trial]] | Proved a fresh coworker can turn one reported book and zero staged data into fixed historical worst-window loss, exact holding attribution, immutable evidence, and a no-trading handoff. | 2026-08-01 |
 | [[plans/clarification-first-delegation-field-trial]] | Proved a fresh coworker can stop and clarify an underspecified portfolio request before acquiring data, then resume the same dialogue into one fixed no-trading sizing handoff. | 2026-08-01 |
 | [[plans/korea-delayed-gap-event-field-trial]] | Proved a fresh coworker can turn one fixed Korean downside-gap question and zero staged data into truthful multi-route Event evidence while preserving distinct Yahoo split-adjusted, Naver provider-adjusted, and Daum raw semantics. | 2026-08-01 |
 | [[plans/japan-trend-efficiency-research-field-trial]] | Proved a fresh coworker can turn one fixed Japanese large-cap trend-efficiency question and zero staged data into truthful Factor, Portfolio, and durable handoff evidence while surviving audited provider defects. | 2026-08-01 |
