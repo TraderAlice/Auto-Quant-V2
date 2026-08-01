@@ -81,7 +81,7 @@ not become a downloader or calendar oracle.
   Explorer, and immutable Report publication.
 - [x] Public Skill guidance makes the V4 acquisition → close-time materialize
   → V5 audit/intake route discoverable without implementation inspection.
-- [ ] A fresh installed-wheel Grok coworker completes one bounded cross-market
+- [x] A fresh installed-wheel Grok coworker completes one bounded cross-market
   daily assignment from the date-based source package and stops truthfully on
   the resulting evidence.
 - [ ] Focused tests, full regression, docs links, build, installed smoke,
@@ -92,7 +92,7 @@ not become a downloader or calendar oracle.
 - [x] Define the strict authority manifest and deterministic transformation.
 - [x] Implement the bundled Skill procedure and negative checks.
 - [x] Add source-to-V5-to-Report integration tests and public guidance.
-- [ ] Refresh version/sample evidence and run a fresh installed-wheel field
+- [x] Refresh version/sample evidence and run a fresh installed-wheel field
   assignment.
 - [ ] Complete the release audit, commit, tag, push, and verify `v0.9.25`.
 
@@ -127,6 +127,25 @@ Pending.
   The root sample retained thirteen prior Runs and added clean Factor Run
   `run-20260801T200541529080Z-beb54535a432` from candidate commit `643b713`
   with unchanged validation IC `-0.031325301204819286`.
+- 2026-08-02 — A fresh Grok 4.5 coworker installed candidate wheel SHA
+  `c9aec447fae6ef2c4be56395b24cdecd7e10a5f1d4ab93caad60a5cc280fb01e`
+  and began only with strict date-only V4 package SHA
+  `75085064eab0abe69bafb4be5a3accd386bb6a6eb60de09fbb5dce5b632f1adf`.
+  It discovered the generated packaging Skill, authored explicit
+  `exchange_calendars@4.13.2` XTKS/XNYS authority, invoked the public
+  materializer, audited and ingested the V5 output, and wrote no private
+  materialization program.
+- 2026-08-02 — The coworker completed exactly one Study, Run, Session, and
+  Report with no Portfolio, RL, or Dossier work. Run
+  `run-20260801T201252981010Z-0a2cc8bfc271` recorded the clean installed
+  `0.9.25` candidate at commit `f7c9ad5`; validation mean rank IC was
+  `+0.014908` (HAC `t=0.29`, `p=0.77`) and visible-test mean rank IC was
+  `-0.044436`. It stopped without tuning the candidate against test evidence.
+- 2026-08-02 — Independent replay reconciled all 1,845 finite factor values,
+  proved every context close was no later than its Toyota target, and proved
+  none of 1,779 later same-date SPY closes entered the signal. Exact source
+  dates, 1,847/1,903 row counts, and all numeric OHLCV values survived the V4
+  to V5 transformation unchanged.
 
 ## Completion
 
