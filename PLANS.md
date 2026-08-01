@@ -20,7 +20,7 @@ invariants live in `docs/design/`.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
-| [[plans/post-drawdown-recovery-continuation-field-trial]] | Prove a fresh coworker can extend a corrected long-lived Project with one distinct recovery Study and exact prior-evidence plus new-data provenance. | 2026-08-01 |
+| [[plans/atomic-study-owned-dataset-intake]] | Let a coworker atomically turn one external Research Request and complete OHLCV package into a new fixed Study inside an existing Project without template impersonation or private source inspection. | 2026-08-01 |
 
 ## Proposed plans
 
@@ -36,6 +36,7 @@ None.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/post-drawdown-recovery-continuation-field-trial]] | Proved a fresh coworker can extend a corrected long-lived Project with one distinct recovery Study and exact prior-evidence plus new-data provenance. | 2026-08-01 |
 | [[plans/immutable-research-correction-field-trial]] | Proved a fresh coworker can consume a strict Review and publish one exact current correction without rewriting prior evidence. | 2026-08-01 |
 | [[plans/independent-research-review-handoff]] | Proved a fresh coworker can independently classify completed Project claims by immutable evidence authority and leave a durable portable no-mutation Review. | 2026-08-01 |
 | [[plans/reported-book-path-stress-field-trial]] | Proved a fresh coworker can turn one reported book and zero staged data into fixed historical worst-window loss, exact holding attribution, immutable evidence, and a no-trading handoff. | 2026-08-01 |
