@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha preparing `v0.9.10`; `v0.8.31` remains the Harness
+Status: usable pre-alpha released as `v0.9.10`; `v0.8.31` remains the Harness
 currently consumed by OpenAlice until the host deliberately selects a newer
 tag.
 

@@ -1,6 +1,6 @@
 # Same-Project data-vintage refresh field trial
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-08-01`
 - Target release: `0.9.10`
 - Related design: [[docs/design/research-intake-and-dataset-snapshots]],
@@ -106,7 +106,7 @@ or trading authority is requested.
   historical-model changes as forecasts, orders, or live-account authority.
 - [x] Every material baseline failure is either repaired with deterministic
   regression coverage or recorded as an explicit worker/provider limitation.
-- [ ] Final wheel replay, complete tests, documentation links, build/install,
+- [x] Final wheel replay, complete tests, documentation links, build/install,
   and clean-clone Workspace smoke pass before `v0.9.10` is tagged and pushed.
 
 ## Work
@@ -116,7 +116,7 @@ or trading authority is requested.
 - [x] Prepare and independently verify the historical-cutoff baseline Project.
 - [x] Run and review the fresh `0.9.9` follow-up worker.
 - [x] Implement only reproduced reusable friction and rerun the assignment.
-- [ ] Complete release documentation and final verification, tag, and push.
+- [x] Complete release documentation and final verification, tag, and push.
 
 ## Findings and decisions
 
@@ -187,7 +187,10 @@ or trading authority is requested.
 - Fresh Python `3.11.14` final-wheel installation exposed `aq 0.9.10` and all
   `52` public commands, then validated and projected both candidate-vintage
   Runs and Reports through CLI and Studio without diagnostics.
-- Clean-clone root-Workspace smoke and release tag/push remain pending.
+- A `git clone --no-local` root Workspace with no local override loaded the
+  checked-in sample, passed orientation, validation, and Studio projection,
+  created and validated a sibling blank Project, and had distinct source-file
+  inodes from the development checkout.
 
 ## Progress log
 
@@ -218,4 +221,9 @@ or trading authority is requested.
 
 ## Completion
 
-Pending.
+`v0.9.10` closes the reproduced same-Project data singleton without adding a
+shared data store. A later comparable Book Risk question can own a complete
+newer immutable dataset closure, fixed request, Study, Run, and direct Report
+beside the original construction evidence. Fresh Grok field use completed the
+real update and produced a materially different answer while preserving old
+authority. OpenAlice remains deliberately pinned to `v0.8.31`.
