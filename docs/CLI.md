@@ -607,6 +607,18 @@ distributions, uncertainty, metrics, and conclusion before returning
 distribution without treating the result as a strategy, event label, Order,
 or live-trading instruction.
 
+`run book-path-stress` is the strict read-only projection for a successful
+`ohlcv-book-path-stress-lab` Run. Core verifies the exact five-artifact
+inventory and frozen position/policy authorities; reconstructs every complete
+fixed-unit window; reapplies terminal-loss ordering, earlier-start tie-break,
+and greedy inclusive non-overlap selection; reconciles selected paths and
+opening-weight return contribution at every offset; and checks the Run report
+and metrics. JSON returns `book-path-stress-diagnostics`; the human view lists
+each episode's terminal loss, worst interim loss/date, dominant holding, and
+cross-episode dominance conclusion. It is historical support only and grants
+no forecast, account, optimization, Order, or trading authority. See
+[[docs/design/reported-book-historical-path-stress]].
+
 `run allocation` is the strict read-only projection for a successful
 `ohlcv-allocation-lab` Run. Core verifies the frozen allocation contract and
 six-artifact inventory, then independently rederives candidate/reference split
@@ -618,7 +630,8 @@ scheduled/eligible/within-tolerance/cap-gap counts, rate, maximum error, and
 latest eligible decision. It samples 40–400 path points only after full
 reconciliation and carries no account, Order, or trading authority.
 
-For every completed fixed Book Risk, Price Event, or Allocation Study,
+For every completed fixed Book Risk, Price Event, Book Path Stress, or
+Allocation Study,
 `aq orient` returns `primaryAction: null`, `review.status: complete`, and an
 Agent-owned write/return instruction. The corresponding strict Explorer is one
 supporting read-only action and therefore remains in JSON `nextActions`,

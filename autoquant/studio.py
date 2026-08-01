@@ -32,6 +32,7 @@ from .factor_explorer import (
     load_factor_diagnostics,
 )
 from .event_explorer import load_event_study_diagnostics
+from .book_path_stress_explorer import load_book_path_stress_diagnostics
 from .intake import (
     dataset_snapshot_class_context,
     load_project_intake,
@@ -1258,6 +1259,29 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
                     error,
                 )
             )
+    book_path_stress_explorer = None
+    book_path_stress_candidate = next(
+        (
+            item
+            for item in reversed(runs_raw)
+            if item.status == "succeeded"
+            and item.primary_metric == "worst_terminal_book_return"
+        ),
+        None,
+    )
+    if book_path_stress_candidate is not None:
+        try:
+            book_path_stress_explorer = load_book_path_stress_diagnostics(
+                project,
+                book_path_stress_candidate.id,
+            )
+        except AutoQuantValidationError as error:
+            diagnostics.extend(
+                _diagnostics(
+                    f"book-path-stress-explorer:{book_path_stress_candidate.id}",
+                    error,
+                )
+            )
     allocation_explorer = None
     allocation_candidate = next(
         (
@@ -1427,6 +1451,22 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
                 "read-only",
             )
         )
+    if book_path_stress_explorer is not None:
+        commands.append(
+            _command(
+                "run.book-path-stress",
+                [
+                    "aq",
+                    "run",
+                    "book-path-stress",
+                    str(project.root_dir),
+                    "--run",
+                    book_path_stress_explorer["run"]["id"],
+                    "--json",
+                ],
+                "read-only",
+            )
+        )
     if allocation_explorer is not None:
         commands.append(
             _command(
@@ -1494,6 +1534,7 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
         "rlExplorer": rl_explorer,
         "bookRiskExplorer": book_risk_explorer,
         "eventStudyExplorer": event_study_explorer,
+        "bookPathStressExplorer": book_path_stress_explorer,
         "allocationExplorer": allocation_explorer,
         "commands": commands,
         "valid": not diagnostics,
@@ -1960,6 +2001,7 @@ STUDIO_SNAPSHOT_JSON_SCHEMA: dict[str, Any] = {
                 "rlExplorer",
                 "bookRiskExplorer",
                 "eventStudyExplorer",
+                "bookPathStressExplorer",
                 "allocationExplorer",
                 "commands",
                 "valid",
@@ -2000,6 +2042,7 @@ STUDIO_SNAPSHOT_JSON_SCHEMA: dict[str, Any] = {
                 "rlExplorer": {"type": ["object", "null"]},
                 "bookRiskExplorer": {"type": ["object", "null"]},
                 "eventStudyExplorer": {"type": ["object", "null"]},
+                "bookPathStressExplorer": {"type": ["object", "null"]},
                 "allocationExplorer": {"type": ["object", "null"]},
                 "commands": {
                     "type": "array",

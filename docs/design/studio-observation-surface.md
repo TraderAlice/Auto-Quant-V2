@@ -196,6 +196,16 @@ successful Book Risk Run never advertises Session creation. Below 680px, the
 scenario and contribution comparisons become labeled cards rather than
 compressing six evidence columns into unreadable table cells.
 
+A standalone Book Path Stress Study is a separate fixed evidence lane. Studio
+shows the total complete-window population, selected non-overlapping episodes,
+terminal and worst-interim losses, dominant holdings, and exact terminal
+contribution ledger from Core's strict `book-path-stress-diagnostics` read
+model. It never derives ranking, path returns, overlap, or attribution in
+JavaScript and never relabels Book Risk's constant-weight drawdown as this
+fixed-unit method. The handoff path is
+`REQUEST → DATASET → FIXED PATH STRESS RUN → REVIEW`, with no Session,
+forecast, account, optimization, Order, or trading authority.
+
 Selecting an evidence lane also selects that lane's latest Session in the
 Inspector so the visible Run, Report, and Session remain semantically aligned.
 The Portfolio and RL explorers disclose the same fixed mandate. Context-only

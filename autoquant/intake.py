@@ -34,6 +34,11 @@ from .event_studies import (
     build_event_study_policy,
     load_event_study_policy,
 )
+from .book_path_stress import (
+    BOOK_PATH_STRESS_POLICY,
+    build_book_path_stress_policy,
+    load_book_path_stress_policy,
+)
 from .ohlcv import normalize_ohlcv
 from .horizons import (
     RESEARCH_HORIZON,
@@ -126,6 +131,7 @@ INTAKE_TEMPLATE_REQUIREMENTS = {
     "ohlcv-rl-factor-lab": (5, 240),
     "ohlcv-book-risk-lab": (2, 120),
     "ohlcv-event-study-lab": (2, 120),
+    "ohlcv-book-path-stress-lab": (2, 120),
     "ohlcv-allocation-lab": (5, 180),
     "ohlcv-research-desk": (5, 240),
 }
@@ -1910,17 +1916,18 @@ def prepare_project_intake(
     position_scenarios = request.get("positionScenarios")
     position_sizing = request.get("positionSizing")
     event_policy = request.get("eventPolicy")
+    path_stress_policy = request.get("pathStressPolicy")
     allocation_policy = request.get("allocationPolicy")
     if (
         position_snapshot is not None
-        and template != "ohlcv-book-risk-lab"
+        and template not in {"ohlcv-book-risk-lab", "ohlcv-book-path-stress-lab"}
     ):
         issues.append(
             _issue(
                 "request/positionSnapshot",
                 "request.position-snapshot-template",
                 "positionSnapshot is consumed only by "
-                "ohlcv-book-risk-lab",
+                "ohlcv-book-risk-lab or ohlcv-book-path-stress-lab",
             )
         )
     if (
@@ -1955,6 +1962,18 @@ def prepare_project_intake(
                 "request/eventPolicy",
                 "request.event-policy-template",
                 "eventPolicy is consumed only by ohlcv-event-study-lab",
+            )
+        )
+    if (
+        path_stress_policy is not None
+        and template != "ohlcv-book-path-stress-lab"
+    ):
+        issues.append(
+            _issue(
+                "request/pathStressPolicy",
+                "request.path-stress-policy-template",
+                "pathStressPolicy is consumed only by "
+                "ohlcv-book-path-stress-lab",
             )
         )
     if (
@@ -2084,12 +2103,63 @@ def prepare_project_intake(
                         "ohlcv-event-study-lab",
                     )
                 )
+    if template == "ohlcv-book-path-stress-lab":
+        if not isinstance(path_stress_policy, dict):
+            issues.append(
+                _issue(
+                    "request/pathStressPolicy",
+                    "request.path-stress-policy-required",
+                    "ohlcv-book-path-stress-lab requires pathStressPolicy",
+                )
+            )
+        if not isinstance(position_snapshot, dict):
+            issues.append(
+                _issue(
+                    "request/positionSnapshot",
+                    "request.position-snapshot-required",
+                    "ohlcv-book-path-stress-lab requires positionSnapshot",
+                )
+            )
+        if position_scenarios is not None or position_sizing is not None:
+            issues.append(
+                _issue(
+                    "request",
+                    "request.path-stress-exclusive",
+                    "Path Stress accepts one reported baseline only; "
+                    "positionScenarios and positionSizing are not accepted",
+                )
+            )
+        if package["priceAdjustment"] != "split-adjusted":
+            issues.append(
+                _issue(
+                    "dataset/priceAdjustment",
+                    "request.path-stress-adjustment",
+                    "ohlcv-book-path-stress-lab requires split-adjusted OHLCV",
+                )
+            )
+        incompatible_policies = {
+            "horizonPolicy": request.get("horizonPolicy"),
+            "factorPolicy": request.get("factorPolicy"),
+            "portfolioPolicy": request.get("portfolioPolicy"),
+            "benchmarkPolicy": request.get("benchmarkPolicy"),
+            "eventPolicy": request.get("eventPolicy"),
+            "allocationPolicy": request.get("allocationPolicy"),
+        }
+        for key, value in incompatible_policies.items():
+            if value is not None:
+                issues.append(
+                    _issue(
+                        f"request/{key}",
+                        "request.path-stress-exclusive",
+                        f"{key} is not accepted by ohlcv-book-path-stress-lab",
+                    )
+                )
     if issues:
         raise AutoQuantValidationError(issues)
     assert panel_dates
     start = panel_dates[0]
     end = panel_dates[-1]
-    if template == "ohlcv-book-risk-lab":
+    if template in {"ohlcv-book-risk-lab", "ohlcv-book-path-stress-lab"}:
         if not isinstance(position_snapshot, dict):
             raise AutoQuantValidationError(
                 [
@@ -2384,6 +2454,7 @@ def finalize_project_intake(
             in {
                 "ohlcv-book-risk-lab",
                 "ohlcv-event-study-lab",
+                "ohlcv-book-path-stress-lab",
                 "ohlcv-allocation-lab",
             }
             else "ready-for-session"
@@ -3268,6 +3339,7 @@ def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
         in {
             "ohlcv-book-risk-lab",
             "ohlcv-event-study-lab",
+            "ohlcv-book-path-stress-lab",
             "ohlcv-allocation-lab",
         }
         else "ready-for-session"
@@ -3354,7 +3426,10 @@ def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
     if hash_json(request) != manifest.get("requestHash"):
         issues.append(_issue(request_path, "intake.request-hash", "Request hash mismatch"))
     position_path = project.root_dir / POSITION_SNAPSHOT
-    if manifest.get("template") == "ohlcv-book-risk-lab":
+    if manifest.get("template") in {
+        "ohlcv-book-risk-lab",
+        "ohlcv-book-path-stress-lab",
+    }:
         try:
             position_snapshot = load_position_snapshot(position_path)
             if position_snapshot != build_position_snapshot(request):
@@ -3858,6 +3933,35 @@ def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
                         event_policy_path,
                         "intake.event-study-policy",
                         "Event Study authority differs from normalized request",
+                    )
+                )
+        except AutoQuantValidationError as error:
+            issues.extend(error.issues)
+    path_stress_path = project.root_dir / BOOK_PATH_STRESS_POLICY
+    path_stress_present = path_stress_path.exists() or path_stress_path.is_symlink()
+    requires_path_stress = (
+        manifest.get("template") == "ohlcv-book-path-stress-lab"
+        and study.definition.dependencies is not None
+        and BOOK_PATH_STRESS_POLICY in study.definition.dependencies["paths"]
+    )
+    if manifest.get("template") == "ohlcv-book-path-stress-lab" and not requires_path_stress:
+        issues.append(
+            _issue(
+                study.manifest_path,
+                "intake.path-stress-dependency",
+                "Path Stress Study does not bind fixed path authority",
+            )
+        )
+    if path_stress_present or requires_path_stress:
+        try:
+            path_stress = load_book_path_stress_policy(path_stress_path)
+            expected_path_stress = build_book_path_stress_policy(request)
+            if path_stress != expected_path_stress:
+                issues.append(
+                    _issue(
+                        path_stress_path,
+                        "intake.path-stress-policy",
+                        "Path Stress authority differs from normalized request",
                     )
                 )
         except AutoQuantValidationError as error:

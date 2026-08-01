@@ -40,6 +40,15 @@ from .event_studies import (
     OVERLAP_POLICY,
     normalize_event_policy,
 )
+from .book_path_stress import (
+    MAX_EPISODES as MAX_PATH_STRESS_EPISODES,
+    MAX_HOLDING_BARS as MAX_PATH_STRESS_HOLDING_BARS,
+    MIN_EPISODES as MIN_PATH_STRESS_EPISODES,
+    MIN_HOLDING_BARS as MIN_PATH_STRESS_HOLDING_BARS,
+    OVERLAP_POLICY as PATH_STRESS_OVERLAP_POLICY,
+    PATH_STRESS_POLICY_KIND,
+    normalize_path_stress_policy,
+)
 from .studies import hash_json
 from .workspace import (
     SCHEMA_VERSION,
@@ -815,6 +824,7 @@ def validate_research_request(
             "positionScenarios",
             "positionSizing",
             "eventPolicy",
+            "pathStressPolicy",
         },
     )
     if value.get("schemaVersion") != SCHEMA_VERSION:
@@ -874,6 +884,15 @@ def validate_research_request(
             normalized_event_policy = normalize_event_policy(
                 value.get("eventPolicy"),
                 f"{path}/eventPolicy",
+            )
+        except AutoQuantValidationError as error:
+            issues.extend(error.issues)
+    normalized_path_stress_policy: dict[str, Any] | None = None
+    if "pathStressPolicy" in value:
+        try:
+            normalized_path_stress_policy = normalize_path_stress_policy(
+                value.get("pathStressPolicy"),
+                f"{path}/pathStressPolicy",
             )
         except AutoQuantValidationError as error:
             issues.extend(error.issues)
@@ -1722,6 +1741,11 @@ def validate_research_request(
             if "eventPolicy" in value
             else {}
         ),
+        **(
+            {"pathStressPolicy": normalized_path_stress_policy}
+            if "pathStressPolicy" in value
+            else {}
+        ),
         "horizon": value["horizon"].strip(),
         "hypotheses": [item.strip() for item in value["hypotheses"]],
         "constraints": [item.strip() for item in value["constraints"]],
@@ -2261,6 +2285,25 @@ RESEARCH_REQUEST_JSON_SCHEMA: dict[str, Any] = {
                     "minimum": MIN_EVENT_COUNT,
                     "maximum": MAX_EVENT_COUNT,
                 },
+            },
+        },
+        "pathStressPolicy": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["kind", "holdingBars", "episodeCount", "overlapPolicy"],
+            "properties": {
+                "kind": {"const": PATH_STRESS_POLICY_KIND},
+                "holdingBars": {
+                    "type": "integer",
+                    "minimum": MIN_PATH_STRESS_HOLDING_BARS,
+                    "maximum": MAX_PATH_STRESS_HOLDING_BARS,
+                },
+                "episodeCount": {
+                    "type": "integer",
+                    "minimum": MIN_PATH_STRESS_EPISODES,
+                    "maximum": MAX_PATH_STRESS_EPISODES,
+                },
+                "overlapPolicy": {"const": PATH_STRESS_OVERLAP_POLICY},
             },
         },
         "portfolioPolicy": {

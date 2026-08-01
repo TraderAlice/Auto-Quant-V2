@@ -196,6 +196,42 @@
 
         <section
           class="portfolio-section"
+          id="book-path-stress-explorer"
+          aria-labelledby="book-path-stress-title"
+          hidden
+        >
+          <header class="section-header">
+            <span>
+              <small>REPORTED BOOK → FIXED UNITS → WORST HISTORICAL PATHS</small>
+              <h2 id="book-path-stress-title">Reported book path stress explorer</h2>
+            </span>
+            <span class="section-meta" id="book-path-stress-meta">No Path Stress Run</span>
+          </header>
+          <div class="portfolio-summary" id="book-path-stress-summary"></div>
+          <article class="portfolio-viability-panel">
+            <header class="panel-toolbar">
+              <span>
+                <b>Worst non-overlapping episodes</b>
+                <small>Terminal loss ranking · worst interim point · dominant holding</small>
+              </span>
+              <span class="section-meta">HISTORICAL SUPPORT · NO FORECAST</span>
+            </header>
+            <div id="book-path-stress-episodes"></div>
+          </article>
+          <article class="portfolio-attribution-panel">
+            <header class="panel-toolbar">
+              <span>
+                <b>Terminal contribution reconciliation</b>
+                <small>Opening weight × holding cumulative return, including flat cash</small>
+              </span>
+            </header>
+            <div id="book-path-stress-contributions"></div>
+          </article>
+          <div class="factor-warning" id="book-path-stress-warning"></div>
+        </section>
+
+        <section
+          class="portfolio-section"
           id="allocation-explorer"
           aria-labelledby="allocation-title"
           hidden

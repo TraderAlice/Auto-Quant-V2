@@ -93,6 +93,13 @@ exact delayed-entry/holding clock, matched reference, and overlap policy. It
 contains no editable candidate and runs directly once the content-locked
 package and policy are ready. Template choice is construction input and is not
 recorded as a runtime parent in `autoquant.json`.
+`--template ohlcv-book-path-stress-lab` creates a fixed descriptive Study over
+one reported or hypothetical funded book. It binds the position snapshot and
+one immutable fixed-unit terminal-loss episode policy, requires split-adjusted
+daily history, enumerates every complete common-session window, and produces
+five strict ledgers for selection, paths, and return contribution. It has no
+editable candidate or Session. See
+[[docs/design/reported-book-historical-path-stress]].
 `--template ohlcv-allocation-lab` creates a fixed Portfolio-native Study for
 one long-only equal-risk-contribution method and one funded fixed-weight
 reference. It binds `strategies/allocation-policy.json`, contains no editable

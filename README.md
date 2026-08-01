@@ -1,5 +1,5 @@
 ---
-version: 0.9.14
+version: 0.9.15
 ---
 
 # AutoQuant V2
@@ -519,7 +519,8 @@ Today it can:
   and Harness identity;
 - run cross-sectional or temporal Factor research, mechanical Portfolio
   construction, governed RL, reported-book risk, caller-bounded sizing,
-  fixed price-event studies, and Portfolio-native risk-parity allocation;
+  fixed price-event studies, fixed-unit reported-book historical path stress,
+  and Portfolio-native risk-parity allocation;
 - use aligned, ragged, continuous, XNYS-session, daily, intraday, and causal
   multi-interval OHLCV surfaces;
 - give a coding Agent a recoverable research brief, exact edit boundary,

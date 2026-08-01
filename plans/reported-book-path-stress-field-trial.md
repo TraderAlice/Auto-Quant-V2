@@ -114,7 +114,7 @@ The research interpretation is frozen before the worker starts:
 - [x] Define and index the fixed historical path-stress assignment.
 - [x] Build an isolated installed-`0.9.14` baseline desk with zero staged data.
 - [x] Run and audit one fresh baseline worker without coaching.
-- [ ] Admit and implement only reproduced reusable product friction.
+- [x] Admit and implement only reproduced reusable product friction.
 - [ ] Replay the unchanged task with a fresh candidate-wheel worker.
 - [ ] Complete the `v0.9.15` release audit and publish the tag.
 
@@ -150,6 +150,16 @@ The research interpretation is frozen before the worker starts:
   episode count, overlap policy, calendar, and adjustment meaning before the
   Run. Core owns deterministic enumeration, selection, attribution,
   reconciliation, immutable artifacts, strict inspection, and projection.
+- 2026-08-01 — Candidate Core now freezes `positionSnapshot` plus the narrow
+  `pathStressPolicy`, requires split-adjusted daily intake, and creates a
+  no-edit/no-Session `ohlcv-book-path-stress` Study. Its Judge emits exactly
+  five artifacts covering all complete windows, selected episodes, terminal
+  attribution, full selected paths, and the bounded report.
+- 2026-08-01 — `aq run book-path-stress` independently reconstructs greedy
+  selection, every path return, cash, contribution, dominant holding, report,
+  and metrics. A semantic tamper remains rejected even after the attacker
+  recomputes the ordinary Run file manifest. Orientation and Studio expose the
+  same strict read model and terminal historical-only boundary.
 
 ## Verification
 
@@ -173,6 +183,12 @@ Order, or trading authority.
 - 2026-08-01 — Released-wheel baseline completed without coaching in three
   minutes. Its useful unsupported boundary authorizes the narrow fixed method
   described above; implementation now begins.
+- 2026-08-01 — Candidate implementation smoke enumerated 300 complete
+  synthetic windows, selected five inclusive-non-overlapping episodes, and
+  reconciled 105 path points plus every holding/cash terminal contribution.
+  Four dedicated method/tamper/intake tests and focused CLI, repository,
+  version, lock, Python, JavaScript, and 1,356-link checks pass. Candidate
+  installed-wheel replay is next.
 
 ## Completion
 

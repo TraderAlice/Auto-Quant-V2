@@ -29,6 +29,10 @@ from .event_studies import (
     EVENT_STUDY_POLICY,
     build_event_study_policy,
 )
+from .book_path_stress import (
+    BOOK_PATH_STRESS_POLICY,
+    build_book_path_stress_policy,
+)
 from .mandates import (
     PORTFOLIO_MANDATE,
     build_portfolio_mandate,
@@ -66,6 +70,7 @@ PROJECT_TEMPLATE_IDS = (
     "ohlcv-rl-factor-lab",
     "ohlcv-book-risk-lab",
     "ohlcv-event-study-lab",
+    "ohlcv-book-path-stress-lab",
     "ohlcv-allocation-lab",
     "ohlcv-research-desk",
 )
@@ -145,6 +150,18 @@ PROJECT_TEMPLATE_ROUTES: tuple[dict[str, Any], ...] = (
         ],
     },
     {
+        "id": "ohlcv-book-path-stress-lab",
+        "kind": "fixed-lab",
+        "lanes": ["book-path-stress"],
+        "purpose": "Find the worst non-overlapping fixed-unit historical paths for one reported book.",
+        "fits": [
+            "The caller supplies exact funded weights, a fixed horizon, and episode count.",
+        ],
+        "doesNotFit": [
+            "The task asks for account reconstruction, forecasts, optimization, or execution.",
+        ],
+    },
+    {
         "id": "ohlcv-allocation-lab",
         "kind": "fixed-lab",
         "lanes": ["allocation"],
@@ -192,6 +209,7 @@ PORTFOLIO_STUDY_ID = "ohlcv-portfolio-quality"
 RL_STUDY_ID = "ohlcv-rl-factor-policy"
 BOOK_RISK_STUDY_ID = "ohlcv-book-risk"
 EVENT_STUDY_ID = "ohlcv-price-event-reaction"
+BOOK_PATH_STRESS_STUDY_ID = "ohlcv-book-path-stress"
 ALLOCATION_STUDY_ID = "ohlcv-risk-parity-allocation"
 TEMPLATE_STUDY_IDS = {
     "ohlcv-factor-lab": OHLCV_STUDY_ID,
@@ -199,6 +217,7 @@ TEMPLATE_STUDY_IDS = {
     "ohlcv-rl-factor-lab": RL_STUDY_ID,
     "ohlcv-book-risk-lab": BOOK_RISK_STUDY_ID,
     "ohlcv-event-study-lab": EVENT_STUDY_ID,
+    "ohlcv-book-path-stress-lab": BOOK_PATH_STRESS_STUDY_ID,
     "ohlcv-allocation-lab": ALLOCATION_STUDY_ID,
     "ohlcv-research-desk": OHLCV_STUDY_ID,
 }
@@ -208,6 +227,7 @@ TEMPLATE_STUDY_SEQUENCES = {
     "ohlcv-rl-factor-lab": (RL_STUDY_ID,),
     "ohlcv-book-risk-lab": (BOOK_RISK_STUDY_ID,),
     "ohlcv-event-study-lab": (EVENT_STUDY_ID,),
+    "ohlcv-book-path-stress-lab": (BOOK_PATH_STRESS_STUDY_ID,),
     "ohlcv-allocation-lab": (ALLOCATION_STUDY_ID,),
     "ohlcv-research-desk": (
         OHLCV_STUDY_ID,
@@ -390,6 +410,23 @@ def _write_event_study_policy(
     path.write_text(
         json.dumps(
             build_event_study_policy(request),
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def _write_book_path_stress_policy(
+    project: ProjectContext,
+    request: dict[str, Any],
+) -> None:
+    path = project.root_dir / BOOK_PATH_STRESS_POLICY
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            build_book_path_stress_policy(request),
             indent=2,
             sort_keys=True,
         )
@@ -1336,6 +1373,147 @@ def _apply_ohlcv_event_study_lab(
     _finalize_intake(project, intake, study, snapshot_hash)
 
 
+def _apply_ohlcv_book_path_stress_lab(
+    project: ProjectContext,
+    intake: PreparedIntake | None = None,
+) -> None:
+    """Create one fixed reported-book historical path stress Study."""
+
+    template = "ohlcv_book_path_stress_lab"
+    if intake is None:
+        end = _write_demo_ohlcv(project, readme_template=template)
+        dataset = {
+            "id": "synthetic-ohlcv-book-path-stress-fixture",
+            "version": "v1",
+            "asset_class": "synthetic-multi-asset",
+            "universe": list(OHLCV_ASSETS),
+            "start": OHLCV_START.isoformat(),
+        }
+        snapshot_hash = None
+        request = {
+            "schemaVersion": 1,
+            "kind": "autoquant-research-request",
+            "title": "Synthetic reported-book historical path stress",
+            "question": (
+                "Which five non-overlapping twenty-session paths produced "
+                "the worst terminal losses for this fixed-unit book?"
+            ),
+            "decisionContext": "Deterministic Harness fixture for historical path evidence.",
+            "assets": [
+                {
+                    "symbol": asset,
+                    "assetClass": "other",
+                    "venue": None,
+                    "positionRole": "long-only" if asset in OHLCV_ASSETS[:3] else "context-only",
+                }
+                for asset in OHLCV_ASSETS
+            ],
+            "direction": "research-only",
+            "positionSnapshot": {
+                "kind": "hypothetical-weights",
+                "asOf": f"{_time_range_value(end)}T00:00:00Z",
+                "baseCurrency": "USD",
+                "weights": {
+                    OHLCV_ASSETS[0]: 0.40,
+                    OHLCV_ASSETS[1]: 0.25,
+                    OHLCV_ASSETS[2]: 0.20,
+                },
+                "cashWeight": 0.15,
+            },
+            "pathStressPolicy": {
+                "kind": "fixed-unit-worst-terminal-loss-episodes",
+                "holdingBars": 20,
+                "episodeCount": 5,
+                "overlapPolicy": "greedy-worst-terminal-loss-non-overlapping",
+            },
+            "horizon": "All complete twenty-session windows through the final closed bar.",
+            "hypotheses": ["Loss episodes may be dominated by one repeated holding."],
+            "constraints": ["No forecast, optimization, account reconstruction, Order, or trading authority."],
+            "deliverables": ["Complete window ledger, selected paths, exact attribution, and dominance conclusion."],
+            "source": {
+                "system": "local",
+                "workspaceId": None,
+                "sessionId": None,
+                "artifactPath": None,
+                "artifactRevision": None,
+            },
+        }
+        (project.root_dir / "request.json").write_text(
+            json.dumps(request, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+    else:
+        if intake.request.get("positionSnapshot") is None or intake.request.get("pathStressPolicy") is None:
+            raise AutoQuantValidationError(
+                [
+                    _issue(
+                        "request",
+                        "request.path-stress-required",
+                        "ohlcv-book-path-stress-lab requires positionSnapshot and pathStressPolicy",
+                    )
+                ]
+            )
+        end, dataset, snapshot_hash = _intake_dataset(
+            project,
+            intake,
+            BOOK_PATH_STRESS_STUDY_ID,
+        )
+        request = intake.request
+    _write_position_snapshot(project, request)
+    _write_book_path_stress_policy(project, request)
+    _write_template_source(
+        project,
+        "judges/ohlcv_book_path_stress.py",
+        "judge.py",
+        template=template,
+    )
+    (project.root_dir / project.manifest.research_program).write_text(
+        _template_text("research.md", template=template),
+        encoding="utf-8",
+    )
+    definition = StudyDefinition(
+        schema_version=1,
+        id=BOOK_PATH_STRESS_STUDY_ID,
+        name="OHLCV Reported Book Historical Path Stress",
+        description=(
+            "Enumerate fixed-unit historical windows and select the worst "
+            "non-overlapping terminal-loss episodes with exact attribution"
+        ),
+        program="program.md",
+        subject=StudySubject("research", "reported-book-path-stress", "fixed"),
+        editable={"paths": []},
+        judge=StudyJudge(
+            "python",
+            "judges/ohlcv_book_path_stress.py",
+            ["judges/ohlcv_book_path_stress.py"],
+            [],
+            30,
+        ),
+        objective=StudyObjective(
+            "worst_terminal_book_return",
+            "minimize",
+            0.01,
+        ),
+        dataset=StudyDataset(
+            str(dataset["id"]),
+            str(dataset["version"]),
+            str(dataset["asset_class"]),
+            list(dataset["universe"]),
+            StudyTimeRange(str(dataset["start"]), _time_range_value(end)),
+            ["ohlcv/**"],
+        ),
+        dependencies={"paths": [POSITION_SNAPSHOT, BOOK_PATH_STRESS_POLICY]},
+    )
+    study = create_study(project, definition)
+    study.program_path.write_text(
+        _template_text("program.md", template=template),
+        encoding="utf-8",
+    )
+    _externalize_intake_guidance(project, intake, study.program_path)
+    study = load_study(project, BOOK_PATH_STRESS_STUDY_ID)
+    _finalize_intake(project, intake, study, snapshot_hash)
+
+
 def _apply_ohlcv_allocation_lab(
     project: ProjectContext,
     intake: PreparedIntake | None = None,
@@ -1762,6 +1940,8 @@ def apply_project_template(
         _apply_ohlcv_book_risk_lab(project, intake)
     elif template_id == "ohlcv-event-study-lab":
         _apply_ohlcv_event_study_lab(project, intake)
+    elif template_id == "ohlcv-book-path-stress-lab":
+        _apply_ohlcv_book_path_stress_lab(project, intake)
     elif template_id == "ohlcv-allocation-lab":
         _apply_ohlcv_allocation_lab(project, intake)
     else:

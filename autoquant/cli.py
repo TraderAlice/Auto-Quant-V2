@@ -26,6 +26,11 @@ from .book_risk_explorer import (
     load_book_risk_diagnostics,
 )
 from .book_risk_studies import create_book_risk_study_intake
+from .book_path_stress import BOOK_PATH_STRESS_POLICY_JSON_SCHEMA
+from .book_path_stress_explorer import (
+    BOOK_PATH_STRESS_DIAGNOSTICS_JSON_SCHEMA,
+    load_book_path_stress_diagnostics,
+)
 from .capabilities import CLI_COMMANDS
 from .candidate_contracts import (
     FACTOR_CANDIDATE_CONTRACT_JSON_SCHEMA,
@@ -325,6 +330,8 @@ def build_parser() -> RaisingArgumentParser:
             "factor-claim",
             "event-study-policy",
             "event-study-diagnostics",
+            "book-path-stress-policy",
+            "book-path-stress-diagnostics",
             "allocation-policy",
             "allocation-diagnostics",
             "book-risk-diagnostics",
@@ -689,6 +696,16 @@ def build_parser() -> RaisingArgumentParser:
     run_event_study.add_argument("--run", required=True)
     run_event_study.set_defaults(command_id="run.event-study")
     _json_argument(run_event_study)
+
+    run_book_path_stress = run_actions.add_parser(
+        "book-path-stress",
+        help="inspect one fixed reported-book historical Path Stress Study",
+    )
+    run_book_path_stress.add_argument("path")
+    run_book_path_stress.add_argument("--project")
+    run_book_path_stress.add_argument("--run", required=True)
+    run_book_path_stress.set_defaults(command_id="run.book-path-stress")
+    _json_argument(run_book_path_stress)
 
     run_allocation = run_actions.add_parser(
         "allocation",
@@ -1499,6 +1516,7 @@ def _project_intake(args: argparse.Namespace) -> CommandResult:
         if args.template not in {
             "ohlcv-book-risk-lab",
             "ohlcv-event-study-lab",
+            "ohlcv-book-path-stress-lab",
             "ohlcv-allocation-lab",
         }:
             next_actions.append(
@@ -2834,6 +2852,47 @@ def _run_event_study(args: argparse.Namespace) -> CommandResult:
                 / project.manifest.directories["runs"]
                 / diagnostics["run"]["id"]
                 / item["path"],
+                immutable=True,
+            )
+            for kind, item in diagnostics["artifacts"].items()
+        ],
+    )
+
+
+def _run_book_path_stress(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    diagnostics = load_book_path_stress_diagnostics(project, args.run)
+    summary = diagnostics["summary"]
+    episode_lines = "".join(
+        f"  {item['rank']}. {item['startTimestamp']} → {item['endTimestamp']} · "
+        f"terminal {item['terminalBookReturn']} · worst {item['worstInterimBookReturn']} "
+        f"at {item['worstInterimTimestamp']} · dominant {item['dominantLossContributor']}\n"
+        for item in diagnostics["episodes"]
+    )
+    return CommandResult(
+        "run.book-path-stress",
+        diagnostics,
+        (
+            f"Book Path Stress Run: {diagnostics['run']['id']}\n"
+            f"Complete windows / selected episodes: {summary['eligibleWindowCount']} / "
+            f"{summary['selectedEpisodeCount']}\n"
+            f"Worst terminal book return: {summary['worstTerminalBookReturn']}\n"
+            f"Same dominant loss contributor across all episodes: "
+            f"{summary['sameDominantLossContributorAcrossAllEpisodes']}"
+            + (
+                f" · {summary['dominantLossContributorAcrossAllEpisodes']}\n"
+                if summary["dominantLossContributorAcrossAllEpisodes"] is not None
+                else "\n"
+            )
+            + episode_lines
+            + "Historical fixed-unit paths only; no forecast, account, Order, or trading authority.\n"
+        ),
+        project_context(project),
+        [
+            artifact(
+                kind,
+                f"{diagnostics['run']['id']}:{kind}",
+                project.root_dir / project.manifest.directories["runs"] / diagnostics["run"]["id"] / item["path"],
                 immutable=True,
             )
             for kind, item in diagnostics["artifacts"].items()
@@ -4990,6 +5049,8 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "factor-claim",
             "event-study-policy",
             "event-study-diagnostics",
+            "book-path-stress-policy",
+            "book-path-stress-diagnostics",
             "allocation-policy",
             "allocation-diagnostics",
             "judge-output",
@@ -5038,6 +5099,8 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "factor-claim": FACTOR_CLAIM_JSON_SCHEMA,
             "event-study-policy": EVENT_STUDY_POLICY_JSON_SCHEMA,
             "event-study-diagnostics": EVENT_STUDY_DIAGNOSTICS_JSON_SCHEMA,
+            "book-path-stress-policy": BOOK_PATH_STRESS_POLICY_JSON_SCHEMA,
+            "book-path-stress-diagnostics": BOOK_PATH_STRESS_DIAGNOSTICS_JSON_SCHEMA,
             "allocation-policy": ALLOCATION_POLICY_JSON_SCHEMA,
             "allocation-diagnostics": ALLOCATION_DIAGNOSTICS_JSON_SCHEMA,
             "book-risk-diagnostics": BOOK_RISK_DIAGNOSTICS_JSON_SCHEMA,
@@ -5112,6 +5175,8 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
         return _run_book_risk(args)
     if args.command_id == "run.event-study":
         return _run_event_study(args)
+    if args.command_id == "run.book-path-stress":
+        return _run_book_path_stress(args)
     if args.command_id == "run.allocation":
         return _run_allocation(args)
     if args.command_id == "run.rl":

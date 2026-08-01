@@ -226,6 +226,17 @@ every snapshot as unauthenticated external input, return its verified evidence,
 and leave live account reconciliation and execution to OpenAlice/UTA. See
 [[docs/design/reported-position-book-risk]].
 
+When the caller asks which historical paths hurt one exact reported book,
+do not substitute Book Risk's daily constant-weight drawdown or covariance
+contribution. Use `ohlcv-book-path-stress-lab` only after the caller fixes one
+funded snapshot, split-adjusted task-complete daily history, holding bars,
+episode count, and greedy inclusive non-overlap rule. The fixed Study buys the
+opening units once per window, permits natural weight drift, keeps cash flat,
+and attributes return as opening weight times holding cumulative return. Do
+not search parameters, attach news explanations, forecast recurrence,
+authenticate the account, optimize another book, or create an Order. See
+[[docs/design/reported-book-historical-path-stress]].
+
 English is the working language inside the AutoQuant desk: use it for
 `research.md`, plans, research notes, code and comments, experiment hypotheses,
 and internal Reports or Dossiers. Preserve proper nouns, identifiers, source
@@ -309,6 +320,9 @@ Read the relevant linked document before changing a subsystem:
   [[docs/design/agent-operator-experience]]
 - Direct immutable-Run versus governed-Session Report ownership, anchors, and
   coordinated-program precedence: [[docs/design/run-bound-research-reports]]
+- Fixed-unit reported-book historical windows, terminal-loss ranking, greedy
+  non-overlap selection, exact return attribution, and no-forecast boundary:
+  [[docs/design/reported-book-historical-path-stress]]
 - Fresh-worker isolation, employability evidence grades, trial observation,
   friction promotion, and the OpenAlice readiness gate:
   [[docs/agent-employability-validation]]

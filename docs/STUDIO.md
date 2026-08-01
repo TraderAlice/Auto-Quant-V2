@@ -72,6 +72,9 @@ The first viewport prioritizes:
   complete, overlap-excluded, right-censored, and primary populations,
   conditional/reference distributions, uncertainty, event ledger, and
   no-trading authority warning;
+- the latest successful Book Path Stress Run's complete-window population,
+  worst non-overlapping fixed-unit episodes, worst-interim paths, and exact
+  per-holding terminal return contributions;
 - RL Run summaries for validation/test audit Sharpe, seed/fold dispersion,
   simple-baseline advantage, failure rate, and fold × seed coverage;
 - a bounded Session decision matrix comparing baseline, recent candidates, and
@@ -120,7 +123,8 @@ The first viewport prioritizes:
   evidence, and renders the immutable Agent declaration without coloring a
   lane as a Core or production pass or converting the audit into trading
   authority;
-- one selectable Book Risk, Price Event, Factor, Portfolio, or RL evidence
+- one selectable Book Risk, Book Path Stress, Price Event, Factor, Portfolio,
+  or RL evidence
   workbench at a time, keeping the complete bounded explorer available without
   rendering all long reports into one page;
 - fixed Study catalog and Project research program;

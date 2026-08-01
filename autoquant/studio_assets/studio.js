@@ -255,6 +255,12 @@ const projectFocusLane = (project) => {
 };
 
 const projectFocusRun = (project) => {
+  if (!project.researchProgramStatus && project.bookPathStressExplorer?.run?.id) {
+    const descriptive = project.runs.find(
+      (item) => item.id === project.bookPathStressExplorer.run.id,
+    );
+    if (descriptive?.status === "succeeded") return descriptive;
+  }
   if (!project.researchProgramStatus && project.allocationExplorer?.run?.id) {
     const allocation = project.runs.find(
       (item) => item.id === project.allocationExplorer.run.id,
@@ -302,6 +308,7 @@ const laneKind = (lane) => {
     "adaptive-policy-challenge": "rl",
     "reported-book-risk": "book-risk",
     "price-event-study": "event-study",
+    "reported-book-path-stress": "book-path-stress",
   }[lane?.role] ?? null;
 };
 
@@ -319,6 +326,8 @@ const latestRunForLaneKind = (project, kind) =>
         run.status === "succeeded" &&
         (kind === "book-risk"
           ? run.primaryMetric === "current_component_risk_hhi"
+          : kind === "book-path-stress"
+            ? run.primaryMetric === "worst_terminal_book_return"
           : kind === "event-study"
             ? run.primaryMetric === "primary_eligible_event_count"
           : kind === "rl"
@@ -481,6 +490,30 @@ const laneReadout = (project, lane) => {
       tone: conclusion.status === "insufficient-events" ? "warning" : "neutral",
       verdict: conclusion.status.replaceAll("-", " ").toUpperCase(),
       detail: `${conclusion.observedPrimaryEvents}/${conclusion.minimumEvents} minimum events · descriptive association only`,
+    };
+  }
+  if (kind === "book-path-stress") {
+    const explorer = project.bookPathStressExplorer;
+    const value = explorer?.summary?.worstTerminalBookReturn ?? lane?.latestRun?.value;
+    if (!Number.isFinite(Number(value))) {
+      return {
+        kind,
+        metric: "Worst terminal book return",
+        value,
+        display: "—",
+        tone: "warning",
+        verdict: "EVIDENCE PENDING",
+        detail: "No current immutable Path Stress Run is available",
+      };
+    }
+    return {
+      kind,
+      metric: "Worst terminal book return",
+      value,
+      display: signedPercent(value),
+      tone: "warning",
+      verdict: `${explorer.summary.selectedEpisodeCount} WORST NON-OVERLAPPING EPISODES`,
+      detail: `${explorer.summary.eligibleWindowCount} complete fixed-unit windows · historical support only`,
     };
   }
   return {
@@ -1255,7 +1288,7 @@ function renderSessions(project) {
       .join("") ||
     (project.externalHoldout
       ? '<div class="empty-panel">Sessions are disabled in this frozen external-audit Project.</div>'
-      : project.bookRiskExplorer || project.eventStudyExplorer || project.allocationExplorer
+      : project.bookRiskExplorer || project.eventStudyExplorer || project.bookPathStressExplorer || project.allocationExplorer
         ? '<div class="empty-panel">This fixed descriptive Project has no editable research surface or Session lifecycle.</div>'
       : project.runReports?.length
         ? `<div class="empty-panel">${project.runReports.length} immutable Run-bound Research Report${project.runReports.length === 1 ? "" : "s"} published; no editable Session, Check, or Experiment was created.</div>`
@@ -1442,10 +1475,11 @@ function renderHandoff(project) {
       const lane = projectFocusLane(project);
       const bookRisk = project.bookRiskExplorer;
       const eventStudy = project.eventStudyExplorer;
+      const bookPathStress = project.bookPathStressExplorer;
       const allocation = project.allocationExplorer;
       const next =
         holdout?.nextAction ??
-        (bookRisk || eventStudy || allocation
+        (bookRisk || eventStudy || bookPathStress || allocation
           ? project.agentWorkBrief?.primaryAction
           : null) ??
         program?.recommendedAction ??
@@ -1466,6 +1500,8 @@ function renderHandoff(project) {
           ? "REQUEST → DATASET → FIXED RUN → REVIEW"
         : eventStudy
           ? "REQUEST → DATASET → FIXED EVENT RUN → REVIEW"
+        : bookPathStress
+          ? "REQUEST → DATASET → FIXED PATH STRESS RUN → REVIEW"
         : allocation
           ? "REQUEST → DATASET → FIXED ALLOCATION RUN → REVIEW"
         : "REQUEST → DATASET → BASELINE → ITERATE";
@@ -1475,6 +1511,8 @@ function renderHandoff(project) {
           ? `Descriptive evidence ready · ${scenarioCount} supplied scenario${scenarioCount === 1 ? "" : "s"}${sizingReady ? ` · sizing ${escapeHtml(sizingStatus)}` : ""} · no Session`
         : eventStudy
           ? `${eventCounts?.primaryEvents ?? 0} primary events · ${eventCounts?.completeEvents ?? 0} complete · no Session`
+        : bookPathStress
+          ? `${bookPathStress.summary.eligibleWindowCount} complete windows · ${bookPathStress.summary.selectedEpisodeCount} selected episodes · no Session`
         : allocation
           ? `${allocation.conclusion.status} · validation advantage ${metric(allocation.conclusion.validationNetSharpeAdvantage)} · no Session`
         : baseline
@@ -1693,6 +1731,13 @@ function renderResearchProgram(project) {
 
 const evidenceLanes = [
   {
+    id: "book-path-stress",
+    label: "Book path stress",
+    question: "Which fixed-unit historical paths hurt this reported book most?",
+    explorer: "bookPathStressExplorer",
+    section: "book-path-stress-explorer",
+  },
+  {
     id: "allocation",
     label: "Allocation",
     question: "Does the fixed construction beat the same-clock reference?",
@@ -1737,6 +1782,7 @@ const evidenceLanes = [
 ];
 
 const studyIdsByEvidenceLane = {
+  "book-path-stress": "ohlcv-book-path-stress",
   allocation: "ohlcv-risk-parity-allocation",
   "event-study": "ohlcv-price-event-reaction",
   "book-risk": "ohlcv-book-risk",
@@ -2670,6 +2716,45 @@ function renderAllocationExplorer(project) {
   element("allocation-warning").innerHTML = `
     <span>Strict accounting, weights, solver counts, split construction fidelity, validation authority, and no-trading boundary rederived from immutable artifacts. Relative performance and ERC construction fidelity remain separate conclusions.</span>
     ${copyCommandButton(command, "Copy Allocation Explorer CLI")}`;
+}
+
+function renderBookPathStressExplorer(project) {
+  const section = element("book-path-stress-explorer");
+  const explorer = project.bookPathStressExplorer;
+  if (!explorer) {
+    section.hidden = true;
+    return;
+  }
+  section.hidden = false;
+  const summary = explorer.summary;
+  element("book-path-stress-meta").textContent =
+    `${explorer.run.id} · ${summary.eligibleWindowCount} complete windows · ${summary.selectedEpisodeCount} selected`;
+  element("book-path-stress-summary").innerHTML = [
+    ["Worst terminal", signedPercent(summary.worstTerminalBookReturn), "fixed opening units"],
+    ["Complete windows", String(summary.eligibleWindowCount), `${explorer.policy.path.holdingBars} following sessions`],
+    ["Selected episodes", String(summary.selectedEpisodeCount), "inclusive non-overlap"],
+    ["Same dominant holding", summary.sameDominantLossContributorAcrossAllEpisodes ? "yes" : "no", summary.dominantLossContributorAcrossAllEpisodes ?? "mixed contributors"],
+  ].map(([label, value, note]) => `
+    <span><small>${escapeHtml(label)}</small><b>${escapeHtml(value)}</b><em>${escapeHtml(note)}</em></span>`).join("");
+  element("book-path-stress-episodes").innerHTML = `
+    <div class="factor-table-wrap"><table class="factor-table">
+      <thead><tr><th>Rank</th><th>Start → end</th><th>Terminal</th><th>Worst interim</th><th>At</th><th>Dominant loss</th></tr></thead>
+      <tbody>${explorer.episodes.map((row) => `
+        <tr><th>${row.rank}</th><td>${escapeHtml(row.startTimestamp)} → ${escapeHtml(row.endTimestamp)}</td>
+        <td>${signedPercent(row.terminalBookReturn)}</td><td>${signedPercent(row.worstInterimBookReturn)}</td>
+        <td>${escapeHtml(row.worstInterimTimestamp)}</td><td>${escapeHtml(row.dominantLossContributor)}</td></tr>`).join("")}</tbody>
+    </table></div>`;
+  element("book-path-stress-contributions").innerHTML = `
+    <div class="factor-table-wrap"><table class="factor-table">
+      <thead><tr><th>Episode</th><th>Holding</th><th>Opening weight</th><th>Asset return</th><th>Contribution</th></tr></thead>
+      <tbody>${explorer.contributions.map((row) => `
+        <tr><th>${row.rank}</th><td>${escapeHtml(row.asset)}</td><td>${percent(row.openingWeight)}</td>
+        <td>${signedPercent(row.terminalAssetReturn)}</td><td>${signedPercent(row.terminalContribution)}</td></tr>`).join("")}</tbody>
+    </table></div>`;
+  const command = project.commands?.find((item) => item.id === "run.book-path-stress");
+  element("book-path-stress-warning").innerHTML = `
+    <span>${escapeHtml(explorer.warning)}</span>
+    ${copyCommandButton(command, "Copy Path Stress Explorer CLI")}`;
 }
 
 function renderEventStudyExplorer(project) {
@@ -5431,7 +5516,7 @@ function render() {
           : "FROZEN EXTERNAL HOLDOUT"
       : project.counts.runningCampaigns
       ? "RESEARCHER IN PROGRESS"
-      : project.bookRiskExplorer || project.eventStudyExplorer || project.allocationExplorer
+      : project.bookRiskExplorer || project.eventStudyExplorer || project.bookPathStressExplorer || project.allocationExplorer
         ? "DESCRIPTIVE EVIDENCE READY"
       : project.intake && project.counts.sessions === 0
         ? "CONTENT-LOCKED INTAKE READY"
@@ -5455,6 +5540,7 @@ function render() {
   renderBookRiskExplorer(project);
   renderAllocationExplorer(project);
   renderEventStudyExplorer(project);
+  renderBookPathStressExplorer(project);
   renderFactorExplorer(project);
   renderPortfolioExplorer(project);
   renderRlExplorer(project);

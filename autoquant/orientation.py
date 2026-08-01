@@ -80,6 +80,7 @@ EXPECTED_EVIDENCE = {
     "study.inspect": "study-authority",
     "run.book-risk": "book-risk-diagnostics",
     "run.event-study": "event-study-diagnostics",
+    "run.book-path-stress": "book-path-stress-diagnostics",
     "run.allocation": "allocation-diagnostics",
     "validate": "structural-validation",
 }
@@ -1250,6 +1251,7 @@ def _single_study_orientation(
         "current_component_risk_hhi",
         "primary_eligible_event_count",
         "validation_net_sharpe_advantage",
+        "worst_terminal_book_return",
     }:
         event_study = (
             study.definition.objective.metric
@@ -1259,10 +1261,16 @@ def _single_study_orientation(
             study.definition.objective.metric
             == "validation_net_sharpe_advantage"
         )
+        path_stress_study = (
+            study.definition.objective.metric
+            == "worst_terminal_book_return"
+        )
         explorer_raw = _command(
             (
                 "run.event-study"
                 if event_study
+                else "run.book-path-stress"
+                if path_stress_study
                 else "run.allocation"
                 if allocation_study
                 else "run.book-risk"
@@ -1272,6 +1280,10 @@ def _single_study_orientation(
                 "overlap, uncertainty, and no-trading conclusion evidence."
                 if event_study
                 else (
+                    "Inspect verified complete-window ranking, fixed-unit paths, "
+                    "non-overlap selection, and exact holding attribution."
+                    if path_stress_study
+                else (
                     "Inspect verified same-clock allocation/reference, ERC "
                     "solver, risk, implementation, and current target evidence."
                     if allocation_study
@@ -1280,7 +1292,7 @@ def _single_study_orientation(
                         "caller-supplied scenarios, and any caller-bounded "
                         "target-position sizing evidence."
                     )
-                )
+                ))
             ),
             [
                 "aq",
@@ -1288,6 +1300,8 @@ def _single_study_orientation(
                 (
                     "event-study"
                     if event_study
+                    else "book-path-stress"
+                    if path_stress_study
                     else "allocation"
                     if allocation_study
                     else "book-risk"
@@ -1310,6 +1324,10 @@ def _single_study_orientation(
                     "historical evidence review."
                     if event_study
                     else (
+                        "The fixed reported-book Path Stress Study is complete "
+                        "and ready for historical evidence review."
+                        if path_stress_study
+                    else (
                         "The fixed allocation Study is complete and ready for "
                         "decision-support review."
                         if allocation_study
@@ -1317,7 +1335,7 @@ def _single_study_orientation(
                             "The fixed reported-book audit is complete and ready "
                             "for decision-support review."
                         )
-                    )
+                    ))
                 ),
             }
         ]
@@ -1813,10 +1831,12 @@ def build_agent_work_brief(project: ProjectContext) -> dict[str, Any]:
     allocation_fixed = (
         descriptive_metric == "validation_net_sharpe_advantage"
     )
+    path_stress_fixed = descriptive_metric == "worst_terminal_book_return"
     fixed_descriptive = descriptive_metric in {
         "current_component_risk_hhi",
         "primary_eligible_event_count",
         "validation_net_sharpe_advantage",
+        "worst_terminal_book_return",
     }
     research_agenda = (
         waiting_research_agenda(
@@ -1847,6 +1867,8 @@ def build_agent_work_brief(project: ProjectContext) -> dict[str, Any]:
             lane_id=(
                 "event-study"
                 if event_descriptive
+                else "book-path-stress"
+                if path_stress_fixed
                 else "allocation"
                 if allocation_fixed
                 else "book-risk"
@@ -1860,6 +1882,12 @@ def build_agent_work_brief(project: ProjectContext) -> dict[str, Any]:
                 )
                 if event_descriptive
                 else (
+                    "Reported-book path stress is a fixed descriptive audit. "
+                    "Review complete windows, selected paths, and reconciled "
+                    "holding attribution; do not manufacture forecasts, "
+                    "optimization, account reconstruction, or execution."
+                    if path_stress_fixed
+                else (
                     "Portfolio-native allocation is a fixed construction "
                     "evaluation. Review the verified candidate/reference, "
                     "solver, risk, and current-target evidence; do not "
@@ -1870,11 +1898,13 @@ def build_agent_work_brief(project: ProjectContext) -> dict[str, Any]:
                         "the verified evidence and any bounded target position; "
                         "do not manufacture an optimization or execution agenda."
                     )
-                )
+                ))
             ),
             test_role=(
                 "event-population-and-reference-context"
                 if event_descriptive
+                else "historical-path-and-attribution-context"
+                if path_stress_fixed
                 else "visible-audit-only"
                 if allocation_fixed
                 else "lookback-and-rolling-context"

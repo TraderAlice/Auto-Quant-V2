@@ -270,6 +270,13 @@ evidence are defined in
 [[docs/design/selection-adjusted-research-evidence]].
 Request-driven construction and external dataset snapshots are defined in
 [[docs/design/research-intake-and-dataset-snapshots]].
+
+Fixed descriptive Labs are separate method contracts rather than aliases for
+one generic backtest. In particular, Book Risk's covariance and daily
+constant-weight path cannot answer a reported-book Path Stress question. The
+latter freezes opening units independently for every historical window,
+permits within-window drift, ranks terminal loss, and reconciles return
+contribution. See [[docs/design/reported-book-historical-path-stress]].
 Multi-Study Project coordination and lane currentness are defined in
 [[docs/design/research-program-orchestration]].
 Scientific admission between Factor, Portfolio, and optional governed RL is
