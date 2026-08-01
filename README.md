@@ -1,5 +1,5 @@
 ---
-version: 0.9.18
+version: 0.9.19
 ---
 
 # AutoQuant V2
@@ -32,11 +32,12 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current release: `v0.9.18`
+## Current release: `v0.9.19`
 
-`v0.9.18` lets one related fixed Study bind an exact prior Run, selected
-immutable artifacts, and its own Research Request without copying authority
-through prose or inheriting a stale Project-root request.
+`v0.9.19` lets a distinct fixed Study atomically turn one complete external
+Research Request and V1-V3 OHLCV package into Study-owned request, data, and
+content identity without template impersonation or private materialization
+scripts.
 OpenAlice remains independently pinned to `v0.8.31` until the host deliberately
 selects another tag; publishing AutoQuant does not migrate a Workspace or move
 a host pin.
