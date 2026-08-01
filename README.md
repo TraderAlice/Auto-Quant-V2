@@ -32,12 +32,12 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current release: `v0.9.12`
+## Current release: `v0.9.13`
 
 AutoQuant V2 has crossed from an architectural prototype into a usable
 research workbench.
 
-`v0.9.12` is the current AutoQuant release. `v0.8.31` remains the Harness
+`v0.9.13` is the current AutoQuant release. `v0.8.31` remains the Harness
 currently consumed by OpenAlice until the host deliberately selects the newer
 tag; this is version provenance, not an automatic Workspace-migration promise.
 The minor-version boundary marks the next phase: improve the real delegated-
@@ -45,6 +45,41 @@ research loop from OpenAlice request through AutoQuant evidence handoff without
 weakening standalone Workspace operation or prematurely freezing a
 host-specific API. Bounded follow-up work defaults to patch releases within
 the `0.9.x` line.
+
+`v0.9.13` turns a fresh South Korean price-event assignment into a provider-
+semantics audit rather than another Core feature. Two clean installed-wheel
+Grok coworkers began with zero OHLCV, wrote the English brief first, acquired
+three independently executable Korean routes, and completed the same fixed
+Samsung-versus-SK-hynix Event Study with exactly one Project, one Run, one
+Report, and no Session.
+
+Naver no longer fails on exact zero-open/high/low, positive-close, zero-volume
+no-trade placeholders: only that shape is omitted from normalized observed
+history, while raw rows and exact omission evidence remain. Historical
+one-KRW OHLC rounding violations receive an equally bounded, audited bound
+expansion; every larger inconsistency still fails closed. Daum no longer
+assumes `accTradePrice / accTradeVolume` shares the daily OHLC session scope.
+The ratio remains an exact diagnostic, but cannot repair or invalidate valid
+OHLCV.
+
+Cross-source evidence also corrected a more important semantic mistake. Naver
+history is visibly back-adjusted across Samsung's 2018 split, so the route now
+declares `provider-adjusted` with an undisclosed full methodology—not `raw` or
+split-only. Yahoo remains explicitly `split-adjusted`; Daum remains `raw`.
+The final coworker kept all three contracts distinct and used Yahoo alone for
+event arithmetic. It found 20 primary events with a descriptive mean advantage
+over both references, while both primary and matched-excess 95% intervals
+included zero; the Report therefore grants no causal, selection, or trading
+authority.
+
+The durable market-data rule is explicit: a research question determines its
+complete task-local package. Existing inventory never narrows the request,
+and duplicated data is acceptable evidence isolation. Deduplication may only
+be a transparent storage optimization, never research authority or automatic
+dataset selection. OpenAlice remains intentionally unchanged on `v0.8.31`.
+See [[plans/korea-delayed-gap-event-field-trial]].
+
+### `v0.9.12`
 
 `v0.9.12` comes from a fresh zero-data Japanese Factor-to-Portfolio field
 trial. The final coworker wrote the English brief first, selected the

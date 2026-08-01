@@ -77,21 +77,21 @@ Korean semiconductor peer.
 
 ## Acceptance
 
-- [ ] A fresh installed-wheel worker preserves the exact English question
+- [x] A fresh installed-wheel worker preserves the exact English question
       before downloading data or creating quantitative authority.
-- [ ] The worker begins with zero OHLCV, discovers the Korean acquisition
+- [x] The worker begins with zero OHLCV, discovers the Korean acquisition
       guidance, and preserves at least two independently attempted routes.
-- [ ] Raw versus adjusted price meaning, canonical/provider symbols, venue,
+- [x] Raw versus adjusted price meaning, canonical/provider symbols, venue,
       currency, volume, date range, and corporate-action limitations remain
       explicit without false numerical equivalence.
-- [ ] Exactly one `ohlcv-event-study-lab` Project and one fixed Event Run
+- [x] Exactly one `ohlcv-event-study-lab` Project and one fixed Event Run
       answer the caller-owned threshold, wait, holding, overlap, minimum-count,
       asset, and reference contract without parameter search.
-- [ ] Strict Explorer and durable handoff expose event counts, censoring,
+- [x] Strict Explorer and durable handoff expose event counts, censoring,
       overlap, both references, uncertainty, and an honest conclusion.
-- [ ] No Session, candidate optimization, earnings attribution, Order, or
+- [x] No Session, candidate optimization, earnings attribution, Order, or
       trading authority is created.
-- [ ] Every material retry or failure becomes either deterministic regression
+- [x] Every material retry or failure becomes either deterministic regression
       coverage and a bounded repair or an explicit provider/research limit.
 - [ ] Final replay, full tests, documentation, build/install, Studio, and
       no-hardlink clean-clone smoke pass before `v0.9.13` is tagged and pushed.
@@ -103,15 +103,16 @@ Korean semiconductor peer.
 - [x] Prepare an isolated installed-wheel desk and immutable host inventory.
 - [x] Run the unchanged baseline assignment with a fresh Grok worker.
 - [x] Audit transcript, filesystem, provider evidence, and scientific answer.
-- [ ] Implement only reproduced reusable friction with deterministic tests.
-- [ ] Replay with a fresh candidate-wheel worker.
+- [x] Implement only reproduced reusable friction with deterministic tests.
+- [x] Replay with a fresh candidate-wheel worker.
 - [ ] Complete the `v0.9.13` release audit and publish the tag.
 
 ## Findings and decisions
 
-- 2026-08-01 — Korea was selected because the Workbench has two independent
-  raw routes plus one broad adjusted route, while Samsung's 2018 share split
-  makes their semantic difference material rather than theoretical.
+- 2026-08-01 — Korea was selected because the Workbench has three independent
+  routes with distinct provider-adjusted, raw, and explicit split-adjusted
+  contracts, while Samsung's 2018 share split makes their semantic difference
+  material rather than theoretical.
 - 2026-08-01 — Event Study was selected to avoid another cross-sectional
   Factor replay. The caller fixes event, clock, reference, and useful sample
   floor; the worker may choose providers but may not search the question.
@@ -163,6 +164,14 @@ Korean semiconductor peer.
   assignment. The candidate patch is limited to truthful Naver placeholder
   normalization, truthful Daum aggregate diagnostics, their command/audit
   projections, Skill guidance, and deterministic regression coverage.
+- 2026-08-01 — Candidate cohort 29 proved both repaired Korean routes
+  executable, but its use of the then-current guidance exposed the false Naver
+  `raw` label. The trial was retained rather than treated as final success.
+- 2026-08-01 — Final cohort 30 used the corrected package contracts: Yahoo
+  `split-adjusted` for event arithmetic, Naver `provider-adjusted` for coverage
+  and identity only, and Daum `raw` as the second independent route. It made
+  no numerical cross-contract comparison and reproduced the baseline answer
+  with one Project, one Run, one Report, and no Session.
 
 ## Verification
 
@@ -186,8 +195,17 @@ Korean semiconductor peer.
 - Exact retained provider evidence reproduces three Naver no-trade
   placeholders and 13 Daum value/volume-derived out-of-range observations.
   Naver maximum semantic issue is the 2018 split suspension; Daum maximum
-  derived-ratio distance is `2.5796%`. Neither raw route is relabelled as
-  adjusted-equivalent to Yahoo.
+  derived-ratio distance is `2.5796%` for Samsung. The full final Daum package
+  records 23 diagnostics across both assets. Naver is explicitly provider-
+  adjusted and neither Korean route is relabelled as equivalent to Yahoo.
+- Candidate cohort 29 session `019fbb83-13e6-7c40-a40b-186383a5fb09`
+  produced a 554-line transcript and exposed the Naver semantics defect.
+  Final cohort 30 session `019fbb89-c014-7d70-b77b-adb4c6a21e9d` produced a
+  589-line transcript under the candidate wheel with SHA-256
+  `4e39a41e58d3670f13e6906a51fcc8a181906131425233e4561d04083eb5cef4`.
+  Its Project is `samsung-kospi-open-gap-event`, Run
+  `run-20260801T042015447193Z-bfda0fb28bce`, and Report
+  `report-20260801T042047635746Z-5dfcd5d47744`.
 
 ## Progress log
 
@@ -198,6 +216,10 @@ Korean semiconductor peer.
   proved the Event workflow itself is usable. The two independent Korean raw
   routes exposed bounded provider-normalization defects, so implementation is
   now authorized only on those Skill surfaces.
+- 2026-08-01 — Two candidate replays completed. The first surfaced a false
+  Naver adjustment label after provider execution succeeded; the second used
+  the corrected semantic contract and completed without framework friction.
+  Full repository and release verification is the only remaining work.
 
 ## Completion
 

@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha released as `v0.9.12`; `v0.8.31` remains the Harness
+Status: usable pre-alpha released as `v0.9.13`; `v0.8.31` remains the Harness
 currently consumed by OpenAlice until the host deliberately selects a newer
 tag.
 
@@ -17,6 +17,43 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 
 AutoQuant V2 has crossed the line from an architectural prototype into a
 usable Agent-native quantitative research workbench.
+
+The `0.9.13` patch comes from a fixed Samsung delayed-gap Event Study run by
+fresh installed-wheel coworkers beginning with zero OHLCV. The final replay
+used Yahoo split-adjusted history as quantitative authority, Naver provider-
+adjusted history as independent coverage evidence, and Daum raw history as a
+second independent route. It created exactly one Project, one successful Run,
+one direct Report, and no Session, optimization loop, or trading authority.
+
+Provider Skills now retain rather than hide real Korean route behavior. Naver
+omits only exact no-trade placeholders from normalized observed history and
+audits every raw row; it expands only one-KRW rounded OHLC bounds and rejects
+larger inconsistencies. Daum records every out-of-range
+`accTradePrice / accTradeVolume` ratio as a diagnostic because the provider
+does not establish identical aggregate and daily-OHLC session scope. Valid
+prices and share volume are neither repaired nor rejected by that ratio.
+
+The field evidence also corrected Naver from `raw` to `provider-adjusted`.
+Samsung history is visibly back-adjusted across its 2018 50:1 split, but the
+full provider methodology remains undisclosed, so it cannot be relabelled as
+split-only or compared numerically with Yahoo or Daum. The final coworker
+correctly preserved all three adjustment contracts and used them only within
+their declared authority.
+
+The fixed Run found 29 qualifying events, 28 complete outcomes, 20 primary
+non-overlapping events, eight overlap exclusions, and one right-censored
+event. Samsung's primary mean was `+2.83%`, versus `+0.41%` unconditional and
+`+1.15%` for matched SK hynix; matched excess was `+1.68%`. Both primary and
+matched-excess 95% normal intervals included zero, so the verified Report
+keeps `observed-advantage` descriptive and grants no causal or trading claim.
+Exact field evidence is in [[plans/korea-delayed-gap-event-field-trial]].
+
+The demand-led data invariant is permanent: the current question fixes a
+task-complete package, available inventory never narrows it, and intentional
+duplication is acceptable evidence isolation. Storage deduplication may be an
+invisible optimization only. OpenAlice remains pinned to `0.8.31`.
+
+### `v0.9.12`
 
 The `0.9.12` patch comes from a zero-data Japanese Factor-to-Portfolio field
 trial and two progressively cleaner installed-wheel replays. The final
