@@ -33,6 +33,32 @@ baseline, provider probes, candidate trials, and release evidence live in
 [[plans/truthful-us-equity-intraday-acquisition]]. OpenAlice remains
 independently pinned to `0.8.31`.
 
+The final isolated installed-wheel Grok replay began with zero data and no
+Workspace, source checkout, prior transcript, or implementation access. It
+found the Yahoo route through public Skills, acquired and intook five aligned
+ETFs with 287 `1h` bars plus 41 causal completed `1d` bars each, created one
+Project, executed one fixed Factor Run, and published one Report plus one
+Factor-only Dossier with zero Sessions. Missing five-session daily history
+remained missing rather than becoming a neutral score. Candidate and required
+daily-component coverage both equal `0.8571428571` for every ETF.
+
+The fixed result is honestly negative: validation four-bar rank IC is
+`-0.08449258433998387`, versus `-0.1584905660377358` for plain two-hour
+reversal. The gate mitigates a harmful score without creating positive edge,
+so Portfolio and RL remain unexecuted and `tradingAuthority` remains `none`.
+Independent target reconstruction reproduced all 53 validation observations,
+the exact IC, and three fixed candidate prefixes with zero residual.
+
+The release audit passed all 421 tests in 1,136.087 seconds and resolved all
+1,394 documentation links. Lock, Python/Studio syntax, diff, source/wheel
+build, fresh Python 3.11.14 installed-wheel version/capability/16-Skill smoke,
+Pandas 3.0.5 intake of the original unmodified Yahoo CSVs, and a
+no-local-override clean-clone root Workspace smoke all passed. The root sample
+now preserves eight historical Runs and projects a clean current `0.9.20`
+Factor baseline without rewriting its `0.8.7` through `0.9.4` evidence.
+Verified wheel SHA-256:
+`c27999af29517c5829b206052013bef6431a4053150f0fb8968d8ef796a7785a`.
+
 ### `v0.9.19`
 
 The `0.9.19` release makes external data admission one atomic fixed-Study

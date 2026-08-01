@@ -1,6 +1,6 @@
 # Truthful U.S. equity intraday acquisition
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-08-01`
 - Target release: `0.9.20`
 - Related design: [[docs/design/agent-native-market-data-acquisition]],
@@ -148,7 +148,7 @@ bars.
 - [x] CLI validation, Orientation, inspect/Report/Studio projections remain
       consistent for the successful trial; the failed acquisition remains
       staging evidence and never appears as quantitative authority.
-- [ ] Focused/full tests, documentation links, syntax/lock, build/install,
+- [x] Focused/full tests, documentation links, syntax/lock, build/install,
       root Workspace, installed capability, and clean-clone smokes pass before
       publication.
 
@@ -163,7 +163,7 @@ bars.
       deterministic tests; re-materialize the checked-in Workspace bundle.
 - [x] Build an isolated `0.9.20` candidate and run both fresh-worker field
       trials without source access or prior-trial knowledge.
-- [ ] Audit exact evidence, complete all release gates, publish `v0.9.20`, and
+- [x] Audit exact evidence, complete all release gates, publish `v0.9.20`, and
       leave OpenAlice independently pinned to `v0.8.31`.
 
 ## Findings and decisions
@@ -253,6 +253,14 @@ bars.
   `2026-05-14T19:30Z`, and `2026-05-29T19:30Z`) reproduced 720, 1,080, and
   1,430 candidate rows exactly, establishing that neither the hourly score nor
   completed-daily gate depends on future input.
+- 2026-08-01 — The first complete release regression correctly refused the
+  stale repository sample: updating the Factor program's missing-state
+  contract made its preserved `0.9.2` Run non-current, so Studio no longer
+  projected it as current Factor evidence. AutoQuant did not weaken currentness
+  or rewrite history. A clean `0.9.20` candidate at commit `58f69fa` executed a
+  new immutable sample Factor Run
+  `run-20260801T145000180368Z-1fd810b3fe0e`; all seven prior Factor/Portfolio
+  Runs remain byte-preserved and their original identities remain asserted.
 
 ## Verification
 
@@ -277,8 +285,30 @@ Candidate and field verification complete:
 - transcript audit found no source-checkout, prior-trial, or implementation
   access.
 
-Full regression, final rebuilt artifact hashes, installed-final-wheel smoke,
-and no-local-override clean-clone verification remain the publication gate.
+Final release audit:
+
+- `uv run python -m unittest discover -s tests -v` passed all 421 tests in
+  1,136.087 seconds after the sample-currentness repair;
+- `uv run python scripts/check_doc_links.py` resolved all 1,394 documentation
+  double-links; `uv lock --check`, Python compileall, Studio JavaScript syntax,
+  and `git diff --check` passed;
+- source and wheel builds succeeded. Final wheel
+  `auto_quant-0.9.20-py3-none-any.whl` has SHA-256
+  `c27999af29517c5829b206052013bef6431a4053150f0fb8968d8ef796a7785a`
+  and contains the canonical intraday script, Yahoo Skill, current Factor
+  program, and Studio assets;
+- a fresh Python 3.11.14 venv installed only that wheel plus resolved runtime
+  dependencies, imported AutoQuant from `site-packages`, reported `aq 0.9.20`,
+  exposed all 57 public commands, materialized 16 Skills to both discovery
+  roots, and used Pandas 3.0.5;
+- the final installed wheel intook the original unmodified live Yahoo package
+  into a new Research Desk: five assets each retained 287 `1h` and 41 `1d`
+  observations, then validation and Orientation exposed the exact `1h` plus
+  completed-`1d` V3 surface;
+- a no-local-override clone selected the internal sample, passed validate,
+  orient, Project list, and Studio snapshot, remained Git-clean, and projected
+  three Studies, eight immutable Runs, zero Sessions, the current `0.9.20`
+  Factor Explorer, and preserved `0.9.4` Portfolio Explorer.
 
 ## Progress log
 
@@ -309,7 +339,18 @@ and no-local-override clean-clone verification remain the publication gate.
   one Report, one Dossier, no source access, no Harness repair, and no
   downstream overclaim. Independent coverage, target, IC, and prefix-causality
   reconstruction accepted this trial as the successful field proof.
+- 2026-08-01 — The first full audit passed 420 of 421 tests and exposed one
+  honest stale-sample projection. The immutable `0.9.20` sample baseline and
+  focused repository tests repaired the entry desk without weakening stale
+  evidence semantics. The authoritative rerun then passed all 421 tests, and
+  build, installed-wheel/Pandas-3 Intake, and clean-clone gates completed.
 
 ## Completion
 
-Pending.
+AutoQuant `0.9.20` closes the fixed hourly-acquisition topic with both outcomes
+proved: an unavailable or incomplete Yahoo route creates durable no-authority
+evidence and no dataset, while one exact complete XNYS response becomes a
+strict split-adjusted V3 surface that a fresh coworker can intake and use
+causally. The field result itself is negative and correctly stops Portfolio/RL.
+No generic downloader, bar reconstruction, second-source fiction, trading
+authority, Workspace migration, or OpenAlice pin change was introduced.

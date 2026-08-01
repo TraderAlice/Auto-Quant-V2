@@ -1,7 +1,7 @@
 # Market-data acquisition Skill field trials
 
 Status: accepted `0.8.31` daily-route evidence for the explicitly named venue
-matrix below, plus final `0.9.20` candidate evidence for one bounded Yahoo XNYS
+matrix below, plus released `0.9.20` evidence for one bounded Yahoo XNYS
 hourly route.
 
 Related: [[plans/market-data-acquisition-skills]],
@@ -81,9 +81,9 @@ Together these handoffs cover the required XNYS-style, mainland-China,
 non-U.S. Asian, and named-EU paths plus the remaining Japan, Korea, and
 Vietnam rows. No long backtest or trading action was run.
 
-### U.S. XNYS hourly candidate handoff
+### U.S. XNYS hourly release handoff
 
-Date: 2026-08-01. Target release: `0.9.20`.
+Date: 2026-08-01. Release: `0.9.20`.
 
 This route is deliberately narrower than the accepted daily matrix. Yahoo
 Chart is the only installed historical-hourly source; Nasdaq remains daily and
