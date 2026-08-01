@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha at `v0.9.18`; `v0.8.31` remains the Harness currently
+Status: usable pre-alpha at `v0.9.19`; `v0.8.31` remains the Harness currently
 consumed by OpenAlice until the host deliberately selects a newer tag.
 
 Updated: 2026-08-01.
@@ -13,6 +13,43 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 [[docs/openalice-real-delegation-synthesis]], and [[PLANS]].
 
 ## Milestone
+
+The `0.9.19` release makes external data admission one atomic fixed-Study
+operation. A coworker can pass one Research Request and one complete task-local
+aligned V1–V3 OHLCV package to `aq study create`; Core validates both before
+mutation, materializes the canonical Study-owned request, optional reported
+position snapshot, and normalized data closure, infers the dataset contract,
+and composes additional fixed dependencies plus selected immutable upstream
+Run artifacts. Occupied paths fail before mutation and ordinary downstream
+Study failures remove every newly owned source, data, and Study path. V4/V5
+remain tied to their proven Factor semantics instead of being generalized by
+assertion.
+
+The final isolated candidate-wheel Grok replay discovered this route using only
+public capabilities, help, schemas, and installed Skills. Without reading
+installed implementation modules or writing an ad hoc materializer, it added
+exactly one recovery-durability Study to an existing Project, executed one
+successful Run, published one Report, and created zero Sessions. The Run froze
+the generated request and position snapshot, a fixed Project snapshot, a
+complete independently acquired Yahoo package, and the exact prior recovery
+Run with its episode and contribution artifacts. All 77 inherited Project
+files outside the authorized `research.md` update remained byte-identical.
+Independent replay reconstructed all 260 book-path points from frozen opening
+units and closes with zero residual. Exact evidence is in
+[[plans/atomic-study-owned-dataset-intake]].
+
+Final repository verification passed all 415 tests in 1,259.120 seconds and
+resolved all 1,387 documentation links. Lock, Python/Studio syntax, diff,
+source/wheel build, and fresh Python 3.11.14 installed-wheel
+version/capability/schema smokes passed. Verified wheel SHA-256:
+`6a083f6600750b6c4fdd0b7eccd2f6634606d81901418db6176c92317d3f7876`.
+
+README remains the compact product entrance. Agent routing points version and
+release work to [[docs/design/versioning-and-release]], current verified facts
+remain in this status document, and exact per-release proof remains in plans.
+OpenAlice stays independently pinned to `0.8.31`.
+
+### `v0.9.18`
 
 AutoQuant V2 has crossed the line from an architectural prototype into a
 usable Agent-native quantitative research workbench.

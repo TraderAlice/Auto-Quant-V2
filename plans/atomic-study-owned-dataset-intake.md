@@ -1,6 +1,6 @@
 # Atomic Study-owned dataset intake
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-08-01`
 - Target release: `0.9.19`
 - Related design: [[docs/design/research-intake-and-dataset-snapshots]],
@@ -103,40 +103,40 @@ across arbitrary power loss.
 
 ## Acceptance
 
-- [ ] `aq study create --request FILE --dataset PACKAGE` creates one valid
+- [x] `aq study create --request FILE --dataset PACKAGE` creates one valid
       Study-owned request/data closure and infers the exact dataset contract.
-- [ ] A request containing `positionSnapshot` creates and explicitly binds the
+- [x] A request containing `positionSnapshot` creates and explicitly binds the
       matching normalized position snapshot without a manual hash pairing.
-- [ ] Additional fixed dependencies and one prior Run artifact binding compose
+- [x] Additional fixed dependencies and one prior Run artifact binding compose
       with the generated request/data closure.
-- [ ] The resulting Study executes through its public Judge, freezes exact
+- [x] The resulting Study executes through its public Judge, freezes exact
       request/data/upstream identity in one immutable Run, and projects through
       inspect, Orientation, Report, and Studio surfaces.
-- [ ] External and manual construction forms cannot be mixed, and request plus
+- [x] External and manual construction forms cannot be mixed, and request plus
       package are required together.
-- [ ] Existing source, data, or Study ownership paths are never overwritten.
-- [ ] An induced post-materialization Study failure removes every newly owned
+- [x] Existing source, data, or Study ownership paths are never overwritten.
+- [x] An induced post-materialization Study failure removes every newly owned
       source/data/Study path while preserving all pre-existing Project bytes.
-- [ ] V4/V5 packages fail with an explicit honest boundary; V1-V3 retain their
+- [x] V4/V5 packages fail with an explicit honest boundary; V1-V3 retain their
       strict clock, alignment, provenance, request matching, and horizon checks.
-- [ ] Capability discovery, `--help`, installed Skills, and public docs expose
+- [x] Capability discovery, `--help`, installed Skills, and public docs expose
       the external form without requiring implementation-source inspection.
-- [ ] A fresh installed-candidate Grok completes an unchanged same-Project
+- [x] A fresh installed-candidate Grok completes an unchanged same-Project
       follow-up with exactly one new fixed Study, one Run, one Report, no
       Session, and no ad hoc materialization script.
-- [ ] Focused/full tests, documentation links, lock/syntax, build/install,
+- [x] Focused/full tests, documentation links, lock/syntax, build/install,
       Studio, root Workspace, and clean-clone smokes pass before publication.
 
 ## Work
 
 - [x] Audit the final `0.9.18` worker and retain its workaround as baseline
       product evidence.
-- [ ] Implement generic Study-owned V1-V3 preparation and atomic creation.
-- [ ] Update machine discovery, Agent Skills, public docs, and deterministic
+- [x] Implement generic Study-owned V1-V3 preparation and atomic creation.
+- [x] Update machine discovery, Agent Skills, public docs, and deterministic
       tests.
-- [ ] Build an isolated candidate wheel and replay a distinct continuation task
+- [x] Build an isolated candidate wheel and replay a distinct continuation task
       with a fresh Grok worker forbidden from inspecting installed source.
-- [ ] Admit only newly reproduced defects, complete the release audit, and
+- [x] Admit only newly reproduced defects, complete the release audit, and
       publish `v0.9.19` if acceptance is satisfied.
 
 ## Findings and decisions
@@ -151,9 +151,76 @@ across arbitrary power loss.
   materialization and Study validation form one user intention. A separate
   `study dataset materialize` command would preserve the exact two-phase
   failure exposed by the baseline.
+- 2026-08-01 — The final candidate worker discovered the integrated route from
+  public capability, help, schema, and installed Skill surfaces. It did not
+  read installed implementation modules, prior transcripts, or write an ad hoc
+  materializer. The generic custom-Judge surface was sufficient; a dedicated
+  recovery-durability Lab or Explorer is not justified by one descriptive
+  follow-up.
+- 2026-08-01 — Worker-reported friction around an absent coordinated
+  `research-program.json`, unsupported evidence-driven agenda for a custom
+  metric, terminal Orientation, and a truncated Nasdaq history is honest task
+  or provider scope, not a defect in atomic intake. Re-acquiring a complete
+  task-local package also preserves the existing demand-led data invariant.
+- 2026-08-01 — The release gate caught stale checked-in Workspace Skill copies
+  after the canonical packaging Skill changed. Re-materializing both discovery
+  roots and keeping the repository bundle verification versioned closes that
+  packaging defect without changing the public intake contract.
 
 ## Verification
 
-Record focused tests, candidate wheel identity, fresh-worker transcript and
-artifact identities, full release gates, final commit, and final tag here as
-they become authoritative.
+Two discarded launches are not counted as product evidence. The Codex-app
+Grok thread failed with a scheduler `systemError` before taking any action. A
+first CLI launch then omitted the candidate virtual environment from `PATH`;
+that worker inspected ambient source and a prior transcript before it reached
+Study construction, so it was stopped and its Workspace was rejected. The
+authoritative replay began again in a fresh directory with the installed
+candidate CLI explicitly first on `PATH`.
+
+The isolated installed-wheel replay used Grok session
+`019fbd45-86de-7010-8302-b5d6a0cc8670` at
+`/Users/ame/autoquant-v0919-durability-final-candidate`. It added exactly Study
+`ohlcv-book-path-recovery-durability`, succeeded Run
+`run-20260801T122535519420Z-84653e611761`, and published Report
+`report-20260801T122614364560Z-0f9aa1ab8b38`, with zero Sessions. The Study
+bound recovery Run `run-20260801T113412099979Z-5b156acfd245`, its exact episode
+and contribution artifacts, the generated request and position snapshot, one
+additional fixed Project snapshot, and the complete Study-owned Yahoo package.
+The immutable result identifies Harness `0.9.19`, result hash
+`980974a6c714ce4287f44e1f793f4c7922b97d2b84949aeb53581cceac2da57b`,
+and Study input hash
+`a1fbe1b6d8e545b17b9510cebde2d422896dabe764695ce718de1d367893b2f7`.
+
+Public validation, inspect, Orientation, Report, and Studio surfaces all
+accepted the terminal evidence. All 77 inherited Project files outside the
+authorized `research.md` update remained byte-identical. An independent
+stdlib replay reconstructed all 260 reported book-path points directly from
+the frozen opening units and Study-owned closes with zero absolute residual.
+Transcript audit found no private implementation read or ad hoc materializer.
+
+Focused intake and CLI regressions plus repository Skill-bundle verification
+passed. The first complete suite was deliberately invalidated: the checked-in
+Skill copies were stale, and updating them while that suite was still running
+changed Harness source identity between two RL reproducibility executions.
+After the canonical bundle was re-materialized and the repository was held
+still, the clean rerun passed all 415 tests in 1,259.120 seconds, including the
+same RL reproducibility case.
+
+Lock validation, Python and Studio JavaScript syntax, diff checks, and all
+1,387 documentation links passed. Source and wheel builds succeeded. A fresh
+Python 3.11.14 environment outside the source checkout installed the exact
+wheel, reported `aq 0.9.19`, loaded AutoQuant from `site-packages`, disclosed
+all 57 public commands and all four external/upstream `study.create`
+arguments, and loaded the changed Study and RunResult schemas. Final wheel
+SHA-256 is
+`6a083f6600750b6c4fdd0b7eccd2f6634606d81901418db6176c92317d3f7876`;
+source-distribution SHA-256 is
+`d72903c55c4bdcf02bd47fb895780efd6045195f1e0937f09f819afff8a51de0`.
+
+## Completion
+
+Completed on 2026-08-01 as `v0.9.19`. A fresh installed-wheel coworker used
+the public atomic Study-owned intake rather than private implementation
+knowledge, preserved the long-lived Project, and returned one exact
+evidence-bound descriptive continuation. OpenAlice remains independently
+pinned to `v0.8.31`.
