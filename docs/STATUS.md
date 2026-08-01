@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha released as `v0.9.14`; `v0.8.31` remains the Harness
+Status: usable pre-alpha released as `v0.9.15`; `v0.8.31` remains the Harness
 currently consumed by OpenAlice until the host deliberately selects a newer
 tag.
 
@@ -17,6 +17,49 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 
 AutoQuant V2 has crossed the line from an architectural prototype into a
 usable Agent-native quantitative research workbench.
+
+The `0.9.15` patch adds a fixed historical Path Stress lane for an externally
+reported book. The caller freezes weights, horizon, episode count, overlap
+policy, history, calendar, and split-adjusted price meaning before execution.
+Core then enumerates every complete window with fixed opening units and no
+within-window rebalance, ranks terminal book loss, selects inclusive
+non-overlapping episodes greedily, and reconciles each holding contribution as
+opening weight times asset cumulative return. Cash remains explicit and flat.
+
+The strict `aq run book-path-stress` Explorer independently reconstructs
+window eligibility, path arithmetic, selection, attribution, dominance,
+report fields, and metrics. It rejects semantic tampering even when ordinary
+artifact hashes are recomputed. The fixed Study has no editable surface or
+Session, and Orientation plus Studio keep it in a descriptive historical lane
+with no forecast, account, optimization, Order, or trading authority.
+
+The final isolated candidate-wheel Grok session
+`019fbc15-55e6-7740-966e-9ee1f1b7d007` began with zero staged data and wrote
+its English brief before retrieval. It acquired a complete Yahoo
+split-adjusted panel plus independent Nasdaq evidence, then created exactly
+one Project, one fixed Study, one successful Run, one Report, and no Session.
+The full-history Nasdaq attempt was preserved as truncated-route failure
+evidence; a separate 2020–2026 overlap package did not narrow the formal
+2010–2026 task.
+
+The immutable Run enumerated 4,149 complete 20-session windows. Its worst
+selected episode was 2020-02-19 through 2020-03-18 at `-19.2416%`, dominated
+by QQQ. NVDA dominated the other four selected episodes, so the same holding
+did not dominate all five. Exact evidence is in
+[[plans/reported-book-path-stress-field-trial]].
+
+The demand-led data invariant is permanent: every question owns a complete
+task-local package; available inventory never narrows or silently satisfies
+the question. Duplicate bytes are acceptable evidence isolation, and any
+deduplication remains a transparent storage optimization only. OpenAlice
+remains pinned to `0.8.31`.
+
+Final repository verification passed all 395 tests in 1,103.490 seconds and
+resolved all 1,359 documentation links. Lock and Python/Studio syntax checks
+also passed; installed-wheel and clean-clone evidence is recorded in the
+field-trial plan.
+
+### `v0.9.14`
 
 The `0.9.14` patch proves the two halves of ordinary delegation. Under the
 released `0.9.13` baseline, a fresh coworker received a materially incomplete

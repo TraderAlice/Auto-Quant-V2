@@ -85,24 +85,24 @@ The research interpretation is frozen before the worker starts:
 
 ## Acceptance
 
-- [ ] A fresh worker begins with zero staged OHLCV, writes the exact English
+- [x] A fresh worker begins with zero staged OHLCV, writes the exact English
       brief first, and acquires one complete task-local package plus independent
       provider evidence without consulting prior Projects or trials.
-- [ ] The worker preserves reported-position truth, fixed opening weights,
+- [x] The worker preserves reported-position truth, fixed opening weights,
       20-following-session timing, buy-and-hold drift, cash, adjustment meaning,
       non-overlap rule, requested history, and no-trading authority.
-- [ ] Exactly one appropriate Project and one fixed immutable Run answer the
+- [x] Exactly one appropriate Project and one fixed immutable Run answer the
       task, or the baseline stops with a useful explicit capability boundary;
       no generic editable factor or parameter-search Session is manufactured.
-- [ ] Final evidence enumerates all eligible windows, the five deterministic
+- [x] Final evidence enumerates all eligible windows, the five deterministic
       episodes, terminal and worst-interim book losses, exact per-holding
       contributions, reconciliation, dominant holding, and cross-episode
       dominance conclusion.
-- [ ] Strict CLI and Studio projection independently reject altered authority,
+- [x] Strict CLI and Studio projection independently reject altered authority,
       episode selection, returns, attribution, or artifact inventory.
-- [ ] Every material baseline failure is retained and classified; only a
+- [x] Every material baseline failure is retained and classified; only a
       reproduced reusable Workbench defect enters the candidate release.
-- [ ] A fresh candidate worker completes the unchanged assignment without
+- [x] A fresh candidate worker completes the unchanged assignment without
       source/private-trial access, manual post-Run quantitative authority, or
       trading overclaim.
 - [ ] Focused/full tests, documentation links, lock/syntax, build/install,
@@ -115,7 +115,7 @@ The research interpretation is frozen before the worker starts:
 - [x] Build an isolated installed-`0.9.14` baseline desk with zero staged data.
 - [x] Run and audit one fresh baseline worker without coaching.
 - [x] Admit and implement only reproduced reusable product friction.
-- [ ] Replay the unchanged task with a fresh candidate-wheel worker.
+- [x] Replay the unchanged task with a fresh candidate-wheel worker.
 - [ ] Complete the `v0.9.15` release audit and publish the tag.
 
 ## Findings and decisions
@@ -160,6 +160,27 @@ The research interpretation is frozen before the worker starts:
   and metrics. A semantic tamper remains rejected even after the attacker
   recomputes the ordinary Run file manifest. Orientation and Studio expose the
   same strict read model and terminal historical-only boundary.
+- 2026-08-01 — Candidate session
+  `019fbc15-55e6-7740-966e-9ee1f1b7d007` completed the unchanged assignment
+  from the exact candidate wheel without source or prior-trial access. Its
+  English brief preceded retrieval; it created one Project, one fixed Study,
+  one successful Run, one Report, no Session, and one caller-facing outward
+  Markdown handoff.
+- 2026-08-01 — The worker preserved a failed full-history Nasdaq attempt as
+  evidence, then acquired a bounded 2020–2026 Nasdaq overlap package while
+  retaining Yahoo's complete 2010–2026 split-adjusted panel as formal
+  authority. Provider limitations therefore did not narrow or silently alter
+  the task.
+- 2026-08-01 — The verified Run enumerated 4,149 complete windows. The worst
+  selected episode was 2020-02-19 through 2020-03-18 at `-19.2415703%`, with
+  QQQ as dominant loss contributor. NVDA dominated the remaining four, so the
+  same holding did not dominate all five.
+- 2026-08-01 — The first 395-test release run exposed one repository-wide
+  template invariant missed by focused tests: the new Path Stress
+  `research.md` lacked the standard `Research brief and clarification` start
+  gate. Add the same clarification-first instruction used by every built-in
+  Lab and retain the universal template test as the regression contract. This
+  repair changes no Study arithmetic or candidate evidence.
 
 ## Verification
 
@@ -176,6 +197,18 @@ handoff accurately distinguishes the exact five unsupported semantics and
 does not claim loss numbers, future stress, authentication, optimization, an
 Order, or trading authority.
 
+Candidate trial:
+`/Users/ame/autoquant-v0915-path-stress-candidate`. The exact candidate wheel
+SHA-256 is
+`acbecffeb66c1258ed0dcd448e71dfee7f7545291da041a8f1e48ed887d0e4c1`;
+Python is 3.11.14 and the installed CLI reports `aq 0.9.15`. The 355-line
+transcript is preserved as `candidate-transcript.md`. Project
+`reported-book-path-stress`, Run
+`run-20260801T065155286429Z-a0c2c8b422f0`, and Report
+`report-20260801T065229961283Z-33608d0b11d2` all pass installed-wheel
+validation, strict Explorer reconstruction, Orientation, and Studio snapshot.
+The research brief timestamp precedes provider retrieval and Project intake.
+
 ## Progress log
 
 - 2026-08-01 — Plan activated from clean released `v0.9.14`; OpenAlice remains
@@ -189,6 +222,19 @@ Order, or trading authority.
   Four dedicated method/tamper/intake tests and focused CLI, repository,
   version, lock, Python, JavaScript, and 1,356-link checks pass. Candidate
   installed-wheel replay is next.
+- 2026-08-01 — Fresh candidate replay completed in four minutes. It acquired
+  4,169 aligned formal sessions, independently retained Nasdaq coverage and
+  failure evidence, enumerated 4,149 eligible windows, published one verified
+  immutable Run and one direct Report, and stopped with no editable Session or
+  trading overclaim. Full release verification is now running.
+- 2026-08-01 — The first full suite ran all 395 tests in 1,350.614 seconds and
+  failed only the shared research-start-gate invariant for the new template.
+  The repaired template and four Path Stress tests now pass together; a clean
+  full-suite rerun is required before release.
+- 2026-08-01 — The clean rerun passed all 395 tests in 1,103.490 seconds. Lock
+  validation, Python compile, Studio JavaScript syntax, diff hygiene, and all
+  1,359 documentation links also pass. Final build/install/clone publication
+  smokes remain.
 
 ## Completion
 

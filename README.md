@@ -32,12 +32,12 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current release: `v0.9.14`
+## Current release: `v0.9.15`
 
 AutoQuant V2 has crossed from an architectural prototype into a usable
 research workbench.
 
-`v0.9.14` is the current AutoQuant release. `v0.8.31` remains the Harness
+`v0.9.15` is the current AutoQuant release. `v0.8.31` remains the Harness
 currently consumed by OpenAlice until the host deliberately selects the newer
 tag; this is version provenance, not an automatic Workspace-migration promise.
 The minor-version boundary marks the next phase: improve the real delegated-
@@ -46,34 +46,32 @@ weakening standalone Workspace operation or prematurely freezing a
 host-specific API. Bounded follow-up work defaults to patch releases within
 the `0.9.x` line.
 
-`v0.9.14` proves clarification-first delegation and repairs the fixed Book
-Risk path exposed by that proof. A fresh released-`0.9.13` coworker first
-received an intentionally incomplete “technology-heavy book considering
-NVDA” question. It wrote a durable English brief, asked only the caller-owned
-questions that could change the contract, and stopped before retrieval,
-Project creation, or quantitative authority. After clarification, it resumed
-from the same brief instead of silently inventing holdings, risk, or data
-terms.
+`v0.9.15` adds one deliberately narrow fixed historical Path Stress Study for
+externally reported books. It freezes opening weights into fixed units at each
+window start, preserves buy-and-hold drift without rebalancing, keeps cash
+flat, enumerates every complete caller-fixed horizon, ranks terminal loss, and
+greedily selects inclusive non-overlapping episodes. Exact terminal holding
+contributions reconcile as opening weight times asset cumulative return. This
+is descriptive evidence only: the snapshot remains unauthenticated and the
+Study grants no forecast, optimization, account, Order, or trading authority.
 
-The clarified request also exposed a real contract gap. A truthful baseline
-may contain one held asset plus cash while the candidate asset is absent, and
-a cash-funded sizing question may impose a caller-owned target-weight bound.
-Book Risk now admits that baseline directly, requires a direction-specific
-`maximumWeight` or `minimumWeight`, and reports whether the caller boundary,
-available cash, the volatility ceiling, the unchanged current book, or no
-compliant point binds. Target-book pairwise correlation and constant-weight
-maximum drawdown are now immutable sizing evidence. The rolling diagnostic
-`minimumObservations` may extend through the largest declared lookback; every
-reported lookback still requires its complete window.
+`aq run book-path-stress` is a strict independent Explorer, not a JSON viewer.
+It reconstructs all eligible windows, path arithmetic, cash, greedy selection,
+terminal contributions, dominance, report fields, and metrics from immutable
+Run inputs and artifacts. It rejects semantic tampering even when ordinary
+artifact hashes are recomputed. Orientation and Studio expose the same fixed
+evidence lane, while the no-edit Study creates no Research Session.
 
-The final isolated installed-wheel Grok coworker began with zero staged data,
-used Yahoo plus independent Nasdaq evidence, and completed exactly one
-Project, one fixed Study, one successful Run, one Report, and no Session. The
-honest baseline remained `{QQQ: 0.70}`. The Run found a `20%` NVDA target,
-`10%` cash, `19.29%` governing annualized volatility, `0.692` QQQ/NVDA
-correlation, and `-12.49%` target-book maximum drawdown; the caller's `20%`
-weight cap—not the `25%` volatility ceiling—binds. Human and JSON Explorer
-output both accept the legitimate empty baseline correlation set.
+The final isolated candidate-wheel Grok coworker began with zero staged data,
+wrote its English brief before retrieval, and created exactly one Project, one
+fixed Study, one successful Run, one Report, and no Session. Yahoo supplied a
+complete split-adjusted 4,169-session panel from 2010-01-04 through 2026-07-31;
+a truncated full-history Nasdaq attempt remained explicit failure evidence,
+then a separate 2020–2026 Nasdaq package supplied independent overlap coverage
+without narrowing the formal task. Across 4,149 complete 20-session windows,
+the worst selected episode was 2020-02-19 through 2020-03-18 at `-19.2416%`,
+dominated by QQQ. NVDA dominated the remaining four selected episodes, so one
+holding did not dominate all five.
 
 The durable data rule remains deliberately stronger than reuse: the research
 question determines a complete task-local package. Existing inventory never
@@ -81,13 +79,35 @@ narrows the request, and duplicated bytes are acceptable evidence isolation.
 Deduplication may be an invisible storage optimization only; it is never
 research authority, automatic dataset selection, or a reason to reshape the
 question. OpenAlice remains intentionally unchanged on `v0.8.31`. See
+[[plans/reported-book-path-stress-field-trial]].
+
+The final repository audit passed all 395 tests in 1,103.490 seconds and
+resolved all 1,359 documentation links. Lock validation, Python and Studio
+JavaScript syntax, installed-wheel, and clean-clone verification are recorded
+in [[plans/reported-book-path-stress-field-trial]].
+
+### `v0.9.14`
+
+`v0.9.14` proves clarification-first delegation and repairs the fixed Book
+Risk path exposed by that proof. A fresh released-`0.9.13` coworker first
+received an intentionally incomplete portfolio question, wrote a durable
+English brief, asked only the caller-owned questions that could change the
+contract, and stopped before retrieval or quantitative authority. After
+clarification, it resumed from the same brief instead of silently inventing
+holdings, risk, or data terms.
+
+The clarified request exposed a real contract gap. Book Risk now admits a
+one-held-asset-plus-cash baseline when the candidate is honestly absent,
+requires a direction-specific target bound, identifies the binding sizing
+constraint, and preserves pairwise correlation plus constant-weight drawdown
+as immutable evidence. The final worker created one Project, one fixed Study,
+one Run, one Report, and no Session; its caller-owned 20% NVDA cap bound before
+the 25% volatility ceiling. See
 [[plans/clarification-first-delegation-field-trial]].
 
-The final repository audit passed all 391 tests in 965.751 seconds and
-resolved all 1,342 documentation links. Lock validation, Python and Studio
-JavaScript syntax, source/wheel builds, installed-version and capability
-smoke, and a no-local-override clean-clone root Workspace validation/Studio
-smoke also passed.
+The `v0.9.14` repository audit passed all 391 tests in 965.751 seconds and
+resolved all 1,342 documentation links. Lock validation, syntax, build,
+installed-wheel, and clean-clone smokes passed.
 
 ### `v0.9.13`
 
