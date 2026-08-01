@@ -1036,7 +1036,10 @@ def build_parser() -> RaisingArgumentParser:
     )
     report_publish.add_argument(
         "--run",
-        help="successful current Run id for a Session-free anchor; requires --study",
+        help=(
+            "current successful or scientific-limit Run id for a Session-free "
+            "anchor; requires --study"
+        ),
     )
     report_publish.add_argument(
         "--analysis",
@@ -2684,12 +2687,25 @@ def _run_show(args: argparse.Namespace) -> CommandResult:
         if isinstance(upstream, dict)
         else ""
     )
+    failure_disposition = run.result.get("failureDisposition")
+    failure_line = (
+        f"Failure disposition: {failure_disposition or 'repair-required'}\n"
+        + "Errors: "
+        + "; ".join(
+            f"{item['code']} — {item['message']}"
+            for item in run.result["errors"]
+        )
+        + "\n"
+        if run.result["status"] == "failed"
+        else ""
+    )
     return CommandResult(
         "run.show",
         {"manifest": run.manifest, "result": run.result},
         (
             f"Immutable Run: {run.result['id']}\n"
             f"Status: {run.result['status']}\n"
+            f"{failure_line}"
             f"Study: {run.result['study']['id']}\n"
             f"{metric}: {value if value is not None else 'unavailable'}\n"
             f"{upstream_line}"
@@ -5437,6 +5453,12 @@ def _orient(args: argparse.Namespace) -> CommandResult:
             f"{validation_latest_label}\n"
         )
     latest_experiment = brief["evidence"]["latestExperiment"]
+    failure_disposition = brief["evidence"]["failureDisposition"]
+    failure_line = (
+        f"Failure disposition: {failure_disposition}\n"
+        if failure_disposition is not None
+        else ""
+    )
     continuation = brief["continuation"]
     continuation_line = (
         "Continuation: upstream Run "
@@ -5486,6 +5508,7 @@ def _orient(args: argparse.Namespace) -> CommandResult:
         f"{continuation_line}"
         f"State: {focus['coordinationPhase']} · "
         f"{focus['scientificStage']} · {focus['operatingMode']}\n"
+        f"{failure_line}"
         f"{validation_fidelity_line}"
         f"{latest_experiment_line}"
         f"Reason: {brief['reasons'][0]['code']} — "

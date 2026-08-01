@@ -55,8 +55,9 @@ entry/exit clock, overlap policy, unconditional history, and matched reference,
 use `ohlcv-event-study-lab`. Do not disguise that descriptive question as a
 Factor merely to obtain a Run. When the fixed primary temporal population has
 too few finite pairs or no candidate/target variation, preserve the structured
-failed Run as the truthful result and change the hypothesis or route—not the
-missing values or Judge.
+failed Run as the truthful `scientific-limit`, report that exact bounded
+answer, and change the hypothesis or route only as separately declared
+work—not the missing values or Judge. Do not repeat the unchanged Run.
 
 When a hypothesis has meaningful sub-signals, also export
 `FACTOR_COMPONENTS` and

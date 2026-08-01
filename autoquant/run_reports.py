@@ -34,7 +34,7 @@ from .reports import (
     _write_json,
     validate_report_analysis,
 )
-from .runs import list_runs, load_run
+from .runs import list_runs, load_run, run_failure_disposition
 from .sessions import build_selection_integrity, list_sessions
 from .studies import hash_file, hash_json, load_study
 from .workspace import (
@@ -57,7 +57,7 @@ def _issue(path: Path | str, code: str, message: str) -> ValidationIssue:
 
 
 def _run_projection(run) -> dict[str, Any]:
-    return {
+    projection = {
         "id": run.result["id"],
         "resultHash": run.manifest["resultHash"],
         "status": run.result["status"],
@@ -85,6 +85,15 @@ def _run_projection(run) -> dict[str, Any]:
             else {}
         ),
     }
+    if run.result["status"] == "failed":
+        projection.update(
+            {
+                "summary": run.result["summary"],
+                "errors": run.result["errors"],
+                "failureDisposition": run_failure_disposition(run.result),
+            }
+        )
+    return projection
 
 
 def _reports_root(project: ProjectContext, *, create: bool) -> Path:
@@ -149,12 +158,17 @@ def _anchor(
                 "Run does not belong to the selected Study",
             )
         )
-    if run.result["status"] != "succeeded":
+    reportable_scientific_limit = (
+        run.result["status"] == "failed"
+        and run_failure_disposition(run.result) == "scientific-limit"
+    )
+    if run.result["status"] != "succeeded" and not reportable_scientific_limit:
         issues.append(
             _issue(
                 run.root_dir,
                 "report.run-failed",
-                "Run-bound Reports require a successful Run",
+                "Run-bound Reports require a successful Run or an explicitly "
+                "classified scientific-limit Run",
             )
         )
     if run.result["studyInputHash"] != study.input_hash:
@@ -168,10 +182,7 @@ def _anchor(
     current_run_id = None
     for summary in reversed(list_runs(project, study_id)):
         candidate = load_run(project, summary.id)
-        if (
-            candidate.result["status"] == "succeeded"
-            and candidate.result["studyInputHash"] == study.input_hash
-        ):
+        if candidate.result["studyInputHash"] == study.input_hash:
             current_run_id = summary.id
             break
     if current_run_id is not None and current_run_id != run_id:
@@ -179,7 +190,7 @@ def _anchor(
             _issue(
                 run.root_dir,
                 "report.run-superseded",
-                "A newer successful Run is the current immutable Study evidence",
+                "A newer matching Run attempt is the current immutable Study evidence",
             )
         )
     if run.result["dataset"]["hash"] != study.dataset_hash:
@@ -407,6 +418,18 @@ def _render_markdown(report: dict[str, Any]) -> str:
         f"- Study: `{report['anchor']['studyId']}`",
         f"- Run: `{report['anchor']['runId']}`",
         f"- Status: `{run['status']}`",
+        *(
+            [
+                f"- Failure disposition: `{run['failureDisposition']}`",
+                "- Failure errors: "
+                + "; ".join(
+                    f"`{item['code']}` — {item['message']}"
+                    for item in run["errors"]
+                ),
+            ]
+            if run["status"] == "failed"
+            else []
+        ),
         f"- Objective: `{run['objective']['metric']}` / `{run['objective']['direction']}`",
         f"- Dataset: `{run['dataset']['id']}@{run['dataset']['version']}` hash `{run['dataset']['hash']}`",
         f"- Selection split / test role: `{integrity['selectionSplit']}` / `{integrity['testRole']}`",

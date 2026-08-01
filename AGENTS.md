@@ -136,6 +136,13 @@ brief that another Agent can recover from the filesystem.
    up, not unfinished required work. Read `researchAgenda.moveRole`
    literally: `optional-follow-up` preserves useful evidence-derived ideas but
    does not authorize or require another Session or Experiment.
+   The same rule applies after a failed baseline Run. Read
+   `evidence.failureDisposition`: inspect `repair-required` before changing
+   source or authority, and publish/return an explicit `scientific-limit` as
+   the bounded answer to the exact fixed Study. Never repeat an unchanged
+   `run.execute`, erase the failed Run, or describe either failure as “no
+   evidence.” A different hypothesis, data package, Study type, or authority
+   is separately declared work.
 
 Before the first Factor Run, choose `factorPolicy` from the caller's claim,
 not from the candidate formula. Use `decision-signal` when the question asks

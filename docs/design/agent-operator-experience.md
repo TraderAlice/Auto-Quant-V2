@@ -243,6 +243,11 @@ Operating modes summarize existing state; they do not replace it.
   guarded promotion operation.
 
 One brief has exactly one primary mode and at most one primary action.
+`establish-baseline` never hides a current failed attempt. A
+`repair-required` Run routes first to read-only `run.show`; a
+`scientific-limit` Run routes to its one reportable bounded conclusion and then
+returns to terminal `observe`. Only changed source or fixed authority makes a
+prior failed attempt stale enough to establish new baseline evidence.
 After a terminal Session leaves a coordinated lane scientifically blocked,
 orientation switches to `observe`, returns no primary action, and retains
 another governed Session only as an optional supporting command. This is a
@@ -326,6 +331,9 @@ Stable Project-level reason categories distinguish:
 
 - `study-selection-required`;
 - `baseline-evidence-missing`;
+- `baseline-repair-required`;
+- `scientific-limit-report-required`;
+- `scientific-limit-reported`;
 - `current-evidence-stale`;
 - `session-required`;
 - `session-active`;

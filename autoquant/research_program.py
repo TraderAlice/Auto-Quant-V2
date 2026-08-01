@@ -12,7 +12,7 @@ from .intake import PROJECT_REQUEST, load_project_intake
 from .portfolio_explorer import load_portfolio_diagnostics
 from .reports import list_reports
 from .run_reports import list_run_reports
-from .runs import list_runs, load_run
+from .runs import list_runs, load_run, run_failure_disposition
 from .sessions import list_sessions, load_session
 from .studies import hash_json, load_study
 from .workspace import (
@@ -245,7 +245,13 @@ def _command(
 
 def _current_report(lane: dict[str, Any]) -> dict[str, Any] | None:
     run = lane["latestRun"]
-    if not lane["currentRun"] or run is None:
+    reportable_scientific_limit = (
+        lane.get("currentAttempt") is True
+        and run is not None
+        and run["status"] == "failed"
+        and run.get("failureDisposition") == "scientific-limit"
+    )
+    if (not lane["currentRun"] and not reportable_scientific_limit) or run is None:
         return None
     return next(
         (
@@ -293,6 +299,43 @@ def _factor_to_portfolio_gate(
     lane: dict[str, Any],
 ) -> dict[str, Any]:
     run = lane["latestRun"]
+    if (
+        lane.get("currentAttempt")
+        and run is not None
+        and run["status"] == "failed"
+    ):
+        scientific_limit = run["failureDisposition"] == "scientific-limit"
+        return _gate(
+            gate_id="factor-to-portfolio",
+            upstream_lane_id="factor",
+            downstream_lane_id="portfolio",
+            required_stage=FACTOR_CLAIM_POSITIVE,
+            status=(
+                "blocked-scientific-limit"
+                if scientific_limit
+                else "blocked-failed-evidence"
+            ),
+            run_id=run["id"],
+            report_id=(
+                _current_report(lane)["id"]
+                if _current_report(lane) is not None
+                else None
+            ),
+            diagnosis_stage=run["failureDisposition"],
+            iteration_focus=(
+                "bounded-research-handoff"
+                if scientific_limit
+                else "failure-inspection-and-repair"
+            ),
+            explanation=(
+                "The current Factor Run establishes a scientific limit for "
+                "the exact fixed Study; report that conclusion, but do not "
+                "admit Portfolio research as if the Factor qualified."
+                if scientific_limit
+                else "The current Factor Run requires inspection or repair "
+                "and cannot admit downstream Portfolio research."
+            ),
+        )
     if not lane["currentRun"] or run is None:
         return _gate(
             gate_id="factor-to-portfolio",
@@ -424,6 +467,42 @@ def _portfolio_to_rl_gate(
             explanation=(
                 "Governed RL remains locked until the Factor-to-Portfolio "
                 "evidence and Report gate passes."
+            ),
+        )
+    if (
+        lane.get("currentAttempt")
+        and run is not None
+        and run["status"] == "failed"
+    ):
+        scientific_limit = run["failureDisposition"] == "scientific-limit"
+        return _gate(
+            gate_id="portfolio-to-rl",
+            upstream_lane_id="portfolio",
+            downstream_lane_id="rl",
+            required_stage=PORTFOLIO_VIABILITY_POSITIVE,
+            status=(
+                "blocked-scientific-limit"
+                if scientific_limit
+                else "blocked-failed-evidence"
+            ),
+            run_id=run["id"],
+            report_id=(
+                _current_report(lane)["id"]
+                if _current_report(lane) is not None
+                else None
+            ),
+            diagnosis_stage=run["failureDisposition"],
+            iteration_focus=(
+                "bounded-research-handoff"
+                if scientific_limit
+                else "failure-inspection-and-repair"
+            ),
+            explanation=(
+                "The current Portfolio Run establishes a scientific limit for "
+                "the exact fixed Study and cannot admit governed RL."
+                if scientific_limit
+                else "The current Portfolio Run requires inspection or repair "
+                "and cannot admit governed RL."
             ),
         )
     if not lane["currentRun"] or run is None:
@@ -563,6 +642,9 @@ def _run_summary(project: ProjectContext, run_id: str) -> dict[str, Any]:
     return {
         "id": run.result["id"],
         "status": run.result["status"],
+        "failureDisposition": run_failure_disposition(run.result),
+        "summary": run.result["summary"],
+        "errors": run.result["errors"],
         "studyInputHash": run.result["studyInputHash"],
         "sourceHash": run.result["subject"]["sourceHash"],
         "metric": metric,
@@ -607,10 +689,7 @@ def _lane_state(
         candidate = _run_summary(project, summary.id)
         if latest_attempt is None:
             latest_attempt = candidate
-        if (
-            candidate["status"] == "succeeded"
-            and candidate["studyInputHash"] == study.input_hash
-        ):
+        if candidate["studyInputHash"] == study.input_hash:
             latest_run = candidate
             break
     if latest_run is None:
@@ -633,20 +712,23 @@ def _lane_state(
             for item in list_run_reports(project, lane["studyId"])
         )
     reports.sort(key=lambda item: (item["publishedAt"], item["id"]))
-    current_run = (
+    current_attempt = (
         latest_run is not None
-        and latest_run["status"] == "succeeded"
         and latest_run["studyInputHash"] == study.input_hash
     )
+    current_run = current_attempt and latest_run["status"] == "succeeded"
     current_report = _current_report(
         {
             "latestRun": latest_run,
+            "currentAttempt": current_attempt,
             "currentRun": current_run,
             "reports": reports,
         }
     )
-    if latest_run is not None and not current_run:
+    if latest_run is not None and not current_attempt:
         phase = "stale"
+    elif current_attempt and latest_run["status"] == "failed":
+        phase = latest_run["failureDisposition"]
     elif current_report is not None:
         phase = "reported"
     elif latest_session is not None and latest_session.status == "active":
@@ -672,7 +754,7 @@ def _lane_state(
             "read-only",
         )
     ]
-    if latest_run is None or not current_run:
+    if latest_run is None or not current_attempt:
         commands.append(
             _command(
                 "run.execute",
@@ -689,6 +771,64 @@ def _lane_state(
                 "creates-artifact",
             )
         )
+    elif latest_run["status"] == "failed":
+        commands.append(
+            _command(
+                "run.show",
+                f"Inspect the current failed Run for {lane['name']} before any repair or changed research route.",
+                [
+                    "aq",
+                    "run",
+                    "show",
+                    str(project.root_dir),
+                    "--run",
+                    latest_run["id"],
+                    "--json",
+                ],
+                "read-only",
+            )
+        )
+        if (
+            latest_run["failureDisposition"] == "scientific-limit"
+            and current_report is None
+        ):
+            commands.append(
+                _command(
+                    "report.publish",
+                    f"Publish the bounded scientific-limit conclusion for {lane['name']}.",
+                    [
+                        "aq",
+                        "report",
+                        "publish",
+                        str(project.root_dir),
+                        "--study",
+                        lane["studyId"],
+                        "--run",
+                        latest_run["id"],
+                        "--analysis",
+                        "report-analysis.json",
+                        "--json",
+                    ],
+                    "creates-artifact",
+                )
+            )
+        elif current_report is not None:
+            commands.append(
+                _command(
+                    "report.show",
+                    f"Inspect the reported scientific limit for {lane['name']}.",
+                    [
+                        "aq",
+                        "report",
+                        "show",
+                        str(project.root_dir),
+                        "--report",
+                        current_report["id"],
+                        "--json",
+                    ],
+                    "read-only",
+                )
+            )
     elif current_report is None:
         commands.append(
             _command(
@@ -728,7 +868,8 @@ def _lane_state(
         "creates-artifact",
     )
     if latest_session is None:
-        commands.append(start_command)
+        if latest_run is not None and latest_run["status"] == "succeeded":
+            commands.append(start_command)
     else:
         commands.append(
             _command(
@@ -824,6 +965,7 @@ def _lane_state(
             },
         },
         "latestRun": latest_run,
+        "currentAttempt": current_attempt,
         "currentRun": current_run,
         "latestSession": (
             latest_session.to_dict() if latest_session is not None else None
@@ -979,6 +1121,15 @@ def load_research_program(
             ("session.complete", "report.show", "session.show")
             if completion_lane is not None
             else (
+                "report.publish",
+                "report.show",
+                "run.show",
+                "study.inspect",
+            )
+            if recommended_lane["phase"] == "scientific-limit"
+            else ("run.show", "study.inspect")
+            if recommended_lane["phase"] == "repair-required"
+            else (
                 ("run.execute", "session.start", "session.show", "study.inspect")
                 if recommended_lane["phase"] in {"not-started", "stale"}
                 else (
@@ -1009,6 +1160,8 @@ def load_research_program(
             "researching",
             "reported",
             "stale",
+            "scientific-limit",
+            "repair-required",
         )
     }
     warnings = [
@@ -1175,6 +1328,8 @@ RESEARCH_PROGRAM_STATUS_JSON_SCHEMA: dict[str, Any] = {
                                     "blocked-legacy-evidence",
                                     "blocked-upstream-evidence",
                                     "blocked-selection-adjusted-evidence",
+                                    "blocked-scientific-limit",
+                                    "blocked-failed-evidence",
                                     "blocked-prerequisite",
                                     "waiting-current-report",
                                     "passed",

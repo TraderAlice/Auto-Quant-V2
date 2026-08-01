@@ -29,13 +29,14 @@ def build_leader_decision_support(
     """Rebuild the bounded decision snapshot for one exact leader Run."""
 
     run = load_run(project, run_id)
+    succeeded = run.result["status"] == "succeeded"
     factor_diagnostics = (
         load_factor_diagnostics(
             project,
             run_id,
             point_limit=40,
         )
-        if run.result["study"]["id"] == OHLCV_STUDY_ID
+        if succeeded and run.result["study"]["id"] == OHLCV_STUDY_ID
         else None
     )
     factor_qualification = (
@@ -59,7 +60,7 @@ def build_leader_decision_support(
             run_id,
             point_limit=40,
         )
-        if run.result["study"]["id"] == PORTFOLIO_STUDY_ID
+        if succeeded and run.result["study"]["id"] == PORTFOLIO_STUDY_ID
         else None
     )
     mechanical_decision = (
@@ -93,7 +94,7 @@ def build_leader_decision_support(
             run_id,
             point_limit=40,
         )
-        if run.result["study"]["id"] == RL_STUDY_ID
+        if succeeded and run.result["study"]["id"] == RL_STUDY_ID
         else None
     )
     rl_factor_fusion_diagnosis = (

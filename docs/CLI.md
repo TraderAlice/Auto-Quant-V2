@@ -403,6 +403,9 @@ filenames.
 `project program --json` is the stable Agent read model for lane phase, current
 Run evidence, Sessions, Reports, shared-source conflicts, scientific
 `progression` gates, and next action. Phase is coordination state only.
+Current failed attempts use `scientific-limit` or `repair-required` phase and
+carry `latestRun.failureDisposition`, summary, and exact errors. They never
+look like `not-started` and never advertise an unchanged `run.execute`.
 Portfolio requires a reported claim-positive Factor leader—
 `decision-signal-positive` for a general trading-research signal,
 `factor-qualification-positive` for a novel claim, or
@@ -734,8 +737,12 @@ status, forecast, ceiling, override reason, and zero-breach invariant.
 Factor-mixture actions carry no trading authority.
 
 A failed Run is a successful artifact-creation operation whose RunResult has
-`status: failed`; it retains errors and logs. A CLI error means trustworthy Run
-evidence could not be created or verified.
+`status: failed`; it retains errors and logs. New failed Runs also record
+`failureDisposition`. `scientific-limit` may anchor a Run-bound Report over the
+exact fixed question; `repair-required` must be inspected and repaired first.
+`aq run show` prints the disposition and errors, and `aq orient` preserves the
+current failed Run instead of recommending an identical retry. A CLI error
+means trustworthy Run evidence could not be created or verified.
 
 ## Session and Experiment commands
 

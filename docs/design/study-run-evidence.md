@@ -178,6 +178,26 @@ missing primary metric, invalid artifacts, and inconsistent status/errors all
 produce a completed immutable RunResult with `status: failed`. Stdout, stderr,
 partial raw Judge output, and any written files remain inspectable.
 
+Every newly created failed Run also records `failureDisposition`:
+
+- `scientific-limit` means the Judge completed the exact fixed evaluation and
+  proved that its required research population or estimand is unavailable.
+  The Run may anchor an immutable Run-bound Report, but it never becomes a
+  successful objective, Session baseline, or downstream admission gate.
+- `repair-required` means candidate, contract, Judge, process, runtime, or
+  otherwise unclassified failure requires inspection before another attempt.
+  Core assigns this conservative value to exits, timeouts, invalid output, and
+  Judge failures that do not explicitly declare a scientific limit. It cannot
+  anchor a Research Report.
+
+The Judge output may declare `failure_disposition`; absence defaults to
+`repair-required`. Older immutable failed Runs without the field remain
+readable and receive that same conservative projection without rewriting their
+bytes. A current failed attempt is evidence that execution occurred. Agent
+orientation exposes its Run id, errors, and disposition and never recommends
+an identical `run.execute`. Changing source or fixed authority makes the old
+attempt stale and restores the normal new-evidence route.
+
 A CLI operation failure is reserved for conditions where trustworthy evidence
 cannot be published, such as invalid Study identity or an immutable Run
 collision.
@@ -192,7 +212,8 @@ collision.
    normalized `result.json` hash.
 4. Loading or listing a completed Run rejects changed, deleted, or added files,
    and validates the strict RunResult contract after verifying its bytes.
-5. RunResult records status, metrics, subject/version, asset universe,
+5. RunResult records status, failure disposition when newly failed, metrics,
+   subject/version, asset universe,
    dataset/time range, artifacts, errors, Study/Judge/source identity,
    execution timing, and Harness version/source identity.
 6. A content-locked RunResult records dataset paths and `sourceHashes`; its

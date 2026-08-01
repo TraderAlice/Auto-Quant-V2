@@ -26,12 +26,13 @@ from .research_agenda import (
     RESEARCH_AGENDA_JSON_SCHEMA,
     build_research_agenda,
     descriptive_audit_agenda,
+    failed_run_research_agenda,
     waiting_research_agenda,
 )
 from .research_program import load_research_program
 from .reports import list_reports
 from .run_reports import list_run_reports
-from .runs import list_runs, load_run
+from .runs import list_runs, load_run, run_failure_disposition
 from .sessions import (
     list_experiments,
     list_sessions,
@@ -46,7 +47,7 @@ from .workspace import SCHEMA_VERSION, ProjectContext
 
 
 AGENT_WORK_BRIEF_KIND = "autoquant-agent-work-brief"
-AGENT_WORK_BRIEF_METHOD = "verified-project-agent-orientation-v11"
+AGENT_WORK_BRIEF_METHOD = "verified-project-agent-orientation-v12"
 MAX_RESEARCH_QUESTION_CHARS = 4_000
 PROTECTED_CATEGORIES = [
     "request",
@@ -798,7 +799,24 @@ def _program_orientation(
             )
     elif program["recommendedAction"] is not None:
         primary_raw = program["recommendedAction"]
-        if primary_raw["id"] == "run.execute":
+        if (
+            focus_lane["phase"] == "scientific-limit"
+            and focus_lane["reports"]
+        ):
+            supporting_raw.extend(
+                command
+                for command in focus_lane["commands"]
+                if command["id"] in {"report.show", "run.show"}
+            )
+            primary_raw = None
+            code = "scientific-limit-reported"
+            message = (
+                "The exact fixed lane ended at a reported scientific limit. "
+                "It does not qualify downstream research, and unchanged "
+                "execution is not another attempt."
+            )
+            category = "scientific"
+        elif primary_raw["id"] == "run.execute":
             code = (
                 "current-evidence-stale"
                 if focus_lane["phase"] == "stale"
@@ -807,6 +825,13 @@ def _program_orientation(
             message = (
                 "The selected Study needs immutable evidence matching current "
                 "source and fixed inputs."
+            )
+            category = "evidence"
+        elif primary_raw["id"] == "run.show":
+            code = "baseline-repair-required"
+            message = (
+                "The current immutable baseline attempt failed and requires "
+                "inspection or repair before any changed Run."
             )
             category = "evidence"
         elif primary_raw["id"] == "session.start":
@@ -846,6 +871,17 @@ def _program_orientation(
             code = "baseline-completion-ready"
             message = "The current reported baseline can close this research lane."
             category = "evidence"
+        elif (
+            primary_raw["id"] == "report.publish"
+            and focus_lane["phase"] == "scientific-limit"
+        ):
+            code = "scientific-limit-report-required"
+            message = (
+                "The current immutable Run establishes a scientific limit. "
+                "Publish that bounded conclusion without admitting downstream "
+                "research or repeating unchanged inputs."
+            )
+            category = "scientific"
         else:
             code = "report-required"
             message = primary_raw["description"]
@@ -903,7 +939,10 @@ def _program_orientation(
         in {"candidate-edit-required", "candidate-check-failed"}
     ):
         operating_mode = "edit-and-evaluate"
-    elif reasons[0]["code"] == "report-required":
+    elif reasons[0]["code"] in {
+        "report-required",
+        "scientific-limit-report-required",
+    }:
         operating_mode = "publish-evidence"
     elif primary is None or program["conflicts"]:
         operating_mode = "observe"
@@ -924,7 +963,10 @@ def _program_orientation(
         or not session_authority_valid
         or any(reason["code"] == "scientific-gate-blocked" for reason in reasons)
         else "complete"
-        if reasons[0]["code"] == "required-research-complete"
+        if reasons[0]["code"] in {
+            "required-research-complete",
+            "scientific-limit-reported",
+        }
         else "active"
         if session is not None
         else "pending"
@@ -950,6 +992,9 @@ def _program_orientation(
         "evidence": {
             "runId": run["id"] if run is not None else None,
             "runStatus": run["status"] if run is not None else None,
+            "failureDisposition": (
+                run.get("failureDisposition") if run is not None else None
+            ),
             "sessionId": (
                 session_summary["id"] if session_summary is not None else None
             ),
@@ -1071,6 +1116,7 @@ def _single_study_orientation(
             "evidence": {
                 "runId": None,
                 "runStatus": None,
+                "failureDisposition": None,
                 "sessionId": None,
                 "sessionStatus": None,
                 "leaderRunId": None,
@@ -1182,16 +1228,39 @@ def _single_study_orientation(
             ),
             None,
         )
-    current_runs = []
+    current_attempts = []
     for item in list_runs(project):
-        if item.study_id != study.definition.id or item.status != "succeeded":
+        if item.study_id != study.definition.id:
             continue
         run = load_run(project, item.id)
         if run.result["studyInputHash"] == study.input_hash:
-            current_runs.append(item)
-    current_run = current_runs[-1] if current_runs else None
+            current_attempts.append(item)
+    current_attempt = current_attempts[-1] if current_attempts else None
+    current_attempt_context = (
+        load_run(project, current_attempt.id)
+        if current_attempt is not None
+        else None
+    )
+    current_run = (
+        current_attempt
+        if current_attempt is not None and current_attempt.status == "succeeded"
+        else None
+    )
+    failure_disposition = (
+        run_failure_disposition(current_attempt_context.result)
+        if current_attempt_context is not None
+        else None
+    )
+    report_anchor_id = (
+        current_run.id
+        if current_run is not None
+        else current_attempt.id
+        if current_attempt is not None
+        and failure_disposition == "scientific-limit"
+        else None
+    )
     if (
-        current_run is not None
+        report_anchor_id is not None
         and current_report is None
         and latest_session_context is None
     ):
@@ -1201,7 +1270,7 @@ def _single_study_orientation(
                 for report in reversed(
                     list_run_reports(project, study.definition.id)
                 )
-                if report.leader_run_id == current_run.id
+                if report.leader_run_id == report_anchor_id
                 and report.current is True
             ),
             None,
@@ -1264,6 +1333,105 @@ def _single_study_orientation(
         editable = []
         mode = "observe"
         phase = "stale"
+    elif current_attempt is not None and current_attempt.status == "failed":
+        inspect_raw = _command(
+            "run.show",
+            "Inspect the current failed Run, disposition, and exact errors.",
+            [
+                "aq",
+                "run",
+                "show",
+                str(project.root_dir),
+                "--run",
+                current_attempt.id,
+                "--json",
+            ],
+            "read-only",
+        )
+        if failure_disposition == "scientific-limit":
+            if current_report is None:
+                primary_raw = _command(
+                    "report.publish",
+                    "Publish the bounded scientific-limit conclusion over the current immutable Run.",
+                    [
+                        "aq",
+                        "report",
+                        "publish",
+                        str(project.root_dir),
+                        "--study",
+                        study.definition.id,
+                        "--run",
+                        current_attempt.id,
+                        "--analysis",
+                        "report-analysis.json",
+                        "--json",
+                    ],
+                    "creates-artifact",
+                )
+                supporting_raw = [inspect_raw]
+                reasons = [
+                    {
+                        "code": "scientific-limit-report-required",
+                        "category": "scientific",
+                        "message": (
+                            "The current immutable Run proves the exact fixed "
+                            "Study is scientifically unevaluable. Publish that "
+                            "bounded conclusion; do not repeat unchanged inputs."
+                        ),
+                    }
+                ]
+                mode = "publish-evidence"
+                phase = "scientific-limit"
+            else:
+                primary_raw = None
+                supporting_raw = [
+                    _command(
+                        "report.show",
+                        "Inspect the immutable scientific-limit Research Report.",
+                        [
+                            "aq",
+                            "report",
+                            "show",
+                            str(project.root_dir),
+                            "--report",
+                            current_report["id"],
+                            "--json",
+                        ],
+                        "read-only",
+                    ),
+                    inspect_raw,
+                ]
+                reasons = [
+                    {
+                        "code": "scientific-limit-reported",
+                        "category": "scientific",
+                        "message": (
+                            "The exact fixed Study ended at a reported scientific "
+                            "limit. A different hypothesis, route, dataset, or "
+                            "authority is separate optional work."
+                        ),
+                    }
+                ]
+                mode = "observe"
+                phase = "evidence-ready"
+        else:
+            primary_raw = inspect_raw
+            supporting_raw = []
+            reasons = [
+                {
+                    "code": "baseline-repair-required",
+                    "category": "evidence",
+                    "message": (
+                        "The current immutable baseline attempt failed and "
+                        "requires inspection or repair before another Run. "
+                        "Unchanged execution is not new evidence."
+                    ),
+                }
+            ]
+            mode = "observe"
+            phase = "repair-required"
+        operating_root = project.root_dir
+        editable = []
     elif current_run is None:
         primary_raw = _command(
             "run.execute",
@@ -1608,10 +1776,13 @@ def _single_study_orientation(
             "operatingMode": mode,
         },
         "evidence": {
-            "runId": current_run.id if current_run is not None else None,
-            "runStatus": (
-                current_run.status if current_run is not None else None
+            "runId": (
+                current_attempt.id if current_attempt is not None else None
             ),
+            "runStatus": (
+                current_attempt.status if current_attempt is not None else None
+            ),
+            "failureDisposition": failure_disposition,
             "sessionId": (
                 latest_session.id if latest_session is not None else None
             ),
@@ -1701,6 +1872,7 @@ def _single_study_orientation(
                     "descriptive-evidence-ready",
                     "required-research-complete",
                     "frozen-run-reported",
+                    "scientific-limit-reported",
                 }
                 else "pending"
             ),
@@ -1722,6 +1894,12 @@ def _single_study_orientation(
                     "for a deliberately chosen follow-up."
                 )
                 if reasons[0]["code"] == "required-research-complete"
+                else (
+                    "Return the reported scientific limit as the answer to "
+                    "this exact fixed Study. Any changed hypothesis, route, "
+                    "dataset, or authority is separate optional work."
+                )
+                if reasons[0]["code"] == "scientific-limit-reported"
                 else (
                     "Write and return the decision-support answer from the "
                     "immutable Report. This fixed Study has no candidate "
@@ -1842,6 +2020,11 @@ def _holdout_orientation(
         "evidence": {
             "runId": run_id,
             "runStatus": result["status"] if result is not None else None,
+            "failureDisposition": (
+                run_failure_disposition(result)
+                if isinstance(result, dict)
+                else None
+            ),
             "sessionId": None,
             "sessionStatus": None,
             "leaderRunId": None,
@@ -1969,7 +2152,7 @@ def build_agent_work_brief(project: ProjectContext) -> dict[str, Any]:
             ),
             None,
         )
-        if agenda_lane is None or not agenda_lane["currentRun"]:
+        if agenda_lane is None or not agenda_lane.get("currentAttempt"):
             agenda_run_id = None
     if (
         projected["filesystem"]["writable"]
@@ -2022,6 +2205,16 @@ def build_agent_work_brief(project: ProjectContext) -> dict[str, Any]:
             len(studies) > 1
             and projected["focus"]["scientificStage"]
             == "study-selection-required"
+        )
+        else failed_run_research_agenda(
+            project,
+            agenda_run_id,
+            lane_id=projected["focus"]["laneId"],
+            disposition=projected["evidence"]["failureDisposition"],
+        )
+        if (
+            agenda_run_id is not None
+            and projected["evidence"]["failureDisposition"] is not None
         )
         else descriptive_audit_agenda(
             project,
@@ -2481,6 +2674,7 @@ AGENT_WORK_BRIEF_JSON_SCHEMA: dict[str, Any] = {
             "required": [
                 "runId",
                 "runStatus",
+                "failureDisposition",
                 "sessionId",
                 "sessionStatus",
                 "leaderRunId",
@@ -2503,6 +2697,10 @@ AGENT_WORK_BRIEF_JSON_SCHEMA: dict[str, Any] = {
                         "candidateCheckId",
                         "candidateCheckStatus",
                     )
+                },
+                "failureDisposition": {
+                    "type": ["string", "null"],
+                    "enum": ["scientific-limit", "repair-required", None],
                 },
                 "latestExperiment": {
                     "oneOf": [

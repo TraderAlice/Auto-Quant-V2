@@ -2603,10 +2603,20 @@ def main() -> None:
             }
         )
     except JudgeFailure as error:
+        scientific_limit_codes = {
+            "factor.temporal-primary-observations",
+            "factor.temporal-primary-candidate-variation",
+            "factor.temporal-primary-target-variation",
+        }
         _write_output(
             {
                 "schema_version": 1,
                 "status": "failed",
+                "failure_disposition": (
+                    "scientific-limit"
+                    if error.code in scientific_limit_codes
+                    else "repair-required"
+                ),
                 "summary": str(error),
                 "metrics": {},
                 "artifacts": [],
@@ -2618,6 +2628,7 @@ def main() -> None:
             {
                 "schema_version": 1,
                 "status": "failed",
+                "failure_disposition": "repair-required",
                 "summary": f"Factor evaluation raised {type(error).__name__}",
                 "metrics": {},
                 "artifacts": [],

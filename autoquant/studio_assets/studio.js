@@ -5194,9 +5194,10 @@ function renderCatalog(project) {
               </article>`
             : `
               <article class="catalog-card">
-                <small>${escapeHtml(item.status)} · ${escapeHtml(item.subject.kind)}</small>
+                <small>${escapeHtml(item.status)}${item.failureDisposition ? ` · ${escapeHtml(item.failureDisposition)}` : ""} · ${escapeHtml(item.subject.kind)}</small>
                 <strong>${escapeHtml(item.studyId)}</strong>
-                <p>${escapeHtml(item.primaryMetric)} = ${metric(item.primaryValue)}</p>
+                <p>${item.status === "failed" ? escapeHtml(item.summary || "Failed Run requires inspection.") : `${escapeHtml(item.primaryMetric)} = ${metric(item.primaryValue)}`}</p>
+                ${item.status === "failed" && item.errors?.length ? `<p><code>${escapeHtml(item.errors.map((error) => error.code).join(" · "))}</code></p>` : ""}
                 ${runMetricLayers(item)}
                 <code>${escapeHtml(relativeTime(item.startedAt))} · ${item.durationMs}ms</code>
               </article>`,

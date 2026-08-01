@@ -18,7 +18,9 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-None.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/failed-run-research-handoff]] | Preserve the latest current failed Run as explicit Agent evidence, distinguish scientific limits from repair-required defects, and make only the former a terminal reportable handoff. | 2026-08-02 |
 
 ## Proposed plans
 

@@ -36,11 +36,13 @@ from autoquant.portfolio_explorer import (
     PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA,
     load_portfolio_diagnostics,
 )
+from autoquant.orientation import build_agent_work_brief
 from autoquant.rl_explorer import (
     RL_DIAGNOSTICS_JSON_SCHEMA,
     load_rl_diagnostics,
 )
 from autoquant.reports import publish_report
+from autoquant.run_reports import publish_run_report
 from autoquant.runs import RUN_RESULT_JSON_SCHEMA, execute_study
 from autoquant.sessions import start_session
 from autoquant.studio import build_studio_snapshot
@@ -166,6 +168,10 @@ class RequestDrivenIntakeTests(unittest.TestCase):
             run = execute_study(project, OHLCV_STUDY_ID)
 
             self.assertEqual(run.result["status"], "failed")
+            self.assertEqual(
+                run.result["failureDisposition"],
+                "scientific-limit",
+            )
             error = run.result["errors"][0]
             self.assertEqual(
                 error["code"],
@@ -175,6 +181,94 @@ class RequestDrivenIntakeTests(unittest.TestCase):
             self.assertIn("split=validation", error["message"])
             self.assertIn("distinctFactorValues=1", error["message"])
             self.assertNotIn("TypeError", error["message"])
+
+            brief = build_agent_work_brief(project)
+            self.assertEqual(brief["evidence"]["runId"], run.result["id"])
+            self.assertEqual(brief["evidence"]["runStatus"], "failed")
+            self.assertEqual(
+                brief["evidence"]["failureDisposition"],
+                "scientific-limit",
+            )
+            self.assertEqual(
+                brief["reasons"][0]["code"],
+                "scientific-limit-report-required",
+            )
+            self.assertEqual(brief["primaryAction"]["id"], "report.publish")
+            self.assertEqual(brief["researchAgenda"]["status"], "scientific-limit")
+            self.assertNotIn(
+                "run.execute",
+                [
+                    action["id"]
+                    for action in [
+                        brief["primaryAction"],
+                        *brief["supportingActions"],
+                    ]
+                    if action is not None
+                ],
+            )
+
+            report = publish_run_report(
+                project,
+                OHLCV_STUDY_ID,
+                run.result["id"],
+                {
+                    "schemaVersion": 1,
+                    "kind": "autoquant-research-report-analysis",
+                    "title": "Fixed temporal Factor is unevaluable",
+                    "executiveSummary": (
+                        "The validation population has no candidate variation, "
+                        "so the exact fixed temporal Factor cannot be evaluated."
+                    ),
+                    "findings": [
+                        {
+                            "id": "fixed-factor-unevaluable",
+                            "claim": (
+                                "The immutable Run records a scientific limit "
+                                "rather than usable Factor evidence."
+                            ),
+                            "confidence": "high",
+                            "evidenceRefs": [
+                                {
+                                    "kind": "run",
+                                    "id": run.result["id"],
+                                    "artifactPath": None,
+                                }
+                            ],
+                        }
+                    ],
+                    "recommendations": [],
+                    "limitations": [
+                        "A different hypothesis or Event Study is separate work."
+                    ],
+                    "unresolvedQuestions": [],
+                },
+            )
+            self.assertEqual(
+                report.report["evidence"]["run"]["failureDisposition"],
+                "scientific-limit",
+            )
+            self.assertEqual(
+                report.report["evidence"]["run"]["errors"][0]["code"],
+                "factor.temporal-primary-candidate-variation",
+            )
+
+            terminal = build_agent_work_brief(project)
+            self.assertIsNone(terminal["primaryAction"])
+            self.assertEqual(
+                terminal["reasons"][0]["code"],
+                "scientific-limit-reported",
+            )
+            self.assertEqual(terminal["evidence"]["reportId"], report.report["id"])
+            snapshot = build_studio_snapshot(project.root_dir)
+            observed = snapshot["projects"][0]
+            self.assertEqual(
+                observed["runs"][-1]["failureDisposition"],
+                "scientific-limit",
+            )
+            self.assertEqual(
+                observed["agentWorkBrief"]["reasons"][0]["code"],
+                "scientific-limit-reported",
+            )
 
     def test_temporal_primary_validation_reports_too_few_pairs(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

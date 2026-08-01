@@ -50,7 +50,7 @@ from .research_program import load_research_program
 from .reports import list_reports
 from .run_reports import list_run_reports
 from .reviews import list_reviews
-from .runs import list_runs, load_run
+from .runs import list_runs, load_run, run_failure_disposition
 from .sessions import list_sessions, load_session, session_snapshot
 from .studies import hash_json, list_studies, load_study
 from .workspace import (
@@ -1120,6 +1120,9 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
     for item in runs_raw:
         summary = item.to_dict()
         run_result = load_run(project, item.id).result
+        summary["summary"] = run_result["summary"]
+        summary["errors"] = run_result["errors"]
+        summary["failureDisposition"] = run_failure_disposition(run_result)
         summary["researchRequest"] = run_result.get("researchRequest")
         summary["upstreamEvidence"] = run_result.get("upstreamEvidence")
         metric_layers = _run_metric_layers(run_result)

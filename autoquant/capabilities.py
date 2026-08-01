@@ -1013,7 +1013,7 @@ CLI_COMMANDS = [
     descriptor(
         "report.publish",
         "aq report publish <path> (--session ID | --study ID --run ID) --analysis FILE [--corrects REPORT --correction-review REVIEW_OR_PATH --correction-reason TEXT] [--project ID] [--json]",
-        "Publish immutable analysis over either a delegated Session evidence prefix or one successful current request-bound Study Run; Run-bound Reports may extend one verified linear correction lineage.",
+        "Publish immutable analysis over either a delegated Session evidence prefix, one successful current request-bound Study Run, or one current scientific-limit Run; Run-bound Reports may extend one verified linear correction lineage.",
         "creates-artifact",
         [
             PATH_ARGUMENT,

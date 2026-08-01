@@ -142,6 +142,44 @@ def waiting_research_agenda(
     )
 
 
+def failed_run_research_agenda(
+    project: ProjectContext,
+    run_id: str,
+    *,
+    lane_id: str | None,
+    disposition: str,
+) -> dict[str, Any]:
+    """Expose failed immutable evidence without inventing another trial."""
+
+    run = load_run(project, run_id)
+    scientific_limit = disposition == "scientific-limit"
+    explanation = (
+        "The current immutable Run establishes a scientific limit for the "
+        "exact fixed Study. Report or inspect that bounded conclusion; a "
+        "new hypothesis, route, authority, or dataset is separate work."
+        if scientific_limit
+        else "The current immutable Run requires repair. Inspect its exact "
+        "errors before changing source, fixed authority, or runtime; an "
+        "unchanged repeat is not a new research attempt."
+    )
+    return _agenda(
+        status=("scientific-limit" if scientific_limit else "repair-required"),
+        lane_id=lane_id,
+        run={"id": run.result["id"], "inputHash": run.result["inputHash"]},
+        diagnosis={
+            "stage": disposition,
+            "iterationFocus": (
+                "bounded-research-handoff"
+                if scientific_limit
+                else "failure-inspection-and-repair"
+            ),
+            "explanation": explanation,
+        },
+        moves=[],
+        reason=explanation,
+    )
+
+
 def descriptive_audit_agenda(
     project: ProjectContext,
     run_id: str,
@@ -1517,6 +1555,8 @@ RESEARCH_AGENDA_JSON_SCHEMA: dict[str, Any] = {
                 "unsupported-study",
                 "no-further-in-sample-tuning",
                 "descriptive-audit-complete",
+                "scientific-limit",
+                "repair-required",
             ]
         },
         "reason": {"type": ["string", "null"]},

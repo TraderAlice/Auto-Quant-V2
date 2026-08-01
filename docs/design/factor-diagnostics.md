@@ -93,7 +93,9 @@ objective fails with one of three stable diagnostics:
 
 Each message discloses evaluation mode, split, primary horizon, pair count,
 distinct candidate/target counts, and the required minimum. This is a failed
-research Run, not a successful null score. Missing candidate input stays
+research Run with `failureDisposition: scientific-limit`, not a successful
+null score. It may be reported as the exact fixed question's bounded answer,
+but it never becomes qualifying Factor evidence. Missing candidate input stays
 missing and an observed neutral score stays zero; Core does not coerce either
 state to make the objective evaluable.
 

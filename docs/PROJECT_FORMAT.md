@@ -711,7 +711,9 @@ runs/
 
 `result.json` is the structured RunResult. It records:
 
-- terminal status, summary, timestamps, and duration;
+- terminal status, summary, timestamps, and duration; every newly failed Run
+  also records `failureDisposition` as `scientific-limit` or
+  `repair-required`;
 - complete input and Study-input hashes;
 - Harness id/version/commit/dirty/source/Python identity;
 - Project, Study, subject/version, and editable source identity;
@@ -740,8 +742,10 @@ support into a novelty claim, or relabel a familiar style as novel.
 For single-asset temporal and authorized two-asset relative-value evaluation,
 the fixed primary validation population must contain at least 20 finite pairs,
 two candidate values, and two forward-return values. A failed requirement is a
-structured `factor.temporal-primary-*` Run error with exact counts, not a null
-successful objective or a generic Python exception. A sparse event indicator
+structured `factor.temporal-primary-*` Run error with exact counts and
+`failureDisposition: scientific-limit`, not a null successful objective or a
+generic Python exception. That exact failed Run may be reported as the bounded
+answer, but it cannot start a Session or qualify downstream Portfolio work. A sparse event indicator
 does not add event-ledger semantics to Factor; use `ohlcv-event-study-lab` when
 the caller's estimand is a fixed conditional price-event distribution.
 

@@ -38,6 +38,17 @@ from autoquant.workspace import create_project, initialize_workspace
 from tests.intake_helpers import write_intake_inputs
 
 
+CONSTANT_TEMPORAL_FACTOR = """\
+from __future__ import annotations
+
+import pandas as pd
+
+
+def compute_factor(panel: pd.DataFrame) -> pd.Series:
+    return pd.Series(1.0, index=panel.index)
+"""
+
+
 def _report_analysis(run) -> dict:
     reference = {
         "kind": "run",
@@ -83,6 +94,65 @@ def _passing_factor_selection_integrity() -> dict:
 
 
 class MultiStudyResearchProgramTests(unittest.TestCase):
+    def test_scientific_limit_blocks_downstream_and_never_retries_unchanged_lane(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            request_path, package_path = write_intake_inputs(
+                root,
+                request_assets=("NVDA",),
+                asset_position_roles={"NVDA": "two-sided"},
+                factor_policy={"claim": "decision-signal", "knownStyle": None},
+            )
+            prepared = prepare_project_intake(
+                request_path,
+                package_path,
+                "ohlcv-research-desk",
+            )
+            project = create_project(
+                initialize_workspace(root / "workspace").root_dir,
+                "scientific-limit-program",
+                template=prepared.template,
+                template_intake=prepared,
+            )
+            (project.root_dir / "factors" / "candidate.py").write_text(
+                CONSTANT_TEMPORAL_FACTOR,
+                encoding="utf-8",
+            )
+            failed = execute_study(project, OHLCV_STUDY_ID)
+            self.assertEqual(
+                failed.result["failureDisposition"],
+                "scientific-limit",
+            )
+
+            program = load_research_program(project)
+            jsonschema.validate(program, RESEARCH_PROGRAM_STATUS_JSON_SCHEMA)
+            factor = program["lanes"][0]
+            self.assertEqual(factor["phase"], "scientific-limit")
+            self.assertTrue(factor["currentAttempt"])
+            self.assertFalse(factor["currentRun"])
+            self.assertEqual(
+                factor["latestRun"]["failureDisposition"],
+                "scientific-limit",
+            )
+            self.assertEqual(
+                program["progression"]["gates"][0]["status"],
+                "blocked-scientific-limit",
+            )
+            self.assertEqual(program["recommendedAction"]["id"], "report.publish")
+            self.assertNotIn(
+                "run.execute",
+                [command["id"] for command in factor["commands"]],
+            )
+            self.assertEqual(len(program["lanes"][1]["reports"]), 0)
+            brief = build_agent_work_brief(project)
+            self.assertEqual(
+                brief["reasons"][0]["code"],
+                "scientific-limit-report-required",
+            )
+            self.assertEqual(brief["primaryAction"]["id"], "report.publish")
+
     def test_delegated_keep_requires_report_then_routes_primary_promotion(
         self,
     ) -> None:

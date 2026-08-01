@@ -1,5 +1,5 @@
 ---
-version: 0.9.21
+version: 0.9.22
 ---
 
 # AutoQuant V2
@@ -32,13 +32,12 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current release: `v0.9.21`
+## Current release: `v0.9.22`
 
-`v0.9.21` makes an unavailable temporal Factor objective a precise research
-result: too few finite pairs, no candidate variation, and no target variation
-now have distinct stable errors with exact population counts instead of a
-Python conversion exception. Fixed conditional price-event questions remain
-on the Event Study route rather than being disguised as sparse Factors.
+`v0.9.22` preserves a current failed Run as real re-entry evidence. Agents now
+inspect `repair-required` failures before changing anything, while an explicit
+`scientific-limit` can become one immutable bounded Report and a terminal
+handoff without repeating identical inputs or opening downstream research.
 OpenAlice remains independently pinned to `v0.8.31` until the host deliberately
 selects another tag; publishing AutoQuant does not migrate a Workspace or move
 a host pin.

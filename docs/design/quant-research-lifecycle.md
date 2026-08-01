@@ -347,6 +347,14 @@ Runs, Experiments, Campaigns, artifacts, Harness, and dataset. It then
 deterministically renders `report.json` and `report.md`, hashes every file, and
 writes the manifest last.
 
+A Report normally anchors a successful Run or Session leader. The sole failed
+Run exception is an explicitly classified current `scientific-limit` Run: its
+Run-bound Report freezes the exact summary, structured errors, disposition,
+request, inputs, and selection history as the bounded answer to that fixed
+question. `repair-required` failures are inspectable evidence, not reportable
+research conclusions. Neither failed class can seed a Session, qualify a
+Factor, open Portfolio/RL progression, or grant trading authority.
+
 Every newly published Report also binds `leaderDecisionSupport` to the exact
 frozen leader Run id and result hash. Portfolio Reports include Core's exact
 point-in-time `mechanicalDecision`: historical timestamp, percentile state

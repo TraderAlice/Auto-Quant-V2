@@ -34,11 +34,57 @@ from tests.intake_helpers import (
     write_intake_inputs,
     write_multi_interval_inputs,
 )
-from tests.study_helpers import make_project, study_definition
+from tests.study_helpers import MALFORMED_JUDGE, make_project, study_definition
 from tests.test_reports import report_analysis, research_request
 
 
 class AgentOrientationTests(unittest.TestCase):
+    def test_failed_baseline_requires_inspection_before_any_retry(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, project = make_project(directory)
+            judge = project.root_dir / "judges" / "malformed.py"
+            judge.write_text(MALFORMED_JUDGE, encoding="utf-8")
+            create_study(
+                project,
+                study_definition(judge="judges/malformed.py"),
+            )
+            run = execute_study(project, "factor-quality")
+
+            self.assertEqual(
+                run.result["failureDisposition"],
+                "repair-required",
+            )
+            brief = build_agent_work_brief(project)
+            jsonschema.validate(brief, AGENT_WORK_BRIEF_JSON_SCHEMA)
+            self.assertEqual(brief["evidence"]["runId"], run.result["id"])
+            self.assertEqual(
+                brief["evidence"]["failureDisposition"],
+                "repair-required",
+            )
+            self.assertEqual(
+                brief["reasons"][0]["code"],
+                "baseline-repair-required",
+            )
+            self.assertEqual(brief["primaryAction"]["id"], "run.show")
+            self.assertEqual(brief["primaryAction"]["effect"], "read-only")
+            self.assertEqual(brief["researchAgenda"]["status"], "repair-required")
+            self.assertNotIn(
+                "run.execute",
+                [brief["primaryAction"]["id"]]
+                + [item["id"] for item in brief["supportingActions"]],
+            )
+
+            candidate = project.root_dir / "factors" / "candidate.py"
+            candidate.write_text("SCORE = 2.0\n", encoding="utf-8")
+            changed = build_agent_work_brief(project)
+            self.assertIsNone(changed["evidence"]["runId"])
+            self.assertIsNone(changed["evidence"]["failureDisposition"])
+            self.assertEqual(
+                changed["reasons"][0]["code"],
+                "baseline-evidence-missing",
+            )
+            self.assertEqual(changed["primaryAction"]["id"], "run.execute")
+
     def test_factor_candidate_contract_discloses_actual_interval_surface(
         self,
     ) -> None:
@@ -787,7 +833,7 @@ Do not include this sibling section.
             jsonschema.validate(settled, AGENT_WORK_BRIEF_JSON_SCHEMA)
             self.assertEqual(
                 settled["method"],
-                "verified-project-agent-orientation-v11",
+                "verified-project-agent-orientation-v12",
             )
             self.assertEqual(
                 [item["code"] for item in settled["reasons"]],

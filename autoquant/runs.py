@@ -58,6 +58,8 @@ HOLDOUT_EVALUATION_ROLE = "external-temporal-audit"
 RUN_SCHEMA_VERSION = 1
 JUDGE_OUTPUT_VERSION = 1
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
+FAILURE_DISPOSITIONS = {"scientific-limit", "repair-required"}
+DEFAULT_FAILURE_DISPOSITION = "repair-required"
 
 
 @dataclass(frozen=True)
@@ -71,6 +73,7 @@ class RunContext:
 class RunSummary:
     id: str
     status: str
+    failure_disposition: str | None
     study_id: str
     subject_kind: str
     subject_name: str
@@ -84,6 +87,7 @@ class RunSummary:
         return {
             "id": self.id,
             "status": self.status,
+            "failureDisposition": self.failure_disposition,
             "studyId": self.study_id,
             "subject": {
                 "kind": self.subject_kind,
@@ -99,6 +103,19 @@ class RunSummary:
 
 def _issue(path: Path | str, code: str, message: str) -> ValidationIssue:
     return ValidationIssue(str(path), code, message)
+
+
+def run_failure_disposition(result: dict[str, Any]) -> str | None:
+    """Return the conservative failure meaning for current and legacy Runs."""
+
+    if result.get("status") != "failed":
+        return None
+    value = result.get("failureDisposition")
+    return (
+        value
+        if value in FAILURE_DISPOSITIONS
+        else DEFAULT_FAILURE_DISPOSITION
+    )
 
 
 def _write_json(path: Path, value: Any) -> None:
@@ -340,7 +357,11 @@ def parse_judge_output(
         "artifacts",
         "errors",
     }
-    issues = _strict_keys(raw, required, str(path))
+    issues = _strict_keys(
+        raw,
+        required | (raw.keys() & {"failure_disposition"}),
+        str(path),
+    )
     if raw.get("schema_version") != JUDGE_OUTPUT_VERSION:
         issues.append(
             _issue(
@@ -500,6 +521,25 @@ def parse_judge_output(
                 "Failed Judge output must explain at least one error",
             )
         )
+    failure_disposition = raw.get("failure_disposition")
+    if status == "succeeded" and failure_disposition is not None:
+        issues.append(
+            _issue(
+                f"{path}/failure_disposition",
+                "judge.success-disposition",
+                "Successful Judge output cannot declare a failure disposition",
+            )
+        )
+    if status == "failed" and failure_disposition is not None and (
+        failure_disposition not in FAILURE_DISPOSITIONS
+    ):
+        issues.append(
+            _issue(
+                f"{path}/failure_disposition",
+                "judge.failure-disposition",
+                "Failure disposition must be scientific-limit or repair-required",
+            )
+        )
     if issues:
         raise AutoQuantValidationError(issues)
     return {
@@ -508,6 +548,11 @@ def parse_judge_output(
         "metrics": metrics,
         "artifacts": artifacts,
         "errors": errors,
+        "failureDisposition": (
+            failure_disposition or DEFAULT_FAILURE_DISPOSITION
+            if status == "failed"
+            else None
+        ),
     }
 
 
@@ -710,6 +755,7 @@ def _run_judge(
             "metrics": {},
             "artifacts": [],
             "errors": execution_errors,
+            "failureDisposition": DEFAULT_FAILURE_DISPOSITION,
         }
     else:
         try:
@@ -731,6 +777,7 @@ def _run_judge(
                     }
                     for issue in error.issues
                 ],
+                "failureDisposition": DEFAULT_FAILURE_DISPOSITION,
             }
     execution = {
         "kind": "python",
@@ -903,6 +950,7 @@ def execute_study(
                 "metrics": normalized["metrics"],
                 "summary": normalized["summary"],
                 "errors": normalized["errors"],
+                "failureDisposition": normalized.get("failureDisposition"),
             }
         )
         stamp = started.strftime("%Y%m%dT%H%M%S%fZ")
@@ -979,6 +1027,11 @@ def execute_study(
             "artifacts": artifacts,
             "errors": normalized["errors"],
         }
+        if normalized["status"] == "failed":
+            result["failureDisposition"] = normalized.get(
+                "failureDisposition",
+                DEFAULT_FAILURE_DISPOSITION,
+            )
         if study.dependency_hash is not None:
             result["dependencies"] = {
                 "paths": study.definition.dependencies["paths"],
@@ -1093,7 +1146,13 @@ def _validate_run_result(
         "errors",
     }
     allowed = required | (
-        result.keys() & {"dependencies", "researchRequest", "upstreamEvidence"}
+        result.keys()
+        & {
+            "dependencies",
+            "researchRequest",
+            "upstreamEvidence",
+            "failureDisposition",
+        }
     )
     issues = _strict_keys(result, allowed, str(path))
     if result.get("schemaVersion") != RUN_SCHEMA_VERSION:
@@ -1115,6 +1174,25 @@ def _validate_run_result(
                 f"{path}/status",
                 "run.result-status",
                 "RunResult status must be succeeded or failed and match its manifest",
+            )
+        )
+    failure_disposition = result.get("failureDisposition")
+    if status == "succeeded" and failure_disposition is not None:
+        issues.append(
+            _issue(
+                f"{path}/failureDisposition",
+                "run.success-disposition",
+                "Successful RunResult cannot declare a failure disposition",
+            )
+        )
+    if failure_disposition is not None and (
+        failure_disposition not in FAILURE_DISPOSITIONS
+    ):
+        issues.append(
+            _issue(
+                f"{path}/failureDisposition",
+                "run.failure-disposition",
+                "Failure disposition must be scientific-limit or repair-required",
             )
         )
     if result.get("inputHash") != expected_input_hash:
@@ -1768,6 +1846,7 @@ def list_runs(project: ProjectContext, study_id: str | None = None) -> list[RunS
             RunSummary(
                 id=run.result["id"],
                 status=run.result["status"],
+                failure_disposition=run_failure_disposition(run.result),
                 study_id=run.result["study"]["id"],
                 subject_kind=run.result["subject"]["kind"],
                 subject_name=run.result["subject"]["name"],
@@ -1799,6 +1878,9 @@ JUDGE_OUTPUT_JSON_SCHEMA: dict[str, Any] = {
     "properties": {
         "schema_version": {"const": JUDGE_OUTPUT_VERSION},
         "status": {"enum": ["succeeded", "failed"]},
+        "failure_disposition": {
+            "enum": ["scientific-limit", "repair-required"]
+        },
         "summary": {"type": "string", "minLength": 1},
         "metrics": {"type": "object"},
         "artifacts": {
@@ -1861,6 +1943,9 @@ RUN_RESULT_JSON_SCHEMA: dict[str, Any] = {
         "schemaVersion": {"const": RUN_SCHEMA_VERSION},
         "id": {"type": "string", "pattern": "^run-"},
         "status": {"enum": ["succeeded", "failed"]},
+        "failureDisposition": {
+            "enum": ["scientific-limit", "repair-required"]
+        },
         "summary": {"type": "string", "minLength": 1},
         "startedAt": {"type": "string", "format": "date-time"},
         "completedAt": {"type": "string", "format": "date-time"},

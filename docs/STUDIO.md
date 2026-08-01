@@ -310,6 +310,14 @@ display-only, and
 failed trials remain visible as
 unavailable evidence.
 
+The Studies & Runs catalog also preserves failed baseline attempts. Each card
+shows the Core-verified `failureDisposition`, summary, and error codes. The
+shared Agent Work Brief distinguishes `scientific-limit` from
+`repair-required`, exposes the same immutable Run id as CLI orientation, and
+never converts either state into a browser-inferred retry. A reported
+scientific limit is terminal for that exact fixed Study; its failed status does
+not open a Factor/Portfolio/RL gate.
+
 The Session rail, handoff board, trajectory disclosure, and Inspector share
 one Project-wide research-family projection. Starting another Session cannot
 reset the unique-source count. The browser formats Factor family-wise p-values

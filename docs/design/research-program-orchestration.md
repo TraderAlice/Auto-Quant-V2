@@ -142,6 +142,14 @@ spending compute on downstream complexity. Gate status is derived by Core from
 strict Run diagnostics and exact Report bindings; the browser does not infer
 it from metric signs or lane phases.
 
+A current failed lane attempt is distinct from missing evidence. Its phase is
+`scientific-limit` or `repair-required`, its latest Run retains exact errors,
+and no unchanged execute command is offered. A scientific-limit Run may receive
+one Run-bound Report, but the Factor-to-Portfolio or Portfolio-to-RL gate stays
+`blocked-scientific-limit`; reporting a limit never converts it into successful
+qualification. Repair-required failures route to Run inspection and remain
+`blocked-failed-evidence` until source or fixed authority actually changes.
+
 ## Next actions
 
 Core generates exact copy-only commands. It may recommend:
