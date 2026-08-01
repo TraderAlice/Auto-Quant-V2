@@ -115,13 +115,13 @@ provenance graph.
 
 - Focused V6 composition, close-time causality, public Candidate Contract, and
   CLI capability tests pass.
-- `uv lock --check`, complete module compilation, and all 1,459 documentation
+- `uv lock --check`, complete module compilation, and all 1,460 documentation
   double-links pass.
 - `uv run python -m unittest discover -s tests` passes all 439 tests in
   1,063.457 seconds. The first release-audit run exposed two stale V5-only CLI
   assertions; the public capability was already correct, the assertions were
   advanced to V6, and the entire suite was rerun from the beginning.
-- The final clean wheel has SHA-256
+- The clean field-candidate wheel has SHA-256
   `901c9ed1fdc83bdb9484e85dec3b4a578d6668a400480102cc8a1f022ddaefe0`
   and records candidate commit `01404f725571130fd84a5b74f2e9e4e31384c7e1`.
 - Fresh Grok (`grok-4.5-build`, 25 turns, session
