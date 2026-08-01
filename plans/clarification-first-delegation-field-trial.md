@@ -1,6 +1,6 @@
 # Clarification-first delegation field trial
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-08-01`
 - Target release: `0.9.14`
 - Related design: [[docs/design/agent-native-quant-workbench]],
@@ -92,24 +92,24 @@ session with this fixed contract:
 
 ## Acceptance
 
-- [ ] Phase one writes a durable English brief before any retrieval or Project
+- [x] Phase one writes a durable English brief before any retrieval or Project
       creation and preserves the user's actual intent without filling gaps.
-- [ ] Phase one asks only caller-owned questions that materially change the
+- [x] Phase one asks only caller-owned questions that materially change the
       research contract and stops with zero staged OHLCV, Projects, Studies,
       Sessions, Runs, and Reports.
-- [ ] Phase two updates the same brief with explicit answers and does not
+- [x] Phase two updates the same brief with explicit answers and does not
       silently change any supplied holding, risk, sizing, clock, or data term.
-- [ ] The worker discovers the exact fixed Book Risk route, acquires one
+- [x] The worker discovers the exact fixed Book Risk route, acquires one
       task-complete aligned package plus independent provider evidence, and
       creates exactly one Project and one successful fixed Run.
-- [ ] Strict Explorer and a durable evidence-bound Report answer the maximum
+- [x] Strict Explorer and a durable evidence-bound Report answer the maximum
       funded NVDA weight, binding constraint, current/post-entry risk, and
       limitations without a Session or parameter-search loop.
-- [ ] Final orientation and Studio expose a complete historical handoff with
+- [x] Final orientation and Studio expose a complete historical handoff with
       `tradingAuthority=none` and no writable research continuation required.
-- [ ] Every material retry or failure becomes deterministic regression
+- [x] Every material retry or failure becomes deterministic regression
       coverage and a bounded repair or remains an explicit limitation.
-- [ ] If a release change is admitted, final replay, tests, documentation,
+- [x] If a release change is admitted, final replay, tests, documentation,
       build/install, and clean-clone smoke pass before publication.
 
 ## Work
@@ -120,7 +120,7 @@ session with this fixed contract:
 - [x] Resume the same conversation with the caller clarification.
 - [x] Audit the completed research and classify every friction item.
 - [x] Implement and replay only reproduced reusable defects, if any.
-- [ ] Close as a no-change proof or publish a verified `v0.9.14`.
+- [x] Close as a no-change proof or publish a verified `v0.9.14`.
 
 ## Findings and decisions
 
@@ -251,6 +251,9 @@ Repository audit:
 - A fresh Python 3.11.14 installation reported `aq 0.9.14`, exposed all 53
   public commands and 42 schemas, and used the final wheel to validate,
   strictly inspect, and project the isolated one-Project release audit.
+- A no-hardlink clone of release commit `c67154f` contained no local Workspace
+  override, had a clean worktree, and passed installed-wheel `aq validate`,
+  `aq studio snapshot`, and `aq orient` against `sample-research-desk`.
 
 ## Progress log
 
@@ -265,8 +268,22 @@ Repository audit:
   attempted replay was rejected for cross-cohort contamination.
 - 2026-08-01 — The standalone installed-wheel replay completed without source
   or prior-trial access and passed the exact strict Explorer path. Repository
-  release verification and publication remain before closure.
+  release verification, final installation, and clean-clone smoke then passed.
+- 2026-08-01 — Closed the field trial as `v0.9.14`. OpenAlice remains pinned
+  to `0.8.31`; this release does not change that consumer independently.
 
 ## Completion
 
-Complete this section only when status becomes `completed`.
+The clarification-first contract now survives both halves of an ordinary
+delegated conversation: the coworker stops for missing caller authority, then
+resumes from the same durable brief and produces one evidence-bound sizing
+answer without fabricating a holding or execution mandate. The released fixed
+Book Risk path accepts honest one-asset books, enforces directional caller
+bounds, and carries correlation and drawdown into immutable Run evidence.
+
+The trial also fixed the governing data principle for future work: every
+research question owns a complete task-local evidence package; prior inventory
+may accelerate retrieval but cannot narrow the question, select the source, or
+silently fill missing requirements. Duplicate bytes are preferable to hidden
+evidence coupling, while any later deduplication must remain an invisible
+storage optimization.
