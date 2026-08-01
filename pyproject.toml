@@ -18,6 +18,7 @@ dev = ["jsonschema>=4.23"]
 
 [project.scripts]
 aq = "autoquant.cli:main"
+aq-python = "autoquant.python_runner:main"
 
 [build-system]
 requires = ["hatchling"]

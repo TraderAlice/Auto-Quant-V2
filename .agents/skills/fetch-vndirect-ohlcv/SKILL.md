@@ -16,7 +16,7 @@ corporate-action, or licensing authority.
 4. Run:
 
 ```bash
-python3 scripts/fetch_vndirect_daily.py \
+aq-python scripts/fetch_vndirect_daily.py \
   --output <workspace>/staging/market-data/<dataset-id> \
   --assets /absolute/path/assets.json \
   --dataset-id <dataset-id> \

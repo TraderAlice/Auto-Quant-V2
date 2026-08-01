@@ -1,5 +1,5 @@
 {
-  "bundleSha256": "afdeff1faef9efd3068b88aa3ad4e3dcc7f89809232d87a9e99bcb5d984a07c9",
+  "bundleSha256": "61db87c914af4fe923a87be959a616894476d202f62567657c066b43f230c598",
   "discoveryRoots": [
     ".agents/skills",
     ".claude/skills"
@@ -12,7 +12,7 @@
       "files": [
         {
           "path": "SKILL.md",
-          "sha256": "f87ae76c868ae76e78bbae2ba8becbc3eeb59493477b7e430fd2bb1ead8e58c7"
+          "sha256": "15ce783e5119f555a74dbc86245baaa4b12afb341f5e8ff2a5a23baa5850d063"
         },
         {
           "path": "agents/openai.yaml",
@@ -61,7 +61,7 @@
       "files": [
         {
           "path": "SKILL.md",
-          "sha256": "9c9a86ffb6c87ac4cadae9abae35d519f4bbdb0dc22b2792d646172979343c77"
+          "sha256": "bef735bf8da159f7b37e071c1dde2738fb9197534644857f7716fbb7bcf1120d"
         },
         {
           "path": "agents/openai.yaml",
@@ -82,7 +82,7 @@
       "files": [
         {
           "path": "SKILL.md",
-          "sha256": "fa34fb617bc6b938a7f803e0353f8535e8b25eba1f53d0a15277a4a7219cf3fc"
+          "sha256": "2ac0d9466ea6fee4e8728a307ff3f6271f1ba13ddbec9abaae47240983a664d4"
         },
         {
           "path": "agents/openai.yaml",
@@ -107,7 +107,7 @@
       "files": [
         {
           "path": "SKILL.md",
-          "sha256": "1f76cd0dec9690941b2b5ae0e8373d49fe96469e7cab9c0ba65efd91b3fb6608"
+          "sha256": "05431b6086eb2566871800723fdcd3784ae60dad7cbfcfd28363b12a2d0405fb"
         },
         {
           "path": "agents/openai.yaml",
@@ -132,7 +132,7 @@
       "files": [
         {
           "path": "SKILL.md",
-          "sha256": "be2dc20a33ca2e24c34b08ff0095d20296906dd9c052451025cabcdbad72c52e"
+          "sha256": "e10835126275f9b2b8fb963565d73e6c82f54d2d1d44263b85659da637d1ae74"
         },
         {
           "path": "agents/openai.yaml",
@@ -157,7 +157,7 @@
       "files": [
         {
           "path": "SKILL.md",
-          "sha256": "3afa68ce5b67effa213fdb316ae7256a06b6cb30aaae8824218fa6464993ff48"
+          "sha256": "a963ccb0a7b64633ee6f43e6ecafe48e887876cbb46817e1229d334daf7dd269"
         },
         {
           "path": "agents/openai.yaml",
@@ -182,7 +182,7 @@
       "files": [
         {
           "path": "SKILL.md",
-          "sha256": "52846874d8a13f164d58398a7a6cc43cb7d6c6fb68761b43b2fe3f53e16bb2f3"
+          "sha256": "92f2caf8d8e44c7783391c4a9de6dd8acbbe692957fa83f67c866e53752a5efd"
         },
         {
           "path": "agents/openai.yaml",
@@ -207,7 +207,7 @@
       "files": [
         {
           "path": "SKILL.md",
-          "sha256": "dac535bb17a881c3e0ec7c13cdab41e1be1ebe3f914b0ecdea44a45783cd2011"
+          "sha256": "2a79bcb10513d88b14a51b231dc334701fecd4937e927c0048c0ccd887c2d385"
         },
         {
           "path": "agents/openai.yaml",
@@ -232,7 +232,7 @@
       "files": [
         {
           "path": "SKILL.md",
-          "sha256": "d7f3216ee9cf5fd6fdfd4f0322516d060c349529dd56d5b4da06227fb8bb3004"
+          "sha256": "5d74298406e0f79c4709e5fc08a4fa1d82e94946304eeb401f39024330d28f21"
         },
         {
           "path": "agents/openai.yaml",
@@ -257,7 +257,7 @@
       "files": [
         {
           "path": "SKILL.md",
-          "sha256": "b85be4c3d420e3f8ca92782c866b463b8e6d70170c38f3e0036b3cb65e5b0814"
+          "sha256": "96a1baa2ceb397b21f03eca57621432954582162aeae80cdd0a10954a8f7ecee"
         },
         {
           "path": "agents/openai.yaml",
@@ -282,7 +282,7 @@
       "files": [
         {
           "path": "SKILL.md",
-          "sha256": "208a7fd9c69593de92c6a2d229d614fefc6e3975e9c28abce9ccb9a692725402"
+          "sha256": "26a68dbdb6b73ab5c9549af870dbf9f8829ea6781cbcc5645551350e4c189a0f"
         },
         {
           "path": "agents/openai.yaml",
@@ -307,7 +307,7 @@
       "files": [
         {
           "path": "SKILL.md",
-          "sha256": "b005dd90793011f2f96cf02a6a95b115f6f83d75c69d21a1fc4c4f817f4a763e"
+          "sha256": "d63446d5712c170bf9b6d65668c64382a83fdbaa57b366677ff78f0a3627c575"
         },
         {
           "path": "agents/openai.yaml",
@@ -332,7 +332,7 @@
       "files": [
         {
           "path": "SKILL.md",
-          "sha256": "60a766246029d937d1f0f555fafe9b7ff62d1599b46c533b8c381dadb20db3c5"
+          "sha256": "aa5fa67361c68810a4254d10e900dcc57c634e22959ef4ae36f6a59789de6de3"
         },
         {
           "path": "agents/openai.yaml",
@@ -357,7 +357,7 @@
       "files": [
         {
           "path": "SKILL.md",
-          "sha256": "986d3636ec4289cc58159286b46788631b4a1a2c2bb658c8808ab4edaec97c8f"
+          "sha256": "e252505b78f07281ab272ebdd0a520cba7319f02643088a8a280015fdb2a2c5b"
         },
         {
           "path": "agents/openai.yaml",
@@ -382,7 +382,7 @@
       "files": [
         {
           "path": "SKILL.md",
-          "sha256": "9a4a4710439e22552dadd94d5a3ea5e9ed4b22c39655c1cef7a439f7bb89a37c"
+          "sha256": "1792601d5483565b6a5662864b033134e1d01648ba23f028f94837b5878fb387"
         },
         {
           "path": "agents/openai.yaml",
@@ -403,7 +403,7 @@
       "files": [
         {
           "path": "SKILL.md",
-          "sha256": "5c735771f609a262154a09b03bd8d53d7e948cd28c3b85e6f6b66ed5eaf5efc6"
+          "sha256": "0982ea3df37df644b588375a6cb7ed5505e9d85db63fcc6cbb0de29ca1f8b2e3"
         },
         {
           "path": "agents/openai.yaml",

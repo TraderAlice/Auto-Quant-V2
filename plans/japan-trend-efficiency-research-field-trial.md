@@ -105,8 +105,9 @@ translation after costs.
 - [x] Prepare an isolated installed-wheel desk and immutable host inventory.
 - [x] Run the unchanged baseline assignment with a fresh Grok worker.
 - [x] Audit the transcript, files, evidence, and scientific answer.
-- [ ] Implement only reproduced reusable friction with deterministic tests.
-- [ ] Replay with a second fresh worker and complete the `v0.9.12` release.
+- [x] Implement only reproduced reusable friction with deterministic tests.
+- [x] Replay the complete assignment with a fresh worker.
+- [ ] Complete the `v0.9.12` release audit and publish the tag.
 
 ## Findings and decisions
 
@@ -186,6 +187,30 @@ translation after costs.
   may remove the exact observations while preserving raw bytes and boundary
   ratios; it never rescales a price. Persistent regime changes remain outside
   this repair and require provider/corporate-action evidence.
+- 2026-08-01 — Candidate cohort 26 began with zero OHLCV and the exact updated
+  wheel. It first encountered strict invalid-OHLC rejection, explicitly
+  authorized the bounded removal, then independently encountered and
+  separately authorized the `1306.T` transient-scale removal. The final
+  provider audit exposed both OHLC observations (`8306.T`, `8035.T`) and both
+  scale-island observations (`1306.T`) while preserving exact raw bytes and
+  boundary ratios. The aligned panel contained 1,844 sessions per asset.
+- 2026-08-01 — Cohort 26 created exactly one `decision-signal` Project, one
+  Factor Run, one Portfolio Run, two Reports, one Factor-led Dossier, and no
+  Session. `1306.T` remained context-only throughout. It correctly concluded
+  that validation IC `0.087665` was not stable cross-split Factor evidence and
+  refused to let Portfolio validation Sharpe `1.675691` rescue negative train
+  and test-relative evidence. Host validation and Studio projection passed;
+  terminal orientation is `dossier-published`,
+  `required-research-complete`, `observe`, with no primary action.
+- 2026-08-01 — The final worker also exposed one operational defect outside
+  the scientific lifecycle: an Agent shell may keep `aq` on the candidate
+  venv while resolving bare `python3` to the system interpreter. The worker
+  attempted a user-site pandas install before recovering, which is unacceptable
+  Harness ergonomics even though the research evidence remained isolated.
+  Bundled Skills now use the `aq-python` bridge, which always executes with the
+  interpreter and dependencies that own the current AutoQuant installation;
+  guidance explicitly forbids repairing this mismatch with global/user
+  installs.
 
 ## Verification
 
@@ -205,6 +230,18 @@ translation after costs.
   from retained Yahoo raw JSON, rejected it by default, and under explicit
   policy removed only 2026-03-30/31 with entry ratio `0.098354`, exit ratio
   `10.479268`, recovery ratio `1.016985`, and per-asset drop bound `2`.
+- Candidate cohort 26 used wheel SHA-256
+  `45add5ab92fd434bc1c88278ff9cd155b979d83a993c21e93a78a147fd6eeb4a`.
+  Its exact assignment, 948-line exported transcript, raw stream, provider
+  packages, immutable Project evidence, and host audits remain under
+  `grok-field-trials/cohort-26-japan-trend-efficiency-v0912-scale-clean`.
+  `aq validate` returned no diagnostics; Studio projected one Project; the
+  final desk contains one Project, two Runs, two Reports, one Dossier, and zero
+  Sessions.
+- The Harness-owned Python bridge and regenerated canonical/discovery Skill
+  bundle passed 35 focused tests in 2.423 seconds; `aq-python` selected the
+  repository venv interpreter and imported its pandas without ambient
+  `python3` or user-site repair.
 
 ## Progress log
 
@@ -221,6 +258,13 @@ translation after costs.
   Agent-operability gaps: pre-Run Factor-claim selection and top-level anomaly
   enumeration. Both now have bounded guidance/code regressions; a clean replay
   remains required before release.
+- 2026-08-01 — Candidate cohorts 25 and 26 successively reproduced the hidden
+  Yahoo benchmark scale defect and proved the bounded repair. Cohort 26 is the
+  clean scientific acceptance replay: correct claim before the first Run,
+  complete anomaly disclosure, one immutable Run per lane, honest negative
+  cross-lane handoff, and terminal Dossier orientation. Its ambient-Python
+  friction produced the final `aq-python` runtime bridge; only the complete
+  release audit remains.
 
 ## Completion
 

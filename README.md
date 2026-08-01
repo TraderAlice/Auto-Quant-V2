@@ -989,6 +989,9 @@ routes come first when practical; Yahoo is broad but not an automatic primary.
 same strict intake below. See
 [Agent-native market-data acquisition](docs/design/agent-native-market-data-acquisition.md)
 and the [field-trial ledger](docs/market-data-acquisition-field-trials.md).
+Bundled Python Skill procedures use `aq-python <script> ...`, which guarantees
+the same interpreter and dependencies as the installed Harness even when an
+Agent shell's ambient `python3` points elsewhere.
 
 Package asset paths resolve from the directory containing the dataset manifest.
 If raw files already exist under `staging/raw-ohlcv/`, place

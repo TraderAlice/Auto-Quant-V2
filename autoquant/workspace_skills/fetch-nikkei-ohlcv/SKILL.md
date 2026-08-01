@@ -17,7 +17,7 @@ one month of four-price history.
 4. Run:
 
 ```bash
-python3 scripts/fetch_nikkei_daily.py \
+aq-python scripts/fetch_nikkei_daily.py \
   --output <workspace>/staging/market-data/<dataset-id> \
   --assets /absolute/path/assets.json \
   --dataset-id <dataset-id> \

@@ -19,7 +19,7 @@ instrument identity, quote asset, access terms, and venue claims explicit.
 ## Fetch
 
 ```bash
-python3 scripts/fetch_binance_hourly.py \
+aq-python scripts/fetch_binance_hourly.py \
   --output <workspace>/staging/market-data/<dataset-id> \
   --assets /absolute/path/assets.json \
   --dataset-id <dataset-id> \

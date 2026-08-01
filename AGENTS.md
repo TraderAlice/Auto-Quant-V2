@@ -160,6 +160,11 @@ into `projects/`, relabel raw and adjusted series, fill provider placeholders
 silently, or claim that an unofficial route is exchange truth. See
 [[docs/design/agent-native-market-data-acquisition]].
 
+Run bundled Python Skill scripts with `aq-python`, never an ambient `python`
+or `python3`. The bridge uses the interpreter that owns the installed Harness.
+Do not install dependencies into a system or user Python to work around an
+Agent shell that rewrites `PATH`.
+
 Read `selectionIntegrity.testExposureState` literally. The first candidate is
 fixed before its own audit becomes visible; a later Experiment proves only
 that another source iteration followed prior visible evidence. Core cannot

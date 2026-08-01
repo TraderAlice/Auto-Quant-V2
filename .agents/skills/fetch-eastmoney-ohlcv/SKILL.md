@@ -26,7 +26,7 @@ hide those limitations behind a generic “A-share supported” claim.
 Run:
 
 ```bash
-python3 scripts/fetch_eastmoney_daily.py \
+aq-python scripts/fetch_eastmoney_daily.py \
   --output <workspace>/staging/market-data/<dataset-id> \
   --assets /absolute/path/assets.json \
   --dataset-id <dataset-id> \

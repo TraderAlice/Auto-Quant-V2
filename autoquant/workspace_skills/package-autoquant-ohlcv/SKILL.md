@@ -15,7 +15,7 @@ provider claims into authenticated facts.
 3. Run:
 
 ```bash
-python3 scripts/audit_ohlcv_package.py \
+aq-python scripts/audit_ohlcv_package.py \
   --package /absolute/path/dataset-package.json \
   --write-audit /absolute/path/package-audit.json
 ```
@@ -32,7 +32,7 @@ When two independent routes cover the same assets, compare them before
 selection:
 
 ```bash
-python3 scripts/compare_ohlcv_packages.py \
+aq-python scripts/compare_ohlcv_packages.py \
   --left /absolute/path/source-a/dataset-package.json \
   --right /absolute/path/source-b/dataset-package.json \
   --write-audit /absolute/path/source-comparison.json
@@ -47,7 +47,7 @@ When adjustment claims differ, compare coverage only and preserve the
 incompatibility explicitly:
 
 ```bash
-python3 scripts/compare_ohlcv_packages.py \
+aq-python scripts/compare_ohlcv_packages.py \
   --left /absolute/path/raw/dataset-package.json \
   --right /absolute/path/adjusted/dataset-package.json \
   --mode coverage-only \

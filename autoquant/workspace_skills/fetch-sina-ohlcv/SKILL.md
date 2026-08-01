@@ -17,7 +17,7 @@ route returns only a bounded recent history and may change without notice.
 4. Run:
 
 ```bash
-python3 scripts/fetch_sina_daily.py \
+aq-python scripts/fetch_sina_daily.py \
   --output <workspace>/staging/market-data/<dataset-id> \
   --assets /absolute/path/assets.json \
   --dataset-id <dataset-id> \

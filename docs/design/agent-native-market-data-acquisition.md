@@ -62,6 +62,14 @@ first. It loads one relevant market reference, then invokes exact provider and
 packaging Skills. Provider scripts are bounded, parameterized procedures, not
 a stable downloader SDK or a Core compatibility promise.
 
+Every bundled Python procedure is invoked through `aq-python`. This small
+runtime bridge executes the script with the interpreter that owns the current
+AutoQuant installation, so a coding Agent cannot accidentally select a system
+Python merely because its command shell reset `PATH`. Skill instructions must
+not ask an Agent to repair that mismatch by installing packages globally or
+into a user site. `aq-python` does not turn acquisition into Core or hide the
+script: the script path, arguments, provider bytes, and audit remain explicit.
+
 ## Source-diversity rule
 
 Every accepted market or explicitly named venue has at least two

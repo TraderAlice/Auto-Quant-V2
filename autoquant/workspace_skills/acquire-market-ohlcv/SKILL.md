@@ -9,6 +9,12 @@ Turn a bounded research-data need into one auditable staging package. Keep
 provider network behavior outside AutoQuant Core and admit bytes only through
 strict Project intake.
 
+Run every bundled Python Skill script with `aq-python`, not an ambient
+`python` or `python3`. `aq-python` deliberately selects the interpreter and
+dependencies that own the installed AutoQuant Harness, even when an Agent's
+login shell rewrites `PATH`. Do not install missing packages into a system or
+user Python to make a bundled Skill run.
+
 ## Route the request
 
 1. Clarify the research market and exact venue, instruments, completed-bar
@@ -38,10 +44,10 @@ strict Project intake.
    material:
 
    ```bash
-   python3 scripts/run_route_attempt.py \
+   aq-python scripts/run_route_attempt.py \
      --provider <provider-id> \
      --write-failure <workspace>/staging/market-data/<route>/route-failure.json \
-     -- python3 /absolute/path/to/provider-script.py <arguments>
+     -- aq-python /absolute/path/to/provider-script.py <arguments>
    ```
 
    A successful provider command writes its ordinary package/audit and no
