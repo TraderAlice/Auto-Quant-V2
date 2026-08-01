@@ -55,6 +55,12 @@ IC `+0.0149` with HAC p `0.7717` and opposing folds, followed by test-audit IC
 [[plans/close-time-aware-cross-market-daily-factor]]. OpenAlice remains
 independently pinned to `0.8.31`.
 
+Repository regression passes all 433 tests in 1,076.723 seconds, including
+historical V1–V5 intake and immutable evidence readback. All 1,436 documentation
+links resolve; lockfile, Python byte-compilation, Studio JavaScript syntax, and
+diff checks pass. Final installed-distribution, clean-clone, and remote tag
+verification remain before publication.
+
 ### `v0.9.23`
 
 The `0.9.23` candidate makes an installed AutoQuant distribution preserve the

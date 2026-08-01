@@ -70,7 +70,7 @@ can therefore make same-date context look available several hours too early.
   visibility and target-observed horizon alignment without fill.
 - [x] Public discovery and Agent guidance make the causal asynchronous-market
   pattern understandable without implementation inspection.
-- [ ] Historical V1–V5 Projects and immutable evidence remain truthfully
+- [x] Historical V1–V5 Projects and immutable evidence remain truthfully
   readable unless an intentional breaking contract is explicitly documented.
 - [x] A fresh installed-wheel Grok coworker completes one bounded cross-market
   daily Factor assignment and hands off the exact limitation/authority state.
@@ -139,7 +139,14 @@ can therefore make same-date context look available several hours too early.
   `823892b846db642723ed8594f3b205f4f07080b1afa4a30749bd37b3bf4a0cbb`;
   Grok event log SHA-256:
   `c23f7821a70559dda37b318614eb04facc64d943fa747c6baa563edc18f1cb18`.
-- Full repository and release verification remains pending.
+- Full regression: 433 tests in 1,076.723 seconds, all passing. This includes
+  V1–V5 intake, legacy Factor decision-support readback, all thirteen sample
+  Runs, the asynchronous Run-to-Explorer-to-Report path, and the complete
+  Factor/Portfolio/RL/Session/Report/Review/Dossier surfaces.
+- Documentation graph: 1,436 links resolved. `uv lock --check`, Python
+  byte-compilation, Studio JavaScript syntax, and diff whitespace checks pass.
+- Final build, installed smoke, clean-clone smoke, and remote identity remain
+  pending.
 
 ## Progress log
 
