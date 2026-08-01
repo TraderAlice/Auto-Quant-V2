@@ -235,6 +235,20 @@ original five-file package. Public `report show/list`, `review show`, `orient`,
   coaching or retry. The worker added only the nine-file correction package,
   including the exact five-file governing Review copy; complete release audit
   remains the final publication gate.
+- 2026-08-01 — The first complete 401-test audit intentionally failed two
+  release-consistency gates after 1,119.043 seconds: README still declared
+  `0.9.16`, and the repository Workspace Skill manifest still identified the
+  `0.9.16` Harness. No product regression failed. The canonical 16-Skill
+  bundle was re-materialized, the repository version assertion advanced, and
+  both focused gates then passed.
+- 2026-08-01 — The complete clean rerun passed all 401 tests in 1,084.222
+  seconds. All 1,384 documentation links, lock validation, Python and Studio
+  JavaScript syntax, source/sdist/wheel build, and fresh Python 3.11.14
+  installed-wheel version/capability/schema plus root Workspace smokes pass.
+  Final wheel SHA-256 is
+  `0414bd960f1f4c51499ac9c1373d2a8c381ac7a48a8ebfc88ed507be53b7e9b7`;
+  sdist SHA-256 is
+  `7594d7aa6f6b26499e6308077a6b9d115a0175e1c569b072b9847cc9e33f1cc2`.
 
 ## Completion
 

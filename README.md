@@ -1,5 +1,5 @@
 ---
-version: 0.9.16
+version: 0.9.17
 ---
 
 # AutoQuant V2
@@ -32,12 +32,12 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current release: `v0.9.16`
+## Current release: `v0.9.17`
 
 AutoQuant V2 has crossed from an architectural prototype into a usable
 research workbench.
 
-`v0.9.16` is the current AutoQuant release. `v0.8.31` remains the Harness
+`v0.9.17` is the current AutoQuant release. `v0.8.31` remains the Harness
 currently consumed by OpenAlice until the host deliberately selects the newer
 tag; this is version provenance, not an automatic Workspace-migration promise.
 The minor-version boundary marks the next phase: improve the real delegated-
@@ -46,7 +46,41 @@ weakening standalone Workspace operation or prematurely freezing a
 host-specific API. Bounded follow-up work defaults to patch releases within
 the `0.9.x` line.
 
-`v0.9.16` adds immutable Independent Reviews over completed Run- or
+`v0.9.17` closes the loop between an immutable Independent Review and a
+corrected primary-research handoff. A Project-owned Run Report may explicitly
+correct the current Report at the same exact Run anchor, bind the precise
+governing Review and reason, and freeze a complete verified copy of that
+Review inside the new append-only package. Core verifies the linear correction
+graph and derives `current`, `supersededBy`, and lineage depth without mutating
+any predecessor. Ordinary later interpretations remain independent Reports;
+timestamp order alone never grants correction authority.
+
+CLI, Agent Work Brief, Orientation, and Studio project the same verified
+lineage. A fresh installed-wheel Grok coworker discovered the contract through
+public help and completed the unchanged strict correction assignment on its
+first publication attempt. It changed no inherited Workspace byte, reran no
+research, acquired no data, created no Session, and added only the new Report
+package with an exact five-file governing Review copy. See
+[[docs/design/run-bound-research-reports]] and
+[[plans/immutable-research-correction-field-trial]].
+
+The durable data rule remains stronger than reuse: each research question
+determines a complete task-local content-locked package. Existing inventory
+never narrows the request, and duplicated bytes are acceptable evidence
+isolation. Deduplication may be a transparent storage optimization only; it is
+never research authority or automatic dataset selection. OpenAlice remains
+intentionally unchanged on `v0.8.31`.
+
+The release audit passed all 401 tests in 1,084.222 seconds and resolved all
+1,384 documentation links. Lock validation, Python and Studio JavaScript
+syntax, source/sdist/wheel builds, a fresh Python 3.11.14 installed-wheel
+version/capability/schema smoke, and a no-local-override root Workspace
+orientation/validation/Studio smoke all passed. The verified wheel SHA-256 is
+`0414bd960f1f4c51499ac9c1373d2a8c381ac7a48a8ebfc88ed507be53b7e9b7`.
+
+### `v0.9.16`
+
+`v0.9.16` added immutable Independent Reviews over completed Run- or
 Session-bound Reports. Reviewers classify each material claim as `verified`,
 `declared`, `observed-unbound`, or `unverified`; Core permits bound classes to
 cite only the exact target Report and anchor Run. A visible Workspace file can

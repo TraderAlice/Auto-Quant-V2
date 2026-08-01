@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha released as `v0.9.16`; `v0.8.31` remains the Harness
+Status: usable pre-alpha released as `v0.9.17`; `v0.8.31` remains the Harness
 currently consumed by OpenAlice until the host deliberately selects a newer
 tag.
 
@@ -18,7 +18,36 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 AutoQuant V2 has crossed the line from an architectural prototype into a
 usable Agent-native quantitative research workbench.
 
-The `0.9.16` patch adds immutable Independent Reviews over completed Reports.
+The `0.9.17` patch makes Review-driven Report correction an explicit
+append-only contract. A corrected Project-owned Run Report binds the exact
+current predecessor, same immutable Run anchor, governing Review identity and
+durable reason, then copies the complete verified Review package beneath its
+own recursively hashed manifest. Core rejects missing, forged, cyclic,
+branched, cross-Project, or stale relationships and derives one current
+terminal Report without rewriting history.
+
+CLI, Orientation, Agent Work Brief, and Studio expose the same predecessor,
+governing Review, reason, currentness, supersession, and lineage depth. A fresh
+installed-wheel Grok coworker discovered the public contract without source
+inspection and completed the unchanged correction assignment in 2m45s on its
+first publication attempt. Recursive comparison found exactly one new Report
+directory, while every inherited Workspace path and both the detached and
+embedded five-file Review packages remained byte-identical. No Study or Run
+was executed, no data was acquired, no staging evidence was promoted, and no
+Session was created. Exact evidence is in
+[[plans/immutable-research-correction-field-trial]]. OpenAlice remains
+independently pinned to `0.8.31`.
+
+Final repository verification passed all 401 tests in 1,084.222 seconds and
+resolved all 1,384 documentation links. Lock and Python/Studio syntax checks
+passed together with source/sdist/wheel builds, a fresh Python 3.11.14
+installed-wheel version/capability/schema smoke, and a no-local-override root
+Workspace orientation/validation/Studio smoke. Verified wheel SHA-256:
+`0414bd960f1f4c51499ac9c1373d2a8c381ac7a48a8ebfc88ed507be53b7e9b7`.
+
+### `v0.9.16`
+
+The `0.9.16` patch added immutable Independent Reviews over completed Reports.
 A fresh reviewer can bind its verdict to the exact Report/Run identity,
 separate reconstructed evidence from package declarations, record visible
 Workspace files as digest-only `observed-unbound` material, and preserve
