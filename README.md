@@ -34,18 +34,12 @@ measurement.
 
 ## Current release: `v0.9.24`
 
-`v0.9.24` makes cross-market daily Factor research close-time-aware. V5 now
-accepts observed base bars through `1d`, preserves exact completed UTC close
-instants and target-owned horizons, and requires candidate code to express
-asynchronous context through an explicit causal backward as-of operation.
-OpenAlice remains independently pinned to `v0.8.31` until the host deliberately
-selects another tag; publishing AutoQuant does not migrate a Workspace or move
-a host pin.
-
-For the tested capability, current honest boundary, verification summary, and
-release history, read [docs/STATUS.md](docs/STATUS.md). Version increments,
-release audit, compatibility, tagging, and host-selection rules live in
-[docs/design/versioning-and-release.md](docs/design/versioning-and-release.md).
+The current tested capability and honest boundary live in
+[docs/STATUS.md](docs/STATUS.md). Read [docs/CHANGELOG.md](docs/CHANGELOG.md)
+for concise release history and
+[versioning-and-release.md](docs/design/versioning-and-release.md) before
+changing versions, upgrading a checkout, publishing a tag, or moving a host
+pin.
 
 ## Standalone or an OpenAlice desk
 
@@ -65,11 +59,10 @@ coworker at the AutoQuant desk and receive a report when the work is useful.
 There is no separate OpenAlice edition and no private service API defining the
 research lifecycle.
 
-OpenAlice keeps the desk's original Git checkout. AutoQuant V2 does not add an
-`aq upgrade` workflow or promise automatic Workspace migration: a coding Agent
-may pull and reconcile ordinary Git changes, or retire an old desk and create a
-fresh one. Immutable Runs keep the Harness identity under which they were
-produced even when the mutable checkout later moves.
+OpenAlice keeps the desk's original Git checkout. Checkout and host-version
+selection follow the explicit
+[version policy](docs/design/versioning-and-release.md); immutable Runs retain
+the Harness identity under which they were produced.
 
 AutoQuant owns quantitative research and historical simulation. An optional
 host owns cross-Workspace communication and authenticated provenance. Brokers,
@@ -377,11 +370,10 @@ Read [AGENTS.md](AGENTS.md) and [PLANS.md](PLANS.md) before non-trivial
 changes. Do not launch an unbounded autonomous loop or a long multi-year
 backtest as routine validation.
 
-The current release proof and tested capability boundary are recorded in
-[docs/STATUS.md](docs/STATUS.md); detailed real-request outcomes live in
+Current capability is recorded in [docs/STATUS.md](docs/STATUS.md), concise
+release history in [docs/CHANGELOG.md](docs/CHANGELOG.md), and detailed
+real-request outcomes in
 [docs/trading-request-field-trials.md](docs/trading-request-field-trials.md).
-Before changing versions or publishing tags, follow
-[docs/design/versioning-and-release.md](docs/design/versioning-and-release.md).
 
 ```bash
 uv run python scripts/check_doc_links.py

@@ -2,15 +2,17 @@
 
 Status: active pre-1.0 release policy.
 
-Related: [[README]], [[docs/STATUS]], [[docs/ARCHITECTURE]], [[AGENTS]],
-[[PLANS]], and [[docs/design/documentation-system]].
+Related: [[README]], [[docs/STATUS]], [[docs/CHANGELOG]],
+[[docs/ARCHITECTURE]], [[AGENTS]], [[PLANS]], and
+[[docs/design/documentation-system]].
 
 ## Purpose
 
 This document owns AutoQuant version meaning, release preparation, verification,
 tagging, and host-version boundaries. README owns product orientation and quick
-start. `docs/STATUS.md` owns the current tested capability and historical release
-evidence. Completed plans preserve the exact proof for one release.
+start. `docs/STATUS.md` owns only current tested capability and boundaries.
+`docs/CHANGELOG.md` owns concise chronological release summaries. Completed
+plans preserve the exact proof for one release.
 
 Do not copy release histories, command transcripts, or per-version audit numbers
 back into README.
@@ -75,13 +77,14 @@ When complete:
 
 - the plan keeps the candidate and final evidence, hashes, exceptions, and
   acceptance audit;
-- `docs/STATUS.md` summarizes the released capability, honest boundary, test
-  count, and links to that plan;
-- README shows only the current version, a short outcome, and links to the
-  status and this policy.
+- `docs/STATUS.md` replaces the current capability, honest boundary, current
+  verification summary, and link to that plan;
+- `docs/CHANGELOG.md` gains one concise outcome row and plan link;
+- README changes only its current-version pointer and links.
 
-Historical evidence remains append-only in completed plans and status. It does
-not accumulate in the product introduction.
+Historical evidence remains append-only in completed plans and immutable tags.
+Only its concise index accumulates in CHANGELOG; neither README nor STATUS is a
+historical ledger.
 
 ## Required release audit
 
@@ -126,8 +129,9 @@ next patch release.
 
 ## Change checklist
 
-- Keep version policy here, current capability in `docs/STATUS.md`, and exact
-  work evidence in the active/completed plan.
+- Keep version policy here, current capability in `docs/STATUS.md`, concise
+  history in `docs/CHANGELOG.md`, and exact work evidence in the
+  active/completed plan.
 - Keep README concise and newcomer-oriented.
 - Update package, lock, runtime, README metadata, commit, and tag together.
 - Preserve immutable evidence identity across mutable checkout upgrades.

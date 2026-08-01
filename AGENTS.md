@@ -63,6 +63,24 @@ Before adding a host integration or public surface, ask:
 3. Does the change preserve one Core contract across CLI, JSON, Studio, and
    any host projection?
 
+## Read before changing the repository
+
+Route work to the document that owns it; do not append every discovery to
+README:
+
+- product orientation and five-minute entry: [[README]];
+- current tested capability and honest boundary: [[docs/STATUS]];
+- concise chronological release history: [[docs/CHANGELOG]];
+- version increments, checkout upgrades, release audit, tags, compatibility,
+  and host pins: [[docs/design/versioning-and-release]];
+- active outcome, checklist, and exact candidate/final proof: [[PLANS]] and its
+  indexed plan;
+- lasting subsystem invariants: the relevant file under `docs/design/`.
+
+README is not a release ledger, STATUS is not a changelog, and a completed plan
+is not current design authority. Read the version policy before editing package
+metadata or publishing a tag.
+
 ## Starting a quantitative assignment
 
 Do not begin with data downloads, candidate edits, model training, or
@@ -521,19 +539,6 @@ Read the relevant linked document before changing a subsystem:
 
 Add new active design documents to this map when a subsystem gains its own
 invariants. Keep this list as a routing surface, not a historical catalog.
-
-## Version and release workflow
-
-Read [[docs/design/versioning-and-release]] before changing package versions,
-preparing a release, or publishing a tag. Keep README limited to the current
-version and newcomer navigation. Put current tested capability and concise
-release history in [[docs/STATUS]], and preserve exact candidate/final evidence
-in the active plan. A version bump alone is not a release; do not move a host
-pin or promise Workspace migration as a side effect of publishing AutoQuant.
-Read [[docs/design/distribution-build-identity]] before changing build hooks,
-Harness identity fields, runtime hashing, or installed-distribution discovery.
-Use `aq version --json` when exact current Harness identity matters; `aq
---version` intentionally remains the concise distribution version.
 
 ## Required change loop
 
