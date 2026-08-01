@@ -74,6 +74,16 @@ def _run_projection(run) -> dict[str, Any]:
             if "dependencies" in run.result
             else {}
         ),
+        **(
+            {"researchRequest": run.result["researchRequest"]}
+            if "researchRequest" in run.result
+            else {}
+        ),
+        **(
+            {"upstreamEvidence": run.result["upstreamEvidence"]}
+            if "upstreamEvidence" in run.result
+            else {}
+        ),
     }
 
 
@@ -104,19 +114,20 @@ def _anchor(
     project: ProjectContext,
     study_id: str,
     run_id: str,
-) -> tuple[dict[str, Any], Any, Any, dict[str, Any]]:
+) -> tuple[dict[str, Any], Any, Any, dict[str, Any] | None]:
+    study = load_study(project, study_id)
     intake = load_project_intake(project)
-    if intake is None:
+    if intake is None and study.definition.research_request is None:
         raise AutoQuantValidationError(
             [
                 _issue(
                     project.root_dir,
                     "report.request-required",
-                    "Run-bound Research Reports require verified request-driven Project intake",
+                    "Run-bound Research Reports require verified Project intake "
+                    "or an exact Study-owned research request",
                 )
             ]
         )
-    study = load_study(project, study_id)
     run = load_run(project, run_id)
     issues: list[ValidationIssue] = []
     if any(
@@ -223,18 +234,90 @@ def _evidence(
 
 def _request_for_run(
     run,
-    intake: dict[str, Any],
+    intake: dict[str, Any] | None,
 ) -> tuple[dict[str, Any], str]:
     """Resolve request authority from immutable Run inputs when Study-owned."""
 
-    study_id = run.result["study"]["id"]
-    relative = f"{BOOK_RISK_STUDY_SOURCES}/{study_id}/request.json"
+    binding = run.result.get("researchRequest")
     dependencies = run.result.get("dependencies")
     source_hashes = (
         dependencies.get("sourceHashes")
         if isinstance(dependencies, dict)
         else None
     )
+    if isinstance(binding, dict):
+        relative = binding["path"]
+        if (
+            not isinstance(source_hashes, dict)
+            or source_hashes.get(relative) != binding["sha256"]
+        ):
+            raise AutoQuantValidationError(
+                [
+                    _issue(
+                        run.root_dir,
+                        "report.request-binding",
+                        "Study-owned request differs from frozen Run dependencies",
+                    )
+                ]
+            )
+        path = run.root_dir / "inputs" / "dependency-sources" / relative
+        if hash_file(path) != binding["sha256"]:
+            raise AutoQuantValidationError(
+                [
+                    _issue(
+                        path,
+                        "report.request-binding",
+                        "Study-owned request bytes differ from their Run binding",
+                    )
+                ]
+            )
+        request = load_research_request(path)
+        request_hash = hash_json(request)
+        snapshot_relative = binding.get("positionSnapshotPath")
+        if snapshot_relative is not None:
+            snapshot_hash = binding["positionSnapshotSha256"]
+            if source_hashes.get(snapshot_relative) != snapshot_hash:
+                raise AutoQuantValidationError(
+                    [
+                        _issue(
+                            run.root_dir,
+                            "report.request-snapshot",
+                            "Study-owned position snapshot differs from frozen dependencies",
+                        )
+                    ]
+                )
+            snapshot_path = (
+                run.root_dir
+                / "inputs"
+                / "dependency-sources"
+                / snapshot_relative
+            )
+            if hash_file(snapshot_path) != snapshot_hash:
+                raise AutoQuantValidationError(
+                    [
+                        _issue(
+                            snapshot_path,
+                            "report.request-snapshot",
+                            "Study-owned position snapshot bytes differ from their binding",
+                        )
+                    ]
+                )
+            snapshot = _read_json(snapshot_path, "position snapshot")
+            validate_position_snapshot(snapshot, snapshot_path)
+            if snapshot["source"]["requestHash"] != request_hash:
+                raise AutoQuantValidationError(
+                    [
+                        _issue(
+                            snapshot_path,
+                            "report.request-snapshot",
+                            "Study-owned request differs from its fixed position snapshot",
+                        )
+                    ]
+                )
+        return request, request_hash
+
+    study_id = run.result["study"]["id"]
+    relative = f"{BOOK_RISK_STUDY_SOURCES}/{study_id}/request.json"
     if isinstance(source_hashes, dict) and relative in source_hashes:
         path = run.root_dir / "inputs" / "dependency-sources" / relative
         request = load_research_request(path)
@@ -271,6 +354,16 @@ def _request_for_run(
                 ]
             )
         return request, request_hash
+    if intake is None:
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    run.root_dir,
+                    "report.request-required",
+                    "Run has no exact Study-owned or Project intake request",
+                )
+            ]
+        )
     return intake["request"], intake["manifest"]["requestHash"]
 
 
@@ -688,8 +781,11 @@ def _validate_result(
     intake = load_project_intake(project)
     request = None
     request_hash = None
-    if intake is not None and run is not None:
-        request, request_hash = _request_for_run(run, intake)
+    if run is not None:
+        try:
+            request, request_hash = _request_for_run(run, intake)
+        except AutoQuantValidationError as error:
+            issues.extend(error.issues)
     if request is None or report.get("request") != request:
         issues.append(
             _issue(

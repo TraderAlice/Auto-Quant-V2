@@ -37,6 +37,9 @@ Binding `--host` to a non-loopback address is an explicit operator decision.
 The first viewport prioritizes:
 
 - every discovered Project and its verification state;
+- each Study's explicit request and single prior-Run evidence binding, and the
+  terminal continuation selected by the same Core Agent Work Brief used by
+  `aq orient`;
 - pre-research request intake, locked dataset/provider/adjustment claims,
   requested assets versus research universe, baseline selection/audit/stress
   metrics, and the exact lifecycle command—Session start for iterative

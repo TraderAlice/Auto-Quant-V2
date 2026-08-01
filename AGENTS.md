@@ -331,6 +331,8 @@ Read the relevant linked document before changing a subsystem:
   [[docs/design/agent-native-quant-workbench]]
 - Documentation ownership and update protocol:
   [[docs/design/documentation-system]]
+- Version increments, compatibility boundary, release audit, tagging, and host
+  pin independence: [[docs/design/versioning-and-release]]
 - System direction, Workspace/Project ownership, and runtime boundaries:
   [[docs/ARCHITECTURE]]
 - Workspace discovery, Project identity, self-contained construction, and path
@@ -503,6 +505,15 @@ Read the relevant linked document before changing a subsystem:
 
 Add new active design documents to this map when a subsystem gains its own
 invariants. Keep this list as a routing surface, not a historical catalog.
+
+## Version and release workflow
+
+Read [[docs/design/versioning-and-release]] before changing package versions,
+preparing a release, or publishing a tag. Keep README limited to the current
+version and newcomer navigation. Put current tested capability and concise
+release history in [[docs/STATUS]], and preserve exact candidate/final evidence
+in the active plan. A version bump alone is not a release; do not move a host
+pin or promise Workspace migration as a side effect of publishing AutoQuant.
 
 ## Required change loop
 

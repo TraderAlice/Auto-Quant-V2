@@ -207,6 +207,8 @@ from .studies import (
     StudyObjective,
     StudySubject,
     StudyTimeRange,
+    StudyResearchRequest,
+    bind_upstream_evidence,
     create_study,
     list_studies,
     load_study,
@@ -575,7 +577,34 @@ def build_parser() -> RaisingArgumentParser:
         action="append",
         help=(
             "repeatable fixed Project-relative strategy, factor, or model source "
-            "path or trailing /** closure"
+            "path or trailing /** closure; an exact Study-owned request file is "
+            "also allowed"
+        ),
+    )
+    study_create.add_argument(
+        "--request-path",
+        help=(
+            "explicit Project-relative Study-owned Research Request; the exact "
+            "file must also be declared with --dependency"
+        ),
+    )
+    study_create.add_argument(
+        "--position-snapshot-path",
+        help=(
+            "optional fixed position snapshot paired with --request-path; the "
+            "exact file must also be declared with --dependency"
+        ),
+    )
+    study_create.add_argument(
+        "--upstream-run",
+        help="one prior immutable Run whose exact artifacts feed this new Study",
+    )
+    study_create.add_argument(
+        "--upstream-artifact",
+        action="append",
+        help=(
+            "repeatable artifact path declared by --upstream-run, such as "
+            "artifacts/selected-episodes.csv"
         ),
     )
     study_create.add_argument("--metric", default="score")
@@ -2005,6 +2034,12 @@ def _brief_next_actions(brief: dict[str, Any]) -> list[dict[str, Any]]:
 
 def _study_create(args: argparse.Namespace) -> CommandResult:
     project = _selected_project(args)
+    if args.position_snapshot_path and not args.request_path:
+        raise CliUsageError("--position-snapshot-path requires --request-path")
+    if bool(args.upstream_run) != bool(args.upstream_artifact):
+        raise CliUsageError(
+            "--upstream-run and at least one --upstream-artifact are required together"
+        )
     definition = StudyDefinition(
         schema_version=1,
         id=args.study_id,
@@ -2040,6 +2075,23 @@ def _study_create(args: argparse.Namespace) -> CommandResult:
         dependencies=(
             {"paths": args.dependency}
             if args.dependency
+            else None
+        ),
+        research_request=(
+            StudyResearchRequest(
+                args.request_path,
+                args.position_snapshot_path,
+            )
+            if args.request_path
+            else None
+        ),
+        upstream_evidence=(
+            bind_upstream_evidence(
+                project,
+                args.upstream_run,
+                args.upstream_artifact,
+            )
+            if args.upstream_run
             else None
         ),
     )
@@ -2155,10 +2207,13 @@ def _study_intake(args: argparse.Namespace) -> CommandResult:
 def _study_data(project, study) -> dict[str, Any]:
     intake = load_project_intake(project)
     dataset_snapshot = load_study_dataset_snapshot(project, study)
+    definition = study.definition.to_dict()
     return {
-        "definition": study.definition.to_dict(),
+        "definition": definition,
         "path": str(study.root_dir),
         "programPath": str(study.program_path),
+        "researchRequest": definition.get("research_request"),
+        "upstreamEvidence": definition.get("upstream_evidence"),
         "datasetContext": (
             dataset_snapshot_class_context(dataset_snapshot)
             if dataset_snapshot is not None
@@ -2180,6 +2235,11 @@ def _study_data(project, study) -> dict[str, Any]:
                     "dependencySourceHashes": study.dependency_hashes,
                 }
                 if study.dependency_hash is not None
+                else {}
+            ),
+            **(
+                {"upstreamEvidenceHash": study.upstream_evidence_hash}
+                if study.upstream_evidence_hash is not None
                 else {}
             ),
             "datasetHash": study.dataset_hash,
@@ -2251,6 +2311,20 @@ def _study_inspect(args: argparse.Namespace) -> CommandResult:
                 f"{len(study.dependency_hashes)} files · "
                 f"{study.dependency_hash}\n"
                 if study.dependency_hash is not None
+                else ""
+            )
+            + (
+                "Study request: "
+                f"{study.definition.research_request.path}\n"
+                if study.definition.research_request is not None
+                else ""
+            )
+            + (
+                "Upstream evidence: "
+                f"{study.definition.upstream_evidence.run_id} · "
+                f"{len(study.definition.upstream_evidence.artifacts)} artifacts · "
+                f"{study.upstream_evidence_hash}\n"
+                if study.definition.upstream_evidence is not None
                 else ""
             )
             + f"Input hash: {study.input_hash}\n"
@@ -2435,6 +2509,13 @@ def _run_show(args: argparse.Namespace) -> CommandResult:
     run = load_run(project, args.run)
     metric = run.result["objective"]["metric"]
     value = run.result["metrics"].get(metric)
+    upstream = run.result.get("upstreamEvidence")
+    upstream_line = (
+        f"Upstream evidence: {upstream['run_id']} · Study "
+        f"{upstream['study_id']} · {len(upstream['artifacts'])} artifacts\n"
+        if isinstance(upstream, dict)
+        else ""
+    )
     return CommandResult(
         "run.show",
         {"manifest": run.manifest, "result": run.result},
@@ -2443,6 +2524,7 @@ def _run_show(args: argparse.Namespace) -> CommandResult:
             f"Status: {run.result['status']}\n"
             f"Study: {run.result['study']['id']}\n"
             f"{metric}: {value if value is not None else 'unavailable'}\n"
+            f"{upstream_line}"
             f"Input hash: {run.result['inputHash']}\n"
         ),
         project_context(project),
@@ -5187,6 +5269,14 @@ def _orient(args: argparse.Namespace) -> CommandResult:
             f"{validation_latest_label}\n"
         )
     latest_experiment = brief["evidence"]["latestExperiment"]
+    continuation = brief["continuation"]
+    continuation_line = (
+        "Continuation: upstream Run "
+        f"{continuation['run_id']} · Study {continuation['study_id']} · "
+        f"{len(continuation['artifacts'])} artifacts\n"
+        if continuation is not None
+        else ""
+    )
     latest_experiment_line = (
         "Latest trial: "
         f"{latest_experiment['id']} · {latest_experiment['verdict']} · "
@@ -5225,6 +5315,7 @@ def _orient(args: argparse.Namespace) -> CommandResult:
         +
         f"Focus: {focus['laneName'] or 'single Study'} · "
         f"{focus['studyId'] or 'no Study'}\n"
+        f"{continuation_line}"
         f"State: {focus['coordinationPhase']} · "
         f"{focus['scientificStage']} · {focus['operatingMode']}\n"
         f"{validation_fidelity_line}"

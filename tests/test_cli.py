@@ -11,9 +11,15 @@ from pathlib import Path
 import jsonschema
 
 from autoquant.sessions import list_experiments, start_session
+from autoquant.runs import execute_study
 from autoquant.studies import create_study
 from tests.intake_helpers import write_intake_inputs
-from tests.study_helpers import SUCCESS_JUDGE, make_project, study_definition
+from tests.study_helpers import (
+    SUCCESS_JUDGE,
+    make_project,
+    request_definition,
+    study_definition,
+)
 
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
@@ -34,6 +40,67 @@ def json_output(result: subprocess.CompletedProcess[str]) -> dict:
 
 
 class AgentCliTests(unittest.TestCase):
+    def test_study_create_binds_request_and_upstream_run_artifact(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, project = make_project(directory)
+            create_study(project, study_definition(study_id="path-stress"))
+            prior = execute_study(project, "path-stress")
+            request = project.root_dir / "requests" / "recovery.json"
+            request.parent.mkdir()
+            request.write_text(
+                json.dumps(request_definition()) + "\n",
+                encoding="utf-8",
+            )
+
+            created = run_cli(
+                "study",
+                "create",
+                str(project.root_dir),
+                "drawdown-recovery",
+                "--subject-kind",
+                "research",
+                "--judge",
+                "judges/evaluate.py",
+                "--judge-path",
+                "judges/**",
+                "--editable",
+                "factors/**",
+                "--dependency",
+                "requests/recovery.json",
+                "--request-path",
+                "requests/recovery.json",
+                "--upstream-run",
+                prior.result["id"],
+                "--upstream-artifact",
+                "artifacts/report.json",
+                "--dataset-id",
+                "synthetic-bars",
+                "--asset-class",
+                "equity",
+                "--asset",
+                "AAA/USD",
+                "--start",
+                "2026-01-01",
+                "--end",
+                "2026-01-31",
+                "--json",
+            )
+
+            self.assertEqual(created.returncode, 0, created.stderr)
+            data = json_output(created)["data"]
+            self.assertEqual(
+                data["researchRequest"]["path"],
+                "requests/recovery.json",
+            )
+            self.assertEqual(
+                data["upstreamEvidence"]["run_id"],
+                prior.result["id"],
+            )
+            self.assertEqual(
+                len(data["identity"]["upstreamEvidenceHash"]),
+                64,
+            )
+
     def test_workspace_init_can_explicitly_adopt_pre_staged_inputs(
         self,
     ) -> None:

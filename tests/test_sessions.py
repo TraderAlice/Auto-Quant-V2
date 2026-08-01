@@ -21,12 +21,60 @@ from autoquant.sessions import (
     session_snapshot,
     start_session,
 )
-from autoquant.studies import create_study
+from autoquant.studies import (
+    StudyResearchRequest,
+    bind_upstream_evidence,
+    create_study,
+)
 from autoquant.workspace import AutoQuantValidationError
-from tests.study_helpers import make_project, study_definition
+from tests.study_helpers import (
+    make_project,
+    request_definition,
+    study_definition,
+)
 
 
 class GovernedResearchSessionTests(unittest.TestCase):
+    def test_session_preserves_exact_upstream_evidence_authority(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, project = make_project(directory)
+            create_study(project, study_definition(study_id="path-stress"))
+            prior = execute_study(project, "path-stress")
+            request = project.root_dir / "requests" / "recovery.json"
+            request.parent.mkdir()
+            request.write_text(
+                json.dumps(request_definition()) + "\n",
+                encoding="utf-8",
+            )
+            create_study(
+                project,
+                study_definition(
+                    study_id="drawdown-recovery",
+                    dependencies=["requests/recovery.json"],
+                    research_request=StudyResearchRequest(
+                        "requests/recovery.json"
+                    ),
+                    upstream_evidence=bind_upstream_evidence(
+                        project,
+                        prior.result["id"],
+                        ["artifacts/report.json"],
+                    ),
+                ),
+            )
+
+            session = start_session(project, "drawdown-recovery")
+            snapshot = session_snapshot(project, session)
+
+            self.assertTrue(snapshot["authority"]["valid"])
+            self.assertEqual(
+                len(session.manifest["locks"]["upstreamEvidenceHash"]),
+                64,
+            )
+            self.assertEqual(
+                session.baseline_run.result["upstreamEvidence"]["run_id"],
+                prior.result["id"],
+            )
+
     def _setup(self, directory: str):
         _, project = make_project(directory)
         create_study(project, study_definition())

@@ -7,8 +7,10 @@ from autoquant.studies import (
     StudyDefinition,
     StudyJudge,
     StudyObjective,
+    StudyResearchRequest,
     StudySubject,
     StudyTimeRange,
+    StudyUpstreamEvidence,
 )
 from autoquant.workspace import create_project, initialize_workspace
 
@@ -68,6 +70,39 @@ time.sleep(2)
 """
 
 
+def request_definition(
+    *,
+    title: str = "Recovery continuation",
+    question: str = "When did each fixed stress path recover?",
+) -> dict:
+    return {
+        "schemaVersion": 1,
+        "kind": "autoquant-research-request",
+        "title": title,
+        "question": question,
+        "decisionContext": "A bounded continuation needs prior Run evidence.",
+        "assets": [
+            {
+                "symbol": "AAA/USD",
+                "assetClass": "equity",
+                "venue": "TEST",
+            }
+        ],
+        "direction": "research-only",
+        "horizon": "one month",
+        "hypotheses": ["Recovery timing differs across fixed paths."],
+        "constraints": ["Use only exact immutable evidence."],
+        "deliverables": ["Recovery evidence and limitations."],
+        "source": {
+            "system": "local",
+            "workspaceId": "test-workspace",
+            "sessionId": "test-session",
+            "artifactPath": None,
+            "artifactRevision": None,
+        },
+    }
+
+
 def make_project(directory: str | Path):
     root = Path(directory) / "workspace"
     workspace = initialize_workspace(root, name="Test Quant Desk")
@@ -91,6 +126,8 @@ def study_definition(
     editable: list[str] | None = None,
     dataset_paths: list[str] | None = None,
     dependencies: list[str] | None = None,
+    research_request: StudyResearchRequest | None = None,
+    upstream_evidence: StudyUpstreamEvidence | None = None,
 ) -> StudyDefinition:
     return StudyDefinition(
         schema_version=1,
@@ -115,4 +152,6 @@ def study_definition(
             if dependencies is not None
             else None
         ),
+        research_request=research_request,
+        upstream_evidence=upstream_evidence,
     )

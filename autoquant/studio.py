@@ -1100,6 +1100,12 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
             snapshot = load_study_dataset_snapshot(project, study)
             summary["dataset"] = study.definition.to_dict()["dataset"]
             summary["datasetHash"] = study.dataset_hash
+            summary["researchRequest"] = study.definition.to_dict().get(
+                "research_request"
+            )
+            summary["upstreamEvidence"] = study.definition.to_dict().get(
+                "upstream_evidence"
+            )
             summary["datasetContext"] = (
                 dataset_snapshot_class_context(snapshot)
                 if snapshot is not None
@@ -1113,9 +1119,10 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
     runs: list[dict[str, Any]] = []
     for item in runs_raw:
         summary = item.to_dict()
-        metric_layers = _run_metric_layers(
-            load_run(project, item.id).result
-        )
+        run_result = load_run(project, item.id).result
+        summary["researchRequest"] = run_result.get("researchRequest")
+        summary["upstreamEvidence"] = run_result.get("upstreamEvidence")
+        metric_layers = _run_metric_layers(run_result)
         if metric_layers is not None:
             summary["metricLayers"] = metric_layers
         runs.append(summary)

@@ -17,6 +17,7 @@ from autoquant.run_reports import (
     publish_run_report,
 )
 from autoquant.runs import execute_study
+from autoquant.studies import StudyResearchRequest, create_study
 from autoquant.sessions import list_sessions, start_session
 from autoquant.studio import build_studio_snapshot
 from autoquant.workspace import (
@@ -28,6 +29,7 @@ from autoquant.workspace import (
 from tests.intake_helpers import write_intake_inputs
 from tests.test_cli import json_output, run_cli
 from tests.test_reviews import review_analysis
+from tests.study_helpers import make_project, study_definition
 
 
 def analysis(run_id: str, artifact_path: str = "artifacts/factor-report.json") -> dict:
@@ -59,6 +61,52 @@ def analysis(run_id: str, artifact_path: str = "artifacts/factor-report.json") -
 
 
 class RunBoundResearchReportTests(unittest.TestCase):
+    def test_report_uses_explicit_study_request_at_arbitrary_fixed_path(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workspace, project = make_project(root)
+            request_path, _dataset = write_intake_inputs(root)
+            request = json.loads(request_path.read_text(encoding="utf-8"))
+            request["title"] = "Drawdown recovery continuation"
+            request["question"] = "When did each prior stress path recover?"
+            target = project.root_dir / "requests" / "recovery.json"
+            target.parent.mkdir()
+            target.write_text(
+                json.dumps(request, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            create_study(
+                project,
+                study_definition(
+                    dependencies=["requests/recovery.json"],
+                    research_request=StudyResearchRequest(
+                        "requests/recovery.json"
+                    ),
+                ),
+            )
+            run = execute_study(project, "factor-quality")
+            report = publish_run_report(
+                project,
+                "factor-quality",
+                run.result["id"],
+                analysis(run.result["id"], "artifacts/report.json"),
+            )
+
+            self.assertEqual(
+                report.report["request"]["title"],
+                "Drawdown recovery continuation",
+            )
+            self.assertEqual(
+                report.report["request"]["question"],
+                "When did each prior stress path recover?",
+            )
+            snapshot = build_studio_snapshot(workspace.root_dir)
+            projected = snapshot["projects"][0]
+            self.assertEqual(
+                projected["studies"][0]["researchRequest"]["path"],
+                "requests/recovery.json",
+            )
+
     def _request_project(self, root: Path):
         workspace = initialize_workspace(root / "workspace")
         request, dataset = write_intake_inputs(root)

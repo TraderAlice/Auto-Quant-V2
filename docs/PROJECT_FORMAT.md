@@ -542,7 +542,19 @@ studies/
     "paths": ["factors/**"]
   },
   "dependencies": {
-    "paths": ["models/fixed-input.py"]
+    "paths": ["models/fixed-input.py", "requests/recovery.json"]
+  },
+  "research_request": {
+    "path": "requests/recovery.json"
+  },
+  "upstream_evidence": {
+    "run_id": "run-20260801T102031571809Z-68a31fdbc99d",
+    "study_id": "reported-book-path-stress",
+    "result_hash": "<sha256>",
+    "study_input_hash": "<sha256>",
+    "artifacts": [
+      {"path": "artifacts/selected-episodes.csv", "sha256": "<sha256>"}
+    ]
   },
   "judge": {
     "kind": "python",
@@ -578,12 +590,22 @@ editable source. An empty editable path list is reserved for a fixed
 descriptive Study such as Book Risk or Price Event Study; it has no candidate
 surface and therefore rejects Session creation.
 
-`dependencies` is optional. Its exact paths or trailing-`/**` closures use the
-same confined strategy/factor/model roots, must be non-empty and disjoint from
-the editable closure, and remain fixed for that Study. Their individual and
-aggregate hashes enter Study input identity without becoming candidate source
-identity. Runs freeze them under `inputs/dependency-sources/`; Sessions copy
-them into the worktree but reject edits or upstream byte changes.
+`dependencies` is optional. Its exact paths or trailing-`/**` closures normally
+use the same confined strategy/factor/model roots, must be non-empty and
+disjoint from the editable closure, and remain fixed for that Study. An exact
+file explicitly named by optional `research_request.path` or
+`position_snapshot_path` may live elsewhere in the Project; that narrow
+exception never permits a wildcard closure. Individual and aggregate hashes
+enter Study input identity without becoming candidate source identity. Runs
+freeze them under `inputs/dependency-sources/`; Sessions copy them into the
+worktree but reject edits or upstream byte changes.
+
+`upstream_evidence` is optional and binds one prior immutable Run of a different
+Study plus one or more artifacts declared by that Run. Core fills this binding
+through `aq study create --upstream-run ... --upstream-artifact ...`, verifies
+every identity and hash on Study load, and includes its hash in Study input
+identity. It is a narrow continuation edge, not a latest-Run shortcut, generic
+multi-parent DAG, or dataset-reuse mechanism.
 
 The canonical Portfolio Study depends on
 `strategies/portfolio-mandate.json`. The RL Study depends on both
@@ -644,6 +666,7 @@ runs/
     │   ├── identity.json
     │   ├── dataset-files.json  # content-locked Studies only
     │   ├── dependency-sources/ # declared fixed source dependencies only
+    │   ├── upstream-evidence/  # optional exact prior Run binding/artifacts
     │   └── judge-sources/<project-relative files>
     ├── sources/<editable project-relative files>
     ├── artifacts/<declared Judge files>
@@ -661,6 +684,8 @@ runs/
 - Harness id/version/commit/dirty/source/Python identity;
 - Project, Study, subject/version, and editable source identity;
 - optional fixed dependency paths, aggregate hash, and source-file hashes;
+- optional exact Study request/snapshot bindings and one prior-Run evidence
+  binding with its frozen input root;
 - dataset id/version, asset class, universe, date range, dataset hash, optional
   content-locked source hashes, and the V2 interval surface when present;
 - Judge entrypoint and fixed source hashes;

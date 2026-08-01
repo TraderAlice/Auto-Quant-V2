@@ -4,24 +4,106 @@ import json
 import tempfile
 import unittest
 
+import jsonschema
+
 from autoquant.runs import (
+    RUN_RESULT_JSON_SCHEMA,
     execute_study,
     list_runs,
     load_run,
     same_harness_runtime,
 )
-from autoquant.studies import create_study, hash_file
+from autoquant.studies import (
+    StudyResearchRequest,
+    bind_upstream_evidence,
+    create_study,
+    hash_file,
+)
 from autoquant.workspace import AutoQuantValidationError
 from tests.study_helpers import (
     FAILURE_JUDGE,
     MALFORMED_JUDGE,
     TIMEOUT_JUDGE,
     make_project,
+    request_definition,
     study_definition,
 )
 
 
 class ImmutableRunTests(unittest.TestCase):
+    def test_run_freezes_study_request_and_exact_upstream_evidence(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, project = make_project(directory)
+            create_study(project, study_definition(study_id="path-stress"))
+            prior = execute_study(project, "path-stress")
+            requests = project.root_dir / "requests"
+            requests.mkdir()
+            (requests / "recovery.json").write_text(
+                json.dumps(request_definition()) + "\n",
+                encoding="utf-8",
+            )
+            upstream = bind_upstream_evidence(
+                project,
+                prior.result["id"],
+                ["artifacts/report.json"],
+            )
+            study = create_study(
+                project,
+                study_definition(
+                    study_id="drawdown-recovery",
+                    dependencies=["requests/recovery.json"],
+                    research_request=StudyResearchRequest(
+                        "requests/recovery.json"
+                    ),
+                    upstream_evidence=upstream,
+                ),
+            )
+            run = execute_study(project, study.definition.id)
+            evidence_root = (
+                run.root_dir
+                / "inputs"
+                / "upstream-evidence"
+                / prior.result["id"]
+            )
+
+            self.assertEqual(
+                run.result["researchRequest"]["path"],
+                "requests/recovery.json",
+            )
+            self.assertEqual(
+                run.result["upstreamEvidence"]["run_id"],
+                prior.result["id"],
+            )
+            self.assertTrue((evidence_root / "binding.json").is_file())
+            frozen_artifact = evidence_root / "artifacts" / "report.json"
+            self.assertEqual(
+                frozen_artifact.read_bytes(),
+                (prior.root_dir / "artifacts" / "report.json").read_bytes(),
+            )
+            self.assertTrue(
+                (
+                    run.root_dir
+                    / "inputs"
+                    / "dependency-sources"
+                    / "requests"
+                    / "recovery.json"
+                ).is_file()
+            )
+            self.assertEqual(load_run(project, run.result["id"]), run)
+            jsonschema.validate(run.result, RUN_RESULT_JSON_SCHEMA)
+
+            frozen_artifact.write_text("tampered\n", encoding="utf-8")
+            manifest_path = run.root_dir / "manifest.json"
+            manifest = json.loads(manifest_path.read_text())
+            relative = str(frozen_artifact.relative_to(run.root_dir))
+            manifest["files"][relative] = hash_file(frozen_artifact)
+            manifest_path.write_text(json.dumps(manifest))
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "Frozen upstream artifact differs",
+            ):
+                load_run(project, run.result["id"])
+
     def test_harness_runtime_identity_excludes_repository_provenance(self) -> None:
         recorded = {
             "id": "autoquant.python-judge",

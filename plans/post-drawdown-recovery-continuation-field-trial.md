@@ -180,6 +180,19 @@ product evidence rather than hidden.
   explicit Study-owned Research Request binding, and terminal-continuation
   orientation derived from that relation. It will not add shared data,
   automatic data reuse, arbitrary multi-Run synthesis, or trading semantics.
+- 2026-08-01 — The candidate now implements that narrow contract. Study load
+  verifies a strict exact request, optional matching position snapshot, one
+  prior immutable Run, and selected declared artifact hashes. Runs freeze the
+  binding and bytes, Report publication follows the Run-owned request instead
+  of a directory convention, and Orientation/Studio expose a unique terminal
+  single-parent continuation. Legacy Studies omit all new fields and preserve
+  their serialization and input identity.
+- 2026-08-01 — Release process knowledge no longer belongs in an ever-growing
+  README. [[docs/design/versioning-and-release]] now owns increment semantics,
+  compatibility limits, audit, tagging, and host-pin independence; [[AGENTS]]
+  routes contributors there, [[docs/STATUS]] retains release evidence, and
+  README has been reduced to product orientation, current version, quick start,
+  and links.
 
 ## Verification
 
@@ -217,6 +230,11 @@ smokes below as they are produced.
   produced scientifically correct evidence while preserving every old byte,
   and retained three concrete long-lived-Project contract failures for the
   `0.9.18` candidate rather than hiding them.
+- 2026-08-01 — Implemented the three reproduced contract repairs and added
+  focused Study, Run, CLI, Report, Orientation, and Studio projections. Six
+  new focused public-boundary tests pass; the complete affected four-module
+  regression passes 44 tests in 66.572 seconds. Documentation links resolve
+  after extracting the release policy from README.
 
 ## Completion
 

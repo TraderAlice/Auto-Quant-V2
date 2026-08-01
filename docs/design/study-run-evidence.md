@@ -1,7 +1,8 @@
 # Study contracts and immutable Run evidence
 
-Status: V1 Python Judge lane, optional dataset content locks, and fixed source
-dependencies implemented.
+Status: V1 Python Judge lane, optional dataset content locks, fixed source
+dependencies, Study-owned requests, and one exact prior-Run evidence binding
+implemented.
 
 Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]], [[docs/CLI]],
 [[docs/design/workspace-project-boundaries]], and
@@ -30,6 +31,11 @@ V1 establishes three authority surfaces:
    strict result. Its files, Study, program, dataset identity, objective, and
    Harness are outside candidate authority.
 
+A continuation Study may additionally bind one immutable prior Run and one or
+more of its declared artifacts. This is evidence input, not mutable Project
+inventory: Core verifies the source Run and copies only the selected exact
+bytes into the new execution and Run.
+
 `aq run execute` does not mutate candidate source. The governed Research
 Session defined in [[docs/design/research-session-loop]] stages a disposable
 Project, proves that its diff stays inside the same editable closure, runs this
@@ -57,6 +63,10 @@ A Study contains:
 - exact editable files or trailing-`/**` directory closures;
 - optional separately hashed, non-editable strategy/factor/model dependency
   closures;
+- an optional exact Study-owned Research Request and position snapshot, each
+  named as a fixed dependency;
+- an optional single prior immutable Run identity plus one or more exact
+  declared artifact paths and hashes;
 - one Python Judge entrypoint, its complete fixed source closure, arguments,
   and wall-clock timeout;
 - primary metric, maximize/minimize direction, and minimum improvement;
@@ -71,6 +81,8 @@ The Core derives:
 - `sourceHash` from every editable source path and content hash;
 - optional `dependencyHash` from every declared fixed dependency path and
   content hash;
+- optional `upstreamEvidenceHash` from the prior Run/result/Study-input identity
+  and selected artifact hashes;
 - `datasetHash` from the declared dataset identity alone for legacy Studies, or
   from that definition plus the complete matched file-hash inventory when
   optional `dataset.paths` is present;
@@ -95,20 +107,27 @@ executions still receive unique immutable Run ids.
 6. The Study manifest, program, Judge entrypoint, and every Judge source file
    are outside the editable closure.
 7. Dependency closures stay under strategy/factor/model directories, are
-   non-empty, and cannot overlap editable files.
+   non-empty, and cannot overlap editable files. Only exact files explicitly
+   named by `research_request` may live elsewhere in the Project; that
+   exception never authorizes a wildcard closure.
 8. The Judge entrypoint is included in the declared Judge closure.
 9. Program, Judge, editable source, dependency, and artifact paths are Project- or
    artifact-root-confined POSIX relative paths.
 10. Dataset paths are confined beneath the canonical Project data root. Exact
    paths are files; closures are non-empty real directories; neither may
    contain symlinks.
+11. One upstream binding must resolve inside the same Project to a complete
+    immutable Run of a different Study. Its Run id, Study id, result hash,
+    Study-input hash, declared artifact paths, and artifact hashes must all
+    agree. Multiple parents and implicit latest-Run selection are invalid.
 
 ## Execution model
 
 ```text
 strict Study load
-→ hash Study/program/Judge/editable/dependency sources/dataset/Harness
-→ freeze Run inputs, editable source bytes, and fixed dependency bytes
+→ verify optional Study request and exact prior-Run evidence
+→ hash Study/program/Judge/editable/dependency/upstream identities/dataset/Harness
+→ freeze Run inputs, editable source bytes, fixed dependency bytes, and selected upstream artifacts
 → materialize isolated source workspace
 → execute fixed Python Judge with a bounded timeout
 → validate one Judge output JSON and exact artifact inventory
@@ -120,7 +139,8 @@ strict Study load
 
 The isolated execution workspace contains only the Project manifest, Study,
 program, fixed Judge sources, editable sources, and declared fixed dependency
-sources. It does not inherit undeclared Project code. Dataset access is explicit through
+sources, plus the exact selected upstream evidence when declared. It does not
+inherit undeclared Project code. Dataset access is explicit through
 `AUTOQUANT_DATA_ROOT`. Content-locked Studies hash that same canonical root
 before execution and freeze its relative file-hash inventory into Run inputs;
 they do not copy potentially large dataset bytes into the isolated workspace.
@@ -128,6 +148,10 @@ they do not copy potentially large dataset bytes into the isolated workspace.
 Session worktrees intentionally keep an empty `data/` directory. When their
 Study identity is loaded, Core supplies the owning Project's canonical data
 root, so baseline and candidate evaluations bind and read identical bytes.
+The same explicit owning-Project resolution verifies a continuation Study's
+immutable prior Run; the upstream evidence hash enters Session locks, and each
+candidate Run still freezes only the selected artifacts rather than copying
+ambient Run history into the worktree.
 Read-only orientation from a current Session worktree resolves that owning
 Project through the worktree's fixed-inventory-locked Session marker; it does
 not copy or symlink dataset bytes into disposable state.
@@ -140,6 +164,8 @@ Judge environment:
 - `AUTOQUANT_RUN_OUTPUT`: required Judge output JSON path;
 - `AUTOQUANT_ARTIFACTS_DIR`: confined artifact output directory;
 - `AUTOQUANT_INPUT_HASH`: complete Study plus Harness input identity.
+- `AUTOQUANT_UPSTREAM_EVIDENCE_ROOT`: present only for a continuation Study;
+  contains `<run-id>/binding.json` and the selected prior artifact paths.
 
 The Judge process is not an OS sandbox. It is ordinary Project-authored Python
 with a fixed source and evidence contract. Host-level sandboxing is a separate
@@ -178,6 +204,11 @@ collision.
 9. A V2 multi-interval RunResult records the canonical
    `dataset.intervalSurface`; Reports, Studio, and Dossiers preserve that
    content-locked disclosure.
+10. A request-bound RunResult records the request and optional position
+    snapshot paths and hashes, and its frozen dependency copies must match.
+11. A continuation RunResult records the exact upstream binding and input root;
+    the binding file and every selected copied artifact are semantically
+    reverified in addition to ordinary terminal-manifest hashing.
 
 ## Non-goals
 
@@ -186,6 +217,8 @@ collision.
 - Treating a failed Judge process as absent evidence.
 - Selecting different framework libraries per asset class.
 - Running a long backtest as part of repository validation.
+- Building a generic multi-parent evidence DAG, silently selecting a latest
+  Run, or treating prior artifacts as a reusable data catalog.
 
 ## Change checklist
 
@@ -200,6 +233,8 @@ collision.
   must preserve the historical definition and dataset hash exactly.
 - Keep optional source dependencies backward compatible: their absence must
   preserve historical Study serialization and input hashes exactly.
+- Keep Study-owned request and single-upstream evidence fields optional; verify
+  every declared byte and project the same relation through CLI and Studio.
 
 ## Verification
 

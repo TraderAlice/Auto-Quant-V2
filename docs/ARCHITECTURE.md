@@ -296,21 +296,13 @@ without reimplementing metric choice or verdict semantics.
 
 ## Version and release cadence
 
-AutoQuant is pre-1.0, but version increments still communicate scope. A patch
-increment (`0.8.0` → `0.8.1`) is the default for correctness fixes, bounded
-new research routes, Explorer/UI completion, and contract refinements that do
-not change the overall Workbench generation. A minor increment
-(`0.8.x` → `0.9.0`) is reserved for a substantial new product layer or a broad
-public-contract expansion. Major versions are reserved for a genuinely stable
-new generation, not ordinary nightly development.
-
-Changing `pyproject.toml`, `uv.lock`, and README metadata creates only a
-release candidate. A tag is published only after focused tests, full
-regression, installed-wheel smoke, public version/capability discovery, clean
-Git state, and a pushed commit all reconcile. Every immutable Run separately
-records Harness version, commit, source hash, Python version, and dirty state,
-so a Project can distinguish a released runtime from an untagged development
-trial.
+Patch increments are the default for bounded pre-1.0 improvements; minor and
+major increments require meaningfully broader product boundaries. Version
+authority, compatibility limits, candidate verification, publish order, and
+host pin independence are defined in
+[[docs/design/versioning-and-release]]. Every immutable Run separately records
+Harness version, commit, source hash, Python version, and dirty state, so a
+Project can distinguish a released runtime from an untagged development trial.
 
 The repository-root V0.5 Freqtrade arena inherited from Auto-Quant Classic is
 retired. It is not an alternate execution path, package dependency, or data

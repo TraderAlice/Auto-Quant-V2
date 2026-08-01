@@ -46,7 +46,7 @@ from .workspace import SCHEMA_VERSION, ProjectContext
 
 
 AGENT_WORK_BRIEF_KIND = "autoquant-agent-work-brief"
-AGENT_WORK_BRIEF_METHOD = "verified-project-agent-orientation-v10"
+AGENT_WORK_BRIEF_METHOD = "verified-project-agent-orientation-v11"
 MAX_RESEARCH_QUESTION_CHARS = 4_000
 PROTECTED_CATEGORIES = [
     "request",
@@ -56,6 +56,7 @@ PROTECTED_CATEGORIES = [
     "judge",
     "mandate",
     "dependencies",
+    "upstream-evidence",
     "runs",
     "experiments",
     "reports",
@@ -221,7 +222,22 @@ def _question_projection(
     project: ProjectContext,
     intake: dict[str, Any] | None,
     studies: list[StudySummary],
+    focus_study=None,
 ) -> dict[str, Any]:
+    if (
+        focus_study is not None
+        and focus_study.definition.research_request is not None
+    ):
+        relative = focus_study.definition.research_request.path
+        path = project.root_dir / relative
+        request = load_research_request(path)
+        return {
+            "title": request["title"],
+            "text": request["question"],
+            "origin": "study-request",
+            "sourcePath": str(path),
+            "requestPath": str(path),
+        }
     if intake is not None:
         request = intake["request"]
         return {
@@ -1677,6 +1693,36 @@ def _single_study_orientation(
     }
 
 
+def _terminal_continuation_study(
+    project: ProjectContext,
+    summaries: list[StudySummary],
+) -> StudySummary | None:
+    """Select one terminal single-upstream continuation, never an arbitrary latest Study."""
+
+    if len(summaries) < 2:
+        return None
+    studies = {item.id: load_study(project, item.id) for item in summaries}
+    upstream_by_study = {
+        study_id: context.definition.upstream_evidence.study_id
+        for study_id, context in studies.items()
+        if context.definition.upstream_evidence is not None
+    }
+    if not upstream_by_study:
+        return None
+    terminals = set(studies) - set(upstream_by_study.values())
+    if len(terminals) != 1:
+        return None
+    terminal = next(iter(terminals))
+    visited: set[str] = set()
+    current: str | None = terminal
+    while current is not None and current not in visited:
+        visited.add(current)
+        current = upstream_by_study.get(current)
+    if current is not None or visited != set(studies):
+        return None
+    return next(item for item in summaries if item.id == terminal)
+
+
 def _holdout_orientation(
     project: ProjectContext,
     holdout: dict[str, Any],
@@ -1823,6 +1869,11 @@ def build_agent_work_brief(project: ProjectContext) -> dict[str, Any]:
     holdout = load_holdout_status(project, optional=True)
     program = load_research_program(project, optional=True)
     studies = list_studies(project)
+    terminal_continuation = (
+        _terminal_continuation_study(project, studies)
+        if program is None and holdout is None
+        else None
+    )
     projected = (
         _holdout_orientation(project, holdout)
         if holdout is not None
@@ -1830,8 +1881,21 @@ def build_agent_work_brief(project: ProjectContext) -> dict[str, Any]:
         if program is not None
         else _single_study_orientation(
             project,
-            studies,
+            [terminal_continuation]
+            if terminal_continuation is not None
+            else studies,
         )
+    )
+    focus_study_id = projected["focus"]["studyId"]
+    focus_study = (
+        load_study(project, focus_study_id)
+        if focus_study_id is not None
+        else None
+    )
+    projected["continuation"] = (
+        focus_study.definition.to_dict().get("upstream_evidence")
+        if focus_study is not None
+        else None
     )
     agenda_run_id = projected["evidence"]["runId"]
     if program is not None:
@@ -1852,8 +1916,15 @@ def build_agent_work_brief(project: ProjectContext) -> dict[str, Any]:
     ):
         agenda_run_id = projected["evidence"]["leaderRunId"]
     descriptive_metric = (
-        studies[0].primary_metric
-        if projected["focus"]["studyId"] is not None and studies
+        next(
+            (
+                item.primary_metric
+                for item in studies
+                if item.id == projected["focus"]["studyId"]
+            ),
+            None,
+        )
+        if projected["focus"]["studyId"] is not None
         else None
     )
     event_descriptive = descriptive_metric == "primary_eligible_event_count"
@@ -2115,11 +2186,10 @@ def build_agent_work_brief(project: ProjectContext) -> dict[str, Any]:
         if freeze_session is not None
         else None
     )
-    focus_study_id = projected["focus"]["studyId"]
     candidate_contract = (
         build_candidate_contract(
             project,
-            load_study(project, focus_study_id),
+            focus_study,
         )
         if focus_study_id is not None
         else None
@@ -2141,7 +2211,12 @@ def build_agent_work_brief(project: ProjectContext) -> dict[str, Any]:
             "name": project.manifest.name,
             "rootDir": str(project.root_dir),
         },
-        "question": _question_projection(project, intake, studies),
+        "question": _question_projection(
+            project,
+            intake,
+            studies,
+            focus_study,
+        ),
         "candidateContract": candidate_contract,
         "constructionFidelity": construction_fidelity,
         "researchAgenda": research_agenda,
@@ -2198,6 +2273,7 @@ AGENT_WORK_BRIEF_JSON_SCHEMA: dict[str, Any] = {
         "question",
         "candidateContract",
         "constructionFidelity",
+        "continuation",
         "focus",
         "evidence",
         "reasons",
@@ -2242,6 +2318,7 @@ AGENT_WORK_BRIEF_JSON_SCHEMA: dict[str, Any] = {
                         "project-research-brief",
                         "project-request",
                         "delegated-request",
+                        "study-request",
                     ]
                 },
                 "sourcePath": {"type": ["string", "null"]},
@@ -2258,6 +2335,50 @@ AGENT_WORK_BRIEF_JSON_SCHEMA: dict[str, Any] = {
             "oneOf": [
                 CONSTRUCTION_FIDELITY_JSON_SCHEMA,
                 {"type": "null"},
+            ]
+        },
+        "continuation": {
+            "oneOf": [
+                {"type": "null"},
+                {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": [
+                        "run_id",
+                        "study_id",
+                        "result_hash",
+                        "study_input_hash",
+                        "artifacts",
+                    ],
+                    "properties": {
+                        "run_id": {"type": "string", "pattern": "^run-"},
+                        "study_id": {"type": "string", "minLength": 1},
+                        "result_hash": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{64}$",
+                        },
+                        "study_input_hash": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{64}$",
+                        },
+                        "artifacts": {
+                            "type": "array",
+                            "minItems": 1,
+                            "items": {
+                                "type": "object",
+                                "additionalProperties": False,
+                                "required": ["path", "sha256"],
+                                "properties": {
+                                    "path": {"type": "string", "minLength": 1},
+                                    "sha256": {
+                                        "type": "string",
+                                        "pattern": "^[0-9a-f]{64}$",
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
             ]
         },
         "focus": {

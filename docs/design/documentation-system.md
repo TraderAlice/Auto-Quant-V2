@@ -19,6 +19,13 @@ commands remain in [[docs/PROJECT_FORMAT]] and [[docs/CLI]]. Design documents
 explain invariants, ownership, trade-offs, and how public contracts are
 implemented.
 
+README is the concise product entrance: identity, current version, quick start,
+and routing links. [[docs/STATUS]] owns current tested capability and concise
+release history. [[docs/design/versioning-and-release]] owns version meaning,
+compatibility limits, release audit, and tag publication. Exact evidence for
+one release remains in its completed plan. Do not let README grow into a second
+status ledger or release playbook.
+
 ## Work plans
 
 [[PLANS]] is the authoritative status index for repository work that needs

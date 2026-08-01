@@ -3,13 +3,130 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
+from dataclasses import replace
 
-from autoquant.studies import create_study, hash_json, list_studies, load_study
+import jsonschema
+
+from autoquant.runs import execute_study
+from autoquant.studies import (
+    StudyResearchRequest,
+    STUDY_JSON_SCHEMA,
+    StudyUpstreamArtifact,
+    bind_upstream_evidence,
+    create_study,
+    hash_json,
+    list_studies,
+    load_study,
+)
 from autoquant.workspace import AutoQuantValidationError
-from tests.study_helpers import make_project, study_definition
+from tests.study_helpers import make_project, request_definition, study_definition
 
 
 class StudyContractTests(unittest.TestCase):
+    def test_study_binds_exact_request_and_prior_run_artifact(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, project = make_project(directory)
+            create_study(project, study_definition(study_id="path-stress"))
+            prior = execute_study(project, "path-stress")
+            requests = project.root_dir / "requests"
+            requests.mkdir()
+            request_path = requests / "recovery.json"
+            request_path.write_text(
+                json.dumps(request_definition()),
+                encoding="utf-8",
+            )
+            upstream = bind_upstream_evidence(
+                project,
+                prior.result["id"],
+                ["artifacts/report.json"],
+            )
+            study = create_study(
+                project,
+                study_definition(
+                    study_id="drawdown-recovery",
+                    dependencies=["requests/recovery.json"],
+                    research_request=StudyResearchRequest(
+                        "requests/recovery.json"
+                    ),
+                    upstream_evidence=upstream,
+                ),
+            )
+
+            self.assertEqual(
+                study.definition.research_request.path,
+                "requests/recovery.json",
+            )
+            self.assertEqual(
+                study.definition.upstream_evidence.run_id,
+                prior.result["id"],
+            )
+            self.assertEqual(
+                study.upstream_evidence_hash,
+                hash_json(study.definition.to_dict()["upstream_evidence"]),
+            )
+            self.assertIn("requests/recovery.json", study.dependency_hashes)
+            jsonschema.validate(study.definition.to_dict(), STUDY_JSON_SCHEMA)
+
+    def test_request_and_upstream_bindings_fail_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, project = make_project(directory)
+            create_study(project, study_definition(study_id="path-stress"))
+            prior = execute_study(project, "path-stress")
+            request_dir = project.root_dir / "requests"
+            request_dir.mkdir()
+            (request_dir / "recovery.json").write_text(
+                json.dumps(request_definition()) + "\n",
+                encoding="utf-8",
+            )
+            upstream = bind_upstream_evidence(
+                project,
+                prior.result["id"],
+                ["artifacts/report.json"],
+            )
+
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "must be exact fixed dependencies",
+            ):
+                create_study(
+                    project,
+                    study_definition(
+                        study_id="missing-request-binding",
+                        research_request=StudyResearchRequest(
+                            "requests/recovery.json"
+                        ),
+                        upstream_evidence=upstream,
+                    ),
+                )
+
+            bad_artifact = replace(
+                upstream.artifacts[0],
+                sha256="0" * 64,
+            )
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "artifact hash differs",
+            ):
+                create_study(
+                    project,
+                    study_definition(
+                        study_id="bad-upstream-binding",
+                        dependencies=["requests/recovery.json"],
+                        research_request=StudyResearchRequest(
+                            "requests/recovery.json"
+                        ),
+                        upstream_evidence=replace(
+                            upstream,
+                            artifacts=[
+                                StudyUpstreamArtifact(
+                                    bad_artifact.path,
+                                    bad_artifact.sha256,
+                                )
+                            ],
+                        ),
+                    ),
+                )
+
     def test_legacy_dataset_preserves_v1_serialization_and_hash(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             _, project = make_project(directory)

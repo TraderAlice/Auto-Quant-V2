@@ -44,9 +44,12 @@ cross-Workspace communication, and authenticated provenance may add context,
 but Project files and Core evidence remain sufficient to orient a replacement
 Agent. Standalone and hosted operation use the same brief contract.
 
-Question authority is explicit and ordered. A validated delegated intake
-request is first because it freezes caller-owned intent. Otherwise Core may
-accept a Project-root strict request only when its canonical hash exactly
+Question authority is explicit and ordered. When the focused Study declares an
+exact Study-owned request, Core uses that frozen authority with
+`origin: study-request`; this prevents a continuation from inheriting a stale
+Project-root question. Otherwise a validated delegated intake request freezes
+caller-owned intent. Core may next accept a Project-root strict request only
+when its canonical hash exactly
 matches `source.requestHash` in at least one currently declared fixed Study
 dependency. That locally constructed authority uses
 `origin: project-request`; an invalid, symlinked, tampered, or unbound request
@@ -133,9 +136,11 @@ The V2 brief is compact, strict, and derived entirely from verified current
 state. It contains:
 
 - identity: Workspace/Project and optional delegated request;
-- objective: current research question, its delegated-request,
+- objective: current research question, its study-request, delegated-request,
   project-request, project-research-brief, or local-fallback origin, source
   path when present, and selected Study objective;
+- continuation: the optional exact prior Run/Study/result/input/artifact
+  binding that makes the focused Study a terminal continuation;
 - candidate contract: for a focused Factor edit, the actual Project base
   interval, completed feature intervals, panel columns, component metadata
   fields, and legal roles; unavailable columns are explicit rather than
@@ -168,6 +173,13 @@ state. It contains:
 The brief does not copy the entire program projection. A caller may use the
 referenced detailed command when it needs full lane, Run, Session, or report
 history.
+
+Multiple uncoordinated Studies still produce `study-selection-required`. The
+one narrow exception is a complete single-parent chain: if all Studies form one
+connected acyclic sequence and exactly one Study is terminal, Core focuses that
+terminal continuation and discloses its upstream binding. It never chooses by
+timestamp, guesses between branches, or treats a general multi-Study Project as
+a workflow graph.
 
 The research agenda does not replace the primary action. It says which
 scientific change is worth testing after the lifecycle permits an edit;

@@ -20,7 +20,11 @@ from autoquant.sessions import (
     promote_session,
     start_session,
 )
-from autoquant.studies import create_study
+from autoquant.studies import (
+    StudyResearchRequest,
+    bind_upstream_evidence,
+    create_study,
+)
 from autoquant.studio import build_studio_snapshot
 from autoquant.templates import OHLCV_STUDY_ID
 from autoquant.workspace import create_project, initialize_workspace
@@ -723,7 +727,7 @@ Do not include this sibling section.
             jsonschema.validate(settled, AGENT_WORK_BRIEF_JSON_SCHEMA)
             self.assertEqual(
                 settled["method"],
-                "verified-project-agent-orientation-v10",
+                "verified-project-agent-orientation-v11",
             )
             self.assertEqual(
                 [item["code"] for item in settled["reasons"]],
@@ -877,4 +881,66 @@ Do not include this sibling section.
             self.assertNotIn(
                 "No current successful verified Run",
                 brief["researchAgenda"]["reason"],
+            )
+
+    def test_single_upstream_chain_orients_to_terminal_continuation(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            workspace, project = make_project(directory)
+            create_study(project, study_definition(study_id="path-stress"))
+            prior = execute_study(project, "path-stress")
+            request = research_request()
+            request["title"] = "Recovery continuation"
+            request["question"] = "When did each fixed stress path recover?"
+            request_path = project.root_dir / "requests" / "recovery.json"
+            request_path.parent.mkdir()
+            request_path.write_text(
+                json.dumps(request, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            create_study(
+                project,
+                study_definition(
+                    study_id="drawdown-recovery",
+                    dependencies=["requests/recovery.json"],
+                    research_request=StudyResearchRequest(
+                        "requests/recovery.json"
+                    ),
+                    upstream_evidence=bind_upstream_evidence(
+                        project,
+                        prior.result["id"],
+                        ["artifacts/report.json"],
+                    ),
+                ),
+            )
+
+            brief = build_agent_work_brief(project)
+            jsonschema.validate(brief, AGENT_WORK_BRIEF_JSON_SCHEMA)
+            self.assertEqual(
+                brief["focus"]["studyId"],
+                "drawdown-recovery",
+            )
+            self.assertNotEqual(
+                brief["reasons"][0]["code"],
+                "study-selection-required",
+            )
+            self.assertEqual(
+                brief["continuation"]["run_id"],
+                prior.result["id"],
+            )
+            self.assertEqual(brief["question"]["origin"], "study-request")
+            self.assertEqual(
+                brief["question"]["text"],
+                "When did each fixed stress path recover?",
+            )
+            studio = build_studio_snapshot(workspace.root_dir)
+            projected = studio["projects"][0]
+            continuation = next(
+                item
+                for item in projected["studies"]
+                if item["id"] == "drawdown-recovery"
+            )["upstreamEvidence"]
+            self.assertEqual(continuation["run_id"], prior.result["id"])
+            self.assertEqual(
+                projected["agentWorkBrief"]["continuation"]["run_id"],
+                prior.result["id"],
             )

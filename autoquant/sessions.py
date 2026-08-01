@@ -402,6 +402,8 @@ def _session_lock(study: StudyContext, baseline: RunContext) -> dict[str, Any]:
     }
     if study.dependency_hash is not None:
         lock["dependencyHash"] = study.dependency_hash
+    if study.upstream_evidence_hash is not None:
+        lock["upstreamEvidenceHash"] = study.upstream_evidence_hash
     return lock
 
 
@@ -430,6 +432,7 @@ def _reusable_baseline(
 
     current_harness = harness_identity()
     expected_dependency_hash = study.dependency_hash
+    expected_upstream_hash = study.upstream_evidence_hash
     for summary in reversed(list_runs(project, study.definition.id)):
         if summary.status != "succeeded":
             continue
@@ -441,6 +444,10 @@ def _reusable_baseline(
             if isinstance(dependencies, dict)
             else None
         )
+        upstream = result.get("upstreamEvidence")
+        upstream_hash = (
+            upstream.get("hash") if isinstance(upstream, dict) else None
+        )
         if (
             result["study"].get("hash") == study.study_hash
             and result["study"].get("programHash") == study.program_hash
@@ -448,6 +455,7 @@ def _reusable_baseline(
             and result["judge"].get("hash") == study.judge_hash
             and result["dataset"].get("hash") == study.dataset_hash
             and dependency_hash == expected_dependency_hash
+            and upstream_hash == expected_upstream_hash
             and same_harness_runtime(result.get("harness", {}), current_harness)
         ):
             return run
@@ -581,6 +589,7 @@ def start_session(
             worktree,
             study_id,
             data_root=_canonical_data_root(project),
+            upstream_project=project,
         )
         fixed_hashes = _fixed_inventory(
             worktree,
@@ -742,6 +751,8 @@ def _validate_session_manifest(
         }
         if "dependencyHash" in locks:
             lock_keys.add("dependencyHash")
+        if "upstreamEvidenceHash" in locks:
+            lock_keys.add("upstreamEvidenceHash")
         issues.extend(
             _strict_keys(
                 locks,
@@ -773,6 +784,17 @@ def _validate_session_manifest(
                     f"{path}/locks/dependencyHash",
                     "schema.hash",
                     "Invalid dependencyHash",
+                )
+            )
+        if "upstreamEvidenceHash" in locks and (
+            not isinstance(locks.get("upstreamEvidenceHash"), str)
+            or not SHA256.fullmatch(locks.get("upstreamEvidenceHash", ""))
+        ):
+            issues.append(
+                _issue(
+                    f"{path}/locks/upstreamEvidenceHash",
+                    "schema.hash",
+                    "Invalid upstreamEvidenceHash",
                 )
             )
         harness = locks.get("harness")
@@ -1560,6 +1582,7 @@ def _authority_issues(
             session.worktree_project,
             manifest["studyId"],
             data_root=_canonical_data_root(project),
+            upstream_project=project,
         )
     except AutoQuantValidationError as error:
         return list(error.issues)
@@ -1572,6 +1595,8 @@ def _authority_issues(
         }
         if "dependencyHash" in locks:
             actual["dependencyHash"] = study.dependency_hash
+        if "upstreamEvidenceHash" in locks:
+            actual["upstreamEvidenceHash"] = study.upstream_evidence_hash
         for key, value in actual.items():
             if value != locks[key]:
                 issues.append(
@@ -1630,6 +1655,7 @@ def validate_session_authority(
         session.worktree_project,
         session.manifest["studyId"],
         data_root=_canonical_data_root(project),
+        upstream_project=project,
     )
 
 
@@ -1645,6 +1671,7 @@ def session_snapshot(
             session.worktree_project,
             session.manifest["studyId"],
             data_root=_canonical_data_root(project),
+            upstream_project=project,
         )
         program_relative = study.definition.program
         candidate = {
@@ -2013,6 +2040,7 @@ def _restore_leader(
         session.worktree_project,
         session.manifest["studyId"],
         data_root=_canonical_data_root(project),
+        upstream_project=project,
     )
     if restored.source_hash != session.manifest["leader"]["sourceHash"]:
         raise AutoQuantValidationError(
@@ -2043,6 +2071,8 @@ def restore_session_worktree(
     }
     if "dependencyHash" in locks:
         fixed_identity["dependencyHash"] = canonical.dependency_hash
+    if "upstreamEvidenceHash" in locks:
+        fixed_identity["upstreamEvidenceHash"] = canonical.upstream_evidence_hash
     issues = [
         _issue(
             canonical.root_dir,
@@ -2079,6 +2109,7 @@ def restore_session_worktree(
             staged_project,
             session.manifest["studyId"],
             data_root=_canonical_data_root(project),
+            upstream_project=project,
         )
         _clear_editable(staged_project, staged_study)
         _copy_run_sources(session.leader_run, staged_project, staged_study)
@@ -2086,6 +2117,7 @@ def restore_session_worktree(
             staged_project,
             session.manifest["studyId"],
             data_root=_canonical_data_root(project),
+            upstream_project=project,
         )
         if restored.source_hash != session.manifest["leader"]["sourceHash"]:
             raise AutoQuantValidationError(
@@ -2866,6 +2898,10 @@ SESSION_JSON_SCHEMA: dict[str, Any] = {
                 "programHash": {"type": "string", "pattern": SHA256.pattern},
                 "judgeHash": {"type": "string", "pattern": SHA256.pattern},
                 "dependencyHash": {
+                    "type": "string",
+                    "pattern": SHA256.pattern,
+                },
+                "upstreamEvidenceHash": {
                     "type": "string",
                     "pattern": SHA256.pattern,
                 },

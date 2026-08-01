@@ -38,6 +38,7 @@ from .studies import (
     hash_file,
     hash_json,
     load_study,
+    materialize_upstream_evidence,
 )
 from .workspace import (
     PROJECT_MANIFEST,
@@ -514,6 +515,8 @@ def _materialize_execution_workspace(
     project: ProjectContext,
     study: StudyContext,
     destination: Path,
+    *,
+    upstream_project: ProjectContext,
 ) -> None:
     destination.mkdir(parents=True)
     shutil.copy2(project.root_dir / PROJECT_MANIFEST, destination / PROJECT_MANIFEST)
@@ -521,6 +524,12 @@ def _materialize_execution_workspace(
     combined.update(study.editable_hashes)
     combined.update(study.dependency_hashes)
     copy_hashed_files(project, combined, destination)
+    if study.definition.upstream_evidence is not None:
+        materialize_upstream_evidence(
+            upstream_project,
+            study,
+            destination / "upstream-evidence",
+        )
     studies_directory = project.manifest.directories["studies"]
     staged_study = destination / studies_directory / study.definition.id
     staged_study.mkdir(parents=True)
@@ -537,6 +546,8 @@ def _freeze_inputs(
     harness: dict[str, Any],
     run_input_hash: str,
     evaluation_role: str,
+    *,
+    upstream_project: ProjectContext,
 ) -> None:
     inputs = run_staging / "inputs"
     inputs.mkdir()
@@ -549,6 +560,12 @@ def _freeze_inputs(
             project,
             study.dependency_hashes,
             inputs / "dependency-sources",
+        )
+    if study.definition.upstream_evidence is not None:
+        materialize_upstream_evidence(
+            upstream_project,
+            study,
+            inputs / "upstream-evidence",
         )
     identity = {
         "evaluationRole": evaluation_role,
@@ -567,6 +584,8 @@ def _freeze_inputs(
     if study.dependency_hash is not None:
         identity["dependencyHashes"] = study.dependency_hashes
         identity["dependencyHash"] = study.dependency_hash
+    if study.upstream_evidence_hash is not None:
+        identity["upstreamEvidenceHash"] = study.upstream_evidence_hash
     _write_json(
         inputs / "identity.json",
         identity,
@@ -590,13 +609,20 @@ def _run_judge(
     run_input_hash: str,
     data_root: Path,
     evaluation_role: str,
+    *,
+    upstream_project: ProjectContext,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     artifacts_root = run_staging / "artifacts"
     artifacts_root.mkdir()
     output_path = run_staging / JUDGE_OUTPUT
     with tempfile.TemporaryDirectory(prefix=f"aq-{study.definition.id}-") as directory:
         execution_root = Path(directory) / "project"
-        _materialize_execution_workspace(project, study, execution_root)
+        _materialize_execution_workspace(
+            project,
+            study,
+            execution_root,
+            upstream_project=upstream_project,
+        )
         command = [
             sys.executable,
             study.definition.judge.entrypoint,
@@ -625,6 +651,10 @@ def _run_judge(
                 ),
             }
         )
+        if study.definition.upstream_evidence is not None:
+            environment["AUTOQUANT_UPSTREAM_EVIDENCE_ROOT"] = str(
+                execution_root / "upstream-evidence"
+            )
         started = time.monotonic()
         exit_code: int | None = None
         timed_out = False
@@ -782,7 +812,12 @@ def execute_study(
                 )
             ]
         )
-    study = load_study(source_project, study_id, data_root=resolved_data_root)
+    study = load_study(
+        source_project,
+        study_id,
+        data_root=resolved_data_root,
+        upstream_project=project if execution_project is not None else None,
+    )
     dataset_interval_surface = _dataset_interval_surface(
         study,
         resolved_data_root,
@@ -796,6 +831,10 @@ def execute_study(
             "dependencyHash": (
                 study.dependency_hash,
                 owning_study.dependency_hash,
+            ),
+            "upstreamEvidenceHash": (
+                study.upstream_evidence_hash,
+                owning_study.upstream_evidence_hash,
             ),
             "datasetHash": (study.dataset_hash, owning_study.dataset_hash),
         }
@@ -845,6 +884,7 @@ def execute_study(
             harness,
             run_input_hash,
             evaluation_role,
+            upstream_project=project,
         )
         normalized, execution = _run_judge(
             source_project,
@@ -853,6 +893,7 @@ def execute_study(
             run_input_hash,
             resolved_data_root,
             evaluation_role,
+            upstream_project=project,
         )
         completed = datetime.now(timezone.utc)
         completed_at = completed.isoformat()
@@ -944,6 +985,31 @@ def execute_study(
                 "hash": study.dependency_hash,
                 "sourceHashes": study.dependency_hashes,
             }
+        if study.definition.research_request is not None:
+            request = study.definition.research_request
+            result["researchRequest"] = {
+                "path": request.path,
+                "sha256": study.dependency_hashes[request.path],
+                **(
+                    {
+                        "positionSnapshotPath": request.position_snapshot_path,
+                        "positionSnapshotSha256": study.dependency_hashes[
+                            request.position_snapshot_path
+                        ],
+                    }
+                    if request.position_snapshot_path is not None
+                    else {}
+                ),
+            }
+        if study.definition.upstream_evidence is not None:
+            upstream = study.definition.to_dict()["upstream_evidence"]
+            result["upstreamEvidence"] = {
+                **upstream,
+                "hash": study.upstream_evidence_hash,
+                "inputRoot": (
+                    f"inputs/upstream-evidence/{upstream['run_id']}"
+                ),
+            }
         _write_json(temporary / RUN_RESULT, result)
         files = _all_file_hashes(temporary)
         manifest = {
@@ -1026,7 +1092,9 @@ def _validate_run_result(
         "artifacts",
         "errors",
     }
-    allowed = required | ({"dependencies"} if "dependencies" in result else set())
+    allowed = required | (
+        result.keys() & {"dependencies", "researchRequest", "upstreamEvidence"}
+    )
     issues = _strict_keys(result, allowed, str(path))
     if result.get("schemaVersion") != RUN_SCHEMA_VERSION:
         issues.append(
@@ -1300,6 +1368,190 @@ def _validate_run_result(
                     )
                 )
 
+    research_request = result.get("researchRequest")
+    if research_request is not None:
+        if not isinstance(research_request, dict):
+            issues.append(
+                _issue(
+                    f"{path}/researchRequest",
+                    "schema.type",
+                    "researchRequest must be an object",
+                )
+            )
+        else:
+            required_request = {"path", "sha256"}
+            if (
+                "positionSnapshotPath" in research_request
+                or "positionSnapshotSha256" in research_request
+            ):
+                required_request |= {
+                    "positionSnapshotPath",
+                    "positionSnapshotSha256",
+                }
+            issues.extend(
+                _strict_keys(
+                    research_request,
+                    required_request,
+                    f"{path}/researchRequest",
+                )
+            )
+            for key in ("sha256", "positionSnapshotSha256"):
+                if key in research_request and (
+                    not isinstance(research_request[key], str)
+                    or not SHA256.fullmatch(research_request[key])
+                ):
+                    issues.append(
+                        _issue(
+                            f"{path}/researchRequest/{key}",
+                            "run.hash",
+                            f"{key} must be a SHA-256 hash",
+                        )
+                    )
+            for key in ("path", "positionSnapshotPath"):
+                if key not in research_request:
+                    continue
+                value = research_request[key]
+                candidate = PurePosixPath(value) if isinstance(value, str) else None
+                if (
+                    not isinstance(value, str)
+                    or not value
+                    or "\\" in value
+                    or candidate is None
+                    or candidate.is_absolute()
+                    or ".." in candidate.parts
+                ):
+                    issues.append(
+                        _issue(
+                            f"{path}/researchRequest/{key}",
+                            "run.request-path",
+                            f"{key} must be a confined Project-relative path",
+                        )
+                    )
+
+    upstream = result.get("upstreamEvidence")
+    if upstream is not None:
+        if not isinstance(upstream, dict):
+            issues.append(
+                _issue(
+                    f"{path}/upstreamEvidence",
+                    "schema.type",
+                    "upstreamEvidence must be an object",
+                )
+            )
+        else:
+            issues.extend(
+                _strict_keys(
+                    upstream,
+                    {
+                        "run_id",
+                        "study_id",
+                        "result_hash",
+                        "study_input_hash",
+                        "artifacts",
+                        "hash",
+                        "inputRoot",
+                    },
+                    f"{path}/upstreamEvidence",
+                )
+            )
+            identity = {
+                key: upstream.get(key)
+                for key in (
+                    "run_id",
+                    "study_id",
+                    "result_hash",
+                    "study_input_hash",
+                    "artifacts",
+                )
+            }
+            run_id = upstream.get("run_id")
+            study_id = upstream.get("study_id")
+            artifacts = upstream.get("artifacts")
+            for key in ("result_hash", "study_input_hash", "hash"):
+                value = upstream.get(key)
+                if not isinstance(value, str) or not SHA256.fullmatch(value):
+                    issues.append(
+                        _issue(
+                            f"{path}/upstreamEvidence/{key}",
+                            "run.hash",
+                            f"{key} must be a SHA-256 hash",
+                        )
+                    )
+            if (
+                not isinstance(run_id, str)
+                or not run_id.startswith("run-")
+                or "/" in run_id
+                or "\\" in run_id
+                or ".." in run_id
+            ):
+                issues.append(
+                    _issue(
+                        f"{path}/upstreamEvidence/run_id",
+                        "run.upstream-id",
+                        "Upstream run_id must be a confined immutable Run id",
+                    )
+                )
+            if not isinstance(study_id, str) or not study_id:
+                issues.append(
+                    _issue(
+                        f"{path}/upstreamEvidence/study_id",
+                        "run.upstream-study",
+                        "Upstream study_id must be a non-empty string",
+                    )
+                )
+            if (
+                not isinstance(artifacts, list)
+                or not artifacts
+                or not all(
+                    isinstance(item, dict)
+                    and set(item) == {"path", "sha256"}
+                    and isinstance(item["path"], str)
+                    and item["path"].startswith("artifacts/")
+                    and "\\" not in item["path"]
+                    and not PurePosixPath(item["path"]).is_absolute()
+                    and ".." not in PurePosixPath(item["path"]).parts
+                    and isinstance(item["sha256"], str)
+                    and SHA256.fullmatch(item["sha256"])
+                    for item in artifacts
+                )
+            ):
+                issues.append(
+                    _issue(
+                        f"{path}/upstreamEvidence/artifacts",
+                        "run.upstream-artifacts",
+                        "Upstream artifacts must be exact confined artifact/hash pairs",
+                    )
+                )
+            elif len({item["path"] for item in artifacts}) != len(artifacts):
+                issues.append(
+                    _issue(
+                        f"{path}/upstreamEvidence/artifacts",
+                        "run.upstream-artifacts",
+                        "Upstream artifact paths must be unique",
+                    )
+                )
+            if upstream.get("hash") != hash_json(identity):
+                issues.append(
+                    _issue(
+                        f"{path}/upstreamEvidence/hash",
+                        "run.upstream-hash",
+                        "Upstream evidence hash differs from its fixed identity",
+                    )
+                )
+            expected_root = (
+                f"inputs/upstream-evidence/{run_id}"
+                if isinstance(run_id, str)
+                else None
+            )
+            if upstream.get("inputRoot") != expected_root:
+                issues.append(
+                    _issue(
+                        f"{path}/upstreamEvidence/inputRoot",
+                        "run.upstream-root",
+                        "Upstream inputRoot is not derived from its Run id",
+                    )
+                )
+
     metrics = result.get("metrics")
     if not isinstance(metrics, dict):
         issues.append(
@@ -1432,6 +1684,67 @@ def load_run(project: ProjectContext, run_id: str) -> RunContext:
         expected_status=manifest.get("status"),
         expected_input_hash=manifest.get("inputHash"),
     )
+    frozen_issues: list[ValidationIssue] = []
+    research_request = result.get("researchRequest")
+    if isinstance(research_request, dict):
+        request_pairs = [(research_request.get("path"), research_request.get("sha256"))]
+        if "positionSnapshotPath" in research_request:
+            request_pairs.append(
+                (
+                    research_request.get("positionSnapshotPath"),
+                    research_request.get("positionSnapshotSha256"),
+                )
+            )
+        for relative, expected_hash in request_pairs:
+            frozen = root / "inputs" / "dependency-sources" / str(relative)
+            if not frozen.is_file() or hash_file(frozen) != expected_hash:
+                frozen_issues.append(
+                    _issue(
+                        frozen,
+                        "run.request-input",
+                        "Frozen Study request input differs from RunResult",
+                    )
+                )
+    upstream = result.get("upstreamEvidence")
+    if isinstance(upstream, dict):
+        input_root = root / str(upstream["inputRoot"])
+        expected_binding = {
+            key: upstream[key]
+            for key in (
+                "run_id",
+                "study_id",
+                "result_hash",
+                "study_input_hash",
+                "artifacts",
+            )
+        }
+        expected_binding["evidence_hash"] = upstream["hash"]
+        binding_path = input_root / "binding.json"
+        try:
+            binding = _read_json_object(binding_path)
+        except AutoQuantValidationError as error:
+            frozen_issues.extend(error.issues)
+        else:
+            if binding != expected_binding:
+                frozen_issues.append(
+                    _issue(
+                        binding_path,
+                        "run.upstream-binding",
+                        "Frozen upstream binding differs from RunResult",
+                    )
+                )
+        for item in upstream["artifacts"]:
+            frozen = input_root / item["path"]
+            if not frozen.is_file() or hash_file(frozen) != item["sha256"]:
+                frozen_issues.append(
+                    _issue(
+                        frozen,
+                        "run.upstream-artifact",
+                        "Frozen upstream artifact differs from RunResult",
+                    )
+                )
+    if frozen_issues:
+        raise AutoQuantValidationError(frozen_issues)
     return RunContext(root, manifest, result)
 
 
@@ -1725,6 +2038,73 @@ RUN_RESULT_JSON_SCHEMA: dict[str, Any] = {
                         "pattern": "^[0-9a-f]{64}$",
                     },
                 },
+            },
+        },
+        "researchRequest": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["path", "sha256"],
+            "properties": {
+                "path": {"type": "string", "minLength": 1},
+                "sha256": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$",
+                },
+                "positionSnapshotPath": {"type": "string", "minLength": 1},
+                "positionSnapshotSha256": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$",
+                },
+            },
+            "dependentRequired": {
+                "positionSnapshotPath": ["positionSnapshotSha256"],
+                "positionSnapshotSha256": ["positionSnapshotPath"],
+            },
+        },
+        "upstreamEvidence": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "run_id",
+                "study_id",
+                "result_hash",
+                "study_input_hash",
+                "artifacts",
+                "hash",
+                "inputRoot",
+            ],
+            "properties": {
+                "run_id": {"type": "string", "pattern": "^run-"},
+                "study_id": {"type": "string", "minLength": 1},
+                "result_hash": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$",
+                },
+                "study_input_hash": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$",
+                },
+                "artifacts": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "required": ["path", "sha256"],
+                        "properties": {
+                            "path": {"type": "string", "minLength": 1},
+                            "sha256": {
+                                "type": "string",
+                                "pattern": "^[0-9a-f]{64}$",
+                            },
+                        },
+                    },
+                },
+                "hash": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{64}$",
+                },
+                "inputRoot": {"type": "string", "minLength": 1},
             },
         },
         "judge": {"type": "object"},

@@ -429,6 +429,10 @@ aq study create <path> <study-id> \
   --judge-path 'judges/**' \
   --editable 'factors/**' \
   [--dependency 'models/fixed-input.py'] \
+  [--request-path 'requests/recovery.json'] \
+  [--position-snapshot-path 'requests/position-snapshot.json'] \
+  [--upstream-run run-...] \
+  [--upstream-artifact 'artifacts/selected-episodes.csv'] \
   --metric score \
   --dataset-id synthetic-bars \
   --dataset-path 'ohlcv/**' \
@@ -499,6 +503,20 @@ for the complete economic inventory.
 strategy/factor/model source that the Judge may import but the Study cannot
 edit. Dependency files are separately hashed, frozen into Run inputs, copied
 read-only into Session worktrees, and included in Study currentness.
+
+`--request-path` explicitly assigns one exact Study-owned Research Request;
+optional `--position-snapshot-path` pairs an exact position snapshot. Each must
+also appear as an exact `--dependency`. These paths may live outside the normal
+strategy/factor/model roots, but only as the explicitly named files—wildcard
+closures do not gain that exception. Direct Run Reports then use this frozen
+request instead of guessing from a directory convention or stale Project-root
+intake.
+
+`--upstream-run` and one or more repeatable `--upstream-artifact` arguments are
+required together. Core resolves the immutable prior Run, fills its exact
+Study/result/input/artifact hashes into the new Study, and exposes copied
+evidence to the Judge at `AUTOQUANT_UPSTREAM_EVIDENCE_ROOT`. The CLI never
+selects a latest Run implicitly and does not accept multiple upstream Runs.
 
 `study create` validates the complete fixed contract immediately. `run execute`
 freezes inputs, runs the Python Judge under its timeout, and atomically

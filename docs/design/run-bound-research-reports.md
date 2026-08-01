@@ -58,7 +58,8 @@ identifiers remain globally unique within a Project.
 
 `aq report publish <path> --study ID --run ID --analysis FILE` requires:
 
-1. verified request-driven Project intake;
+1. verified request-driven Project intake or an exact Study-owned request
+   frozen by the Run;
 2. one successful immutable Run owned by the selected Study;
 3. the Run is current for the Study's fixed and editable content identity;
 4. the Run request, dataset, source/dependency, Harness, and Study identities
@@ -72,13 +73,13 @@ snapshot at publication time, and derived leader decision support. It contains
 no Experiment or Campaign catalog and cannot cite those evidence kinds.
 
 The Report request follows immutable Run authority, not merely Project-root
-intake. A primary Study freezes the Project request. A same-Project fixed
-follow-up may instead freeze a Study-owned request and its corresponding
-position snapshot beneath the Run dependency sources. Publication and loading
-verify that the snapshot request hash matches that frozen request, then use it
-in both `report.json` and Report identity. Older and newer Studies can therefore
-answer different questions over one retained dataset without relabeling either
-Report.
+intake or a conventional source directory. Any fixed Study may explicitly name
+one exact request dependency; a position snapshot is optional and, when
+present, must bind back to that request. Publication and loading verify the
+frozen hashes and use the request in both `report.json` and Report identity.
+Older and newer Studies can therefore answer different questions inside one
+long-lived Project without moving files into a special Study family or
+relabeling either Report.
 
 ## Append-only correction lineage
 
