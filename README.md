@@ -1,5 +1,5 @@
 ---
-version: 0.9.20
+version: 0.9.21
 ---
 
 # AutoQuant V2
@@ -32,12 +32,13 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current release: `v0.9.20`
+## Current release: `v0.9.21`
 
-`v0.9.20` gives U.S. equity/ETF hourly research one truthful Yahoo route: an
-exact complete XNYS response becomes an auditable V3 package, while a range,
-timestamp, session, or panel defect becomes durable no-authority evidence and
-never a fabricated dataset.
+`v0.9.21` makes an unavailable temporal Factor objective a precise research
+result: too few finite pairs, no candidate variation, and no target variation
+now have distinct stable errors with exact population counts instead of a
+Python conversion exception. Fixed conditional price-event questions remain
+on the Event Study route rather than being disguised as sparse Factors.
 OpenAlice remains independently pinned to `v0.8.31` until the host deliberately
 selects another tag; publishing AutoQuant does not migrate a Workspace or move
 a host pin.

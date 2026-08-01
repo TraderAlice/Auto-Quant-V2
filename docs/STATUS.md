@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha at `v0.9.20`; `v0.8.31` remains the Harness currently
+Status: usable pre-alpha at `v0.9.21`; `v0.8.31` remains the Harness currently
 consumed by OpenAlice until the host deliberately selects a newer tag.
 
 Updated: 2026-08-01.
@@ -13,6 +13,47 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 [[docs/openalice-real-delegation-synthesis]], and [[PLANS]].
 
 ## Milestone
+
+The `0.9.21` release makes an unavailable temporal Factor objective a precise
+research result rather than a Python conversion failure. After Core constructs
+the request-authorized single-asset series or two-asset relative-value spread,
+it inspects the exact purged primary validation population before converting
+the objective. Fewer than 20 finite pairs, fewer than two candidate values,
+and fewer than two forward-return values now produce distinct stable
+`factor.temporal-primary-*` errors with evaluation mode, split, horizon, pair
+count, distinct-value counts, and required minimum.
+
+This does not introduce a sparse-event Factor API or coerce missing input to
+zero. A binary candidate still asks a temporal association question. Frozen
+event selection, delayed entry/exit returns, overlap, unconditional history,
+and matched-asset outcomes remain owned by `ohlcv-event-study-lab`.
+
+A fresh isolated Grok 4.5 coworker used only an installed `0.9.21` candidate
+wheel, one staged request, and a fixed Yahoo NVDA/SPY package. It created one
+Project, wrote the English brief, executed the predeclared gap-entry candidate
+exactly once, and preserved failed Run
+`run-20260801T153353232744Z-688e2dbc691e` with zero Sessions, Reports,
+Dossiers, Portfolio, or RL work. It correctly explained
+`factor.temporal-primary-candidate-variation`: 124 finite validation pairs,
+one candidate value, 124 target values, and a 20-observation minimum.
+Independent reconstruction reproduced five full-sample gap events, five
+emitted ones, three warm-up missing values, and zero validation events.
+
+The final regression passed all 425 tests in 1,131.865 seconds and resolved
+all 1,401 documentation links. The checked-in Skill bundle and template files
+match the current Harness. The root sample preserves nine historical Runs and
+projects a clean current `0.9.21` Factor baseline with the same
+`-0.031325301204819286` validation IC as `0.9.20`; no old evidence was
+rewritten. Exact field and release evidence is in
+[[plans/truthful-unevaluable-factor-diagnostics]]. OpenAlice remains
+independently pinned to `0.8.31`.
+
+The fresh-worker trial also exposed a separate lifecycle question: a preserved
+failed baseline is visible in Run/Studio evidence, but Orientation still calls
+the successful baseline missing and proposes another execution. That is a
+candidate follow-up topic, not a hidden part of this release.
+
+### `v0.9.20`
 
 The `0.9.20` release gives U.S.-listed equity and ETF hourly research a
 first-class but fail-closed Yahoo Chart route. The installed Skill accepts one
