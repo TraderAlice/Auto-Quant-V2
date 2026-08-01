@@ -142,10 +142,49 @@ translation after costs.
   still projected the blocked Factor lane and a new Session as current work.
   A matching immutable Dossier is already the caller handoff; further research
   must be explicitly optional until newer evidence makes it stale.
+- 2026-08-01 — Candidate cohort 23 was stopped before research because the
+  host launch packet inherited a PATH that did not select the candidate wheel.
+  The worker then discovered the development checkout outside its desk. This
+  is invalid host preparation, not product evidence, and does not count as a
+  replay.
+- 2026-08-01 — Candidate cohort 24 used only the installed `0.9.12` wheel and
+  completed the research, two provider routes, Factor and Portfolio Runs,
+  Reports, Factor-only Dossier, validation, orientation, and Studio. Final
+  evidence again found weak/inconclusive Factor qualification and no robust
+  benchmark-relative Portfolio advantage; it correctly withheld trading
+  authority and stopped at `required-research-complete`.
+- 2026-08-01 — Cohort 24 first selected the default `novel-factor` claim,
+  noticed after a visible Run that this identity claim evaluates the complete
+  research universe, then deleted the Project and recreated it with the
+  caller-correct `decision-signal` claim. The final scientific contract is
+  correct, but deleting immutable evidence is unacceptable and the replay is
+  not first-attempt clean. The prediction-population semantics remain correct:
+  factor identity uses the complete universe while request-bound decision
+  support excludes Mandate context assets. Agent guidance now requires claim
+  choice and resolved-population inspection before evaluation, plus preserved
+  evidence and disclosure for any later request-binding correction.
+- 2026-08-01 — The explicit Yahoo drop policy preserved two invalid
+  observations on the same session (`8035.T` and `8306.T`, 2022-05-17). The
+  aligned panel lost one date, and the worker disclosed only the first asset
+  it had inspected. A successful acquisition now projects one top-level
+  `invalidOhlc` summary in both command output and provider audit so Agents see
+  every affected asset and observation without manually traversing per-asset
+  records.
 
 ## Verification
 
-Pending.
+- Candidate implementation: 51 focused tests passed in 108.874 seconds;
+  documentation link audit passed for 1,327 links; lock check and compileall
+  passed.
+- Live provider reproduction retained raw payloads and exactly one bounded
+  invalid observation each for `8035.T` and `8306.T` on 2022-05-17; no price
+  was repaired or clamped.
+- Candidate cohort 24 host validation, orientation, program, Dossier, Studio,
+  installed-wheel identity, and filesystem audits passed. Its remaining
+  claim-selection/deletion and incomplete anomaly-disclosure behavior requires
+  one final clean replay after the guidance and summary repair.
+- Yahoo summary and repository Skill materialization focused regression: 31
+  tests passed in 1.439 seconds.
 
 ## Progress log
 
@@ -156,6 +195,12 @@ Pending.
   an empty desk. Host validation, orientation, program, Dossier, Studio, and
   pre-existing-file mutation audits passed; three reproducible Agent-facing
   frictions above were admitted for the candidate release.
+- 2026-08-01 — Candidate commit `45e8ef6` implemented bounded Yahoo anomaly
+  removal, canonical Nikkei symbol mapping, terminal Dossier orientation, and
+  version `0.9.12`. Cohort 24 validated those repairs and exposed two final
+  Agent-operability gaps: pre-Run Factor-claim selection and top-level anomaly
+  enumeration. Both now have bounded guidance/code regressions; a clean replay
+  remains required before release.
 
 ## Completion
 

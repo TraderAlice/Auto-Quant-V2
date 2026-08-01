@@ -278,6 +278,44 @@ def ensure_output(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
 
 
+def invalid_ohlc_summary(audits: dict[str, Any]) -> dict[str, Any]:
+    """Project per-asset invalid-bound evidence into one visible summary."""
+
+    affected_assets: list[str] = []
+    observations: list[dict[str, Any]] = []
+    observations_dropped = 0
+    policies: set[str] = set()
+    for symbol, asset_audit in audits.items():
+        policy = asset_audit.get("invalidOhlcPolicy")
+        if isinstance(policy, str):
+            policies.add(policy)
+        asset_observations = asset_audit.get(
+            "invalidOhlcBoundsObservations",
+            [],
+        )
+        if asset_observations:
+            affected_assets.append(symbol)
+            provider_symbol = asset_audit.get("providerSymbol")
+            for observation in asset_observations:
+                observations.append(
+                    {
+                        "symbol": symbol,
+                        "providerSymbol": provider_symbol,
+                        **observation,
+                    }
+                )
+        observations_dropped += int(
+            asset_audit.get("invalidOhlcBoundsRowsDropped", 0)
+        )
+    return {
+        "policy": next(iter(policies)) if len(policies) == 1 else "mixed",
+        "affectedAssets": affected_assets,
+        "observationsFound": len(observations),
+        "observationsDropped": observations_dropped,
+        "observations": observations,
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, required=True)
@@ -440,6 +478,7 @@ def main() -> None:
         json.dumps(package, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+    invalid_ohlc = invalid_ohlc_summary(audits)
     audit = {
         "schemaVersion": 1,
         "kind": "autoquant-provider-acquisition-audit",
@@ -462,6 +501,7 @@ def main() -> None:
                 "fields are treated as split-adjusted"
             ),
         }[args.adjustment],
+        "invalidOhlc": invalid_ohlc,
         "assets": audits,
         "packagePath": package_path.name,
         "packageSha256": sha256(package_path),
@@ -489,6 +529,7 @@ def main() -> None:
                 "panel": args.panel,
                 "firstDate": all_dates[0],
                 "lastDate": all_dates[-1],
+                "invalidOhlc": invalid_ohlc,
             },
             sort_keys=True,
         )

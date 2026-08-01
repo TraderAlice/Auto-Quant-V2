@@ -130,6 +130,19 @@ brief that another Agent can recover from the filesystem.
    literally: `optional-follow-up` preserves useful evidence-derived ideas but
    does not authorize or require another Session or Experiment.
 
+Before the first Factor Run, choose `factorPolicy` from the caller's claim,
+not from the candidate formula. Use `decision-signal` when the question asks
+whether a signal supports ranking, timing, allocation, or Portfolio decisions
+over the Mandate's tradable assets; this keeps named `context-only` assets out
+of the prediction population. Use `novel-factor` only when the caller actually
+claims new factor identity across the complete research universe, and
+`known-style-validation` only for a predeclared supported style. Inspect the
+resolved prediction universe before evaluation. If a Run later exposes a
+request-binding mistake, preserve that Project and immutable Run, disclose
+the visible-evidence timing, and create a corrected sibling Study or Project;
+never delete evidence and recreate the same identity to make the attempt look
+clean.
+
 When the assignment requires market data, use the Workspace's
 `$acquire-market-ohlcv` Skill after the research question fixes the venue,
 assets, completed-bar interval, date range, research clock, and required

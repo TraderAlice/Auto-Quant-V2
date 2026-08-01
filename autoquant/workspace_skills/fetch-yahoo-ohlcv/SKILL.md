@@ -65,14 +65,20 @@ the anomaly count exceeds the ceiling of 0.1% of normalized source rows, with
 a minimum allowance of one isolated row and a maximum of 10 per asset. With an
 aligned panel, inspect the final `outputRows`: removing one asset-date also
 removes that date from the common panel for every asset.
+The command result and top-level `provider-audit.json.invalidOhlc` projection
+summarize every affected canonical asset and removed observation. Use that
+projection before drilling into the matching per-asset records; an aligned
+panel can lose one shared date even when more than one asset had an invalid
+observation on that date.
 
 ## Verify
 
 - Inspect `provider-audit.json`, every raw JSON hash, every CSV hash, returned
   instrument metadata, source/normalized ranges, dropped rows, and alignment.
 - If `drop-observation` was selected, disclose why it was authorized and cite
-  `invalidOhlcBoundsObservations`; do not describe the resulting panel as
-  repaired provider history.
+  every item in top-level `invalidOhlc.observations`, then reconcile it with
+  the per-asset `invalidOhlcBoundsObservations`; do not describe the resulting
+  panel as repaired provider history.
 - Spot-check provider symbols and venue identity outside the Chart response.
 - Compare a bounded overlap against the market's second source.
 - Invoke `$package-autoquant-ohlcv`; do not move generated CSVs directly into

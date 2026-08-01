@@ -336,6 +336,39 @@ class WorkspaceSkillTests(unittest.TestCase):
                 "drop-observation",
             )
 
+        summary = yahoo.invalid_ohlc_summary(
+            {
+                "8035.T": {
+                    **audit,
+                    "providerSymbol": "8035.T",
+                },
+                "8306.T": {
+                    **audit,
+                    "providerSymbol": "8306.T",
+                    "invalidOhlcBoundsObservations": [
+                        {
+                            **audit["invalidOhlcBoundsObservations"][0],
+                            "date": "2024-01-04",
+                        }
+                    ],
+                },
+                "7203.T": {
+                    "providerSymbol": "7203.T",
+                    "invalidOhlcPolicy": "drop-observation",
+                    "invalidOhlcBoundsRowsDropped": 0,
+                    "invalidOhlcBoundsObservations": [],
+                },
+            }
+        )
+        self.assertEqual(summary["policy"], "drop-observation")
+        self.assertEqual(summary["affectedAssets"], ["8035.T", "8306.T"])
+        self.assertEqual(summary["observationsFound"], 2)
+        self.assertEqual(summary["observationsDropped"], 2)
+        self.assertEqual(
+            [item["symbol"] for item in summary["observations"]],
+            ["8035.T", "8306.T"],
+        )
+
     def test_nikkei_keeps_peer_canonical_symbol_separate_from_code(self) -> None:
         nikkei = load_script(
             "autoquant_skill_nikkei_canonical_symbol",
