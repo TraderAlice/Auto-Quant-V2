@@ -154,6 +154,23 @@ asset in its top-level audit, and discloses common-panel loss. Persistent scale
 changes still require independent corporate-action/provider evidence rather
 than automatic repair.
 
+Historical intraday provider labels are also not assumed to be AutoQuant bar
+closes. The Yahoo XNYS `1h` route preserves its bucket-start timestamps, maps
+only exact expected starts to the pinned calendar's completed close (including
+the short terminal bucket), and emits V3 only after every requested asset has
+the full aligned session panel. It requests a one-hour warmup because starting
+exactly on the first provider bucket was observed to zero its volume; that
+warmup counts against the provider's trailing 730-day range.
+
+An HTTP-successful intraday response may still be only failure evidence. Null
+expected rows, early-close close markers, ordinary gaps, duplicates,
+off-grid/in-session extras, or a single deficient asset create
+`provider-failure.json`, retain raw response hashes, return nonzero, and create
+no package. The procedure does not delete a session, reconstruct a terminal
+bar, change interval, or fall back to observed-only semantics. A daily peer
+does not become independent hourly confirmation merely because it names the
+same asset.
+
 Canonical research symbols belong to the cross-provider dataset contract;
 route-specific lookup codes do not. Peer Japanese packages therefore retain a
 shared symbol such as `7203.T` while a Nikkei route separately records `7203`

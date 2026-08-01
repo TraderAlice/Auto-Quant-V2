@@ -182,6 +182,11 @@ bars.
   half-hour. Reconstruction is scientifically unsupported and remains refused.
 - 2026-08-01 — An honest negative provider trial and a successful bounded
   acquisition trial prove different things; both are required before release.
+- 2026-08-01 — A first successful April probe exposed zero volume in every
+  asset's first bucket when `period1` equalled the first session open. Moving
+  the provider query start one hour earlier restored the exact first-bucket
+  volume while leaving normalized coverage unchanged. The warmup is therefore
+  mandatory and consumes one hour of the 730-day provider window.
 
 ## Verification
 
@@ -191,6 +196,12 @@ Pending implementation and candidate trials.
 
 - 2026-08-01 — Plan created from released-wheel Grok baseline plus independent
   live Yahoo/Nasdaq provider probes.
+- 2026-08-01 — Canonical acquisition code and deterministic contracts now map
+  regular/early-close bucket starts, reject response defects, emit intake-ready
+  V3 on success, and retain no-package failure evidence. A live five-ETF April
+  2026 smoke produced 147 aligned rows per asset across 21 sessions with no
+  zero-volume rows after the one-hour warmup; the fixed two-year request failed
+  preflight because its required provider start fell outside 730 days.
 
 ## Completion
 

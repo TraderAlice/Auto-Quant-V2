@@ -12,6 +12,7 @@ from unittest import mock
 
 import pandas as pd
 
+from autoquant.intake import prepare_project_intake
 from autoquant.skill_bundle import (
     SKILL_DISCOVERY_ROOTS,
     WORKSPACE_SKILLS_MANIFEST,
@@ -38,6 +39,75 @@ def load_script(name: str, path: Path):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def yahoo_intraday_payload(
+    route,
+    schedule: pd.DataFrame,
+    *,
+    omitted_starts: set[pd.Timestamp] | None = None,
+    null_starts: set[pd.Timestamp] | None = None,
+    extra_rows: list[tuple[pd.Timestamp, dict[str, float]]] | None = None,
+) -> dict:
+    """Build deterministic Yahoo-style bucket-start evidence."""
+
+    omitted = omitted_starts or set()
+    nulls = null_starts or set()
+    observations: list[tuple[pd.Timestamp, dict[str, float | None]]] = []
+    for number, slot in enumerate(route.expected_slots(schedule)):
+        if slot.provider_start in omitted:
+            continue
+        close = 100.0 + number * 0.05
+        values: dict[str, float | None] = {
+            "open": close - 0.02,
+            "high": close + 0.04,
+            "low": close - 0.05,
+            "close": close,
+            "volume": 100_000.0 + number,
+        }
+        if slot.provider_start in nulls:
+            values = {column: None for column in route.OHLCV_COLUMNS}
+        observations.append((slot.provider_start, values))
+    observations.extend(extra_rows or [])
+    observations.sort(key=lambda item: item[0])
+    return {
+        "chart": {
+            "error": None,
+            "result": [
+                {
+                    "meta": {
+                        "symbol": "SPY",
+                        "instrumentType": "ETF",
+                        "exchangeName": "PCX",
+                        "fullExchangeName": "NYSEArca",
+                        "currency": "USD",
+                        "exchangeTimezoneName": "America/New_York",
+                        "dataGranularity": "1h",
+                    },
+                    "timestamp": [
+                        int(timestamp.timestamp())
+                        for timestamp, _ in observations
+                    ],
+                    "indicators": {
+                        "quote": [
+                            {
+                                column: [
+                                    values[column]
+                                    for _, values in observations
+                                ]
+                                for column in route.OHLCV_COLUMNS
+                            }
+                        ]
+                    },
+                    "events": {
+                        "dividends": {
+                            "fixture": {"amount": 0.25}
+                        }
+                    },
+                }
+            ],
+        }
+    }
 
 
 class WorkspaceSkillTests(unittest.TestCase):
@@ -256,6 +326,360 @@ class WorkspaceSkillTests(unittest.TestCase):
             audit["sessionDateTimezone"],
             "Asia/Ho_Chi_Minh",
         )
+
+    def test_yahoo_intraday_maps_bucket_starts_and_early_close(self) -> None:
+        intraday = load_script(
+            "autoquant_skill_yahoo_intraday_mapping",
+            SKILLS
+            / "fetch-yahoo-ohlcv"
+            / "scripts"
+            / "fetch_yahoo_intraday.py",
+        )
+        schedule = intraday.requested_schedule(
+            intraday.parse_date("2024-11-27"),
+            intraday.parse_date("2024-11-30"),
+        )
+        payload = yahoo_intraday_payload(intraday, schedule)
+        result = intraday.result_for("SPY", payload)
+        frame, audit = intraday.evaluate_result("SPY", result, schedule)
+
+        self.assertIsNotNone(frame)
+        assert frame is not None
+        slots = intraday.expected_slots(schedule)
+        self.assertEqual(len(slots), 11)
+        self.assertEqual(len(frame), 11)
+        self.assertEqual(
+            frame["timestamp"].tolist(),
+            [intraday.utc_iso(slot.canonical_close) for slot in slots],
+        )
+        self.assertEqual(
+            frame.iloc[-1]["timestamp"],
+            "2024-11-29T18:00:00+00:00",
+        )
+        self.assertEqual(frame.iloc[-1]["close"], 100.5)
+        self.assertEqual(audit["status"], "accepted")
+        self.assertEqual(audit["missingRows"], 0)
+        self.assertIn("OHLCV values unchanged", audit["timestampTransformation"])
+
+    def test_yahoo_intraday_rejects_missing_null_and_close_marker_rows(
+        self,
+    ) -> None:
+        intraday = load_script(
+            "autoquant_skill_yahoo_intraday_gap",
+            SKILLS
+            / "fetch-yahoo-ohlcv"
+            / "scripts"
+            / "fetch_yahoo_intraday.py",
+        )
+        schedule = intraday.requested_schedule(
+            intraday.parse_date("2024-11-29"),
+            intraday.parse_date("2024-11-30"),
+        )
+        slots = intraday.expected_slots(schedule)
+        close_marker = schedule.iloc[0].close
+        payload = yahoo_intraday_payload(
+            intraday,
+            schedule,
+            omitted_starts={slots[-1].provider_start},
+            null_starts={slots[1].provider_start},
+            extra_rows=[
+                (
+                    close_marker,
+                    {
+                        "open": 100.0,
+                        "high": 102.0,
+                        "low": 99.0,
+                        "close": 101.0,
+                        "volume": 0.0,
+                    },
+                )
+            ],
+        )
+        frame, audit = intraday.evaluate_result(
+            "SPY",
+            intraday.result_for("SPY", payload),
+            schedule,
+        )
+
+        self.assertIsNone(frame)
+        self.assertEqual(audit["status"], "rejected")
+        self.assertEqual(audit["missingRows"], 1)
+        self.assertEqual(audit["invalidRows"], 1)
+        self.assertEqual(audit["unexpectedRows"], 1)
+        self.assertEqual(
+            {issue["code"] for issue in audit["issues"]},
+            {
+                "provider.noncanonical-start",
+                "provider.missing-bars",
+                "provider.invalid-bars",
+            },
+        )
+
+    def test_yahoo_intraday_rejects_duplicate_metadata_and_value_defects(
+        self,
+    ) -> None:
+        intraday = load_script(
+            "autoquant_skill_yahoo_intraday_defects",
+            SKILLS
+            / "fetch-yahoo-ohlcv"
+            / "scripts"
+            / "fetch_yahoo_intraday.py",
+        )
+        schedule = intraday.requested_schedule(
+            intraday.parse_date("2026-04-01"),
+            intraday.parse_date("2026-04-03"),
+        )
+        payload = yahoo_intraday_payload(intraday, schedule)
+        base = payload["chart"]["result"][0]
+        cases: list[tuple[str, dict, str]] = []
+
+        wrong_timezone = json.loads(json.dumps(base))
+        wrong_timezone["meta"]["exchangeTimezoneName"] = "UTC"
+        cases.append(("timezone", wrong_timezone, "provider.timezone"))
+
+        wrong_interval = json.loads(json.dumps(base))
+        wrong_interval["meta"]["dataGranularity"] = "30m"
+        cases.append(("interval", wrong_interval, "provider.interval"))
+
+        duplicate = json.loads(json.dumps(base))
+        duplicate["timestamp"].insert(1, duplicate["timestamp"][0])
+        for column in intraday.OHLCV_COLUMNS:
+            duplicate["indicators"]["quote"][0][column].insert(
+                1,
+                duplicate["indicators"]["quote"][0][column][0],
+            )
+        cases.append(("duplicate", duplicate, "provider.duplicate-start"))
+
+        invalid_ohlc = json.loads(json.dumps(base))
+        quote = invalid_ohlc["indicators"]["quote"][0]
+        quote["high"][0] = quote["open"][0] - 1.0
+        cases.append(("ohlc", invalid_ohlc, "provider.invalid-bars"))
+
+        negative_volume = json.loads(json.dumps(base))
+        negative_volume["indicators"]["quote"][0]["volume"][0] = -1.0
+        cases.append(("volume", negative_volume, "provider.invalid-bars"))
+
+        unequal_arrays = json.loads(json.dumps(base))
+        unequal_arrays["indicators"]["quote"][0]["volume"].pop()
+        cases.append(("shape", unequal_arrays, "provider.array-length"))
+
+        for label, result, expected_code in cases:
+            with self.subTest(label=label):
+                frame, audit = intraday.evaluate_result(
+                    "SPY",
+                    result,
+                    schedule,
+                )
+                self.assertIsNone(frame)
+                self.assertIn(
+                    expected_code,
+                    {issue["code"] for issue in audit["issues"]},
+                )
+
+    def test_yahoo_intraday_range_includes_required_warmup(self) -> None:
+        intraday = load_script(
+            "autoquant_skill_yahoo_intraday_range",
+            SKILLS
+            / "fetch-yahoo-ohlcv"
+            / "scripts"
+            / "fetch_yahoo_intraday.py",
+        )
+        first_open = pd.Timestamp("2024-08-01T13:30:00Z")
+        exact = intraday.range_eligibility(
+            first_open,
+            pd.Timestamp("2026-08-01T12:30:00Z").to_pydatetime(),
+        )
+        self.assertTrue(exact["locallyEligible"])
+        self.assertEqual(
+            exact["providerPeriod1"],
+            "2024-08-01T12:30:00+00:00",
+        )
+        outside = intraday.range_eligibility(
+            first_open,
+            pd.Timestamp("2026-08-01T12:30:01Z").to_pydatetime(),
+        )
+        self.assertFalse(outside["locallyEligible"])
+
+    def test_yahoo_intraday_main_emits_intake_ready_v3_or_failure_only(
+        self,
+    ) -> None:
+        intraday = load_script(
+            "autoquant_skill_yahoo_intraday_main",
+            SKILLS
+            / "fetch-yahoo-ohlcv"
+            / "scripts"
+            / "fetch_yahoo_intraday.py",
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            assets = root / "assets.json"
+            symbols = ("SPY", "QQQ", "IWM", "TLT", "GLD")
+            assets.write_text(
+                json.dumps(
+                    [
+                        {
+                            "symbol": symbol,
+                            "providerSymbol": symbol,
+                            "venue": "ARCX",
+                            "currency": "USD",
+                            "assetClass": "fund",
+                        }
+                        for symbol in symbols
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            start = intraday.parse_date("2026-04-01")
+            end_exclusive = intraday.parse_date("2026-06-06")
+            schedule = intraday.requested_schedule(start, end_exclusive)
+            body = json.dumps(
+                yahoo_intraday_payload(intraday, schedule)
+            ).encode()
+            output = root / "success"
+            argv = [
+                "fetch_yahoo_intraday.py",
+                "--output",
+                str(output),
+                "--assets",
+                str(assets),
+                "--dataset-id",
+                "us-etf-hourly-fixture",
+                "--start",
+                start.isoformat(),
+                "--end-exclusive",
+                end_exclusive.isoformat(),
+                "--calendar",
+                "XNYS",
+                "--timezone",
+                "America/New_York",
+                "--interval",
+                "1h",
+                "--feature-interval",
+                "1d",
+                "--adjustment",
+                "split-adjusted",
+                "--panel",
+                "aligned",
+                "--terms",
+                "deterministic fixture only",
+            ]
+            attempts = [
+                {
+                    "attempt": 1,
+                    "attemptedAt": "2026-08-01T00:00:00+00:00",
+                    "status": 200,
+                    "headers": {"Content-Type": "application/json"},
+                    "bodyBytes": len(body),
+                    "bodySha256": intraday.sha256_bytes(body),
+                }
+            ]
+            with mock.patch.object(
+                intraday,
+                "fetch_bytes",
+                return_value=(body, attempts),
+            ), mock.patch.object(sys, "argv", argv), contextlib.redirect_stdout(
+                io.StringIO()
+            ):
+                intraday.main()
+
+            package_path = output / "dataset-package.json"
+            package = json.loads(package_path.read_text(encoding="utf-8"))
+            self.assertEqual(package["schemaVersion"], 3)
+            self.assertEqual(package["baseInterval"], "1h")
+            self.assertEqual(package["featureIntervals"], ["1d"])
+            self.assertFalse((output / "provider-failure.json").exists())
+            self.assertTrue((output / "provider-audit.json").is_file())
+
+            request = {
+                "schemaVersion": 1,
+                "kind": "autoquant-research-request",
+                "title": "Hourly ETF reversal fixture",
+                "question": "Does completed hourly reversal predict four bars?",
+                "decisionContext": "Deterministic intake contract test.",
+                "assets": [
+                    {
+                        "symbol": symbol,
+                        "assetClass": "fund",
+                        "venue": "ARCX",
+                    }
+                    for symbol in symbols
+                ],
+                "direction": "long",
+                "factorPolicy": {
+                    "claim": "novel-factor",
+                    "knownStyle": None,
+                },
+                "horizonPolicy": {
+                    "primaryForwardBars": 4,
+                    "diagnosticForwardBars": [1, 4, 8],
+                },
+                "horizon": "Four completed hourly bars.",
+                "hypotheses": ["Short-horizon reversal may be measurable."],
+                "constraints": ["No live trading authority."],
+                "deliverables": ["Factor evidence"],
+                "source": {
+                    "system": "openalice",
+                    "workspaceId": "workspace-fixture",
+                    "sessionId": "session-fixture",
+                    "artifactPath": None,
+                    "artifactRevision": None,
+                },
+            }
+            request_path = root / "request.json"
+            request_path.write_text(json.dumps(request), encoding="utf-8")
+            prepared = prepare_project_intake(
+                request_path,
+                package_path,
+                "ohlcv-factor-lab",
+            )
+            self.assertEqual(prepared.package["schemaVersion"], 3)
+            self.assertEqual(
+                prepared.interval_surface["featureIntervals"],
+                ["1d"],
+            )
+
+            failed_output = root / "failure"
+            failed_schedule = intraday.requested_schedule(
+                intraday.parse_date("2026-04-01"),
+                intraday.parse_date("2026-04-04"),
+            )
+            missing = intraday.expected_slots(failed_schedule)[2].provider_start
+            failed_body = json.dumps(
+                yahoo_intraday_payload(
+                    intraday,
+                    failed_schedule,
+                    omitted_starts={missing},
+                )
+            ).encode()
+            failed_argv = list(argv)
+            failed_argv[2] = str(failed_output)
+            failed_argv[8] = "2026-04-01"
+            failed_argv[10] = "2026-04-04"
+            with mock.patch.object(
+                intraday,
+                "fetch_bytes",
+                side_effect=[
+                    *((body, attempts),) * (len(symbols) - 1),
+                    (failed_body, attempts),
+                ],
+            ), mock.patch.object(sys, "argv", failed_argv):
+                with self.assertRaisesRegex(
+                    RuntimeError,
+                    "cannot form exact XNYS V3 authority",
+                ):
+                    intraday.main()
+            failure = json.loads(
+                (failed_output / "provider-failure.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(failure["status"], "no-dataset-authority")
+            self.assertFalse(failure["packageCreated"])
+            self.assertEqual(
+                [item.get("symbol") for item in failure["failures"]],
+                ["GLD"],
+            )
+            self.assertFalse((failed_output / "dataset-package.json").exists())
 
     def test_yahoo_invalid_ohlc_requires_explicit_audited_drop(self) -> None:
         yahoo = load_script(

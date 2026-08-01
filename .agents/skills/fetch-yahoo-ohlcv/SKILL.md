@@ -1,6 +1,6 @@
 ---
 name: fetch-yahoo-ohlcv
-description: Acquire bounded completed daily OHLCV from Yahoo Finance Chart, preserve raw JSON and metadata, select explicit split-adjusted or split-and-dividend-adjusted semantics, and emit an auditable AutoQuant staging package. Use when the market router selects Yahoo as one broad historical source or when comparing Yahoo against a venue-authoritative provider.
+description: Acquire bounded completed daily or strict XNYS 1h OHLCV from Yahoo Finance Chart, preserve raw JSON and metadata, enforce explicit adjustment and timestamp semantics, and emit either an auditable AutoQuant staging package or durable no-authority evidence. Use when the market router selects Yahoo as one broad historical source or when comparing Yahoo against a venue-authoritative provider.
 ---
 
 # Fetch Yahoo OHLCV
@@ -14,11 +14,23 @@ redistribution authority.
 1. Read `$acquire-market-ohlcv` and its relevant market reference first.
 2. Create an asset file as described in
    [assets-format.md](references/assets-format.md).
-3. Choose an end-exclusive date that excludes forming bars.
+3. Choose an end-exclusive local session date that excludes forming bars.
 4. Obtain and preserve the applicable terms/access understanding. Pass it
    explicitly; the script does not invent a legal claim.
 
-## Fetch
+## Choose daily or XNYS 1h
+
+Use the daily procedure for completed session observations and V1/V4 packages.
+Use the intraday procedure only for an aligned U.S. equity/ETF question whose
+base contract is XNYS regular-session `1h`, split-adjusted OHLCV, and one or
+more completed higher feature intervals. Do not use it for extended hours, a
+non-XNYS clock, dividend-adjusted intraday OHLC, or observed-only V5.
+
+Yahoo's two surfaces have different limits and timestamp meanings. Selecting
+the script is part of the fixed research-data contract, not a fallback after
+seeing the response.
+
+## Fetch daily
 
 Run:
 
@@ -85,6 +97,60 @@ uses the same 0.1%-of-source, minimum-one, maximum-10 bound per asset. A
 persistent split or regime change that does not quickly reverse is not removed
 by this policy and still requires separate provider/corporate-action evidence.
 
+## Fetch strict XNYS 1h
+
+Run:
+
+```bash
+aq-python scripts/fetch_yahoo_intraday.py \
+  --output <workspace>/staging/market-data/<dataset-id> \
+  --assets /absolute/path/assets.json \
+  --dataset-id <dataset-id> \
+  --start YYYY-MM-DD \
+  --end-exclusive YYYY-MM-DD \
+  --calendar XNYS \
+  --timezone America/New_York \
+  --interval 1h \
+  --feature-interval 1d \
+  --adjustment split-adjusted \
+  --panel aligned \
+  --terms "caller-authorized research retrieval; Yahoo terms apply"
+```
+
+Repeat `--feature-interval` only for fixed selections from `3h`, `4h`, `6h`,
+and `1d`. The script emits a V3 package only after every asset contains the
+same exact complete XNYS panel.
+
+Yahoo labels historical hourly rows by provider bucket **start**. AutoQuant V3
+requires completed bar **close**. The procedure maps every expected provider
+start to `min(start + 1h, scheduled session close)` using the pinned XNYS
+calendar. It does not change OHLCV values. This includes the final half-hour of
+a normal session and the short terminal bucket of an early close.
+
+The request begins one hour before the first scheduled open. Live probes show
+that beginning exactly at the first bucket can preserve price while returning
+zero first-bucket volume. The warmup is filtered out after parsing, but it also
+counts against Yahoo's observed trailing 730-day `1h` limit. The script records
+its local eligibility estimate; Yahoo's actual response remains final.
+
+HTTP success is not data authority. Yahoo can emit null expected rows,
+ordinary-session gaps, an early-close null terminal bucket, or a zero-volume
+session-close marker whose OHLC resembles a wider period. The procedure never
+relabels that marker as the missing terminal bar. It also rejects duplicates,
+unexpected in-session timestamps, invalid OHLC, negative volume, wrong
+timezone/granularity metadata, incomplete sessions, and panel mismatch.
+
+On success, inspect `provider-audit.json`, normalized CSVs, and
+`dataset-package.json`. On any range, response, asset, session, or panel
+failure, inspect `provider-failure.json` and retained raw responses. A failed
+route returns nonzero and creates no dataset package. Do not handwrite a
+success manifest from its partial bytes.
+
+Yahoo intraday Chart does not expose adjusted close. This procedure supports
+only provider quote OHLC treated as split-adjusted and leaves provider volume
+unchanged. It does not claim dividend-adjusted prices, official venue data, or
+independent hourly peer confirmation.
+
 ## Verify
 
 - Inspect `provider-audit.json`, every raw JSON hash, every CSV hash, returned
@@ -98,13 +164,15 @@ by this policy and still requires separate provider/corporate-action evidence.
   was accepted, and the common-panel dates lost. Never describe removal as a
   verified split adjustment or silently replace it with rescaled prices.
 - Spot-check provider symbols and venue identity outside the Chart response.
-- Compare a bounded overlap against the market's second source.
+- Compare a bounded overlap against the market's second source when that peer
+  covers the same interval and adjustment. Nasdaq's bundled daily route is not
+  an hourly peer.
 - Invoke `$package-autoquant-ohlcv`; do not move generated CSVs directly into
   a Project.
 
 ## Stop conditions
 
 Stop rather than silently changing the task when Yahoo lacks the requested
-history, interval, symbol, adjusted close, completed bar, or credible venue
-mapping. Record rate limiting, response errors, or freshness gaps as provider
-evidence.
+history, interval, symbol, adjusted close, completed bar, exact XNYS session,
+or credible venue mapping. Record range rejection, rate limiting, response
+errors, null/gap evidence, or freshness gaps as provider evidence.

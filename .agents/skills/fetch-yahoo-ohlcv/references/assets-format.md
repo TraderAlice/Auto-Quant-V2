@@ -20,6 +20,9 @@ Provide a JSON array:
   against independent market evidence; Yahoo metadata does not authenticate
   them.
 - Use unique values for both `symbol` and `providerSymbol`.
-- Supported first-pass output is completed daily data only.
+- Supported output is either completed daily V1/V4 data or strict aligned XNYS
+  `1h` V3 data. The selected script fixes the contract.
 - Yahoo does not provide exchange-unadjusted OHLC through this procedure.
-  Choose split-adjusted or split-and-dividend-adjusted explicitly.
+  Daily acquisition chooses split-adjusted or split-and-dividend-adjusted
+  explicitly. Intraday acquisition is split-adjusted only because Yahoo does
+  not expose intraday adjusted close.

@@ -25,4 +25,10 @@ completeness or observed-only authority, session boundaries, DST/early-close
 behavior where applicable, terminal partial-bucket policy, and causal
 completed aggregation.
 
+A provider's timestamp may label bucket start rather than completed bar close.
+That provider Skill must preserve the raw label and prove an exact calendar
+mapping before it emits V3. Packaging never fixes labels by adding one nominal
+duration blindly: XNYS's terminal bucket may be shorter, and a provider close
+marker may not be the missing bucket's OHLCV.
+
 Never select a richer version simply because it accepts more fields.

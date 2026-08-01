@@ -1,5 +1,5 @@
 {
-  "bundleSha256": "50820b2a7c60507402c1e557aa0853be884d1036fd1871c3860e17b975eb69c1",
+  "bundleSha256": "e488d97f0c818272467d3912996da91814e7c477c57f3ce5e24bbe90ffceb20b",
   "discoveryRoots": [
     ".agents/skills",
     ".claude/skills"
@@ -44,7 +44,7 @@
         },
         {
           "path": "references/us-equities.md",
-          "sha256": "79869b587a8ac243d68864b6fdf39130d452ca63ded890ed3ea74d095d079a93"
+          "sha256": "ce6890d77546d4bfa7672c31da4f823f5de606531e87e4fa13051ae64ae8108e"
         },
         {
           "path": "references/vietnam-equities.md",
@@ -382,19 +382,23 @@
       "files": [
         {
           "path": "SKILL.md",
-          "sha256": "1792601d5483565b6a5662864b033134e1d01648ba23f028f94837b5878fb387"
+          "sha256": "0e2354e2608f81bbd48eee9856c704ec732ecafbd1350028fe8bc5b54e34111f"
         },
         {
           "path": "agents/openai.yaml",
-          "sha256": "3b3b29f2f1340c0f9497a5ea400bf24c670048a30aec17e2e0c0c9ec57227d00"
+          "sha256": "5530c2a3d6ce2507d1e1218a5319517b4f308b8bfd4b5ac5b5f9ced7974ee8eb"
         },
         {
           "path": "references/assets-format.md",
-          "sha256": "4425b0f8c9874feda700596f272fbb70468532e58e969885275750ae8a924cb6"
+          "sha256": "bcbd375e4c808804ec8d3495be619d25da2326359fa5ce06a884d6e26c0b1d2e"
         },
         {
           "path": "scripts/fetch_yahoo_daily.py",
           "sha256": "4d2f0fb8b9a103bea951800a449450d23070ca848147837442fc572f82c97f75"
+        },
+        {
+          "path": "scripts/fetch_yahoo_intraday.py",
+          "sha256": "0ee0c0e141331bc670cb5a8f58497e5a9096a43b69b22d276d2f7b0e6201e125"
         }
       ],
       "id": "fetch-yahoo-ohlcv"
@@ -411,7 +415,7 @@
         },
         {
           "path": "references/package-contracts.md",
-          "sha256": "15d30396debc1fba3779224d50d52a287dfe7b0b1c6e9db781acd1e479088592"
+          "sha256": "0fceebfa43865fc19a838d560276f49d3a4220053477789090183b97af52ef7f"
         },
         {
           "path": "scripts/audit_ohlcv_package.py",

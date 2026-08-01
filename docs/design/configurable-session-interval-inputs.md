@@ -90,6 +90,14 @@ This handles:
 Extra premarket/after-hours rows, missing expected closes, partial first/last
 sessions, and unscheduled timestamps fail intake.
 
+Provider normalization must establish this bar-close authority before Core
+intake. For example, Yahoo historical `1h` labels provider bucket starts. Its
+acquisition Skill may map an exact expected start to the corresponding
+scheduled close, but it must retain that transformation in provider evidence
+and may not reinterpret a null terminal bucket or zero-volume session-close
+marker as valid OHLCV. Core continues to receive and verify only canonical
+completed closes.
+
 Higher intraday buckets use the same open anchor and scheduled-close terminal
 rule. The last short bucket is a completed bar, not a forming bar, because the
 exchange session has ended. Daily aggregation consumes the entire verified
