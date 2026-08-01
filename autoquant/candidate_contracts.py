@@ -155,7 +155,10 @@ def _panel_columns(feature_intervals: list[str]) -> list[str]:
 
 
 def _observation_semantics(surface_source: str) -> dict[str, str]:
-    if surface_source == "content-locked-snapshot-v5":
+    if surface_source in {
+        "content-locked-snapshot-v5",
+        "content-locked-snapshot-v6",
+    }:
         return {
             "timestampMeaning": "completed-bar-close",
             "panelShape": "ragged-observed-only",
@@ -268,7 +271,7 @@ FACTOR_CANDIDATE_CONTRACT_JSON_SCHEMA: dict[str, Any] = {
             ],
             "properties": {
                 "surfaceSource": {
-                    "pattern": "^(legacy-ohlcv-v1|content-locked-snapshot-v[2345])$"
+                    "pattern": "^(legacy-ohlcv-v1|content-locked-snapshot-v[23456])$"
                 },
                 "baseInterval": {"type": ["string", "null"]},
                 "featureIntervals": {

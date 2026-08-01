@@ -16,6 +16,7 @@ from unittest import mock
 import jsonschema
 import pandas as pd
 
+from autoquant.candidate_contracts import FACTOR_CANDIDATE_CONTRACT_JSON_SCHEMA
 from autoquant.factor_explorer import load_factor_diagnostics
 from autoquant.intake import (
     OHLCV_DATASET_PACKAGE_JSON_SCHEMA,
@@ -24,6 +25,7 @@ from autoquant.intake import (
 )
 from autoquant.run_reports import publish_run_report
 from autoquant.runs import execute_study
+from autoquant.orientation import build_agent_work_brief
 from autoquant.skill_bundle import (
     SKILL_DISCOVERY_ROOTS,
     WORKSPACE_SKILLS_MANIFEST,
@@ -987,6 +989,33 @@ def compute_factor(panel: pd.DataFrame) -> pd.Series:
                 "multi-source-factor",
                 template=prepared.template,
                 template_intake=prepared,
+            )
+            candidate_contract = build_agent_work_brief(project)[
+                "candidateContract"
+            ]
+            self.assertEqual(
+                candidate_contract["data"]["surfaceSource"],
+                "content-locked-snapshot-v6",
+            )
+            self.assertEqual(
+                candidate_contract["data"]["observationSemantics"],
+                {
+                    "timestampMeaning": "completed-bar-close",
+                    "panelShape": "ragged-observed-only",
+                    "missingObservation": "absent-no-fill",
+                    "contextVisibility": (
+                        "Candidate code may use only observations whose "
+                        "timestamp is at or before the evaluated row "
+                        "timestamp; absent context remains absent unless the "
+                        "candidate performs an explicit backward as-of "
+                        "operation."
+                    ),
+                    "targetClock": "per-target-observed-bars",
+                },
+            )
+            jsonschema.validate(
+                candidate_contract,
+                FACTOR_CANDIDATE_CONTRACT_JSON_SCHEMA,
             )
             (project.root_dir / "factors" / "candidate.py").write_text(
                 """\
