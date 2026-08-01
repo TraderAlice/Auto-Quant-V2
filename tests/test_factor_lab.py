@@ -221,6 +221,16 @@ class OhlcvFactorLabTests(unittest.TestCase):
             self.assertTrue(
                 (project.root_dir / "judges" / "factor_diagnostics.py").is_file()
             )
+            program = (project.root_dir / "studies" / OHLCV_STUDY_ID / "program.md")
+            program_text = program.read_text(encoding="utf-8")
+            self.assertIn(
+                "Missing input is not the same state as an observed false condition",
+                program_text,
+            )
+            self.assertIn(
+                "mask the unavailable predicate separately",
+                program_text,
+            )
             self.assertEqual(
                 set(study.judge_hashes),
                 {

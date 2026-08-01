@@ -211,6 +211,24 @@ bars.
   microsecond-resolution XNYS regression and the existing full research-desk
   XNYS Intake/Run path pass from source; an installed Pandas 3 replay remains
   a required candidate gate.
+- 2026-08-01 — The second installed candidate proved that repair in a clean
+  Pandas 3.0.5 environment and fresh Grok session
+  `019fbda4-3aa8-71d2-a24a-9a14cc8ddfd3`: the original Skill CSV intook
+  directly, and the worker completed acquisition, one Factor Run, Report,
+  Dossier, and terminal handoff in 6m58s without Harness repair. Independent
+  semantic audit nevertheless rejected the research artifact because
+  `plain.where(daily > 0, other=0)` converted unavailable five-session daily
+  warm-up state into a zero factor. Artifact coverage was therefore 100%
+  while the required daily component was available for only 85.7% of each
+  asset. Validation IC happened to be unchanged because the defect fell in
+  train, but accidental metric invariance is not contract compliance.
+- 2026-08-01 — The Factor program now states the reusable rule explicitly:
+  missing required input is neither an observed false regime nor a neutral
+  score; gated candidates must restore `NaN` for unavailable predicates and
+  reconcile candidate coverage against required-component coverage. The
+  second trial remains negative employability evidence, not release proof; a
+  third clean worker must implement the unchanged question from the revised
+  public program.
 
 ## Verification
 
@@ -234,6 +252,11 @@ Pending implementation and candidate trials.
   Skill and acquired the exact bounded panel, then exposed the Pandas storage-
   resolution Intake defect. Its later timestamp/hash workaround is retained
   as evidence and explicitly excluded from release proof.
+- 2026-08-01 — Second candidate replay session
+  `019fbda4-3aa8-71d2-a24a-9a14cc8ddfd3` proved the fixed installed Intake but
+  exposed a second, research-semantic defect: an Agent can accidentally encode
+  missing gate history as zero with ordinary Pandas `where` syntax. Its single
+  Run and downstream publications are preserved but excluded from acceptance.
 
 ## Completion
 

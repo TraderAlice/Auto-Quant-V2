@@ -39,6 +39,15 @@ returned Series must align exactly with the input index. Missing warm-up values
 are allowed. Future timestamps, centered windows, negative shifts, global
 full-sample normalization, external data, and mutation of the input are not.
 
+Missing input is not the same state as an observed false condition or a neutral
+score. When the candidate branches on a required regime, filter, denominator,
+or other component, preserve `NaN` until that input exists unless the Research
+Request explicitly predeclares a different missing-data policy. In particular,
+`Series.where(condition, other=0)` treats an unavailable/`NaN` predicate as
+false; mask the unavailable predicate separately before returning the factor.
+Reconcile final-factor coverage against every required component before
+execution and explain any intentional excess coverage in `research.md`.
+
 When a hypothesis has meaningful sub-signals, also export
 `FACTOR_COMPONENTS` and
 `compute_factor_components(panel) -> pandas.DataFrame`. Declare one causal
