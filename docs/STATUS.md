@@ -51,11 +51,12 @@ and release evidence is in [[plans/failed-run-research-handoff]]. OpenAlice
 remains independently pinned to `0.8.31`.
 
 The final regression passed all 427 tests in 1,052.884 seconds and resolved all
-1,408 documentation links. Lock, Python/Studio syntax, diff, source/wheel
+1,409 documentation links. Lock, Python/Studio syntax, diff, source/wheel
 build, fresh Python 3.11.14 installed-wheel version/capability/16-Skill smoke,
 field-Workspace replay, and a no-local-override clean-clone root Workspace
 smoke all passed. Exact verification evidence remains in
-[[plans/failed-run-research-handoff]].
+[[plans/failed-run-research-handoff]]. Verified wheel SHA-256:
+`62d3f398166d11d6673bac0bcfcd1904f248bc0a1b14306c9ab5f4adaa2b0e7b`.
 
 ### `v0.9.21`
 

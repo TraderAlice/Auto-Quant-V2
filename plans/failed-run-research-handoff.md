@@ -108,12 +108,13 @@ conclusion, but neither class should be hidden or blindly repeated.
   308.306 seconds.
 - Complete unit suite: 427 tests passed in 1,052.884 seconds.
 - `uv lock --check`, Python byte compilation, Studio JavaScript syntax,
-  `git diff --check`, and all 1,408 documentation links passed.
+  `git diff --check`, and all 1,409 final documentation links passed.
 - Source distribution and wheel built successfully. A fresh Python 3.11.14
   environment installed the wheel as `aq 0.9.22` from `site-packages`, exposed
   57 public commands and all 16 packaged Skills, and disclosed the exact
   scientific-limit Report exception through both CLI help and capability
-  discovery.
+  discovery. Final wheel SHA-256:
+  `62d3f398166d11d6673bac0bcfcd1904f248bc0a1b14306c9ab5f4adaa2b0e7b`.
 - The final installed wheel revalidated the isolated field Workspace with zero
   diagnostics and projected its terminal one-Run/one-Report result through
   orientation and Studio without mutation.
@@ -135,7 +136,7 @@ conclusion, but neither class should be hidden or blindly repeated.
   orientation, and Studio audit returned zero diagnostics and exactly one Run,
   one Report, zero Sessions, and zero Dossiers.
 - 2026-08-02 — Complete regression passed all 427 tests in 1,052.884 seconds;
-  the release audit resolved 1,408 documentation links and passed lock, source,
+  the final release audit resolved 1,409 documentation links and passed lock, source,
   installed-wheel, package-content, field-replay, and clean-clone checks.
 
 ## Completion
