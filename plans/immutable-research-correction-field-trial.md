@@ -107,9 +107,9 @@ retained as product evidence rather than hidden.
 ## Work
 
 - [x] Define and index the immutable correction assignment.
-- [ ] Build an isolated installed-`0.9.16` correction desk from reviewed
+- [x] Build an isolated installed-`0.9.16` correction desk from reviewed
       evidence.
-- [ ] Run and audit one fresh correction worker without coaching.
+- [x] Run and audit one fresh correction worker without coaching.
 - [ ] Admit and implement only reproduced reusable product friction.
 - [ ] Replay the unchanged task with a fresh candidate-wheel worker.
 - [ ] Complete the release audit and publish `v0.9.17` if warranted.
@@ -126,15 +126,55 @@ retained as product evidence rather than hidden.
 - 2026-08-01 — A Review remains independent assessment. It may motivate a
   correction, but the corrected primary-research handoff must not overwrite or
   masquerade as the Review itself.
+- 2026-08-01 — The untouched `0.9.16` worker correctly retained the supported
+  Path Stress result, removed the unsupported Nasdaq clause, and added exactly
+  one ordinary immutable Report. All 233 prior Workspace file hashes and all
+  five detached Review file hashes remained unchanged.
+- 2026-08-01 — The reproduced defect is not Report authoring. The installed
+  product can publish a later Report, and orientation happens to select it by
+  timestamp, but correction lineage exists only in Agent-authored prose.
+  `report list`, Studio, and Core still present both Reports as equally
+  published, with no verified `corrects`, `governingReview`, `current`, or
+  `supersededBy` state. Timestamp order is not correction authority.
+- 2026-08-01 — The reusable repair must remain append-only. A corrected Report
+  will freeze exact prior-Report and governing-Review identity in its own
+  immutable package. Currentness will be derived from a verified linear
+  correction graph rather than written into or beside the prior Report.
 
 ## Verification
 
-Pending baseline trial.
+Baseline desk:
+
+- root: `/Users/ame/autoquant-v0917-correction-baseline`;
+- exact wheel: `auto_quant-0.9.16-py3-none-any.whl`, SHA-256
+  `116f6bb2c3054713538c26d9b9a3a4114a0ac89d58c7ff3375c47ac4a359dad5`;
+- Grok session: `019fbc84-c2d6-7570-9e41-e93a62a65012`;
+- transcript: `baseline-transcript.md` in the isolated desk;
+- added Report: `report-20260801T085235035269Z-89b5d95495cf`;
+- prior Report: `report-20260801T065229961283Z-33608d0b11d2`;
+- detached Review: `review-20260801T081829692481Z-e779b0ca5dba`.
+
+The worker used only the installed public CLI, did not inspect the AutoQuant
+source checkout, did not acquire or re-price data, did not execute research,
+and did not create a Session. `shasum -c` verified every baseline Workspace
+and Review file. The only new paths were the corrected Report directory and
+its `analysis.json`, `manifest.json`, `report.json`, and `report.md`.
+
+Public `aq report show`, `aq report list`, `aq orient`, `aq run
+book-path-stress`, `aq review show`, and `aq studio snapshot` all loaded. The
+corrected prose was scientifically truthful, but public projections exposed
+no machine-readable correction relation: list and Studio showed two ordinary
+published Reports, while orientation selected the later one only as its latest
+Report.
 
 ## Progress log
 
 - 2026-08-01 — Plan activated from clean released `v0.9.16`; OpenAlice remains
   independently pinned to `v0.8.31`.
+- 2026-08-01 — Untouched `0.9.16` baseline completed in 2m47s. The worker
+  solved the scientific edit on its first publication attempt and explicitly
+  diagnosed the missing formal supersession contract instead of mutating old
+  evidence or promoting staging.
 
 ## Completion
 
