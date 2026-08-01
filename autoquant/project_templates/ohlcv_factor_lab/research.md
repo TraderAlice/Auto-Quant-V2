@@ -63,9 +63,12 @@ For a real incoming assignment, this scaffold candidate only demonstrates the
 API. Do not execute it as the caller's baseline. Complete this brief and
 intake, inspect the contract, author the first predeclared caller-relevant
 candidate before any evaluation, and let `session start` create or reuse its
-baseline Run. Once any Run's test audit is visible, a later source edit cannot
-be described as test-blind and requires fresh external holdout evidence for a
-new production-grade claim.
+baseline Run. On a fresh candidate it runs the fixed fast preflight first; a
+failure creates no Run or Session, while a pass only permits the complete
+baseline and grants no selection authority. Do not run `session check` until a
+later worktree edit. Once any Run's test audit is visible, a later source edit
+cannot be described as test-blind and requires fresh external holdout evidence
+for a new production-grade claim.
 
 ```bash
 aq orient . --json

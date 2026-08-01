@@ -89,6 +89,14 @@ class GovernedResearchSessionTests(unittest.TestCase):
 
             self.assertEqual(session.manifest["status"], "active")
             self.assertEqual(session.manifest["baseline"], session.manifest["leader"])
+            self.assertEqual(
+                session.manifest["baselineGuard"],
+                {
+                    "mode": "fresh-run-no-preflight",
+                    "baselineRunId": session.baseline_run.result["id"],
+                    "preflight": None,
+                },
+            )
             self.assertEqual(session.manifest["leader"]["value"], 1.25)
             self.assertEqual(
                 (project.root_dir / "factors/candidate.py").read_text(),

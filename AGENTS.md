@@ -224,12 +224,17 @@ The external-holdout requirement remains conservative in both cases.
 For a new editable Factor assignment, the scaffold `candidate.py` is an API
 demonstrator, not the caller's baseline. Finish the brief and intake, inspect
 the candidate contract, author the first predeclared caller-relevant candidate
-before any evaluation, and then start the governed Session; `session start`
-creates or reuses that candidate's baseline Run. Do not execute and inspect
-the generic scaffold Run and then edit the canonical candidate. If any prior
-Run's visible test evidence preceded a later source edit, disclose that timing,
-preserve `externalHoldoutRequired`, and never call the process test-blind or
-claim that test evidence was not used.
+before any evaluation, and then start the governed Session. When no exact
+successful baseline can be reused, `session start` first runs the Study's fixed
+seconds-scale preflight against that canonical candidate. A failed guard creates
+no Run or Session; repair the candidate and invoke the same command again. A
+passing guard is not quantitative evidence and has no selection, promotion, or
+trading authority; only then does Core execute the complete baseline and retain
+the guard receipt in the Session. Do not run the generic scaffold first, and do
+not invoke `session check` on the unchanged baseline candidate—Checks are for
+later worktree edits. If any prior Run's visible test evidence preceded a later
+source edit, disclose that timing, preserve `externalHoldoutRequired`, and never
+call the process test-blind or claim that test evidence was not used.
 
 When strict Project intake has already bound `request.json`, start the Session
 with `--request request.json` so the delegated brief is visible before research

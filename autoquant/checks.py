@@ -576,6 +576,86 @@ def _run_preflight(
     }
 
 
+def evaluate_project_candidate_preflight(
+    project: ProjectContext,
+    study: StudyContext,
+) -> dict[str, Any] | None:
+    """Evaluate the canonical first candidate before a fresh baseline Run.
+
+    This is an operational guard, not a CandidateCheck or research artifact.
+    The caller may retain the returned passed receipt only after the ordinary
+    baseline and Session have both been created successfully.
+    """
+
+    preflight = load_candidate_preflight(project, study, optional=True)
+    if preflight is None:
+        return None
+    data_root = confined_path(
+        project.root_dir,
+        project.manifest.directories["data"],
+        "project/directories/data",
+    )
+    harness = harness_identity()
+    identity = {
+        "studyInputHash": study.input_hash,
+        "datasetHash": study.dataset_hash,
+        "candidateSourceHash": study.source_hash,
+        "preflightHash": preflight.preflight_hash,
+        "harness": harness,
+    }
+    input_hash = hash_json(identity)
+    started = datetime.now(timezone.utc)
+    with tempfile.TemporaryDirectory(
+        prefix=f"aq-baseline-preflight-{study.definition.id}-"
+    ) as directory:
+        staging = Path(directory) / "result"
+        staging.mkdir()
+        normalized, execution = _run_preflight(
+            project,
+            study,
+            preflight,
+            staging,
+            input_hash,
+            data_root,
+        )
+    completed = datetime.now(timezone.utc)
+    output_identity = {
+        "status": normalized["status"],
+        "summary": normalized["summary"],
+        "checks": normalized["checks"],
+        "errors": normalized["errors"],
+    }
+    receipt = {
+        "status": normalized["status"],
+        "summary": normalized["summary"],
+        "startedAt": started.isoformat(),
+        "completedAt": completed.isoformat(),
+        "durationMs": execution["durationMs"],
+        "study": {
+            "inputHash": study.input_hash,
+            "datasetHash": study.dataset_hash,
+        },
+        "candidate": {"sourceHash": study.source_hash},
+        "preflight": {
+            "hash": preflight.preflight_hash,
+            "sourceHashes": preflight.source_hashes,
+        },
+        "harness": harness,
+        "inputHash": input_hash,
+        "outputHash": hash_json(output_identity),
+        "authority": {
+            "selectionAuthority": "none",
+            "promotionAuthority": "none",
+            "tradingAuthority": "none",
+        },
+        "checks": normalized["checks"],
+        "errors": normalized["errors"],
+        "execution": execution,
+    }
+    receipt["receiptHash"] = hash_json(receipt)
+    return receipt
+
+
 def _check_hashes(root: Path) -> dict[str, str]:
     hashes: dict[str, str] = {}
     for path in sorted(root.rglob("*")):

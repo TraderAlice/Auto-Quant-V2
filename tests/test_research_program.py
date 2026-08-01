@@ -331,7 +331,7 @@ class MultiStudyResearchProgramTests(unittest.TestCase):
                 ["not-started", "not-started", "not-started"],
             )
             self.assertEqual(initial["recommendedLaneId"], "factor")
-            self.assertEqual(initial["recommendedAction"]["id"], "run.execute")
+            self.assertEqual(initial["recommendedAction"]["id"], "session.start")
             self.assertEqual(
                 initial["progression"]["stage"],
                 "factor-evidence-required",
@@ -343,11 +343,11 @@ class MultiStudyResearchProgramTests(unittest.TestCase):
             initial_brief = build_agent_work_brief(project)
             self.assertEqual(
                 initial_brief["primaryAction"]["id"],
-                "run.execute",
+                "session.start",
             )
             self.assertEqual(
                 initial_brief["reasons"][0]["code"],
-                "baseline-evidence-missing",
+                "session-required",
             )
             self.assertEqual(
                 {lane["study"]["datasetHash"] for lane in initial["lanes"]},
@@ -507,7 +507,7 @@ class MultiStudyResearchProgramTests(unittest.TestCase):
                 [lane["phase"] for lane in stale["lanes"]],
                 ["stale", "stale", "stale"],
             )
-            self.assertEqual(stale["recommendedAction"]["id"], "run.execute")
+            self.assertEqual(stale["recommendedAction"]["id"], "session.show")
             stale_brief = build_agent_work_brief(project)
             self.assertEqual(
                 stale_brief["researchAgenda"]["status"],

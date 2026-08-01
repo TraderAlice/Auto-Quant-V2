@@ -27,10 +27,15 @@ constraints, costs, risk, and path-consistent simple baselines.
 
 ```bash
 aq study inspect . --study ohlcv-rl-factor-policy --json
-aq run execute . --study ohlcv-rl-factor-policy --json
 aq session start . --study ohlcv-rl-factor-policy --request request.json --json
 aq orient . --json
 ```
+
+Author the first caller-relevant representation before Session start. With no
+exact reusable baseline, Session start runs the fixed fast preflight first and
+leaves no Run or Session on failure; a pass grants no selection authority and
+only then permits the complete baseline. Use `session check` only after a later
+worktree edit.
 
 Work only inside the returned Session worktree and edit `models/**`. State one
 falsifiable representation hypothesis, evaluate it, and inspect seed/fold,

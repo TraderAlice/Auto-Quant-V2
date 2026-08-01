@@ -149,6 +149,10 @@ class StudioObservationTests(unittest.TestCase):
             self.assertIsNone(observed["dossierStatus"])
             self.assertEqual(observed["dossiers"], [])
             self.assertEqual(observed["sessions"][0]["session"]["id"], session.manifest["id"])
+            self.assertEqual(
+                observed["sessions"][0]["session"]["baselineGuard"],
+                session.manifest["baselineGuard"],
+            )
             self.assertTrue(observed["sessions"][0]["authority"]["valid"])
             self.assertEqual(
                 observed["sessions"][0]["selectionIntegrity"][

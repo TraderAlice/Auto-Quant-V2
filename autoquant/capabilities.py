@@ -824,7 +824,7 @@ CLI_COMMANDS = [
     descriptor(
         "session.start",
         "aq session start <path> --study ID [--request FILE] [--project ID] [--json]",
-        "Create a resumable candidate worktree and optionally bind one delegated Research Request into its fixed brief.",
+        "Preflight a fresh first candidate when declared, establish or reuse its successful baseline, create a resumable worktree, and optionally bind one delegated Research Request.",
         "creates-artifact",
         [
             PATH_ARGUMENT,

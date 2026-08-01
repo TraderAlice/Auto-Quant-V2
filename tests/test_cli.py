@@ -1965,6 +1965,32 @@ class AgentCliTests(unittest.TestCase):
                 session["delegation"]["request"]["title"],
                 "US leadership durability",
             )
+            self.assertEqual(
+                session["session"]["baselineGuard"]["mode"],
+                "fresh-preflight-and-run",
+            )
+            self.assertEqual(
+                session["session"]["baselineGuard"]["preflight"]["authority"],
+                {
+                    "selectionAuthority": "none",
+                    "promotionAuthority": "none",
+                    "tradingAuthority": "none",
+                },
+            )
+            shown = run_cli(
+                "session",
+                "show",
+                str(workspace),
+                "--project",
+                "brief-first",
+                "--session",
+                session["session"]["id"],
+            )
+            self.assertEqual(shown.returncode, 0, shown.stderr)
+            self.assertIn(
+                "Baseline guard: fresh-preflight-and-run",
+                shown.stdout,
+            )
             self.assertTrue(
                 (
                     workspace

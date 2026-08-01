@@ -542,8 +542,44 @@ def start_session(
         if request_issues:
             raise AutoQuantValidationError(request_issues)
     baseline = _reusable_baseline(project, study)
+    baseline_preflight: dict[str, Any] | None = None
     if baseline is None:
+        from .checks import evaluate_project_candidate_preflight
+
+        baseline_preflight = evaluate_project_candidate_preflight(
+            project,
+            study,
+        )
+        if (
+            baseline_preflight is not None
+            and baseline_preflight["status"] != "passed"
+        ):
+            issues = [
+                _issue(
+                    study.root_dir,
+                    "session.baseline-preflight-failed",
+                    "First candidate failed the fixed preflight before any "
+                    "baseline Run or Session was created: "
+                    f"{baseline_preflight['summary']}",
+                )
+            ]
+            issues.extend(
+                _issue(
+                    study.root_dir,
+                    f"session.{error['code']}",
+                    error["message"],
+                )
+                for error in baseline_preflight["errors"]
+            )
+            raise AutoQuantValidationError(issues)
         baseline = execute_study(project, study_id)
+        baseline_guard_mode = (
+            "fresh-preflight-and-run"
+            if baseline_preflight is not None
+            else "fresh-run-no-preflight"
+        )
+    else:
+        baseline_guard_mode = "reused-successful-run"
     if baseline.result["status"] != "succeeded":
         raise AutoQuantValidationError(
             [
@@ -608,6 +644,11 @@ def start_session(
             "baseProjectSourceHash": study.source_hash,
             "baseline": _run_pointer(baseline),
             "leader": _run_pointer(baseline),
+            "baselineGuard": {
+                "mode": baseline_guard_mode,
+                "baselineRunId": baseline.result["id"],
+                "preflight": baseline_preflight,
+            },
             "locks": {
                 **_session_lock(study, baseline),
                 "fixedHashes": fixed_hashes,
@@ -663,7 +704,11 @@ def _validate_session_manifest(
         "locks",
         "nextExperiment",
     }
-    allowed = required | ({"brief"} if "brief" in value else set())
+    allowed = required
+    if "brief" in value:
+        allowed.add("brief")
+    if "baselineGuard" in value:
+        allowed.add("baselineGuard")
     issues = _strict_keys(value, allowed, path)
     if value.get("schemaVersion") != SCHEMA_VERSION:
         issues.append(_issue(f"{path}/schemaVersion", "schema.version", "Expected V1"))
@@ -727,6 +772,56 @@ def _validate_session_manifest(
                 or not math.isfinite(float(pointer_value))
             ):
                 issues.append(_issue(f"{path}/{key}/value", "schema.number", "Invalid metric value"))
+    baseline_guard = value.get("baselineGuard")
+    if baseline_guard is not None:
+        guard_path = f"{path}/baselineGuard"
+        if not isinstance(baseline_guard, dict):
+            issues.append(
+                _issue(guard_path, "schema.type", "baselineGuard must be an object")
+            )
+        else:
+            issues.extend(
+                _strict_keys(
+                    baseline_guard,
+                    {"mode", "baselineRunId", "preflight"},
+                    guard_path,
+                )
+            )
+            mode = baseline_guard.get("mode")
+            if mode not in {
+                "fresh-preflight-and-run",
+                "fresh-run-no-preflight",
+                "reused-successful-run",
+            }:
+                issues.append(
+                    _issue(f"{guard_path}/mode", "schema.choice", "Invalid baseline guard mode")
+                )
+            if not isinstance(baseline_guard.get("baselineRunId"), str):
+                issues.append(
+                    _issue(
+                        f"{guard_path}/baselineRunId",
+                        "schema.string",
+                        "Invalid baseline Run id",
+                    )
+                )
+            preflight = baseline_guard.get("preflight")
+            if mode == "fresh-preflight-and-run":
+                if not isinstance(preflight, dict):
+                    issues.append(
+                        _issue(
+                            f"{guard_path}/preflight",
+                            "schema.type",
+                            "Fresh guarded baseline requires a preflight receipt",
+                        )
+                    )
+            elif preflight is not None:
+                issues.append(
+                    _issue(
+                        f"{guard_path}/preflight",
+                        "schema.choice",
+                        "Only a fresh guarded baseline may retain a preflight receipt",
+                    )
+                )
     if not isinstance(value.get("baseProjectSourceHash"), str) or not SHA256.fullmatch(
         value.get("baseProjectSourceHash", "")
     ):
@@ -840,6 +935,196 @@ def _validate_session_manifest(
                         "Invalid Harness build provenance",
                     )
                 )
+    if issues:
+        raise AutoQuantValidationError(issues)
+
+
+def _validate_baseline_guard(
+    project: ProjectContext,
+    manifest: dict[str, Any],
+    baseline: RunContext,
+) -> None:
+    """Verify optional post-0.9.26 first-baseline guard provenance."""
+
+    guard = manifest.get("baselineGuard")
+    if guard is None:
+        return
+    path = f"{manifest['id']}/baselineGuard"
+    issues: list[ValidationIssue] = []
+    if guard["baselineRunId"] != manifest["baseline"]["runId"]:
+        issues.append(
+            _issue(path, "session.baseline-guard-run", "Guard baseline Run differs from Session")
+        )
+    receipt = guard["preflight"]
+    if guard["mode"] != "fresh-preflight-and-run":
+        if issues:
+            raise AutoQuantValidationError(issues)
+        return
+    assert isinstance(receipt, dict)
+    required = {
+        "status",
+        "summary",
+        "startedAt",
+        "completedAt",
+        "durationMs",
+        "study",
+        "candidate",
+        "preflight",
+        "harness",
+        "inputHash",
+        "outputHash",
+        "authority",
+        "checks",
+        "errors",
+        "execution",
+        "receiptHash",
+    }
+    issues.extend(_strict_keys(receipt, required, f"{path}/preflight"))
+    if receipt.get("status") != "passed":
+        issues.append(
+            _issue(
+                f"{path}/preflight/status",
+                "session.baseline-preflight-status",
+                "Retained baseline preflight must have passed",
+            )
+        )
+    for key in ("summary", "startedAt", "completedAt"):
+        if not isinstance(receipt.get(key), str) or not receipt[key]:
+            issues.append(
+                _issue(f"{path}/preflight/{key}", "schema.string", f"Invalid {key}")
+            )
+    if (
+        not isinstance(receipt.get("durationMs"), int)
+        or isinstance(receipt.get("durationMs"), bool)
+        or receipt.get("durationMs", -1) < 0
+    ):
+        issues.append(
+            _issue(
+                f"{path}/preflight/durationMs",
+                "schema.number",
+                "Invalid preflight duration",
+            )
+        )
+    for key in ("inputHash", "outputHash", "receiptHash"):
+        if not isinstance(receipt.get(key), str) or not SHA256.fullmatch(
+            receipt.get(key, "")
+        ):
+            issues.append(
+                _issue(f"{path}/preflight/{key}", "schema.hash", f"Invalid {key}")
+            )
+    study = receipt.get("study")
+    candidate = receipt.get("candidate")
+    preflight = receipt.get("preflight")
+    if not isinstance(study, dict) or set(study) != {"inputHash", "datasetHash"}:
+        issues.append(_issue(f"{path}/preflight/study", "schema.type", "Invalid Study lock"))
+        study = {}
+    if not isinstance(candidate, dict) or set(candidate) != {"sourceHash"}:
+        issues.append(
+            _issue(f"{path}/preflight/candidate", "schema.type", "Invalid candidate lock")
+        )
+        candidate = {}
+    if not isinstance(preflight, dict) or set(preflight) != {"hash", "sourceHashes"}:
+        issues.append(
+            _issue(f"{path}/preflight/preflight", "schema.type", "Invalid preflight lock")
+        )
+        preflight = {}
+    checks = receipt.get("checks")
+    errors = receipt.get("errors")
+    if not isinstance(checks, list) or not checks:
+        issues.append(_issue(f"{path}/preflight/checks", "schema.array", "Invalid checks"))
+        checks = []
+    if errors != []:
+        issues.append(
+            _issue(
+                f"{path}/preflight/errors",
+                "session.baseline-preflight-errors",
+                "Passed baseline preflight cannot retain errors",
+            )
+        )
+        errors = errors if isinstance(errors, list) else []
+    authority = receipt.get("authority")
+    if authority != {
+        "selectionAuthority": "none",
+        "promotionAuthority": "none",
+        "tradingAuthority": "none",
+    }:
+        issues.append(
+            _issue(
+                f"{path}/preflight/authority",
+                "session.baseline-preflight-authority",
+                "Baseline preflight must retain no selection or trading authority",
+            )
+        )
+    expected_study = {
+        "inputHash": baseline.result["studyInputHash"],
+        "datasetHash": baseline.result["dataset"]["hash"],
+    }
+    expected_candidate = {
+        "sourceHash": baseline.result["subject"]["sourceHash"]
+    }
+    if study != expected_study or candidate != expected_candidate:
+        issues.append(
+            _issue(
+                f"{path}/preflight",
+                "session.baseline-preflight-input",
+                "Baseline preflight differs from the immutable baseline inputs",
+            )
+        )
+    if receipt.get("harness") != baseline.result["harness"]:
+        issues.append(
+            _issue(
+                f"{path}/preflight/harness",
+                "session.baseline-preflight-harness",
+                "Baseline preflight Harness differs from the baseline Run",
+            )
+        )
+    from .checks import load_candidate_preflight
+
+    owning_study = load_study(project, manifest["studyId"])
+    current_preflight = load_candidate_preflight(project, owning_study)
+    assert current_preflight is not None
+    expected_preflight = {
+        "hash": current_preflight.preflight_hash,
+        "sourceHashes": current_preflight.source_hashes,
+    }
+    if preflight != expected_preflight:
+        issues.append(
+            _issue(
+                f"{path}/preflight/preflight",
+                "session.baseline-preflight-stale",
+                "Baseline preflight differs from fixed Project authority",
+            )
+        )
+    expected_input_hash = hash_json(
+        {
+            "studyInputHash": study.get("inputHash"),
+            "datasetHash": study.get("datasetHash"),
+            "candidateSourceHash": candidate.get("sourceHash"),
+            "preflightHash": preflight.get("hash"),
+            "harness": receipt.get("harness"),
+        }
+    )
+    if receipt.get("inputHash") != expected_input_hash:
+        issues.append(
+            _issue(f"{path}/preflight/inputHash", "session.baseline-preflight-hash", "Invalid input hash")
+        )
+    expected_output_hash = hash_json(
+        {
+            "status": receipt.get("status"),
+            "summary": receipt.get("summary"),
+            "checks": checks,
+            "errors": errors,
+        }
+    )
+    if receipt.get("outputHash") != expected_output_hash:
+        issues.append(
+            _issue(f"{path}/preflight/outputHash", "session.baseline-preflight-hash", "Invalid output hash")
+        )
+    receipt_body = {key: value for key, value in receipt.items() if key != "receiptHash"}
+    if receipt.get("receiptHash") != hash_json(receipt_body):
+        issues.append(
+            _issue(f"{path}/preflight/receiptHash", "session.baseline-preflight-hash", "Invalid receipt hash")
+        )
     if issues:
         raise AutoQuantValidationError(issues)
 
@@ -1067,6 +1352,7 @@ def load_session(project: ProjectContext, session_id: str) -> SessionContext:
     worktree = load_project(worktree_root, expected_id=project.manifest.id)
     baseline = load_run(project, manifest["baseline"]["runId"])
     leader = load_run(project, manifest["leader"]["runId"])
+    _validate_baseline_guard(project, manifest, baseline)
     delegation = validate_session_brief(
         project,
         root,
@@ -2908,6 +3194,27 @@ SESSION_JSON_SCHEMA: dict[str, Any] = {
         },
         "baseline": {"$ref": "#/$defs/runPointer"},
         "leader": {"$ref": "#/$defs/runPointer"},
+        "baselineGuard": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["mode", "baselineRunId", "preflight"],
+            "properties": {
+                "mode": {
+                    "enum": [
+                        "fresh-preflight-and-run",
+                        "fresh-run-no-preflight",
+                        "reused-successful-run",
+                    ]
+                },
+                "baselineRunId": {"type": "string", "pattern": "^run-"},
+                "preflight": {
+                    "oneOf": [
+                        {"type": "null"},
+                        {"$ref": "#/$defs/baselinePreflight"},
+                    ]
+                },
+            },
+        },
         "locks": {
             "type": "object",
             "additionalProperties": False,
@@ -2955,6 +3262,88 @@ SESSION_JSON_SCHEMA: dict[str, Any] = {
         },
     },
     "$defs": {
+        "baselinePreflight": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "status",
+                "summary",
+                "startedAt",
+                "completedAt",
+                "durationMs",
+                "study",
+                "candidate",
+                "preflight",
+                "harness",
+                "inputHash",
+                "outputHash",
+                "authority",
+                "checks",
+                "errors",
+                "execution",
+                "receiptHash",
+            ],
+            "properties": {
+                "status": {"const": "passed"},
+                "summary": {"type": "string", "minLength": 1},
+                "startedAt": {"type": "string", "format": "date-time"},
+                "completedAt": {"type": "string", "format": "date-time"},
+                "durationMs": {"type": "integer", "minimum": 0},
+                "study": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["inputHash", "datasetHash"],
+                    "properties": {
+                        "inputHash": {"type": "string", "pattern": SHA256.pattern},
+                        "datasetHash": {"type": "string", "pattern": SHA256.pattern},
+                    },
+                },
+                "candidate": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["sourceHash"],
+                    "properties": {
+                        "sourceHash": {"type": "string", "pattern": SHA256.pattern}
+                    },
+                },
+                "preflight": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["hash", "sourceHashes"],
+                    "properties": {
+                        "hash": {"type": "string", "pattern": SHA256.pattern},
+                        "sourceHashes": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string",
+                                "pattern": SHA256.pattern,
+                            },
+                        },
+                    },
+                },
+                "harness": {"type": "object"},
+                "inputHash": {"type": "string", "pattern": SHA256.pattern},
+                "outputHash": {"type": "string", "pattern": SHA256.pattern},
+                "receiptHash": {"type": "string", "pattern": SHA256.pattern},
+                "authority": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": [
+                        "selectionAuthority",
+                        "promotionAuthority",
+                        "tradingAuthority",
+                    ],
+                    "properties": {
+                        "selectionAuthority": {"const": "none"},
+                        "promotionAuthority": {"const": "none"},
+                        "tradingAuthority": {"const": "none"},
+                    },
+                },
+                "checks": {"type": "array", "minItems": 1},
+                "errors": {"type": "array", "maxItems": 0},
+                "execution": {"type": "object"},
+            },
+        },
         "runPointer": {
             "type": "object",
             "additionalProperties": False,

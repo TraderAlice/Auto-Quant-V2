@@ -13,6 +13,7 @@ from unittest import mock
 import jsonschema
 
 import autoquant.checks as checks_module
+import autoquant.sessions as session_module
 from autoquant.checks import (
     CANDIDATE_CHECK_RESULT_JSON_SCHEMA,
     CHECK_OUTPUT_JSON_SCHEMA,
@@ -132,7 +133,7 @@ def baseline_report_analysis(run_id: str) -> dict:
 
 
 class CandidateCheckTests(unittest.TestCase):
-    def _session(self, directory: str, *, request: dict | None = None):
+    def _project_with_preflight(self, directory: str):
         _, project = make_project(directory)
         (project.root_dir / "judges" / "preflight.py").write_text(
             PREFLIGHT,
@@ -169,11 +170,134 @@ class CandidateCheckTests(unittest.TestCase):
         loaded = load_candidate_preflight(project, load_study(project, definition.id))
         self.assertIsNotNone(loaded)
         jsonschema.validate(preflight, PREFLIGHT_JSON_SCHEMA)
+        return project, definition
+
+    def _session(self, directory: str, *, request: dict | None = None):
+        project, definition = self._project_with_preflight(directory)
         return project, start_session(
             project,
             definition.id,
             request=request,
         )
+
+    def test_first_candidate_preflight_is_atomic_and_retained_on_success(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project, definition = self._project_with_preflight(directory)
+            candidate = project.root_dir / "factors/candidate.py"
+            candidate.write_text("SCORE = float('nan')\n", encoding="utf-8")
+            before = sorted(project.root_dir.rglob("*"))
+
+            with self.assertRaises(AutoQuantValidationError) as failure:
+                start_session(project, definition.id)
+
+            self.assertEqual(
+                failure.exception.issues[0].code,
+                "session.baseline-preflight-failed",
+            )
+            self.assertEqual(list((project.root_dir / "runs").iterdir()), [])
+            self.assertEqual(list((project.root_dir / "sessions").iterdir()), [])
+            self.assertEqual(before, sorted(project.root_dir.rglob("*")))
+
+            candidate.write_text("SCORE = 1.25\n", encoding="utf-8")
+            session = start_session(project, definition.id)
+            guard = session.manifest["baselineGuard"]
+            self.assertEqual(guard["mode"], "fresh-preflight-and-run")
+            self.assertEqual(
+                guard["baselineRunId"],
+                session.baseline_run.result["id"],
+            )
+            receipt = guard["preflight"]
+            self.assertEqual(receipt["status"], "passed")
+            self.assertEqual(receipt["errors"], [])
+            self.assertEqual(
+                receipt["candidate"]["sourceHash"],
+                session.baseline_run.result["subject"]["sourceHash"],
+            )
+            self.assertEqual(
+                receipt["authority"],
+                {
+                    "selectionAuthority": "none",
+                    "promotionAuthority": "none",
+                    "tradingAuthority": "none",
+                },
+            )
+            jsonschema.validate(session.manifest, session_module.SESSION_JSON_SCHEMA)
+
+            session.manifest["baselineGuard"]["preflight"]["summary"] = "tampered"
+            session.manifest_path.write_text(
+                json.dumps(session.manifest),
+                encoding="utf-8",
+            )
+            with self.assertRaises(AutoQuantValidationError):
+                load_session(project, session.manifest["id"])
+
+    def test_reused_baseline_does_not_rerun_operational_preflight(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project, definition = self._project_with_preflight(directory)
+            first = start_session(project, definition.id)
+            with mock.patch(
+                "autoquant.checks.evaluate_project_candidate_preflight"
+            ) as guarded:
+                second = start_session(project, definition.id)
+
+            guarded.assert_not_called()
+            self.assertEqual(
+                second.manifest["baselineGuard"],
+                {
+                    "mode": "reused-successful-run",
+                    "baselineRunId": first.baseline_run.result["id"],
+                    "preflight": None,
+                },
+            )
+            self.assertEqual(len(list((project.root_dir / "runs").iterdir())), 1)
+
+    def test_first_candidate_process_failures_leave_no_lifecycle_artifact(
+        self,
+    ) -> None:
+        cases = {
+            "malformed-output": (
+                "import os\nfrom pathlib import Path\n"
+                "Path(os.environ['AUTOQUANT_CHECK_OUTPUT']).write_text('{}')\n",
+                5,
+                "session.baseline-preflight-failed",
+            ),
+            "timeout": (
+                "import time\ntime.sleep(2)\n",
+                1,
+                "session.preflight.timeout",
+            ),
+        }
+        for name, (script, timeout, expected_code) in cases.items():
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as directory:
+                project, definition = self._project_with_preflight(directory)
+                (project.root_dir / "judges/preflight.py").write_text(
+                    script,
+                    encoding="utf-8",
+                )
+                preflight_path = (
+                    project.root_dir / "studies" / definition.id / "preflight.json"
+                )
+                preflight = json.loads(preflight_path.read_text(encoding="utf-8"))
+                preflight["runner"]["timeoutSeconds"] = timeout
+                preflight_path.write_text(json.dumps(preflight), encoding="utf-8")
+                before = sorted(project.root_dir.rglob("*"))
+
+                with self.assertRaises(AutoQuantValidationError) as failure:
+                    start_session(project, definition.id)
+
+                self.assertEqual(
+                    failure.exception.issues[0].code,
+                    "session.baseline-preflight-failed",
+                )
+                self.assertIn(
+                    expected_code,
+                    {issue.code for issue in failure.exception.issues},
+                )
+                self.assertEqual(list((project.root_dir / "runs").iterdir()), [])
+                self.assertEqual(list((project.root_dir / "sessions").iterdir()), [])
+                self.assertEqual(before, sorted(project.root_dir.rglob("*")))
 
     def test_pass_fail_stale_and_non_selection_boundary(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

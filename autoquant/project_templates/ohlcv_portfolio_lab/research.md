@@ -24,9 +24,14 @@ mechanical translation into constrained cross-asset target weights.
 
 ```bash
 aq study inspect . --study ohlcv-portfolio-quality --json
-aq run execute . --study ohlcv-portfolio-quality --json
 aq session start . --study ohlcv-portfolio-quality --request request.json --json
 ```
+
+Author the first caller-relevant candidate before Session start. With no exact
+reusable baseline, Session start runs the fixed fast preflight first and leaves
+no Run or Session on failure; a pass grants no selection authority and only
+then permits the complete baseline. Use `session check` only after a later
+worktree edit.
 
 Work only inside the returned Session worktree and edit `factors/**`. State one
 falsifiable factor hypothesis, evaluate it, and inspect all metric layers and

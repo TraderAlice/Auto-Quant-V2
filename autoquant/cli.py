@@ -852,7 +852,10 @@ def build_parser() -> RaisingArgumentParser:
     session_actions = session.add_subparsers(dest="session_action", required=True)
     session_start = session_actions.add_parser(
         "start",
-        help="start a resumable Session from a fresh successful baseline",
+        help=(
+            "preflight a fresh first candidate, establish or reuse its "
+            "successful baseline, and start a resumable Session"
+        ),
     )
     session_start.add_argument("path")
     session_start.add_argument("--project")
@@ -3705,6 +3708,12 @@ def _session_start(args: argparse.Namespace) -> CommandResult:
         request = intake["request"] if intake is not None else None
     session = start_session(project, args.study, request=request)
     data = session_snapshot(project, session)
+    baseline_guard = session.manifest.get("baselineGuard")
+    guard_line = (
+        f"Baseline guard: {baseline_guard['mode']}\n"
+        if baseline_guard is not None
+        else "Baseline guard: legacy-session\n"
+    )
     delegation_line = (
         f"Request: {session.delegation['request']['title']}\n"
         if session.delegation is not None
@@ -3718,6 +3727,7 @@ def _session_start(args: argparse.Namespace) -> CommandResult:
             f"Study: {session.manifest['studyId']}\n"
             f"Leader: {session.manifest['leader']['metric']}="
             f"{session.manifest['leader']['value']}\n"
+            f"{guard_line}"
             f"Worktree: {session.worktree_project.root_dir}\n"
             f"Editable: {', '.join(session.manifest['editablePaths'])}\n"
             f"{delegation_line}"
@@ -3798,6 +3808,12 @@ def _session_show(args: argparse.Namespace) -> CommandResult:
     data = session_snapshot(project, session)
     candidate = data["candidate"]
     integrity = data["selectionIntegrity"]
+    baseline_guard = session.manifest.get("baselineGuard")
+    guard_mode = (
+        baseline_guard["mode"]
+        if baseline_guard is not None
+        else "legacy-session"
+    )
     return CommandResult(
         "session.show",
         data,
@@ -3807,6 +3823,7 @@ def _session_show(args: argparse.Namespace) -> CommandResult:
             f"Study: {session.manifest['studyId']}\n"
             f"Leader: {session.manifest['leader']['metric']}="
             f"{session.manifest['leader']['value']}\n"
+            f"Baseline guard: {guard_mode}\n"
             f"Experiments: {len(data['experiments'])}\n"
             f"Test exposure: "
             f"{integrity.get('testExposureState', integrity['testRole'])}\n"

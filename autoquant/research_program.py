@@ -755,22 +755,23 @@ def _lane_state(
         )
     ]
     if latest_run is None or not current_attempt:
-        commands.append(
-            _command(
-                "run.execute",
-                f"Create current immutable baseline evidence for {lane['name']}.",
-                [
-                    "aq",
-                    "run",
-                    "execute",
-                    str(project.root_dir),
-                    "--study",
-                    lane["studyId"],
-                    "--json",
-                ],
-                "creates-artifact",
+        if not lane["editablePaths"]:
+            commands.append(
+                _command(
+                    "run.execute",
+                    f"Create current immutable baseline evidence for {lane['name']}.",
+                    [
+                        "aq",
+                        "run",
+                        "execute",
+                        str(project.root_dir),
+                        "--study",
+                        lane["studyId"],
+                        "--json",
+                    ],
+                    "creates-artifact",
+                )
             )
-        )
     elif latest_run["status"] == "failed":
         commands.append(
             _command(
@@ -868,7 +869,11 @@ def _lane_state(
         "creates-artifact",
     )
     if latest_session is None:
-        if latest_run is not None and latest_run["status"] == "succeeded":
+        if lane["editablePaths"] and (
+            latest_run is None
+            or not current_attempt
+            or latest_run["status"] == "succeeded"
+        ):
             commands.append(start_command)
     else:
         commands.append(
@@ -1130,7 +1135,7 @@ def load_research_program(
             else ("run.show", "study.inspect")
             if recommended_lane["phase"] == "repair-required"
             else (
-                ("run.execute", "session.start", "session.show", "study.inspect")
+                ("session.start", "run.execute", "session.show", "study.inspect")
                 if recommended_lane["phase"] in {"not-started", "stale"}
                 else (
                     "session.start",

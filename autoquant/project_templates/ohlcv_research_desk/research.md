@@ -42,13 +42,16 @@ same-date cross-market availability from reusable template code.
 
 ```bash
 aq project program . --json
-aq run execute . --study ohlcv-factor-quality --json
 aq session start . --study ohlcv-factor-quality --request request.json --json
-aq run execute . --study ohlcv-portfolio-quality --json
 aq session start . --study ohlcv-portfolio-quality --request request.json --json
-aq run execute . --study ohlcv-rl-factor-policy --json
 aq session start . --study ohlcv-rl-factor-policy --request request.json --json
 ```
+
+For each lane, author its first caller-relevant candidate before Session start.
+With no exact reusable baseline, Session start runs the fixed fast preflight
+first and leaves no Run or Session on failure; a pass grants no selection
+authority and only then permits the complete baseline. Use `session check` only
+after a later worktree edit.
 
 Factor and Portfolio Sessions edit the same source closure and must be
 sequenced. Promote or stop one line of research before starting the other.

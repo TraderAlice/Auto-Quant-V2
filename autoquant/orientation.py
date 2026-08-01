@@ -1433,31 +1433,55 @@ def _single_study_orientation(
         operating_root = project.root_dir
         editable = []
     elif current_run is None:
-        primary_raw = _command(
-            "run.execute",
-            "Create current immutable baseline evidence for the Study.",
-            [
+        if study.definition.editable["paths"]:
+            start_argv = [
                 "aq",
-                "run",
-                "execute",
+                "session",
+                "start",
                 str(project.root_dir),
                 "--study",
                 study.definition.id,
-                "--json",
-            ],
-            "creates-artifact",
-        )
+            ]
+            start_argv.append("--json")
+            primary_raw = _command(
+                "session.start",
+                "Preflight the first candidate, establish its immutable "
+                "baseline, and start governed research.",
+                start_argv,
+                "creates-artifact",
+            )
+            mode = "edit-and-evaluate"
+        else:
+            primary_raw = _command(
+                "run.execute",
+                "Create current immutable baseline evidence for the Study.",
+                [
+                    "aq",
+                    "run",
+                    "execute",
+                    str(project.root_dir),
+                    "--study",
+                    study.definition.id,
+                    "--json",
+                ],
+                "creates-artifact",
+            )
+            mode = "establish-baseline"
         supporting_raw = []
         reasons = [
             {
                 "code": "baseline-evidence-missing",
                 "category": "evidence",
-                "message": "The Study has no successful Run matching current inputs.",
+                "message": (
+                    "The editable Study needs one preflight-guarded baseline "
+                    "inside a governed Session."
+                    if study.definition.editable["paths"]
+                    else "The Study has no successful Run matching current inputs."
+                ),
             }
         ]
         operating_root = project.root_dir
         editable = []
-        mode = "establish-baseline"
         phase = "not-started"
     elif (
         not study.definition.editable["paths"]

@@ -198,6 +198,15 @@ with the latest Experiment id/verdict, candidate Run/source, fixed
 before Experiment start. This is distinct from `candidateCheckId`, which
 continues to describe only the exact current worktree candidate.
 
+Before any current Run exists, an editable Study routes directly to
+`session.start`, not a separate generic `run.execute`. Session start owns the
+atomic first-candidate path: it executes fixed preflight authority when
+declared, leaves zero lifecycle artifacts on failure, then creates the complete
+baseline and Session only after a pass. JSON and Studio expose the resulting
+`baselineGuard` mode and receipt. A fixed non-editable Study continues to route
+to `run.execute`. After Session creation, an unchanged leader has no
+`session.check` action; that command is reserved for a later source edit.
+
 After a REVERT/CRASH restores the leader, an active Session with trial history
 uses `trial-review-required`: no primary edit is invented, delegated
 `report.publish` and read-only `session.show` are supporting choices, and the

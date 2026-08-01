@@ -806,10 +806,18 @@ aq experiment show <path> \
 
 `session start` reuses the newest verified successful Run when its Study,
 program, editable source, Judge, dataset, dependencies, and Harness identities
-all equal the current inputs. If no exact baseline exists, it runs one fresh
-baseline. It then returns an Agent brief containing the disposable worktree,
-fixed program, editable closure, leader, authority status, and exact next
-commands. The caller edits only that worktree.
+all equal the current inputs. If no exact baseline exists and the Study has a
+fixed candidate preflight, it first evaluates the canonical Project candidate
+through that seconds-scale isolated guard. Failure returns structured issues
+and creates no Run, Session, Check, or partial Session directory. Success grants
+no selection or trading authority; Core then runs one fresh complete baseline
+and retains the exact guard receipt in `session.baselineGuard`. A Study without
+preflight preserves the direct fresh-baseline route. A reused baseline does not
+rerun the operational guard merely to decorate existing evidence. Human output
+prints the guard mode and JSON exposes its full provenance. Session start then
+returns an Agent brief containing the disposable worktree, fixed program,
+editable closure, leader, authority status, and exact next commands. The caller
+edits only that worktree.
 Fixed `ohlcv-book-risk-lab` and `ohlcv-event-study-lab` Studies reject Session
 creation: their result is a descriptive audit to review, not an objective to
 optimize through candidate selection.
@@ -841,7 +849,9 @@ call site. A Project without bound intake still starts an ordinary local
 request-free Session when the option is absent.
 
 Reference Studies include an optional fixed `preflight.json`. After the caller
-edits a candidate, `session check` runs its short structural contract in an
+authors the first canonical candidate, a fresh `session start` runs that short
+contract before spending the first full baseline. After Session creation and a
+worktree edit, `session check` runs the same structural contract in an
 isolated source workspace. It publishes an immutable passed/failed
 CandidateCheck bound to the exact candidate, leader, Study input, dataset,
 preflight sources, and Harness. A Check contains no metric or verdict and has

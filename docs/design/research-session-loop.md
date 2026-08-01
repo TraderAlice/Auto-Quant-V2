@@ -244,9 +244,25 @@ Run only when the Study, program, editable source, Judge, dataset,
 dependencies, and installed Harness executable identities exactly match
 current inputs. Repository commit and dirty-state differences remain visible
 provenance but do not prevent reuse when the executable identity is unchanged.
-Otherwise it executes one fresh baseline. This keeps Session construction from
-silently duplicating an already established one-shot evaluation while
-preserving strict currentness after any scientific or runtime change.
+Otherwise, when the Study has fixed candidate preflight authority, it executes
+that seconds-scale contract against the canonical Project candidate before the
+complete Judge. A failed guard is structured operational feedback and leaves
+no Run, Session, Check, or partial directory. A passed guard grants no research
+authority; Core executes one fresh baseline and retains a content-bound receipt
+in `baselineGuard`. Studies without a preflight execute the fresh baseline
+directly. Reused baselines do not rerun the guard. This keeps Session
+construction from silently duplicating an already established one-shot
+evaluation while preserving strict currentness after any scientific or runtime
+change.
+
+`baselineGuard.mode` tells a replacement Agent exactly which route occurred:
+`fresh-preflight-and-run`, `fresh-run-no-preflight`, or
+`reused-successful-run`. Only the first contains a receipt. The receipt binds
+the Study input, dataset, candidate source, preflight definition and sources,
+Harness, normalized output, execution record, and explicit
+no-selection/no-promotion/no-trading authority. Session loading verifies those
+locks and hashes. This receipt is distinct from a post-edit CandidateCheck and
+does not enter Experiment history.
 
 An external Codex, another coding Agent, or a human can drive these same
 operations. The implemented provider-neutral bounded layer is

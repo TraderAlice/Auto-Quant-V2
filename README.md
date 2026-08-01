@@ -259,8 +259,10 @@ execution authority.
 
 ## Research loop
 
-A Session creates a disposable worktree with an exact editable closure. A fast
-candidate Check can catch structural errors without creating evidence.
+A fresh Session preflights the first canonical candidate before its complete
+baseline, then creates a disposable worktree with an exact editable closure.
+After a later edit, a fast candidate Check can catch structural errors without
+creating research evidence.
 The fixed Judge alone publishes metrics and a KEEP, REVERT, or CRASH verdict.
 Promotion remains a separate guarded operation.
 
@@ -270,6 +272,7 @@ uv run aq session start . \
   --request research-request.json \
   --json
 
+# Edit the returned worktree candidate before checking it.
 uv run aq session check . \
   --session session-... \
   --json

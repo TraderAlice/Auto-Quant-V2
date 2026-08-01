@@ -10,8 +10,9 @@ Related: [[docs/design/agent-operator-experience]],
 
 ## Purpose
 
-Candidate preflight is the cheap governed feedback tier between editing a
-Session worktree and executing the complete fixed Judge. It answers only:
+Candidate preflight is the cheap governed feedback tier before the first
+complete baseline and between later Session worktree edits and the complete
+fixed Judge. It answers only:
 
 > Can this exact candidate satisfy the fixed executable API, structural,
 > determinism, mutation, numeric, and bounded causality checks declared for
@@ -21,12 +22,16 @@ It does not answer whether the candidate is quantitatively better. A passing
 preflight grants no scientific admission and predicts no formal verdict.
 
 ```text
-Agent edits active Session worktree
-→ Core verifies Session authority and candidate closure
-→ fixed optional Preflight executes in isolation
+Agent authors first canonical candidate
+→ session start executes fixed optional Preflight in isolation
+→ FAILED: no Run or Session; candidate remains for repair
+→ PASSED: complete baseline, then Session with retained guard receipt
+
+Agent later edits active Session worktree
+→ session check executes the same fixed Preflight in isolation
 → immutable CandidateCheck: PASSED or FAILED
 → PASSED: complete Judge remains next
-→ FAILED: candidate stays editable for repair
+→ FAILED: worktree candidate stays editable for repair
 ```
 
 ## Contract ownership
@@ -58,6 +63,21 @@ Session still pins the preflight contract in its fixed inventory, so it cannot
 change beneath that Session.
 
 ## Execution boundary
+
+For a fresh editable Study with no reusable successful baseline, `aq session
+start` applies the fixed preflight to the canonical Project candidate before
+calling the complete Judge. It uses an ephemeral output directory outside the
+Project. Failed, malformed, timed-out, or crashing guards return structured
+validation issues without allocating Run or Session identity. After a pass,
+the ordinary baseline and Session are created and the exact passed receipt is
+retained under `baselineGuard`; its authority fields are all `none`. If the
+baseline is reused, Core does not rerun this operational check. If the Study has
+no preflight, the established direct baseline route remains explicit.
+
+The retained baseline receipt is not a CandidateCheck: there was no Session
+when it executed, it does not consume Check sequence, and it cannot satisfy a
+later worktree Check. Its hashes bind the same candidate/data/Study/preflight/
+Harness identity and are verified whenever the Session loads.
 
 `aq session check`:
 

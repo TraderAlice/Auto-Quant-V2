@@ -83,7 +83,7 @@ class AgentOrientationTests(unittest.TestCase):
                 changed["reasons"][0]["code"],
                 "baseline-evidence-missing",
             )
-            self.assertEqual(changed["primaryAction"]["id"], "run.execute")
+            self.assertEqual(changed["primaryAction"]["id"], "session.start")
 
     def test_factor_candidate_contract_discloses_actual_interval_surface(
         self,
@@ -500,7 +500,7 @@ Do not include this sibling section.
             jsonschema.validate(initial, AGENT_WORK_BRIEF_JSON_SCHEMA)
             self.assertEqual(
                 initial["primaryAction"]["id"],
-                "run.execute",
+                "session.start",
             )
             self.assertFalse(initial["filesystem"]["writable"])
             self.assertEqual(initial["filesystem"]["editablePaths"], [])
@@ -934,9 +934,9 @@ Do not include this sibling section.
             )
             self.assertEqual(
                 brief["reasons"][0]["code"],
-                "baseline-evidence-missing",
+                "session-required",
             )
-            self.assertEqual(brief["primaryAction"]["id"], "run.execute")
+            self.assertEqual(brief["primaryAction"]["id"], "session.start")
             self.assertEqual(
                 brief["researchAgenda"]["status"],
                 "waiting-evidence",
