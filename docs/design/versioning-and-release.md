@@ -21,7 +21,8 @@ One release version must agree across:
 
 - `pyproject.toml` package metadata;
 - `uv.lock` lock metadata;
-- `autoquant/version.py` runtime reporting;
+- `autoquant/version.py` runtime reporting of installed package metadata (it
+  has no separately edited version literal);
 - the README front matter and concise current-release pointer;
 - the Git tag `v<version>`.
 

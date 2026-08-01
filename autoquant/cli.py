@@ -571,7 +571,17 @@ def build_parser() -> RaisingArgumentParser:
     study_create.add_argument("--judge", required=True)
     study_create.add_argument("--judge-path", action="append")
     study_create.add_argument("--judge-arg", action="append", default=[])
-    study_create.add_argument("--editable", action="append", required=True)
+    editable_surface = study_create.add_mutually_exclusive_group(required=True)
+    editable_surface.add_argument(
+        "--editable",
+        action="append",
+        help="repeatable Agent-editable file or trailing /** closure",
+    )
+    editable_surface.add_argument(
+        "--no-editable",
+        action="store_true",
+        help="declare a fixed descriptive Study with no candidate Session surface",
+    )
     study_create.add_argument(
         "--dependency",
         action="append",
@@ -2051,7 +2061,7 @@ def _study_create(args: argparse.Namespace) -> CommandResult:
             args.subject_name or args.study_id,
             args.subject_version,
         ),
-        editable={"paths": args.editable},
+        editable={"paths": [] if args.no_editable else args.editable},
         judge=StudyJudge(
             "python",
             args.judge,

@@ -161,41 +161,6 @@ CLI and Studio disclose the effective Projects directory and whether this
 local override is active. Invalid overrides fail explicitly. A normal clone
 has no override and remains self-contained.
 
-The `0.8.8` release was closed with 286 passing tests, 1,029 checked
-documentation links, source/wheel and installed-wheel smoke, and a second
-no-hardlink clean-clone replay of the complete root Workspace.
-
-The `0.8.9` release was closed with 289 passing tests, 1,033 checked
-documentation links, an independent pre-Run Grok Build retry, and a fresh
-installed-wheel Workspace/Project/orientation/Factor-Run smoke.
-
-The `0.8.10` release was closed with 293 passing tests, 1,038 checked
-documentation links, an independent zero-file-inspection Grok Build Event
-Study retry, and a fresh installed-wheel Workspace/Project/orientation/Event
-Run smoke whose Harness recorded `0.8.10` and `dirty: false`.
-
-The `0.8.11` release was closed with 296 passing tests, 1,048 checked
-documentation links, two independent editable-Session Grok Build trials, and
-a fresh installed-wheel Python 3.11 baseline → Check → KEEP → guarded
-promotion → Studio smoke whose Harness recorded `0.8.11`,
-`commit: unavailable`, and `dirty: false`.
-
-The `0.8.12` release was closed with 299 passing tests, 1,048 checked
-documentation links, one fresh Grok reproduction under `0.8.11`, one fresh
-installed-wheel Grok retry under `0.8.12`, adversarial owner-marker coverage,
-and a final Python 3.11 wheel baseline → worktree re-entry → Check → KEEP →
-promotion → post-orient/Studio smoke whose Harness recorded `0.8.12`,
-`commit: unavailable`, and `dirty: false`.
-
-The `0.8.13` release was closed with 301 passing tests, 1,052 checked
-documentation links, one fresh installed-wheel Grok three-lane gating task,
-and a final Python 3.11 wheel inspection smoke. The coworker recovered its
-qualified research question, re-entered its Session worktree, completed one
-Check and one KEEP, promoted through the guarded path, then correctly stopped
-at `scientific-gate-blocked` with no Portfolio/RL Run or second Factor Session.
-The final wheel also repeated Session-only verdict authority on immutable
-Experiment inspection.
-
 `project create` is the normal construction entry point. It creates
 `research.md`, `framework-needs.md`, the Project manifest, and the Project-local
 strategy, factor, model, Judge, Study, Session, data, Run, and cache surfaces.

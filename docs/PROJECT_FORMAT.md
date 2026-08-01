@@ -588,7 +588,9 @@ strategy, factor, or model directories. Judge paths use the same closure syntax
 but stay beneath the declared Judge directory and are fixed and disjoint from
 editable source. An empty editable path list is reserved for a fixed
 descriptive Study such as Book Risk or Price Event Study; it has no candidate
-surface and therefore rejects Session creation.
+surface and therefore rejects Session creation. Generic construction expresses
+that intent explicitly with `aq study create ... --no-editable`; do not pass an
+empty string through `--editable` or invent a placeholder candidate closure.
 
 `dependencies` is optional. Its exact paths or trailing-`/**` closures normally
 use the same confined strategy/factor/model roots, must be non-empty and

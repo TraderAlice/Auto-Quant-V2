@@ -540,7 +540,21 @@ CLI_COMMANDS = [
             argument("judge", "option", "string", True, "Project-relative Python Judge entrypoint."),
             argument("judge-path", "option", "string", False, "Repeatable fixed Judge file or trailing /** closure.", default="Judge entrypoint"),
             argument("judge-arg", "option", "string", False, "Repeatable fixed Judge argument.", default="None"),
-            argument("editable", "option", "string", True, "Repeatable Agent-editable file or trailing /** closure."),
+            argument(
+                "editable",
+                "option",
+                "string",
+                False,
+                "Repeatable Agent-editable file or trailing /** closure; exactly one of --editable or --no-editable is required.",
+            ),
+            argument(
+                "no-editable",
+                "option",
+                "boolean",
+                False,
+                "Declare a fixed descriptive Study with no candidate Session surface; mutually exclusive with --editable.",
+                default=False,
+            ),
             argument(
                 "dependency",
                 "option",

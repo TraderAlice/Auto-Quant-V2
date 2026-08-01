@@ -29,7 +29,11 @@ optional governed Session.
 Run Reports follow the explicit frozen request at any confined Project path.
 Orientation selects one terminal continuation only when every Study forms a
 single connected parent chain; unrelated or branched Studies still require an
-explicit choice. CLI and Studio disclose the same request and upstream relation.
+explicit choice. Generic Study construction now distinguishes repeatable
+`--editable` candidate surfaces from an explicit `--no-editable` fixed Study.
+The latter never exposes impossible Session authority: before a Report it
+routes to generic immutable Run inspection, and afterward only to Report
+inspection. CLI and Studio disclose the same request and upstream relation.
 The contract does not add data reuse, implicit latest-Run selection, arbitrary
 multi-parent DAGs, forecasting, execution, or trading authority. Exact baseline
 and candidate evidence is recorded in
@@ -40,10 +44,15 @@ release audit, tagging, and host-pin independence live in
 [[docs/design/versioning-and-release]]; current and historical verification
 stays here and exact release proof stays in completed plans.
 
-Focused Study, Run, Session, Orientation, Report, and CLI regression currently
-passes 79 tests in 140.082 seconds, and 1,378 documentation links resolve. Full
-release verification and fresh installed-wheel replay remain pending before the
-tag is published. OpenAlice remains independently pinned to `0.8.31`.
+The first installed-candidate Grok replay completed the scientific task and
+proved the evidence binding, but retained three immutable attempts while
+discovering the missing fixed-Study CLI form and a misleading Session action.
+Those failures remain visible in the trial record; both reusable defects now
+have focused regressions. Earlier affected-module verification passed 79 tests
+in 140.082 seconds, and the current documentation graph resolves 1,380 links.
+Final installed-wheel replay and full release verification remain pending
+before the tag is published. OpenAlice remains independently pinned to
+`0.8.31`.
 
 ### `v0.9.17`
 

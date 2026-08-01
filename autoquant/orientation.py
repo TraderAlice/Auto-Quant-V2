@@ -64,6 +64,7 @@ PROTECTED_CATEGORIES = [
 ]
 EXPECTED_EVIDENCE = {
     "run.execute": "immutable-run",
+    "run.show": "immutable-run",
     "session.start": "research-session",
     "session.show": "session-observation",
     "session.check": "candidate-check",
@@ -1290,12 +1291,50 @@ def _single_study_orientation(
         editable = []
         mode = "establish-baseline"
         phase = "not-started"
+    elif (
+        not study.definition.editable["paths"]
+        and current_report is not None
+        and current_report.get("anchor", {}).get("kind") == "run"
+        and current_report["leaderRunId"] == current_run.id
+    ):
+        primary_raw = None
+        supporting_raw = [
+            _command(
+                "report.show",
+                "Inspect the immutable Run-bound Research Report.",
+                [
+                    "aq",
+                    "report",
+                    "show",
+                    str(project.root_dir),
+                    "--report",
+                    current_report["id"],
+                    "--json",
+                ],
+                "read-only",
+            )
+        ]
+        reasons = [
+            {
+                "code": "frozen-run-reported",
+                "category": "evidence",
+                "message": (
+                    "The current successful Run has an immutable request-bound "
+                    "Research Report. This fixed Study declares no editable "
+                    "candidate surface or Session authority."
+                ),
+            }
+        ]
+        operating_root = project.root_dir
+        editable = []
+        mode = "observe"
+        phase = "evidence-ready"
     elif study.definition.objective.metric in {
         "current_component_risk_hhi",
         "primary_eligible_event_count",
         "validation_net_sharpe_advantage",
         "worst_terminal_book_return",
-    }:
+    } or not study.definition.editable["paths"]:
         event_study = (
             study.definition.objective.metric
             == "primary_eligible_event_count"
@@ -1308,9 +1347,17 @@ def _single_study_orientation(
             study.definition.objective.metric
             == "worst_terminal_book_return"
         )
+        generic_fixed_study = study.definition.objective.metric not in {
+            "current_component_risk_hhi",
+            "primary_eligible_event_count",
+            "validation_net_sharpe_advantage",
+            "worst_terminal_book_return",
+        }
         explorer_raw = _command(
             (
-                "run.event-study"
+                "run.show"
+                if generic_fixed_study
+                else "run.event-study"
                 if event_study
                 else "run.book-path-stress"
                 if path_stress_study
@@ -1319,7 +1366,9 @@ def _single_study_orientation(
                 else "run.book-risk"
             ),
             (
-                "Inspect verified event timing, populations, references, "
+                "Inspect the current immutable Run and its exact artifacts."
+                if generic_fixed_study
+                else "Inspect verified event timing, populations, references, "
                 "overlap, uncertainty, and no-trading conclusion evidence."
                 if event_study
                 else (
@@ -1341,7 +1390,9 @@ def _single_study_orientation(
                 "aq",
                 "run",
                 (
-                    "event-study"
+                    "show"
+                    if generic_fixed_study
+                    else "event-study"
                     if event_study
                     else "book-path-stress"
                     if path_stress_study
@@ -1363,7 +1414,10 @@ def _single_study_orientation(
                 "code": "descriptive-evidence-ready",
                 "category": "evidence",
                 "message": (
-                    "The fixed price-event Study is complete and ready for "
+                    "The fixed non-editable Study is complete and ready for "
+                    "evidence review."
+                    if generic_fixed_study
+                    else "The fixed price-event Study is complete and ready for "
                     "historical evidence review."
                     if event_study
                     else (
@@ -1646,6 +1700,7 @@ def _single_study_orientation(
                 in {
                     "descriptive-evidence-ready",
                     "required-research-complete",
+                    "frozen-run-reported",
                 }
                 else "pending"
             ),
@@ -1667,6 +1722,13 @@ def _single_study_orientation(
                     "for a deliberately chosen follow-up."
                 )
                 if reasons[0]["code"] == "required-research-complete"
+                else (
+                    "Write and return the decision-support answer from the "
+                    "immutable Report. This fixed Study has no candidate "
+                    "Session surface."
+                )
+                if reasons[0]["code"] == "frozen-run-reported"
+                and not study.definition.editable["paths"]
                 else (
                     (
                         (

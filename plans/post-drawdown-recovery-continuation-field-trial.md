@@ -193,6 +193,23 @@ product evidence rather than hidden.
   routes contributors there, [[docs/STATUS]] retains release evidence, and
   README has been reduced to product orientation, current version, quick start,
   and links.
+- 2026-08-01 — The first installed-`0.9.18` candidate worker completed the
+  continuation and preserved old immutable bytes, but it exposed two final
+  ergonomics defects rather than satisfying the requested one-Run shape. The
+  generic CLI required a non-empty `--editable`, so the worker dropped to the
+  installed Python API to create a fixed Study. It then retained one stale
+  successful Run and one failed Run before the authoritative Run. After the
+  authoritative Run-bound Report, Orientation also suggested `session start`
+  even though the Study's declared editable closure was empty. These are
+  reusable Workbench defects, not scientific failures or reasons to delete the
+  immutable attempts.
+- 2026-08-01 — The candidate now provides mutually exclusive `--editable` and
+  `--no-editable` construction. Any successful fixed Study with an empty
+  editable closure routes to generic immutable Run review, and its reported
+  terminal state exposes only `report show`; it never advertises impossible
+  Session authority. The installed-candidate Project re-oriented under the
+  repaired source with `review.status=complete`, no primary action, one
+  `report.show` supporting action, and the exact continuation binding.
 
 ## Verification
 
@@ -222,6 +239,31 @@ Baseline evidence:
 Record candidate replay, focused/full tests, builds, and installed/clean-clone
 smokes below as they are produced.
 
+First candidate replay evidence:
+
+- wheel: `auto_quant-0.9.18-py3-none-any.whl`, SHA-256
+  `bf113ea3b665098c97bc27d254eebb3c7a2dcb76edb0d9ed2ae2a02ebfc972b1`;
+- isolated root: `/Users/ame/autoquant-v0918-recovery-candidate`;
+- Grok 4.5 session: `019fbcff-aa60-7f10-94f1-a69897f37ee9`, exported as
+  `candidate-transcript.md` beside the desk;
+- authoritative Run: `run-20260801T111139428486Z-14b79eebcaea`; Report:
+  `report-20260801T111215023163Z-13aa09b21783`; zero Sessions;
+- the prior Study, Run, original Report, and corrected Report are byte-for-byte
+  unchanged. The candidate added one Study, three immutable attempts (two
+  successful with the first made stale by the corrected Study definition and
+  one failed for a fixed dependency-path miss), one current Report, task-local
+  data/source, and maintained Markdown;
+- public validation, orientation, Study/Run/Report/Session lists, and Studio
+  snapshot succeeded. The authoritative Run freezes the exact upstream Run,
+  result/input hashes, selected artifact hashes and bytes, explicit request and
+  position snapshot, and complete task-local dataset identity;
+- independent standard-library recomputation reproduced all five outcomes:
+  rank 1 recovered on `2020-05-08` after 36 sessions with terminal book value
+  `1.055031875800815`; ranks 2–5 remained censored with terminal values
+  `0.8016736733179449`, `0.900193418584245`, `0.827026512586498`, and
+  `0.80653455214537`. Maximum contribution residual was
+  `1.1796119636642288e-16`.
+
 ## Progress log
 
 - 2026-08-01 — Plan activated from clean released `v0.9.17`; OpenAlice remains
@@ -235,6 +277,16 @@ smokes below as they are produced.
   new focused public-boundary tests pass; the complete affected four-module
   regression passes 44 tests in 66.572 seconds. Documentation links resolve
   after extracting the release policy from README.
+- 2026-08-01 — First installed-candidate replay completed in the same long-lived
+  Project and proved the new request/upstream binding end to end. Its retained
+  intermediate Runs exposed the missing fixed-Study CLI form and impossible
+  Session suggestion. Added `--no-editable`, generic fixed-Run orientation,
+  terminal fixed-Report orientation, and focused regressions before scheduling
+  one final candidate replay.
+- 2026-08-01 — The complete affected Study/Run/Session/Run-Report/Orientation/
+  CLI/repository regression passes 85 tests in 123.288 seconds after the final
+  fixed-Study repair. `uv lock --check`, Python compilation, capability/help
+  discovery, diff checks, and all 1,380 documentation links also pass.
 
 ## Completion
 

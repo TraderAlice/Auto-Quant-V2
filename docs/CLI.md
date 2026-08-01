@@ -427,7 +427,7 @@ aq study create <path> <study-id> \
   --subject-kind factor \
   --judge judges/evaluate.py \
   --judge-path 'judges/**' \
-  --editable 'factors/**' \
+  (--editable 'factors/**' | --no-editable) \
   [--dependency 'models/fixed-input.py'] \
   [--request-path 'requests/recovery.json'] \
   [--position-snapshot-path 'requests/position-snapshot.json'] \
@@ -498,6 +498,11 @@ map, and whether that map came from explicit per-asset declarations or the
 legacy homogeneous package summary. The Study definition keeps its compact
 top-level `dataset.asset_class`; consumers do not need to mistake that summary
 for the complete economic inventory.
+
+Exactly one candidate-surface form is required. Repeat `--editable` for a
+Study that permits bounded candidate Sessions. Use `--no-editable` for a fixed
+descriptive Study that executes only its locked Judge and can publish a direct
+Run-bound Report; Orientation will not suggest `session start` for that Study.
 
 `--dependency` is optional and repeatable. It declares fixed Project-relative
 strategy/factor/model source that the Judge may import but the Study cannot

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 
 import jsonschema
@@ -13,6 +14,7 @@ from autoquant.orientation import (
     build_agent_work_brief,
 )
 from autoquant.reports import publish_report
+from autoquant.run_reports import publish_run_report
 from autoquant.runs import execute_study
 from autoquant.sessions import (
     complete_session,
@@ -502,6 +504,64 @@ Do not include this sibling section.
             self.assertEqual(
                 stale["filesystem"]["operatingRoot"],
                 str(project.root_dir),
+            )
+
+    def test_custom_fixed_study_never_recommends_an_impossible_session(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, project = make_project(directory)
+            request = research_request()
+            request_path = project.root_dir / "requests" / "fixed.json"
+            request_path.parent.mkdir()
+            request_path.write_text(
+                json.dumps(request, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            definition = study_definition(
+                dependencies=["requests/fixed.json", "factors/**"],
+                research_request=StudyResearchRequest("requests/fixed.json"),
+            )
+            definition = replace(
+                definition,
+                editable={"paths": []},
+            )
+            create_study(project, definition)
+            run = execute_study(project, "factor-quality")
+
+            evidence_ready = build_agent_work_brief(project)
+            jsonschema.validate(evidence_ready, AGENT_WORK_BRIEF_JSON_SCHEMA)
+            self.assertEqual(
+                evidence_ready["reasons"][0]["code"],
+                "descriptive-evidence-ready",
+            )
+            self.assertEqual(evidence_ready["review"]["status"], "complete")
+            self.assertEqual(
+                [item["id"] for item in evidence_ready["supportingActions"]],
+                ["run.show"],
+            )
+
+            report = publish_run_report(
+                project,
+                "factor-quality",
+                run.result["id"],
+                report_analysis(run.result["id"]),
+            )
+            reported = build_agent_work_brief(project)
+            jsonschema.validate(reported, AGENT_WORK_BRIEF_JSON_SCHEMA)
+            self.assertEqual(
+                reported["reasons"][0]["code"],
+                "frozen-run-reported",
+            )
+            self.assertEqual(reported["review"]["status"], "complete")
+            self.assertEqual(
+                [item["id"] for item in reported["supportingActions"]],
+                ["report.show"],
+            )
+            self.assertEqual(reported["evidence"]["reportId"], report.report["id"])
+            self.assertIn(
+                "no candidate Session surface",
+                reported["review"]["next"],
             )
 
     def test_completed_single_study_is_terminal_with_optional_continuation(

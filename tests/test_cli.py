@@ -63,8 +63,7 @@ class AgentCliTests(unittest.TestCase):
                 "judges/evaluate.py",
                 "--judge-path",
                 "judges/**",
-                "--editable",
-                "factors/**",
+                "--no-editable",
                 "--dependency",
                 "requests/recovery.json",
                 "--request-path",
@@ -92,6 +91,7 @@ class AgentCliTests(unittest.TestCase):
                 data["researchRequest"]["path"],
                 "requests/recovery.json",
             )
+            self.assertEqual(data["definition"]["editable"]["paths"], [])
             self.assertEqual(
                 data["upstreamEvidence"]["run_id"],
                 prior.result["id"],
