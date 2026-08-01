@@ -18,7 +18,9 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-None.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/korea-delayed-gap-event-field-trial]] | Prove a fresh coworker can turn one fixed Korean downside-gap question and zero staged data into truthful multi-route Event evidence without confusing raw and adjusted provider semantics. | 2026-08-01 |
 
 ## Proposed plans
 
