@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha released as `v0.9.10`; `v0.8.31` remains the Harness
+Status: usable pre-alpha released as `v0.9.11`; `v0.8.31` remains the Harness
 currently consumed by OpenAlice until the host deliberately selects a newer
 tag.
 
@@ -17,6 +17,39 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 
 AutoQuant V2 has crossed the line from an architectural prototype into a
 usable Agent-native quantitative research workbench.
+
+The `0.9.11` patch makes the end of a frozen external-period audit a durable
+research handoff. A fresh installed-`0.9.10` coworker correctly froze and ran
+one Factor-plus-Portfolio Dossier against a strictly later dataset and reached
+the right mixed conclusion, but it needed seven ad hoc raw-artifact
+inspections and wrote an unverified Project-root Markdown note.
+
+`aq holdout show` now returns bounded source-versus-later decision support and
+lane diagnostics. `aq holdout assess --analysis` binds one strict
+Agent-authored interpretation to the exact result, evidence, and binding and
+publishes verified JSON plus deterministic Markdown. The lifecycle is
+`bound` → `completed` → `assessed`; completed Runs alone no longer masquerade
+as a completed caller handoff. Core computes no universal pass threshold and
+grants no selection, promotion, Order, or trading authority. CLI orientation
+and Studio expose the same state. Browser verification also caught and fixed
+a latent Factor qualification-card refresh failure. Exact evidence is in
+[[plans/frozen-holdout-research-handoff]].
+
+The repaired installed-wheel Grok replay used only public CLI projections,
+published verified Assessment `holdout-assessment-cb7783b524a1aaf5` as
+`mixed` with Factor `weakened` and Portfolio `strengthened`, left the source
+Project byte-identical, and retained exactly two target Runs. Final release
+verification passed 381 tests in 945.087 seconds, 1,321 documentation links,
+lock and Python/JavaScript syntax checks, source/wheel builds, a fresh Python
+3.11.14 installation with pandas 3.0.5 and 53 public commands, installed-wheel
+absolute-next-action smoke, browser Studio QA, and no-hardlink clean-clone root
+Workspace smoke. Wheel SHA-256:
+`b7247bc475d1fe601641b826268399a523fe8c74c2500d636cb4711d82525994`.
+
+The request-led data invariant remains explicit: the question determines its
+complete venue/assets/interval/clock/adjustment/date package, existing data is
+only a possible source, and intentional duplication is preferable to silently
+changing the question. OpenAlice remains pinned to `0.8.31`.
 
 The `0.9.10` patch addresses ordinary longitudinal maintenance inside one
 Project. A fresh installed `0.9.9` coworker correctly preserved an existing
@@ -531,9 +564,9 @@ Agendas with no move are `unavailable`. This is presentation authority only:
 Core neither infers a prose experiment budget nor executes, promotes, or
 trades from an agenda.
 
-The current release is `v0.9.4`; `v0.8.31` remains the selected OpenAlice
-consumption baseline until the host deliberately changes its pin. That older
-release adds a canonical 16-Skill
+The `v0.8.31` release remains the selected OpenAlice consumption baseline
+until the host deliberately changes its pin. That older release adds a
+canonical 16-Skill
 market-data acquisition bundle, two-source field evidence for every
 first-batch market, strict provider-neutral intake, and truthful route,
 adjustment, volume, authority, and degraded-access boundaries. `v0.8.30`

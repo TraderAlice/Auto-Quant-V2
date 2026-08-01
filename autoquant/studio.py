@@ -1024,7 +1024,11 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
     )
     external_holdout_raw, issues = _read_category(
         "external-holdout",
-        lambda: load_holdout_status(project, optional=True),
+        lambda: load_holdout_status(
+            project,
+            optional=True,
+            include_evidence=True,
+        ),
     )
     diagnostics.extend(issues)
     external_holdout = (

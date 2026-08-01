@@ -1,6 +1,6 @@
 # Frozen-holdout research handoff
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-08-01`
 - Target release: `0.9.11`
 - Related design: [[docs/design/frozen-external-holdout-challenge]],
@@ -81,24 +81,24 @@ convert historical evidence into an Order or live-trading approval.
 
 ## Acceptance
 
-- [ ] One released-wheel baseline starts from a current verified
+- [x] One released-wheel baseline starts from a current verified
       Factor/Portfolio Dossier and one complete strictly later compatible
       dataset package.
-- [ ] A fresh worker discovers and completes the frozen path without private
+- [x] A fresh worker discovers and completes the frozen path without private
       source inspection, candidate edits, Session creation, or target
       selection.
-- [ ] Both lanes execute exactly once and expose source/later objective values,
+- [x] Both lanes execute exactly once and expose source/later objective values,
       deltas, complete diagnostics, immutable identities, and external-audit
       authority.
-- [ ] The final handoff answers whether each original conclusion weakened,
+- [x] The final handoff answers whether each original conclusion weakened,
       persisted, or remains inconclusive without manufacturing a universal
       threshold or trading recommendation.
-- [ ] Source Project evidence remains byte-identical; the target remains
+- [x] Source Project evidence remains byte-identical; the target remains
       content-verifiable, non-iterative, and recoverable through CLI and
       Studio.
-- [ ] Every material operator failure is either repaired with deterministic
+- [x] Every material operator failure is either repaired with deterministic
       regression coverage or retained as an explicit research/provider limit.
-- [ ] Final wheel replay, complete tests, documentation links, build/install,
+- [x] Final wheel replay, complete tests, documentation links, build/install,
       and clean-clone Workspace smoke pass before `v0.9.11` is tagged and
       pushed.
 
@@ -106,12 +106,12 @@ convert historical evidence into an Order or live-trading approval.
 
 - [x] Audit the existing frozen-holdout, Report, Dossier, orientation, and
       target-freeze contracts before proposing a new surface.
-- [ ] Prepare the exact source baseline, strictly later package, isolation
+- [x] Prepare the exact source baseline, strictly later package, isolation
       rules, and immutable source inventory.
-- [ ] Run and review a fresh installed-`0.9.10` worker against the unchanged
+- [x] Run and review a fresh installed-`0.9.10` worker against the unchanged
       caller-style assignment.
-- [ ] Implement only reproduced reusable friction and replay the same task.
-- [ ] Complete release documentation and final verification, tag, and push.
+- [x] Implement only reproduced reusable friction and replay the same task.
+- [x] Complete release documentation and final verification, tag, and push.
 
 ## Findings and decisions
 
@@ -127,17 +127,68 @@ convert historical evidence into an Order or live-trading approval.
   non-overlap, per-lane execution, and authority. The unknown is the research
   handoff after execution, so no Report/Dossier schema change is authorized
   until a fresh worker demonstrates the need.
+- 2026-08-01 — A fresh isolated Grok 4.5 worker using only the installed
+  `0.9.10` wheel created the target and executed both lanes exactly once. The
+  source Project's 93-file SHA-256 inventory remained byte-identical and the
+  target validated, oriented, and projected into Studio without error.
+- 2026-08-01 — The worker answered the mixed result correctly, but needed
+  seven ad hoc Python inspections of raw Run artifacts after `holdout show`
+  exposed only objective scalars. Its final `holdout-assessment.md` was a
+  loose Project-root file invisible to Core. This reproduces one reusable
+  handoff defect: verified result interpretation needs a bounded evidence
+  read model plus an immutable result-bound Assessment, not another selection
+  operation or a universal pass rule.
+- 2026-08-01 — A second fresh Grok 4.5 worker used the installed candidate
+  wheel and public CLI only. It did not inspect private package source or raw
+  Run artifacts, did not rerun either lane, and published Assessment
+  `holdout-assessment-cb7783b524a1aaf5` with overall `mixed`, Factor
+  `weakened`, and Portfolio `strengthened`. The source Project remained
+  byte-identical and the target retained exactly two Runs.
+- 2026-08-01 — The candidate worker's only retry came from copying a relative
+  `holdout-analysis.json` path from Workspace-root orientation. The executable
+  `nextAction` now emits the absolute target-Project path, covered by a
+  deterministic regression and a final installed-wheel smoke.
 
 ## Verification
 
-Pending.
+- `uv run python -m unittest discover -s tests -v` passed all 381 tests in
+  945.087 seconds.
+- `uv run python scripts/check_doc_links.py` resolved all 1,321 documentation
+  links; `uv lock --check`, Python compilation, JavaScript syntax, and
+  `git diff --check` passed.
+- The final source distribution and wheel built successfully. A fresh Python
+  3.11.14 environment installed the wheel with pandas 3.0.5, reported
+  `aq 0.9.11`, and exposed all 53 public commands. Wheel SHA-256:
+  `b7247bc475d1fe601641b826268399a523fe8c74c2500d636cb4711d82525994`.
+- A final installed-wheel copy of the completed unassessed target validated
+  and emitted an absolute `holdout.assess --analysis` path.
+- Browser QA loaded the assessed Project through the live read-only Studio,
+  showed the lane-specific Assessment, and verified refresh after fixing the
+  latent Factor qualification-card JavaScript error.
+- A no-hardlink clone of the committed repository loaded the root Workspace,
+  selected and validated `sample-research-desk`, listed Projects, oriented,
+  and produced a Studio snapshot with the final installed wheel.
 
 ## Progress log
 
 - 2026-08-01 — Plan created from the clean released `v0.9.10` state after the
   existing Holdout contract was audited. The completed `0.9.10` data-vintage
   plan was also moved from the active index to completed.
+- 2026-08-01 — Completed cohort 20 against an exact installed `0.9.10` wheel.
+  The result deliberately diverged across lanes (Factor primary IC
+  `0.562 → 0.028`; Portfolio validation net Sharpe `12.90 → 15.35`), proving
+  the handoff must preserve lane-specific interpretation. Transcript and
+  fixtures remain outside the repository under
+  `grok-field-trials/cohort-20-frozen-holdout-handoff-v0910`.
+- 2026-08-01 — Completed cohort 21 against the installed `0.9.11` candidate.
+  The worker used verified CLI projections rather than raw artifact
+  reverse-engineering, published the immutable mixed Assessment, and left the
+  source untouched. Transcript and fixtures remain outside the repository
+  under `grok-field-trials/cohort-21-frozen-holdout-assessment-v0911`.
 
 ## Completion
 
-Complete this section only when status becomes `completed`.
+`v0.9.11` closes the frozen-holdout lifecycle as `bound` → `completed` →
+`assessed`. Core owns exact evidence identity and verification; the Agent owns
+the lane-specific interpretation. The release adds no universal threshold,
+new selection path, data inventory, execution authority, or OpenAlice change.

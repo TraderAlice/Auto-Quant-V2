@@ -178,6 +178,15 @@ investigation; once it exists for a lane, its evidence and Report take
 precedence over an older direct Run Report. See
 [[docs/design/run-bound-research-reports]].
 
+A frozen Holdout is not handed off merely because its one-shot Runs succeeded.
+After `aq holdout run`, inspect the bounded source/later comparison with
+`aq holdout show`, author `holdout-analysis.json`, and publish it with
+`aq holdout assess`. Judge Factor, Portfolio, and optional RL lanes separately;
+do not let one favorable scalar rescue another weakened claim, and do not
+invent a universal pass threshold. Only verified `assessed` state is the
+terminal caller handoff. The Assessment is Agent-authored quantitative support
+with no selection, automatic-promotion, Order, or trading authority.
+
 When writing `request.horizonPolicy`, declare the required primary horizon
 once. `diagnosticForwardBars` may contain only the additional sorted context
 horizons; Core canonically adds the primary and enforces a five-horizon total.

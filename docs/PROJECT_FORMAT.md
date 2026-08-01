@@ -1108,8 +1108,14 @@ holdout/
 │   ├── factors/...
 │   └── models/...              # only when RL is included
 ├── manifest.json
-└── result/                     # after the one-shot challenge
-    ├── result.json
+├── result/                     # after the one-shot challenge
+│   ├── result.json
+│   └── manifest.json
+└── assessment/                 # after Agent interpretation
+    ├── analysis.json
+    ├── evidence.json
+    ├── assessment.json
+    ├── assessment.md
     └── manifest.json
 ```
 
@@ -1140,6 +1146,14 @@ publication. The result records source/later objective values and deltas with
 `selectionAllowed: false` and `tradingAuthority: none`. See
 [[docs/design/frozen-external-holdout-challenge]].
 
+The result state is `completed` until an Agent publishes the caller-facing
+interpretation. `holdout/assessment/` is one immutable, result-bound handoff:
+`analysis.json` contains the small lane-specific Agent declaration;
+`evidence.json` is rebuilt and verified by Core from the portable source
+Dossier plus later Runs; `assessment.md` is deterministic review prose; and
+the manifest pins every file. State becomes `assessed` only when all objects
+still reconcile. This is not a cross-lane Core pass rule.
+
 ## Canonical schemas
 
 Machine-readable JSON Schemas are available without loading a Project:
@@ -1159,6 +1173,8 @@ aq schema candidate-check-output --json
 aq schema candidate-check-result --json
 aq schema holdout-binding --json
 aq schema holdout-result --json
+aq schema holdout-assessment-analysis --json
+aq schema holdout-assessment --json
 aq schema holdout-status --json
 aq schema experiment --json
 aq schema researcher-response --json

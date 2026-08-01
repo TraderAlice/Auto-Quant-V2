@@ -74,6 +74,9 @@ EXPECTED_EVIDENCE = {
     "dossier.publish": "immutable-dossier",
     "dossier.show": "immutable-dossier",
     "dossier.status": "dossier-status",
+    "holdout.run": "immutable-holdout-result",
+    "holdout.assess": "immutable-holdout-assessment",
+    "holdout.show": "holdout-evidence",
     "study.inspect": "study-authority",
     "run.book-risk": "book-risk-diagnostics",
     "run.event-study": "event-study-diagnostics",
@@ -1603,7 +1606,8 @@ def _holdout_orientation(
     project: ProjectContext,
     holdout: dict[str, Any],
 ) -> dict[str, Any]:
-    completed = holdout["state"] == "completed"
+    result_complete = holdout["state"] in {"completed", "assessed"}
+    assessed = holdout["state"] == "assessed"
     action = holdout["nextAction"]
     result = holdout["result"]
     run_id = (
@@ -1619,14 +1623,19 @@ def _holdout_orientation(
     reason = {
         "code": (
             "external-holdout-complete"
-            if completed
+            if assessed
+            else "external-holdout-assessment-required"
+            if result_complete
             else "external-holdout-bound"
         ),
         "category": "evidence",
         "message": (
-            "The frozen research object has completed its strictly later "
-            "external-period audit."
-            if completed
+            "The frozen result and lane-specific Agent assessment are both "
+            "published for durable handoff."
+            if assessed
+            else "The frozen Runs completed. Review the verified comparative "
+            "evidence and publish one lane-specific Agent assessment."
+            if result_complete
             else "The exact Dossier leaders are frozen and ready for one "
             "strictly later external-period audit."
         ),
@@ -1639,7 +1648,13 @@ def _holdout_orientation(
             "studyName": None,
             "coordinationPhase": holdout["state"],
             "scientificStage": reason["code"],
-            "operatingMode": "observe" if completed else "external-audit",
+            "operatingMode": (
+                "observe"
+                if assessed
+                else "publish-evidence"
+                if result_complete
+                else "external-audit"
+            ),
         },
         "evidence": {
             "runId": run_id,
@@ -1647,16 +1662,28 @@ def _holdout_orientation(
             "sessionId": None,
             "sessionStatus": None,
             "leaderRunId": None,
-            "reportId": None,
+            "reportId": (
+                holdout["assessment"]["id"]
+                if holdout["assessment"] is not None
+                else None
+            ),
             "candidateCheckId": None,
             "candidateCheckStatus": None,
         },
         "reasons": [reason],
         "filesystem": {
             "operatingRoot": str(project.root_dir),
-            "writable": False,
-            "editablePaths": [],
-            "declaredEditablePaths": [],
+            "writable": result_complete and not assessed,
+            "editablePaths": (
+                ["holdout-analysis.json"]
+                if result_complete and not assessed
+                else []
+            ),
+            "declaredEditablePaths": (
+                ["holdout-analysis.json"]
+                if result_complete and not assessed
+                else []
+            ),
             "protectedCategories": [
                 *PROTECTED_CATEGORIES,
                 "holdout-binding",
@@ -1671,9 +1698,32 @@ def _holdout_orientation(
             "tradingAuthority": "none",
         },
         "primaryAction": primary,
-        "supportingActions": [],
+        "supportingActions": (
+            [
+                _action(
+                    {
+                        "id": "holdout.show",
+                        "description": (
+                            "Inspect the verified source-versus-later evidence "
+                            "before authoring the Assessment."
+                        ),
+                        "argv": [
+                            "aq",
+                            "holdout",
+                            "show",
+                            str(project.root_dir),
+                            "--json",
+                        ],
+                        "effect": "read-only",
+                    },
+                    working_directory=project.root_dir,
+                )
+            ]
+            if result_complete and not assessed
+            else []
+        ),
         "review": {
-            "status": "complete" if completed else "pending",
+            "status": "complete" if assessed else "pending",
             "label": reason["code"].replace("-", " ").upper(),
             "title": "Frozen external-period challenge",
             "detail": reason["message"],

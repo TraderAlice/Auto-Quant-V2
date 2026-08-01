@@ -18,9 +18,7 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-| Plan | Outcome | Updated |
-| --- | --- | --- |
-| [[plans/frozen-holdout-research-handoff]] | Prove a fresh coworker can turn one completed Factor/Portfolio Dossier and a strictly later task-specific dataset into a frozen external-period audit and a durable answer to whether the original conclusion still holds. | 2026-08-01 |
+None.
 
 ## Proposed plans
 
@@ -36,6 +34,7 @@ None.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/frozen-holdout-research-handoff]] | Proved a fresh coworker can turn one completed Factor/Portfolio Dossier and a strictly later task-specific dataset into a frozen external-period audit and a durable immutable Assessment of whether each original conclusion still holds. | 2026-08-01 |
 | [[plans/same-project-data-vintage-refresh-field-trial]] | Proved one completed Project can answer the same fixed Book Risk question on a newer task-specific data vintage while preserving every old snapshot, Run, and Report. | 2026-08-01 |
 | [[plans/authority-gated-twse-factor-field-trial]] | Proved a zero-data coworker obeys a caller-fixed official-TWSE-plus-peer authority gate, preserves exact official failure evidence automatically, and stops without single-source factor authority when the gate fails. | 2026-08-01 |
 | [[plans/same-project-book-risk-follow-up-field-trial]] | Proved a related caller-supplied Book Risk scenario question can add one independently fixed Study/Run/Report inside the completed Project without mutating old evidence, multiplying Projects, or inheriting the wrong Report request. | 2026-08-01 |

@@ -121,14 +121,20 @@ from .intake import (
     prepare_project_intake,
 )
 from .holdouts import (
+    HOLDOUT_ASSESSMENT_ANALYSIS_JSON_SCHEMA,
+    HOLDOUT_ASSESSMENT_JSON_SCHEMA,
     HOLDOUT_BINDING_JSON_SCHEMA,
     HOLDOUT_RESULT_JSON_SCHEMA,
     HOLDOUT_STATUS_JSON_SCHEMA,
     bind_holdout,
+    build_holdout_evidence,
     create_holdout_target,
+    load_holdout_assessment,
+    load_holdout_assessment_analysis,
     load_holdout_binding,
     load_holdout_result,
     load_holdout_status,
+    publish_holdout_assessment,
     run_holdout,
 )
 from .mandates import PORTFOLIO_MANDATE_JSON_SCHEMA
@@ -308,6 +314,8 @@ def build_parser() -> RaisingArgumentParser:
             "research-agenda",
             "holdout-binding",
             "holdout-result",
+            "holdout-assessment-analysis",
+            "holdout-assessment",
             "holdout-status",
             "study",
             "judge-output",
@@ -1082,9 +1090,23 @@ def build_parser() -> RaisingArgumentParser:
     holdout_run.set_defaults(command_id="holdout.run")
     _json_argument(holdout_run)
 
+    holdout_assess = holdout_actions.add_parser(
+        "assess",
+        help="publish one immutable Agent assessment over a terminal holdout",
+    )
+    holdout_assess.add_argument("path")
+    holdout_assess.add_argument("--project")
+    holdout_assess.add_argument(
+        "--analysis",
+        required=True,
+        help="strict Agent-authored holdout assessment analysis JSON",
+    )
+    holdout_assess.set_defaults(command_id="holdout.assess")
+    _json_argument(holdout_assess)
+
     holdout_show = holdout_actions.add_parser(
         "show",
-        help="verify the immutable external-period challenge result",
+        help="verify the immutable result, evidence, and optional assessment",
     )
     holdout_show.add_argument("path")
     holdout_show.add_argument("--project")
@@ -4262,6 +4284,29 @@ def _holdout_result_artifacts(
     ]
 
 
+def _holdout_assessment_artifacts(assessment) -> list[dict[str, Any]]:
+    return [
+        artifact(
+            "holdout-assessment",
+            assessment.assessment["id"],
+            assessment.root_dir / "assessment.json",
+            immutable=True,
+        ),
+        artifact(
+            "holdout-assessment-markdown",
+            assessment.assessment["id"],
+            assessment.root_dir / "assessment.md",
+            immutable=True,
+        ),
+        artifact(
+            "holdout-assessment-evidence",
+            assessment.assessment["id"],
+            assessment.root_dir / "evidence.json",
+            immutable=True,
+        ),
+    ]
+
+
 def _holdout_create_target(args: argparse.Namespace) -> CommandResult:
     _require_explicit_workspace_project(
         "holdout.create-target",
@@ -4399,6 +4444,12 @@ def _holdout_status(args: argparse.Namespace) -> CommandResult:
                 if status["result"] is not None
                 else ""
             )
+            + (
+                f"Assessment: {status['assessment']['id']} · "
+                f"{status['assessment']['overallAssessment']}\n"
+                if status["assessment"] is not None
+                else ""
+            )
             + "Authority: external temporal audit · selection disabled · trading none\n"
         ),
         project_context(project),
@@ -4441,8 +4492,62 @@ def _holdout_run(args: argparse.Namespace) -> CommandResult:
         _holdout_result_artifacts(project, result),
         [
             next_action(
+                "holdout.assess",
+                "Publish one immutable Agent assessment over the verified result.",
+                [
+                    "aq",
+                    "holdout",
+                    "assess",
+                    str(project.root_dir),
+                    "--analysis",
+                    str(project.root_dir / "holdout-analysis.json"),
+                    "--json",
+                ],
+                "creates-artifact",
+            )
+        ],
+    )
+
+
+def _holdout_assess(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    result = load_holdout_result(project)
+    analysis = load_holdout_assessment_analysis(
+        args.analysis,
+        [lane["id"] for lane in result.result["lanes"]],
+    )
+    assessment = publish_holdout_assessment(project, analysis)
+    lines = [
+        f"Immutable Holdout Assessment: {assessment.assessment['id']}",
+        f"Result: {assessment.assessment['resultId']}",
+        f"Overall Agent assessment: {assessment.assessment['overallAssessment']}",
+    ]
+    lines.extend(
+        f"  {lane['id']}: {lane['assessment']} · {lane['summary']}"
+        for lane in assessment.assessment["lanes"]
+    )
+    lines.extend(
+        [
+            f"Markdown: {assessment.root_dir / 'assessment.md'}",
+            "Authority: Agent-authored interpretation · no Core pass threshold · trading none",
+        ]
+    )
+    return CommandResult(
+        "holdout.assess",
+        {
+            "manifest": assessment.manifest,
+            "assessment": assessment.assessment,
+            "analysis": assessment.analysis,
+            "evidence": assessment.evidence,
+            "markdownPath": str(assessment.root_dir / "assessment.md"),
+        },
+        "\n".join(lines) + "\n",
+        project_context(project),
+        _holdout_assessment_artifacts(assessment),
+        [
+            next_action(
                 "holdout.show",
-                "Verify the immutable external-period challenge result.",
+                "Verify the immutable result and its Agent assessment.",
                 ["aq", "holdout", "show", str(project.root_dir), "--json"],
                 "read-only",
             )
@@ -4454,23 +4559,55 @@ def _holdout_show(args: argparse.Namespace) -> CommandResult:
     project = _selected_project(args)
     binding = load_holdout_binding(project)
     result = load_holdout_result(project)
+    evidence = build_holdout_evidence(project)
+    assessment = load_holdout_assessment(
+        project,
+        optional=True,
+        verified_evidence=evidence,
+    )
     return CommandResult(
         "holdout.show",
         {
             "binding": binding.binding,
             "manifest": result.manifest,
             "result": result.result,
+            "evidence": evidence,
+            "assessment": (
+                {
+                    "manifest": assessment.manifest,
+                    "assessment": assessment.assessment,
+                    "analysis": assessment.analysis,
+                    "markdownPath": str(assessment.root_dir / "assessment.md"),
+                }
+                if assessment is not None
+                else None
+            ),
         },
         (
             f"Immutable external holdout: {result.result['id']}\n"
             f"Binding: {binding.binding['id']}\n"
             f"Status: {result.result['status']}\n"
             f"Lanes: {', '.join(lane['id'] for lane in result.result['lanes'])}\n"
+            + (
+                f"Assessment: {assessment.assessment['id']} · "
+                f"{assessment.assessment['overallAssessment']}\n"
+                f"Markdown: {assessment.root_dir / 'assessment.md'}\n"
+                if assessment is not None
+                else "Assessment: not yet published\n"
+            )
+            +
             "Interpretation: frozen later-period audit; no universal pass "
             "threshold or trading authority\n"
         ),
         project_context(project),
-        _holdout_result_artifacts(project, result),
+        [
+            *_holdout_result_artifacts(project, result),
+            *(
+                _holdout_assessment_artifacts(assessment)
+                if assessment is not None
+                else []
+            ),
+        ],
     )
 
 
@@ -4538,6 +4675,7 @@ def _studio_serve(args: argparse.Namespace) -> CommandResult:
 def _validate(args: argparse.Namespace) -> CommandResult:
     project = _selected_project(args)
     intake = load_project_intake(project)
+    holdout = load_holdout_status(project, optional=True)
     study_datasets = {}
     for summary in list_studies(project):
         study = load_study(project, summary.id)
@@ -4561,6 +4699,7 @@ def _validate(args: argparse.Namespace) -> CommandResult:
             },
             "intake": intake,
             "studyDatasets": study_datasets,
+            "externalHoldout": holdout,
         },
         selection_line
         + f"Valid AutoQuant Project '{project.manifest.id}' at {project.root_dir}\n",
@@ -4830,6 +4969,8 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "research-agenda",
             "holdout-binding",
             "holdout-result",
+            "holdout-assessment-analysis",
+            "holdout-assessment",
             "holdout-status",
             "campaign-progress",
             "campaign-result",
@@ -4879,6 +5020,8 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "research-agenda": RESEARCH_AGENDA_JSON_SCHEMA,
             "holdout-binding": HOLDOUT_BINDING_JSON_SCHEMA,
             "holdout-result": HOLDOUT_RESULT_JSON_SCHEMA,
+            "holdout-assessment-analysis": HOLDOUT_ASSESSMENT_ANALYSIS_JSON_SCHEMA,
+            "holdout-assessment": HOLDOUT_ASSESSMENT_JSON_SCHEMA,
             "holdout-status": HOLDOUT_STATUS_JSON_SCHEMA,
             "study": STUDY_JSON_SCHEMA,
             "judge-output": JUDGE_OUTPUT_JSON_SCHEMA,
@@ -5014,6 +5157,8 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
         return _holdout_status(args)
     if args.command_id == "holdout.run":
         return _holdout_run(args)
+    if args.command_id == "holdout.assess":
+        return _holdout_assess(args)
     if args.command_id == "holdout.show":
         return _holdout_show(args)
     if args.command_id == "studio.snapshot":

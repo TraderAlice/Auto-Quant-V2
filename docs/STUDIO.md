@@ -115,8 +115,11 @@ The first viewport prioritizes:
   required primary action;
 - a frozen external-holdout panel when present, showing the exact source
   Dossier, source-end/strictly-later-start boundary, imported lane set, and
-  source-versus-later objective/delta cells from Core; it never colors a lane
-  as a production pass or converts the audit into trading authority;
+  source-versus-later objective/delta cells from Core; it distinguishes
+  `completed` Runs from an `assessed` handoff, exposes bounded comparative
+  evidence, and renders the immutable Agent declaration without coloring a
+  lane as a Core or production pass or converting the audit into trading
+  authority;
 - one selectable Book Risk, Price Event, Factor, Portfolio, or RL evidence
   workbench at a time, keeping the complete bounded explorer available without
   rendering all long reports into one page;
@@ -456,7 +459,8 @@ Studio is not an evaluator. It calls the same Core loaders used by CLI:
 - mutable progress cannot create a metric or verdict;
 - the browser cannot author analysis or publish a Research Report or Dossier;
 - the browser cannot bind, execute, or reinterpret a frozen holdout; it only
-  renders Core status and copyable CLI authority;
+  renders Core status, the verified Agent Assessment, and copyable CLI
+  authority;
 - no browser interaction changes a Project.
 
 The durable boundary and known gaps are in

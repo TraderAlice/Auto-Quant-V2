@@ -4,7 +4,7 @@
     ".agents/skills",
     ".claude/skills"
   ],
-  "harnessVersion": "0.9.10",
+  "harnessVersion": "0.9.11",
   "kind": "autoquant-workspace-skill-bundle",
   "schemaVersion": 1,
   "skills": [

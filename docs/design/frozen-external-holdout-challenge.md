@@ -1,6 +1,6 @@
 # Frozen external holdout challenge
 
-Status: V1 implemented.
+Status: V2 implemented in `0.9.11`.
 
 Related: [[docs/design/research-selection-integrity]],
 [[docs/design/evidence-driven-research-agenda]],
@@ -41,6 +41,11 @@ Target Project
   existing fixed Judges execute once
   immutable per-lane Runs
   immutable holdout result
+             │
+             │ aq holdout show / assess
+             ▼
+  verified bounded comparative evidence
+  immutable Agent-authored Assessment
 ```
 
 The preferred Agent path is one explicit atomic `aq holdout create-target`
@@ -139,9 +144,31 @@ The immutable result records:
 
 Core does not manufacture a universal pass threshold. Factor IC, Portfolio
 Sharpe, and RL aggregate objectives have different uncertainty and baseline
-semantics. Existing lane diagnostics remain the evidence; the holdout result
-compares the predeclared objective and labels the outcome, but final
-interpretation belongs in a later Report/Dossier or the requesting reviewer.
+semantics. The terminal result therefore advances the target only to
+`completed`, not to a finished research handoff.
+
+`aq holdout show` builds one bounded verified comparison from the portable
+source Dossier support and the exact later Runs. It preserves objective values
+and deltas while also exposing the diagnostics needed to interpret them:
+Factor primary/diagnostic horizon evidence and Portfolio post-cost/target-
+translation context. An Agent should not need to reverse-engineer raw Judge
+artifact shapes to answer the caller.
+
+The Agent then publishes one immutable Assessment with `aq holdout assess`.
+Its small analysis contract declares an overall `persists`, `mixed`,
+`weakens`, or `inconclusive` interpretation and one ordered lane-specific
+`strengthened`, `persisted`, `weakened`, or `inconclusive` judgment. Free-text
+summaries, cross-lane interpretation, limitations, and recommendations remain
+Agent-authored. Core validates shape and exact lane coverage; it does not claim
+the judgment was mathematically derived.
+
+The Assessment freezes normalized analysis, the Core-generated comparative
+evidence, a deterministic Markdown handoff, and their hashes against the exact
+result and binding. Only then does state become `assessed` and Orientation call
+the required research handoff complete. Any later mutation of analysis,
+evidence, Markdown, result, or binding fails verification. The Assessment
+retains `universalPassThreshold=null`, disables selection and automatic
+promotion, and grants no trading authority.
 
 ## Caller boundary
 
@@ -156,8 +183,9 @@ trade.
 
 Existing Projects, Runs, Reports, and Dossiers without holdout state remain
 unchanged. A target becomes governed only when the binding file exists.
-Malformed or partially written bindings/results are structured validation
-failures, never silently ignored.
+Malformed or partially written bindings, results, or Assessments are structured
+validation failures, never silently ignored. A pre-`0.9.11` terminal result is
+valid but remains `completed` until a current Agent publishes its Assessment.
 
 ## Known limits
 

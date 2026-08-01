@@ -15,8 +15,14 @@ from typing import Any
 
 import pandas as pd
 
+from .decision_support import (
+    build_leader_decision_support,
+    summarize_leader_decision_support,
+)
 from .dossiers import list_dossiers, load_dossier, load_dossier_status
+from .factor_explorer import load_factor_diagnostics
 from .intake import load_project_intake, prepare_project_intake
+from .portfolio_explorer import load_portfolio_diagnostics
 from .runs import execute_study, list_runs, load_run
 from .sessions import list_sessions
 from .studies import hash_file, hash_json, load_study
@@ -45,7 +51,29 @@ HOLDOUT_BINDING_MANIFEST_KIND = "autoquant-frozen-holdout-binding-manifest"
 HOLDOUT_RESULT_KIND = "autoquant-frozen-holdout-result"
 HOLDOUT_RESULT_MANIFEST_KIND = "autoquant-frozen-holdout-result-manifest"
 HOLDOUT_STATUS_KIND = "autoquant-frozen-holdout-status"
+HOLDOUT_EVIDENCE_KIND = "autoquant-frozen-holdout-evidence"
+HOLDOUT_ASSESSMENT_DIRECTORY = "assessment"
+HOLDOUT_ASSESSMENT_ANALYSIS = "analysis.json"
+HOLDOUT_ASSESSMENT_EVIDENCE = "evidence.json"
+HOLDOUT_ASSESSMENT_RESULT = "assessment.json"
+HOLDOUT_ASSESSMENT_MARKDOWN = "assessment.md"
+HOLDOUT_ASSESSMENT_MANIFEST = "manifest.json"
+HOLDOUT_ASSESSMENT_ANALYSIS_KIND = "autoquant-holdout-assessment-analysis"
+HOLDOUT_ASSESSMENT_KIND = "autoquant-holdout-assessment"
+HOLDOUT_ASSESSMENT_MANIFEST_KIND = "autoquant-holdout-assessment-manifest"
 HOLDOUT_METHOD = "strictly-later-frozen-dossier-leaders-v1"
+HOLDOUT_OVERALL_ASSESSMENTS = {
+    "persists",
+    "mixed",
+    "weakens",
+    "inconclusive",
+}
+HOLDOUT_LANE_ASSESSMENTS = {
+    "strengthened",
+    "persisted",
+    "weakened",
+    "inconclusive",
+}
 HOLDOUT_LANE_MINIMUM_OBSERVATIONS = {
     "factor": 120,
     "portfolio": 180,
@@ -90,6 +118,15 @@ class HoldoutResultContext:
     root_dir: Path
     manifest: dict[str, Any]
     result: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class HoldoutAssessmentContext:
+    root_dir: Path
+    manifest: dict[str, Any]
+    assessment: dict[str, Any]
+    analysis: dict[str, Any]
+    evidence: dict[str, Any]
 
 
 def _issue(path: Path | str, code: str, message: str) -> ValidationIssue:
@@ -1654,10 +1691,620 @@ def load_holdout_result(project: ProjectContext) -> HoldoutResultContext:
     return HoldoutResultContext(root, manifest, result)
 
 
+def _source_dossier_lane_support(
+    binding: HoldoutBindingContext,
+    lane_id: str,
+) -> dict[str, Any] | None:
+    """Project one portable source Report's already frozen support."""
+
+    source_dossier = _read_json(
+        binding.root_dir / HOLDOUT_SOURCE_DOSSIER,
+        "holdout source dossier",
+    )
+    lanes = source_dossier.get("evidence", {}).get("lanes", [])
+    lane = next(
+        (
+            item
+            for item in lanes
+            if isinstance(item, dict) and item.get("id") == lane_id
+        ),
+        None,
+    )
+    if lane is None:
+        return None
+    report = lane.get("report")
+    support = (
+        report.get("leaderDecisionSupport")
+        if isinstance(report, dict)
+        else None
+    )
+    return summarize_leader_decision_support(support)
+
+
+def _factor_holdout_projection(
+    project: ProjectContext,
+    run_id: str,
+) -> dict[str, Any]:
+    diagnostics = load_factor_diagnostics(project, run_id, point_limit=40)
+    return {
+        "researchHorizon": diagnostics["researchHorizon"],
+        "summary": diagnostics["summary"],
+        "horizonProfile": diagnostics["horizonProfile"],
+        "warning": diagnostics["warning"],
+    }
+
+
+def _portfolio_holdout_projection(
+    project: ProjectContext,
+    run_id: str,
+) -> dict[str, Any]:
+    diagnostics = load_portfolio_diagnostics(project, run_id, point_limit=40)
+    return {
+        "researchHorizon": diagnostics["researchHorizon"],
+        "selection": diagnostics["selection"],
+        "translationRobustness": diagnostics["translationRobustness"],
+        "currentBook": diagnostics["currentBook"],
+        "warning": (
+            "Validation evidence is descriptive for this frozen external "
+            "audit. It grants no selection, promotion, or trading authority."
+        ),
+    }
+
+
+def build_holdout_evidence(project: ProjectContext) -> dict[str, Any]:
+    """Build one verified source-versus-later interpretation surface."""
+
+    binding = load_holdout_binding(project)
+    result = load_holdout_result(project)
+    lanes = []
+    for lane in result.result["lanes"]:
+        run_id = lane["holdout"]["runId"]
+        succeeded = lane["status"] == "succeeded"
+        support = (
+            summarize_leader_decision_support(
+                build_leader_decision_support(project, run_id)
+            )
+            if succeeded
+            else {
+                "available": False,
+                "reason": "holdout-run-failed",
+                "runId": run_id,
+                "errors": lane["holdout"]["errors"],
+            }
+        )
+        detail = None
+        if succeeded and lane["id"] == "factor":
+            detail = _factor_holdout_projection(project, run_id)
+        elif succeeded and lane["id"] == "portfolio":
+            detail = _portfolio_holdout_projection(project, run_id)
+        lanes.append(
+            {
+                "id": lane["id"],
+                "studyId": lane["studyId"],
+                "status": lane["status"],
+                "objective": lane["source"]["objective"],
+                "sourceValue": lane["source"]["value"],
+                "holdoutValue": lane["holdout"]["value"],
+                "delta": lane["delta"],
+                "sourceRunId": lane["source"]["runId"],
+                "holdoutRunId": run_id,
+                "sourceDecisionSupport": _source_dossier_lane_support(
+                    binding,
+                    lane["id"],
+                ),
+                "holdoutDecisionSupport": support,
+                "holdoutDiagnostics": detail,
+            }
+        )
+    return {
+        "schemaVersion": SCHEMA_VERSION,
+        "kind": HOLDOUT_EVIDENCE_KIND,
+        "resultId": result.result["id"],
+        "resultHash": result.manifest["resultHash"],
+        "bindingId": binding.binding["id"],
+        "bindingHash": binding.manifest["bindingHash"],
+        "source": result.result["source"],
+        "target": result.result["target"],
+        "lanes": lanes,
+        "interpretation": result.result["interpretation"],
+        "authority": result.result["authority"],
+    }
+
+
+def _string_list(
+    value: Any,
+    path: Path | str,
+    *,
+    allow_empty: bool,
+) -> list[ValidationIssue]:
+    if (
+        not isinstance(value, list)
+        or (not allow_empty and not value)
+        or not all(isinstance(item, str) and item.strip() for item in value)
+    ):
+        return [
+            _issue(
+                path,
+                "schema.array",
+                "Expected an array of non-empty strings"
+                + ("" if allow_empty else " with at least one item"),
+            )
+        ]
+    return []
+
+
+def validate_holdout_assessment_analysis(
+    value: dict[str, Any],
+    lane_ids: list[str],
+    path: Path | str = "holdout-assessment-analysis",
+) -> dict[str, Any]:
+    """Validate the small Agent-authored interpretation contract."""
+
+    required = {
+        "schemaVersion",
+        "kind",
+        "title",
+        "executiveSummary",
+        "overallAssessment",
+        "lanes",
+        "interpretation",
+        "limitations",
+        "recommendations",
+    }
+    issues = _strict_keys(value, required, path)
+    if (
+        value.get("schemaVersion") != SCHEMA_VERSION
+        or value.get("kind") != HOLDOUT_ASSESSMENT_ANALYSIS_KIND
+    ):
+        issues.append(
+            _issue(path, "holdout.assessment-analysis", "Invalid analysis contract")
+        )
+    for key in ("title", "executiveSummary"):
+        item = value.get(key)
+        if not isinstance(item, str) or not item.strip():
+            issues.append(
+                _issue(f"{path}/{key}", "schema.string", "Expected non-empty text")
+            )
+    if value.get("overallAssessment") not in HOLDOUT_OVERALL_ASSESSMENTS:
+        issues.append(
+            _issue(
+                f"{path}/overallAssessment",
+                "schema.choice",
+                "Invalid overall holdout assessment",
+            )
+        )
+    issues.extend(
+        _string_list(
+            value.get("interpretation"),
+            f"{path}/interpretation",
+            allow_empty=False,
+        )
+    )
+    for key in ("limitations", "recommendations"):
+        issues.extend(
+            _string_list(
+                value.get(key),
+                f"{path}/{key}",
+                allow_empty=True,
+            )
+        )
+    raw_lanes = value.get("lanes")
+    normalized_lanes = []
+    if not isinstance(raw_lanes, list):
+        issues.append(_issue(f"{path}/lanes", "schema.array", "Expected lane assessments"))
+        raw_lanes = []
+    for index, lane in enumerate(raw_lanes):
+        lane_path = f"{path}/lanes/{index}"
+        if not isinstance(lane, dict):
+            issues.append(_issue(lane_path, "schema.type", "Expected an object"))
+            continue
+        issues.extend(_strict_keys(lane, {"id", "assessment", "summary"}, lane_path))
+        lane_id = lane.get("id")
+        if lane_id not in lane_ids:
+            issues.append(_issue(f"{lane_path}/id", "holdout.lane", "Unknown lane id"))
+        if lane.get("assessment") not in HOLDOUT_LANE_ASSESSMENTS:
+            issues.append(
+                _issue(
+                    f"{lane_path}/assessment",
+                    "schema.choice",
+                    "Invalid lane assessment",
+                )
+            )
+        summary = lane.get("summary")
+        if not isinstance(summary, str) or not summary.strip():
+            issues.append(
+                _issue(f"{lane_path}/summary", "schema.string", "Expected non-empty text")
+            )
+        normalized_lanes.append(
+            {
+                "id": lane_id,
+                "assessment": lane.get("assessment"),
+                "summary": summary,
+            }
+        )
+    if [lane.get("id") for lane in normalized_lanes] != lane_ids:
+        issues.append(
+            _issue(
+                f"{path}/lanes",
+                "holdout.lane-set",
+                "Lane assessments must appear once in frozen result order",
+            )
+        )
+    if issues:
+        raise AutoQuantValidationError(issues)
+    return {
+        "schemaVersion": SCHEMA_VERSION,
+        "kind": HOLDOUT_ASSESSMENT_ANALYSIS_KIND,
+        "title": value["title"].strip(),
+        "executiveSummary": value["executiveSummary"].strip(),
+        "overallAssessment": value["overallAssessment"],
+        "lanes": normalized_lanes,
+        "interpretation": [item.strip() for item in value["interpretation"]],
+        "limitations": [item.strip() for item in value["limitations"]],
+        "recommendations": [item.strip() for item in value["recommendations"]],
+    }
+
+
+def load_holdout_assessment_analysis(
+    path: str | Path,
+    lane_ids: list[str],
+) -> dict[str, Any]:
+    source = Path(path).expanduser().resolve()
+    return validate_holdout_assessment_analysis(
+        _read_json(source, "holdout assessment analysis"),
+        lane_ids,
+        source,
+    )
+
+
+def _assessment_identity(
+    result_hash: str,
+    analysis_hash: str,
+    evidence_hash: str,
+    published_at: str,
+) -> str:
+    return "holdout-assessment-" + hash_json(
+        {
+            "resultHash": result_hash,
+            "analysisHash": analysis_hash,
+            "evidenceHash": evidence_hash,
+            "publishedAt": published_at,
+        }
+    )[:16]
+
+
+def _render_holdout_assessment_markdown(
+    assessment: dict[str, Any],
+    analysis: dict[str, Any],
+    evidence: dict[str, Any],
+) -> str:
+    declared = {item["id"]: item for item in analysis["lanes"]}
+    lines = [
+        f"# {analysis['title']}",
+        "",
+        f"**Overall Agent assessment:** `{analysis['overallAssessment']}`",
+        "",
+        analysis["executiveSummary"],
+        "",
+        "## Frozen evidence",
+        "",
+        f"- Holdout result: `{evidence['resultId']}`",
+        f"- Binding: `{evidence['bindingId']}`",
+        f"- Source Dossier: `{evidence['source']['dossier']['id']}`",
+        "- Evaluation role: `external-temporal-audit`",
+        "- Universal pass threshold: `null`",
+        "- Trading authority: `none`",
+        "",
+        "| Lane | Objective | Source | Later | Delta | Agent assessment |",
+        "| --- | --- | ---: | ---: | ---: | --- |",
+    ]
+    for lane in evidence["lanes"]:
+        lane_analysis = declared[lane["id"]]
+        lines.append(
+            f"| {lane['id']} | `{lane['objective']['metric']}` | "
+            f"{lane['sourceValue']} | {lane['holdoutValue']} | {lane['delta']} | "
+            f"`{lane_analysis['assessment']}` |"
+        )
+    lines.extend(["", "## Lane interpretations", ""])
+    for lane in analysis["lanes"]:
+        lines.extend(
+            [
+                f"### {lane['id']} — {lane['assessment']}",
+                "",
+                lane["summary"],
+                "",
+            ]
+        )
+    lines.extend(["## Cross-lane interpretation", ""])
+    lines.extend(f"- {item}" for item in analysis["interpretation"])
+    lines.extend(["", "## Limitations", ""])
+    lines.extend(
+        [*(f"- {item}" for item in analysis["limitations"])]
+        or ["- None declared."]
+    )
+    lines.extend(["", "## Recommendations", ""])
+    lines.extend(
+        [*(f"- {item}" for item in analysis["recommendations"])]
+        or ["- No further research action declared."]
+    )
+    lines.extend(
+        [
+            "",
+            "## Evidence files",
+            "",
+            "- `analysis.json` — normalized Agent-authored interpretation.",
+            "- `evidence.json` — Core-verified bounded source/later evidence.",
+            "- `assessment.json` — immutable result and authority binding.",
+            "",
+            "This assessment interprets one frozen external-period audit. It "
+            "does not select or promote a candidate and is not an Order, "
+            "portfolio instruction, or trading recommendation.",
+            "",
+        ]
+    )
+    return "\n".join(lines)
+
+
+def _assessment_files(root: Path) -> dict[str, str]:
+    names = (
+        HOLDOUT_ASSESSMENT_ANALYSIS,
+        HOLDOUT_ASSESSMENT_EVIDENCE,
+        HOLDOUT_ASSESSMENT_RESULT,
+        HOLDOUT_ASSESSMENT_MARKDOWN,
+    )
+    files = {}
+    for name in names:
+        path = root / name
+        if path.is_symlink() or not path.is_file():
+            raise AutoQuantValidationError(
+                [_issue(path, "holdout.assessment-file", f"Missing assessment file {name}")]
+            )
+        files[name] = hash_file(path)
+    return files
+
+
+def publish_holdout_assessment(
+    project: ProjectContext,
+    analysis: dict[str, Any],
+) -> HoldoutAssessmentContext:
+    """Publish one immutable Agent interpretation over one terminal result."""
+
+    binding = load_holdout_binding(project)
+    result = load_holdout_result(project)
+    root = binding.root_dir / HOLDOUT_ASSESSMENT_DIRECTORY
+    if root.exists() or root.is_symlink():
+        raise AutoQuantValidationError(
+            [_issue(root, "holdout.assessment-exists", "Holdout already has an Assessment")]
+        )
+    lane_ids = [lane["id"] for lane in result.result["lanes"]]
+    normalized = validate_holdout_assessment_analysis(analysis, lane_ids)
+    evidence = build_holdout_evidence(project)
+    analysis_hash = hash_json(normalized)
+    evidence_hash = hash_json(evidence)
+    published_at = datetime.now(timezone.utc).isoformat()
+    assessment_id = _assessment_identity(
+        result.manifest["resultHash"],
+        analysis_hash,
+        evidence_hash,
+        published_at,
+    )
+    assessment = {
+        "schemaVersion": SCHEMA_VERSION,
+        "kind": HOLDOUT_ASSESSMENT_KIND,
+        "id": assessment_id,
+        "resultId": result.result["id"],
+        "resultHash": result.manifest["resultHash"],
+        "bindingId": binding.binding["id"],
+        "bindingHash": binding.manifest["bindingHash"],
+        "publishedAt": published_at,
+        "title": normalized["title"],
+        "executiveSummary": normalized["executiveSummary"],
+        "overallAssessment": normalized["overallAssessment"],
+        "lanes": normalized["lanes"],
+        "analysisHash": analysis_hash,
+        "evidenceHash": evidence_hash,
+        "markdownPath": HOLDOUT_ASSESSMENT_MARKDOWN,
+        "authority": {
+            "authoredBy": "research-agent",
+            "coreComputedConclusion": False,
+            "universalPassThreshold": None,
+            "selectionAllowed": False,
+            "automaticPromotion": False,
+            "tradingAuthority": "none",
+        },
+    }
+    staging = binding.root_dir / f".{HOLDOUT_ASSESSMENT_DIRECTORY}.creating"
+    if staging.exists() or staging.is_symlink():
+        raise AutoQuantValidationError(
+            [_issue(staging, "holdout.assessment-staging", "Assessment staging exists")]
+        )
+    try:
+        staging.mkdir()
+        _write_json(staging / HOLDOUT_ASSESSMENT_ANALYSIS, normalized)
+        _write_json(staging / HOLDOUT_ASSESSMENT_EVIDENCE, evidence)
+        _write_json(staging / HOLDOUT_ASSESSMENT_RESULT, assessment)
+        (staging / HOLDOUT_ASSESSMENT_MARKDOWN).write_text(
+            _render_holdout_assessment_markdown(assessment, normalized, evidence),
+            encoding="utf-8",
+        )
+        files = _assessment_files(staging)
+        manifest = {
+            "schemaVersion": SCHEMA_VERSION,
+            "kind": HOLDOUT_ASSESSMENT_MANIFEST_KIND,
+            "id": assessment_id,
+            "resultId": result.result["id"],
+            "completed": True,
+            "files": files,
+        }
+        _write_json(staging / HOLDOUT_ASSESSMENT_MANIFEST, manifest)
+        os.replace(staging, root)
+    except Exception:
+        if staging.exists():
+            shutil.rmtree(staging)
+        raise
+    return load_holdout_assessment(project)
+
+
+def load_holdout_assessment(
+    project: ProjectContext,
+    *,
+    optional: bool = False,
+    verified_evidence: dict[str, Any] | None = None,
+) -> HoldoutAssessmentContext | None:
+    binding = load_holdout_binding(project)
+    result = load_holdout_result(project)
+    root = binding.root_dir / HOLDOUT_ASSESSMENT_DIRECTORY
+    if not root.exists():
+        if optional:
+            return None
+        raise AutoQuantValidationError(
+            [_issue(root, "holdout.assessment-missing", "Holdout has no Assessment")]
+        )
+    if root.is_symlink() or not root.is_dir():
+        raise AutoQuantValidationError(
+            [_issue(root, "holdout.assessment-directory", "Invalid Assessment directory")]
+        )
+    evidence = (
+        verified_evidence
+        if verified_evidence is not None
+        else build_holdout_evidence(project)
+    )
+    manifest_path = root / HOLDOUT_ASSESSMENT_MANIFEST
+    manifest = _read_json(manifest_path, "holdout assessment manifest")
+    analysis = validate_holdout_assessment_analysis(
+        _read_json(root / HOLDOUT_ASSESSMENT_ANALYSIS, "holdout assessment analysis"),
+        [lane["id"] for lane in result.result["lanes"]],
+        root / HOLDOUT_ASSESSMENT_ANALYSIS,
+    )
+    stored_evidence = _read_json(
+        root / HOLDOUT_ASSESSMENT_EVIDENCE,
+        "holdout assessment evidence",
+    )
+    assessment = _read_json(
+        root / HOLDOUT_ASSESSMENT_RESULT,
+        "holdout assessment",
+    )
+    issues = _strict_keys(
+        manifest,
+        {"schemaVersion", "kind", "id", "resultId", "completed", "files"},
+        manifest_path,
+    )
+    try:
+        files = _assessment_files(root)
+    except AutoQuantValidationError as error:
+        issues.extend(error.issues)
+        files = {}
+    if stored_evidence != evidence:
+        issues.append(
+            _issue(
+                root / HOLDOUT_ASSESSMENT_EVIDENCE,
+                "holdout.assessment-evidence",
+                "Assessment evidence differs from verified immutable Runs",
+            )
+        )
+    analysis_hash = hash_json(analysis)
+    evidence_hash = hash_json(evidence)
+    required_assessment = {
+        "schemaVersion",
+        "kind",
+        "id",
+        "resultId",
+        "resultHash",
+        "bindingId",
+        "bindingHash",
+        "publishedAt",
+        "title",
+        "executiveSummary",
+        "overallAssessment",
+        "lanes",
+        "analysisHash",
+        "evidenceHash",
+        "markdownPath",
+        "authority",
+    }
+    issues.extend(
+        _strict_keys(
+            assessment,
+            required_assessment,
+            root / HOLDOUT_ASSESSMENT_RESULT,
+        )
+    )
+    published_at = assessment.get("publishedAt")
+    expected_id = (
+        _assessment_identity(
+            result.manifest["resultHash"],
+            analysis_hash,
+            evidence_hash,
+            published_at,
+        )
+        if isinstance(published_at, str) and published_at
+        else None
+    )
+    expected_assessment = {
+        "schemaVersion": SCHEMA_VERSION,
+        "kind": HOLDOUT_ASSESSMENT_KIND,
+        "id": expected_id,
+        "resultId": result.result["id"],
+        "resultHash": result.manifest["resultHash"],
+        "bindingId": binding.binding["id"],
+        "bindingHash": binding.manifest["bindingHash"],
+        "publishedAt": published_at,
+        "title": analysis["title"],
+        "executiveSummary": analysis["executiveSummary"],
+        "overallAssessment": analysis["overallAssessment"],
+        "lanes": analysis["lanes"],
+        "analysisHash": analysis_hash,
+        "evidenceHash": evidence_hash,
+        "markdownPath": HOLDOUT_ASSESSMENT_MARKDOWN,
+        "authority": {
+            "authoredBy": "research-agent",
+            "coreComputedConclusion": False,
+            "universalPassThreshold": None,
+            "selectionAllowed": False,
+            "automaticPromotion": False,
+            "tradingAuthority": "none",
+        },
+    }
+    expected_markdown = _render_holdout_assessment_markdown(
+        expected_assessment,
+        analysis,
+        evidence,
+    )
+    try:
+        actual_markdown = (root / HOLDOUT_ASSESSMENT_MARKDOWN).read_text(
+            encoding="utf-8"
+        )
+    except (OSError, UnicodeDecodeError):
+        actual_markdown = None
+    if assessment != expected_assessment or actual_markdown != expected_markdown:
+        issues.append(
+            _issue(
+                root,
+                "holdout.assessment-content",
+                "Assessment does not reconcile with its analysis and evidence",
+            )
+        )
+    if (
+        manifest.get("schemaVersion") != SCHEMA_VERSION
+        or manifest.get("kind") != HOLDOUT_ASSESSMENT_MANIFEST_KIND
+        or manifest.get("id") != expected_id
+        or manifest.get("resultId") != result.result["id"]
+        or manifest.get("completed") is not True
+        or manifest.get("files") != files
+    ):
+        issues.append(
+            _issue(manifest_path, "holdout.assessment-manifest", "Invalid Assessment manifest")
+        )
+    if issues:
+        raise AutoQuantValidationError(issues)
+    return HoldoutAssessmentContext(root, manifest, assessment, analysis, evidence)
+
+
 def load_holdout_status(
     project: ProjectContext,
     *,
     optional: bool = False,
+    include_evidence: bool = False,
 ) -> dict[str, Any] | None:
     if not has_holdout_binding(project):
         if optional:
@@ -1668,6 +2315,8 @@ def load_holdout_status(
             "state": "unbound",
             "binding": None,
             "result": None,
+            "evidence": None,
+            "assessment": None,
             "nextAction": None,
             "authority": {
                 "candidateFrozen": False,
@@ -1682,7 +2331,33 @@ def load_holdout_status(
         if result_path.is_dir() and not result_path.is_symlink()
         else None
     )
-    state = "completed" if result_context is not None else "bound"
+    evidence_context = (
+        build_holdout_evidence(project)
+        if result_context is not None
+        and (
+            include_evidence
+            or (
+                binding.root_dir / HOLDOUT_ASSESSMENT_DIRECTORY
+            ).exists()
+        )
+        else None
+    )
+    assessment_context = (
+        load_holdout_assessment(
+            project,
+            optional=True,
+            verified_evidence=evidence_context,
+        )
+        if result_context is not None
+        else None
+    )
+    state = (
+        "assessed"
+        if assessment_context is not None
+        else "completed"
+        if result_context is not None
+        else "bound"
+    )
     return {
         "schemaVersion": SCHEMA_VERSION,
         "kind": HOLDOUT_STATUS_KIND,
@@ -1712,6 +2387,31 @@ def load_holdout_status(
             if result_context is not None
             else None
         ),
+        "evidence": (
+            evidence_context
+            if include_evidence and result_context is not None
+            else None
+        ),
+        "assessment": (
+            {
+                "id": assessment_context.assessment["id"],
+                "publishedAt": assessment_context.assessment["publishedAt"],
+                "title": assessment_context.assessment["title"],
+                "executiveSummary": assessment_context.assessment[
+                    "executiveSummary"
+                ],
+                "overallAssessment": assessment_context.assessment[
+                    "overallAssessment"
+                ],
+                "lanes": assessment_context.assessment["lanes"],
+                "markdownPath": str(
+                    assessment_context.root_dir / HOLDOUT_ASSESSMENT_MARKDOWN
+                ),
+                "authority": assessment_context.assessment["authority"],
+            }
+            if assessment_context is not None
+            else None
+        ),
         "nextAction": (
             _action(
                 "holdout.run",
@@ -1727,8 +2427,23 @@ def load_holdout_status(
             )
             if result_context is None
             else _action(
+                "holdout.assess",
+                "Publish one immutable Agent assessment over the verified result.",
+                [
+                    "aq",
+                    "holdout",
+                    "assess",
+                    str(project.root_dir),
+                    "--analysis",
+                    str(project.root_dir / "holdout-analysis.json"),
+                    "--json",
+                ],
+                "creates-artifact",
+            )
+            if assessment_context is None
+            else _action(
                 "holdout.show",
-                "Verify the immutable external-period challenge result.",
+                "Verify the immutable result and its Agent assessment.",
                 [
                     "aq",
                     "holdout",
@@ -1859,6 +2574,108 @@ HOLDOUT_RESULT_JSON_SCHEMA: dict[str, Any] = {
     },
 }
 
+HOLDOUT_ASSESSMENT_ANALYSIS_JSON_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": [
+        "schemaVersion",
+        "kind",
+        "title",
+        "executiveSummary",
+        "overallAssessment",
+        "lanes",
+        "interpretation",
+        "limitations",
+        "recommendations",
+    ],
+    "properties": {
+        "schemaVersion": {"const": SCHEMA_VERSION},
+        "kind": {"const": HOLDOUT_ASSESSMENT_ANALYSIS_KIND},
+        "title": {"type": "string", "minLength": 1},
+        "executiveSummary": {"type": "string", "minLength": 1},
+        "overallAssessment": {
+            "enum": sorted(HOLDOUT_OVERALL_ASSESSMENTS),
+        },
+        "lanes": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 3,
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["id", "assessment", "summary"],
+                "properties": {
+                    "id": {"enum": list(LANE_ORDER)},
+                    "assessment": {
+                        "enum": sorted(HOLDOUT_LANE_ASSESSMENTS),
+                    },
+                    "summary": {"type": "string", "minLength": 1},
+                },
+            },
+        },
+        "interpretation": {
+            "type": "array",
+            "minItems": 1,
+            "items": {"type": "string", "minLength": 1},
+        },
+        "limitations": {
+            "type": "array",
+            "items": {"type": "string", "minLength": 1},
+        },
+        "recommendations": {
+            "type": "array",
+            "items": {"type": "string", "minLength": 1},
+        },
+    },
+}
+
+HOLDOUT_ASSESSMENT_JSON_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "additionalProperties": False,
+    "required": [
+        "schemaVersion",
+        "kind",
+        "id",
+        "resultId",
+        "resultHash",
+        "bindingId",
+        "bindingHash",
+        "publishedAt",
+        "title",
+        "executiveSummary",
+        "overallAssessment",
+        "lanes",
+        "analysisHash",
+        "evidenceHash",
+        "markdownPath",
+        "authority",
+    ],
+    "properties": {
+        "schemaVersion": {"const": SCHEMA_VERSION},
+        "kind": {"const": HOLDOUT_ASSESSMENT_KIND},
+        "id": {
+            "type": "string",
+            "pattern": "^holdout-assessment-[0-9a-f]{16}$",
+        },
+        "resultId": {
+            "type": "string",
+            "pattern": "^holdout-result-[0-9a-f]{16}$",
+        },
+        "resultHash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "bindingId": {"type": "string", "pattern": "^holdout-[0-9a-f]{16}$"},
+        "bindingHash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "publishedAt": {"type": "string", "minLength": 1},
+        "title": {"type": "string", "minLength": 1},
+        "executiveSummary": {"type": "string", "minLength": 1},
+        "overallAssessment": {"enum": sorted(HOLDOUT_OVERALL_ASSESSMENTS)},
+        "lanes": HOLDOUT_ASSESSMENT_ANALYSIS_JSON_SCHEMA["properties"]["lanes"],
+        "analysisHash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "evidenceHash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "markdownPath": {"const": HOLDOUT_ASSESSMENT_MARKDOWN},
+        "authority": {"type": "object"},
+    },
+}
+
 HOLDOUT_STATUS_JSON_SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
@@ -1868,15 +2685,19 @@ HOLDOUT_STATUS_JSON_SCHEMA: dict[str, Any] = {
         "state",
         "binding",
         "result",
+        "evidence",
+        "assessment",
         "nextAction",
         "authority",
     ],
     "properties": {
         "schemaVersion": {"const": SCHEMA_VERSION},
         "kind": {"const": HOLDOUT_STATUS_KIND},
-        "state": {"enum": ["unbound", "bound", "completed"]},
+        "state": {"enum": ["unbound", "bound", "completed", "assessed"]},
         "binding": {"type": ["object", "null"]},
         "result": {"type": ["object", "null"]},
+        "evidence": {"type": ["object", "null"]},
+        "assessment": {"type": ["object", "null"]},
         "nextAction": {"type": ["object", "null"]},
         "authority": {"type": "object"},
     },

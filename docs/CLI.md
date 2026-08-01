@@ -1044,9 +1044,12 @@ aq holdout bind <source> <target> \
   [--json]
 aq holdout status <path> [--project ID] [--json]
 aq holdout run <path> [--project ID] [--json]
+aq holdout assess <path> --analysis FILE [--project ID] [--json]
 aq holdout show <path> [--project ID] [--json]
 aq schema holdout-binding --json
 aq schema holdout-result --json
+aq schema holdout-assessment-analysis --json
+aq schema holdout-assessment --json
 aq schema holdout-status --json
 ```
 
@@ -1083,6 +1086,19 @@ objective and observed delta for each lane. It is an
 Runs record that evaluation role separately from ordinary
 `research-selection` Runs. There is no universal pass threshold, automatic
 promotion, production approval, Broker action, or trading authority.
+
+A terminal result is `completed`, not yet a finished research answer.
+`holdout show` exposes one bounded Core-verified source/later evidence
+projection, including lane decision support and the Factor horizon or
+Portfolio target-translation diagnostics needed for interpretation.
+
+`holdout assess` accepts the strict `autoquant-holdout-assessment-analysis`
+JSON contract. It requires every frozen lane exactly once and publishes one
+immutable analysis/evidence/Markdown bundle bound to the result. Overall and
+lane judgments are explicitly Agent-authored; Core validates provenance and
+completeness but supplies no universal pass threshold. Successful publication
+advances state to `assessed`, after which `holdout show` verifies both result
+and Assessment.
 
 ## Studio commands
 

@@ -763,6 +763,7 @@ function renderExternalHoldout(project) {
   section.hidden = false;
   const binding = holdout.binding;
   const result = holdout.result;
+  const assessment = holdout.assessment;
   element("external-holdout-meta").textContent =
     `${holdout.state.toUpperCase()} · ${binding.laneIds.length} FROZEN ${binding.laneIds.length === 1 ? "LANE" : "LANES"}`;
   const laneCards = result
@@ -799,6 +800,28 @@ function renderExternalHoldout(project) {
           <p>Run the exact bound lane set once. Candidate Sessions, automatic selection, and promotion are disabled.</p>
           <code>${escapeHtml(project.agentWorkBrief?.primaryAction?.display ?? "aq holdout run … --json")}</code>
         </article>`;
+  const assessmentCard = assessment
+    ? `
+        <article class="holdout-pending">
+          <small>IMMUTABLE AGENT ASSESSMENT</small>
+          <h3>${escapeHtml(assessment.overallAssessment.toUpperCase())} · ${escapeHtml(assessment.title)}</h3>
+          <p>${escapeHtml(assessment.executiveSummary)}</p>
+          <ul>${assessment.lanes
+            .map(
+              (lane) => `<li><b>${escapeHtml(lane.id)}</b> · ${escapeHtml(lane.assessment)} — ${escapeHtml(lane.summary)}</li>`,
+            )
+            .join("")}</ul>
+          <code>${escapeHtml(assessment.markdownPath)}</code>
+        </article>`
+    : result
+      ? `
+          <article class="holdout-pending">
+            <small>ASSESSMENT REQUIRED</small>
+            <h3>The frozen Runs are complete; the research handoff is not.</h3>
+            <p>Inspect Core's bounded comparative evidence, then publish one lane-specific Agent assessment. Core supplies no universal pass threshold.</p>
+            <code>${escapeHtml(project.agentWorkBrief?.primaryAction?.display ?? "aq holdout assess … --analysis holdout-analysis.json --json")}</code>
+          </article>`
+      : "";
   element("external-holdout-board").innerHTML = `
     <article class="holdout-identity">
       <small>SOURCE EVIDENCE</small>
@@ -816,7 +839,7 @@ function renderExternalHoldout(project) {
       <p>${escapeHtml(binding.targetDataset.assetClass)} · ${binding.targetDataset.universe.length} assets</p>
       <b>${escapeHtml(binding.nonOverlap.targetStart)}</b>
     </article>
-    <div class="holdout-lanes">${laneCards}</div>`;
+    <div class="holdout-lanes">${laneCards}${assessmentCard}</div>`;
   element("external-holdout-authority").textContent =
     result?.interpretation?.claim ??
     "External temporal audit · candidate frozen · no selection · no automatic promotion · no trading authority";
@@ -1034,7 +1057,7 @@ function renderScoreboard(project) {
   if (holdout) {
     const result = holdout.result;
     const values = [
-      ["Holdout state", holdout.state, "frozen external audit", holdout.state === "completed" ? "good" : "live"],
+      ["Holdout state", holdout.state, "frozen external audit", holdout.state === "assessed" ? "good" : "live"],
       ["Frozen lanes", holdout.binding.laneIds.length, holdout.binding.laneIds.join(" · "), ""],
       ["Source end", holdout.binding.nonOverlap.sourceEnd, holdout.binding.sourceDataset.id, ""],
       ["Later start", holdout.binding.nonOverlap.targetStart, result ? `${result.status} · no universal threshold` : "not yet executed", ""],
@@ -1491,7 +1514,7 @@ function renderHandoff(project) {
             <span class="${valueTone(portfolio.robustness.testAdverseCostSharpe)}"><b>${metric(portfolio.robustness.testAdverseCostSharpe)}</b><small>${metric(portfolio.robustness.adverseCostBps)}bps audit</small></span>
           </div>` : ""}
           <span class="status-chip ${baselineTone === "bad" ? "revert" : "active"}">${bookRisk || eventStudy || allocation ? "fixed evidence" : baseline ? (baselineTone === "bad" ? "negative baseline" : "baseline verified") : "ready"}</span>
-          ${copyCommandButton(next, holdout ? (holdout.state === "completed" ? "Copy holdout show command" : "Copy holdout run command") : bookRisk ? "Copy Book Risk Explorer CLI" : eventStudy ? "Copy Event Explorer CLI" : allocation ? "Copy Allocation Explorer CLI" : program ? "Copy recommended command" : "Copy start command")}
+          ${copyCommandButton(next, holdout ? (holdout.state === "assessed" ? "Copy holdout show command" : holdout.state === "completed" ? "Copy holdout assess command" : "Copy holdout run command") : bookRisk ? "Copy Book Risk Explorer CLI" : eventStudy ? "Copy Event Explorer CLI" : allocation ? "Copy Allocation Explorer CLI" : program ? "Copy recommended command" : "Copy start command")}
         </article>`;
       return;
     }
@@ -1665,7 +1688,7 @@ function renderResearchProgram(project) {
       <b>${holdout ? "Frozen external-audit boundary" : program.conflicts.length ? "Shared-source conflict" : "Integration boundary"}</b>
       ${holdout ? "Candidate iteration is disabled in this Project. The cards remain historical source context; only the bound one-shot holdout action is authorized." : `${escapeHtml(program.progression.explanation)} · ${escapeHtml(program.warnings.join(" · "))} · Dossier composition is Core-verified and has no trading authority.`}
     </span>
-    ${copyCommandButton(holdout?.nextAction ?? dossier?.command ?? recommended, holdout ? (holdout.state === "completed" ? "Copy holdout show command" : "Copy holdout run command") : dossier ? "Copy Dossier next action" : "Copy recommended command")}`;
+    ${copyCommandButton(holdout?.nextAction ?? dossier?.command ?? recommended, holdout ? (holdout.state === "assessed" ? "Copy holdout show command" : holdout.state === "completed" ? "Copy holdout assess command" : "Copy holdout run command") : dossier ? "Copy Dossier next action" : "Copy recommended command")}`;
 }
 
 const evidenceLanes = [
@@ -2114,6 +2137,7 @@ function renderFactorQualification(explorer) {
   );
   const residual = validation.styleNeutralCandidate;
   const incremental = validation.incremental;
+  const knownStyleClaim = qualification.claim.claim === "known-style-validation";
   const rawOnlyClaim = ["decision-signal", "known-style-validation"].includes(
     qualification.claim.claim,
   );
@@ -5139,7 +5163,7 @@ function renderInspector(project) {
             <dt>Selection</dt><dd>validation only</dd>
           </dl>
           ${holdout ? "<p>Only the immutable holdout Run is authorized. Candidate iteration and ordinary Sessions are disabled.</p>" : ""}
-          ${copyCommandButton(next, holdout ? (holdout.state === "completed" ? "Copy holdout show command" : "Copy holdout run command") : program ? "Copy recommended command" : "Copy start command")}
+          ${copyCommandButton(next, holdout ? (holdout.state === "assessed" ? "Copy holdout show command" : holdout.state === "completed" ? "Copy holdout assess command" : "Copy holdout run command") : program ? "Copy recommended command" : "Copy start command")}
         </section>
         ${dossierInspectorSection(project)}
         ${holdout ? "" : `<details class="program-details">
@@ -5400,9 +5424,11 @@ function render() {
   syncEvidenceSelection(project);
   element("project-state").textContent = project.valid
     ? project.externalHoldout
-      ? project.externalHoldout.state === "completed"
+      ? project.externalHoldout.state === "assessed"
         ? "EXTERNAL HOLDOUT COMPLETE"
-        : "FROZEN EXTERNAL HOLDOUT"
+        : project.externalHoldout.state === "completed"
+          ? "HOLDOUT ASSESSMENT REQUIRED"
+          : "FROZEN EXTERNAL HOLDOUT"
       : project.counts.runningCampaigns
       ? "RESEARCHER IN PROGRESS"
       : project.bookRiskExplorer || project.eventStudyExplorer || project.allocationExplorer
@@ -5471,6 +5497,7 @@ async function refresh({ quiet = false } = {}) {
     render();
     setConnection("live", `Synced ${relativeTime(state.snapshot.generatedAt)}`);
   } catch (error) {
+    console.error("AutoQuant Studio refresh failed", error);
     setConnection("error", "Sync failed");
     if (!state.snapshot) {
       renderEmptyWorkspace(`Studio could not verify this source: ${error.message}`);

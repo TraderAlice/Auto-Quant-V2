@@ -271,6 +271,9 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
         and factor_qualification.get("available")
     ):
         validation = factor_qualification["validation"]
+        weakest_style_neutral_fold = validation[
+            "weakestStyleNeutralFold"
+        ]
         factor_summary = {
             "method": factor_qualification["method"],
             "claim": factor_qualification["claim"]["claim"],
@@ -302,10 +305,10 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
             ],
             "weakestStyleNeutralFold": validation[
                 "weakestStyleNeutralFold"
-            ]["id"],
+            ]["id"] if weakest_style_neutral_fold is not None else None,
             "weakestStyleNeutralFoldIc": validation[
                 "weakestStyleNeutralFold"
-            ]["meanRankIc"],
+            ]["meanRankIc"] if weakest_style_neutral_fold is not None else None,
             "components": (
                 {
                     "count": factor_components["trialDisclosure"][

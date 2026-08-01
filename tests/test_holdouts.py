@@ -10,15 +10,20 @@ import jsonschema
 
 from autoquant.dossiers import publish_dossier
 from autoquant.holdouts import (
+    HOLDOUT_ASSESSMENT_ANALYSIS_JSON_SCHEMA,
+    HOLDOUT_ASSESSMENT_JSON_SCHEMA,
     HOLDOUT_BINDING_JSON_SCHEMA,
     HOLDOUT_RESULT_JSON_SCHEMA,
     HOLDOUT_STATUS_JSON_SCHEMA,
     bind_holdout,
+    build_holdout_evidence,
     create_holdout_target,
+    load_holdout_assessment,
     load_holdout_binding,
     load_holdout_result,
     load_holdout_status,
     run_holdout,
+    validate_holdout_assessment_analysis,
 )
 from autoquant.intake import prepare_project_intake
 from autoquant.orientation import (
@@ -46,6 +51,49 @@ from tests.test_dossiers import dossier_analysis, lane_analysis, run_cli
 
 
 class FrozenExternalHoldoutTests(unittest.TestCase):
+    def _assessment_analysis(self, lane_ids: list[str]) -> dict:
+        return {
+            "schemaVersion": 1,
+            "kind": "autoquant-holdout-assessment-analysis",
+            "title": "Frozen later-period assessment",
+            "executiveSummary": (
+                "The frozen lanes provide mixed later-period evidence."
+            ),
+            "overallAssessment": "mixed",
+            "lanes": [
+                {
+                    "id": lane_id,
+                    "assessment": (
+                        "weakened" if lane_id == "factor" else "persisted"
+                    ),
+                    "summary": f"The frozen {lane_id} lane was assessed separately.",
+                }
+                for lane_id in lane_ids
+            ],
+            "interpretation": [
+                "Lane-specific evidence must not be collapsed into one Core pass rule."
+            ],
+            "limitations": ["The later panel is one external period."],
+            "recommendations": ["Preserve the frozen evidence for review."],
+        }
+
+    def test_assessment_analysis_requires_exact_frozen_lane_order(self) -> None:
+        analysis = self._assessment_analysis(["factor", "portfolio"])
+        validate_holdout_assessment_analysis(
+            analysis,
+            ["factor", "portfolio"],
+        )
+        analysis["lanes"].reverse()
+        with self.assertRaises(AutoQuantValidationError) as error:
+            validate_holdout_assessment_analysis(
+                analysis,
+                ["factor", "portfolio"],
+            )
+        self.assertIn(
+            "holdout.lane-set",
+            {issue.code for issue in error.exception.issues},
+        )
+
     def _intake_project(
         self,
         workspace,
@@ -492,17 +540,29 @@ class FrozenExternalHoldoutTests(unittest.TestCase):
             status = load_holdout_status(target)
             jsonschema.validate(status, HOLDOUT_STATUS_JSON_SCHEMA)
             self.assertEqual(status["state"], "completed")
-            self.assertEqual(status["nextAction"]["id"], "holdout.show")
+            self.assertEqual(status["nextAction"]["id"], "holdout.assess")
             self.assertIn(
-                "aq holdout show",
+                "aq holdout assess",
                 status["nextAction"]["display"],
+            )
+            self.assertEqual(
+                status["nextAction"]["argv"][-2],
+                str(target.root_dir / "holdout-analysis.json"),
             )
             completed_brief = build_agent_work_brief(target)
             jsonschema.validate(
                 completed_brief,
                 AGENT_WORK_BRIEF_JSON_SCHEMA,
             )
-            self.assertEqual(completed_brief["review"]["status"], "complete")
+            self.assertEqual(completed_brief["review"]["status"], "pending")
+            self.assertEqual(
+                completed_brief["primaryAction"]["id"],
+                "holdout.assess",
+            )
+            self.assertEqual(
+                completed_brief["supportingActions"][0]["id"],
+                "holdout.show",
+            )
             self.assertEqual(
                 completed_brief["externalHoldout"]["result"]["id"],
                 result.result["id"],
@@ -515,6 +575,75 @@ class FrozenExternalHoldoutTests(unittest.TestCase):
             self.assertEqual(
                 completed_snapshot["projects"][0]["externalHoldout"]["state"],
                 "completed",
+            )
+            self.assertIsNotNone(
+                completed_snapshot["projects"][0]["externalHoldout"]["evidence"]
+            )
+            evidence = build_holdout_evidence(target)
+            self.assertEqual(
+                [lane["id"] for lane in evidence["lanes"]],
+                ["factor", "portfolio", "rl"],
+            )
+            self.assertIsNotNone(evidence["lanes"][0]["holdoutDiagnostics"])
+            self.assertIsNotNone(evidence["lanes"][1]["holdoutDiagnostics"])
+            self.assertIsNone(evidence["lanes"][2]["holdoutDiagnostics"])
+
+            analysis = self._assessment_analysis(["factor", "portfolio", "rl"])
+            jsonschema.validate(
+                analysis,
+                HOLDOUT_ASSESSMENT_ANALYSIS_JSON_SCHEMA,
+            )
+            analysis_path = root / "holdout-analysis.json"
+            analysis_path.write_text(
+                json.dumps(analysis, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            cli_assess = run_cli(
+                "holdout",
+                "assess",
+                str(target.root_dir),
+                "--analysis",
+                str(analysis_path),
+                "--json",
+            )
+            self.assertEqual(cli_assess.returncode, 0, cli_assess.stderr)
+            self.assertEqual(
+                json.loads(cli_assess.stdout)["command"],
+                "holdout.assess",
+            )
+            assessment = load_holdout_assessment(target)
+            jsonschema.validate(
+                assessment.assessment,
+                HOLDOUT_ASSESSMENT_JSON_SCHEMA,
+            )
+            self.assertEqual(assessment.assessment["overallAssessment"], "mixed")
+            self.assertIn(
+                "Universal pass threshold: `null`",
+                (assessment.root_dir / "assessment.md").read_text(encoding="utf-8"),
+            )
+            self.assertEqual(
+                load_holdout_assessment(target).assessment["id"],
+                assessment.assessment["id"],
+            )
+            assessed_status = load_holdout_status(target)
+            self.assertEqual(assessed_status["state"], "assessed")
+            self.assertEqual(assessed_status["nextAction"]["id"], "holdout.show")
+            assessed_brief = build_agent_work_brief(target)
+            self.assertEqual(assessed_brief["review"]["status"], "complete")
+            self.assertEqual(
+                assessed_brief["focus"]["scientificStage"],
+                "external-holdout-complete",
+            )
+            assessed_snapshot = build_studio_snapshot(target.root_dir)
+            self.assertEqual(
+                assessed_snapshot["projects"][0]["externalHoldout"]["state"],
+                "assessed",
+            )
+            self.assertEqual(
+                assessed_snapshot["projects"][0]["externalHoldout"][
+                    "assessment"
+                ]["id"],
+                assessment.assessment["id"],
             )
 
             source_root = source.root_dir
@@ -529,6 +658,21 @@ class FrozenExternalHoldoutTests(unittest.TestCase):
                 load_holdout_result(portable).result["id"],
                 result.result["id"],
             )
+            assessment_markdown = (
+                target.root_dir / "holdout/assessment/assessment.md"
+            )
+            assessment_markdown_bytes = assessment_markdown.read_bytes()
+            assessment_markdown.write_text(
+                "# Fabricated conclusion\n",
+                encoding="utf-8",
+            )
+            with self.assertRaises(AutoQuantValidationError) as assessment_error:
+                load_holdout_assessment(portable)
+            self.assertIn(
+                "holdout.assessment-content",
+                {issue.code for issue in assessment_error.exception.issues},
+            )
+            assessment_markdown.write_bytes(assessment_markdown_bytes)
 
             result_path = (
                 target.root_dir / "holdout/result/result.json"

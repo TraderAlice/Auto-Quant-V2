@@ -70,6 +70,8 @@ identity when present, and ordered Project observations. Each Project contains:
 - verified delegated requests and derived Research Briefs;
 - verified terminal Campaign summaries;
 - verified immutable Research Report summaries;
+- verified frozen-holdout source/later evidence and immutable Agent Assessment
+  summaries, with `completed` and `assessed` kept distinct;
 - explicitly mutable active Campaign progress;
 - exact CLI commands for copy-only human/Agent handoff;
 - counts and a normalized recent-evidence timeline derived from those objects.
@@ -143,6 +145,14 @@ must not displace available quantitative evidence. Sign alone is not a
 promotion threshold: the browser may mark negative return/risk evidence as
 adverse, but it must not colour a positive factor or portfolio value as
 successful unless Core exposes an explicit verified pass decision.
+
+A frozen target remains visibly unfinished after its one-shot Runs publish.
+Studio renders the Core-verified source/later comparison, then routes to the
+Agent-authored Assessment. Only `assessed` is the terminal research handoff;
+`completed` means the evidence exists but the caller's question has not yet
+received a durable interpretation. The browser displays declared overall and
+lane judgments as Agent analysis, never as a Core threshold, promotion, or
+trading decision.
 
 For a multi-Study Quant Research Program, the Project viewport is a research
 cockpit rather than the report page of whichever Run happens to be selected.

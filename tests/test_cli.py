@@ -833,6 +833,7 @@ class AgentCliTests(unittest.TestCase):
                 "holdout.bind",
                 "holdout.status",
                 "holdout.run",
+                "holdout.assess",
                 "holdout.show",
                 "studio.snapshot",
                 "studio.serve",
@@ -937,6 +938,12 @@ class AgentCliTests(unittest.TestCase):
             "strictly later dataset-package manifest JSON file",
             holdout_target_help.stdout,
         )
+        holdout_assess = commands_by_id["holdout.assess"]
+        self.assertEqual(holdout_assess["effect"], "creates-artifact")
+        self.assertIn(
+            "without creating a Core pass threshold",
+            holdout_assess["description"],
+        )
         project_create = next(
             command for command in commands if command["id"] == "project.create"
         )
@@ -1037,6 +1044,8 @@ class AgentCliTests(unittest.TestCase):
                 "research-agenda",
                 "holdout-binding",
                 "holdout-result",
+                "holdout-assessment-analysis",
+                "holdout-assessment",
                 "holdout-status",
                 "study",
                 "judge-output",
@@ -1088,6 +1097,22 @@ class AgentCliTests(unittest.TestCase):
                 "const"
             ],
             "autoquant-frozen-holdout-result",
+        )
+        assessment_schema = run_cli(
+            "schema",
+            "holdout-assessment-analysis",
+            "--json",
+        )
+        self.assertEqual(
+            assessment_schema.returncode,
+            0,
+            assessment_schema.stderr,
+        )
+        self.assertEqual(
+            json_output(assessment_schema)["data"]["schema"]["properties"][
+                "overallAssessment"
+            ]["enum"],
+            ["inconclusive", "mixed", "persists", "weakens"],
         )
         response_schema = run_cli("schema", "researcher-response", "--json")
         self.assertEqual(response_schema.returncode, 0, response_schema.stderr)

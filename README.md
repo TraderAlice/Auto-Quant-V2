@@ -1,5 +1,5 @@
 ---
-version: 0.9.10
+version: 0.9.11
 ---
 
 # AutoQuant V2
@@ -32,12 +32,12 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current release: `v0.9.10`
+## Current release: `v0.9.11`
 
 AutoQuant V2 has crossed from an architectural prototype into a usable
 research workbench.
 
-`v0.9.10` is the current AutoQuant release. `v0.8.31` remains the Harness
+`v0.9.11` is the current AutoQuant release. `v0.8.31` remains the Harness
 currently consumed by OpenAlice until the host deliberately selects the newer
 tag; this is version provenance, not an automatic Workspace-migration promise.
 The minor-version boundary marks the next phase: improve the real delegated-
@@ -45,6 +45,43 @@ research loop from OpenAlice request through AutoQuant evidence handoff without
 weakening standalone Workspace operation or prematurely freezing a
 host-specific API. Bounded follow-up work defaults to patch releases within
 the `0.9.x` line.
+
+`v0.9.11` closes the research handoff after a frozen external-period
+challenge. `aq holdout show` now exposes one bounded, verified comparison of
+the source Dossier and strictly later Runs instead of forcing a coworker to
+reverse-engineer raw artifacts. `aq holdout assess --analysis` publishes one
+immutable Agent-authored, lane-specific Assessment over those exact bytes.
+Core verifies the evidence and binding but deliberately supplies no universal
+Factor/Portfolio/RL pass threshold, selection, promotion, or trading
+authority. A Holdout is therefore `bound`, then `completed`, and only
+`assessed` after the caller-facing interpretation is durable.
+
+The change came from a fresh installed-`0.9.10` Grok trial. It correctly ran a
+frozen Factor and Portfolio Dossier on a strictly later panel and identified a
+mixed outcome, but required seven ad hoc raw-artifact inspections and left its
+answer as an unverified loose Markdown file. The new evidence and Assessment
+contract makes that last mile discoverable in CLI orientation and Studio.
+Studio verification also repaired a latent Factor qualification-card refresh
+failure exposed by the same target Project. See
+[[plans/frozen-holdout-research-handoff]].
+
+A second fresh installed-wheel Grok coworker completed the repaired path using
+public CLI projections without private source inspection, raw Run-artifact
+inspection, reruns, Sessions, or selection. It published a verified `mixed`
+Assessment: the Factor weakened while the Portfolio translation strengthened.
+The release audit passed all 381 tests in 945.087 seconds, resolved all 1,321
+documentation links, passed lock and Python/JavaScript syntax checks, built
+source and wheel distributions, and freshly installed the wheel on Python
+3.11.14 with pandas 3.0.5 and all 53 public commands. The final wheel SHA-256
+is `b7247bc475d1fe601641b826268399a523fe8c74c2500d636cb4711d82525994`.
+
+The market-data principle remains unchanged: the research question fixes the
+venue, assets, interval, clock, adjustment meaning, and date range. Existing
+bytes are only candidate inputs; they never narrow the question, and a
+task-complete package may intentionally duplicate prior data. AutoQuant does
+not add a central mutable cache or inventory gate.
+
+### `v0.9.10`
 
 `v0.9.10` proves that one long-lived Project can answer the same fixed Book
 Risk question on a newer task-specific data vintage without replacing old

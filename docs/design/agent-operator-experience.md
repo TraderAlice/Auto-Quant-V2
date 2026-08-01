@@ -206,7 +206,12 @@ the Session closes.
 Once such a Dossier is bound into a later Project, the work brief switches to
 `external-audit`, exposes no editable paths, routes only to `holdout.run`, and
 marks the research agenda unavailable because candidate selection is frozen.
-After the terminal result it returns to `observe`.
+After the terminal Runs it enters `publish-evidence`, exposes only the
+`holdout-analysis.json` draft boundary, supplies verified `holdout.show` as the
+supporting read, and routes to `holdout.assess`. Only a verified immutable
+Assessment returns the desk to `observe` with
+`external-holdout-complete`; objective scalars alone are not a completed
+caller handoff.
 
 ## Operating modes
 
