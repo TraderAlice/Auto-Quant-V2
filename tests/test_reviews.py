@@ -265,6 +265,18 @@ class IndependentReviewTests(unittest.TestCase):
                 )
             self.assertIn("review.target-run", {item.code for item in target.exception.issues})
 
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "Workspace staging requires a Workspace entry path plus --project",
+            ):
+                publish_review(
+                    project,
+                    report.report["id"],
+                    review_analysis(report.report["id"], run.result["id"]),
+                    observation_root=project.root_dir,
+                    observation_scope="project",
+                )
+
     def test_session_bound_report_review_preserves_exact_leader_anchor(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -348,6 +360,10 @@ class IndependentReviewTests(unittest.TestCase):
             detached_show = run_cli("review", "show", package, "--json")
             self.assertEqual(detached_show.returncode, 0, detached_show.stderr)
             self.assertTrue(json_output(detached_show)["data"]["detached"])
+
+            help_result = run_cli("review", "publish", "--help")
+            self.assertEqual(help_result.returncode, 0, help_result.stderr)
+            self.assertIn("Workspace path plus --project", help_result.stdout)
 
 
 if __name__ == "__main__":

@@ -87,25 +87,25 @@ or silently promote mutable staging into immutable authority.
 
 ## Acceptance
 
-- [ ] A fresh reviewer begins with no source checkout or original conversation,
+- [x] A fresh reviewer begins with no source checkout or original conversation,
       identifies the completed Project from public Workspace surfaces, and
       performs no Project or research mutation.
-- [ ] The reviewer uses strict readers rather than trusting Report prose or
+- [x] The reviewer uses strict readers rather than trusting Report prose or
       manually recomputing quantitative authority.
-- [ ] Every material claim is classified as verified, declared,
+- [x] Every material claim is classified as verified, declared,
       observed-unbound, or unverified with an executable evidence reason.
-- [ ] The five episodes, fixed-unit path, greedy non-overlap, contributions,
+- [x] The five episodes, fixed-unit path, greedy non-overlap, contributions,
       dominance conclusion, and formal dataset endpoint are independently
       verified from immutable Project evidence.
-- [ ] Split-adjustment semantics remain a package/provider declaration unless
+- [x] Split-adjustment semantics remain a package/provider declaration unless
       independently bound evidence proves more; Nasdaq overlap and route
       failure are not promoted beyond their actual binding.
-- [ ] The reviewer leaves one durable immutable or explicitly non-authoritative
+- [x] The reviewer leaves one durable immutable or explicitly non-authoritative
       review artifact and does not create a Session, Run, candidate, or
       replacement primary Report.
-- [ ] Every material baseline failure is retained and classified; only a
+- [x] Every material baseline failure is retained and classified; only a
       reproduced reusable Workbench defect enters the candidate release.
-- [ ] A fresh candidate reviewer completes the unchanged assignment using only
+- [x] A fresh candidate reviewer completes the unchanged assignment using only
       installed public surfaces and produces a strict, portable, tamper-evident
       review when the admitted repair requires one.
 - [ ] Focused/full tests, documentation links, lock/syntax, build/install,
@@ -117,8 +117,8 @@ or silently promote mutable staging into immutable authority.
 - [x] Define and index the independent review assignment.
 - [x] Build an isolated installed-`0.9.15` review desk from completed evidence.
 - [x] Run and audit one fresh reviewer without coaching.
-- [ ] Admit and implement only reproduced reusable product friction.
-- [ ] Replay the unchanged task with a fresh candidate-wheel reviewer.
+- [x] Admit and implement only reproduced reusable product friction.
+- [x] Replay the unchanged task with a fresh candidate-wheel reviewer.
 - [ ] Complete the release audit and publish `v0.9.16` if warranted.
 
 ## Findings and decisions
@@ -151,6 +151,19 @@ or silently promote mutable staging into immutable authority.
   Markdown, and CLI/Studio discovery. It will not import staging into evidence,
   mutate the target, replace the primary Report, or generalize Holdout
   Assessment.
+- 2026-08-01 — The fresh installed-`0.9.16` candidate reviewer independently
+  discovered `review.publish`, selected detached publication, and produced one
+  strict package in four minutes and 23 seconds. Its 8 `verified`, 4
+  `declared`, 1 `observed-unbound`, and 1 `unverified` classifications retained
+  the baseline result and the exact `coverage-window` reference-integrity
+  defect. Public `review.show` passed and the inherited Workspace remained
+  byte-for-byte unchanged (233/233 files and 396/396 paths).
+- 2026-08-01 — Candidate publication exposed one low-severity entry-boundary
+  discoverability issue: `staging/...` observed-file ids correctly require a
+  Workspace entry path plus explicit `--project`, but the reviewer first tried
+  a Project entry and then probed absolute and parent-relative ids. The
+  security boundary remains unchanged; CLI help, machine capabilities, the
+  validation diagnostic, and CLI documentation now state the exact route.
 
 ## Verification
 
@@ -169,6 +182,35 @@ Baseline trial:
 - Independent post-run `diff` confirmed identical pre/post Workspace hashes
   and paths.
 
+Candidate trial:
+
+- Candidate wheel:
+  `/Users/ame/2607AutoQuant/Auto-Quant/dist/candidate-0.9.16-review/auto_quant-0.9.16-py3-none-any.whl`,
+  SHA-256 `84629d5b045352dead4dd4d8487192c42a6ddb1b8d213b59e1d40d0fb9501587`.
+- Fresh reviewer session: `019fbc63-e49c-7510-be74-a69c6ba18b5c`.
+- Detached Review:
+  `/Users/ame/autoquant-v0916-review-candidate/output/review-20260801T081829692481Z-e779b0ca5dba`.
+- Package file SHA-256 values: `analysis.json`
+  `b3f3e2d7687a27375bfe4ebebc0471022e278a80fe4394b1edf5a40a0f644a69`,
+  `evidence.json`
+  `431fc4f98ab2bf31fe999f77a457d50b5fa916add394402d111f3d01582e4597`,
+  `manifest.json`
+  `a651214a38964a970149386b7d34f3ccdc5e2be0aa94ae853b1cfc1998a3e66f`,
+  `review.json`
+  `3987c4eedac28ff41b62901c34602c28683408baa8e66614f9896caf6ff08a1d`,
+  and `review.md`
+  `cf5e1584a0a97a15f917e850fac58f8b468c59015a4337ef727fc4a79b09b093`.
+- Transcript:
+  `/Users/ame/autoquant-v0916-review-candidate/candidate-transcript.md`,
+  SHA-256 `05915ce8678cc2324fe46dc20a76e7cee5bad3df7110928c9ee392137ac131d2`.
+- The reviewer used public installed readers and Python only for structural
+  parsing, hash checks, contribution reconciliation, and greedy-selection
+  consistency over immutable reader/artifact output. It did not inspect the
+  source checkout, acquire or re-price market data, rerun research, or mutate
+  Project state.
+- Independent post-run `diff` confirmed 233 identical file hashes and 396
+  identical paths; output contained exactly one detached `review-*` package.
+
 ## Progress log
 
 - 2026-08-01 — Plan activated from clean released `v0.9.15`; OpenAlice remains
@@ -176,6 +218,10 @@ Baseline trial:
 - 2026-08-01 — Baseline field review passed the scientific task and exposed one
   product gap: no immutable general Review handoff and no machine-enforced
   distinction between Report-bound and merely visible Workspace evidence.
+- 2026-08-01 — Candidate replay passed the unchanged scientific and
+  no-mutation contract. One observed-file entry-root retry was retained and
+  repaired as public discoverability wording without widening filesystem
+  authority.
 
 ## Completion
 

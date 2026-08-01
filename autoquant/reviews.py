@@ -487,7 +487,16 @@ def _resolve_review_evidence(
         else:
             observed = confined_path(observation_root, ref["id"], f"{path}/id")
             if observed.is_symlink() or not observed.is_file():
-                issues.append(_issue(observed, "review.observed-file", "Observed evidence must be a real file under the declared observation root"))
+                issues.append(
+                    _issue(
+                        observed,
+                        "review.observed-file",
+                        "Observed evidence must be a real file under the declared "
+                        f"{observation_scope} observation root {observation_root}; "
+                        "Workspace staging requires a Workspace entry path plus "
+                        "--project.",
+                    )
+                )
                 continue
             resolved[key] = {
                 **ref,

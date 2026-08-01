@@ -1004,7 +1004,13 @@ def build_parser() -> RaisingArgumentParser:
         "publish",
         help="publish a no-research-mutation Review of one completed Report",
     )
-    review_publish.add_argument("path")
+    review_publish.add_argument(
+        "path",
+        help=(
+            "Project or Workspace entry path and observed-file root; use a "
+            "Workspace path plus --project for staging/... evidence"
+        ),
+    )
     review_publish.add_argument("--project")
     review_publish.add_argument(
         "--session",

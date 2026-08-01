@@ -59,6 +59,16 @@ PATH_ARGUMENT = argument(
     True,
     "Direct Project or Workspace directory.",
 )
+REVIEW_PUBLISH_PATH_ARGUMENT = argument(
+    "path",
+    "positional",
+    "string",
+    True,
+    "Direct Project or Workspace directory. This entry path also declares the "
+    "observed-file root: Project-relative ids require a Project path; "
+    "Workspace-relative ids such as staging/comparison.json require a "
+    "Workspace path plus --project.",
+)
 STUDY_ARGUMENT = argument(
     "study",
     "option",
@@ -1017,7 +1027,7 @@ CLI_COMMANDS = [
         "Publish an immutable independent evidence classification over one completed Report and anchor Run; --output creates a detached package without mutating the reviewed Workspace.",
         "creates-artifact",
         [
-            PATH_ARGUMENT,
+            REVIEW_PUBLISH_PATH_ARGUMENT,
             PROJECT_ARGUMENT,
             argument("session", "option", "string", False, "Owning Session when the target Report is Session-bound."),
             REPORT_ARGUMENT,

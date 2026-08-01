@@ -1023,6 +1023,11 @@ may intentionally cite none. Bound classifications may reference only the
 exact target Report/Run. An `observed-file` is resolved beneath the Project or
 Workspace entry root and freezes path, size, and SHA-256 with
 `observed-unbound` authority; it never becomes Run evidence.
+The positional `<path>` deliberately chooses that observation boundary. Use a
+direct Project path only for Project-relative observed files. To cite
+Workspace-owned material such as `staging/comparison.json`, enter through the
+Workspace root and pass `--project PROJECT_ID`; Core will not silently widen a
+Project entry into its surrounding Workspace.
 
 Without `--output`, publication atomically attaches the package under
 `<project>/reviews/review-.../`. With `--output`, Core creates the same
