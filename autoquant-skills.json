@@ -1,10 +1,10 @@
 {
-  "bundleSha256": "2210f11dda2363ac9934bca22a7708475882dc7795a0f6c652737f9a42f695a9",
+  "bundleSha256": "50820b2a7c60507402c1e557aa0853be884d1036fd1871c3860e17b975eb69c1",
   "discoveryRoots": [
     ".agents/skills",
     ".claude/skills"
   ],
-  "harnessVersion": "0.9.18",
+  "harnessVersion": "0.9.19",
   "kind": "autoquant-workspace-skill-bundle",
   "schemaVersion": 1,
   "skills": [
@@ -403,7 +403,7 @@
       "files": [
         {
           "path": "SKILL.md",
-          "sha256": "0982ea3df37df644b588375a6cb7ed5505e9d85db63fcc6cbb0de29ca1f8b2e3"
+          "sha256": "c6fc6da0c66ac6b379fb5b98bcd4c20b1944d7d0052a52e06b70913c50c61da8"
         },
         {
           "path": "agents/openai.yaml",
@@ -415,7 +415,7 @@
         },
         {
           "path": "scripts/audit_ohlcv_package.py",
-          "sha256": "d3052690078ddf33bba631580b7eb8fef088f742050745c897a0ddf65880e28a"
+          "sha256": "d3f9ec04934a9abd699f3198b640062ac48b16c0b0378a0b2b9ea0ee8150b9ca"
         },
         {
           "path": "scripts/compare_ohlcv_packages.py",

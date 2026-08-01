@@ -152,7 +152,7 @@ def audit(package_path: Path) -> dict[str, Any]:
         },
         "limitations": [
             "This audit checks files and basic OHLCV invariants, not provider truth.",
-            "Strict aq project intake remains required.",
+            "Strict aq project intake or atomic aq study create intake remains required.",
         ],
     }
 
