@@ -34,12 +34,15 @@ contract was bound into all three Study lanes. The preserved Factor Run
 `run-20260801T145000180368Z-1fd810b3fe0e` was produced by the clean `0.9.20`
 candidate Harness at commit `58f69fa` after the current Factor program made
 missing required inputs explicitly distinct from false or neutral regimes.
-The current Factor Run
+The preserved Factor Run
 `run-20260801T153801145739Z-a387a53aff40` was produced by the clean `0.9.21`
 candidate Harness at commit `df13d13` after temporal primary-objective
-failures gained exact population diagnostics. It preserves the same
-deterministic cross-sectional candidate result under the current Study
-authority; the older Runs remain immutable historical evidence. No development
+failures gained exact population diagnostics. The current Factor Run
+`run-20260801T170126912006Z-b163fe166951` was produced by the clean `0.9.22`
+candidate Harness at commit `eebbd1b` after failed Run disposition and
+handoff became explicit. It preserves the same deterministic cross-sectional
+candidate result under the current Study authority; the older Runs remain
+immutable historical evidence. No development
 execution is relabeled as a released version. The prior Portfolio Run
 `run-20260731T162132298210Z-e541f48086ba` was produced by the clean `0.9.3`
 candidate Harness at commit `ed61378`. It preserves the complete mechanical
@@ -52,7 +55,7 @@ cross-sectional normalized-intent construction remains explicit and valid
 after relative-value intent semantics were aligned with the capped
 complementary pair constructor. The candidate declares only base-clock
 momentum because this sample dataset has no higher-interval feature surface.
-Studio uses the latest ordinary immutable Run in each lane: the `0.9.21` Run
+Studio uses the latest ordinary immutable Run in each lane: the `0.9.22` Run
 for the Factor Explorer and the `0.9.4` Run for the Portfolio Explorer. A
 governed-RL baseline remains deliberately absent.
 

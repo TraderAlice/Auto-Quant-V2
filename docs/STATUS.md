@@ -1,9 +1,9 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha at `v0.9.21`; `v0.8.31` remains the Harness currently
+Status: usable pre-alpha at `v0.9.22`; `v0.8.31` remains the Harness currently
 consumed by OpenAlice until the host deliberately selects a newer tag.
 
-Updated: 2026-08-01.
+Updated: 2026-08-02.
 
 Related: [[README]], [[docs/ARCHITECTURE]],
 [[docs/design/agent-native-quant-workbench]],
@@ -13,6 +13,46 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 [[docs/openalice-real-delegation-synthesis]], and [[PLANS]].
 
 ## Milestone
+
+The `0.9.22` release makes a current failed Run a truthful Agent re-entry point
+rather than silently reverting the Study to “baseline evidence missing.” Every
+new failed Run records either `scientific-limit` or `repair-required`.
+Execution, malformed-output, unclassified Judge, and ordinary candidate or
+contract failures remain conservatively repair-required and route first to
+exact Run inspection. Only a Judge-declared scientific limit may anchor one
+immutable Run-bound Report over the exact fixed question.
+
+Orientation, research-program lanes, agendas, CLI text/JSON, Report evidence,
+and Studio now carry the same current attempt, disposition, summary, and
+structured errors. An unchanged failed attempt never advertises another
+`run.execute`. Changing source or fixed authority makes the attempt stale and
+restores the normal new-evidence route. Reporting a scientific limit is
+terminal for that Study but never makes the objective successful, starts a
+Session, opens Factor-to-Portfolio or Portfolio-to-RL admission, or grants
+trading authority.
+
+A fresh isolated Grok 4.5 coworker used only the installed `0.9.22` candidate
+wheel, staged request, and fixed Yahoo NVDA/SPY package. It created one Factor
+Project, executed the exact sparse delayed-gap candidate once, re-entered via
+public orientation, discovered the Report schema, published Report
+`report-20260801T165826235891Z-8a6f53803c20`, and stopped at
+`scientific-limit-reported`. Its sole Run
+`run-20260801T165753420107Z-72ebe1da8796` records 124 validation pairs, one
+candidate value, 124 target values, and
+`factor.temporal-primary-candidate-variation`. Independent validation found
+exactly one Run, one Report, zero Sessions, zero Dossiers, valid orientation,
+and valid Studio evidence. The worker's one actionable friction—Report help
+still saying “successful Run”—was corrected in CLI and capability discovery.
+
+The root sample now preserves ten historical Runs and projects a clean
+`0.9.22` Factor baseline produced at commit `eebbd1b`, with the same
+`-0.031325301204819286` validation IC as the prior two snapshots. Exact field
+and release evidence is in [[plans/failed-run-research-handoff]]. OpenAlice
+remains independently pinned to `0.8.31`.
+
+Final release audit evidence is pending.
+
+### `v0.9.21`
 
 The `0.9.21` release makes an unavailable temporal Factor objective a precise
 research result rather than a Python conversion failure. After Core constructs
