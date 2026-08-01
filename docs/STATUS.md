@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha at `v0.9.19`; `v0.8.31` remains the Harness currently
+Status: usable pre-alpha at `v0.9.20`; `v0.8.31` remains the Harness currently
 consumed by OpenAlice until the host deliberately selects a newer tag.
 
 Updated: 2026-08-01.
@@ -13,6 +13,27 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 [[docs/openalice-real-delegation-synthesis]], and [[PLANS]].
 
 ## Milestone
+
+The `0.9.20` release gives U.S.-listed equity and ETF hourly research a
+first-class but fail-closed Yahoo Chart route. The installed Skill accepts one
+fixed aligned XNYS `1h` request, preserves exact raw responses, applies a
+one-hour query warmup, and maps only exact provider bucket starts to canonical
+completed regular-session closes. Every requested asset must contain the same
+complete session panel before the route emits a split-adjusted V3 package with
+caller-fixed higher intervals.
+
+HTTP success alone is explicitly not authority. The route rejects Yahoo's
+trailing-range failures, null expected rows, zero-volume session-close markers,
+ordinary gaps, duplicates, invalid OHLCV, wrong metadata, off-grid rows,
+incomplete early closes, or one deficient aligned asset. It retains exact
+`provider-failure.json` and raw evidence, returns nonzero, and creates no
+package. It never reconstructs a bar, drops a session, shortens the question,
+or presents bundled Nasdaq daily history as an independent hourly peer. Exact
+baseline, provider probes, candidate trials, and release evidence live in
+[[plans/truthful-us-equity-intraday-acquisition]]. OpenAlice remains
+independently pinned to `0.8.31`.
+
+### `v0.9.19`
 
 The `0.9.19` release makes external data admission one atomic fixed-Study
 operation. A coworker can pass one Research Request and one complete task-local

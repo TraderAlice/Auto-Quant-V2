@@ -1,5 +1,5 @@
 ---
-version: 0.9.19
+version: 0.9.20
 ---
 
 # AutoQuant V2
@@ -32,12 +32,12 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current release: `v0.9.19`
+## Current release: `v0.9.20`
 
-`v0.9.19` lets a distinct fixed Study atomically turn one complete external
-Research Request and V1-V3 OHLCV package into Study-owned request, data, and
-content identity without template impersonation or private materialization
-scripts.
+`v0.9.20` gives U.S. equity/ETF hourly research one truthful Yahoo route: an
+exact complete XNYS response becomes an auditable V3 package, while a range,
+timestamp, session, or panel defect becomes durable no-authority evidence and
+never a fabricated dataset.
 OpenAlice remains independently pinned to `v0.8.31` until the host deliberately
 selects another tag; publishing AutoQuant does not migrate a Workspace or move
 a host pin.
