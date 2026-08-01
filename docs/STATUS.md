@@ -41,7 +41,8 @@ units and closes with zero residual. Exact evidence is in
 Final repository verification passed all 415 tests in 1,259.120 seconds and
 resolved all 1,387 documentation links. Lock, Python/Studio syntax, diff,
 source/wheel build, and fresh Python 3.11.14 installed-wheel
-version/capability/schema smokes passed. Verified wheel SHA-256:
+version/capability/schema plus no-local-override clean-clone root Workspace
+smokes passed. Verified wheel SHA-256:
 `6a083f6600750b6c4fdd0b7eccd2f6634606d81901418db6176c92317d3f7876`.
 
 README remains the compact product entrance. Agent routing points version and
