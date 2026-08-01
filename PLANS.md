@@ -20,7 +20,7 @@ invariants live in `docs/design/`.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
-| [[plans/multi-source-observed-factor-packaging]] | Preserve exact per-source provider authority while composing multiple audited V5 packages into one observed Factor dataset. | 2026-08-02 |
+| [[plans/first-baseline-candidate-preflight]] | Guard the first caller-relevant candidate with the fixed fast contract before spending a complete baseline Run. | 2026-08-02 |
 
 ## Proposed plans
 
@@ -36,6 +36,7 @@ None.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/multi-source-observed-factor-packaging]] | Preserved exact per-source provider authority while composing multiple audited V5 packages into one observed Factor dataset. | 2026-08-02 |
 | [[plans/calendar-derived-daily-close-time-packaging]] | Turned explicit per-asset exchange-calendar authority and one observed daily package into an audited V5 close-time package through the public Skill. | 2026-08-02 |
 | [[plans/close-time-aware-cross-market-daily-factor]] | Admitted exact UTC daily close instants into the observed-only temporal Factor contract and proved causal cross-market lead/lag research without date-based look-ahead. | 2026-08-02 |
 | [[plans/distribution-build-provenance]] | Preserved exact Git build provenance in installed distributions and made one complete seven-field runtime identity discoverable before work and immutable in new research evidence. | 2026-08-02 |
