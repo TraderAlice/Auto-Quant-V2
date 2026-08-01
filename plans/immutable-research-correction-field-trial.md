@@ -1,6 +1,6 @@
 # Immutable research correction field trial
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-08-01`
 - Target release: `0.9.17`
 - Related design: [[docs/design/run-bound-research-reports]],
@@ -101,7 +101,7 @@ retained as product evidence rather than hidden.
       reproduced reusable Workbench defect enters the candidate release.
 - [x] A fresh candidate worker completes the unchanged assignment using only
       installed public surfaces, with no private coaching or research rerun.
-- [ ] Focused/full tests, documentation links, lock/syntax, build/install,
+- [x] Focused/full tests, documentation links, lock/syntax, build/install,
       Studio, root Workspace, and clean-clone smokes pass before publication.
 
 ## Work
@@ -112,7 +112,7 @@ retained as product evidence rather than hidden.
 - [x] Run and audit one fresh correction worker without coaching.
 - [x] Admit and implement only reproduced reusable product friction.
 - [x] Replay the unchanged task with a fresh candidate-wheel worker.
-- [ ] Complete the release audit and publish `v0.9.17` if warranted.
+- [x] Complete the release audit and publish `v0.9.17` if warranted.
 
 ## Findings and decisions
 
@@ -249,8 +249,18 @@ original five-file package. Public `report show/list`, `review show`, `orient`,
   `0414bd960f1f4c51499ac9c1373d2a8c381ac7a48a8ebfc88ed507be53b7e9b7`;
   sdist SHA-256 is
   `7594d7aa6f6b26499e6308077a6b9d115a0175e1c569b072b9847cc9e33f1cc2`.
+- 2026-08-01 — A fresh Git clone with no local override passed installed-wheel
+  `orient`, `validate`, and `studio snapshot` against the repository sample;
+  all 57 public capabilities and the Report-analysis schema loaded, and the
+  clone remained clean.
 
 ## Completion
 
-Complete this section only after every acceptance item is independently
-verified and the release, if any, is published.
+Completed on 2026-08-01 as `v0.9.17`. The field trial first proved that an
+untouched `0.9.16` worker could repair the prose but could not leave verified
+correction identity. The released repair adds a narrow append-only linear
+correction contract, freezes the exact governing Review inside the corrected
+Report, derives one current terminal handoff, and rejects forged or ambiguous
+lineage. A fresh installed-wheel coworker completed the unchanged assignment
+on its first attempt while every inherited byte remained unchanged. OpenAlice
+was not modified and remains on `v0.8.31`.
