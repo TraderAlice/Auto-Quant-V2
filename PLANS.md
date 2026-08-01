@@ -18,7 +18,9 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-None.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/truthful-unevaluable-factor-diagnostics]] | Make unevaluable temporal Factors fail with exact research diagnostics and preserve Event Study as the authority for fixed conditional price-event questions. | 2026-08-01 |
 
 ## Proposed plans
 
