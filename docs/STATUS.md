@@ -1,8 +1,7 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha with `v0.9.18` in release-candidate verification;
-`v0.9.17` remains the latest published tag and `v0.8.31` remains the Harness
-currently consumed by OpenAlice until the host deliberately selects a newer tag.
+Status: usable pre-alpha at `v0.9.18`; `v0.8.31` remains the Harness currently
+consumed by OpenAlice until the host deliberately selects a newer tag.
 
 Updated: 2026-08-01.
 
@@ -18,7 +17,7 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 AutoQuant V2 has crossed the line from an architectural prototype into a
 usable Agent-native quantitative research workbench.
 
-The `0.9.18` candidate gives a related fixed Study an exact continuation
+The `0.9.18` release gives a related fixed Study an exact continuation
 contract instead of relying on copied prose or directory conventions. A Study
 may bind one prior immutable Run and selected declared artifacts, one exact
 Study-owned Research Request, and an optional matching position snapshot. Core
@@ -50,9 +49,16 @@ discovering the missing fixed-Study CLI form and a misleading Session action.
 Those failures remain visible in the trial record; both reusable defects now
 have focused regressions. Earlier affected-module verification passed 79 tests
 in 140.082 seconds, and the current documentation graph resolves 1,380 links.
-Final installed-wheel replay and full release verification remain pending
-before the tag is published. OpenAlice remains independently pinned to
-`0.8.31`.
+The final installed-wheel Grok replay then completed the unchanged assignment
+with exactly one new fixed Study, one successful Run, one independent Report,
+and zero Sessions while preserving all prior immutable bytes. Independent
+arithmetic reproduced every recovery path within a maximum contribution
+residual of `1.1796119636642288e-16`.
+
+Final repository verification passed all 409 tests in 1,016.375 seconds and
+resolved all 1,380 documentation links. Lock, Python/Studio syntax, focused
+capability regression, build/install, and no-local-override root Workspace
+smokes also passed. OpenAlice remains independently pinned to `0.8.31`.
 
 ### `v0.9.17`
 

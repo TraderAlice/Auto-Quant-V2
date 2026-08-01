@@ -32,10 +32,11 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current release candidate: `v0.9.18`
+## Current release: `v0.9.18`
 
-`v0.9.18` is the current AutoQuant release candidate; `v0.9.17` remains the
-latest published tag until the candidate replay and release audit pass.
+`v0.9.18` lets one related fixed Study bind an exact prior Run, selected
+immutable artifacts, and its own Research Request without copying authority
+through prose or inheriting a stale Project-root request.
 OpenAlice remains independently pinned to `v0.8.31` until the host deliberately
 selects another tag; publishing AutoQuant does not migrate a Workspace or move
 a host pin.
