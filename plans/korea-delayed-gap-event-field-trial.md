@@ -99,9 +99,9 @@ Korean semiconductor peer.
 
 - [x] Define one caller-fixed Korean Event assignment from clean released
       `v0.9.12`.
-- [ ] Prepare an isolated installed-wheel desk and immutable host inventory.
-- [ ] Run the unchanged baseline assignment with a fresh Grok worker.
-- [ ] Audit transcript, filesystem, provider evidence, and scientific answer.
+- [x] Prepare an isolated installed-wheel desk and immutable host inventory.
+- [x] Run the unchanged baseline assignment with a fresh Grok worker.
+- [x] Audit transcript, filesystem, provider evidence, and scientific answer.
 - [ ] Implement only reproduced reusable friction with deterministic tests.
 - [ ] Replay with a fresh candidate-wheel worker.
 - [ ] Complete the `v0.9.13` release audit and publish the tag.
@@ -118,16 +118,69 @@ Korean semiconductor peer.
   worker must acquire one task-complete package even if equivalent bytes exist
   elsewhere, and any duplication is valid evidence isolation rather than a
   reason to introduce shared mutable inventory.
+- 2026-08-01 — Baseline cohort 28 used the exact released `0.9.12` wheel,
+  wrote the English brief before retrieval, attempted Yahoo, Naver, and Daum,
+  created exactly one Event Project, one successful fixed Run, one direct
+  Report, and no Session. It stopped in read-only `observe` mode without
+  parameter search, earnings attribution, environment repair, or trading
+  authority.
+- 2026-08-01 — Yahoo strict intake first rejected four isolated impossible
+  OHLC observations. The worker preserved that attempt and explicitly selected
+  the existing bounded `drop-observation` policy. The final aligned
+  split-adjusted package disclosed all four rows and retained 4,074 sessions
+  per asset from 2010-01-04 through 2026-07-31.
+- 2026-08-01 — Naver failed on three Samsung 2018 split-suspension rows with
+  zero open/high/low and volume but a positive carried close. These are
+  provider no-trade placeholders, not valid OHLCV bars. The reusable repair is
+  to omit only that exact shape from normalized observed history while keeping
+  every raw row and an exact omission audit; any partial or traded nonpositive
+  row must still fail closed.
+- 2026-08-01 — Daum failed because 13 Samsung rows had
+  `accTradePrice / accTradeVolume` outside the provider's daily OHLC range,
+  with maximum distance 2.58% from the nearest bound. The OHLC and share
+  volume themselves remained valid. AutoQuant cannot assume these provider
+  aggregates share one session scope, so the ratio becomes a retained exact
+  diagnostic rather than a hard price-validity gate. No provider value, price,
+  or volume is repaired.
+- 2026-08-01 — No Event Core, template, Report, or Studio defect prevented the
+  assignment. The candidate patch is limited to truthful Naver placeholder
+  normalization, truthful Daum aggregate diagnostics, their command/audit
+  projections, Skill guidance, and deterministic regression coverage.
 
 ## Verification
 
-Pending baseline evidence.
+- Baseline wheel SHA-256:
+  `0503714efb42ac0593c3e48dd7a9cad54596515edc2df823226a5a427d2e17da`.
+  The isolated runtime reported AutoQuant `0.9.12`, Python 3.11.14, and pandas
+  3.0.5.
+- Baseline Grok session `019fbb72-65d1-7010-80c5-7475e3f8b372` completed in
+  28 turns. Its 680-line exported transcript and complete Workspace remain
+  under `grok-field-trials/cohort-28-korea-gap-event-v0912-baseline`.
+- Project `samsung-gap-event-2010-2026`, Run
+  `run-20260801T035349892284Z-db5990bae2ee`, and Report
+  `report-20260801T035455403097Z-bbb2edf8dcd1` all reload through strict public
+  surfaces. Host validation and Studio snapshot returned `ok`.
+- The fixed Run found 29 qualifying events, 28 complete, 20 primary,
+  8 overlap-excluded, and 1 right-censored. Primary Samsung mean was
+  `+2.8278%`, unconditional Samsung mean `+0.4097%`, and matched SK hynix mean
+  `+1.1465%`; matched excess was `+1.6812%`. Both primary and excess 95% normal
+  intervals include zero, so the Report correctly limits `observed-advantage`
+  to descriptive in-sample association.
+- Exact retained provider evidence reproduces three Naver no-trade
+  placeholders and 13 Daum value/volume-derived out-of-range observations.
+  Naver maximum semantic issue is the 2018 split suspension; Daum maximum
+  derived-ratio distance is `2.5796%`. Neither raw route is relabelled as
+  adjusted-equivalent to Yahoo.
 
 ## Progress log
 
 - 2026-08-01 — Plan created and indexed from clean released `v0.9.12`. No
   implementation change is authorized until a fresh baseline worker exposes
   concrete reusable friction.
+- 2026-08-01 — Baseline cohort 28 completed the unchanged assignment and
+  proved the Event workflow itself is usable. The two independent Korean raw
+  routes exposed bounded provider-normalization defects, so implementation is
+  now authorized only on those Skill surfaces.
 
 ## Completion
 
