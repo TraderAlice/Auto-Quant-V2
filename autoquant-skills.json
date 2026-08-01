@@ -1,5 +1,5 @@
 {
-  "bundleSha256": "29fb618627ccf4c9529c4576ef574e9264e8fc30f6ba94de671f66ff98e5decb",
+  "bundleSha256": "2210f11dda2363ac9934bca22a7708475882dc7795a0f6c652737f9a42f695a9",
   "discoveryRoots": [
     ".agents/skills",
     ".claude/skills"
@@ -36,7 +36,7 @@
         },
         {
           "path": "references/south-korea-equities.md",
-          "sha256": "1ee4efa48382447629945ffd46d31892c7634687667b8463ace41f55c9822278"
+          "sha256": "3ad8b74b015f66b6150f33f89e8a82195d3ba205abed8b2d90f850f6bac18688"
         },
         {
           "path": "references/taiwan-equities.md",
@@ -98,7 +98,7 @@
         },
         {
           "path": "scripts/fetch_daum_daily.py",
-          "sha256": "b67c03e3cd279b775f2be5dd300499f732baf02d14e82da28cdcee7602359046"
+          "sha256": "fd8ba9f130d5533c1e74cb5cecfa82f85f9bb7f6e6e0da4613a69622729a339e"
         }
       ],
       "id": "fetch-daum-ohlcv"
@@ -207,7 +207,7 @@
       "files": [
         {
           "path": "SKILL.md",
-          "sha256": "11bfca98d0f2d7e3490f26d5774a8ac35e4983293fdabd4da64bd0474e43b811"
+          "sha256": "8b7e4ac5bc40132c141d181a7693488e80145868572a057ff8c4addcb566c4dc"
         },
         {
           "path": "agents/openai.yaml",
@@ -219,11 +219,11 @@
         },
         {
           "path": "references/provider-route.md",
-          "sha256": "e2683e5e7afd2f0a062415394aa580c01356e7c4dfcb5371bbd69963b37a4a41"
+          "sha256": "83b6df66a1444dc2bd7372987ff0934b085a60822592076da3d27ff806bf1d18"
         },
         {
           "path": "scripts/fetch_naver_daily.py",
-          "sha256": "a48fa8da71e1188dfecfdfff1dd8d8260d4755981d762de98d0c2730efa24476"
+          "sha256": "8630bf64f952445c3541492449e0e062f9790767af2f8a7c838fd6dff583113e"
         }
       ],
       "id": "fetch-naver-ohlcv"

@@ -21,6 +21,7 @@ BASE_URL = "https://finance.daum.net/api/quote"
 SAFE_SYMBOL = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._=-]{0,63}$")
 PROVIDER_SYMBOL = re.compile(r"^A[0-9]{6}$")
 PAGE_SIZE = 1000
+PRICE_ADJUSTMENT = "raw"
 
 
 def sha256(path: Path) -> str:
@@ -384,7 +385,7 @@ def main() -> None:
             "calendar": "XKRX",
             "timezone": "Asia/Seoul",
         },
-        "priceAdjustment": "raw",
+        "priceAdjustment": PRICE_ADJUSTMENT,
         "provider": {
             "name": "daum-finance-observed-daily-history",
             "retrievedAt": retrieved_at,
@@ -426,7 +427,7 @@ def main() -> None:
             "endExclusive": args.end_exclusive.isoformat(),
             "interval": "1d",
             "panel": args.panel,
-            "adjustment": "raw",
+            "adjustment": PRICE_ADJUSTMENT,
         },
         "transformation": (
             "provider daily OHLC parsed as KRW per share; accTradeVolume "

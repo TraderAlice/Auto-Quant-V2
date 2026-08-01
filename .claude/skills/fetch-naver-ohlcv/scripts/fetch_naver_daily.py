@@ -1,4 +1,4 @@
-"""Fetch auditable raw South Korea daily OHLCV from Naver Finance."""
+"""Fetch auditable provider-adjusted South Korea daily OHLCV from Naver."""
 
 from __future__ import annotations
 
@@ -21,6 +21,7 @@ BASE_URL = "https://api.finance.naver.com/siseJson.naver"
 SAFE_SYMBOL = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._=-]{0,63}$")
 PROVIDER_SYMBOL = re.compile(r"^[0-9]{6}$")
 EXPECTED_HEADERS = ["날짜", "시가", "고가", "저가", "종가", "거래량"]
+PRICE_ADJUSTMENT = "provider-adjusted"
 
 
 def sha256(path: Path) -> str:
@@ -328,7 +329,7 @@ def main() -> None:
             "calendar": "XKRX",
             "timezone": "Asia/Seoul",
         },
-        "priceAdjustment": "raw",
+        "priceAdjustment": PRICE_ADJUSTMENT,
         "provider": {
             "name": "naver-finance-observed-history",
             "retrievedAt": retrieved_at,
@@ -375,11 +376,11 @@ def main() -> None:
             "endExclusive": args.end_exclusive.isoformat(),
             "interval": "1d",
             "panel": args.panel,
-            "adjustment": "raw",
+            "adjustment": PRICE_ADJUSTMENT,
         },
         "transformation": (
-            "raw KRW OHLC and provider share volume preserved; exact no-trade "
-            "placeholder rows omitted from normalized observed history"
+            "provider-adjusted KRW OHLC and provider share volume preserved; "
+            "exact no-trade placeholder rows omitted from normalized observed history"
         ),
         "nonTradingPlaceholders": {
             "policy": "omit-exact-no-trade-placeholder",
@@ -410,11 +411,13 @@ def main() -> None:
         "limitations": [
             "Naver Finance is not KRX venue or calendar authority.",
             "Board identity and access terms remain external claims.",
+            "Observed Samsung history is back-adjusted across its 2018 split, "
+            "but Naver does not establish a complete adjustment methodology.",
             "Exact zero-OHLC, positive-close, zero-volume provider placeholders "
             "are not traded observations and remain available only in raw evidence.",
             "A violated OHLC bound is expanded only when the exact provider "
             "difference is at most one KRW; every normalized value is audited.",
-            "No adjustment, survivorship, or delisting claim follows.",
+            "No split-only, dividend, survivorship, or delisting claim follows.",
         ],
     }
     (output / "provider-audit.json").write_text(

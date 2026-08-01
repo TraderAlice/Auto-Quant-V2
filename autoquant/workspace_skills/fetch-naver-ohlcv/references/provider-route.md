@@ -19,6 +19,12 @@ Skill parses it as literals only and requires the first six headers to be:
 Exact response text is retained because this is observable behavior, not a
 versioned public API contract.
 
+Samsung observations before its 2018 50:1 split are visibly back-adjusted,
+while the route does not disclose a complete corporate-action methodology.
+The package therefore declares `provider-adjusted`, not `raw` or
+`split-adjusted`. Treat numerical comparison with other adjustment contracts
+as semantically incompatible.
+
 The route has emitted split-suspension placeholders shaped exactly as zero
 open/high/low, positive carried close, and zero volume. They are retained in
 the raw response and listed in the provider audit, but omitted from normalized

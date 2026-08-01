@@ -8,10 +8,11 @@
 
 ## Routes
 
-- Naver Finance: raw route through `$fetch-naver-ohlcv`; verify the six-digit
+- Naver Finance: provider-adjusted route through `$fetch-naver-ohlcv`; verify the six-digit
   code and board identity outside the response. Inspect exact no-trade
   placeholders omitted from normalized observed history and any audited
-  one-KRW rounded-bound normalization.
+  one-KRW rounded-bound normalization. Its full adjustment methodology is
+  unknown; never relabel it as raw or equivalent to Yahoo.
 - Daum Finance: independent raw route through `$fetch-daum-ohlcv`; preserve
   pagination evidence and retain accumulated trade value/share-volume ratios
   as diagnostics. Do not assume those aggregates share daily OHLC session
@@ -20,5 +21,5 @@
   history, freshness, currency, and split-adjusted semantics. Do not compare
   it as equivalent to the two raw routes.
 
-None of these routes is KRX authority. Preserve that limitation even when the
-two raw routes agree.
+None of these routes is KRX authority. Preserve that limitation even when
+observations agree.

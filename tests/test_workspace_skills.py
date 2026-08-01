@@ -1004,7 +1004,9 @@ class WorkspaceSkillTests(unittest.TestCase):
         self.assertIn("require `aligned`", us_reference)
         self.assertIn("observed-only V4", us_reference)
 
-    def test_naver_literal_table_preserves_raw_krw_and_share_volume(self) -> None:
+    def test_naver_literal_table_preserves_provider_adjusted_krw_and_volume(
+        self,
+    ) -> None:
         naver = load_script(
             "autoquant_skill_naver",
             SKILLS
@@ -1031,6 +1033,7 @@ class WorkspaceSkillTests(unittest.TestCase):
         self.assertEqual(audit["nonTradingPlaceholderObservations"], [])
         self.assertEqual(audit["roundedBoundRows"], 0)
         self.assertEqual(audit["roundedBoundObservations"], [])
+        self.assertEqual(naver.PRICE_ADJUSTMENT, "provider-adjusted")
 
     def test_naver_omits_only_exact_non_trading_placeholders(self) -> None:
         naver = load_script(
@@ -1183,6 +1186,7 @@ class WorkspaceSkillTests(unittest.TestCase):
         self.assertEqual(audit["valueVolumeAnomalyRows"], 0)
         self.assertEqual(audit["valueVolumeAnomalies"], [])
         self.assertEqual(page_audit["totalCount"], 2)
+        self.assertEqual(daum.PRICE_ADJUSTMENT, "raw")
 
     def test_daum_value_volume_scope_mismatch_is_diagnostic_only(self) -> None:
         daum = load_script(

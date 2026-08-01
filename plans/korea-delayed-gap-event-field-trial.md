@@ -41,8 +41,9 @@ Korean semiconductor peer.
 - References: Samsung's unconditional five-bar history and matched-date SK
   hynix five-bar returns.
 - Use at least two independently executable Korean provider routes. Yahoo may
-  supply the formal split-adjusted package; Naver and Daum are raw routes.
-  Raw and adjusted packages may establish identity, access, coverage, and
+  supply the formal split-adjusted package; Naver is provider-adjusted with an
+  undisclosed full methodology, while Daum exposes raw history. The different
+  packages may establish identity, access, coverage, and
   observed quality but must not be relabelled as numerically equivalent.
 - Historical quantitative decision support only. Do not attribute an event
   to earnings or news and do not create an Order or trading recommendation.
@@ -152,6 +153,12 @@ Korean semiconductor peer.
   not a usable OHLC bound. Preserve the exact raw row, expand only a bound
   whose violation is at most one KRW, and audit each normalized value; any
   larger or non-bound inconsistency still fails closed.
+- 2026-08-01 — The same cross-source audit disproved the original `raw` label
+  for Naver: Samsung observations before the 2018 50:1 split are back-adjusted
+  while Daum remains on the historical nominal scale. Naver must declare
+  `provider-adjusted`; its undisclosed methodology cannot be upgraded to a
+  split-only claim or compared numerically with either Daum raw or Yahoo's
+  explicit split-adjusted package.
 - 2026-08-01 — No Event Core, template, Report, or Studio defect prevented the
   assignment. The candidate patch is limited to truthful Naver placeholder
   normalization, truthful Daum aggregate diagnostics, their command/audit
