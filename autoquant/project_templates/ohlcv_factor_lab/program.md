@@ -48,6 +48,16 @@ false; mask the unavailable predicate separately before returning the factor.
 Reconcile final-factor coverage against every required component before
 execution and explain any intentional excess coverage in `research.md`.
 
+A sparse binary event indicator is still evaluated as a temporal association
+score; it does not create an event population or estimate a conditional event
+return. If the caller instead froze an OHLCV-observable price event, delayed
+entry/exit clock, overlap policy, unconditional history, and matched reference,
+use `ohlcv-event-study-lab`. Do not disguise that descriptive question as a
+Factor merely to obtain a Run. When the fixed primary temporal population has
+too few finite pairs or no candidate/target variation, preserve the structured
+failed Run as the truthful result and change the hypothesis or route—not the
+missing values or Judge.
+
 When a hypothesis has meaningful sub-signals, also export
 `FACTOR_COMPONENTS` and
 `compute_factor_components(panel) -> pandas.DataFrame`. Declare one causal

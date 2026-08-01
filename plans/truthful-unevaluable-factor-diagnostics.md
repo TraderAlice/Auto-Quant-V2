@@ -98,8 +98,8 @@ Factor defect is diagnostic truthfulness, not missing event functionality.
 
 - [x] Audit the Project-derived reproduction and separate the already-resolved
       Event Study need from the remaining Factor diagnostic defect.
-- [ ] Add a fixed temporal primary-population preflight and regression fixtures.
-- [ ] Update durable Factor diagnostics and Agent-facing routing documentation.
+- [x] Add a fixed temporal primary-population preflight and regression fixtures.
+- [x] Update durable Factor diagnostics and Agent-facing routing documentation.
 - [ ] Build an isolated `0.9.21` candidate and run a fresh-worker failure trial.
 - [ ] Complete release verification, publish `v0.9.21`, and leave OpenAlice
       independently pinned to `v0.8.31`.
@@ -117,6 +117,9 @@ Factor defect is diagnostic truthfulness, not missing event functionality.
 - 2026-08-01 — The stable failure belongs before objective conversion and
   before downstream qualification. It should describe Core's exact purged
   primary validation population, not infer the candidate author's intent.
+- 2026-08-01 — The same preflight runs after the authorized relative-value
+  spread is constructed, so its distinct-value counts describe the actual
+  evaluated contrast rather than either raw asset score.
 
 ## Verification evidence
 

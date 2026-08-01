@@ -122,10 +122,13 @@ The Judge owns target construction and evaluation:
    symmetric, two-sided, dollar-neutral decision assets; or per-timestamp
    cross-sectional association for four or more assets. Three require an
    explicit caller-owned relative-basket contrast.
-7. Aggregate chronological train, validation, test, HAC, decay, fixed-style,
+7. For temporal modes, preflight the exact purged primary validation pairs and
+   fail with a stable observation-count, candidate-variation, or
+   target-variation diagnostic before numeric objective conversion.
+8. Aggregate chronological train, validation, test, HAC, decay, fixed-style,
    per-asset, fold, and causal-regime diagnostics. Fixed tertiles and declared
    component attribution apply only to the cross-sectional mode in V1.
-8. Publish finite primary `validation_mean_ic`, diagnostic test metrics, a
+9. Publish finite primary `validation_mean_ic`, diagnostic test metrics, a
    research-integrity declaration, a JSON tear sheet, and exact daily CSV
    evidence.
 
@@ -171,6 +174,8 @@ receive a new dataset identity.
 7. Data file hashes are preserved in new immutable Run evidence.
 8. Routine validation remains bounded and does not invoke a multi-year
    backtest.
+9. Missing input, observed neutral zero, insufficient temporal variation, and
+   a fixed conditional price-event population remain distinct semantics.
 
 ## Known limits
 
@@ -187,3 +192,7 @@ receive a new dataset identity.
 - One scalar panel factor function is evaluated at a time. Formal
   fit/freeze/predict model lifecycles remain separate governed ML work rather
   than implicit state inside this function.
+- A Factor candidate, including a sparse binary one, answers a continuous
+  association question. Fixed OHLCV event selection, delayed outcome,
+  overlap, and matched-reference questions use
+  [[docs/design/ohlcv-price-event-study]] instead.

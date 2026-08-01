@@ -80,6 +80,23 @@ Overlapping multi-bar returns make naive independent-sample t-statistics
 misleading. HAC does not remove all financial-model risk, but it makes the
 autocorrelation treatment explicit and deterministic.
 
+Before converting the fixed temporal primary validation objective to a finite
+Run metric, Core inspects the exact purge-aware pair population. An unavailable
+objective fails with one of three stable diagnostics:
+
+- `factor.temporal-primary-observations` when fewer than 20 finite
+  factor/target pairs remain;
+- `factor.temporal-primary-candidate-variation` when those pairs contain fewer
+  than two candidate values;
+- `factor.temporal-primary-target-variation` when they contain fewer than two
+  forward-return values.
+
+Each message discloses evaluation mode, split, primary horizon, pair count,
+distinct candidate/target counts, and the required minimum. This is a failed
+research Run, not a successful null score. Missing candidate input stays
+missing and an observed neutral score stays zero; Core does not coerce either
+state to make the objective evaluable.
+
 The ordered pair makes signal direction inspectable: a positive contrast
 means long the first asset and short the second under the equal-funded model
 contract. Reversing both contrast definitions leaves the correlation
@@ -176,6 +193,8 @@ an unbounded backtest.
 9. Synthetic evidence is a Harness regression, not a market claim.
 10. Optional component diagnostics never enter the final-factor promotion
     score or dynamically alter Portfolio/RL authority.
+11. An unavailable primary temporal objective fails with a domain diagnostic
+    before numeric conversion; it never falls through to a Python `TypeError`.
 
 ## Known limits
 
@@ -186,6 +205,10 @@ an unbounded backtest.
 - Temporal rank-correlation contribution answers a different question from
   cross-sectional IC. The Judge selects the request-bound evaluation mode;
   neither component diagnostic enters the promotion score.
+- A sparse binary event indicator remains an association score. It does not
+  establish a frozen event population, conditional return distribution,
+  overlap policy, or matched reference; those belong to
+  [[docs/design/ohlcv-price-event-study]].
 - Causal regime labels are descriptive conditioning variables, not a guarantee
   that the same states recur in live markets.
 - Portfolio capacity, constraints, costs, and execution remain owned by the

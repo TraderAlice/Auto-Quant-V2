@@ -66,7 +66,207 @@ from tests.intake_helpers import (
 )
 
 
+CONSTANT_TEMPORAL_FACTOR = """\
+from __future__ import annotations
+
+import pandas as pd
+
+
+def compute_factor(panel: pd.DataFrame) -> pd.Series:
+    return pd.Series(1.0, index=panel.index)
+"""
+
+
+SPARSE_TEMPORAL_FACTOR = """\
+from __future__ import annotations
+
+import pandas as pd
+
+
+def compute_factor(panel: pd.DataFrame) -> pd.Series:
+    value = panel.groupby("asset", sort=False)["volume"].pct_change(
+        fill_method=None
+    )
+    return value.where(panel["timestamp"].dt.hour.eq(0))
+"""
+
+
+VOLUME_TEMPORAL_FACTOR = """\
+from __future__ import annotations
+
+import pandas as pd
+
+
+def compute_factor(panel: pd.DataFrame) -> pd.Series:
+    return panel.groupby("asset", sort=False)["volume"].pct_change(
+        fill_method=None
+    )
+"""
+
+
 class RequestDrivenIntakeTests(unittest.TestCase):
+    def _single_asset_temporal_project(
+        self,
+        root: Path,
+        project_id: str,
+        candidate: str,
+        *,
+        constant_target: bool = False,
+    ):
+        request_path, package_path = write_multi_interval_inputs(root)
+        request = json.loads(request_path.read_text(encoding="utf-8"))
+        request["assets"] = [
+            {
+                "symbol": "BTC",
+                "assetClass": "crypto",
+                "venue": "CRYPTO-COMPOSITE",
+            }
+        ]
+        request["factorPolicy"] = {
+            "claim": "decision-signal",
+            "knownStyle": None,
+        }
+        request_path.write_text(
+            json.dumps(request, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        if constant_target:
+            source = package_path.parent / "BTC.csv"
+            frame = pd.read_csv(source)
+            frame["open"] = 100.0
+            frame["high"] = 101.0
+            frame["low"] = 99.0
+            frame["close"] = 100.0
+            frame.to_csv(source, index=False)
+        prepared = prepare_project_intake(
+            request_path,
+            package_path,
+            "ohlcv-factor-lab",
+        )
+        project = create_project(
+            initialize_workspace(root / "workspace").root_dir,
+            project_id,
+            template=prepared.template,
+            template_intake=prepared,
+        )
+        (project.root_dir / "factors" / "candidate.py").write_text(
+            candidate,
+            encoding="utf-8",
+        )
+        return project
+
+    def test_temporal_primary_validation_reports_candidate_variation(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = self._single_asset_temporal_project(
+                Path(directory),
+                "constant-temporal-factor",
+                CONSTANT_TEMPORAL_FACTOR,
+            )
+
+            run = execute_study(project, OHLCV_STUDY_ID)
+
+            self.assertEqual(run.result["status"], "failed")
+            error = run.result["errors"][0]
+            self.assertEqual(
+                error["code"],
+                "factor.temporal-primary-candidate-variation",
+            )
+            self.assertIn("evaluationMode=single-asset-temporal", error["message"])
+            self.assertIn("split=validation", error["message"])
+            self.assertIn("distinctFactorValues=1", error["message"])
+            self.assertNotIn("TypeError", error["message"])
+
+    def test_temporal_primary_validation_reports_too_few_pairs(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = self._single_asset_temporal_project(
+                Path(directory),
+                "sparse-temporal-factor",
+                SPARSE_TEMPORAL_FACTOR,
+            )
+
+            run = execute_study(project, OHLCV_STUDY_ID)
+
+            self.assertEqual(run.result["status"], "failed")
+            error = run.result["errors"][0]
+            self.assertEqual(
+                error["code"],
+                "factor.temporal-primary-observations",
+            )
+            self.assertIn("minimumObservations=20", error["message"])
+            self.assertNotIn("TypeError", error["message"])
+
+    def test_temporal_primary_validation_reports_target_variation(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = self._single_asset_temporal_project(
+                Path(directory),
+                "constant-temporal-target",
+                VOLUME_TEMPORAL_FACTOR,
+                constant_target=True,
+            )
+
+            run = execute_study(project, OHLCV_STUDY_ID)
+
+            self.assertEqual(run.result["status"], "failed")
+            error = run.result["errors"][0]
+            self.assertEqual(
+                error["code"],
+                "factor.temporal-primary-target-variation",
+            )
+            self.assertIn("distinctTargetValues=1", error["message"])
+            self.assertNotIn("TypeError", error["message"])
+
+    def test_relative_value_primary_validation_uses_same_preflight(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            request_path, package_path = write_intake_inputs(
+                root,
+                request_assets=("NVDA", "QQQ", "SPY"),
+                asset_position_roles={
+                    "NVDA": "two-sided",
+                    "QQQ": "two-sided",
+                    "SPY": "context-only",
+                },
+                factor_policy={
+                    "claim": "decision-signal",
+                    "knownStyle": None,
+                },
+            )
+            request = json.loads(request_path.read_text(encoding="utf-8"))
+            request["direction"] = "relative-value"
+            request_path.write_text(
+                json.dumps(request, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            prepared = prepare_project_intake(
+                request_path,
+                package_path,
+                "ohlcv-factor-lab",
+            )
+            project = create_project(
+                initialize_workspace(root / "workspace").root_dir,
+                "constant-relative-value-factor",
+                template=prepared.template,
+                template_intake=prepared,
+            )
+            (project.root_dir / "factors" / "candidate.py").write_text(
+                CONSTANT_TEMPORAL_FACTOR,
+                encoding="utf-8",
+            )
+
+            run = execute_study(project, OHLCV_STUDY_ID)
+
+            self.assertEqual(run.result["status"], "failed")
+            error = run.result["errors"][0]
+            self.assertEqual(
+                error["code"],
+                "factor.temporal-primary-candidate-variation",
+            )
+            self.assertIn(
+                "evaluationMode=two-asset-relative-value",
+                error["message"],
+            )
+            self.assertIn("distinctFactorValues=1", error["message"])
+
     def test_generic_study_owned_profile_admits_aligned_v1_v2_v3_only(
         self,
     ) -> None:
