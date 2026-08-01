@@ -64,7 +64,6 @@ from .workspace import (
     load_project,
     load_workspace,
 )
-from .version import current_build_identity
 
 
 STUDIO_KIND = "autoquant-studio-snapshot"
@@ -1727,7 +1726,6 @@ def build_studio_snapshot(
     )
     observations = [_project_snapshot(project) for project in projects]
     harness = harness_identity()
-    harness["buildProvenance"] = current_build_identity()["provenance"]
     return {
         "schemaVersion": SCHEMA_VERSION,
         "kind": STUDIO_KIND,

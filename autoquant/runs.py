@@ -147,6 +147,7 @@ def harness_identity() -> dict[str, Any]:
         "version": current_version(),
         "commit": build["commit"],
         "dirty": build["dirty"],
+        "buildProvenance": build["provenance"],
         "sourceHash": _harness_source_hash(),
         "python": platform.python_version(),
     }
@@ -1213,6 +1214,8 @@ def _validate_run_result(
             )
             continue
         allowed = set(nested_required)
+        if key == "harness" and "buildProvenance" in value:
+            allowed.add("buildProvenance")
         if key == "execution" and "evaluationRole" in value:
             allowed.add("evaluationRole")
         issues.extend(_strict_keys(value, allowed, f"{path}/{key}"))
@@ -1227,6 +1230,23 @@ def _validate_run_result(
                     f"{path}/execution/evaluationRole",
                     "run.evaluation-role",
                     "Unknown Run evaluation role",
+                )
+            )
+        if (
+            key == "harness"
+            and "buildProvenance" in value
+            and value["buildProvenance"]
+            not in {
+                "embedded-distribution",
+                "source-checkout",
+                "unavailable",
+            }
+        ):
+            issues.append(
+                _issue(
+                    f"{path}/harness/buildProvenance",
+                    "run.harness-provenance",
+                    "Invalid Harness build provenance",
                 )
             )
 
@@ -1922,6 +1942,13 @@ RUN_RESULT_JSON_SCHEMA: dict[str, Any] = {
                 "version": {"type": "string", "minLength": 1},
                 "commit": {"type": "string", "minLength": 1},
                 "dirty": {"type": "boolean"},
+                "buildProvenance": {
+                    "enum": [
+                        "embedded-distribution",
+                        "source-checkout",
+                        "unavailable",
+                    ]
+                },
                 "sourceHash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
                 "python": {"type": "string", "minLength": 1},
             },

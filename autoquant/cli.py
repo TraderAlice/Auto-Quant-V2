@@ -235,7 +235,7 @@ from .workspace import (
     schema_for as workspace_schema_for,
     set_default_project,
 )
-from .version import current_build_identity, current_version
+from .version import current_version
 
 
 class CliUsageError(ValueError):
@@ -5607,26 +5607,23 @@ def _orient(args: argparse.Namespace) -> CommandResult:
 def dispatch(args: argparse.Namespace) -> CommandResult:
     if args.command_id == "version":
         harness = harness_identity()
-        build = current_build_identity()
         state = "dirty" if harness["dirty"] else "clean"
         return CommandResult(
             "version",
             {
                 "harness": harness,
-                "buildProvenance": build["provenance"],
             },
             (
                 f"AutoQuant {harness['version']}\n"
                 f"Harness: {harness['id']}\n"
                 f"Commit: {harness['commit']} · {state}\n"
-                f"Build provenance: {build['provenance']}\n"
+                f"Build provenance: {harness['buildProvenance']}\n"
                 f"Runtime source hash: {harness['sourceHash']}\n"
                 f"Python: {harness['python']}\n"
             ),
         )
     if args.command_id == "capabilities":
         harness = harness_identity()
-        build = current_build_identity()
         human = "\n\n".join(
             f"{command['usage']}\n  {command['description']}\n"
             f"  effect: {command['effect']}"
@@ -5638,14 +5635,13 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
                 "name": "aq",
                 "description": "AutoQuant V2 quantitative research workbench CLI",
                 "harness": harness,
-                "buildProvenance": build["provenance"],
                 "commands": CLI_COMMANDS,
             },
             (
                 f"Harness: {harness['id']}@{harness['version']} · "
                 f"commit {harness['commit']} · "
                 f"{'dirty' if harness['dirty'] else 'clean'} · "
-                f"{build['provenance']}\n\n{human}\n"
+                f"{harness['buildProvenance']}\n\n{human}\n"
             ),
         )
     if args.command_id == "schema":

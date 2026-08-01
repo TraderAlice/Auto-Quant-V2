@@ -811,7 +811,27 @@ def _validate_check_result(
         if not isinstance(value, dict):
             issues.append(_issue(f"{path}/{label}", "schema.type", "Expected object"))
         else:
-            issues.extend(_strict_keys(value, required_keys, f"{path}/{label}"))
+            allowed_keys = set(required_keys)
+            if label == "harness" and "buildProvenance" in value:
+                allowed_keys.add("buildProvenance")
+            issues.extend(_strict_keys(value, allowed_keys, f"{path}/{label}"))
+            if (
+                label == "harness"
+                and "buildProvenance" in value
+                and value["buildProvenance"]
+                not in {
+                    "embedded-distribution",
+                    "source-checkout",
+                    "unavailable",
+                }
+            ):
+                issues.append(
+                    _issue(
+                        f"{path}/harness/buildProvenance",
+                        "check.harness-provenance",
+                        "Invalid Harness build provenance",
+                    )
+                )
     if isinstance(study, dict):
         if not isinstance(study.get("id"), str) or not study.get("id"):
             issues.append(_issue(f"{path}/study/id", "schema.string", "Invalid Study id"))

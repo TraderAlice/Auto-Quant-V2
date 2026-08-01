@@ -29,14 +29,15 @@ One current Harness identity contains:
   honest source exists;
 - `dirty`: whether relevant runtime/build paths differed from that commit when
   the distribution identity was captured;
+- `buildProvenance`: exactly `embedded-distribution`, `source-checkout`, or
+  `unavailable`, naming how commit and dirty state were established;
 - `sourceHash`: SHA-256-derived identity of the complete current AutoQuant
   runtime file closure;
 - `python`: executing Python version.
 
-Discovery projections additionally disclose `buildProvenance` as exactly
-`embedded-distribution`, `source-checkout`, or `unavailable`. This provenance
-label is current-runtime context, not part of historical RunResult Harness
-objects.
+Every discovery and new evidence surface projects this same seven-field object.
+Historical Run, Check, and Session evidence may omit `buildProvenance`; that
+older six-field form remains valid and is never rewritten.
 
 Version, commit, and source hash answer different questions. Version names the
 declared release line. Commit names the source point. Source hash identifies
@@ -99,9 +100,10 @@ tests, plans, immutable sample evidence, or generated caches does not.
 
 ## Evidence and release boundary
 
-Every new immutable Run binds the six-field Harness identity into `inputHash`.
-Historical Runs with `commit: unavailable` remain truthful records of what the
-older Harness could prove and are never rewritten.
+Every new immutable Run binds the seven-field Harness identity into
+`inputHash`. Historical Runs with `commit: unavailable` or without
+`buildProvenance` remain truthful records of what the older Harness could prove
+and are never rewritten.
 
 An official release wheel must be built from the final clean tagged commit.
 Candidate wheels may honestly record the current base commit with

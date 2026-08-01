@@ -60,7 +60,7 @@ runtime-package closure.
 
 - [ ] A clean Git build produces a wheel whose `aq version --json`, capability
   discovery, Studio snapshot, and new Run all report the exact build commit and
-  `dirty: false`.
+  `dirty: false` as one identical seven-field Harness object.
 - [ ] A dirty build reports the current base commit and `dirty: true`; a build
   without Git or embedded identity reports `unavailable` rather than borrowing
   a surrounding repository's identity.
@@ -95,6 +95,9 @@ runtime-package closure.
 - 2026-08-02 — Installed distributions must prefer embedded provenance. Running
   Git discovery upward from `site-packages` can attribute AutoQuant to the
   repository that merely contains the virtual environment.
+- 2026-08-02 — `buildProvenance` belongs inside the shared Harness object, not
+  beside it. New Run, Check, and Session evidence freezes the seven-field
+  identity; historical six-field evidence remains valid.
 
 ## Verification
 
@@ -109,6 +112,12 @@ runtime-package closure.
   Focused version/Run/CLI/Studio regression passed 45 tests in 77.990 seconds,
   including sdist-to-wheel preservation and installation beneath an unrelated
   parent Git repository.
+- 2026-08-02 — The first installed-wheel Event Study field pass completed one
+  valid NVDA downside-gap Run and Report and preserved the exact source commit.
+  It also found two acceptance-test defects: the supplied request used Factor
+  fields instead of the Event Study schema, and `buildProvenance` was not yet
+  nested in immutable Run evidence. The worker repaired the request correctly;
+  the Harness identity contract is being repaired before a fresh final pass.
 
 ## Completion
 

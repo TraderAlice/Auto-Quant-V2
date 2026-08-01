@@ -801,10 +801,20 @@ def _validate_session_manifest(
         if not isinstance(harness, dict):
             issues.append(_issue(f"{path}/locks/harness", "schema.type", "Invalid Harness lock"))
         else:
+            harness_keys = {
+                "id",
+                "version",
+                "commit",
+                "dirty",
+                "sourceHash",
+                "python",
+            }
+            if "buildProvenance" in harness:
+                harness_keys.add("buildProvenance")
             issues.extend(
                 _strict_keys(
                     harness,
-                    {"id", "version", "commit", "dirty", "sourceHash", "python"},
+                    harness_keys,
                     f"{path}/locks/harness",
                 )
             )
@@ -814,6 +824,22 @@ def _validate_session_manifest(
                 harness.get("sourceHash", "")
             ):
                 issues.append(_issue(f"{path}/locks/harness/sourceHash", "schema.hash", "Invalid Harness hash"))
+            if (
+                "buildProvenance" in harness
+                and harness["buildProvenance"]
+                not in {
+                    "embedded-distribution",
+                    "source-checkout",
+                    "unavailable",
+                }
+            ):
+                issues.append(
+                    _issue(
+                        f"{path}/locks/harness/buildProvenance",
+                        "session.harness-provenance",
+                        "Invalid Harness build provenance",
+                    )
+                )
     if issues:
         raise AutoQuantValidationError(issues)
 

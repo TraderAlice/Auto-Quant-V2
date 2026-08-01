@@ -1208,7 +1208,7 @@ class AgentCliTests(unittest.TestCase):
         )
         self.assertEqual(envelope["data"]["harness"]["version"], "0.9.23")
         self.assertIn(
-            envelope["data"]["buildProvenance"],
+            envelope["data"]["harness"]["buildProvenance"],
             {"source-checkout", "embedded-distribution"},
         )
         study_create = next(

@@ -44,8 +44,9 @@ aq schema candidate-check-result --json
 --json` returns the exact current Harness id/version, source build commit,
 dirty state, complete runtime closure hash, Python version, and whether that
 build provenance came from the installed distribution, an exact-root source
-checkout, or nowhere trustworthy. `capabilities --json` embeds the same
-identity, so an Agent does not need a separate probe after ordinary discovery.
+checkout, or nowhere trustworthy. These are fields of one Harness object;
+`capabilities --json` embeds that exact object, so an Agent does not need a
+separate probe after ordinary discovery.
 See [[docs/design/distribution-build-identity]].
 
 `capabilities --json` is the authoritative machine discovery surface. Each

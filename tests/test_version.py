@@ -58,7 +58,7 @@ class VersionContractTests(unittest.TestCase):
         payload = json.loads(exact.stdout)
         self.assertEqual(payload["data"]["harness"], harness_identity())
         self.assertEqual(
-            payload["data"]["buildProvenance"],
+            payload["data"]["harness"]["buildProvenance"],
             current_build_identity()["provenance"],
         )
 
