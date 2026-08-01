@@ -1,5 +1,5 @@
 ---
-version: 0.9.23
+version: 0.9.24
 ---
 
 # AutoQuant V2
@@ -32,12 +32,12 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current release: `v0.9.23`
+## Current release: `v0.9.24`
 
-`v0.9.23` makes source and installed AutoQuant distributions self-identifying.
-Agents can inspect one exact Harness version, build commit, dirty state, Python
-runtime, and complete runtime-closure hash before research; new immutable Runs
-then preserve the same identity instead of losing commit provenance in a wheel.
+`v0.9.24` makes cross-market daily Factor research close-time-aware. V5 now
+accepts observed base bars through `1d`, preserves exact completed UTC close
+instants and target-owned horizons, and requires candidate code to express
+asynchronous context through an explicit causal backward as-of operation.
 OpenAlice remains independently pinned to `v0.8.31` until the host deliberately
 selects another tag; publishing AutoQuant does not migrate a Workspace or move
 a host pin.

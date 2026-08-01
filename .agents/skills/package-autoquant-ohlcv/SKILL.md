@@ -63,7 +63,8 @@ counts. It deliberately emits no price or volume comparison.
 - V2: continuous UTC 1h base with deterministic completed higher intervals.
 - V3: configurable continuous or XNYS regular-session base interval.
 - V4: observed-only ragged daily Factor input.
-- V5: observed-only intraday mixed-class Factor input.
+- V5: close-time-aware observed base-bar Factor input through `1d`, with one
+  temporal target and optional mixed-class asynchronous context.
 
 Choose the narrowest contract that describes the acquired bytes. A provider
 claiming an interval or calendar does not prove the corresponding AutoQuant

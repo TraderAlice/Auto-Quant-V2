@@ -110,6 +110,11 @@ aq session start . --study ohlcv-rl-factor-policy --request request.json --json
 Factor and Portfolio Sessions edit the same source closure and must be
 sequenced. Promote or stop one line of research before starting the other.
 
+Before choosing a Factor hypothesis, inspect the focused Study's
+`candidateContract`. It states the actual base and feature intervals,
+observation semantics, and causal context visibility. Do not infer column
+availability or same-date cross-market availability from reusable source.
+
 ## Evidence boundary
 
 The three lanes do not collapse into one score. A factor can predict but fail

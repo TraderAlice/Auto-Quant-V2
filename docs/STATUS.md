@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha at `v0.9.23`; `v0.8.31` remains the Harness currently
+Status: usable pre-alpha at `v0.9.24`; `v0.8.31` remains the Harness currently
 consumed by OpenAlice until the host deliberately selects a newer tag.
 
 Updated: 2026-08-02.
@@ -13,6 +13,30 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 [[docs/openalice-real-delegation-synthesis]], and [[PLANS]].
 
 ## Milestone
+
+The `0.9.24` candidate makes cross-market daily Factor research preserve
+information availability by exact completed close instant instead of civil
+date. V5 is now a base-only observed-bar contract from `1m` through `1d`.
+It retains timezone-aware UTC close claims, ragged absent-no-fill rows,
+per-asset class and volume semantics, one explicit temporal target, and a
+horizon advancing only on that target's observed bars.
+
+The strict Candidate Contract now discloses timestamp meaning, panel shape,
+missing-observation policy, target clock, and a causal context rule. A Tokyo
+target may use the latest already completed New York observation through an
+explicit candidate-authored backward as-of operation; it cannot see the later
+same-date New York close, and Core never manufactures a common calendar or
+implicit fill. Factor Run availability now distinguishes the complete source
+panel from the target evaluation timeline, so fully asynchronous context is no
+longer misreported as zero observations.
+
+A deterministic Toyota/SPY fixture proves exact close-time visibility,
+prefix causality, and target-observed forward-bar alignment. Installed-wheel
+field evidence, the final sample Run, and complete release audit are pending in
+[[plans/close-time-aware-cross-market-daily-factor]]. OpenAlice remains
+independently pinned to `0.8.31`.
+
+### `v0.9.23`
 
 The `0.9.23` candidate makes an installed AutoQuant distribution preserve the
 exact Git commit and relevant dirty state that built it. A generated identity

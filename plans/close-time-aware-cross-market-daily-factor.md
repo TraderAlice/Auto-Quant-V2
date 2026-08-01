@@ -62,13 +62,13 @@ can therefore make same-date context look available several hours too early.
 
 ## Acceptance
 
-- [ ] V5 accepts `baseInterval: 1d` and rejects naive, duplicate, unordered,
+- [x] V5 accepts `baseInterval: 1d` and rejects naive, duplicate, unordered,
   non-finite, or non-OHLC bar-close input exactly as it does intraday input.
-- [ ] Existing V5 intraday behavior remains internally consistent under the
+- [x] Existing V5 intraday behavior remains internally consistent under the
   generalized observed-bar naming and schema.
-- [ ] A deterministic Tokyo/New York fixture proves strict close-time
+- [x] A deterministic Tokyo/New York fixture proves strict close-time
   visibility and target-observed horizon alignment without fill.
-- [ ] Public discovery and Agent guidance make the causal asynchronous-market
+- [x] Public discovery and Agent guidance make the causal asynchronous-market
   pattern understandable without implementation inspection.
 - [ ] Historical V1–V5 Projects and immutable evidence remain truthfully
   readable unless an intentional breaking contract is explicitly documented.
@@ -79,9 +79,9 @@ can therefore make same-date context look available several hours too early.
 
 ## Work
 
-- [ ] Generalize the observed-bar schema and implementation.
-- [ ] Add asynchronous close-time correctness and regression fixtures.
-- [ ] Update Agent, CLI, Project format, architecture, Studio, and design docs.
+- [x] Generalize the observed-bar schema and implementation.
+- [x] Add asynchronous close-time correctness and regression fixtures.
+- [x] Update Agent, CLI, Project format, architecture, Studio, and design docs.
 - [ ] Run a fresh installed-wheel cross-market field assignment.
 - [ ] Refresh release evidence, publish, tag, and verify `v0.9.24`.
 
@@ -106,6 +106,16 @@ Pending.
   `interval.base-unsupported` for an otherwise V5-shaped `1d` package. The
   accepted interval list stops at `12h` even though V5's other semantics are
   already appropriate for daily asynchronous markets.
+- 2026-08-02 — V5 now accepts `1d`; Candidate Contract, CLI, and Studio expose
+  completed-close timestamp meaning, ragged/no-fill shape, causal context
+  visibility, and the target-owned clock. A deterministic Toyota/SPY fixture
+  proves that the later same-date New York close remains invisible at Tokyo
+  close while the prior completed close is usable through explicit backward
+  as-of code.
+- 2026-08-02 — The asynchronous fixture exposed a Run-evidence bug: temporal
+  projection erased fully offset context before availability reporting and
+  attempted to index an empty series. The Factor Judge now reports source-panel
+  availability separately from the target evaluation timeline.
 
 ## Completion
 

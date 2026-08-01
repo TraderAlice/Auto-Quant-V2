@@ -1778,13 +1778,16 @@ def _evaluate() -> tuple[
         )
         for asset in universe
     }
-    research_factor_panel = factor_panel
-    research_close_panel = pd.DataFrame(close_by_asset).reindex(
-        research_factor_panel.index
+    source_factor_panel = factor_panel
+    source_close_panel = pd.DataFrame(close_by_asset).reindex(
+        source_factor_panel.index
     )
-    research_volume_panel = pd.DataFrame(volume_by_asset).reindex(
-        research_factor_panel.index
+    source_volume_panel = pd.DataFrame(volume_by_asset).reindex(
+        source_factor_panel.index
     )
+    research_factor_panel = source_factor_panel
+    research_close_panel = source_close_panel
+    research_volume_panel = source_volume_panel
     if evaluation_mode == SINGLE_ASSET_TEMPORAL_MODE:
         prediction_timeline = pd.DatetimeIndex(
             close_by_asset[prediction_assets[0]].index
@@ -1833,6 +1836,8 @@ def _evaluate() -> tuple[
             evaluation_mode=evaluation_mode,
             horizon=PRIMARY_HORIZON,
         )
+    source_input_counts = source_close_panel.notna().sum(axis=1).astype(int)
+    source_factor_counts = source_factor_panel.notna().sum(axis=1).astype(int)
     research_input_counts = research_close_panel.notna().sum(axis=1).astype(int)
     input_counts = close_panel.notna().sum(axis=1).astype(int)
     factor_counts = factor_panel.notna().sum(axis=1).astype(int)
@@ -1842,21 +1847,22 @@ def _evaluate() -> tuple[
         ).sum(axis=1).astype(int)
         for horizon in HORIZONS
     }
-    possible_rows = int(len(timeline) * len(universe))
-    observed_rows = int(research_input_counts.sum())
+    source_timeline = pd.DatetimeIndex(source_factor_panel.index)
+    possible_rows = int(len(source_timeline) * len(universe))
+    observed_rows = int(source_input_counts.sum())
     prediction_possible_rows = int(len(timeline) * len(prediction_assets))
     prediction_observed_rows = int(input_counts.sum())
     input_availability = {
         "method": "observed-only-no-fill-v1",
         "missing_observation": "absent-no-fill",
-        "timestamps": int(len(timeline)),
+        "timestamps": int(len(source_timeline)),
         "observed_rows": observed_rows,
         "possible_rows": possible_rows,
         "observation_coverage": float(
             observed_rows / possible_rows
         ),
         "complete_timestamps": int(
-            research_input_counts.eq(len(universe)).sum()
+            source_input_counts.eq(len(universe)).sum()
         ),
         "prediction_universe": {
             "authority": prediction_authority,
@@ -1870,6 +1876,7 @@ def _evaluate() -> tuple[
             "complete_timestamps": int(
                 input_counts.eq(len(prediction_assets)).sum()
             ),
+            "timeline_timestamps": int(len(timeline)),
         },
         "eligible_factor_timestamps": {
             str(horizon): int(
@@ -1881,8 +1888,8 @@ def _evaluate() -> tuple[
         },
         "minimum_assets_per_factor_timestamp": minimum_evaluation_assets,
         "assets_per_timestamp": {
-            "input": _count_summary(research_input_counts),
-            "factor": _count_summary(factor_counts),
+            "input": _count_summary(source_input_counts),
+            "factor": _count_summary(source_factor_counts),
             "primary_pair": _count_summary(
                 paired_counts[PRIMARY_HORIZON]
             ),
@@ -1890,16 +1897,16 @@ def _evaluate() -> tuple[
         "by_asset": {
             asset: {
                 "observations": int(
-                    research_close_panel[asset].notna().sum()
+                    source_close_panel[asset].notna().sum()
                 ),
                 "start": timestamp_label(
-                    research_close_panel[asset].dropna().index[0]
+                    source_close_panel[asset].dropna().index[0]
                 ),
                 "end": timestamp_label(
-                    research_close_panel[asset].dropna().index[-1]
+                    source_close_panel[asset].dropna().index[-1]
                 ),
                 "input_coverage": float(
-                    research_close_panel[asset].notna().mean()
+                    source_close_panel[asset].notna().mean()
                 ),
                 "factor_coverage": coverage[asset],
             }

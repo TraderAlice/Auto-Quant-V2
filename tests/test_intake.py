@@ -3964,6 +3964,53 @@ def compute_factor(panel: pd.DataFrame) -> pd.Series:
                 220 - 3,
             )
 
+    def test_v5_daily_rejects_invalid_completed_bar_rows(self) -> None:
+        def naive(frame: pd.DataFrame) -> pd.DataFrame:
+            frame.loc[0, "timestamp"] = frame.loc[0, "timestamp"].removesuffix(
+                "Z"
+            )
+            return frame
+
+        def duplicate(frame: pd.DataFrame) -> pd.DataFrame:
+            return pd.concat([frame, frame.iloc[[0]]], ignore_index=True)
+
+        def unordered(frame: pd.DataFrame) -> pd.DataFrame:
+            frame.iloc[[0, 1]] = frame.iloc[[1, 0]].to_numpy()
+            return frame
+
+        def non_finite(frame: pd.DataFrame) -> pd.DataFrame:
+            frame.loc[0, "close"] = float("nan")
+            return frame
+
+        def invalid_geometry(frame: pd.DataFrame) -> pd.DataFrame:
+            frame.loc[0, "high"] = frame.loc[0, "low"] - 1.0
+            return frame
+
+        cases = (
+            ("naive", naive, "timezone-aware"),
+            ("duplicate", duplicate, "unique and chronological"),
+            ("unordered", unordered, "unique and chronological"),
+            ("non-finite", non_finite, "finite"),
+            ("invalid-geometry", invalid_geometry, "OHLC"),
+        )
+        for label, mutate, expected in cases:
+            with self.subTest(case=label), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                request_path, package_path = write_cross_market_daily_inputs(root)
+                package = json.loads(package_path.read_text(encoding="utf-8"))
+                source = package_path.parent / package["assets"][0]["path"]
+                mutate(pd.read_csv(source)).to_csv(source, index=False)
+
+                with self.assertRaisesRegex(
+                    AutoQuantValidationError,
+                    expected,
+                ):
+                    prepare_project_intake(
+                        request_path,
+                        package_path,
+                        "ohlcv-factor-lab",
+                    )
+
     def test_duplicate_non_positive_and_weekend_rows_are_rejected(self) -> None:
         def duplicate(frame: pd.DataFrame) -> pd.DataFrame:
             return pd.concat([frame, frame.iloc[[-1]]], ignore_index=True)

@@ -1224,7 +1224,7 @@ class AgentCliTests(unittest.TestCase):
                 "studio.serve",
             ],
         )
-        self.assertEqual(envelope["data"]["harness"]["version"], "0.9.23")
+        self.assertEqual(envelope["data"]["harness"]["version"], "0.9.24")
         self.assertIn(
             envelope["data"]["harness"]["buildProvenance"],
             {"source-checkout", "embedded-distribution"},
