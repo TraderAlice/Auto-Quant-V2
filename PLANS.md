@@ -18,7 +18,9 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-None.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/independent-research-review-handoff]] | Prove a fresh coworker can independently classify completed Project claims by immutable evidence authority and leave a durable no-mutation review. | 2026-08-01 |
 
 ## Proposed plans
 
