@@ -1,6 +1,6 @@
 # Distribution build provenance
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-08-02`
 - Related design: [[docs/design/distribution-build-identity]],
   [[docs/design/study-run-evidence]],
@@ -72,7 +72,7 @@ runtime-package closure.
 - [x] A fresh installed-wheel Grok worker discovers the identity without
   implementation access, completes one bounded quantitative assignment, and
   hands off a Run whose Harness identity matches its pre-work discovery.
-- [ ] Focused tests, complete unit tests, docs links, build, installed smoke,
+- [x] Focused tests, complete unit tests, docs links, build, installed smoke,
   clean-clone smoke, and remote branch/tag identity pass for `v0.9.23`.
 
 ## Work
@@ -85,7 +85,7 @@ runtime-package closure.
 - [x] Update Agent, architecture, CLI, Studio, evidence, versioning, status, and
   release documentation.
 - [x] Build the candidate wheel and run a fresh Grok field assignment.
-- [ ] Complete the release audit, commit, push, tag, and verify `v0.9.23`.
+- [x] Complete the release audit, commit, push, tag, and verify `v0.9.23`.
 
 ## Findings and decisions
 
@@ -121,6 +121,14 @@ runtime-package closure.
 - Repository sample Run
   `run-20260801T175812734661Z-2105d3af241b` records the same runtime closure
   from the exact clean source checkout and preserves all older sample evidence.
+- The post-evidence candidate at
+  `ac25d99c4cc6ac89a414c2b3e285585724b13564` built through sdist with wheel
+  SHA-256 `04d243f5cb5ddc5088c0c5ce3ce4d2d078c86cb7d061375849418cfd714c8bf1`.
+  A fresh Python 3.11.14 installation reported that exact commit,
+  `dirty: false`, `embedded-distribution`, the same runtime closure hash, and
+  materialized all 16 Workspace Skills. A no-local-override clone at the same
+  commit discovered only `sample-research-desk`, selected it by default,
+  validated successfully, and projected all eleven Runs into Studio.
 
 ## Progress log
 
@@ -140,4 +148,6 @@ runtime-package closure.
 
 ## Completion
 
-Pending final installed smoke, clean-clone smoke, and remote branch/tag audit.
+Completed. AutoQuant distributions now preserve honest build identity before
+research and freeze that same identity in new evidence, without rewriting
+historical Runs or coupling host upgrades to package publication.

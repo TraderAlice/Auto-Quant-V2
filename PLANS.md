@@ -18,9 +18,7 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-| Plan | Outcome | Updated |
-| --- | --- | --- |
-| [[plans/distribution-build-provenance]] | Preserve exact Git build provenance in installed distributions and make one complete runtime-package identity discoverable before and after research. | 2026-08-02 |
+None.
 
 ## Proposed plans
 
@@ -36,6 +34,7 @@ None.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/distribution-build-provenance]] | Preserved exact Git build provenance in installed distributions and made one complete seven-field runtime identity discoverable before work and immutable in new research evidence. | 2026-08-02 |
 | [[plans/failed-run-research-handoff]] | Preserved the latest current failed Run as explicit Agent evidence, distinguished scientific limits from repair-required defects, and made only the former a terminal reportable handoff. | 2026-08-02 |
 | [[plans/truthful-unevaluable-factor-diagnostics]] | Made unevaluable temporal Factors fail with exact research diagnostics, preserved Event Study as fixed conditional price-event authority, and proved the boundary with a one-Run fresh coworker trial. | 2026-08-01 |
 | [[plans/truthful-us-equity-intraday-acquisition]] | Turned a fixed U.S. equity/ETF hourly request into either one exact XNYS V3 package or one durable no-authority provider-gap result, then proved both paths with fresh installed-wheel coworkers. | 2026-08-01 |
