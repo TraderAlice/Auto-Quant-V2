@@ -18,7 +18,9 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-None.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/clarification-first-delegation-field-trial]] | Prove a fresh coworker can stop and clarify an underspecified portfolio request before acquiring data, then resume the same dialogue into one fixed no-trading sizing handoff. | 2026-08-01 |
 
 ## Proposed plans
 
