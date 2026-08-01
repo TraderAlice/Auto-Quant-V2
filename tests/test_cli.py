@@ -1400,7 +1400,7 @@ class AgentCliTests(unittest.TestCase):
             dataset_argument["description"],
         )
         self.assertIn(
-            "V4/V5 are ohlcv-factor-lab only",
+            "V4-V6 are ohlcv-factor-lab only",
             dataset_argument["description"],
         )
         self.assertIn(
@@ -1697,7 +1697,7 @@ class AgentCliTests(unittest.TestCase):
             json_output(dataset_schema)["data"]["schema"]["properties"][
                 "schemaVersion"
             ]["enum"],
-            [1, 2, 3, 4, 5],
+            [1, 2, 3, 4, 5, 6],
         )
         package_schema = json_output(dataset_schema)["data"]["schema"]
         self.assertIn(
@@ -1720,6 +1720,10 @@ class AgentCliTests(unittest.TestCase):
             "items"
         ]["properties"]["path"]["description"]
         self.assertEqual(v5_asset_path, v1_asset_path)
+        v6_asset_path = package_schema["oneOf"][5]["properties"]["assets"][
+            "items"
+        ]["properties"]["path"]["description"]
+        self.assertEqual(v6_asset_path, v1_asset_path)
         self.assertIn(
             "Only valid with project intake --template ohlcv-factor-lab",
             package_schema["oneOf"][3]["description"],
