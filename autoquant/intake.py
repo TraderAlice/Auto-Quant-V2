@@ -771,7 +771,7 @@ def _validate_v5_package_manifest(
     value: dict[str, Any],
     path: Path,
 ) -> dict[str, Any]:
-    """Validate a Factor-only observed-bar intraday package."""
+    """Validate a Factor-only observed base-bar package."""
 
     required = {
         "schemaVersion",
@@ -1594,8 +1594,8 @@ def prepare_project_intake(
         issues.append(
             _issue(
                 manifest_path,
-                "dataset.observed-intraday-factor-only",
-                "V5 observed-only intraday panels are supported only by "
+                "dataset.observed-bar-factor-only",
+                "V5 observed-only base-bar panels are supported only by "
                 "the ohlcv-factor-lab template",
             )
         )
@@ -1606,7 +1606,7 @@ def prepare_project_intake(
         issues.append(
             _issue(
                 "request/assets",
-                "request.observed-intraday-target",
+                "request.observed-bar-target",
                 "V5 requires explicit positionRole on every requested asset "
                 "and exactly one non-context temporal target",
             )
@@ -4595,7 +4595,7 @@ OHLCV_DATASET_PACKAGE_V3_JSON_SCHEMA: dict[str, Any] = {
 }
 OHLCV_DATASET_PACKAGE_V5_JSON_SCHEMA: dict[str, Any] = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "title": "AutoQuant observed-only intraday Factor dataset package",
+    "title": "AutoQuant observed-only base-bar Factor dataset package",
     "description": (
         "Only valid with project intake --template ohlcv-factor-lab and "
         "exactly one non-context temporal target."
@@ -4622,7 +4622,7 @@ OHLCV_DATASET_PACKAGE_V5_JSON_SCHEMA: dict[str, Any] = {
         "id": {"type": "string", "minLength": 1},
         "version": {"type": "string", "minLength": 1},
         "assetClass": {"type": "string", "minLength": 1},
-        "baseInterval": {"enum": list(SUPPORTED_BASE_INTERVALS)},
+        "baseInterval": {"enum": list(SUPPORTED_INTERVALS)},
         "timestampSemantics": {"const": "bar-close"},
         "panelPolicy": {"const": OBSERVED_PANEL_POLICY},
         "market": {"const": OBSERVED_INTRADAY_MARKET},
@@ -4672,7 +4672,7 @@ OHLCV_DATASET_PACKAGE_JSON_SCHEMA: dict[str, Any] = {
         "Select the package version together with the intake template: V1 "
         "is aligned daily and supports every intake template; V2 is fixed "
         "continuous hourly; V3 is configurable continuous/XNYS; V4 ragged "
-        "daily and V5 observed intraday are ohlcv-factor-lab only. Asset "
+        "daily and V5 observed base-bar are ohlcv-factor-lab only. Asset "
         "paths are portable POSIX-relative paths rooted at the directory "
         "containing this manifest; placing the manifest at staged files' "
         "common ancestor avoids an intermediate copy without weakening "
@@ -4691,7 +4691,7 @@ OHLCV_DATASET_PACKAGE_JSON_SCHEMA: dict[str, Any] = {
         },
         "kind": {"const": DATASET_PACKAGE_KIND},
         "frequency": {"const": "1d"},
-        "baseInterval": {"enum": list(SUPPORTED_BASE_INTERVALS)},
+        "baseInterval": {"enum": list(SUPPORTED_INTERVALS)},
         "featureIntervals": {
             "type": "array",
             "items": {"enum": list(SUPPORTED_INTERVALS)},

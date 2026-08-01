@@ -149,7 +149,8 @@ rather than an executable Core operation, JSON keeps `primaryAction` null and
 the human/JSON review text states that exact preparation step.
 For a focused editable Factor Study, `candidateContract` states the actual
 Project base interval, available completed feature intervals, full panel
-column inventory, factor API, component metadata fields, and the only legal
+column inventory, timestamp meaning, ragged/missing policy, target clock,
+causal context-visibility rule, factor API, component metadata fields, and the only legal
 roles: `cross-sectional-score` and `timestamp-context`. A legacy teaching
 Project therefore says `baseInterval: 1d` and `featureIntervals: []`; an
 intake-bound multi-interval Project lists its exact locked surface. Agents must
@@ -394,12 +395,15 @@ listing-history start. Snapshot, Run, Factor Explorer, Studio, and Report
 expose verified union coverage and time-varying breadth. Portfolio, governed
 RL, and the coordinated research desk reject V4 explicitly.
 
-V5 accepts observed-only intraday input only with
-`--template ohlcv-factor-lab`. It requires completed timezone-aware
+V5 accepts observed-only base-bar input, including close-time-aware `1d`,
+only with `--template ohlcv-factor-lab`. It requires completed timezone-aware
 bar-close timestamps, one explicit non-context prediction asset, per-asset
 classes, and declared volume semantics. Market closures and unmatched context
 rows remain absent. Forward horizons and split purges advance on the
 prediction asset's own observed bars, not elapsed time or the panel union.
+At one target close, candidate code may use only context rows at or before that
+exact timestamp. Asynchronous context therefore requires an explicit backward
+as-of operation; the Harness does not manufacture a filled common calendar.
 Portfolio, governed RL, and the coordinated research desk reject V5.
 
 The JSON result contains Project-level `request.json`, `intake.json`,
@@ -529,7 +533,7 @@ reported `positionSnapshot`, Core also generates and binds the matching
 The external form does not infer a Judge, objective, subject, or scientific
 method. Its `study-owned-ohlcv` profile establishes structural data authority
 only; the fixed Judge owns the meaning of request policy fields. V4 ragged
-daily and V5 observed intraday packages remain Factor-only. Generated request
+daily and V5 observed base-bar packages remain Factor-only. Generated request
 files are merged with repeatable additional `--dependency` values and optional
 upstream immutable Run evidence. Existing owned paths are never overwritten;
 an ordinary validation or Study-creation failure removes all newly created
@@ -537,8 +541,9 @@ request, data, and Study paths.
 
 For a Study that edits `factors/**`, `study inspect` returns the same strict
 `candidateContract` used by orientation. Human output prints its base
-interval, completed feature intervals, interval-authority rule, and legal
-component roles before input identity.
+interval, completed feature intervals, observation semantics,
+context-visibility rule, interval-authority rule, and legal component roles
+before input identity.
 
 For every request-intake Project, `study inspect --json` also returns
 `datasetContext`: the verified package summary, a complete symbol-to-class

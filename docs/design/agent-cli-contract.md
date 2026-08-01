@@ -129,8 +129,9 @@ effect is `creates-artifact` or `mutates-project` must use explicit
 
 For a focused editable Factor Study, the same brief carries one strict
 `candidateContract`. It projects the verified Project's actual base interval,
-completed feature intervals, panel columns, factor API, component metadata
-fields, and legal component roles. `study inspect` returns the identical
+completed feature intervals, panel columns, observation timestamp/panel/
+missing/target-clock semantics, causal context-visibility rule, factor API,
+component metadata fields, and legal component roles. `study inspect` returns the identical
 object, `aq schema factor-candidate-contract` publishes its schema, and Studio
 renders it from the hashed brief. Conditional candidate code never grants
 columns absent from this contract; the contract states that source branches

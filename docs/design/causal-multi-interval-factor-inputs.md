@@ -45,6 +45,12 @@ contract publishes legal component roles and is available through
 the interval surface authoritative over reusable source branches or component
 declarations that may be inactive on a particular Project.
 
+The contract also publishes `observationSemantics`: timestamp meaning, panel
+shape, missing-observation policy, context visibility, and target clock. V5
+may use `baseInterval: 1d`, but remains base-only. Its exact completed close
+timestamps let candidate code backward-as-of earlier context across markets;
+Core does not supply a common date alignment or implicit fill.
+
 The panel adds `asset` and retains familiar base interval columns:
 
 ```text

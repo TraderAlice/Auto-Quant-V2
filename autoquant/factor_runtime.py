@@ -63,7 +63,7 @@ def factor_contract(evaluation: FactorEvaluation) -> dict[str, Any]:
         ),
         "assets": assets,
         "timestamps": timestamps,
-        "cross_asset_context": "same-timestamp",
+        "cross_asset_context": "same-or-prior-timestamp-explicit-candidate",
         "causality_audit": "whole-panel-timestamp-prefix",
         "causality_cuts": list(evaluation.causality_cuts),
     }

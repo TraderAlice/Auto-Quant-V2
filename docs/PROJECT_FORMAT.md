@@ -382,13 +382,16 @@ Omitting the entire vector retains the legacy homogeneous top-level-class
 contract; partial vectors are invalid.
 
 V5 also uses `data/ohlcv/<baseInterval>/<SYMBOL>.csv`, but it contains only
-provider-observed completed base bars and no derived intervals. Its fixed
+provider-claimed completed base bars from `1m` through `1d` and no derived
+intervals. Its fixed
 surface is `observed / provider-observed / UTC`, with
 `absent-no-fill` and `per-target-observed-bars` authority. Each asset records
 its own class and volume semantics; `assetClass=mixed` summarizes a
 mixed-class research panel. V5 is Factor-only and requires exactly one
 explicit non-context temporal target. Context-only timestamps never advance
-that target's horizon or purge clock.
+that target's horizon or purge clock. A context row is visible at a target
+only when its exact close timestamp is no later than the target close;
+candidate code must express any backward as-of alignment explicitly.
 `intake.json` binds request, snapshot, primary construction Study, dataset, and
 the Study input identity at handoff. Editable source may evolve; its current
 hash determines whether existing Run evidence is stale rather than corrupting

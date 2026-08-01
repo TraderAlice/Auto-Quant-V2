@@ -694,7 +694,7 @@ function renderDecisionBrief(project) {
     <p>${escapeHtml(brief.detail)}</p>
     ${
       brief.candidateContract
-        ? `<p><b>Candidate panel</b> · base ${escapeHtml(brief.candidateContract.data.baseInterval ?? "unspecified")} · completed context ${escapeHtml(brief.candidateContract.data.featureIntervals.join(", ") || "none")} · roles ${escapeHtml(brief.candidateContract.components.roles.join(", "))}</p><p>${escapeHtml(brief.candidateContract.data.availabilityRule)}</p>`
+        ? `<p><b>Candidate panel</b> · base ${escapeHtml(brief.candidateContract.data.baseInterval ?? "unspecified")} · completed context ${escapeHtml(brief.candidateContract.data.featureIntervals.join(", ") || "none")} · roles ${escapeHtml(brief.candidateContract.components.roles.join(", "))}</p><p><b>Observation semantics</b> · ${escapeHtml(brief.candidateContract.data.observationSemantics.timestampMeaning)} · ${escapeHtml(brief.candidateContract.data.observationSemantics.panelShape)} · ${escapeHtml(brief.candidateContract.data.observationSemantics.targetClock)}</p><p>${escapeHtml(brief.candidateContract.data.observationSemantics.contextVisibility)}</p><p>${escapeHtml(brief.candidateContract.data.availabilityRule)}</p>`
         : ""
     }
     ${

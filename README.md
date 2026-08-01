@@ -182,8 +182,10 @@ def compute_factor(panel: pd.DataFrame) -> pd.Series:
     return within_asset.groupby(panel["timestamp"]).rank(pct=True)
 ```
 
-This supports causal rolling features and same-timestamp cross-asset context
-without a factor DSL. Factor, Portfolio, governed RL, and preflight use the
+This supports causal rolling features and cross-asset context at the same or
+an earlier completed timestamp without a factor DSL. Asynchronous context
+requires an explicit backward as-of operation in candidate code; Core never
+fills it implicitly. Factor, Portfolio, governed RL, and preflight use the
 same panel runtime and whole-panel timestamp-prefix causality audit.
 
 `aq` emits compact human output by default and a versioned machine envelope

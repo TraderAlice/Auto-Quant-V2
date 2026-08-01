@@ -44,7 +44,8 @@ All assets receive the same ordered column surface. `asset` is the exact Study
 universe identifier. `timestamp` retains verified bar-close semantics.
 
 The runtime contract is `panel-v2`. Aligned V1–V3 inputs remain rectangular.
-V4 daily and V5 intraday inputs are `ragged-observed-only`: an
+V4 date-only daily and V5 close-time-aware observed inputs are
+`ragged-observed-only`: an
 asset/timestamp row exists only when the locked dataset contains that
 observation. Missing, closed-market, and pre-listing rows are not synthesized,
 filled, or introduced as all-null records. Consequently a same-timestamp
@@ -60,6 +61,8 @@ Candidate code may:
 - use `groupby("timestamp")` for contemporaneous ranks, breadth, dispersion,
   neutralization, and market context;
 - join or pivot the supplied rows to express pairs and relative relationships;
+- explicitly backward-as-of context rows whose completed timestamp is no
+  later than the evaluated row timestamp;
 - combine base and completed higher-interval values;
 - define arbitrary deterministic helper functions under the editable factor
   closure.
@@ -126,8 +129,10 @@ RL. It:
    retaining missing combinations as absent evidence.
 
 The audit intentionally permits one asset to use another asset's value at the
-same timestamp. It rejects dependence on any later timestamp. As with the old
-audit, this is a strong misuse detector rather than a hostile-code sandbox.
+same timestamp or an earlier completed timestamp. A missing context row stays
+missing unless candidate code performs an explicit backward as-of operation.
+It rejects dependence on any later timestamp. As with the old audit, this is a
+strong misuse detector rather than a hostile-code sandbox.
 
 ## Breaking boundary
 
@@ -153,7 +158,7 @@ old candidate source is not executed under new semantics.
 
 1. One candidate source has one meaning in Factor, Portfolio, governed RL, and
    preflight.
-2. Cross-asset contemporaneous information is visible and causal.
+2. Cross-asset same-or-prior-timestamp information is visible and causal.
 3. Future timestamps are invisible to already-emitted values.
 4. Input and output use ordinary pandas objects and exact row alignment.
 5. Candidate code owns scores, not targets, weights, evaluation, or trading.

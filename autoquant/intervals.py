@@ -299,11 +299,11 @@ def configurable_interval_surface(
 def observed_interval_surface(base_interval: str) -> ObservedIntervalSurface:
     """Build one base-only observed-bar Factor surface."""
 
-    if base_interval not in SUPPORTED_BASE_INTERVALS:
+    if base_interval not in SUPPORTED_INTERVALS:
         raise IntervalContractError(
             "interval.base-unsupported",
             "Observed base interval must be selected from: "
-            + ", ".join(SUPPORTED_BASE_INTERVALS),
+            + ", ".join(SUPPORTED_INTERVALS),
         )
     return ObservedIntervalSurface(base_interval=base_interval)
 

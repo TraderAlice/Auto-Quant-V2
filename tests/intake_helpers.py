@@ -448,6 +448,187 @@ def write_observed_intraday_inputs(
     return request_path, package_path
 
 
+def write_cross_market_daily_inputs(
+    root: Path,
+    *,
+    observations: int = 220,
+) -> tuple[Path, Path]:
+    """Write a causal Tokyo-target/New-York-context daily V5 panel.
+
+    The target closes at 06:00Z and the context closes later at 21:00Z on
+    each shared business date.  Toyota's next observed return is driven by
+    the most recent *completed* SPY return, which is the prior business
+    date's New York close when evaluated at the Tokyo close.
+    """
+
+    source = root / "external-cross-market-daily-data"
+    source.mkdir()
+    dates = pd.bdate_range("2024-01-02", periods=observations)
+    context_timestamps = dates.tz_localize("UTC") + pd.Timedelta(hours=21)
+    target_timestamps = dates.tz_localize("UTC") + pd.Timedelta(hours=6)
+    time = np.arange(observations, dtype=float)
+
+    context_log_returns = (
+        0.00015
+        + 0.0080 * np.sin(time / 7.0)
+        + 0.0040 * np.cos(time / 3.0)
+    )
+    context_close = 100.0 * np.exp(np.cumsum(context_log_returns))
+
+    target_log_returns = np.zeros(observations, dtype=float)
+    target_log_returns[1] = 0.0001
+    target_log_returns[2:] = (
+        0.70 * context_log_returns[:-2]
+        + 0.00015 * np.sin(time[2:] / 5.0)
+    )
+    target_close = 2_500.0 * np.exp(np.cumsum(target_log_returns))
+
+    assets = (
+        (
+            "7203.T",
+            "equity",
+            "XTKS",
+            "JPY",
+            target_timestamps,
+            target_close,
+        ),
+        (
+            "SPY",
+            "fund",
+            "XNYS",
+            "USD",
+            context_timestamps,
+            context_close,
+        ),
+    )
+    entries = []
+    for number, (
+        symbol,
+        asset_class,
+        venue,
+        currency,
+        timestamps,
+        close,
+    ) in enumerate(assets):
+        open_price = close * np.exp(-0.0005 * np.sin(time / (4.0 + number)))
+        spread = 0.0020 + 0.0002 * np.cos(time / (8.0 + number))
+        frame = pd.DataFrame(
+            {
+                "timestamp": timestamps.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "open": open_price,
+                "high": np.maximum(open_price, close) * (1.0 + spread),
+                "low": np.minimum(open_price, close) * (1.0 - spread),
+                "close": close,
+                "volume": (
+                    1_000_000.0
+                    * (1.0 + number * 0.5)
+                    * np.exp(0.10 * np.sin(time / (9.0 + number)))
+                ),
+            }
+        )
+        filename = f"{symbol}.csv"
+        frame.to_csv(source / filename, index=False)
+        entries.append(
+            {
+                "symbol": symbol,
+                "assetClass": asset_class,
+                "venue": venue,
+                "currency": currency,
+                "path": filename,
+                "volumeSemantics": "provider-reported-nonnegative",
+            }
+        )
+
+    package = {
+        "schemaVersion": 5,
+        "kind": "autoquant-ohlcv-dataset-package",
+        "id": "close-time-cross-market-daily",
+        "version": "2024-v1",
+        "assetClass": "mixed",
+        "baseInterval": "1d",
+        "timestampSemantics": "bar-close",
+        "panelPolicy": {
+            "alignment": "observed-only",
+            "missingObservation": "absent-no-fill",
+            "horizonClock": "per-target-observed-bars",
+        },
+        "market": {
+            "clock": "observed",
+            "calendar": "provider-observed",
+            "timezone": "UTC",
+        },
+        "priceAdjustment": "provider-adjusted",
+        "provider": {
+            "name": "deterministic-cross-market-test-provider",
+            "retrievedAt": "2026-08-02T00:00:00Z",
+            "sourceUri": None,
+            "terms": "test fixture only; timestamps are asserted bar closes",
+        },
+        "assets": entries,
+    }
+    package_path = source / "dataset.json"
+    package_path.write_text(
+        json.dumps(package, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    request = {
+        "schemaVersion": 1,
+        "kind": "autoquant-research-request",
+        "title": "Tokyo timing with completed New York context",
+        "question": (
+            "Does the latest completed SPY daily return available at the "
+            "Toyota close predict Toyota's next observed close return?"
+        ),
+        "decisionContext": (
+            "OpenAlice is reviewing a research-only Toyota posture before "
+            "New York has closed on the same civil date."
+        ),
+        "assets": [
+            {
+                "symbol": "7203.T",
+                "assetClass": "equity",
+                "venue": "XTKS",
+                "positionRole": "long-only",
+            },
+            {
+                "symbol": "SPY",
+                "assetClass": "fund",
+                "venue": "XNYS",
+                "positionRole": "context-only",
+            },
+        ],
+        "direction": "long",
+        "factorPolicy": {"claim": "decision-signal", "knownStyle": None},
+        "horizonPolicy": {
+            "primaryForwardBars": 1,
+            "diagnosticForwardBars": [1, 5],
+        },
+        "horizon": "The next observed Toyota close.",
+        "hypotheses": [
+            "The latest completed New York return may carry into the next "
+            "Tokyo close without using the later same-date New York close."
+        ],
+        "constraints": [
+            "Use only completed close observations at or before each target "
+            "timestamp; do not fill absent context or infer trading authority."
+        ],
+        "deliverables": ["Causal temporal Factor evidence"],
+        "source": {
+            "system": "openalice",
+            "workspaceId": "workspace-cross-market",
+            "sessionId": "session-cross-market-daily",
+            "artifactPath": None,
+            "artifactRevision": None,
+        },
+    }
+    request_path = root / "request.json"
+    request_path.write_text(
+        json.dumps(request, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return request_path, package_path
+
+
 def write_session_interval_inputs(
     root: Path,
     *,

@@ -328,7 +328,7 @@ class AgentCliTests(unittest.TestCase):
             self.assertEqual(failed.returncode, 1)
             issues = json_output(failed)["error"]["issues"]
             self.assertIn(
-                "dataset.observed-intraday-factor-only",
+                "dataset.observed-bar-factor-only",
                 {issue["code"] for issue in issues},
             )
             self.assertFalse(
@@ -570,6 +570,11 @@ class AgentCliTests(unittest.TestCase):
                 human_inspect.stdout,
             )
             self.assertIn(
+                "Observation semantics: session-date · rectangular · "
+                "shared-base-bars",
+                human_inspect.stdout,
+            )
+            self.assertIn(
                 "source branches and component declarations do not add",
                 human_inspect.stdout,
             )
@@ -631,6 +636,19 @@ class AgentCliTests(unittest.TestCase):
                         "candidate source branches and component declarations "
                         "do not add panel inputs."
                     ),
+                    "observationSemantics": {
+                        "timestampMeaning": "session-date",
+                        "panelShape": "rectangular",
+                        "missingObservation": "not-applicable-rectangular",
+                        "contextVisibility": (
+                            "Candidate code may use only observations whose "
+                            "timestamp is at or before the evaluated row "
+                            "timestamp; absent context remains absent unless "
+                            "the candidate performs an explicit backward "
+                            "as-of operation."
+                        ),
+                        "targetClock": "shared-base-bars",
+                    },
                     "panelColumns": [
                         "asset",
                         "timestamp",

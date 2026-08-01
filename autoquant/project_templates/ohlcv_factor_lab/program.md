@@ -29,10 +29,13 @@ and matching forward-return contrast, but only under a symmetric, two-sided,
 dollar-neutral Mandate. Four or more eligible assets use the cross-sectional
 contract. Three require explicit caller-owned relative-basket contrast
 weights. No mode may borrow context-only target observations.
-Aligned inputs are rectangular; V4 daily and V5 intraday input is ragged and
+Aligned inputs are rectangular; V4 daily and V5 observed-bar input is ragged and
 does not invent, fill, or globally intersect missing/pre-listing/closed-market
 rows. V5 temporal targets, split boundaries, and purge counts follow the one
 prediction asset's observed bars, not context-only union timestamps.
+For asynchronous V5 context, explicitly use a backward as-of operation and
+accept only source rows whose completed timestamp is at or before the target
+row. Core never fills an absent context observation or aligns civil dates.
 Use ordinary `groupby("asset")` for rolling time-series features and
 `groupby("timestamp")` for contemporaneous cross-sectional context. The
 returned Series must align exactly with the input index. Missing warm-up values

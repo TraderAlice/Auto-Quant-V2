@@ -1,7 +1,7 @@
 # Request-driven research intake and OHLCV dataset snapshots
 
 Status: V1 aligned daily, V2 continuous-1h, V3 configurable/session, V4
-observed-only daily Factor, and V5 observed-only intraday mixed-class Factor
+date-only observed daily Factor, and V5 close-time-aware observed base-bar Factor
 intake implemented.
 
 Related: [[docs/ARCHITECTURE]], [[docs/CLI]], [[docs/PROJECT_FORMAT]],
@@ -232,7 +232,7 @@ they differ. Legacy homogeneous V1–V4 packages may omit the row fields and
 continue to use the single top-level class. Core never fills a partial vector
 or guesses an instrument class from its symbol, venue, or provider.
 
-V5 accepts a base-only observed intraday Factor panel:
+V5 accepts a base-only observed Factor panel from `1m` through `1d`:
 
 ```json
 {
@@ -281,6 +281,21 @@ zero, preventing a missing index-volume field from being presented as
 measured activity. V5 authenticates neither a provider calendar nor a futures
 contract chain.
 
+Unlike V4's session-date rows, every V5 timestamp is a timezone-aware claim
+about the exact instant when that bar completed. This distinction is material
+for daily cross-market research: a Tokyo close and a later New York close on
+the same civil date are separate observations. At the Tokyo row, the later
+New York close is future information; the latest usable New York context is
+the last row whose timestamp is at or before the Tokyo close. Candidate code
+must express that relationship with an explicit stable backward as-of join.
+Core preserves the ragged rows and does not fill, align, or infer context.
+
+The package author—not Core—owns the truth of those close timestamps. A
+date-only provider file must first be labeled from documented provider or
+exchange-calendar authority outside intake, with that derivation disclosed in
+the provider and acquisition evidence. Merely appending a nominal UTC time is
+not proof of a market close.
+
 ## Validation and normalization
 
 Before any Project is visible, Core:
@@ -297,7 +312,8 @@ Before any Project is visible, Core:
 5. for V2/V3, requires explicit timezone-aware base-bar-close timestamps,
    exact UTC-hour boundaries, consecutive rows with no gaps, strict OHLCV
    geometry, and complete UTC-midnight-anchored aggregation groups;
-6. for V5, requires timezone-aware completed bar-close labels, strict OHLC
+6. for V5, requires timezone-aware completed bar-close labels at the declared
+   base interval through `1d`, strict OHLC
    geometry, declared zero-or-provider volume semantics, and keeps every
    missing timestamp absent without requiring a regular calendar;
 7. requires every asset to share the exact base timestamp panel for V1–V3;
@@ -323,8 +339,9 @@ Canonical Project data uses:
 timestamp,open,high,low,close,volume
 ```
 
-with one `YYYY-MM-DD` row per session and one `<symbol>.csv` per asset. There is
-no implicit forward fill, timestamp intersection, survivorship repair, or
+with one `<symbol>.csv` per asset. V1/V4 use one `YYYY-MM-DD` row per session;
+V2/V3/V5 preserve timezone-aware completed bar-close instants. There is no
+implicit forward fill, timestamp intersection, survivorship repair, or
 corporate-action transformation.
 
 For V4, `snapshot.json` additionally freezes the exact panel policy, union and
@@ -600,8 +617,8 @@ When changing this boundary:
 - V1 handles one aligned daily session panel; V2 handles one continuous UTC
   1h panel with exact 3h/4h/6h/12h/1d derived bars; V3 handles bounded
   configurable continuous bases and XNYS regular sessions; V4 handles an
-  observed-only ragged daily panel; V5 handles one base-only observed
-  intraday mixed-class panel with one temporal prediction asset. V4/V5 are
+  observed-only ragged daily panel; V5 handles one base-only close-time-aware
+  observed panel through `1d` with one temporal prediction asset. V4/V5 are
   Factor-only.
 - V3 XNYS regular-session intraday aggregation is supported; extended hours,
   unscheduled halts, and other exchange calendars are not.

@@ -149,6 +149,10 @@ class AgentOrientationTests(unittest.TestCase):
             daily_contract = build_agent_work_brief(daily)[
                 "candidateContract"
             ]
+            jsonschema.validate(
+                build_agent_work_brief(daily),
+                AGENT_WORK_BRIEF_JSON_SCHEMA,
+            )
 
             self.assertEqual(
                 daily_contract["data"]["surfaceSource"],
@@ -156,6 +160,14 @@ class AgentOrientationTests(unittest.TestCase):
             )
             self.assertEqual(daily_contract["data"]["baseInterval"], "1d")
             self.assertEqual(daily_contract["data"]["featureIntervals"], [])
+            self.assertEqual(
+                daily_contract["data"]["observationSemantics"]["timestampMeaning"],
+                "session-date",
+            )
+            self.assertEqual(
+                daily_contract["data"]["observationSemantics"]["targetClock"],
+                "per-observed-timestamp",
+            )
             self.assertNotIn(
                 "close__12h",
                 daily_contract["data"]["panelColumns"],

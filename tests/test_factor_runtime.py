@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 from types import SimpleNamespace
 
+import numpy as np
 import pandas as pd
 
 from autoquant.factor_runtime import (
@@ -34,6 +35,87 @@ def make_frames() -> dict[str, pd.DataFrame]:
 
 
 class PanelFactorRuntimeTests(unittest.TestCase):
+    def test_cross_market_asof_excludes_later_same_date_close(self) -> None:
+        target_timestamps = pd.to_datetime(
+            [
+                "2026-01-05T06:00:00Z",
+                "2026-01-06T06:00:00Z",
+                "2026-01-07T06:00:00Z",
+                "2026-01-08T06:00:00Z",
+            ]
+        )
+        context_timestamps = pd.to_datetime(
+            [
+                "2026-01-05T21:00:00Z",
+                "2026-01-06T21:00:00Z",
+                "2026-01-07T21:00:00Z",
+                "2026-01-08T21:00:00Z",
+            ]
+        )
+
+        def frame(timestamps: pd.DatetimeIndex, close: list[float]) -> pd.DataFrame:
+            values = pd.Series(close, dtype=float)
+            return pd.DataFrame(
+                {
+                    "timestamp": timestamps,
+                    "open": values,
+                    "high": values,
+                    "low": values,
+                    "close": values,
+                    "volume": 1_000.0,
+                }
+            )
+
+        panel = build_factor_panel(
+            {
+                "TOKYO": frame(
+                    target_timestamps,
+                    [100.0, 101.0, 102.0, 103.0],
+                ),
+                "NEW_YORK": frame(
+                    context_timestamps,
+                    [100.0, 110.0, 88.0, 92.0],
+                ),
+            },
+            universe=["TOKYO", "NEW_YORK"],
+        )
+
+        def compute_factor(candidate_panel: pd.DataFrame) -> pd.Series:
+            result = pd.Series(np.nan, index=candidate_panel.index, dtype=float)
+            target = (
+                candidate_panel.loc[
+                    candidate_panel["asset"].eq("TOKYO"),
+                    ["timestamp"],
+                ]
+                .assign(row_index=lambda value: value.index)
+                .sort_values("timestamp", kind="stable")
+            )
+            context = candidate_panel.loc[
+                candidate_panel["asset"].eq("NEW_YORK"),
+                ["timestamp", "close"],
+            ].sort_values("timestamp", kind="stable")
+            context["return"] = context["close"].pct_change(fill_method=None)
+            aligned = pd.merge_asof(
+                target,
+                context[["timestamp", "return"]],
+                on="timestamp",
+                direction="backward",
+                allow_exact_matches=True,
+            )
+            result.loc[aligned["row_index"]] = aligned["return"].to_numpy()
+            return result
+
+        evaluated = evaluate_factor(
+            SimpleNamespace(compute_factor=compute_factor),
+            panel,
+        )
+        target_values = evaluated.values.loc[panel["asset"].eq("TOKYO")]
+
+        self.assertTrue(pd.isna(target_values.iloc[0]))
+        self.assertTrue(pd.isna(target_values.iloc[1]))
+        self.assertAlmostEqual(float(target_values.iloc[2]), 0.10)
+        self.assertNotAlmostEqual(float(target_values.iloc[2]), -0.20)
+
     def test_cross_asset_factor_uses_same_timestamp_market_context(self) -> None:
         panel = build_factor_panel(
             make_frames(),

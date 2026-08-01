@@ -40,6 +40,11 @@ INTERVAL_AVAILABILITY_RULE = (
     "Only baseInterval and featureIntervals are available; candidate source "
     "branches and component declarations do not add panel inputs."
 )
+CAUSAL_CONTEXT_RULE = (
+    "Candidate code may use only observations whose timestamp is at or before "
+    "the evaluated row timestamp; absent context remains absent unless the "
+    "candidate performs an explicit backward as-of operation."
+)
 _DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
@@ -149,6 +154,39 @@ def _panel_columns(feature_intervals: list[str]) -> list[str]:
     return result
 
 
+def _observation_semantics(surface_source: str) -> dict[str, str]:
+    if surface_source == "content-locked-snapshot-v5":
+        return {
+            "timestampMeaning": "completed-bar-close",
+            "panelShape": "ragged-observed-only",
+            "missingObservation": "absent-no-fill",
+            "contextVisibility": CAUSAL_CONTEXT_RULE,
+            "targetClock": "per-target-observed-bars",
+        }
+    if surface_source == "content-locked-snapshot-v4":
+        return {
+            "timestampMeaning": "session-date",
+            "panelShape": "ragged-observed-only",
+            "missingObservation": "absent-no-fill",
+            "contextVisibility": CAUSAL_CONTEXT_RULE,
+            "targetClock": "per-observed-timestamp",
+        }
+    return {
+        "timestampMeaning": (
+            "completed-bar-close"
+            if surface_source in {
+                "content-locked-snapshot-v2",
+                "content-locked-snapshot-v3",
+            }
+            else "session-date"
+        ),
+        "panelShape": "rectangular",
+        "missingObservation": "not-applicable-rectangular",
+        "contextVisibility": CAUSAL_CONTEXT_RULE,
+        "targetClock": "shared-base-bars",
+    }
+
+
 def build_candidate_contract(
     project: ProjectContext,
     study: StudyContext,
@@ -184,6 +222,7 @@ def build_candidate_contract(
             "featureIntervals": feature_intervals,
             "panelColumns": _panel_columns(feature_intervals),
             "availabilityRule": INTERVAL_AVAILABILITY_RULE,
+            "observationSemantics": _observation_semantics(surface_source),
         },
         "components": {
             "optional": True,
@@ -225,10 +264,11 @@ FACTOR_CANDIDATE_CONTRACT_JSON_SCHEMA: dict[str, Any] = {
                 "featureIntervals",
                 "panelColumns",
                 "availabilityRule",
+                "observationSemantics",
             ],
             "properties": {
                 "surfaceSource": {
-                    "pattern": "^(legacy-ohlcv-v1|content-locked-snapshot-v[235])$"
+                    "pattern": "^(legacy-ohlcv-v1|content-locked-snapshot-v[2345])$"
                 },
                 "baseInterval": {"type": ["string", "null"]},
                 "featureIntervals": {
@@ -244,6 +284,39 @@ FACTOR_CANDIDATE_CONTRACT_JSON_SCHEMA: dict[str, Any] = {
                 },
                 "availabilityRule": {
                     "const": INTERVAL_AVAILABILITY_RULE,
+                },
+                "observationSemantics": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": [
+                        "timestampMeaning",
+                        "panelShape",
+                        "missingObservation",
+                        "contextVisibility",
+                        "targetClock",
+                    ],
+                    "properties": {
+                        "timestampMeaning": {
+                            "enum": ["session-date", "completed-bar-close"]
+                        },
+                        "panelShape": {
+                            "enum": ["rectangular", "ragged-observed-only"]
+                        },
+                        "missingObservation": {
+                            "enum": [
+                                "not-applicable-rectangular",
+                                "absent-no-fill",
+                            ]
+                        },
+                        "contextVisibility": {"const": CAUSAL_CONTEXT_RULE},
+                        "targetClock": {
+                            "enum": [
+                                "shared-base-bars",
+                                "per-observed-timestamp",
+                                "per-target-observed-bars",
+                            ]
+                        },
+                    },
                 },
             },
         },

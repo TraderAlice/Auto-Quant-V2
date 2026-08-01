@@ -60,6 +60,7 @@ from autoquant.workspace import (
     load_workspace,
 )
 from tests.intake_helpers import (
+    write_cross_market_daily_inputs,
     write_configurable_continuous_inputs,
     write_intake_inputs,
     write_multi_interval_inputs,
@@ -103,6 +104,41 @@ def compute_factor(panel: pd.DataFrame) -> pd.Series:
     return panel.groupby("asset", sort=False)["volume"].pct_change(
         fill_method=None
     )
+"""
+
+
+CROSS_MARKET_ASOF_FACTOR = """\
+from __future__ import annotations
+
+import numpy as np
+import pandas as pd
+
+
+def compute_factor(panel: pd.DataFrame) -> pd.Series:
+    result = pd.Series(np.nan, index=panel.index, dtype=float)
+    target = (
+        panel.loc[panel["asset"].eq("7203.T"), ["timestamp"]]
+        .assign(row_index=lambda frame: frame.index)
+        .sort_values("timestamp", kind="stable")
+    )
+    context = (
+        panel.loc[panel["asset"].eq("SPY"), ["timestamp", "close"]]
+        .sort_values("timestamp", kind="stable")
+    )
+    context["completed_context_return"] = context["close"].pct_change(
+        fill_method=None
+    )
+    aligned = pd.merge_asof(
+        target,
+        context[["timestamp", "completed_context_return"]],
+        on="timestamp",
+        direction="backward",
+        allow_exact_matches=True,
+    )
+    result.loc[aligned["row_index"].to_numpy()] = aligned[
+        "completed_context_return"
+    ].to_numpy()
+    return result
 """
 
 
@@ -3824,6 +3860,12 @@ def compute_factor(panel: pd.DataFrame) -> pd.Series:
             )
             self.assertEqual(
                 metrics["input_availability"]["timestamps"],
+                419,
+            )
+            self.assertEqual(
+                metrics["input_availability"]["prediction_universe"][
+                    "timeline_timestamps"
+                ],
                 395,
             )
             primary = metrics["split_protocol"]["horizons"]["24"]
@@ -3844,6 +3886,82 @@ def compute_factor(panel: pd.DataFrame) -> pd.Series:
             self.assertEqual(
                 session.manifest["studyId"],
                 OHLCV_STUDY_ID,
+            )
+
+    def test_v5_daily_factor_preserves_cross_market_close_time_causality(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            request_path, package_path = write_cross_market_daily_inputs(root)
+            package = json.loads(package_path.read_text(encoding="utf-8"))
+            jsonschema.validate(package, OHLCV_DATASET_PACKAGE_JSON_SCHEMA)
+
+            prepared = prepare_project_intake(
+                request_path,
+                package_path,
+                "ohlcv-factor-lab",
+            )
+            self.assertEqual(prepared.package["baseInterval"], "1d")
+            self.assertEqual(prepared.interval_surface["baseInterval"], "1d")
+            self.assertEqual(prepared.interval_surface["featureIntervals"], [])
+
+            project = create_project(
+                initialize_workspace(root / "workspace").root_dir,
+                "cross-market-daily-factor",
+                template=prepared.template,
+                template_intake=prepared,
+            )
+            (project.root_dir / "factors" / "candidate.py").write_text(
+                CROSS_MARKET_ASOF_FACTOR,
+                encoding="utf-8",
+            )
+            contract = build_agent_work_brief(project)["candidateContract"]
+            self.assertEqual(
+                contract["data"]["observationSemantics"],
+                {
+                    "timestampMeaning": "completed-bar-close",
+                    "panelShape": "ragged-observed-only",
+                    "missingObservation": "absent-no-fill",
+                    "contextVisibility": (
+                        "Candidate code may use only observations whose "
+                        "timestamp is at or before the evaluated row "
+                        "timestamp; absent context remains absent unless the "
+                        "candidate performs an explicit backward as-of "
+                        "operation."
+                    ),
+                    "targetClock": "per-target-observed-bars",
+                },
+            )
+
+            run = execute_study(project, OHLCV_STUDY_ID)
+            self.assertEqual(run.result["status"], "succeeded", run.result["errors"])
+            metrics = run.result["metrics"]
+            self.assertEqual(
+                metrics["prediction_universe"]["evaluation_mode"],
+                "single-asset-temporal",
+            )
+            self.assertEqual(metrics["input_availability"]["timestamps"], 439)
+            self.assertEqual(
+                metrics["input_availability"]["prediction_universe"][
+                    "timeline_timestamps"
+                ],
+                220,
+            )
+            self.assertEqual(
+                metrics["input_availability"]["by_asset"]["SPY"][
+                    "observations"
+                ],
+                219,
+            )
+            self.assertGreater(
+                metrics["validation_mean_ic"],
+                0.95,
+            )
+            primary = metrics["split_protocol"]["horizons"]["1"]
+            self.assertEqual(
+                sum(item["eligibleSignalRows"] for item in primary.values()),
+                220 - 3,
             )
 
     def test_duplicate_non_positive_and_weekend_rows_are_rejected(self) -> None:

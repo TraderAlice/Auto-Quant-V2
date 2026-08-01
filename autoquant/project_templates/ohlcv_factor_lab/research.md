@@ -32,10 +32,13 @@ not evidence about real markets.
 - A V4 intake may supply an observed-only ragged daily panel. Missing and
   pre-listing asset/timestamp rows remain absent; the Run and Factor Explorer
   expose input, finite-factor, and forward-target-pair availability.
-- A V5 intake may supply one observed-only intraday mixed-class panel with
+- A V5 intake may supply one close-time-aware observed base-bar panel through
+  `1d`, potentially with mixed asset classes, and with
   exactly one request-authorized temporal target. Market closures stay absent;
   target horizons and purge boundaries advance only on that asset's observed
   completed bars. Context-only assets never contribute target observations.
+  Candidate code must explicitly backward-as-of any asynchronous context and
+  may use only rows whose close timestamp is no later than the target close.
 - A `known-style-validation` intake seeds `factors/candidate.py` from the exact
   requested style before Study identity is created. Inspect it, but do not
   replace it with the generic exploratory baseline.

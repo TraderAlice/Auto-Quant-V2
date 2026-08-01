@@ -34,8 +34,9 @@ changing Project, request, universe, or dataset:
 
 Before selecting factor or Portfolio hypotheses, read the focused Study's
 `candidateContract` from orientation or Study inspection. It states the
-actual Project base interval and completed feature intervals; do not infer
-column availability from conditional branches in reusable template code.
+actual Project base interval, completed feature intervals, observation
+semantics, and causal context visibility; do not infer column availability or
+same-date cross-market availability from reusable template code.
 
 ## Working order
 

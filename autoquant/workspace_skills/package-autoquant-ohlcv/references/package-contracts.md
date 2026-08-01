@@ -6,7 +6,7 @@
 | V2 | Complete continuous UTC 1h bars with declared derived intervals |
 | V3 | Configurable continuous or calendar-verified XNYS intraday base |
 | V4 | Ragged observed-only daily Factor panel; never fixed Portfolio/RL |
-| V5 | Observed-only intraday mixed-class Factor panel |
+| V5 | Close-time-aware observed base-bar Factor panel through `1d` |
 
 ## Required daily checks
 
@@ -32,3 +32,12 @@ duration blindly: XNYS's terminal bucket may be shorter, and a provider close
 marker may not be the missing bucket's OHLCV.
 
 Never select a richer version simply because it accepts more fields.
+
+## Required V5 cross-market checks
+
+- Preserve an exact timezone-aware completed close timestamp for every row,
+  including daily rows; a civil date is insufficient authority.
+- Disclose how date-only provider data was mapped to exchange close instants.
+- Keep later same-date market closes unavailable to an earlier target close.
+- Preserve absent rows without fill; candidate code owns any explicit backward
+  as-of use of already completed context.

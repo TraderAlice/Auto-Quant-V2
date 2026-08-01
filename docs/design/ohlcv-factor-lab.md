@@ -76,7 +76,9 @@ def compute_factor(panel: pandas.DataFrame) -> pandas.Series:
 `panel` contains the complete Study universe in chronological long form. Each
 row has `asset`, `timestamp`, `open`, `high`, `low`, `close`, and `volume`,
 plus configured completed higher-interval columns. Candidate code may use
-within-asset history and same-timestamp cross-asset context. The returned
+within-asset history and cross-asset context at the same or an earlier
+completed timestamp. Asynchronous context requires an explicit backward
+as-of operation. The returned
 Series must:
 
 - have the same index and length as the input;
