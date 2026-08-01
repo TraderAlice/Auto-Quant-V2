@@ -18,7 +18,9 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-None.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/calendar-derived-daily-close-time-packaging]] | Turn explicit per-asset exchange-calendar authority and one observed daily package into an audited V5 close-time package through the public Skill. | 2026-08-02 |
 
 ## Proposed plans
 
