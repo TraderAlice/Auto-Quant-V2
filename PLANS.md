@@ -18,7 +18,9 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-None.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/truthful-us-equity-intraday-acquisition]] | Turn a fixed U.S. equity/ETF hourly request into either one exact XNYS V3 package or one durable no-authority provider-gap result. | 2026-08-01 |
 
 ## Proposed plans
 
