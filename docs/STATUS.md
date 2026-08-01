@@ -14,7 +14,7 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 
 ## Milestone
 
-The `0.9.24` candidate makes cross-market daily Factor research preserve
+The `0.9.24` release makes cross-market daily Factor research preserve
 information availability by exact completed close instant instead of civil
 date. V5 is now a base-only observed-bar contract from `1m` through `1d`.
 It retains timezone-aware UTC close claims, ragged absent-no-fill rows,
@@ -51,15 +51,17 @@ Session, and opened no Portfolio/RL/Dossier lane. Independent replay proved
 that all 1,778 Toyota rows with a later same-date SPY close ignored that
 unavailable close. The Agent truthfully stopped on weak evidence: validation
 IC `+0.0149` with HAC p `0.7717` and opposing folds, followed by test-audit IC
-`-0.0444`. The complete release audit remains pending in
+`-0.0444`. Exact implementation, field, and release evidence lives in
 [[plans/close-time-aware-cross-market-daily-factor]]. OpenAlice remains
 independently pinned to `0.8.31`.
 
 Repository regression passes all 433 tests in 1,076.723 seconds, including
 historical V1–V5 intake and immutable evidence readback. All 1,436 documentation
 links resolve; lockfile, Python byte-compilation, Studio JavaScript syntax, and
-diff checks pass. Final installed-distribution, clean-clone, and remote tag
-verification remain before publication.
+diff checks pass. A clean installed distribution and no-local-override clone
+also passed identity, capability, default-Project, validation, orientation,
+and Studio smoke before `main` and annotated `v0.9.24` were published at one
+verified remote identity.
 
 ### `v0.9.23`
 

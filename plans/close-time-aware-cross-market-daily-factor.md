@@ -1,6 +1,6 @@
 # Close-time-aware cross-market daily Factor
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-08-02`
 - Target release: `0.9.24`
 - Related design: [[docs/design/research-intake-and-dataset-snapshots]],
@@ -74,7 +74,7 @@ can therefore make same-date context look available several hours too early.
   readable unless an intentional breaking contract is explicitly documented.
 - [x] A fresh installed-wheel Grok coworker completes one bounded cross-market
   daily Factor assignment and hands off the exact limitation/authority state.
-- [ ] Focused tests, full regression, docs links, build, installed smoke,
+- [x] Focused tests, full regression, docs links, build, installed smoke,
   clean-clone smoke, and remote branch/tag identity pass for `v0.9.24`.
 
 ## Work
@@ -83,7 +83,7 @@ can therefore make same-date context look available several hours too early.
 - [x] Add asynchronous close-time correctness and regression fixtures.
 - [x] Update Agent, CLI, Project format, architecture, Studio, and design docs.
 - [x] Run a fresh installed-wheel cross-market field assignment.
-- [ ] Refresh release evidence, publish, tag, and verify `v0.9.24`.
+- [x] Refresh release evidence, publish, tag, and verify `v0.9.24`.
 
 ## Findings and decisions
 
@@ -145,8 +145,19 @@ can therefore make same-date context look available several hours too early.
   Factor/Portfolio/RL/Session/Report/Review/Dossier surfaces.
 - Documentation graph: 1,436 links resolved. `uv lock --check`, Python
   byte-compilation, Studio JavaScript syntax, and diff whitespace checks pass.
-- Final build, installed smoke, clean-clone smoke, and remote identity remain
-  pending.
+- Post-audit clean candidate commit:
+  `6b190d558ec7c692aa12c9436d1fb5980ecc16df`. Its wheel SHA-256 was
+  `b2d5738d79da93cca14f0eccb3cc28e533d45c034628ddbb4a9a8d3f58b27416`
+  and sdist SHA-256 was
+  `0f2e370796a834b2ec2268538f6c44e14eda496c6edb4f163379271c449fb186`.
+  A fresh Python 3.11.14 installation reported that exact embedded clean
+  commit and the same runtime closure hash as the field candidate. Capability
+  discovery returned the identical seven-field Harness object.
+- A no-local-override clone at that commit was clean, discovered only
+  `sample-research-desk`, selected it by default, validated successfully, and
+  projected three Studies and all thirteen Runs through Studio.
+- Final release commit, `main`, and annotated `v0.9.24` were published and
+  verified at one remote identity.
 
 ## Progress log
 
@@ -181,4 +192,8 @@ can therefore make same-date context look available several hours too early.
 
 ## Completion
 
-Pending.
+Completed. AutoQuant now admits exact completed daily close instants into the
+observed-only Factor contract, keeps asynchronous source availability distinct
+from the target clock, and lets a fresh installed-wheel coworker answer one
+Tokyo/New York lead/lag question through a normal immutable Report handoff
+without civil-date look-ahead or trading authority.
