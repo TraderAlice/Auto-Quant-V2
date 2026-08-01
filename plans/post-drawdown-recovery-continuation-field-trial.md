@@ -136,8 +136,8 @@ product evidence rather than hidden.
 ## Work
 
 - [x] Define and index the long-lived Project continuation assignment.
-- [ ] Build an isolated installed-`0.9.17` desk from the corrected evidence.
-- [ ] Run and audit one fresh worker without coaching.
+- [x] Build an isolated installed-`0.9.17` desk from the corrected evidence.
+- [x] Run and audit one fresh worker without coaching.
 - [ ] Admit and implement only reproduced reusable product friction.
 - [ ] Replay the unchanged task with a fresh candidate-wheel worker.
 - [ ] Complete the release audit and publish `v0.9.18` if warranted.
@@ -155,17 +155,68 @@ product evidence rather than hidden.
   evidence. The trial will test whether that exact derived input can enter the
   new immutable Study/Run without copy-and-paste authority or private
   filesystem inference.
+- 2026-08-01 — The untouched `0.9.17` worker completed the quantitative task,
+  but Core had no first-class prior-Run input. It copied the selected episode
+  rows into a fixed strategy JSON whose prose records the source Run and
+  artifact hashes. The new Run freezes only that copied file; public Study,
+  Run, Report, Orientation, and Studio contracts cannot mechanically prove the
+  declared source relationship.
+- 2026-08-01 — Run-bound Report request selection is coupled to the Book Risk
+  implementation directory. A custom fixed Study request under
+  `strategies/ohlcv-book-path-recovery/` silently fell back to the Project-root
+  Path Stress request and produced one immutable but non-authoritative Report.
+  The worker detected the mismatch, moved the same files beneath
+  `strategies/book-risk-studies/<study-id>/`, reran, and published the correct
+  Report. Study request ownership needs an explicit general contract rather
+  than a path-name heuristic.
+- 2026-08-01 — Two related fixed descriptive Studies without the specialized
+  Factor/Portfolio/RL research program leave `aq orient` at
+  `study-selection-required`, even when the second Study is the unique derived
+  continuation and already has a current Report. The same explicit upstream
+  relation should select and disclose that terminal continuation without
+  inventing desk lanes or a universal research DAG.
+- 2026-08-01 — The candidate repair is deliberately narrow: one optional
+  upstream immutable Run with one or more exact declared artifacts, one
+  explicit Study-owned Research Request binding, and terminal-continuation
+  orientation derived from that relation. It will not add shared data,
+  automatic data reuse, arbitrary multi-Run synthesis, or trading semantics.
 
 ## Verification
 
-Record exact wheel hashes, isolated roots, Agent sessions/transcripts, public
-commands, mutation inventories, quantitative reconstruction, focused/full
-tests, builds, and installed/clean-clone smokes here as evidence is produced.
+Baseline evidence:
+
+- release wheel:
+  `auto_quant-0.9.17-py3-none-any.whl`, SHA-256
+  `0414bd960f1f4c51499ac9c1373d2a8c381ac7a48a8ebfc88ed507be53b7e9b7`;
+- isolated root: `/Users/ame/autoquant-v0918-recovery-baseline`;
+- fresh Grok 4.5 session:
+  `019fbcce-ff36-7c52-9213-fe3a0f76d478`, exported as
+  `baseline-transcript.md` beside the desk;
+- authoritative new Run:
+  `run-20260801T102031571809Z-68a31fdbc99d`; authoritative new Report:
+  `report-20260801T102039968406Z-b8ca3dc6a2f7`;
+- public `study list`, `run list`, `report list`, `orient`, `studio snapshot`,
+  and `validate` succeeded; `aq session list` remained empty;
+- `diff -qr` proved every pre-existing Run, Report, Review, and correction
+  package unchanged. Only the new task-local dataset, Study/Judge/source, two
+  Runs, two Reports, and maintained Markdown changed. The first Run/Report is
+  retained evidence of the request-binding miss;
+- independent standard-library recomputation over the frozen OHLCV reproduced
+  all five 60-session paths, recovery dates, peak/trough/terminal values, and
+  per-asset contribution reconciliation within `1.2e-16`. Rank 1 recovered on
+  2020-05-08 after 36 sessions; ranks 2–5 were right-censored.
+
+Record candidate replay, focused/full tests, builds, and installed/clean-clone
+smokes below as they are produced.
 
 ## Progress log
 
 - 2026-08-01 — Plan activated from clean released `v0.9.17`; OpenAlice remains
   independently pinned to `v0.8.31`.
+- 2026-08-01 — Untouched installed-wheel baseline completed in 11m02s. It
+  produced scientifically correct evidence while preserving every old byte,
+  and retained three concrete long-lived-Project contract failures for the
+  `0.9.18` candidate rather than hiding them.
 
 ## Completion
 
