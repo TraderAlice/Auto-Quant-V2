@@ -1,0 +1,59 @@
+{
+  "dataset": {
+    "asset_class": "synthetic-multi-asset",
+    "id": "synthetic-ohlcv-research-desk-fixture",
+    "paths": [
+      "ohlcv/**"
+    ],
+    "time_range": {
+      "end": "2025-08-11",
+      "start": "2024-01-02"
+    },
+    "universe": [
+      "ALPHA",
+      "BRAVO",
+      "CHARLIE",
+      "DELTA",
+      "ECHO",
+      "FOXTROT"
+    ],
+    "version": "v1"
+  },
+  "dependencies": {
+    "paths": [
+      "strategies/factor-claim.json",
+      "strategies/portfolio-mandate.json",
+      "strategies/research-horizon.json"
+    ]
+  },
+  "description": "Mine causal factor evidence on the shared research snapshot",
+  "editable": {
+    "paths": [
+      "factors/**"
+    ]
+  },
+  "id": "ohlcv-factor-quality",
+  "judge": {
+    "arguments": [],
+    "entrypoint": "judges/ohlcv_factor.py",
+    "kind": "python",
+    "paths": [
+      "judges/ohlcv_factor.py",
+      "judges/factor_diagnostics.py"
+    ],
+    "timeout_seconds": 60
+  },
+  "name": "OHLCV Factor Quality",
+  "objective": {
+    "direction": "maximize",
+    "metric": "validation_mean_ic",
+    "minimum_improvement": 0.01
+  },
+  "program": "program.md",
+  "schema_version": 1,
+  "subject": {
+    "kind": "factor",
+    "name": "candidate-factor",
+    "version": "working"
+  }
+}

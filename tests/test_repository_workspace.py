@@ -24,6 +24,7 @@ PORTFOLIO_SAMPLE_RUN_ID = "run-20260731T172357866325Z-4f640b413ddf"
 CURRENT_FACTOR_SAMPLE_RUN_ID = "run-20260801T145000180368Z-1fd810b3fe0e"
 NEW_FACTOR_SAMPLE_RUN_ID = "run-20260801T153801145739Z-a387a53aff40"
 LATEST_FACTOR_SAMPLE_RUN_ID = "run-20260801T170126912006Z-b163fe166951"
+CURRENT_HARNESS_FACTOR_RUN_ID = "run-20260801T175812734661Z-2105d3af241b"
 SAMPLE_DESCRIPTION = (
     "A deterministic three-lane reference Project for learning AutoQuant "
     "before starting real research."
@@ -47,7 +48,7 @@ class RepositoryWorkspaceTests(unittest.TestCase):
     def test_repository_skill_bundle_matches_current_harness(self) -> None:
         manifest = verify_materialized_workspace_skills(REPOSITORY_ROOT)
 
-        self.assertEqual(manifest["harnessVersion"], "0.9.22")
+        self.assertEqual(manifest["harnessVersion"], "0.9.23")
         self.assertEqual(len(manifest["skills"]), 16)
 
     def test_repository_ignores_workspace_staging(self) -> None:
@@ -87,6 +88,7 @@ class RepositoryWorkspaceTests(unittest.TestCase):
                 CURRENT_FACTOR_SAMPLE_RUN_ID,
                 NEW_FACTOR_SAMPLE_RUN_ID,
                 LATEST_FACTOR_SAMPLE_RUN_ID,
+                CURRENT_HARNESS_FACTOR_RUN_ID,
             ],
         )
         run = load_run(project, SAMPLE_RUN_ID)
@@ -232,6 +234,27 @@ class RepositoryWorkspaceTests(unittest.TestCase):
             latest_factor.result["metrics"]["validation_mean_ic"],
             -0.031325301204819286,
         )
+        current_harness_factor = load_run(project, CURRENT_HARNESS_FACTOR_RUN_ID)
+        self.assertEqual(current_harness_factor.result["status"], "succeeded")
+        self.assertEqual(
+            current_harness_factor.result["study"]["id"], "ohlcv-factor-quality"
+        )
+        self.assertEqual(
+            current_harness_factor.result["harness"]["version"], "0.9.23"
+        )
+        self.assertEqual(
+            current_harness_factor.result["harness"]["commit"],
+            "f4843fa42b38f33cc05d81a0b401d4395409cc22",
+        )
+        self.assertFalse(current_harness_factor.result["harness"]["dirty"])
+        self.assertEqual(
+            current_harness_factor.result["harness"]["buildProvenance"],
+            "source-checkout",
+        )
+        self.assertEqual(
+            current_harness_factor.result["metrics"]["validation_mean_ic"],
+            -0.031325301204819286,
+        )
 
         research = (project.root_dir / "research.md").read_text(encoding="utf-8")
         self.assertIn("## About this sample", research)
@@ -242,6 +265,7 @@ class RepositoryWorkspaceTests(unittest.TestCase):
         self.assertIn(CURRENT_FACTOR_SAMPLE_RUN_ID, research)
         self.assertIn(NEW_FACTOR_SAMPLE_RUN_ID, research)
         self.assertIn(LATEST_FACTOR_SAMPLE_RUN_ID, research)
+        self.assertIn(CURRENT_HARNESS_FACTOR_RUN_ID, research)
         self.assertIn("not relabeled as a", research)
 
     def test_sample_template_owned_files_match_a_fresh_research_desk(
@@ -270,16 +294,16 @@ class RepositoryWorkspaceTests(unittest.TestCase):
         sample = snapshot["projects"][0]
         self.assertTrue(sample["valid"])
         self.assertEqual(sample["counts"]["studies"], 3)
-        self.assertEqual(sample["counts"]["runs"], 10)
+        self.assertEqual(sample["counts"]["runs"], 11)
         self.assertEqual(sample["counts"]["sessions"], 0)
         self.assertIsNotNone(sample["factorExplorer"])
         self.assertEqual(
             sample["factorExplorer"]["run"]["id"],
-            LATEST_FACTOR_SAMPLE_RUN_ID,
+            CURRENT_HARNESS_FACTOR_RUN_ID,
         )
         self.assertEqual(
             sample["researchProgramStatus"]["lanes"][0]["latestRun"]["id"],
-            LATEST_FACTOR_SAMPLE_RUN_ID,
+            CURRENT_HARNESS_FACTOR_RUN_ID,
         )
         self.assertIsNotNone(sample["portfolioExplorer"])
         self.assertEqual(

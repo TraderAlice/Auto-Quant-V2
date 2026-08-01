@@ -27,14 +27,28 @@ Harness `sourceHash` now covers the complete regular runtime closure beneath
 `autoquant/`, including Python, Project templates, Studio assets, and all
 Workspace Skills, while excluding generated build identity and caches. `aq
 version --json`, capability discovery, Studio snapshot/UI, Runs, Candidate
-Checks, and Session locks consume one shared identity. The concise `aq
+Checks, and Session locks consume one shared seven-field identity, including
+whether build provenance came from an embedded distribution, an exact source
+checkout, or nowhere trustworthy. Historical six-field evidence remains
+readable. The concise `aq
 --version` remains a stable package-version probe. Historical immutable Runs
 remain unchanged, including older honest `commit: unavailable` evidence.
 
-Focused version/Run/CLI/Studio regression passed 45 tests in 77.990 seconds,
-including dirty and exact-root behavior, sdist-to-wheel provenance preservation,
-complete closure hashing, and installation beneath an unrelated parent Git
-repository. Fresh-worker and final release audit evidence is pending in
+An isolated Grok 4.5 coworker used only the installed candidate wheel, public
+CLI/schema discovery, one fixed Event Study request, and staged NVDA/SPY data.
+It identified the exact clean build before work, created one standalone
+Workspace and Event Study Project, executed one Run, published one Report, and
+stopped terminally with no Session or Dossier. Its Run contained five raw and
+complete downside-gap events, four primary non-overlapping events, no censored
+events, and one overlap exclusion. Independent replay found the Project valid
+and proved exact seven-field equality across pre-work version, capabilities,
+Studio, and immutable Run evidence.
+
+The root sample now preserves eleven historical Runs and projects a clean
+`0.9.23` Factor baseline produced at commit `f4843fa`, with the same
+`-0.031325301204819286` validation IC as the prior three snapshots. The full
+regression passed all 430 tests in 1,054.040 seconds and resolved all 1,430
+documentation links. Exact candidate, field, and release evidence lives in
 [[plans/distribution-build-provenance]]. OpenAlice remains independently pinned
 to `0.8.31`.
 

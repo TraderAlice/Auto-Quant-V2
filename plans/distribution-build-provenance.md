@@ -58,18 +58,18 @@ runtime-package closure.
 
 ## Acceptance
 
-- [ ] A clean Git build produces a wheel whose `aq version --json`, capability
+- [x] A clean Git build produces a wheel whose `aq version --json`, capability
   discovery, Studio snapshot, and new Run all report the exact build commit and
   `dirty: false` as one identical seven-field Harness object.
-- [ ] A dirty build reports the current base commit and `dirty: true`; a build
+- [x] A dirty build reports the current base commit and `dirty: true`; a build
   without Git or embedded identity reports `unavailable` rather than borrowing
   a surrounding repository's identity.
-- [ ] Building a wheel from the generated sdist preserves the original build
+- [x] Building a wheel from the generated sdist preserves the original build
   commit and dirty flag.
-- [ ] Runtime `sourceHash` changes when any packaged Python, template, Studio,
+- [x] Runtime `sourceHash` changes when any packaged Python, template, Studio,
   or Skill byte changes, and ignores caches or generated identity metadata.
-- [ ] Existing immutable Run/Session/Check evidence remains readable.
-- [ ] A fresh installed-wheel Grok worker discovers the identity without
+- [x] Existing immutable Run/Session/Check evidence remains readable.
+- [x] A fresh installed-wheel Grok worker discovers the identity without
   implementation access, completes one bounded quantitative assignment, and
   hands off a Run whose Harness identity matches its pre-work discovery.
 - [ ] Focused tests, complete unit tests, docs links, build, installed smoke,
@@ -84,7 +84,7 @@ runtime-package closure.
   and historical-evidence regressions.
 - [x] Update Agent, architecture, CLI, Studio, evidence, versioning, status, and
   release documentation.
-- [ ] Build the candidate wheel and run a fresh Grok field assignment.
+- [x] Build the candidate wheel and run a fresh Grok field assignment.
 - [ ] Complete the release audit, commit, push, tag, and verify `v0.9.23`.
 
 ## Findings and decisions
@@ -101,7 +101,26 @@ runtime-package closure.
 
 ## Verification
 
-- Pending.
+- Focused Harness identity, Run, Check, Session, CLI, Studio, and Report
+  regression: 75 tests in 142.681 seconds, all passing.
+- Full regression: 430 tests in 1,054.040 seconds, all passing.
+- Documentation graph: 1,430 links resolved.
+- Clean candidate wheel from commit `f4843fa42b38f33cc05d81a0b401d4395409cc22`:
+  SHA-256 `85ea9af755890f63b9e995db1f66f1dba8039628e11e17739aa4192e879c7ab1`.
+  The wheel rebuilt through its sdist preserved that commit, `dirty: false`,
+  and runtime closure hash
+  `afa1b49e7a83465e81db696ac5aea2f5bb6504784bb4ca0d21016a3653fc4e36`.
+- Final isolated field Workspace:
+  `/Users/ame/autoquant-v0923-build-provenance-field-retry`.
+  Grok session `019fbe75-3878-7a10-8de1-78e81b1ffc9c` created Run
+  `run-20260801T175455537825Z-60ef712dc897` and Report
+  `report-20260801T175531501814Z-f47425637678`; independent public-surface
+  replay found one exact seven-field Harness object in version, capabilities,
+  Studio, and Run evidence, a valid terminal Project, one Run, one Report,
+  zero Sessions, and zero Dossiers.
+- Repository sample Run
+  `run-20260801T175812734661Z-2105d3af241b` records the same runtime closure
+  from the exact clean source checkout and preserves all older sample evidence.
 
 ## Progress log
 
@@ -121,4 +140,4 @@ runtime-package closure.
 
 ## Completion
 
-Pending.
+Pending final installed smoke, clean-clone smoke, and remote branch/tag audit.
