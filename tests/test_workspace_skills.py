@@ -369,6 +369,77 @@ class WorkspaceSkillTests(unittest.TestCase):
             ["8035.T", "8306.T"],
         )
 
+    def test_yahoo_transient_price_scale_requires_separate_audited_drop(
+        self,
+    ) -> None:
+        yahoo = load_script(
+            "autoquant_skill_yahoo_transient_scale",
+            SKILLS
+            / "fetch-yahoo-ohlcv"
+            / "scripts"
+            / "fetch_yahoo_daily.py",
+        )
+        rows = 1_001
+        closes = [100.0] * rows
+        closes[500:503] = [10.0, 10.2, 101.0]
+        result = {
+            "timestamp": [
+                1_704_153_600 + offset * 86_400
+                for offset in range(rows)
+            ],
+            "indicators": {
+                "quote": [
+                    {
+                        "open": closes,
+                        "high": [value * 1.01 for value in closes],
+                        "low": [value * 0.99 for value in closes],
+                        "close": closes,
+                        "volume": [1_000.0] * rows,
+                    }
+                ]
+            },
+        }
+
+        with self.assertRaisesRegex(ValueError, "transient-scale"):
+            yahoo.frame_for("SYNTH", result, "split-adjusted")
+
+        frame, audit = yahoo.frame_for(
+            "SYNTH",
+            result,
+            "split-adjusted",
+            "reject",
+            "drop-observation",
+        )
+        self.assertEqual(len(frame), rows - 2)
+        self.assertEqual(audit["transientScalePolicy"], "drop-observation")
+        self.assertEqual(audit["transientScaleRows"], 2)
+        self.assertEqual(audit["transientScaleRowsDropped"], 2)
+        self.assertEqual(audit["transientScaleDropLimit"], 2)
+        self.assertEqual(
+            [item["close"] for item in audit["transientScaleObservations"]],
+            [10.0, 10.2],
+        )
+        summary = yahoo.transient_scale_summary(
+            {
+                "1306.T": {
+                    **audit,
+                    "providerSymbol": "1306.T",
+                },
+                "7203.T": {
+                    "providerSymbol": "7203.T",
+                    "transientScalePolicy": "drop-observation",
+                    "transientScaleRowsDropped": 0,
+                    "transientScaleObservations": [],
+                },
+            }
+        )
+        self.assertEqual(summary["affectedAssets"], ["1306.T"])
+        self.assertEqual(summary["observationsFound"], 2)
+        self.assertEqual(summary["observationsDropped"], 2)
+        self.assertTrue(
+            all(item["symbol"] == "1306.T" for item in summary["observations"])
+        )
+
     def test_nikkei_keeps_peer_canonical_symbol_separate_from_code(self) -> None:
         nikkei = load_script(
             "autoquant_skill_nikkei_canonical_symbol",

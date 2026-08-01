@@ -123,6 +123,16 @@ price, applies a small hard quality bound, and records the resulting aligned
 panel loss. It is a caller/research-contract choice, not a silent fallback;
 Core's packaged OHLCV invariants remain strict.
 
+The same fail-closed rule applies to a short temporary provider scale island:
+a large entry discontinuity followed within a few observations by its inverse
+and recovery near the original scale. This is distinct from an ordinary large
+return or a persistent corporate-action regime. A provider Skill may expose a
+separate explicit bounded observation-drop policy only when it keeps exact raw
+rows and boundary ratios, never rescales prices, enumerates every affected
+asset in its top-level audit, and discloses common-panel loss. Persistent scale
+changes still require independent corporate-action/provider evidence rather
+than automatic repair.
+
 Canonical research symbols belong to the cross-provider dataset contract;
 route-specific lookup codes do not. Peer Japanese packages therefore retain a
 shared symbol such as `7203.T` while a Nikkei route separately records `7203`

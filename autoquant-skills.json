@@ -1,5 +1,5 @@
 {
-  "bundleSha256": "0b70296febbb6847c094416af90570c784d5022ed44ae7e061bc94c7c464cdc7",
+  "bundleSha256": "afdeff1faef9efd3068b88aa3ad4e3dcc7f89809232d87a9e99bcb5d984a07c9",
   "discoveryRoots": [
     ".agents/skills",
     ".claude/skills"
@@ -382,7 +382,7 @@
       "files": [
         {
           "path": "SKILL.md",
-          "sha256": "474bbdfa5757e9df57fb64273728affec347b81950a2f451d0df6f55997544d4"
+          "sha256": "9a4a4710439e22552dadd94d5a3ea5e9ed4b22c39655c1cef7a439f7bb89a37c"
         },
         {
           "path": "agents/openai.yaml",
@@ -394,7 +394,7 @@
         },
         {
           "path": "scripts/fetch_yahoo_daily.py",
-          "sha256": "4f3673c61e05a59052b78939db28b797bbf2db2e5155df4f4f56e31fd65a86f0"
+          "sha256": "4d2f0fb8b9a103bea951800a449450d23070ca848147837442fc572f82c97f75"
         }
       ],
       "id": "fetch-yahoo-ohlcv"

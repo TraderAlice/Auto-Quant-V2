@@ -28,6 +28,10 @@ ASSET_CLASSES = {
     "index",
     "mixed",
 }
+TRANSIENT_SCALE_JUMP_RATIO = 5.0
+TRANSIENT_SCALE_MAX_ISLAND_ROWS = 3
+TRANSIENT_SCALE_RECOVERY_MIN = 0.75
+TRANSIENT_SCALE_RECOVERY_MAX = 4.0 / 3.0
 
 
 def sha256(path: Path) -> str:
@@ -112,16 +116,96 @@ def result_for(provider_symbol: str, payload: dict) -> dict:
     return chart["result"][0]
 
 
+def detect_transient_scale_observations(
+    frame: pd.DataFrame,
+) -> list[dict[str, Any]]:
+    """Find a short price-scale island that quickly reverses near its origin."""
+
+    observations: list[dict[str, Any]] = []
+    closes = frame["close"].astype(float).reset_index(drop=True)
+    index = 1
+    while index < len(frame) - 1:
+        preceding_close = float(closes.iloc[index - 1])
+        entry_ratio = float(closes.iloc[index]) / preceding_close
+        entry_down = entry_ratio <= 1.0 / TRANSIENT_SCALE_JUMP_RATIO
+        entry_up = entry_ratio >= TRANSIENT_SCALE_JUMP_RATIO
+        if not (entry_down or entry_up):
+            index += 1
+            continue
+        island_end: int | None = None
+        for candidate_end in range(
+            index,
+            min(
+                index + TRANSIENT_SCALE_MAX_ISLAND_ROWS,
+                len(frame) - 1,
+            ),
+        ):
+            island_close = float(closes.iloc[candidate_end])
+            following_close = float(closes.iloc[candidate_end + 1])
+            exit_ratio = following_close / island_close
+            recovery_ratio = following_close / preceding_close
+            exit_reverses = (
+                entry_down and exit_ratio >= TRANSIENT_SCALE_JUMP_RATIO
+            ) or (
+                entry_up and exit_ratio <= 1.0 / TRANSIENT_SCALE_JUMP_RATIO
+            )
+            if (
+                exit_reverses
+                and TRANSIENT_SCALE_RECOVERY_MIN
+                <= recovery_ratio
+                <= TRANSIENT_SCALE_RECOVERY_MAX
+            ):
+                island_end = candidate_end
+                break
+        if island_end is None:
+            index += 1
+            continue
+        following_close = float(closes.iloc[island_end + 1])
+        exit_ratio = following_close / float(closes.iloc[island_end])
+        recovery_ratio = following_close / preceding_close
+        for row_index in range(index, island_end + 1):
+            row = frame.iloc[row_index]
+            observations.append(
+                {
+                    "date": str(row["date"]),
+                    **{
+                        column: float(row[column])
+                        for column in (
+                            "open",
+                            "high",
+                            "low",
+                            "close",
+                            "volume",
+                        )
+                    },
+                    "precedingClose": preceding_close,
+                    "followingClose": following_close,
+                    "entryRatio": entry_ratio,
+                    "exitRatio": exit_ratio,
+                    "recoveryRatio": recovery_ratio,
+                    "islandRows": island_end - index + 1,
+                }
+            )
+        index = island_end + 1
+    return observations
+
+
 def frame_for(
     provider_symbol: str,
     result: dict,
     adjustment: str,
     invalid_ohlc_policy: str = "reject",
+    transient_scale_policy: str = "reject",
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
     if invalid_ohlc_policy not in {"reject", "drop-observation"}:
         raise ValueError(
             f"{provider_symbol}: unsupported invalid OHLC policy "
             f"{invalid_ohlc_policy!r}"
+        )
+    if transient_scale_policy not in {"reject", "drop-observation"}:
+        raise ValueError(
+            f"{provider_symbol}: unsupported transient scale policy "
+            f"{transient_scale_policy!r}"
         )
     timestamps = result.get("timestamp")
     indicators = result.get("indicators", {})
@@ -225,6 +309,33 @@ def frame_for(
         )
     if invalid_bound_rows:
         raw = raw.loc[~invalid_bounds].reset_index(drop=True)
+    transient_scale_observations = detect_transient_scale_observations(raw)
+    transient_scale_rows = len(transient_scale_observations)
+    transient_scale_drop_limit = min(
+        10,
+        max(1, math.ceil(len(raw) * 0.001)),
+    )
+    if transient_scale_rows and transient_scale_policy == "reject":
+        dates = ", ".join(
+            item["date"] for item in transient_scale_observations[:5]
+        )
+        raise ValueError(
+            f"{provider_symbol}: {transient_scale_rows} transient price-scale "
+            f"observation(s) on {dates}; use the explicit transient-scale "
+            "drop-observation policy only when the research contract permits "
+            "audited observation removal"
+        )
+    if transient_scale_rows > transient_scale_drop_limit:
+        raise ValueError(
+            f"{provider_symbol}: {transient_scale_rows} transient price-scale "
+            "observations exceed audited drop limit "
+            f"{transient_scale_drop_limit}"
+        )
+    if transient_scale_rows:
+        transient_dates = {
+            item["date"] for item in transient_scale_observations
+        }
+        raw = raw.loc[~raw["date"].isin(transient_dates)].reset_index(drop=True)
     if raw.empty:
         raise ValueError(f"{provider_symbol}: no valid observations")
     return raw, {
@@ -242,6 +353,15 @@ def frame_for(
         ),
         "invalidOhlcBoundsDropLimit": invalid_bound_drop_limit,
         "invalidOhlcBoundsObservations": invalid_bound_observations,
+        "transientScalePolicy": transient_scale_policy,
+        "transientScaleRows": transient_scale_rows,
+        "transientScaleRowsDropped": (
+            transient_scale_rows
+            if transient_scale_policy == "drop-observation"
+            else 0
+        ),
+        "transientScaleDropLimit": transient_scale_drop_limit,
+        "transientScaleObservations": transient_scale_observations,
         "adjustedFactorRows": adjusted_rows,
         "zeroVolumeRows": int(raw["volume"].eq(0).sum()),
         "firstDate": str(raw["date"].iloc[0]),
@@ -316,6 +436,44 @@ def invalid_ohlc_summary(audits: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def transient_scale_summary(audits: dict[str, Any]) -> dict[str, Any]:
+    """Project every per-asset transient scale island into one summary."""
+
+    affected_assets: list[str] = []
+    observations: list[dict[str, Any]] = []
+    observations_dropped = 0
+    policies: set[str] = set()
+    for symbol, asset_audit in audits.items():
+        policy = asset_audit.get("transientScalePolicy")
+        if isinstance(policy, str):
+            policies.add(policy)
+        asset_observations = asset_audit.get(
+            "transientScaleObservations",
+            [],
+        )
+        if asset_observations:
+            affected_assets.append(symbol)
+            provider_symbol = asset_audit.get("providerSymbol")
+            for observation in asset_observations:
+                observations.append(
+                    {
+                        "symbol": symbol,
+                        "providerSymbol": provider_symbol,
+                        **observation,
+                    }
+                )
+        observations_dropped += int(
+            asset_audit.get("transientScaleRowsDropped", 0)
+        )
+    return {
+        "policy": next(iter(policies)) if len(policies) == 1 else "mixed",
+        "affectedAssets": affected_assets,
+        "observationsFound": len(observations),
+        "observationsDropped": observations_dropped,
+        "observations": observations,
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path, required=True)
@@ -342,6 +500,16 @@ def main() -> None:
         help=(
             "reject inconsistent provider OHLC geometry, or explicitly drop "
             "a tightly bounded observation while retaining its audit"
+        ),
+    )
+    parser.add_argument(
+        "--transient-scale-policy",
+        choices=("reject", "drop-observation"),
+        default="reject",
+        help=(
+            "reject a short provider price-scale island that reverses near "
+            "its origin, or explicitly drop its tightly bounded observations "
+            "while retaining their exact audit"
         ),
     )
     parser.add_argument("--terms", required=True)
@@ -373,6 +541,7 @@ def main() -> None:
             result,
             args.adjustment,
             args.invalid_ohlc_policy,
+            args.transient_scale_policy,
         )
         frame, out_of_range = bound_session_dates(
             frame,
@@ -479,6 +648,7 @@ def main() -> None:
         encoding="utf-8",
     )
     invalid_ohlc = invalid_ohlc_summary(audits)
+    transient_scale = transient_scale_summary(audits)
     audit = {
         "schemaVersion": 1,
         "kind": "autoquant-provider-acquisition-audit",
@@ -490,6 +660,7 @@ def main() -> None:
             "panel": args.panel,
             "adjustment": args.adjustment,
             "invalidOhlcPolicy": args.invalid_ohlc_policy,
+            "transientScalePolicy": args.transient_scale_policy,
         },
         "transformation": {
             "split-and-dividend-adjusted": (
@@ -502,6 +673,7 @@ def main() -> None:
             ),
         }[args.adjustment],
         "invalidOhlc": invalid_ohlc,
+        "transientScale": transient_scale,
         "assets": audits,
         "packagePath": package_path.name,
         "packageSha256": sha256(package_path),
@@ -512,6 +684,12 @@ def main() -> None:
                 "Explicit drop-observation removes only tightly bounded "
                 "provider rows with impossible OHLC geometry; it never repairs "
                 "prices and every removed observation remains in the audit."
+            ),
+            (
+                "A separate explicit transient-scale drop removes only a "
+                "short price-scale island bounded by a fivefold entry/reversal "
+                "and near-origin recovery; it never rescales prices and keeps "
+                "every removed observation in the audit."
             ),
             "No survivorship, delisting, or official calendar claim follows.",
         ],
@@ -530,6 +708,7 @@ def main() -> None:
                 "firstDate": all_dates[0],
                 "lastDate": all_dates[-1],
                 "invalidOhlc": invalid_ohlc,
+                "transientScale": transient_scale,
             },
             sort_keys=True,
         )

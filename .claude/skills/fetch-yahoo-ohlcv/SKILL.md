@@ -71,6 +71,20 @@ projection before drilling into the matching per-asset records; an aligned
 panel can lose one shared date even when more than one asset had an invalid
 observation on that date.
 
+The separate default `--transient-scale-policy reject` also fails closed when
+the provider emits a short one-to-three-row price-scale island: a fivefold or
+larger entry jump, the opposite fivefold or larger exit jump, and recovery
+within 25% below or one-third above the pre-island close. This catches bounded
+temporary decimal/unit discontinuities without pretending that every large
+return is bad data. When raw provider evidence and the research contract make
+observation removal preferable, explicitly pass
+`--transient-scale-policy drop-observation`. It never rescales prices. It
+retains every original row in raw JSON and exact OHLCV plus boundary ratios in
+top-level `provider-audit.json.transientScale` and the per-asset audit, and it
+uses the same 0.1%-of-source, minimum-one, maximum-10 bound per asset. A
+persistent split or regime change that does not quickly reverse is not removed
+by this policy and still requires separate provider/corporate-action evidence.
+
 ## Verify
 
 - Inspect `provider-audit.json`, every raw JSON hash, every CSV hash, returned
@@ -79,6 +93,10 @@ observation on that date.
   every item in top-level `invalidOhlc.observations`, then reconcile it with
   the per-asset `invalidOhlcBoundsObservations`; do not describe the resulting
   panel as repaired provider history.
+- If transient-scale removal was selected, disclose every item in top-level
+  `transientScale.observations`, the entry/exit/recovery ratios, why the route
+  was accepted, and the common-panel dates lost. Never describe removal as a
+  verified split adjustment or silently replace it with rescaled prices.
 - Spot-check provider symbols and venue identity outside the Chart response.
 - Compare a bounded overlap against the market's second source.
 - Invoke `$package-autoquant-ohlcv`; do not move generated CSVs directly into

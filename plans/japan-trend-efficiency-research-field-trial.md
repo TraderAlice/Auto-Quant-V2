@@ -170,6 +170,22 @@ translation after costs.
   `invalidOhlc` summary in both command output and provider audit so Agents see
   every affected asset and observation without manually traversing per-asset
   records.
+- 2026-08-01 — Candidate cohort 25 selected `decision-signal` before its first
+  Run, kept `1306.T` outside the prediction population, and disclosed both
+  invalid-OHLC assets from the new command summary. It then independently
+  found a second, more serious provider defect: Yahoo emitted `1306.T` near
+  one-tenth scale on 2026-03-30/31 before returning near its prior scale on
+  2026-04-01, without a matching split event. Factor evidence remained valid,
+  but benchmark-relative Portfolio metrics became nonsensical. The worker
+  correctly disclosed the defect, withheld those active metrics, and published
+  only the Factor lane in the Dossier.
+- 2026-08-01 — A temporary scale island is not ordinary OHLC geometry and must
+  not be conflated with a persistent corporate action. Yahoo acquisition now
+  rejects by default a one-to-three-row island with a fivefold boundary jump,
+  inverse exit, and near-origin recovery. A separate explicit bounded policy
+  may remove the exact observations while preserving raw bytes and boundary
+  ratios; it never rescales a price. Persistent regime changes remain outside
+  this repair and require provider/corporate-action evidence.
 
 ## Verification
 
@@ -185,6 +201,10 @@ translation after costs.
   one final clean replay after the guidance and summary repair.
 - Yahoo summary and repository Skill materialization focused regression: 31
   tests passed in 1.439 seconds.
+- The transient-scale detector reproduced the exact two-row `1306.T` island
+  from retained Yahoo raw JSON, rejected it by default, and under explicit
+  policy removed only 2026-03-30/31 with entry ratio `0.098354`, exit ratio
+  `10.479268`, recovery ratio `1.016985`, and per-asset drop bound `2`.
 
 ## Progress log
 
