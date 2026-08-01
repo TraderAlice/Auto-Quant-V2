@@ -58,7 +58,9 @@ residual of `1.1796119636642288e-16`.
 Final repository verification passed all 409 tests in 1,016.375 seconds and
 resolved all 1,380 documentation links. Lock, Python/Studio syntax, focused
 capability regression, build/install, and no-local-override root Workspace
-smokes also passed. OpenAlice remains independently pinned to `0.8.31`.
+smokes also passed. Verified wheel SHA-256:
+`80da774d7968fc5efa5e1e7909dd031b5815e2954b2c7d3c158c8b977ddc8817`.
+OpenAlice remains independently pinned to `0.8.31`.
 
 ### `v0.9.17`
 

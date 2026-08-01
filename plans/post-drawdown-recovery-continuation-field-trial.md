@@ -1,6 +1,6 @@
 # Post-drawdown recovery continuation field trial
 
-- Status: `active`
+- Status: `complete`
 - Updated: `2026-08-01`
 - Target release: `0.9.18`
 - Related design: [[docs/design/study-run-evidence]],
@@ -130,7 +130,7 @@ product evidence rather than hidden.
       reproduced reusable Workbench defect enters the candidate release.
 - [x] A fresh candidate worker completes the unchanged assignment using only
       installed public surfaces and independently acquired task data.
-- [ ] Focused/full tests, documentation links, lock/syntax, build/install,
+- [x] Focused/full tests, documentation links, lock/syntax, build/install,
       Studio, root Workspace, and clean-clone smokes pass before publication.
 
 ## Work
@@ -140,7 +140,7 @@ product evidence rather than hidden.
 - [x] Run and audit one fresh worker without coaching.
 - [x] Admit and implement only reproduced reusable product friction.
 - [x] Replay the unchanged task with a fresh candidate-wheel worker.
-- [ ] Complete the release audit and publish `v0.9.18` if warranted.
+- [x] Complete the release audit and publish `v0.9.18` if warranted.
 
 ## Findings and decisions
 
@@ -330,8 +330,23 @@ Final candidate replay evidence:
   `upstream-artifact` arguments plus a capability regression. This is a
   disclosure-only repair after the successful replay, not a change to its
   executed semantics.
+- 2026-08-01 — Final release audit passed 409 tests in 1,016.375 seconds,
+  1,380 documentation links, lock/diff/Python/Studio syntax, and focused
+  post-audit capability checks. The final source distribution and wheel built
+  successfully; wheel SHA-256 is
+  `80da774d7968fc5efa5e1e7909dd031b5815e2954b2c7d3c158c8b977ddc8817`.
+  A fresh Python 3.11.14 environment installed that exact wheel and disclosed
+  all 57 commands, the six fixed/continuation Study arguments, and changed
+  Study/RunResult/Agent Work Brief/Session schemas. A no-hardlink clean clone
+  with no local override loaded only `sample-research-desk`, then passed root
+  Project listing, validation, orientation, and Studio snapshot through the
+  installed wheel.
 
 ## Completion
 
-Complete this section only after every acceptance item is independently
-verified and the release, if any, is published.
+All acceptance checks are independently satisfied. The released behavior was
+proved first against the untouched `0.9.17` baseline, then twice from installed
+`0.9.18` wheels without a source checkout. The final replay preserved the
+long-lived Project and every prior immutable byte while completing one related
+Study through one evidence-bound Run and Report. `v0.9.18` is ready to tag and
+publish; OpenAlice remains independently pinned to `v0.8.31`.
