@@ -213,9 +213,7 @@ wheel, reported `aq 0.9.19`, loaded AutoQuant from `site-packages`, disclosed
 all 57 public commands and all four external/upstream `study.create`
 arguments, and loaded the changed Study and RunResult schemas. Final wheel
 SHA-256 is
-`6a083f6600750b6c4fdd0b7eccd2f6634606d81901418db6176c92317d3f7876`;
-source-distribution SHA-256 is
-`d72903c55c4bdcf02bd47fb895780efd6045195f1e0937f09f819afff8a51de0`.
+`6a083f6600750b6c4fdd0b7eccd2f6634606d81901418db6176c92317d3f7876`.
 A no-hardlink clean clone with no local override loaded only the checked-in
 `sample-research-desk` through the same installed wheel, selected it by the
 Workspace default, and passed Project listing, validation, Orientation, and
