@@ -18,7 +18,9 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-None.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/close-time-aware-cross-market-daily-factor]] | Admit exact UTC daily close instants into the observed-only temporal Factor contract and prove causal cross-market lead/lag research without date-based look-ahead. | 2026-08-02 |
 
 ## Proposed plans
 
