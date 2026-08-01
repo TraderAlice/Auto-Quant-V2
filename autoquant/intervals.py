@@ -585,6 +585,23 @@ def _session_bucket_closes(
     return closes
 
 
+def _datetime_indexes_equal(
+    left: pd.DatetimeIndex,
+    right: pd.DatetimeIndex,
+) -> bool:
+    """Compare timestamp identity without treating storage resolution as data.
+
+    Pandas 3 preserves ISO-8601 CSV timestamps at microsecond resolution while
+    exchange-calendars currently exposes nanosecond-resolution schedules.
+    ``DatetimeIndex.equals`` considers those dtypes different even when every
+    instant, timezone, and position is identical.  AutoQuant's contract is
+    about bar-close instants, not an in-memory datetime unit, so normalize both
+    sides before exact ordered comparison.
+    """
+
+    return left.as_unit("ns").equals(right.as_unit("ns"))
+
+
 def _covered_session_schedule(
     timestamps: pd.DatetimeIndex,
     *,
@@ -648,7 +665,7 @@ def validate_xnys_session_ohlcv(
         timestamps,
         base_interval=base_interval,
     )
-    if not timestamps.equals(expected):
+    if not _datetime_indexes_equal(timestamps, expected):
         missing = expected.difference(timestamps)
         extra = timestamps.difference(expected)
         detail = []
@@ -734,7 +751,7 @@ def aggregate_continuous_ohlcv(
             freq=base_frequency,
             tz="UTC",
         )
-        if not pd.DatetimeIndex(group.index).equals(expected):
+        if not _datetime_indexes_equal(pd.DatetimeIndex(group.index), expected):
             continue
         rows.append(_aggregate_rows(group, bucket_close))
     return pd.DataFrame(rows, columns=OHLCV_COLUMNS)
@@ -1079,8 +1096,9 @@ def load_multi_interval_asset(
             )
         )
         actual = frames[interval]
-        if not pd.DatetimeIndex(actual["timestamp"]).equals(
-            pd.DatetimeIndex(expected["timestamp"])
+        if not _datetime_indexes_equal(
+            pd.DatetimeIndex(actual["timestamp"]),
+            pd.DatetimeIndex(expected["timestamp"]),
         ):
             raise IntervalContractError(
                 "interval.reconciliation",

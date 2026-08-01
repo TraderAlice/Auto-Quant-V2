@@ -153,7 +153,7 @@ def fetch_symbol(
     frame = frame.drop_duplicates("timestamp", keep="last")
     expected = pd.date_range(start_close, end_close, freq="1h", tz="UTC")
     actual = pd.DatetimeIndex(frame["timestamp"])
-    if not actual.equals(expected):
+    if not actual.as_unit("ns").equals(expected.as_unit("ns")):
         missing = expected.difference(actual)
         extra = actual.difference(expected)
         raise ValueError(

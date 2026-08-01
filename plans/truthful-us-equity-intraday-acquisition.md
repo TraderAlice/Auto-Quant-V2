@@ -158,8 +158,8 @@ bars.
       handoff, files, and transcript.
 - [x] Probe Yahoo's current `1h` range, timestamp, adjustment, early-close,
       null, zero-volume, and multi-asset completeness behavior independently.
-- [ ] Implement the transactional intraday acquisition and exact failure audit.
-- [ ] Update router/package Skills, durable design docs, Agent guidance, and
+- [x] Implement the transactional intraday acquisition and exact failure audit.
+- [x] Update router/package Skills, durable design docs, Agent guidance, and
       deterministic tests; re-materialize the checked-in Workspace bundle.
 - [ ] Build an isolated `0.9.20` candidate and run both fresh-worker field
       trials without source access or prior-trial knowledge.
@@ -187,6 +187,30 @@ bars.
   the provider query start one hour earlier restored the exact first-bucket
   volume while leaving normalized coverage unchanged. The warmup is therefore
   mandatory and consumes one hour of the 730-day provider window.
+- 2026-08-01 — The first installed `0.9.20` candidate was not release-ready.
+  Fresh Grok session `019fbd8f-76e6-76f2-a7d6-ff4b7af75bd5` acquired an exact
+  287-row, 41-session, five-ETF package, but Pandas 3.0.5 parsed its ISO CSV
+  timestamps as `datetime64[us, UTC]` while the pinned XNYS calendar exposed
+  `datetime64[ns, UTC]`. `DatetimeIndex.equals` treated the storage unit as
+  data even though ordered instants, missing bars, and extra bars were exactly
+  identical. Intake therefore reported the false `interval.session-panel`
+  blocker.
+- 2026-08-01 — The coworker independently isolated the false failure and
+  eventually completed the research by re-encoding both source and
+  materialized timestamps plus their content locks. That trial is valuable
+  defect and employability evidence, but its Run, Report, Dossier, and negative
+  Factor conclusion are not release acceptance: the workaround forced the
+  worker to repair Harness-owned dataset bytes and hashes outside the intended
+  one-command public path. A clean candidate and fresh worker must replay the
+  unchanged question without that workaround.
+- 2026-08-01 — Core timestamp identity now normalizes both indexes to
+  nanosecond storage before exact ordered comparison. This preserves the
+  strict calendar contract while making an in-memory Pandas unit irrelevant.
+  The same normalization protects continuous-grid and materialized-feature
+  reconciliation plus the Binance producer's exact-grid audit. A direct
+  microsecond-resolution XNYS regression and the existing full research-desk
+  XNYS Intake/Run path pass from source; an installed Pandas 3 replay remains
+  a required candidate gate.
 
 ## Verification
 
@@ -202,6 +226,14 @@ Pending implementation and candidate trials.
   2026 smoke produced 147 aligned rows per asset across 21 sessions with no
   zero-volume rows after the one-hour warmup; the fixed two-year request failed
   preflight because its required provider start fell outside 730 days.
+- 2026-08-01 — First candidate negative replay session
+  `019fbd8e-57c1-7352-a3e0-445b23bdf1bf` preserved the unchanged two-year
+  request as a structured `provider.range-preflight` failure with zero task
+  quantitative Runs, Sessions, Reports, or Dossiers. First candidate positive
+  replay session `019fbd8f-76e6-76f2-a7d6-ff4b7af75bd5` discovered the new
+  Skill and acquired the exact bounded panel, then exposed the Pandas storage-
+  resolution Intake defect. Its later timestamp/hash workaround is retained
+  as evidence and explicitly excluded from release proof.
 
 ## Completion
 

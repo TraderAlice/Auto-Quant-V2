@@ -273,6 +273,30 @@ class MultiIntervalCoreTests(unittest.TestCase):
             ],
         )
 
+    def test_xnys_session_identity_ignores_datetime_storage_resolution(self) -> None:
+        base = close_fixture(
+            [
+                "2026-03-09T14:30:00Z",
+                "2026-03-09T15:30:00Z",
+                "2026-03-09T16:30:00Z",
+                "2026-03-09T17:30:00Z",
+                "2026-03-09T18:30:00Z",
+                "2026-03-09T19:30:00Z",
+                "2026-03-09T20:00:00Z",
+            ]
+        )
+        base["timestamp"] = pd.DatetimeIndex(
+            pd.to_datetime(base["timestamp"], utc=True)
+        ).as_unit("us")
+
+        validated = validate_xnys_session_ohlcv(base, "1h")
+
+        self.assertEqual(len(validated), 7)
+        self.assertEqual(
+            validated.iloc[-1]["timestamp"],
+            pd.Timestamp("2026-03-09T20:00:00Z"),
+        )
+
     def test_xnys_early_close_and_exact_panel_are_enforced(self) -> None:
         early_close = close_fixture(
             [

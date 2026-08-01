@@ -1,5 +1,5 @@
 {
-  "bundleSha256": "e488d97f0c818272467d3912996da91814e7c477c57f3ce5e24bbe90ffceb20b",
+  "bundleSha256": "cdf447117d896821f7487a0a89e407522d55571752923405b7cf35a6890f3d38",
   "discoveryRoots": [
     ".agents/skills",
     ".claude/skills"
@@ -73,7 +73,7 @@
         },
         {
           "path": "scripts/fetch_binance_hourly.py",
-          "sha256": "4694fe05b3f9da8e53af54a9bf547e4c0e4f1b249a02ad9e6468a338be30deba"
+          "sha256": "1649517996d12730967b44826563af8343ef26f37d640d898b65eab73febed98"
         }
       ],
       "id": "fetch-binance-ohlcv"
