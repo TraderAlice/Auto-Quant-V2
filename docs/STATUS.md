@@ -18,25 +18,46 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 AutoQuant V2 has crossed the line from an architectural prototype into a
 usable Agent-native quantitative research workbench.
 
-The `0.9.12` patch comes from a fresh installed-`0.9.11`, zero-data Japanese
-Factor-to-Portfolio assignment. The coworker independently acquired two
-routes, authored the fixed trend-efficiency factor, preserved `1306.T` as
-context-only, and returned the correct weak/inconclusive Factor plus
-benchmark-inferior Portfolio conclusion. It nevertheless needed ad hoc code
-to survive two isolated Yahoo split-adjusted OHLC geometry defects, remap
-Nikkei provider codes back to canonical `.T` symbols, and ignore a misleading
-post-Dossier prompt to continue tuning.
+The `0.9.12` patch comes from a zero-data Japanese Factor-to-Portfolio field
+trial and two progressively cleaner installed-wheel replays. The final
+coworker wrote the English research brief first, selected `decision-signal`
+before its first Run, acquired Yahoo plus Nikkei evidence, kept `1306.T`
+strictly context-only, and produced exactly one Project, one Factor Run, one
+Portfolio Run, two Reports, one Factor-led Dossier, and no Session.
 
-Yahoo acquisition now defaults to the same strict rejection and adds only an
-explicit bounded `drop-observation` route. It retains exact raw bytes and the
-removed OHLCV receipt, never repairs prices, aborts above its small quality
-bound, and discloses common-panel loss. Nikkei examples keep canonical research
-symbols separate from provider lookup codes. A current immutable Dossier,
-including an upstream early-stop Dossier, now projects terminal
-`required-research-complete` state with `dossier.show` as read-only support and
-all later hypotheses explicitly optional. OpenAlice remains pinned to
-`0.8.31`. Exact evidence is in
+Yahoo acquisition now rejects both impossible OHLC geometry and short-lived
+fivefold scale islands by default. Separate explicit bounded policies may drop
+only the audited observations while retaining raw bytes, exact OHLCV, and
+boundary ratios; no price repair or rescaling is permitted. The final package
+disclosed one impossible observation each for `8306.T` and `8035.T`, a
+two-session `1306.T` scale island, and 1,844 aligned sessions for every asset.
+Nikkei examples keep canonical research symbols separate from provider lookup
+codes.
+
+The scientific handoff stayed honest: positive Factor validation IC was weak
+under HAC and cross-split evidence, and Portfolio validation Sharpe did not
+erase negative training active return or test benchmark-relative
+underperformance. Portfolio evidence remained gated context rather than a
+reason to promote the Factor. A current immutable Dossier now projects
+terminal `required-research-complete` state with `dossier.show` as read-only
+support and later hypotheses optional.
+
+The field trial also exposed ambient-Python drift: `aq` could resolve to the
+installed Harness while bare `python3` resolved elsewhere. Every bundled Skill
+now uses `aq-python`, an entry point bound to the Harness interpreter, and
+guidance forbids global or user-site dependency repair. Final repository
+verification passed 387 tests in 1,107.397 seconds, 1,328 documentation links,
+lock and Python/JavaScript syntax checks, build/install, installed-wheel Agent
+runtime, Studio, and no-hardlink clean-clone smokes. OpenAlice remains pinned
+to `0.8.31`. Exact evidence is in
 [[plans/japan-trend-efficiency-research-field-trial]].
+
+The final Python 3.11.14 wheel install exposed all 53 public `aq` commands and
+pandas 3.0.5. A fresh three-turn Grok 4.5 runtime smoke read only the generated
+Skills, selected `aq-python` without prompting, printed the trial venv's exact
+interpreter, and ran Yahoo provider help with no network request, package
+installation, ambient-Python repair, or Workspace mutation. Final wheel
+SHA-256: `0503714efb42ac0593c3e48dd7a9cad54596515edc2df823226a5a427d2e17da`.
 
 The `0.9.11` patch makes the end of a frozen external-period audit a durable
 research handoff. A fresh installed-`0.9.10` coworker correctly froze and ran

@@ -1,6 +1,6 @@
 # Japan trend-efficiency research field trial
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-08-01`
 - Target release: `0.9.12`
 - Related design: [[docs/design/agent-native-market-data-acquisition]],
@@ -78,24 +78,24 @@ translation after costs.
 
 ## Acceptance
 
-- [ ] A fresh installed-wheel worker preserves the exact question and writes
+- [x] A fresh installed-wheel worker preserves the exact question and writes
       the English research brief before quantitative work.
-- [ ] The worker starts with zero OHLCV, discovers the Japanese acquisition
+- [x] The worker starts with zero OHLCV, discovers the Japanese acquisition
       guidance, attempts two routes, and preserves truthful provider semantics
       and task-complete package evidence.
-- [ ] Exactly one predeclared Factor family evaluates the fixed formula over
+- [x] Exactly one predeclared Factor family evaluates the fixed formula over
       the exact prediction universe and caller-owned horizons without hidden
       parameter or universe search.
-- [ ] Portfolio evidence uses the same current Factor, long-only roles, named
+- [x] Portfolio evidence uses the same current Factor, long-only roles, named
       benchmark, cadence, caps, costs, and volatility ceiling.
-- [ ] The handoff distinguishes predictive qualification from post-cost
+- [x] The handoff distinguishes predictive qualification from post-cost
       portfolio viability and reports negative or inconclusive evidence
       honestly.
-- [ ] Context-only `1306.T` never enters Factor ranking or model positions and
+- [x] Context-only `1306.T` never enters Factor ranking or model positions and
       no result grants Order or trading authority.
-- [ ] Every material retry or failure becomes either deterministic regression
+- [x] Every material retry or failure becomes either deterministic regression
       coverage and a bounded repair or an explicit provider/research limit.
-- [ ] Final worker replay, complete tests, docs, build/install, Studio, and
+- [x] Final worker replay, complete tests, docs, build/install, Studio, and
       no-hardlink clean-clone smoke pass before `v0.9.12` is tagged and pushed.
 
 ## Work
@@ -107,7 +107,7 @@ translation after costs.
 - [x] Audit the transcript, files, evidence, and scientific answer.
 - [x] Implement only reproduced reusable friction with deterministic tests.
 - [x] Replay the complete assignment with a fresh worker.
-- [ ] Complete the `v0.9.12` release audit and publish the tag.
+- [x] Complete the `v0.9.12` release audit and publish the tag.
 
 ## Findings and decisions
 
@@ -242,6 +242,24 @@ translation after costs.
   bundle passed 35 focused tests in 2.423 seconds; `aq-python` selected the
   repository venv interpreter and imported its pandas without ambient
   `python3` or user-site repair.
+- Complete repository regression passed all 387 tests in 1,107.397 seconds,
+  and all 1,328 documentation links resolved. Lock validation, Python
+  compileall, and Studio JavaScript syntax checks also passed. The final
+  build/install, bounded Agent runtime, and clean-clone receipts are recorded
+  below at publication.
+- Final source and wheel distributions built successfully. The Python 3.11.14
+  wheel environment installed pandas 3.0.5, exposed all 53 public `aq`
+  commands, and resolved `aq-python` to its own interpreter. Wheel SHA-256 is
+  `0503714efb42ac0593c3e48dd7a9cad54596515edc2df823226a5a427d2e17da`;
+  sdist SHA-256 is
+  `7a38163d38d14275edbec727cd953c9b9ccf8980dd202ec2083d09106d97a0da`.
+- Fresh Grok 4.5 cohort 27 completed the exact installed-runtime smoke in
+  three turns. It read only the generated acquisition and Yahoo Skills, chose
+  `aq-python` itself, ran provider `--help`, printed the trial venv's exact
+  `sys.executable`, installed nothing, acquired nothing, and changed no
+  Workspace file. Session `019fbb6a-9e85-7850-9401-3143a3f49b2a` and its
+  76-line transcript remain under
+  `grok-field-trials/cohort-27-aq-python-runtime-v0912`.
 
 ## Progress log
 
@@ -265,7 +283,18 @@ translation after costs.
   cross-lane handoff, and terminal Dossier orientation. Its ambient-Python
   friction produced the final `aq-python` runtime bridge; only the complete
   release audit remains.
+- 2026-08-01 — Complete regression passed all 387 tests. The release audit
+  then rebuilt the distributions and repeated installed-wheel, bounded fresh
+  Agent, Studio, and no-hardlink clean-clone verification before publication.
 
 ## Completion
 
-Complete this section only when status becomes `completed`.
+AutoQuant `0.9.12` proved that a fresh coworker can start from a fixed Japanese
+research question and zero OHLCV, acquire and audit imperfect provider data,
+preserve the caller's prediction/context boundary, translate one fixed Factor
+into Portfolio evidence, and stop with a truthful negative/inconclusive
+Dossier. Reproduced Workbench friction became bounded data-quality gates,
+canonical provider identity, pre-Run claim guidance, terminal Dossier
+orientation, and a Harness-owned Python runtime bridge. The release adds no
+shared data inventory, live execution authority, or OpenAlice migration;
+OpenAlice deliberately remains on `0.8.31`.

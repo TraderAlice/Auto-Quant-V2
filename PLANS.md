@@ -18,9 +18,7 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-| Plan | Outcome | Updated |
-| --- | --- | --- |
-| [[plans/japan-trend-efficiency-research-field-trial]] | Prove a fresh coworker can turn one fixed Japanese large-cap trend-efficiency question and zero staged data into truthful Factor, Portfolio, and durable handoff evidence. | 2026-08-01 |
+None.
 
 ## Proposed plans
 
@@ -36,6 +34,7 @@ None.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/japan-trend-efficiency-research-field-trial]] | Proved a fresh coworker can turn one fixed Japanese large-cap trend-efficiency question and zero staged data into truthful Factor, Portfolio, and durable handoff evidence while surviving audited provider defects. | 2026-08-01 |
 | [[plans/frozen-holdout-research-handoff]] | Proved a fresh coworker can turn one completed Factor/Portfolio Dossier and a strictly later task-specific dataset into a frozen external-period audit and a durable immutable Assessment of whether each original conclusion still holds. | 2026-08-01 |
 | [[plans/same-project-data-vintage-refresh-field-trial]] | Proved one completed Project can answer the same fixed Book Risk question on a newer task-specific data vintage while preserving every old snapshot, Run, and Report. | 2026-08-01 |
 | [[plans/authority-gated-twse-factor-field-trial]] | Proved a zero-data coworker obeys a caller-fixed official-TWSE-plus-peer authority gate, preserves exact official failure evidence automatically, and stops without single-source factor authority when the gate fails. | 2026-08-01 |

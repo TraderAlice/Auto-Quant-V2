@@ -47,21 +47,42 @@ host-specific API. Bounded follow-up work defaults to patch releases within
 the `0.9.x` line.
 
 `v0.9.12` comes from a fresh zero-data Japanese Factor-to-Portfolio field
-trial. It keeps Yahoo's strict OHLC rejection as the default while offering one
-explicit, tightly bounded `drop-observation` policy for isolated impossible
-provider geometry. The policy preserves raw responses and exact removed
-OHLCV, never repairs prices, and makes aligned-panel loss visible. Japanese
-peer routes now keep a shared canonical research symbol such as `7203.T`
-separate from provider lookup codes such as Nikkei `7203`, so coverage
-comparison no longer requires an Agent-written remapping package.
+trial. The final coworker wrote the English brief first, selected the
+caller-correct `decision-signal` claim before evaluation, acquired two Japanese
+routes, and preserved `1306.T` as a context-only benchmark rather than a
+prediction or position asset. It created exactly one Project, one Factor Run,
+one Portfolio Run, two Reports, one Factor-led Dossier, and no Session.
 
-The same trial exposed a lifecycle problem after a truthful Factor-only early
-stop: a current immutable Dossier had already answered the request, but
-orientation still invited the next Agent to tune the blocked lane. A matching
-Dossier is now terminal `required-research-complete` state in CLI and Studio;
-exact Dossier inspection remains available and any further research agenda is
-explicitly optional. A stale Dossier never hides newer required evidence.
-OpenAlice remains intentionally unchanged on `v0.8.31`.
+The trial hardened Yahoo data quality without turning Core into a downloader.
+Strict impossible-OHLC and transient-scale-island rejection remain the
+defaults. Separate explicit `drop-observation` policies may remove only small,
+fully audited defects while retaining raw responses, exact rejected OHLCV, and
+boundary ratios; prices are never repaired, clamped, or rescaled. The accepted
+package disclosed two impossible observations (`8306.T` and `8035.T`) and a
+two-session temporary scale island in `1306.T`, then aligned all nine assets to
+1,844 sessions. Japanese peer routes also keep canonical symbols such as
+`7203.T` separate from provider codes such as Nikkei `7203`.
+
+The resulting answer was deliberately not rescued by an attractive scalar.
+Factor validation IC was positive, but cross-split and HAC evidence was weak;
+the Portfolio's validation Sharpe did not override negative training-period
+active return and large test-period benchmark-relative underperformance. The
+Dossier therefore keeps Portfolio results as gated context and returns an
+honest weak/inconclusive research conclusion with no Order or trading
+authority.
+
+A matching immutable Dossier now projects terminal
+`required-research-complete` state in CLI and Studio; exact inspection remains
+available while all later research is optional. Bundled Skills execute their
+Python scripts through `aq-python`, which uses the interpreter and dependencies
+that own the installed Harness instead of ambient `python3`, and explicitly
+forbid global or user-site dependency repair.
+
+The release audit passed all 387 tests in 1,107.397 seconds, resolved all 1,328
+documentation links, passed lock and Python/JavaScript syntax checks, and
+repeated build, isolated installed-wheel, final-Agent runtime, Studio, and
+no-hardlink clean-clone smoke checks. OpenAlice remains intentionally unchanged
+on `v0.8.31`.
 
 ### `v0.9.11`
 
