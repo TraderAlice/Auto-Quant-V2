@@ -71,15 +71,15 @@ not become a downloader or calendar oracle.
 
 ## Acceptance
 
-- [ ] The public Skill materializes a strict V4 daily source into V5 using only
+- [x] The public Skill materializes a strict V4 daily source into V5 using only
   explicit per-asset calendar authority and unchanged OHLCV rows.
-- [ ] The audit proves every input/output hash and exact scheduled-close
+- [x] The audit proves every input/output hash and exact scheduled-close
   transformation, including real XNYS DST and XTKS close-time changes.
-- [ ] Invalid authority, calendar, session, path, output, or source-package
+- [x] Invalid authority, calendar, session, path, output, or source-package
   cases fail without publishing a partial success package.
-- [ ] The generated V5 package passes audit, strict Project intake, Factor Run,
+- [x] The generated V5 package passes audit, strict Project intake, Factor Run,
   Explorer, and immutable Report publication.
-- [ ] Public Skill guidance makes the V4 acquisition → close-time materialize
+- [x] Public Skill guidance makes the V4 acquisition → close-time materialize
   → V5 audit/intake route discoverable without implementation inspection.
 - [ ] A fresh installed-wheel Grok coworker completes one bounded cross-market
   daily assignment from the date-based source package and stops truthfully on
@@ -89,9 +89,9 @@ not become a downloader or calendar oracle.
 
 ## Work
 
-- [ ] Define the strict authority manifest and deterministic transformation.
-- [ ] Implement the bundled Skill procedure and negative checks.
-- [ ] Add source-to-V5-to-Report integration tests and public guidance.
+- [x] Define the strict authority manifest and deterministic transformation.
+- [x] Implement the bundled Skill procedure and negative checks.
+- [x] Add source-to-V5-to-Report integration tests and public guidance.
 - [ ] Refresh version/sample evidence and run a fresh installed-wheel field
   assignment.
 - [ ] Complete the release audit, commit, tag, push, and verify `v0.9.25`.

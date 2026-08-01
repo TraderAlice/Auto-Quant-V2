@@ -1,6 +1,7 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha at `v0.9.24`; `v0.8.31` remains the Harness currently
+Status: `0.9.25` release candidate under bounded validation; `v0.9.24` is the
+latest published AutoQuant tag and `v0.8.31` remains the Harness currently
 consumed by OpenAlice until the host deliberately selects a newer tag.
 
 Updated: 2026-08-02.
@@ -16,11 +17,28 @@ historical proof remains in completed plans and immutable Git tags.
 
 ## Current milestone
 
-`v0.9.24` makes cross-market daily Factor research preserve information
-availability by exact completed close instant instead of civil date. V5 accepts
-observed base bars through `1d`, retains timezone-aware UTC close claims,
-ragged absent-no-fill rows, per-asset class and volume semantics, one explicit
-temporal target, and a horizon advancing only on that target's observed bars.
+The `0.9.25` candidate closes the remaining acquisition-side gap in
+cross-market daily Factor research. The public packaging Skill can now turn
+one strict date-only observed V4 package plus explicit content-bound per-asset
+calendar authority into a transactional V5 package with exact scheduled UTC
+closes. It preserves provider, adjustment, assets, absence, row counts, and
+OHLCV values, while its audit records source/output hashes, calendar-library
+identity, scheduled-close transitions, and limitations.
+
+The procedure fails before publishing an output directory on source drift,
+unknown or aliased calendars, timezone or inventory mismatch, non-session
+dates, unsafe paths, invalid OHLCV, or an occupied destination. Deterministic
+fixtures cover the XNYS daylight-saving transition and XTKS's November 2024
+close extension, then pass V5 intake, Factor execution, Explorer, and immutable
+Report publication. Fresh installed-wheel coworker evidence and the complete
+release audit remain pending in [[plans/calendar-derived-daily-close-time-packaging]].
+
+The published `v0.9.24` baseline already makes cross-market daily Factor
+research preserve information availability by exact completed close instant
+instead of civil date. V5 accepts observed base bars through `1d`, retains
+timezone-aware UTC close claims, ragged absent-no-fill rows, per-asset class
+and volume semantics, one explicit temporal target, and a horizon advancing
+only on that target's observed bars.
 
 Candidate code must express asynchronous context through an explicit causal
 backward as-of operation. Core never manufactures a common calendar or implicit
@@ -28,14 +46,14 @@ fill. Factor availability distinguishes the complete source panel from the
 target evaluation timeline, and deterministic Toyota/SPY evidence proves that
 a Tokyo decision cannot see the later same-date New York close.
 
-The root sample preserves thirteen historical Runs and projects a clean
-`0.9.24` Factor Run without rewriting old evidence. A fresh installed-wheel
+The root sample currently preserves thirteen historical Runs and projects a
+clean `0.9.24` Factor Run without rewriting old evidence. A fresh installed-wheel
 Grok 4.5 coworker completed one bounded cross-market daily assignment, used
 only public surfaces, and stopped honestly on weak validation and negative
 test evidence. Exact implementation, field, and release proof is in
 [[plans/close-time-aware-cross-market-daily-factor]].
 
-The release audit passed 433 tests, 1,436 documentation links, source/wheel
+The `v0.9.24` release audit passed 433 tests, 1,436 documentation links, source/wheel
 builds, fresh Python 3.11 installed-distribution smoke, and a no-local-override
 clean-clone Workspace replay. OpenAlice remains independently pinned to
 `v0.8.31`.

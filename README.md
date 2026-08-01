@@ -1,5 +1,5 @@
 ---
-version: 0.9.24
+version: 0.9.25
 ---
 
 # AutoQuant V2
@@ -32,7 +32,7 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current release: `v0.9.24`
+## Current release candidate: `0.9.25`
 
 The current tested capability and honest boundary live in
 [docs/STATUS.md](docs/STATUS.md). Read [docs/CHANGELOG.md](docs/CHANGELOG.md)

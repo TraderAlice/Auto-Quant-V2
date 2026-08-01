@@ -1,6 +1,6 @@
 ---
 name: package-autoquant-ohlcv
-description: Audit provider-acquired OHLCV, choose the narrowest truthful AutoQuant V1-V5 package contract, create a confined provenance-honest dataset manifest, and complete strict Project intake and validation. Use after any market-data provider acquisition or when repairing an external dataset package before AutoQuant research.
+description: Audit provider-acquired OHLCV, choose the narrowest truthful AutoQuant V1-V5 package contract, materialize exact exchange-calendar daily closes from date-only V4 into V5, create a confined provenance-honest dataset manifest, and complete strict Project intake and validation. Use after any market-data provider acquisition, for cross-market daily close-time packaging, or when repairing an external dataset package before AutoQuant research.
 ---
 
 # Package AutoQuant OHLCV
@@ -69,6 +69,40 @@ counts. It deliberately emits no price or volume comparison.
 Choose the narrowest contract that describes the acquired bytes. A provider
 claiming an interval or calendar does not prove the corresponding AutoQuant
 contract.
+
+## Materialize exact daily close times
+
+When one V4 package contains date-only observed daily rows from multiple
+session markets, do not append a nominal hour or write a private conversion
+program. First obtain explicit per-asset calendar authority, then use the
+bundled deterministic procedure:
+
+```bash
+aq-python scripts/materialize_daily_close_time.py \
+  --source-package /absolute/path/v4/dataset-package.json \
+  --authority /absolute/path/daily-close-time-authority.json \
+  --output /absolute/path/v5-close-time
+```
+
+Read the complete authority format and constraints in
+[package-contracts.md](references/package-contracts.md). The authority must
+bind the exact source package id, version, and SHA-256; name every asset's
+canonical `exchange_calendars` calendar and exact timezone; pin the installed
+calendar-library version; and declare truthful V5 volume semantics. Do not
+infer those fields from a symbol or venue.
+
+The output directory must be absent. On success, inspect both
+`dataset-package.json` and `close-time-audit.json`. The audit binds every
+source/output hash, scheduled-close transition, row count, and OHLCV
+preservation claim. The procedure never aligns, fills, drops, repairs, or
+changes an OHLCV value. Unknown calendars, timezone mismatches, non-session
+dates, inventory drift, unsafe paths, or an occupied output fail without a
+partial package.
+
+This route treats the pinned calendar schedule as explicit research authority,
+not an authenticated exchange record. It does not reconstruct unscheduled
+halts or provider corrections. Run `audit_ohlcv_package.py` again on the V5
+output, then complete strict Factor intake.
 
 ## Preserve provenance
 

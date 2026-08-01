@@ -10,6 +10,7 @@ from autoquant.skill_bundle import verify_materialized_workspace_skills
 from autoquant.studies import list_studies
 from autoquant.studio import build_studio_snapshot
 from autoquant.workspace import create_project, initialize_workspace, load_project
+from autoquant.version import current_version
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
@@ -50,7 +51,7 @@ class RepositoryWorkspaceTests(unittest.TestCase):
     def test_repository_skill_bundle_matches_current_harness(self) -> None:
         manifest = verify_materialized_workspace_skills(REPOSITORY_ROOT)
 
-        self.assertEqual(manifest["harnessVersion"], "0.9.24")
+        self.assertEqual(manifest["harnessVersion"], current_version())
         self.assertEqual(len(manifest["skills"]), 16)
 
     def test_repository_ignores_workspace_staging(self) -> None:

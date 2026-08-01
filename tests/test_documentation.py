@@ -37,7 +37,16 @@ class DocumentationTests(unittest.TestCase):
         )
         agents = (PROJECT_DIR / "AGENTS.md").read_text(encoding="utf-8")
 
-        self.assertEqual(readme.count("## Current release:"), 1)
+        self.assertEqual(
+            len(
+                re.findall(
+                    r"^## Current release(?: candidate)?:",
+                    readme,
+                    re.MULTILINE,
+                )
+            ),
+            1,
+        )
         self.assertNotRegex(
             readme,
             re.compile(r"^#{2,}\s+`?v?0\.\d+\.\d+`?\s*$", re.MULTILINE),
