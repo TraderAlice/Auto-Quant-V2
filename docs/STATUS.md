@@ -1,8 +1,8 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha released as `v0.9.17`; `v0.8.31` remains the Harness
-currently consumed by OpenAlice until the host deliberately selects a newer
-tag.
+Status: usable pre-alpha with `v0.9.18` in release-candidate verification;
+`v0.9.17` remains the latest published tag and `v0.8.31` remains the Harness
+currently consumed by OpenAlice until the host deliberately selects a newer tag.
 
 Updated: 2026-08-01.
 
@@ -17,6 +17,35 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 
 AutoQuant V2 has crossed the line from an architectural prototype into a
 usable Agent-native quantitative research workbench.
+
+The `0.9.18` candidate gives a related fixed Study an exact continuation
+contract instead of relying on copied prose or directory conventions. A Study
+may bind one prior immutable Run and selected declared artifacts, one exact
+Study-owned Research Request, and an optional matching position snapshot. Core
+verifies every Run/result/Study-input/artifact/request hash, freezes only those
+selected bytes into the next Run, and preserves the same authority through an
+optional governed Session.
+
+Run Reports follow the explicit frozen request at any confined Project path.
+Orientation selects one terminal continuation only when every Study forms a
+single connected parent chain; unrelated or branched Studies still require an
+explicit choice. CLI and Studio disclose the same request and upstream relation.
+The contract does not add data reuse, implicit latest-Run selection, arbitrary
+multi-parent DAGs, forecasting, execution, or trading authority. Exact baseline
+and candidate evidence is recorded in
+[[plans/post-drawdown-recovery-continuation-field-trial]].
+
+README now remains a concise product entrance. Version meaning, compatibility,
+release audit, tagging, and host-pin independence live in
+[[docs/design/versioning-and-release]]; current and historical verification
+stays here and exact release proof stays in completed plans.
+
+Focused Study, Run, Session, Orientation, Report, and CLI regression currently
+passes 79 tests in 140.082 seconds, and 1,378 documentation links resolve. Full
+release verification and fresh installed-wheel replay remain pending before the
+tag is published. OpenAlice remains independently pinned to `0.8.31`.
+
+### `v0.9.17`
 
 The `0.9.17` patch makes Review-driven Report correction an explicit
 append-only contract. A corrected Project-owned Run Report binds the exact

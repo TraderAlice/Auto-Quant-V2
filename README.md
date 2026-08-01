@@ -1,5 +1,5 @@
 ---
-version: 0.9.17
+version: 0.9.18
 ---
 
 # AutoQuant V2
@@ -32,11 +32,13 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current release: `v0.9.17`
+## Current release candidate: `v0.9.18`
 
-`v0.9.17` is the current released AutoQuant Workbench. OpenAlice remains
-independently pinned to `v0.8.31` until the host deliberately selects another
-tag; publishing AutoQuant does not migrate a Workspace or move a host pin.
+`v0.9.18` is the current AutoQuant release candidate; `v0.9.17` remains the
+latest published tag until the candidate replay and release audit pass.
+OpenAlice remains independently pinned to `v0.8.31` until the host deliberately
+selects another tag; publishing AutoQuant does not migrate a Workspace or move
+a host pin.
 
 For the tested capability, current honest boundary, verification summary, and
 release history, read [docs/STATUS.md](docs/STATUS.md). Version increments,
