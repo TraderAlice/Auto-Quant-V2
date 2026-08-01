@@ -135,6 +135,8 @@ INTAKE_TEMPLATE_REQUIREMENTS = {
     "ohlcv-allocation-lab": (5, 180),
     "ohlcv-research-desk": (5, 240),
 }
+STUDY_OWNED_DATASET_PROFILE = "study-owned-ohlcv"
+STUDY_OWNED_DATASET_REQUIREMENTS = (1, 2)
 
 
 def _issue(path: Path | str, code: str, message: str) -> ValidationIssue:
@@ -1499,14 +1501,19 @@ def prepare_project_intake(
 ) -> PreparedIntake:
     """Validate external request/data before a Project staging directory exists."""
 
-    if template not in INTAKE_TEMPLATE_REQUIREMENTS:
+    study_owned = template == STUDY_OWNED_DATASET_PROFILE
+    admitted_profiles = {
+        **INTAKE_TEMPLATE_REQUIREMENTS,
+        STUDY_OWNED_DATASET_PROFILE: STUDY_OWNED_DATASET_REQUIREMENTS,
+    }
+    if template not in admitted_profiles:
         raise AutoQuantValidationError(
             [
                 _issue(
                     template,
                     "intake.template",
-                    "Intake template must be one of: "
-                    + ", ".join(INTAKE_TEMPLATE_REQUIREMENTS),
+                    "Intake profile must be one of: "
+                    + ", ".join(admitted_profiles),
                 )
             ]
     )
@@ -1808,7 +1815,7 @@ def prepare_project_intake(
                         f"{FACTOR_MIN_ASSET_OBSERVATIONS} observed rows",
                     )
                 )
-    minimum_assets, minimum_observations = INTAKE_TEMPLATE_REQUIREMENTS[template]
+    minimum_assets, minimum_observations = admitted_profiles[template]
     if minimum_observations_override is not None:
         minimum_observations = minimum_observations_override
     if observed_intraday:
@@ -1920,6 +1927,7 @@ def prepare_project_intake(
     allocation_policy = request.get("allocationPolicy")
     if (
         position_snapshot is not None
+        and not study_owned
         and template not in {"ohlcv-book-risk-lab", "ohlcv-book-path-stress-lab"}
     ):
         issues.append(
@@ -1932,6 +1940,7 @@ def prepare_project_intake(
         )
     if (
         position_scenarios is not None
+        and not study_owned
         and template != "ohlcv-book-risk-lab"
     ):
         issues.append(
@@ -1944,6 +1953,7 @@ def prepare_project_intake(
         )
     if (
         position_sizing is not None
+        and not study_owned
         and template != "ohlcv-book-risk-lab"
     ):
         issues.append(
@@ -1955,6 +1965,7 @@ def prepare_project_intake(
         )
     if (
         event_policy is not None
+        and not study_owned
         and template != "ohlcv-event-study-lab"
     ):
         issues.append(
@@ -1966,6 +1977,7 @@ def prepare_project_intake(
         )
     if (
         path_stress_policy is not None
+        and not study_owned
         and template != "ohlcv-book-path-stress-lab"
     ):
         issues.append(
@@ -1978,6 +1990,7 @@ def prepare_project_intake(
         )
     if (
         allocation_policy is not None
+        and not study_owned
         and template != "ohlcv-allocation-lab"
     ):
         issues.append(
@@ -2170,6 +2183,10 @@ def prepare_project_intake(
                     )
                 ]
             )
+    if isinstance(position_snapshot, dict) and (
+        study_owned
+        or template in {"ohlcv-book-risk-lab", "ohlcv-book-path-stress-lab"}
+    ):
         as_of = pd.Timestamp(position_snapshot["asOf"])
         start_timestamp = pd.Timestamp(start)
         end_timestamp = pd.Timestamp(end)
@@ -2198,6 +2215,24 @@ def prepare_project_intake(
         assets=tuple(prepared),
         start=str(start),
         end=str(end),
+    )
+
+
+def prepare_study_dataset_intake(
+    request_path: str | Path,
+    package_path: str | Path,
+) -> PreparedIntake:
+    """Validate an external V1-V3 OHLCV package for one custom fixed Study.
+
+    This profile owns structural data authority only. The Study's fixed Judge
+    remains responsible for the scientific meaning of optional request policy
+    fields.
+    """
+
+    return prepare_project_intake(
+        request_path,
+        package_path,
+        STUDY_OWNED_DATASET_PROFILE,
     )
 
 

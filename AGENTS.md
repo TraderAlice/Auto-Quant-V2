@@ -117,6 +117,13 @@ brief that another Agent can recover from the filesystem.
    data namespace and preserves all earlier evidence. If asset descriptions,
    roles, market clock, adjustment meaning, or the body of research differ,
    acquire a task-complete package for a sibling Project instead.
+   For another fixed custom question that still belongs to the same Project,
+   use `aq study create ... --request <request.json> --dataset
+   <complete-package.json>`. This atomically creates its Study-owned request
+   and V1-V3 OHLCV closure; do not inspect installed implementation modules or
+   hand-write a materialization script. Supply the scientific Judge and
+   objective explicitly. Use a sibling Project only when the body of research
+   itself no longer belongs together.
 8. After every Experiment, re-read `aq orient`. Treat
    `evidence.latestExperiment` as the immutable trial/check pointer and
    `trial-review-required` as an Agent/caller choice to report/complete or

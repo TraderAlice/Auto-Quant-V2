@@ -25,6 +25,7 @@ from autoquant.intake import (
     load_project_intake,
     materialize_intake_dataset,
     prepare_project_intake,
+    prepare_study_dataset_intake,
 )
 from autoquant.mandates import (
     PORTFOLIO_MANDATE,
@@ -66,6 +67,47 @@ from tests.intake_helpers import (
 
 
 class RequestDrivenIntakeTests(unittest.TestCase):
+    def test_generic_study_owned_profile_admits_aligned_v1_v2_v3_only(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for expected, writer in (
+                (1, write_intake_inputs),
+                (2, write_multi_interval_inputs),
+                (3, write_session_interval_inputs),
+            ):
+                with self.subTest(schema_version=expected):
+                    fixture = root / f"v{expected}"
+                    fixture.mkdir()
+                    request, package = writer(fixture)
+                    prepared = prepare_study_dataset_intake(request, package)
+                    self.assertEqual(
+                        prepared.package["schemaVersion"],
+                        expected,
+                    )
+                    self.assertEqual(prepared.template, "study-owned-ohlcv")
+
+            v4 = root / "v4"
+            v4.mkdir()
+            request, package = write_intake_inputs(v4)
+            manifest = json.loads(package.read_text(encoding="utf-8"))
+            manifest["schemaVersion"] = 4
+            manifest["panelPolicy"] = {
+                "alignment": "observed-only",
+                "missingObservation": "absent-no-fill",
+            }
+            package.write_text(
+                json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            with self.assertRaises(AutoQuantValidationError) as caught:
+                prepare_study_dataset_intake(request, package)
+            self.assertIn(
+                "dataset.ragged-factor-only",
+                {issue.code for issue in caught.exception.issues},
+            )
+
     def test_intake_hydrates_pristine_scaffold_and_preserves_agent_notes(
         self,
     ) -> None:

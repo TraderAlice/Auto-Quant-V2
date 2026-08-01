@@ -236,6 +236,36 @@ content identity. Old Project-root request/snapshot/Judge bytes and immutable
 evidence remain independently loadable. Project research notes may continue
 to record the longitudinal question; they are not Run inputs.
 
+Any existing Project may also add a scientifically distinct custom fixed Study
+from a complete external V1-V3 package through
+`aq study create --request <request.json> --dataset <package.json>`. That
+generic route owns only the request and data namespace; the caller must still
+supply the fixed Judge, subject, objective, editability, and any exact upstream
+Run evidence. Its canonical layout is:
+
+```text
+strategies/<study-id>/
+├── request.json
+└── position-snapshot.json  # only when present in the request
+
+data/studies/<study-id>/ohlcv/
+├── <symbol>.csv            # or V2/V3 interval directories
+├── snapshot.json
+└── README.md
+
+studies/<study-id>/
+├── study.json
+└── program.md
+```
+
+The Study dataset definition, exact request dependencies, and optional
+position snapshot are inferred from the validated package. Additional fixed
+strategy/factor/model dependencies compose with those generated files. The
+route rejects occupied ownership paths before writing and rolls all three
+namespaces back after an ordinary construction failure. It never reuses
+ambient data automatically, changes Project-root intake, or pretends a custom
+Judge is one of the specialized Project templates.
+
 The Event Study template derives `strategies/event-study.json` from strict
 `request.eventPolicy`. The first policy supports one downside opening-gap
 event, one event asset, one reference asset, exact wait/holding bars,

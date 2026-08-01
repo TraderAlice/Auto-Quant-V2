@@ -83,6 +83,8 @@ contract.
 
 Only after the English research brief and strict Research Request agree:
 
+For a new research body, create its Project-root authority:
+
 ```bash
 aq project intake <workspace> <project-id> \
   --request /absolute/path/research-request.json \
@@ -91,6 +93,31 @@ aq project intake <workspace> <project-id> \
 aq validate <workspace> --project <project-id> --json
 aq orient <workspace> --project <project-id> --json
 ```
+
+For a distinct fixed question that belongs inside an existing Project, keep a
+complete task-local package and create one Study-owned authority in the same
+operation:
+
+```bash
+aq study create <workspace> <study-id> \
+  --project <project-id> \
+  --subject-kind research \
+  --judge <project-relative-judge.py> \
+  --judge-path '<project-relative-judge-closure>' \
+  --no-editable \
+  --metric <primary-metric> \
+  --request /absolute/path/research-request.json \
+  --dataset /absolute/path/dataset-package.json \
+  --json
+aq validate <workspace> --project <project-id> --json
+```
+
+Add fixed method files with repeatable `--dependency`. Add prior immutable
+evidence only with an exact `--upstream-run` plus repeatable
+`--upstream-artifact`. Do not pass manual dataset identity flags with external
+`--request/--dataset`, impersonate a specialized template, inspect installed
+AutoQuant source, or write a private materialization script. This generic route
+accepts aligned V1-V3 packages; V4/V5 remain Factor-only.
 
 Return the Project id, content-locked snapshot identity, source hashes,
 coverage, unresolved provider limitations, and no trading authority. A valid

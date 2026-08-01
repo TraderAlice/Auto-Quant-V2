@@ -108,7 +108,8 @@ provider codes and prefixes never infer instrument class.
 ## Evidence and lifecycle
 
 Acquisition writes to explicit Workspace staging, never directly into a
-Project:
+Project. A package may later become either initial Project authority or one
+Study's independently owned authority:
 
 ```text
 workspace/
@@ -120,13 +121,20 @@ workspace/
 └── projects/<project-id>/data/ohlcv/
     ├── normalized content-locked inputs
     └── snapshot.json
+
+# Same-Project distinct question:
+projects/<project-id>/data/studies/<study-id>/ohlcv/
+├── normalized content-locked inputs
+└── snapshot.json
 ```
 
 The provider audit retains request URIs, observed retrieval time, raw hashes,
 response metadata, conversions, dropped placeholders, anomalies, and
 limitations. Staging remains caller/host-owned working evidence. A package
 becomes quantitative input authority only after strict `aq project intake`
-creates the Project-local normalized snapshot and `aq validate` passes.
+creates the Project-root normalized snapshot, or
+`aq study create --request ... --dataset ...` creates a Study-owned snapshot,
+and Project validation passes.
 
 Provider-shape rejection remains the default. A narrow provider Skill may
 offer an explicit audited observation-drop policy for isolated impossible OHLC

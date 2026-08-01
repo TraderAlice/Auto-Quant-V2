@@ -12,8 +12,12 @@ import jsonschema
 
 from autoquant.sessions import list_experiments, start_session
 from autoquant.runs import execute_study
-from autoquant.studies import create_study
-from tests.intake_helpers import write_intake_inputs
+from autoquant.intake import load_study_dataset_snapshot
+from autoquant.studies import create_study, hash_json, load_study
+from tests.intake_helpers import (
+    write_intake_inputs,
+    write_observed_intraday_inputs,
+)
 from tests.study_helpers import (
     SUCCESS_JUDGE,
     make_project,
@@ -40,6 +44,297 @@ def json_output(result: subprocess.CompletedProcess[str]) -> dict:
 
 
 class AgentCliTests(unittest.TestCase):
+    def test_study_create_atomically_intakes_external_request_and_dataset(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _, project = make_project(root)
+            inputs = root / "inputs"
+            inputs.mkdir()
+            request, package = write_intake_inputs(inputs)
+            create_study(project, study_definition(study_id="prior-evidence"))
+            prior = execute_study(project, "prior-evidence")
+            raw = json.loads(request.read_text(encoding="utf-8"))
+            raw["direction"] = "research-only"
+            raw["positionSnapshot"] = {
+                "kind": "reported-weights",
+                "asOf": "2024-12-30T21:00:00Z",
+                "baseCurrency": "USD",
+                "weights": {"AAPL": 0.55, "MSFT": 0.35},
+                "cashWeight": 0.10,
+            }
+            request.write_text(
+                json.dumps(raw, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+
+            created = run_cli(
+                "study",
+                "create",
+                str(project.root_dir),
+                "durability-follow-up",
+                "--subject-kind",
+                "research",
+                "--judge",
+                "judges/evaluate.py",
+                "--judge-path",
+                "judges/**",
+                "--no-editable",
+                "--dependency",
+                "factors/candidate.py",
+                "--request",
+                str(request),
+                "--dataset",
+                str(package),
+                "--metric",
+                "score",
+                "--upstream-run",
+                prior.result["id"],
+                "--upstream-artifact",
+                "artifacts/report.json",
+                "--json",
+            )
+
+            self.assertEqual(created.returncode, 0, created.stderr)
+            envelope = json_output(created)
+            data = envelope["data"]
+            definition = data["definition"]
+            self.assertEqual(
+                definition["dataset"],
+                {
+                    "id": "bounded-us-equities",
+                    "version": "2024-v1",
+                    "asset_class": "equity",
+                    "universe": ["AAPL", "MSFT", "NVDA", "QQQ", "SPY"],
+                    "time_range": {
+                        "start": "2024-01-02",
+                        "end": "2024-12-30",
+                    },
+                    "paths": ["studies/durability-follow-up/ohlcv/**"],
+                },
+            )
+            self.assertEqual(
+                definition["research_request"],
+                {
+                    "path": "strategies/durability-follow-up/request.json",
+                    "position_snapshot_path": (
+                        "strategies/durability-follow-up/position-snapshot.json"
+                    ),
+                },
+            )
+            self.assertEqual(
+                definition["dependencies"]["paths"],
+                [
+                    "strategies/durability-follow-up/request.json",
+                    "strategies/durability-follow-up/position-snapshot.json",
+                    "factors/candidate.py",
+                ],
+            )
+            self.assertEqual(
+                definition["upstream_evidence"]["run_id"],
+                prior.result["id"],
+            )
+            self.assertEqual(
+                [item["kind"] for item in envelope["artifacts"]],
+                [
+                    "study",
+                    "research-request",
+                    "dataset-snapshot",
+                    "position-snapshot",
+                ],
+            )
+
+            study = load_study(project, "durability-follow-up")
+            snapshot = load_study_dataset_snapshot(project, study)
+            self.assertIsNotNone(snapshot)
+            assert snapshot is not None
+            self.assertEqual(snapshot["template"], "study-owned-ohlcv")
+            self.assertEqual(snapshot["requestHash"], hash_json(raw))
+            run = execute_study(project, study.definition.id)
+            self.assertEqual(run.result["status"], "succeeded")
+            self.assertIn(
+                "inputs/dependency-sources/strategies/durability-follow-up/request.json",
+                run.manifest["files"],
+            )
+            frozen_dataset = json.loads(
+                (run.root_dir / "inputs" / "dataset-files.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertIn(
+                "studies/durability-follow-up/ohlcv/snapshot.json",
+                frozen_dataset,
+            )
+
+    def test_study_create_external_intake_rolls_back_after_study_failure(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _, project = make_project(root)
+            inputs = root / "inputs"
+            inputs.mkdir()
+            request, package = write_intake_inputs(inputs)
+            preserved = project.root_dir / "factors" / "candidate.py"
+            before = preserved.read_bytes()
+
+            failed = run_cli(
+                "study",
+                "create",
+                str(project.root_dir),
+                "rollback-proof",
+                "--subject-kind",
+                "research",
+                "--judge",
+                "judges/missing.py",
+                "--no-editable",
+                "--request",
+                str(request),
+                "--dataset",
+                str(package),
+                "--json",
+            )
+
+            self.assertEqual(failed.returncode, 1)
+            self.assertEqual(
+                json_output(failed)["error"]["issues"][0]["code"],
+                "study.judge-entrypoint",
+            )
+            self.assertFalse(
+                (project.root_dir / "strategies" / "rollback-proof").exists()
+            )
+            self.assertFalse(
+                (project.root_dir / "data" / "studies" / "rollback-proof").exists()
+            )
+            self.assertFalse(
+                (project.root_dir / "studies" / "rollback-proof").exists()
+            )
+            self.assertEqual(preserved.read_bytes(), before)
+
+    def test_study_create_external_and_manual_dataset_forms_are_exclusive(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _, project = make_project(root)
+            inputs = root / "inputs"
+            inputs.mkdir()
+            request, package = write_intake_inputs(inputs)
+            common = (
+                "study",
+                "create",
+                str(project.root_dir),
+                "invalid-intake",
+                "--subject-kind",
+                "research",
+                "--judge",
+                "judges/evaluate.py",
+                "--no-editable",
+            )
+
+            unpaired = run_cli(*common, "--request", str(request), "--json")
+            self.assertEqual(unpaired.returncode, 2)
+            self.assertIn(
+                "--request and --dataset are required together",
+                json_output(unpaired)["error"]["message"],
+            )
+
+            mixed = run_cli(
+                *common,
+                "--request",
+                str(request),
+                "--dataset",
+                str(package),
+                "--dataset-id",
+                "manual",
+                "--json",
+            )
+            self.assertEqual(mixed.returncode, 2)
+            self.assertIn(
+                "cannot be mixed with: --dataset-id",
+                json_output(mixed)["error"]["message"],
+            )
+            self.assertFalse(
+                (project.root_dir / "strategies" / "invalid-intake").exists()
+            )
+
+    def test_study_create_external_intake_never_overwrites_owned_paths(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _, project = make_project(root)
+            inputs = root / "inputs"
+            inputs.mkdir()
+            request, package = write_intake_inputs(inputs)
+            occupied = project.root_dir / "strategies" / "occupied-study"
+            occupied.mkdir()
+            marker = occupied / "caller.txt"
+            marker.write_text("preserve me\n", encoding="utf-8")
+
+            failed = run_cli(
+                "study",
+                "create",
+                str(project.root_dir),
+                "occupied-study",
+                "--subject-kind",
+                "research",
+                "--judge",
+                "judges/evaluate.py",
+                "--no-editable",
+                "--request",
+                str(request),
+                "--dataset",
+                str(package),
+                "--json",
+            )
+
+            self.assertEqual(failed.returncode, 1)
+            issue = json_output(failed)["error"]["issues"][0]
+            self.assertEqual(issue["code"], "study.intake-owned-path")
+            self.assertEqual(marker.read_text(encoding="utf-8"), "preserve me\n")
+            self.assertFalse(
+                (project.root_dir / "data" / "studies" / "occupied-study").exists()
+            )
+
+    def test_study_create_external_intake_keeps_observed_v5_factor_only(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _, project = make_project(root)
+            inputs = root / "inputs"
+            inputs.mkdir()
+            request, package = write_observed_intraday_inputs(inputs)
+
+            failed = run_cli(
+                "study",
+                "create",
+                str(project.root_dir),
+                "generic-observed-study",
+                "--subject-kind",
+                "research",
+                "--judge",
+                "judges/evaluate.py",
+                "--no-editable",
+                "--request",
+                str(request),
+                "--dataset",
+                str(package),
+                "--json",
+            )
+
+            self.assertEqual(failed.returncode, 1)
+            issues = json_output(failed)["error"]["issues"]
+            self.assertIn(
+                "dataset.observed-intraday-factor-only",
+                {issue["code"] for issue in issues},
+            )
+            self.assertFalse(
+                (project.root_dir / "strategies" / "generic-observed-study").exists()
+            )
+
     def test_study_create_binds_request_and_upstream_run_artifact(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             _, project = make_project(directory)
@@ -922,6 +1217,8 @@ class AgentCliTests(unittest.TestCase):
                 "no-editable",
                 "request-path",
                 "position-snapshot-path",
+                "request",
+                "dataset",
                 "upstream-run",
                 "upstream-artifact",
             }.issubset(argument_names)

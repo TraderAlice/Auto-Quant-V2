@@ -374,6 +374,14 @@ request and `studies/<study-id>/ohlcv/**` closure while previous Studies keep
 their original paths and hashes. No `latest` pointer participates in Study or
 Run identity.
 
+A custom fixed Study can own the same namespaced shape directly through
+`aq study create --request FILE --dataset PACKAGE`. This is not template
+selection. The generic `study-owned-ohlcv` admission profile verifies aligned
+V1-V3 package structure, request/package agreement, clock and interval
+contracts, provenance claims, horizon capacity, normalized bytes, and exact
+content identity. The supplied Judge remains the sole owner of scientific
+policy semantics. V4/V5 stay on their proven Factor route.
+
 The initial Study declares `ohlcv/**`; a Study-owned vintage declares its
 namespaced closure. In either case canonical CSV, snapshot, and README bytes
 all enter `datasetHash`, Run identity, Session locks, and Reports. Editing any
@@ -499,6 +507,30 @@ one dataset snapshot supports coordinated Factor, Portfolio, and governed RL
 Studies without asking the caller to choose an implementation method.
 
 The command does not silently run research.
+
+### Atomic Study-owned construction
+
+For a distinct question inside an existing Project, the public operation is:
+
+```text
+aq study create <project> <study-id>
+  --request <request.json>
+  --dataset <ohlcv-package.json>
+  <fixed Judge and objective options>
+```
+
+Core validates external inputs before mutation, proves
+`strategies/<study-id>`, `data/studies/<study-id>`, and
+`studies/<study-id>` are all unoccupied, materializes canonical request/data,
+derives the exact Study dataset definition and request dependencies, then
+validates and publishes the Study. A request-owned position snapshot is
+generated and bound when present. Optional additional dependencies and one
+exact upstream Run binding are composed before publication.
+
+If materialization or Study validation fails, Core removes only those owned
+paths that were proven absent at entry. Existing Project files and immutable
+evidence remain untouched. This is command-level rollback for ordinary
+failures, not a claim of power-loss-safe multi-directory transactions.
 
 ## Studio
 

@@ -441,6 +441,19 @@ aq study create <path> <study-id> \
   --start 2026-01-01 \
   --end 2026-01-31
 
+# External-package form for a new Study inside an existing Project:
+aq study create <path> <study-id> \
+  --subject-kind research \
+  --judge judges/evaluate.py \
+  --judge-path 'judges/**' \
+  --no-editable \
+  [--dependency 'strategies/fixed-method.json'] \
+  [--upstream-run run-...] \
+  [--upstream-artifact 'artifacts/selected-episodes.csv'] \
+  --metric score \
+  --request /absolute/path/research-request.json \
+  --dataset /absolute/path/dataset-package.json
+
 aq study list <path> [--project ID] [--json]
 aq study inspect <path> --study ID [--project ID] [--json]
 aq run execute <path> --study ID [--project ID] [--json]
@@ -486,6 +499,26 @@ Project-root request merely because both Studies share one Project.
 `--dataset-path` is optional and repeatable. When provided it is relative to
 the selected Project's `data/` directory and binds matching file bytes into
 Study and Run identity.
+
+`study create` has two exclusive dataset forms. The manual form above binds an
+already materialized or custom dataset using `--dataset-id`, `--asset-class`,
+`--asset`, `--start`, and `--end`. The external-package form supplies
+`--request` and `--dataset` together and omits every manual request/dataset
+identity option. Core strictly validates an aligned V1-V3 package, normalizes
+it beneath `data/studies/<study-id>/ohlcv/`, writes the canonical request at
+`strategies/<study-id>/request.json`, infers the complete Study dataset
+contract, and creates the Study as one operation. If the request contains a
+reported `positionSnapshot`, Core also generates and binds the matching
+`position-snapshot.json`.
+
+The external form does not infer a Judge, objective, subject, or scientific
+method. Its `study-owned-ohlcv` profile establishes structural data authority
+only; the fixed Judge owns the meaning of request policy fields. V4 ragged
+daily and V5 observed intraday packages remain Factor-only. Generated request
+files are merged with repeatable additional `--dependency` values and optional
+upstream immutable Run evidence. Existing owned paths are never overwritten;
+an ordinary validation or Study-creation failure removes all newly created
+request, data, and Study paths.
 
 For a Study that edits `factors/**`, `study inspect` returns the same strict
 `candidateContract` used by orientation. Human output prints its base

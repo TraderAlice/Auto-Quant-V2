@@ -133,6 +133,11 @@ from .intake import (
     load_study_dataset_snapshot,
     prepare_project_intake,
 )
+from .study_datasets import (
+    create_study_with_owned_dataset,
+    prepare_study_owned_dataset,
+    rollback_study_owned_dataset,
+)
 from .holdouts import (
     HOLDOUT_ASSESSMENT_ANALYSIS_JSON_SCHEMA,
     HOLDOUT_ASSESSMENT_JSON_SCHEMA,
@@ -554,7 +559,10 @@ def build_parser() -> RaisingArgumentParser:
 
     study_create = study_actions.add_parser(
         "create",
-        help="create one fixed Project-local Study",
+        help=(
+            "create one fixed Project-local Study, optionally with an atomic "
+            "external request/OHLCV intake"
+        ),
     )
     study_create.add_argument("path")
     study_create.add_argument("study_id")
@@ -599,6 +607,21 @@ def build_parser() -> RaisingArgumentParser:
         ),
     )
     study_create.add_argument(
+        "--request",
+        help=(
+            "external strict Research Request to materialize as this Study's "
+            "canonical fixed request; requires --dataset and cannot be mixed "
+            "with --request-path or manual dataset identity options"
+        ),
+    )
+    study_create.add_argument(
+        "--dataset",
+        help=(
+            "external V1-V3 OHLCV dataset-package manifest to validate, "
+            "normalize, and bind under this Study; requires --request"
+        ),
+    )
+    study_create.add_argument(
         "--position-snapshot-path",
         help=(
             "optional fixed position snapshot paired with --request-path; the "
@@ -624,17 +647,39 @@ def build_parser() -> RaisingArgumentParser:
         default="maximize",
     )
     study_create.add_argument("--minimum-improvement", type=float, default=0.0)
-    study_create.add_argument("--dataset-id", required=True)
-    study_create.add_argument("--dataset-version", default="working")
+    study_create.add_argument(
+        "--dataset-id",
+        help="manual-form dataset id; required unless external intake is used",
+    )
+    study_create.add_argument(
+        "--dataset-version",
+        help="manual-form dataset version (default: working)",
+    )
     study_create.add_argument(
         "--dataset-path",
         action="append",
-        help="repeatable Project-data-relative file or trailing /** closure",
+        help=(
+            "repeatable manual-form Project-data-relative file or trailing "
+            "/** closure; external intake infers its own closure"
+        ),
     )
-    study_create.add_argument("--asset-class", required=True)
-    study_create.add_argument("--asset", action="append", required=True)
-    study_create.add_argument("--start", required=True)
-    study_create.add_argument("--end", required=True)
+    study_create.add_argument(
+        "--asset-class",
+        help="manual-form dataset class; required unless external intake is used",
+    )
+    study_create.add_argument(
+        "--asset",
+        action="append",
+        help="repeatable manual-form universe; required unless external intake is used",
+    )
+    study_create.add_argument(
+        "--start",
+        help="manual-form dataset start; required unless external intake is used",
+    )
+    study_create.add_argument(
+        "--end",
+        help="manual-form dataset end; required unless external intake is used",
+    )
     study_create.add_argument("--timeout", type=int, default=60)
     study_create.set_defaults(command_id="study.create")
     _json_argument(study_create)
@@ -2044,12 +2089,92 @@ def _brief_next_actions(brief: dict[str, Any]) -> list[dict[str, Any]]:
 
 def _study_create(args: argparse.Namespace) -> CommandResult:
     project = _selected_project(args)
+    external_intake = args.request is not None or args.dataset is not None
+    if bool(args.request) != bool(args.dataset):
+        raise CliUsageError("--request and --dataset are required together")
+    manual_fields = {
+        "--request-path": args.request_path,
+        "--position-snapshot-path": args.position_snapshot_path,
+        "--dataset-id": args.dataset_id,
+        "--dataset-version": args.dataset_version,
+        "--dataset-path": args.dataset_path,
+        "--asset-class": args.asset_class,
+        "--asset": args.asset,
+        "--start": args.start,
+        "--end": args.end,
+    }
+    if external_intake:
+        mixed = [name for name, value in manual_fields.items() if value is not None]
+        if mixed:
+            raise CliUsageError(
+                "--request/--dataset infer the complete Study-owned data "
+                "contract and cannot be mixed with: " + ", ".join(mixed)
+            )
+    else:
+        required_manual = {
+            "--dataset-id": args.dataset_id,
+            "--asset-class": args.asset_class,
+            "--asset": args.asset,
+            "--start": args.start,
+            "--end": args.end,
+        }
+        missing = [name for name, value in required_manual.items() if value is None]
+        if missing:
+            raise CliUsageError(
+                "manual Study construction requires: " + ", ".join(missing)
+            )
     if args.position_snapshot_path and not args.request_path:
         raise CliUsageError("--position-snapshot-path requires --request-path")
     if bool(args.upstream_run) != bool(args.upstream_artifact):
         raise CliUsageError(
             "--upstream-run and at least one --upstream-artifact are required together"
         )
+    owned_dataset = (
+        prepare_study_owned_dataset(
+            project,
+            args.study_id,
+            args.request,
+            args.dataset,
+        )
+        if external_intake
+        else None
+    )
+    dataset = (
+        owned_dataset.dataset
+        if owned_dataset is not None
+        else StudyDataset(
+            args.dataset_id,
+            args.dataset_version or "working",
+            args.asset_class,
+            args.asset,
+            StudyTimeRange(args.start, args.end),
+            args.dataset_path,
+        )
+    )
+    research_request = (
+        owned_dataset.research_request
+        if owned_dataset is not None
+        else (
+            StudyResearchRequest(
+                args.request_path,
+                args.position_snapshot_path,
+            )
+            if args.request_path
+            else None
+        )
+    )
+    dependency_paths = list(
+        dict.fromkeys(
+            [
+                *(
+                    owned_dataset.generated_dependencies
+                    if owned_dataset is not None
+                    else []
+                ),
+                *(args.dependency or []),
+            ]
+        )
+    )
     definition = StudyDefinition(
         schema_version=1,
         id=args.study_id,
@@ -2074,27 +2199,13 @@ def _study_create(args: argparse.Namespace) -> CommandResult:
             args.direction,
             args.minimum_improvement,
         ),
-        dataset=StudyDataset(
-            args.dataset_id,
-            args.dataset_version,
-            args.asset_class,
-            args.asset,
-            StudyTimeRange(args.start, args.end),
-            args.dataset_path,
-        ),
+        dataset=dataset,
         dependencies=(
-            {"paths": args.dependency}
-            if args.dependency
+            {"paths": dependency_paths}
+            if dependency_paths
             else None
         ),
-        research_request=(
-            StudyResearchRequest(
-                args.request_path,
-                args.position_snapshot_path,
-            )
-            if args.request_path
-            else None
-        ),
+        research_request=research_request,
         upstream_evidence=(
             bind_upstream_evidence(
                 project,
@@ -2105,20 +2216,67 @@ def _study_create(args: argparse.Namespace) -> CommandResult:
             else None
         ),
     )
-    study = create_study(project, definition)
+    try:
+        study = (
+            create_study_with_owned_dataset(project, definition, owned_dataset)
+            if owned_dataset is not None
+            else create_study(project, definition)
+        )
+        study_data = _study_data(project, study)
+    except Exception:
+        if owned_dataset is not None:
+            rollback_study_owned_dataset(owned_dataset)
+        raise
+    result_artifacts = [
+        artifact(
+            "study",
+            study.definition.id,
+            study.manifest_path,
+            immutable=False,
+        )
+    ]
+    if owned_dataset is not None:
+        result_artifacts.extend(
+            [
+                artifact(
+                    "research-request",
+                    f"{study.definition.id}:request",
+                    project.root_dir / owned_dataset.research_request.path,
+                    immutable=False,
+                ),
+                artifact(
+                    "dataset-snapshot",
+                    f"{study.definition.id}:dataset",
+                    owned_dataset.data_owner_root / "ohlcv" / "snapshot.json",
+                    immutable=False,
+                ),
+            ]
+        )
+        if owned_dataset.research_request.position_snapshot_path is not None:
+            result_artifacts.append(
+                artifact(
+                    "position-snapshot",
+                    owned_dataset.position_snapshot["id"],
+                    project.root_dir
+                    / owned_dataset.research_request.position_snapshot_path,
+                    immutable=False,
+                )
+            )
     return CommandResult(
         "study.create",
-        _study_data(project, study),
-        f"Created AutoQuant Study '{study.definition.id}' at {study.root_dir}\n",
-        project_context(project),
-        [
-            artifact(
-                "study",
-                study.definition.id,
-                study.manifest_path,
-                immutable=False,
+        study_data,
+        (
+            f"Created AutoQuant Study '{study.definition.id}' at {study.root_dir}\n"
+            + (
+                "Materialized Study-owned request and OHLCV: "
+                f"{owned_dataset.prepared.package['id']}@"
+                f"{owned_dataset.prepared.package['version']}\n"
+                if owned_dataset is not None
+                else ""
             )
-        ],
+        ),
+        project_context(project),
+        result_artifacts,
         [
             next_action(
                 "run.execute",
