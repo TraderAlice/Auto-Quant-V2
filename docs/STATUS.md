@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha released as `v0.9.13`; `v0.8.31` remains the Harness
+Status: usable pre-alpha released as `v0.9.14`; `v0.8.31` remains the Harness
 currently consumed by OpenAlice until the host deliberately selects a newer
 tag.
 
@@ -17,6 +17,51 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 
 AutoQuant V2 has crossed the line from an architectural prototype into a
 usable Agent-native quantitative research workbench.
+
+The `0.9.14` patch proves the two halves of ordinary delegation. Under the
+released `0.9.13` baseline, a fresh coworker received a materially incomplete
+portfolio question, wrote a durable English brief, asked bounded caller-owned
+questions, and stopped with no data, Project, Study, Session, Run, Report, or
+quantitative authority. After clarification, the same conversation resumed
+from the revised brief rather than inventing holdings, constraints, clock, or
+data terms.
+
+That clarification exposed fixed Book Risk defects rather than a need for a
+generic intake form. A one-held-asset-plus-cash baseline is now valid when the
+candidate is honestly absent. Direction-specific target bounds are mandatory
+for sizing; the immutable result distinguishes caller-weight, cash,
+volatility, unchanged-book, and infeasible boundaries. The target book also
+contains its governing pairwise correlations and constant-weight drawdown,
+and the rolling observation floor can match the largest declared lookback
+without weakening complete-window evaluation.
+
+The final isolated `0.9.14` wheel replay used no source checkout, prior trial,
+or staged data. Grok session
+`019fbbd5-ca4a-7b01-ac69-7ac0a3419bf6` acquired Yahoo and Nasdaq packages and
+created Project `nvda-cash-size-vol-ceiling`, Study `ohlcv-book-risk`, Run
+`run-20260801T054228037779Z-c9f31536b860`, and Report
+`report-20260801T054310758003Z-cc8455716151`, with no Session. The fixed Run
+kept baseline weights exactly `{QQQ: 0.70}` and returned a 20% NVDA target,
+10% cash, 19.29% governing volatility, 0.692 pairwise correlation, and -12.49%
+target-book maximum drawdown. The caller's 20% cap binds.
+
+The demand-led data invariant is permanent: each question owns one complete
+task-local package; available inventory does not narrow the question, choose
+the dataset, or supply missing requirements. Duplicate bytes are acceptable
+evidence isolation, while transparent deduplication may optimize storage only.
+OpenAlice remains pinned to `0.8.31`.
+
+Exact baseline, candidate, rejected-contamination, and final installed-wheel
+evidence is recorded in
+[[plans/clarification-first-delegation-field-trial]].
+
+Final repository verification passed 391 tests in 965.751 seconds and all
+1,342 documentation links. Lock validation, Python and Studio JavaScript
+syntax, source/wheel builds, installed-version and capability smoke, and a
+no-local-override clean-clone root Workspace validation/Studio smoke also
+passed.
+
+### `v0.9.13`
 
 The `0.9.13` patch comes from a fixed Samsung delayed-gap Event Study run by
 fresh installed-wheel coworkers beginning with zero OHLCV. The final replay

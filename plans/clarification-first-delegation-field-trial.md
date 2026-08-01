@@ -115,11 +115,11 @@ session with this fixed contract:
 ## Work
 
 - [x] Define the deliberately incomplete request and fixed second-phase answer.
-- [ ] Build an isolated installed-`0.9.13` baseline Workspace.
-- [ ] Run phase one and audit whether the worker stops before authority.
-- [ ] Resume the same conversation with the caller clarification.
-- [ ] Audit the completed research and classify every friction item.
-- [ ] Implement and replay only reproduced reusable defects, if any.
+- [x] Build an isolated installed-`0.9.13` baseline Workspace.
+- [x] Run phase one and audit whether the worker stops before authority.
+- [x] Resume the same conversation with the caller clarification.
+- [x] Audit the completed research and classify every friction item.
+- [x] Implement and replay only reproduced reusable defects, if any.
 - [ ] Close as a no-change proof or publish a verified `v0.9.14`.
 
 ## Findings and decisions
@@ -141,16 +141,131 @@ session with this fixed contract:
   elsewhere. Inventory is neither a source of missing requirements nor a
   reason to narrow the question.
 - 2026-08-01 — OpenAlice remains pinned to `v0.8.31` throughout this topic.
+- 2026-08-01 — The exact installed `0.9.13` phase-one worker behaved as
+  intended. It wrote and hashed a durable English `research.md`, asked five
+  material caller-owned questions, and stopped with zero network access,
+  staged files, Projects, Studies, Sessions, Runs, Reports, or quantitative
+  authority. Clarification-first delegation therefore needs no intake wizard
+  or structured questionnaire repair.
+- 2026-08-01 — The same worker resumed correctly after clarification and
+  acquired a complete task-local Yahoo package plus independent Nasdaq
+  evidence. This reinforces the durable data invariant: the clarified question
+  owns a complete local package; existing inventory is neither a research
+  boundary nor selection authority, and deduplication may only be an invisible
+  storage optimization.
+- 2026-08-01 — The released Book Risk contract then failed the exact clarified
+  question. Although Core accepts an absent entry asset, the fixed Judge
+  rejected the honest one-holding baseline and required at least two non-zero
+  reported weights. The worker worked around that contradiction with a fake
+  `1e-9` NVDA holding and a second Study. The sizing path also ignored the
+  caller's `20%` candidate cap, spent the full `30%` cash, and left the actual
+  `20%` answer as an out-of-Run manual derivation. This is a reusable fixed-
+  authority defect, not worker-specific friction.
+- 2026-08-01 — The bounded repair will make direction-specific resulting-
+  weight authority explicit in `positionSizing`, admit an honestly absent
+  increase asset through the Judge, and report whether volatility, the caller
+  weight boundary, or available funding binds. The candidate replay must end
+  with one Project, one Study, one successful Run, and one Report.
+- 2026-08-01 — Candidate cohort 32 proved the central repair. A fresh worker
+  bound `maximumWeight: 0.20`, preserved baseline weights as exactly
+  `{QQQ: 0.70}`, and the fixed Run returned `maximum-weight-compliant`, target
+  NVDA `20%`, cash `10%`, governing volatility `19.29%`, and
+  `bindingConstraint: caller-weight-bound`. It created one final Project, one
+  Study, one successful Run, one Report, and no Session or fabricated holding.
+- 2026-08-01 — The same replay exposed two directly related evidence-surface
+  gaps before final qualification. The worker reasonably mapped the caller's
+  “at least 126 observations” into the method's `minimumObservations`, but the
+  Judge unnecessarily limited that rolling-diagnostic floor to the shortest
+  63-bar lookback and produced one failed Run before accepting the scaffold's
+  40. The fixed method still requires every complete lookback, so the supported
+  floor can truthfully extend through the largest declared lookback. The Run
+  also omitted target-book pairwise correlation and maximum drawdown, forcing
+  the worker to derive the former from quadratic coefficients and disclose the
+  latter as unavailable. Both belong in the same fixed sizing evidence rather
+  than post-Run arithmetic.
+- 2026-08-01 — Candidate cohort 33 produced the complete intended answer in
+  one Project, Study, successful Run, Report, and no Session. Its installed
+  `aq run book-risk` consumer nevertheless raised `list index out of range`
+  because the human summary still indexed the first baseline correlation even
+  when the reported book truthfully held only QQQ. The strict diagnostics were
+  valid; the presentation path was not. Empty baseline pairwise correlation
+  is now an explicit one-asset state in human and JSON CLI regression coverage.
+- 2026-08-01 — Cohort 34 was rejected as release evidence after the worker
+  searched adjacent field-trial directories and read prior cohort material.
+  This was an isolation failure, not a research result. Final qualification
+  moved to a standalone audit directory, supplied the installed CLI path
+  explicitly, and prohibited all other AutoQuant installations and trials.
+- 2026-08-01 — Final isolated cohort 35 passed. It began with zero staged
+  OHLCV, wrote the brief first, acquired independent Yahoo and Nasdaq packages,
+  preserved the honest `{QQQ: 0.70}` baseline, and created exactly one Project,
+  one fixed Study, one successful Run, one Report, and no Session. The immutable
+  answer is NVDA 20%, cash 10%, 19.29% governing volatility, 0.692 correlation,
+  -12.49% sized-book maximum drawdown, with `caller-weight-bound` binding.
 
 ## Verification
 
-Pending baseline dialogue.
+Baseline cohort:
+`/Users/ame/2607AutoQuant/grok-field-trials/cohort-31-clarification-first-book-risk-v0913`.
+The exact wheel SHA-256 is
+`8657e6a0b6d3a232a19cb861ca6eb053060ef7827ca427f5624a546faddcd0e4`;
+the two-phase Grok session is
+`019fbba7-750e-7233-9b59-e4b2e07d3101`, preserved in
+`grok-transcript.md`.
+
+Candidate cohort 32:
+`/Users/ame/2607AutoQuant/grok-field-trials/cohort-32-clarification-book-risk-v0914-candidate`.
+It proved the caller-bound result but exposed the observation-floor,
+correlation, and target-book drawdown gaps described above.
+
+Candidate cohort 33:
+`/Users/ame/2607AutoQuant/grok-field-trials/cohort-33-clarification-book-risk-v0914-final`.
+Its single successful Run proved the new evidence but reproduced the empty-
+baseline-correlation CLI failure.
+
+Final isolated release audit:
+`/Users/ame/autoquant-v0914-release-audit`. The exact wheel SHA-256 is
+`d9e346234a1a8fa7c6e4dac4e70d0e91c505938dca18aef2d12192e7634b6355`;
+Grok session `019fbbd5-ca4a-7b01-ac69-7ac0a3419bf6` is preserved in
+`grok-transcript.md`. Installed-wheel `aq validate` and strict
+`aq run book-risk --json` both passed for Project
+`nvda-cash-size-vol-ceiling`, Run
+`run-20260801T054228037779Z-c9f31536b860`, and Report
+`report-20260801T054310758003Z-cc8455716151`.
+
+Repository audit:
+
+- `uv run python -m unittest tests.test_book_risk_lab` passed all 22 focused
+  tests in 14.701 seconds, including human and JSON CLI coverage for an empty
+  one-asset baseline correlation set.
+- `uv run python -m unittest discover -s tests` passed all 391 tests in
+  965.751 seconds.
+- `uv run python scripts/check_doc_links.py` resolved all 1,342 documentation
+  links.
+- `uv lock --check`, `uv run python -m compileall -q autoquant tests`,
+  `node --check autoquant/studio_assets/studio.js`, and `git diff --check`
+  passed.
+- Final source and wheel builds passed. The release wheel SHA-256 is
+  `d21d3cc3b86eebc18d4a3805a71507f316c7eef8a15bf4e70bbcf096d11af553`;
+  the source archive SHA-256 is
+  `3e06c793e394d2f408ff0df2613f7e179a0554448bad514981cd3040ad12d908`.
+- A fresh Python 3.11.14 installation reported `aq 0.9.14`, exposed all 53
+  public commands and 42 schemas, and used the final wheel to validate,
+  strictly inspect, and project the isolated one-Project release audit.
 
 ## Progress log
 
 - 2026-08-01 — Plan activated immediately after the verified `v0.9.13`
   provider-semantics release. No implementation change is authorized before
   the released baseline completes phase one.
+- 2026-08-01 — Baseline dialogue completed. Phase one passed without product
+  friction; phase two reproduced an absent-candidate Judge contradiction and
+  missing caller-weight-bound authority. Implementation is now authorized.
+- 2026-08-01 — Two candidate replays closed the fixed-authority and evidence
+  gaps, then reproduced one empty-correlation CLI consumer defect. A third
+  attempted replay was rejected for cross-cohort contamination.
+- 2026-08-01 — The standalone installed-wheel replay completed without source
+  or prior-trial access and passed the exact strict Explorer path. Repository
+  release verification and publication remain before closure.
 
 ## Completion
 

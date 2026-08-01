@@ -340,11 +340,14 @@ def _validate_position_sizing(
         {
             "status",
             "resultMeaning",
+            "bindingConstraint",
             "policy",
             "quadratic",
             "result",
             "lookbacks",
             "contributions",
+            "pairwiseCorrelations",
+            "drawdown",
         },
         f"{paths['book-risk-report']}/positionSizing",
     )
@@ -368,6 +371,9 @@ def _validate_position_sizing(
                 "sized": "largest-compliant-increase",
                 "fully-funded-compliant": (
                     "full-cash-allocation-compliant"
+                ),
+                "maximum-weight-compliant": (
+                    "caller-maximum-weight-compliant"
                 ),
             }
         ),
@@ -403,11 +409,16 @@ def _validate_position_sizing(
     asset = policy["asset"]
     starting_weight = float(frozen_snapshot["weights"].get(asset, 0.0))
     baseline_cash = float(frozen_snapshot["cashWeight"])
-    domain_minimum = 0.0 if direction == "decrease" else starting_weight
+    funding_maximum = starting_weight + baseline_cash
+    domain_minimum = (
+        float(policy["minimumWeight"])
+        if direction == "decrease"
+        else starting_weight
+    )
     domain_maximum = (
         starting_weight
         if direction == "decrease"
-        else starting_weight + baseline_cash
+        else min(funding_maximum, float(policy["maximumWeight"]))
     )
     ceiling = float(policy["annualizedVolatilityCeiling"])
 
@@ -488,6 +499,7 @@ def _validate_position_sizing(
                 "Already-compliant status violates the variance ceiling",
             )
         expected_weight = starting_weight
+        expected_binding = "current-book"
     elif status == "infeasible":
         if q["minimumVariance"] <= q["targetVariance"] + tolerance:
             _fail(
@@ -496,9 +508,11 @@ def _validate_position_sizing(
                 "Infeasible status has a compliant point on the path",
             )
         expected_weight = expected_minimum
+        expected_binding = "no-compliant-weight"
     elif status == "fully-funded-compliant":
         if (
             direction != "increase"
+            or domain_maximum < funding_maximum - 1e-12
             or variance_at(domain_maximum)
             > q["targetVariance"] + tolerance
         ):
@@ -508,6 +522,21 @@ def _validate_position_sizing(
                 "Fully funded status violates the variance ceiling",
             )
         expected_weight = domain_maximum
+        expected_binding = "available-cash"
+    elif status == "maximum-weight-compliant":
+        if (
+            direction != "increase"
+            or domain_maximum >= funding_maximum - 1e-12
+            or variance_at(domain_maximum)
+            > q["targetVariance"] + tolerance
+        ):
+            _fail(
+                "positionSizing/status",
+                "book-risk.position-sizing-status",
+                "Maximum-weight status differs from the caller boundary",
+            )
+        expected_weight = domain_maximum
+        expected_binding = "caller-weight-bound"
     else:
         if (
             (
@@ -575,6 +604,13 @@ def _validate_position_sizing(
                 "book-risk.position-sizing-status",
                 "Sized status must change the asset in the authorized direction",
             )
+        expected_binding = "volatility-ceiling"
+    if value["bindingConstraint"] != expected_binding:
+        _fail(
+            f"{paths['book-risk-report']}/positionSizing/bindingConstraint",
+            "book-risk.position-sizing-binding",
+            "Sizing binding constraint differs from the fixed path",
+        )
     result = _strict(
         value["result"],
         {
@@ -899,6 +935,94 @@ def _validate_position_sizing(
         numeric_fields["largestAbsoluteRiskContributorShare"],
         "positionSizing/contributions",
     )
+    raw_correlations = value["pairwiseCorrelations"]
+    expected_pairs = [
+        (expected_assets[left], expected_assets[right])
+        for left in range(len(expected_assets))
+        for right in range(left + 1, len(expected_assets))
+    ]
+    if (
+        not isinstance(raw_correlations, list)
+        or len(raw_correlations) != len(expected_pairs)
+    ):
+        _fail(
+            "positionSizing/pairwiseCorrelations",
+            "book-risk.position-sizing-correlations",
+            "Sizing correlation count differs from the resulting book",
+        )
+    pairwise_correlations: list[dict[str, Any]] = []
+    for index, (raw, expected_pair) in enumerate(
+        zip(raw_correlations, expected_pairs, strict=True)
+    ):
+        parsed = _strict(
+            raw,
+            {"leftAsset", "rightAsset", "correlation"},
+            f"positionSizing/pairwiseCorrelations/{index}",
+        )
+        correlation = _finite(
+            parsed["correlation"],
+            f"positionSizing/pairwiseCorrelations/{index}/correlation",
+        )
+        if (
+            (parsed["leftAsset"], parsed["rightAsset"])
+            != expected_pair
+            or abs(correlation) > 1 + 1e-12
+        ):
+            _fail(
+                f"positionSizing/pairwiseCorrelations/{index}",
+                "book-risk.position-sizing-correlations",
+                "Sizing correlation identity or value is invalid",
+            )
+        pairwise_correlations.append(
+            {**parsed, "correlation": correlation}
+        )
+    drawdown = _strict(
+        value["drawdown"],
+        {
+            "method",
+            "returnConvention",
+            "initialNav",
+            "maximumDrawdown",
+            "peakTimestamp",
+            "troughTimestamp",
+            "recoveryTimestamp",
+            "recovered",
+        },
+        "positionSizing/drawdown",
+    )
+    maximum_drawdown = _finite(
+        drawdown["maximumDrawdown"],
+        "positionSizing/drawdown/maximumDrawdown",
+    )
+    if (
+        drawdown["method"] != "daily-constant-weight-close-to-close"
+        or drawdown["returnConvention"]
+        != (
+            "Supplied asset weights are applied to each same-clock "
+            "close-to-close simple-return row; cash return is zero."
+        )
+        or drawdown["initialNav"] != 1.0
+        or maximum_drawdown > 1e-12
+        or not isinstance(drawdown["peakTimestamp"], str)
+        or not drawdown["peakTimestamp"]
+        or not isinstance(drawdown["troughTimestamp"], str)
+        or not drawdown["troughTimestamp"]
+        or (
+            drawdown["recoveryTimestamp"] is not None
+            and (
+                not isinstance(drawdown["recoveryTimestamp"], str)
+                or not drawdown["recoveryTimestamp"]
+            )
+        )
+        or not isinstance(drawdown["recovered"], bool)
+        or drawdown["recovered"]
+        != (drawdown["recoveryTimestamp"] is not None)
+    ):
+        _fail(
+            "positionSizing/drawdown",
+            "book-risk.position-sizing-drawdown",
+            "Sizing drawdown evidence is invalid",
+        )
     return {
         **value,
         "quadratic": q,
@@ -908,6 +1032,11 @@ def _validate_position_sizing(
         },
         "lookbacks": parsed_lookbacks,
         "contributions": contributions,
+        "pairwiseCorrelations": pairwise_correlations,
+        "drawdown": {
+            **drawdown,
+            "maximumDrawdown": maximum_drawdown,
+        },
     }
 
 
@@ -1348,6 +1477,7 @@ def load_book_risk_diagnostics(
                 "sized",
                 "unchanged-compliant",
                 "fully-funded-compliant",
+                "maximum-weight-compliant",
             }
             if isinstance(report["positionSizing"], dict)
             else False
@@ -1397,7 +1527,7 @@ def load_book_risk_diagnostics(
         or isinstance(method["minimumObservations"], bool)
         or not isinstance(method["rollingStepBars"], int)
         or isinstance(method["rollingStepBars"], bool)
-        or not 20 <= method["minimumObservations"] <= min(method["lookbackBars"])
+        or not 20 <= method["minimumObservations"] <= max(method["lookbackBars"])
         or not 1 <= method["rollingStepBars"] <= 252
         or not 0 < _finite(
             method["reductionWeight"],
@@ -1710,6 +1840,7 @@ def load_book_risk_diagnostics(
     correlation_rows = _csv_rows(
         paths["book-risk-correlations"],
         CORRELATION_COLUMNS,
+        allow_empty=len(contributions) == 1,
     )
     correlations = [
         {

@@ -915,11 +915,18 @@ Optional `positionSizing` is mutually exclusive with `positionScenarios`. It
 binds `one-asset-against-cash-for-volatility-ceiling`, one requested
 non-context `asset`, explicit `direction: increase|decrease`, a positive
 `annualizedVolatilityCeiling`, and one fixed 63/126/252 `lookbackBars`.
-`decrease` requires a positive baseline holding; `increase` requires positive
-cash and permits the asset to be absent from baseline weights. The derived
+`decrease` requires a positive baseline holding plus a lower
+`minimumWeight`; `increase` requires positive cash, a higher `maximumWeight`,
+and permits the asset to be absent from baseline weights. These explicit
+resulting-weight bounds are caller authority, not researcher defaults. The derived
 dependency records caller-bounded historical sizing and no trading authority.
 The Judge may solve only that scalar asset/cash weight path; it cannot choose
-another asset, funding leg, objective, or execution.
+another asset, funding leg, objective, bound, or execution. Its result names
+whether the historical volatility ceiling, caller weight boundary, available
+cash, current book, or absence of any compliant point governs the answer. The
+same immutable sizing result carries governing target-book pairwise
+correlations and constant-weight maximum drawdown, so an absent candidate does
+not require post-Run reconstruction.
 `brief.json` is derived from that request plus Project/Session/Study identity,
 baseline, objective, dataset, Judge, and Harness locks. Its authority is
 `research-prioritization`; trading authority is `none`. Every Session load

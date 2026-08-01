@@ -2677,7 +2677,7 @@ def _run_book_risk(args: argparse.Namespace) -> CommandResult:
     current = diagnostics["current"]
     largest = diagnostics["riskContributions"][0]
     reduction = diagnostics["reductionPriority"][0]
-    correlation = diagnostics["pairwiseCorrelations"][0]
+    correlations = diagnostics["pairwiseCorrelations"]
     snapshot = diagnostics["positionSnapshot"]
     scenario_comparison = diagnostics["scenarioComparison"]
     sizing = diagnostics["positionSizing"]
@@ -2734,6 +2734,15 @@ def _run_book_risk(args: argparse.Namespace) -> CommandResult:
             f"on {sizing['policy']['lookbackBars']} bars\n"
         )
     )
+    correlation_line = (
+        "Strongest pair: unavailable for a one-asset reported baseline\n"
+        if not correlations
+        else (
+            f"Strongest pair: {correlations[0]['leftAsset']}/"
+            f"{correlations[0]['rightAsset']} · "
+            f"{correlations[0]['correlation']}\n"
+        )
+    )
     return CommandResult(
         "run.book-risk",
         diagnostics,
@@ -2754,9 +2763,7 @@ def _run_book_risk(args: argparse.Namespace) -> CommandResult:
             f"First standardized reduction: {reduction['asset']} · "
             "volatility reduction per 1.0 weight "
             f"{reduction['volatilityReductionPerWeight']}\n"
-            f"Strongest pair: {correlation['leftAsset']}/"
-            f"{correlation['rightAsset']} · "
-            f"{correlation['correlation']}\n"
+            f"{correlation_line}"
             + scenario_line
             + sizing_line
             + "Reported weights are not authenticated account truth; reduction "

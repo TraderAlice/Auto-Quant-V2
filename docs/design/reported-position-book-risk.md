@@ -95,6 +95,7 @@ Optional `request.positionSizing` authorizes one narrower derived question:
   "kind": "one-asset-against-cash-for-volatility-ceiling",
   "asset": "NVDA",
   "direction": "increase",
+  "maximumWeight": 0.20,
   "annualizedVolatilityCeiling": 0.15,
   "lookbackBars": 252
 }
@@ -103,11 +104,13 @@ Optional `request.positionSizing` authorizes one narrower derived question:
 The asset must be requested and non-context, the lookback must be one of the
 fixed 63/126/252-bar windows, and `direction` is explicit:
 
-- `decrease` requires a strictly positive baseline holding and authorizes only
-  movement from that asset to cash;
+- `decrease` requires a strictly positive baseline holding, one explicit
+  non-negative `minimumWeight` below it, and authorizes only movement from
+  that asset to cash;
 - `increase` requires strictly positive baseline cash, permits the asset to be
-  absent from the baseline book, and authorizes only movement from cash to that
-  asset.
+  absent from the baseline book, requires one explicit `maximumWeight` above
+  its zero or positive starting weight, and authorizes only movement from cash
+  to that asset.
 
 Sizing and caller-supplied scenarios are mutually exclusive so one Run answers
 one authority-bounded question. Core freezes the policy with
@@ -198,20 +201,32 @@ exactly as:
 ```text
 q(x) = a x² + b x + c
 
-decrease domain: 0 ≤ x ≤ reported weight
-increase domain: reported weight ≤ x ≤ reported weight + reported cash
+decrease domain: caller minimum weight ≤ x ≤ reported weight
+increase domain: reported weight ≤ x ≤ min(caller maximum weight,
+                                            reported weight + reported cash)
 ```
 
 For `decrease`, the Judge preserves an already-compliant book or returns the
 largest feasible \(x\), which is the smallest necessary reduction. For
 `increase`, it returns the largest feasible \(x\), either the exact ceiling
-boundary or the fully cash-funded endpoint when that entire endpoint remains
-compliant. `infeasible` returns the constrained minimum-risk point solely as
-proof that no point on the authorized path reaches the ceiling. The result
+boundary, the caller maximum-weight endpoint, or the fully cash-funded endpoint
+when that endpoint remains compliant. Every result names the binding constraint
+as `volatility-ceiling`, `caller-weight-bound`, `available-cash`,
+`current-book`, or `no-compliant-weight`. `infeasible` returns the constrained
+minimum-risk point solely as proof that no point on the authorized path reaches
+the ceiling. The result
 includes signed asset/cash changes, the complete target book, quadratic
 coefficients and domain, governing contribution ledger, and diagnostic
 behavior on the other fixed lookbacks. It is a historical target-position
 calculation, not a forecast guarantee or execution plan.
+
+The sizing result also reports the governing target-book pairwise correlations
+and one constant-weight maximum-drawdown summary over the same governing
+lookback. This keeps an absent candidate's dependence and downside path inside
+the immutable Run rather than forcing an Agent to reconstruct them from the
+quadratic coefficients or Project data. The ordinary baseline correlation and
+drawdown surfaces remain the exact reported book and therefore do not pretend
+the candidate was already held.
 
 The immutable report's `method.primaryLookbackBars`, `current`, primary
 contribution and reduction CSVs, and sizing policy must all name that same
@@ -277,8 +292,8 @@ Studio exposes the same verified evidence as a Book Risk lane:
 - pairwise correlations;
 - rolling crowding context;
 - caller-supplied scenario ranks/deltas and primary-window per-asset changes;
-- caller-bounded sizing status, target weights, cash change, governing ceiling,
-  and cross-lookback diagnostics;
+- caller-bounded sizing status, binding constraint, target weights, cash
+  change, governing ceiling, and cross-lookback diagnostics;
 - the explicit no-authentication/no-optimization/no-order warning.
 
 ## Agent lifecycle
@@ -296,9 +311,10 @@ manufacture missing scenarios.
 
 For a one-leg sizing question, the Agent must clarify the only adjustable
 asset, whether it increases from cash or decreases to cash, exact historical
-covariance window, numerical annualized-volatility ceiling, and whether the
-caller accepts a no-solution result. For an increase it must also confirm the
-available cash and that every existing holding remains fixed. It must not add
+covariance window, numerical annualized-volatility ceiling, the explicit
+direction-specific minimum or maximum resulting weight, and whether the caller
+accepts a no-solution result. For an increase it must also confirm the available
+cash and that every existing holding remains fixed. It must not add
 another adjustable asset, create a scenario grid, or turn the historical
 target into an Order.
 

@@ -546,6 +546,7 @@ def _normalize_position_sizing(
                 "lookbackBars",
             },
             path,
+            optional={"minimumWeight", "maximumWeight"},
         )
     )
     kind = value.get("kind")
@@ -604,6 +605,25 @@ def _normalize_position_sizing(
             )
         )
     normalized_asset = asset.strip() if isinstance(asset, str) else ""
+    minimum_weight = value.get("minimumWeight")
+    maximum_weight = value.get("maximumWeight")
+    for key, item in (
+        ("minimumWeight", minimum_weight),
+        ("maximumWeight", maximum_weight),
+    ):
+        if key in value and (
+            not isinstance(item, (int, float))
+            or isinstance(item, bool)
+            or not math.isfinite(float(item))
+            or not 0 <= float(item) <= 2
+        ):
+            issues.append(
+                _issue(
+                    f"{path}/{key}",
+                    "request.position-sizing-weight-bound",
+                    f"{key} must be finite and between 0 and 2",
+                )
+            )
     if baseline is None:
         issues.append(
             _issue(
@@ -625,6 +645,37 @@ def _normalize_position_sizing(
                     "holding",
                 )
             )
+        if "minimumWeight" not in value:
+            issues.append(
+                _issue(
+                    f"{path}/minimumWeight",
+                    "schema.missing",
+                    "A decrease sizing path requires minimumWeight",
+                )
+            )
+        if "maximumWeight" in value:
+            issues.append(
+                _issue(
+                    f"{path}/maximumWeight",
+                    "request.position-sizing-directional-bound",
+                    "A decrease sizing path may declare only minimumWeight",
+                )
+            )
+        starting_weight = baseline["weights"].get(normalized_asset, 0.0)
+        if (
+            isinstance(minimum_weight, (int, float))
+            and not isinstance(minimum_weight, bool)
+            and math.isfinite(float(minimum_weight))
+            and not 0 <= float(minimum_weight) < starting_weight
+        ):
+            issues.append(
+                _issue(
+                    f"{path}/minimumWeight",
+                    "request.position-sizing-directional-bound",
+                    "minimumWeight must be non-negative and below the "
+                    "baseline holding",
+                )
+            )
     elif direction == "increase":
         if baseline["weights"].get(normalized_asset, 0.0) < 0:
             issues.append(
@@ -633,6 +684,37 @@ def _normalize_position_sizing(
                     "request.position-sizing-entry-long",
                     "An increased asset must be absent, zero, or a positive "
                     "baseline holding",
+                )
+            )
+        if "maximumWeight" not in value:
+            issues.append(
+                _issue(
+                    f"{path}/maximumWeight",
+                    "schema.missing",
+                    "An increase sizing path requires maximumWeight",
+                )
+            )
+        if "minimumWeight" in value:
+            issues.append(
+                _issue(
+                    f"{path}/minimumWeight",
+                    "request.position-sizing-directional-bound",
+                    "An increase sizing path may declare only maximumWeight",
+                )
+            )
+        starting_weight = baseline["weights"].get(normalized_asset, 0.0)
+        if (
+            isinstance(maximum_weight, (int, float))
+            and not isinstance(maximum_weight, bool)
+            and math.isfinite(float(maximum_weight))
+            and not starting_weight < float(maximum_weight) <= 2
+        ):
+            issues.append(
+                _issue(
+                    f"{path}/maximumWeight",
+                    "request.position-sizing-directional-bound",
+                    "maximumWeight must be above the baseline holding and "
+                    "no greater than 2",
                 )
             )
         if baseline["cashWeight"] <= 0:
@@ -658,13 +740,29 @@ def _normalize_position_sizing(
         or baseline is None
         or (
             direction == "decrease"
-            and baseline["weights"].get(normalized_asset, 0.0) <= 0
+            and (
+                baseline["weights"].get(normalized_asset, 0.0) <= 0
+                or not isinstance(minimum_weight, (int, float))
+                or isinstance(minimum_weight, bool)
+                or not math.isfinite(float(minimum_weight))
+                or not 0
+                <= float(minimum_weight)
+                < baseline["weights"].get(normalized_asset, 0.0)
+                or "maximumWeight" in value
+            )
         )
         or (
             direction == "increase"
             and (
                 baseline["weights"].get(normalized_asset, 0.0) < 0
                 or baseline["cashWeight"] <= 0
+                or not isinstance(maximum_weight, (int, float))
+                or isinstance(maximum_weight, bool)
+                or not math.isfinite(float(maximum_weight))
+                or not baseline["weights"].get(normalized_asset, 0.0)
+                < float(maximum_weight)
+                <= 2
+                or "minimumWeight" in value
             )
         )
     ):
@@ -673,6 +771,11 @@ def _normalize_position_sizing(
         "kind": POSITION_SIZING_KIND,
         "asset": normalized_asset,
         "direction": direction,
+        **(
+            {"minimumWeight": float(minimum_weight)}
+            if direction == "decrease"
+            else {"maximumWeight": float(maximum_weight)}
+        ),
         "annualizedVolatilityCeiling": float(ceiling),
         "lookbackBars": lookback,
     }
@@ -1488,6 +1591,25 @@ def validate_research_request(
                         "A context-only asset cannot be the adjustable asset",
                     )
                 )
+            if (
+                normalized_policy is not None
+                and normalized_position_sizing["direction"] == "increase"
+            ):
+                effective_cap = normalized_policy[
+                    "assetMaxAbsWeights"
+                ].get(sizing_asset, normalized_policy["maxAbsWeight"])
+                if (
+                    normalized_position_sizing["maximumWeight"]
+                    > effective_cap + 1e-12
+                ):
+                    issues.append(
+                        _issue(
+                            f"{path}/positionSizing/maximumWeight",
+                            "request.position-sizing-portfolio-cap",
+                            "maximumWeight cannot exceed the effective "
+                            "portfolio position cap",
+                        )
+                    )
 
     source = value.get("source")
     if not isinstance(source, dict):
@@ -2059,6 +2181,16 @@ RESEARCH_REQUEST_JSON_SCHEMA: dict[str, Any] = {
                 "direction": {
                     "enum": sorted(POSITION_SIZING_DIRECTIONS),
                 },
+                "minimumWeight": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 2,
+                },
+                "maximumWeight": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 2,
+                },
                 "annualizedVolatilityCeiling": {
                     "type": "number",
                     "exclusiveMinimum": 0,
@@ -2068,6 +2200,26 @@ RESEARCH_REQUEST_JSON_SCHEMA: dict[str, Any] = {
                     "enum": sorted(POSITION_SIZING_LOOKBACKS),
                 },
             },
+            "allOf": [
+                {
+                    "if": {
+                        "properties": {"direction": {"const": "increase"}}
+                    },
+                    "then": {
+                        "required": ["maximumWeight"],
+                        "not": {"required": ["minimumWeight"]},
+                    },
+                },
+                {
+                    "if": {
+                        "properties": {"direction": {"const": "decrease"}}
+                    },
+                    "then": {
+                        "required": ["minimumWeight"],
+                        "not": {"required": ["maximumWeight"]},
+                    },
+                },
+            ],
         },
         "eventPolicy": {
             "type": "object",

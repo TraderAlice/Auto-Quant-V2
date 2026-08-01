@@ -163,7 +163,7 @@ def _load_scenarios(path: Path) -> dict[str, Any]:
         or value.get("primaryLookbackBars") not in lookbacks
         or not isinstance(value.get("minimumObservations"), int)
         or isinstance(value.get("minimumObservations"), bool)
-        or not 20 <= value["minimumObservations"] <= min(lookbacks)
+        or not 20 <= value["minimumObservations"] <= max(lookbacks)
         or not isinstance(value.get("rollingStepBars"), int)
         or isinstance(value.get("rollingStepBars"), bool)
         or not 1 <= value["rollingStepBars"] <= 252
@@ -446,10 +446,11 @@ def _solve_position_sizing(
     cash_weight: float,
     annualization: int,
     lookbacks: list[int],
+    close_index: pd.DatetimeIndex,
 ) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]]]:
     if policy is None:
         return {"status": "not-requested"}, [], []
-    required = {
+    common_required = {
         "kind",
         "asset",
         "direction",
@@ -461,6 +462,20 @@ def _solve_position_sizing(
     direction = policy.get("direction")
     ceiling = policy.get("annualizedVolatilityCeiling")
     governing_lookback = policy.get("lookbackBars")
+    directional_bound = (
+        policy.get("minimumWeight")
+        if direction == "decrease"
+        else policy.get("maximumWeight")
+        if direction == "increase"
+        else None
+    )
+    required = common_required | (
+        {"minimumWeight"}
+        if direction == "decrease"
+        else {"maximumWeight"}
+        if direction == "increase"
+        else set()
+    )
     if (
         set(policy) != required
         or policy.get("kind")
@@ -491,6 +506,17 @@ def _solve_position_sizing(
         or not isinstance(governing_lookback, int)
         or isinstance(governing_lookback, bool)
         or governing_lookback not in lookbacks
+        or not isinstance(directional_bound, (int, float))
+        or isinstance(directional_bound, bool)
+        or not math.isfinite(float(directional_bound))
+        or (
+            direction == "decrease"
+            and not 0 <= float(directional_bound) < float(weights[asset])
+        )
+        or (
+            direction == "increase"
+            and not float(weights[asset]) < float(directional_bound) <= 2
+        )
     ):
         raise JudgeFailure(
             "book-risk.position-sizing",
@@ -513,11 +539,16 @@ def _solve_position_sizing(
     )
     coefficient_c = float(zero_leg @ covariance @ zero_leg)
     starting_weight = float(weights[asset])
-    domain_minimum = 0.0 if direction == "decrease" else starting_weight
+    funding_maximum = starting_weight + cash_weight
+    domain_minimum = (
+        float(directional_bound)
+        if direction == "decrease"
+        else starting_weight
+    )
     domain_maximum = (
         starting_weight
         if direction == "decrease"
-        else starting_weight + cash_weight
+        else min(funding_maximum, float(directional_bound))
     )
     target_variance = float(ceiling) ** 2
 
@@ -549,17 +580,35 @@ def _solve_position_sizing(
         status = "unchanged-compliant"
         resulting_weight = starting_weight
         result_meaning = "unchanged-compliant-book"
+        binding_constraint = "current-book"
     elif minimum_variance > target_variance + tolerance:
         status = "infeasible"
         resulting_weight = minimum_weight
         result_meaning = "constrained-minimum-evidence-not-recommendation"
+        binding_constraint = "no-compliant-weight"
     elif (
         direction == "increase"
         and variance_at(domain_maximum) <= target_variance + tolerance
     ):
-        status = "fully-funded-compliant"
+        caller_bound_binds = (
+            float(directional_bound) < funding_maximum - 1e-12
+        )
+        status = (
+            "maximum-weight-compliant"
+            if caller_bound_binds
+            else "fully-funded-compliant"
+        )
         resulting_weight = domain_maximum
-        result_meaning = "full-cash-allocation-compliant"
+        result_meaning = (
+            "caller-maximum-weight-compliant"
+            if caller_bound_binds
+            else "full-cash-allocation-compliant"
+        )
+        binding_constraint = (
+            "caller-weight-bound"
+            if caller_bound_binds
+            else "available-cash"
+        )
     else:
         status = "sized"
         result_meaning = (
@@ -567,6 +616,7 @@ def _solve_position_sizing(
             if direction == "decrease"
             else "largest-compliant-increase"
         )
+        binding_constraint = "volatility-ceiling"
         if coefficient_a <= 1e-18:
             if abs(coefficient_b) <= 1e-18:
                 raise JudgeFailure(
@@ -672,10 +722,35 @@ def _solve_position_sizing(
         governing_analysis["contributions"],
         key=lambda item: item["absoluteRiskShare"],
     )
+    correlation = governing_analysis["correlation"]
+    pairwise_correlations = [
+        {
+            "leftAsset": str(weights.index[left]),
+            "rightAsset": str(weights.index[right]),
+            "correlation": float(correlation[left, right]),
+        }
+        for left in range(len(weights))
+        for right in range(left + 1, len(weights))
+    ]
+    first_return_position = close_index.get_loc(selected_returns.index[0])
+    if (
+        not isinstance(first_return_position, (int, np.integer))
+        or first_return_position < 1
+    ):
+        raise JudgeFailure(
+            "book-risk.position-sizing-drawdown",
+            "Sizing drawdown window lacks an observed initial close",
+        )
+    sizing_drawdown = _drawdown_analysis(
+        selected_returns,
+        resulting_weights,
+        close_index[first_return_position - 1],
+    )
     return (
         {
             "status": status,
             "resultMeaning": result_meaning,
+            "bindingConstraint": binding_constraint,
             "policy": policy,
             "quadratic": {
                 "coefficientA": coefficient_a,
@@ -727,6 +802,16 @@ def _solve_position_sizing(
             },
             "lookbacks": lookback_rows,
             "contributions": contribution_rows,
+            "pairwiseCorrelations": pairwise_correlations,
+            "drawdown": {
+                "method": "daily-constant-weight-close-to-close",
+                "returnConvention": (
+                    "Supplied asset weights are applied to each same-clock "
+                    "close-to-close simple-return row; cash return is zero."
+                ),
+                "initialNav": 1.0,
+                **sizing_drawdown["summary"],
+            },
         },
         lookback_rows,
         contribution_rows,
@@ -761,10 +846,10 @@ def main() -> None:
             "book-risk.position-snapshot",
         )
         weights_raw = snapshot.get("weights")
-        if not isinstance(weights_raw, dict) or len(weights_raw) < 2:
+        if not isinstance(weights_raw, dict) or not weights_raw:
             raise JudgeFailure(
                 "book-risk.position-snapshot",
-                "Book Risk Study requires at least two reported position weights",
+                "Book Risk Study requires at least one reported position weight",
             )
         weights = pd.Series(weights_raw, dtype=float)
         if (
@@ -1013,6 +1098,7 @@ def main() -> None:
             float(snapshot["cashWeight"]),
             annualization,
             list(scenarios["lookbackBars"]),
+            closes.index,
         )
         comparison_weights = weights.reindex(
             comparison_assets,
@@ -1476,6 +1562,7 @@ def main() -> None:
                     "sized",
                     "unchanged-compliant",
                     "fully-funded-compliant",
+                    "maximum-weight-compliant",
                 }
             ),
             "sizing_weight_change": float(

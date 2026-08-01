@@ -362,7 +362,7 @@ def validate_position_snapshot(
         books.add(scenario_book)
     sizing = value.get("sizingPolicy")
     if sizing is not None:
-        sizing_keys = {
+        common_sizing_keys = {
             "kind",
             "asset",
             "direction",
@@ -370,6 +370,27 @@ def validate_position_snapshot(
             "lookbackBars",
             "authority",
         }
+        direction = sizing.get("direction") if isinstance(sizing, dict) else None
+        sizing_keys = common_sizing_keys | (
+            {"minimumWeight"}
+            if direction == "decrease"
+            else {"maximumWeight"}
+            if direction == "increase"
+            else set()
+        )
+        sizing_asset = sizing.get("asset") if isinstance(sizing, dict) else None
+        starting_weight = (
+            float(weights.get(sizing_asset, 0.0))
+            if isinstance(weights, dict) and isinstance(sizing_asset, str)
+            else 0.0
+        )
+        directional_bound = (
+            sizing.get("minimumWeight")
+            if direction == "decrease" and isinstance(sizing, dict)
+            else sizing.get("maximumWeight")
+            if direction == "increase" and isinstance(sizing, dict)
+            else None
+        )
         if (
             not isinstance(sizing, dict)
             or set(sizing) != sizing_keys
@@ -394,21 +415,26 @@ def validate_position_snapshot(
             < float(sizing.get("annualizedVolatilityCeiling", 0.0))
             <= 10
             or sizing.get("lookbackBars") not in {63, 126, 252}
+            or not isinstance(directional_bound, (int, float))
+            or isinstance(directional_bound, bool)
+            or not math.isfinite(float(directional_bound))
             or (
-                sizing.get("direction") == "decrease"
+                direction == "decrease"
                 and (
-                    sizing["asset"]
+                    sizing_asset
                     not in (weights if isinstance(weights, dict) else {})
-                    or float(weights.get(sizing["asset"], 0.0)) <= 0
+                    or starting_weight <= 0
+                    or not 0 <= float(directional_bound) < starting_weight
                 )
             )
             or (
-                sizing.get("direction") == "increase"
+                direction == "increase"
                 and (
-                    float(weights.get(sizing["asset"], 0.0)) < 0
+                    starting_weight < 0
                     or not isinstance(cash, (int, float))
                     or isinstance(cash, bool)
                     or float(cash) <= 0
+                    or not starting_weight < float(directional_bound) <= 2
                 )
             )
             or scenarios

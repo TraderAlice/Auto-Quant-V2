@@ -192,6 +192,7 @@ def _book_sizing_request(
         "kind": "one-asset-against-cash-for-volatility-ceiling",
         "asset": "NVDA",
         "direction": "decrease",
+        "minimumWeight": 0.0,
         "annualizedVolatilityCeiling": ceiling,
         "lookbackBars": lookback,
     }
@@ -205,6 +206,7 @@ def _book_entry_sizing_request(
     path: Path,
     *,
     ceiling: float = 0.03,
+    maximum_weight: float = 0.5,
 ) -> None:
     _book_request(path)
     request = json.loads(path.read_text(encoding="utf-8"))
@@ -218,6 +220,7 @@ def _book_entry_sizing_request(
         "kind": "one-asset-against-cash-for-volatility-ceiling",
         "asset": "NVDA",
         "direction": "increase",
+        "maximumWeight": maximum_weight,
         "annualizedVolatilityCeiling": ceiling,
         "lookbackBars": 252,
     }
@@ -439,6 +442,7 @@ class BookRiskLabTests(unittest.TestCase):
         root: Path,
         *,
         ceiling: float = 0.03,
+        maximum_weight: float = 0.5,
     ):
         request_path, package_path = write_intake_inputs(
             root,
@@ -451,7 +455,11 @@ class BookRiskLabTests(unittest.TestCase):
                 "QQQ": "long-only",
             },
         )
-        _book_entry_sizing_request(request_path, ceiling=ceiling)
+        _book_entry_sizing_request(
+            request_path,
+            ceiling=ceiling,
+            maximum_weight=maximum_weight,
+        )
         prepared = prepare_project_intake(
             request_path,
             package_path,
@@ -464,6 +472,56 @@ class BookRiskLabTests(unittest.TestCase):
             template=prepared.template,
             template_intake=prepared,
         )
+
+    def _single_holding_entry_project(self, root: Path):
+        request_path, package_path = write_intake_inputs(
+            root,
+            observations=260,
+            request_assets=("QQQ", "NVDA"),
+            asset_position_roles={
+                "QQQ": "long-only",
+                "NVDA": "long-only",
+            },
+        )
+        _book_entry_sizing_request(
+            request_path,
+            ceiling=0.50,
+            maximum_weight=0.20,
+        )
+        request = json.loads(request_path.read_text(encoding="utf-8"))
+        request["assets"] = [
+            asset
+            for asset in request["assets"]
+            if asset["symbol"] in {"QQQ", "NVDA"}
+        ]
+        request["positionSnapshot"]["weights"] = {"QQQ": 0.70}
+        request["positionSnapshot"]["cashWeight"] = 0.30
+        request_path.write_text(
+            json.dumps(request, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        prepared = prepare_project_intake(
+            request_path,
+            package_path,
+            "ohlcv-book-risk-lab",
+        )
+        workspace = initialize_workspace(root / "workspace")
+        project = create_project(
+            workspace.root_dir,
+            "single-holding-entry-sizing",
+            template=prepared.template,
+            template_intake=prepared,
+        )
+        scenarios_path = (
+            project.root_dir / "strategies" / "book-risk-scenarios.json"
+        )
+        scenarios = json.loads(scenarios_path.read_text(encoding="utf-8"))
+        scenarios["minimumObservations"] = 126
+        scenarios_path.write_text(
+            json.dumps(scenarios, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        return project
 
     def test_position_sizing_freezes_one_bounded_caller_path(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -480,6 +538,7 @@ class BookRiskLabTests(unittest.TestCase):
                     ),
                     "asset": "NVDA",
                     "direction": "decrease",
+                    "minimumWeight": 0.0,
                     "annualizedVolatilityCeiling": 0.15,
                     "lookbackBars": 252,
                     "authority": {
@@ -509,6 +568,7 @@ class BookRiskLabTests(unittest.TestCase):
                     ),
                     "asset": "NVDA",
                     "direction": "increase",
+                    "maximumWeight": 0.5,
                     "annualizedVolatilityCeiling": 0.03,
                     "lookbackBars": 252,
                     "authority": {
@@ -591,6 +651,7 @@ class BookRiskLabTests(unittest.TestCase):
                 ),
                 "asset": "NVDA",
                 "direction": "decrease",
+                "minimumWeight": 0.0,
                 "annualizedVolatilityCeiling": 0.15,
                 "lookbackBars": 252,
             }
@@ -630,6 +691,46 @@ class BookRiskLabTests(unittest.TestCase):
                 {issue.code for issue in captured.exception.issues},
             )
 
+            _book_entry_sizing_request(request_path)
+            request = json.loads(
+                request_path.read_text(encoding="utf-8")
+            )
+            del request["positionSizing"]["maximumWeight"]
+            request_path.write_text(
+                json.dumps(request, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            with self.assertRaises(AutoQuantValidationError) as captured:
+                prepare_project_intake(
+                    request_path,
+                    package_path,
+                    "ohlcv-book-risk-lab",
+                )
+            self.assertIn(
+                "schema.missing",
+                {issue.code for issue in captured.exception.issues},
+            )
+
+            _book_entry_sizing_request(request_path)
+            request = json.loads(
+                request_path.read_text(encoding="utf-8")
+            )
+            request["positionSizing"]["maximumWeight"] = 0.0
+            request_path.write_text(
+                json.dumps(request, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            with self.assertRaises(AutoQuantValidationError) as captured:
+                prepare_project_intake(
+                    request_path,
+                    package_path,
+                    "ohlcv-book-risk-lab",
+                )
+            self.assertIn(
+                "request.position-sizing-directional-bound",
+                {issue.code for issue in captured.exception.issues},
+            )
+
     def test_cash_entry_sizing_solves_largest_compliant_weight(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             project = self._entry_sizing_project(Path(directory))
@@ -641,6 +742,10 @@ class BookRiskLabTests(unittest.TestCase):
             )
             sizing = diagnostics["positionSizing"]
             self.assertEqual(sizing["status"], "sized")
+            self.assertEqual(
+                sizing["bindingConstraint"],
+                "volatility-ceiling",
+            )
             self.assertEqual(sizing["result"]["startingWeight"], 0.0)
             self.assertGreater(sizing["result"]["weightChange"], 0.0)
             self.assertAlmostEqual(
@@ -673,6 +778,10 @@ class BookRiskLabTests(unittest.TestCase):
                 run.result["id"],
             )["positionSizing"]
             self.assertEqual(sizing["status"], "fully-funded-compliant")
+            self.assertEqual(
+                sizing["bindingConstraint"],
+                "available-cash",
+            )
             self.assertAlmostEqual(
                 sizing["result"]["resultingWeight"],
                 0.5,
@@ -680,6 +789,104 @@ class BookRiskLabTests(unittest.TestCase):
             self.assertAlmostEqual(
                 sizing["result"]["resultingCashWeight"],
                 0.0,
+            )
+
+    def test_absent_candidate_and_caller_maximum_are_fixed_authority(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = self._single_holding_entry_project(Path(directory))
+            snapshot = load_position_snapshot(
+                project.root_dir / POSITION_SNAPSHOT
+            )
+            self.assertEqual(snapshot["weights"], {"QQQ": 0.70})
+            self.assertNotIn("NVDA", snapshot["weights"])
+            self.assertEqual(
+                snapshot["sizingPolicy"]["maximumWeight"],
+                0.20,
+            )
+
+            run = execute_study(project, BOOK_RISK_STUDY_ID)
+            self.assertEqual(run.result["status"], "succeeded")
+            self.assertEqual(run.result["metrics"]["held_assets"], 1)
+            diagnostics = load_book_risk_diagnostics(
+                project,
+                run.result["id"],
+            )
+            jsonschema.validate(
+                diagnostics,
+                BOOK_RISK_DIAGNOSTICS_JSON_SCHEMA,
+            )
+            sizing = diagnostics["positionSizing"]
+            self.assertEqual(sizing["status"], "maximum-weight-compliant")
+            self.assertEqual(
+                sizing["resultMeaning"],
+                "caller-maximum-weight-compliant",
+            )
+            self.assertEqual(
+                sizing["bindingConstraint"],
+                "caller-weight-bound",
+            )
+            self.assertAlmostEqual(
+                sizing["result"]["startingWeight"],
+                0.0,
+            )
+            self.assertAlmostEqual(
+                sizing["result"]["resultingWeight"],
+                0.20,
+            )
+            self.assertAlmostEqual(
+                sizing["result"]["resultingCashWeight"],
+                0.10,
+            )
+            self.assertEqual(
+                sizing["result"]["weights"],
+                {"QQQ": 0.70, "NVDA": 0.20},
+            )
+            self.assertEqual(
+                [
+                    (
+                        row["leftAsset"],
+                        row["rightAsset"],
+                    )
+                    for row in sizing["pairwiseCorrelations"]
+                ],
+                [("QQQ", "NVDA")],
+            )
+            self.assertLessEqual(
+                abs(sizing["pairwiseCorrelations"][0]["correlation"]),
+                1.0,
+            )
+            self.assertLessEqual(
+                sizing["drawdown"]["maximumDrawdown"],
+                0.0,
+            )
+            human = _run_cli(
+                "run",
+                "book-risk",
+                str(project.root_dir),
+                "--run",
+                run.result["id"],
+            )
+            self.assertEqual(human.returncode, 0, human.stderr)
+            self.assertIn(
+                "Strongest pair: unavailable for a one-asset reported baseline",
+                human.stdout,
+            )
+            machine = _run_cli(
+                "run",
+                "book-risk",
+                str(project.root_dir),
+                "--run",
+                run.result["id"],
+                "--json",
+            )
+            self.assertEqual(machine.returncode, 0, machine.stderr)
+            studio = build_studio_snapshot(project.root_dir)
+            observed = studio["projects"][0]["bookRiskExplorer"]
+            self.assertEqual(
+                observed["positionSizing"]["bindingConstraint"],
+                "caller-weight-bound",
             )
 
     def test_position_sizing_solves_exact_boundary_and_infeasible_path(
@@ -866,6 +1073,59 @@ class BookRiskLabTests(unittest.TestCase):
                 "book-risk.reconcile",
                 {issue.code for issue in captured.exception.issues},
             )
+
+        for field, value, expected_code in (
+            (
+                "pairwiseCorrelations",
+                [
+                    {
+                        "leftAsset": "AAPL",
+                        "rightAsset": "MSFT",
+                        "correlation": 2.0,
+                    }
+                ],
+                "book-risk.position-sizing-correlations",
+            ),
+            (
+                "drawdown",
+                {
+                    "method": "daily-constant-weight-close-to-close",
+                    "returnConvention": (
+                        "Supplied asset weights are applied to each "
+                        "same-clock close-to-close simple-return row; cash "
+                        "return is zero."
+                    ),
+                    "initialNav": 1.0,
+                    "maximumDrawdown": 0.1,
+                    "peakTimestamp": "2024-01-01",
+                    "troughTimestamp": "2024-01-02",
+                    "recoveryTimestamp": None,
+                    "recovered": False,
+                },
+                "book-risk.position-sizing-drawdown",
+            ),
+        ):
+            with self.subTest(field=field), tempfile.TemporaryDirectory() as directory:
+                project = self._entry_sizing_project(Path(directory))
+                run = execute_study(project, BOOK_RISK_STUDY_ID)
+                report_path = (
+                    run.root_dir / "artifacts" / "book-risk-report.json"
+                )
+                report = json.loads(
+                    report_path.read_text(encoding="utf-8")
+                )
+                report["positionSizing"][field] = value
+                report_path.write_text(
+                    json.dumps(report, indent=2, sort_keys=True) + "\n",
+                    encoding="utf-8",
+                )
+                _rehash_run(run.root_dir)
+                with self.assertRaises(AutoQuantValidationError) as captured:
+                    load_book_risk_diagnostics(project, run.result["id"])
+                self.assertIn(
+                    expected_code,
+                    {issue.code for issue in captured.exception.issues},
+                )
 
     def test_request_bound_snapshot_runs_and_projects_strict_evidence(
         self,

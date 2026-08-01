@@ -257,6 +257,14 @@ dependency, uses only content-locked closed OHLCV at or before their common
 first-principal-component crowding, held-asset correlations, fixed-lookback
 stability, one-percentage-point cash-funded reduction sensitivities, and
 same-window deltas for every supplied scenario.
+Instead of scenarios, `positionSizing` may freeze one direction-specific
+asset/cash path. An increase declares an exact caller-owned `maximumWeight`;
+a decrease declares an exact `minimumWeight`. The fixed Run admits an absent
+increase asset without fabricating a baseline holding and identifies whether
+the volatility ceiling, caller weight boundary, or available cash binds. Its
+governing target-book evidence also includes pairwise correlations and
+constant-weight maximum drawdown even when the candidate was absent from the
+reported baseline.
 It does not authenticate an account, replace the supplied weights with model
 targets, generate or optimize scenarios, or create orders. After the Run,
 `orient` closes the descriptive audit with no primary CLI action, tells the

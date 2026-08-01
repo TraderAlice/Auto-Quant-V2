@@ -24,7 +24,8 @@ It must report:
 - when authorized, one exact direction-aware asset/cash sizing path under a
   fixed historical volatility ceiling: the smallest necessary decrease or
   largest compliant cash-funded increase, including its complete target book,
-  signed changes, quadratic domain, and cross-lookback diagnostics;
+  signed changes, quadratic domain, governing target-book correlations and
+  constant-weight maximum drawdown, and cross-lookback diagnostics;
 - a sampled rolling path under the primary lookback.
 
 The reduction, supplied-book, and one-leg sizing tables are historical
@@ -34,3 +35,9 @@ return row and therefore describes a research convention, not reconstructed
 broker holdings.
 Never silently replace reported weights, generate hypothetical books, select
 the adjustable asset, or infer a funding leg.
+
+`strategies/book-risk-scenarios.json.minimumObservations` is the lower bound
+for the sampled rolling diagnostic, not a substitute for the complete declared
+lookbacks. It may be 20 through the largest declared lookback; every fixed
+lookback and any sizing `lookbackBars` still require their full observation
+count before the Judge runs.
