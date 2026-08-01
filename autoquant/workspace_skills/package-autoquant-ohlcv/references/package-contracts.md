@@ -7,6 +7,7 @@
 | V3 | Configurable continuous or calendar-verified XNYS intraday base |
 | V4 | Ragged observed-only daily Factor panel; never fixed Portfolio/RL |
 | V5 | Close-time-aware observed base-bar Factor panel through `1d` |
+| V6 | Compatible complete V5 inventories from distinct provider claims, with per-asset source identity |
 
 ## Required daily checks
 
@@ -110,3 +111,47 @@ The procedure maps only session date → scheduled regular close UTC. It does
 not authenticate an exchange, infer a calendar, handle an intraday bucket,
 align calendars, fill absence, drop a non-session row, or approximate a close
 with a fixed UTC time.
+
+## V6 observed-package composition authority
+
+Use this exact JSON shape with
+`scripts/compose_observed_packages.py`:
+
+```json
+{
+  "schemaVersion": 1,
+  "kind": "autoquant-observed-package-composition",
+  "outputDataset": {
+    "id": "toyota-spy-dual-provider-daily",
+    "version": "2024-01-02_2026-07-31-v1"
+  },
+  "sourcePackages": [
+    {
+      "id": "tokyo-yahoo",
+      "path": "sources/tokyo/dataset-package.json",
+      "sha256": "<exact lowercase source-manifest SHA-256>"
+    },
+    {
+      "id": "us-nasdaq",
+      "path": "sources/us/dataset-package.json",
+      "sha256": "<exact lowercase source-manifest SHA-256>"
+    }
+  ]
+}
+```
+
+Resolve each POSIX-relative `path` from the authority file's directory. Every
+source must be a strict, independently audited V5 package. The source id is a
+lowercase path-safe identity recorded on every output asset. Source ids,
+manifest hashes, and all symbols must be unique; every declared source must
+contribute at least one asset; and at least two normalized provider claims
+must differ.
+
+All sources must agree exactly on `baseInterval`, bar-close timestamp
+semantics, observed-only panel policy, provider-observed UTC market, and
+top-level price adjustment. The output contains the complete ordered union of
+the source inventories. Composition copies the original CSV, Parquet, or
+Feather bytes and records input/output hashes, rows, timestamps, and
+preservation claims in `composition-audit.json`. It does not authenticate a
+provider, select assets, align clocks, fill missing observations, convert
+adjustments, or resolve duplicate symbols.

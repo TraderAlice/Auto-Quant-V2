@@ -200,6 +200,15 @@ from symbols, reuse one market's close for another, append a nominal UTC hour,
 or write a private converter. Inspect the emitted transformation audit before
 strict V5 intake.
 
+When one observed Factor question needs distinct provider packages, keep each
+source as a complete independently audited V5 package. Use the packaging
+Skill's `compose_observed_packages.py` with an exact authority manifest to
+publish V6. Never collapse several providers into one synthetic provider,
+hand-edit the union, subset a source package, align or fill observations, or
+mix adjustment claims. Inspect `composition-audit.json`, audit the V6 output,
+then use strict Factor intake. See
+[[docs/design/research-intake-and-dataset-snapshots]].
+
 Run bundled Python Skill scripts with `aq-python`, never an ambient `python`
 or `python3`. The bridge uses the interpreter that owns the installed Harness.
 Do not install dependencies into a system or user Python to work around an

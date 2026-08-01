@@ -23,6 +23,7 @@ research question
 → same-semantics numerical or cross-semantics coverage comparison
 → package-autoquant-ohlcv
 → optional explicit calendar-derived V4 daily → V5 close-time materialization
+→ optional complete compatible V5 packages → V6 multi-source composition
 → strict Project intake
 → content-locked Project snapshot
 ```
@@ -197,6 +198,17 @@ a symbol or venue, appends a fixed nominal clock, aligns markets, fills
 absence, drops rows, or authenticates an exchange. Core still begins at the
 generated V5 package boundary and does not load the transformation audit as
 hidden runtime authority.
+
+When the exact question needs different provider routes for different assets,
+each route remains a complete independently audited V5 package. The packaging
+Skill's `compose_observed_packages.py` binds at least two exact source-manifest
+hashes, requires disjoint symbols and compatible close/interval/panel/market/
+adjustment authority, copies every asset byte, and publishes V6 plus
+`composition-audit.json` transactionally. Each output asset names its source;
+each source retains its own provider claim. The procedure never fabricates a
+shared provider, subsets a source, aligns or fills rows, transforms prices, or
+resolves conflicts. Core begins at the V6 boundary and independently checks
+the same structural claims.
 
 Canonical research symbols belong to the cross-provider dataset contract;
 route-specific lookup codes do not. Peer Japanese packages therefore retain a

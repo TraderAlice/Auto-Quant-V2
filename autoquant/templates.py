@@ -743,12 +743,20 @@ def _externalize_intake_guidance(
             "not authenticated by AutoQuant."
         ),
     }
+    provider_summary = (
+        ", ".join(
+            source["provider"]["name"]
+            for source in intake.package["sources"]
+        )
+        if "sources" in intake.package
+        else intake.package["provider"]["name"]
+    )
     disclosure = (
         "\n\n## External dataset authority\n\n"
         f"- Dataset: `{intake.package['id']}@{intake.package['version']}`\n"
         f"- Research universe: {', '.join(intake.universe)}\n"
         f"- Coverage: `{intake.start}` through `{intake.end}`\n"
-        f"- Provider claim: `{intake.package['provider']['name']}`\n"
+        f"- Provider claim(s): `{provider_summary}`\n"
         f"- Adjustment claim: `{intake.package['priceAdjustment']}`\n\n"
         "The Study hashes canonical Project-local bytes. Do not add newer rows "
         "or replace the\nsnapshot during one Session; create a new intake/"

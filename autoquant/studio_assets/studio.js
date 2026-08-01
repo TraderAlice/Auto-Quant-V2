@@ -60,6 +60,11 @@ const horizonPolicyText = (request) => {
   return `primary ${policy.primaryForwardBars} · diagnostics ${policy.diagnosticForwardBars.join("/")} bars`;
 };
 
+const datasetProviderClaim = (dataset) =>
+  Array.isArray(dataset?.sources)
+    ? dataset.sources.map((source) => source.provider.name).join(" + ")
+    : dataset?.provider?.name ?? "unknown";
+
 const percent = (value) => {
   if (value === null || value === undefined || Number.isNaN(Number(value))) {
     return "—";
@@ -1581,7 +1586,7 @@ function renderHandoff(project) {
             <span><b>${datasetAvailability?.unionObservations ?? dataset.assets[0]?.observations ?? "—"}</b><small>${datasetAvailability ? "union sessions" : "sessions"}</small></span>
             <span><b>${escapeHtml(dataset.market.calendar)}</b><small>calendar claim</small></span>
           </div>
-          <span class="context-note">${escapeHtml(dataset.provider.name)} · ${escapeHtml(dataset.priceAdjustment)} · ${escapeHtml(dataset.timeRange.start)} → ${escapeHtml(dataset.timeRange.end)} · ${datasetAvailability ? `observed-only ${percent(datasetAvailability.observationCoverage)} row coverage · ` : ""}provider claims</span>
+          <span class="context-note">${escapeHtml(datasetProviderClaim(dataset))} · ${escapeHtml(dataset.priceAdjustment)} · ${escapeHtml(dataset.timeRange.start)} → ${escapeHtml(dataset.timeRange.end)} · ${datasetAvailability ? `observed-only ${percent(datasetAvailability.observationCoverage)} row coverage · ` : ""}provider claims</span>
         </article>
         <article class="handoff-card report-card ${baseline ? "ready" : ""}">
           <small>03 · ${holdout ? "Frozen external audit" : bookRisk ? "Book Risk evidence &amp; review" : eventStudy ? "Price-event evidence &amp; review" : allocation ? "Allocation evidence &amp; review" : `${lane ? escapeHtml(lane.name) : "Baseline"} &amp; next action`}</small>
@@ -5271,7 +5276,7 @@ function renderInspector(project) {
           <h3>${escapeHtml(dataset.id)}@${escapeHtml(dataset.version)}</h3>
           <p>Provider, calendar, venue, and adjustment values are caller-supplied claims. Canonical Project-local bytes are content locked.</p>
           <dl class="inspector-kv">
-            <dt>Provider claim</dt><dd>${escapeHtml(dataset.provider.name)}</dd>
+            <dt>Provider claim(s)</dt><dd>${escapeHtml(datasetProviderClaim(dataset))}</dd>
             <dt>Adjustment</dt><dd>${escapeHtml(dataset.priceAdjustment)}</dd>
             <dt>Calendar</dt><dd>${escapeHtml(dataset.market.calendar)} · ${escapeHtml(dataset.frequency)}</dd>
             <dt>Coverage</dt><dd>${escapeHtml(dataset.timeRange.start)} → ${escapeHtml(dataset.timeRange.end)}</dd>

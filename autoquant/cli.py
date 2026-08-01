@@ -471,7 +471,7 @@ def build_parser() -> RaisingArgumentParser:
             "directory; asset paths resolve from the manifest directory, so "
             "place it at staged files' common ancestor (for example "
             "staging/dataset-package.json with raw-ohlcv/AAPL.csv) to avoid "
-            "an intermediate copy; V4/V5 are ohlcv-factor-lab only"
+            "an intermediate copy; V4-V6 are ohlcv-factor-lab only"
         ),
     )
     project_intake.add_argument(

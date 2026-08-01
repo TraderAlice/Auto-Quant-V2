@@ -44,13 +44,13 @@ All assets receive the same ordered column surface. `asset` is the exact Study
 universe identifier. `timestamp` retains verified bar-close semantics.
 
 The runtime contract is `panel-v2`. Aligned V1–V3 inputs remain rectangular.
-V4 date-only daily and V5 close-time-aware observed inputs are
+V4 date-only daily and V5/V6 close-time-aware observed inputs are
 `ragged-observed-only`: an
 asset/timestamp row exists only when the locked dataset contains that
 observation. Missing, closed-market, and pre-listing rows are not synthesized,
 filled, or introduced as all-null records. Consequently a same-timestamp
 cross section may contain fewer than the full Study universe; candidate code
-must operate on the rows actually supplied. For V5 single-asset temporal
+must operate on the rows actually supplied. For V5/V6 single-asset temporal
 evaluation, the prediction asset's observed timestamps alone own targets,
 split boundaries, and purge counts. Context-only union timestamps remain
 available to the candidate but never advance the target clock.
@@ -101,7 +101,7 @@ component bound and metadata/evidence contract remain fixed.
 Project construction seeds the editable baseline from the verified interval
 surface, not from every interval the reference implementation knows how to
 consume. `AVAILABLE_FEATURE_INTERVALS` is empty for daily V1/V4 and
-observed-only V5 intake, and equals the package's exact `featureIntervals` for
+observed-only V5/V6 intake, and equals the package's exact `featureIntervals` for
 V2/V3 intake. The baseline always declares base-clock momentum; it declares
 3h, 12h, or 1d components only when those bars are present.
 

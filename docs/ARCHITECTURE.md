@@ -59,8 +59,9 @@ The V2 foundation now implements:
   Workspace discovery;
 - transactional request-driven Project intake from strict caller-supplied V1
   aligned daily, V2 continuous-UTC hourly, V3 configurable
-  continuous/XNYS-session, V4 date-only observed daily Factor, or V5
-  close-time-aware observed base-bar Factor OHLCV packages through `1d`,
+  continuous/XNYS-session, V4 date-only observed daily Factor, V5
+  close-time-aware single-source observed base-bar Factor, or V6
+  content-addressed multi-source observed Factor OHLCV packages through `1d`,
   including optional complete per-asset classes for V1–V4 mixed economic
   panels,
   with normalized local bytes, completed higher intervals,
@@ -69,8 +70,8 @@ The V2 foundation now implements:
 - one packaged canonical market-data Skill bundle that materializes into both
   Agent discovery roots, routes by market semantics, preserves bounded
   provider evidence, requires two independently executable sources per
-  accepted market, and hands only truthful V1–V5 packages to provider-neutral
-  Core intake;
+  accepted market, and hands only truthful V1–V6 packages to provider-neutral
+  Core intake, including transactional byte-preserving V5-to-V6 composition;
 - one canonical request-driven research desk that coordinates Factor,
   Portfolio, and governed RL Studies over the same dataset, exposes exact lane
   currentness/conflicts/next actions, and keeps method choice inside AutoQuant;

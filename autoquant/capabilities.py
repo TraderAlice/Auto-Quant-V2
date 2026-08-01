@@ -367,7 +367,7 @@ CLI_COMMANDS = [
                 "not its directory. Asset paths resolve from the manifest "
                 "directory; place the manifest at staged files' common "
                 "ancestor (for example staging/dataset-package.json with "
-                "raw-ohlcv/AAPL.csv) to avoid an intermediate copy. V4/V5 "
+                "raw-ohlcv/AAPL.csv) to avoid an intermediate copy. V4-V6 "
                 "are ohlcv-factor-lab only; use V1 for aligned daily "
                 "fixed-Lab intake. V1-V4 may declare one complete per-asset "
                 "assetClass vector.",

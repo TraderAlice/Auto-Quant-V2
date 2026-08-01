@@ -315,7 +315,7 @@ stores an aligned daily session panel; V4 uses the same paths for a Factor-only
 observed daily panel whose per-asset dates may differ:
 
 Factor baseline construction uses that verified panel surface.
-`AVAILABLE_FEATURE_INTERVALS` is empty for V1/V4 and observed-only V5, while
+`AVAILABLE_FEATURE_INTERVALS` is empty for V1/V4 and observed-only V5/V6, while
 V2/V3 candidates receive the exact declared feature intervals. The baseline
 therefore never declares a 3h, 12h, or 1d component unless that input exists;
 known-style intake still replaces the generic baseline.
@@ -392,6 +392,10 @@ explicit non-context temporal target. Context-only timestamps never advance
 that target's horizon or purge clock. A context row is visible at a target
 only when its exact close timestamp is no later than the target close;
 candidate code must express any backward as-of alignment explicitly.
+V6 uses the same directory and Factor semantics. Its snapshot replaces the
+single provider with the complete ordered source-package vector and records
+`sourceId` on every asset. The source vector and per-asset bindings enter the
+same immutable dataset identity and appear in CLI and Studio projections.
 `intake.json` binds request, snapshot, primary construction Study, dataset, and
 the Study input identity at handoff. Editable source may evolve; its current
 hash determines whether existing Run evidence is stale rather than corrupting
@@ -991,7 +995,7 @@ classes must fit the selected Study and its content-locked dataset snapshot.
 A `relative-value` vector with exactly two `two-sided` assets plus named
 `context-only` assets retains the dollar-neutral zero-net pair contract; other
 complete mixed vectors use the generic asset-role construction.
-A classified V1–V4 package, like V5, matches the request per symbol rather
+A classified V1–V4 package, like V5/V6, matches the request per symbol rather
 than flattening a mixed panel to one class.
 The optional `positionSnapshot` is used by the Book Risk route only. It names
 `reported-weights` or `hypothetical-weights`, a timezone-aware `asOf`,

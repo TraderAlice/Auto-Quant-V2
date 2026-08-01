@@ -73,13 +73,13 @@ provenance graph.
 
 ## Acceptance
 
-- [ ] V6 strictly represents at least two providers and binds every asset to
+- [x] V6 strictly represents at least two providers and binds every asset to
   exactly one content-addressed source package.
-- [ ] The public compositor preserves every V5 asset byte and observation,
+- [x] The public compositor preserves every V5 asset byte and observation,
   performs no alignment/fill/transformation, and publishes an exact audit.
-- [ ] Invalid, incompatible, ambiguous, unsafe, overlapping, or tampered
+- [x] Invalid, incompatible, ambiguous, unsafe, overlapping, or tampered
   inputs fail without a partial output package.
-- [ ] V6 passes strict Factor intake, snapshot reload/tamper checks, one Run,
+- [x] V6 passes strict Factor intake, snapshot reload/tamper checks, one Run,
   Explorer, Report, CLI, and Studio while showing source-level provenance.
 - [ ] Generated Agent Skill bundles explain and expose the single-source V5 →
   multi-source V6 route without implementation inspection.
@@ -91,9 +91,9 @@ provenance graph.
 
 ## Work
 
-- [ ] Define V6 manifest, snapshot, JSON Schema, and composition authority.
-- [ ] Implement Core validation/materialization and the bundled compositor.
-- [ ] Add deterministic positive, negative, integration, CLI, and Studio
+- [x] Define V6 manifest, snapshot, JSON Schema, and composition authority.
+- [x] Implement Core validation/materialization and the bundled compositor.
+- [x] Add deterministic positive, negative, integration, CLI, and Studio
   coverage plus public documentation.
 - [ ] Advance version/sample evidence and run a fresh installed-wheel field
   assignment.
@@ -119,6 +119,13 @@ Pending.
 
 - 2026-08-02 — Plan created from the explicit multi-provider provenance gap
   retained by the completed `0.9.25` calendar-materialization release.
+- 2026-08-02 — Implemented strict V6 package/snapshot authority, public
+  transactional V5 compositor, independent V6 package audit, source-aware
+  CLI/Studio disclosure, and deterministic end-to-end plus fail-closed tests.
+- 2026-08-02 — The focused Workspace Skill suite passed 40 tests; the V6
+  integration separately proved JSON Schema, exact byte preservation, strict
+  intake, CLI projection, Run, Factor Explorer, immutable Report, Studio, and
+  rejection of a rehashed unknown-source snapshot.
 
 ## Completion
 

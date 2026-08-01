@@ -53,8 +53,8 @@ noise. For every union timestamp it records observed input assets, finite
 factor assets, and target-paired assets at every requested horizon. Aggregate
 evidence includes observed/possible rows, complete and eligible timestamps,
 input/factor/pair breadth summaries, and each asset's observed range and
-coverage. V4/V5 missing, closed-market, and pre-listing combinations stay
-absent; no fill or global intersection occurs. V5 single-asset temporal
+coverage. V4–V6 missing, closed-market, and pre-listing combinations stay
+absent; no fill or global intersection occurs. V5/V6 single-asset temporal
 availability retains the complete asynchronous source-panel union. Its daily
 IC, target, split, and purge evidence separately follows only the prediction
 asset's observed timeline, so context-only timestamps cannot shorten an

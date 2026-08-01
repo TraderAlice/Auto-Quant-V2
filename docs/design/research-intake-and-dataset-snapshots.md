@@ -1,8 +1,9 @@
 # Request-driven research intake and OHLCV dataset snapshots
 
 Status: V1 aligned daily, V2 continuous-1h, V3 configurable/session, V4
-date-only observed daily Factor, and V5 close-time-aware observed base-bar Factor
-intake implemented.
+date-only observed daily Factor, V5 close-time-aware single-source observed
+Factor, and V6 content-addressed multi-source observed Factor intake
+implemented.
 
 Related: [[docs/ARCHITECTURE]], [[docs/CLI]], [[docs/PROJECT_FORMAT]],
 [[docs/STUDIO]], [[docs/design/workspace-project-boundaries]],
@@ -314,6 +315,24 @@ exchange records, and do not reconstruct unscheduled halts. Intake validates
 the resulting V5 bytes exactly as it validates any other external package; it
 does not trust a private materializer or recover authority from the audit.
 
+V6 keeps V5's completed-close, observed-only, absent-no-fill, per-target
+horizon, class, and volume semantics. It replaces V5's one top-level provider
+with an ordered `sources` vector. Every source freezes a lowercase id, source
+package id/version/SHA-256, and complete provider claim; every asset adds the
+matching `sourceId`. V6 requires at least two distinct provider claims and
+source-package hashes, uses every declared source, and retains one uniform
+base interval, market surface, panel policy, and adjustment claim.
+
+The public `$package-autoquant-ohlcv`
+`compose_observed_packages.py` procedure is the bundled construction path. Its
+authority binds at least two complete strict V5 manifests. Their symbol
+inventories must be disjoint and compatible. The procedure copies every asset
+byte into a transactional output and records input/output hashes, rows,
+timestamps, and preservation claims in `composition-audit.json`. It does not
+subset, align, fill, transform, convert adjustment, or resolve a conflict.
+Core validates the V6 manifest and bytes independently; the audit remains
+disclosed evidence rather than privileged intake authority.
+
 ## Validation and normalization
 
 Before any Project is visible, Core:
@@ -330,14 +349,14 @@ Before any Project is visible, Core:
 5. for V2/V3, requires explicit timezone-aware base-bar-close timestamps,
    exact UTC-hour boundaries, consecutive rows with no gaps, strict OHLCV
    geometry, and complete UTC-midnight-anchored aggregation groups;
-6. for V5, requires timezone-aware completed bar-close labels at the declared
+6. for V5/V6, requires timezone-aware completed bar-close labels at the declared
    base interval through `1d`, strict OHLC
    geometry, declared zero-or-provider volume semantics, and keeps every
    missing timestamp absent without requiring a regular calendar;
 7. requires every asset to share the exact base timestamp panel for V1–V3;
    V4 instead requires at least 120 observations per asset, at least four
    observed assets on enough union timestamps for each requested horizon, and
-   records the complete observed-only availability surface; V5 requires at
+   records the complete observed-only availability surface; V5/V6 require at
    least 120 observations per asset but derives its Factor timeline from the
    one explicit prediction asset;
 8. enforces template-specific breadth and history floors; a request-bound
@@ -346,7 +365,7 @@ Before any Project is visible, Core:
    four-asset cross-sectional Factor floor;
 9. requires each requested asset and non-null venue to exist in the package;
    V1–V4 legacy packages match the request against their one package class,
-   while a supplied complete per-asset vector and every V5 package match each
+   while a supplied complete per-asset vector and every V5/V6 package match each
    requested asset against its own package class;
 10. derives the request's exact numerical Horizon Mandate and rejects a largest
    diagnostic target that leaves fewer than 20 purged rows in any split.
@@ -358,7 +377,7 @@ timestamp,open,high,low,close,volume
 ```
 
 with one `<symbol>.csv` per asset. V1/V4 use one `YYYY-MM-DD` row per session;
-V2/V3/V5 preserve timezone-aware completed bar-close instants. There is no
+V2/V3/V5/V6 preserve timezone-aware completed bar-close instants. There is no
 implicit forward fill, timestamp intersection, survivorship repair, or
 corporate-action transformation.
 
@@ -373,11 +392,14 @@ freezes each asset's class and load-time verification matches it to both the
 canonical Research Request and package identity. Historical snapshots without
 that optional vector remain valid.
 
-For V5, `snapshot.json` freezes the observed interval surface, required
+For V5/V6, `snapshot.json` freezes the observed interval surface, required
 per-asset class and volume semantics, union/intersection/coverage facts, and
 the target-owned eligible observation count. Materialized files live under
 the declared base interval only. Loading revalidates hashes, non-negative
 volume, per-asset availability, and the complete snapshot summary.
+V6 additionally freezes its source vector and each asset's source id;
+load-time verification rejects unknown or unused sources and source metadata
+drift through the content-locked snapshot identity.
 
 V2 uses `data/ohlcv/<interval>/<symbol>.csv`. The fixed loader recomputes every
 materialized 3h/4h/6h/12h/1d file from 1h bytes and rejects a mismatch even if
@@ -393,7 +415,8 @@ source closes at or before the decision close. See
 The resulting `data/ohlcv/snapshot.json` records:
 
 - package id, version, top-level class, optional complete per-asset classes,
-  clock/interval surface, market, adjustment, and provider;
+  clock/interval surface, market, adjustment, and either the single provider
+  or complete V6 source vector;
 - request hash and requested assets;
 - exact research universe and common time range;
 - source path/hash and normalized interval path/hash for every asset;
@@ -415,7 +438,7 @@ selection. The generic `study-owned-ohlcv` admission profile verifies aligned
 V1-V3 package structure, request/package agreement, clock and interval
 contracts, provenance claims, horizon capacity, normalized bytes, and exact
 content identity. The supplied Judge remains the sole owner of scientific
-policy semantics. V4/V5 stay on their proven Factor route.
+policy semantics. V4–V6 stay on their proven Factor route.
 
 The initial Study declares `ohlcv/**`; a Study-owned vintage declares its
 namespaced closure. In either case canonical CSV, snapshot, and README bytes
@@ -591,7 +614,7 @@ Studio remains read-only and does not duplicate validation or construction.
 2. All source paths are confined and all normalized dataset bytes are local to
    the Project.
 3. Request assets are a subset of the research universe. Legacy V1–V4 packages
-   share one declared class; classified V1–V4 and V5 packages preserve and
+   share one declared class; classified V1–V4 and V5/V6 packages preserve and
    verify each requested asset class.
 4. No missing date is silently filled or removed.
 5. Provider and adjustment metadata are disclosed claims, not authenticated
@@ -606,7 +629,7 @@ Studio remains read-only and does not duplicate validation or construction.
     three research lanes consume the same causally aligned surface.
 11. V4 retains absent rows as absence, is Factor-only, and exposes usable
     cross-sectional breadth in immutable evidence.
-12. V5 is Factor-only, has one explicit temporal target, and advances targets
+12. V5/V6 are Factor-only, have one explicit temporal target, and advance targets
     and purges only on that asset's observed completed bars.
 
 ## Verification and change checklist
@@ -636,8 +659,8 @@ When changing this boundary:
   1h panel with exact 3h/4h/6h/12h/1d derived bars; V3 handles bounded
   configurable continuous bases and XNYS regular sessions; V4 handles an
   observed-only ragged daily panel; V5 handles one base-only close-time-aware
-  observed panel through `1d` with one temporal prediction asset. V4/V5 are
-  Factor-only.
+  single-source panel through `1d`; V6 adds exact multi-source identity while
+  preserving the same one-target semantics. V4–V6 are Factor-only.
 - V3 XNYS regular-session intraday aggregation is supported; extended hours,
   unscheduled halts, and other exchange calendars are not.
 - Symbols are restricted to path-safe identifiers; `=` is accepted for

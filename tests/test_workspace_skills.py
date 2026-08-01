@@ -6,16 +6,22 @@ import importlib.util
 import io
 import json
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
 
+import jsonschema
 import pandas as pd
 
 from autoquant.factor_explorer import load_factor_diagnostics
-from autoquant.intake import prepare_project_intake
+from autoquant.intake import (
+    OHLCV_DATASET_PACKAGE_JSON_SCHEMA,
+    load_project_intake,
+    prepare_project_intake,
+)
 from autoquant.run_reports import publish_run_report
 from autoquant.runs import execute_study
 from autoquant.skill_bundle import (
@@ -26,14 +32,14 @@ from autoquant.skill_bundle import (
     materialize_workspace_skills,
     verify_materialized_workspace_skills,
 )
+from autoquant.studio import build_studio_snapshot
+from autoquant.templates import OHLCV_STUDY_ID
 from autoquant.workspace import (
     WORKSPACE_MANIFEST,
     AutoQuantValidationError,
     create_project,
     initialize_workspace,
 )
-from autoquant.templates import OHLCV_STUDY_ID
-
 
 ROOT = Path(__file__).resolve().parents[1]
 SKILLS = ROOT / "autoquant" / "workspace_skills"
@@ -246,6 +252,184 @@ def write_daily_close_time_inputs(
         encoding="utf-8",
     )
     return request_path, package_path, authority_path
+
+
+def write_observed_composition_inputs(
+    root: Path,
+    *,
+    observations: int = 240,
+) -> tuple[Path, Path, list[Path]]:
+    timestamps = pd.date_range(
+        "2024-01-02",
+        periods=observations,
+        freq="B",
+        tz="UTC",
+    )
+    source_specs = (
+        (
+            "tokyo-source",
+            "7203.T",
+            "equity",
+            "XTKS",
+            "JPY",
+            "fixture-yahoo",
+            "06:00:00",
+            100.0,
+        ),
+        (
+            "new-york-source",
+            "SPY",
+            "fund",
+            "XNYS",
+            "USD",
+            "fixture-nasdaq",
+            "21:00:00",
+            500.0,
+        ),
+    )
+    package_paths: list[Path] = []
+    source_authority: list[dict[str, str]] = []
+    for source_number, (
+        source_id,
+        symbol,
+        asset_class,
+        venue,
+        currency,
+        provider,
+        close_time,
+        initial_close,
+    ) in enumerate(source_specs):
+        source_root = root / source_id
+        source_root.mkdir()
+        closes: list[float] = []
+        close = initial_close
+        for row_number in range(observations):
+            close *= 1.0 + 0.0003 + 0.002 * (
+                ((row_number + source_number * 3) % 13) - 6
+            ) / 6
+            closes.append(close)
+        frame = pd.DataFrame(
+            {
+                "timestamp": [
+                    f"{timestamp.date().isoformat()}T{close_time}Z"
+                    for timestamp in timestamps
+                ],
+                "open": [value * 0.999 for value in closes],
+                "high": [value * 1.002 for value in closes],
+                "low": [value * 0.998 for value in closes],
+                "close": closes,
+                "volume": [1_000_000.0 + row * 1_000 for row in range(observations)],
+            }
+        )
+        asset_path = source_root / f"{symbol}.csv"
+        frame.to_csv(asset_path, index=False, lineterminator="\n")
+        package = {
+            "schemaVersion": 5,
+            "kind": "autoquant-ohlcv-dataset-package",
+            "id": f"{source_id}-observed",
+            "version": "2024-v1",
+            "assetClass": asset_class,
+            "baseInterval": "1d",
+            "timestampSemantics": "bar-close",
+            "panelPolicy": {
+                "alignment": "observed-only",
+                "missingObservation": "absent-no-fill",
+                "horizonClock": "per-target-observed-bars",
+            },
+            "market": {
+                "clock": "observed",
+                "calendar": "provider-observed",
+                "timezone": "UTC",
+            },
+            "priceAdjustment": "split-adjusted",
+            "provider": {
+                "name": provider,
+                "retrievedAt": "2026-08-02T00:00:00Z",
+                "sourceUri": None,
+                "terms": "deterministic test fixture only",
+            },
+            "assets": [
+                {
+                    "symbol": symbol,
+                    "assetClass": asset_class,
+                    "venue": venue,
+                    "currency": currency,
+                    "path": asset_path.name,
+                    "volumeSemantics": "provider-reported-nonnegative",
+                }
+            ],
+        }
+        package_path = source_root / "dataset-package.json"
+        package_path.write_text(
+            json.dumps(package, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        package_paths.append(package_path)
+        source_authority.append(
+            {
+                "id": source_id,
+                "path": package_path.relative_to(root).as_posix(),
+                "sha256": file_sha256(package_path),
+            }
+        )
+    authority = {
+        "schemaVersion": 1,
+        "kind": "autoquant-observed-package-composition",
+        "outputDataset": {
+            "id": "dual-provider-observed-daily",
+            "version": "2024-v1",
+        },
+        "sourcePackages": source_authority,
+    }
+    authority_path = root / "composition-authority.json"
+    authority_path.write_text(
+        json.dumps(authority, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    request = {
+        "schemaVersion": 1,
+        "kind": "autoquant-research-request",
+        "title": "Tokyo target with distinct New York source context",
+        "question": "Does completed SPY momentum predict the next Toyota close?",
+        "decisionContext": "Deterministic multi-source packaging integration test.",
+        "assets": [
+            {
+                "symbol": "7203.T",
+                "assetClass": "equity",
+                "venue": "XTKS",
+                "positionRole": "long-only",
+            },
+            {
+                "symbol": "SPY",
+                "assetClass": "fund",
+                "venue": "XNYS",
+                "positionRole": "context-only",
+            },
+        ],
+        "direction": "long",
+        "factorPolicy": {"claim": "decision-signal", "knownStyle": None},
+        "horizonPolicy": {
+            "primaryForwardBars": 1,
+            "diagnosticForwardBars": [1, 5],
+        },
+        "horizon": "The next observed Toyota close.",
+        "hypotheses": ["Prior completed context may be measurable."],
+        "constraints": ["No trading authority or provider authentication."],
+        "deliverables": ["Causal Factor evidence"],
+        "source": {
+            "system": "local",
+            "workspaceId": None,
+            "sessionId": None,
+            "artifactPath": None,
+            "artifactRevision": None,
+        },
+    }
+    request_path = root / "research-request.json"
+    request_path.write_text(
+        json.dumps(request, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return request_path, authority_path, package_paths
 
 
 def yahoo_intraday_payload(
@@ -600,8 +784,9 @@ class WorkspaceSkillTests(unittest.TestCase):
             )
             self.assertEqual(prepared.package["schemaVersion"], 5)
             self.assertEqual(prepared.package["baseInterval"], "1d")
+            workspace = initialize_workspace(root / "workspace")
             project = create_project(
-                initialize_workspace(root / "workspace").root_dir,
+                workspace.root_dir,
                 "calendar-close-factor",
                 template=prepared.template,
                 template_intake=prepared,
@@ -682,6 +867,318 @@ def compute_factor(panel: pd.DataFrame) -> pd.Series:
                 report.report["anchor"]["runId"],
                 run.result["id"],
             )
+
+    def test_observed_package_composition_preserves_bytes_and_runs_factor_report(
+        self,
+    ) -> None:
+        compositor = load_script(
+            "autoquant_skill_observed_compositor",
+            SKILLS
+            / "package-autoquant-ohlcv"
+            / "scripts"
+            / "compose_observed_packages.py",
+        )
+        package_audit = load_script(
+            "autoquant_skill_v6_package_audit",
+            SKILLS
+            / "package-autoquant-ohlcv"
+            / "scripts"
+            / "audit_ohlcv_package.py",
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            request_path, authority_path, source_packages = (
+                write_observed_composition_inputs(root)
+            )
+            output = root / "composed"
+            result = compositor.compose(authority_path, output)
+            self.assertEqual(result["sources"], 2)
+            self.assertEqual(result["assets"], 2)
+            package_path = output / "dataset-package.json"
+            package = json.loads(package_path.read_text(encoding="utf-8"))
+            self.assertEqual(package["schemaVersion"], 6)
+            jsonschema.validate(package, OHLCV_DATASET_PACKAGE_JSON_SCHEMA)
+            self.assertEqual(
+                [source["id"] for source in package["sources"]],
+                ["tokyo-source", "new-york-source"],
+            )
+            self.assertEqual(
+                [asset["sourceId"] for asset in package["assets"]],
+                ["tokyo-source", "new-york-source"],
+            )
+            for source_package, asset in zip(
+                source_packages,
+                package["assets"],
+                strict=True,
+            ):
+                source_manifest = json.loads(
+                    source_package.read_text(encoding="utf-8")
+                )
+                source_asset = source_package.parent / source_manifest["assets"][0]["path"]
+                self.assertEqual(
+                    file_sha256(source_asset),
+                    file_sha256(output / asset["path"]),
+                )
+            audit = json.loads(
+                (output / "composition-audit.json").read_text(encoding="utf-8")
+            )
+            self.assertFalse(audit["composition"]["alignment"])
+            self.assertFalse(audit["composition"]["fill"])
+            self.assertTrue(
+                all(
+                    asset["preservation"]["bytesUnchanged"]
+                    for source in audit["sources"]
+                    for asset in source["assets"]
+                )
+            )
+            independent_audit = package_audit.audit(package_path)
+            self.assertEqual(independent_audit["datasetSchemaVersion"], 6)
+            self.assertEqual(
+                {item["id"] for item in independent_audit["sources"]},
+                {"tokyo-source", "new-york-source"},
+            )
+
+            prepared = prepare_project_intake(
+                request_path,
+                package_path,
+                "ohlcv-factor-lab",
+            )
+            self.assertEqual(prepared.package["schemaVersion"], 6)
+            self.assertTrue(prepared.multi_source)
+            self.assertEqual(
+                [asset.source_id for asset in prepared.assets],
+                ["tokyo-source", "new-york-source"],
+            )
+            cli_workspace = initialize_workspace(root / "cli-workspace")
+            cli_result = subprocess.run(
+                [
+                    sys.executable,
+                    "-m",
+                    "autoquant",
+                    "project",
+                    "intake",
+                    str(cli_workspace.root_dir),
+                    "multi-source-cli",
+                    "--request",
+                    str(request_path),
+                    "--dataset",
+                    str(package_path),
+                    "--template",
+                    "ohlcv-factor-lab",
+                    "--json",
+                ],
+                cwd=ROOT,
+                capture_output=True,
+                check=False,
+                text=True,
+            )
+            self.assertEqual(cli_result.returncode, 0, cli_result.stderr)
+            cli_envelope = json.loads(cli_result.stdout)
+            self.assertEqual(
+                [
+                    source["id"]
+                    for source in cli_envelope["data"]["intake"]["dataset"]["sources"]
+                ],
+                ["tokyo-source", "new-york-source"],
+            )
+            workspace = initialize_workspace(root / "workspace")
+            project = create_project(
+                workspace.root_dir,
+                "multi-source-factor",
+                template=prepared.template,
+                template_intake=prepared,
+            )
+            (project.root_dir / "factors" / "candidate.py").write_text(
+                """\
+from __future__ import annotations
+
+import pandas as pd
+
+
+def compute_factor(panel: pd.DataFrame) -> pd.Series:
+    result = pd.Series(float("nan"), index=panel.index, dtype=float)
+    target = (
+        panel.loc[panel["asset"].eq("7203.T"), ["timestamp"]]
+        .assign(row_index=lambda frame: frame.index)
+        .sort_values("timestamp", kind="stable")
+    )
+    context = (
+        panel.loc[panel["asset"].eq("SPY"), ["timestamp", "close"]]
+        .sort_values("timestamp", kind="stable")
+    )
+    context["completed_return"] = context["close"].pct_change(fill_method=None)
+    aligned = pd.merge_asof(
+        target,
+        context[["timestamp", "completed_return"]],
+        on="timestamp",
+        direction="backward",
+        allow_exact_matches=True,
+    )
+    result.loc[aligned["row_index"].to_numpy()] = aligned[
+        "completed_return"
+    ].to_numpy()
+    return result
+""",
+                encoding="utf-8",
+            )
+            run = execute_study(project, OHLCV_STUDY_ID)
+            self.assertEqual(run.result["status"], "succeeded", run.result["errors"])
+            report = publish_run_report(
+                project,
+                OHLCV_STUDY_ID,
+                run.result["id"],
+                {
+                    "schemaVersion": 1,
+                    "kind": "autoquant-research-report-analysis",
+                    "title": "Multi-source observed Factor evidence",
+                    "executiveSummary": "The strict V6 path completed.",
+                    "findings": [
+                        {
+                            "id": "v6-path",
+                            "claim": "Distinct source authority survived intake and execution.",
+                            "confidence": "high",
+                            "evidenceRefs": [
+                                {
+                                    "kind": "run",
+                                    "id": run.result["id"],
+                                    "artifactPath": "artifacts/factor-report.json",
+                                }
+                            ],
+                        }
+                    ],
+                    "recommendations": [],
+                    "limitations": ["The fixture is not market evidence."],
+                    "unresolvedQuestions": [],
+                },
+            )
+            self.assertEqual(report.report["anchor"]["runId"], run.result["id"])
+            studio = build_studio_snapshot(workspace.root_dir)
+            studio_project = next(
+                item
+                for item in studio["projects"]
+                if item["id"] == "multi-source-factor"
+            )
+            self.assertEqual(
+                [
+                    source["provider"]["name"]
+                    for source in studio_project["intake"]["dataset"]["sources"]
+                ],
+                ["fixture-yahoo", "fixture-nasdaq"],
+            )
+            snapshot_path = project.root_dir / "data" / "ohlcv" / "snapshot.json"
+            snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
+            snapshot["assets"][0]["sourceId"] = "unknown-source"
+            snapshot_path.write_text(
+                json.dumps(snapshot, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            intake_path = project.root_dir / "intake.json"
+            intake = json.loads(intake_path.read_text(encoding="utf-8"))
+            intake["datasetSnapshotHash"] = file_sha256(snapshot_path)
+            intake_path.write_text(
+                json.dumps(intake, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "sourceId must name one declared source",
+            ):
+                load_project_intake(project)
+
+    def test_observed_package_composition_fails_closed_on_unsafe_or_incompatible_inputs(
+        self,
+    ) -> None:
+        compositor = load_script(
+            "autoquant_skill_observed_compositor_failures",
+            SKILLS
+            / "package-autoquant-ohlcv"
+            / "scripts"
+            / "compose_observed_packages.py",
+        )
+
+        def rewrite_hash(authority_path: Path, package_path: Path) -> None:
+            authority = json.loads(authority_path.read_text(encoding="utf-8"))
+            for source in authority["sourcePackages"]:
+                if source["path"] == package_path.relative_to(
+                    authority_path.parent
+                ).as_posix():
+                    source["sha256"] = file_sha256(package_path)
+            authority_path.write_text(json.dumps(authority), encoding="utf-8")
+
+        def one_source(root, authority_path, packages):
+            authority = json.loads(authority_path.read_text(encoding="utf-8"))
+            authority["sourcePackages"].pop()
+            authority_path.write_text(json.dumps(authority), encoding="utf-8")
+
+        def same_provider(root, authority_path, packages):
+            left = json.loads(packages[0].read_text(encoding="utf-8"))
+            right = json.loads(packages[1].read_text(encoding="utf-8"))
+            right["provider"] = left["provider"]
+            packages[1].write_text(json.dumps(right), encoding="utf-8")
+            rewrite_hash(authority_path, packages[1])
+
+        def adjustment_mismatch(root, authority_path, packages):
+            package = json.loads(packages[1].read_text(encoding="utf-8"))
+            package["priceAdjustment"] = "raw"
+            packages[1].write_text(json.dumps(package), encoding="utf-8")
+            rewrite_hash(authority_path, packages[1])
+
+        def duplicate_symbol(root, authority_path, packages):
+            package = json.loads(packages[1].read_text(encoding="utf-8"))
+            package["assets"][0]["symbol"] = "7203.T"
+            packages[1].write_text(json.dumps(package), encoding="utf-8")
+            rewrite_hash(authority_path, packages[1])
+
+        def tampered_hash(root, authority_path, packages):
+            authority = json.loads(authority_path.read_text(encoding="utf-8"))
+            authority["sourcePackages"][0]["sha256"] = "0" * 64
+            authority_path.write_text(json.dumps(authority), encoding="utf-8")
+
+        def invalid_v5(root, authority_path, packages):
+            package = json.loads(packages[1].read_text(encoding="utf-8"))
+            package["schemaVersion"] = 4
+            packages[1].write_text(json.dumps(package), encoding="utf-8")
+            rewrite_hash(authority_path, packages[1])
+
+        def symlink_manifest(root, authority_path, packages):
+            outside = root / "outside-package.json"
+            shutil.move(packages[1], outside)
+            packages[1].symlink_to(outside)
+
+        cases = (
+            ("one-source", one_source, "at least two packages"),
+            ("same-provider", same_provider, "distinct provider claims"),
+            ("adjustment", adjustment_mismatch, "disagree on priceAdjustment"),
+            ("duplicate-symbol", duplicate_symbol, "inventories must be disjoint"),
+            ("tampered-hash", tampered_hash, "does not bind source package"),
+            ("invalid-v5", invalid_v5, "strict AutoQuant V5"),
+            ("symlink", symlink_manifest, "cannot traverse a symlink"),
+        )
+        for label, mutate, expected in cases:
+            with self.subTest(case=label), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                _, authority_path, packages = write_observed_composition_inputs(
+                    root,
+                    observations=8,
+                )
+                output = root / "output"
+                mutate(root, authority_path, packages)
+                with self.assertRaisesRegex(ValueError, expected):
+                    compositor.compose(authority_path, output)
+                self.assertFalse(output.exists())
+                self.assertEqual(list(root.glob(".output.creating-*")), [])
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _, authority_path, _ = write_observed_composition_inputs(
+                root,
+                observations=8,
+            )
+            output = root / "output"
+            output.mkdir()
+            with self.assertRaisesRegex(ValueError, "output must be absent"):
+                compositor.compose(authority_path, output)
+            self.assertEqual(list(output.iterdir()), [])
 
     def test_workspace_init_materializes_skills_and_conflict_rolls_back(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

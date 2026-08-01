@@ -404,11 +404,22 @@ prediction asset's own observed bars, not elapsed time or the panel union.
 At one target close, candidate code may use only context rows at or before that
 exact timestamp. Asynchronous context therefore requires an explicit backward
 as-of operation; the Harness does not manufacture a filled common calendar.
-Portfolio, governed RL, and the coordinated research desk reject V5.
+Portfolio, governed RL, and the coordinated research desk reject V5/V6.
 For date-only cross-market daily source, use the bundled
 `$package-autoquant-ohlcv` `materialize_daily_close_time.py` procedure with an
 exact per-asset calendar authority manifest; Core does not infer or append
 close times during intake.
+
+V6 preserves the same Factor-only observed-bar and one-target semantics while
+replacing the single top-level provider with at least two ordered,
+content-addressed source-package claims. Every asset names exactly one source.
+Create V6 only from complete, compatible, disjoint strict V5 packages with
+the bundled `$package-autoquant-ohlcv`
+`compose_observed_packages.py` procedure. It copies bytes without subsetting,
+alignment, fill, transformation, or conflict resolution and emits
+`composition-audit.json`. Core rejects unknown or unused source ids, duplicate
+source identities or package hashes, fewer than two distinct provider claims,
+and any ordinary V5 invariant violation.
 
 The JSON result contains Project-level `request.json`, `intake.json`,
 `data/ohlcv/snapshot.json`, the template's verified Study identities, and
@@ -537,7 +548,7 @@ reported `positionSnapshot`, Core also generates and binds the matching
 The external form does not infer a Judge, objective, subject, or scientific
 method. Its `study-owned-ohlcv` profile establishes structural data authority
 only; the fixed Judge owns the meaning of request policy fields. V4 ragged
-daily and V5 observed base-bar packages remain Factor-only. Generated request
+daily and V5/V6 observed base-bar packages remain Factor-only. Generated request
 files are merged with repeatable additional `--dependency` values and optional
 upstream immutable Run evidence. Existing owned paths are never overwritten;
 an ordinary validation or Study-creation failure removes all newly created

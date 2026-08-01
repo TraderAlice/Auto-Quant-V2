@@ -88,13 +88,13 @@ def _snapshot_surface(
                 "featureIntervals": [],
             },
         )
-    if schema_version not in {2, 3, 5} or not isinstance(surface, dict):
+    if schema_version not in {2, 3, 5, 6} or not isinstance(surface, dict):
         raise AutoQuantValidationError(
             [
                 _issue(
                     path,
                     "candidate-contract.interval-surface",
-                    "Locked OHLCV snapshot needs one V2, V3, or V5 interval surface",
+                    "Locked OHLCV snapshot needs one V2, V3, V5, or V6 interval surface",
                 )
             ]
         )

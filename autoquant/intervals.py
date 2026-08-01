@@ -327,14 +327,14 @@ def canonical_interval_surface(
                 "timezone": surface.get("timezone"),
             },
         ).to_dict()
-    elif schema_version == 5:
+    elif schema_version in {5, 6}:
         expected = observed_interval_surface(
             surface.get("baseInterval"),
         ).to_dict()
     else:
         raise IntervalContractError(
             "interval.schema",
-            "Interval surface requires snapshot schema V2, V3, or V5",
+            "Interval surface requires snapshot schema V2, V3, V5, or V6",
         )
     if dict(surface) != expected:
         raise IntervalContractError(
@@ -968,7 +968,7 @@ def load_multi_interval_asset(
     start: str,
     end: str,
 ) -> pd.DataFrame | None:
-    """Load and reconcile one materialized V2/V3 or observed V5 asset."""
+    """Load and reconcile one materialized V2/V3 or observed V5/V6 asset."""
 
     root = Path(data_root).resolve()
     ohlcv = (root / "ohlcv").resolve()
@@ -983,7 +983,7 @@ def load_multi_interval_asset(
             f"Invalid interval snapshot JSON: {error}",
         ) from error
     schema_version = snapshot.get("schemaVersion")
-    if schema_version not in {2, 3, 5}:
+    if schema_version not in {2, 3, 5, 6}:
         return None
     surface = snapshot.get("intervalSurface")
     if not isinstance(surface, dict):
@@ -1001,7 +1001,7 @@ def load_multi_interval_asset(
         expected_surface["baseInterval"],
         *expected_surface["featureIntervals"],
     ]
-    if schema_version == 5:
+    if schema_version in {5, 6}:
         base_interval = expected_surface["baseInterval"]
         source = (ohlcv / base_interval / f"{asset}.csv").resolve()
         if ohlcv not in source.parents or not source.is_file() or source.is_symlink():

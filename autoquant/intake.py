@@ -103,6 +103,11 @@ SAFE_SYMBOL = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._=-]{0,63}$")
 SUPPORTED_SOURCE_SUFFIXES = {".csv", ".parquet", ".feather"}
 RAGGED_DAILY_SCHEMA_VERSION = 4
 OBSERVED_INTRADAY_SCHEMA_VERSION = 5
+MULTI_SOURCE_OBSERVED_SCHEMA_VERSION = 6
+OBSERVED_SCHEMA_VERSIONS = {
+    OBSERVED_INTRADAY_SCHEMA_VERSION,
+    MULTI_SOURCE_OBSERVED_SCHEMA_VERSION,
+}
 RAGGED_PANEL_POLICY = {
     "alignment": "observed-only",
     "missingObservation": "absent-no-fill",
@@ -125,6 +130,7 @@ PRICE_ADJUSTMENTS = {
     "provider-adjusted",
 }
 PROVIDER_KEYS = {"name", "retrievedAt", "sourceUri", "terms"}
+SAFE_SOURCE_ID = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
 INTAKE_TEMPLATE_REQUIREMENTS = {
     "ohlcv-factor-lab": (4, 180),
     "ohlcv-portfolio-lab": (5, 180),
@@ -280,6 +286,151 @@ def _normalize_provider_claim(provider: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _validate_source_claims(
+    value: Any,
+    path: Path | str,
+) -> tuple[list[dict[str, Any]], list[ValidationIssue]]:
+    """Validate ordered V6 source-package and provider authority."""
+
+    issues: list[ValidationIssue] = []
+    if not isinstance(value, list) or len(value) < 2:
+        return [], [
+            _issue(
+                path,
+                "schema.array",
+                "V6 sources must contain at least two source claims",
+            )
+        ]
+    normalized: list[dict[str, Any]] = []
+    source_ids: list[str] = []
+    package_hashes: list[str] = []
+    provider_claims: list[str] = []
+    for index, source in enumerate(value):
+        source_path = f"{path}/{index}"
+        if not isinstance(source, dict):
+            issues.append(
+                _issue(source_path, "schema.type", "Source must be an object")
+            )
+            continue
+        issues.extend(
+            _strict_keys(
+                source,
+                {"id", "sourcePackage", "provider"},
+                source_path,
+            )
+        )
+        source_id = source.get("id")
+        if (
+            not isinstance(source_id, str)
+            or not SAFE_SOURCE_ID.fullmatch(source_id)
+        ):
+            issues.append(
+                _issue(
+                    f"{source_path}/id",
+                    "dataset.source-id",
+                    "Source id must be a lowercase path-safe identifier",
+                )
+            )
+        else:
+            source_ids.append(source_id)
+
+        package = source.get("sourcePackage")
+        if not isinstance(package, dict):
+            issues.append(
+                _issue(
+                    f"{source_path}/sourcePackage",
+                    "schema.type",
+                    "sourcePackage must be an object",
+                )
+            )
+            package = {}
+        else:
+            issues.extend(
+                _strict_keys(
+                    package,
+                    {"id", "version", "sha256"},
+                    f"{source_path}/sourcePackage",
+                )
+            )
+        for key in ("id", "version"):
+            issues.extend(
+                _non_empty(
+                    package.get(key),
+                    f"{source_path}/sourcePackage/{key}",
+                )
+            )
+        package_hash = package.get("sha256")
+        if not _valid_hash(package_hash):
+            issues.append(
+                _issue(
+                    f"{source_path}/sourcePackage/sha256",
+                    "schema.hash",
+                    "sourcePackage sha256 must be a lowercase SHA-256 digest",
+                )
+            )
+        else:
+            package_hashes.append(package_hash)
+
+        provider, provider_issues = _validate_provider_claim(
+            source.get("provider"),
+            f"{source_path}/provider",
+        )
+        issues.extend(provider_issues)
+        if provider and not provider_issues:
+            normalized_provider = _normalize_provider_claim(provider)
+            provider_claims.append(
+                json.dumps(
+                    normalized_provider,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                )
+            )
+        else:
+            normalized_provider = {}
+
+        if (
+            isinstance(source_id, str)
+            and SAFE_SOURCE_ID.fullmatch(source_id)
+            and isinstance(package.get("id"), str)
+            and isinstance(package.get("version"), str)
+            and _valid_hash(package_hash)
+            and normalized_provider
+        ):
+            normalized.append(
+                {
+                    "id": source_id,
+                    "sourcePackage": {
+                        "id": package["id"].strip(),
+                        "version": package["version"].strip(),
+                        "sha256": package_hash,
+                    },
+                    "provider": normalized_provider,
+                }
+            )
+
+    if len(source_ids) != len(set(source_ids)):
+        issues.append(
+            _issue(path, "dataset.duplicate-source-id", "Source ids must be unique")
+        )
+    if len(package_hashes) != len(set(package_hashes)):
+        issues.append(
+            _issue(
+                path,
+                "dataset.duplicate-source-package",
+                "Source-package hashes must be unique",
+            )
+        )
+    if len(set(provider_claims)) < 2:
+        issues.append(
+            _issue(
+                path,
+                "dataset.distinct-provider-authority",
+                "V6 requires at least two distinct provider claims",
+            )
+        )
+    return normalized, issues
+
+
 def _read_json(path: Path, label: str) -> dict[str, Any]:
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
@@ -429,6 +580,7 @@ class PreparedAsset:
     interval_frames: dict[str, pd.DataFrame] | None = None
     asset_class: str | None = None
     volume_semantics: str | None = None
+    source_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -451,7 +603,7 @@ class PreparedIntake:
         return self.package["schemaVersion"] in {
             2,
             3,
-            OBSERVED_INTRADAY_SCHEMA_VERSION,
+            *OBSERVED_SCHEMA_VERSIONS,
         }
 
     @property
@@ -460,9 +612,13 @@ class PreparedIntake:
 
     @property
     def observed_intraday(self) -> bool:
+        return self.package["schemaVersion"] in OBSERVED_SCHEMA_VERSIONS
+
+    @property
+    def multi_source(self) -> bool:
         return (
             self.package["schemaVersion"]
-            == OBSERVED_INTRADAY_SCHEMA_VERSION
+            == MULTI_SOURCE_OBSERVED_SCHEMA_VERSION
         )
 
     @property
@@ -1004,6 +1160,135 @@ def _validate_v5_package_manifest(
     }
 
 
+def _validate_v6_package_manifest(
+    value: dict[str, Any],
+    path: Path,
+) -> dict[str, Any]:
+    """Validate one multi-source observed base-bar Factor package."""
+
+    required = {
+        "schemaVersion",
+        "kind",
+        "id",
+        "version",
+        "assetClass",
+        "baseInterval",
+        "timestampSemantics",
+        "panelPolicy",
+        "market",
+        "priceAdjustment",
+        "sources",
+        "assets",
+    }
+    issues = _strict_keys(value, required, path)
+    if value.get("schemaVersion") != MULTI_SOURCE_OBSERVED_SCHEMA_VERSION:
+        issues.append(
+            _issue(
+                f"{path}/schemaVersion",
+                "schema.version",
+                f"Expected V{MULTI_SOURCE_OBSERVED_SCHEMA_VERSION}",
+            )
+        )
+    sources, source_issues = _validate_source_claims(
+        value.get("sources"),
+        f"{path}/sources",
+    )
+    issues.extend(source_issues)
+
+    raw_assets = value.get("assets")
+    projected_assets: list[Any] = []
+    source_ids: list[str] = []
+    if isinstance(raw_assets, list):
+        for index, asset in enumerate(raw_assets):
+            if not isinstance(asset, dict):
+                projected_assets.append(asset)
+                continue
+            asset_path = f"{path}/assets/{index}"
+            source_id = asset.get("sourceId")
+            if not isinstance(source_id, str) or not SAFE_SOURCE_ID.fullmatch(
+                source_id
+            ):
+                issues.append(
+                    _issue(
+                        f"{asset_path}/sourceId",
+                        "dataset.source-id",
+                        "Every V6 asset must name one path-safe source id",
+                    )
+                )
+            else:
+                source_ids.append(source_id)
+            projected_assets.append(
+                {key: item for key, item in asset.items() if key != "sourceId"}
+            )
+    else:
+        projected_assets = raw_assets
+
+    fallback_provider = (
+        sources[0]["provider"]
+        if sources
+        else {
+            "name": "invalid",
+            "retrievedAt": None,
+            "sourceUri": None,
+            "terms": "invalid",
+        }
+    )
+    v5_projection = {
+        **{
+            key: item
+            for key, item in value.items()
+            if key not in {"sources", "assets"}
+        },
+        "schemaVersion": OBSERVED_INTRADAY_SCHEMA_VERSION,
+        "provider": fallback_provider,
+        "assets": projected_assets,
+    }
+    normalized_v5: dict[str, Any] | None = None
+    try:
+        normalized_v5 = _validate_v5_package_manifest(v5_projection, path)
+    except AutoQuantValidationError as error:
+        issues.extend(error.issues)
+
+    declared_source_ids = [source["id"] for source in sources]
+    unknown = sorted(set(source_ids) - set(declared_source_ids))
+    unused = sorted(set(declared_source_ids) - set(source_ids))
+    if unknown:
+        issues.append(
+            _issue(
+                f"{path}/assets",
+                "dataset.unknown-source-id",
+                "Assets reference unknown source ids: " + ", ".join(unknown),
+            )
+        )
+    if unused:
+        issues.append(
+            _issue(
+                f"{path}/sources",
+                "dataset.unused-source",
+                "Every V6 source must own at least one asset: " + ", ".join(unused),
+            )
+        )
+    if issues:
+        raise AutoQuantValidationError(issues)
+    assert normalized_v5 is not None
+    return {
+        **{
+            key: item
+            for key, item in normalized_v5.items()
+            if key != "provider"
+        },
+        "schemaVersion": MULTI_SOURCE_OBSERVED_SCHEMA_VERSION,
+        "sources": sources,
+        "assets": [
+            {
+                **asset,
+                "sourceId": raw_assets[index]["sourceId"].strip(),
+            }
+            for index, asset in enumerate(normalized_v5["assets"])
+        ],
+    }
+
+
 def _validate_v2_package_manifest(
     value: dict[str, Any],
     path: Path,
@@ -1397,6 +1682,8 @@ def _validate_package_manifest(
     value: dict[str, Any],
     path: Path,
 ) -> dict[str, Any]:
+    if value.get("schemaVersion") == MULTI_SOURCE_OBSERVED_SCHEMA_VERSION:
+        return _validate_v6_package_manifest(value, path)
     if value.get("schemaVersion") == OBSERVED_INTRADAY_SCHEMA_VERSION:
         return _validate_v5_package_manifest(value, path)
     if value.get("schemaVersion") == RAGGED_DAILY_SCHEMA_VERSION:
@@ -1574,7 +1861,7 @@ def prepare_project_intake(
         package["schemaVersion"] == RAGGED_DAILY_SCHEMA_VERSION
     )
     observed_intraday = (
-        package["schemaVersion"] == OBSERVED_INTRADAY_SCHEMA_VERSION
+        package["schemaVersion"] in OBSERVED_SCHEMA_VERSIONS
     )
     observed_target_symbols = [
         item["symbol"]
@@ -1595,7 +1882,7 @@ def prepare_project_intake(
             _issue(
                 manifest_path,
                 "dataset.observed-bar-factor-only",
-                "V5 observed-only base-bar panels are supported only by "
+                "V5/V6 observed-only base-bar panels are supported only by "
                 "the ohlcv-factor-lab template",
             )
         )
@@ -1607,7 +1894,7 @@ def prepare_project_intake(
             _issue(
                 "request/assets",
                 "request.observed-bar-target",
-                "V5 requires explicit positionRole on every requested asset "
+                "V5/V6 require explicit positionRole on every requested asset "
                 "and exactly one non-context temporal target",
             )
         )
@@ -1782,6 +2069,7 @@ def prepare_project_intake(
                     if observed_intraday
                     else None
                 ),
+                source_id=asset.get("sourceId"),
             )
         )
     prepared_by_symbol = {asset.symbol: asset for asset in prepared}
@@ -1841,7 +2129,7 @@ def prepare_project_intake(
         unit = (
             f"base {package['baseInterval']}"
             if package["schemaVersion"]
-            in {2, 3, OBSERVED_INTRADAY_SCHEMA_VERSION}
+            in {2, 3, *OBSERVED_SCHEMA_VERSIONS}
             else "daily"
         )
         issues.append(
@@ -2288,6 +2576,8 @@ def materialize_intake_dataset(
             common["assetClass"] = asset.asset_class
         if intake.observed_intraday:
             common["volumeSemantics"] = asset.volume_semantics
+        if intake.multi_source:
+            common["sourceId"] = asset.source_id
         if intake.multi_interval:
             assert asset.interval_frames is not None
             interval_records = []
@@ -2382,7 +2672,6 @@ def materialize_intake_dataset(
         "assetClass": intake.package["assetClass"],
         "market": intake.package["market"],
         "priceAdjustment": intake.package["priceAdjustment"],
-        "provider": intake.package["provider"],
         "packageManifestHash": hash_file(intake.package_path),
         "requestHash": intake.request_hash,
         "requestedAssets": [
@@ -2394,6 +2683,10 @@ def materialize_intake_dataset(
         "studyId": study_id,
         "assets": asset_records,
     }
+    if intake.multi_source:
+        snapshot["sources"] = intake.package["sources"]
+    else:
+        snapshot["provider"] = intake.package["provider"]
     if intake.multi_interval:
         snapshot["schemaVersion"] = intake.package["schemaVersion"]
         snapshot["intervalSurface"] = intake.interval_surface
@@ -2434,10 +2727,18 @@ def materialize_intake_dataset(
         if intake.multi_interval
         else f"- Frequency: `{snapshot['frequency']}`\n"
     )
+    provider_summary = (
+        ", ".join(
+            source["provider"]["name"]
+            for source in snapshot["sources"]
+        )
+        if intake.multi_source
+        else snapshot["provider"]["name"]
+    )
     readme = (
         "# Content-locked external OHLCV snapshot\n\n"
         f"- Dataset: `{snapshot['id']}@{snapshot['version']}`\n"
-        f"- Provider claim: `{snapshot['provider']['name']}`\n"
+        f"- Provider claim(s): `{provider_summary}`\n"
         f"- Price adjustment claim: `{snapshot['priceAdjustment']}`\n"
         f"- Calendar claim: `{snapshot['market']['calendar']}`\n"
         f"{interval_line}"
@@ -2903,6 +3204,7 @@ def _validate_multi_interval_snapshot(
     *,
     schema_version: int,
 ) -> list[ValidationIssue]:
+    observed = schema_version in OBSERVED_SCHEMA_VERSIONS
     required = {
         "schemaVersion",
         "kind",
@@ -2912,7 +3214,6 @@ def _validate_multi_interval_snapshot(
         "intervalSurface",
         "market",
         "priceAdjustment",
-        "provider",
         "packageManifestHash",
         "requestHash",
         "requestedAssets",
@@ -2922,7 +3223,12 @@ def _validate_multi_interval_snapshot(
         "studyId",
         "assets",
     }
-    if schema_version == OBSERVED_INTRADAY_SCHEMA_VERSION:
+    required.add(
+        "sources"
+        if schema_version == MULTI_SOURCE_OBSERVED_SCHEMA_VERSION
+        else "provider"
+    )
+    if observed:
         required.update({"panelPolicy", "availability"})
     issues = _strict_keys(snapshot, required, path)
     if (
@@ -2971,7 +3277,7 @@ def _validate_multi_interval_snapshot(
         }
         if schema_version == 3:
             surface_keys |= {"calendar", "terminalBucketPolicy"}
-        elif schema_version == OBSERVED_INTRADAY_SCHEMA_VERSION:
+        elif observed:
             surface_keys = {
                 "baseInterval",
                 "featureIntervals",
@@ -2994,7 +3300,11 @@ def _validate_multi_interval_snapshot(
     try:
         expected_surface = canonical_interval_surface(
             surface,
-            schema_version=schema_version,
+            schema_version=(
+                OBSERVED_INTRADAY_SCHEMA_VERSION
+                if observed
+                else schema_version
+            ),
         )
         if surface != expected_surface:
             issues.append(
@@ -3041,13 +3351,13 @@ def _validate_multi_interval_snapshot(
                 f"V{schema_version} snapshot market differs from interval authority",
             )
         )
-    if schema_version == OBSERVED_INTRADAY_SCHEMA_VERSION:
+    if observed:
         if snapshot.get("panelPolicy") != OBSERVED_PANEL_POLICY:
             issues.append(
                 _issue(
                     f"{path}/panelPolicy",
                     "intake.snapshot-panel-policy",
-                    "V5 snapshot must preserve observed-only target-bar authority",
+                    "Observed snapshot must preserve target-bar authority",
                 )
             )
         availability = snapshot.get("availability")
@@ -3056,14 +3366,22 @@ def _validate_multi_interval_snapshot(
                 _issue(
                     f"{path}/availability",
                     "schema.type",
-                    "V5 snapshot availability must be an object",
+                    "Observed snapshot availability must be an object",
                 )
             )
-    _, provider_issues = _validate_provider_claim(
-        snapshot.get("provider"),
-        f"{path}/provider",
-    )
-    issues.extend(provider_issues)
+    source_claims: list[dict[str, Any]] = []
+    if schema_version == MULTI_SOURCE_OBSERVED_SCHEMA_VERSION:
+        source_claims, source_issues = _validate_source_claims(
+            snapshot.get("sources"),
+            f"{path}/sources",
+        )
+        issues.extend(source_issues)
+    else:
+        _, provider_issues = _validate_provider_claim(
+            snapshot.get("provider"),
+            f"{path}/provider",
+        )
+        issues.extend(provider_issues)
 
     requested_assets = snapshot.get("requestedAssets")
     universe = snapshot.get("universe")
@@ -3109,6 +3427,7 @@ def _validate_multi_interval_snapshot(
         assets = []
     symbols: list[str] = []
     snapshot_asset_classes: list[str] = []
+    snapshot_source_ids: list[str] = []
     for asset_index, asset in enumerate(assets):
         asset_path = f"{path}/assets/{asset_index}"
         if not isinstance(asset, dict):
@@ -3124,13 +3443,12 @@ def _validate_multi_interval_snapshot(
             "end",
             "intervals",
         }
-        if (
-            schema_version == OBSERVED_INTRADAY_SCHEMA_VERSION
-            or "assetClass" in asset
-        ):
+        if observed or "assetClass" in asset:
             asset_keys.add("assetClass")
-        if schema_version == OBSERVED_INTRADAY_SCHEMA_VERSION:
+        if observed:
             asset_keys.add("volumeSemantics")
+        if schema_version == MULTI_SOURCE_OBSERVED_SCHEMA_VERSION:
+            asset_keys.add("sourceId")
         issues.extend(_strict_keys(asset, asset_keys, asset_path))
         for key in ("symbol", "venue", "currency", "sourcePath", "start", "end"):
             issues.extend(_non_empty(asset.get(key), f"{asset_path}/{key}"))
@@ -3140,7 +3458,7 @@ def _validate_multi_interval_snapshot(
         if isinstance(symbol, str):
             symbols.append(symbol)
         if (
-            schema_version != OBSERVED_INTRADAY_SCHEMA_VERSION
+            not observed
             and (
                 asset.get("start") != time_range.get("start")
                 or asset.get("end") != time_range.get("end")
@@ -3164,7 +3482,7 @@ def _validate_multi_interval_snapshot(
                 )
             else:
                 snapshot_asset_classes.append(asset["assetClass"])
-        if schema_version == OBSERVED_INTRADAY_SCHEMA_VERSION:
+        if observed:
             if asset.get("volumeSemantics") not in OBSERVED_VOLUME_SEMANTICS:
                 issues.append(
                     _issue(
@@ -3194,6 +3512,20 @@ def _validate_multi_interval_snapshot(
                         "the target timeRange",
                     )
                 )
+        if schema_version == MULTI_SOURCE_OBSERVED_SCHEMA_VERSION:
+            source_id = asset.get("sourceId")
+            if not isinstance(source_id, str) or source_id not in {
+                source["id"] for source in source_claims
+            }:
+                issues.append(
+                    _issue(
+                        f"{asset_path}/sourceId",
+                        "intake.snapshot-source",
+                        "V6 asset sourceId must name one declared source",
+                    )
+                )
+            else:
+                snapshot_source_ids.append(source_id)
         rows = asset.get("intervals")
         if not isinstance(rows, list) or not rows:
             issues.append(
@@ -3269,6 +3601,20 @@ def _validate_multi_interval_snapshot(
                 "Snapshot asset order must exactly match the research universe",
             )
         )
+    if schema_version == MULTI_SOURCE_OBSERVED_SCHEMA_VERSION:
+        unused_sources = sorted(
+            {source["id"] for source in source_claims}
+            - set(snapshot_source_ids)
+        )
+        if unused_sources:
+            issues.append(
+                _issue(
+                    f"{path}/sources",
+                    "intake.snapshot-unused-source",
+                    "Every V6 source must own at least one asset: "
+                    + ", ".join(unused_sources),
+                )
+            )
     if snapshot_asset_classes:
         if len(snapshot_asset_classes) != len(assets):
             issues.append(
@@ -3331,10 +3677,23 @@ def _validate_v5_snapshot(
     )
 
 
+def _validate_v6_snapshot(
+    snapshot: dict[str, Any],
+    path: Path,
+) -> list[ValidationIssue]:
+    return _validate_multi_interval_snapshot(
+        snapshot,
+        path,
+        schema_version=MULTI_SOURCE_OBSERVED_SCHEMA_VERSION,
+    )
+
+
 def _validate_snapshot(
     snapshot: dict[str, Any],
     path: Path,
 ) -> list[ValidationIssue]:
+    if snapshot.get("schemaVersion") == MULTI_SOURCE_OBSERVED_SCHEMA_VERSION:
+        return _validate_v6_snapshot(snapshot, path)
     if snapshot.get("schemaVersion") == OBSERVED_INTRADAY_SCHEMA_VERSION:
         return _validate_v5_snapshot(snapshot, path)
     if snapshot.get("schemaVersion") == RAGGED_DAILY_SCHEMA_VERSION:
@@ -3541,7 +3900,7 @@ def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
         normalized_rows = (
             asset.get("intervals", [])
             if snapshot.get("schemaVersion")
-            in {2, 3, OBSERVED_INTRADAY_SCHEMA_VERSION}
+            in {2, 3, *OBSERVED_SCHEMA_VERSIONS}
             else [asset]
         )
         for row in normalized_rows:
@@ -3603,7 +3962,7 @@ def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
                         )
         if (
             snapshot.get("schemaVersion")
-            in {2, 3, OBSERVED_INTRADAY_SCHEMA_VERSION}
+            in {2, 3, *OBSERVED_SCHEMA_VERSIONS}
             and isinstance(asset.get("symbol"), str)
             and isinstance(snapshot.get("timeRange"), dict)
         ):
@@ -3624,8 +3983,7 @@ def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
                 )
             else:
                 if (
-                    snapshot.get("schemaVersion")
-                    == OBSERVED_INTRADAY_SCHEMA_VERSION
+                    snapshot.get("schemaVersion") in OBSERVED_SCHEMA_VERSIONS
                     and loaded_interval_asset is not None
                 ):
                     dates = [
@@ -3716,7 +4074,7 @@ def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
             )
         )
     if (
-        snapshot.get("schemaVersion") == OBSERVED_INTRADAY_SCHEMA_VERSION
+        snapshot.get("schemaVersion") in OBSERVED_SCHEMA_VERSIONS
         and len(observed_dates_by_symbol)
         == len(snapshot.get("universe", []))
     ):
@@ -3796,7 +4154,7 @@ def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
         annualization = 252
         if (
             snapshot.get("schemaVersion")
-            in {2, 3, OBSERVED_INTRADAY_SCHEMA_VERSION}
+            in {2, 3, *OBSERVED_SCHEMA_VERSIONS}
             and snapshot.get("assets")
         ):
             target_symbol = next(
@@ -3812,8 +4170,7 @@ def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
                     item
                     for item in snapshot["assets"]
                     if (
-                        snapshot.get("schemaVersion")
-                        == OBSERVED_INTRADAY_SCHEMA_VERSION
+                        snapshot.get("schemaVersion") in OBSERVED_SCHEMA_VERSIONS
                         and item.get("symbol") == target_symbol
                     )
                 ),
@@ -4027,7 +4384,7 @@ def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
             allocation_annualization = 252
             if (
                 snapshot.get("schemaVersion")
-                in {2, 3, OBSERVED_INTRADAY_SCHEMA_VERSION}
+                in {2, 3, *OBSERVED_SCHEMA_VERSIONS}
                 and snapshot.get("assets")
             ):
                 target_symbol = next(
@@ -4254,7 +4611,7 @@ def load_study_dataset_snapshot(
         rows = (
             asset.get("intervals", [])
             if snapshot.get("schemaVersion")
-            in {2, 3, OBSERVED_INTRADAY_SCHEMA_VERSION}
+            in {2, 3, *OBSERVED_SCHEMA_VERSIONS}
             else [asset]
         )
         for row in rows:
@@ -4665,6 +5022,98 @@ OHLCV_DATASET_PACKAGE_V5_JSON_SCHEMA: dict[str, Any] = {
         },
     },
 }
+OHLCV_DATASET_PACKAGE_V6_JSON_SCHEMA: dict[str, Any] = {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "AutoQuant multi-source observed Factor dataset package",
+    "description": (
+        "Only valid with project intake --template ohlcv-factor-lab and "
+        "exactly one non-context temporal target. Every asset binds to one "
+        "content-addressed source package and provider claim."
+    ),
+    "type": "object",
+    "additionalProperties": False,
+    "required": [
+        "schemaVersion",
+        "kind",
+        "id",
+        "version",
+        "assetClass",
+        "baseInterval",
+        "timestampSemantics",
+        "panelPolicy",
+        "market",
+        "priceAdjustment",
+        "sources",
+        "assets",
+    ],
+    "properties": {
+        **{
+            key: item
+            for key, item in OHLCV_DATASET_PACKAGE_V5_JSON_SCHEMA[
+                "properties"
+            ].items()
+            if key not in {"schemaVersion", "provider", "assets"}
+        },
+        "schemaVersion": {"const": MULTI_SOURCE_OBSERVED_SCHEMA_VERSION},
+        "sources": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["id", "sourcePackage", "provider"],
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "pattern": SAFE_SOURCE_ID.pattern,
+                    },
+                    "sourcePackage": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "required": ["id", "version", "sha256"],
+                        "properties": {
+                            "id": {"type": "string", "minLength": 1},
+                            "version": {"type": "string", "minLength": 1},
+                            "sha256": {
+                                "type": "string",
+                                "pattern": r"^[0-9a-f]{64}$",
+                            },
+                        },
+                    },
+                    "provider": OHLCV_DATASET_PACKAGE_V1_JSON_SCHEMA[
+                        "properties"
+                    ]["provider"],
+                },
+            },
+        },
+        "assets": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": [
+                    "symbol",
+                    "assetClass",
+                    "venue",
+                    "currency",
+                    "path",
+                    "volumeSemantics",
+                    "sourceId",
+                ],
+                "properties": {
+                    **OHLCV_DATASET_PACKAGE_V5_JSON_SCHEMA["properties"][
+                        "assets"
+                    ]["items"]["properties"],
+                    "sourceId": {
+                        "type": "string",
+                        "pattern": SAFE_SOURCE_ID.pattern,
+                    },
+                },
+            },
+        },
+    },
+}
 OHLCV_DATASET_PACKAGE_JSON_SCHEMA: dict[str, Any] = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "title": "AutoQuant external OHLCV dataset package",
@@ -4672,7 +5121,7 @@ OHLCV_DATASET_PACKAGE_JSON_SCHEMA: dict[str, Any] = {
         "Select the package version together with the intake template: V1 "
         "is aligned daily and supports every intake template; V2 is fixed "
         "continuous hourly; V3 is configurable continuous/XNYS; V4 ragged "
-        "daily and V5 observed base-bar are ohlcv-factor-lab only. Asset "
+        "daily and V5/V6 observed base-bar are ohlcv-factor-lab only. Asset "
         "paths are portable POSIX-relative paths rooted at the directory "
         "containing this manifest; placing the manifest at staged files' "
         "common ancestor avoids an intermediate copy without weakening "
@@ -4687,6 +5136,7 @@ OHLCV_DATASET_PACKAGE_JSON_SCHEMA: dict[str, Any] = {
                 3,
                 RAGGED_DAILY_SCHEMA_VERSION,
                 OBSERVED_INTRADAY_SCHEMA_VERSION,
+                MULTI_SOURCE_OBSERVED_SCHEMA_VERSION,
             ]
         },
         "kind": {"const": DATASET_PACKAGE_KIND},
@@ -4703,5 +5153,6 @@ OHLCV_DATASET_PACKAGE_JSON_SCHEMA: dict[str, Any] = {
         OHLCV_DATASET_PACKAGE_V3_JSON_SCHEMA,
         OHLCV_DATASET_PACKAGE_V4_JSON_SCHEMA,
         OHLCV_DATASET_PACKAGE_V5_JSON_SCHEMA,
+        OHLCV_DATASET_PACKAGE_V6_JSON_SCHEMA,
     ],
 }
