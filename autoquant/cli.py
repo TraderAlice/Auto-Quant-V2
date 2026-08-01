@@ -114,8 +114,10 @@ from .intake import (
     PROJECT_INTAKE,
     PROJECT_REQUEST,
     DATASET_SNAPSHOT,
+    dataset_snapshot_class_context,
     intake_dataset_class_context,
     load_project_intake,
+    load_study_dataset_snapshot,
     prepare_project_intake,
 )
 from .holdouts import (
@@ -511,6 +513,13 @@ def build_parser() -> RaisingArgumentParser:
         help=(
             "strict Research Request with the same asset descriptions as the "
             "retained Book Risk Project"
+        ),
+    )
+    study_intake.add_argument(
+        "--dataset",
+        help=(
+            "optional complete newer OHLCV dataset package for an immutable "
+            "Study-owned data vintage"
         ),
     )
     study_intake.add_argument("--name")
@@ -1947,6 +1956,7 @@ def _study_intake(args: argparse.Namespace) -> CommandResult:
         args.study_id,
         args.request,
         name=args.name,
+        dataset_path=args.dataset,
     )
     return CommandResult(
         "study.intake",
@@ -1959,7 +1969,8 @@ def _study_intake(args: argparse.Namespace) -> CommandResult:
             f"{study.root_dir}\n"
             f"Request: {intake['requestPath']}\n"
             f"Position snapshot: {intake['positionSnapshotPath']}\n"
-            f"Retained dataset hash: {intake['datasetHash']}\n"
+            f"Dataset mode: {intake['datasetMode']}\n"
+            f"Dataset hash: {intake['datasetHash']}\n"
             "Authority: historical decision support only; no trading authority\n"
         ),
         project_context(project),
@@ -1981,6 +1992,18 @@ def _study_intake(args: argparse.Namespace) -> CommandResult:
                 intake["positionSnapshotId"],
                 project.root_dir / intake["positionSnapshotPath"],
                 immutable=False,
+            ),
+            *(
+                [
+                    artifact(
+                        "dataset-snapshot",
+                        f"{study.definition.id}:dataset",
+                        project.root_dir / intake["datasetSnapshotPath"],
+                        immutable=False,
+                    )
+                ]
+                if "datasetSnapshotPath" in intake
+                else []
             ),
         ],
         [
@@ -2004,12 +2027,15 @@ def _study_intake(args: argparse.Namespace) -> CommandResult:
 
 def _study_data(project, study) -> dict[str, Any]:
     intake = load_project_intake(project)
+    dataset_snapshot = load_study_dataset_snapshot(project, study)
     return {
         "definition": study.definition.to_dict(),
         "path": str(study.root_dir),
         "programPath": str(study.program_path),
         "datasetContext": (
-            intake_dataset_class_context(intake)
+            dataset_snapshot_class_context(dataset_snapshot)
+            if dataset_snapshot is not None
+            else intake_dataset_class_context(intake)
             if intake is not None
             else None
         ),
@@ -4512,6 +4538,17 @@ def _studio_serve(args: argparse.Namespace) -> CommandResult:
 def _validate(args: argparse.Namespace) -> CommandResult:
     project = _selected_project(args)
     intake = load_project_intake(project)
+    study_datasets = {}
+    for summary in list_studies(project):
+        study = load_study(project, summary.id)
+        snapshot = load_study_dataset_snapshot(project, study)
+        if snapshot is not None:
+            study_datasets[summary.id] = {
+                "id": snapshot["id"],
+                "version": snapshot["version"],
+                "timeRange": snapshot["timeRange"],
+                "datasetHash": study.dataset_hash,
+            }
     selection_line = _project_selection_human(args)
     return CommandResult(
         "validate",
@@ -4523,6 +4560,7 @@ def _validate(args: argparse.Namespace) -> CommandResult:
                 "rootDir": str(project.root_dir),
             },
             "intake": intake,
+            "studyDatasets": study_datasets,
         },
         selection_line
         + f"Valid AutoQuant Project '{project.manifest.id}' at {project.root_dir}\n",

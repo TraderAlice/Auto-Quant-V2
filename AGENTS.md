@@ -111,9 +111,12 @@ brief that another Agent can recover from the filesystem.
    For a related fixed Book Risk question over the exact retained dataset,
    use `aq study intake <project> <study-id> --request <request.json>` to add
    Study-owned authority. Do not overwrite the Project-root request/snapshot
-   or create a duplicate Project merely to represent the follow-up. If its
-   asset descriptions or data meaning differ, acquire a task-complete package
-   for a new Project instead.
+   or create a duplicate Project merely to represent the follow-up. When the
+   same evolving question needs a strictly newer comparable data vintage, add
+   `--dataset <complete-package.json>`; Core gives that Study its own immutable
+   data namespace and preserves all earlier evidence. If asset descriptions,
+   roles, market clock, adjustment meaning, or the body of research differ,
+   acquire a task-complete package for a sibling Project instead.
 8. After every Experiment, re-read `aq orient`. Treat
    `evidence.latestExperiment` as the immutable trial/check pointer and
    `trial-review-required` as an Agent/caller choice to report/complete or

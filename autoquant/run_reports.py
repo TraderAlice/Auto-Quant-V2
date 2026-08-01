@@ -168,12 +168,12 @@ def _anchor(
                 "A newer successful Run is the current immutable Study evidence",
             )
         )
-    if run.result["dataset"]["hash"] != intake["manifest"]["datasetHash"]:
+    if run.result["dataset"]["hash"] != study.dataset_hash:
         issues.append(
             _issue(
                 run.root_dir,
                 "report.dataset",
-                "Run dataset differs from the verified Project intake",
+                "Run dataset differs from the selected Study dataset",
             )
         )
     if issues:

@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha released as `v0.9.9`; `v0.8.31` remains the Harness
+Status: usable pre-alpha preparing `v0.9.10`; `v0.8.31` remains the Harness
 currently consumed by OpenAlice until the host deliberately selects a newer
 tag.
 
@@ -17,6 +17,32 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 
 AutoQuant V2 has crossed the line from an architectural prototype into a
 usable Agent-native quantitative research workbench.
+
+The `0.9.10` patch addresses ordinary longitudinal maintenance inside one
+Project. A fresh installed `0.9.9` coworker correctly preserved an existing
+U.S. mega-cap Book Risk request, dataset, Study, Run, and Report, reacquired a
+complete newer Yahoo panel plus an independent Nasdaq audit, and refused to
+overwrite the singleton Project intake. It exposed that public `study intake`
+could bind a second request only to the original dataset.
+
+The bounded repair adds an optional complete dataset package to `aq study
+intake`. A strictly newer comparable vintage receives a Study-owned namespace,
+snapshot, content identity, fixed Judge binding, Run, and direct Report while
+the original construction evidence remains byte-identical. AutoQuant does not
+add a shared cache or inventory gate: each request still owns a task-complete
+package, and data reuse never constrains what may be researched. OpenAlice
+stays pinned to `0.8.31`. Exact baseline and candidate evidence is recorded in
+[[plans/same-project-data-vintage-refresh-field-trial]].
+
+Fresh Grok candidate replay created Study `ohlcv-book-risk-20260731`, Run
+`run-20260801T000250149387Z-b0b74ab40a37`, and Report
+`report-20260801T000324664906Z-8a7ed7e6119c`. It preserved every prior fixed
+or immutable file and changed only longitudinal `research.md`. Yahoo covered
+the requested final session; Nasdaq.com's peer display remained one session
+late and was disclosed rather than filled or relabelled. Repository regression
+passes 380 tests in 933.218 seconds, 1,314 documentation links, lock and syntax
+checks, source/wheel builds, and fresh Python 3.11.14 installation exposing 52
+public commands.
 
 The `0.9.9` patch revisits the unaccepted `0.9.0` Taiwan Factor assignment
 without changing its caller-owned data authority. A fresh installed `0.9.8`

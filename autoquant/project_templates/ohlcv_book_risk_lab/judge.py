@@ -78,6 +78,33 @@ def _fixed_input_path(project_root: Path, value: str, code: str) -> Path:
     return path
 
 
+def _fixed_dataset_root(data_root: Path, value: str) -> Path:
+    relative = PurePosixPath(value)
+    if (
+        "\\" in value
+        or relative.is_absolute()
+        or value in {"", ".."}
+        or ".." in relative.parts
+    ):
+        raise JudgeFailure(
+            "book-risk.dataset-root",
+            "Fixed dataset root must be confined under Project data",
+        )
+    path = (
+        data_root
+        if value == "."
+        else (data_root / Path(*relative.parts)).resolve()
+    )
+    try:
+        path.relative_to(data_root)
+    except ValueError:
+        raise JudgeFailure(
+            "book-risk.dataset-root",
+            "Fixed dataset root escapes Project data",
+        ) from None
+    return path
+
+
 def _arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(add_help=False, exit_on_error=False)
     parser.add_argument(
@@ -87,6 +114,10 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument(
         "--scenarios",
         default="strategies/book-risk-scenarios.json",
+    )
+    parser.add_argument(
+        "--dataset-root",
+        default=".",
     )
     try:
         arguments, unknown = parser.parse_known_args()
@@ -708,6 +739,15 @@ def main() -> None:
         data_root = Path(os.environ["AUTOQUANT_DATA_ROOT"]).resolve()
         artifacts = Path(os.environ["AUTOQUANT_ARTIFACTS_DIR"]).resolve()
         arguments = _arguments()
+        selected_data_root = _fixed_dataset_root(
+            data_root,
+            arguments.dataset_root,
+        )
+        if not selected_data_root.is_dir():
+            raise JudgeFailure(
+                "book-risk.dataset-root",
+                "Fixed dataset root must be a real directory",
+            )
         study = _read_object(
             Path(os.environ["AUTOQUANT_STUDY_PATH"]),
             "study.invalid",
@@ -844,7 +884,7 @@ def main() -> None:
         closes = pd.concat(
             [
                 _load_close(
-                    data_root,
+                    selected_data_root,
                     asset,
                     str(time_range["start"]),
                     str(time_range["end"]),

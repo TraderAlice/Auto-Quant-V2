@@ -32,7 +32,11 @@ from .factor_explorer import (
     load_factor_diagnostics,
 )
 from .event_explorer import load_event_study_diagnostics
-from .intake import load_project_intake
+from .intake import (
+    dataset_snapshot_class_context,
+    load_project_intake,
+    load_study_dataset_snapshot,
+)
 from .holdouts import load_holdout_status
 from .orientation import build_agent_work_brief
 from .portfolio_explorer import (
@@ -46,7 +50,7 @@ from .reports import list_reports
 from .run_reports import list_run_reports
 from .runs import list_runs, load_run
 from .sessions import list_sessions, load_session, session_snapshot
-from .studies import hash_json, list_studies
+from .studies import hash_json, list_studies, load_study
 from .workspace import (
     PROJECT_MANIFEST,
     SCHEMA_VERSION,
@@ -1070,7 +1074,24 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
             **dossier_status,
             "nextAction": external_holdout["nextAction"],
         }
-    studies = [item.to_dict() for item in studies_raw]
+    studies = []
+    for item in studies_raw:
+        summary = item.to_dict()
+        try:
+            study = load_study(project, item.id)
+            snapshot = load_study_dataset_snapshot(project, study)
+            summary["dataset"] = study.definition.to_dict()["dataset"]
+            summary["datasetHash"] = study.dataset_hash
+            summary["datasetContext"] = (
+                dataset_snapshot_class_context(snapshot)
+                if snapshot is not None
+                else None
+            )
+        except AutoQuantValidationError as error:
+            diagnostics.extend(
+                _diagnostics(f"study-dataset:{item.id}", error)
+            )
+        studies.append(summary)
     runs: list[dict[str, Any]] = []
     for item in runs_raw:
         summary = item.to_dict()

@@ -18,7 +18,11 @@ from autoquant.book_risk_explorer import (
 from autoquant.project_templates.ohlcv_book_risk_lab.judge import (
     _drawdown_analysis,
 )
-from autoquant.intake import load_project_intake, prepare_project_intake
+from autoquant.intake import (
+    load_project_intake,
+    load_study_dataset_snapshot,
+    prepare_project_intake,
+)
 from autoquant.orientation import (
     AGENT_WORK_BRIEF_JSON_SCHEMA,
     build_agent_work_brief,
@@ -1325,6 +1329,272 @@ class BookRiskLabTests(unittest.TestCase):
             self.assertFalse(
                 (project.root_dir / "judges" / "book-risk-studies").exists()
             )
+
+    def test_cli_appends_newer_study_owned_book_risk_dataset_vintage(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = self._real_project(root)
+            original_study = load_study(project, BOOK_RISK_STUDY_ID)
+            original_run = execute_study(project, BOOK_RISK_STUDY_ID)
+            original_report = publish_run_report(
+                project,
+                BOOK_RISK_STUDY_ID,
+                original_run.result["id"],
+                _book_report_analysis(
+                    original_run.result["id"],
+                    "Original data-vintage conclusion",
+                ),
+            )
+            original_hashes = {
+                path.relative_to(project.root_dir).as_posix(): hash_file(path)
+                for path in sorted(project.root_dir.rglob("*"))
+                if path.is_file()
+            }
+
+            refresh_root = root / "refresh"
+            refresh_root.mkdir()
+            request_path, package_path = write_intake_inputs(
+                refresh_root,
+                observations=261,
+                dataset_version="2024-v2",
+                request_assets=("AAPL", "MSFT", "NVDA", "QQQ"),
+                asset_position_roles={
+                    "AAPL": "long-only",
+                    "MSFT": "long-only",
+                    "NVDA": "long-only",
+                    "QQQ": "long-only",
+                },
+            )
+            _book_request(request_path)
+            refreshed_request = json.loads(
+                request_path.read_text(encoding="utf-8")
+            )
+            refreshed_request["positionSnapshot"]["asOf"] = (
+                "2024-12-31T21:00:00Z"
+            )
+            request_path.write_text(
+                json.dumps(refreshed_request, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+
+            created = _run_cli(
+                "study",
+                "intake",
+                str(project.root_dir),
+                "year-end-refresh",
+                "--request",
+                str(request_path),
+                "--dataset",
+                str(package_path),
+                "--json",
+            )
+            self.assertEqual(created.returncode, 0, created.stderr or created.stdout)
+            envelope = json.loads(created.stdout)
+            intake = envelope["data"]["intake"]
+            self.assertEqual(intake["datasetMode"], "study-owned-refresh")
+            self.assertEqual(
+                intake["datasetSnapshotPath"],
+                "data/studies/year-end-refresh/ohlcv/snapshot.json",
+            )
+            self.assertEqual(
+                intake["datasetTimeRange"],
+                {"start": "2024-01-02", "end": "2024-12-31"},
+            )
+
+            refreshed_study = load_study(project, "year-end-refresh")
+            self.assertNotEqual(
+                refreshed_study.dataset_hash,
+                original_study.dataset_hash,
+            )
+            self.assertEqual(
+                refreshed_study.definition.dataset.paths,
+                ["studies/year-end-refresh/ohlcv/**"],
+            )
+            self.assertEqual(
+                refreshed_study.definition.judge.arguments[-2:],
+                ["--dataset-root", "studies/year-end-refresh"],
+            )
+            snapshot = load_study_dataset_snapshot(project, refreshed_study)
+            self.assertIsNotNone(snapshot)
+            self.assertEqual(snapshot["version"], "2024-v2")
+            self.assertEqual(snapshot["studyId"], "year-end-refresh")
+
+            refreshed_run = execute_study(project, "year-end-refresh")
+            self.assertEqual(refreshed_run.result["status"], "succeeded")
+            self.assertEqual(
+                refreshed_run.result["dataset"]["hash"],
+                refreshed_study.dataset_hash,
+            )
+            load_book_risk_diagnostics(
+                project,
+                refreshed_run.result["id"],
+                point_limit=20,
+            )
+            refreshed_report = publish_run_report(
+                project,
+                "year-end-refresh",
+                refreshed_run.result["id"],
+                _book_report_analysis(
+                    refreshed_run.result["id"],
+                    "Refreshed data-vintage conclusion",
+                ),
+            )
+            self.assertEqual(
+                refreshed_report.report["request"]["positionSnapshot"]["asOf"],
+                "2024-12-31T21:00:00Z",
+            )
+            self.assertEqual(
+                load_run_report(
+                    project,
+                    original_report.report["id"],
+                ).report["request"]["positionSnapshot"]["asOf"],
+                "2024-12-30T21:00:00Z",
+            )
+            for relative, expected in original_hashes.items():
+                self.assertEqual(
+                    hash_file(project.root_dir / relative),
+                    expected,
+                    relative,
+                )
+            validated = _run_cli(
+                "validate",
+                str(project.root_dir),
+                "--json",
+            )
+            self.assertEqual(
+                validated.returncode,
+                0,
+                validated.stderr or validated.stdout,
+            )
+            studio = build_studio_snapshot(project.root_dir)["projects"][0]
+            self.assertEqual(studio["counts"]["studies"], 2)
+            self.assertEqual(studio["counts"]["runs"], 2)
+            self.assertEqual(studio["counts"]["reports"], 2)
+            self.assertEqual(
+                studio["bookRiskExplorer"]["run"]["id"],
+                refreshed_run.result["id"],
+            )
+            fixed_request_path = (
+                project.root_dir
+                / "strategies/book-risk-studies/year-end-refresh/request.json"
+            )
+            tampered_request = json.loads(
+                fixed_request_path.read_text(encoding="utf-8")
+            )
+            tampered_request["title"] = "Tampered refresh request"
+            fixed_request_path.write_text(
+                json.dumps(tampered_request, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            rejected = _run_cli(
+                "validate",
+                str(project.root_dir),
+                "--json",
+            )
+            self.assertEqual(rejected.returncode, 1)
+            self.assertIn(
+                "study.dataset-request-hash",
+                {
+                    issue["code"]
+                    for issue in json.loads(rejected.stdout)["error"]["issues"]
+                },
+            )
+
+    def test_study_owned_refresh_rejects_non_newer_or_occupied_vintage(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            project = self._real_project(root)
+
+            same_root = root / "same-vintage"
+            same_root.mkdir()
+            same_request, same_package = write_intake_inputs(
+                same_root,
+                observations=260,
+                dataset_version="2024-v2",
+                request_assets=("AAPL", "MSFT", "NVDA", "QQQ"),
+                asset_position_roles={
+                    symbol: "long-only"
+                    for symbol in ("AAPL", "MSFT", "NVDA", "QQQ")
+                },
+            )
+            _book_request(same_request)
+            rejected = _run_cli(
+                "study",
+                "intake",
+                str(project.root_dir),
+                "not-newer",
+                "--request",
+                str(same_request),
+                "--dataset",
+                str(same_package),
+                "--json",
+            )
+            self.assertEqual(rejected.returncode, 1)
+            self.assertIn(
+                "study-intake.dataset-not-newer",
+                {
+                    issue["code"]
+                    for issue in json.loads(rejected.stdout)["error"]["issues"]
+                },
+            )
+            for relative in (
+                "studies/not-newer",
+                "strategies/book-risk-studies/not-newer",
+                "judges/book-risk-studies/not-newer",
+                "data/studies/not-newer",
+            ):
+                self.assertFalse((project.root_dir / relative).exists())
+
+            refresh_root = root / "occupied-vintage"
+            refresh_root.mkdir()
+            refresh_request, refresh_package = write_intake_inputs(
+                refresh_root,
+                observations=261,
+                dataset_version="2024-v3",
+                request_assets=("AAPL", "MSFT", "NVDA", "QQQ"),
+                asset_position_roles={
+                    symbol: "long-only"
+                    for symbol in ("AAPL", "MSFT", "NVDA", "QQQ")
+                },
+            )
+            _book_request(refresh_request)
+            request = json.loads(refresh_request.read_text(encoding="utf-8"))
+            request["positionSnapshot"]["asOf"] = "2024-12-31T21:00:00Z"
+            refresh_request.write_text(
+                json.dumps(request, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            occupied = project.root_dir / "data/studies/occupied-refresh"
+            occupied.mkdir(parents=True)
+            sentinel = occupied / "sentinel.txt"
+            sentinel.write_text("caller-owned\n", encoding="utf-8")
+            rejected = _run_cli(
+                "study",
+                "intake",
+                str(project.root_dir),
+                "occupied-refresh",
+                "--request",
+                str(refresh_request),
+                "--dataset",
+                str(refresh_package),
+                "--json",
+            )
+            self.assertEqual(rejected.returncode, 1)
+            self.assertEqual(
+                json.loads(rejected.stdout)["error"]["issues"][0]["code"],
+                "study.exists",
+            )
+            self.assertEqual(sentinel.read_text(encoding="utf-8"), "caller-owned\n")
+            for relative in (
+                "studies/occupied-refresh",
+                "strategies/book-risk-studies/occupied-refresh",
+                "judges/book-risk-studies/occupied-refresh",
+            ):
+                self.assertFalse((project.root_dir / relative).exists())
 
     def test_caller_supplied_funded_scenarios_share_one_fixed_run(
         self,

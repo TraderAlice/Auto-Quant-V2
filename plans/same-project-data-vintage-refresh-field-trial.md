@@ -91,20 +91,20 @@ or trading authority is requested.
 - [x] The baseline uses the exact released `v0.9.9` wheel, public CLI/Skills,
   a real split-adjusted five-asset panel ending `2026-07-30`, and one verified
   fixed Book Risk Study/Run/Report.
-- [ ] The follow-up request fixes the same universe, weights, method, ceiling,
+- [x] The follow-up request fixes the same universe, weights, method, ceiling,
   and research-only authority while moving only the completed-session as-of
   boundary to `2026-07-31`.
 - [x] A fresh worker uses public installed Workbench surfaces, keeps one
   Project, and does not inspect repository or private package implementation.
-- [ ] Fresh acquisition and package evidence satisfy the complete updated
+- [x] Fresh acquisition and package evidence satisfy the complete updated
   request before quantitative intake; local inventory never narrows the task.
-- [ ] The new request, dataset snapshot, fixed Study, Run, and Report have
+- [x] The new request, dataset snapshot, fixed Study, Run, and Report have
   explicit independent identities and remain loadable beside the original.
 - [x] Every original fixed-authority and immutable-evidence file remains
   byte-identical; any allowed `research.md` append is separately disclosed.
-- [ ] The refreshed handoff compares old and new findings without treating
+- [x] The refreshed handoff compares old and new findings without treating
   historical-model changes as forecasts, orders, or live-account authority.
-- [ ] Every material baseline failure is either repaired with deterministic
+- [x] Every material baseline failure is either repaired with deterministic
   regression coverage or recorded as an explicit worker/provider limitation.
 - [ ] Final wheel replay, complete tests, documentation links, build/install,
   and clean-clone Workspace smoke pass before `v0.9.10` is tagged and pushed.
@@ -115,7 +115,7 @@ or trading authority is requested.
   `v0.9.9`.
 - [x] Prepare and independently verify the historical-cutoff baseline Project.
 - [x] Run and review the fresh `0.9.9` follow-up worker.
-- [ ] Implement only reproduced reusable friction and rerun the assignment.
+- [x] Implement only reproduced reusable friction and rerun the assignment.
 - [ ] Complete release documentation and final verification, tag, and push.
 
 ## Findings and decisions
@@ -152,10 +152,42 @@ or trading authority is requested.
   Study-owned dataset package and bind the new Study to that immutable closure.
   Project-root intake remains the original construction record; old Studies
   keep their old dataset paths and hashes.
+- 2026-08-01 — Candidate `0.9.10` adds optional `aq study intake --dataset`.
+  One complete strictly newer comparable package materializes under
+  `data/studies/<study-id>/ohlcv/**`; the Study definition, Judge arguments,
+  Run inputs, direct Report, validation projection, and Studio all bind that
+  namespace. The retained-data route remains unchanged.
+- 2026-08-01 — Fresh Grok session
+  `019fba9f-731f-7a00-9e9b-06086189de34` independently discovered the new
+  public contract from installed-wheel help and completed the unchanged
+  assignment in one Project. It created Study `ohlcv-book-risk-20260731`, Run
+  `run-20260801T000250149387Z-b0b74ab40a37`, and Report
+  `report-20260801T000324664906Z-8a7ed7e6119c`; every original fixed and
+  immutable file stayed byte-identical and only longitudinal `research.md`
+  changed.
+- 2026-08-01 — Yahoo supplied the task-complete 1,400-session package through
+  `2026-07-31`; Nasdaq.com still ended at `2026-07-30`. Grok preserved the
+  one-session peer freshness gap and zero price mismatches over the 1,399-row
+  overlap, then selected Yahoo without presenting either provider as venue
+  truth. Exact final-session dual-provider corroboration remains an external
+  provider limit, not a Core claim.
 
 ## Verification
 
-Pending.
+- `uv run python -m unittest discover -s tests -v`: `380` tests passed in
+  `933.218s`.
+- `uv run python scripts/check_doc_links.py`: all `1,314` documentation links
+  resolved.
+- `uv lock --check`, Python compileall, JavaScript syntax, `git diff --check`,
+  source distribution, and wheel build passed.
+- Final wheel SHA-256:
+  `d3e2ca7d8fd6c26a1a4382f9e5871925a092f7957b51c765ac5b42396bf387cd`.
+- Final sdist SHA-256:
+  `878d2878cf2e3365901f54ce0ce70418f0f22a4cdefe88c6dd1824a4347d8b48`.
+- Fresh Python `3.11.14` final-wheel installation exposed `aq 0.9.10` and all
+  `52` public commands, then validated and projected both candidate-vintage
+  Runs and Reports through CLI and Studio without diagnostics.
+- Clean-clone root-Workspace smoke and release tag/push remain pending.
 
 ## Progress log
 
@@ -175,6 +207,14 @@ Pending.
   envelopes, changed only longitudinal `research.md` and `framework-needs.md`,
   kept all 44 fixed/immutable original files byte-identical, and left the
   original Project valid with exactly one Study, Run, and Report.
+- 2026-08-01 — Candidate wheel SHA-256
+  `c99aea079f635b492915fb8d52d49f0f3559e95c9d3d6439591efcf6f4b84803`
+  passed the real installed-wheel replay. The refreshed 126-session annualized
+  volatility was `24.2668%`; the largest compliant NVDA weight fell from
+  `18.5483%` to `15.0078%`. Host review found one Project, two Studies, two
+  successful Runs, two direct Reports, zero Sessions, and no private-source
+  inspection. Exact evidence is retained under
+  `grok-field-trials/cohort-19-same-project-data-refresh-v0910-candidate`.
 
 ## Completion
 

@@ -445,9 +445,11 @@ CLI_COMMANDS = [
     ),
     descriptor(
         "study.intake",
-        "aq study intake <path> <study-id> --request FILE [--project ID] [--json]",
+        "aq study intake <path> <study-id> --request FILE [--dataset PACKAGE] "
+        "[--project ID] [--json]",
         "Append one independently fixed request-owned Book Risk Study over "
-        "an existing Project dataset.",
+        "an existing Project dataset or one complete newer Study-owned "
+        "data vintage.",
         "creates-artifact",
         [
             PATH_ARGUMENT,
@@ -474,6 +476,14 @@ CLI_COMMANDS = [
                 False,
                 "Study display name.",
                 default="Request title",
+            ),
+            argument(
+                "dataset",
+                "option",
+                "string",
+                False,
+                "Complete newer OHLCV dataset-package manifest. When omitted, "
+                "reuse the retained Project intake dataset.",
             ),
             JSON_ARGUMENT,
         ],

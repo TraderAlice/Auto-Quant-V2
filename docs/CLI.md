@@ -412,6 +412,7 @@ with no completed Session still requires its first Session. See
 ```bash
 aq study intake <path> <study-id> \
   --request <book-risk-request.json> \
+  [--dataset <newer-dataset-package.json>] \
   [--project ID] [--json]
 
 aq study create <path> <study-id> \
@@ -449,13 +450,23 @@ aq run rl <path> --run ID \
 
 `study intake` is a deliberately narrow continuation path for an already
 request-bound `ohlcv-book-risk-lab` Project. The new strict Research Request
-must preserve the original asset descriptions and fit the retained dataset
-range. Core creates Study-owned request, position-snapshot, covariance-method,
-and current Judge files, binds the exact existing dataset bytes, and leaves the
-Project-root request, original Study, Runs, and Reports untouched. The result
-is another fixed descriptive Study with no editable candidate or Session. A
-different universe, roles, clock, range, or dataset meaning requires acquiring
-task-complete data for a new Project instead of stretching the old snapshot.
+must preserve the original asset descriptions. Without `--dataset`, its
+position as-of must fit the retained range and Core binds the exact existing
+dataset bytes. With `--dataset`, Core validates one complete task-specific
+package whose universe, start, market, adjustment, and economic meaning match
+the original while its id/version identity changes and its end boundary is
+strictly newer. It materializes that
+closure under `data/studies/<study-id>/ohlcv/` and binds only the new Study to
+it. Core never overwrites Project-root intake or treats a mutable `latest`
+directory as authority.
+
+Both routes create Study-owned request, position-snapshot, covariance-method,
+and current Judge files, and leave the Project-root request, original Study,
+Runs, and Reports untouched. The result is another fixed descriptive Study
+with no editable candidate or Session. A different universe, role meaning,
+clock, adjustment contract, or research question that no longer belongs to the
+same evolving body of work requires task-complete intake into a sibling
+Project. Local data inventory never decides which question may be studied.
 When the follow-up Run is published directly, its Research Report binds the
 Study-owned request frozen inside that Run; it does not inherit the original
 Project-root request merely because both Studies share one Project.

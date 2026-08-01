@@ -2135,11 +2135,28 @@ def materialize_intake_dataset(
     project: ProjectContext,
     intake: PreparedIntake,
     study_id: str,
+    *,
+    dataset_relative: str = "ohlcv",
+    request_relative: str = PROJECT_REQUEST,
 ) -> tuple[dict[str, Any], str]:
-    """Write canonical Project-local OHLCV and its content snapshot."""
+    """Write one canonical Project-local OHLCV closure and its request."""
 
-    output = project.root_dir / project.manifest.directories["data"] / "ohlcv"
-    output.mkdir()
+    data_root = confined_path(
+        project.root_dir,
+        project.manifest.directories["data"],
+        "project/directories/data",
+    )
+    output = confined_path(
+        data_root,
+        dataset_relative,
+        "intake/dataset-relative",
+    )
+    request_target = confined_path(
+        project.root_dir,
+        request_relative,
+        "intake/request-relative",
+    )
+    output.mkdir(parents=True)
     asset_records: list[dict[str, Any]] = []
     observed_intraday_dates: list[list[str]] = []
     for asset in intake.assets:
@@ -2338,7 +2355,8 @@ def materialize_intake_dataset(
         "claims, not authenticated by AutoQuant.\n"
     )
     (output / "README.md").write_text(readme, encoding="utf-8")
-    _write_json(project.root_dir / PROJECT_REQUEST, intake.request)
+    request_target.parent.mkdir(parents=True, exist_ok=True)
+    _write_json(request_target, intake.request)
     return snapshot, hash_file(snapshot_path)
 
 
@@ -3954,7 +3972,14 @@ def intake_dataset_class_context(
 ) -> dict[str, Any]:
     """Project one verified snapshot's complete economic-class read model."""
 
-    snapshot = intake["dataset"]
+    return dataset_snapshot_class_context(intake["dataset"])
+
+
+def dataset_snapshot_class_context(
+    snapshot: dict[str, Any],
+) -> dict[str, Any]:
+    """Project one verified dataset snapshot's economic-class read model."""
+
     summary = snapshot["assetClass"]
     assets = snapshot["assets"]
     per_asset = all("assetClass" in asset for asset in assets)
@@ -3968,6 +3993,164 @@ def intake_dataset_class_context(
             "per-asset" if per_asset else "package-summary"
         ),
     }
+
+
+def load_study_dataset_snapshot(
+    project: ProjectContext,
+    study: StudyContext,
+) -> dict[str, Any] | None:
+    """Verify and load the AutoQuant snapshot bound by one Study dataset."""
+
+    candidates = sorted(
+        relative
+        for relative in study.dataset_hashes
+        if relative == "ohlcv/snapshot.json"
+        or relative.endswith("/ohlcv/snapshot.json")
+    )
+    if not candidates:
+        return None
+    if len(candidates) != 1:
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    study.manifest_path,
+                    "study.dataset-snapshot-count",
+                    "Study dataset must bind at most one AutoQuant OHLCV snapshot",
+                )
+            ]
+        )
+    relative = candidates[0]
+    data_root = confined_path(
+        project.root_dir,
+        project.manifest.directories["data"],
+        "project/directories/data",
+    )
+    snapshot_path = confined_path(
+        data_root,
+        relative,
+        f"{study.manifest_path}/dataset/paths",
+    )
+    snapshot = _read_json(snapshot_path, "Study dataset snapshot")
+    issues = _validate_snapshot(snapshot, snapshot_path)
+    definition = study.definition.dataset
+    expected = {
+        "id": definition.id,
+        "version": definition.version,
+        "assetClass": definition.asset_class,
+        "universe": definition.universe,
+        "timeRange": {
+            "start": definition.time_range.start,
+            "end": definition.time_range.end,
+        },
+    }
+    for key, value in expected.items():
+        if snapshot.get(key) != value:
+            issues.append(
+                _issue(
+                    snapshot_path,
+                    f"study.dataset-snapshot-{key}",
+                    f"Dataset snapshot {key} differs from Study definition",
+                )
+            )
+    study_owned = relative.startswith(f"studies/{study.definition.id}/")
+    if study_owned and snapshot.get("studyId") != study.definition.id:
+        issues.append(
+            _issue(
+                snapshot_path,
+                "study.dataset-snapshot-study",
+                "Study-owned dataset snapshot names a different Study",
+            )
+        )
+    if study_owned:
+        request_candidates = sorted(
+            path
+            for path in study.dependency_hashes
+            if path.endswith(f"/{study.definition.id}/request.json")
+        )
+        if len(request_candidates) != 1:
+            issues.append(
+                _issue(
+                    study.manifest_path,
+                    "study.dataset-request-count",
+                    "Study-owned dataset requires one fixed Study request",
+                )
+            )
+        else:
+            request_path = confined_path(
+                project.root_dir,
+                request_candidates[0],
+                f"{study.manifest_path}/dependencies/paths",
+            )
+            request = load_research_request(request_path)
+            if hash_json(request) != snapshot.get("requestHash"):
+                issues.append(
+                    _issue(
+                        snapshot_path,
+                        "study.dataset-request-hash",
+                        "Study-owned dataset snapshot differs from its fixed request",
+                    )
+                )
+            requested_symbols = [item["symbol"] for item in request["assets"]]
+            if snapshot.get("requestedAssets") != requested_symbols:
+                issues.append(
+                    _issue(
+                        snapshot_path,
+                        "study.dataset-request-assets",
+                        "Study-owned dataset requested assets differ from its fixed request",
+                    )
+                )
+    namespace_relative = Path(relative).parent.parent
+    namespace_root = (
+        data_root
+        if namespace_relative.as_posix() == "."
+        else confined_path(
+            data_root,
+            namespace_relative.as_posix(),
+            f"{study.manifest_path}/dataset/namespace",
+        )
+    )
+    for asset in snapshot.get("assets", []):
+        if not isinstance(asset, dict):
+            continue
+        rows = (
+            asset.get("intervals", [])
+            if snapshot.get("schemaVersion")
+            in {2, 3, OBSERVED_INTRADAY_SCHEMA_VERSION}
+            else [asset]
+        )
+        for row in rows:
+            if not isinstance(row, dict) or not isinstance(
+                row.get("normalizedPath"), str
+            ):
+                continue
+            normalized_path = confined_path(
+                namespace_root,
+                row["normalizedPath"],
+                f"{snapshot_path}/assets/normalizedPath",
+            )
+            full_relative = normalized_path.relative_to(data_root).as_posix()
+            if (
+                not normalized_path.is_file()
+                or full_relative not in study.dataset_hashes
+            ):
+                issues.append(
+                    _issue(
+                        normalized_path,
+                        "study.dataset-file",
+                        "Snapshot asset is outside the Study dataset closure",
+                    )
+                )
+            elif hash_file(normalized_path) != row.get("normalizedHash"):
+                issues.append(
+                    _issue(
+                        normalized_path,
+                        "study.dataset-file-hash",
+                        "Snapshot asset hash differs from normalized evidence",
+                    )
+                )
+    if issues:
+        raise AutoQuantValidationError(issues)
+    return snapshot
 
 
 OHLCV_PACKAGE_ASSET_PATH_DESCRIPTION = (

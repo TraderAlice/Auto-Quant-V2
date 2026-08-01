@@ -210,14 +210,24 @@ judges/book-risk-studies/<study-id>/judge.py
 studies/<study-id>/
 ├── study.json
 └── program.md
+
+# Present only when this Study owns a newer data vintage:
+data/studies/<study-id>/ohlcv/
+├── <symbol>.csv
+├── snapshot.json
+└── README.md
 ```
 
 The new Study declares all three strategy-side files as fixed dependencies and
-passes their paths to its own current Judge. Its dataset definition and hashes
-must exactly equal the retained primary Book Risk Study. Old Project-root
-request/snapshot/Judge bytes and immutable evidence remain independently
-loadable. Project research notes may continue to record the longitudinal
-question; they are not Run inputs.
+passes their paths to its own current Judge. If no new package is supplied, its
+dataset definition and hashes exactly equal the retained primary Book Risk
+Study. If `aq study intake --dataset` supplies a complete newer package, the
+Study instead binds `studies/<study-id>/ohlcv/**` relative to Project `data/`
+and the Judge receives the fixed dataset namespace explicitly. The snapshot
+keeps independent package, provider, request, coverage, normalized-file, and
+content identity. Old Project-root request/snapshot/Judge bytes and immutable
+evidence remain independently loadable. Project research notes may continue
+to record the longitudinal question; they are not Run inputs.
 
 The Event Study template derives `strategies/event-study.json` from strict
 `request.eventPolicy`. The first policy supports one downside opening-gap

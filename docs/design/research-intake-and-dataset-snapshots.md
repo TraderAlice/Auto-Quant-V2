@@ -365,9 +365,19 @@ The resulting `data/ohlcv/snapshot.json` records:
 - observations and coverage for every asset and materialized interval;
 - template and fixed Study id.
 
-The Study declares `ohlcv/**`, so canonical CSV, snapshot, and README bytes all
-enter `datasetHash`, Run identity, Session locks, and Reports. Editing any one
-creates a different Study/Run identity and stales an existing Session.
+That Project-root path is the initial construction snapshot, not a mutable
+singleton that must be replaced forever. A related Book Risk continuation can
+reuse it exactly, or `aq study intake --dataset` can materialize a strictly
+newer comparable vintage at
+`data/studies/<study-id>/ohlcv/snapshot.json`. The latter Study binds its own
+request and `studies/<study-id>/ohlcv/**` closure while previous Studies keep
+their original paths and hashes. No `latest` pointer participates in Study or
+Run identity.
+
+The initial Study declares `ohlcv/**`; a Study-owned vintage declares its
+namespaced closure. In either case canonical CSV, snapshot, and README bytes
+all enter `datasetHash`, Run identity, Session locks, and Reports. Editing any
+one creates a different Study/Run identity and stales an existing Session.
 The compact Study definition retains the top-level class summary, while
 `aq study inspect --json` projects a complete verified `assetClasses` map plus
 its `per-asset` or `package-summary` source. Strict Allocation Explorer and

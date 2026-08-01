@@ -1,5 +1,5 @@
 ---
-version: 0.9.9
+version: 0.9.10
 ---
 
 # AutoQuant V2
@@ -32,12 +32,12 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current release: `v0.9.9`
+## Current release: `v0.9.10`
 
 AutoQuant V2 has crossed from an architectural prototype into a usable
 research workbench.
 
-`v0.9.9` is the current AutoQuant release. `v0.8.31` remains the Harness
+`v0.9.10` is the current AutoQuant release. `v0.8.31` remains the Harness
 currently consumed by OpenAlice until the host deliberately selects the newer
 tag; this is version provenance, not an automatic Workspace-migration promise.
 The minor-version boundary marks the next phase: improve the real delegated-
@@ -45,6 +45,36 @@ research loop from OpenAlice request through AutoQuant evidence handoff without
 weakening standalone Workspace operation or prematurely freezing a
 host-specific API. Bounded follow-up work defaults to patch releases within
 the `0.9.x` line.
+
+`v0.9.10` proves that one long-lived Project can answer the same fixed Book
+Risk question on a newer task-specific data vintage without replacing old
+authority. `aq study intake --dataset` validates a complete comparable package,
+materializes it under `data/studies/<study-id>/ohlcv/`, and binds only the new
+Study, Run, and direct Report to those bytes. The Project-root request,
+construction snapshot, old Study, Run, and Report remain independently
+loadable. There is no mutable latest-data cache, inventory gate, or automatic
+download reuse: the current research request determines the complete package,
+and duplicated rows are acceptable evidence isolation.
+
+OpenAlice remains intentionally pinned to `v0.8.31`; this release changes only
+the standalone AutoQuant `0.9.x` line. See
+[[plans/same-project-data-vintage-refresh-field-trial]] and
+[[docs/design/research-intake-and-dataset-snapshots]].
+
+A fresh isolated Grok coworker used only the installed candidate wheel, public
+CLI/schema/Skill surfaces, and the unchanged follow-up assignment. It
+independently found `study intake --dataset`, kept one Project, added one
+Study-owned snapshot, one successful Run, and one direct Report, and preserved
+every original fixed or immutable file byte-for-byte. The 126-session modeled
+volatility moved from `23.3282%` to `24.2668%`; the largest compliant NVDA
+weight moved from `18.5483%` to `15.0078%`. Yahoo supplied the formal panel
+through `2026-07-31`; Nasdaq.com still ended one session earlier, so the final
+session has no claimed peer-price corroboration. The release audit passed all
+380 tests in 933.218 seconds, resolved all 1,314 documentation links, passed
+lock and Python/JavaScript syntax checks, and freshly installed the wheel on
+Python 3.11.14 with all 52 public commands.
+
+### `v0.9.9`
 
 `v0.9.9` retries the previously rejected Taiwan Factor delegation as a strict
 data-authority test. A fresh zero-data `0.9.8` coworker wrote the research

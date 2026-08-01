@@ -128,6 +128,15 @@ questions normally become sibling Projects; their immutable snapshots may
 currently duplicate bytes. A shared mutable “latest data” cache is not part of
 this contract, and duplicate task-coherent snapshots are acceptable.
 
+Revisiting the same question after another completed session does not require
+a duplicate Project either. The initial Project-root snapshot remains its
+construction record; a continuation may bind a complete newer package under a
+Study-owned data namespace. Each vintage is immutable evidence with its own
+request boundary and content hash, even when most rows duplicate the prior
+vintage. Download reuse is an implementation convenience, never research
+authority: an Agent must fill the exact current request and verify alignment
+rather than limit the question to whatever happens to be on disk.
+
 ## Failure behavior
 
 Provider access is expected to degrade. A route stops truthfully on blocking,
