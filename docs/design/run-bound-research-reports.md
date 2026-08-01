@@ -6,7 +6,8 @@ Status: implemented in `0.9.5`; Study-owned follow-up request binding added in
 Related: [[docs/design/quant-research-lifecycle]],
 [[docs/design/research-session-loop]],
 [[docs/design/research-program-orchestration]],
-[[docs/design/study-run-evidence]], and [[docs/design/agent-operator-experience]].
+[[docs/design/study-run-evidence]], [[docs/design/independent-research-reviews]],
+and [[docs/design/agent-operator-experience]].
 
 ## Purpose
 
@@ -107,6 +108,8 @@ a shortcut around needed investigation.
 ## Non-goals
 
 - Reports do not turn Runs into selection or trading authority.
+- A later Independent Review classifies a Report; it does not rewrite or
+  replace the primary researcher's Report.
 - A Report does not make a scientifically blocked lane admissible.
 - Fixed single-lane Studies remain free to return Run/Explorer evidence without
   manufacturing a Report.

@@ -101,6 +101,13 @@ REPORT_ARGUMENT = argument(
     True,
     "Immutable Research Report id inside a Session.",
 )
+REVIEW_ARGUMENT = argument(
+    "review",
+    "option",
+    "string",
+    False,
+    "Immutable attached Independent Review id; omit only when path is a direct detached Review package.",
+)
 DOSSIER_ARGUMENT = argument(
     "dossier",
     "option",
@@ -141,7 +148,7 @@ CLI_COMMANDS = [
     ),
     descriptor(
         "schema",
-        "aq schema [workspace|project|agent-work-brief|research-agenda|holdout-binding|holdout-result|holdout-assessment-analysis|holdout-assessment|holdout-status|study|judge-output|run-result|factor-claim|factor-candidate-contract|factor-diagnostics|event-study-policy|event-study-diagnostics|book-path-stress-policy|book-path-stress-diagnostics|allocation-policy|allocation-diagnostics|book-risk-diagnostics|portfolio-diagnostics|research-program-status|rl-policy-diagnostics|session-decision-matrix|session|session-completion|candidate-preflight|candidate-check-output|candidate-check-result|portfolio-mandate|research-horizon|experiment|research-request|ohlcv-dataset-package|report-analysis|dossier-analysis|dossier-result|dossier-status|researcher-response|campaign-result|campaign-progress|studio-snapshot] [--json]",
+        "aq schema [workspace|project|agent-work-brief|research-agenda|holdout-binding|holdout-result|holdout-assessment-analysis|holdout-assessment|holdout-status|study|judge-output|run-result|factor-claim|factor-candidate-contract|factor-diagnostics|event-study-policy|event-study-diagnostics|book-path-stress-policy|book-path-stress-diagnostics|allocation-policy|allocation-diagnostics|book-risk-diagnostics|portfolio-diagnostics|research-program-status|rl-policy-diagnostics|session-decision-matrix|session|session-completion|candidate-preflight|candidate-check-output|candidate-check-result|portfolio-mandate|research-horizon|experiment|research-request|ohlcv-dataset-package|report-analysis|review-analysis|dossier-analysis|dossier-result|dossier-status|researcher-response|campaign-result|campaign-progress|studio-snapshot] [--json]",
         "List or emit canonical AutoQuant JSON Schemas.",
         "read-only",
         [
@@ -192,6 +199,7 @@ CLI_COMMANDS = [
                     "research-request",
                     "ohlcv-dataset-package",
                     "report-analysis",
+                    "review-analysis",
                     "dossier-analysis",
                     "dossier-result",
                     "dossier-status",
@@ -1002,6 +1010,40 @@ CLI_COMMANDS = [
             REPORT_ARGUMENT,
             JSON_ARGUMENT,
         ],
+    ),
+    descriptor(
+        "review.publish",
+        "aq review publish <path> --report ID [--session ID] --analysis FILE [--output DIR] [--project ID] [--json]",
+        "Publish an immutable independent evidence classification over one completed Report and anchor Run; --output creates a detached package without mutating the reviewed Workspace.",
+        "creates-artifact",
+        [
+            PATH_ARGUMENT,
+            PROJECT_ARGUMENT,
+            argument("session", "option", "string", False, "Owning Session when the target Report is Session-bound."),
+            REPORT_ARGUMENT,
+            argument("analysis", "option", "string", True, "Strict review-analysis JSON using verified, declared, observed-unbound, and unverified claim classes."),
+            argument("output", "option", "string", False, "External parent directory for a detached Review package; omit to attach under Project reviews/."),
+            JSON_ARGUMENT,
+        ],
+    ),
+    descriptor(
+        "review.list",
+        "aq review list <path> [--report ID] [--project ID] [--json]",
+        "List and verify attached immutable Independent Reviews, optionally filtered by target Report.",
+        "read-only",
+        [
+            PATH_ARGUMENT,
+            PROJECT_ARGUMENT,
+            argument("report", "option", "string", False, "Exact target Report id filter."),
+            JSON_ARGUMENT,
+        ],
+    ),
+    descriptor(
+        "review.show",
+        "aq review show <path> [--review ID] [--project ID] [--json]",
+        "Verify an attached Independent Review by id or a direct detached Review package when --review is omitted.",
+        "read-only",
+        [PATH_ARGUMENT, PROJECT_ARGUMENT, REVIEW_ARGUMENT, JSON_ARGUMENT],
     ),
     descriptor(
         "dossier.status",

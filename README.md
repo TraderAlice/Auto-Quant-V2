@@ -1,5 +1,5 @@
 ---
-version: 0.9.15
+version: 0.9.16
 ---
 
 # AutoQuant V2
@@ -24,7 +24,7 @@ long-lived Workspace
     ├── bounded Agent Research Sessions
     ├── factors, portfolios, ML/RL policies, and simulations
     ├── immutable Runs and evidence
-    └── Reports, Dossiers, and read-only Studio projections
+    └── Reports, Reviews, Dossiers, and read-only Studio projections
 ```
 
 One Workspace may hold multiple self-contained Projects. A Project is one
@@ -32,12 +32,12 @@ evolving body of research; a Study locks one evaluation question; a Research
 Session is a bounded editable investigation; a Run is an immutable
 measurement.
 
-## Current release: `v0.9.15`
+## Current release: `v0.9.16`
 
 AutoQuant V2 has crossed from an architectural prototype into a usable
 research workbench.
 
-`v0.9.15` is the current AutoQuant release. `v0.8.31` remains the Harness
+`v0.9.16` is the current AutoQuant release. `v0.8.31` remains the Harness
 currently consumed by OpenAlice until the host deliberately selects the newer
 tag; this is version provenance, not an automatic Workspace-migration promise.
 The minor-version boundary marks the next phase: improve the real delegated-
@@ -46,7 +46,18 @@ weakening standalone Workspace operation or prematurely freezing a
 host-specific API. Bounded follow-up work defaults to patch releases within
 the `0.9.x` line.
 
-`v0.9.15` adds one deliberately narrow fixed historical Path Stress Study for
+`v0.9.16` adds immutable Independent Reviews over completed Run- or
+Session-bound Reports. Reviewers classify each material claim as `verified`,
+`declared`, `observed-unbound`, or `unverified`; Core permits bound classes to
+cite only the exact target Report and anchor Run. A visible Workspace file can
+be digest-recorded without being promoted into research authority. Reviews
+may attach under a Project for normal history, or publish as detached
+tamper-evident packages outside the Workspace when an audit must leave the
+target byte-for-byte unchanged. CLI, JSON Schema, and Studio share the same
+contract. See [[docs/design/independent-research-reviews]] and
+[[plans/independent-research-review-handoff]].
+
+`v0.9.15` added one deliberately narrow fixed historical Path Stress Study for
 externally reported books. It freezes opening weights into fixed units at each
 window start, preserves buy-and-hold drift without rebalancing, keeps cash
 flat, enumerates every complete caller-fixed horizon, ranks terminal loss, and

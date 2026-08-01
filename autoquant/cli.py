@@ -113,6 +113,14 @@ from .run_reports import (
     load_run_report,
     publish_run_report,
 )
+from .reviews import (
+    REVIEW_ANALYSIS_JSON_SCHEMA,
+    list_reviews,
+    load_review,
+    load_review_analysis,
+    load_review_package,
+    publish_review,
+)
 from .intake import (
     INTAKE_TEMPLATE_REQUIREMENTS,
     OHLCV_DATASET_PACKAGE_JSON_SCHEMA,
@@ -353,6 +361,7 @@ def build_parser() -> RaisingArgumentParser:
             "research-request",
             "ohlcv-dataset-package",
             "report-analysis",
+            "review-analysis",
             "dossier-analysis",
             "dossier-result",
             "dossier-status",
@@ -985,6 +994,63 @@ def build_parser() -> RaisingArgumentParser:
     report_show.add_argument("--report", required=True)
     report_show.set_defaults(command_id="report.show")
     _json_argument(report_show)
+
+    review = subcommands.add_parser(
+        "review",
+        help="publish and inspect immutable independent Research Reviews",
+    )
+    review_actions = review.add_subparsers(dest="review_action", required=True)
+    review_publish = review_actions.add_parser(
+        "publish",
+        help="publish a no-research-mutation Review of one completed Report",
+    )
+    review_publish.add_argument("path")
+    review_publish.add_argument("--project")
+    review_publish.add_argument(
+        "--session",
+        help="owning Session when the target Report is Session-bound",
+    )
+    review_publish.add_argument("--report", required=True)
+    review_publish.add_argument(
+        "--analysis",
+        required=True,
+        help=(
+            "strict review-analysis JSON using verified, declared, "
+            "observed-unbound, and unverified classifications"
+        ),
+    )
+    review_publish.add_argument(
+        "--output",
+        help=(
+            "optional directory outside the target Workspace for a detached "
+            "tamper-evident Review package; omit to attach under Project reviews/"
+        ),
+    )
+    review_publish.set_defaults(command_id="review.publish")
+    _json_argument(review_publish)
+
+    review_list = review_actions.add_parser(
+        "list",
+        help="list attached immutable Reviews in one Project",
+    )
+    review_list.add_argument("path")
+    review_list.add_argument("--project")
+    review_list.add_argument("--report", help="filter by exact target Report id")
+    review_list.set_defaults(command_id="review.list")
+    _json_argument(review_list)
+
+    review_show = review_actions.add_parser(
+        "show",
+        help="verify an attached Review or a direct detached Review package",
+    )
+    review_show.add_argument("path")
+    review_show.add_argument("--project")
+    review_show.add_argument(
+        "--review",
+        help="attached Review id; omit when path is a detached Review directory",
+    )
+    review_show.set_defaults(command_id="review.show")
+    _json_argument(review_show)
 
     dossier = subcommands.add_parser(
         "dossier",
@@ -4128,6 +4194,158 @@ def _report_show(args: argparse.Namespace) -> CommandResult:
     )
 
 
+def _review_artifacts(review) -> list[dict[str, Any]]:
+    return [
+        artifact(
+            "independent-research-review",
+            review.review["id"],
+            review.root_dir / "review.json",
+            immutable=True,
+        ),
+        artifact(
+            "independent-research-review-markdown",
+            review.review["id"],
+            review.root_dir / "review.md",
+            immutable=True,
+        ),
+    ]
+
+
+def _review_publish(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    analysis = load_review_analysis(args.analysis)
+    input_root = Path(args.path).expanduser().absolute()
+    if (input_root / WORKSPACE_MANIFEST).is_file():
+        workspace = load_workspace(input_root)
+        observation_root = workspace.root_dir
+        observation_scope = "workspace"
+    else:
+        observation_root = project.root_dir
+        observation_scope = "project"
+    review = publish_review(
+        project,
+        args.report,
+        analysis,
+        session_id=args.session,
+        observation_root=observation_root,
+        observation_scope=observation_scope,
+        output_root=(Path(args.output) if args.output is not None else None),
+    )
+    detached = args.output is not None
+    show_argv = (
+        ["aq", "review", "show", str(review.root_dir), "--json"]
+        if detached
+        else [
+            "aq", "review", "show", str(project.root_dir),
+            "--review", review.review["id"], "--json",
+        ]
+    )
+    return CommandResult(
+        "review.publish",
+        {
+            "manifest": review.manifest,
+            "review": review.review,
+            "packagePath": str(review.root_dir),
+            "markdownPath": str(review.root_dir / "review.md"),
+            "detached": detached,
+        },
+        (
+            f"Independent Research Review: {review.review['id']}\n"
+            f"Title: {review.analysis['title']}\n"
+            f"Conclusion: {review.analysis['conclusion']}\n"
+            f"Target Report: {review.manifest['target']['reportId']}\n"
+            f"Anchor Run: {review.manifest['target']['runId']}\n"
+            f"Storage: {'detached no-target-mutation package' if detached else 'attached Project Review'}\n"
+            f"Markdown: {review.root_dir / 'review.md'}\n"
+            "Authority: independent evidence review; quantitative and trading authority: none\n"
+        ),
+        _project_result_context(args, project),
+        _review_artifacts(review),
+        [
+            next_action(
+                "review.show",
+                "Verify the immutable Review package and its frozen target identity.",
+                show_argv,
+                "read-only",
+            )
+        ],
+    )
+
+
+def _review_list(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    reviews = list_reviews(project, args.report)
+    lines = ["Attached Independent Research Reviews:"]
+    lines.extend(
+        f"  {item.id}  {item.conclusion}  {item.title}  "
+        f"target={item.report_id}"
+        for item in reviews
+    )
+    if not reviews:
+        lines.append("  No attached Reviews")
+    actions = []
+    if reviews:
+        actions.append(
+            next_action(
+                "review.show",
+                "Verify and inspect the latest attached Review.",
+                [
+                    "aq", "review", "show", str(project.root_dir),
+                    "--review", reviews[-1].id, "--json",
+                ],
+                "read-only",
+            )
+        )
+    return CommandResult(
+        "review.list",
+        {"reviews": [item.to_dict() for item in reviews]},
+        "\n".join(lines) + "\n",
+        _project_result_context(args, project),
+        next_actions=actions,
+    )
+
+
+def _review_show(args: argparse.Namespace) -> CommandResult:
+    if args.review is None:
+        if args.project is not None:
+            raise CliUsageError("Detached review show does not accept --project")
+        review = load_review_package(args.path)
+        context = global_context()
+        detached = True
+    else:
+        project = _selected_project(args)
+        review = load_review(project, args.review)
+        context = _project_result_context(args, project)
+        detached = False
+    counts = {key: 0 for key in ("verified", "declared", "observed-unbound", "unverified")}
+    for claim in review.analysis["claims"]:
+        counts[claim["classification"]] += 1
+    target = review.manifest["target"]
+    return CommandResult(
+        "review.show",
+        {
+            "manifest": review.manifest,
+            "review": review.review,
+            "packagePath": str(review.root_dir),
+            "markdownPath": str(review.root_dir / "review.md"),
+            "detached": detached,
+            "classifications": counts,
+        },
+        (
+            f"Immutable Independent Review: {review.review['id']}\n"
+            f"Title: {review.analysis['title']}\n"
+            f"Conclusion: {review.analysis['conclusion']}\n"
+            f"Target: Report {target['reportId']} · Run {target['runId']}\n"
+            f"Claims: verified={counts['verified']} · declared={counts['declared']} · "
+            f"observed-unbound={counts['observed-unbound']} · unverified={counts['unverified']}\n"
+            f"Package: {review.root_dir}\n"
+            f"Markdown: {review.root_dir / 'review.md'}\n"
+        ),
+        context,
+        _review_artifacts(review),
+    )
+
+
 def _dossier_artifacts(dossier) -> list[dict[str, Any]]:
     return [
         artifact(
@@ -5068,6 +5286,7 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "research-horizon",
             "project",
             "report-analysis",
+            "review-analysis",
             "research-request",
             "researcher-response",
             "run-result",
@@ -5122,6 +5341,7 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "research-request": RESEARCH_REQUEST_JSON_SCHEMA,
             "ohlcv-dataset-package": OHLCV_DATASET_PACKAGE_JSON_SCHEMA,
             "report-analysis": REPORT_ANALYSIS_JSON_SCHEMA,
+            "review-analysis": REVIEW_ANALYSIS_JSON_SCHEMA,
             "dossier-analysis": DOSSIER_ANALYSIS_JSON_SCHEMA,
             "dossier-result": DOSSIER_RESULT_JSON_SCHEMA,
             "dossier-status": DOSSIER_STATUS_JSON_SCHEMA,
@@ -5213,6 +5433,12 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
         return _report_list(args)
     if args.command_id == "report.show":
         return _report_show(args)
+    if args.command_id == "review.publish":
+        return _review_publish(args)
+    if args.command_id == "review.list":
+        return _review_list(args)
+    if args.command_id == "review.show":
+        return _review_show(args)
     if args.command_id == "dossier.status":
         return _dossier_status(args)
     if args.command_id == "dossier.publish":
@@ -5252,6 +5478,7 @@ def _command_id(argv: Sequence[str]) -> str:
         "experiment",
         "research",
         "report",
+        "review",
         "dossier",
         "studio",
     } and len(argv) > 1:

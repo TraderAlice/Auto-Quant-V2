@@ -51,7 +51,7 @@ evidence, not ordinary Git research state. The repository desk ignores
 Do not use `git add -f` to copy normal market data into history merely because
 the checked-in teaching Project tracks its small deterministic fixture; that
 sample is the explicit exception. Commit briefs, request/Study contracts,
-candidate source, Runs, Sessions, Reports, Dossiers, and other durable
+candidate source, Runs, Sessions, Reports, Reviews, Dossiers, and other durable
 research records. Track market bytes only when the caller explicitly requests
 a distributable fixture and its source terms permit it.
 
@@ -196,6 +196,18 @@ investigation; once it exists for a lane, its evidence and Report take
 precedence over an older direct Run Report. See
 [[docs/design/run-bound-research-reports]].
 
+When asked to review completed research, do not trust Report prose, rerun the
+Study, or create a replacement Report. Use strict Report/Run readers, write a
+`review-analysis` that classifies every material claim as `verified`,
+`declared`, `observed-unbound`, or `unverified`, and publish it with
+`aq review publish`. Bound classes may cite only the exact target Report and
+anchor Run. Workspace files require `observed-file`; their recorded digest
+does not promote them into research authority. If the assignment forbids any
+target Workspace mutation, pass `--output` to a directory outside the
+Workspace and verify the resulting detached package directly with
+`aq review show <review-directory>`. See
+[[docs/design/independent-research-reviews]].
+
 A frozen Holdout is not handed off merely because its one-shot Runs succeeded.
 After `aq holdout run`, inspect the bounded source/later comparison with
 `aq holdout show`, author `holdout-analysis.json`, and publish it with
@@ -250,7 +262,7 @@ Keep two connected lines of work distinct:
 
 1. The Project research line answers the assignment. Maintain its question,
    hypotheses, evidence, and progress in `research.md`, candidate source,
-   Sessions, Runs, Reports, and Dossiers.
+   Sessions, Runs, Reports, Reviews, and Dossiers.
 2. The Workbench improvement line changes AutoQuant when real Project work
    exposes a reusable framework gap. Record the observed gap in the
    canonical Project-root `framework-needs.md` before proposing a Core

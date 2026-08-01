@@ -114,6 +114,9 @@ The V2 foundation now implements:
   immutable evidence-bound JSON/Markdown Research Reports with no trading
   authority, including an optional exact leader-Run mechanical-decision
   snapshot.
+- immutable attached or detached Independent Reviews that classify completed
+  Report claims by bound, declared, observed-unbound, or unavailable evidence
+  without mutating the research they assess.
 - immutable Project Research Dossiers that compose current Factor, Portfolio,
   and compatible optional RL lane Reports into one verified Project
   deliverable without re-evaluating raw Runs or recomputing later mechanical

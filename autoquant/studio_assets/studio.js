@@ -1398,6 +1398,28 @@ function dossierInspectorSection(project) {
     </section>`;
 }
 
+function reviewInspectorSection(project) {
+  const review = project.reviews?.at(-1);
+  if (!review) return "";
+  const classes = review.classifications ?? {};
+  const command = project.commands?.find((item) => item.id === "review.show");
+  return `
+    <section class="inspector-section review-inspector">
+      <small>Independent evidence review</small>
+      <h3>${escapeHtml(review.title)}</h3>
+      <span class="status-chip ${escapeHtml(normalizedStatus(review.conclusion))}">${escapeHtml(review.conclusion)}</span>
+      <p>This immutable Review classifies the completed Report without changing its research evidence or granting new quantitative authority.</p>
+      <dl class="inspector-kv">
+        <dt>Target Report</dt><dd>${escapeHtml(review.target.reportId)}</dd>
+        <dt>Verified</dt><dd>${classes.verified ?? 0}</dd>
+        <dt>Declared</dt><dd>${classes.declared ?? 0}</dd>
+        <dt>Observed unbound</dt><dd>${classes["observed-unbound"] ?? 0}</dd>
+        <dt>Unverified</dt><dd>${classes.unverified ?? 0}</dd>
+      </dl>
+      ${copyCommandButton(command, "Copy Review show CLI")}
+    </section>`;
+}
+
 function renderHandoff(project) {
   const session = selectedSession(project);
   const delegation = session?.delegation;
@@ -5251,6 +5273,7 @@ function renderInspector(project) {
           ${copyCommandButton(next, holdout ? (holdout.state === "assessed" ? "Copy holdout show command" : holdout.state === "completed" ? "Copy holdout assess command" : "Copy holdout run command") : program ? "Copy recommended command" : "Copy start command")}
         </section>
         ${dossierInspectorSection(project)}
+        ${reviewInspectorSection(project)}
         ${holdout ? "" : `<details class="program-details">
           <summary>Research program</summary>
           <pre class="program-copy">${escapeHtml(project.researchProgram.text)}</pre>
@@ -5367,6 +5390,7 @@ function renderInspector(project) {
       ${delegation ? copyCommandButton(commandFor(session, latestReport ? "report.show" : "report.publish")) : ""}
     </section>
     ${dossierInspectorSection(project)}
+    ${reviewInspectorSection(project)}
     <section class="inspector-section">
       <small>Agent control surface</small>
       ${copyCommandButton(commandFor(session, "session.complete"), "Copy completion CLI")}

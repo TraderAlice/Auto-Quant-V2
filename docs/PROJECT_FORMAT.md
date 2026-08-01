@@ -764,6 +764,27 @@ Check, Experiment, completion, or promotion state. Session-owned Reports below
 remain the correct path when a conclusion depends on editable candidate-search
 history. See [[docs/design/run-bound-research-reports]].
 
+## Independent Research Reviews
+
+An attached review of either Report anchor is Project-owned:
+
+```text
+reviews/
+└── review-<UTC timestamp>-<identity>/
+    ├── analysis.json
+    ├── evidence.json
+    ├── review.json
+    ├── review.md
+    └── manifest.json
+```
+
+It freezes the exact target Report/Run hashes and classifies material claims as
+`verified`, `declared`, `observed-unbound`, or `unverified`. A Workspace file
+may be digest-observed but never gains Run authority through Review. The same
+package may instead be published outside the Workspace for a strict
+no-target-mutation audit; detached packages are intentionally not discovered
+as attached Project state. See [[docs/design/independent-research-reviews]].
+
 ## Research Session and Experiment
 
 Sessions provide the governed candidate-editing layer above Studies and Runs:

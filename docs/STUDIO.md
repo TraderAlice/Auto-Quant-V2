@@ -45,8 +45,8 @@ The first viewport prioritizes:
 - delegated caller questions, assets, direction, horizon, and Brief identity;
 - running external Researcher phase and turn budget;
 - KEEP, REVERT, and CRASH optimization trajectories;
-- recent immutable Runs, Experiments, Campaigns, Research Reports, and Project
-  Research Dossiers;
+- recent immutable Runs, Experiments, Campaigns, Research Reports, attached
+  Independent Reviews, and Project Research Dossiers;
 - factor Run summaries for validation one/five-bar IC, HAC strength, tertile
   spread, weakest chronological fold, maximum fixed-style overlap, test audit
   IC, and rank turnover;
@@ -85,6 +85,9 @@ The first viewport prioritizes:
   requirement, and Core-authored selection adjustment;
 - request → lane Reports → Project Dossier readiness and exact copyable
   headless commands;
+- the latest attached Independent Review's target Report, conclusion, four
+  evidence-class counts, and exact verification command; detached Reviews stay
+  outside Studio because their contract leaves the Workspace unchanged;
 - a three-lane Research Cockpit showing Factor validation IC, costed Portfolio
   validation Sharpe, RL validation advantage versus the best selected
   baseline, lane phase, evidence-gated admission, Session progress,

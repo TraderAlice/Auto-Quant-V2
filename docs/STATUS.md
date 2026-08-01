@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: usable pre-alpha released as `v0.9.15`; `v0.8.31` remains the Harness
+Status: usable pre-alpha released as `v0.9.16`; `v0.8.31` remains the Harness
 currently consumed by OpenAlice until the host deliberately selects a newer
 tag.
 
@@ -18,7 +18,16 @@ Related: [[README]], [[docs/ARCHITECTURE]],
 AutoQuant V2 has crossed the line from an architectural prototype into a
 usable Agent-native quantitative research workbench.
 
-The `0.9.15` patch adds a fixed historical Path Stress lane for an externally
+The `0.9.16` patch adds immutable Independent Reviews over completed Reports.
+A fresh reviewer can bind its verdict to the exact Report/Run identity,
+separate reconstructed evidence from package declarations, record visible
+Workspace files as digest-only `observed-unbound` material, and preserve
+absence or broken reference integrity as `unverified`. Attached Reviews enter
+Project and Studio history. Detached packages are written outside the target
+Workspace and preserve a strict no-mutation audit boundary. OpenAlice remains
+independently pinned to `0.8.31`.
+
+The `0.9.15` patch added a fixed historical Path Stress lane for an externally
 reported book. The caller freezes weights, horizon, episode count, overlap
 policy, history, calendar, and split-adjusted price meaning before execution.
 Core then enumerates every complete window with fixed opening units and no

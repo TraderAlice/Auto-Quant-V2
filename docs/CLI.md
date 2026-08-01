@@ -1002,6 +1002,37 @@ Agent-to-Agent delivery. When OpenAlice publishes the exact Markdown through
 Inbox, OpenAlice—not AutoQuant—stamps authoritative Workspace, Session, and
 document-revision provenance.
 
+## Independent Research Review commands
+
+```bash
+aq schema review-analysis --json
+aq review publish <path> \
+  --report REPORT_ID [--session SESSION_ID] \
+  --analysis review-analysis.json \
+  [--output EXTERNAL_DIRECTORY] [--project ID] [--json]
+aq review list <path> [--report REPORT_ID] [--project ID] [--json]
+aq review show <path> --review REVIEW_ID [--project ID] [--json]
+aq review show <detached-review-directory> [--json]
+```
+
+A Review independently classifies claims in one completed Report and its exact
+anchor Run. It is not a new Run or primary Report. The strict analysis uses
+`verified`, `declared`, `observed-unbound`, and `unverified`; every claim has a
+rationale and explicit evidence references except that an unverified absence
+may intentionally cite none. Bound classifications may reference only the
+exact target Report/Run. An `observed-file` is resolved beneath the Project or
+Workspace entry root and freezes path, size, and SHA-256 with
+`observed-unbound` authority; it never becomes Run evidence.
+
+Without `--output`, publication atomically attaches the package under
+`<project>/reviews/review-.../`. With `--output`, Core creates the same
+`review-*` package beneath an external directory and rejects destinations
+inside the reviewed Project or observation root. Detached mode is intended for
+strict audits that must leave the target Workspace byte-for-byte unchanged.
+Direct `review show` verifies its internal manifest without requiring target
+mutation; attached `show` additionally reloads and verifies the frozen target
+Report and Run. See [[docs/design/independent-research-reviews]].
+
 ## Project Research Dossier commands
 
 ```bash

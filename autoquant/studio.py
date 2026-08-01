@@ -49,6 +49,7 @@ from .research import list_campaign_progress, list_campaigns
 from .research_program import load_research_program
 from .reports import list_reports
 from .run_reports import list_run_reports
+from .reviews import list_reviews
 from .runs import list_runs, load_run
 from .sessions import list_sessions, load_session, session_snapshot
 from .studies import hash_json, list_studies, load_study
@@ -233,6 +234,7 @@ def _timeline(
     runs: list[dict[str, Any]],
     sessions: list[dict[str, Any]],
     run_reports: list[dict[str, Any]],
+    reviews: list[dict[str, Any]],
     dossiers: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
     events: list[dict[str, Any]] = []
@@ -313,6 +315,17 @@ def _timeline(
                 "status": "published",
                 "title": report["title"],
                 "value": report["findings"],
+            }
+        )
+    for review in reviews:
+        events.append(
+            {
+                "kind": "review",
+                "id": review["id"],
+                "at": review["publishedAt"],
+                "status": review["conclusion"],
+                "title": review["title"],
+                "value": review["claims"],
             }
         )
     for dossier in dossiers:
@@ -1312,6 +1325,11 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
         run_reports = [item.to_dict() for item in list_run_reports(project)]
     except AutoQuantValidationError as error:
         diagnostics.extend(_diagnostics("run-reports", error))
+    reviews: list[dict[str, Any]] = []
+    try:
+        reviews = [item.to_dict() for item in list_reviews(project)]
+    except AutoQuantValidationError as error:
+        diagnostics.extend(_diagnostics("reviews", error))
     sessions: list[dict[str, Any]] = []
     for summary in sessions_raw:
         try:
@@ -1497,6 +1515,22 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
                 "read-only",
             )
         )
+    if reviews:
+        commands.append(
+            _command(
+                "review.show",
+                [
+                    "aq",
+                    "review",
+                    "show",
+                    str(project.root_dir),
+                    "--review",
+                    reviews[-1]["id"],
+                    "--json",
+                ],
+                "read-only",
+            )
+        )
     if (
         external_holdout is None
         and dossier_status is not None
@@ -1528,6 +1562,7 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
         "dossierStatus": dossier_status,
         "dossiers": dossiers,
         "runReports": run_reports,
+        "reviews": reviews,
         "intake": intake,
         "factorExplorer": factor_explorer,
         "portfolioExplorer": portfolio_explorer,
@@ -1552,13 +1587,14 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
                 item["delegation"] is not None for item in sessions
             ),
             "reports": len(run_reports) + sum(len(item["reports"]) for item in sessions),
+            "reviews": len(reviews),
             "dossiers": len(dossiers),
             "verdicts": verdicts,
         },
         "studies": studies,
         "runs": runs,
         "sessions": sessions,
-        "timeline": _timeline(runs, sessions, run_reports, dossiers),
+        "timeline": _timeline(runs, sessions, run_reports, reviews, dossiers),
     }
 
 
@@ -1995,6 +2031,7 @@ STUDIO_SNAPSHOT_JSON_SCHEMA: dict[str, Any] = {
                 "dossierStatus",
                 "dossiers",
                 "runReports",
+                "reviews",
                 "intake",
                 "factorExplorer",
                 "portfolioExplorer",
@@ -2036,6 +2073,7 @@ STUDIO_SNAPSHOT_JSON_SCHEMA: dict[str, Any] = {
                 "dossierStatus": {"type": ["object", "null"]},
                 "dossiers": {"type": "array"},
                 "runReports": {"type": "array"},
+                "reviews": {"type": "array"},
                 "intake": {"type": ["object", "null"]},
                 "factorExplorer": {"type": ["object", "null"]},
                 "portfolioExplorer": {"type": ["object", "null"]},
@@ -2065,6 +2103,7 @@ STUDIO_SNAPSHOT_JSON_SCHEMA: dict[str, Any] = {
                         "runningCampaigns",
                         "delegatedSessions",
                         "reports",
+                        "reviews",
                         "dossiers",
                         "verdicts",
                     ],
@@ -2077,6 +2116,7 @@ STUDIO_SNAPSHOT_JSON_SCHEMA: dict[str, Any] = {
                         "runningCampaigns": {"type": "integer", "minimum": 0},
                         "delegatedSessions": {"type": "integer", "minimum": 0},
                         "reports": {"type": "integer", "minimum": 0},
+                        "reviews": {"type": "integer", "minimum": 0},
                         "dossiers": {"type": "integer", "minimum": 0},
                         "verdicts": {
                             "type": "object",
