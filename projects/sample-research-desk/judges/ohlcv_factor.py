@@ -295,6 +295,56 @@ def _temporal_daily(
     return result
 
 
+def _preflight_temporal_primary_validation(
+    factor_panel: pd.DataFrame,
+    forward_panel: pd.DataFrame,
+    validation_mask: pd.Series,
+    *,
+    evaluation_mode: str,
+    horizon: int,
+) -> None:
+    """Reject an unavailable fixed objective with an exact research reason."""
+
+    selected = pd.DataFrame(
+        {
+            "factor": factor_panel.iloc[:, 0].reindex(
+                validation_mask.index[validation_mask]
+            ),
+            "forward_return": forward_panel.iloc[:, 0].reindex(
+                validation_mask.index[validation_mask]
+            ),
+        }
+    ).dropna()
+    observations = int(len(selected))
+    factor_values = int(selected["factor"].nunique())
+    target_values = int(selected["forward_return"].nunique())
+    context = (
+        f"evaluationMode={evaluation_mode}, split=validation, "
+        f"primaryHorizon={horizon}, pairedObservations={observations}, "
+        f"distinctFactorValues={factor_values}, "
+        f"distinctTargetValues={target_values}, "
+        f"minimumObservations={MIN_IC_DATES_PER_SPLIT}"
+    )
+    if observations < MIN_IC_DATES_PER_SPLIT:
+        raise JudgeFailure(
+            "factor.temporal-primary-observations",
+            "Primary temporal validation has too few finite factor/target "
+            f"pairs ({context})",
+        )
+    if factor_values < 2:
+        raise JudgeFailure(
+            "factor.temporal-primary-candidate-variation",
+            "Primary temporal validation candidate has no usable variation "
+            f"({context})",
+        )
+    if target_values < 2:
+        raise JudgeFailure(
+            "factor.temporal-primary-target-variation",
+            "Primary temporal validation forward return has no usable "
+            f"variation ({context})",
+        )
+
+
 def _relative_value_spread_panel(
     panel: pd.DataFrame,
     prediction_assets: list[str],
@@ -1775,6 +1825,14 @@ def _evaluate() -> tuple[
     else:
         association_factor_panel = factor_panel
         association_forward_panels = forward_panels
+    if evaluation_mode in TEMPORAL_EVALUATION_MODES:
+        _preflight_temporal_primary_validation(
+            association_factor_panel,
+            association_forward_panels[PRIMARY_HORIZON],
+            split_masks[PRIMARY_HORIZON]["validation"],
+            evaluation_mode=evaluation_mode,
+            horizon=PRIMARY_HORIZON,
+        )
     research_input_counts = research_close_panel.notna().sum(axis=1).astype(int)
     input_counts = close_panel.notna().sum(axis=1).astype(int)
     factor_counts = factor_panel.notna().sum(axis=1).astype(int)

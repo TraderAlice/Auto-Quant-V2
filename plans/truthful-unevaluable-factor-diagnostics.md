@@ -76,20 +76,20 @@ Factor defect is diagnostic truthfulness, not missing event functionality.
 
 ## Acceptance
 
-- [ ] A temporal candidate with no validation variation fails with a stable
+- [x] A temporal candidate with no validation variation fails with a stable
       candidate-variation code, exact population counts, and no `TypeError`.
-- [ ] A temporal candidate with too few finite validation pairs fails with a
+- [x] A temporal candidate with too few finite validation pairs fails with a
       separate observation-count code.
-- [ ] A temporal target with no validation variation fails with a separate
+- [x] A temporal target with no validation variation fails with a separate
       target-variation code.
-- [ ] The two-asset relative-value path receives the same exact preflight after
+- [x] The two-asset relative-value path receives the same exact preflight after
       Core constructs the authorized spread.
-- [ ] Existing evaluable Factor fixtures and successful Project Runs preserve
+- [x] Existing evaluable Factor fixtures and successful Project Runs preserve
       their numerical objectives and evidence shape.
-- [ ] Public Agent guidance distinguishes association Factor questions from
+- [x] Public Agent guidance distinguishes association Factor questions from
       fixed conditional price-event questions without adding an event disguise
       to the candidate API.
-- [ ] A fresh installed-wheel coworker reaches and explains the intended
+- [x] A fresh installed-wheel coworker reaches and explains the intended
       structured failure without source inspection or framework repair.
 - [ ] Focused/full tests, documentation links, lock/syntax, build/install,
       root Workspace, and clean-clone smokes pass before publication.
@@ -100,7 +100,7 @@ Factor defect is diagnostic truthfulness, not missing event functionality.
       Event Study need from the remaining Factor diagnostic defect.
 - [x] Add a fixed temporal primary-population preflight and regression fixtures.
 - [x] Update durable Factor diagnostics and Agent-facing routing documentation.
-- [ ] Build an isolated `0.9.21` candidate and run a fresh-worker failure trial.
+- [x] Build an isolated `0.9.21` candidate and run a fresh-worker failure trial.
 - [ ] Complete release verification, publish `v0.9.21`, and leave OpenAlice
       independently pinned to `v0.8.31`.
 
@@ -120,7 +120,38 @@ Factor defect is diagnostic truthfulness, not missing event functionality.
 - 2026-08-01 — The same preflight runs after the authorized relative-value
   spread is constructed, so its distinct-value counts describe the actual
   evaluated contrast rather than either raw asset score.
+- 2026-08-01 — Fresh Grok 4.5 session
+  `019fbdf4-1f4e-7af3-85b5-f92eff52b712` used only the installed candidate
+  wheel, one staged request, and a two-asset Yahoo package. It created one
+  Project, wrote the English brief, executed the fixed candidate exactly once,
+  preserved failed Run `run-20260801T153353232744Z-688e2dbc691e`, and stopped
+  with zero Sessions, Reports, Dossiers, Portfolio, or RL work. It accurately
+  explained `factor.temporal-primary-candidate-variation` rather than changing
+  missing values or the Judge.
+- 2026-08-01 — Independent reconstruction reproduced 643 NVDA rows, five gap
+  events, five emitted ones, three warm-up missing values, and the exact purged
+  validation population: 124 finite pairs, one candidate value, 124 target
+  values, and zero validation events. Installed CLI validation and Studio were
+  valid with zero diagnostics.
+- 2026-08-01 — The field trial exposed a separate lifecycle question: after a
+  preserved failed baseline, Orientation still says baseline evidence is
+  missing and proposes another execution. This release does not broaden into
+  failure-handoff policy; treat that as a candidate follow-up topic derived
+  from the trial.
 
 ## Verification evidence
 
-Pending.
+Candidate evidence:
+
+- candidate commit `34be35a1c530a96e02cdec11159a6d4dc5f994fb`;
+- wheel SHA-256
+  `d86daebb50e921b28ea6654d71664b03822d46a6f4ea746fac865327fb948d1f`;
+- isolated field root
+  `/Users/ame/autoquant-v0921-unevaluable-factor-field`;
+- transcript
+  `/Users/ame/autoquant-v0921-unevaluable-factor-field/grok-transcript.md`;
+- installed Python 3.11.14 and Pandas 3.0.5;
+- focused Factor/Intake regression: 62 tests passed in 243.503 seconds;
+- documentation links: 1,401 resolved at candidate implementation.
+
+Final release audit pending.
