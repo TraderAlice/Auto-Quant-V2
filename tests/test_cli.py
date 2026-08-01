@@ -14,6 +14,7 @@ from autoquant.sessions import list_experiments, start_session
 from autoquant.runs import execute_study
 from autoquant.intake import load_study_dataset_snapshot
 from autoquant.studies import create_study, hash_json, load_study
+from autoquant.version import current_version
 from tests.intake_helpers import (
     write_intake_inputs,
     write_observed_intraday_inputs,
@@ -1224,7 +1225,9 @@ class AgentCliTests(unittest.TestCase):
                 "studio.serve",
             ],
         )
-        self.assertEqual(envelope["data"]["harness"]["version"], "0.9.24")
+        self.assertEqual(
+            envelope["data"]["harness"]["version"], current_version()
+        )
         self.assertIn(
             envelope["data"]["harness"]["buildProvenance"],
             {"source-checkout", "embedded-distribution"},

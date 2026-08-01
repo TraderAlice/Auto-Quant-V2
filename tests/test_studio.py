@@ -17,6 +17,7 @@ from autoquant.runs import harness_identity
 from autoquant.sessions import evaluate_experiment, start_session
 from autoquant.studies import create_study, hash_json
 from autoquant.studio import build_studio_snapshot, create_studio_server
+from autoquant.version import current_version
 from autoquant.workspace import (
     AutoQuantValidationError,
     create_project,
@@ -79,7 +80,7 @@ class StudioObservationTests(unittest.TestCase):
             snapshot = build_studio_snapshot(workspace.root_dir)
             self.assertEqual(snapshot["kind"], "autoquant-studio-snapshot")
             self.assertEqual(snapshot["harness"], harness_identity())
-            self.assertEqual(snapshot["harness"]["version"], "0.9.24")
+            self.assertEqual(snapshot["harness"]["version"], current_version())
             self.assertRegex(snapshot["harness"]["sourceHash"], r"^[0-9a-f]{64}$")
             self.assertIn(
                 snapshot["harness"]["buildProvenance"],
