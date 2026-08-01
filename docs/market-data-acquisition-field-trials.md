@@ -1,9 +1,11 @@
 # Market-data acquisition Skill field trials
 
-Status: accepted `0.8.31` release evidence for the explicitly named venue
-matrix below.
+Status: accepted `0.8.31` daily-route evidence for the explicitly named venue
+matrix below, plus final `0.9.20` candidate evidence for one bounded Yahoo XNYS
+hourly route.
 
 Related: [[plans/market-data-acquisition-skills]],
+[[plans/truthful-us-equity-intraday-acquisition]],
 [[docs/design/research-intake-and-dataset-snapshots]], and
 [[docs/design/workspace-project-boundaries]].
 
@@ -78,6 +80,65 @@ It independently:
 Together these handoffs cover the required XNYS-style, mainland-China,
 non-U.S. Asian, and named-EU paths plus the remaining Japan, Korea, and
 Vietnam rows. No long backtest or trading action was run.
+
+### U.S. XNYS hourly candidate handoff
+
+Date: 2026-08-01. Target release: `0.9.20`.
+
+This route is deliberately narrower than the accepted daily matrix. Yahoo
+Chart is the only installed historical-hourly source; Nasdaq remains daily and
+is not counted as peer confirmation. The Skill accepts fixed XNYS regular-
+session `1h` requests, maps provider bucket-start labels to canonical completed
+bar closes, and emits aligned split-adjusted V3 only when every requested asset
+contains every expected observation. Raw JSON, events, request parameters,
+response metadata, hashes, and the transformation audit remain beside either
+the successful package or structured failure.
+
+The unchanged negative request covered SPY, QQQ, IWM, TLT, and GLD from
+2024-08-01 through 2026-07-31. Installed-candidate Grok session
+`019fbd8e-57c1-7352-a3e0-445b23bdf1bf` retained the caller's exact two-year
+question and stopped on `provider.range-preflight`: 501 requested sessions and
+3,492 expected hourly rows per asset required a provider start outside Yahoo's
+observed trailing range. No package, Project intake, Run, Session, Report, or
+Dossier was manufactured. A later clean installed smoke reproduced that
+no-package failure with SHA-256
+`3ce2bd937b19beeae0ac89bf5b237b55536341646769f05ecf2a1a280804e0cf`.
+
+The positive caller-fixed trial used the same five ETFs from 2026-04-01 through
+2026-05-29 inclusive, one-hour base bars, and causal completed daily context.
+Two earlier candidate workers exposed and preserved real Workbench defects: a
+Pandas 3 datetime-storage-unit false mismatch, then a public Factor-program gap
+that let missing daily warm-up become neutral zero. Neither artifact counts as
+release proof.
+
+Fresh Grok session `019fbdae-2611-7870-b313-2c3e0a97d5a7` used only installed
+candidate wheel SHA-256
+`c27999af29517c5829b206052013bef6431a4053150f0fb8968d8ef796a7785a`,
+public CLI/Skills, and zero staged data. In Pandas 3.0.5 it completed:
+
+- one aligned package with 287 `1h` bars and 41 completed `1d` bars per ETF;
+- package hash
+  `bae6c48f3c1f8e03f62dd9f0aeee2433457da0ef4863f1bf96b266ae7654bbaa`,
+  dataset hash
+  `2acb1d351eb3aab7910ea49909a86bcad59ad8963ffb7cc30c45117d800c5a88`,
+  and snapshot hash
+  `1518e57e23de3cde546f207cc451f4f73aa165449e8418a2258c4284b479c164`;
+- Project `intraday-reversal-regime`, one immutable Factor Run
+  `run-20260801T141917043136Z-de42b2037d16`, zero Sessions, one Report, and
+  one Factor-only Dossier;
+- exact candidate/component missing-state parity at `0.8571428571` coverage
+  for every asset;
+- validation four-bar rank IC `-0.08449258433998387`, versus
+  `-0.1584905660377358` for plain two-hour reversal.
+
+The daily gate mitigated a harmful score but did not establish positive edge.
+The worker therefore refused Portfolio and RL, retained
+`tradingAuthority: none`, and completed public validation, Orientation, Studio,
+and terminal handoff. Independent reconstruction reproduced the 53-observation
+validation IC exactly and all candidate prefixes at three fixed cut points.
+This proves the successful acquisition/intake/research path without claiming
+general U.S. hourly completeness, an independent hourly peer, dividend-adjusted
+intraday OHLC, or a useful trading signal.
 
 ### `us-yahoo-v1`
 

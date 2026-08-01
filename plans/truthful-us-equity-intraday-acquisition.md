@@ -126,26 +126,26 @@ bars.
 
 ## Acceptance
 
-- [ ] Public installed Skills lead a fresh Agent from a U.S. `1h` need to the
+- [x] Public installed Skills lead a fresh Agent from a U.S. `1h` need to the
       exact Yahoo intraday procedure without implementation-source inspection.
-- [ ] A deterministic complete regular/early-close fixture maps provider bucket
+- [x] A deterministic complete regular/early-close fixture maps provider bucket
       starts to all expected canonical V3 closes and emits an auditable package
       accepted by `aq study create --request --dataset`.
-- [ ] The package derives requested completed `1d` context through existing
+- [x] The package derives requested completed `1d` context through existing
       Core aggregation and executes a bounded Factor Run without lookahead.
-- [ ] Null rows, zero-volume close markers, missing terminal buckets, ordinary
+- [x] Null rows, zero-volume close markers, missing terminal buckets, ordinary
       intraday gaps, off-session rows, duplicate starts, wrong metadata, and
       requests outside the provider range each fail closed with exact durable
       evidence and no package.
-- [ ] Multi-asset aligned output requires identical complete canonical panels;
+- [x] Multi-asset aligned output requires identical complete canonical panels;
       one deficient asset prevents authority for the whole fixed request.
-- [ ] The unchanged two-year five-ETF baseline is replayed from an installed
+- [x] The unchanged two-year five-ETF baseline is replayed from an installed
       candidate and produces a truthful structured provider blocker with no
       quantitative Run rather than a substituted question.
-- [ ] A second fresh worker receives a predeclared complete bounded five-ETF
+- [x] A second fresh worker receives a predeclared complete bounded five-ETF
       question, acquires and intakes live `1h` data, and produces immutable
       Factor evidence plus an honest downstream admission decision.
-- [ ] CLI validation, Orientation, inspect/Report/Studio projections remain
+- [x] CLI validation, Orientation, inspect/Report/Studio projections remain
       consistent for the successful trial; the failed acquisition remains
       staging evidence and never appears as quantitative authority.
 - [ ] Focused/full tests, documentation links, syntax/lock, build/install,
@@ -161,7 +161,7 @@ bars.
 - [x] Implement the transactional intraday acquisition and exact failure audit.
 - [x] Update router/package Skills, durable design docs, Agent guidance, and
       deterministic tests; re-materialize the checked-in Workspace bundle.
-- [ ] Build an isolated `0.9.20` candidate and run both fresh-worker field
+- [x] Build an isolated `0.9.20` candidate and run both fresh-worker field
       trials without source access or prior-trial knowledge.
 - [ ] Audit exact evidence, complete all release gates, publish `v0.9.20`, and
       leave OpenAlice independently pinned to `v0.8.31`.
@@ -229,10 +229,56 @@ bars.
   second trial remains negative employability evidence, not release proof; a
   third clean worker must implement the unchanged question from the revised
   public program.
+- 2026-08-01 — The third installed candidate closed both defects without
+  coaching. Fresh Grok session `019fbdae-2611-7870-b313-2c3e0a97d5a7`
+  received only candidate wheel
+  `c27999af29517c5829b206052013bef6431a4053150f0fb8968d8ef796a7785a`,
+  public CLI/Skills, one assignment, network access, and zero initial data. In
+  Python 3.11 with Pandas 3.0.5 it created exactly one Project, acquired and
+  intook the original 287-row-per-asset hourly panel plus 41 completed daily
+  bars, and executed exactly one fixed Factor Run without changing Harness or
+  materialized dataset bytes.
+- 2026-08-01 — The clean candidate preserved unavailable gate state as `NaN`.
+  Final-factor coverage was exactly `0.8571428571` for every ETF, identical to
+  the required completed-daily component, with no finite/missing mismatch.
+  Run `run-20260801T141917043136Z-de42b2037d16` reported validation primary
+  rank IC `-0.08449258433998387` versus plain reversal
+  `-0.1584905660377358`. The gate mitigated a harmful score but did not create
+  positive edge; the worker correctly published one Factor Report and one
+  Factor-only Dossier while refusing Portfolio and RL.
+- 2026-08-01 — Independent replay reconstructed the combined purged validation
+  target from frozen closes and reproduced all 53 cross-sectional observations
+  and the reported candidate IC with zero residual. Prefix recomputation at
+  three assignment-fixed cuts (`2026-04-30T17:30Z`,
+  `2026-05-14T19:30Z`, and `2026-05-29T19:30Z`) reproduced 720, 1,080, and
+  1,430 candidate rows exactly, establishing that neither the hourly score nor
+  completed-daily gate depends on future input.
 
 ## Verification
 
-Pending implementation and candidate trials.
+Candidate and field verification complete:
+
+- deterministic intraday, Skill materialization, repository-Workspace, and
+  interval regressions passed, including the exact XNYS Research Desk
+  Intake/Run path and a direct `datetime64[us, UTC]` versus
+  `datetime64[ns, UTC]` comparison;
+- the installed-candidate Pandas 3 smoke intook the original Skill CSVs with no
+  timestamp re-encoding or hash repair;
+- the fixed two-year negative replay retained
+  `provider.range-preflight`, exact requested 501 sessions and 3,492 expected
+  rows per asset, no package, and zero quantitative evidence;
+- clean positive replay Project `intraday-reversal-regime` contains one Run,
+  zero Sessions, one Report
+  `report-20260801T142040284809Z-5e309e4c7c69`, and one Dossier
+  `dossier-20260801T142131800692Z-cb82202afa85`;
+- public `aq validate` returned `ok=true`, Orientation returned
+  `required-research-complete` with `tradingAuthority: none`, and the Studio
+  snapshot was valid; the worker preserved all three JSON handoff envelopes;
+- transcript audit found no source-checkout, prior-trial, or implementation
+  access.
+
+Full regression, final rebuilt artifact hashes, installed-final-wheel smoke,
+and no-local-override clean-clone verification remain the publication gate.
 
 ## Progress log
 
@@ -257,6 +303,12 @@ Pending implementation and candidate trials.
   exposed a second, research-semantic defect: an Agent can accidentally encode
   missing gate history as zero with ordinary Pandas `where` syntax. Its single
   Run and downstream publications are preserved but excluded from acceptance.
+- 2026-08-01 — Third candidate replay session
+  `019fbdae-2611-7870-b313-2c3e0a97d5a7` completed the unchanged positive
+  assignment in 7m4s with one Project, one correct Factor Run, zero Sessions,
+  one Report, one Dossier, no source access, no Harness repair, and no
+  downstream overclaim. Independent coverage, target, IC, and prefix-causality
+  reconstruction accepted this trial as the successful field proof.
 
 ## Completion
 
