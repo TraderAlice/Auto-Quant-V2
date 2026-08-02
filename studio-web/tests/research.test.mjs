@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { compareCohorts, hiddenEventSummary, visibleEvents } from "../lib/research.js";
 import { coreFactorFrom, resolveCoreSnapshotUrl, validateCoreSnapshot } from "../lib/core-snapshot.js";
 import { researchSubjectFromProject } from "../lib/research-subject.js";
@@ -121,12 +122,13 @@ test("all approved research routes retain a connected Core projection", async ()
 });
 
 test("price-data intake accepts only declared confined files in a verified Workspace", () => {
+  const workspaceRoot = path.resolve("workspace");
   const snapshot = {
-    source: { scope: "workspace", rootDir: "C:/workspace", workspace: { projectsDir: "C:/workspace/projects" } },
+    source: { scope: "workspace", rootDir: workspaceRoot, workspace: { projectsDir: path.join(workspaceRoot, "projects") } },
     projects: [{ id: "existing" }],
   };
   const target = selectIntakeTarget({ projectId: "strategy-audit", template: "ohlcv-research-desk" }, snapshot);
-  assert.equal(target.workspaceRoot, "C:/workspace");
+  assert.equal(target.workspaceRoot, workspaceRoot);
   assert.throws(() => selectIntakeTarget({ projectId: "existing", template: "ohlcv-factor-lab" }, snapshot), /already exists/);
   assert.throws(() => selectIntakeTarget({ projectId: "../escape", template: "ohlcv-factor-lab" }, snapshot), /projectId/);
   assert.equal(safeSourcePath("raw/AAPL.csv"), "raw/AAPL.csv");
