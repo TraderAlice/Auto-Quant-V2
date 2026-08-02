@@ -3525,6 +3525,60 @@ def _quantile_summary(
     return output
 
 
+def _quantile_evidence(
+    semantics: dict[str, Any],
+    evaluation_mode: str,
+    rows: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Project whether fixed tertile evidence applies to this evaluation mode."""
+
+    method = semantics.get("quantiles")
+    if evaluation_mode in {
+        SINGLE_ASSET_TEMPORAL_MODE,
+        TWO_ASSET_RELATIVE_VALUE_MODE,
+    }:
+        if method != "unavailable-for-temporal-evaluation-v1" or rows:
+            _fail(
+                "factor-report/semantics/quantiles",
+                "factor.quantile-protocol",
+                "Temporal Factor evidence must declare protocol-unavailable "
+                "quantiles and publish an empty reconciled artifact",
+            )
+        return {
+            "status": "protocol-unavailable",
+            "evaluationMode": evaluation_mode,
+            "method": method,
+            "artifactKind": "factor-quantiles",
+            "artifactRows": 0,
+            "reasonCode": "temporal-tertiles-not-defined",
+            "reason": (
+                "Fixed low/middle/high groups require a cross-sectional "
+                "prediction population at each timestamp; "
+                f"{evaluation_mode} evaluates one temporal score path, so "
+                "null tertiles are protocol-not-applicable rather than "
+                "missing or failed evidence."
+            ),
+            "authority": "diagnostic-only",
+        }
+    if method != "fixed low/middle/high cross-sectional groups" or not rows:
+        _fail(
+            "factor-report/semantics/quantiles",
+            "factor.quantile-protocol",
+            "Cross-sectional Factor evidence must declare and publish fixed "
+            "low/middle/high quantile groups",
+        )
+    return {
+        "status": "available",
+        "evaluationMode": evaluation_mode,
+        "method": method,
+        "artifactKind": "factor-quantiles",
+        "artifactRows": len(rows),
+        "reasonCode": None,
+        "reason": None,
+        "authority": "diagnostic-only",
+    }
+
+
 def _stability(metrics: dict[str, Any], universe: list[str]) -> dict[str, Any]:
     stability = metrics.get("stability")
     styles = metrics.get("style_correlations")
@@ -4151,6 +4205,11 @@ def _load_factor_diagnostics_unlocked(
             ),
         ),
         "horizonProfile": _horizon_profile(metrics),
+        "quantileEvidence": _quantile_evidence(
+            semantics,
+            prediction_universe["evaluationMode"],
+            quantiles,
+        ),
         "quantileSummary": _quantile_summary(
             metrics,
             modern_outcome_contract=modern_outcome_contract,
@@ -4625,6 +4684,7 @@ FACTOR_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "factorQualification",
         "factorComponents",
         "horizonProfile",
+        "quantileEvidence",
         "quantileSummary",
         "stability",
         "coverage",
@@ -4809,6 +4869,70 @@ FACTOR_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
             "type": "array",
             "minItems": 1,
             "maxItems": 5,
+        },
+        "quantileEvidence": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "status",
+                "evaluationMode",
+                "method",
+                "artifactKind",
+                "artifactRows",
+                "reasonCode",
+                "reason",
+                "authority",
+            ],
+            "properties": {
+                "status": {
+                    "enum": ["available", "protocol-unavailable"]
+                },
+                "evaluationMode": {
+                    "enum": [
+                        CROSS_SECTIONAL_MODE,
+                        SINGLE_ASSET_TEMPORAL_MODE,
+                        TWO_ASSET_RELATIVE_VALUE_MODE,
+                    ]
+                },
+                "method": {
+                    "enum": [
+                        "fixed low/middle/high cross-sectional groups",
+                        "unavailable-for-temporal-evaluation-v1",
+                    ]
+                },
+                "artifactKind": {"const": "factor-quantiles"},
+                "artifactRows": {"type": "integer", "minimum": 0},
+                "reasonCode": {
+                    "enum": [None, "temporal-tertiles-not-defined"]
+                },
+                "reason": {"type": ["string", "null"]},
+                "authority": {"const": "diagnostic-only"},
+            },
+            "allOf": [
+                {
+                    "if": {
+                        "properties": {
+                            "status": {"const": "protocol-unavailable"}
+                        }
+                    },
+                    "then": {
+                        "properties": {
+                            "artifactRows": {"const": 0},
+                            "reasonCode": {
+                                "const": "temporal-tertiles-not-defined"
+                            },
+                            "reason": {"type": "string", "minLength": 1},
+                        }
+                    },
+                    "else": {
+                        "properties": {
+                            "artifactRows": {"type": "integer", "minimum": 1},
+                            "reasonCode": {"const": None},
+                            "reason": {"const": None},
+                        }
+                    },
+                }
+            ],
         },
         "quantileSummary": {
             "type": "array",

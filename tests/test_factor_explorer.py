@@ -146,6 +146,19 @@ class FactorEvidenceExplorerTests(unittest.TestCase):
                 [1, 5, 10],
             )
             self.assertEqual(len(diagnostics["quantileSummary"]), 9)
+            self.assertEqual(
+                diagnostics["quantileEvidence"],
+                {
+                    "status": "available",
+                    "evaluationMode": "cross-sectional",
+                    "method": "fixed low/middle/high cross-sectional groups",
+                    "artifactKind": "factor-quantiles",
+                    "artifactRows": diagnostics["quantilePath"]["totalRows"],
+                    "reasonCode": None,
+                    "reason": None,
+                    "authority": "diagnostic-only",
+                },
+            )
             self.assertEqual(len(diagnostics["stability"]["assets"]), 18)
             self.assertEqual(len(diagnostics["stability"]["styles"]), 12)
             self.assertEqual(len(diagnostics["coverage"]), 6)

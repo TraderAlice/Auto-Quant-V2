@@ -32,6 +32,8 @@ from .reports import (
     _resolve_analysis_evidence,
     _strict_keys,
     _write_json,
+    build_report_analysis_draft,
+    validate_publishable_report_analysis,
     validate_report_analysis,
 )
 from .runs import list_runs, load_run, run_failure_disposition
@@ -631,7 +633,7 @@ def publish_run_report(
     correction_review: str | Path | None = None,
     correction_reason: str | None = None,
 ) -> ReportContext:
-    normalized = validate_report_analysis(analysis)
+    normalized = validate_publishable_report_analysis(analysis)
     anchor, _study, run, intake = _anchor(project, study_id, run_id)
     correction, governing_review = _prepare_correction(
         project,
@@ -716,6 +718,21 @@ def publish_run_report(
             shutil.rmtree(staging)
         raise
     return load_run_report(project, report_id)
+
+
+def build_run_report_analysis_draft(
+    project: ProjectContext,
+    study_id: str,
+    run_id: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Build a draft only after the direct Run anchor is fully reportable."""
+
+    anchor, study, run, _intake = _anchor(project, study_id, run_id)
+    draft = build_report_analysis_draft(
+        run,
+        title=f"{study.definition.name} evidence conclusion",
+    )
+    return draft, anchor
 
 
 def _validate_result(

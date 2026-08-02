@@ -91,8 +91,8 @@ and offer a safe transition into Agent-authored interpretation.
 
 - [x] Reproduce and trace the three canonical field-trial needs to immutable
   Factor semantics, Work Brief construction, and Report publication.
-- [ ] Implement the Factor quantile and split-contrast read contracts.
-- [ ] Implement safe Report draft materialization and publication guards.
+- [x] Implement the Factor quantile and split-contrast read contracts.
+- [x] Implement safe Report draft materialization and publication guards.
 - [ ] Update CLI, Studio, capabilities, schemas, templates, and durable docs.
 - [ ] Run focused verification and one isolated installed-build Grok trial.
 - [ ] Complete the release audit, version bump, final artifact replay,
@@ -120,6 +120,15 @@ and offer a safe transition into Agent-authored interpretation.
 
 - 2026-08-02 — Plan activated from clean published `v0.9.30` using the exact
   three needs recorded by the isolated NVDA forward-risk coworker.
+- 2026-08-02 — Core, CLI, capability, Studio, schema, and publication guards
+  now implement the three handoff contracts. Focused Report, orientation,
+  Factor, intake, and CLI suites pass 130 tests; durable documentation and the
+  installed-build coworker trial remain.
+- 2026-08-02 — Repository audit confirmed that version policy already has one
+  dedicated authority in [[docs/design/versioning-and-release]], AGENTS routes
+  there without duplicating the procedure, and README has an enforced
+  220-line entrance budget. This release will preserve that boundary rather
+  than adding another release section to README.
 
 ## Completion
 

@@ -1502,6 +1502,18 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                 "two-asset-relative-value",
             )
             self.assertEqual(
+                projection["quantileEvidence"]["status"],
+                "protocol-unavailable",
+            )
+            self.assertEqual(
+                projection["quantileEvidence"]["reasonCode"],
+                "temporal-tertiles-not-defined",
+            )
+            self.assertEqual(
+                projection["quantileEvidence"]["artifactRows"],
+                0,
+            )
+            self.assertEqual(
                 projection["predictionUniverse"]["relativeValuePair"],
                 population["relative_value_pair"],
             )
@@ -1801,6 +1813,14 @@ class RequestDrivenIntakeTests(unittest.TestCase):
             self.assertEqual(
                 projection["predictionUniverse"]["evaluationMode"],
                 "single-asset-temporal",
+            )
+            self.assertEqual(
+                projection["quantileEvidence"]["status"],
+                "protocol-unavailable",
+            )
+            self.assertIn(
+                "protocol-not-applicable",
+                projection["quantileEvidence"]["reason"],
             )
             self.assertEqual(
                 projection["inputAvailability"][

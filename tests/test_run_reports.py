@@ -5,10 +5,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import jsonschema
+
 from autoquant.dossiers import load_dossier, load_dossier_status, publish_dossier
 from autoquant.intake import load_project_intake, prepare_project_intake
 from autoquant.orientation import build_agent_work_brief
-from autoquant.reports import REPORT_MARKDOWN
+from autoquant.reports import REPORT_ANALYSIS_JSON_SCHEMA, REPORT_MARKDOWN
 from autoquant.research_program import load_research_program
 from autoquant.reviews import load_review_package, publish_review
 from autoquant.run_reports import (
@@ -230,6 +232,94 @@ class RunBoundResearchReportTests(unittest.TestCase):
                 "report.tampered",
                 {item.code for item in tampered.exception.issues},
             )
+
+    def test_direct_run_report_draft_is_confined_and_completable(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _workspace, project = self._request_project(Path(directory))
+            run = execute_study(project, "ohlcv-factor-quality")
+            drafted = run_cli(
+                "report",
+                "draft",
+                str(project.root_dir),
+                "--study",
+                "ohlcv-factor-quality",
+                "--run",
+                run.result["id"],
+                "--output",
+                "analysis/direct-factor.json",
+                "--json",
+            )
+            self.assertEqual(drafted.returncode, 1)
+            self.assertEqual(
+                json_output(drafted)["error"]["issues"][0]["code"],
+                "report.draft-parent",
+            )
+            (project.root_dir / "analysis").mkdir()
+            drafted = run_cli(
+                "report",
+                "draft",
+                str(project.root_dir),
+                "--study",
+                "ohlcv-factor-quality",
+                "--run",
+                run.result["id"],
+                "--output",
+                "analysis/direct-factor.json",
+                "--json",
+            )
+            self.assertEqual(drafted.returncode, 0, drafted.stderr)
+            draft = json_output(drafted)["data"]["analysis"]
+            jsonschema.validate(draft, REPORT_ANALYSIS_JSON_SCHEMA)
+            self.assertEqual(draft["authoringState"], "draft")
+            self.assertEqual(
+                {
+                    item["artifactPath"]
+                    for item in draft["findings"][0]["evidenceRefs"]
+                },
+                {item["path"] for item in run.result["artifacts"]},
+            )
+            escaped = run_cli(
+                "report",
+                "draft",
+                str(project.root_dir),
+                "--study",
+                "ohlcv-factor-quality",
+                "--run",
+                run.result["id"],
+                "--output",
+                "../escape.json",
+                "--json",
+            )
+            self.assertEqual(escaped.returncode, 1)
+            self.assertEqual(
+                json_output(escaped)["error"]["issues"][0]["code"],
+                "schema.path",
+            )
+
+            draft["authoringState"] = "final"
+            draft["title"] = "Completed direct Factor conclusion"
+            draft["executiveSummary"] = "The immutable Run is ready for bounded review."
+            draft["findings"][0]["id"] = "current-run-reviewed"
+            draft["findings"][0]["claim"] = "The exact current Run was reviewed."
+            draft["limitations"] = ["No trading authority is granted."]
+            draft_path = project.root_dir / "analysis/direct-factor.json"
+            draft_path.write_text(
+                json.dumps(draft, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            published = run_cli(
+                "report",
+                "publish",
+                str(project.root_dir),
+                "--study",
+                "ohlcv-factor-quality",
+                "--run",
+                run.result["id"],
+                "--analysis",
+                str(draft_path),
+                "--json",
+            )
+            self.assertEqual(published.returncode, 0, published.stderr)
 
     def test_cli_publishes_lists_and_shows_run_anchor(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

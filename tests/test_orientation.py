@@ -5,12 +5,15 @@ import tempfile
 import unittest
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import jsonschema
 
 from autoquant.intake import prepare_project_intake
 from autoquant.orientation import (
     AGENT_WORK_BRIEF_JSON_SCHEMA,
+    _factor_split_contrast,
     build_agent_work_brief,
 )
 from autoquant.reports import publish_report
@@ -39,6 +42,74 @@ from tests.test_reports import report_analysis, research_request
 
 
 class AgentOrientationTests(unittest.TestCase):
+    def test_material_factor_split_contrast_is_visible_but_not_a_gate(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            _, project = make_project(directory)
+            create_study(project, study_definition())
+            run = execute_study(project, "factor-quality")
+            factor_study = SimpleNamespace(
+                definition=SimpleNamespace(
+                    objective=SimpleNamespace(metric="validation_mean_ic")
+                )
+            )
+            diagnostics = {
+                "researchHorizon": {"primaryForwardBars": 1},
+                "horizonProfile": [
+                    {
+                        "horizon": 1,
+                        "train": {"meanRankIc": -0.04},
+                        "validation": {"meanRankIc": 0.63},
+                    }
+                ],
+            }
+
+            with patch(
+                "autoquant.orientation.load_run",
+                return_value=SimpleNamespace(result={"status": "succeeded"}),
+            ), patch(
+                "autoquant.orientation.load_factor_diagnostics",
+                return_value=diagnostics,
+            ):
+                contrast = _factor_split_contrast(
+                    project,
+                    run.result["id"],
+                    factor_study,
+                )
+
+            self.assertEqual(contrast["runId"], run.result["id"])
+            self.assertEqual(contrast["status"], "material-divergence")
+            self.assertEqual(contrast["trainMeanRankIc"], -0.04)
+            self.assertEqual(contrast["validationMeanRankIc"], 0.63)
+            self.assertAlmostEqual(contrast["absoluteGap"], 0.67)
+            self.assertEqual(contrast["visibilityThreshold"], 0.20)
+            self.assertEqual(contrast["selectionSplit"], "validation")
+            self.assertFalse(contrast["testEntersContrast"])
+            self.assertEqual(contrast["authority"], "orientation-only-no-gate")
+
+            with patch(
+                "autoquant.orientation._factor_split_contrast",
+                return_value=contrast,
+            ):
+                brief = build_agent_work_brief(project)
+            jsonschema.validate(brief, AGENT_WORK_BRIEF_JSON_SCHEMA)
+            self.assertEqual(brief["factorSplitContrast"], contrast)
+            self.assertNotEqual(brief["reasons"][0]["code"], "factor-split-contrast")
+
+            diagnostics["horizonProfile"][0]["train"]["meanRankIc"] = 0.50
+            with patch(
+                "autoquant.orientation.load_run",
+                return_value=SimpleNamespace(result={"status": "succeeded"}),
+            ), patch(
+                "autoquant.orientation.load_factor_diagnostics",
+                return_value=diagnostics,
+            ):
+                below_threshold = _factor_split_contrast(
+                    project,
+                    run.result["id"],
+                    factor_study,
+                )
+            self.assertIsNone(below_threshold)
+
     def test_failed_baseline_requires_inspection_before_any_retry(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             _, project = make_project(directory)
@@ -845,7 +916,7 @@ Do not include this sibling section.
             jsonschema.validate(settled, AGENT_WORK_BRIEF_JSON_SCHEMA)
             self.assertEqual(
                 settled["method"],
-                "verified-project-agent-orientation-v12",
+                "verified-project-agent-orientation-v13",
             )
             self.assertEqual(
                 [item["code"] for item in settled["reasons"]],

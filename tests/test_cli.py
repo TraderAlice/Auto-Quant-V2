@@ -1205,6 +1205,7 @@ class AgentCliTests(unittest.TestCase):
                 "research.run",
                 "research.list",
                 "research.show",
+                "report.draft",
                 "report.publish",
                 "report.list",
                 "report.show",

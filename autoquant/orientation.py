@@ -20,6 +20,7 @@ from .candidate_contracts import (
 )
 from .checks import candidate_check_state, list_candidate_checks
 from .dossiers import load_dossier_status
+from .factor_explorer import load_factor_diagnostics
 from .intake import load_project_intake
 from .holdouts import HOLDOUT_STATUS_JSON_SCHEMA, load_holdout_status
 from .research_agenda import (
@@ -47,7 +48,9 @@ from .workspace import SCHEMA_VERSION, ProjectContext
 
 
 AGENT_WORK_BRIEF_KIND = "autoquant-agent-work-brief"
-AGENT_WORK_BRIEF_METHOD = "verified-project-agent-orientation-v12"
+AGENT_WORK_BRIEF_METHOD = "verified-project-agent-orientation-v13"
+FACTOR_SPLIT_CONTRAST_METHOD = "primary-factor-train-validation-visibility-v1"
+FACTOR_SPLIT_CONTRAST_THRESHOLD = 0.20
 MAX_RESEARCH_QUESTION_CHARS = 4_000
 PROTECTED_CATEGORIES = [
     "request",
@@ -73,6 +76,7 @@ EXPECTED_EVIDENCE = {
     "session.promote": "promotion-receipt",
     "session.complete": "completion-receipt",
     "report.publish": "immutable-report",
+    "report.draft": "mutable-report-analysis-draft",
     "report.show": "immutable-report",
     "dossier.publish": "immutable-dossier",
     "dossier.show": "immutable-dossier",
@@ -285,6 +289,59 @@ def _question_projection(
     }
 
 
+def _factor_split_contrast(
+    project: ProjectContext,
+    run_id: str | None,
+    study: Any | None,
+) -> dict[str, Any] | None:
+    """Expose a material primary train/validation contrast without gating it."""
+
+    if (
+        run_id is None
+        or study is None
+        or study.definition.objective.metric != "validation_mean_ic"
+    ):
+        return None
+    run = load_run(project, run_id)
+    if run.result["status"] != "succeeded":
+        return None
+    diagnostics = load_factor_diagnostics(project, run_id, point_limit=40)
+    primary = diagnostics["researchHorizon"]["primaryForwardBars"]
+    horizon = next(
+        item
+        for item in diagnostics["horizonProfile"]
+        if item["horizon"] == primary
+    )
+    train = horizon["train"]["meanRankIc"]
+    validation = horizon["validation"]["meanRankIc"]
+    if train is None or validation is None:
+        return None
+    signed_gap = float(validation - train)
+    absolute_gap = abs(signed_gap)
+    if absolute_gap + 1e-12 < FACTOR_SPLIT_CONTRAST_THRESHOLD:
+        return None
+    return {
+        "method": FACTOR_SPLIT_CONTRAST_METHOD,
+        "status": "material-divergence",
+        "runId": run_id,
+        "metric": "primary-horizon-mean-rank-ic",
+        "primaryForwardBars": primary,
+        "trainMeanRankIc": float(train),
+        "validationMeanRankIc": float(validation),
+        "validationMinusTrain": signed_gap,
+        "absoluteGap": absolute_gap,
+        "visibilityThreshold": FACTOR_SPLIT_CONTRAST_THRESHOLD,
+        "selectionSplit": "validation",
+        "testEntersContrast": False,
+        "authority": "orientation-only-no-gate",
+        "message": (
+            "Primary-horizon train and validation mean rank IC materially "
+            "diverge. Inspect stability and use external evidence before "
+            "generalizing; validation remains the sole selection split."
+        ),
+    }
+
+
 def _action(
     value: dict[str, Any],
     *,
@@ -317,6 +374,35 @@ def _command(
         "argv": argv,
         "effect": effect,
     }
+
+
+def _report_draft_action(
+    publish_action: dict[str, Any] | None,
+    *,
+    working_directory: Path,
+) -> dict[str, Any] | None:
+    """Derive the optional safe authoring scaffold from an exact publish action."""
+
+    if publish_action is None or publish_action.get("id") != "report.publish":
+        return None
+    argv = list(publish_action["argv"])
+    if len(argv) < 4 or argv[:3] != ["aq", "report", "publish"]:
+        return None
+    if "--analysis" not in argv or "--corrects" in argv:
+        return None
+    analysis_index = argv.index("--analysis")
+    draft_argv = argv[:analysis_index]
+    draft_argv[2] = "draft"
+    draft_argv.extend(["--output", "report-analysis.json", "--json"])
+    return _action(
+        _command(
+            "report.draft",
+            "Optionally materialize a schema-valid draft with the exact current Run and artifact references before authoring the Report.",
+            draft_argv,
+            "creates-artifact",
+        ),
+        working_directory=working_directory,
+    )
 
 
 def _session_actions(
@@ -2536,6 +2622,19 @@ def build_agent_work_brief(project: ProjectContext) -> dict[str, Any]:
         if freeze_session is not None
         else None
     )
+    report_draft = _report_draft_action(
+        projected["primaryAction"],
+        working_directory=project.root_dir,
+    )
+    if report_draft is not None:
+        projected["supportingActions"] = [
+            report_draft,
+            *[
+                action
+                for action in projected["supportingActions"]
+                if action["id"] != "report.draft"
+            ],
+        ][:3]
     candidate_contract = (
         build_candidate_contract(
             project,
@@ -2551,6 +2650,11 @@ def build_agent_work_brief(project: ProjectContext) -> dict[str, Any]:
         )["constructionFidelity"]
         if allocation_fixed and agenda_run_id is not None
         else None
+    )
+    factor_split_contrast = _factor_split_contrast(
+        project,
+        agenda_run_id,
+        focus_study,
     )
     return {
         "schemaVersion": SCHEMA_VERSION,
@@ -2569,6 +2673,7 @@ def build_agent_work_brief(project: ProjectContext) -> dict[str, Any]:
         ),
         "candidateContract": candidate_contract,
         "constructionFidelity": construction_fidelity,
+        "factorSplitContrast": factor_split_contrast,
         "researchAgenda": research_agenda,
         "externalHoldout": holdout,
         **projected,
@@ -2623,6 +2728,7 @@ AGENT_WORK_BRIEF_JSON_SCHEMA: dict[str, Any] = {
         "question",
         "candidateContract",
         "constructionFidelity",
+        "factorSplitContrast",
         "continuation",
         "focus",
         "evidence",
@@ -2685,6 +2791,58 @@ AGENT_WORK_BRIEF_JSON_SCHEMA: dict[str, Any] = {
             "oneOf": [
                 CONSTRUCTION_FIDELITY_JSON_SCHEMA,
                 {"type": "null"},
+            ]
+        },
+        "factorSplitContrast": {
+            "oneOf": [
+                {"type": "null"},
+                {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": [
+                        "method",
+                        "status",
+                        "runId",
+                        "metric",
+                        "primaryForwardBars",
+                        "trainMeanRankIc",
+                        "validationMeanRankIc",
+                        "validationMinusTrain",
+                        "absoluteGap",
+                        "visibilityThreshold",
+                        "selectionSplit",
+                        "testEntersContrast",
+                        "authority",
+                        "message",
+                    ],
+                    "properties": {
+                        "method": {"const": FACTOR_SPLIT_CONTRAST_METHOD},
+                        "status": {"const": "material-divergence"},
+                        "runId": {"type": "string", "pattern": "^run-"},
+                        "metric": {
+                            "const": "primary-horizon-mean-rank-ic"
+                        },
+                        "primaryForwardBars": {
+                            "type": "integer",
+                            "minimum": 1,
+                            "maximum": 252,
+                        },
+                        "trainMeanRankIc": {"type": "number"},
+                        "validationMeanRankIc": {"type": "number"},
+                        "validationMinusTrain": {"type": "number"},
+                        "absoluteGap": {
+                            "type": "number",
+                            "minimum": FACTOR_SPLIT_CONTRAST_THRESHOLD,
+                        },
+                        "visibilityThreshold": {
+                            "const": FACTOR_SPLIT_CONTRAST_THRESHOLD
+                        },
+                        "selectionSplit": {"const": "validation"},
+                        "testEntersContrast": {"const": False},
+                        "authority": {"const": "orientation-only-no-gate"},
+                        "message": {"type": "string", "minLength": 1},
+                    },
+                },
             ]
         },
         "continuation": {

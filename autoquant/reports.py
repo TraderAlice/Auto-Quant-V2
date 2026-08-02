@@ -50,6 +50,8 @@ REPORT_RESULT = "report.json"
 REPORT_MARKDOWN = "report.md"
 REPORT_MANIFEST = "manifest.json"
 REPORT_ANALYSIS_KIND = "autoquant-research-report-analysis"
+REPORT_ANALYSIS_AUTHORING_STATES = {"draft", "final"}
+REPORT_DRAFT_FINDING_ID = "draft-replace-with-evidence-backed-finding"
 REPORT_KIND = "autoquant-research-report"
 REPORT_ID = re.compile(
     r"^report-[0-9]{8}T[0-9]{12}Z-[0-9a-f]{12}$"
@@ -132,14 +134,17 @@ def _strict_keys(
     value: dict[str, Any],
     required: set[str],
     path: Path | str,
+    *,
+    optional: set[str] | None = None,
 ) -> list[ValidationIssue]:
+    allowed = required | (optional or set())
     issues = [
         _issue(f"{path}/{key}", "schema.missing", f"Missing required field '{key}'")
         for key in sorted(required - value.keys())
     ]
     issues.extend(
         _issue(f"{path}/{key}", "schema.unknown", f"Unknown field '{key}'")
-        for key in sorted(value.keys() - required)
+        for key in sorted(value.keys() - allowed)
     )
     return issues
 
@@ -293,7 +298,12 @@ def validate_report_analysis(
         "limitations",
         "unresolvedQuestions",
     }
-    issues = _strict_keys(value, required, path)
+    issues = _strict_keys(
+        value,
+        required,
+        path,
+        optional={"authoringState"},
+    )
     if value.get("schemaVersion") != SCHEMA_VERSION:
         issues.append(_issue(f"{path}/schemaVersion", "schema.version", "Expected V1"))
     if value.get("kind") != REPORT_ANALYSIS_KIND:
@@ -306,6 +316,18 @@ def validate_report_analysis(
         )
     for key in ("title", "executiveSummary"):
         issues.extend(_non_empty(value.get(key), f"{path}/{key}"))
+    authoring_state = value.get("authoringState")
+    if (
+        authoring_state is not None
+        and authoring_state not in REPORT_ANALYSIS_AUTHORING_STATES
+    ):
+        issues.append(
+            _issue(
+                f"{path}/authoringState",
+                "schema.choice",
+                "authoringState must be draft or final when declared",
+            )
+        )
     for key in ("limitations", "unresolvedQuestions"):
         issues.extend(
             _string_list(value.get(key), f"{path}/{key}", allow_empty=True)
@@ -452,7 +474,7 @@ def validate_report_analysis(
         )
     if issues:
         raise AutoQuantValidationError(issues)
-    return {
+    normalized = {
         "schemaVersion": SCHEMA_VERSION,
         "kind": REPORT_ANALYSIS_KIND,
         "title": value["title"].strip(),
@@ -464,6 +486,141 @@ def validate_report_analysis(
             item.strip() for item in value["unresolvedQuestions"]
         ],
     }
+    if authoring_state is not None:
+        normalized["authoringState"] = authoring_state
+    return normalized
+
+
+def validate_publishable_report_analysis(
+    value: dict[str, Any],
+    path: Path | str = "report-analysis",
+) -> dict[str, Any]:
+    """Validate final Report analysis and reject an unfinished scaffold."""
+
+    normalized = validate_report_analysis(value, path)
+    issues: list[ValidationIssue] = []
+    if normalized.get("authoringState") == "draft":
+        issues.append(
+            _issue(
+                f"{path}/authoringState",
+                "report.draft-incomplete",
+                "Report draft cannot be published; replace every placeholder "
+                "and set authoringState to final",
+            )
+        )
+    if any(
+        finding["id"] == REPORT_DRAFT_FINDING_ID
+        for finding in normalized["findings"]
+    ):
+        issues.append(
+            _issue(
+                f"{path}/findings",
+                "report.draft-placeholder",
+                "Replace the reserved draft finding before publication",
+            )
+        )
+    if issues:
+        raise AutoQuantValidationError(issues)
+    return normalized
+
+
+def build_report_analysis_draft(
+    run: Any,
+    *,
+    title: str,
+) -> dict[str, Any]:
+    """Build one schema-valid, explicitly non-publishable authoring scaffold."""
+
+    references = [
+        {
+            "kind": "run",
+            "id": run.result["id"],
+            "artifactPath": artifact["path"],
+        }
+        for artifact in run.result.get("artifacts", [])
+        if isinstance(artifact, dict)
+        and isinstance(artifact.get("path"), str)
+    ]
+    if not references:
+        references = [
+            {
+                "kind": "run",
+                "id": run.result["id"],
+                "artifactPath": None,
+            }
+        ]
+    return validate_report_analysis(
+        {
+            "schemaVersion": SCHEMA_VERSION,
+            "kind": REPORT_ANALYSIS_KIND,
+            "authoringState": "draft",
+            "title": f"DRAFT — {title}",
+            "executiveSummary": (
+                "Replace this scaffold with a concise conclusion supported "
+                "by the selected immutable evidence."
+            ),
+            "findings": [
+                {
+                    "id": REPORT_DRAFT_FINDING_ID,
+                    "claim": (
+                        "Replace this instructional placeholder with one "
+                        "evidence-backed finding."
+                    ),
+                    "confidence": "low",
+                    "evidenceRefs": references,
+                }
+            ],
+            "recommendations": [],
+            "limitations": [
+                "DRAFT SCAFFOLD: replace all placeholder prose and set "
+                "authoringState to final before publication."
+            ],
+            "unresolvedQuestions": [],
+        }
+    )
+
+
+def build_session_report_analysis_draft(
+    project: ProjectContext,
+    session_id: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Build a draft only after the delegated Session anchor is reportable."""
+
+    session = load_session(project, session_id)
+    if session.manifest["status"] != "active":
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    session.manifest_path,
+                    "report.session-closed",
+                    "Report drafts require one active Session",
+                )
+            ]
+        )
+    if session.delegation is None:
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    session.manifest_path,
+                    "report.request-required",
+                    "Report drafts require a delegated Session brief",
+                )
+            ]
+        )
+    validate_session_authority(project, session)
+    anchor = {
+        "kind": "session",
+        "studyId": session.manifest["studyId"],
+        "runId": session.leader_run.result["id"],
+        "sessionId": session.manifest["id"],
+    }
+    return (
+        build_report_analysis_draft(
+            session.leader_run,
+            title=f"{session.delegation['request']['title']} evidence conclusion",
+        ),
+        anchor,
+    )
 
 
 def load_report_analysis(path: str | Path) -> dict[str, Any]:
@@ -1360,7 +1517,7 @@ def publish_report(
     session_id: str,
     analysis: dict[str, Any],
 ) -> ReportContext:
-    normalized = validate_report_analysis(analysis)
+    normalized = validate_publishable_report_analysis(analysis)
     session = load_session(project, session_id)
     if session.manifest["status"] != "active":
         raise AutoQuantValidationError(
@@ -2060,7 +2217,9 @@ REPORT_ANALYSIS_JSON_SCHEMA: dict[str, Any] = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "title": "AutoQuant Agent-authored report analysis",
     "description": (
-        "Strict complete analysis. Every recommendation requires action, "
+        "Strict complete analysis. An optional authoringState=draft marks a "
+        "schema-valid scaffold that publication rejects until the Agent sets "
+        "it to final and replaces reserved placeholders. Every recommendation requires action, "
         "rationale, conditions, and evidenceRefs; copy the complete example "
         "before replacing its evidence identity and prose."
     ),
@@ -2079,6 +2238,14 @@ REPORT_ANALYSIS_JSON_SCHEMA: dict[str, Any] = {
     "properties": {
         "schemaVersion": {"const": SCHEMA_VERSION},
         "kind": {"const": REPORT_ANALYSIS_KIND},
+        "authoringState": {
+            "enum": sorted(REPORT_ANALYSIS_AUTHORING_STATES),
+            "description": (
+                "Optional authoring lifecycle. Draft objects are valid editing "
+                "scaffolds but cannot be published; omission preserves "
+                "historical final analyses."
+            ),
+        },
         "title": {"type": "string", "minLength": 1},
         "executiveSummary": {"type": "string", "minLength": 1},
         "findings": {
@@ -2134,6 +2301,7 @@ REPORT_ANALYSIS_JSON_SCHEMA: dict[str, Any] = {
         {
             "schemaVersion": SCHEMA_VERSION,
             "kind": REPORT_ANALYSIS_KIND,
+            "authoringState": "final",
             "title": "Bounded factor research conclusion",
             "executiveSummary": (
                 "The fixed evidence does not support the tested hypothesis."

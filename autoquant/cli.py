@@ -104,12 +104,14 @@ from .research import (
 )
 from .reports import (
     REPORT_ANALYSIS_JSON_SCHEMA,
+    build_session_report_analysis_draft,
     list_reports,
     load_report,
     load_report_analysis,
     publish_report,
 )
 from .run_reports import (
+    build_run_report_analysis_draft,
     list_run_reports,
     load_run_report,
     publish_run_report,
@@ -221,10 +223,12 @@ from .studies import (
     load_study,
 )
 from .workspace import (
+    AutoQuantValidationError,
     FRAMEWORK_NEEDS,
     PROJECT_MANIFEST,
     WORKSPACE_MANIFEST,
     ValidationIssue,
+    confined_path,
     create_or_intake_project,
     create_project,
     initialize_workspace,
@@ -1033,6 +1037,34 @@ def build_parser() -> RaisingArgumentParser:
         help="publish and inspect immutable evidence-bound Research Reports",
     )
     report_actions = report.add_subparsers(dest="report_action", required=True)
+    report_draft = report_actions.add_parser(
+        "draft",
+        help="materialize a safe schema-valid Report analysis scaffold",
+    )
+    report_draft.add_argument("path")
+    report_draft.add_argument("--project")
+    report_draft.add_argument(
+        "--session",
+        help="delegated active Session anchor",
+    )
+    report_draft.add_argument(
+        "--study",
+        help="Study id for a Session-free immutable Run anchor; requires --run",
+    )
+    report_draft.add_argument(
+        "--run",
+        help="current reportable Run id for a Session-free anchor; requires --study",
+    )
+    report_draft.add_argument(
+        "--output",
+        default="report-analysis.json",
+        help=(
+            "new confined Project-relative JSON path; existing files are never overwritten"
+        ),
+    )
+    report_draft.set_defaults(command_id="report.draft")
+    _json_argument(report_draft)
+
     report_publish = report_actions.add_parser(
         "publish",
         help="publish analysis over one Session prefix or one immutable current Run",
@@ -2746,6 +2778,18 @@ def _run_factor(args: argparse.Namespace) -> CommandResult:
     validation = summary["validation"]
     qualification = diagnostics["factorQualification"]
     components = diagnostics["factorComponents"]
+    quantile_evidence = diagnostics["quantileEvidence"]
+    quantile_line = (
+        "Quantile evidence: available · "
+        f"{quantile_evidence['artifactRows']} artifact rows · diagnostic only\n"
+        if quantile_evidence["status"] == "available"
+        else (
+            "Quantile evidence: protocol-unavailable · "
+            f"{quantile_evidence['reasonCode']} · "
+            f"{quantile_evidence['artifactRows']} artifact rows — "
+            f"{quantile_evidence['reason']}\n"
+        )
+    )
     qualification_line = ""
     if qualification["available"]:
         qualified = qualification["validation"]
@@ -2807,6 +2851,7 @@ def _run_factor(args: argparse.Namespace) -> CommandResult:
             f"{diagnostics['icPath']['sampledRows']} points\n"
             f"Mean coverage / rank turnover: {summary['meanCoverage']} / "
             f"{summary['meanRankTurnover']}\n"
+            f"{quantile_line}"
             f"{qualification_line}"
             f"{component_line}"
             "Test and longer-horizon evidence are diagnostic only.\n"
@@ -4299,6 +4344,107 @@ def _report_artifacts(report) -> list[dict[str, Any]]:
     ]
 
 
+def _report_draft(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    session_mode = args.session is not None
+    run_mode = args.study is not None or args.run is not None
+    if session_mode == run_mode:
+        raise CliUsageError(
+            "report draft requires exactly one anchor: --session ID, or "
+            "--study ID together with --run ID"
+        )
+    if run_mode and (args.study is None or args.run is None):
+        raise CliUsageError("Run-bound report draft requires both --study and --run")
+    draft, anchor = (
+        build_session_report_analysis_draft(project, args.session)
+        if session_mode
+        else build_run_report_analysis_draft(
+            project,
+            args.study,
+            args.run,
+        )
+    )
+    output = confined_path(
+        project.root_dir,
+        args.output,
+        "report/draft/output",
+    )
+    if output.exists() or output.is_symlink():
+        raise AutoQuantValidationError(
+            [
+                ValidationIssue(
+                    str(output),
+                    "report.draft-exists",
+                    "Report draft output already exists; choose a new --output path",
+                )
+            ]
+        )
+    if output.parent.is_symlink() or not output.parent.is_dir():
+        raise AutoQuantValidationError(
+            [
+                ValidationIssue(
+                    str(output.parent),
+                    "report.draft-parent",
+                    "Report draft parent must be an existing real Project directory",
+                )
+            ]
+        )
+    with output.open("x", encoding="utf-8") as handle:
+        json.dump(draft, handle, indent=2, ensure_ascii=False, sort_keys=True)
+        handle.write("\n")
+    publish_argv = [
+        "aq",
+        "report",
+        "publish",
+        str(project.root_dir),
+        *(
+            ["--session", anchor["sessionId"]]
+            if session_mode
+            else ["--study", anchor["studyId"], "--run", anchor["runId"]]
+        ),
+        "--analysis",
+        str(output),
+        "--json",
+    ]
+    return CommandResult(
+        "report.draft",
+        {
+            "anchor": anchor,
+            "draftPath": str(output),
+            "analysis": draft,
+            "publishable": False,
+            "requiredEdits": [
+                "Replace every reserved draft placeholder with evidence-backed prose.",
+                "Set authoringState to final only after completing the analysis.",
+            ],
+        },
+        (
+            f"Report analysis draft: {output}\n"
+            f"Anchor: {anchor['kind']} · Study {anchor['studyId']} · "
+            f"Run {anchor['runId']}\n"
+            f"Evidence references: {len(draft['findings'][0]['evidenceRefs'])}\n"
+            "State: draft · schema-valid · publication blocked until completed\n"
+        ),
+        project_context(project),
+        [
+            artifact(
+                "report-analysis-draft",
+                anchor["runId"],
+                output,
+                immutable=False,
+            )
+        ],
+        [
+            next_action(
+                "report.publish",
+                "After replacing placeholders and setting authoringState to final, publish the exact completed analysis.",
+                publish_argv,
+                "creates-artifact",
+            )
+        ],
+    )
+
+
 def _report_publish(args: argparse.Namespace) -> CommandResult:
     project = _selected_project(args)
     analysis = load_report_analysis(args.analysis)
@@ -5464,6 +5610,17 @@ def _orient(args: argparse.Namespace) -> CommandResult:
     )
     candidate_contract = brief["candidateContract"]
     construction_fidelity = brief["constructionFidelity"]
+    factor_split_contrast = brief["factorSplitContrast"]
+    factor_split_contrast_line = (
+        "Factor train/validation contrast: "
+        f"{factor_split_contrast['trainMeanRankIc']:+.4f} → "
+        f"{factor_split_contrast['validationMeanRankIc']:+.4f} · "
+        f"|gap| {factor_split_contrast['absoluteGap']:.4f} ≥ "
+        f"{factor_split_contrast['visibilityThreshold']:.2f} visibility "
+        "threshold · validation still selects\n"
+        if factor_split_contrast is not None
+        else ""
+    )
     validation_fidelity_line = ""
     if construction_fidelity is not None:
         validation_fidelity = construction_fidelity["bySplit"]["validation"]
@@ -5551,6 +5708,7 @@ def _orient(args: argparse.Namespace) -> CommandResult:
         f"{focus['scientificStage']} · {focus['operatingMode']}\n"
         f"{failure_line}"
         f"{validation_fidelity_line}"
+        f"{factor_split_contrast_line}"
         f"{latest_experiment_line}"
         f"Reason: {brief['reasons'][0]['code']} — "
         f"{brief['reasons'][0]['message']}\n"
@@ -5859,6 +6017,8 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
         return _research_list(args)
     if args.command_id == "research.show":
         return _research_show(args)
+    if args.command_id == "report.draft":
+        return _report_draft(args)
     if args.command_id == "report.publish":
         return _report_publish(args)
     if args.command_id == "report.list":

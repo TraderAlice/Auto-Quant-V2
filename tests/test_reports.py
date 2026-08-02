@@ -11,6 +11,7 @@ import autoquant.reports as report_module
 import jsonschema
 from autoquant.decision_support import sizing_anatomy_markdown_lines
 from autoquant.reports import (
+    REPORT_ANALYSIS_JSON_SCHEMA,
     list_reports,
     load_report,
     publish_report,
@@ -29,6 +30,7 @@ from autoquant.studio import build_studio_snapshot
 from autoquant.studies import create_study, hash_file, hash_json
 from autoquant.workspace import AutoQuantValidationError
 from tests.study_helpers import make_project, study_definition
+from tests.test_cli import json_output, run_cli
 
 
 def research_request() -> dict:
@@ -248,6 +250,73 @@ class ResearchHandoffTests(unittest.TestCase):
             self.assertEqual(
                 turn_input["delegation"]["request"]["question"],
                 research_request()["question"],
+            )
+
+    def test_session_report_draft_prefills_exact_evidence_and_cannot_publish(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            project = self._project(directory)
+            session = start_session(
+                project,
+                "factor-quality",
+                request=research_request(),
+            )
+            drafted = run_cli(
+                "report",
+                "draft",
+                str(project.root_dir),
+                "--session",
+                session.manifest["id"],
+                "--json",
+            )
+            self.assertEqual(drafted.returncode, 0, drafted.stderr)
+            envelope = json_output(drafted)
+            draft = envelope["data"]["analysis"]
+            self.assertEqual(draft["authoringState"], "draft")
+            self.assertFalse(envelope["data"]["publishable"])
+            self.assertEqual(
+                envelope["data"]["anchor"]["runId"],
+                session.manifest["leader"]["runId"],
+            )
+            jsonschema.validate(draft, REPORT_ANALYSIS_JSON_SCHEMA)
+            references = draft["findings"][0]["evidenceRefs"]
+            self.assertEqual(
+                {item["artifactPath"] for item in references},
+                {
+                    artifact["path"]
+                    for artifact in session.leader_run.result["artifacts"]
+                },
+            )
+            draft_path = Path(envelope["data"]["draftPath"])
+            blocked = run_cli(
+                "report",
+                "publish",
+                str(project.root_dir),
+                "--session",
+                session.manifest["id"],
+                "--analysis",
+                str(draft_path),
+                "--json",
+            )
+            self.assertEqual(blocked.returncode, 1)
+            self.assertEqual(
+                {
+                    item["code"]
+                    for item in json_output(blocked)["error"]["issues"]
+                },
+                {"report.draft-incomplete", "report.draft-placeholder"},
+            )
+            duplicate = run_cli(
+                "report",
+                "draft",
+                str(project.root_dir),
+                "--session",
+                session.manifest["id"],
+                "--json",
+            )
+            self.assertEqual(duplicate.returncode, 1)
+            self.assertEqual(
+                json_output(duplicate)["error"]["issues"][0]["code"],
+                "report.draft-exists",
             )
 
     def test_delegated_keep_promotion_requires_exact_current_report(self) -> None:

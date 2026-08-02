@@ -661,6 +661,7 @@ const researchDecisionBrief = (project) => {
       next: coreBrief.review.next,
       boundary: coreBrief.review.boundary,
       candidateContract: coreBrief.candidateContract,
+      factorSplitContrast: coreBrief.factorSplitContrast,
       latestExperiment: coreBrief.evidence.latestExperiment,
       origin:
         coreBrief.question.origin === "delegated-request"
@@ -682,6 +683,7 @@ const researchDecisionBrief = (project) => {
     next: "Repair the reported Core validation issue, then refresh this snapshot.",
     boundary: "no inferred edit or trading authority",
     candidateContract: null,
+    factorSplitContrast: null,
     latestExperiment: null,
     origin: "CORE DIAGNOSTIC",
   };
@@ -705,6 +707,11 @@ function renderDecisionBrief(project) {
     ${
       brief.latestExperiment
         ? `<p><b>Latest trial</b> · ${escapeHtml(brief.latestExperiment.id)} · ${escapeHtml(brief.latestExperiment.verdict)} · Run ${escapeHtml(brief.latestExperiment.runId)} · ${brief.latestExperiment.candidateCheck ? `Check ${escapeHtml(brief.latestExperiment.candidateCheck.id)} (${escapeHtml(brief.latestExperiment.candidateCheck.status)})` : "Check unavailable"}</p>`
+        : ""
+    }
+    ${
+      brief.factorSplitContrast
+        ? `<p><b>Material train/validation contrast</b> · h${brief.factorSplitContrast.primaryForwardBars} train ${metric(brief.factorSplitContrast.trainMeanRankIc)} → validation ${metric(brief.factorSplitContrast.validationMeanRankIc)} · |gap| ${metric(brief.factorSplitContrast.absoluteGap)} ≥ ${metric(brief.factorSplitContrast.visibilityThreshold)} visibility threshold · validation still selects</p>`
         : ""
     }
     <footer>
@@ -1995,6 +2002,10 @@ function factorChartDateLabels(points, xScale, y) {
 
 function renderFactorChart(explorer) {
   const chart = element("factor-chart");
+  const quantileAvailable = explorer.quantileEvidence?.status === "available";
+  if (state.factorView === "quantiles" && !quantileAvailable) {
+    state.factorView = "ic";
+  }
   const horizon = state.factorHorizon;
   const split = state.factorSplit;
   const audit = split === "test";
@@ -2006,6 +2017,15 @@ function renderFactorChart(explorer) {
         )
       : explorer.icPath.points.filter((point) => point.split === split);
   document.querySelectorAll("[data-factor-view]").forEach((button) => {
+    const unavailable =
+      button.dataset.factorView === "quantiles" && !quantileAvailable;
+    button.disabled = unavailable;
+    button.title = unavailable
+      ? explorer.quantileEvidence.reason
+      : "";
+    if (button.dataset.factorView === "quantiles") {
+      button.textContent = quantileAvailable ? "Quantiles" : "Quantiles · N/A";
+    }
     button.setAttribute(
       "aria-selected",
       String(button.dataset.factorView === state.factorView),
@@ -2028,7 +2048,10 @@ function renderFactorChart(explorer) {
       ? `Fixed-tertile ${explorer.factorOutcome.label}`
       : "Rank & Pearson IC path";
   element("factor-chart-note").textContent =
-    `${horizon}-bar · ${split}${audit ? " · VISIBLE AUDIT ONLY" : " · SELECTION"} · ${source.length} sampled points`;
+    `${horizon}-bar · ${split}${audit ? " · VISIBLE AUDIT ONLY" : " · SELECTION"} · ${source.length} sampled points` +
+    (quantileAvailable
+      ? " · fixed tertiles available"
+      : ` · quantiles protocol-unavailable: ${explorer.quantileEvidence.reason}`);
   if (!source.length) {
     chart.innerHTML =
       '<div class="empty-panel">No finite evidence for this fixed split and horizon.</div>';
