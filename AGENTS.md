@@ -265,6 +265,12 @@ investigation; once it exists for a lane, its evidence and Report take
 precedence over an older direct Run Report. See
 [[docs/design/run-bound-research-reports]].
 
+When Report publication is required, prefer the optional exact-anchor
+`aq report draft` scaffold over manually reconstructing Run/artifact
+identities. It is mutable authoring material, not evidence: replace every
+reserved placeholder, set `authoringState` to `final`, and only then publish.
+Never treat the scaffold as Core-authored analysis.
+
 When asked to review completed research, do not trust Report prose, rerun the
 Study, or create a replacement Report. Use strict Report/Run readers, write a
 `review-analysis` that classifies every material claim as `verified`,

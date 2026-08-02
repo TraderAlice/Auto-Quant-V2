@@ -111,7 +111,8 @@ evidence population.
 
 ### Quantiles
 
-The complete quantile artifact must contain one unique
+Cross-sectional evaluation declares `quantileEvidence.status=available`. Its
+complete quantile artifact must contain one unique
 `timestamp × split × horizon` row with finite low/middle/high and
 high-minus-low outcomes. Core recomputes mean group outcomes, spread,
 monotonicity, and observation count for every split/horizon and reconciles
@@ -119,6 +120,17 @@ them to the immutable metric tree.
 
 Quantile path points use the same sampled date anchors where available.
 Studio may switch horizon and split, but it cannot re-bin assets.
+
+Single-asset temporal and two-asset relative-value evaluation have no
+cross-sectional prediction population to divide at one timestamp. Their
+immutable protocol therefore declares
+`unavailable-for-temporal-evaluation-v1`, publishes a reconciled empty
+quantile artifact, and projects
+`quantileEvidence.status=protocol-unavailable` with reason code
+`temporal-tertiles-not-defined`. The null quantile summaries are
+protocol-not-applicable, not missing data or failed evidence. CLI states that
+reason directly; Studio labels and disables the Quantiles tab rather than
+showing an unexplained empty chart.
 
 ### Stability and style overlap
 
@@ -201,7 +213,9 @@ Full artifacts are reconciled before these response bounds apply.
 2. Exactly one fixed Factor artifact set is accepted; availability evidence is
    optional only for legacy Runs and otherwise must appear as a reconciled
    metric/artifact pair.
-3. Full daily/quantile evidence reconciles before deterministic sampling.
+3. Full daily/quantile evidence reconciles before deterministic sampling;
+   temporal empty quantile evidence is accepted only with the exact immutable
+   protocol-unavailable declaration.
 4. Validation primary-horizon mean rank IC remains the only selection
    objective.
 5. Test, non-primary horizon, quantile, stability, and style evidence are

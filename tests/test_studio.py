@@ -547,6 +547,15 @@ class StudioObservationTests(unittest.TestCase):
                         javascript,
                     )
                     self.assertIn(
+                        "Material train/validation contrast",
+                        javascript,
+                    )
+                    self.assertIn("Quantiles · N/A", javascript)
+                    self.assertIn(
+                        "quantiles protocol-unavailable",
+                        javascript,
+                    )
+                    self.assertIn(
                         "TEST · VISIBLE AUDIT ONLY",
                         javascript,
                     )

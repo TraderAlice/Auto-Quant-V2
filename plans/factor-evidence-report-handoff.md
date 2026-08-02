@@ -93,7 +93,8 @@ and offer a safe transition into Agent-authored interpretation.
   Factor semantics, Work Brief construction, and Report publication.
 - [x] Implement the Factor quantile and split-contrast read contracts.
 - [x] Implement safe Report draft materialization and publication guards.
-- [ ] Update CLI, Studio, capabilities, schemas, templates, and durable docs.
+- [x] Update CLI, Studio, capabilities, schemas, Agent guidance, and durable
+  docs; no Project template carries a duplicated Report workflow.
 - [ ] Run focused verification and one isolated installed-build Grok trial.
 - [ ] Complete the release audit, version bump, final artifact replay,
   annotated tag, and canonical push.
@@ -129,6 +130,10 @@ and offer a safe transition into Agent-authored interpretation.
   there without duplicating the procedure, and README has an enforced
   220-line entrance budget. This release will preserve that boundary rather
   than adding another release section to README.
+- 2026-08-02 — The owning Factor, Agent-experience, Report, CLI, Operator, and
+  Studio documents now describe the candidate contract. Documentation links,
+  JavaScript syntax, 58 cross-surface tests, and two exact temporal/report
+  regressions pass; README remains unchanged at 154 lines.
 
 ## Completion
 

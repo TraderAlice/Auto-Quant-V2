@@ -71,6 +71,7 @@ from tests.intake_helpers import (
     write_observed_intraday_inputs,
     write_session_interval_inputs,
 )
+from tests.test_cli import run_cli
 
 
 CONSTANT_TEMPORAL_FACTOR = """\
@@ -235,6 +236,12 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                 "scientific-limit-report-required",
             )
             self.assertEqual(brief["primaryAction"]["id"], "report.publish")
+            self.assertEqual(
+                brief["supportingActions"][0]["id"],
+                "report.draft",
+            )
+            self.assertIn("--study", brief["supportingActions"][0]["argv"])
+            self.assertIn(run.result["id"], brief["supportingActions"][0]["argv"])
             self.assertEqual(brief["researchAgenda"]["status"], "scientific-limit")
             self.assertNotIn(
                 "run.execute",
@@ -1836,6 +1843,19 @@ class RequestDrivenIntakeTests(unittest.TestCase):
             self.assertEqual(
                 projection["factorComponents"]["evaluationMode"],
                 "single-asset-temporal",
+            )
+            human = run_cli(
+                "run",
+                "factor",
+                str(project.root_dir),
+                "--run",
+                run.result["id"],
+            )
+            self.assertEqual(human.returncode, 0, human.stderr)
+            self.assertIn(
+                "Quantile evidence: protocol-unavailable · "
+                "temporal-tertiles-not-defined · 0 artifact rows",
+                human.stdout,
             )
             self.assertEqual(
                 len(projection["factorComponents"]["pairwise"]),

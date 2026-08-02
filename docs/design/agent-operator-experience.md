@@ -145,6 +145,10 @@ state. It contains:
   interval, completed feature intervals, panel columns, component metadata
   fields, and legal roles; unavailable columns are explicit rather than
   inferred from reusable template branches;
+- factor split contrast: a nullable visibility-only comparison of primary-
+  horizon train and validation mean rank IC. It appears only when the absolute
+  gap is at least `0.20`, identifies the exact Run and values, retains
+  validation as the sole selection split, and never becomes a gate or verdict;
 - focus: lane, Study, coordination phase, scientific stage, and operating
   mode;
 - evidence: current Run/Session/Report/Dossier identities needed to understand
@@ -163,12 +167,14 @@ state. It contains:
   and protected authority categories;
 - primary action: at most one existing Core-generated command with exact
   `argv`, working directory, operation effect, and expected evidence kind;
-  an Agent-owned source edit or Report-analysis preparation remains explicit
-  review guidance rather than a fake command;
+  an Agent-owned source edit remains explicit review guidance rather than a
+  fake command;
 - supporting actions only when their effect is explicit and they materially
   help the current decision; these are normally read-only, while a
   creates-artifact continuation may appear without a primary action only when
-  terminal evidence labels it explicitly optional.
+  terminal evidence labels it explicitly optional. When Report publication is
+  primary, `report.draft` may appear first as an optional, exact-anchor
+  authoring scaffold; publication remains the required lifecycle action.
 
 The brief does not copy the entire program projection. A caller may use the
 referenced detailed command when it needs full lane, Run, Session, or report
@@ -274,6 +280,11 @@ For Allocation, the Work Brief additionally projects Core-verified validation
 ERC construction fidelity. This prevents an Agent from privately aggregating
 the decision ledger or treating a validation performance verdict as evidence
 that capped risk contributions met tolerance.
+
+For Factor, a material primary train/validation IC contrast is visible in the
+same Core field across JSON, terminal, and Studio. The fixed `0.20` threshold
+controls attention only. It neither changes qualification nor lets train or
+test evidence replace validation selection.
 
 Before Project orientation exists, Workspace construction should not force an
 Agent to rearrange caller inputs. Public help and capability discovery expose

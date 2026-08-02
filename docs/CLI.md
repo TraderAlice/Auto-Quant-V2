@@ -1028,6 +1028,10 @@ protocol in their own sandbox.
 ## Research Report commands
 
 ```bash
+aq report draft <path> \
+  (--session ID | --study ID --run ID) \
+  [--output report-analysis.json] \
+  [--project ID] [--json]
 aq report publish <path> \
   (--session ID | --study ID --run ID) \
   --analysis report-analysis.json \
@@ -1043,6 +1047,19 @@ aq report show <path> \
   --report ID \
   [--project ID] [--json]
 ```
+
+`report draft` verifies exactly one publishable Session or direct-Run anchor
+and writes one new Project-confined analysis scaffold. It never overwrites,
+creates missing parent directories, follows a symlink parent, or accepts a
+path outside the selected Project. The default is `report-analysis.json`.
+Every declared artifact of the exact leader Run is prefilled as an evidence
+reference; the command does not interpret any artifact or write a conclusion.
+
+The returned object is schema-valid with `authoringState: draft` and a reserved
+instructional finding. Publication rejects both until the Agent replaces the
+placeholder content and sets `authoringState` to `final`. Older completed
+analysis objects may omit the optional authoring field. Use
+`aq schema report-analysis --json` when authoring without the scaffold.
 
 `report publish` accepts exactly one evidence anchor. `--session` publishes a
 Session-owned Report over the verified Experiment/Campaign prefix. `--study`

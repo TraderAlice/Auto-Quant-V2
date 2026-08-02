@@ -343,10 +343,20 @@ The same verified projection exposes the Factor Population's
 prediction/context roles, evaluation mode, and explicit evaluation-only
 authority. It never infers Factor targets from Portfolio position roles, and a
 standalone Factor Run need not contain a Portfolio Mandate.
+For cross-sectional evaluation, the projection declares fixed tertiles
+available. For single-asset temporal or two-asset relative-value evaluation,
+Studio labels Quantiles as protocol-unavailable, exposes the Core reason, and
+disables that tab rather than presenting null tertiles as a data failure.
 The primary horizon is marked explicitly. Those controls format the Core
 object; JavaScript never parses CSV, re-bins assets, selects a horizon, or
 turns diagnostic evidence into an acceptance gate. The exact headless
 `aq run factor` command is copyable from the disclosure footer.
+
+When the exact current Factor leader has an absolute primary-horizon
+train/validation mean rank-IC gap of at least `0.20`, the decision brief shows
+both values and the disclosed visibility threshold. Core supplies that field;
+Studio neither computes the contrast nor turns it into a gate. Validation
+remains the selection split.
 
 Declaring Runs also show a component panel sourced from the verified Core
 projection: validation raw IC, closest train peer and residual IC, fixed-blend

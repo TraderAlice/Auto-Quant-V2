@@ -1,7 +1,8 @@
 # Run-bound Research Reports
 
 Status: implemented in `0.9.5`; Study-owned follow-up request binding added in
-`0.9.8`; immutable correction lineage added in `0.9.17`.
+`0.9.8`; immutable correction lineage added in `0.9.17`; safe exact-anchor
+analysis drafting added in `0.9.31`.
 
 Related: [[docs/design/quant-research-lifecycle]],
 [[docs/design/research-session-loop]],
@@ -53,6 +54,35 @@ report-.../
 Session-bound Reports remain beneath the Session because their evidence prefix
 belongs to that investigation. Discovery is explicit across both locations;
 identifiers remain globally unique within a Project.
+
+## Authoring draft boundary
+
+`aq report draft` is an optional bridge from verified evidence identity to
+Agent-authored interpretation:
+
+```bash
+aq report draft <path> --session SESSION_ID \
+  --output report-analysis.json
+
+aq report draft <path> --study STUDY_ID --run RUN_ID \
+  --output report-analysis.json
+```
+
+It accepts exactly the same Session or direct-Run anchor that publication
+would verify, then creates one new confined Project-local JSON file. The
+scaffold contains the exact leader Run and every declared Run artifact path;
+Core does not generate conclusions, confidence, recommendations, or
+limitations. Existing files, missing/symlink parents, path escapes, ambiguous
+anchors, stale Runs, closed Sessions, and otherwise unreportable evidence fail
+closed.
+
+The scaffold is valid against the public Report-analysis schema but declares
+`authoringState: draft` and one reserved instructional finding. Both are
+publication guards: every publish API rejects the draft state and reserved
+finding until the Agent replaces the prose and deliberately sets
+`authoringState: final`. Historical final analyses without `authoringState`
+remain readable. The draft itself is mutable authoring material, not an
+immutable Report or research result.
 
 ## Run anchor authority
 
@@ -154,7 +184,9 @@ When the verified evidence-driven agenda says
 target, Agent Orientation promotes the current Run-bound `report.publish`
 command over `session.start`. A weak or unresolved baseline with a real
 candidate-edit target retains the governed Session route; Run Reports are not
-a shortcut around needed investigation.
+a shortcut around needed investigation. Whenever `report.publish` is primary,
+the Work Brief may expose `report.draft` as an optional supporting authoring
+step; it does not replace or satisfy publication.
 
 ## Non-goals
 
@@ -166,4 +198,4 @@ a shortcut around needed investigation.
 - Fixed single-lane Studies remain free to return Run/Explorer evidence without
   manufacturing a Report.
 - This contract does not infer research intent, choose a template from prose,
-  or publish into OpenAlice.
+  write Report conclusions, or publish into OpenAlice.

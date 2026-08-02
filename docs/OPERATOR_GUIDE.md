@@ -211,6 +211,10 @@ Dossier.
 
 ```bash
 uv run aq inspect . --project research-desk --json
+uv run aq report draft . --project research-desk \
+  --study factor-quality --run run-... \
+  --output report-analysis.json --json
+# Edit the scaffold, replace its reserved finding, and set authoringState=final.
 uv run aq report publish . --project research-desk \
   --study factor-quality --run run-... \
   --analysis report-analysis.json --json
@@ -219,11 +223,14 @@ uv run aq dossier publish . --project research-desk \
   --analysis dossier-analysis.json --json
 ```
 
-Use the command and schema discovery output for the exact lineage required by
-the current route. A Report or Dossier is a durable Project artifact, not a
-mandatory RPC response. It can be reviewed locally, handed to another Agent,
-or delivered through a host. OpenAlice may attach authenticated collaboration
-provenance; AutoQuant does not impersonate it.
+`report draft` is optional, refuses overwrite, and only pre-fills verified
+identity and artifact references. The Agent still owns every conclusion; a
+draft or reserved placeholder cannot be published. Use the command and schema
+discovery output for the exact lineage required by the current route. A Report
+or Dossier is a durable Project artifact, not a mandatory RPC response. It can
+be reviewed locally, handed to another Agent, or delivered through a host.
+OpenAlice may attach authenticated collaboration provenance; AutoQuant does
+not impersonate it.
 
 ## Observe with Studio
 
