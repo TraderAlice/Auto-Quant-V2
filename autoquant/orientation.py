@@ -2389,20 +2389,91 @@ def build_agent_work_brief(project: ProjectContext) -> dict[str, Any]:
         and freeze_session is not None
         and not freeze_experiments
     ):
-        guidance = (
-            "The diagnostic agenda favors freezing the current leader; "
-            "Session edit authority may evaluate an explicitly predeclared "
-            "bounded alternative, but does not authorize open-ended tuning."
-        )
-        projected["reasons"][0]["message"] = (
-            f"{projected['reasons'][0]['message']} {guidance}"
-        )
-        projected["review"]["detail"] = projected["reasons"][0]["message"]
-        projected["review"]["next"] = (
-            "Proceed only with an explicitly predeclared bounded alternative, "
-            "or freeze now; do not treat Session writability as authority for "
-            "open-ended tuning."
-        )
+        if (
+            research_agenda.get("diagnosis", {}).get("stage")
+            == "risk-forecast-positive"
+        ):
+            report_action = _action(
+                _command(
+                    "report.publish",
+                    "Publish strict analysis over the frozen baseline risk forecast.",
+                    [
+                        "aq",
+                        "report",
+                        "publish",
+                        str(project.root_dir),
+                        "--session",
+                        freeze_session_id,
+                        "--analysis",
+                        "report-analysis.json",
+                        "--json",
+                    ],
+                    "creates-artifact",
+                ),
+                working_directory=project.root_dir,
+            )
+            message = (
+                "The fixed validation funnel supports a future-risk forecast "
+                "and terminates in-sample candidate editing. Publish an exact "
+                "baseline-bound Report, complete the Session, and use fresh "
+                "external evidence for any further challenge."
+            )
+            projected["primaryAction"] = report_action
+            projected["supportingActions"] = [
+                _action(
+                    _command(
+                        "session.show",
+                        "Inspect the frozen baseline Session and immutable evidence.",
+                        [
+                            "aq",
+                            "session",
+                            "show",
+                            str(project.root_dir),
+                            "--session",
+                            freeze_session_id,
+                            "--json",
+                        ],
+                        "read-only",
+                    ),
+                    working_directory=project.root_dir,
+                )
+            ]
+            projected["reasons"] = [
+                {
+                    "code": "risk-forecast-report-required",
+                    "category": "scientific",
+                    "message": message,
+                }
+            ]
+            projected["focus"]["coordinationPhase"] = "freeze-ready"
+            projected["focus"]["operatingMode"] = "publish-evidence"
+            projected["review"] = {
+                "status": "pending",
+                "label": "RISK FORECAST REPORT REQUIRED",
+                "title": "Freeze the supported risk forecast",
+                "detail": message,
+                "next": report_action["description"],
+                "boundary": (
+                    "validation selects · visible test audits · "
+                    "no Portfolio, RL, or trading authority"
+                ),
+            }
+            research_agenda["moveRole"] = "optional-follow-up"
+        else:
+            guidance = (
+                "The diagnostic agenda favors freezing the current leader; "
+                "Session edit authority may evaluate an explicitly predeclared "
+                "bounded alternative, but does not authorize open-ended tuning."
+            )
+            projected["reasons"][0]["message"] = (
+                f"{projected['reasons'][0]['message']} {guidance}"
+            )
+            projected["review"]["detail"] = projected["reasons"][0]["message"]
+            projected["review"]["next"] = (
+                "Proceed only with an explicitly predeclared bounded "
+                "alternative, or freeze now; do not treat Session writability "
+                "as authority for open-ended tuning."
+            )
     if (
         research_agenda["status"] == "no-further-in-sample-tuning"
         and projected["reasons"][0]["code"]

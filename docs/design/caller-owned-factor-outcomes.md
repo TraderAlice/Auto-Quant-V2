@@ -121,6 +121,12 @@ Portfolio route. A positive realized-volatility funnel terminates at
 trading meaning. The research agenda freezes the factor and requests a fresh
 external holdout rather than more in-sample tuning.
 
+If a governed Session was created from that exact positive baseline, technical
+worktree writability does not override the scientific stop. Orientation routes
+the Agent directly to an exact baseline-bound Report and Session completion;
+it must not label the state `CANDIDATE EDIT REQUIRED`. The external-holdout move
+remains optional follow-up outside the visible in-sample evidence budget.
+
 Intake admits realized-volatility outcomes only to `ohlcv-factor-lab`.
 Portfolio and RL Judges independently reject a non-return Factor Claim as a
 defense against hand-edited dependencies. A future risk-budget consumption
@@ -141,7 +147,8 @@ return-score bridge accidentally.
 - Downstream refusal:
   Portfolio and RL template Judges plus research-program gates.
 - Human/Agent projection: `autoquant/cli.py`, `autoquant/studio.py`, Studio
-  assets, Report/Dossier decision support, and the Factor template program.
+  assets, `autoquant/orientation.py`, Report/Dossier decision support, and the
+  Factor template program.
 
 ## Change checklist
 

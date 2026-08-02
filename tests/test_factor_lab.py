@@ -22,6 +22,7 @@ from autoquant.factor_explorer import (
     load_factor_diagnostics,
 )
 from autoquant.intake import prepare_project_intake
+from autoquant.orientation import build_agent_work_brief
 from autoquant.project_templates.ohlcv_factor_lab.factor_diagnostics import (
     HORIZONS,
     causal_regime_labels,
@@ -269,6 +270,33 @@ class OhlcvFactorLabTests(unittest.TestCase):
                 rendered,
             )
             self.assertIn("no expected-return, Portfolio, or RL authority", rendered)
+            session = start_session(project, OHLCV_STUDY_ID)
+            brief = build_agent_work_brief(project)
+            self.assertEqual(
+                brief["primaryAction"]["id"],
+                "report.publish",
+            )
+            self.assertEqual(
+                brief["reasons"][0]["code"],
+                "risk-forecast-report-required",
+            )
+            self.assertEqual(
+                brief["focus"]["operatingMode"],
+                "publish-evidence",
+            )
+            self.assertEqual(brief["focus"]["coordinationPhase"], "freeze-ready")
+            self.assertEqual(
+                brief["researchAgenda"]["moveRole"],
+                "optional-follow-up",
+            )
+            self.assertIn(
+                session.manifest["id"],
+                brief["primaryAction"]["argv"],
+            )
+            self.assertIn(
+                "no Portfolio, RL, or trading authority",
+                brief["review"]["boundary"],
+            )
 
     def test_sparse_component_is_disclosed_without_failing_final_factor(
         self,

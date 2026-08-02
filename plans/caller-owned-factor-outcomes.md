@@ -147,6 +147,19 @@ refusing to grant the latter meaning to a risk forecast.
   or relabeling old evidence.
 - Python compilation, Studio JavaScript syntax, diff checks, and all 1,489
   documentation links pass at the implementation checkpoint.
+- The first installed `0.9.28` wheel field trial used clean embedded commit
+  `c9ee7e2`, one five-asset synthetic risk request, and a fresh no-memory,
+  no-web, no-subagent Grok coworker. It completed in 18 turns with exactly one
+  Run, zero Experiments, one Report, and one completed Session. Validation
+  mean rank IC was `0.3269841269841269` with HAC t-statistic
+  `3.4507542068719874`; the coworker froze the positive risk forecast and did
+  not open Portfolio or RL work.
+- The same trial exposed one reusable orientation contradiction: the verified
+  agenda said `no-further-in-sample-tuning`, while an active baseline Session
+  still rendered `CANDIDATE EDIT REQUIRED` because its worktree was technically
+  writable. The candidate now routes this exact `risk-forecast-positive` state
+  to baseline-bound Report publication and Session completion. A fresh wheel
+  replay remains required before release.
 
 ## Progress log
 
@@ -160,6 +173,13 @@ refusing to grant the latter meaning to a risk forecast.
   remain byte-for-byte implicit return identities. Template synchronization
   correctly made the sample's latest older run stale; the next checkpoint is a
   clean-Harness sample replay before installed-wheel field work.
+- 2026-08-02 — Refreshed the sample with truthful clean `0.9.27` Factor and
+  Portfolio Runs, prepared the `0.9.28` candidate, and completed the first
+  installed-wheel Grok risk assignment. The research path succeeded, but its
+  durable `framework-needs.md` identified conflicting post-qualification
+  orientation. Repaired that reusable stop-state guidance and added a
+  deterministic active-Session regression rather than accepting manual Agent
+  interpretation as the product contract.
 
 ## Completion
 
