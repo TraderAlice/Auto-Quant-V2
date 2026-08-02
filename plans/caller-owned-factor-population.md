@@ -108,7 +108,7 @@ future non-return outcomes inherit accidental Portfolio semantics.
   Reports, and program orchestration to the separated authorities.
 - [x] Migrate the current sample/template source and update durable design and
   operator documentation.
-- [ ] Build the candidate and run one isolated fresh Grok assignment.
+- [x] Build the candidate and run one isolated fresh Grok assignment.
 - [ ] Complete the release audit, version bump, final artifact rebuild,
   annotated tag, and canonical push.
 
@@ -159,6 +159,26 @@ future non-return outcomes inherit accidental Portfolio semantics.
   The Factor fixture now states a four-asset decision-signal population, the
   preflight speaks in prediction/context language, and all three focused
   retries pass. A final complete suite remains required after release metadata.
+- Fresh no-memory/no-web/no-subagent Grok `4.5` session
+  `019fc075-8add-7ac0-957a-e68b51f8ac47` used only installed wheel SHA-256
+  `267d06a3ae2985b4c86dceec7607f4fac8a15091cb5362e2a73e029ecb4bb34d`
+  from clean candidate commit `0dd5c27`. It independently created
+  `nvda-risk-forecast`, inspected the public Factor Population, authored one
+  causal candidate, and completed exactly one Run, zero Experiments, one
+  Report, and one Session.
+- Independent installed-CLI verification confirms Run
+  `run-20260802T031429058672Z-135712eed967` records the embedded candidate,
+  `factor-population-3049ed8fbec77ae7`, prediction asset `NVDA`, Factor-context
+  assets `AAPL/MSFT/QQQ/SPY`, single-asset temporal evaluation, and explicit
+  no-Portfolio/no-trading authority. Validation IC is `0.6264400921658986`;
+  visible-test IC is `-0.02582565284178188`; the diagnosis is
+  `risk-forecast-positive` with `qualifiesForPortfolio: false` and an external
+  holdout next move. No `portfolio-mandate.json` exists.
+- Field assignment/transcript SHA-256 values are
+  `9c2d4d84511378b73f8071d246bddcce19b87103419d1c1847553058dcc6d9d8`
+  and `e524c840d0ce8b3654a3c05592ebbf9a756e089cad97d847f8238336418f78c4`.
+  Complete evidence is retained outside the release repository at
+  `/Users/ame/2607AutoQuant/grok-field-trials/cohort-45-factor-population-v0930-candidate`.
 
 ## Progress log
 
@@ -176,6 +196,12 @@ future non-return outcomes inherit accidental Portfolio semantics.
 - 2026-08-02 — Full-suite migration audit exposed and repaired the final old
   preflight/RL vocabulary assumptions; no runtime/scientific failure was
   hidden behind compatibility behavior.
+- 2026-08-02 — The isolated Grok trial completed the intended Factor-only
+  workflow without internal coaching, population/position confusion, extra
+  Runs, Portfolio/RL work, test-driven tuning, or a fictional Mandate. It
+  retained three smaller future UX needs: explicit protocol-unavailable
+  temporal quantile labels, compact train/validation divergence in orient, and
+  an optional schema-valid Report draft scaffold.
 
 ## Completion
 
