@@ -69,7 +69,13 @@ candidate source Harness at commit `3cd8cd9` after observed Factor packages
 gained exact multi-source provider identity. This aligned teaching fixture is
 still single-source synthetic evidence, so the Run verifies the new Harness
 runtime without pretending to demonstrate V6 market provenance and preserves
-the same `-0.031325301204819286` validation IC. The prior Portfolio Run
+the same `-0.031325301204819286` validation IC. The current Factor Run
+`run-20260802T002742222364Z-5b8af7e55965` was produced by the clean `0.9.27`
+source Harness at commit `a5222e9` after caller-owned Factor outcomes became
+part of the fixed evaluation contract. This historical sample claim omits the
+new field and therefore remains an implicit `forward-return` identity; the Run
+proves the new read model without rewriting that claim and preserves the same
+`-0.031325301204819286` validation IC. The prior Portfolio Run
 `run-20260731T162132298210Z-e541f48086ba` was produced by the clean `0.9.3`
 candidate Harness at commit `ed61378`. It preserves the complete mechanical
 loss-attribution chain and truthfully records that temporal translation-window
@@ -81,7 +87,7 @@ cross-sectional normalized-intent construction remains explicit and valid
 after relative-value intent semantics were aligned with the capped
 complementary pair constructor. The candidate declares only base-clock
 momentum because this sample dataset has no higher-interval feature surface.
-Studio uses the latest ordinary immutable Run in each lane: the `0.9.26`
+Studio uses the latest ordinary immutable Run in each lane: the clean `0.9.27`
 candidate Run for the Factor Explorer and the `0.9.4` Run for the Portfolio
 Explorer. A governed-RL baseline remains deliberately absent.
 
