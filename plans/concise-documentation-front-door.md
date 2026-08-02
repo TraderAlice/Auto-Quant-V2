@@ -81,7 +81,7 @@ stable guide, and keep README small enough to remain a useful first read.
 
 ## Work
 
-- [ ] Extract the current operator walkthrough and reduce README to the bounded
+- [x] Extract the current operator walkthrough and reduce README to the bounded
   entrance surface without losing a working quick start.
 - [ ] Update AGENTS and documentation-system ownership rules; add regression
   tests for the new boundary.
@@ -113,6 +113,11 @@ Pending.
 - 2026-08-02 — Plan activated from clean published `v0.9.28` after measuring
   the 389-line README and confirming the intended ownership documents and
   initial AGENTS release route already exist.
+- 2026-08-02 — Reduced README to 154 physical lines and moved the complete
+  current Project, acquisition, intake, governed-research, evidence, and Studio
+  path into one directly linked operator guide. Added AGENTS routing and a
+  deterministic 220-line/section-ownership guard; focused documentation and
+  version-contract tests pass.
 
 ## Completion
 

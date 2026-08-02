@@ -29,6 +29,9 @@ class DocumentationTests(unittest.TestCase):
 
     def test_release_document_ownership_does_not_drift(self) -> None:
         readme = (PROJECT_DIR / "README.md").read_text(encoding="utf-8")
+        operator_guide = (
+            PROJECT_DIR / "docs" / "OPERATOR_GUIDE.md"
+        ).read_text(encoding="utf-8")
         status = (PROJECT_DIR / "docs" / "STATUS.md").read_text(
             encoding="utf-8"
         )
@@ -51,6 +54,41 @@ class DocumentationTests(unittest.TestCase):
             readme,
             re.compile(r"^#{2,}\s+`?v?0\.\d+\.\d+`?\s*$", re.MULTILINE),
         )
+        self.assertLessEqual(
+            len(readme.splitlines()),
+            220,
+            "README is a bounded entrance; route detail to canonical docs",
+        )
+        for detailed_heading in (
+            "Start from a real research request",
+            "Acquire and bind data",
+            "Research loop",
+            "Evidence and deliverables",
+            "Required release audit",
+            "Publish order",
+        ):
+            self.assertNotRegex(
+                readme,
+                re.compile(
+                    rf"^##\s+{re.escape(detailed_heading)}\s*$",
+                    re.MULTILINE,
+                ),
+            )
+        for operator_heading in (
+            "Enter the Workspace",
+            "Start a real assignment",
+            "Acquire and bind data",
+            "Work with Factors, Portfolios, and governed RL",
+            "Read and publish evidence",
+            "Observe with Studio",
+        ):
+            self.assertRegex(
+                operator_guide,
+                re.compile(
+                    rf"^##\s+{re.escape(operator_heading)}\s*$",
+                    re.MULTILINE,
+                ),
+            )
         self.assertNotRegex(
             status,
             re.compile(
@@ -63,6 +101,7 @@ class DocumentationTests(unittest.TestCase):
             re.compile(r"^\| `v0\.9\.24` \|", re.MULTILINE),
         )
         self.assertIn("[[docs/CHANGELOG]]", agents[:5000])
+        self.assertIn("[[docs/OPERATOR_GUIDE]]", agents[:5000])
         self.assertIn("[[docs/design/versioning-and-release]]", agents[:5000])
 
 

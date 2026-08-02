@@ -20,13 +20,23 @@ explain invariants, ownership, trade-offs, and how public contracts are
 implemented.
 
 README is the concise product entrance: identity, current-version pointer,
-quick start, and routing links. [[docs/STATUS]] owns only current tested
-capability and honest boundaries. [[docs/CHANGELOG]] is the append-only concise
-release index. [[docs/design/versioning-and-release]] owns version meaning,
-checkout upgrades, compatibility limits, release audit, and tag publication.
-Exact evidence for one release remains in its completed plan. Do not let README
-grow into a second status ledger or release playbook, or STATUS into a second
-changelog.
+quick start, and routing links. [[docs/OPERATOR_GUIDE]] owns the complete public
+path from entering a Workspace through Project construction, data binding,
+governed research, evidence publication, and Studio observation. It connects
+canonical references but does not replace their schemas or invariants.
+[[docs/STATUS]] owns only current tested capability and honest boundaries.
+[[docs/CHANGELOG]] is the append-only concise release index.
+[[docs/design/versioning-and-release]] owns version meaning, checkout upgrades,
+compatibility limits, release audit, and tag publication. Exact evidence for
+one release remains in its completed plan. Do not let README grow into a
+second operator manual, status ledger, or release playbook, or STATUS into a
+second changelog.
+
+README has a 220-physical-line entry budget enforced by tests. This is a
+tripwire against accidental linear growth, not permission to compress complex
+rules into unreadable prose. When the entrance needs more detail, route one
+level deeper to the operator guide or the owning reference/design document.
+Changing the budget requires an explicit documentation-system decision.
 
 ## Work plans
 
@@ -117,6 +127,9 @@ look current.
 ## Review checklist
 
 - Is non-trivial work represented by a current entry in [[PLANS]]?
+- Does README remain a bounded entrance, with operational detail routed through
+  [[docs/OPERATOR_GUIDE]] and release detail routed through
+  [[docs/design/versioning-and-release]]?
 - Does the plan status match its checklist, evidence, and completion record?
 - Does every affected subsystem have an indexed design document?
 - Does the change preserve the standalone/hosted parity and Agent-first

@@ -69,6 +69,8 @@ Route work to the document that owns it; do not append every discovery to
 README:
 
 - product orientation and five-minute entry: [[README]];
+- end-to-end standalone/hosted Workspace operation, from Project creation
+  through data, research, evidence, and Studio: [[docs/OPERATOR_GUIDE]];
 - current tested capability and honest boundary: [[docs/STATUS]];
 - concise chronological release history: [[docs/CHANGELOG]];
 - version increments, checkout upgrades, release audit, tags, compatibility,
@@ -395,6 +397,8 @@ Read the relevant linked document before changing a subsystem:
   [[docs/design/agent-native-quant-workbench]]
 - Documentation ownership and update protocol:
   [[docs/design/documentation-system]]
+- Public end-to-end Workspace operation and task routing:
+  [[docs/OPERATOR_GUIDE]]
 - Version increments, compatibility boundary, release audit, tagging, and host
   pin independence: [[docs/design/versioning-and-release]]
 - Installed/source Harness commit provenance, dirty meaning, runtime closure
