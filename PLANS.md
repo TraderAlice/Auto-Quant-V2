@@ -18,9 +18,7 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-| Plan | Outcome | Updated |
-| --- | --- | --- |
-| [[plans/concise-documentation-front-door]] | Make README a bounded product entrance and route Agents to one operator guide plus the existing authoritative release documents. | 2026-08-02 |
+None.
 
 ## Proposed plans
 
@@ -36,6 +34,7 @@ None.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/concise-documentation-front-door]] | Make README a bounded product entrance and route Agents to one operator guide plus the existing authoritative release documents. | 2026-08-02 |
 | [[plans/caller-owned-factor-outcomes]] | Let delegated Factor research bind future return or fixed forward realized volatility without granting risk forecasts Portfolio, RL, or trading meaning. | 2026-08-02 |
 | [[plans/first-baseline-candidate-preflight]] | Guarded a fresh editable Study's first caller-relevant candidate before its complete baseline and retained exact no-authority provenance. | 2026-08-02 |
 | [[plans/multi-source-observed-factor-packaging]] | Preserved exact per-source provider authority while composing multiple audited V5 packages into one observed Factor dataset. | 2026-08-02 |

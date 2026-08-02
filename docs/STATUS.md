@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: `v0.9.29` is the current AutoQuant release candidate and `v0.8.31`
+Status: `v0.9.29` is the current AutoQuant release and `v0.8.31`
 remains the Harness currently consumed by OpenAlice until the host deliberately
 selects a newer tag.
 
@@ -42,6 +42,15 @@ one small mismatch between README and operator-guide discovery commands; after
 repair, the final fresh retry found no missing step or competing authority and
 left its clone unchanged. Exact candidate proof is retained in
 [[plans/concise-documentation-front-door]].
+
+The complete 446-test regression passed in 1188.861 seconds. Python
+compilation, Studio JavaScript syntax, lock consistency, diff checks, and all
+1,525 documentation links pass. A clean candidate wheel reports exact embedded
+`0.9.29` provenance, all 58 commands, and the unchanged runtime source hash; a
+no-override clean clone passes orient, validate, Project listing, Studio
+snapshot, sample evidence, and the new documentation boundary. Final release-
+commit installation and remote branch/tag identity also pass; exact proof is
+retained in [[plans/concise-documentation-front-door]].
 
 The `0.9.28` caller-owned Factor outcome remains unchanged: strict requests may
 bind forward return or fixed forward realized volatility, historical omission

@@ -1,6 +1,6 @@
 # Concise documentation front door
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-08-02`
 - Target release: `0.9.29`
 - Related design: [[docs/design/documentation-system]],
@@ -76,7 +76,7 @@ stable guide, and keep README small enough to remain a useful first read.
 - [x] A fresh Grok coworker can discover how to create and orient a real Project
   and how to prepare a release from the front door, without being told which
   internal files to inspect.
-- [ ] Focused tests, full regression, build/install smoke, clean-clone read
+- [x] Focused tests, full regression, build/install smoke, clean-clone read
   path, and remote branch/tag identity pass for `v0.9.29`.
 
 ## Work
@@ -87,7 +87,7 @@ stable guide, and keep README small enough to remain a useful first read.
   tests for the new boundary.
 - [x] Run a fresh Grok documentation-navigation trial and repair only reusable
   entry/routing friction.
-- [ ] Advance version and release records, complete the release audit, publish
+- [x] Advance version and release records, complete the release audit, publish
   the commit/tag, and verify remote identity.
 
 ## Findings and decisions
@@ -137,6 +137,24 @@ stable guide, and keep README small enough to remain a useful first read.
 - The installed Grok CLI now exposes `grok-4.5`; its former
   `grok-4.5-build` model id was rejected before a Session began. This external
   model-name change did not alter the isolation or acceptance criteria.
+- Complete regression passed all 446 tests in 1188.861 seconds. The only
+  warnings were the existing NumPy/Pandas empty-slice diagnostics inside a
+  passing governed-RL edge-case test. `uv lock --check`, Python compilation,
+  Studio JavaScript syntax, `git diff --check`, and all 1,524 documentation
+  links also pass.
+- Clean candidate commit `b3e7ada` built wheel SHA-256
+  `786c07f96a4d997f87b1058b4a16b76ddf143ae56c901d59b058732f8e072360`
+  and sdist SHA-256
+  `55ce0ac3fe2d28d1e70f1c584c8110202bedb60ec7183a902f5095bad00dd984`.
+  A fresh Python 3.11 environment reports `0.9.29`, clean embedded commit
+  `b3e7adaa4fc262eb325fea1e22c1df527462381c`, runtime source hash
+  `3446f2f67f1a7ab3c43cae42e3e62aff66155522e670209b89827fc5764cbc63`,
+  all 58 commands, and an `aq-python` interpreter inside that environment.
+- A no-hardlink clone of the same candidate had no local override, a clean Git
+  worktree, the 154-line README and operator guide, default
+  `sample-research-desk`, three Studies, seventeen Runs, historical implicit
+  return Factor evidence, and a Portfolio Explorer. Installed-wheel `orient`,
+  `validate`, `project list`, and `studio snapshot` all passed.
 
 ## Progress log
 
@@ -156,7 +174,19 @@ stable guide, and keep README small enough to remain a useful first read.
   which was repaired before the required fresh retry. The previously used
   `grok-4.5-build` id is no longer offered by the installed Grok CLI; the
   current same-generation model is `grok-4.5`.
+- 2026-08-02 — The final fresh Grok retry found no remaining navigation
+  friction. Advanced the candidate to `0.9.29`; complete regression, static
+  gates, clean build/install, and clean-clone public surfaces pass. The final
+  release commit was published as `v0.9.29`, with remote branch and annotated
+  tag verified against the same immutable commit.
 
 ## Completion
 
-Pending.
+Completed on 2026-08-02. README is now a 154-line product entrance guarded by
+an executable 220-line budget. One operator guide owns the complete public
+Workspace path, the existing version policy owns release and upgrade work, and
+AGENTS routes both without duplicating their details. Two fresh Grok coworkers
+recovered the research and maintainer handoffs from the public entrance; the
+final retry found no missing step or competing authority. Full regression,
+documentation, build/install, clean-clone, and publication gates passed for
+`v0.9.29` without changing quantitative or OpenAlice host contracts.
