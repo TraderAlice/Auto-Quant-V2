@@ -18,9 +18,7 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-| Plan | Outcome | Updated |
-| --- | --- | --- |
-| [[plans/factor-evidence-report-handoff]] | Make temporal Factor protocol applicability, material train/validation tension, and safe evidence-bound Report drafting explicit to fresh Agents. | 2026-08-02 |
+None.
 
 ## Proposed plans
 
@@ -36,6 +34,7 @@ None.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/factor-evidence-report-handoff]] | Made temporal Factor protocol applicability, material train/validation tension, and safe evidence-bound Report drafting explicit to fresh Agents. | 2026-08-02 |
 | [[plans/caller-owned-factor-population]] | Separated caller-owned Factor evaluation population from Portfolio position authority across standalone Factor, Portfolio, and governed-RL research. | 2026-08-02 |
 | [[plans/concise-documentation-front-door]] | Make README a bounded product entrance and route Agents to one operator guide plus the existing authoritative release documents. | 2026-08-02 |
 | [[plans/caller-owned-factor-outcomes]] | Let delegated Factor research bind future return or fixed forward realized volatility without granting risk forecasts Portfolio, RL, or trading meaning. | 2026-08-02 |

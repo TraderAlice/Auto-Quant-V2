@@ -1,6 +1,6 @@
 # Factor evidence-to-Report handoff
 
-- Status: `active`
+- Status: `completed`
 - Target release: `0.9.31`
 - Updated: `2026-08-02`
 - Related design: [[docs/design/factor-evidence-explorer]],
@@ -83,7 +83,7 @@ and offer a safe transition into Agent-authored interpretation.
   the optional field remain readable.
 - [x] Capability/schema discovery, Work Brief actions, CLI, Studio, operator
   guidance, templates where relevant, and design documents agree.
-- [ ] Focused tests, documentation links, complete unit tests, build/install
+- [x] Focused tests, documentation links, complete unit tests, build/install
   identity smoke, clean-clone Workspace smoke, and one fresh Grok trial pass
   before `v0.9.31` is tagged and pushed.
 
@@ -96,7 +96,7 @@ and offer a safe transition into Agent-authored interpretation.
 - [x] Update CLI, Studio, capabilities, schemas, Agent guidance, and durable
   docs; no Project template carries a duplicated Report workflow.
 - [x] Run focused verification and one isolated installed-build Grok trial.
-- [ ] Complete the release audit, version bump, final artifact replay,
+- [x] Complete the release audit, version bump, final artifact replay,
   annotated tag, and canonical push.
 
 ## Findings and decisions
@@ -116,10 +116,10 @@ and offer a safe transition into Agent-authored interpretation.
 ## Verification
 
 - Focused Core/CLI/Studio/documentation suites passed across every changed
-  path. JavaScript syntax, Python compilation, diff hygiene, and all
-  1,551 documentation links pass.
-- The complete candidate source suite passed all 454 tests in 1,202.824
-  seconds.
+  path. JavaScript syntax, Python compilation, lock consistency, diff hygiene,
+  and all 1,552 documentation links pass.
+- After the `0.9.31` version and root Workspace Skill manifest were reconciled,
+  the final complete source suite passed all 454 tests in 1,215.222 seconds.
 - Clean candidate commit `170d53b` built wheel
   `3a3524046e34e83167e81e484c38dbac63cceabe42bb8888f85618125c78994e`
   and sdist
@@ -145,6 +145,23 @@ and offer a safe transition into Agent-authored interpretation.
   `828a6e1d5b521263c5697bfc16e51903a1b5ebe3e67e7cc5b3ea3b712023aaa3`,
   `9a4d2f29c8a7675c197a87c30f74f53823bade49666836e9bc9a444d915a3026`,
   and `7f1f24642808c1e6c1efca612179bd5da8bd248d9134e5cdc01bbb2351751853`.
+- Clean release candidate commit `cf68591` built wheel SHA-256
+  `66e61684e63a082042e58d9d39ee6ba525e041c50336eab206f9fa7f271b8a08`
+  and sdist SHA-256
+  `42ab26374e65ea68b9a0acee4852e06d24c0c1037bbcfd5bd917f183f3e93b77`.
+  A fresh Python `3.11.14` environment reports version `0.9.31`, clean
+  embedded commit `cf6859148042523b72ef8fbcba3cb2cda0dd8afe`, source hash
+  `4c010b8d888052dd864a122797694670ba8ecc3bf1a70d5501d34ae98c9ffade`,
+  all 59 public commands, all nine Project routes, all 16 bundled Skills, the
+  Studio assets, and the changed Factor, Report, and Work-Brief schemas.
+- A no-hardlink clone of the same candidate contains no local override and
+  starts clean with default `sample-research-desk`. Installed-wheel
+  `orient`, `validate`, `project list`, and `studio snapshot` pass. A new
+  bounded Factor execution produced succeeded Run
+  `run-20260802T053822973086Z-902b19763752`; version, capabilities, Studio,
+  and that Run agree exactly on the installed candidate's seven-field Harness
+  identity. Its cross-sectional quantile evidence is available with 1,182
+  artifact rows.
 
 ## Progress log
 
@@ -172,7 +189,17 @@ and offer a safe transition into Agent-authored interpretation.
   release candidate `0.9.31`. Version/document ownership tests, all 1,552
   documentation links, and discovery of 59 public commands pass; the final
   clean-commit release replay remains.
+- 2026-08-02 — Reconciled the generated root Workspace Skill manifest with
+  `0.9.31`, passed the complete 454-test release audit, and replayed the clean
+  wheel through package closure, no-override clone, Studio, and a newly
+  executed identity-matched Factor Run.
 
 ## Completion
 
-Pending.
+Completed on 2026-08-02. Temporal Factor diagnostics now distinguish
+protocol-inapplicable quantiles from missing evidence, material primary
+train/validation tension is visible without becoming a gate, and Agents can
+start from an exact evidence-bound Report draft that cannot be published until
+deliberately completed. A fresh coworker used the complete handoff correctly,
+and focused, full-suite, build/install, package-closure, clean-clone, Studio,
+and new-Run identity audits pass for `v0.9.31`.

@@ -55,14 +55,14 @@ clean-commit candidate Runs proving current Factor and Portfolio projections
 under the separated authorities. It now contains nineteen immutable Runs and
 no governed-RL baseline. OpenAlice remains independently pinned to `v0.8.31`.
 
-The candidate source regression passes all 454 tests in 1,202.824 seconds.
-Lock consistency, Python compilation, Studio JavaScript syntax, diff hygiene,
-and all 1,551 current documentation links also pass. A clean candidate wheel
-reports exact embedded build provenance, all 59 commands, all 16 bundled
-Skills, and the changed Report/Factor/Work-Brief schemas. Final clean-commit
-wheel, no-override clone, and newly executed Run identity replay remain the
-last release audit step; exact proof accumulates in
-[[plans/factor-evidence-report-handoff]].
+The final source regression passes all 454 tests in 1,215.222 seconds. Lock
+consistency, Python compilation, Studio JavaScript syntax, diff hygiene, and
+all 1,552 current documentation links also pass. A clean candidate wheel
+reports exact embedded build provenance, all 59 commands, all nine Project
+routes, all 16 bundled Skills, Studio assets, and the changed
+Report/Factor/Work-Brief schemas. Its no-override clone replay and newly
+executed Factor Run agree with the installed seven-field Harness identity.
+Exact proof is retained in [[plans/factor-evidence-report-handoff]].
 
 ## What works today
 
