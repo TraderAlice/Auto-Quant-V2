@@ -151,14 +151,16 @@ future non-return outcomes inherit accidental Portfolio semantics.
   `run-20260802T024637192531Z-c704a397cdb5` records clean candidate commit
   `3db7cbb`, the same population plus a distinct compatible Mandate, and the
   unchanged `-2.6561200041391655` validation net Sharpe. Studio selects both
-  as current while retaining all 17 earlier Runs. Full-suite/build/install
-  checks and the fresh Grok trial remain pending.
+  as current while retaining all 17 earlier Runs.
 - The first complete 451-test pass found three migration assertions: one
   Factor preflight fixture still inferred its question from position roles,
   and two RL tests omitted the new fixed dependency from expected closures.
   The Factor fixture now states a four-asset decision-signal population, the
   preflight speaks in prediction/context language, and all three focused
-  retries pass. A final complete suite remains required after release metadata.
+  retries pass. After the release metadata bump, the final complete regression
+  passed all 451 tests in 1217.702 seconds. The only warnings were the existing
+  NumPy/Pandas empty-slice diagnostics inside a passing governed-RL edge-case
+  test.
 - Fresh no-memory/no-web/no-subagent Grok `4.5` session
   `019fc075-8add-7ac0-957a-e68b51f8ac47` used only installed wheel SHA-256
   `267d06a3ae2985b4c86dceec7607f4fac8a15091cb5362e2a73e029ecb4bb34d`
@@ -202,6 +204,9 @@ future non-return outcomes inherit accidental Portfolio semantics.
   retained three smaller future UX needs: explicit protocol-unavailable
   temporal quantile labels, compact train/validation divergence in orient, and
   an optional schema-valid Report draft scaffold.
+- 2026-08-02 — Advanced the candidate metadata to `0.9.30`; the final static
+  gates and complete 451-test regression pass. Clean build/install and
+  no-override clone replay remain the final publication gates.
 
 ## Completion
 

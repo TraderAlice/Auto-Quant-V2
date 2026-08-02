@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: `v0.9.29` is the current AutoQuant release and `v0.8.31`
+Status: `v0.9.30` is the current AutoQuant release and `v0.8.31`
 remains the Harness currently consumed by OpenAlice until the host deliberately
 selects a newer tag.
 
@@ -17,50 +17,43 @@ historical proof remains in completed plans and immutable Git tags.
 
 ## Current milestone
 
-The `0.9.29` candidate turns the repository documentation into an explicit
-load-on-demand system. README is now a 154-line product entrance containing
-identity, the Workspace/Project model, one working quick start, a compact
-workflow map, and direct routing. The complete public path from Project
-construction through demand-led data, strict intake, governed research,
-evidence publication, and Studio lives in [[docs/OPERATOR_GUIDE]]. Version
-increments, release audit, checkout behavior, tags, compatibility, and host
-pins remain solely in [[docs/design/versioning-and-release]] rather than
-accumulating in README.
+The `0.9.30` release gives Factor evaluation population its own strict,
+content-addressed caller contract. A new `decision-signal` request explicitly
+names unique `factorPolicy.predictionAssets`; novel-factor and known-style
+claims evaluate the complete research universe. Core materializes
+`strategies/factor-population.json` with prediction/context Factor roles,
+evaluation mode, outcome, and explicit evaluation-only authority. Position
+roles no longer decide which assets supply Factor targets.
 
-`AGENTS.md` routes work to README, the operator guide, STATUS, CHANGELOG,
-version policy, active plans, or subsystem design according to the task. A
-deterministic documentation contract caps README at 220 physical lines,
-rejects detailed operator/release sections there, requires the complete
-operator-guide path, preserves OpenAlice-readable version frontmatter, and
-checks every repository double-link.
+A standalone `ohlcv-factor-lab` binds Factor Claim, Factor Population, and
+Horizon Mandate without creating `portfolio-mandate.json`, including
+forward-realized-volatility research. Portfolio and governed RL separately
+bind both the Factor Population and their Portfolio Mandate, require a
+forward-return outcome, and reject incompatible evaluation/construction
+authority. Decision-signal tradable assets match exactly; a complete-universe
+novel/known-style Factor may feed a conservative Mandate subset. V5/V6 target
+clock selection now follows the Factor population instead of position roles.
 
-Two fresh no-memory/no-web/no-subagent Grok `4.5` coworkers started only from
-the public repository entrance. Both recovered the exact blank-Project,
-`research.md`, orientation, release-authority, audit, publication, and
-independent-host-pin paths without source or test inspection. The first found
-one small mismatch between README and operator-guide discovery commands; after
-repair, the final fresh retry found no missing step or competing authority and
-left its clone unchanged. Exact candidate proof is retained in
-[[plans/concise-documentation-front-door]].
+Fresh no-memory/no-web/no-subagent Grok `4.5` used only a clean installed
+candidate wheel to answer a single-target NVDA forward-risk question with
+AAPL, MSFT, QQQ, and SPY as context. It independently created one Factor
+Project, one succeeded Run, one Report, and one completed Session with zero
+Experiments, no Portfolio/RL work, and no Portfolio Mandate. The immutable Run
+records single-asset temporal evaluation, explicit no-Portfolio/no-trading
+authority, validation IC `0.6264400921658986`, visible-test IC
+`-0.02582565284178188`, and an external-holdout next step rather than further
+in-sample tuning. Exact proof is retained in
+[[plans/caller-owned-factor-population]].
 
-The complete 446-test regression passed in 1188.861 seconds. Python
-compilation, Studio JavaScript syntax, lock consistency, diff checks, and all
-1,525 documentation links pass. A clean candidate wheel reports exact embedded
-`0.9.29` provenance, all 58 commands, and the unchanged runtime source hash; a
-no-override clean clone passes orient, validate, Project listing, Studio
-snapshot, sample evidence, and the new documentation boundary. Final release-
-commit installation and remote branch/tag identity also pass; exact proof is
-retained in [[plans/concise-documentation-front-door]].
+The root sample preserves all seventeen prior Runs byte-for-byte and adds two
+clean-commit candidate Runs proving current Factor and Portfolio projections
+under the separated authorities. It now contains nineteen immutable Runs and
+no governed-RL baseline. OpenAlice remains independently pinned to `v0.8.31`.
 
-The `0.9.28` caller-owned Factor outcome remains unchanged: strict requests may
-bind forward return or fixed forward realized volatility, historical omission
-remains implicit return, and positive risk forecasts stop at standalone
-decision support without Portfolio, RL, Order, or trading authority. V6
-multi-provider observed data, all existing Factor/Portfolio/RL and fixed-study
-routes, and the seventeen historical sample Runs retain their prior contracts.
-
-The root sample preserves seventeen historical Runs without rewriting old
-results. OpenAlice remains independently pinned to `v0.8.31`.
+The final source regression passes all 451 tests in 1217.702 seconds. Lock
+consistency, Python compilation, Studio JavaScript syntax, diff hygiene, and
+all current documentation links also pass; exact build/install, clone, and
+publication proof remains in [[plans/caller-owned-factor-population]].
 
 ## What works today
 
