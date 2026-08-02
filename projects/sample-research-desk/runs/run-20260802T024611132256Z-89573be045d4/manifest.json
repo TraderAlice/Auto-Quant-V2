@@ -1,0 +1,32 @@
+{
+  "completed": true,
+  "completedAt": "2026-08-02T02:46:16.329486+00:00",
+  "files": {
+    "artifacts/daily-factor-evidence.csv": "071dd8e7437b4fa23890fa7e97ee21a11a23d238f109b4dc53ec412001cb4e73",
+    "artifacts/factor-availability.csv": "0519b90c0e119e70cad788b58184cd17f5d5da0e89565f5832b1ba0f2c7931ee",
+    "artifacts/factor-components.json": "34b6ffffda636f3b9c6a33cf915dd71141f947de469ecf432ce11986bcbc08bf",
+    "artifacts/factor-qualification.csv": "c09c991f339841fdc7ed389240ff9bf948f75e9985bcb8903e7077e9c4436f0e",
+    "artifacts/factor-quantiles.csv": "3690bda203b9793fd02983aa6e387a0a5ededa1bd9a9eae86ae5848c855e3e03",
+    "artifacts/factor-report.json": "0b4eab3807dd4832d3938707d64a99f35898cd3070b58d27a722956b544ebcf9",
+    "inputs/dataset-files.json": "f8e57cd17a3aa185c616e3d2fe8dde51bb3b17c5531a4be428ce03c961c4993f",
+    "inputs/dependency-sources/strategies/factor-claim.json": "61981777bd8b81bf57dc05bb63b5df085eef018dd9e3d83593c511bf21637a83",
+    "inputs/dependency-sources/strategies/factor-population.json": "d77ce8dc25c04c41e610116c0ee6ccb0297128e9e918638479c76a5fbec5887e",
+    "inputs/dependency-sources/strategies/research-horizon.json": "ebf6fa40cbcbcdc18490439865e6a7de1a0322abc8853b528b3745bc5e70618d",
+    "inputs/identity.json": "046f7845829761879e12dbd99545886e7d109413c249a76fa7dcd1d1ee03b7db",
+    "inputs/judge-sources/judges/factor_diagnostics.py": "74ab1e25aed0e1744e75095f37b3d5e173bcf35a8f3f3d029495ce4e471a3d51",
+    "inputs/judge-sources/judges/ohlcv_factor.py": "867aa996912293af7cd5cfdb2b07ecf3ad3b540fa1f69a702daccccefbff5310",
+    "inputs/program.md": "cf5dfc868822c29b6c8323f698dfaff8bb896519473f07e747b40f82e264ab0e",
+    "inputs/study.json": "6595988bd1241156fd9851377fb258fdd08ba056fd3d2cc8c44aa200d373be4c",
+    "judge-output.json": "416fa6987947ac0d48ba77a425b1fe6f10e0b4992bf6d0459dccc5ebda35c16d",
+    "result.json": "eae7cee2719f2c641dfac9a251dcc9eabef254a4043126efc060b56c706e0c18",
+    "sources/factors/candidate.py": "1e29d70f72ce3afaf3d018f9d60c77026148423f57b52fb22f55f8127679ba6a",
+    "stderr.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stdout.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "id": "run-20260802T024611132256Z-89573be045d4",
+  "inputHash": "3d66fc239e0801eec7cd69a2418ac1460c8075652644be2060a2f8bd4da07609",
+  "resultHash": "eae7cee2719f2c641dfac9a251dcc9eabef254a4043126efc060b56c706e0c18",
+  "schemaVersion": 1,
+  "startedAt": "2026-08-02T02:46:11.132256+00:00",
+  "status": "succeeded"
+}
