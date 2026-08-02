@@ -1,4 +1,28 @@
+"use client";
+
+import { useEffect, useMemo, useRef } from "react";
+import {
+  CandlestickSeries,
+  ColorType,
+  createChart,
+  createSeriesMarkers,
+  HistogramSeries,
+  LineSeries,
+} from "lightweight-charts";
 import { candles, factorSignal } from "@/lib/data";
+
+const START_TIME = Date.parse("2024-02-23T09:30:00+08:00") / 1000;
+const EMPTY_EVENTS = [];
+const timeFormatter = new Intl.DateTimeFormat("zh-CN", {
+  timeZone: "Asia/Shanghai",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+
+function formatChartTime(time) {
+  return timeFormatter.format(new Date(Number(time) * 1000));
+}
 
 function linePath(values, width, height, padding = 18) {
   const min = Math.min(...values);
@@ -12,57 +36,148 @@ function linePath(values, width, height, padding = 18) {
     .join(" ");
 }
 
-export function EvidenceChart({ cursorRatio = 0.55, compact = false }) {
-  const width = 820;
-  const height = compact ? 210 : 260;
-  const candleWidth = 13;
-  const gap = (width - 54) / candles.length;
-  const cursorX = 28 + cursorRatio * (width - 56);
-  const signalPath = linePath(factorSignal, width, height, 28);
+function chartData(cursorRatio) {
+  const visibleCount = Math.max(2, Math.round(2 + cursorRatio * (candles.length - 2)));
+  const times = candles.map((_, index) => START_TIME + index * 300);
+  return {
+    times,
+    visibleCount,
+    candles: candles.slice(0, visibleCount).map(([open, high, low, close], index) => ({
+      time: times[index],
+      open,
+      high,
+      low,
+      close,
+    })),
+    volume: candles.slice(0, visibleCount).map(([open, high, low, close], index) => ({
+      time: times[index],
+      value: 46 + ((high - low) * 7) + ((index * 17) % 31),
+      color: close >= open ? "rgba(82, 199, 217, 0.48)" : "rgba(114, 129, 152, 0.45)",
+    })),
+    signal: factorSignal.slice(0, visibleCount).map((value, index) => ({ time: times[index], value })),
+  };
+}
+
+function nearestTime(timestamp, times, visibleCount) {
+  const available = times.slice(0, visibleCount);
+  return available.reduce((best, time) => (
+    Math.abs(time - timestamp) < Math.abs(best - timestamp) ? time : best
+  ), available[0]);
+}
+
+export function EvidenceChart({ cursorRatio = 0.55, compact = false, events = EMPTY_EVENTS }) {
+  const containerRef = useRef(null);
+  const data = useMemo(() => chartData(cursorRatio), [cursorRatio]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return undefined;
+
+    const height = compact ? 260 : 360;
+    const chart = createChart(container, {
+      width: container.clientWidth,
+      height,
+      layout: {
+        background: { type: ColorType.Solid, color: "#0d151d" },
+        textColor: "#8795a8",
+        attributionLogo: true,
+        panes: {
+          separatorColor: "#273544",
+          separatorHoverColor: "#52c7d9",
+          enableResize: true,
+        },
+      },
+      grid: {
+        vertLines: { color: "#1b2732" },
+        horzLines: { color: "#1b2732" },
+      },
+      crosshair: {
+        vertLine: { color: "#52c7d9", labelBackgroundColor: "#16333f" },
+        horzLine: { color: "#526172", labelBackgroundColor: "#273544" },
+      },
+      rightPriceScale: { borderColor: "#273544" },
+      localization: { timeFormatter: formatChartTime },
+      timeScale: {
+        borderColor: "#273544",
+        timeVisible: true,
+        secondsVisible: false,
+        tickMarkFormatter: formatChartTime,
+      },
+      handleScale: compact ? false : undefined,
+      handleScroll: compact ? false : undefined,
+    });
+
+    const candleSeries = chart.addSeries(CandlestickSeries, {
+      upColor: "#5d7f8d",
+      downColor: "#4a596c",
+      wickUpColor: "#afbdcb",
+      wickDownColor: "#728198",
+      borderUpColor: "#afbdcb",
+      borderDownColor: "#728198",
+    });
+    const volumeSeries = chart.addSeries(HistogramSeries, {
+      priceFormat: { type: "volume" },
+      priceLineVisible: false,
+      lastValueVisible: false,
+    }, 1);
+    const signalSeries = chart.addSeries(LineSeries, {
+      color: "#f1b35c",
+      lineWidth: 2,
+      priceLineVisible: false,
+      lastValueVisible: true,
+      title: "Factor signal",
+    }, 2);
+
+    candleSeries.setData(data.candles);
+    volumeSeries.setData(data.volume);
+    signalSeries.setData(data.signal);
+    chart.panes()[0]?.setStretchFactor(5);
+    chart.panes()[1]?.setStretchFactor(1.35);
+    chart.panes()[2]?.setStretchFactor(1.65);
+
+    const eventMarkers = events.map((event, index) => ({
+      time: nearestTime(Date.parse(event.availableAt) / 1000, data.times, data.visibleCount),
+      position: "aboveBar",
+      color: event.evidence === "missing" ? "#d87575" : "#f1b35c",
+      shape: index % 2 ? "circle" : "arrowDown",
+      text: event.adapter === "A股公告" ? "公告" : event.adapter === "财经新闻" ? "新闻" : "链上",
+    }));
+    createSeriesMarkers(candleSeries, [
+      ...eventMarkers,
+      {
+        time: data.candles.at(-1).time,
+        position: "belowBar",
+        color: "#52c7d9",
+        shape: "circle",
+        text: "VISIBLE T",
+      },
+    ].sort((a, b) => a.time - b.time));
+
+    chart.timeScale().fitContent();
+    const resize = new ResizeObserver(([entry]) => {
+      chart.applyOptions({ width: Math.floor(entry.contentRect.width) });
+    });
+    resize.observe(container);
+
+    return () => {
+      resize.disconnect();
+      chart.remove();
+    };
+  }, [compact, data, events]);
 
   return (
-    <div className="chart-shell">
-      <span className="chart-axis-label top">标准化价格 / 因子信号</span>
-      <span className="chart-axis-label bottom">5m · CST</span>
-      <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-labelledby="evidence-chart-title evidence-chart-desc">
-        <title id="evidence-chart-title">K 线、因子信号与回放时点</title>
-        <desc id="evidence-chart-desc">价格整体上行，因子信号在上午十点后增强。青色竖线表示当前回放可见时点。</desc>
-        <g aria-hidden="true">
-          {candles.map(([open, high, low, close], index) => {
-            const x = 28 + index * gap;
-            const y = (value) => height - 24 - (value / 105) * (height - 44);
-            const rising = close >= open;
-            return (
-              <g key={index} opacity={x <= cursorX ? 0.95 : 0.22}>
-                <line x1={x} x2={x} y1={y(high)} y2={y(low)} stroke={rising ? "#afbdcb" : "#728198"} strokeWidth="1" />
-                <rect
-                  x={x - candleWidth / 2}
-                  y={Math.min(y(open), y(close))}
-                  width={candleWidth}
-                  height={Math.max(3, Math.abs(y(open) - y(close)))}
-                  fill={rising ? "#5d7f8d" : "#4a596c"}
-                  stroke={rising ? "#afbdcb" : "#728198"}
-                  strokeWidth="1"
-                />
-              </g>
-            );
-          })}
-          <path d={signalPath} fill="none" stroke="#f1b35c" strokeWidth="2" opacity="0.9" />
-          <path d={`${signalPath} L792,${height - 22} L28,${height - 22} Z`} fill="url(#signal-fill)" opacity="0.17" />
-          <defs>
-            <linearGradient id="signal-fill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stopColor="#f1b35c" />
-              <stop offset="1" stopColor="#f1b35c" stopOpacity="0" />
-            </linearGradient>
-          </defs>
-          <line x1={cursorX} x2={cursorX} y1="0" y2={height} stroke="#52c7d9" strokeWidth="1.5" />
-          <rect x={cursorX + 5} y="30" width="58" height="19" fill="#142b36" stroke="#52c7d9" />
-          <text x={cursorX + 34} y="43" fill="#91e4ef" fontFamily="Cascadia Mono, monospace" fontSize="9" textAnchor="middle">VISIBLE T</text>
-        </g>
-      </svg>
+    <div className={`chart-shell lightweight ${compact ? "compact" : ""}`}>
+      <div
+        ref={containerRef}
+        className="lightweight-chart"
+        role="img"
+        aria-label={`K 线、成交量与因子信号。当前显示 ${data.visibleCount} 根可见 K 线，未来数据不进入图表。`}
+      />
+      <span className="chart-axis-label top">K 线 / 成交量 / 因子信号</span>
     </div>
   );
 }
+
 export function PerformanceChart() {
   const strategy = [0, 3, 2, 7, 10, 9, 15, 18, 17, 23, 27, 31, 29, 36, 39, 43, 47, 45, 51, 56, 59, 64, 68, 72];
   const benchmark = [0, 1, 0, 2, 4, 3, 6, 8, 7, 9, 12, 11, 13, 16, 15, 19, 21, 20, 24, 27, 26, 29, 31, 32];

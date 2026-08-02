@@ -13,10 +13,13 @@ const navigation = [
   { href: "/events", code: "EV", label: "事件工作台" },
   { href: "/lab", code: "FL", label: "因子实验室" },
   { href: "/results", code: "RS", label: "测试结果" },
+  { href: "/portfolio", code: "PF", label: "组合研究" },
+  { href: "/rl", code: "RL", label: "治理式 RL" },
   { href: "/jobs", code: "JB", label: "研究任务" },
   { href: "/data", code: "DT", label: "数据目录" },
   { href: "/audit", code: "AU", label: "审计与复现" },
 ];
+const connectedRoutes = new Set(["/", "/portfolio", "/rl"]);
 
 function isActive(pathname, href) {
   if (href === "/") return pathname === "/";
@@ -44,8 +47,13 @@ export function StudioShell({ children }) {
   const needsGate = !demoEnabled && (
     source.mode === "loading"
     || source.mode === "unavailable"
-    || (connected && pathname !== "/")
+    || (connected && !connectedRoutes.has(pathname))
   );
+  const activeContext = pathname.startsWith("/portfolio")
+    ? { label: "组合", name: "OHLCV Portfolio Quality", href: "/portfolio", version: "CORE" }
+    : pathname.startsWith("/rl")
+      ? { label: "策略", name: "Governed RL Factor Policy", href: "/rl", version: "CORE" }
+      : { label: "因子", name: factor.name, href: `/factors/${factor.id}`, version: factor.version };
 
   return (
     <div className="app-shell">
@@ -93,9 +101,9 @@ export function StudioShell({ children }) {
             菜单
           </button>
           <div className="context-path">
-            <span>因子</span>
-            <Link href={`/factors/${factor.id}`}>{factor.name}</Link>
-            <span className="mono">{factor.version}</span>
+            <span>{activeContext.label}</span>
+            <Link href={activeContext.href}>{activeContext.name}</Link>
+            <span className="mono">{activeContext.version}</span>
           </div>
           <div className="bar-status">
             <span className={`status-dot ${connected ? "known" : ""}`} aria-hidden="true" />

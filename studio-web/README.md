@@ -1,8 +1,12 @@
 # AutoQuant Studio Web
 
-This is the repository-owned Next.js Evidence Console for factor research. It
-uses the existing read-only Core snapshot and contains no plugin, broker,
-account, order, or live-trading integration.
+This is the repository-owned Next.js Evidence Console for factor, portfolio,
+and governed-RL research. It uses the existing read-only Core snapshot and
+contains no plugin, broker, account, order, or live-trading integration.
+
+The replay K-line uses `lightweight-charts@5.2.0` for candlesticks, volume,
+factor-signal panes, and event markers. Its Apache-2.0 distribution and visible
+TradingView attribution remain intact.
 
 ## Run locally
 

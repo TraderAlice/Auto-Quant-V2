@@ -93,7 +93,7 @@ export function ReplayWorkbench() {
             </div>
           }
         >
-          <EvidenceChart cursorRatio={cursorRatio} />
+          <EvidenceChart cursorRatio={cursorRatio} events={visible} />
           <div className="table-wrap" style={{ marginTop: 10 }}>
             <div className="timeline" aria-label="事件时间轴">
               {replaySteps.map((step, index) => (

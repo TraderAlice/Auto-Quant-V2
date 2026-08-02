@@ -6,6 +6,12 @@ import { useStudio } from "@/components/studio-context";
 import { Metric, ObjectLink, PageHeading, Panel, StatusChip } from "@/components/ui";
 import { adapters, factor, jobs, metrics } from "@/lib/data";
 
+function studyHref(study) {
+  if (study.id.includes("portfolio")) return "/portfolio";
+  if (study.id.includes("rl")) return "/rl";
+  return `/factors/${study.id}`;
+}
+
 export default function ResearchHome() {
   const { source, demoEnabled, enableDemo } = useStudio();
 
@@ -53,10 +59,10 @@ export default function ResearchHome() {
               {project ? (
                 <div className="dense-list">
                   {project.studies.map((study) => (
-                    <div className="dense-row" key={study.id}>
+                    <Link className="dense-row" href={studyHref(study)} key={study.id}>
                       <div><strong>{study.name}</strong><small>{study.primaryMetric}</small></div>
                       <StatusChip state="known">{study.subjectKind}</StatusChip>
-                    </div>
+                    </Link>
                   ))}
                 </div>
               ) : <p className="muted">Workspace 中没有 Project。</p>}
@@ -122,6 +128,10 @@ export default function ResearchHome() {
                 <div><strong>实验 EXP-240801-17</strong><p>成本后收益和修订敏感性已生成</p></div>
                 <Link className="button-quiet" href="/results">查看结果</Link>
               </div>
+              <div className="dense-row">
+                <div><strong>组合与治理式 RL</strong><p>沿用同一因子、数据版本、冻结样本和审计链</p></div>
+                <Link className="button-quiet" href="/portfolio">继续研究</Link>
+              </div>
             </div>
           </Panel>
         </div>
@@ -131,6 +141,8 @@ export default function ResearchHome() {
             <ObjectLink href={`/factors/${factor.id}`} label="FactorPassport" id={factor.id} />
             <ObjectLink href="/replay" label="ResearchFrame" id={factor.frameId} />
             <ObjectLink href="/results" label="ExperimentRun" id="EXP-240801-17" />
+            <ObjectLink href="/portfolio" label="PortfolioStudy" id="ohlcv-portfolio-quality" />
+            <ObjectLink href="/rl" label="RLPolicyStudy" id="ohlcv-rl-factor-policy" />
             <ObjectLink href="/jobs" label="ComputeJob" id="JOB-91F2" />
           </Panel>
 

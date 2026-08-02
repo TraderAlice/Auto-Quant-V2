@@ -852,6 +852,24 @@ td.numeric {
   display: block;
 }
 
+.chart-shell.lightweight {
+  min-height: 360px;
+  background-image: none;
+}
+
+.chart-shell.lightweight.compact {
+  min-height: 260px;
+}
+
+.lightweight-chart {
+  width: 100%;
+  min-height: 360px;
+}
+
+.compact .lightweight-chart {
+  min-height: 260px;
+}
+
 .chart-axis-label {
   position: absolute;
   z-index: 2;
