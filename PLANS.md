@@ -18,7 +18,9 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-None.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/factor-evidence-report-handoff]] | Make temporal Factor protocol applicability, material train/validation tension, and safe evidence-bound Report drafting explicit to fresh Agents. | 2026-08-02 |
 
 ## Proposed plans
 
