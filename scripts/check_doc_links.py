@@ -12,10 +12,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 IGNORED_PARTS = {
     ".git",
+    ".next",
     ".pytest_cache",
     ".venv",
     "__pycache__",
     "data",
+    "node_modules",
+    "out",
 }
 LINK_PATTERN = re.compile(
     r"\[\["
@@ -84,7 +87,7 @@ def main() -> int:
             print(failure.render(), file=sys.stderr)
         return 1
 
-    print(f"✓ {checked} documentation double-links resolve")
+    print(f"OK: {checked} documentation double-links resolve")
     return 0
 
 

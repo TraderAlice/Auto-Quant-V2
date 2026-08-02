@@ -3,14 +3,34 @@ from __future__ import annotations
 import re
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
+
+from scripts.check_doc_links import markdown_files
 
 
 PROJECT_DIR = Path(__file__).resolve().parents[1]
 
 
 class DocumentationTests(unittest.TestCase):
+    def test_generated_web_directories_are_not_documentation_sources(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            expected = root / "docs" / "keep.md"
+            expected.parent.mkdir()
+            expected.write_text("# Keep\n", encoding="utf-8")
+            for relative in (
+                "studio-web/.next/cache/README.md",
+                "studio-web/node_modules/package/README.md",
+                "studio-web/out/README.md",
+            ):
+                generated = root / relative
+                generated.parent.mkdir(parents=True, exist_ok=True)
+                generated.write_text("[[missing]]\n", encoding="utf-8")
+
+            self.assertEqual(markdown_files(root), [expected])
+
     def test_repository_double_links_resolve(self) -> None:
         result = subprocess.run(
             [sys.executable, "scripts/check_doc_links.py"],

@@ -28,6 +28,7 @@ None.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/next-studio-workbench]] | Internalized the approved Next.js factor-research workbench over the verified Studio snapshot while keeping private plugin integrations outside the open-source repository. | 2026-08-02 |
 | [[plans/order-native-portfolio-decisions]] | Return evidence-backed target weights together with bounded Order/TPSL realization plans shared by mechanical and RL research. Paused until the workbench product model is canonical. | 2026-07-27 |
 
 ## Completed plans
