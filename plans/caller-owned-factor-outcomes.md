@@ -1,6 +1,6 @@
 # Caller-owned Factor outcomes
 
-- Status: `active`
+- Status: `completed`
 - Updated: `2026-08-02`
 - Target release: `0.9.28`
 - Related design: [[docs/design/ohlcv-factor-lab]],
@@ -99,7 +99,7 @@ refusing to grant the latter meaning to a risk forecast.
 - [x] A fresh installed-wheel Grok coworker can construct, execute, inspect,
   and report one bounded risk-forecast Study without private Core inspection
   or a framework workaround.
-- [ ] Focused tests, full regression, documentation links, build, installed
+- [x] Focused tests, full regression, documentation links, build, installed
   smoke, clean-clone smoke, and remote branch/tag identity pass for `v0.9.28`.
 
 ## Work
@@ -112,7 +112,7 @@ refusing to grant the latter meaning to a risk forecast.
   template, Skill, and design-document parity.
 - [x] Run focused deterministic tests and a fresh installed-wheel Grok field
   assignment; repair reusable Agent friction only.
-- [ ] Advance version and release records, run the complete audit, publish the
+- [x] Advance version and release records, run the complete audit, publish the
   commit/tag, and verify remote identity.
 
 ## Findings and decisions
@@ -177,6 +177,23 @@ refusing to grant the latter meaning to a risk forecast.
   including legacy immutable evidence, return Factor-to-Portfolio/RL paths,
   every intake surface, Reports/Reviews/Dossiers, Studio, Workspace Skills,
   package provenance, and the new risk-outcome stop state.
+- The clean final code-candidate build embedded commit `26cd9aa` with
+  `dirty=false`
+  and source hash
+  `3446f2f67f1a7ab3c43cae42e3e62aff66155522e670209b89827fc5764cbc63`.
+  A fresh Python environment installed the resulting wheel, discovered
+  `0.9.28`, all 58 commands, both request outcomes, and the outcome-aware
+  diagnostics schema. Final pre-publication artifact SHA-256 values were
+  `9a928e9202b2ef117c3b83d37c244e2a52b14f0f1b2c03c233233ded2531e82f`
+  for the wheel and
+  `8fb9799322d9d94c3d8949fe7b7eed0d9d008d3767457500412c9d2681f68d19`
+  for the sdist.
+- A no-hardlink clean clone at commit `26cd9aa` had no local override, selected
+  `sample-research-desk` through the checked-in Workspace manifest, and passed
+  `orient`, `validate`, `project list`, and `studio snapshot` using the fresh
+  installed wheel. Studio independently projected three Studies, seventeen
+  immutable Runs, the historical implicit `forward-return` Factor outcome,
+  and the Portfolio Explorer from a clean Git worktree.
 
 ## Progress log
 
@@ -206,9 +223,17 @@ refusing to grant the latter meaning to a risk forecast.
   and the third is useful Agent ergonomics for a later patch; none weakens or
   changes this release's verified outcome contract.
 - 2026-08-02 — Complete 446-test regression and all static/documentation gates
-  passed after the field-trial repair. Clean build/install, root Workspace,
-  clean-clone, and remote identity remain the final publication checks.
+  passed after the field-trial repair. Clean build/install and root Workspace
+  clean-clone verification then passed with exact distribution provenance.
+  The final release commit was published as `v0.9.28`, with the remote branch
+  and annotated tag verified against the same immutable commit.
 
 ## Completion
 
-Pending.
+Completed on 2026-08-02. AutoQuant now evaluates a Factor against the caller's
+bound return or realized-risk outcome, preserves historical implicit-return
+evidence, and stops a positive risk forecast at a truthful standalone handoff.
+Two fresh installed-wheel Grok coworkers completed the new route; the second
+proved the repaired terminal orientation without post-test tuning. The full
+regression, documentation, distribution, installed-runtime, clean-clone, and
+publication gates passed for `v0.9.28`.

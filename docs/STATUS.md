@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: `v0.9.28` is the current AutoQuant release candidate and `v0.8.31`
+Status: `v0.9.28` is the current AutoQuant release and `v0.8.31`
 remains the Harness currently consumed by OpenAlice until the host deliberately
 selects a newer tag.
 
@@ -17,7 +17,7 @@ historical proof remains in completed plans and immutable Git tags.
 
 ## Current milestone
 
-The `0.9.28` candidate makes the Factor outcome caller-owned. A strict request
+The `0.9.28` release makes the Factor outcome caller-owned. A strict request
 can bind either `forward-return` or `forward-realized-volatility`; omission in
 preserved historical requests and claims remains implicit forward return
 without rewriting immutable evidence. The risk outcome is the unannualized
@@ -51,9 +51,9 @@ each. The first exposed contradictory candidate-edit guidance after positive
 risk qualification; the candidate was repaired, and the final clean-wheel
 retry received `report.publish` as its exact next action and stopped without
 post-test tuning. The complete 446-test regression and all 1,490 documentation
-links pass. Clean build/install, clean-clone audit, and remote tag identity
-remain the active release gate; exact evolving proof is retained in
-[[plans/caller-owned-factor-outcomes]].
+links pass. A clean source build, fresh-wheel install, and no-override
+clean-clone Workspace audit also pass; exact release and field proof is
+retained in [[plans/caller-owned-factor-outcomes]].
 
 The root sample preserves seventeen historical Runs without rewriting old
 results and projects clean `0.9.27` Factor and Portfolio evidence through the
