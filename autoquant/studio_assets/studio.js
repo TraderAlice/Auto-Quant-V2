@@ -2025,7 +2025,7 @@ function renderFactorChart(explorer) {
   });
   element("factor-chart-title").textContent =
     state.factorView === "quantiles"
-      ? "Fixed-tertile forward returns"
+      ? `Fixed-tertile ${explorer.factorOutcome.label}`
       : "Rank & Pearson IC path";
   element("factor-chart-note").textContent =
     `${horizon}-bar · ${split}${audit ? " · VISIBLE AUDIT ONLY" : " · SELECTION"} · ${source.length} sampled points`;
@@ -2080,7 +2080,7 @@ function renderFactorChart(explorer) {
         ];
   chart.innerHTML = `
     <svg class="factor-svg" viewBox="0 0 ${width} ${height}" role="img"
-      aria-label="${escapeHtml(state.factorView === "quantiles" ? "Quantile forward-return path" : "Rank and Pearson information-coefficient path")}">
+      aria-label="${escapeHtml(state.factorView === "quantiles" ? `Quantile ${explorer.factorOutcome.label} path` : "Rank and Pearson information-coefficient path")}">
       <line class="factor-zero" x1="${left}" x2="${width - right}" y1="${zero}" y2="${zero}"></line>
       <text class="chart-axis-label" x="${left - 6}" y="${top + 4}" text-anchor="end">${escapeHtml(metric(high))}</text>
       <text class="chart-axis-label" x="${left - 6}" y="${zero + 4}" text-anchor="end">0</text>
@@ -2237,7 +2237,9 @@ function renderFactorQualification(explorer) {
   const worst = rawOnlyClaim
     ? validation.weakestCandidateFold
     : validation.weakestStyleNeutralFold;
-  const positive = diagnosis.qualifiesForPortfolio === true;
+  const positive =
+    diagnosis.qualifiesForPortfolio === true ||
+    diagnosis.stage === "risk-forecast-positive";
   const minimumHacT =
     qualification.semantics.diagnosticThresholds.minimumPositiveHacTStatistic;
   const rawTone =
@@ -2925,7 +2927,7 @@ function renderFactorExplorer(project) {
   const test = summary.testAudit;
   const availability = explorer.inputAvailability;
   element("factor-meta").textContent =
-    `${explorer.run.id} · ${explorer.dataset.universe.length} assets · ${explorer.researchHorizon.primaryForwardBars}-bar validation selection`;
+    `${explorer.run.id} · ${explorer.factorOutcome.kind} · ${explorer.dataset.universe.length} assets · ${explorer.researchHorizon.primaryForwardBars}-bar validation selection`;
   element("factor-summary").innerHTML = [
     ["Validation rank IC", metric(validation.meanRankIc), `${validation.observations} observations`],
     ["HAC t / p", `${metric(validation.hacTStatistic)} / ${metric(validation.hacNormalPValue)}`, "normal approximation"],

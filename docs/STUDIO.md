@@ -161,8 +161,9 @@ broaden its filesystem or trading authority. See
 [[docs/design/evidence-driven-research-agenda]].
 
 Run cards are diagnostic projections, not replacements for full evidence.
-Factor cards show strength, decay, monotonic spread, stability, style overlap,
-and test audit evidence beside the headline score. Portfolio cards show signal
+Factor cards show the bound return/risk outcome, strength, decay, monotonic
+spread, stability, style overlap, and test audit evidence beside the headline
+score. Portfolio cards show signal
 churn, hysteresis effect, contribution concentration, risk-governor
 activation, and reconciliation.
 RL cards show implementation, dispersion, failure, and baseline comparison.
@@ -336,6 +337,8 @@ The Factor Evidence Explorer verifies and reconciles the fixed immutable
 Factor artifacts before sampling a bounded timeline. Humans may switch between
 rank/Pearson IC and fixed-tertile paths, request-bound diagnostic forward
 horizons, validation and test audit, and fold/regime/asset/style stability.
+The Run-bound `factorOutcome` labels each path as forward return or forward
+realized risk; Studio does not infer target meaning from the candidate.
 The primary horizon is marked explicitly. Those controls format the Core
 object; JavaScript never parses CSV, re-bins assets, selects a horizon, or
 turns diagnostic evidence into an acceptance gate. The exact headless

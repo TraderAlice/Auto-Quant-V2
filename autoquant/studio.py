@@ -679,6 +679,7 @@ def _factor_metric_layers(result: dict[str, Any]) -> dict[str, Any] | None:
         layers = {
             "kind": "factor",
             "researchHorizon": metrics.get("research_horizon"),
+            "factorOutcome": metrics.get("factor_outcome"),
             "decisionCadence": (
                 metrics["portfolio_mandate"]["implementationPolicy"][
                     "decisionPolicy"

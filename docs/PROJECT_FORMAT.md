@@ -737,7 +737,9 @@ Factor Studies bind `strategies/factor-claim.json`,
 `strategies/portfolio-mandate.json`, and
 `strategies/research-horizon.json` as fixed dependencies. The claim records a
 general `decision-signal`, a `novel-factor` claim, or a caller-predeclared
-`known-style-validation` claim and known OHLCV style. For
+`known-style-validation` claim and known OHLCV style. It may also bind
+`factorPolicy.outcome` to `forward-return` or
+`forward-realized-volatility`; historical omission means forward return. For
 `decision-signal`, the Judge evaluates only Mandate `tradableAssets`; the two
 factor-identity claims evaluate the complete research universe. Candidate code
 still receives the complete panel for causal context. Run metrics and Factor
@@ -748,7 +750,7 @@ support into a novelty claim, or relabel a familiar style as novel.
 
 For single-asset temporal and authorized two-asset relative-value evaluation,
 the fixed primary validation population must contain at least 20 finite pairs,
-two candidate values, and two forward-return values. A failed requirement is a
+two candidate values, and two fixed-outcome values. A failed requirement is a
 structured `factor.temporal-primary-*` Run error with exact counts and
 `failureDisposition: scientific-limit`, not a null successful objective or a
 generic Python exception. That exact failed Run may be reported as the bounded

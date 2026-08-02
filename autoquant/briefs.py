@@ -19,6 +19,7 @@ from .allocation_policies import (
     normalize_fixed_weight_benchmark,
 )
 from .factor_claims import (
+    FACTOR_OUTCOMES,
     KNOWN_FACTOR_STYLES,
     normalize_factor_policy,
 )
@@ -2008,6 +2009,7 @@ RESEARCH_REQUEST_JSON_SCHEMA: dict[str, Any] = {
                     "properties": {
                         "claim": {"const": "decision-signal"},
                         "knownStyle": {"type": "null"},
+                        "outcome": {"enum": sorted(FACTOR_OUTCOMES)},
                     },
                 },
                 {
@@ -2017,6 +2019,7 @@ RESEARCH_REQUEST_JSON_SCHEMA: dict[str, Any] = {
                     "properties": {
                         "claim": {"const": "novel-factor"},
                         "knownStyle": {"type": "null"},
+                        "outcome": {"enum": sorted(FACTOR_OUTCOMES)},
                     },
                 },
                 {
@@ -2028,6 +2031,7 @@ RESEARCH_REQUEST_JSON_SCHEMA: dict[str, Any] = {
                         "knownStyle": {
                             "enum": sorted(KNOWN_FACTOR_STYLES),
                         },
+                        "outcome": {"enum": sorted(FACTOR_OUTCOMES)},
                     },
                 },
             ]

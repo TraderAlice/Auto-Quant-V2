@@ -10,16 +10,27 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import jsonschema
 
 from autoquant.factor_claims import FACTOR_CLAIM, build_factor_claim
-from autoquant.factor_explorer import load_factor_diagnostics
+from autoquant.decision_support import (
+    build_leader_decision_support,
+    factor_qualification_markdown_lines,
+)
+from autoquant.factor_explorer import (
+    FACTOR_DIAGNOSTICS_JSON_SCHEMA,
+    load_factor_diagnostics,
+)
+from autoquant.intake import prepare_project_intake
 from autoquant.project_templates.ohlcv_factor_lab.factor_diagnostics import (
     HORIZONS,
     causal_regime_labels,
     descriptive_ic,
+    factor_outcome_panels,
     hac_inference,
     purged_split_masks,
 )
+from autoquant.research_agenda import factor_research_agenda
 from autoquant.research import run_campaign
 from autoquant.runs import execute_study, load_run
 from autoquant.sessions import (
@@ -36,6 +47,7 @@ from autoquant.workspace import (
     create_project,
     initialize_workspace,
 )
+from tests.intake_helpers import write_intake_inputs
 
 
 IMPROVED_FACTOR = """\
@@ -150,6 +162,114 @@ def make_factor_lab(directory: str | Path):
 
 
 class OhlcvFactorLabTests(unittest.TestCase):
+    def test_forward_realized_volatility_uses_complete_future_log_returns(
+        self,
+    ) -> None:
+        index = pd.date_range("2026-01-01", periods=5, freq="D")
+        closes = pd.DataFrame(
+            {
+                "A": [100.0, 110.0, 99.0, 99.0, 108.9],
+                "B": [50.0, 55.0, float("nan"), 60.0, 66.0],
+            },
+            index=index,
+        )
+        panels = factor_outcome_panels(
+            closes,
+            "forward-realized-volatility",
+            (1, 2),
+        )
+        first = math.log(110.0 / 100.0)
+        second = math.log(99.0 / 110.0)
+        self.assertAlmostEqual(panels[1].loc[index[0], "A"], abs(first))
+        self.assertAlmostEqual(
+            panels[2].loc[index[0], "A"],
+            math.sqrt(first**2 + second**2),
+        )
+        self.assertTrue(math.isnan(panels[2].loc[index[0], "B"]))
+        self.assertTrue(math.isnan(panels[2].loc[index[-2], "A"]))
+
+    def test_explicit_risk_outcome_is_positive_without_portfolio_authority(
+        self,
+    ) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            universe = ("AAPL", "MSFT", "NVDA", "QQQ", "SPY")
+            request_path, package_path = write_intake_inputs(
+                root,
+                observations=320,
+                request_assets=universe,
+                factor_policy={
+                    "claim": "known-style-validation",
+                    "knownStyle": "realized_volatility_20",
+                    "outcome": "forward-realized-volatility",
+                },
+            )
+            intake = prepare_project_intake(
+                request_path,
+                package_path,
+                "ohlcv-factor-lab",
+            )
+            workspace = initialize_workspace(root / "workspace")
+            project = create_project(
+                workspace.root_dir,
+                "risk-forecast",
+                template=intake.template,
+                template_intake=intake,
+            )
+            run = execute_study(project, OHLCV_STUDY_ID)
+            self.assertEqual(run.result["status"], "succeeded")
+            self.assertEqual(
+                run.result["metrics"]["factor_outcome"]["kind"],
+                "forward-realized-volatility",
+            )
+            self.assertIn(
+                "mean_outcome_by_quantile",
+                run.result["metrics"]["quantile_analysis"]["1"][
+                    "validation"
+                ],
+            )
+            diagnostics = load_factor_diagnostics(
+                project,
+                run.result["id"],
+            )
+            jsonschema.validate(
+                diagnostics,
+                FACTOR_DIAGNOSTICS_JSON_SCHEMA,
+            )
+            self.assertEqual(
+                diagnostics["factorOutcome"]["downstreamMeaning"],
+                "risk-forecast-only-no-return-signal",
+            )
+            diagnosis = diagnostics["factorQualification"]["diagnosis"]
+            self.assertEqual(diagnosis["stage"], "risk-forecast-positive")
+            self.assertFalse(diagnosis["qualifiesForPortfolio"])
+            agenda = factor_research_agenda(diagnostics, ["factors/**"])
+            self.assertEqual(agenda["status"], "no-further-in-sample-tuning")
+            self.assertEqual(
+                agenda["moves"][0]["id"],
+                "factor-freeze-risk-forecast-and-external-holdout",
+            )
+            snapshot = build_studio_snapshot(workspace.root_dir)
+            self.assertEqual(
+                snapshot["projects"][0]["factorExplorer"]["factorOutcome"],
+                diagnostics["factorOutcome"],
+            )
+            support = build_leader_decision_support(
+                project,
+                run.result["id"],
+            )
+            rendered = "\n".join(
+                factor_qualification_markdown_lines(
+                    support,
+                    heading="## Factor qualification",
+                )
+            )
+            self.assertIn(
+                "Fixed prediction outcome: `forward-realized-volatility`",
+                rendered,
+            )
+            self.assertIn("no expected-return, Portfolio, or RL authority", rendered)
+
     def test_sparse_component_is_disclosed_without_failing_final_factor(
         self,
     ) -> None:
@@ -290,7 +410,7 @@ class OhlcvFactorLabTests(unittest.TestCase):
             )
             self.assertEqual(
                 set(metrics["quantile_analysis"]["1"]["validation"][
-                    "mean_return_by_quantile"
+                    "mean_outcome_by_quantile"
                 ]),
                 {"low", "middle", "high"},
             )

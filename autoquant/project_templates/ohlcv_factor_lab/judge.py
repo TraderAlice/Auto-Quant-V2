@@ -21,6 +21,9 @@ from autoquant.factor_runtime import (
 )
 from autoquant.factor_claims import (
     FACTOR_CLAIM,
+    FORWARD_RETURN_OUTCOME,
+    factor_outcome,
+    factor_outcome_contract,
     load_factor_claim,
 )
 from autoquant.intervals import (
@@ -52,11 +55,11 @@ from judges.factor_diagnostics import (
     chronological_fold_masks,
     cross_sectional_rank_residual,
     daily_pearson_correlation,
-    daily_quantile_returns,
+    daily_quantile_outcomes,
     daily_rank_correlation,
     descriptive_ic,
     equal_rank_blend,
-    forward_return_panels,
+    factor_outcome_panels,
     hac_inference,
     per_asset_rank_correlation,
     purged_split_masks,
@@ -297,7 +300,7 @@ def _temporal_daily(
 
 def _preflight_temporal_primary_validation(
     factor_panel: pd.DataFrame,
-    forward_panel: pd.DataFrame,
+    outcome_panel: pd.DataFrame,
     validation_mask: pd.Series,
     *,
     evaluation_mode: str,
@@ -310,14 +313,14 @@ def _preflight_temporal_primary_validation(
             "factor": factor_panel.iloc[:, 0].reindex(
                 validation_mask.index[validation_mask]
             ),
-            "forward_return": forward_panel.iloc[:, 0].reindex(
+            "outcome": outcome_panel.iloc[:, 0].reindex(
                 validation_mask.index[validation_mask]
             ),
         }
     ).dropna()
     observations = int(len(selected))
     factor_values = int(selected["factor"].nunique())
-    target_values = int(selected["forward_return"].nunique())
+    target_values = int(selected["outcome"].nunique())
     context = (
         f"evaluationMode={evaluation_mode}, split=validation, "
         f"primaryHorizon={horizon}, pairedObservations={observations}, "
@@ -340,8 +343,8 @@ def _preflight_temporal_primary_validation(
     if target_values < 2:
         raise JudgeFailure(
             "factor.temporal-primary-target-variation",
-            "Primary temporal validation forward return has no usable "
-            f"variation ({context})",
+            "Primary temporal validation outcome has no usable variation "
+            f"({context})",
         )
 
 
@@ -536,7 +539,7 @@ def _context_distribution(values: pd.Series) -> dict[str, Any]:
 def _timestamp_context_evidence(
     panel: pd.DataFrame,
     factor_panel: pd.DataFrame,
-    forward_panels: dict[int, pd.DataFrame],
+    outcome_panels: dict[int, pd.DataFrame],
     split_masks: dict[int, dict[str, pd.Series]],
 ) -> dict[str, Any]:
     """Diagnose one cross-section-constant causal market-state component."""
@@ -557,7 +560,7 @@ def _timestamp_context_evidence(
     factor_daily = {
         horizon: daily_rank_correlation(
             factor_panel,
-            forward_panels[horizon],
+            outcome_panels[horizon],
             minimum_assets=MIN_ASSETS_PER_DATE,
         )
         for horizon in HORIZONS
@@ -641,7 +644,7 @@ def _timestamp_context_evidence(
 def _temporal_timestamp_context_evidence(
     panel: pd.DataFrame,
     factor_panel: pd.DataFrame,
-    forward_panels: dict[int, pd.DataFrame],
+    outcome_panels: dict[int, pd.DataFrame],
     split_masks: dict[int, dict[str, pd.Series]],
 ) -> dict[str, Any]:
     """Condition temporal Factor correlation contributions on fixed states."""
@@ -662,7 +665,7 @@ def _temporal_timestamp_context_evidence(
     factor_contributions = {
         horizon: _temporal_daily(
             factor_panel,
-            forward_panels[horizon],
+            outcome_panels[horizon],
             split_masks[horizon],
             rank=True,
         )
@@ -753,10 +756,11 @@ def _component_evidence(
     declarations: list[dict[str, Any]],
     component_panels: dict[str, pd.DataFrame],
     factor_panel: pd.DataFrame,
-    forward_panels: dict[int, pd.DataFrame],
+    outcome_panels: dict[int, pd.DataFrame],
     split_masks: dict[int, dict[str, pd.Series]],
     coverage: dict[str, dict[str, float]],
     evaluation_mode: str,
+    outcome_contract: dict[str, Any],
 ) -> dict[str, Any]:
     """Build target-fixed diagnostics for candidate-declared components."""
 
@@ -796,14 +800,14 @@ def _component_evidence(
         if temporal:
             return _temporal_daily(
                 panel,
-                forward_panels[horizon],
+                outcome_panels[horizon],
                 split_masks[horizon],
                 rank=True,
                 constant_left_value=constant_left_value,
             )
         return daily_rank_correlation(
             panel,
-            forward_panels[horizon],
+            outcome_panels[horizon],
             minimum_assets=MIN_ASSETS_PER_DATE,
             constant_left_value=constant_left_value,
         )
@@ -1154,14 +1158,14 @@ def _component_evidence(
                     _temporal_timestamp_context_evidence(
                         component_panels[name],
                         factor_panel,
-                        forward_panels,
+                        outcome_panels,
                         split_masks,
                     )
                     if temporal
                     else _timestamp_context_evidence(
                         component_panels[name],
                         factor_panel,
-                        forward_panels,
+                        outcome_panels,
                         split_masks,
                     )
                 ),
@@ -1264,7 +1268,7 @@ def _component_evidence(
         },
         "semantics": {
             "evaluation_mode": evaluation_mode,
-            "prediction_target": "fixed-purged-forward-base-bar-return",
+            "prediction_target": outcome_contract["targetSemantics"],
             "score_measure": (
                 "within-split-temporal-rank-correlation-contribution"
                 if temporal
@@ -1404,7 +1408,7 @@ def _decay_summary(
 def _factor_qualification(
     factor_panel: pd.DataFrame,
     styles: dict[str, pd.DataFrame],
-    forward_panels: dict[int, pd.DataFrame],
+    outcome_panels: dict[int, pd.DataFrame],
     split_masks: dict[int, dict[str, pd.Series]],
     fold_masks: dict[str, pd.Series],
     split_labels: pd.Series,
@@ -1462,7 +1466,7 @@ def _factor_qualification(
         signal: {
             horizon: daily_rank_correlation(
                 panel,
-                forward_panels[horizon],
+                outcome_panels[horizon],
                 minimum_assets=MIN_ASSETS_PER_DATE,
                 constant_left_value=(
                     0.0
@@ -1562,7 +1566,7 @@ def _factor_qualification(
 def _temporal_factor_qualification(
     factor_panel: pd.DataFrame,
     styles: dict[str, pd.DataFrame],
-    forward_panels: dict[int, pd.DataFrame],
+    outcome_panels: dict[int, pd.DataFrame],
     split_masks: dict[int, dict[str, pd.Series]],
     fold_masks: dict[str, pd.Series],
     split_labels: pd.Series,
@@ -1613,7 +1617,7 @@ def _temporal_factor_qualification(
         signal: {
             horizon: _temporal_daily(
                 panel,
-                forward_panels[horizon],
+                outcome_panels[horizon],
                 split_masks[horizon],
                 rank=True,
                 constant_left_value=(
@@ -1648,7 +1652,7 @@ def _temporal_factor_qualification(
             name: _temporal_split_metrics(
                 _temporal_correlation_contributions(
                     panel.iloc[:, 0],
-                    forward_panels[PRIMARY_HORIZON].iloc[:, 0],
+                    outcome_panels[PRIMARY_HORIZON].iloc[:, 0],
                     mask,
                     rank=True,
                     constant_left_value=(
@@ -1721,6 +1725,8 @@ def _evaluate() -> tuple[
     study, data_root = _load_contract()
     research_horizon = _load_horizon()
     factor_claim = _load_factor_claim()
+    outcome_kind = factor_outcome(factor_claim)
+    outcome_contract = factor_outcome_contract(factor_claim)
     HORIZONS = tuple(research_horizon["diagnosticForwardBars"])
     PRIMARY_HORIZON = int(research_horizon["primaryForwardBars"])
     dataset = study["dataset"]
@@ -1732,6 +1738,15 @@ def _evaluate() -> tuple[
         prediction_authority,
         evaluation_mode,
     ) = _load_prediction_universe(universe, factor_claim)
+    if (
+        outcome_kind != FORWARD_RETURN_OUTCOME
+        and evaluation_mode == TWO_ASSET_RELATIVE_VALUE_MODE
+    ):
+        raise JudgeFailure(
+            "factor.outcome-relative-value",
+            "Forward realized volatility does not define a two-asset "
+            "relative-value target contrast",
+        )
     minimum_evaluation_assets = (
         1
         if evaluation_mode == SINGLE_ASSET_TEMPORAL_MODE
@@ -1812,26 +1827,30 @@ def _evaluate() -> tuple[
         timeline,
         PRIMARY_HORIZON,
     )
-    forward_panels = forward_return_panels(close_panel, HORIZONS)
+    outcome_panels = factor_outcome_panels(
+        close_panel,
+        outcome_kind,
+        HORIZONS,
+    )
     if evaluation_mode == TWO_ASSET_RELATIVE_VALUE_MODE:
         association_factor_panel = _relative_value_spread_panel(
             factor_panel,
             prediction_assets,
         )
-        association_forward_panels = {
+        association_outcome_panels = {
             horizon: _relative_value_spread_panel(
-                forward_panels[horizon],
+                outcome_panels[horizon],
                 prediction_assets,
             )
             for horizon in HORIZONS
         }
     else:
         association_factor_panel = factor_panel
-        association_forward_panels = forward_panels
+        association_outcome_panels = outcome_panels
     if evaluation_mode in TEMPORAL_EVALUATION_MODES:
         _preflight_temporal_primary_validation(
             association_factor_panel,
-            association_forward_panels[PRIMARY_HORIZON],
+            association_outcome_panels[PRIMARY_HORIZON],
             split_masks[PRIMARY_HORIZON]["validation"],
             evaluation_mode=evaluation_mode,
             horizon=PRIMARY_HORIZON,
@@ -1842,7 +1861,7 @@ def _evaluate() -> tuple[
     factor_counts = factor_panel.notna().sum(axis=1).astype(int)
     paired_counts = {
         horizon: (
-            factor_panel.notna() & forward_panels[horizon].notna()
+            factor_panel.notna() & outcome_panels[horizon].notna()
         ).sum(axis=1).astype(int)
         for horizon in HORIZONS
     }
@@ -1961,13 +1980,14 @@ def _evaluate() -> tuple[
                 else factor_panel
             ),
             (
-                association_forward_panels
+                association_outcome_panels
                 if evaluation_mode in TEMPORAL_EVALUATION_MODES
-                else forward_panels
+                else outcome_panels
             ),
             split_masks,
             component_coverage,
             evaluation_mode,
+            outcome_contract,
         )
         if component_declarations is not None
         else None
@@ -1976,7 +1996,7 @@ def _evaluate() -> tuple[
         daily_ic_by_horizon = {
             horizon: _temporal_daily(
                 association_factor_panel,
-                association_forward_panels[horizon],
+                association_outcome_panels[horizon],
                 split_masks[horizon],
                 rank=True,
             )
@@ -1985,7 +2005,7 @@ def _evaluate() -> tuple[
         daily_pearson_by_horizon = {
             horizon: _temporal_daily(
                 association_factor_panel,
-                association_forward_panels[horizon],
+                association_outcome_panels[horizon],
                 split_masks[horizon],
                 rank=False,
             )
@@ -1995,7 +2015,7 @@ def _evaluate() -> tuple[
         daily_ic_by_horizon = {
             horizon: daily_rank_correlation(
                 factor_panel,
-                forward_panels[horizon],
+                outcome_panels[horizon],
                 minimum_assets=MIN_ASSETS_PER_DATE,
             )
             for horizon in HORIZONS
@@ -2003,7 +2023,7 @@ def _evaluate() -> tuple[
         daily_pearson_by_horizon = {
             horizon: daily_pearson_correlation(
                 factor_panel,
-                forward_panels[horizon],
+                outcome_panels[horizon],
                 minimum_assets=MIN_ASSETS_PER_DATE,
             )
             for horizon in HORIZONS
@@ -2062,9 +2082,9 @@ def _evaluate() -> tuple[
         }
         if evaluation_mode in TEMPORAL_EVALUATION_MODES
         else {
-            horizon: daily_quantile_returns(
+            horizon: daily_quantile_outcomes(
                 factor_panel,
-                forward_panels[horizon],
+                outcome_panels[horizon],
                 minimum_assets=MIN_ASSETS_PER_DATE,
             )
             for horizon in HORIZONS
@@ -2090,7 +2110,7 @@ def _evaluate() -> tuple[
             name: _temporal_split_metrics(
                 _temporal_correlation_contributions(
                     association_factor_panel.iloc[:, 0],
-                    association_forward_panels[PRIMARY_HORIZON].iloc[:, 0],
+                    association_outcome_panels[PRIMARY_HORIZON].iloc[:, 0],
                     mask,
                     rank=True,
                 ),
@@ -2170,7 +2190,7 @@ def _evaluate() -> tuple[
     factor_qualification, qualification_evidence = qualification_builder(
         association_factor_panel,
         styles,
-        association_forward_panels,
+        association_outcome_panels,
         split_masks,
         fold_masks,
         base_split_labels,
@@ -2180,7 +2200,7 @@ def _evaluate() -> tuple[
     per_asset_stability = {
         split: per_asset_rank_correlation(
             factor_panel,
-            forward_panels[PRIMARY_HORIZON],
+            outcome_panels[PRIMARY_HORIZON],
             split_masks[PRIMARY_HORIZON][split],
         )
         for split in ("train", "validation", "test")
@@ -2197,6 +2217,7 @@ def _evaluate() -> tuple[
         "factor_api": factor_contract(factor_evaluation),
         "research_horizon": research_horizon,
         "factor_claim": factor_claim,
+        "factor_outcome": outcome_contract,
         "prediction_universe": {
             "authority": prediction_authority,
             "evaluation_mode": evaluation_mode,
@@ -2281,7 +2302,8 @@ def _evaluate() -> tuple[
         },
         "researchHorizon": research_horizon,
         "semantics": {
-            "target": research_horizon["targetSemantics"],
+            "target": outcome_contract["targetSemantics"],
+            "outcome": outcome_contract,
             "measure": (
                 (
                     "within-split temporal Spearman and Pearson correlation "
@@ -2362,6 +2384,9 @@ def _evaluate() -> tuple[
                     ],
                     "scoreMeasure": component_evidence["semantics"][
                         "score_measure"
+                    ],
+                    "predictionTarget": component_evidence["semantics"][
+                        "prediction_target"
                     ],
                     "declaration": "candidate-explicit-not-source-inferred",
                     "roles": [
@@ -2562,15 +2587,15 @@ def main() -> None:
                 "path": "daily-factor-evidence.csv",
                 "description": (
                     "Timestamped split, causal regime, and purge-aware "
-                    "request-bound forward-bar rank and Pearson IC"
+                    "request-bound outcome rank and Pearson IC"
                 ),
             },
             {
                 "kind": "factor-quantiles",
                 "path": "factor-quantiles.csv",
                 "description": (
-                    "Timestamped fixed-tertile forward returns and "
-                    "high-minus-low spread by split and horizon"
+                    "Timestamped fixed-tertile outcome levels and "
+                    "high-minus-low outcome spread by split and horizon"
                 ),
             },
             {
@@ -2607,7 +2632,9 @@ def main() -> None:
                 "status": "succeeded",
                 "summary": (
                     "Causal purge-aware factor tear sheet completed; "
-                    f"validation {PRIMARY_HORIZON}-bar mean rank IC="
+                    f"{metrics['factor_outcome']['kind']} validation "
+                    f"{PRIMARY_HORIZON}-bar mean "
+                    "rank IC="
                     f"{metrics['validation_mean_ic']:.6f}"
                 ),
                 "metrics": metrics,

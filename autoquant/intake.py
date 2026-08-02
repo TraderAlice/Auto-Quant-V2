@@ -26,7 +26,9 @@ from .briefs import (
 )
 from .factor_claims import (
     FACTOR_CLAIM,
+    FORWARD_REALIZED_VOLATILITY_OUTCOME,
     build_factor_claim,
+    factor_outcome,
     load_factor_claim,
 )
 from .event_studies import (
@@ -2109,6 +2111,39 @@ def prepare_project_intake(
     if observed_intraday:
         minimum_assets = 1
     factor_policy = request.get("factorPolicy")
+    resolved_factor_outcome = factor_outcome(
+        factor_policy if isinstance(factor_policy, dict) else {}
+    )
+    if (
+        resolved_factor_outcome == FORWARD_REALIZED_VOLATILITY_OUTCOME
+        and not study_owned
+        and template != "ohlcv-factor-lab"
+    ):
+        issues.append(
+            _issue(
+                "request/factorPolicy/outcome",
+                "request.factor-outcome-template",
+                "forward-realized-volatility is consumed only by the "
+                "standalone ohlcv-factor-lab; Portfolio and governed RL "
+                "currently require forward-return meaning",
+            )
+        )
+    if (
+        resolved_factor_outcome == FORWARD_REALIZED_VOLATILITY_OUTCOME
+        and isinstance(factor_policy, dict)
+        and factor_policy.get("claim") == "decision-signal"
+        and len(observed_target_symbols) in {2, 3}
+    ):
+        issues.append(
+            _issue(
+                "request/factorPolicy/outcome",
+                "request.factor-outcome-population",
+                "forward-realized-volatility supports one temporal target "
+                "or at least four cross-sectional prediction assets; it "
+                "does not define a two-asset risk contrast or three-asset "
+                "basket",
+            )
+        )
     if (
         template == "ohlcv-factor-lab"
         and isinstance(factor_policy, dict)

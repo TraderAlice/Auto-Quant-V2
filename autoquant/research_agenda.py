@@ -420,6 +420,53 @@ def _factor_external_move(
     )
 
 
+def _factor_risk_external_move(
+    diagnostics: dict[str, Any],
+) -> dict[str, Any]:
+    qualification = diagnostics["factorQualification"]
+    validation = qualification["validation"]
+    return _move(
+        priority=1,
+        move_id="factor-freeze-risk-forecast-and-external-holdout",
+        title="Freeze the risk forecast and test a fresh external holdout",
+        hypothesis=(
+            "The frozen factor retains positive association with the same "
+            "forward realized-volatility outcome on a fresh later sample."
+        ),
+        rationale=(
+            "The fixed validation funnel supports a risk forecast. More "
+            "in-sample tuning would spend selection budget, while Portfolio "
+            "or RL translation would incorrectly treat risk as expected return."
+        ),
+        editable_paths=[],
+        components=[],
+        evidence_refs=[
+            _evidence(
+                "/factorQualification/validation/candidate/meanRankIc",
+                "Validation raw risk-outcome rank IC",
+                validation["candidate"]["meanRankIc"],
+                "rank-ic",
+            ),
+            _evidence(
+                "/factorQualification/validation/candidate/hacTStatistic",
+                "Validation raw HAC t-statistic",
+                validation["candidate"]["hacTStatistic"],
+                "t-statistic",
+            ),
+        ],
+        objective_metric="validation_mean_ic",
+        required_checks=[
+            "Do not modify the frozen factor for this move.",
+            "Use the identical explicit forward-realized-volatility outcome.",
+            "Keep Portfolio, RL, and trading authority absent.",
+        ],
+        stop_conditions=[
+            "Do not use the currently visible test audit as a fresh holdout.",
+            "Do not reinterpret high predicted risk as positive expected return.",
+        ],
+    )
+
+
 def factor_research_agenda(
     diagnostics: dict[str, Any],
     editable_paths: list[str],
@@ -446,6 +493,19 @@ def factor_research_agenda(
         "iterationFocus": diagnosis["iterationFocus"],
         "explanation": diagnosis["explanation"],
     }
+    if diagnosis["stage"] == "risk-forecast-positive":
+        return _agenda(
+            status="no-further-in-sample-tuning",
+            lane_id="factor",
+            run={"id": run["id"], "inputHash": run["inputHash"]},
+            diagnosis=diagnosis_projection,
+            moves=[_factor_risk_external_move(diagnostics)],
+            reason=(
+                "Qualified future-risk evidence should be frozen and tested "
+                "on an external holdout; it has no automatic Portfolio or RL "
+                "translation."
+            ),
+        )
     if diagnosis["qualifiesForPortfolio"] is True:
         return _agenda(
             status="no-further-in-sample-tuning",

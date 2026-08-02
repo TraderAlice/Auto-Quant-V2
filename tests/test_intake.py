@@ -1139,6 +1139,52 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                         "ohlcv-factor-lab",
                     )
 
+    def test_risk_outcome_rejects_downstream_and_ambiguous_populations(
+        self,
+    ) -> None:
+        policy = {
+            "claim": "decision-signal",
+            "knownStyle": None,
+            "outcome": "forward-realized-volatility",
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            request_path, package_path = write_intake_inputs(
+                root,
+                assets=("AAPL", "MSFT", "NVDA", "QQQ", "SPY"),
+                request_assets=("AAPL", "MSFT", "NVDA", "QQQ", "SPY"),
+                factor_policy=policy,
+            )
+            with self.assertRaises(AutoQuantValidationError) as captured:
+                prepare_project_intake(
+                    request_path,
+                    package_path,
+                    "ohlcv-portfolio-lab",
+                )
+            self.assertIn(
+                "request.factor-outcome-template",
+                {issue.code for issue in captured.exception.issues},
+            )
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            request_path, package_path = write_intake_inputs(
+                root,
+                assets=("AAPL", "MSFT"),
+                request_assets=("AAPL", "MSFT"),
+                factor_policy=policy,
+            )
+            with self.assertRaises(AutoQuantValidationError) as captured:
+                prepare_project_intake(
+                    request_path,
+                    package_path,
+                    "ohlcv-factor-lab",
+                )
+            self.assertIn(
+                "request.factor-outcome-population",
+                {issue.code for issue in captured.exception.issues},
+            )
+
     def test_intake_rejects_horizon_without_purged_split_capacity(
         self,
     ) -> None:

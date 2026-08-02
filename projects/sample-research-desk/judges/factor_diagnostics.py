@@ -137,6 +137,44 @@ def forward_return_panels(
     }
 
 
+def forward_realized_volatility_panels(
+    closes: pd.DataFrame,
+    horizons: tuple[int, ...] = HORIZONS,
+) -> dict[int, pd.DataFrame]:
+    """Return complete-window, unannualized forward realized volatility.
+
+    At signal close t and horizon h, the target is the square root of the sum
+    of squared close-to-close log returns from t -> t+1 through t+h-1 -> t+h.
+    A missing constituent return invalidates the whole target window.
+    """
+
+    log_returns = np.log(closes / closes.shift(1))
+    output: dict[int, pd.DataFrame] = {}
+    for horizon in horizons:
+        future_squared = [
+            log_returns.shift(-offset).pow(2)
+            for offset in range(1, horizon + 1)
+        ]
+        squared_sum = sum(future_squared)
+        complete = sum(item.notna().astype(int) for item in future_squared)
+        output[horizon] = squared_sum.pow(0.5).where(complete == horizon)
+    return output
+
+
+def factor_outcome_panels(
+    closes: pd.DataFrame,
+    outcome: str,
+    horizons: tuple[int, ...] = HORIZONS,
+) -> dict[int, pd.DataFrame]:
+    """Materialize one fixed Factor outcome over the requested horizons."""
+
+    if outcome == "forward-return":
+        return forward_return_panels(closes, horizons)
+    if outcome == "forward-realized-volatility":
+        return forward_realized_volatility_panels(closes, horizons)
+    raise ValueError(f"Unsupported Factor outcome: {outcome}")
+
+
 def daily_rank_correlation(
     left: pd.DataFrame,
     right: pd.DataFrame,
@@ -279,7 +317,7 @@ def descriptive_ic(
     }
 
 
-def daily_quantile_returns(
+def daily_quantile_outcomes(
     factors: pd.DataFrame,
     returns: pd.DataFrame,
     *,
@@ -290,7 +328,7 @@ def daily_quantile_returns(
         pair = pd.DataFrame(
             {
                 "factor": factors.loc[timestamp],
-                "forward_return": returns.loc[timestamp],
+                "outcome": returns.loc[timestamp],
             }
         ).dropna()
         if len(pair) < minimum_assets or pair["factor"].nunique() < 3:
@@ -301,7 +339,7 @@ def daily_quantile_returns(
         )
         groups = np.array_split(np.arange(len(ordered)), 3)
         low, middle, high = (
-            float(ordered.iloc[group]["forward_return"].mean())
+            float(ordered.iloc[group]["outcome"].mean())
             for group in groups
         )
         rows.append(
@@ -330,7 +368,7 @@ def quantile_summary(
     observations = int(len(clean))
     if observations < minimum_observations:
         return {
-            "mean_return_by_quantile": {
+            "mean_outcome_by_quantile": {
                 "low": None,
                 "middle": None,
                 "high": None,
@@ -347,7 +385,7 @@ def quantile_summary(
     ranked_means = pd.Series(list(means.values())).rank(method="average")
     monotonicity = ordered.corr(ranked_means)
     return {
-        "mean_return_by_quantile": means,
+        "mean_outcome_by_quantile": means,
         "high_minus_low": float(clean["high_minus_low"].mean()),
         "monotonicity": (
             float(monotonicity)

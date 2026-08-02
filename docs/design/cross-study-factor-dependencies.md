@@ -6,6 +6,7 @@ Related: [[docs/design/study-run-evidence]],
 [[docs/design/research-program-orchestration]],
 [[docs/design/request-bound-portfolio-mandates]],
 [[docs/design/factor-qualification-funnel]],
+[[docs/design/caller-owned-factor-outcomes]],
 [[docs/design/portfolio-risk-governor]],
 [[docs/design/executed-book-risk-compliance]],
 [[docs/design/rl-factor-policy-lab]], and
@@ -58,6 +59,11 @@ Existing Study manifests may omit the field. Their identity formula remains
 unchanged.
 
 ## Factor-to-RL semantics
+
+The current cross-Study bridge accepts only a `forward-return` Factor Claim.
+A fixed `forward-realized-volatility` Factor is valid standalone risk-model
+evidence but has no inherited expected-return sign, Portfolio target-weight
+meaning, or RL action meaning; intake and the downstream Judges reject it.
 
 The fixed RL Judge imports the dependency's ordinary pandas API:
 

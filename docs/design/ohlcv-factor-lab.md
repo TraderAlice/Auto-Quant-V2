@@ -5,6 +5,7 @@ Status: V1 reference Project implemented.
 Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]], [[docs/CLI]],
 [[docs/design/workspace-project-boundaries]],
 [[docs/design/study-run-evidence]],
+[[docs/design/caller-owned-factor-outcomes]],
 [[docs/design/factor-diagnostics]], and
 [[docs/design/research-session-loop]].
 
@@ -114,9 +115,9 @@ The Judge owns target construction and evaluation:
    comparing values already emitted by the full-history computation.
 4. Fix 60/20/20 boundaries from the dataset timeline, independently of
    candidate warm-up and coverage.
-5. Load the immutable Horizon Mandate, compute its primary and diagnostic
-   close-to-close forward returns, and purge signal rows whose target would
-   cross a split boundary.
+5. Load the immutable Factor Claim and Horizon Mandate, compute the bound
+   primary and diagnostic forward-return or forward-realized-volatility
+   outcome, and purge signal rows whose target would cross a split boundary.
 6. Select the immutable evaluation mode from the prediction population:
    within-split temporal Spearman/Pearson for exactly one request-bound
    decision asset; within-split temporal Spearman/Pearson between the
@@ -168,7 +169,7 @@ receive a new dataset identity.
 2. Created Projects are self-contained and never depend on mutable template
    files.
 3. Candidate authority excludes Judge, Study, program, and data bytes.
-4. Forward returns and split boundaries are computed only by the fixed Judge.
+4. Forward outcomes and split boundaries are computed only by the fixed Judge.
 5. Validation and test periods are chronological and purge-aware, never random
    row splits or candidate-dependent dates.
 6. Candidate selection uses validation only; visible test evidence requires a

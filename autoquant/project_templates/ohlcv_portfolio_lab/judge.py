@@ -12,7 +12,12 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from autoquant.factor_claims import FACTOR_CLAIM, load_factor_claim
+from autoquant.factor_claims import (
+    FACTOR_CLAIM,
+    FORWARD_RETURN_OUTCOME,
+    factor_outcome,
+    load_factor_claim,
+)
 from autoquant.factor_runtime import (
     FactorRuntimeError,
     build_factor_panel,
@@ -1109,6 +1114,12 @@ def _evaluate() -> tuple[
     study, data_root = _load_contract()
     mandate = _load_mandate()
     factor_claim = _load_factor_claim()
+    if factor_outcome(factor_claim) != FORWARD_RETURN_OUTCOME:
+        raise JudgeFailure(
+            "portfolio.factor-outcome",
+            "Portfolio construction requires a forward-return Factor; a "
+            "risk forecast has no expected-return or target-weight meaning",
+        )
     research_horizon = _load_horizon()
     implementation_policy = resolve_implementation_policy(mandate)
     dataset = study["dataset"]

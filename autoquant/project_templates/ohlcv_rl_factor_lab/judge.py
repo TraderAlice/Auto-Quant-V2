@@ -13,7 +13,12 @@ from typing import Any, Callable
 import numpy as np
 import pandas as pd
 
-from autoquant.factor_claims import FACTOR_CLAIM, load_factor_claim
+from autoquant.factor_claims import (
+    FACTOR_CLAIM,
+    FORWARD_RETURN_OUTCOME,
+    factor_outcome,
+    load_factor_claim,
+)
 from autoquant.factor_runtime import (
     FactorRuntimeError,
     build_factor_panel,
@@ -1723,6 +1728,12 @@ def _evaluate() -> tuple[
     study, data_root = _load_contract()
     mandate = _load_mandate()
     factor_claim = _load_factor_claim()
+    if factor_outcome(factor_claim) != FORWARD_RETURN_OUTCOME:
+        raise JudgeFailure(
+            "rl.factor-outcome",
+            "Governed RL requires a forward-return Factor and Portfolio "
+            "baseline; a risk forecast has no action-score meaning",
+        )
     research_horizon = _load_horizon()
     implementation_policy = resolve_implementation_policy(mandate)
     model_module = importlib.import_module("models.candidate")

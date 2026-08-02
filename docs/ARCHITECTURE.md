@@ -150,14 +150,16 @@ The V2 foundation now implements:
   and turnover evidence to CLI and Studio.
 - one request-bound Factor claim dependency that distinguishes general
   decision-signal research, novel-factor discovery, and predeclared
-  known-style validation before candidate search.
+  known-style validation before candidate search, and binds forward return or
+  fixed forward realized volatility as the evaluated outcome.
 - one claim-aware Factor prediction-universe contract: candidate code receives
   the complete research panel, request-specific decision signals are evaluated
   only on Portfolio-Mandate tradable assets, and factor-identity claims retain
   complete-universe evaluation. Research, prediction, and context populations
   are frozen and disclosed separately. One decision asset selects temporal
   evaluation; exactly two symmetric, two-sided, dollar-neutral decision assets
-  select temporal factor-spread versus forward-return-spread evaluation; four
+  select temporal factor-spread versus forward-return-spread evaluation only
+  for return outcomes; four
   or more select cross-sectional evaluation. Three remain a deliberate
   caller-owned relative-basket-weight boundary.
 - one optional explicit factor-component contract that checks declared

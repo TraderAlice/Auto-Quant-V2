@@ -92,9 +92,14 @@ PROJECT_TEMPLATE_ROUTES: tuple[dict[str, Any], ...] = (
         "id": "ohlcv-factor-lab",
         "kind": "single-lane-lab",
         "lanes": ["factor"],
-        "purpose": "Evaluate one causal OHLCV factor without downstream portfolio work.",
+        "purpose": (
+            "Evaluate one causal OHLCV factor against a caller-bound future "
+            "return or realized-volatility outcome without downstream "
+            "portfolio work."
+        ),
         "fits": [
             "The deliverable is factor quality, qualification, or diagnostics only.",
+            "The caller asks which causal OHLCV features forecast future realized risk.",
         ],
         "doesNotFit": [
             "The same Project must translate the factor into target weights or RL.",
@@ -104,13 +109,14 @@ PROJECT_TEMPLATE_ROUTES: tuple[dict[str, Any], ...] = (
         "id": "ohlcv-portfolio-lab",
         "kind": "single-lane-lab",
         "lanes": ["portfolio"],
-        "purpose": "Evaluate target-weight construction from an already fixed factor contract.",
+        "purpose": "Evaluate target-weight construction from an already fixed forward-return factor contract.",
         "fits": [
             "Portfolio evidence is standalone and no Factor-to-Portfolio admission is required.",
         ],
         "doesNotFit": [
             "Factor evidence must be established, reported, or admitted before Portfolio work.",
             "A coordinated Dossier or optional governed-RL continuation is expected.",
+            "The factor predicts risk rather than expected return.",
         ],
     },
     {
@@ -123,6 +129,7 @@ PROJECT_TEMPLATE_ROUTES: tuple[dict[str, Any], ...] = (
         ],
         "doesNotFit": [
             "The same Project must first establish Factor or Portfolio evidence.",
+            "The factor predicts risk rather than expected return.",
         ],
     },
     {
@@ -185,6 +192,7 @@ PROJECT_TEMPLATE_ROUTES: tuple[dict[str, Any], ...] = (
         ],
         "doesNotFit": [
             "A single fixed Lab fully answers the question without cross-lane admission.",
+            "The fixed Factor outcome is realized volatility; downstream lanes require forward return.",
         ],
     },
 )

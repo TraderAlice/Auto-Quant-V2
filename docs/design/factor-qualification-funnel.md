@@ -3,6 +3,7 @@
 Status: implemented.
 
 Related: [[docs/design/factor-diagnostics]],
+[[docs/design/caller-owned-factor-outcomes]],
 [[docs/design/factor-evidence-explorer]],
 [[docs/design/cross-study-factor-dependencies]],
 [[docs/design/portfolio-construction-lab]],
@@ -27,8 +28,8 @@ request-bound factor claim
 → claim-specific validation funnel
 → chronological stability
 → Project-family selection adjustment
-→ Portfolio monetization
-→ optional governed-RL consumption
+→ Portfolio monetization for forward-return evidence only
+→ optional governed-RL consumption for forward-return evidence only
 ```
 
 ## Fixed comparison contract
@@ -68,6 +69,11 @@ current asset universe and centers both rank vectors. It computes:
 This neutralization is causal because all inputs are observable at the signal
 close. It is cross-sectional and contemporaneous; it is not a fitted
 forward-return model and never sees the target.
+
+The same target-free comparison works when the fixed outcome is forward
+realized volatility. A positive risk forecast terminates as
+`risk-forecast-positive`; it does not enter Portfolio or governed RL because
+high predicted risk has no inherited expected-return sign.
 
 ## Evidence
 

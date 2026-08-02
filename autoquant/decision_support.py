@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from .factor_claims import factor_outcome
 from .factor_explorer import load_factor_diagnostics
 from .portfolio_explorer import load_portfolio_diagnostics
 from .rl_explorer import load_rl_diagnostics
@@ -279,6 +280,7 @@ def summarize_leader_decision_support(value: Any) -> dict[str, Any]:
             "method": factor_qualification["method"],
             "claim": factor_qualification["claim"]["claim"],
             "knownStyle": factor_qualification["claim"]["knownStyle"],
+            "outcome": factor_outcome(factor_qualification["claim"]),
             "stage": factor_qualification["diagnosis"]["stage"],
             "qualifiesForPortfolio": factor_qualification["diagnosis"][
                 "qualifiesForPortfolio"
@@ -790,6 +792,8 @@ def factor_qualification_markdown_lines(
         f"- Interpretation: {diagnosis['explanation']}",
         f"- Request-bound claim / known style: `{claim['claim']}` / "
         f"`{claim['knownStyle']}`.",
+        f"- Fixed prediction outcome: `{factor_outcome(claim)}`; larger "
+        "factor values predict larger outcome values.",
         "- Comparison style / selection rule: "
         f"`{selection['dominantStyle']}` / "
         f"`{selection['criterion']}`.",

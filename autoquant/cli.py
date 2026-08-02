@@ -2796,6 +2796,8 @@ def _run_factor(args: argparse.Namespace) -> CommandResult:
         diagnostics,
         (
             f"Factor Run: {diagnostics['run']['id']}\n"
+            f"Prediction outcome: {diagnostics['factorOutcome']['kind']} · "
+            f"{diagnostics['factorOutcome']['label']}\n"
             f"Selection mean rank IC: {validation['meanRankIc']}\n"
             f"HAC t / p: {validation['hacTStatistic']} / "
             f"{validation['hacNormalPValue']}\n"

@@ -4,6 +4,7 @@ Status: Implemented.
 
 Related: [[docs/design/causal-multi-interval-factor-inputs]],
 [[docs/design/factor-diagnostics]],
+[[docs/design/caller-owned-factor-outcomes]],
 [[docs/design/factor-evidence-explorer]],
 [[docs/design/research-selection-integrity]],
 [[docs/design/portfolio-construction-lab]],
@@ -106,7 +107,7 @@ misdescribe the code.
 
 ## Fixed evidence
 
-All predictive targets and split masks are the same purged request-bound
+All predictive outcomes and split masks are the same purged request-bound
 decision-bar contract used by the final factor.
 
 For every materialized score component, the Judge records coverage and

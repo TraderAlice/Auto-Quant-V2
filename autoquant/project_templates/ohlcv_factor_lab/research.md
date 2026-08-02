@@ -23,8 +23,11 @@ not evidence about real markets.
 
 - The Agent edits only `factors/candidate.py`.
 - The fixed Study is `ohlcv-factor-quality`.
+- `strategies/factor-claim.json` binds the prediction outcome. New delegated
+  requests should state `factorPolicy.outcome` as `forward-return` or
+  `forward-realized-volatility`; historical omission means forward return.
 - The fixed Judge reads the immutable Horizon Mandate and computes
-  purge-aware primary/diagnostic forward-bar returns, chronological splits,
+  purge-aware primary/diagnostic outcome panels, chronological splits,
   HAC/decay/tertile/style/stability diagnostics, a train-selected
   style-neutral qualification funnel, optional candidate-declared component
   quality/redundancy/fixed-blend ablation, and the causality audit.
@@ -45,13 +48,17 @@ not evidence about real markets.
 - A `decision-signal` intake is appropriate for an allocation, ranking, or
   timing question that needs robust raw predictive evidence without claiming
   novelty. Style overlap remains required disclosure.
+- `forward-realized-volatility` means the unannualized square root of summed
+  squared close-to-close log returns over the next fixed `h` observed base
+  bars. A higher factor predicts higher future risk. It is Factor-only and
+  grants no expected-return, target-weight, Portfolio, RL, or trading meaning.
 - Every candidate is evaluated through `aq experiment evaluate`; never call the
   Judge directly or optimize against the test target outside that contract.
 - Quantitative evidence describes historical behavior. It is not an order,
   Broker integration, or live-trading instruction.
 
 Successful declaring Runs include a complete JSON tear sheet plus exact daily
-IC/regime, quantile-return, observed-input availability,
+IC/regime, quantile-outcome, observed-input availability,
 candidate/style/residual/blend qualification, and candidate-declared component
 artifacts.
 Use `aq run factor --run <id> --json` and Studio for the verified summary; read

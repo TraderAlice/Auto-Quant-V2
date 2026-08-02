@@ -232,6 +232,12 @@ contrast. A request-bound one- or two-asset temporal decision signal may use a
 package containing only those prediction assets; Core does not require
 unrequested context padding merely to satisfy the cross-sectional breadth
 floor.
+The request's `factorPolicy.outcome` binds `forward-return` or
+`forward-realized-volatility`. The latter uses a complete unannualized
+square-root-sum-of-squared-log-return window and is accepted only by
+`ohlcv-factor-lab` for one temporal target or four-or-more cross-sectional
+targets. CLI/JSON/Studio label it as future risk and never open Portfolio or RL
+admission. See [[docs/design/caller-owned-factor-outcomes]].
 `ohlcv-portfolio-lab` uses the same causal candidate API and
 adds fixed constrained target construction, drift-aware accounting,
 transaction costs, layered professional metrics, and cost/delay/risk-governor

@@ -5,10 +5,50 @@ import unittest
 import numpy as np
 import pandas as pd
 
-from autoquant.factor_claims import known_style_candidate_source
+from autoquant.factor_claims import (
+    build_factor_claim,
+    factor_outcome,
+    factor_outcome_contract,
+    known_style_candidate_source,
+    normalize_factor_policy,
+)
+from autoquant.workspace import AutoQuantValidationError
 
 
 class KnownStyleCandidateTests(unittest.TestCase):
+    def test_explicit_outcome_is_hashed_and_legacy_policy_remains_implicit(self) -> None:
+        legacy = normalize_factor_policy(
+            {"claim": "decision-signal", "knownStyle": None}
+        )
+        self.assertNotIn("outcome", legacy)
+        self.assertEqual(factor_outcome(legacy), "forward-return")
+
+        request = {
+            "factorPolicy": {
+                "claim": "decision-signal",
+                "knownStyle": None,
+                "outcome": "forward-realized-volatility",
+            }
+        }
+        claim = build_factor_claim(request)
+        self.assertEqual(
+            claim["outcome"],
+            "forward-realized-volatility",
+        )
+        contract = factor_outcome_contract(claim)
+        self.assertTrue(contract["explicit"])
+        self.assertEqual(contract["portfolioAuthority"], "none")
+        self.assertEqual(contract["annualization"], "none")
+
+        with self.assertRaises(AutoQuantValidationError):
+            normalize_factor_policy(
+                {
+                    "claim": "decision-signal",
+                    "knownStyle": None,
+                    "outcome": "future-drawdown",
+                }
+            )
+
     def test_every_supported_known_style_seeds_the_exact_fixed_formula(
         self,
     ) -> None:

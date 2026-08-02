@@ -21,6 +21,12 @@ FACTOR_CLAIMS = {
     "novel-factor",
     "known-style-validation",
 }
+FORWARD_RETURN_OUTCOME = "forward-return"
+FORWARD_REALIZED_VOLATILITY_OUTCOME = "forward-realized-volatility"
+FACTOR_OUTCOMES = {
+    FORWARD_RETURN_OUTCOME,
+    FORWARD_REALIZED_VOLATILITY_OUTCOME,
+}
 KNOWN_FACTOR_STYLES = {
     "momentum_20",
     "reversal_5",
@@ -30,6 +36,25 @@ KNOWN_FACTOR_STYLES = {
 DEFAULT_FACTOR_POLICY = {
     "claim": "novel-factor",
     "knownStyle": None,
+}
+FACTOR_OUTCOME_CONTRACTS = {
+    FORWARD_RETURN_OUTCOME: {
+        "label": "forward close-to-close return",
+        "targetSemantics": "close-t-to-close-t-plus-h-simple-return",
+        "scoreDirection": "higher-factor-predicts-higher-outcome",
+        "annualization": "not-applicable",
+        "downstreamMeaning": "expected-return-research-only",
+    },
+    FORWARD_REALIZED_VOLATILITY_OUTCOME: {
+        "label": "forward realized volatility",
+        "targetSemantics": (
+            "sqrt-sum-squared-close-log-returns-t-plus-1-through-"
+            "t-plus-h-unannualized"
+        ),
+        "scoreDirection": "higher-factor-predicts-higher-outcome",
+        "annualization": "none",
+        "downstreamMeaning": "risk-forecast-only-no-return-signal",
+    },
 }
 KNOWN_STYLE_LABELS = {
     "momentum_20": "20-session cross-sectional momentum",
@@ -58,21 +83,23 @@ def normalize_factor_policy(value: Any) -> dict[str, Any]:
 
     if value is None:
         return dict(DEFAULT_FACTOR_POLICY)
-    if not isinstance(value, dict) or set(value) != {
-        "claim",
-        "knownStyle",
-    }:
+    if not isinstance(value, dict) or set(value) not in (
+        {"claim", "knownStyle"},
+        {"claim", "knownStyle", "outcome"},
+    ):
         raise AutoQuantValidationError(
             [
                 _issue(
                     "factorPolicy",
                     "factor-claim.policy",
-                    "factorPolicy must contain exactly claim and knownStyle",
+                    "factorPolicy must contain claim and knownStyle, with "
+                    "optional outcome",
                 )
             ]
         )
     claim = value.get("claim")
     known_style = value.get("knownStyle")
+    outcome = value.get("outcome", FORWARD_RETURN_OUTCOME)
     if claim not in FACTOR_CLAIMS:
         raise AutoQuantValidationError(
             [
@@ -101,9 +128,59 @@ def normalize_factor_policy(value: Any) -> dict[str, Any]:
                 )
             ]
         )
+    if outcome not in FACTOR_OUTCOMES:
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    "factorPolicy/outcome",
+                    "factor-claim.outcome",
+                    "Unknown Factor prediction outcome",
+                )
+            ]
+        )
     return {
         "claim": claim,
         "knownStyle": known_style,
+        **({"outcome": outcome} if "outcome" in value else {}),
+    }
+
+
+def factor_outcome(value: dict[str, Any]) -> str:
+    """Resolve explicit V2 outcome or the historical forward-return default."""
+
+    outcome = value.get("outcome", FORWARD_RETURN_OUTCOME)
+    if outcome not in FACTOR_OUTCOMES:
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    "factorPolicy/outcome",
+                    "factor-claim.outcome",
+                    "Unknown Factor prediction outcome",
+                )
+            ]
+        )
+    return str(outcome)
+
+
+def factor_outcome_contract(value: dict[str, Any]) -> dict[str, Any]:
+    """Project one exact target contract without changing stored identity."""
+
+    outcome = factor_outcome(value)
+    return {
+        "kind": outcome,
+        "explicit": "outcome" in value,
+        **FACTOR_OUTCOME_CONTRACTS[outcome],
+        "portfolioAuthority": (
+            "qualification-gated"
+            if outcome == FORWARD_RETURN_OUTCOME
+            else "none"
+        ),
+        "rlAuthority": (
+            "portfolio-evidence-gated"
+            if outcome == FORWARD_RETURN_OUTCOME
+            else "none"
+        ),
+        "tradingAuthority": "none",
     }
 
 
@@ -261,6 +338,7 @@ def validate_factor_claim(
         "authority",
         "tradingAuthority",
     }
+    optional = {"outcome"}
     issues: list[ValidationIssue] = []
     if not isinstance(value, dict):
         raise AutoQuantValidationError(
@@ -270,7 +348,7 @@ def validate_factor_claim(
         issues.append(
             _issue(f"{path}/{key}", "schema.missing", f"Missing required field '{key}'")
         )
-    for key in sorted(value.keys() - required):
+    for key in sorted(value.keys() - required - optional):
         issues.append(
             _issue(f"{path}/{key}", "schema.unknown", f"Unknown field '{key}'")
         )
@@ -305,6 +383,11 @@ def validate_factor_claim(
             {
                 "claim": value.get("claim"),
                 "knownStyle": value.get("knownStyle"),
+                **(
+                    {"outcome": value.get("outcome")}
+                    if "outcome" in value
+                    else {}
+                ),
             }
         )
     except AutoQuantValidationError as error:
@@ -312,6 +395,11 @@ def validate_factor_claim(
         policy = {
             "claim": value.get("claim"),
             "knownStyle": value.get("knownStyle"),
+            **(
+                {"outcome": value.get("outcome")}
+                if "outcome" in value
+                else {}
+            ),
         }
     if (
         value.get("selectionAuthority") != "validation-only"
@@ -326,7 +414,12 @@ def validate_factor_claim(
                 "Factor claim cannot alter selection or trading authority",
             )
         )
-    payload = {key: value.get(key) for key in required - {"id"}}
+    payload = {
+        key: value.get(key)
+        for key in required - {"id"}
+    }
+    if "outcome" in value:
+        payload["outcome"] = value.get("outcome")
     expected_id = f"factor-claim-{hash_json(payload)[:16]}"
     if value.get("id") != expected_id:
         issues.append(
@@ -427,6 +520,7 @@ FACTOR_CLAIM_JSON_SCHEMA: dict[str, Any] = {
                 {"enum": sorted(KNOWN_FACTOR_STYLES)},
             ]
         },
+        "outcome": {"enum": sorted(FACTOR_OUTCOMES)},
         "selectionAuthority": {"const": "validation-only"},
         "testRole": {"const": "visible-audit"},
         "authority": {"const": "quantitative-decision-support"},

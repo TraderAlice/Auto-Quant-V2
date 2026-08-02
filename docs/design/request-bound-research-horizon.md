@@ -5,6 +5,7 @@ Status: V1 implemented.
 Related: [[docs/design/research-intake-and-dataset-snapshots]],
 [[docs/design/ohlcv-factor-lab]],
 [[docs/design/factor-diagnostics]],
+[[docs/design/caller-owned-factor-outcomes]],
 [[docs/design/portfolio-construction-lab]],
 [[docs/design/rl-factor-policy-lab]], and
 [[docs/design/program-research-dossiers]].
@@ -17,7 +18,7 @@ meaning of one decision bar; AutoQuant owns reproducible evaluation.
 ```text
 Research Request.horizonPolicy
 → content-addressed research-horizon.json
-→ Factor primary target and diagnostic forward returns
+→ Factor primary target and diagnostic forward outcomes
 → Portfolio/RL question identity and disclosure
 → Report / Dossier / optional host delivery
 ```
@@ -67,7 +68,7 @@ The primary bar owns:
   ablation summaries that were formerly hardwired to bar 1.
 
 Every diagnostic bar owns its own boundary purge, rank/Pearson IC, quantile
-return, component quality, and artifact columns. Non-primary bars remain
+outcome, component quality, and artifact columns. Non-primary bars remain
 context only and cannot select a candidate. The canonical
 `diagnosticForwardBars` name is retained for compatibility even though its
 stored value is the complete evaluated set including the primary.

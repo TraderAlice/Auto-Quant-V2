@@ -3,8 +3,8 @@
 ## Research question
 
 Can one causal transformation of ordinary OHLCV history produce stable
-forward-return information across the fixed prediction-eligible universe and
-both held-out chronological periods?
+information about the caller-bound future outcome across the fixed
+prediction-eligible universe and both held-out chronological periods?
 
 ## Editable API
 
@@ -29,6 +29,13 @@ and matching forward-return contrast, but only under a symmetric, two-sided,
 dollar-neutral Mandate. Four or more eligible assets use the cross-sectional
 contract. Three require explicit caller-owned relative-basket contrast
 weights. No mode may borrow context-only target observations.
+The fixed Factor Claim also binds `outcome`. `forward-return` uses the simple
+close-to-close return from signal close `t` to `t+h`. `forward-realized-
+volatility` uses the unannualized square root of summed squared close-to-close
+log returns over the next `h` observed base bars. The latter supports one
+temporal prediction asset or at least four cross-sectional assets, and a
+higher score means higher predicted risk—not positive expected return. It has
+no Portfolio or RL admission path. Do not invert, monetize, or relabel it.
 Aligned inputs are rectangular; V4 daily and V5 observed-bar input is ragged and
 does not invent, fill, or globally intersect missing/pre-listing/closed-market
 rows. V5 temporal targets, split boundaries, and purge counts follow the one
@@ -96,8 +103,8 @@ evidence was unused.
 2. Read `strategies/factor-claim.json`,
    `strategies/portfolio-mandate.json`, the current candidate, and immutable
    leader evidence. The request-bound `decision-signal`, `novel-factor`, or
-   `known-style-validation` claim and its prediction population are fixed
-   evidence authority, not editable strategy metadata.
+   `known-style-validation` claim, outcome, and prediction population are
+   fixed evidence authority, not editable strategy metadata.
 3. State one falsifiable hypothesis about price or volume behavior.
 4. Make one coherent code change inside the editable closure.
 5. Run the bounded Experiment command supplied by the Session.
@@ -147,6 +154,11 @@ positive statistically supported raw IC, and positive raw IC in both fixed
 chronological folds. This prioritizes the next research lane; it does not
 change KEEP/REVERT, replace Project-family selection adjustment, or
 automatically admit the source into Portfolio or RL.
+
+When the fixed outcome is `forward-realized-volatility`, a positive funnel is
+terminal risk-model evidence for this in-sample Study. Freeze, report, and seek
+a fresh external holdout; never treat the result as an expected-return signal
+or open Portfolio/RL work merely because the association is positive.
 
 Component leave-one-out applies only to the Judge's fixed equal-rank
 diagnostic blend. It is not an ablation of arbitrary `compute_factor` code.

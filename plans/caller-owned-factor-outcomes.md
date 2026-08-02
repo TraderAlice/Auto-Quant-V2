@@ -4,6 +4,7 @@
 - Updated: `2026-08-02`
 - Target release: `0.9.28`
 - Related design: [[docs/design/ohlcv-factor-lab]],
+  [[docs/design/caller-owned-factor-outcomes]],
   [[docs/design/factor-diagnostics]],
   [[docs/design/factor-qualification-funnel]], and
   [[docs/design/cross-study-factor-dependencies]].
@@ -80,17 +81,17 @@ refusing to grant the latter meaning to a risk forecast.
 
 ## Acceptance
 
-- [ ] A strict caller request can select either supported outcome, and invalid
+- [x] A strict caller request can select either supported outcome, and invalid
   or misplaced outcome authority fails before Project construction with a
   precise diagnostic.
-- [ ] Deterministic unit evidence proves exact forward realized-volatility
+- [x] Deterministic unit evidence proves exact forward realized-volatility
   alignment, complete-window missingness, horizon-specific purge, temporal and
   cross-sectional evaluation, and no target leakage into style selection or
   neutralization.
-- [ ] New Runs bind and disclose one outcome consistently across metrics,
+- [x] New Runs bind and disclose one outcome consistently across metrics,
   artifacts, Explorer, Report/Dossier support, CLI, Studio, schemas,
   capabilities, templates, and Agent instructions.
-- [ ] A positive risk forecast stops further in-sample tuning but cannot open
+- [x] A positive risk forecast stops further in-sample tuning but cannot open
   Portfolio or RL gates; a return outcome retains the existing monetization
   route unchanged.
 - [ ] Existing checked-in sample evidence validates and projects without
@@ -103,11 +104,11 @@ refusing to grant the latter meaning to a risk forecast.
 
 ## Work
 
-- [ ] Add the strict request/claim outcome contract and intake compatibility
+- [x] Add the strict request/claim outcome contract and intake compatibility
   gates.
-- [ ] Generalize the fixed Factor target panels, evidence vocabulary, and
+- [x] Generalize the fixed Factor target panels, evidence vocabulary, and
   independent Explorer reconciliation around one bound outcome.
-- [ ] Complete downstream gate, agenda, Report/Dossier, CLI, Studio, schema,
+- [x] Complete downstream gate, agenda, Report/Dossier, CLI, Studio, schema,
   template, Skill, and design-document parity.
 - [ ] Run focused deterministic tests and a fresh installed-wheel Grok field
   assignment; repair reusable Agent friction only.
@@ -134,7 +135,18 @@ refusing to grant the latter meaning to a risk forecast.
 
 ## Verification
 
-Pending.
+- Deterministic numerical and end-to-end Factor tests cover complete-window
+  realized-volatility alignment, temporal missingness, cross-sectional risk
+  scoring, immutable Explorer reconciliation, the risk-positive terminal
+  stage, withheld Portfolio/RL authority, agenda, decision support, CLI data,
+  and Studio projection.
+- The first cross-surface regression ran 144 tests in 547.165 seconds. 143
+  passed; the sole expected fixture failure showed that syncing the current
+  sample Judge makes its latest older Factor Run stale. The sample must receive
+  a truthful new clean-Harness Run rather than weakening the consistency gate
+  or relabeling old evidence.
+- Python compilation, Studio JavaScript syntax, diff checks, and all 1,489
+  documentation links pass at the implementation checkpoint.
 
 ## Progress log
 
@@ -142,6 +154,12 @@ Pending.
   unresolved framework-needs records and confirming that earlier candidate
   gaps had already been repaired. The hard-coded future-return target remains
   a current executable limitation.
+- 2026-08-02 — Implemented caller-bound return/risk outcome contracts across
+  intake, fixed evaluation, immutable evidence, independent read models,
+  downstream admission, agent surfaces, and documentation. Historical claims
+  remain byte-for-byte implicit return identities. Template synchronization
+  correctly made the sample's latest older run stale; the next checkpoint is a
+  clean-Harness sample replay before installed-wheel field work.
 
 ## Completion
 

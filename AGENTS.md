@@ -175,6 +175,16 @@ the visible-evidence timing, and create a corrected sibling Study or Project;
 never delete evidence and recreate the same identity to make the attempt look
 clean.
 
+Also bind `factorPolicy.outcome` before construction. Use `forward-return` for
+expected-return, ranking, timing, target-weight, Portfolio, or RL questions.
+Use `forward-realized-volatility` only when the caller asks which causal OHLCV
+features predict future risk; route it to standalone `ohlcv-factor-lab`, where
+a higher factor means higher predicted risk and no Portfolio/RL gate may open.
+Read [[docs/design/caller-owned-factor-outcomes]] for the exact complete-window
+log-return formula, supported populations, and historical implicit-return
+boundary. Do not infer the outcome from candidate code or invert a risk score
+into a return claim.
+
 When the assignment requires market data, use the Workspace's
 `$acquire-market-ohlcv` Skill after the research question fixes the venue,
 assets, completed-bar interval, date range, research clock, and required

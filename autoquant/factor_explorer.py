@@ -12,6 +12,9 @@ from typing import Any
 
 from .factor_claims import (
     FACTOR_CLAIM_JSON_SCHEMA,
+    FORWARD_RETURN_OUTCOME,
+    factor_outcome,
+    factor_outcome_contract,
     validate_factor_claim,
 )
 from .horizons import (
@@ -1246,6 +1249,8 @@ def _monotonicity(means: list[float]) -> float | None:
 def _reconcile_quantiles(
     rows: list[dict[str, Any]],
     metrics: dict[str, Any],
+    *,
+    modern_outcome_contract: bool,
 ) -> None:
     analysis = metrics.get("quantile_analysis")
     if not isinstance(analysis, dict) or set(analysis) != {
@@ -1284,7 +1289,11 @@ def _reconcile_quantiles(
                 label: _mean([row[label] for row in selected])
                 for label in ("low", "middle", "high")
             }
-            expected_means = expected.get("mean_return_by_quantile")
+            expected_means = expected.get(
+                "mean_outcome_by_quantile"
+                if modern_outcome_contract
+                else "mean_return_by_quantile"
+            )
             if not isinstance(expected_means, dict):
                 _fail(
                     f"quantiles/{horizon}/{split_name}",
@@ -1296,7 +1305,7 @@ def _reconcile_quantiles(
                     means[label],
                     expected_means.get(label),
                     f"quantiles/{horizon}/{split_name}/{label}",
-                    f"mean {label} quantile return",
+                    f"mean {label} quantile outcome",
                 )
             spread = _mean([row["highMinusLow"] for row in selected])
             _close(
@@ -1649,6 +1658,7 @@ def _factor_qualification_projection(
         }
     metrics = parsed["metrics"]
     claim = parsed["claim"]
+    outcome_kind = factor_outcome(claim)
     semantics = metrics.get("semantics")
     expected_neutralization = (
         "within-split-temporal-centered-rank-ols"
@@ -1887,6 +1897,18 @@ def _factor_qualification_projection(
             "Aggregate validation raw candidate IC is positive, but at least "
             "one fixed chronological candidate fold is non-positive."
         )
+    elif (
+        claim["claim"] == "decision-signal"
+        and outcome_kind != FORWARD_RETURN_OUTCOME
+    ):
+        stage = "risk-forecast-positive"
+        focus = "risk-model-report-and-external-holdout"
+        explanation = (
+            "The risk signal has positive statistically supported validation "
+            "association in every fixed chronological candidate fold. It is "
+            "a future-risk forecast, not an expected-return signal; freeze "
+            "and report it without Portfolio or RL admission."
+        )
     elif claim["claim"] == "decision-signal":
         stage = "decision-signal-positive"
         focus = "portfolio-monetization-and-rl-context"
@@ -1895,6 +1917,18 @@ def _factor_qualification_projection(
             "validation IC in every fixed chronological candidate fold. "
             "Style overlap remains disclosed context rather than a novelty "
             "claim; proceed to bounded Portfolio monetization."
+        )
+    elif (
+        claim["claim"] == "known-style-validation"
+        and outcome_kind != FORWARD_RETURN_OUTCOME
+    ):
+        stage = "risk-forecast-positive"
+        focus = "risk-model-report-and-external-holdout"
+        explanation = (
+            "The candidate matches the predeclared style and has positive "
+            "statistically supported validation association with future "
+            "risk in every fixed chronological fold. It has no expected-"
+            "return, Portfolio, or RL authority."
         )
     elif claim["claim"] == "known-style-validation":
         stage = "known-style-validation-positive"
@@ -1938,13 +1972,24 @@ def _factor_qualification_projection(
             "one fixed chronological residual fold is non-positive."
         )
     else:
-        stage = "factor-qualification-positive"
-        focus = "portfolio-monetization-and-rl-context"
-        explanation = (
-            "Validation raw, style-neutral, blend-uplift, and chronological "
-            "residual evidence are positive; proceed to bounded Portfolio "
-            "monetization before interpreting governed-RL value."
-        )
+        if outcome_kind != FORWARD_RETURN_OUTCOME:
+            stage = "risk-forecast-positive"
+            focus = "risk-model-report-and-external-holdout"
+            explanation = (
+                "Validation raw, style-neutral, blend-uplift, and "
+                "chronological residual evidence support a distinct future-"
+                "risk forecast. Freeze and report it; the result does not "
+                "authorize expected-return, Portfolio, or RL use."
+            )
+        else:
+            stage = "factor-qualification-positive"
+            focus = "portfolio-monetization-and-rl-context"
+            explanation = (
+                "Validation raw, style-neutral, blend-uplift, and "
+                "chronological residual evidence are positive; proceed to "
+                "bounded Portfolio monetization before interpreting "
+                "governed-RL value."
+            )
     horizon_profile = [
         {
             "horizon": horizon,
@@ -2334,6 +2379,7 @@ def _factor_components_projection(
     evidence: Any,
     universe: list[str],
     evaluation_mode: str,
+    prediction_target: str,
 ) -> dict[str, Any]:
     base = {
         "method": COMPONENT_METHOD,
@@ -2438,7 +2484,7 @@ def _factor_components_projection(
     temporal = evaluation_mode in TEMPORAL_EVALUATION_MODES
     expected_semantics = {
         "evaluation_mode": evaluation_mode,
-        "prediction_target": "fixed-purged-forward-base-bar-return",
+        "prediction_target": prediction_target,
         "score_measure": (
             "within-split-temporal-rank-correlation-contribution"
             if temporal
@@ -3394,13 +3440,21 @@ def _horizon_profile(metrics: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
-def _quantile_summary(metrics: dict[str, Any]) -> list[dict[str, Any]]:
+def _quantile_summary(
+    metrics: dict[str, Any],
+    *,
+    modern_outcome_contract: bool,
+) -> list[dict[str, Any]]:
     output: list[dict[str, Any]] = []
     analysis = metrics["quantile_analysis"]
     for horizon in HORIZONS:
         for split_name in SPLITS:
             value = analysis[str(horizon)][split_name]
-            means = value["mean_return_by_quantile"]
+            means = value[
+                "mean_outcome_by_quantile"
+                if modern_outcome_contract
+                else "mean_return_by_quantile"
+            ]
             output.append(
                 {
                     "horizon": horizon,
@@ -3767,6 +3821,25 @@ def _load_factor_diagnostics_unlocked(
             "Factor report dataset differs from immutable RunResult",
         )
     metrics = run.result["metrics"]
+    outcome_claim = validate_factor_claim(
+        metrics.get("factor_claim"),
+        "RunResult/metrics/factor_claim",
+    )
+    outcome_contract = factor_outcome_contract(outcome_claim)
+    modern_outcome_contract = "factor_outcome" in metrics
+    if modern_outcome_contract:
+        if metrics.get("factor_outcome") != outcome_contract:
+            _fail(
+                "RunResult/metrics/factor_outcome",
+                "factor.outcome-contract",
+                "Factor outcome does not reconcile the fixed claim",
+            )
+    elif "outcome" in outcome_claim:
+        _fail(
+            "RunResult/metrics/factor_outcome",
+            "factor.outcome-contract",
+            "An explicit Factor outcome requires an immutable outcome contract",
+        )
     prediction_universe = _prediction_universe(metrics, universe)
     if prediction_universe["available"] and (
         report_dataset.get("predictionAssets")
@@ -3800,7 +3873,11 @@ def _load_factor_diagnostics_unlocked(
         }
         availability_rows = []
     quantiles = _parse_quantiles(paths["factor-quantiles"], daily)
-    _reconcile_quantiles(quantiles, metrics)
+    _reconcile_quantiles(
+        quantiles,
+        metrics,
+        modern_outcome_contract=modern_outcome_contract,
+    )
     qualification_parsed = (
         _parse_factor_qualification(
             paths[QUALIFICATION_ARTIFACT_KIND],
@@ -3870,6 +3947,15 @@ def _load_factor_diagnostics_unlocked(
             "factor.report-semantics",
             "Factor report must declare the fixed horizon and style semantics",
         )
+    if modern_outcome_contract and (
+        semantics.get("outcome") != outcome_contract
+        or semantics.get("target") != outcome_contract["targetSemantics"]
+    ):
+        _fail(
+            paths["factor-report"],
+            "factor.report-outcome",
+            "Factor report outcome semantics differ from immutable metrics",
+        )
     qualification_semantics = semantics.get("qualification")
     qualification_method = (
         qualification_parsed["method"]
@@ -3922,6 +4008,16 @@ def _load_factor_diagnostics_unlocked(
             "method": COMPONENT_METHOD,
             "evaluationMode": raw_component_semantics["evaluation_mode"],
             "scoreMeasure": raw_component_semantics["score_measure"],
+            **(
+                {
+                    "predictionTarget": raw_component_semantics[
+                        "prediction_target"
+                    ]
+                }
+                if isinstance(component_semantics, dict)
+                and "predictionTarget" in component_semantics
+                else {}
+            ),
             "declaration": "candidate-explicit-not-source-inferred",
             "roles": [
                 "cross-sectional-score",
@@ -3987,6 +4083,7 @@ def _load_factor_diagnostics_unlocked(
         },
         "harness": run.result["harness"],
         "researchHorizon": research_horizon,
+        "factorOutcome": outcome_contract,
         "predictionUniverse": prediction_universe,
         "artifacts": artifacts,
         "protocol": {
@@ -4007,9 +4104,17 @@ def _load_factor_diagnostics_unlocked(
             component_evidence,
             universe,
             prediction_universe["evaluationMode"],
+            (
+                outcome_contract["targetSemantics"]
+                if modern_outcome_contract
+                else "fixed-purged-forward-base-bar-return"
+            ),
         ),
         "horizonProfile": _horizon_profile(metrics),
-        "quantileSummary": _quantile_summary(metrics),
+        "quantileSummary": _quantile_summary(
+            metrics,
+            modern_outcome_contract=modern_outcome_contract,
+        ),
         "stability": _stability(
             metrics,
             prediction_universe["predictionAssets"],
@@ -4209,6 +4314,7 @@ _FACTOR_QUALIFICATION_SCHEMA: dict[str, Any] = {
                                 "known-style-identity-mismatch",
                                 "known-style-temporal-instability",
                                 "known-style-validation-positive",
+                                "risk-forecast-positive",
                             ]
                         },
                         "iterationFocus": {
@@ -4221,6 +4327,7 @@ _FACTOR_QUALIFICATION_SCHEMA: dict[str, Any] = {
                                 "temporal-regime-robustness",
                                 "portfolio-monetization-and-rl-context",
                                 "known-style-implementation-identity",
+                                "risk-model-report-and-external-holdout",
                             ]
                         },
                         "explanation": {"type": "string", "minLength": 1},
@@ -4469,6 +4576,7 @@ FACTOR_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "dataset",
         "harness",
         "researchHorizon",
+        "factorOutcome",
         "predictionUniverse",
         "artifacts",
         "protocol",
@@ -4495,6 +4603,52 @@ FACTOR_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         },
         "harness": {"type": "object"},
         "researchHorizon": RESEARCH_HORIZON_JSON_SCHEMA,
+        "factorOutcome": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": [
+                "kind",
+                "explicit",
+                "label",
+                "targetSemantics",
+                "scoreDirection",
+                "annualization",
+                "downstreamMeaning",
+                "portfolioAuthority",
+                "rlAuthority",
+                "tradingAuthority",
+            ],
+            "properties": {
+                "kind": {
+                    "enum": [
+                        "forward-return",
+                        "forward-realized-volatility",
+                    ]
+                },
+                "explicit": {"type": "boolean"},
+                "label": {"type": "string"},
+                "targetSemantics": {"type": "string"},
+                "scoreDirection": {
+                    "const": "higher-factor-predicts-higher-outcome"
+                },
+                "annualization": {
+                    "enum": ["not-applicable", "none"]
+                },
+                "downstreamMeaning": {
+                    "enum": [
+                        "expected-return-research-only",
+                        "risk-forecast-only-no-return-signal",
+                    ]
+                },
+                "portfolioAuthority": {
+                    "enum": ["qualification-gated", "none"]
+                },
+                "rlAuthority": {
+                    "enum": ["portfolio-evidence-gated", "none"]
+                },
+                "tradingAuthority": {"const": "none"},
+            },
+        },
         "predictionUniverse": {"type": "object"},
         "artifacts": {
             "type": "object",

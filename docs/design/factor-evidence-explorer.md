@@ -4,6 +4,7 @@ Status: V1 implemented.
 
 Related: [[docs/ARCHITECTURE]], [[docs/CLI]], [[docs/STUDIO]],
 [[docs/design/factor-diagnostics]],
+[[docs/design/caller-owned-factor-outcomes]],
 [[docs/design/factor-component-attribution]],
 [[docs/design/factor-qualification-funnel]],
 [[docs/design/research-selection-integrity]],
@@ -52,7 +53,8 @@ has no arbitrary file route, and returns no candidate source.
 ### Identity and protocol
 
 The projection preserves Run, Study, objective, dataset, Harness, artifact
-hashes, the fixed Horizon Mandate, target semantics, style dictionary, and
+hashes, the fixed Horizon Mandate, derived `factorOutcome`, target semantics,
+style dictionary, and
 split roles:
 
 - train — construction/training evidence;
@@ -111,7 +113,7 @@ evidence population.
 
 The complete quantile artifact must contain one unique
 `timestamp × split × horizon` row with finite low/middle/high and
-high-minus-low returns. Core recomputes mean group returns, spread,
+high-minus-low outcomes. Core recomputes mean group outcomes, spread,
 monotonicity, and observation count for every split/horizon and reconciles
 them to the immutable metric tree.
 

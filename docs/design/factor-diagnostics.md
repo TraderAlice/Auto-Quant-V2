@@ -4,6 +4,7 @@ Status: V1 implemented.
 
 Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]],
 [[docs/design/ohlcv-factor-lab]],
+[[docs/design/caller-owned-factor-outcomes]],
 [[docs/design/factor-component-attribution]],
 [[docs/design/factor-evidence-explorer]],
 [[docs/design/portfolio-construction-lab]],
@@ -26,13 +27,19 @@ diagnostics without changing this document's final-factor objective.
 
 ## Timing and purged splits
 
-At close `t`, a candidate may use OHLCV through `t`. Horizon `h` evaluates:
+At close `t`, a candidate may use OHLCV through `t`. Horizon `h` evaluates the
+outcome bound by the Factor Claim. Forward return is:
 
 ```text
 factor(asset, t)
 against
 close(asset, t + h) / close(asset, t) - 1
 ```
+
+Forward realized volatility is the unannualized square root of summed squared
+close-to-close log returns across the next `h` observed base bars. Its complete
+formula, missing-window rule, prediction populations, and downstream boundary
+are fixed by [[docs/design/caller-owned-factor-outcomes]].
 
 The dataset timestamp index fixes chronological 60/20/20 boundaries before the
 candidate runs. Candidate warm-up or missingness cannot move those boundaries.
@@ -90,7 +97,7 @@ objective fails with one of three stable diagnostics:
 - `factor.temporal-primary-candidate-variation` when those pairs contain fewer
   than two candidate values;
 - `factor.temporal-primary-target-variation` when they contain fewer than two
-  forward-return values.
+  fixed-outcome values.
 
 Each message discloses evaluation mode, split, primary horizon, pair count,
 distinct candidate/target counts, and the required minimum. This is a failed
@@ -111,9 +118,9 @@ never enter the target contrast.
 Each cross-sectional date sorts valid assets by factor and partitions them into fixed
 low/middle/high groups. Each split/horizon reports:
 
-- mean return for each group;
-- high-minus-low mean spread;
-- rank correlation between group order and group mean return as monotonicity;
+- mean outcome for each group;
+- high-minus-low mean outcome spread;
+- rank correlation between group order and group mean outcome as monotonicity;
 - valid observation count.
 
 With the small reference universe, tertiles are honest; pretending to have
@@ -127,7 +134,7 @@ The primary-horizon IC is sliced without changing the objective:
 
 - two fixed chronological folds inside each train/validation/test split;
 - causal `up/down × calm/stressed` market regimes;
-- per-asset time-series rank correlation between factor and forward return.
+- per-asset time-series rank correlation between factor and the fixed outcome.
 
 Regime direction uses trailing equal-weight market return through `t`.
 Regime volatility uses trailing market volatility through `t` compared with a
@@ -158,8 +165,8 @@ Every successful reference Run publishes:
   causality cuts, and coverage;
 - `daily-factor-evidence.csv`: timestamp, fixed split, causal regime, and
   purge-aware request-bound daily rank/Pearson IC;
-- `factor-quantiles.csv`: timestamp, split, horizon, low/middle/high return,
-  and high-minus-low spread.
+- `factor-quantiles.csv`: timestamp, split, horizon, low/middle/high outcome,
+  and high-minus-low outcome spread.
 - `factor-availability.csv`: source-panel-union timestamp-level observed
   input, finite-factor, and per-horizon target-pair breadth reconciled to
   aggregate availability. Its timeline is intentionally independent from the
