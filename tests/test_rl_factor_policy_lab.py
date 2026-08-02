@@ -834,6 +834,7 @@ class GovernedRlFactorPolicyLabTests(unittest.TestCase):
                     "paths": [
                         "factors/**",
                         "strategies/factor-claim.json",
+                        "strategies/factor-population.json",
                         "strategies/portfolio-mandate.json",
                         "strategies/research-horizon.json",
                     ]
@@ -844,6 +845,7 @@ class GovernedRlFactorPolicyLabTests(unittest.TestCase):
                 {
                     "factors/candidate.py",
                     "strategies/factor-claim.json",
+                    "strategies/factor-population.json",
                     "strategies/portfolio-mandate.json",
                     "strategies/research-horizon.json",
                 },

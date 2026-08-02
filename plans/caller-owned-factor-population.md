@@ -153,6 +153,12 @@ future non-return outcomes inherit accidental Portfolio semantics.
   unchanged `-2.6561200041391655` validation net Sharpe. Studio selects both
   as current while retaining all 17 earlier Runs. Full-suite/build/install
   checks and the fresh Grok trial remain pending.
+- The first complete 451-test pass found three migration assertions: one
+  Factor preflight fixture still inferred its question from position roles,
+  and two RL tests omitted the new fixed dependency from expected closures.
+  The Factor fixture now states a four-asset decision-signal population, the
+  preflight speaks in prediction/context language, and all three focused
+  retries pass. A final complete suite remains required after release metadata.
 
 ## Progress log
 
@@ -167,6 +173,9 @@ future non-return outcomes inherit accidental Portfolio semantics.
 - 2026-08-02 — Added two immutable clean-commit candidate Runs rather than
   rewriting history. The sample now contains 19 Runs, and CLI/Studio reconcile
   the new Factor and Portfolio evidence as current.
+- 2026-08-02 — Full-suite migration audit exposed and repaired the final old
+  preflight/RL vocabulary assumptions; no runtime/scientific failure was
+  hidden behind compatibility behavior.
 
 ## Completion
 

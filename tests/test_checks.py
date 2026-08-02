@@ -638,8 +638,8 @@ class CandidateCheckTests(unittest.TestCase):
                 if template == "ohlcv-factor-lab":
                     self.assertIn(
                         "bounded decision sample ALPHA, BRAVO (2 of 6 "
-                        "position-capable assets); fixed "
-                        "context/benchmark assets none; at most 256 timestamps",
+                        "prediction assets); fixed "
+                        "Factor-context assets none; at most 256 timestamps",
                         result["checks"][0]["message"],
                     )
                 if template == "ohlcv-rl-factor-lab":
@@ -723,7 +723,7 @@ class CandidateCheckTests(unittest.TestCase):
                 self.assertEqual(failure["status"], "failed")
                 self.assertEqual(failure["errors"][0]["code"], expected_code)
 
-    def test_factor_preflight_includes_fixed_context_and_benchmark_assets(
+    def test_factor_preflight_includes_fixed_factor_context_assets(
         self,
     ) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -731,6 +731,8 @@ class CandidateCheckTests(unittest.TestCase):
             roles = {
                 "AAPL": "long-only",
                 "MSFT": "long-only",
+                "NVDA": "long-only",
+                "QQQ": "long-only",
                 "SPY": "context-only",
             }
             request_path, package_path = write_intake_inputs(
@@ -738,6 +740,11 @@ class CandidateCheckTests(unittest.TestCase):
                 request_assets=tuple(roles),
                 asset_position_roles=roles,
                 benchmark_policy={"kind": "asset", "symbol": "SPY"},
+                factor_policy={
+                    "claim": "decision-signal",
+                    "knownStyle": None,
+                    "predictionAssets": ["AAPL", "MSFT", "NVDA", "QQQ"],
+                },
             )
             prepared = prepare_project_intake(
                 request_path,
@@ -787,11 +794,15 @@ class CandidateCheckTests(unittest.TestCase):
                 session.manifest["id"],
             )
 
-            self.assertEqual(checked.result["status"], "passed")
+            self.assertEqual(
+                checked.result["status"],
+                "passed",
+                checked.result,
+            )
             self.assertIn(
-                "bounded decision sample AAPL, MSFT (2 of 2 "
-                "position-capable assets); fixed context/benchmark assets "
-                "NVDA, QQQ, SPY; at most 256 timestamps",
+                "bounded decision sample AAPL, MSFT (2 of 4 "
+                "prediction assets); fixed Factor-context assets "
+                "SPY; at most 256 timestamps",
                 checked.result["checks"][0]["message"],
             )
 

@@ -130,21 +130,21 @@ def _bounded_universe(
 ) -> tuple[list[str], list[str], list[str], int]:
     references = _fixed_reference_assets(study, study_universe)
     reference_set = set(references)
-    position_assets = [
+    prediction_assets = [
         symbol
         for symbol in study_universe
         if symbol not in reference_set
     ]
-    if not position_assets:
-        position_assets = list(study_universe)
-    decisions = position_assets[:MAX_DECISION_ASSETS]
+    if not prediction_assets:
+        prediction_assets = list(study_universe)
+    decisions = prediction_assets[:MAX_DECISION_ASSETS]
     selected = set(decisions) | reference_set
     universe = [
         symbol
         for symbol in study_universe
         if symbol in selected
     ]
-    return universe, decisions, references, len(position_assets)
+    return universe, decisions, references, len(prediction_assets)
 
 
 def main() -> None:
@@ -156,7 +156,7 @@ def main() -> None:
             universe,
             decision_assets,
             reference_assets,
-            position_asset_count,
+            prediction_asset_count,
         ) = _bounded_universe(study, study_universe)
         if not universe:
             raise CheckFailure("data.universe", "Study universe is empty")
@@ -199,8 +199,8 @@ def main() -> None:
                     "deterministic, component declaration, and bounded "
                     "panel-prefix causality checks passed; bounded decision "
                     f"sample {', '.join(decision_assets)} "
-                    f"({len(decision_assets)} of {position_asset_count} "
-                    "position-capable assets); fixed context/benchmark "
+                    f"({len(decision_assets)} of {prediction_asset_count} "
+                    "prediction assets); fixed Factor-context "
                     f"assets {', '.join(reference_assets) or 'none'}; "
                     f"at most {MAX_TIMESTAMPS} timestamps"
                 ),

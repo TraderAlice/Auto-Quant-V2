@@ -122,6 +122,7 @@ class RlPolicyEvidenceExplorerTests(unittest.TestCase):
                 [
                     "factors/**",
                     "strategies/factor-claim.json",
+                    "strategies/factor-population.json",
                     "strategies/portfolio-mandate.json",
                     "strategies/research-horizon.json",
                 ],
