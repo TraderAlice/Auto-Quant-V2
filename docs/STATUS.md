@@ -52,8 +52,12 @@ no governed-RL baseline. OpenAlice remains independently pinned to `v0.8.31`.
 
 The final source regression passes all 451 tests in 1217.702 seconds. Lock
 consistency, Python compilation, Studio JavaScript syntax, diff hygiene, and
-all current documentation links also pass; exact build/install, clone, and
-publication proof remains in [[plans/caller-owned-factor-population]].
+all 1,546 current documentation links also pass. A clean candidate wheel
+reports exact embedded `0.9.30` provenance, all 58 commands, all 16 bundled
+Skills, and the Factor Population schema. A no-override clone passes orient,
+validate, Project listing, Studio snapshot, package closure, and a newly
+executed Factor Run whose Harness identity agrees across every installed
+surface. Exact proof remains in [[plans/caller-owned-factor-population]].
 
 ## What works today
 

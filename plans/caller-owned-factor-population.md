@@ -1,6 +1,6 @@
 # Caller-owned Factor population
 
-- Status: `active`
+- Status: `completed`
 - Target release: `0.9.30`
 - Updated: `2026-08-02`
 - Related design: [[docs/design/caller-owned-factor-outcomes]],
@@ -94,7 +94,7 @@ future non-return outcomes inherit accidental Portfolio semantics.
   authority boundary.
 - [x] Existing immutable sample Runs are not rewritten or relabelled; any new
   checked-in evidence records its true candidate Harness identity.
-- [ ] Focused tests, documentation links, complete unit tests, build/install
+- [x] Focused tests, documentation links, complete unit tests, build/install
   identity smoke, clean-clone Workspace smoke, and a fresh Grok field trial all
   pass before `v0.9.30` is tagged and pushed.
 
@@ -109,7 +109,7 @@ future non-return outcomes inherit accidental Portfolio semantics.
 - [x] Migrate the current sample/template source and update durable design and
   operator documentation.
 - [x] Build the candidate and run one isolated fresh Grok assignment.
-- [ ] Complete the release audit, version bump, final artifact rebuild,
+- [x] Complete the release audit, version bump, final artifact rebuild,
   annotated tag, and canonical push.
 
 ## Findings and decisions
@@ -181,6 +181,26 @@ future non-return outcomes inherit accidental Portfolio semantics.
   and `e524c840d0ce8b3654a3c05592ebbf9a756e089cad97d847f8238336418f78c4`.
   Complete evidence is retained outside the release repository at
   `/Users/ame/2607AutoQuant/grok-field-trials/cohort-45-factor-population-v0930-candidate`.
+- Lock consistency, Python compilation, Studio JavaScript syntax, diff hygiene,
+  and all 1,546 repository documentation links pass. The final source
+  regression passed all 451 tests in 1217.702 seconds.
+- Clean release candidate commit `9b82293` built wheel SHA-256
+  `12c18b90bfadf86008182a8fa0720d464b4c1dff99e7740e96e74a7a8c66bb58`
+  and sdist SHA-256
+  `1e3c5afeab594d23e1dcd110918414b051f2e2321694eeba447a6b345c0ee753`.
+  A fresh Python `3.11.14` environment reports version `0.9.30`, clean
+  embedded commit `9b82293c085b30599b72aa984c4cb8055583bdd4`, source hash
+  `690afa7bf633bd3b33ae9cfec392342216691b63e8f132fc03c42340594dff3b`,
+  all 58 public commands, the Factor Population schema, all bundled runtime
+  templates/Studio assets/16 Skills, and an `aq-python` interpreter inside the
+  installed environment.
+- A no-hardlink clone of the same candidate contains no local override and
+  starts clean with default `sample-research-desk`, three Studies, and nineteen
+  immutable Runs. Installed-wheel `orient`, `validate`, `project list`, and
+  `studio snapshot` pass. A new bounded Factor execution produced succeeded
+  Run `run-20260802T034317837741Z-9aa6e3d093e8`; version, capabilities, Studio,
+  and that Run agree exactly on the installed candidate's five-field Harness
+  identity.
 
 ## Progress log
 
@@ -205,9 +225,16 @@ future non-return outcomes inherit accidental Portfolio semantics.
   temporal quantile labels, compact train/validation divergence in orient, and
   an optional schema-valid Report draft scaffold.
 - 2026-08-02 — Advanced the candidate metadata to `0.9.30`; the final static
-  gates and complete 451-test regression pass. Clean build/install and
-  no-override clone replay remain the final publication gates.
+  gates and complete 451-test regression pass. Clean build/install,
+  no-override clone replay, package-closure inspection, and a newly executed
+  installed-wheel Run also pass.
 
 ## Completion
 
-Pending.
+Completed on 2026-08-02. Factor evaluation population is now caller-owned and
+independent of Portfolio construction authority across request intake, fixed
+dependencies, Factor/Portfolio/RL Judges, read models, CLI, Studio, templates,
+and the checked-in sample. Historical Runs remain immutable. A fresh Grok
+coworker completed the intended risk-only workflow without a fictional
+Mandate, and the full regression, documentation, build/install, clean-clone,
+new-Run, and publication audits pass for `v0.9.30`.
