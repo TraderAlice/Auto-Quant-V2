@@ -22,6 +22,7 @@ It is deliberately not a second current-status page or release checklist:
 
 | Release | Bounded outcome | Exact evidence |
 | --- | --- | --- |
+| `v0.9.29` | Made README a bounded product entrance and routed complete operation and release work to explicit Agent-loadable authority. | [[plans/concise-documentation-front-door]] |
 | `v0.9.28` | Bound Factor evaluation to the caller's explicit forward-return or forward-realized-volatility outcome without granting risk forecasts Portfolio or RL authority. | [[plans/caller-owned-factor-outcomes]] |
 | `v0.9.27` | Guarded a fresh editable Study's first canonical candidate before its complete baseline and retained explicit no-authority provenance. | [[plans/first-baseline-candidate-preflight]] |
 | `v0.9.26` | Added byte-preserving, source-addressed composition of compatible close-time-aware V5 packages into one strict multi-provider V6 Factor surface. | [[plans/multi-source-observed-factor-packaging]] |

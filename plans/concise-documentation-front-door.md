@@ -59,21 +59,21 @@ stable guide, and keep README small enough to remain a useful first read.
 
 ## Acceptance
 
-- [ ] README is a concise product entrance no longer than 220 physical lines
+- [x] README is a concise product entrance no longer than 220 physical lines
   and contains no detailed release checklist, historical release ledger, data
   packaging tutorial, Session loop, Report/Dossier procedure, or feature-by-
   feature capability catalogue.
-- [ ] One linked operator guide preserves every still-current public workflow
+- [x] One linked operator guide preserves every still-current public workflow
   removed from README and points to canonical CLI, Project-format, acquisition,
   research-lifecycle, evidence, and Studio references rather than duplicating
   their complete contracts.
-- [ ] `AGENTS.md` tells an Agent exactly which document to load for product
+- [x] `AGENTS.md` tells an Agent exactly which document to load for product
   orientation, operation, current capability, release history, release work,
   active implementation, and subsystem design.
-- [ ] Deterministic documentation tests enforce the entry-surface budget,
+- [x] Deterministic documentation tests enforce the entry-surface budget,
   ownership headings, direct routing links, version-frontmatter parity, and all
   repository double-links.
-- [ ] A fresh Grok coworker can discover how to create and orient a real Project
+- [x] A fresh Grok coworker can discover how to create and orient a real Project
   and how to prepare a release from the front door, without being told which
   internal files to inspect.
 - [ ] Focused tests, full regression, build/install smoke, clean-clone read
@@ -83,9 +83,9 @@ stable guide, and keep README small enough to remain a useful first read.
 
 - [x] Extract the current operator walkthrough and reduce README to the bounded
   entrance surface without losing a working quick start.
-- [ ] Update AGENTS and documentation-system ownership rules; add regression
+- [x] Update AGENTS and documentation-system ownership rules; add regression
   tests for the new boundary.
-- [ ] Run a fresh Grok documentation-navigation trial and repair only reusable
+- [x] Run a fresh Grok documentation-navigation trial and repair only reusable
   entry/routing friction.
 - [ ] Advance version and release records, complete the release audit, publish
   the commit/tag, and verify remote identity.
@@ -111,7 +111,32 @@ stable guide, and keep README small enough to remain a useful first read.
 
 ## Verification
 
-Pending.
+- README is 154 physical lines versus the enforced maximum of 220. It retains
+  the required OpenAlice-readable version frontmatter and no longer contains
+  the moved acquisition, intake, Session, Report/Dossier, or release-procedure
+  sections. The operator guide contains all six required workflow stages.
+- Focused documentation/version verification passes all five tests, including
+  source/build version agreement and sdist/wheel provenance. All 1,524 current
+  repository double-links resolve and `git diff --check` passes at the
+  candidate checkpoint.
+- First clean-clone field trial at documentation commit `c51f06d`: Grok `4.5`
+  session `019fc010-6e3d-7b71-bb6e-a2d1352bad9c` used no memory, web, or
+  subagents, opened exactly README → operator guide → version policy → STATUS
+  → CHANGELOG, and recovered both handoffs without source/test/history access.
+  It found only the differing initial command set. Assignment SHA-256 is
+  `997766d7b0340668e8c4f6953548231e5dfb6b8bcb271e5184fd5b9daf1b5119`;
+  transcript SHA-256 is
+  `9a9fc39f1e3dff6abf2857767cef72e3f055ee5f76fbc18a57705b0829737988`.
+- Final clean-clone retry at repaired commit `c8c26cc`: fresh Grok `4.5`
+  session `019fc012-a855-7b70-b185-1d921feea53a` again recovered exact
+  commands, blank-template choice, `research.md` gate, release authority,
+  complete audit, publish order, and host-pin independence. It found no missing
+  step or competing authority and left the checkout clean. Assignment SHA-256
+  is unchanged; final transcript SHA-256 is
+  `50ac4277966a2bb412958f233e8df0abd71e2049037f64f157d6b66d3b57c507`.
+- The installed Grok CLI now exposes `grok-4.5`; its former
+  `grok-4.5-build` model id was rejected before a Session began. This external
+  model-name change did not alter the isolation or acceptance criteria.
 
 ## Progress log
 
