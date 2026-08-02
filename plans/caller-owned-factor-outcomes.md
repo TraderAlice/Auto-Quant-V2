@@ -94,9 +94,9 @@ refusing to grant the latter meaning to a risk forecast.
 - [x] A positive risk forecast stops further in-sample tuning but cannot open
   Portfolio or RL gates; a return outcome retains the existing monetization
   route unchanged.
-- [ ] Existing checked-in sample evidence validates and projects without
+- [x] Existing checked-in sample evidence validates and projects without
   mutation under its implicit historical forward-return identity.
-- [ ] A fresh installed-wheel Grok coworker can construct, execute, inspect,
+- [x] A fresh installed-wheel Grok coworker can construct, execute, inspect,
   and report one bounded risk-forecast Study without private Core inspection
   or a framework workaround.
 - [ ] Focused tests, full regression, documentation links, build, installed
@@ -110,7 +110,7 @@ refusing to grant the latter meaning to a risk forecast.
   independent Explorer reconciliation around one bound outcome.
 - [x] Complete downstream gate, agenda, Report/Dossier, CLI, Studio, schema,
   template, Skill, and design-document parity.
-- [ ] Run focused deterministic tests and a fresh installed-wheel Grok field
+- [x] Run focused deterministic tests and a fresh installed-wheel Grok field
   assignment; repair reusable Agent friction only.
 - [ ] Advance version and release records, run the complete audit, publish the
   commit/tag, and verify remote identity.
@@ -160,6 +160,23 @@ refusing to grant the latter meaning to a risk forecast.
   writable. The candidate now routes this exact `risk-forecast-positive` state
   to baseline-bound Report publication and Session completion. A fresh wheel
   replay remains required before release.
+- The final fresh retry used wheel SHA-256
+  `95f38406e0d98cf90201d60c116f6bc4b3590d7d2efabe455c702e1e426d6986`
+  from clean embedded commit `8a5a9a2`. Grok session
+  `019fbfeb-bd0c-7862-b242-48c7c83419bc` again completed in 18 turns with one
+  Run, zero Experiments, one Report, and one completed Session. Its distinct
+  predeclared vol/range candidate reached validation mean rank IC
+  `0.3523029083645743`, HAC t-statistic `4.294484681552545`, and positive
+  validation folds. Post-Run orientation returned
+  `risk-forecast-report-required` with primary `report.publish`; no candidate-
+  edit-required label occurred. Independent `verify_field.py` passed against
+  immutable evidence, public CLI loaders, Studio, transcript, and exact hashes.
+- Final static and regression gate: `uv lock --check`, Python compilation,
+  Studio JavaScript syntax, `git diff --check`, and all 1,490 documentation
+  links pass. The complete suite passed all 446 tests in 1090.966 seconds,
+  including legacy immutable evidence, return Factor-to-Portfolio/RL paths,
+  every intake surface, Reports/Reviews/Dossiers, Studio, Workspace Skills,
+  package provenance, and the new risk-outcome stop state.
 
 ## Progress log
 
@@ -180,6 +197,17 @@ refusing to grant the latter meaning to a risk forecast.
   orientation. Repaired that reusable stop-state guidance and added a
   deterministic active-Session regression rather than accepting manual Agent
   interpretation as the product contract.
+- 2026-08-02 — Final installed-wheel retry independently followed the repaired
+  report-and-complete route without any post-test candidate edit. It recorded
+  three non-blocking future considerations: an append-only Session research
+  log, clearer Factor-only prediction-universe naming than the shared mandate,
+  and a compact Factor Explorer projection. The first is an intentional
+  evidence-lifecycle tradeoff, the second needs a separate authority design,
+  and the third is useful Agent ergonomics for a later patch; none weakens or
+  changes this release's verified outcome contract.
+- 2026-08-02 — Complete 446-test regression and all static/documentation gates
+  passed after the field-trial repair. Clean build/install, root Workspace,
+  clean-clone, and remote identity remain the final publication checks.
 
 ## Completion
 

@@ -45,9 +45,14 @@ candidate code must express asynchronous context through explicit causal
 backward as-of operations. Core never manufactures a common calendar or
 implicit fill.
 
-Candidate deterministic tests and cross-surface regression pass. The installed
-wheel field trial, complete release audit, and remote tag identity remain the
-active release gate; exact evolving proof is retained in
+Two fresh installed-wheel Grok coworkers independently completed the risk
+route with one Run, zero Experiments, one Report, and one completed Session
+each. The first exposed contradictory candidate-edit guidance after positive
+risk qualification; the candidate was repaired, and the final clean-wheel
+retry received `report.publish` as its exact next action and stopped without
+post-test tuning. The complete 446-test regression and all 1,490 documentation
+links pass. Clean build/install, clean-clone audit, and remote tag identity
+remain the active release gate; exact evolving proof is retained in
 [[plans/caller-owned-factor-outcomes]].
 
 The root sample preserves seventeen historical Runs without rewriting old
