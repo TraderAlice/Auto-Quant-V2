@@ -85,11 +85,17 @@ current Portfolio Run
 candidate Harness at commit `f17d261`. It confirms that the ordinary
 cross-sectional normalized-intent construction remains explicit and valid
 after relative-value intent semantics were aligned with the capped
-complementary pair constructor. The candidate declares only base-clock
+complementary pair constructor. The current Portfolio Run
+`run-20260802T002837074065Z-6e030f64c6c4` was produced by the clean `0.9.27`
+source Harness at commit `0f81a84` after the shared claim boundary began
+rejecting non-return Factor outcomes. The sample retains its historical
+implicit return claim, so this Run truthfully confirms the existing Portfolio
+result and `-2.6561200041391655` validation net Sharpe under the new guard. The
+candidate declares only base-clock
 momentum because this sample dataset has no higher-interval feature surface.
 Studio uses the latest ordinary immutable Run in each lane: the clean `0.9.27`
-candidate Run for the Factor Explorer and the `0.9.4` Run for the Portfolio
-Explorer. A governed-RL baseline remains deliberately absent.
+source Runs for both the Factor and Portfolio Explorers. A governed-RL
+baseline remains deliberately absent.
 
 ## Research brief and clarification
 

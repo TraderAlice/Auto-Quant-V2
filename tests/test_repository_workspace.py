@@ -31,6 +31,7 @@ SOURCE_AVAILABILITY_FACTOR_RUN_ID = "run-20260801T190954461897Z-2e8462aa4547"
 CALENDAR_PACKAGE_FACTOR_RUN_ID = "run-20260801T200541529080Z-beb54535a432"
 MULTI_SOURCE_FACTOR_RUN_ID = "run-20260801T212920787441Z-4fafdd0a9412"
 OUTCOME_FACTOR_RUN_ID = "run-20260802T002742222364Z-5b8af7e55965"
+OUTCOME_PORTFOLIO_RUN_ID = "run-20260802T002837074065Z-6e030f64c6c4"
 SAMPLE_DESCRIPTION = (
     "A deterministic three-lane reference Project for learning AutoQuant "
     "before starting real research."
@@ -100,6 +101,7 @@ class RepositoryWorkspaceTests(unittest.TestCase):
                 CALENDAR_PACKAGE_FACTOR_RUN_ID,
                 MULTI_SOURCE_FACTOR_RUN_ID,
                 OUTCOME_FACTOR_RUN_ID,
+                OUTCOME_PORTFOLIO_RUN_ID,
             ],
         )
         run = load_run(project, SAMPLE_RUN_ID)
@@ -398,6 +400,24 @@ class RepositoryWorkspaceTests(unittest.TestCase):
             outcome_factor.result["metrics"]["validation_mean_ic"],
             -0.031325301204819286,
         )
+        outcome_portfolio = load_run(project, OUTCOME_PORTFOLIO_RUN_ID)
+        self.assertEqual(outcome_portfolio.result["status"], "succeeded")
+        self.assertEqual(
+            outcome_portfolio.result["study"]["id"],
+            "ohlcv-portfolio-quality",
+        )
+        self.assertEqual(
+            outcome_portfolio.result["harness"]["version"], "0.9.27"
+        )
+        self.assertEqual(
+            outcome_portfolio.result["harness"]["commit"],
+            "0f81a8493e0df0a6cb569f2ab18bf4bf4a2442aa",
+        )
+        self.assertFalse(outcome_portfolio.result["harness"]["dirty"])
+        self.assertEqual(
+            outcome_portfolio.result["metrics"]["validation_net_sharpe"],
+            -2.6561200041391655,
+        )
 
         research = (project.root_dir / "research.md").read_text(encoding="utf-8")
         self.assertIn("## About this sample", research)
@@ -414,6 +434,7 @@ class RepositoryWorkspaceTests(unittest.TestCase):
         self.assertIn(CALENDAR_PACKAGE_FACTOR_RUN_ID, research)
         self.assertIn(MULTI_SOURCE_FACTOR_RUN_ID, research)
         self.assertIn(OUTCOME_FACTOR_RUN_ID, research)
+        self.assertIn(OUTCOME_PORTFOLIO_RUN_ID, research)
         self.assertIn("not relabeled as a", research)
 
     def test_sample_template_owned_files_match_a_fresh_research_desk(
@@ -442,7 +463,7 @@ class RepositoryWorkspaceTests(unittest.TestCase):
         sample = snapshot["projects"][0]
         self.assertTrue(sample["valid"])
         self.assertEqual(sample["counts"]["studies"], 3)
-        self.assertEqual(sample["counts"]["runs"], 16)
+        self.assertEqual(sample["counts"]["runs"], 17)
         self.assertEqual(sample["counts"]["sessions"], 0)
         self.assertIsNotNone(sample["factorExplorer"])
         self.assertEqual(
@@ -456,7 +477,7 @@ class RepositoryWorkspaceTests(unittest.TestCase):
         self.assertIsNotNone(sample["portfolioExplorer"])
         self.assertEqual(
             sample["portfolioExplorer"]["run"]["id"],
-            PORTFOLIO_SAMPLE_RUN_ID,
+            OUTCOME_PORTFOLIO_RUN_ID,
         )
         self.assertEqual(
             sample["portfolioExplorer"]["translationRobustness"]["reason"],
