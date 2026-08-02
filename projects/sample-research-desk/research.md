@@ -90,11 +90,24 @@ complementary pair constructor. The current Portfolio Run
 source Harness at commit `0f81a84` after the shared claim boundary began
 rejecting non-return Factor outcomes. The sample retains its historical
 implicit return claim, so this Run truthfully confirms the existing Portfolio
-result and `-2.6561200041391655` validation net Sharpe under the new guard. The
-candidate declares only base-clock
+result and `-2.6561200041391655` validation net Sharpe under the new guard.
+The current Factor Run
+`run-20260802T024611132256Z-89573be045d4` was produced by the clean `0.9.29`
+candidate source Harness at commit `9ea04cf` after Factor evaluation population
+became an independent fixed contract. It records
+`factor-population-78adf037945d08ec`, complete-universe novel-factor
+evaluation, and explicit `portfolioAuthority: none`, while preserving the
+same deterministic validation IC. The current Portfolio Run
+`run-20260802T024637192531Z-c704a397cdb5` was produced by the clean `0.9.29`
+candidate source Harness at commit `3db7cbb`. It binds that same Factor
+Population plus the separate compatible Portfolio Mandate and preserves the
+same `-2.6561200041391655` validation net Sharpe. Neither candidate execution
+is relabeled as released `0.9.30` evidence.
+
+The candidate declares only base-clock
 momentum because this sample dataset has no higher-interval feature surface.
-Studio uses the latest ordinary immutable Run in each lane: the clean `0.9.27`
-source Runs for both the Factor and Portfolio Explorers. A governed-RL
+Studio uses the latest ordinary immutable Run in each lane: the clean `0.9.29`
+candidate source Runs for both the Factor and Portfolio Explorers. A governed-RL
 baseline remains deliberately absent.
 
 ## Research brief and clarification

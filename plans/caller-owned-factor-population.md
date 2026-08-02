@@ -74,25 +74,25 @@ future non-return outcomes inherit accidental Portfolio semantics.
 
 ## Acceptance
 
-- [ ] A normalized `decision-signal` request names unique requested
+- [x] A normalized `decision-signal` request names unique requested
   `predictionAssets`; missing, duplicate, unrequested, unsupported-size, or
   outcome-incompatible populations fail before Project construction.
-- [ ] Novel-factor and known-style claims deterministically use the complete
+- [x] Novel-factor and known-style claims deterministically use the complete
   research universe and cannot smuggle in a narrower prediction population.
-- [ ] Every new Factor Study binds a strict, content-addressed Factor
+- [x] Every new Factor Study binds a strict, content-addressed Factor
   Population whose metrics and read models contain Factor roles and explicit
   evaluation-only authority, never Portfolio position roles.
-- [ ] A standalone Factor Lab creates, validates, runs, reports, and appears in
+- [x] A standalone Factor Lab creates, validates, runs, reports, and appears in
   Studio without any `portfolio-mandate.json`.
-- [ ] Portfolio and governed RL independently require a forward-return Factor
+- [x] Portfolio and governed RL independently require a forward-return Factor
   Population plus a compatible Portfolio Mandate; tampering either dependency
   fails deterministically.
-- [ ] Observed-only temporal intake takes its target clock from the explicit
+- [x] Observed-only temporal intake takes its target clock from the explicit
   Factor population rather than from position permission.
-- [ ] CLI schema/capability discovery, Project format, operator/Agent guidance,
+- [x] CLI schema/capability discovery, Project format, operator/Agent guidance,
   architecture/design documentation, templates, and sample state agree on one
   authority boundary.
-- [ ] Existing immutable sample Runs are not rewritten or relabelled; any new
+- [x] Existing immutable sample Runs are not rewritten or relabelled; any new
   checked-in evidence records its true candidate Harness identity.
 - [ ] Focused tests, documentation links, complete unit tests, build/install
   identity smoke, clean-clone Workspace smoke, and a fresh Grok field trial all
@@ -144,8 +144,15 @@ future non-return outcomes inherit accidental Portfolio semantics.
   current Study dependencies while preserving all 17 historical Runs.
 - Fresh-template parity, documentation links, Factor Population schema
   discovery, Python compilation, sample validation, and program projection
-  pass. Candidate sample Runs, full-suite/build/install checks, and the fresh
-  Grok trial remain pending.
+  pass.
+- Sample Factor Run `run-20260802T024611132256Z-89573be045d4` records clean
+  candidate commit `9ea04cf`, complete Factor-only population authority, and
+  the unchanged deterministic validation IC. Portfolio Run
+  `run-20260802T024637192531Z-c704a397cdb5` records clean candidate commit
+  `3db7cbb`, the same population plus a distinct compatible Mandate, and the
+  unchanged `-2.6561200041391655` validation net Sharpe. Studio selects both
+  as current while retaining all 17 earlier Runs. Full-suite/build/install
+  checks and the fresh Grok trial remain pending.
 
 ## Progress log
 
@@ -157,6 +164,9 @@ future non-return outcomes inherit accidental Portfolio semantics.
   Explorers, schemas, CLI/Studio projections, sample source, and durable docs.
   Historical sample Runs remain byte-for-byte untouched and are correctly
   stale until candidate evidence is generated.
+- 2026-08-02 — Added two immutable clean-commit candidate Runs rather than
+  rewriting history. The sample now contains 19 Runs, and CLI/Studio reconcile
+  the new Factor and Portfolio evidence as current.
 
 ## Completion
 

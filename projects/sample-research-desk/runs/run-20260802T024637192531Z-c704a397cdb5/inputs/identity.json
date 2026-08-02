@@ -1,0 +1,42 @@
+{
+  "datasetHash": "0d740a8f0f285f69eae626fc1e76e9d60d57b42acd03842708ed3675570e97f7",
+  "datasetSourceHashes": {
+    "ohlcv/ALPHA.csv": "18724414024a549eff1f8fa509c922827d8d9e6d1e4c6bd322e99935801bfdb3",
+    "ohlcv/BRAVO.csv": "e7ff2864b8270b40c4327b3e83379b3225c2216d732aa4c256547ff85c395ee7",
+    "ohlcv/CHARLIE.csv": "6b58dae61e306554633409f6779f052550700e224ae124ed509d81342bafb737",
+    "ohlcv/DELTA.csv": "977fe9b9e2441fa4511e14f65f6ed5851bfa50451e31e38c13386f24375f84bf",
+    "ohlcv/ECHO.csv": "fb4efdfcd1533816ce67fdc58f6d924ffd750944126a8d64e0c57255a8b5e22a",
+    "ohlcv/FOXTROT.csv": "72f715db8f40793ffd1327def2d92c40adc6f9ca48b501b92a32cf744c7a23ec",
+    "ohlcv/README.md": "8911f42951ab7a291ebd3e8ad6193bdbc52e79418f00dbe4b2cda8b3d3a00277"
+  },
+  "dependencyHash": "de2c8c8f59c8c99af17faf334713b3a22d42107d1a59f51b8c1be3b2df415030",
+  "dependencyHashes": {
+    "strategies/factor-claim.json": "61981777bd8b81bf57dc05bb63b5df085eef018dd9e3d83593c511bf21637a83",
+    "strategies/factor-population.json": "d77ce8dc25c04c41e610116c0ee6ccb0297128e9e918638479c76a5fbec5887e",
+    "strategies/portfolio-mandate.json": "74e9ded83a8287df0f8df955b147960a3926c5bca176704a99f7d7feb0b5259b",
+    "strategies/research-horizon.json": "ebf6fa40cbcbcdc18490439865e6a7de1a0322abc8853b528b3745bc5e70618d"
+  },
+  "evaluationRole": "research-selection",
+  "harness": {
+    "buildProvenance": "source-checkout",
+    "commit": "3db7cbb747170d2dffb29a1abe73511271562d8e",
+    "dirty": false,
+    "id": "autoquant.python-judge",
+    "python": "3.11.14",
+    "sourceHash": "b140fa8a26d6f23b934a0ad83a5eca189d0b6e78421d98f729b56b5dfc17d941",
+    "version": "0.9.29"
+  },
+  "inputHash": "1351b6e8a684e7a017500071a2fb699b224e33e6fc8bc855465989d2b5473690",
+  "judgeHash": "fefb37b23096484d9bc82b02669b60348d629de2971f0fecb2d517c5e9f96609",
+  "judgeHashes": {
+    "judges/ohlcv_portfolio.py": "03f69ee5e1d27d75f4cb60273461908dc01e2d6a2435f599c7d5cd4cfb11352c",
+    "judges/portfolio_core.py": "17ddff2421921cf940811f2f531ab81222eeb879d876764f6301ee70e2001406"
+  },
+  "programHash": "a15db6ab34a2bfbb30b990dc9ca523e4d60871ea5f0c54a8c54161b62d4cf9ab",
+  "sourceHash": "72e7ef57b95bfec64189290ee76943e33bd6c64c34c627f5abdc39d6c54058bc",
+  "sourceHashes": {
+    "factors/candidate.py": "1e29d70f72ce3afaf3d018f9d60c77026148423f57b52fb22f55f8127679ba6a"
+  },
+  "studyHash": "cd39867c134c489ad75e85f1d162206b6348a2292043e77b9f7db8b32467844d",
+  "studyInputHash": "7ffa6ce4421fbb8db66fcbdacf16a5d88e2f0b8248979906b7b010cdc5dc1014"
+}

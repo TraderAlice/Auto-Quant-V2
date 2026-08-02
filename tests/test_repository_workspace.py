@@ -32,6 +32,10 @@ CALENDAR_PACKAGE_FACTOR_RUN_ID = "run-20260801T200541529080Z-beb54535a432"
 MULTI_SOURCE_FACTOR_RUN_ID = "run-20260801T212920787441Z-4fafdd0a9412"
 OUTCOME_FACTOR_RUN_ID = "run-20260802T002742222364Z-5b8af7e55965"
 OUTCOME_PORTFOLIO_RUN_ID = "run-20260802T002837074065Z-6e030f64c6c4"
+FACTOR_POPULATION_RUN_ID = "run-20260802T024611132256Z-89573be045d4"
+FACTOR_POPULATION_PORTFOLIO_RUN_ID = (
+    "run-20260802T024637192531Z-c704a397cdb5"
+)
 SAMPLE_DESCRIPTION = (
     "A deterministic three-lane reference Project for learning AutoQuant "
     "before starting real research."
@@ -102,6 +106,8 @@ class RepositoryWorkspaceTests(unittest.TestCase):
                 MULTI_SOURCE_FACTOR_RUN_ID,
                 OUTCOME_FACTOR_RUN_ID,
                 OUTCOME_PORTFOLIO_RUN_ID,
+                FACTOR_POPULATION_RUN_ID,
+                FACTOR_POPULATION_PORTFOLIO_RUN_ID,
             ],
         )
         run = load_run(project, SAMPLE_RUN_ID)
@@ -418,6 +424,33 @@ class RepositoryWorkspaceTests(unittest.TestCase):
             outcome_portfolio.result["metrics"]["validation_net_sharpe"],
             -2.6561200041391655,
         )
+        population_factor = load_run(project, FACTOR_POPULATION_RUN_ID)
+        self.assertEqual(population_factor.result["status"], "succeeded")
+        self.assertEqual(
+            population_factor.result["harness"]["commit"],
+            "9ea04cf53b6a5ea81a76191d2e20a4b5838d1258",
+        )
+        self.assertFalse(population_factor.result["harness"]["dirty"])
+        self.assertEqual(
+            population_factor.result["metrics"]["prediction_universe"][
+                "portfolio_authority"
+            ],
+            "none",
+        )
+        population_portfolio = load_run(
+            project,
+            FACTOR_POPULATION_PORTFOLIO_RUN_ID,
+        )
+        self.assertEqual(population_portfolio.result["status"], "succeeded")
+        self.assertEqual(
+            population_portfolio.result["harness"]["commit"],
+            "3db7cbb747170d2dffb29a1abe73511271562d8e",
+        )
+        self.assertFalse(population_portfolio.result["harness"]["dirty"])
+        self.assertEqual(
+            population_portfolio.result["metrics"]["validation_net_sharpe"],
+            -2.6561200041391655,
+        )
 
         research = (project.root_dir / "research.md").read_text(encoding="utf-8")
         self.assertIn("## About this sample", research)
@@ -435,6 +468,8 @@ class RepositoryWorkspaceTests(unittest.TestCase):
         self.assertIn(MULTI_SOURCE_FACTOR_RUN_ID, research)
         self.assertIn(OUTCOME_FACTOR_RUN_ID, research)
         self.assertIn(OUTCOME_PORTFOLIO_RUN_ID, research)
+        self.assertIn(FACTOR_POPULATION_RUN_ID, research)
+        self.assertIn(FACTOR_POPULATION_PORTFOLIO_RUN_ID, research)
         self.assertIn("not relabeled as a", research)
 
     def test_sample_template_owned_files_match_a_fresh_research_desk(
@@ -463,21 +498,21 @@ class RepositoryWorkspaceTests(unittest.TestCase):
         sample = snapshot["projects"][0]
         self.assertTrue(sample["valid"])
         self.assertEqual(sample["counts"]["studies"], 3)
-        self.assertEqual(sample["counts"]["runs"], 17)
+        self.assertEqual(sample["counts"]["runs"], 19)
         self.assertEqual(sample["counts"]["sessions"], 0)
         self.assertIsNotNone(sample["factorExplorer"])
         self.assertEqual(
             sample["factorExplorer"]["run"]["id"],
-            OUTCOME_FACTOR_RUN_ID,
+            FACTOR_POPULATION_RUN_ID,
         )
         self.assertEqual(
             sample["researchProgramStatus"]["lanes"][0]["latestRun"]["id"],
-            OUTCOME_FACTOR_RUN_ID,
+            FACTOR_POPULATION_RUN_ID,
         )
         self.assertIsNotNone(sample["portfolioExplorer"])
         self.assertEqual(
             sample["portfolioExplorer"]["run"]["id"],
-            OUTCOME_PORTFOLIO_RUN_ID,
+            FACTOR_POPULATION_PORTFOLIO_RUN_ID,
         )
         self.assertEqual(
             sample["portfolioExplorer"]["translationRobustness"]["reason"],
