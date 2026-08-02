@@ -61,27 +61,27 @@ and offer a safe transition into Agent-authored interpretation.
 
 ## Acceptance
 
-- [ ] Cross-sectional Factor evidence declares fixed tertiles available;
+- [x] Cross-sectional Factor evidence declares fixed tertiles available;
   single-asset and two-asset temporal evidence declares
   `protocol-unavailable` with a stable reason, zero artifact rows, and no
   fabricated group values.
-- [ ] Factor CLI and Studio show that exact availability contract and prevent
+- [x] Factor CLI and Studio show that exact availability contract and prevent
   a temporal Quantiles tab from looking like a missing-data failure.
-- [ ] The Agent Work Brief contains a nullable strict Factor split contrast;
+- [x] The Agent Work Brief contains a nullable strict Factor split contrast;
   it appears only at or above the disclosed absolute `0.20` rank-IC gap,
   identifies the exact Run/horizon/values, and states that validation remains
   the sole selection split.
-- [ ] Ordinary terminal output and Studio show the same material contrast
+- [x] Ordinary terminal output and Studio show the same material contrast
   without using it as a gate, verdict, or test claim.
-- [ ] `aq report draft` supports exactly one Session or direct-Run anchor,
+- [x] `aq report draft` supports exactly one Session or direct-Run anchor,
   writes only a new confined Project-local file, pre-fills the exact leader
   Run and declared artifact paths, and refuses overwrite, escape, stale,
   unreportable, or ambiguous anchors.
-- [ ] The emitted object validates against the public Report-analysis schema
+- [x] The emitted object validates against the public Report-analysis schema
   as `authoringState: draft`; all publication APIs reject it until the state
   and reserved placeholders are completed, while historical analyses without
   the optional field remain readable.
-- [ ] Capability/schema discovery, Work Brief actions, CLI, Studio, operator
+- [x] Capability/schema discovery, Work Brief actions, CLI, Studio, operator
   guidance, templates where relevant, and design documents agree.
 - [ ] Focused tests, documentation links, complete unit tests, build/install
   identity smoke, clean-clone Workspace smoke, and one fresh Grok trial pass
@@ -95,7 +95,7 @@ and offer a safe transition into Agent-authored interpretation.
 - [x] Implement safe Report draft materialization and publication guards.
 - [x] Update CLI, Studio, capabilities, schemas, Agent guidance, and durable
   docs; no Project template carries a duplicated Report workflow.
-- [ ] Run focused verification and one isolated installed-build Grok trial.
+- [x] Run focused verification and one isolated installed-build Grok trial.
 - [ ] Complete the release audit, version bump, final artifact replay,
   annotated tag, and canonical push.
 
@@ -115,7 +115,36 @@ and offer a safe transition into Agent-authored interpretation.
 
 ## Verification
 
-- Pending.
+- Focused Core/CLI/Studio/documentation suites passed across every changed
+  path. JavaScript syntax, Python compilation, diff hygiene, and all
+  1,551 documentation links pass.
+- The complete candidate source suite passed all 454 tests in 1,202.824
+  seconds.
+- Clean candidate commit `170d53b` built wheel
+  `3a3524046e34e83167e81e484c38dbac63cceabe42bb8888f85618125c78994e`
+  and sdist
+  `b0e404a5ec2b9d3d61c7c23b5771f3abb4858492e4b9b1bdc400a3f94f90a133`.
+  The isolated Python 3.11 install reported embedded, clean commit
+  `170d53b0b515e588b5169f0bcea9c24811c7bbdf` and source hash
+  `4c010b8d888052dd864a122797694670ba8ecc3bf1a70d5501d34ae98c9ffade`.
+- Fresh no-memory/no-web/no-subagent Grok `4.5` high reasoning completed the
+  uncoached field assignment at
+  `/Users/ame/2607AutoQuant/grok-field-trials/cohort-46-factor-handoff-v0931-candidate`.
+  It independently discovered `aq report draft` from public surfaces,
+  generated all six exact prefilled Run artifact references and cited exact
+  subsets in its final analysis, interpreted temporal
+  quantiles as `protocol-unavailable`, surfaced train IC `-0.1072916034`
+  versus validation IC `0.1744431644` and absolute gap `0.2817347678`,
+  published Report `report-20260802T044639997251Z-17eb26bf2441`, and completed
+  Session `session-20260802T044527696066Z-f6687bd76ab3` with one Run, zero
+  Experiments, one Report, no Portfolio Mandate, and no new Workbench need.
+- Independent `verify_field.py` replay accepted the immutable Project, exact
+  evidence, installed identity, command counts, transcript restrictions,
+  draft/final publication boundary, final orientation, and Studio snapshot.
+  Assignment, transcript, and event hashes are respectively
+  `828a6e1d5b521263c5697bfc16e51903a1b5ebe3e67e7cc5b3ea3b712023aaa3`,
+  `9a4d2f29c8a7675c197a87c30f74f53823bade49666836e9bc9a444d915a3026`,
+  and `7f1f24642808c1e6c1efca612179bd5da8bd248d9134e5cdc01bbb2351751853`.
 
 ## Progress log
 
@@ -134,6 +163,11 @@ and offer a safe transition into Agent-authored interpretation.
   Studio documents now describe the candidate contract. Documentation links,
   JavaScript syntax, 58 cross-surface tests, and two exact temporal/report
   regressions pass; README remains unchanged at 154 lines.
+- 2026-08-02 — The isolated cohort 46 coworker completed the entire assignment
+  without retries or framework-needs. The research result was correctly
+  negative rather than cosmetically positive: validation HAC and one fixed
+  fold were weak, so the worker stopped after one Run while still using every
+  new evidence-to-Report handoff surface correctly.
 
 ## Completion
 
