@@ -1,8 +1,8 @@
 # AutoQuant V2 current status
 
-Status: `v0.9.27` is the current AutoQuant release and `v0.8.31` remains the
-Harness currently consumed by OpenAlice until the host deliberately selects a
-newer tag.
+Status: `v0.9.28` is the current AutoQuant release candidate and `v0.8.31`
+remains the Harness currently consumed by OpenAlice until the host deliberately
+selects a newer tag.
 
 Updated: 2026-08-02.
 
@@ -17,23 +17,26 @@ historical proof remains in completed plans and immutable Git tags.
 
 ## Current milestone
 
-The `0.9.27` candidate closes the first-baseline lifecycle gap for editable
-research. Orientation now sends a fresh editable Study directly to
-`session.start`. When no exact successful baseline is reusable, Session start
-runs the Study's fixed seconds-scale preflight against the canonical first
-candidate before spending the complete Judge. A failed, malformed, timed-out,
-or crashing guard returns structured repair evidence with zero Runs, Sessions,
-Checks, or partial lifecycle directories.
+The `0.9.28` candidate makes the Factor outcome caller-owned. A strict request
+can bind either `forward-return` or `forward-realized-volatility`; omission in
+preserved historical requests and claims remains implicit forward return
+without rewriting immutable evidence. The risk outcome is the unannualized
+square root of summed squared close-to-close log returns over the next complete
+observed-base-bar window. A larger Factor always predicts a larger bound
+outcome.
 
-After a pass, Core executes the ordinary full baseline and creates the Session.
-Its immutable `baselineGuard` records whether the path used a fresh preflight,
-a fresh Study without preflight, or an exact reusable successful Run. A retained
-receipt binds Study, dataset, candidate, preflight, Harness, output, and
-execution identity while explicitly granting no selection, promotion, or
-trading authority. It is verified on every Session load and projected through
-CLI JSON, human output, orientation, and Studio. Post-edit `session.check`
-remains a separate changed-candidate diagnostic and cannot be manufactured for
-the unchanged baseline.
+The existing purged 60/20/20 evaluation, rank and Pearson association,
+dependence-aware inference, chronological folds, regimes, style overlap,
+component evidence, visible-test discipline, Reports, CLI, and Studio now carry
+that exact outcome. Risk prediction supports one temporal target or at least
+four cross-sectional assets in standalone Factor Lab. It deliberately rejects
+two-asset relative-value and three-asset basket interpretations.
+
+A statistically supported risk forecast ends further in-sample tuning and
+routes to a frozen external holdout. It has no expected-return, Portfolio, RL,
+Order, or trading authority. Portfolio and governed RL independently require a
+forward-return claim, preventing a high-risk score from silently becoming a
+long signal or target weight.
 
 The existing V6 surface continues to preserve byte-exact, per-source provider
 authority across compatible close-time-aware packages. V5/V6 retain exact
@@ -42,19 +45,14 @@ candidate code must express asynchronous context through explicit causal
 backward as-of operations. Core never manufactures a common calendar or
 implicit fill.
 
-A fresh installed-wheel Grok coworker independently followed the public route:
-one intentionally malformed first candidate was rejected with zero Runs and
-Sessions, the same hypothesis was repaired, and exactly one complete baseline
-plus one Session were created. The coworker inspected the retained guard,
-published a negative evidence-bound Report, completed without any Check,
-Experiment, or tuning, and recorded no Workbench gap. The complete 442-test
-regression, documentation links, build, installed-runtime, and clean-clone
-audits pass; exact proof is retained in
-[[plans/first-baseline-candidate-preflight]].
+Candidate deterministic tests and cross-surface regression pass. The installed
+wheel field trial, complete release audit, and remote tag identity remain the
+active release gate; exact evolving proof is retained in
+[[plans/caller-owned-factor-outcomes]].
 
-The root sample preserves fifteen historical Runs without rewriting old
-results and now projects a clean `0.9.26` Factor Run bound to candidate commit
-`3cd8cd9`. OpenAlice remains independently pinned to `v0.8.31`.
+The root sample preserves seventeen historical Runs without rewriting old
+results and projects clean `0.9.27` Factor and Portfolio evidence through the
+new outcome boundary. OpenAlice remains independently pinned to `v0.8.31`.
 
 ## What works today
 
