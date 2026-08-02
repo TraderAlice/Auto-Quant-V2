@@ -18,7 +18,9 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-None.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/concise-documentation-front-door]] | Make README a bounded product entrance and route Agents to one operator guide plus the existing authoritative release documents. | 2026-08-02 |
 
 ## Proposed plans
 
