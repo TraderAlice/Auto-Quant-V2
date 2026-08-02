@@ -44,7 +44,7 @@ state from the encoder. Test one representation hypothesis at a time.
 
 ## Fixed Judge authority
 
-The Study declares `factors/**` and
+The Study declares `factors/**`, `strategies/factor-population.json`, and
 `strategies/portfolio-mandate.json` as fixed, content-locked dependencies.
 They are copied into the Session worktree for execution but are not editable
 in this Study. The Judge independently checks
@@ -55,6 +55,8 @@ The Judge owns:
 
 - candidate, activity, intraday, reversal, and equal-blend governed signal
   sleeves;
+- the Factor Population's prediction/context partition and evaluation mode;
+  it never derives prediction eligibility from position permission;
 - fixed percentile entry/exit hysteresis, inverse-volatility conviction,
   request-permitted long/cash, short/cash, dollar-neutral, or explicit
   per-asset-role target construction, context-only exclusions, locked side

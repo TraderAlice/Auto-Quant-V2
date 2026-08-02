@@ -50,8 +50,8 @@ future non-return outcomes inherit accidental Portfolio semantics.
 - Stop standalone `ohlcv-factor-lab` construction and validation from writing
   or requiring `portfolio-mandate.json`.
 - Keep Portfolio and governed-RL Studies dependent on their separately derived
-  mandate and reject any mismatch between its tradable assets and the fixed
-  Factor prediction assets.
+  mandate. A decision-signal mandate must match the Factor prediction assets;
+  a complete-universe novel/known-style Factor may feed a mandate subset.
 - Replace observed-only V5/V6 temporal target selection based on
   `positionRole` with the Factor population authority.
 - Migrate current templates, checked-in sample state, tests, and public
@@ -102,11 +102,11 @@ future non-return outcomes inherit accidental Portfolio semantics.
 
 - [x] Reproduce the field-trial confusion and audit every current population /
   mandate consumer.
-- [ ] Implement and test request normalization plus the strict Factor
+- [x] Implement and test request normalization plus the strict Factor
   Population builder, loader, validator, schema, and compatibility check.
-- [ ] Rewire intake, templates, Judges, preflight, read models, CLI, Studio,
+- [x] Rewire intake, templates, Judges, preflight, read models, CLI, Studio,
   Reports, and program orchestration to the separated authorities.
-- [ ] Migrate the current sample/template source and update durable design and
+- [x] Migrate the current sample/template source and update durable design and
   operator documentation.
 - [ ] Build the candidate and run one isolated fresh Grok assignment.
 - [ ] Complete the release audit, version bump, final artifact rebuild,
@@ -130,16 +130,33 @@ future non-return outcomes inherit accidental Portfolio semantics.
 - 2026-08-02 — Pre-1.0 callers must adopt the explicit field for new
   decision-signal intake. Historical immutable evidence is preserved, but no
   compatibility fallback will keep position roles as current Factor authority.
+- 2026-08-02 — Compatibility is intentionally claim-aware. A decision-signal
+  population is the exact caller-selected decision surface and therefore must
+  equal Mandate tradable assets. Novel/known-style evaluation covers the full
+  universe, so downstream Portfolio authorization may conservatively select a
+  subset without changing what the Factor claim evaluated.
 
 ## Verification
 
-- Pending implementation.
+- Request/schema/population unit tests and the focused intake, Factor,
+  Portfolio, Research Program, CLI, and Studio suite exercised 136 tests. The
+  only two failures were the intentional sample-currentness gap after replacing
+  current Study dependencies while preserving all 17 historical Runs.
+- Fresh-template parity, documentation links, Factor Population schema
+  discovery, Python compilation, sample validation, and program projection
+  pass. Candidate sample Runs, full-suite/build/install checks, and the fresh
+  Grok trial remain pending.
 
 ## Progress log
 
 - 2026-08-02 — Plan created from clean published `v0.9.29` after tracing the
   request, template, intake, Judge, preflight, Explorer, Portfolio, RL, sample,
   CLI, Studio, and documentation surfaces that currently share the Mandate.
+- 2026-08-02 — Implemented the strict Factor Population contract across request
+  normalization, template construction, intake reload, Judges, preflight,
+  Explorers, schemas, CLI/Studio projections, sample source, and durable docs.
+  Historical sample Runs remain byte-for-byte untouched and are correctly
+  stale until candidate evidence is generated.
 
 ## Completion
 

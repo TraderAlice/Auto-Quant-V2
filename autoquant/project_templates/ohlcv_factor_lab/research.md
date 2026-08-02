@@ -26,6 +26,9 @@ not evidence about real markets.
 - `strategies/factor-claim.json` binds the prediction outcome. New delegated
   requests should state `factorPolicy.outcome` as `forward-return` or
   `forward-realized-volatility`; historical omission means forward return.
+- `strategies/factor-population.json` fixes prediction versus context assets
+  and grants Factor evaluation only. This standalone Lab does not create a
+  Portfolio Mandate or position-construction authority.
 - The fixed Judge reads the immutable Horizon Mandate and computes
   purge-aware primary/diagnostic outcome panels, chronological splits,
   HAC/decay/tertile/style/stability diagnostics, a train-selected
@@ -37,7 +40,7 @@ not evidence about real markets.
   expose input, finite-factor, and forward-target-pair availability.
 - A V5 intake may supply one close-time-aware observed base-bar panel through
   `1d`, potentially with mixed asset classes, and with
-  exactly one request-authorized temporal target. Market closures stay absent;
+  exactly one `factorPolicy.predictionAssets` temporal target. Market closures stay absent;
   target horizons and purge boundaries advance only on that asset's observed
   completed bars. Context-only assets never contribute target observations.
   Candidate code must explicitly backward-as-of any asynchronous context and

@@ -147,10 +147,12 @@ comparison rule. See [[docs/design/ohlcv-factor-lab]],
 [[docs/design/mechanical-position-lifecycle-evidence]].
 
 Every quantitative reference Project contains the fixed
-`strategies/portfolio-mandate.json` and
-`strategies/research-horizon.json`. Factor Studies bind the former to fix their
-claim-aware prediction population; Portfolio and governed RL additionally use
-it as their construction authority. For request intake the Mandate derives the
+`strategies/factor-population.json` and
+`strategies/research-horizon.json`. Factor Studies bind both. The Factor
+Population fixes claim-aware prediction/context membership and evaluation mode
+with no Portfolio or trading authority. Portfolio and governed RL Projects
+additionally contain and bind `strategies/portfolio-mandate.json` as their
+construction authority. For request intake the Mandate derives the
 tradable/context asset partition, direction, cash, gross/net, cap, and
 structured benchmark from the canonical request. Optional strict
 `request.benchmarkPolicy` selects cash, one named dataset asset, or one funded
@@ -415,6 +417,9 @@ factor-lab/
 ├── research.md
 ├── framework-needs.md
 ├── strategies/
+│   ├── factor-claim.json
+│   ├── factor-population.json
+│   ├── research-horizon.json
 │   └── portfolio-mandate.json  # Portfolio/RL templates only
 ├── factors/
 ├── models/
@@ -734,19 +739,22 @@ runs/
 - nested metrics, immutable artifact references, and structured errors.
 
 Factor Studies bind `strategies/factor-claim.json`,
-`strategies/portfolio-mandate.json`, and
+`strategies/factor-population.json`, and
 `strategies/research-horizon.json` as fixed dependencies. The claim records a
 general `decision-signal`, a `novel-factor` claim, or a caller-predeclared
 `known-style-validation` claim and known OHLCV style. It may also bind
 `factorPolicy.outcome` to `forward-return` or
-`forward-realized-volatility`; historical omission means forward return. For
-`decision-signal`, the Judge evaluates only Mandate `tradableAssets`; the two
-factor-identity claims evaluate the complete research universe. Candidate code
-still receives the complete panel for causal context. Run metrics and Factor
-diagnostics disclose research, prediction, and context assets. The Judge and
-Explorer reconstruct the same authority from request/intake evidence;
-strategy code cannot silently change the target population, turn decision
-support into a novelty claim, or relabel a familiar style as novel.
+`forward-realized-volatility`; historical omission means forward return. A
+new `decision-signal` request names unique
+`factorPolicy.predictionAssets`; the two factor-identity claims reject that
+field and evaluate the complete research universe. Core freezes the result in
+the Factor Population with Factor-only asset roles and explicit no-Portfolio /
+no-trading authority. Candidate code still receives the complete panel for
+causal context. Run metrics and Factor diagnostics disclose research,
+prediction, and context assets. The Judge and Explorer reconstruct the same
+authority from request/intake evidence; strategy code cannot silently change
+the target population, turn decision support into a novelty claim, or relabel
+a familiar style as novel.
 
 For single-asset temporal and authorized two-asset relative-value evaluation,
 the fixed primary validation population must contain at least 20 finite pairs,
@@ -948,6 +956,12 @@ Brief hash. `request.json` records the exact normalized caller input:
     }
   ],
   "direction": "long",
+  "factorPolicy": {
+    "claim": "decision-signal",
+    "knownStyle": null,
+    "outcome": "forward-return",
+    "predictionAssets": ["AAPL"]
+  },
   "benchmarkPolicy": {"kind": "asset", "symbol": "SPY"},
   "portfolioPolicy": {
     "grossLimit": 0.8,
@@ -994,6 +1008,9 @@ rather than constructing provenance from its checkout path or trial name.
 requested asset declares it, every requested asset must declare `long-only`,
 `short-only`, `two-sided`, or `context-only`. Requested symbols and asset
 classes must fit the selected Study and its content-locked dataset snapshot.
+These roles authorize only Portfolio construction. They do not determine
+Factor prediction membership; `factorPolicy.predictionAssets` owns that
+independent authority for decision-signal research.
 A `relative-value` vector with exactly two `two-sided` assets plus named
 `context-only` assets retains the dollar-neutral zero-net pair contract; other
 complete mixed vectors use the generic asset-role construction.
@@ -1207,8 +1224,9 @@ dossiers/
 historical Projects remain valid. Factor and Portfolio Reports are required.
 Governed RL is optional, but omission is explicit. When RL is included, the
 `factors/**` subset of its frozen dependency closure must equal the included
-Factor source identity and its Portfolio Mandate must equal the included
-Portfolio lane mandate.
+Factor source identity, its Factor Population must equal the included Factor
+lane population, and its Portfolio Mandate must equal the included Portfolio
+lane mandate.
 
 Agent analysis references exact lane Report and optional finding ids. Core
 requires finding coverage of every included lane, freezes the current request,
@@ -1295,6 +1313,7 @@ aq schema project --json
 aq schema study --json
 aq schema judge-output --json
 aq schema run-result --json
+aq schema factor-population --json
 aq schema portfolio-mandate --json
 aq schema session --json
 aq schema session-completion --json

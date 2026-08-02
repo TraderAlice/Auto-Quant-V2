@@ -167,15 +167,18 @@ brief that another Agent can recover from the filesystem.
 Before the first Factor Run, choose `factorPolicy` from the caller's claim,
 not from the candidate formula. Use `decision-signal` when the question asks
 whether a signal supports ranking, timing, allocation, or Portfolio decisions
-over the Mandate's tradable assets; this keeps named `context-only` assets out
-of the prediction population. Use `novel-factor` only when the caller actually
-claims new factor identity across the complete research universe, and
-`known-style-validation` only for a predeclared supported style. Inspect the
-resolved prediction universe before evaluation. If a Run later exposes a
-request-binding mistake, preserve that Project and immutable Run, disclose
+over an explicit caller-owned population. Every new decision-signal request
+must list `factorPolicy.predictionAssets`; other requested assets remain
+Factor context. Do not infer this list from `assets[].positionRole`: Factor
+evaluation and Portfolio position permission are separate authorities. Use
+`novel-factor` only when the caller actually claims new factor identity across
+the complete research universe, and `known-style-validation` only for a
+predeclared supported style; neither may narrow the population. Inspect
+`strategies/factor-population.json` before evaluation. If a Run later exposes
+a request-binding mistake, preserve that Project and immutable Run, disclose
 the visible-evidence timing, and create a corrected sibling Study or Project;
 never delete evidence and recreate the same identity to make the attempt look
-clean.
+clean. See [[docs/design/caller-owned-factor-population]].
 
 Also bind `factorPolicy.outcome` before construction. Use `forward-return` for
 expected-return, ranking, timing, target-weight, Portfolio, or RL questions.
@@ -445,6 +448,9 @@ Read the relevant linked document before changing a subsystem:
 - Caller-owned per-asset long, short, two-sided, and context-only position
   permissions shared by Portfolio and governed RL:
   [[docs/design/caller-owned-asset-position-roles]]
+- Caller-owned Factor prediction/context partition, evaluation modes, and
+  strict separation from Portfolio construction authority:
+  [[docs/design/caller-owned-factor-population]]
 - Caller-owned cash or named-asset benchmark references shared by Portfolio
   and governed RL:
   [[docs/design/caller-owned-benchmark-reference]]

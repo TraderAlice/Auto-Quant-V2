@@ -450,7 +450,18 @@ its `per-asset` or `package-summary` source. Strict Allocation Explorer and
 Studio return that same Run-bound class context, so callers need not reopen
 snapshot files to interpret `mixed`.
 
-Portfolio and governed-RL intake also writes the strict fixed
+Every Factor-capable intake writes the strict fixed
+`strategies/factor-population.json`. Core derives it from the normalized
+Factor policy and exact dataset universe. A decision-signal request explicitly
+names unique `factorPolicy.predictionAssets`; novel-factor and known-style
+claims use the complete universe. The manifest fixes prediction/context
+membership, evaluation mode, outcome, and Factor-only roles with
+`evaluationAuthority: factor-evaluation-only`, `portfolioAuthority: none`, and
+`tradingAuthority: none`. Every Factor Study binds the exact file. V5/V6
+observed-only target selection and clock validation use this population rather
+than position roles.
+
+Portfolio and governed-RL intake additionally writes the strict fixed
 `strategies/portfolio-mandate.json`. Core derives it from the exact normalized
 request and dataset universe: direction supplies the default role for
 requested assets, or one complete caller role vector marks each requested
@@ -465,9 +476,12 @@ same derivation fixes a
 trailing-covariance volatility policy: 60-row window, 20-row minimum, 252
 periods for V1 daily data, 8760 for V2 continuous hourly data, or the verified
 V3 decision clock, the request/default annualized ceiling, and no scale-up.
-Portfolio and RL Studies bind the same file as a
-dependency. Intake reconstructs it on every load, so request or mandate
-tampering fails rather than changing the position or risk question silently.
+Portfolio and RL Studies bind the same file as a dependency. They also bind
+the Factor Population and reject an incompatible pair: decision-signal
+tradable assets must equal its prediction assets, while a complete-universe
+novel/known-style Factor may feed a Mandate subset. Intake reconstructs both
+contracts on every load, so request, population, or mandate tampering fails
+rather than changing the research question silently.
 
 For Portfolio and governed RL, `benchmarkPolicy` locks cash, one named
 dataset-universe asset, or one funded non-negative `fixed-weights` basket over
@@ -554,8 +568,9 @@ commands to:
 3. for iterative templates only, start a delegated Session using the
    preserved request.
 
-For Portfolio or RL work, those commands operate only after the request-derived
-Portfolio Mandate has been content-locked into the Study identity.
+For Factor work, those commands operate only after the request-derived Factor
+Population has been content-locked into the Study identity. Portfolio or RL
+work additionally requires the compatible Portfolio Mandate.
 Book Risk intake terminates at the fixed Run and its read-only Explorer; it
 returns no `session.start` action.
 

@@ -115,10 +115,11 @@ The Judge owns target construction and evaluation:
    comparing values already emitted by the full-history computation.
 4. Fix 60/20/20 boundaries from the dataset timeline, independently of
    candidate warm-up and coverage.
-5. Load the immutable Factor Claim and Horizon Mandate, compute the bound
+5. Load the immutable Factor Claim, Factor Population, and Horizon Mandate,
+   compute the bound
    primary and diagnostic forward-return or forward-realized-volatility
    outcome, and purge signal rows whose target would cross a split boundary.
-6. Select the immutable evaluation mode from the prediction population:
+6. Select the immutable evaluation mode from the Factor Population:
    within-split temporal Spearman/Pearson for exactly one request-bound
    decision asset; within-split temporal Spearman/Pearson between the
    first-minus-second factor and forward-return contrasts for exactly two

@@ -2,7 +2,7 @@
   "id": "factor-portfolio-rl",
   "integration": {
     "factorClaim": "request-bound-factor-evaluation-authority",
-    "factorPredictionUniverse": "claim-aware-portfolio-mandate-or-research-universe",
+    "factorPredictionUniverse": "caller-owned-factor-population-fixed-dependency",
     "factorToPortfolio": "shared-candidate-source",
     "portfolioMandate": "request-bound-shared-fixed-dependency",
     "researchHorizon": "request-bound-shared-fixed-dependency",
@@ -14,7 +14,7 @@
     {
       "dependencyPaths": [
         "strategies/factor-claim.json",
-        "strategies/portfolio-mandate.json",
+        "strategies/factor-population.json",
         "strategies/research-horizon.json"
       ],
       "dependsOn": [],
@@ -30,6 +30,7 @@
     {
       "dependencyPaths": [
         "strategies/factor-claim.json",
+        "strategies/factor-population.json",
         "strategies/portfolio-mandate.json",
         "strategies/research-horizon.json"
       ],
@@ -49,6 +50,7 @@
       "dependencyPaths": [
         "factors/**",
         "strategies/factor-claim.json",
+        "strategies/factor-population.json",
         "strategies/portfolio-mandate.json",
         "strategies/research-horizon.json"
       ],

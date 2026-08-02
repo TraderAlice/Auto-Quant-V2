@@ -187,8 +187,9 @@ historical executed net as
 additive annualized contributions. Consecutive stage deltas isolate
 sizing/caps, covariance governance, execution/no-trade retention, and cost.
 
-The normalized-intent stage is prediction-mode and Mandate constrained and
-explicitly non-compounding. Explicit two-asset relative value uses the exact
+The normalized-intent stage is constrained by the Factor Population's
+prediction mode and the separately compatible Mandate, and is explicitly
+non-compounding. Explicit two-asset relative value uses the exact
 capped complementary pair and permits unused budget to remain Cash; ordinary
 cross-sectional dollar-neutral construction still requires full side breadth.
 This is diagnostic normalization, not another strategy, benchmark, objective,

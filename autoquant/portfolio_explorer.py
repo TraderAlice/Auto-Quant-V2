@@ -43,14 +43,16 @@ from .project_templates.ohlcv_portfolio_lab.portfolio_core import (
 )
 from .prediction_modes import (
     CROSS_SECTIONAL_MODE,
+    FACTOR_POPULATION,
     PredictionModeError,
     SIGNAL_TRANSLATION_METHOD,
     TEMPORAL_SCORE_MINIMUM,
     TEMPORAL_SCORE_WINDOW,
     TEMPORAL_EVALUATION_MODES,
     TWO_ASSET_RELATIVE_VALUE_MODE,
-    resolve_prediction_population,
     signal_translation_contract,
+    validate_population_mandate_compatibility,
+    validate_prediction_population_metrics,
 )
 from .runs import RunContext, load_run
 from .workspace import (
@@ -5455,11 +5457,12 @@ def _prediction_population_projection(
         "RunResult/metrics/factor_claim",
     )
     try:
-        expected = resolve_prediction_population(
+        expected = validate_prediction_population_metrics(
+            raw_population,
             universe,
             claim,
-            raw_mandate,
-        ).as_metrics()
+        )
+        validate_population_mandate_compatibility(expected, raw_mandate)
     except PredictionModeError as error:
         _fail(
             "RunResult/metrics/prediction_universe",
@@ -5477,6 +5480,8 @@ def _prediction_population_projection(
         not isinstance(dependencies, dict)
         or FACTOR_CLAIM not in dependencies.get("paths", [])
         or FACTOR_CLAIM not in dependencies.get("sourceHashes", {})
+        or FACTOR_POPULATION not in dependencies.get("paths", [])
+        or FACTOR_POPULATION not in dependencies.get("sourceHashes", {})
     ):
         _fail(
             "RunResult/dependencies",
@@ -5484,12 +5489,17 @@ def _prediction_population_projection(
             "Portfolio Run does not bind its fixed Factor claim",
         )
     return expected, {
+        "id": expected["id"],
+        "claim": expected["claim"],
+        "outcome": expected["outcome"],
         "authority": expected["authority"],
         "evaluationMode": expected["evaluation_mode"],
         "researchAssets": expected["research_assets"],
         "predictionAssets": expected["prediction_assets"],
         "contextAssets": expected["context_assets"],
-        "assetPositionRoles": expected["asset_position_roles"],
+        "assetPredictionRoles": expected["asset_prediction_roles"],
+        "evaluationAuthority": expected["evaluation_authority"],
+        "portfolioAuthority": expected["portfolio_authority"],
         "relativeValuePair": expected["relative_value_pair"],
         "tradingAuthority": expected["trading_authority"],
     }
@@ -9055,20 +9065,42 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
             "type": "object",
             "additionalProperties": False,
             "required": [
+                "id",
+                "claim",
+                "outcome",
                 "authority",
                 "evaluationMode",
                 "researchAssets",
                 "predictionAssets",
                 "contextAssets",
-                "assetPositionRoles",
+                "assetPredictionRoles",
+                "evaluationAuthority",
+                "portfolioAuthority",
                 "relativeValuePair",
                 "tradingAuthority",
             ],
             "properties": {
+                "id": {
+                    "type": "string",
+                    "pattern": "^factor-population-[0-9a-f]{16}$",
+                },
+                "claim": {
+                    "enum": [
+                        "decision-signal",
+                        "novel-factor",
+                        "known-style-validation",
+                    ]
+                },
+                "outcome": {
+                    "enum": [
+                        "forward-return",
+                        "forward-realized-volatility",
+                    ]
+                },
                 "authority": {
                     "enum": [
-                        "factor-claim-research-universe",
-                        "portfolio-mandate-tradable-assets",
+                        "caller-factor-policy-prediction-assets",
+                        "factor-claim-complete-research-universe",
                     ]
                 },
                 "evaluationMode": {
@@ -9098,13 +9130,11 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                     "items": {"type": "string", "minLength": 1},
                     "uniqueItems": True,
                 },
-                "assetPositionRoles": {
+                "assetPredictionRoles": {
                     "type": "object",
                     "additionalProperties": {
                         "enum": [
-                            "two-sided",
-                            "long-only",
-                            "short-only",
+                            "prediction",
                             "context-only",
                         ]
                     },
@@ -9120,8 +9150,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                                 "right_asset",
                                 "factor_contrast",
                                 "target_contrast",
-                                "construction",
-                                "beta_neutral",
+                                "portfolio_construction_authority",
                             ],
                             "properties": {
                                 "left_asset": {
@@ -9138,14 +9167,17 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                                 "target_contrast": {
                                     "const": "forward_return(left_asset)-forward_return(right_asset)"
                                 },
-                                "construction": {
-                                    "const": "symmetric-dollar-neutral-equal-funded"
+                                "portfolio_construction_authority": {
+                                    "const": "none"
                                 },
-                                "beta_neutral": {"const": False},
                             },
                         },
                     ]
                 },
+                "evaluationAuthority": {
+                    "const": "factor-evaluation-only"
+                },
+                "portfolioAuthority": {"const": "none"},
                 "tradingAuthority": {"const": "none"},
             },
         },
@@ -10420,8 +10452,8 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                         },
                         "authority": {
                             "enum": [
-                                "factor-claim-research-universe",
-                                "portfolio-mandate-tradable-assets",
+                                "factor-claim-complete-research-universe",
+                                "caller-factor-policy-prediction-assets",
                             ]
                         },
                         "scoreBasis": {
@@ -10452,8 +10484,7 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                                         "right_asset",
                                         "factor_contrast",
                                         "target_contrast",
-                                        "construction",
-                                        "beta_neutral",
+                                        "portfolio_construction_authority",
                                     ],
                                     "properties": {
                                         "left_asset": {
@@ -10472,10 +10503,9 @@ PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
                                             "type": "string",
                                             "minLength": 1,
                                         },
-                                        "construction": {
-                                            "const": "symmetric-dollar-neutral-equal-funded"
+                                        "portfolio_construction_authority": {
+                                            "const": "none"
                                         },
-                                        "beta_neutral": {"const": False},
                                     },
                                 },
                             ]

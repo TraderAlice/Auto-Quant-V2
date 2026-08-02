@@ -83,9 +83,11 @@ def normalize_factor_policy(value: Any) -> dict[str, Any]:
 
     if value is None:
         return dict(DEFAULT_FACTOR_POLICY)
-    if not isinstance(value, dict) or set(value) not in (
-        {"claim", "knownStyle"},
-        {"claim", "knownStyle", "outcome"},
+    if not isinstance(value, dict) or not {
+        "claim",
+        "knownStyle",
+    }.issubset(value) or not set(value).issubset(
+        {"claim", "knownStyle", "outcome", "predictionAssets"}
     ):
         raise AutoQuantValidationError(
             [
@@ -93,13 +95,14 @@ def normalize_factor_policy(value: Any) -> dict[str, Any]:
                     "factorPolicy",
                     "factor-claim.policy",
                     "factorPolicy must contain claim and knownStyle, with "
-                    "optional outcome",
+                    "optional outcome and predictionAssets",
                 )
             ]
         )
     claim = value.get("claim")
     known_style = value.get("knownStyle")
     outcome = value.get("outcome", FORWARD_RETURN_OUTCOME)
+    prediction_assets = value.get("predictionAssets")
     if claim not in FACTOR_CLAIMS:
         raise AutoQuantValidationError(
             [
@@ -138,10 +141,37 @@ def normalize_factor_policy(value: Any) -> dict[str, Any]:
                 )
             ]
         )
+    if "predictionAssets" in value and (
+        not isinstance(prediction_assets, list)
+        or not prediction_assets
+        or any(
+            not isinstance(asset, str) or not asset.strip()
+            for asset in prediction_assets
+        )
+        or len(prediction_assets) != len(set(prediction_assets))
+    ):
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    "factorPolicy/predictionAssets",
+                    "factor-population.prediction-assets",
+                    "predictionAssets must contain unique non-empty symbols",
+                )
+            ]
+        )
     return {
         "claim": claim,
         "knownStyle": known_style,
         **({"outcome": outcome} if "outcome" in value else {}),
+        **(
+            {
+                "predictionAssets": [
+                    asset.strip() for asset in prediction_assets
+                ]
+            }
+            if "predictionAssets" in value
+            else {}
+        ),
     }
 
 
@@ -192,7 +222,16 @@ def build_factor_claim(request: dict[str, Any] | None) -> dict[str, Any]:
         if isinstance(request, dict)
         else None
     )
-    policy = normalize_factor_policy(supplied)
+    normalized = normalize_factor_policy(supplied)
+    policy = {
+        "claim": normalized["claim"],
+        "knownStyle": normalized["knownStyle"],
+        **(
+            {"outcome": normalized["outcome"]}
+            if "outcome" in normalized
+            else {}
+        ),
+    }
     payload = {
         "schemaVersion": SCHEMA_VERSION,
         "kind": FACTOR_CLAIM_KIND,

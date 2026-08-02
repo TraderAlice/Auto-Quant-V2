@@ -4,6 +4,7 @@ Status: implemented for `forward-return` and
 `forward-realized-volatility`.
 
 Related: [[docs/design/ohlcv-factor-lab]],
+[[docs/design/caller-owned-factor-population]],
 [[docs/design/factor-diagnostics]],
 [[docs/design/factor-qualification-funnel]],
 [[docs/design/cross-study-factor-dependencies]],
@@ -36,6 +37,13 @@ that omit it retain their original implicit `forward-return` meaning. New risk
 research must state it explicitly. The outcome is content-addressed inside
 `strategies/factor-claim.json` and every new Run projects a complete
 `metrics.factor_outcome` contract.
+
+A `decision-signal` request additionally supplies unique
+`factorPolicy.predictionAssets`. Core freezes that independent caller
+authority in `strategies/factor-population.json`; position roles and a
+Portfolio Mandate do not select Factor targets. Novel-factor and known-style
+claims instead evaluate the complete research universe and reject a narrowed
+population. See [[docs/design/caller-owned-factor-population]].
 
 ## Fixed outcome definitions
 
@@ -74,7 +82,7 @@ ordinary meanings against this bound target.
 
 ## Prediction populations
 
-Both outcomes support:
+Both outcomes support the population modes frozen by the Factor Population:
 
 - one `decision-signal` prediction asset, evaluated as within-split temporal
   association on that asset's observed clock; or
@@ -127,7 +135,8 @@ the Agent directly to an exact baseline-bound Report and Session completion;
 it must not label the state `CANDIDATE EDIT REQUIRED`. The external-holdout move
 remains optional follow-up outside the visible in-sample evidence budget.
 
-Intake admits realized-volatility outcomes only to `ohlcv-factor-lab`.
+Intake admits realized-volatility outcomes only to `ohlcv-factor-lab`, which
+does not create a Portfolio Mandate.
 Portfolio and RL Judges independently reject a non-return Factor Claim as a
 defense against hand-edited dependencies. A future risk-budget consumption
 contract must be designed and proven separately; it cannot inherit the current

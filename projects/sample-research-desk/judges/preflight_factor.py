@@ -9,6 +9,10 @@ from pathlib import Path
 
 import pandas as pd
 
+from autoquant.prediction_modes import (
+    FACTOR_POPULATION,
+    load_factor_population,
+)
 from autoquant.factor_components import (
     FactorComponentError,
     validate_factor_component_metadata,
@@ -61,7 +65,7 @@ def _fixed_reference_assets(
     study: dict[str, object],
     study_universe: list[str],
 ) -> list[str]:
-    """Load context/benchmark symbols from the Study-fixed mandate."""
+    """Load Factor context and optional Portfolio benchmark symbols."""
 
     manifest_path = PROJECT / "autoquant.json"
     try:
@@ -69,6 +73,7 @@ def _fixed_reference_assets(
         strategies = project_manifest["directories"]["strategies"]
     except (OSError, KeyError, TypeError, json.JSONDecodeError):
         return []
+    population_relative = f"{strategies}/factor-population.json"
     mandate_relative = f"{strategies}/portfolio-mandate.json"
     dependencies = study.get("dependencies")
     if not isinstance(dependencies, dict):
@@ -76,20 +81,16 @@ def _fixed_reference_assets(
     dependency_paths = dependencies.get("paths")
     if (
         not isinstance(dependency_paths, list)
-        or mandate_relative not in dependency_paths
+        or population_relative not in dependency_paths
     ):
         return []
-    mandate_path = PROJECT / mandate_relative
-    if not mandate_path.is_file():
-        return []
     try:
-        mandate = json.loads(mandate_path.read_text(encoding="utf-8"))
-        context_assets = mandate["contextAssets"]
-        benchmark_asset = mandate["construction"]["benchmark"]["asset"]
-    except (OSError, KeyError, TypeError, json.JSONDecodeError) as error:
+        population = load_factor_population(PROJECT / population_relative)
+        context_assets = population["contextAssets"]
+    except Exception as error:
         raise CheckFailure(
             "data.reference-contract",
-            f"Cannot read fixed context/benchmark assets: {error}",
+            f"Cannot read fixed Factor context assets: {error}",
         ) from error
     if not isinstance(context_assets, list) or any(
         not isinstance(symbol, str) or not symbol
@@ -100,6 +101,18 @@ def _fixed_reference_assets(
             "Fixed mandate contextAssets must be an array of symbols",
         )
     requested = list(context_assets)
+    if mandate_relative in dependency_paths:
+        mandate_path = PROJECT / mandate_relative
+        try:
+            mandate = json.loads(mandate_path.read_text(encoding="utf-8"))
+            benchmark_asset = mandate["construction"]["benchmark"]["asset"]
+        except (OSError, KeyError, TypeError, json.JSONDecodeError) as error:
+            raise CheckFailure(
+                "data.reference-contract",
+                f"Cannot read fixed Portfolio benchmark asset: {error}",
+            ) from error
+    else:
+        benchmark_asset = None
     if benchmark_asset is not None:
         if not isinstance(benchmark_asset, str) or not benchmark_asset:
             raise CheckFailure(

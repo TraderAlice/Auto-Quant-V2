@@ -19,16 +19,19 @@ def compute_factor(panel: pandas.DataFrame) -> pandas.Series:
 `asset`/`timestamp` and base plus available completed higher-interval OHLCV.
 The complete research universe remains available for causal cross-asset
 features. The fixed Judge, not candidate code, selects target observations:
-`decision-signal` evaluates only Portfolio-Mandate `tradableAssets`, while
+`decision-signal` evaluates caller-owned `factorPolicy.predictionAssets`, while
 `novel-factor` and `known-style-validation` evaluate the complete research
-universe. Inspect `predictionUniverse.evaluationMode` in Factor diagnostics.
+universe. Core freezes that evaluation-only authority in
+`strategies/factor-population.json`; this Factor Lab has no Portfolio Mandate.
+Inspect `predictionUniverse.evaluationMode` in Factor diagnostics.
 A decision signal with exactly one eligible asset uses within-split temporal
 Spearman/Pearson evidence for that asset. Exactly two eligible assets use
 within-split temporal evidence between the first-minus-second factor contrast
-and matching forward-return contrast, but only under a symmetric, two-sided,
-dollar-neutral Mandate. Four or more eligible assets use the cross-sectional
-contract. Three require explicit caller-owned relative-basket contrast
-weights. No mode may borrow context-only target observations.
+and matching forward-return contrast. A later Portfolio lane must separately
+prove a symmetric two-sided dollar-neutral Mandate before monetization. Four
+or more eligible assets use the cross-sectional contract. Three require
+explicit caller-owned relative-basket contrast weights. No mode may borrow
+context-only target observations.
 The fixed Factor Claim also binds `outcome`. `forward-return` uses the simple
 close-to-close return from signal close `t` to `t+h`. `forward-realized-
 volatility` uses the unannualized square root of summed squared close-to-close
@@ -101,7 +104,7 @@ evidence was unused.
    priorities, not executable actions or permission to inspect test for
    selection.
 2. Read `strategies/factor-claim.json`,
-   `strategies/portfolio-mandate.json`, the current candidate, and immutable
+   `strategies/factor-population.json`, the current candidate, and immutable
    leader evidence. The request-bound `decision-signal`, `novel-factor`, or
    `known-style-validation` claim, outcome, and prediction population are
    fixed evidence authority, not editable strategy metadata.

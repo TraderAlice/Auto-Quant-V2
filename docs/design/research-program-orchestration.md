@@ -7,6 +7,7 @@ Related: [[docs/design/quant-research-lifecycle]],
 [[docs/design/ohlcv-factor-lab]],
 [[docs/design/portfolio-construction-lab]],
 [[docs/design/request-bound-portfolio-mandates]],
+[[docs/design/caller-owned-factor-population]],
 [[docs/design/rl-factor-policy-lab]], and
 [[docs/design/evidence-gated-research-progression]], and
 [[docs/design/studio-observation-surface]].
@@ -41,6 +42,8 @@ The lanes are coordinated but do not collapse into one score.
 - one Project-level request and dataset snapshot;
 - one `factors/candidate.py` shared by Factor and Portfolio Studies;
 - one `models/candidate.py` for the governed RL Study;
+- one request-derived `strategies/factor-population.json` bound by all three
+  Studies as evaluation-only authority;
 - one request-derived `strategies/portfolio-mandate.json` bound by Portfolio
   and RL Studies;
 - one exact `factors/**` dependency closure additionally bound by the RL Study;
@@ -69,7 +72,8 @@ evidence. It edits `factors/**`.
 
 Owns whether the same current factor survives mechanical signal state,
 request-permitted position sizing, constraints, drift, turnover, cost, and
-risk. It edits `factors/**` while consuming the mandate as fixed input.
+risk. It edits `factors/**` while consuming the Factor Population and mandate
+as separate fixed inputs.
 
 Factor and Portfolio Sessions therefore share an editable surface. The
 research-program projection marks simultaneous active Sessions as a conflict;
@@ -79,8 +83,8 @@ it never attempts an automatic merge.
 
 Owns whether a bounded adaptive state representation adds value beyond fixed
 and contextual baselines. It edits `models/**` and reads the current
-`factors/**` plus the same Portfolio Mandate through separately hashed, fixed
-dependency closures.
+`factors/**`, Factor Population, and Portfolio Mandate through separately
+hashed, fixed dependency closures.
 The Judge independently re-audits the factor and evaluates it as both an action
 and a standalone baseline.
 
@@ -97,7 +101,7 @@ writer-reader conflict: finish promotion, then start a fresh RL Session.
 - shared dataset identity and hash;
 - declared editable paths;
 - declared dependency paths, exact Factor-source/RL-factor-subset equality,
-  and shared Portfolio/RL mandate identity;
+  shared Factor Population identity, and shared Portfolio/RL mandate identity;
 - most recent successful immutable Run whose `studyInputHash` matches current
   Project source, falling back to the latest attempt only when no current
   evidence exists;

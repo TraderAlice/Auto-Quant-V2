@@ -339,6 +339,10 @@ rank/Pearson IC and fixed-tertile paths, request-bound diagnostic forward
 horizons, validation and test audit, and fold/regime/asset/style stability.
 The Run-bound `factorOutcome` labels each path as forward return or forward
 realized risk; Studio does not infer target meaning from the candidate.
+The same verified projection exposes the Factor Population's
+prediction/context roles, evaluation mode, and explicit evaluation-only
+authority. It never infers Factor targets from Portfolio position roles, and a
+standalone Factor Run need not contain a Portfolio Mandate.
 The primary horizon is marked explicitly. Those controls format the Core
 object; JavaScript never parses CSV, re-bins assets, selects a horizon, or
 turns diagnostic evidence into an acceptance gate. The exact headless
@@ -458,6 +462,7 @@ aq studio snapshot . --json
 aq schema studio-snapshot --json
 aq schema campaign-progress --json
 aq schema factor-diagnostics --json
+aq schema factor-population --json
 aq schema portfolio-diagnostics --json
 aq schema portfolio-mandate --json
 aq schema rl-policy-diagnostics --json

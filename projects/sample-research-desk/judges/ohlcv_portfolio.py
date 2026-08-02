@@ -40,11 +40,14 @@ from autoquant.mandates import (
     load_portfolio_mandate,
 )
 from autoquant.prediction_modes import (
+    FACTOR_POPULATION,
     PredictionModeError,
     TEMPORAL_EVALUATION_MODES,
     TEMPORAL_SCORE_MINIMUM,
     TEMPORAL_SCORE_WINDOW,
+    load_factor_population,
     resolve_prediction_population,
+    validate_population_mandate_compatibility,
 )
 from judges.portfolio_core import (
     LONG_ENTRY_PERCENTILE,
@@ -195,6 +198,17 @@ def _load_factor_claim() -> dict[str, Any]:
         raise JudgeFailure(
             "factor-claim.invalid",
             f"Invalid fixed Factor claim: {error}",
+        ) from error
+
+
+def _load_factor_population() -> dict[str, Any]:
+    path = Path(os.environ["AUTOQUANT_PROJECT_ROOT"]) / FACTOR_POPULATION
+    try:
+        return load_factor_population(path)
+    except Exception as error:
+        raise JudgeFailure(
+            "factor-population.invalid",
+            f"Invalid fixed Factor population: {error}",
         ) from error
 
 
@@ -1114,6 +1128,7 @@ def _evaluate() -> tuple[
     study, data_root = _load_contract()
     mandate = _load_mandate()
     factor_claim = _load_factor_claim()
+    factor_population = _load_factor_population()
     if factor_outcome(factor_claim) != FORWARD_RETURN_OUTCOME:
         raise JudgeFailure(
             "portfolio.factor-outcome",
@@ -1128,8 +1143,12 @@ def _evaluate() -> tuple[
         prediction_population = resolve_prediction_population(
             universe,
             factor_claim,
-            mandate,
+            factor_population,
         ).as_metrics()
+        validate_population_mandate_compatibility(
+            prediction_population,
+            mandate,
+        )
     except PredictionModeError as error:
         raise JudgeFailure(error.code, str(error)) from error
     time_range = dataset["time_range"]

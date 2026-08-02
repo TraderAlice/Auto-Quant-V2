@@ -4,6 +4,7 @@ Status: V3 implemented.
 
 Related: [[docs/ARCHITECTURE]], [[docs/PROJECT_FORMAT]], [[docs/CLI]],
 [[docs/design/research-intake-and-dataset-snapshots]],
+[[docs/design/caller-owned-factor-population]],
 [[docs/design/caller-owned-portfolio-research-policy]],
 [[docs/design/caller-owned-asset-position-roles]],
 [[docs/design/caller-owned-benchmark-reference]],
@@ -22,6 +23,9 @@ research universe used for cross-sectional context.
 
 It does not grant live-trading authority, infer hedges, choose leverage,
 optimize arbitrary constraints, place orders, or mutate OpenAlice UTA state.
+It also does not choose the Factor evaluation population. That independent
+caller authority is frozen in `strategies/factor-population.json`; Portfolio
+and governed RL must bind and reconcile both contracts.
 
 ## Project contract
 
@@ -160,10 +164,10 @@ book. A minimum proportional repair may override no-trade only to meet the
 same ceiling. Portfolio and RL therefore make identical final-book decisions
 for identical inputs.
 
-The RL Study separately depends on both `factors/**` and the mandate. Program
-and Dossier compatibility compare the Factor subset of the dependency closure
-to the Factor lane source, while separately requiring Portfolio and RL
-mandate ids to match.
+The RL Study separately depends on `factors/**`, the Factor Population, and the
+mandate. Program and Dossier compatibility compare the Factor subset of the
+dependency closure to the Factor lane source, require one shared Factor
+Population, and separately require Portfolio and RL mandate ids to match.
 
 ## Evidence projection
 

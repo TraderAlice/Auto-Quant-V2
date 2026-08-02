@@ -160,16 +160,20 @@ factor claim; an RL policy can have high absolute Sharpe yet add no value over
 a simple baseline.
 
 All three lanes bind the same fixed
-`strategies/portfolio-mandate.json`. For a request-bound `decision-signal`,
-Factor uses its tradable assets as the prediction/evaluation population while
-the complete research universe remains available as causal input context.
-Novel-factor and known-style validation claims retain complete-universe
-evaluation. Exactly one tradable asset selects temporal evaluation; exactly
-two symmetric, two-sided, dollar-neutral assets select temporal
-first-minus-second factor/return contrast evaluation; four or more select
-cross-sectional evaluation. Three assets require explicit caller-owned
-relative-basket contrast weights. Portfolio and RL may never turn context
-assets into implicit positions, learn around the requested direction, or bypass the shared
+`strategies/factor-population.json`. It owns prediction/context membership and
+evaluation mode with no Portfolio or trading authority. For a request-bound
+`decision-signal`, the caller explicitly names `factorPolicy.predictionAssets`;
+novel-factor and known-style claims retain complete-universe evaluation.
+Exactly one prediction asset selects temporal evaluation; exactly two ordered
+relative-value assets select temporal first-minus-second factor/return
+contrast evaluation; four or more select cross-sectional evaluation. Three
+assets require explicit caller-owned relative-basket contrast weights.
+
+Portfolio and governed RL separately bind the same compatible
+`strategies/portfolio-mandate.json`; it alone owns position roles, direction,
+cash, caps, benchmark, and construction policy. Those lanes may never turn
+Mandate context assets into implicit positions, learn around the requested
+direction, or bypass the shared
 scale-down-only target and final executed-book portfolio-volatility ceiling.
 Risk may override no-trade only by reducing the chosen book; the same
 primitive governs both lanes. The RL lane also content-locks the current

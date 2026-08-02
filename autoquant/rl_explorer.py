@@ -22,9 +22,11 @@ from .mandates import (
     validate_portfolio_mandate,
 )
 from .prediction_modes import (
+    FACTOR_POPULATION,
     PredictionModeError,
-    resolve_prediction_population,
     signal_translation_contract,
+    validate_population_mandate_compatibility,
+    validate_prediction_population_metrics,
 )
 from .runs import RunContext, load_run
 from .workspace import (
@@ -5133,11 +5135,15 @@ def load_rl_diagnostics(
         "RunResult/metrics/factor_claim",
     )
     try:
-        expected_population = resolve_prediction_population(
+        expected_population = validate_prediction_population_metrics(
+            raw_prediction_population,
             list(run.result["dataset"]["universe"]),
             factor_claim,
+        )
+        validate_population_mandate_compatibility(
+            expected_population,
             raw_mandate,
-        ).as_metrics()
+        )
         expected_translation = signal_translation_contract(
             expected_population
         )
@@ -5169,6 +5175,8 @@ def load_rl_diagnostics(
         not isinstance(dependencies, dict)
         or FACTOR_CLAIM not in dependencies.get("paths", [])
         or FACTOR_CLAIM not in dependencies.get("sourceHashes", {})
+        or FACTOR_POPULATION not in dependencies.get("paths", [])
+        or FACTOR_POPULATION not in dependencies.get("sourceHashes", {})
     ):
         _fail(
             "RunResult/dependencies",
@@ -5285,13 +5293,22 @@ def load_rl_diagnostics(
         "artifacts": artifacts,
         "portfolioMandate": mandate_projection,
         "predictionUniverse": {
+            "id": expected_population["id"],
+            "claim": expected_population["claim"],
+            "outcome": expected_population["outcome"],
             "authority": expected_population["authority"],
             "evaluationMode": expected_population["evaluation_mode"],
             "researchAssets": expected_population["research_assets"],
             "predictionAssets": expected_population["prediction_assets"],
             "contextAssets": expected_population["context_assets"],
-            "assetPositionRoles": expected_population[
-                "asset_position_roles"
+            "assetPredictionRoles": expected_population[
+                "asset_prediction_roles"
+            ],
+            "evaluationAuthority": expected_population[
+                "evaluation_authority"
+            ],
+            "portfolioAuthority": expected_population[
+                "portfolio_authority"
             ],
             "relativeValuePair": expected_population[
                 "relative_value_pair"
@@ -5871,12 +5888,17 @@ RL_DIAGNOSTICS_JSON_SCHEMA: dict[str, Any] = {
         "predictionUniverse": {
             "type": "object",
             "required": [
+                "id",
+                "claim",
+                "outcome",
                 "authority",
                 "evaluationMode",
                 "researchAssets",
                 "predictionAssets",
                 "contextAssets",
-                "assetPositionRoles",
+                "assetPredictionRoles",
+                "evaluationAuthority",
+                "portfolioAuthority",
                 "relativeValuePair",
                 "tradingAuthority",
             ],

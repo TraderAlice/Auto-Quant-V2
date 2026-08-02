@@ -36,6 +36,10 @@ from autoquant.portfolio_explorer import (
     PORTFOLIO_DIAGNOSTICS_JSON_SCHEMA,
     load_portfolio_diagnostics,
 )
+from autoquant.prediction_modes import (
+    FACTOR_POPULATION,
+    load_factor_population,
+)
 from autoquant.orientation import build_agent_work_brief
 from autoquant.rl_explorer import (
     RL_DIAGNOSTICS_JSON_SCHEMA,
@@ -163,6 +167,7 @@ class RequestDrivenIntakeTests(unittest.TestCase):
         request["factorPolicy"] = {
             "claim": "decision-signal",
             "knownStyle": None,
+            "predictionAssets": ["BTC"],
         }
         request_path.write_text(
             json.dumps(request, indent=2, sort_keys=True) + "\n",
@@ -1248,7 +1253,7 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                 {
                     "paths": [
                         "strategies/factor-claim.json",
-                        "strategies/portfolio-mandate.json",
+                        FACTOR_POPULATION,
                         RESEARCH_HORIZON,
                     ]
                 },
@@ -1290,7 +1295,7 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                 FACTOR_DIAGNOSTICS_JSON_SCHEMA,
             )
 
-    def test_decision_signal_factor_evaluates_only_position_authorized_assets(
+    def test_decision_signal_factor_uses_independent_prediction_assets(
         self,
     ) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -1317,8 +1322,22 @@ class RequestDrivenIntakeTests(unittest.TestCase):
             )
             study = load_study(project, OHLCV_STUDY_ID)
             self.assertIn(
+                FACTOR_POPULATION,
+                study.definition.dependencies["paths"],
+            )
+            self.assertNotIn(
                 PORTFOLIO_MANDATE,
                 study.definition.dependencies["paths"],
+            )
+            self.assertFalse(
+                (project.root_dir / PORTFOLIO_MANDATE).exists()
+            )
+            fixed_population = load_factor_population(
+                project.root_dir / FACTOR_POPULATION
+            )
+            self.assertEqual(
+                fixed_population["predictionAssets"],
+                list(requested),
             )
 
             run = execute_study(project, OHLCV_STUDY_ID)
@@ -1330,7 +1349,7 @@ class RequestDrivenIntakeTests(unittest.TestCase):
             population = run.result["metrics"]["prediction_universe"]
             self.assertEqual(
                 population["authority"],
-                "portfolio-mandate-tradable-assets",
+                "caller-factor-policy-prediction-assets",
             )
             self.assertEqual(population["prediction_assets"], list(requested))
             self.assertEqual(population["context_assets"], ["SPY"])
@@ -1371,26 +1390,19 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                     "knownStyle": None,
                 },
             )
-            prepared = prepare_project_intake(
-                request_path,
-                package_path,
-                "ohlcv-factor-lab",
-            )
-            project = create_project(
-                initialize_workspace(root / "workspace").root_dir,
-                "unsupported-small-decision-population",
-                template=prepared.template,
-                template_intake=prepared,
-            )
-            run = execute_study(project, OHLCV_STUDY_ID)
-            self.assertEqual(run.result["status"], "failed")
-            self.assertEqual(
-                run.result["errors"][0]["code"],
-                "prediction-universe.population",
+            with self.assertRaises(AutoQuantValidationError) as raised:
+                prepare_project_intake(
+                    request_path,
+                    package_path,
+                    "ohlcv-factor-lab",
+                )
+            self.assertIn(
+                "factor-population.size",
+                {issue.code for issue in raised.exception.issues},
             )
             self.assertIn(
-                "three-asset relative basket",
-                run.result["errors"][0]["message"],
+                "three-asset basket",
+                str(raised.exception),
             )
 
     def test_two_asset_relative_value_uses_temporal_spread_evaluation(
@@ -1456,8 +1468,7 @@ class RequestDrivenIntakeTests(unittest.TestCase):
                         "forward_return(left_asset)-"
                         "forward_return(right_asset)"
                     ),
-                    "construction": "symmetric-dollar-neutral-equal-funded",
-                    "beta_neutral": False,
+                    "portfolio_construction_authority": "none",
                 },
             )
             self.assertEqual(
@@ -1706,6 +1717,7 @@ class RequestDrivenIntakeTests(unittest.TestCase):
             request["factorPolicy"] = {
                 "claim": "decision-signal",
                 "knownStyle": None,
+                "predictionAssets": ["BTC"],
             }
             request_path.write_text(
                 json.dumps(request, indent=2, sort_keys=True) + "\n",
@@ -1831,6 +1843,7 @@ class RequestDrivenIntakeTests(unittest.TestCase):
             request["factorPolicy"] = {
                 "claim": "decision-signal",
                 "knownStyle": None,
+                "predictionAssets": ["BTC"],
             }
             request_path.write_text(
                 json.dumps(request, indent=2, sort_keys=True) + "\n",
@@ -1934,6 +1947,7 @@ def compute_factor(panel: pd.DataFrame) -> pd.Series:
             request["factorPolicy"] = {
                 "claim": "decision-signal",
                 "knownStyle": None,
+                "predictionAssets": ["BTC"],
             }
             request_path.write_text(
                 json.dumps(request, indent=2, sort_keys=True) + "\n",
@@ -3467,6 +3481,7 @@ def compute_factor(panel: pd.DataFrame) -> pd.Series:
                 {
                     "paths": [
                         FACTOR_CLAIM,
+                        FACTOR_POPULATION,
                         PORTFOLIO_MANDATE,
                         RESEARCH_HORIZON,
                     ]

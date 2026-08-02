@@ -231,7 +231,11 @@ def write_daily_close_time_inputs(
             },
         ],
         "direction": "long",
-        "factorPolicy": {"claim": "decision-signal", "knownStyle": None},
+        "factorPolicy": {
+            "claim": "decision-signal",
+            "knownStyle": None,
+            "predictionAssets": ["7203.T"],
+        },
         "horizonPolicy": {
             "primaryForwardBars": 1,
             "diagnosticForwardBars": [1, 5],
@@ -409,7 +413,11 @@ def write_observed_composition_inputs(
             },
         ],
         "direction": "long",
-        "factorPolicy": {"claim": "decision-signal", "knownStyle": None},
+        "factorPolicy": {
+            "claim": "decision-signal",
+            "knownStyle": None,
+            "predictionAssets": ["7203.T"],
+        },
         "horizonPolicy": {
             "primaryForwardBars": 1,
             "diagnosticForwardBars": [1, 5],

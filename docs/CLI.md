@@ -25,6 +25,7 @@ aq schema report-analysis --json
 aq schema factor-diagnostics --json
 aq schema factor-candidate-contract --json
 aq schema factor-claim --json
+aq schema factor-population --json
 aq schema event-study-policy --json
 aq schema event-study-diagnostics --json
 aq schema allocation-policy --json
@@ -221,9 +222,11 @@ brief for `nextActions`. The response therefore does not request a redundant
 creates a complete, self-contained pandas factor research Project with local
 synthetic OHLCV, content-locked Study, fixed no-lookahead Judge, fixed
 claim-aware prediction population, and executable next actions. Candidate code
-always sees the complete research panel. A `decision-signal` is evaluated only
-on Portfolio-Mandate `tradableAssets`; factor-identity claims use the complete
-research universe. Diagnostics disclose `predictionUniverse.evaluationMode`:
+always sees the complete research panel. A `decision-signal` explicitly names
+`factorPolicy.predictionAssets`; factor-identity claims use the complete
+research universe. Core freezes this evaluation-only authority in
+`strategies/factor-population.json`. A standalone Factor Lab has no Portfolio
+Mandate. Diagnostics disclose `predictionUniverse.evaluationMode`:
 one decision asset uses temporal evaluation; exactly two symmetric,
 dollar-neutral decision assets use temporal first-minus-second factor/return
 spread evaluation; four or more use cross-sectional evaluation. Three assets
@@ -243,8 +246,8 @@ adds fixed constrained target construction, drift-aware accounting,
 transaction costs, layered professional metrics, and cost/delay/risk-governor
 stresses. It also emits a fixed 15-cell signal-threshold × no-trade
 neighborhood with exact validation/test paths; the neighborhood is context
-only and never selects a parameter. New Portfolio and RL Projects bind a
-strict `portfolio-mandate`:
+only and never selects a parameter. New Portfolio and RL Projects bind both
+the strict Factor Population and a compatible `portfolio-mandate`:
 delegated intake authorizes requested assets and direction while retaining
 other panel assets as research context only. A complete optional asset-role
 vector can instead assign long-only, short-only, two-sided, or context-only
@@ -829,7 +832,9 @@ creation: their result is a descriptive audit to review, not an objective to
 optimize through candidate selection.
 
 With `--request`, Session start first validates the strict external question,
-assets, optional complete per-asset `positionRole` declarations, direction,
+assets, required decision-signal `factorPolicy.predictionAssets` or a
+complete-universe factor-identity claim, optional complete per-asset
+`positionRole` declarations, direction,
 optional complete `portfolioPolicy`, human horizon,
 optional complete numerical `horizonPolicy`, hypotheses, constraints,
 deliverables, and caller-supplied origin context. If one requested asset

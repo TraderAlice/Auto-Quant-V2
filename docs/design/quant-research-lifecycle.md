@@ -259,9 +259,10 @@ prediction-mode-aware normalized signal intent into fixed pre-governor sizing,
 governed target, historical executed gross, and historical executed net
 additive contribution. The consecutive deltas isolate sizing/caps, risk
 governance, execution/no-trade retention, and cost. Normalized intent obeys the
-verified prediction mode and Portfolio Mandate: explicit relative value uses
-its capped complementary pair and Cash, while ordinary cross-sectional
-dollar-neutral research retains full-side breadth. It is a non-compounded
+verified Factor Population mode and the separately compatible Portfolio
+Mandate: explicit relative value uses its capped complementary pair and Cash,
+while ordinary cross-sectional dollar-neutral research retains full-side
+breadth. It is a non-compounded
 diagnostic, not another candidate or benchmark. Validation alone names the
 largest adverse transformation; test is visible audit and the bridge has no
 selection or trading authority.
@@ -289,10 +290,11 @@ not an opaque trading bot:
 The Judge owns state timing, action bounds, reward, costs, constraints,
 splits, seeds, budgets, and baselines. Candidate code implements only a pure
 row-level causal feature transform inside the declared editable closure. The
-current Factor Study candidate and request-derived Portfolio Mandate are
-separate content-locked dependencies: RL can select a governed factor sleeve
-but cannot edit the factor input or change which assets, signs, cash, or
-benchmark that sleeve may use.
+current Factor Study candidate, request-derived Factor Population, and
+Portfolio Mandate are separate content-locked dependencies: RL can select a
+governed factor sleeve but cannot edit the factor input or change which assets
+receive Factor scores, which assets may become positions, or which signs,
+cash, and benchmark that sleeve may use.
 
 Required evidence includes:
 

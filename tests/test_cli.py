@@ -1483,6 +1483,7 @@ class AgentCliTests(unittest.TestCase):
                 "candidate-check-output",
                 "candidate-check-result",
                 "portfolio-mandate",
+                "factor-population",
                 "research-horizon",
                 "experiment",
                 "researcher-response",

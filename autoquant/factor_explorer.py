@@ -23,6 +23,10 @@ from .horizons import (
     validate_research_horizon,
 )
 from .intervals import timestamp_label
+from .prediction_modes import (
+    PredictionModeError,
+    validate_prediction_population_metrics,
+)
 from .runs import RunContext, load_run
 from .workspace import (
     SCHEMA_VERSION,
@@ -853,6 +857,7 @@ def _availability(
 def _prediction_universe(
     metrics: dict[str, Any],
     universe: list[str],
+    factor_claim: dict[str, Any],
 ) -> dict[str, Any]:
     raw = metrics.get("prediction_universe")
     if raw is None:
@@ -863,6 +868,37 @@ def _prediction_universe(
             "researchAssets": list(universe),
             "predictionAssets": list(universe),
             "contextAssets": [],
+        }
+    if isinstance(raw, dict) and "asset_prediction_roles" in raw:
+        try:
+            population = validate_prediction_population_metrics(
+                raw,
+                universe,
+                factor_claim,
+            )
+        except PredictionModeError as error:
+            _fail(
+                "RunResult/metrics/prediction_universe",
+                error.code,
+                str(error),
+            )
+        return {
+            "available": True,
+            "id": population["id"],
+            "claim": population["claim"],
+            "outcome": population["outcome"],
+            "authority": population["authority"],
+            "evaluationMode": population["evaluation_mode"],
+            "researchAssets": population["research_assets"],
+            "predictionAssets": population["prediction_assets"],
+            "contextAssets": population["context_assets"],
+            "assetPredictionRoles": population[
+                "asset_prediction_roles"
+            ],
+            "evaluationAuthority": population["evaluation_authority"],
+            "portfolioAuthority": population["portfolio_authority"],
+            "relativeValuePair": population["relative_value_pair"],
+            "tradingAuthority": population["trading_authority"],
         }
     required = {
         "authority",
@@ -3840,7 +3876,11 @@ def _load_factor_diagnostics_unlocked(
             "factor.outcome-contract",
             "An explicit Factor outcome requires an immutable outcome contract",
         )
-    prediction_universe = _prediction_universe(metrics, universe)
+    prediction_universe = _prediction_universe(
+        metrics,
+        universe,
+        outcome_claim,
+    )
     if prediction_universe["available"] and (
         report_dataset.get("predictionAssets")
         != prediction_universe["predictionAssets"]

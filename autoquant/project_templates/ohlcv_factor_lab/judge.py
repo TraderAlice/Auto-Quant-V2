@@ -31,16 +31,14 @@ from autoquant.intervals import (
     load_multi_interval_asset,
     timestamp_label,
 )
-from autoquant.mandates import (
-    PORTFOLIO_MANDATE,
-    load_portfolio_mandate,
-)
 from autoquant.prediction_modes import (
     CROSS_SECTIONAL_MODE,
+    FACTOR_POPULATION,
     SINGLE_ASSET_TEMPORAL_MODE,
     TEMPORAL_EVALUATION_MODES,
     TWO_ASSET_RELATIVE_VALUE_MODE,
     PredictionModeError,
+    load_factor_population,
     resolve_prediction_population,
 )
 from autoquant.horizons import (
@@ -126,9 +124,9 @@ def _load_prediction_universe(
     research_universe: list[str],
     factor_claim: dict[str, Any],
 ) -> tuple[dict[str, Any], list[str], list[str], str, str]:
-    path = Path(os.environ["AUTOQUANT_PROJECT_ROOT"]) / PORTFOLIO_MANDATE
+    path = Path(os.environ["AUTOQUANT_PROJECT_ROOT"]) / FACTOR_POPULATION
     try:
-        mandate = load_portfolio_mandate(path)
+        factor_population = load_factor_population(path)
     except Exception as error:
         raise JudgeFailure(
             "prediction-universe.contract",
@@ -138,12 +136,12 @@ def _load_prediction_universe(
         population = resolve_prediction_population(
             research_universe,
             factor_claim,
-            mandate,
+            factor_population,
         )
     except PredictionModeError as error:
         raise JudgeFailure(error.code, str(error)) from error
     return (
-        mandate,
+        population.as_metrics(),
         list(population.prediction_assets),
         list(population.context_assets),
         population.authority,
@@ -1732,7 +1730,7 @@ def _evaluate() -> tuple[
     dataset = study["dataset"]
     universe = dataset["universe"]
     (
-        mandate,
+        prediction_population,
         prediction_assets,
         context_assets,
         prediction_authority,
@@ -2218,34 +2216,7 @@ def _evaluate() -> tuple[
         "research_horizon": research_horizon,
         "factor_claim": factor_claim,
         "factor_outcome": outcome_contract,
-        "prediction_universe": {
-            "authority": prediction_authority,
-            "evaluation_mode": evaluation_mode,
-            "research_assets": list(universe),
-            "prediction_assets": prediction_assets,
-            "context_assets": context_assets,
-            "asset_position_roles": mandate["construction"][
-                "assetPositionRoles"
-            ],
-            "trading_authority": "none",
-            "relative_value_pair": (
-                {
-                    "left_asset": prediction_assets[0],
-                    "right_asset": prediction_assets[1],
-                    "factor_contrast": (
-                        "factor(left_asset)-factor(right_asset)"
-                    ),
-                    "target_contrast": (
-                        "forward_return(left_asset)-"
-                        "forward_return(right_asset)"
-                    ),
-                    "construction": "symmetric-dollar-neutral-equal-funded",
-                    "beta_neutral": False,
-                }
-                if evaluation_mode == TWO_ASSET_RELATIVE_VALUE_MODE
-                else None
-            ),
-        },
+        "prediction_universe": prediction_population,
         "train": splits["train"],
         "validation": splits["validation"],
         "test": splits["test"],
@@ -2325,9 +2296,9 @@ def _evaluate() -> tuple[
                 "complete Study universe available to candidate features"
             ),
             "predictionUniverse": (
-                "Portfolio Mandate tradableAssets for request-bound "
-                "decision-signal claims; complete research universe for "
-                "novel-factor and known-style-validation claims"
+                "caller-owned factorPolicy.predictionAssets for request-"
+                "bound decision-signal claims; complete research universe "
+                "for novel-factor and known-style-validation claims"
             ),
             "horizons": list(HORIZONS),
             "primaryHorizon": PRIMARY_HORIZON,

@@ -1,8 +1,9 @@
 # Prediction-mode target-weight translation
 
-Status: accepted at `0.9.2`.
+Status: revised by the caller-owned Factor Population contract.
 
 Related: [[docs/design/ohlcv-factor-lab]],
+[[docs/design/caller-owned-factor-population]],
 [[docs/design/request-bound-portfolio-mandates]],
 [[docs/design/signal-policy-and-attribution]],
 [[docs/design/target-translation-robustness]], and
@@ -11,9 +12,15 @@ Related: [[docs/design/ohlcv-factor-lab]],
 ## Decision
 
 Factor, Portfolio, and governed RL resolve one prediction population from the
-fixed Factor claim and Portfolio Mandate. Context-only assets may inform an
-Agent-authored factor, but the fixed Harness never ranks them as prediction
-targets or gives them target weight.
+fixed Factor Claim and Factor Population. The latter grants evaluation only;
+the separately fixed Portfolio Mandate alone grants historical target-weight
+construction. Portfolio and governed RL bind both contracts and reject an
+incompatible pair. Factor-only work binds no Mandate.
+
+Factor-context assets may inform Agent-authored source, but the fixed Harness
+never uses them as target observations or decision scores. Mandate-context
+assets remain flat even when a complete-universe novel/known-style Factor
+evaluated them as prediction targets.
 
 The translation stops at historical target weights. It is not an Order,
 Broker fill, TPSL plan, account instruction, probability, or live forecast.
@@ -34,9 +41,11 @@ unused gross remains cash when per-asset caps prevent full funding.
 
 ## Evidence contract
 
-Every new Portfolio and RL Study binds `strategies/factor-claim.json` in
-addition to its other fixed dependencies. RunResult and report artifacts carry
-the exact Factor claim, prediction population, and signal-translation method.
+Every new Portfolio and RL Study binds `strategies/factor-claim.json`,
+`strategies/factor-population.json`, and
+`strategies/portfolio-mandate.json` in addition to its other fixed
+dependencies. RunResult and report artifacts carry the exact Factor claim,
+prediction population, and signal-translation method.
 Portfolio decision rows retain the raw factor, translation value, causal
 observation count, translation score, evaluation mode, and final score after
 risk availability.

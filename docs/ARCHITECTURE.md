@@ -182,8 +182,11 @@ The V2 foundation now implements:
   performance from train/validation/test ERC construction fidelity, and
   exposes cap-induced parity gaps without opening an optimizer or Session
   surface.
-- one request-bound Portfolio Mandate shared by Factor, Portfolio, and governed
-  RL that derives tradable/context assets,
+- one request-bound Factor Population shared by Factor, Portfolio, and
+  governed RL that fixes prediction/context assets and evaluation mode with
+  explicit no-Portfolio and no-trading authority;
+- one separate request-bound Portfolio Mandate shared by Portfolio and
+  governed RL that derives tradable/context assets,
   direction-default or caller-supplied per-asset position roles, side limits,
   cash, gross/net, cap, benchmark, and one-sided
   covariance risk policy from caller intent and is shared exactly by Portfolio

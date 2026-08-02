@@ -49,6 +49,9 @@ hypothesis concerns switching cost, stale holdings, or no-trade behavior;
 `previous_action` alone does not identify the current portfolio.
 `factors/**` is a fixed content-locked input to this Study; start a fresh RL
 Session after promoting different factor bytes.
+`strategies/factor-population.json` is the separate fixed Factor evaluation
+contract. It decides which assets receive factor scores and has no Portfolio
+or trading authority.
 `strategies/portfolio-mandate.json` is the shared fixed position contract for
 every RL action sleeve and is also not editable. Every sleeve receives the
 same causal covariance forecast and one-sided volatility ceiling before the

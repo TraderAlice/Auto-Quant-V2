@@ -1468,6 +1468,48 @@ def validate_research_request(
                     "short-capable assets",
                 )
             )
+    if normalized_factor_policy is not None:
+        claim = normalized_factor_policy["claim"]
+        prediction_assets = normalized_factor_policy.get("predictionAssets")
+        requested_symbols = [
+            asset.get("symbol")
+            for asset in assets
+            if isinstance(asset, dict)
+            and isinstance(asset.get("symbol"), str)
+        ]
+        if claim == "decision-signal" and prediction_assets is None:
+            issues.append(
+                _issue(
+                    f"{path}/factorPolicy/predictionAssets",
+                    "request.factor-prediction-assets-required",
+                    "decision-signal requires explicit predictionAssets",
+                )
+            )
+        elif claim != "decision-signal" and prediction_assets is not None:
+            issues.append(
+                _issue(
+                    f"{path}/factorPolicy/predictionAssets",
+                    "request.factor-prediction-assets-claim",
+                    "Only decision-signal may declare predictionAssets; "
+                    "novel and known-style claims evaluate the complete "
+                    "research universe",
+                )
+            )
+        elif isinstance(prediction_assets, list):
+            unknown = [
+                asset
+                for asset in prediction_assets
+                if asset not in requested_symbols
+            ]
+            if unknown:
+                issues.append(
+                    _issue(
+                        f"{path}/factorPolicy/predictionAssets",
+                        "request.factor-prediction-assets-unrequested",
+                        "predictionAssets may name requested assets only: "
+                        + ", ".join(unknown),
+                    )
+                )
     if normalized_event_policy is not None:
         requested_symbols = {
             identity[1]
@@ -2005,11 +2047,21 @@ RESEARCH_REQUEST_JSON_SCHEMA: dict[str, Any] = {
                 {
                     "type": "object",
                     "additionalProperties": False,
-                    "required": ["claim", "knownStyle"],
+                    "required": [
+                        "claim",
+                        "knownStyle",
+                        "predictionAssets",
+                    ],
                     "properties": {
                         "claim": {"const": "decision-signal"},
                         "knownStyle": {"type": "null"},
                         "outcome": {"enum": sorted(FACTOR_OUTCOMES)},
+                        "predictionAssets": {
+                            "type": "array",
+                            "minItems": 1,
+                            "uniqueItems": True,
+                            "items": {"type": "string", "minLength": 1},
+                        },
                     },
                 },
                 {

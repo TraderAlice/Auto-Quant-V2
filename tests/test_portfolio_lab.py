@@ -32,7 +32,10 @@ from autoquant.project_templates.ohlcv_portfolio_lab.portfolio_core import (
 )
 from autoquant.factor_claims import build_factor_claim
 from autoquant.mandates import build_portfolio_mandate
-from autoquant.prediction_modes import resolve_prediction_population
+from autoquant.prediction_modes import (
+    build_factor_population,
+    resolve_prediction_population,
+)
 from autoquant.briefs import validate_research_request
 from autoquant.research import run_campaign
 from autoquant.runs import execute_study
@@ -113,7 +116,7 @@ class PredictionModeTranslationTests(unittest.TestCase):
             "evaluation_mode": "single-asset-temporal",
             "prediction_assets": ["TARGET"],
             "context_assets": ["CONTEXT_A", "CONTEXT_B"],
-            "authority": "portfolio-mandate-tradable-assets",
+            "authority": "caller-factor-policy-prediction-assets",
             "relative_value_pair": None,
         }
 
@@ -158,7 +161,7 @@ class PredictionModeTranslationTests(unittest.TestCase):
             "evaluation_mode": "cross-sectional",
             "prediction_assets": ["A", "B", "C", "D"],
             "context_assets": ["CONTEXT"],
-            "authority": "portfolio-mandate-tradable-assets",
+            "authority": "caller-factor-policy-prediction-assets",
             "relative_value_pair": None,
         }
         scores, _, _, _ = translate_factor_scores(factors, population)
@@ -204,6 +207,7 @@ class PredictionModeTranslationTests(unittest.TestCase):
             "factorPolicy": {
                 "claim": "decision-signal",
                 "knownStyle": None,
+                "predictionAssets": ["LEFT", "RIGHT"],
             },
             "source": {
                 "system": "openalice",
@@ -218,7 +222,7 @@ class PredictionModeTranslationTests(unittest.TestCase):
         population = resolve_prediction_population(
             universe,
             build_factor_claim(request),
-            mandate,
+            build_factor_population(request, universe),
         ).as_metrics()
         factors = pd.DataFrame(
             {
@@ -1197,6 +1201,7 @@ class OhlcvPortfolioLabTests(unittest.TestCase):
                 {
                     "paths": [
                         "strategies/factor-claim.json",
+                        "strategies/factor-population.json",
                         "strategies/portfolio-mandate.json",
                         "strategies/research-horizon.json",
                     ]

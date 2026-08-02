@@ -64,9 +64,11 @@ factor claim; an RL policy can have high absolute Sharpe yet add no value over
 a simple baseline.
 
 All three lanes bind the same fixed
+`strategies/factor-population.json`; Portfolio and governed RL separately bind
 `strategies/portfolio-mandate.json`. For a request-bound `decision-signal`,
-Factor uses its tradable assets as the prediction/evaluation population while
-the complete research universe remains available as causal input context.
+Factor uses caller-owned `factorPolicy.predictionAssets` as its evaluation
+population while the complete research universe remains available as causal
+input context. The Mandate independently owns position construction.
 Novel-factor and known-style validation claims retain complete-universe
 evaluation. Exactly one tradable asset selects temporal evaluation; exactly
 two symmetric, two-sided, dollar-neutral assets select temporal

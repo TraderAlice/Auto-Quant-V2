@@ -38,6 +38,8 @@ permission to select from visible test audit.
 
 ## Fixed portfolio contract
 
+- `strategies/factor-population.json` fixes which assets supply Factor target
+  observations and scores; it grants no position authority;
 - `strategies/portfolio-mandate.json` fixes tradable versus context assets,
   permitted direction, cash, gross/net, cap, and a structured benchmark;
 - benchmark return uses only the Mandate's complete fixed weight vector; a

@@ -85,6 +85,12 @@ from .position_snapshots import (
     build_position_snapshot,
     load_position_snapshot,
 )
+from .prediction_modes import (
+    FACTOR_POPULATION,
+    PredictionModeError,
+    build_factor_population,
+    load_factor_population,
+)
 from .studies import StudyContext, hash_file, hash_json, load_study
 from .workspace import (
     SCHEMA_VERSION,
@@ -1865,11 +1871,13 @@ def prepare_project_intake(
     observed_intraday = (
         package["schemaVersion"] in OBSERVED_SCHEMA_VERSIONS
     )
-    observed_target_symbols = [
-        item["symbol"]
-        for item in request["assets"]
-        if item.get("positionRole") != "context-only"
-    ]
+    factor_policy = request.get("factorPolicy")
+    observed_target_symbols = (
+        list(factor_policy.get("predictionAssets", []))
+        if isinstance(factor_policy, dict)
+        and factor_policy.get("claim") == "decision-signal"
+        else []
+    )
     if ragged_daily and template != "ohlcv-factor-lab":
         issues.append(
             _issue(
@@ -1888,16 +1896,13 @@ def prepare_project_intake(
                 "the ohlcv-factor-lab template",
             )
         )
-    if observed_intraday and (
-        any("positionRole" not in item for item in request["assets"])
-        or len(observed_target_symbols) != 1
-    ):
+    if observed_intraday and len(observed_target_symbols) != 1:
         issues.append(
             _issue(
                 "request/assets",
                 "request.observed-bar-target",
-                "V5/V6 require explicit positionRole on every requested asset "
-                "and exactly one non-context temporal target",
+                "V5/V6 require a decision-signal factorPolicy with exactly "
+                "one explicit prediction asset",
             )
         )
     package_surface = (
@@ -2110,7 +2115,6 @@ def prepare_project_intake(
         minimum_observations = minimum_observations_override
     if observed_intraday:
         minimum_assets = 1
-    factor_policy = request.get("factorPolicy")
     resolved_factor_outcome = factor_outcome(
         factor_policy if isinstance(factor_policy, dict) else {}
     )
@@ -2151,6 +2155,22 @@ def prepare_project_intake(
         and len(observed_target_symbols) in {1, 2}
     ):
         minimum_assets = len(observed_target_symbols)
+    if template in {
+        "ohlcv-factor-lab",
+        "ohlcv-portfolio-lab",
+        "ohlcv-rl-factor-lab",
+        "ohlcv-research-desk",
+    }:
+        try:
+            build_factor_population(request, list(prepared_by_symbol))
+        except PredictionModeError as error:
+            issues.append(
+                _issue(
+                    "request/factorPolicy/predictionAssets",
+                    error.code,
+                    str(error),
+                )
+            )
     if len(prepared) < minimum_assets:
         issues.append(
             _issue(
@@ -4330,6 +4350,61 @@ def load_project_intake(project: ProjectContext) -> dict[str, Any] | None:
                     "Factor claim differs from the normalized request",
                 )
             )
+    factor_population_path = project.root_dir / FACTOR_POPULATION
+    factor_population_present = (
+        factor_population_path.exists() or factor_population_path.is_symlink()
+    )
+    factor_population_dependencies: dict[str, bool] = {}
+    for factor_study_id in factor_claim_studies:
+        factor_study = load_study(project, factor_study_id)
+        factor_population_dependencies[factor_study_id] = (
+            factor_study.definition.dependencies is not None
+            and FACTOR_POPULATION
+            in factor_study.definition.dependencies["paths"]
+        )
+    requires_factor_population = any(
+        factor_population_dependencies.values()
+    )
+    factor_population_contract = (
+        factor_population_present or requires_factor_population
+    )
+    if factor_population_contract:
+        for factor_study_id, binds_population in (
+            factor_population_dependencies.items()
+        ):
+            if binds_population:
+                continue
+            factor_study = load_study(project, factor_study_id)
+            issues.append(
+                _issue(
+                    factor_study.manifest_path,
+                    "intake.factor-population-dependency",
+                    "Factor Study does not bind the fixed Factor population",
+                )
+            )
+        factor_population = load_factor_population(factor_population_path)
+        try:
+            expected_factor_population = build_factor_population(
+                request,
+                list(snapshot.get("universe", [])),
+            )
+        except PredictionModeError as error:
+            issues.append(
+                _issue(
+                    factor_population_path,
+                    error.code,
+                    str(error),
+                )
+            )
+        else:
+            if factor_population != expected_factor_population:
+                issues.append(
+                    _issue(
+                        factor_population_path,
+                        "intake.factor-population",
+                        "Factor population differs from the normalized request",
+                    )
+                )
     event_policy_path = project.root_dir / EVENT_STUDY_POLICY
     event_policy_present = (
         event_policy_path.exists() or event_policy_path.is_symlink()

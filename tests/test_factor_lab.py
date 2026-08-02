@@ -13,6 +13,10 @@ import pandas as pd
 import jsonschema
 
 from autoquant.factor_claims import FACTOR_CLAIM, build_factor_claim
+from autoquant.prediction_modes import (
+    FACTOR_POPULATION,
+    build_factor_population,
+)
 from autoquant.decision_support import (
     build_leader_decision_support,
     factor_qualification_markdown_lines,
@@ -760,17 +764,25 @@ class OhlcvFactorLabTests(unittest.TestCase):
     def test_decision_signal_can_advance_without_novelty(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             _, project = make_factor_lab(directory)
-            claim = build_factor_claim(
-                {
-                    "factorPolicy": {
-                        "claim": "decision-signal",
-                        "knownStyle": None,
-                    }
-                }
-            )
+            study = load_study(project, OHLCV_STUDY_ID)
+            universe = study.definition.dataset.universe
+            request = {
+                "factorPolicy": {
+                    "claim": "decision-signal",
+                    "knownStyle": None,
+                    "predictionAssets": universe,
+                },
+                "direction": "long",
+            }
+            claim = build_factor_claim(request)
             claim_path = project.root_dir / FACTOR_CLAIM
             claim_path.write_text(
                 json.dumps(claim, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            population = build_factor_population(request, universe)
+            (project.root_dir / FACTOR_POPULATION).write_text(
+                json.dumps(population, indent=2, sort_keys=True) + "\n",
                 encoding="utf-8",
             )
             session = start_session(project, OHLCV_STUDY_ID)

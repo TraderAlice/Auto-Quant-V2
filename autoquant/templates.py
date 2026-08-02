@@ -41,6 +41,10 @@ from .position_snapshots import (
     POSITION_SNAPSHOT,
     build_position_snapshot,
 )
+from .prediction_modes import (
+    FACTOR_POPULATION,
+    build_factor_population,
+)
 from .studies import (
     StudyContext,
     StudyDataset,
@@ -651,6 +655,22 @@ def _write_factor_claim(
     return claim
 
 
+def _write_factor_population(
+    project: ProjectContext,
+    intake: PreparedIntake | None,
+    universe: list[str],
+) -> dict[str, object]:
+    population = build_factor_population(
+        intake.request if intake is not None else None,
+        universe,
+    )
+    (project.root_dir / FACTOR_POPULATION).write_text(
+        json.dumps(population, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return population
+
+
 def _write_position_snapshot(
     project: ProjectContext,
     request: dict[str, object],
@@ -804,7 +824,7 @@ def _apply_ohlcv_factor_lab(
         )
     _write_research_horizon(project, intake)
     _write_factor_claim(project, intake)
-    _write_portfolio_mandate(
+    _write_factor_population(
         project,
         intake,
         list(dataset["universe"]),
@@ -860,7 +880,7 @@ def _apply_ohlcv_factor_lab(
         dependencies={
             "paths": [
                 FACTOR_CLAIM,
-                PORTFOLIO_MANDATE,
+                FACTOR_POPULATION,
                 RESEARCH_HORIZON,
             ]
         },
@@ -903,6 +923,7 @@ def _apply_ohlcv_portfolio_lab(
         list(dataset["universe"]),
     )
     _write_factor_claim(project, intake)
+    _write_factor_population(project, intake, list(dataset["universe"]))
     _write_research_horizon(project, intake)
     _write_surface_aligned_factor_candidate(
         project,
@@ -959,6 +980,7 @@ def _apply_ohlcv_portfolio_lab(
         dependencies={
             "paths": [
                 FACTOR_CLAIM,
+                FACTOR_POPULATION,
                 PORTFOLIO_MANDATE,
                 RESEARCH_HORIZON,
             ]
@@ -1002,6 +1024,7 @@ def _apply_ohlcv_rl_factor_lab(
         list(dataset["universe"]),
     )
     _write_factor_claim(project, intake)
+    _write_factor_population(project, intake, list(dataset["universe"]))
     _write_research_horizon(project, intake)
     _write_template_source(
         project,
@@ -1077,6 +1100,7 @@ def _apply_ohlcv_rl_factor_lab(
             "paths": [
                 "factors/**",
                 FACTOR_CLAIM,
+                FACTOR_POPULATION,
                 PORTFOLIO_MANDATE,
                 RESEARCH_HORIZON,
             ]
@@ -1713,6 +1737,7 @@ def _apply_ohlcv_research_desk(
     )
     _write_research_horizon(project, intake)
     _write_factor_claim(project, intake)
+    _write_factor_population(project, intake, list(dataset["universe"]))
 
     # Write every fixed/editable source before creating any Study identity.
     _write_surface_aligned_factor_candidate(
@@ -1807,7 +1832,7 @@ def _apply_ohlcv_research_desk(
                 dependencies={
                     "paths": [
                         FACTOR_CLAIM,
-                        PORTFOLIO_MANDATE,
+                        FACTOR_POPULATION,
                         RESEARCH_HORIZON,
                     ]
                 },
@@ -1845,6 +1870,7 @@ def _apply_ohlcv_research_desk(
                 dependencies={
                     "paths": [
                         FACTOR_CLAIM,
+                        FACTOR_POPULATION,
                         PORTFOLIO_MANDATE,
                         RESEARCH_HORIZON,
                     ]
@@ -1885,6 +1911,7 @@ def _apply_ohlcv_research_desk(
                     "paths": [
                         "factors/**",
                         FACTOR_CLAIM,
+                        FACTOR_POPULATION,
                         PORTFOLIO_MANDATE,
                         RESEARCH_HORIZON,
                     ]

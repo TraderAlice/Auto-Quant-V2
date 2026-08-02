@@ -165,7 +165,7 @@ CLI_COMMANDS = [
     ),
     descriptor(
         "schema",
-        "aq schema [workspace|project|agent-work-brief|research-agenda|holdout-binding|holdout-result|holdout-assessment-analysis|holdout-assessment|holdout-status|study|judge-output|run-result|factor-claim|factor-candidate-contract|factor-diagnostics|event-study-policy|event-study-diagnostics|book-path-stress-policy|book-path-stress-diagnostics|allocation-policy|allocation-diagnostics|book-risk-diagnostics|portfolio-diagnostics|research-program-status|rl-policy-diagnostics|session-decision-matrix|session|session-completion|candidate-preflight|candidate-check-output|candidate-check-result|portfolio-mandate|research-horizon|experiment|research-request|ohlcv-dataset-package|report-analysis|review-analysis|dossier-analysis|dossier-result|dossier-status|researcher-response|campaign-result|campaign-progress|studio-snapshot] [--json]",
+        "aq schema [workspace|project|agent-work-brief|research-agenda|holdout-binding|holdout-result|holdout-assessment-analysis|holdout-assessment|holdout-status|study|judge-output|run-result|factor-claim|factor-population|factor-candidate-contract|factor-diagnostics|event-study-policy|event-study-diagnostics|book-path-stress-policy|book-path-stress-diagnostics|allocation-policy|allocation-diagnostics|book-risk-diagnostics|portfolio-diagnostics|research-program-status|rl-policy-diagnostics|session-decision-matrix|session|session-completion|candidate-preflight|candidate-check-output|candidate-check-result|portfolio-mandate|research-horizon|experiment|research-request|ohlcv-dataset-package|report-analysis|review-analysis|dossier-analysis|dossier-result|dossier-status|researcher-response|campaign-result|campaign-progress|studio-snapshot] [--json]",
         "List or emit canonical AutoQuant JSON Schemas.",
         "read-only",
         [
@@ -208,6 +208,7 @@ CLI_COMMANDS = [
                     "candidate-check-output",
                     "candidate-check-result",
                     "portfolio-mandate",
+                    "factor-population",
                     "research-horizon",
                     "experiment",
                     "researcher-response",

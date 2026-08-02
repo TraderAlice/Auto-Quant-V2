@@ -5,6 +5,7 @@ Status: active design.
 Related: [[docs/design/study-run-evidence]],
 [[docs/design/research-program-orchestration]],
 [[docs/design/request-bound-portfolio-mandates]],
+[[docs/design/caller-owned-factor-population]],
 [[docs/design/factor-qualification-funnel]],
 [[docs/design/caller-owned-factor-outcomes]],
 [[docs/design/portfolio-risk-governor]],
@@ -27,6 +28,7 @@ The first use is the governed RL Study:
 
 ```text
 factors/** source closure ───────── read-only dependency ──► RL Judge
+strategies/factor-population.json ─ read-only dependency ──► Factor + Portfolio + RL
 strategies/portfolio-mandate.json ─ read-only dependency ──► Portfolio + RL
 models/candidate.py ─────────────── editable encoder ──────► RL Judge
 judges/** ───────────────────────── fixed authority ───────► result
@@ -39,7 +41,11 @@ An optional manifest field declares Project-relative source paths:
 ```json
 {
   "dependencies": {
-    "paths": ["factors/**", "strategies/portfolio-mandate.json"]
+    "paths": [
+      "factors/**",
+      "strategies/factor-population.json",
+      "strategies/portfolio-mandate.json"
+    ]
   }
 }
 ```
@@ -85,10 +91,14 @@ The resulting cross-sectional panel becomes a `candidate` sleeve under the
 same mechanical signal-state, sizing, constraint, drift, and cost contract as
 every reference expert.
 
-The Portfolio Mandate is a second fixed dependency shared by Portfolio and
-RL. Every RL action sleeve uses its exact tradable/context partition,
+The Factor Population is an independent fixed dependency shared by all three
+lanes. It owns prediction/context membership, evaluation mode, and explicit
+evaluation-only authority. The Portfolio Mandate is another fixed dependency
+shared only by Portfolio and RL. Every RL action sleeve uses its exact
+tradable/context partition,
 permitted sign, cash, gross/net, cap, benchmark, and final executed-book risk
-semantics.
+semantics. Downstream Judges verify the two authorities are compatible rather
+than deriving either from the other.
 
 ## Evidence
 
@@ -101,6 +111,8 @@ Every RL Run records:
 - candidate action frequency across every declared fold and seed;
 - whether RL beats the best declared baseline, which may itself be candidate;
 - the complete fixed Portfolio Mandate and constraint audit for every action;
+- the complete fixed Factor Population and its no-Portfolio/no-trading
+  authority;
 - final-book forecast coverage, pretrade breaches, risk-only no-trade
   overrides, executed breaches, and the exact execution reason.
 
@@ -121,9 +133,11 @@ failed layer.
 
 The canonical desk verifies that the `factors/**` subset of the RL dependency
 closure equals the current Factor Study source identity. It separately
+verifies that all three lanes bind the same Factor Population. It separately
 verifies that Portfolio and RL bind the same request-derived position and risk
 mandate, including the exact covariance window, volatility ceiling, and
-scale-up prohibition. A changed factor or mandate makes prior RL Runs stale.
+scale-up prohibition. A changed factor, population, or mandate makes prior RL
+Runs stale.
 
 Factor/Portfolio Sessions write `factors/**`; an RL Session reads the same
 surface as fixed dependency. Simultaneous activity is a coordination conflict

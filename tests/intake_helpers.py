@@ -26,6 +26,20 @@ def write_intake_inputs(
     request_assets: tuple[str, ...] = ("AAPL", "MSFT"),
     asset_position_roles: dict[str, str] | None = None,
 ) -> tuple[Path, Path]:
+    normalized_factor_policy = (
+        dict(factor_policy) if factor_policy is not None else None
+    )
+    if (
+        normalized_factor_policy is not None
+        and normalized_factor_policy.get("claim") == "decision-signal"
+        and "predictionAssets" not in normalized_factor_policy
+    ):
+        normalized_factor_policy["predictionAssets"] = [
+            symbol
+            for symbol in request_assets
+            if asset_position_roles is None
+            or asset_position_roles[symbol] != "context-only"
+        ]
     source = root / "external-data"
     source.mkdir()
     dates = pd.bdate_range(start, periods=observations)
@@ -130,8 +144,8 @@ def write_intake_inputs(
             else {}
         ),
         **(
-            {"factorPolicy": factor_policy}
-            if factor_policy is not None
+            {"factorPolicy": normalized_factor_policy}
+            if normalized_factor_policy is not None
             else {}
         ),
         "horizon": "one to four weeks",
@@ -419,6 +433,7 @@ def write_observed_intraday_inputs(
         "factorPolicy": {
             "claim": "decision-signal",
             "knownStyle": None,
+            "predictionAssets": ["GC=F"],
         },
         "horizonPolicy": {
             "primaryForwardBars": 24,
@@ -598,7 +613,11 @@ def write_cross_market_daily_inputs(
             },
         ],
         "direction": "long",
-        "factorPolicy": {"claim": "decision-signal", "knownStyle": None},
+        "factorPolicy": {
+            "claim": "decision-signal",
+            "knownStyle": None,
+            "predictionAssets": ["7203.T"],
+        },
         "horizonPolicy": {
             "primaryForwardBars": 1,
             "diagnosticForwardBars": [1, 5],
