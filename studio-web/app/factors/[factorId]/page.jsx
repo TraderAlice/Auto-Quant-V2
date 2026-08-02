@@ -1,9 +1,53 @@
-import Link from "next/link";
+"use client";
+
 import { PerformanceChart } from "@/components/charts";
-import { Metric, ObjectLink, PageHeading, Panel, StatusChip } from "@/components/ui";
+import { ResearchSubject } from "@/components/research-subject";
+import { useStudio } from "@/components/studio-context";
+import { ButtonLink, EmptyState, Metric, ObjectLink, PageHeading, Panel, StatusChip } from "@/components/ui";
 import { factor, metrics } from "@/lib/data";
 
 export default function FactorPassport() {
+  const { source, subject, demoEnabled, factor: activeFactor } = useStudio();
+
+  if (source.mode === "connected" && !demoEnabled) {
+    const project = source.snapshot?.projects?.[0];
+    const study = project?.studies?.find((item) => item.subjectKind === "factor") || project?.studies?.[0];
+    const explorer = project?.factorExplorer;
+    return (
+      <>
+        <PageHeading
+          eyebrow="Factor passport / Core projection"
+          title={activeFactor.name}
+          description={activeFactor.description}
+          actions={<ButtonLink variant="primary" href="/replay">进入标的驱动回放</ButtonLink>}
+        />
+        <ResearchSubject subject={subject} />
+        <div className="grid-2" style={{ marginTop: 14 }}>
+          <Panel title="标的驱动诊断" meta="同一 ResearchSubject 约束因子结论">
+            <div className="dense-list">
+              {(subject?.diagnostics || []).map((detail) => (
+                <div className="dense-row" key={detail}>
+                  <div><strong>{detail}</strong><small>{subject.label}</small></div>
+                  <StatusChip state={subject.unresolved.length ? "partial" : "known"}>{subject.unresolved.length ? "待补语义" : "必检"}</StatusChip>
+                </div>
+              ))}
+            </div>
+          </Panel>
+          <Panel title="Core 因子证据" meta={study?.id || "等待 Study"}>
+            {explorer ? (
+              <div className="run-summary">
+                <div className="field"><span>Run</span><strong className="mono">{explorer.run?.id}</strong></div>
+                <div className="field"><span>Dataset hash</span><strong className="mono">{study?.datasetHash}</strong></div>
+              </div>
+            ) : (
+              <EmptyState title="尚无有效 Factor Explorer" detail="页面保留 Study 与标的契约，不伪造 Rank IC、收益或诊断。" />
+            )}
+          </Panel>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <PageHeading
@@ -12,8 +56,8 @@ export default function FactorPassport() {
         description={factor.description}
         actions={
           <>
-            <Link className="button-secondary" href="/lab">打开实验室</Link>
-            <Link className="button" href="/replay">进入关键区间</Link>
+            <ButtonLink href="/lab">打开实验室</ButtonLink>
+            <ButtonLink variant="primary" href="/replay">进入关键区间</ButtonLink>
           </>
         }
       />

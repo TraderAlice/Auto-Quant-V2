@@ -1,5 +1,9 @@
+"use client";
+
 import { adapters } from "@/lib/data";
-import { PageHeading, Panel, StatusChip } from "@/components/ui";
+import { DataIntake } from "@/components/data-intake";
+import { useStudio } from "@/components/studio-context";
+import { DataTable, PageHeading, Panel, StatusChip } from "@/components/ui";
 
 const mappings = [
   ["event_time", "源事件实际发生时间", "不可由发布时间替代"],
@@ -9,7 +13,43 @@ const mappings = [
   ["revised_at", "当前版本修订时间", "原版本仍需可寻址"],
 ];
 
+const eventAdapters = [
+  ["a-share-announcement", "A 股公告"],
+  ["crypto-event", "加密事件"],
+  ["financial-news", "财经新闻"],
+];
+
 export default function DataPage() {
+  const { source, demoEnabled } = useStudio();
+
+  if (source.mode === "connected" && !demoEnabled) {
+    const snapshot = source.snapshot;
+    const project = snapshot.projects[0];
+    return (
+      <>
+        <PageHeading eyebrow="Data Catalog / CORE PROJECTION" title="数据目录" description="展示 Core 已声明的数据集与仍未接入的事件适配器；覆盖率、许可和延迟未知时保持未知。" />
+        <div className="stack">
+          <DataIntake />
+          <Panel title="研究数据集" meta={`${project?.studies?.length || 0} 个 Core Study`}>
+            <DataTable><thead><tr><th>Study</th><th>Dataset</th><th>资产类</th><th>时间范围</th><th>校验和</th></tr></thead><tbody>
+              {(project?.studies || []).map((study) => <tr key={study.id}><td><strong>{study.name}</strong><span className="field-value mono">{study.id}</span></td><td className="mono">{study.dataset ? `${study.dataset.id}@${study.dataset.version}` : "未绑定"}</td><td>{study.dataset?.asset_class || "未声明"}</td><td className="mono">{study.dataset?.time_range ? `${study.dataset.time_range.start} → ${study.dataset.time_range.end}` : "未声明"}</td><td className="mono">{study.datasetHash?.slice(0, 12) || "未声明"}</td></tr>)}
+            </tbody></DataTable>
+          </Panel>
+          <Panel title="事件适配器" meta="批准范围，不等于已连接">
+            <div className="dense-list">{eventAdapters.map(([kind, name]) => {
+              const packages = (project?.eventSnapshots || []).filter((item) => item.adapterKind === kind);
+              const latest = packages.at(-1);
+              return <div className="dense-row" key={kind}><div><strong>{name}</strong><p>{latest ? `${latest.id}@${latest.version} · ${latest.eventCount} events · ${latest.availableStart} → ${latest.availableEnd}` : "当前 Core snapshot 未声明覆盖率、延迟、许可或修订状态。"}</p></div><StatusChip state={latest ? "known" : "missing"}>{latest ? "已验证" : "未接入"}</StatusChip></div>;
+            })}</div>
+          </Panel>
+          <Panel title="时间一致性契约" meta="所有适配器必须输出相同可见性字段">
+            <DataTable><thead><tr><th>字段</th><th>含义</th><th>约束</th></tr></thead><tbody>{mappings.map((row) => <tr key={row[0]}><td className="mono">{row[0]}</td><td>{row[1]}</td><td>{row[2]}</td></tr>)}</tbody></DataTable>
+          </Panel>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <PageHeading
@@ -19,8 +59,7 @@ export default function DataPage() {
       />
       <div className="stack">
         <Panel title="事件适配器" meta="三类已批准研究来源">
-          <div className="table-wrap">
-            <table>
+          <DataTable>
               <thead><tr><th>适配器</th><th>状态</th><th>历史覆盖</th><th>最近观察</th><th>延迟</th><th>许可边界</th></tr></thead>
               <tbody>
                 {adapters.map((adapter) => (
@@ -34,18 +73,15 @@ export default function DataPage() {
                   </tr>
                 ))}
               </tbody>
-            </table>
-          </div>
+          </DataTable>
         </Panel>
 
         <div className="grid-2">
           <Panel title="时间一致性契约" meta="所有适配器输出相同可见性字段">
-            <div className="table-wrap">
-              <table>
+            <DataTable>
                 <thead><tr><th>字段</th><th>含义</th><th>约束</th></tr></thead>
                 <tbody>{mappings.map((row) => <tr key={row[0]}><td className="mono">{row[0]}</td><td>{row[1]}</td><td>{row[2]}</td></tr>)}</tbody>
-              </table>
-            </div>
+            </DataTable>
           </Panel>
           <div className="stack">
             <Panel title="当前数据版本">

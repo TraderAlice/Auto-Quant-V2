@@ -10,6 +10,7 @@ import {
   LineSeries,
 } from "lightweight-charts";
 import { candles, factorSignal } from "@/lib/data";
+import { EmptyState } from "@/components/ui";
 
 const START_TIME = Date.parse("2024-02-23T09:30:00+08:00") / 1000;
 const EMPTY_EVENTS = [];
@@ -174,6 +175,47 @@ export function EvidenceChart({ cursorRatio = 0.55, compact = false, events = EM
         aria-label={`K 线、成交量与因子信号。当前显示 ${data.visibleCount} 根可见 K 线，未来数据不进入图表。`}
       />
       <span className="chart-axis-label top">K 线 / 成交量 / 因子信号</span>
+    </div>
+  );
+}
+
+export function FactorIcChart({ path }) {
+  const containerRef = useRef(null);
+  const points = useMemo(
+    () => (path?.points || [])
+      .filter((point) => Number.isFinite(point.rankIcH1))
+      .map((point) => ({ time: point.timestamp, value: point.rankIcH1 })),
+    [path],
+  );
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || !points.length) return undefined;
+    const chart = createChart(container, {
+      width: container.clientWidth,
+      height: 300,
+      layout: { background: { type: ColorType.Solid, color: "#0d151d" }, textColor: "#8795a8", attributionLogo: true },
+      grid: { vertLines: { color: "#1b2732" }, horzLines: { color: "#1b2732" } },
+      rightPriceScale: { borderColor: "#273544" },
+      timeScale: { borderColor: "#273544" },
+    });
+    const series = chart.addSeries(LineSeries, { color: "#52c7d9", lineWidth: 2, title: "Rank IC · H1" });
+    series.setData(points);
+    series.createPriceLine({ price: 0, color: "#526172", lineWidth: 1, lineStyle: 2, axisLabelVisible: false });
+    chart.timeScale().fitContent();
+    const resize = new ResizeObserver(([entry]) => chart.applyOptions({ width: Math.floor(entry.contentRect.width) }));
+    resize.observe(container);
+    return () => {
+      resize.disconnect();
+      chart.remove();
+    };
+  }, [points]);
+
+  if (!points.length) return <EmptyState title="Rank IC 路径不可用" detail="Core 没有返回可绘制点。" />;
+  return (
+    <div className="chart-shell lightweight">
+      <div ref={containerRef} className="lightweight-chart" role="img" aria-label={`Core 验证的一周期 Rank IC 路径，共 ${points.length} 个采样点。`} />
+      <span className="chart-axis-label top">Rank IC · H1</span>
     </div>
   );
 }

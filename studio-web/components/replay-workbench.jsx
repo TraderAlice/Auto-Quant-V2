@@ -1,10 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo } from "react";
 import { EvidenceChart } from "@/components/charts";
+import { ResearchSubject } from "@/components/research-subject";
 import { useStudio } from "@/components/studio-context";
-import { Panel, StatusChip } from "@/components/ui";
+import { Button, ButtonLink, EmptyState, Panel, StatusChip } from "@/components/ui";
 import { formatPercent, formatTime, hiddenEventSummary, visibleEvents } from "@/lib/research";
 
 const trackByAdapter = {
@@ -29,7 +29,7 @@ function CohortTray({ events, cohortA, cohortB, removeFromCohort }) {
         return (
           <div className="cohort-member" key={id}>
             <span>{event.title}</span>
-            <button type="button" onClick={() => removeFromCohort(id)} aria-label={`从事件组移除 ${event.title}`}>移除</button>
+            <Button variant="quiet" type="button" onClick={() => removeFromCohort(id)} aria-label={`从事件组移除 ${event.title}`}>移除</Button>
           </div>
         );
       }) : <span className="field-value">尚未添加事件</span>}
@@ -55,6 +55,9 @@ export function ReplayWorkbench() {
     stepForward,
     assignToCohort,
     removeFromCohort,
+    source,
+    subject,
+    demoEnabled,
   } = useStudio();
 
   const visible = useMemo(() => visibleEvents(events, asOf), [events, asOf]);
@@ -71,6 +74,42 @@ export function ReplayWorkbench() {
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [stepBackward, stepForward]);
+
+  if (source.mode === "connected" && !demoEnabled) {
+    return (
+      <div className="connected-replay-grid">
+        <Panel title="Point-in-time 研究画布" meta="K 线、事件、市场快照与因子信号共享同一 visible-at 边界" className="connected-replay-canvas">
+          <div className="replay-empty-canvas">
+            <div className="empty-chart-grid" aria-hidden="true" />
+            <EmptyState title="Core snapshot 尚未提供回放证据" detail="事件 available_at、行情快照、市场时钟和实体映射同时就绪后，研究画布才会解锁。">
+              <StatusChip state="partial">WAITING FOR REPLAYBUNDLE</StatusChip>
+            </EmptyState>
+          </div>
+        </Panel>
+        <aside className="stack connected-replay-side">
+          <ResearchSubject subject={subject} />
+          <Panel title="ReplayBundle 状态" meta="不使用演示记录填补 Core 证据">
+            <div className="dense-list">
+              {(subject?.replay || []).map((detail, index) => (
+                <div className="dense-row" key={detail}>
+                  <div><strong>回放规则 {index + 1}</strong><small>{detail}</small></div>
+                  <StatusChip state={subject?.unresolved.length ? "partial" : "known"}>{subject?.unresolved.length ? "待补语义" : "已路由"}</StatusChip>
+                </div>
+              ))}
+            </div>
+          </Panel>
+        </aside>
+        <Panel title="研究路由" meta="窗口由 Core 声明的 ResearchSubject 与市场时钟决定" className="connected-replay-route">
+          <div className="trust-strip" aria-label="回放路由状态">
+            <div className="trust-item"><span>研究模板</span><strong>{subject?.label || "Core 未声明"}</strong></div>
+            <div className="trust-item"><span>基础频率</span><strong>{subject?.interval || "Core 未声明"}</strong></div>
+            <div className="trust-item"><span>适配器</span><strong>{subject?.adapters?.length || 0} 类</strong></div>
+            <div className="trust-item warning"><span>未解析语义</span><strong>{subject?.unresolved?.length || 0} 项</strong></div>
+          </div>
+        </Panel>
+      </div>
+    );
+  }
 
   return (
     <div className="replay-layout">
@@ -139,7 +178,7 @@ export function ReplayWorkbench() {
         <Panel
           title="事件组"
           meta="成员快照保持不变，后续数据修订不会静默改写旧实验"
-          action={<Link className="button-quiet" href="/events">比较两组</Link>}
+          action={<ButtonLink variant="quiet" href="/events">比较两组</ButtonLink>}
         >
           <CohortTray events={events} cohortA={cohortA} cohortB={cohortB} removeFromCohort={removeFromCohort} />
         </Panel>
@@ -187,7 +226,7 @@ export function ReplayWorkbench() {
               </div>
             </div>
           ) : (
-            <div className="empty-state"><strong>时点 T 尚无可见事件</strong><span>向后推进回放以观察证据如何进入可用集。</span></div>
+            <EmptyState title="时点 T 尚无可见事件" detail="向后推进回放以观察证据如何进入可用集。" />
           )}
         </Panel>
         <div className="notice" style={{ marginTop: 10 }}>

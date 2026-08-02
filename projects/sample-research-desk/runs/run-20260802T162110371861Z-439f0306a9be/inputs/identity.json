@@ -1,0 +1,44 @@
+{
+  "datasetHash": "0d740a8f0f285f69eae626fc1e76e9d60d57b42acd03842708ed3675570e97f7",
+  "datasetSourceHashes": {
+    "ohlcv/ALPHA.csv": "18724414024a549eff1f8fa509c922827d8d9e6d1e4c6bd322e99935801bfdb3",
+    "ohlcv/BRAVO.csv": "e7ff2864b8270b40c4327b3e83379b3225c2216d732aa4c256547ff85c395ee7",
+    "ohlcv/CHARLIE.csv": "6b58dae61e306554633409f6779f052550700e224ae124ed509d81342bafb737",
+    "ohlcv/DELTA.csv": "977fe9b9e2441fa4511e14f65f6ed5851bfa50451e31e38c13386f24375f84bf",
+    "ohlcv/ECHO.csv": "fb4efdfcd1533816ce67fdc58f6d924ffd750944126a8d64e0c57255a8b5e22a",
+    "ohlcv/FOXTROT.csv": "72f715db8f40793ffd1327def2d92c40adc6f9ca48b501b92a32cf744c7a23ec",
+    "ohlcv/README.md": "8911f42951ab7a291ebd3e8ad6193bdbc52e79418f00dbe4b2cda8b3d3a00277"
+  },
+  "dependencyHash": "99a35efafcb1450c825d138e89af8685623d05189be1f748fdc67b392de5e7d6",
+  "dependencyHashes": {
+    "factors/candidate.py": "1e29d70f72ce3afaf3d018f9d60c77026148423f57b52fb22f55f8127679ba6a",
+    "strategies/factor-claim.json": "61981777bd8b81bf57dc05bb63b5df085eef018dd9e3d83593c511bf21637a83",
+    "strategies/factor-population.json": "d77ce8dc25c04c41e610116c0ee6ccb0297128e9e918638479c76a5fbec5887e",
+    "strategies/portfolio-mandate.json": "74e9ded83a8287df0f8df955b147960a3926c5bca176704a99f7d7feb0b5259b",
+    "strategies/research-horizon.json": "ebf6fa40cbcbcdc18490439865e6a7de1a0322abc8853b528b3745bc5e70618d"
+  },
+  "evaluationRole": "research-selection",
+  "harness": {
+    "buildProvenance": "source-checkout",
+    "commit": "4a14ca5fd4190437b7ecacc83918e66de6237a1a",
+    "dirty": true,
+    "id": "autoquant.python-judge",
+    "python": "3.11.15",
+    "sourceHash": "9ba0cf8dcb5ab0f3797726f041bf188a92206e293e061da9e33e17e3007e123d",
+    "version": "0.9.31"
+  },
+  "inputHash": "4a541324edf3855f3f91a75412b6ba108b71fd80637d8d401bd441f82c1ddc25",
+  "judgeHash": "5a978d16dc1751c6b3601591ee01fc03994877c4f935e0867fd4645709e498b3",
+  "judgeHashes": {
+    "judges/ohlcv_rl_factor.py": "8383a20777c12c227e0dad4f147eddc7a2abd2296b0555d58fb910db51b4ad59",
+    "judges/portfolio_core.py": "17ddff2421921cf940811f2f531ab81222eeb879d876764f6301ee70e2001406",
+    "judges/rl_core.py": "ac63c0c629094e229bb7ad1acea3d85ddad03318eba2f4c8118009407bf0d7e4"
+  },
+  "programHash": "2776778aac6e2f8060a5ff4c8937440ec72fdd31b528a2eb355a89cb9904af4b",
+  "sourceHash": "d6dfb8b951e8816a396f346ffc073188d02142ecbaa097815817083dc3a1266d",
+  "sourceHashes": {
+    "models/candidate.py": "c96095b7e9ff1a45cd1b32c88565654722cc98b3d0ceb7fde0b5a18d2d3369a4"
+  },
+  "studyHash": "554c8666ae72af7f45196d01a7834ed000d37368068538013f75ef68300eeec5",
+  "studyInputHash": "4f84736c6e8080fa7cdc2e2aae4e69ce8bff63c2a560b95bdfa1660a3b936413"
+}

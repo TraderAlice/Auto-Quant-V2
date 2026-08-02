@@ -12,6 +12,8 @@
     "check:boundary": "node scripts/check-open-source-boundary.mjs"
   },
   "dependencies": {
+    "@mantine/core": "9.5.1",
+    "@mantine/hooks": "9.5.1",
     "lightweight-charts": "5.2.0",
     "next": "16.2.12",
     "react": "19.2.8",

@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { events, factor, replaySteps } from "@/lib/data";
 import { coreFactorFrom, validateCoreSnapshot } from "@/lib/core-snapshot";
+import { researchSubjectFromProject } from "@/lib/research-subject";
 
 const StudioContext = createContext(null);
 const unavailableFactor = {
@@ -42,6 +43,10 @@ export function StudioProvider({ children }) {
   const activeAsOf = demoEnabled
     ? replaySteps[asOfIndex]
     : source.snapshot?.generatedAt || null;
+  const subject = useMemo(
+    () => demoEnabled ? null : researchSubjectFromProject(source.snapshot?.projects?.[0]),
+    [demoEnabled, source.snapshot],
+  );
 
   const value = useMemo(
     () => ({
@@ -51,6 +56,7 @@ export function StudioProvider({ children }) {
       asOfIndex,
       asOf: activeAsOf,
       source,
+      subject,
       demoEnabled,
       enableDemo: () => setDemoEnabled(true),
       returnToCore: () => setDemoEnabled(false),
@@ -81,7 +87,7 @@ export function StudioProvider({ children }) {
         setCohortB((current) => current.filter((id) => id !== eventId));
       },
     }),
-    [activeAsOf, activeFactor, asOfIndex, selectedEventId, cohortA, cohortB, demoEnabled, source],
+    [activeAsOf, activeFactor, asOfIndex, selectedEventId, cohortA, cohortB, demoEnabled, source, subject],
   );
 
   return <StudioContext.Provider value={value}>{children}</StudioContext.Provider>;

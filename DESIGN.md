@@ -94,4 +94,4 @@ Don't:
 |---|---|---|---|
 | Approved replay-first design | Shared time axis, right-side evidence inspector, factor passport entry and ResearchFrame/ReplayBundle concepts | Treating replay as the only required product page | The product requires the full research loop, not a single viewer. |
 | Approved AutoQuant scope | Unified research kernel, complete research pages and explicit non-trading boundary | Real trading surfaces | AutoQuant owns factor research from evidence to test result. |
-| Requirements-only design synthesis | Quiet, dense evidence-console posture | Borrowing a third-party component library or live-site style | The visual identity is original, utility-driven, and internalized in repository tokens and components. |
+| Requirements-only design synthesis | Quiet, dense evidence-console posture with AutoQuant-owned tokens and domain components | Borrowing another product's visual identity or live-site style | Public Mantine primitives may supply accessible component mechanics, but they must remain themed by AutoQuant and may not define the product identity. |

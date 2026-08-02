@@ -12,7 +12,7 @@ AutoQuant contains a reviewable Next.js research workbench that internalizes the
 
 The repository currently ships a Python standard-library server and a large packaged HTML/CSS/JavaScript presentation. A separately approved Next.js prototype now covers the complete factor-research front half, but it still uses deterministic demonstration data and lives outside this repository. The merge must preserve Core authority and standalone operation while establishing a better-maintained frontend path.
 
-No third-party component library exists to upgrade. The prototype already uses the latest stable Next.js and React releases, so this change internalizes its token and component layer instead of adding a UI dependency.
+The first prototype had no public component-library dependency. The current workbench adopts MIT-licensed Mantine `9.5.1`, which matches React `19.2`, for generic shell, control, status, form and table mechanics while retaining AutoQuant-owned tokens and domain components.
 
 ## Scope
 
@@ -20,7 +20,7 @@ No third-party component library exists to upgrade. The prototype already uses t
 
 - Add a repository-owned `studio-web/` Next.js App Router application.
 - Reuse the existing `autoquant-studio-snapshot` HTTP contract through one read-only same-origin proxy.
-- Internalize the approved three-layer design tokens and shared UI components.
+- Preserve the approved three-layer AutoQuant tokens and compose generic UI through the public Mantine component layer.
 - Preserve all nine factor-research routes and clearly distinguish connected Core evidence from demonstration records.
 - Document and test the open-source/private-plugin boundary.
 - Preserve the existing Python Studio and package behavior while the new workbench reaches contract parity.

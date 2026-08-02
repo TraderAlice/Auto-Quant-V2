@@ -33,11 +33,14 @@ from .factor_explorer import (
 )
 from .event_explorer import load_event_study_diagnostics
 from .book_path_stress_explorer import load_book_path_stress_diagnostics
+from .compute_jobs import compute_executor_declarations, list_compute_jobs
+from .event_intake import list_event_snapshots
 from .intake import (
     dataset_snapshot_class_context,
     load_project_intake,
     load_study_dataset_snapshot,
 )
+from .model_runtime import list_model_runs
 from .holdouts import load_holdout_status
 from .orientation import build_agent_work_brief
 from .portfolio_explorer import (
@@ -53,6 +56,7 @@ from .reviews import list_reviews
 from .runs import harness_identity, list_runs, load_run, run_failure_disposition
 from .sessions import list_sessions, load_session, session_snapshot
 from .studies import hash_json, list_studies, load_study
+from .verification import list_verification_assessments
 from .workspace import (
     PROJECT_MANIFEST,
     SCHEMA_VERSION,
@@ -67,6 +71,16 @@ from .workspace import (
 
 
 STUDIO_KIND = "autoquant-studio-snapshot"
+MODEL_RUNTIME = {
+    "kind": "supervised-model-research-v1",
+    "available": True,
+    "entrypoint": "aq model run",
+    "models": ["ridge-linear", "train-mean-baseline"],
+    "selectionAuthority": "validation-only",
+    "testUse": "terminal-audit-only",
+    "pointInTimeRequired": True,
+    "tradingAuthority": "none",
+}
 STUDIO_ASSETS = {
     "/": ("index.html", "text/html; charset=utf-8"),
     "/index.html": ("index.html", "text/html; charset=utf-8"),
@@ -972,6 +986,28 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
     diagnostics.extend(issues)
     runs_raw, issues = _read_category("runs", lambda: list_runs(project))
     diagnostics.extend(issues)
+    compute_jobs_raw, issues = _read_category(
+        "compute-jobs",
+        lambda: list_compute_jobs(project),
+    )
+    diagnostics.extend(issues)
+    compute_jobs = [item.receipt for item in compute_jobs_raw]
+    model_runs_raw, issues = _read_category(
+        "model-runs",
+        lambda: list_model_runs(project),
+    )
+    diagnostics.extend(issues)
+    model_runs = [item.receipt for item in model_runs_raw]
+    event_snapshots, issues = _read_category(
+        "event-snapshots",
+        lambda: list_event_snapshots(project),
+    )
+    diagnostics.extend(issues)
+    verification_assessments, issues = _read_category(
+        "verification-assessments",
+        lambda: list_verification_assessments(project),
+    )
+    diagnostics.extend(issues)
     sessions_raw, issues = _read_category("sessions", lambda: list_sessions(project))
     diagnostics.extend(issues)
     intake_raw, issues = _read_category(
@@ -1553,6 +1589,58 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
         and external_holdout["nextAction"] is not None
     ):
         commands.append(external_holdout["nextAction"])
+    if compute_jobs:
+        commands.append(
+            _command(
+                "job.show",
+                [
+                    "aq",
+                    "job",
+                    "show",
+                    str(project.root_dir),
+                    "--job",
+                    compute_jobs[-1]["id"],
+                    "--json",
+                ],
+                "read-only",
+            )
+        )
+    if event_snapshots:
+        latest_event = event_snapshots[-1]
+        commands.append(
+            _command(
+                "event.show",
+                [
+                    "aq",
+                    "event",
+                    "show",
+                    str(project.root_dir),
+                    "--event-package",
+                    latest_event["id"],
+                    "--version",
+                    latest_event["version"],
+                    "--json",
+                ],
+                "read-only",
+            )
+        )
+    if verification_assessments:
+        latest_assessment = verification_assessments[-1]["assessment"]
+        commands.append(
+            _command(
+                "verify.show",
+                [
+                    "aq",
+                    "verify",
+                    "show",
+                    str(project.root_dir),
+                    "--assessment",
+                    latest_assessment["id"],
+                    "--json",
+                ],
+                "read-only",
+            )
+        )
     return {
         "id": project.manifest.id,
         "name": project.manifest.name,
@@ -1578,16 +1666,26 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
         "factorExplorer": factor_explorer,
         "portfolioExplorer": portfolio_explorer,
         "rlExplorer": rl_explorer,
+        "modelRuntime": MODEL_RUNTIME,
+        "modelRuns": model_runs,
         "bookRiskExplorer": book_risk_explorer,
         "eventStudyExplorer": event_study_explorer,
         "bookPathStressExplorer": book_path_stress_explorer,
         "allocationExplorer": allocation_explorer,
+        "computeExecutors": compute_executor_declarations(),
+        "computeJobs": compute_jobs,
+        "eventSnapshots": event_snapshots,
+        "verificationAssessments": verification_assessments,
         "commands": commands,
         "valid": not diagnostics,
         "diagnostics": diagnostics,
         "counts": {
             "studies": len(studies),
             "runs": len(runs),
+            "computeJobs": len(compute_jobs),
+            "modelRuns": len(model_runs),
+            "eventSnapshots": len(event_snapshots),
+            "verificationAssessments": len(verification_assessments),
             "sessions": len(sessions),
             "activeSessions": sum(
                 item["session"]["status"] == "active" for item in sessions
@@ -2081,10 +2179,16 @@ STUDIO_SNAPSHOT_JSON_SCHEMA: dict[str, Any] = {
                 "factorExplorer",
                 "portfolioExplorer",
                 "rlExplorer",
+                "modelRuntime",
+                "modelRuns",
                 "bookRiskExplorer",
                 "eventStudyExplorer",
                 "bookPathStressExplorer",
                 "allocationExplorer",
+                "computeExecutors",
+                "computeJobs",
+                "eventSnapshots",
+                "verificationAssessments",
                 "commands",
                 "valid",
                 "diagnostics",
@@ -2123,10 +2227,39 @@ STUDIO_SNAPSHOT_JSON_SCHEMA: dict[str, Any] = {
                 "factorExplorer": {"type": ["object", "null"]},
                 "portfolioExplorer": {"type": ["object", "null"]},
                 "rlExplorer": {"type": ["object", "null"]},
+                "modelRuntime": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": [
+                        "kind",
+                        "available",
+                        "entrypoint",
+                        "models",
+                        "selectionAuthority",
+                        "testUse",
+                        "pointInTimeRequired",
+                        "tradingAuthority",
+                    ],
+                    "properties": {
+                        "kind": {"const": "supervised-model-research-v1"},
+                        "available": {"const": True},
+                        "entrypoint": {"type": "string", "minLength": 1},
+                        "models": {"type": "array", "minItems": 2, "items": {"type": "string"}},
+                        "selectionAuthority": {"const": "validation-only"},
+                        "testUse": {"const": "terminal-audit-only"},
+                        "pointInTimeRequired": {"const": True},
+                        "tradingAuthority": {"const": "none"},
+                    },
+                },
+                "modelRuns": {"type": "array"},
                 "bookRiskExplorer": {"type": ["object", "null"]},
                 "eventStudyExplorer": {"type": ["object", "null"]},
                 "bookPathStressExplorer": {"type": ["object", "null"]},
                 "allocationExplorer": {"type": ["object", "null"]},
+                "computeExecutors": {"type": "array"},
+                "computeJobs": {"type": "array"},
+                "eventSnapshots": {"type": "array"},
+                "verificationAssessments": {"type": "array"},
                 "commands": {
                     "type": "array",
                     "items": {"type": "object"},
@@ -2142,6 +2275,10 @@ STUDIO_SNAPSHOT_JSON_SCHEMA: dict[str, Any] = {
                     "required": [
                         "studies",
                         "runs",
+                        "computeJobs",
+                        "modelRuns",
+                        "eventSnapshots",
+                        "verificationAssessments",
                         "sessions",
                         "activeSessions",
                         "campaigns",
@@ -2155,6 +2292,10 @@ STUDIO_SNAPSHOT_JSON_SCHEMA: dict[str, Any] = {
                     "properties": {
                         "studies": {"type": "integer", "minimum": 0},
                         "runs": {"type": "integer", "minimum": 0},
+                        "computeJobs": {"type": "integer", "minimum": 0},
+                        "modelRuns": {"type": "integer", "minimum": 0},
+                        "eventSnapshots": {"type": "integer", "minimum": 0},
+                        "verificationAssessments": {"type": "integer", "minimum": 0},
                         "sessions": {"type": "integer", "minimum": 0},
                         "activeSessions": {"type": "integer", "minimum": 0},
                         "campaigns": {"type": "integer", "minimum": 0},

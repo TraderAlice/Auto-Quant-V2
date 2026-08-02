@@ -1,0 +1,43 @@
+{
+  "assetPredictionRoles": {
+    "ALPHA": "prediction",
+    "BRAVO": "prediction",
+    "CHARLIE": "prediction",
+    "DELTA": "prediction",
+    "ECHO": "prediction",
+    "FOXTROT": "prediction"
+  },
+  "authority": "factor-claim-complete-research-universe",
+  "claim": "novel-factor",
+  "contextAssets": [],
+  "evaluationAuthority": "factor-evaluation-only",
+  "evaluationMode": "cross-sectional",
+  "id": "factor-population-78adf037945d08ec",
+  "kind": "autoquant-factor-population",
+  "outcome": "forward-return",
+  "portfolioAuthority": "none",
+  "predictionAssets": [
+    "ALPHA",
+    "BRAVO",
+    "CHARLIE",
+    "DELTA",
+    "ECHO",
+    "FOXTROT"
+  ],
+  "relativeValuePair": null,
+  "researchUniverse": [
+    "ALPHA",
+    "BRAVO",
+    "CHARLIE",
+    "DELTA",
+    "ECHO",
+    "FOXTROT"
+  ],
+  "schemaVersion": 1,
+  "source": {
+    "factorPolicy": "reference-default",
+    "kind": "template-default",
+    "requestHash": null
+  },
+  "tradingAuthority": "none"
+}

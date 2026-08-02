@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { EvidenceChart } from "@/components/charts";
 import { useStudio } from "@/components/studio-context";
-import { Metric, ObjectLink, PageHeading, Panel, StatusChip } from "@/components/ui";
+import { ResearchSubject } from "@/components/research-subject";
+import { Button, ButtonLink, Metric, ObjectLink, PageHeading, Panel, StatusChip } from "@/components/ui";
 import { adapters, factor, jobs, metrics } from "@/lib/data";
 
 function studyHref(study) {
@@ -13,7 +14,7 @@ function studyHref(study) {
 }
 
 export default function ResearchHome() {
-  const { source, demoEnabled, enableDemo } = useStudio();
+  const { source, subject, demoEnabled, enableDemo } = useStudio();
 
   if (source.mode === "connected" && !demoEnabled) {
     const snapshot = source.snapshot;
@@ -32,17 +33,18 @@ export default function ResearchHome() {
           eyebrow="Connected Core / READ ONLY"
           title={snapshot.source.workspace?.name || project?.name || "AutoQuant research workspace"}
           description="当前页面直接读取 Core 验证的 Studio snapshot；浏览器不读取项目文件，也不生成研究结论。"
-          actions={<button className="button-secondary" type="button" onClick={enableDemo}>查看演示工作台</button>}
+          actions={<Button variant="secondary" type="button" onClick={enableDemo}>查看演示工作台</Button>}
         />
         <div className="trust-strip" aria-label="Core snapshot 状态">
           <div className="trust-item"><span>Harness</span><strong className="mono">AQ {snapshot.harness.version}@{snapshot.harness.commit.slice(0, 8)}</strong></div>
           <div className="trust-item"><span>Snapshot</span><strong className="mono">schema v{snapshot.schemaVersion}</strong></div>
-          <div className="trust-item"><span>Generated</span><strong className="mono">{new Date(snapshot.generatedAt).toLocaleString("zh-CN")}</strong></div>
+          <div className="trust-item"><span>Generated</span><strong className="mono">{snapshot.generatedAt.replace("T", " ").replace("Z", " UTC")}</strong></div>
           <div className={`trust-item ${snapshot.valid ? "" : "warning"}`}><span>Verification</span><strong>{snapshot.valid ? "全部类别有效" : "存在 Core diagnostics"}</strong></div>
         </div>
         <div className="metric-row" aria-label="Core workspace counts">
           {coreMetrics.map(([label, value]) => <Metric key={label} label={label} value={String(value)} />)}
         </div>
+        <div style={{ marginTop: 14 }}><ResearchSubject subject={subject} /></div>
         <div className="dashboard-grid" style={{ marginTop: 14 }}>
           <Panel title="Projects" meta={`${snapshot.projects.length} 个 Core 投影`}>
             <div className="dense-list">
@@ -91,7 +93,7 @@ export default function ResearchHome() {
         eyebrow="Research home"
         title="研究工作区"
         description="恢复上一次研究帧，检查数据可信状态，并继续从证据到因子测试的同一条研究链。"
-        actions={<Link className="button" href="/replay">继续时序回放</Link>}
+        actions={<ButtonLink variant="primary" href="/replay">继续时序回放</ButtonLink>}
       />
 
       <div className="trust-strip" aria-label="当前研究可信状态">
@@ -110,7 +112,7 @@ export default function ResearchHome() {
           <Panel
             title="关键历史区间"
             meta="2024-02-23 · 事件证据、K 线与因子信号已对齐"
-            action={<Link className="button-quiet" href="/replay">打开回放</Link>}
+            action={<ButtonLink variant="quiet" href="/replay">打开回放</ButtonLink>}
           >
             <EvidenceChart compact cursorRatio={0.55} />
           </Panel>
@@ -122,15 +124,15 @@ export default function ResearchHome() {
               </div>
               <div className="dense-row">
                 <div><strong>事件 cohort A / B</strong><p>正向确认 2 条，对照事件 2 条</p></div>
-                <Link className="button-quiet" href="/events">继续比较</Link>
+                <ButtonLink variant="quiet" href="/events">继续比较</ButtonLink>
               </div>
               <div className="dense-row">
                 <div><strong>实验 EXP-240801-17</strong><p>成本后收益和修订敏感性已生成</p></div>
-                <Link className="button-quiet" href="/results">查看结果</Link>
+                <ButtonLink variant="quiet" href="/results">查看结果</ButtonLink>
               </div>
               <div className="dense-row">
                 <div><strong>组合与治理式 RL</strong><p>沿用同一因子、数据版本、冻结样本和审计链</p></div>
-                <Link className="button-quiet" href="/portfolio">继续研究</Link>
+                <ButtonLink variant="quiet" href="/portfolio">继续研究</ButtonLink>
               </div>
             </div>
           </Panel>

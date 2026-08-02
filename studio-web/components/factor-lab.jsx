@@ -1,9 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import { factor } from "@/lib/data";
-import { PageHeading, Panel, StatusChip } from "@/components/ui";
+import { useStudio } from "@/components/studio-context";
+import { ResearchSubject } from "@/components/research-subject";
+import { RunStudyButton } from "@/components/run-study-button";
+import { Button, ButtonLink, EmptyState, FormField, PageHeading, Panel, StatusChip } from "@/components/ui";
 
 const initialConfig = {
   universe: "沪深全市场，逐日可交易标的",
@@ -16,6 +18,7 @@ const initialConfig = {
 };
 
 export function FactorLab() {
+  const { source, subject, demoEnabled, factor: activeFactor } = useStudio();
   const [config, setConfig] = useState(initialConfig);
   const [runId, setRunId] = useState("");
 
@@ -29,13 +32,57 @@ export function FactorLab() {
     setRunId("EXP-240801-18");
   }
 
+  if (source.mode === "connected" && !demoEnabled) {
+    const project = source.snapshot.projects[0];
+    const study = project?.studies?.find((item) => item.subjectKind === "factor") || project?.studies?.[0];
+    const explorer = project?.factorExplorer;
+    return (
+      <>
+        <PageHeading
+          eyebrow="Factor Lab / CORE PROJECTION"
+          title="因子实验室"
+          description="从已验证的 Study 创建不可变研究 Run；配置、数据快照、Judge 与结果均由 Core 锁定。"
+          actions={<ButtonLink href="/results">查看结果状态</ButtonLink>}
+        />
+        <ResearchSubject subject={subject} />
+        <div className="lab-grid" style={{ marginTop: 10 }}>
+          <Panel title="实验输入" meta="当前 Core Study 契约">
+            <div className="field-grid">
+              <div><span className="field-label">Study</span><span className="field-value mono">{study?.id || "未声明"}</span></div>
+              <div><span className="field-label">Factor</span><span className="field-value">{activeFactor.name}</span></div>
+              <div><span className="field-label">Dataset</span><span className="field-value">{activeFactor.dataset}</span></div>
+              <div><span className="field-label">Objective</span><span className="field-value">{study?.primaryMetric || "未声明"} · {study?.direction || "未声明"}</span></div>
+              <div><span className="field-label">ResearchFrame</span><span className="field-value mono">{activeFactor.frameId}</span></div>
+              <div><span className="field-label">执行边界</span><span className="field-value">离线研究，无交易权限</span></div>
+            </div>
+            <div style={{ marginTop: 14 }}><RunStudyButton projectId={project?.id} studyId={study?.id}>创建并执行研究 Run</RunStudyButton></div>
+          </Panel>
+          <Panel title="运行摘要" meta="最新 Core immutable evidence">
+            {explorer?.run ? (
+              <div className="run-summary">
+                <div className="field"><span>Run</span><strong className="mono">{explorer.run.id}</strong></div>
+                <div className="field"><span>Status</span><strong>{explorer.run.status}</strong></div>
+                <div className="field"><span>Objective</span><strong>{explorer.run.objective?.metric}</strong></div>
+                <div className="field"><span>Validation Rank IC</span><strong>{explorer.summary?.validation?.meanRankIc?.toFixed(6)}</strong></div>
+                <div className="field"><span>Input hash</span><strong className="mono">{explorer.run.inputHash}</strong></div>
+                <div className="field"><span>执行边界</span><strong>离线研究，无交易权限</strong></div>
+              </div>
+            ) : (
+              <EmptyState title="尚无有效 Run" detail="执行后由 Core 写入不可变证据。" />
+            )}
+          </Panel>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <PageHeading
         eyebrow="Factor Lab / TEST CONFIGURATION"
         title="因子实验室"
         description="把候选定义、时间边界、样本池和测试假设收束为一份可复现实验。"
-        actions={<Link className="button-secondary" href="/results">查看最近结果</Link>}
+        actions={<ButtonLink href="/results">查看最近结果</ButtonLink>}
       />
 
       <div className="trust-strip" aria-label="实验信任上下文">
@@ -48,33 +95,29 @@ export function FactorLab() {
       <form className="lab-grid" onSubmit={submit}>
         <Panel title="测试配置" meta="配置变化会生成新的实验定义">
           <div className="form-grid">
-            <div className="form-field">
-              <label htmlFor="universe">研究标的池</label>
+            <FormField label="研究标的池" htmlFor="universe">
               <select id="universe" name="universe" autoComplete="off" value={config.universe} onChange={(event) => update("universe", event.target.value)}>
                 <option>沪深全市场，逐日可交易标的</option>
                 <option>中证 800，逐日成分</option>
                 <option>事件 cohort 关联标的</option>
               </select>
-            </div>
-            <div className="form-field">
-              <label htmlFor="horizon">持有期</label>
+            </FormField>
+            <FormField label="持有期" htmlFor="horizon">
               <select id="horizon" name="horizon" autoComplete="off" value={config.horizon} onChange={(event) => update("horizon", event.target.value)}>
                 <option>5 个交易日</option>
                 <option>20 个交易日</option>
                 <option>60 个交易日</option>
               </select>
-            </div>
-            <div className="form-field">
-              <label htmlFor="lag">信号延迟（交易日）</label>
+            </FormField>
+            <FormField label="信号延迟（交易日）" htmlFor="lag">
               <input id="lag" name="lag" autoComplete="off" type="number" min="1" max="10" inputMode="numeric" value={config.lag} onChange={(event) => update("lag", event.target.value)} />
-            </div>
-            <div className="form-field">
-              <label htmlFor="engine">测试引擎</label>
+            </FormField>
+            <FormField label="测试引擎" htmlFor="engine">
               <select id="engine" name="engine" autoComplete="off" defaultValue="截面排序 0.12.4">
                 <option>截面排序 0.12.4</option>
                 <option>事件研究 0.9.7</option>
               </select>
-            </div>
+            </FormField>
           </div>
 
           <fieldset style={{ marginTop: 14 }}>
@@ -88,8 +131,8 @@ export function FactorLab() {
           </fieldset>
 
           <div className="button-row" style={{ marginTop: 14 }}>
-            <button className="button" type="submit">创建研究实验</button>
-            <button className="button-quiet" type="button" onClick={() => { setConfig(initialConfig); setRunId(""); }}>恢复默认</button>
+            <Button type="submit">创建研究实验</Button>
+            <Button variant="quiet" type="button" onClick={() => { setConfig(initialConfig); setRunId(""); }}>恢复默认</Button>
           </div>
         </Panel>
 
@@ -111,7 +154,7 @@ export function FactorLab() {
                 <StatusChip state="排队">等待研究资源</StatusChip>
                 <strong className="mono">{runId}</strong>
                 <span className="muted">已锁定当前配置、数据集版本与 ResearchFrame。此动作不会发送订单或连接交易账户。</span>
-                <Link className="button-secondary" href="/jobs">查看研究任务</Link>
+                <ButtonLink href="/jobs">查看研究任务</ButtonLink>
               </div>
             </Panel>
           ) : (

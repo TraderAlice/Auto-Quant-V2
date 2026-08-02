@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v8
+        with:
+          enable-cache: true
+      - run: uv python install 3.12
+      - name: Test changed research contracts
+        run: >-
+          uv run --python 3.12 --with pytest python -m pytest
+          tests/test_model_runtime.py
+          tests/test_compute_jobs.py
+          tests/test_verification.py
+          tests/test_json_event_intake.py
+          tests/test_cli.py::AgentCliTests::test_capabilities_describe_every_public_command
+          tests/test_studio.py::StudioObservationTests::test_workspace_and_project_snapshots_share_verified_contract
+          -q
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: studio-web
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: studio-web/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run lint
+      - run: npm run check:boundary
+      - run: npm run build
