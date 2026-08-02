@@ -18,7 +18,9 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-None.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/caller-owned-factor-population]] | Separate caller-owned Factor evaluation population from Portfolio position authority across standalone Factor, Portfolio, and governed-RL research. | 2026-08-02 |
 
 ## Proposed plans
 
