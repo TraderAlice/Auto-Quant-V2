@@ -168,6 +168,10 @@ and offer a safe transition into Agent-authored interpretation.
   negative rather than cosmetically positive: validation HAC and one fixed
   fold were weak, so the worker stopped after one Run while still using every
   new evidence-to-Report handoff surface correctly.
+- 2026-08-02 — Advanced package, lock, README pointer, STATUS, and CHANGELOG to
+  release candidate `0.9.31`. Version/document ownership tests, all 1,552
+  documentation links, and discovery of 59 public commands pass; the final
+  clean-commit release replay remains.
 
 ## Completion
 

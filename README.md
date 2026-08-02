@@ -1,5 +1,5 @@
 ---
-version: 0.9.30
+version: 0.9.31
 ---
 
 # AutoQuant V2
@@ -26,7 +26,7 @@ One Workspace may hold many self-contained Projects. A Project is one evolving
 body of research; a Study locks one evaluation question; a Research Session is
 a bounded editable investigation; a Run is an immutable measurement.
 
-## Current release: `0.9.30`
+## Current release: `0.9.31`
 
 [Current status](docs/STATUS.md) states what this checkout can honestly do.
 [Release history](docs/CHANGELOG.md) indexes bounded outcomes, and

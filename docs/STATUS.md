@@ -1,6 +1,6 @@
 # AutoQuant V2 current status
 
-Status: `v0.9.30` is the current AutoQuant release and `v0.8.31`
+Status: `v0.9.31` is the current AutoQuant release and `v0.8.31`
 remains the Harness currently consumed by OpenAlice until the host deliberately
 selects a newer tag.
 
@@ -17,47 +17,52 @@ historical proof remains in completed plans and immutable Git tags.
 
 ## Current milestone
 
-The `0.9.30` release gives Factor evaluation population its own strict,
-content-addressed caller contract. A new `decision-signal` request explicitly
-names unique `factorPolicy.predictionAssets`; novel-factor and known-style
-claims evaluate the complete research universe. Core materializes
-`strategies/factor-population.json` with prediction/context Factor roles,
-evaluation mode, outcome, and explicit evaluation-only authority. Position
-roles no longer decide which assets supply Factor targets.
+The `0.9.31` release makes the transition from verified Factor evidence to an
+Agent-authored immutable Report explicit. Factor diagnostics now project one
+strict `quantileEvidence` contract. Cross-sectional Runs declare fixed
+tertiles available; single-asset temporal and two-asset relative-value Runs
+declare `protocol-unavailable`, the immutable method and reason, and zero
+artifact rows. CLI states that boundary and Studio disables the inapplicable
+Quantiles tab instead of presenting null groups as missing or failed science.
 
-A standalone `ohlcv-factor-lab` binds Factor Claim, Factor Population, and
-Horizon Mandate without creating `portfolio-mandate.json`, including
-forward-realized-volatility research. Portfolio and governed RL separately
-bind both the Factor Population and their Portfolio Mandate, require a
-forward-return outcome, and reject incompatible evaluation/construction
-authority. Decision-signal tradable assets match exactly; a complete-universe
-novel/known-style Factor may feed a conservative Mandate subset. V5/V6 target
-clock selection now follows the Factor population instead of position roles.
+The shared Agent Work Brief now exposes a nullable, visibility-only primary
+train/validation mean rank-IC contrast when the absolute gap reaches the fixed
+`0.20` threshold. It identifies the exact Run, horizon, values, and gap across
+JSON, terminal, and Studio while retaining validation as the sole selection
+split. The field is not a gate, verdict, qualification rule, or route for test
+evidence into selection.
 
-Fresh no-memory/no-web/no-subagent Grok `4.5` used only a clean installed
-candidate wheel to answer a single-target NVDA forward-risk question with
-AAPL, MSFT, QQQ, and SPY as context. It independently created one Factor
-Project, one succeeded Run, one Report, and one completed Session with zero
-Experiments, no Portfolio/RL work, and no Portfolio Mandate. The immutable Run
-records single-asset temporal evaluation, explicit no-Portfolio/no-trading
-authority, validation IC `0.6264400921658986`, visible-test IC
-`-0.02582565284178188`, and an external-holdout next step rather than further
-in-sample tuning. Exact proof is retained in
-[[plans/caller-owned-factor-population]].
+New `aq report draft` verifies one exact Session or direct-Run anchor and
+creates a confined, non-overwriting, schema-valid Project-local analysis
+scaffold with the leader Run and every declared artifact reference prefilled.
+It writes no conclusion. `authoringState: draft` and a reserved finding make
+the scaffold deliberately unpublishable until the Agent replaces the prose
+and sets it to final. Historical analyses without the optional authoring field
+remain readable.
+
+Fresh no-memory/no-web/no-subagent Grok `4.5` used only the clean installed
+candidate wheel and public surfaces to repeat a single-target NVDA forward-
+risk assignment. Without command coaching it discovered the draft route,
+interpreted temporal quantiles as protocol-unavailable, used the Work Brief's
+train IC `-0.1072916034` versus validation IC `0.1744431644` contrast, and
+published an honest weak-result Report. It completed with one Run, zero
+Experiments, one Report, no Portfolio/RL work, no Portfolio Mandate, and no
+new framework need. Exact proof is retained in
+[[plans/factor-evidence-report-handoff]].
 
 The root sample preserves all seventeen prior Runs byte-for-byte and adds two
 clean-commit candidate Runs proving current Factor and Portfolio projections
 under the separated authorities. It now contains nineteen immutable Runs and
 no governed-RL baseline. OpenAlice remains independently pinned to `v0.8.31`.
 
-The final source regression passes all 451 tests in 1217.702 seconds. Lock
-consistency, Python compilation, Studio JavaScript syntax, diff hygiene, and
-all 1,546 current documentation links also pass. A clean candidate wheel
-reports exact embedded `0.9.30` provenance, all 58 commands, all 16 bundled
-Skills, and the Factor Population schema. A no-override clone passes orient,
-validate, Project listing, Studio snapshot, package closure, and a newly
-executed Factor Run whose Harness identity agrees across every installed
-surface. Exact proof remains in [[plans/caller-owned-factor-population]].
+The candidate source regression passes all 454 tests in 1,202.824 seconds.
+Lock consistency, Python compilation, Studio JavaScript syntax, diff hygiene,
+and all 1,551 current documentation links also pass. A clean candidate wheel
+reports exact embedded build provenance, all 59 commands, all 16 bundled
+Skills, and the changed Report/Factor/Work-Brief schemas. Final clean-commit
+wheel, no-override clone, and newly executed Run identity replay remain the
+last release audit step; exact proof accumulates in
+[[plans/factor-evidence-report-handoff]].
 
 ## What works today
 

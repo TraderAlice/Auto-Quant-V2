@@ -22,6 +22,7 @@ It is deliberately not a second current-status page or release checklist:
 
 | Release | Bounded outcome | Exact evidence |
 | --- | --- | --- |
+| `v0.9.31` | Made temporal Factor applicability, material train/validation tension, and exact evidence-bound Report drafting explicit to coding Agents. | [[plans/factor-evidence-report-handoff]] |
 | `v0.9.30` | Separated caller-owned Factor evaluation population from Portfolio construction authority, including standalone risk Factors with no fictional Mandate. | [[plans/caller-owned-factor-population]] |
 | `v0.9.29` | Made README a bounded product entrance and routed complete operation and release work to explicit Agent-loadable authority. | [[plans/concise-documentation-front-door]] |
 | `v0.9.28` | Bound Factor evaluation to the caller's explicit forward-return or forward-realized-volatility outcome without granting risk forecasts Portfolio or RL authority. | [[plans/caller-owned-factor-outcomes]] |
