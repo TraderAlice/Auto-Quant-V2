@@ -31,13 +31,16 @@ git clone git@github.com:TraderAlice/Auto-Quant-V2.git
 cd Auto-Quant-V2
 uv sync
 
-uv run aq version --json
-uv run aq capabilities --json
+uv run aq --version
 uv run aq project list .
 uv run aq validate .
 uv run aq orient . --json
 uv run aq studio serve .
 ```
+
+For deeper machine discovery, use `uv run aq version --json` and
+`uv run aq capabilities --json`. The former exposes exact build provenance;
+the latter describes the complete current command surface.
 
 `orient` is the primary Agent entry. It returns the current question, verified
 evidence, editable and protected paths, blocker or terminal state, and at most

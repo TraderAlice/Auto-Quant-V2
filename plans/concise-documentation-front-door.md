@@ -103,6 +103,11 @@ stable guide, and keep README small enough to remain a useful first read.
   budget: it is an automatically loaded safety and research-governance surface.
   This topic removes duplication but does not hide mandatory invariants merely
   to optimize a count.
+- 2026-08-02 — The first fresh Grok navigation trial found no missing or
+  contradictory authority and correctly followed only five public documents,
+  but noticed that README and the operator guide offered slightly different
+  first-inspection command sets. Both now share the exact five-command entrance;
+  deeper build/capability discovery remains an explicitly subsequent step.
 
 ## Verification
 
@@ -118,6 +123,14 @@ Pending.
   path into one directly linked operator guide. Added AGENTS routing and a
   deterministic 220-line/section-ownership guard; focused documentation and
   version-contract tests pass.
+- 2026-08-02 — Fresh no-memory/no-web/no-subagent Grok `4.5` session
+  `019fc010-6e3d-7b71-bb6e-a2d1352bad9c` opened only README, the operator
+  guide, version policy, STATUS, and CHANGELOG. It recovered both requested
+  handoffs exactly and declared the entrance sufficient without source or test
+  inspection. Its sole navigation friction was the initial command-set drift,
+  which was repaired before the required fresh retry. The previously used
+  `grok-4.5-build` id is no longer offered by the installed Grok CLI; the
+  current same-generation model is `grok-4.5`.
 
 ## Completion
 
