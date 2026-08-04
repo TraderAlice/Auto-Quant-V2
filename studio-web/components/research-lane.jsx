@@ -9,7 +9,7 @@ const lanes = {
     studyId: "ohlcv-portfolio-quality",
     eyebrow: "Portfolio research / CORE PROJECTION",
     title: "组合研究",
-    description: "把候选因子翻译为有约束、有成本、有风险证据的研究组合；不连接账户或订单。",
+    description: "把候选因子翻译为有约束、有成本、有风险证据的研究组合。",
     primaryLabel: "Primary metric",
     fallbackMetric: "validation_net_sharpe",
     metricName: "Net Sharpe",
@@ -93,7 +93,7 @@ export function ResearchLane({ kind }) {
         <div className="trust-item"><span>Dataset</span><strong>{datasetLabel(study?.dataset)}</strong></div>
         <div className={`trust-item ${subject?.unresolved.length ? "warning" : ""}`}><span>Subject</span><strong>{subject ? `${subject.label} · ${subject.universe.length}` : "未解析"}</strong></div>
         <div className="trust-item"><span>Core evidence</span><strong>{verifiedRuns} verified run</strong></div>
-        <div className="trust-item warning"><span>执行边界</span><strong>研究环境，无实盘权限</strong></div>
+        <div className="trust-item"><span>研究模式</span><strong>验证与复现</strong></div>
       </div>
 
       <div className="metric-row">
@@ -101,7 +101,7 @@ export function ResearchLane({ kind }) {
         <Metric label="Verified runs" value={String(verifiedRuns)} detail={verifiedRuns ? "Core immutable evidence" : "尚无有效 Explorer 投影"} tone={verifiedRuns ? "positive" : "warning"} />
         <Metric label="Universe" value={String(study?.dataset?.universe?.length || 0)} detail={study?.dataset?.asset_class || "等待 Core"} />
         <Metric label="Dataset hash" value={study?.datasetHash?.slice(0, 10) || "unavailable"} detail="Core-owned" />
-        <Metric label="Trading authority" value="NONE" detail="不会生成或发送订单" />
+        <Metric label="Evidence mode" value="CORE" detail="不可变研究证据" />
       </div>
 
       <div className="result-grid">
@@ -173,7 +173,7 @@ export function ResearchLane({ kind }) {
             </Panel>
           ) : null}
 
-          <div className="notice"><strong>明确边界：</strong> 目标权重、历史动作和策略工件都是研究证据，不是券商订单、账户状态或交易许可。</div>
+          <div className="notice"><strong>研究产物：</strong> 目标权重、历史动作和策略工件共同构成可复现证据链。</div>
         </div>
       </div>
     </>

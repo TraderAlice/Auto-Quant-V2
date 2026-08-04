@@ -10,7 +10,7 @@ export async function GET() {
       cache: "no-store",
       headers: { accept: "application/json" },
       redirect: "error",
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(15_000),
     });
     if (!response.ok) throw new Error(`Core returned HTTP ${response.status}`);
     const snapshot = validateCoreSnapshot(await response.json());

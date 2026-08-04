@@ -43,6 +43,7 @@ from .intake import (
 from .model_runtime import list_model_runs
 from .holdouts import load_holdout_status
 from .orientation import build_agent_work_brief
+from .operator_port import build_research_ledger
 from .portfolio_explorer import (
     DEFAULT_PORTFOLIO_POINTS,
     load_portfolio_diagnostics,
@@ -1389,6 +1390,19 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
                 item.to_dict() for item in list_reports(project, session)
             ]
             progress = list_campaign_progress(session)
+            research_ledger = None
+            research_ledger_diagnostics: list[dict[str, str]] = []
+            try:
+                research_ledger = build_research_ledger(
+                    project,
+                    session.manifest["id"],
+                )
+            except AutoQuantValidationError as error:
+                research_ledger_diagnostics = _diagnostics(
+                    f"research-ledger:{session.manifest['id']}",
+                    error,
+                )
+                diagnostics.extend(research_ledger_diagnostics)
             decision_matrix = None
             try:
                 decision_matrix = load_session_decision_matrix(
@@ -1425,6 +1439,8 @@ def _project_snapshot(project: ProjectContext) -> dict[str, Any]:
                     "campaigns": campaigns,
                     "reports": reports,
                     "progress": progress,
+                    "researchLedger": research_ledger,
+                    "researchLedgerDiagnostics": research_ledger_diagnostics,
                     "commands": _session_commands(project, session, reports),
                 }
             )

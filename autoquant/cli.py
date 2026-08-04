@@ -105,6 +105,16 @@ from .model_runtime import (
     list_model_runs,
     load_model_run,
 )
+from .operator_port import (
+    OPERATOR_RECEIPT_JSON_SCHEMA,
+    OPERATOR_REQUEST_JSON_SCHEMA,
+    RESEARCH_LEDGER_JSON_SCHEMA,
+    execute_operator_request,
+)
+from .research_artifacts import (
+    ARTIFACT_REVIEW_JSON_SCHEMA,
+    REPRODUCTION_REQUEST_JSON_SCHEMA,
+)
 from .runs import (
     JUDGE_OUTPUT_JSON_SCHEMA,
     RUN_RESULT_JSON_SCHEMA,
@@ -267,6 +277,11 @@ from .verification import (
     load_verification_assessment,
     publish_verification_assessment,
 )
+from .research_definitions import (
+    EXPERIMENT_DEFINITION_JSON_SCHEMA,
+    FACTOR_DEFINITION_JSON_SCHEMA,
+    STRATEGY_DEFINITION_JSON_SCHEMA,
+)
 
 
 class CliUsageError(ValueError):
@@ -403,6 +418,14 @@ def build_parser() -> RaisingArgumentParser:
             "factor-population",
             "research-horizon",
             "experiment",
+            "factor-definition",
+            "experiment-definition",
+            "strategy-definition",
+            "operator-request",
+            "operator-receipt",
+            "research-ledger",
+            "artifact-review",
+            "reproduction-request",
             "researcher-response",
             "campaign-result",
             "campaign-progress",
@@ -1207,7 +1230,10 @@ def build_parser() -> RaisingArgumentParser:
     research_run.add_argument("--session", required=True)
     research_run.add_argument("--agent-command", required=True)
     research_run.add_argument("--max-turns", type=int, default=5)
+    research_run.add_argument("--max-candidates", type=int)
     research_run.add_argument("--max-wall-seconds", type=int, default=900)
+    research_run.add_argument("--max-cpu-seconds", type=int)
+    research_run.add_argument("--max-gpu-seconds", type=int, default=0)
     research_run.add_argument("--turn-timeout-seconds", type=int, default=300)
     research_run.set_defaults(command_id="research.run")
     _json_argument(research_run)
@@ -1549,6 +1575,21 @@ def build_parser() -> RaisingArgumentParser:
     holdout_show.add_argument("--project")
     holdout_show.set_defaults(command_id="holdout.show")
     _json_argument(holdout_show)
+
+    operator = subcommands.add_parser(
+        "operator",
+        help="invoke the closed provider-neutral research Operator Port",
+    )
+    operator_actions = operator.add_subparsers(dest="operator_action", required=True)
+    operator_invoke = operator_actions.add_parser(
+        "invoke",
+        help="validate a strict request and publish or replay its terminal receipt",
+    )
+    operator_invoke.add_argument("path")
+    operator_invoke.add_argument("--project")
+    operator_invoke.add_argument("--request", required=True)
+    operator_invoke.set_defaults(command_id="operator.invoke")
+    _json_argument(operator_invoke)
 
     studio = subcommands.add_parser(
         "studio",
@@ -4787,7 +4828,10 @@ def _research_run(args: argparse.Namespace) -> CommandResult:
         args.session,
         args.agent_command,
         max_turns=args.max_turns,
+        max_candidates=args.max_candidates,
         max_wall_seconds=args.max_wall_seconds,
+        max_cpu_seconds=args.max_cpu_seconds,
+        max_gpu_seconds=args.max_gpu_seconds,
         turn_timeout_seconds=args.turn_timeout_seconds,
     )
     session = load_session(project, args.session)
@@ -6046,6 +6090,32 @@ def _studio_snapshot(args: argparse.Namespace) -> CommandResult:
     )
 
 
+def _operator_invoke(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    request_path = Path(args.request).expanduser().resolve()
+    try:
+        request = json.loads(request_path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        raise CliCommandError(
+            f"Operator request file does not exist: {request_path}"
+        ) from None
+    except json.JSONDecodeError as error:
+        raise CliCommandError(f"Invalid Operator request JSON: {error.msg}") from None
+    if not isinstance(request, dict):
+        raise CliCommandError("Operator request must be a JSON object")
+    receipt = execute_operator_request(project, request)
+    return CommandResult(
+        "operator.invoke",
+        {"receipt": receipt},
+        (
+            f"Operator receipt: {receipt['requestId']}\n"
+            f"Intent: {receipt['intent']}\n"
+            f"Status: {receipt['status']}\n"
+        ),
+        project_context(project),
+    )
+
+
 def _studio_serve(args: argparse.Namespace) -> CommandResult:
     serve_studio(
         args.path,
@@ -6425,6 +6495,14 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "dossier-result",
             "dossier-status",
             "experiment",
+            "factor-definition",
+            "experiment-definition",
+            "strategy-definition",
+            "operator-request",
+            "operator-receipt",
+            "research-ledger",
+            "artifact-review",
+            "reproduction-request",
             "factor-candidate-contract",
             "factor-diagnostics",
             "factor-claim",
@@ -6502,6 +6580,14 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "factor-population": FACTOR_POPULATION_JSON_SCHEMA,
             "research-horizon": RESEARCH_HORIZON_JSON_SCHEMA,
             "experiment": EXPERIMENT_JSON_SCHEMA,
+            "factor-definition": FACTOR_DEFINITION_JSON_SCHEMA,
+            "experiment-definition": EXPERIMENT_DEFINITION_JSON_SCHEMA,
+            "strategy-definition": STRATEGY_DEFINITION_JSON_SCHEMA,
+            "operator-request": OPERATOR_REQUEST_JSON_SCHEMA,
+            "operator-receipt": OPERATOR_RECEIPT_JSON_SCHEMA,
+            "research-ledger": RESEARCH_LEDGER_JSON_SCHEMA,
+            "artifact-review": ARTIFACT_REVIEW_JSON_SCHEMA,
+            "reproduction-request": REPRODUCTION_REQUEST_JSON_SCHEMA,
             "researcher-response": RESEARCHER_RESPONSE_JSON_SCHEMA,
             "campaign-result": CAMPAIGN_RESULT_JSON_SCHEMA,
             "campaign-progress": CAMPAIGN_PROGRESS_JSON_SCHEMA,
@@ -6656,6 +6742,8 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
         return _holdout_assess(args)
     if args.command_id == "holdout.show":
         return _holdout_show(args)
+    if args.command_id == "operator.invoke":
+        return _operator_invoke(args)
     if args.command_id == "studio.snapshot":
         return _studio_snapshot(args)
     if args.command_id == "studio.serve":
@@ -6677,6 +6765,7 @@ def _command_id(argv: Sequence[str]) -> str:
         "report",
         "review",
         "dossier",
+        "operator",
         "studio",
     } and len(argv) > 1:
         return f"{argv[0]}.{argv[1]}"

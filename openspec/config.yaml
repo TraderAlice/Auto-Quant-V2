@@ -1,0 +1,36 @@
+schema: spec-driven
+
+context: |
+  AutoQuant V2 is an Agent-native factor and strategy research workbench.
+  Core evidence is file-backed, versioned, immutable after publication, and
+  authoritative across CLI, JSON, Studio, and external Agent clients.
+  The web client uses Next.js 16.2.12, React 19.2.8, Mantine 9.5.1 through the
+  AutoQuant UI adapter, and lightweight-charts 5.2.0 for K-line evidence.
+  Reuse existing Study, Session, Experiment, Run, Campaign, Report, snapshot,
+  and diagnostic contracts. Do not create frontend-only evaluators or a
+  chat-specific execution path.
+  FactorDefinition and StrategyDefinition are separate product objects.
+  GPU and MOSS are optional research executors behind provider-neutral job
+  receipts; the public repository must remain useful without private adapters.
+  The upstream visual and interaction authority is the existing Designer
+  Pipeline change autoquant-replay-research-workbench. Preserve its DESIGN and
+  MOTION foundation hashes and do not restyle the product independently.
+  OpenSpec artifacts are written in English. User-facing Studio copy may be
+  localized, but primary copy must use research language and keep Core names in
+  Technical Details.
+
+rules:
+  proposal:
+    - State observable product gaps separately from already connected evidence.
+    - Include explicit non-goals and public/private provider boundaries.
+  specs:
+    - Use SHALL requirements and GIVEN/WHEN/THEN scenarios.
+    - Cover unavailable, failure, negative, inconclusive, budget-exhausted, stop, and reproduction-drift states.
+    - Never treat demo data, documentation, route compilation, or object inventory as an implemented workflow.
+  design:
+    - Map generic controls to installed Mantine primitives and research semantics to AutoQuant domain components.
+    - Preserve one Operator Port and existing immutable Core evidence contracts.
+    - Link the upstream Designer Pipeline artifacts and authoritative foundation hashes.
+  tasks:
+    - Keep implementation slices vertical, testable, and ordered by contract dependency.
+    - Separate implementation tasks from verification evidence; unchecked tasks are not complete.

@@ -3,7 +3,10 @@
 Status: implemented for Workspace, Project, AI-first Project orientation,
 request-driven OHLCV intake, Study, Run, Session, Experiment, bounded Research
 Campaign, delegated request, Research Report, and Session comparison
-operations.
+operations, plus the closed Operator request/receipt projection and immediate
+Campaign stop. Exact artifact approval and reproduction execution remain
+unavailable until Core supplies a verified EvidenceAssessment and controlled
+reproduction executor.
 
 Related: [[docs/CLI]], [[docs/PROJECT_FORMAT]],
 [[docs/design/workspace-project-boundaries]], and
@@ -69,6 +72,11 @@ Study/Run evaluation rules.
 13. `version` and `capabilities` project the same current seven-field Harness
     object, including build provenance. Machine discovery never requires
     parsing `--version` or terminal prose.
+14. `operator.invoke` accepts only the published strict request schema. Actor
+    identity never creates a client-specific authority path, and request input
+    cannot contain commands, credentials, or unconstrained filesystem paths.
+15. Accepted Operator outcomes publish manifest-pinned terminal receipts.
+    Identical retries replay the receipt; a conflicting retry fails closed.
 
 ## Operation effects
 
@@ -95,6 +103,23 @@ rollback-safe receipt publication. Future operations may add `mode-dependent`
 only when their confirmation, progress, and evidence contracts are defined.
 `studio.serve` uses `long-running-server`, does not support terminal JSON, and
 exposes only fixed read-only HTTP routes.
+
+`operator.invoke` uses `creates-artifact` because every accepted intent
+publishes an immutable audit receipt. Its closed V1 registry contains
+`research.inspect`, `research.explain`, `research.compare`,
+`research.reproduction-readiness`, definition version creation, artifact
+decision, reproduction start, the independent user `confirmation.accept`
+decision, and the immediate mutation `campaign.stop`. A semantic mutation first
+publishes `confirmation-required`; `confirmation.accept` binds the exact
+proposal hash, execution actor, object versions, budget, input, and expected
+state; the mutation then references that decision receipt. Stop requires
+`approved-envelope` authority and one exact active Campaign reference; Core
+persists the request, preserves completed Experiments, and publishes terminal
+Campaign evidence before the operation succeeds. CLI JSON, embedded Agent
+clients, and the Studio adapter consume the same request/receipt schemas; no
+chat surface owns additional mutation or shell authority. Unknown intent,
+stale state, unavailable dependency, and accepted failure are receipt statuses
+rather than browser-derived conclusions.
 
 `session.compare` is read-only. It returns one bounded Core-authored comparison
 object after verifying the Session, Experiments, and Runs; the CLI and Studio
@@ -285,5 +310,6 @@ uv run python -m unittest tests.test_cli -v
 
 - No progress-event envelope exists.
 - No output section selection exists.
-- No confirmation receipt exists for future Project mutations.
-- Studio has no confirmed mutation routes.
+- Confirmation-bound mutation intents remain outside the initial read-only
+  Operator slice.
+- Studio has no confirmed mutation routes yet.

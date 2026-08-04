@@ -16,6 +16,12 @@ from autoquant.runs import (
     load_run,
     same_harness_runtime,
 )
+from autoquant.research_definitions import (
+    approve_factor_definition,
+    create_experiment_definition_version,
+    create_factor_definition_version,
+    freeze_experiment_definition,
+)
 from autoquant.studies import (
     StudyResearchRequest,
     bind_upstream_evidence,
@@ -31,6 +37,76 @@ from tests.study_helpers import (
     request_definition,
     study_definition,
 )
+
+# ---- factor definition helpers ----
+
+MINIMAL_FACTOR_DEFINITION = {
+    "schemaVersion": 1,
+    "kind": "autoquant-factor-definition",
+    "id": "momentum-factor",
+    "version": 1,
+    "status": "draft",
+    "createdAt": "2026-06-01T00:00:00Z",
+    "lineage": {"parentVersion": None},
+    "hypothesis": "Price momentum predicts future returns.",
+    "calculation": {
+        "kind": "source",
+        "identity": "factors/momentum.py:Momentum",
+        "sourceHash": "a" * 64,
+    },
+    "parameters": {"window": 20},
+    "output": {"direction": "higher", "unit": "annualized-return"},
+    "dataDependencies": [
+        {
+            "packageId": "core-prices",
+            "version": "v1",
+            "fields": ["close"],
+            "availability": {
+                "pointInTime": True,
+                "marketClock": {"id": "XNYS", "version": "v1"},
+            },
+        }
+    ],
+    "missingDataPolicy": "drop-row",
+    "cohort": {"kind": "equity", "identity": "US-common-stock"},
+    "expectedHorizon": "1-month",
+    "requiredTests": ["monotonicity"],
+    "failureGates": ["negative-sharpe"],
+}
+
+MINIMAL_EXPERIMENT_DEFINITION = {
+    "schemaVersion": 1,
+    "kind": "autoquant-experiment-definition",
+    "id": "momentum-test",
+    "version": 1,
+    "status": "draft",
+    "createdAt": "2026-06-01T00:00:00Z",
+    "lineage": {"parentVersion": None},
+    "definitionRef": {"kind": "factor", "id": "momentum-factor", "version": 1},
+    "data": {"packageId": "core-prices", "version": "v1"},
+    "subject": {"kind": "factor", "id": "momentum-factor", "version": 1},
+    "outcome": {"name": "sharpe-ratio", "horizon": "1-month"},
+    "benchmark": {"id": "spx-equal-weight", "version": "v1"},
+    "costPolicy": {"model": "fixed", "bps": 5},
+    "splitPolicy": {"kind": "time-series", "train": 0.7},
+    "robustness": {"checks": ["out-of-time"]},
+    "selectionAdjustment": {"method": "none"},
+    "holdoutPolicy": {"kind": "external-temporal", "sealed": True},
+    "executorPolicy": {"kind": "python-judge"},
+    "budget": {
+        "candidateLimit": 10,
+        "wallTimeSeconds": 600,
+        "cpuSeconds": 600,
+        "gpuSeconds": 0,
+        "cost": {"currency": "USD", "amount": 1000},
+    },
+    "stopConditions": ["candidate-limit"],
+}
+
+
+def _hash_sha256(value: str) -> str:
+    from hashlib import sha256
+    return sha256(value.encode()).hexdigest()
 
 
 class ImmutableRunTests(unittest.TestCase):
@@ -134,7 +210,7 @@ class ImmutableRunTests(unittest.TestCase):
             frozen_artifact.write_text("tampered\n", encoding="utf-8")
             manifest_path = run.root_dir / "manifest.json"
             manifest = json.loads(manifest_path.read_text())
-            relative = str(frozen_artifact.relative_to(run.root_dir))
+            relative = frozen_artifact.relative_to(run.root_dir).as_posix()
             manifest["files"][relative] = hash_file(frozen_artifact)
             manifest_path.write_text(json.dumps(manifest))
             with self.assertRaisesRegex(
@@ -338,6 +414,454 @@ class ImmutableRunTests(unittest.TestCase):
 
             with self.assertRaisesRegex(AutoQuantValidationError, "Unknown field"):
                 load_run(project, run.result["id"])
+
+    # ---- researchBinding tests ----
+
+    def test_legacy_run_unchanged_without_research_binding(self) -> None:
+        """Legacy Run is byte-compatible when research_binding is None."""
+        with tempfile.TemporaryDirectory() as directory:
+            _, project = make_project(directory)
+            create_study(project, study_definition())
+            run = execute_study(project, "factor-quality")
+            self.assertNotIn("researchBinding", run.result)
+            self.assertEqual(load_run(project, run.result["id"]), run)
+            jsonschema.validate(run.result, RUN_RESULT_JSON_SCHEMA)
+
+    def test_exact_approved_frozen_binding_persists_and_loads(self) -> None:
+        """researchBinding with exact approved factor and frozen experiment persists and loads."""
+        with tempfile.TemporaryDirectory() as directory:
+            _, project = make_project(directory)
+
+            # Create + approve a factor definition
+            factor_ctx = create_factor_definition_version(
+                project, dict(MINIMAL_FACTOR_DEFINITION)
+            )
+            approved = approve_factor_definition(
+                project, "momentum-factor", factor_ctx.definition["version"]
+            )
+
+            # Load a session (required for experiment definition storage)
+            from autoquant.sessions import start_session
+
+            create_study(project, study_definition(study_id="factor-quality"))
+            baseline = execute_study(project, "factor-quality")
+            session = start_session(project, "factor-quality")
+
+            # Create + freeze an experiment definition
+            exp_value = dict(MINIMAL_EXPERIMENT_DEFINITION)
+            exp_value["definitionRef"] = {
+                "kind": "factor",
+                "id": "momentum-factor",
+                "version": approved.definition["version"],
+            }
+            experiment_ctx = create_experiment_definition_version(
+                project, session.manifest["id"], exp_value
+            )
+            frozen = freeze_experiment_definition(
+                project,
+                session.manifest["id"],
+                "momentum-test",
+                experiment_ctx.definition["version"],
+            )
+
+            binding = {
+                "definitionRef": {
+                    "kind": "factor",
+                    "id": "momentum-factor",
+                    "version": approved.definition["version"],
+                    "contentHash": approved.manifest["contentHash"],
+                },
+                "experimentDefinitionRef": {
+                    "kind": "experiment",
+                    "sessionId": session.manifest["id"],
+                    "id": "momentum-test",
+                    "version": frozen.definition["version"],
+                    "contentHash": frozen.manifest["contentHash"],
+                },
+            }
+
+            run = execute_study(
+                project,
+                "factor-quality",
+                research_binding=binding,
+            )
+            self.assertEqual(run.result["researchBinding"], binding)
+            reloaded = load_run(project, run.result["id"])
+            self.assertEqual(reloaded.result["researchBinding"], binding)
+            jsonschema.validate(run.result, RUN_RESULT_JSON_SCHEMA)
+
+    def test_binding_fails_on_draft_experiment(self) -> None:
+        """Binding fails before Run creation when experiment is still draft."""
+        with tempfile.TemporaryDirectory() as directory:
+            _, project = make_project(directory)
+
+            create_factor_definition_version(
+                project, dict(MINIMAL_FACTOR_DEFINITION)
+            )
+            approved = approve_factor_definition(project, "momentum-factor", 1)
+
+            create_study(project, study_definition(study_id="factor-quality"))
+            baseline = execute_study(project, "factor-quality")
+            from autoquant.sessions import start_session
+            session = start_session(project, "factor-quality")
+
+            exp_value = dict(MINIMAL_EXPERIMENT_DEFINITION)
+            exp_value["definitionRef"] = {
+                "kind": "factor",
+                "id": "momentum-factor",
+                "version": approved.definition["version"],
+            }
+            experiment_ctx = create_experiment_definition_version(
+                project, session.manifest["id"], exp_value
+            )
+            # experiment is draft, NOT frozen
+            binding = {
+                "definitionRef": {
+                    "kind": "factor",
+                    "id": "momentum-factor",
+                    "version": approved.definition["version"],
+                    "contentHash": approved.manifest["contentHash"],
+                },
+                "experimentDefinitionRef": {
+                    "kind": "experiment",
+                    "sessionId": session.manifest["id"],
+                    "id": "momentum-test",
+                    "version": experiment_ctx.definition["version"],
+                    "contentHash": experiment_ctx.manifest["contentHash"],
+                },
+            }
+            runs_before = len(list_runs(project))
+            with self.assertRaisesRegex(
+                AutoQuantValidationError, "not frozen"
+            ):
+                execute_study(project, "factor-quality", research_binding=binding)
+            # No new Run directory was created
+            self.assertEqual(len(list_runs(project)), runs_before)
+
+    def test_binding_fails_on_wrong_hash(self) -> None:
+        """Binding fails with tampered contentHash."""
+        with tempfile.TemporaryDirectory() as directory:
+            _, project = make_project(directory)
+
+            create_factor_definition_version(
+                project, dict(MINIMAL_FACTOR_DEFINITION)
+            )
+            approved = approve_factor_definition(project, "momentum-factor", 1)
+
+            create_study(project, study_definition(study_id="factor-quality"))
+            baseline = execute_study(project, "factor-quality")
+            from autoquant.sessions import start_session
+            session = start_session(project, "factor-quality")
+
+            binding = {
+                "definitionRef": {
+                    "kind": "factor",
+                    "id": "momentum-factor",
+                    "version": approved.definition["version"],
+                    "contentHash": "f" * 64,  # wrong
+                },
+                "experimentDefinitionRef": {
+                    "kind": "experiment",
+                    "sessionId": session.manifest["id"],
+                    "id": "momentum-test",
+                    "version": 1,
+                    "contentHash": approved.manifest["contentHash"],
+                },
+            }
+            runs_before = len(list_runs(project))
+            with self.assertRaisesRegex(
+                AutoQuantValidationError, "contentHash does not match"
+            ):
+                execute_study(project, "factor-quality", research_binding=binding)
+            self.assertEqual(len(list_runs(project)), runs_before)
+
+    def test_binding_fails_on_unapproved_definition(self) -> None:
+        """Binding fails when factor definition is draft, not approved."""
+        with tempfile.TemporaryDirectory() as directory:
+            _, project = make_project(directory)
+
+            factor_ctx = create_factor_definition_version(
+                project, dict(MINIMAL_FACTOR_DEFINITION)
+            )
+            # NOT approved
+
+            create_study(project, study_definition(study_id="factor-quality"))
+            baseline = execute_study(project, "factor-quality")
+            from autoquant.sessions import start_session
+            session = start_session(project, "factor-quality")
+
+            binding = {
+                "definitionRef": {
+                    "kind": "factor",
+                    "id": "momentum-factor",
+                    "version": 1,
+                    "contentHash": factor_ctx.manifest["contentHash"],
+                },
+                "experimentDefinitionRef": {
+                    "kind": "experiment",
+                    "sessionId": session.manifest["id"],
+                    "id": "momentum-test",
+                    "version": 1,
+                    "contentHash": factor_ctx.manifest["contentHash"],
+                },
+            }
+            runs_before = len(list_runs(project))
+            with self.assertRaisesRegex(
+                AutoQuantValidationError, "not approved"
+            ):
+                execute_study(project, "factor-quality", research_binding=binding)
+            self.assertEqual(len(list_runs(project)), runs_before)
+
+    def test_binding_fails_on_link_mismatch(self) -> None:
+        """Binding fails when experiment's definitionRef doesn't match the definitionRef."""
+        with tempfile.TemporaryDirectory() as directory:
+            _, project = make_project(directory)
+
+            # Create factor "alpha-v1" and approve it
+            alpha = dict(MINIMAL_FACTOR_DEFINITION)
+            alpha["id"] = "alpha-v1"
+            create_factor_definition_version(project, alpha)
+            approved_alpha = approve_factor_definition(project, "alpha-v1", 1)
+
+            # Create factor "beta-v2" and approve it
+            beta = dict(MINIMAL_FACTOR_DEFINITION)
+            beta["id"] = "beta-v2"
+            beta["version"] = 1
+            create_factor_definition_version(project, beta)
+            approved_beta = approve_factor_definition(project, "beta-v2", 1)
+
+            create_study(project, study_definition(study_id="factor-quality"))
+            baseline = execute_study(project, "factor-quality")
+            from autoquant.sessions import start_session
+            session = start_session(project, "factor-quality")
+
+            # Experiment references alpha-v1
+            exp_value = dict(MINIMAL_EXPERIMENT_DEFINITION)
+            exp_value["id"] = "alpha-experiment"
+            exp_value["definitionRef"] = {
+                "kind": "factor",
+                "id": "alpha-v1",
+                "version": approved_alpha.definition["version"],
+            }
+            experiment_ctx = create_experiment_definition_version(
+                project, session.manifest["id"], exp_value,
+            )
+            frozen = freeze_experiment_definition(
+                project, session.manifest["id"], "alpha-experiment",
+                experiment_ctx.definition["version"],
+            )
+
+            # Binding says beta-v2 — link mismatch
+            binding = {
+                "definitionRef": {
+                    "kind": "factor",
+                    "id": "beta-v2",
+                    "version": approved_beta.definition["version"],
+                    "contentHash": approved_beta.manifest["contentHash"],
+                },
+                "experimentDefinitionRef": {
+                    "kind": "experiment",
+                    "sessionId": session.manifest["id"],
+                    "id": "alpha-experiment",
+                    "version": frozen.definition["version"],
+                    "contentHash": frozen.manifest["contentHash"],
+                },
+            }
+            runs_before = len(list_runs(project))
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                "definitionRef does not match",
+            ):
+                execute_study(project, "factor-quality", research_binding=binding)
+            self.assertEqual(len(list_runs(project)), runs_before)
+
+    def test_run_file_tamper_fails(self) -> None:
+        """Tampering Run result file fails load."""
+        with tempfile.TemporaryDirectory() as directory:
+            _, project = make_project(directory)
+
+            create_factor_definition_version(
+                project, dict(MINIMAL_FACTOR_DEFINITION)
+            )
+            approved = approve_factor_definition(project, "momentum-factor", 1)
+
+            create_study(project, study_definition(study_id="factor-quality"))
+            baseline = execute_study(project, "factor-quality")
+            from autoquant.sessions import start_session
+            session = start_session(project, "factor-quality")
+
+            exp_value = dict(MINIMAL_EXPERIMENT_DEFINITION)
+            exp_value["definitionRef"] = {
+                "kind": "factor",
+                "id": "momentum-factor",
+                "version": approved.definition["version"],
+            }
+            experiment_ctx = create_experiment_definition_version(
+                project, session.manifest["id"], exp_value,
+            )
+            frozen = freeze_experiment_definition(
+                project, session.manifest["id"], "momentum-test",
+                experiment_ctx.definition["version"],
+            )
+
+            binding = {
+                "definitionRef": {
+                    "kind": "factor",
+                    "id": "momentum-factor",
+                    "version": approved.definition["version"],
+                    "contentHash": approved.manifest["contentHash"],
+                },
+                "experimentDefinitionRef": {
+                    "kind": "experiment",
+                    "sessionId": session.manifest["id"],
+                    "id": "momentum-test",
+                    "version": frozen.definition["version"],
+                    "contentHash": frozen.manifest["contentHash"],
+                },
+            }
+            run = execute_study(
+                project, "factor-quality", research_binding=binding,
+            )
+
+            result_path = run.root_dir / "result.json"
+            manifest_path = run.root_dir / "manifest.json"
+            result = json.loads(result_path.read_text())
+            result["researchBinding"]["definitionRef"]["version"] = 999
+            result_path.write_text(json.dumps(result))
+            manifest = json.loads(manifest_path.read_text())
+            manifest["files"]["result.json"] = hash_file(result_path)
+            manifest["resultHash"] = manifest["files"]["result.json"]
+            manifest_path.write_text(json.dumps(manifest))
+
+            with self.assertRaisesRegex(
+                AutoQuantValidationError, "must equal the terminal manifest"
+            ):
+                load_run(project, run.result["id"])
+
+    def test_referenced_artifact_tamper_fails(self) -> None:
+        """Tampering the definition on disk after the Run fails load."""
+        with tempfile.TemporaryDirectory() as directory:
+            _, project = make_project(directory)
+
+            create_factor_definition_version(
+                project, dict(MINIMAL_FACTOR_DEFINITION)
+            )
+            approved = approve_factor_definition(project, "momentum-factor", 1)
+
+            create_study(project, study_definition(study_id="factor-quality"))
+            baseline = execute_study(project, "factor-quality")
+            from autoquant.sessions import start_session
+            session = start_session(project, "factor-quality")
+
+            exp_value = dict(MINIMAL_EXPERIMENT_DEFINITION)
+            exp_value["definitionRef"] = {
+                "kind": "factor",
+                "id": "momentum-factor",
+                "version": approved.definition["version"],
+            }
+            experiment_ctx = create_experiment_definition_version(
+                project, session.manifest["id"], exp_value,
+            )
+            frozen = freeze_experiment_definition(
+                project, session.manifest["id"], "momentum-test",
+                experiment_ctx.definition["version"],
+            )
+
+            binding = {
+                "definitionRef": {
+                    "kind": "factor",
+                    "id": "momentum-factor",
+                    "version": approved.definition["version"],
+                    "contentHash": approved.manifest["contentHash"],
+                },
+                "experimentDefinitionRef": {
+                    "kind": "experiment",
+                    "sessionId": session.manifest["id"],
+                    "id": "momentum-test",
+                    "version": frozen.definition["version"],
+                    "contentHash": frozen.manifest["contentHash"],
+                },
+            }
+            run = execute_study(
+                project, "factor-quality", research_binding=binding,
+            )
+
+            # Tamper the factor definition on disk
+            factor_def_dir = approved.root_dir / "definition.json"
+            definition = json.loads(factor_def_dir.read_text())
+            definition["hypothesis"] = "tampered hypothesis"
+            factor_def_dir.write_text(json.dumps(definition))
+
+            with self.assertRaisesRegex(
+                AutoQuantValidationError,
+                r"content hash mismatch",
+            ):
+                load_run(project, run.result["id"])
+
+    def test_newer_definition_version_does_not_move_old_run(self) -> None:
+        """A newer approved definition version doesn't move the old bound Run."""
+        with tempfile.TemporaryDirectory() as directory:
+            _, project = make_project(directory)
+
+            create_factor_definition_version(
+                project, dict(MINIMAL_FACTOR_DEFINITION)
+            )
+            approved_v1 = approve_factor_definition(project, "momentum-factor", 1)
+
+            create_study(project, study_definition(study_id="factor-quality"))
+            baseline = execute_study(project, "factor-quality")
+            from autoquant.sessions import start_session
+            session = start_session(project, "factor-quality")
+
+            exp_value = dict(MINIMAL_EXPERIMENT_DEFINITION)
+            exp_value["definitionRef"] = {
+                "kind": "factor",
+                "id": "momentum-factor",
+                "version": approved_v1.definition["version"],
+            }
+            experiment_ctx = create_experiment_definition_version(
+                project, session.manifest["id"], exp_value,
+            )
+            frozen = freeze_experiment_definition(
+                project, session.manifest["id"], "momentum-test",
+                experiment_ctx.definition["version"],
+            )
+
+            binding = {
+                "definitionRef": {
+                    "kind": "factor",
+                    "id": "momentum-factor",
+                    "version": approved_v1.definition["version"],
+                    "contentHash": approved_v1.manifest["contentHash"],
+                },
+                "experimentDefinitionRef": {
+                    "kind": "experiment",
+                    "sessionId": session.manifest["id"],
+                    "id": "momentum-test",
+                    "version": frozen.definition["version"],
+                    "contentHash": frozen.manifest["contentHash"],
+                },
+            }
+            run = execute_study(
+                project, "factor-quality", research_binding=binding,
+            )
+
+            # Create v2 (approved as well)
+            from autoquant.research_definitions import new_definition_version
+            v2_def = new_definition_version(
+                approved_v1.definition, {"hypothesis": "Revised momentum hypothesis"},
+                status="draft",
+            )
+            create_factor_definition_version(project, v2_def)
+            approve_factor_definition(project, "momentum-factor", v2_def["version"])
+
+            # The old Run still loads with v1 bound
+            reloaded = load_run(project, run.result["id"])
+            self.assertEqual(reloaded.result["researchBinding"]["definitionRef"]["version"], approved_v1.definition["version"])
+            self.assertEqual(
+                reloaded.result["researchBinding"]["definitionRef"]["contentHash"],
+                approved_v1.manifest["contentHash"],
+            )
 
 
 if __name__ == "__main__":

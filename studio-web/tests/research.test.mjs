@@ -116,7 +116,7 @@ test("research execution accepts only a verified project Study and returns a com
 
 test("all approved research routes retain a connected Core projection", async () => {
   const shell = await readFile(new URL("../components/studio-shell.jsx", import.meta.url), "utf8");
-  for (const route of ["/events", "/lab", "/results", "/data", "/audit"]) {
+  for (const route of ["/factors", "/strategies", "/events", "/lab", "/results", "/data", "/audit"]) {
     assert.match(shell, new RegExp(`connectedRoutes = new Set\\(\\[[^\\]]*"${route}"`));
   }
 });
@@ -214,4 +214,26 @@ test("public Mantine primitives back generic UI without replacing AutoQuant doma
     assert.match(ui, new RegExp(`export function ${primitive}`));
   }
   assert.doesNotMatch(ui, /@katana|dockview|mcp__/i);
+  });
+
+test("Designer Pipeline nav groups replace legacy Research/Infrastructure sections", async () => {
+  const shell = await readFile(new URL("../components/studio-shell.jsx", import.meta.url), "utf8");
+  // Four group keys present in the designerPipeline object
+  for (const group of ["Work", "Assets", "Evidence", "Operations"]) {
+    assert.match(shell, new RegExp(`^\\s+${group}:\\s+\\[`, "m"), `${group} group missing from designerPipeline`);
+  }
+  // The nav renders sections dynamically via Object.entries, not hardcoded strings
+  assert.match(shell, /Object\.entries\(designerPipeline\)\.map/);
+  assert.match(shell, /<span className="nav-section">\{section\}<\/span>/);
+  // All eight main hrefs are in the designerPipeline object
+  for (const href of ["/research", "/data", "/factors", "/strategies", "/replay", "/results", "/jobs", "/audit"]) {
+    assert.match(shell, new RegExp(`"${href}"`), `${href} missing from shell`);
+  }
+  // Legacy section titles are no longer rendered as static nav-section
+  assert.doesNotMatch(shell, /<span className="nav-section">Research<\/span>/);
+  assert.doesNotMatch(shell, /<span className="nav-section">Infrastructure<\/span>/);
+  // connectedRoutes retains all existing routes unchanged
+  for (const route of ["/", "/research", "/factors", "/strategies", "/replay", "/events", "/lab", "/results", "/portfolio", "/rl", "/jobs", "/data", "/audit"]) {
+    assert.match(shell, new RegExp(`connectedRoutes = new Set\\(\\[[^\\]]*"${route}"`), `${route} missing from connectedRoutes`);
+  }
 });
