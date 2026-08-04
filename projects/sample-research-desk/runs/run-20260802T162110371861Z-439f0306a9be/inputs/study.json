@@ -1,0 +1,62 @@
+{
+  "dataset": {
+    "asset_class": "synthetic-multi-asset",
+    "id": "synthetic-ohlcv-research-desk-fixture",
+    "paths": [
+      "ohlcv/**"
+    ],
+    "time_range": {
+      "end": "2025-08-11",
+      "start": "2024-01-02"
+    },
+    "universe": [
+      "ALPHA",
+      "BRAVO",
+      "CHARLIE",
+      "DELTA",
+      "ECHO",
+      "FOXTROT"
+    ],
+    "version": "v1"
+  },
+  "dependencies": {
+    "paths": [
+      "factors/**",
+      "strategies/factor-claim.json",
+      "strategies/factor-population.json",
+      "strategies/portfolio-mandate.json",
+      "strategies/research-horizon.json"
+    ]
+  },
+  "description": "Challenge a locked candidate factor and fixed reference sleeves with a bounded adaptive state representation",
+  "editable": {
+    "paths": [
+      "models/**"
+    ]
+  },
+  "id": "ohlcv-rl-factor-policy",
+  "judge": {
+    "arguments": [],
+    "entrypoint": "judges/ohlcv_rl_factor.py",
+    "kind": "python",
+    "paths": [
+      "judges/ohlcv_rl_factor.py",
+      "judges/rl_core.py",
+      "judges/portfolio_core.py"
+    ],
+    "timeout_seconds": 120
+  },
+  "name": "Governed RL Factor Policy",
+  "objective": {
+    "direction": "maximize",
+    "metric": "validation_mean_net_sharpe",
+    "minimum_improvement": 0.2
+  },
+  "program": "program.md",
+  "schema_version": 1,
+  "subject": {
+    "kind": "model",
+    "name": "rl-state-encoder",
+    "version": "working"
+  }
+}

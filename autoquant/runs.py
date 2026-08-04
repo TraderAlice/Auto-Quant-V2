@@ -765,6 +765,250 @@ def _all_file_hashes(root: Path) -> dict[str, str]:
     return hashes
 
 
+def _validate_research_binding(
+    project: ProjectContext,
+    binding: dict[str, Any],
+) -> None:
+    """Gate-exact researchBinding validation.
+
+    Before a Run directory is created, this function uses the Core definition
+    loaders to verify that the supplied definitionRef and experimentDefinitionRef
+    point to exact approved/frozen artifacts with matching content hashes.
+    """
+    from .research_definitions import (
+        DEFINITION_ID,
+        HASH as DEFINITION_HASH,
+        load_experiment_definition,
+        load_factor_definition,
+        load_strategy_definition,
+    )
+
+    if not isinstance(binding, dict):
+        raise AutoQuantValidationError(
+            [_issue("researchBinding", "schema.type", "researchBinding must be an object")]
+        )
+
+    issues: list[ValidationIssue] = []
+
+    required_keys = {"definitionRef", "experimentDefinitionRef"}
+    issues.extend(_strict_keys(binding, required_keys, "researchBinding"))
+
+    if issues:
+        raise AutoQuantValidationError(issues)
+
+    # ---- definitionRef ----
+    ref = binding.get("definitionRef")
+    if not isinstance(ref, dict):
+        issues.append(
+            _issue("researchBinding/definitionRef", "schema.type", "definitionRef must be an object")
+        )
+    else:
+        ref_keys = {"kind", "id", "version", "contentHash"}
+        issues.extend(_strict_keys(ref, ref_keys, "researchBinding/definitionRef"))
+        kind = ref.get("kind")
+        if kind not in ("factor", "strategy"):
+            issues.append(
+                _issue(
+                    "researchBinding/definitionRef/kind",
+                    "researchBinding.kind",
+                    "definitionRef kind must be factor or strategy",
+                )
+            )
+        definition_id = ref.get("id")
+        if not isinstance(definition_id, str) or not DEFINITION_ID.fullmatch(definition_id):
+            issues.append(
+                _issue(
+                    "researchBinding/definitionRef/id",
+                    "researchBinding.id",
+                    "definitionRef id must be a valid definition id",
+                )
+            )
+        version = ref.get("version")
+        if not isinstance(version, int) or isinstance(version, bool) or version < 1:
+            issues.append(
+                _issue(
+                    "researchBinding/definitionRef/version",
+                    "researchBinding.version",
+                    "definitionRef version must be a positive integer",
+                )
+            )
+        content_hash = ref.get("contentHash")
+        if not isinstance(content_hash, str) or not DEFINITION_HASH.fullmatch(content_hash):
+            issues.append(
+                _issue(
+                    "researchBinding/definitionRef/contentHash",
+                    "researchBinding.hash",
+                    "definitionRef contentHash must be a lowercase SHA-256",
+                )
+            )
+
+    # ---- experimentDefinitionRef ----
+    exp = binding.get("experimentDefinitionRef")
+    if not isinstance(exp, dict):
+        issues.append(
+            _issue(
+                "researchBinding/experimentDefinitionRef",
+                "schema.type",
+                "experimentDefinitionRef must be an object",
+            )
+        )
+    else:
+        exp_keys = {"kind", "sessionId", "id", "version", "contentHash"}
+        issues.extend(
+            _strict_keys(exp, exp_keys, "researchBinding/experimentDefinitionRef")
+        )
+        if exp.get("kind") != "experiment":
+            issues.append(
+                _issue(
+                    "researchBinding/experimentDefinitionRef/kind",
+                    "researchBinding.kind",
+                    "experimentDefinitionRef kind must be experiment",
+                )
+            )
+        session_id = exp.get("sessionId")
+        if not isinstance(session_id, str) or not session_id.strip():
+            issues.append(
+                _issue(
+                    "researchBinding/experimentDefinitionRef/sessionId",
+                    "researchBinding.sessionId",
+                    "experimentDefinitionRef sessionId must be non-empty",
+                )
+            )
+        exp_id = exp.get("id")
+        if not isinstance(exp_id, str) or not DEFINITION_ID.fullmatch(exp_id):
+            issues.append(
+                _issue(
+                    "researchBinding/experimentDefinitionRef/id",
+                    "researchBinding.id",
+                    "experimentDefinitionRef id must be a valid definition id",
+                )
+            )
+        exp_version = exp.get("version")
+        if (
+            not isinstance(exp_version, int)
+            or isinstance(exp_version, bool)
+            or exp_version < 1
+        ):
+            issues.append(
+                _issue(
+                    "researchBinding/experimentDefinitionRef/version",
+                    "researchBinding.version",
+                    "experimentDefinitionRef version must be a positive integer",
+                )
+            )
+        exp_hash = exp.get("contentHash")
+        if not isinstance(exp_hash, str) or not DEFINITION_HASH.fullmatch(exp_hash):
+            issues.append(
+                _issue(
+                    "researchBinding/experimentDefinitionRef/contentHash",
+                    "researchBinding.hash",
+                    "experimentDefinitionRef contentHash must be a lowercase SHA-256",
+                )
+            )
+
+    if issues:
+        raise AutoQuantValidationError(issues)
+
+    # ---- exact load + content hash match ----
+    kind = ref["kind"]
+    definition_id = ref["id"]
+    version = ref["version"]
+    expected_hash = ref["contentHash"]
+
+    if kind == "factor":
+        loaded = load_factor_definition(project, definition_id, version)
+        if loaded.definition["status"] != "approved":
+            raise AutoQuantValidationError(
+                [
+                    _issue(
+                        "researchBinding/definitionRef",
+                        "researchBinding.unapproved",
+                        f"Referenced {kind} definition {definition_id} v{version} is not approved",
+                    )
+                ]
+            )
+    else:
+        loaded = load_strategy_definition(project, definition_id, version)
+        if loaded.definition["status"] != "approved":
+            raise AutoQuantValidationError(
+                [
+                    _issue(
+                        "researchBinding/definitionRef",
+                        "researchBinding.unapproved",
+                        f"Referenced {kind} definition {definition_id} v{version} is not approved",
+                    )
+                ]
+            )
+
+    if loaded.manifest["contentHash"] != expected_hash:
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    "researchBinding/definitionRef/contentHash",
+                    "researchBinding.hash-mismatch",
+                    f"definitionRef contentHash does not match the stored definition "
+                    f"({expected_hash[:12]}... vs {loaded.manifest['contentHash'][:12]}...)",
+                )
+            ]
+        )
+
+    # ---- experiment definition ----
+    exp_session_id = exp["sessionId"]
+    exp_id = exp["id"]
+    exp_version = exp["version"]
+    exp_expected_hash = exp["contentHash"]
+
+    exp_loaded = load_experiment_definition(
+        project, exp_session_id, exp_id, exp_version
+    )
+    if exp_loaded.definition["status"] != "frozen":
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    "researchBinding/experimentDefinitionRef",
+                    "researchBinding.not-frozen",
+                    f"Referenced experiment definition {exp_id} v{exp_version} is not frozen",
+                )
+            ]
+        )
+
+    if exp_loaded.manifest["contentHash"] != exp_expected_hash:
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    "researchBinding/experimentDefinitionRef/contentHash",
+                    "researchBinding.hash-mismatch",
+                    f"experimentDefinitionRef contentHash does not match the stored definition "
+                    f"({exp_expected_hash[:12]}... vs {exp_loaded.manifest['contentHash'][:12]}...)",
+                )
+            ]
+        )
+
+    # ---- link: experiment's definitionRef must match the supplied definition ----
+    exp_def_ref = exp_loaded.definition.get("definitionRef")
+    if not isinstance(exp_def_ref, dict):
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    "researchBinding/experimentDefinitionRef",
+                    "researchBinding.link",
+                    "Stored ExperimentDefinition is missing definitionRef",
+                )
+            ]
+        )
+    if exp_def_ref.get("kind") != kind or exp_def_ref.get("id") != definition_id or exp_def_ref.get("version") != version:
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    "researchBinding/experimentDefinitionRef",
+                    "researchBinding.link",
+                    "ExperimentDefinition's definitionRef does not match the supplied "
+                    f"definitionRef (kind={kind}, id={definition_id}, version={version})",
+                )
+            ]
+        )
+
+
 def execute_study(
     project: ProjectContext,
     study_id: str,
@@ -772,6 +1016,7 @@ def execute_study(
     execution_project: ProjectContext | None = None,
     data_root: Path | None = None,
     holdout_authorized: bool = False,
+    research_binding: dict[str, Any] | None = None,
 ) -> RunContext:
     from .holdouts import assert_run_authorized
 
@@ -883,6 +1128,8 @@ def execute_study(
     )
     started = datetime.now(timezone.utc)
     started_at = started.isoformat()
+    if research_binding is not None:
+        _validate_research_binding(project, research_binding)
     temporary = runs_root / f".run-{uuid.uuid4().hex}"
     temporary.mkdir()
     try:
@@ -994,6 +1241,8 @@ def execute_study(
                 "failureDisposition",
                 DEFAULT_FAILURE_DISPOSITION,
             )
+        if research_binding is not None:
+            result["researchBinding"] = research_binding
         if study.dependency_hash is not None:
             result["dependencies"] = {
                 "paths": study.definition.dependencies["paths"],
@@ -1038,6 +1287,8 @@ def execute_study(
             "resultHash": files[RUN_RESULT],
             "files": files,
         }
+        if research_binding is not None:
+            manifest["researchBinding"] = research_binding
         _write_json(temporary / RUN_MANIFEST, manifest)
         os.replace(temporary, target)
         return load_run(project, run_id)
@@ -1085,6 +1336,8 @@ def _validate_run_result(
     expected_status: Any,
     expected_input_hash: Any,
 ) -> None:
+    from .research_definitions import DEFINITION_ID, HASH as DEFINITION_HASH
+
     required = {
         "schemaVersion",
         "id",
@@ -1114,6 +1367,7 @@ def _validate_run_result(
             "researchRequest",
             "upstreamEvidence",
             "failureDisposition",
+            "researchBinding",
         }
     )
     issues = _strict_keys(result, allowed, str(path))
@@ -1648,6 +1902,150 @@ def _validate_run_result(
         issues.append(
             _issue(f"{path}/errors", "run.failure-errors", "Failed RunResult must explain an error")
         )
+    if "researchBinding" in result:
+        research_binding = result["researchBinding"]
+        if not isinstance(research_binding, dict):
+            issues.append(
+                _issue(
+                    f"{path}/researchBinding",
+                    "schema.type",
+                    "researchBinding must be an object",
+                )
+            )
+        else:
+            issues.extend(
+                _strict_keys(
+                    research_binding,
+                    {"definitionRef", "experimentDefinitionRef"},
+                    f"{path}/researchBinding",
+                )
+            )
+            # definitionRef
+            definition_ref = research_binding.get("definitionRef")
+            if not isinstance(definition_ref, dict):
+                issues.append(
+                    _issue(
+                        f"{path}/researchBinding/definitionRef",
+                        "schema.type",
+                        "researchBinding definitionRef must be an object",
+                    )
+                )
+            else:
+                issue_dr = _strict_keys(
+                    definition_ref,
+                    {"kind", "id", "version", "contentHash"},
+                    f"{path}/researchBinding/definitionRef",
+                )
+                for issue in issue_dr:
+                    issues.append(issue)
+                if definition_ref.get("kind") not in ("factor", "strategy"):
+                    issues.append(
+                        _issue(
+                            f"{path}/researchBinding/definitionRef/kind",
+                            "researchBinding.kind",
+                            "definitionRef kind must be factor or strategy",
+                        )
+                    )
+                if not isinstance(definition_ref.get("id"), str) or not DEFINITION_ID.fullmatch(
+                    definition_ref.get("id", "")
+                ):
+                    issues.append(
+                        _issue(
+                            f"{path}/researchBinding/definitionRef/id",
+                            "researchBinding.id",
+                            "definitionRef id must be a valid definition id",
+                        )
+                    )
+                if (
+                    not isinstance(definition_ref.get("version"), int)
+                    or isinstance(definition_ref.get("version"), bool)
+                    or definition_ref.get("version", 0) < 1
+                ):
+                    issues.append(
+                        _issue(
+                            f"{path}/researchBinding/definitionRef/version",
+                            "researchBinding.version",
+                            "definitionRef version must be a positive integer",
+                        )
+                    )
+                if not isinstance(definition_ref.get("contentHash"), str) or not DEFINITION_HASH.fullmatch(
+                    definition_ref.get("contentHash", "")
+                ):
+                    issues.append(
+                        _issue(
+                            f"{path}/researchBinding/definitionRef/contentHash",
+                            "researchBinding.hash",
+                            "definitionRef contentHash must be a lowercase SHA-256",
+                        )
+                    )
+            # experimentDefinitionRef
+            experiment_ref = research_binding.get("experimentDefinitionRef")
+            if not isinstance(experiment_ref, dict):
+                issues.append(
+                    _issue(
+                        f"{path}/researchBinding/experimentDefinitionRef",
+                        "schema.type",
+                        "researchBinding experimentDefinitionRef must be an object",
+                    )
+                )
+            else:
+                issue_er = _strict_keys(
+                    experiment_ref,
+                    {"kind", "sessionId", "id", "version", "contentHash"},
+                    f"{path}/researchBinding/experimentDefinitionRef",
+                )
+                for issue in issue_er:
+                    issues.append(issue)
+                if experiment_ref.get("kind") != "experiment":
+                    issues.append(
+                        _issue(
+                            f"{path}/researchBinding/experimentDefinitionRef/kind",
+                            "researchBinding.kind",
+                            "experimentDefinitionRef kind must be experiment",
+                        )
+                    )
+                if not isinstance(experiment_ref.get("sessionId"), str) or not experiment_ref[
+                    "sessionId"
+                ].strip():
+                    issues.append(
+                        _issue(
+                            f"{path}/researchBinding/experimentDefinitionRef/sessionId",
+                            "researchBinding.sessionId",
+                            "experimentDefinitionRef sessionId must be non-empty",
+                        )
+                    )
+                if not isinstance(experiment_ref.get("id"), str) or not DEFINITION_ID.fullmatch(
+                    experiment_ref.get("id", "")
+                ):
+                    issues.append(
+                        _issue(
+                            f"{path}/researchBinding/experimentDefinitionRef/id",
+                            "researchBinding.id",
+                            "experimentDefinitionRef id must be a valid definition id",
+                        )
+                    )
+                if (
+                    not isinstance(experiment_ref.get("version"), int)
+                    or isinstance(experiment_ref.get("version"), bool)
+                    or experiment_ref.get("version", 0) < 1
+                ):
+                    issues.append(
+                        _issue(
+                            f"{path}/researchBinding/experimentDefinitionRef/version",
+                            "researchBinding.version",
+                            "experimentDefinitionRef version must be a positive integer",
+                        )
+                    )
+                if not isinstance(experiment_ref.get("contentHash"), str) or not DEFINITION_HASH.fullmatch(
+                    experiment_ref.get("contentHash", "")
+                ):
+                    issues.append(
+                        _issue(
+                            f"{path}/researchBinding/experimentDefinitionRef/contentHash",
+                            "researchBinding.hash",
+                            "experimentDefinitionRef contentHash must be a lowercase SHA-256",
+                        )
+                    )
     if issues:
         raise AutoQuantValidationError(issues)
 
@@ -1682,7 +2080,8 @@ def load_run(project: ProjectContext, run_id: str) -> RunContext:
         "resultHash",
         "files",
     }
-    issues = _strict_keys(manifest, required, str(root / RUN_MANIFEST))
+    allowed = required | (manifest.keys() & {"researchBinding"})
+    issues = _strict_keys(manifest, allowed, str(root / RUN_MANIFEST))
     if manifest.get("schemaVersion") != RUN_SCHEMA_VERSION:
         issues.append(
             _issue(
@@ -1804,6 +2203,31 @@ def load_run(project: ProjectContext, run_id: str) -> RunContext:
                 )
     if frozen_issues:
         raise AutoQuantValidationError(frozen_issues)
+    # Re-load and re-validate researchBinding at load time (reuses execution gate)
+    result_has_rb = "researchBinding" in result
+    manifest_has_rb = "researchBinding" in manifest
+    if result_has_rb != manifest_has_rb:
+        raise AutoQuantValidationError(
+            [
+                _issue(
+                    root / RUN_RESULT,
+                    "run.researchBinding",
+                    "researchBinding must be present in both RunResult and manifest or absent from both",
+                )
+            ]
+        )
+    if result_has_rb:
+        if result["researchBinding"] != manifest["researchBinding"] or result["researchBinding"] is None:
+            raise AutoQuantValidationError(
+                [
+                    _issue(
+                        root / RUN_RESULT,
+                        "run.researchBinding",
+                        "researchBinding in RunResult must equal the terminal manifest binding and must not be null",
+                    )
+                ]
+            )
+        _validate_research_binding(project, result["researchBinding"])
     return RunContext(root, manifest, result)
 
 
@@ -2186,5 +2610,47 @@ RUN_RESULT_JSON_SCHEMA: dict[str, Any] = {
         "metrics": {"type": "object"},
         "artifacts": {"type": "array"},
         "errors": {"type": "array"},
+        "researchBinding": {
+            "type": "object",
+            "additionalProperties": False,
+            "required": ["definitionRef", "experimentDefinitionRef"],
+            "properties": {
+                "definitionRef": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["kind", "id", "version", "contentHash"],
+                    "properties": {
+                        "kind": {"enum": ["factor", "strategy"]},
+                        "id": {
+                            "type": "string",
+                            "pattern": r"^[a-z0-9]+(?:-[a-z0-9]+)*$",
+                        },
+                        "version": {"type": "integer", "minimum": 1},
+                        "contentHash": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{64}$",
+                        },
+                    },
+                },
+                "experimentDefinitionRef": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["kind", "sessionId", "id", "version", "contentHash"],
+                    "properties": {
+                        "kind": {"const": "experiment"},
+                        "sessionId": {"type": "string", "minLength": 1},
+                        "id": {
+                            "type": "string",
+                            "pattern": r"^[a-z0-9]+(?:-[a-z0-9]+)*$",
+                        },
+                        "version": {"type": "integer", "minimum": 1},
+                        "contentHash": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{64}$",
+                        },
+                    },
+                },
+            },
+        },
     },
 }

@@ -108,7 +108,10 @@ PROJECT_REQUEST = "request.json"
 PROJECT_INTAKE = "intake.json"
 DATASET_SNAPSHOT = "data/ohlcv/snapshot.json"
 SAFE_SYMBOL = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._=-]{0,63}$")
-SUPPORTED_SOURCE_SUFFIXES = {".csv", ".parquet", ".feather"}
+SUPPORTED_SOURCE_SUFFIXES = {".csv", ".json", ".parquet", ".feather"}
+MAX_JSON_SOURCE_BYTES = 64 * 1024 * 1024
+MAX_JSON_SOURCE_RECORDS = 1_000_000
+MAX_JSON_SOURCE_COLUMNS = 64
 RAGGED_DAILY_SCHEMA_VERSION = 4
 OBSERVED_INTRADAY_SCHEMA_VERSION = 5
 MULTI_SOURCE_OBSERVED_SCHEMA_VERSION = 6
@@ -479,10 +482,120 @@ def _valid_hash(value: Any) -> bool:
     )
 
 
+def _reject_json_constant(value: str) -> None:
+    raise ValueError(f"Non-standard JSON number: {value}")
+
+
 def _read_source(path: Path) -> pd.DataFrame:
     suffix = path.suffix.lower()
     if suffix == ".csv":
         return pd.read_csv(path)
+    if suffix == ".json":
+        try:
+            if path.stat().st_size > MAX_JSON_SOURCE_BYTES:
+                raise AutoQuantValidationError(
+                    [
+                        _issue(
+                            path,
+                            "dataset.json-size",
+                            "JSON OHLCV source exceeds the 64 MiB intake limit",
+                        )
+                    ]
+                )
+            value = json.loads(
+                path.read_bytes().decode("utf-8"),
+                parse_constant=_reject_json_constant,
+            )
+        except FileNotFoundError:
+            raise AutoQuantValidationError(
+                [_issue(path, "dataset.missing", "Missing OHLCV source")]
+            ) from None
+        except AutoQuantValidationError:
+            raise
+        except (
+            OSError,
+            UnicodeDecodeError,
+            json.JSONDecodeError,
+            RecursionError,
+            ValueError,
+        ) as error:
+            raise AutoQuantValidationError(
+                [
+                    _issue(
+                        path,
+                        "dataset.json",
+                        f"Invalid JSON OHLCV source: {error}",
+                    )
+                ]
+            ) from error
+        if isinstance(value, dict):
+            if set(value) != {"records"}:
+                raise AutoQuantValidationError(
+                    [
+                        _issue(
+                            path,
+                            "dataset.json-envelope",
+                            "JSON OHLCV must be an array or an object "
+                            "containing only 'records'",
+                        )
+                    ]
+                )
+            value = value["records"]
+        if not isinstance(value, list):
+            raise AutoQuantValidationError(
+                [
+                    _issue(
+                        path,
+                        "dataset.json-records",
+                        "JSON OHLCV records must be an array",
+                    )
+                ]
+            )
+        if len(value) > MAX_JSON_SOURCE_RECORDS:
+            raise AutoQuantValidationError(
+                [
+                    _issue(
+                        path,
+                        "dataset.json-record-limit",
+                        "JSON OHLCV source exceeds the 1,000,000 record intake limit",
+                    )
+                ]
+            )
+        for index, record in enumerate(value):
+            if not isinstance(record, dict):
+                raise AutoQuantValidationError(
+                    [
+                        _issue(
+                            f"{path}/{index}",
+                            "dataset.json-record",
+                            "Each JSON OHLCV record must be an object",
+                        )
+                    ]
+                )
+            if len(record) > MAX_JSON_SOURCE_COLUMNS:
+                raise AutoQuantValidationError(
+                    [
+                        _issue(
+                            f"{path}/{index}",
+                            "dataset.json-column-limit",
+                            "JSON OHLCV records may contain at most 64 fields",
+                        )
+                    ]
+                )
+            if any(
+                isinstance(item, (dict, list))
+                for item in record.values()
+            ):
+                raise AutoQuantValidationError(
+                    [
+                        _issue(
+                            f"{path}/{index}",
+                            "dataset.json-tabular",
+                            "JSON OHLCV record values must be scalar",
+                        )
+                    ]
+                )
+        return pd.DataFrame.from_records(value)
     try:
         if suffix == ".parquet":
             return pd.read_parquet(path)
@@ -505,7 +618,7 @@ def _read_source(path: Path) -> pd.DataFrame:
             _issue(
                 path,
                 "dataset.format",
-                "OHLCV source must be CSV, Parquet, or Feather",
+                "OHLCV source must be CSV, JSON, Parquet, or Feather",
             )
         ]
     )
@@ -519,6 +632,8 @@ def _canonical_frame(
 ) -> pd.DataFrame:
     try:
         frame = normalize_ohlcv(_read_source(path), source=str(path))
+    except AutoQuantValidationError:
+        raise
     except (ValueError, TypeError) as error:
         raise AutoQuantValidationError(
             [_issue(path, "dataset.ohlcv", str(error))]
@@ -820,7 +935,7 @@ def _validate_v1_package_manifest(
                     _issue(
                         f"{asset_path}/path",
                         "dataset.format",
-                        "Asset path must end in .csv, .parquet, or .feather",
+                        "Asset path must end in .csv, .json, .parquet, or .feather",
                     )
                 )
         if isinstance(symbol, str):
@@ -1096,7 +1211,7 @@ def _validate_v5_package_manifest(
                     _issue(
                         f"{asset_path}/path",
                         "dataset.format",
-                        "Asset path must end in .csv, .parquet, or .feather",
+                        "Asset path must end in .csv, .json, .parquet, or .feather",
                     )
                 )
         if all(
@@ -1485,7 +1600,7 @@ def _validate_v2_package_manifest(
                     _issue(
                         f"{asset_path}/path",
                         "dataset.format",
-                        "Asset path must end in .csv, .parquet, or .feather",
+                        "Asset path must end in .csv, .json, .parquet, or .feather",
                     )
                 )
             source_paths.append(relative)
@@ -4584,11 +4699,12 @@ def intake_dataset_class_context(
 def dataset_snapshot_class_context(
     snapshot: dict[str, Any],
 ) -> dict[str, Any]:
-    """Project one verified dataset snapshot's economic-class read model."""
+    """Project verified subject semantics without copying provider payloads."""
 
     summary = snapshot["assetClass"]
     assets = snapshot["assets"]
     per_asset = all("assetClass" in asset for asset in assets)
+    frequency = snapshot.get("frequency")
     return {
         "assetClass": summary,
         "assetClasses": {
@@ -4598,6 +4714,20 @@ def dataset_snapshot_class_context(
         "assetClassSource": (
             "per-asset" if per_asset else "package-summary"
         ),
+        "market": snapshot.get("market"),
+        "frequency": frequency,
+        "baseInterval": snapshot.get("baseInterval", frequency),
+        "featureIntervals": snapshot.get(
+            "featureIntervals", [frequency] if frequency is not None else []
+        ),
+        "priceAdjustment": snapshot.get("priceAdjustment"),
+        "venues": sorted({asset["venue"] for asset in assets}),
+        "currencies": sorted({asset["currency"] for asset in assets}),
+        "volumeSemantics": {
+            asset["symbol"]: asset["volumeSemantics"]
+            for asset in assets
+            if "volumeSemantics" in asset
+        },
     }
 
 
@@ -4760,7 +4890,8 @@ def load_study_dataset_snapshot(
 
 
 OHLCV_PACKAGE_ASSET_PATH_DESCRIPTION = (
-    "Portable POSIX-relative source path resolved from the directory "
+    "CSV, JSON record array/envelope, Parquet, or Feather source at a "
+    "portable POSIX-relative path resolved from the directory "
     "containing the dataset-package manifest. To intake already staged "
     "nested files without an intermediate copy, place the manifest at their "
     "common ancestor (for example staging/dataset-package.json with "

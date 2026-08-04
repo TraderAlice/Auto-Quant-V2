@@ -1,0 +1,41 @@
+{
+  "datasetHash": "0d740a8f0f285f69eae626fc1e76e9d60d57b42acd03842708ed3675570e97f7",
+  "datasetSourceHashes": {
+    "ohlcv/ALPHA.csv": "18724414024a549eff1f8fa509c922827d8d9e6d1e4c6bd322e99935801bfdb3",
+    "ohlcv/BRAVO.csv": "e7ff2864b8270b40c4327b3e83379b3225c2216d732aa4c256547ff85c395ee7",
+    "ohlcv/CHARLIE.csv": "6b58dae61e306554633409f6779f052550700e224ae124ed509d81342bafb737",
+    "ohlcv/DELTA.csv": "977fe9b9e2441fa4511e14f65f6ed5851bfa50451e31e38c13386f24375f84bf",
+    "ohlcv/ECHO.csv": "fb4efdfcd1533816ce67fdc58f6d924ffd750944126a8d64e0c57255a8b5e22a",
+    "ohlcv/FOXTROT.csv": "72f715db8f40793ffd1327def2d92c40adc6f9ca48b501b92a32cf744c7a23ec",
+    "ohlcv/README.md": "8911f42951ab7a291ebd3e8ad6193bdbc52e79418f00dbe4b2cda8b3d3a00277"
+  },
+  "dependencyHash": "71a3ccca7d9234ae5ba152f10ca7f5eed7be48fbfe5eae013d9b14f0c81f0d98",
+  "dependencyHashes": {
+    "strategies/factor-claim.json": "61981777bd8b81bf57dc05bb63b5df085eef018dd9e3d83593c511bf21637a83",
+    "strategies/factor-population.json": "d77ce8dc25c04c41e610116c0ee6ccb0297128e9e918638479c76a5fbec5887e",
+    "strategies/research-horizon.json": "ebf6fa40cbcbcdc18490439865e6a7de1a0322abc8853b528b3745bc5e70618d"
+  },
+  "evaluationRole": "research-selection",
+  "harness": {
+    "buildProvenance": "source-checkout",
+    "commit": "4a14ca5fd4190437b7ecacc83918e66de6237a1a",
+    "dirty": true,
+    "id": "autoquant.python-judge",
+    "python": "3.11.15",
+    "sourceHash": "a97ebe7fbc35de1c32ee8101caaea4d7ec26af8054ad483cb47abce6b6d2ffc0",
+    "version": "0.9.31"
+  },
+  "inputHash": "b060cb61a0168729197bfa5caa63bf94fbae498edea258bf766e4b5cfa7f1aef",
+  "judgeHash": "56705fc131a41e4466b261e1996ed0a840cd4c44b9f36c3f15b447d0914a0a40",
+  "judgeHashes": {
+    "judges/factor_diagnostics.py": "74ab1e25aed0e1744e75095f37b3d5e173bcf35a8f3f3d029495ce4e471a3d51",
+    "judges/ohlcv_factor.py": "867aa996912293af7cd5cfdb2b07ecf3ad3b540fa1f69a702daccccefbff5310"
+  },
+  "programHash": "cf5dfc868822c29b6c8323f698dfaff8bb896519473f07e747b40f82e264ab0e",
+  "sourceHash": "72e7ef57b95bfec64189290ee76943e33bd6c64c34c627f5abdc39d6c54058bc",
+  "sourceHashes": {
+    "factors/candidate.py": "1e29d70f72ce3afaf3d018f9d60c77026148423f57b52fb22f55f8127679ba6a"
+  },
+  "studyHash": "97019f1d7c32cf514975e782b29556f9414892651fc9bc41c5509746a2f3cb2e",
+  "studyInputHash": "0ac049ad4a62e6e30c0d9bf085b8b139cefe8b2559634d660c13976ff642463c"
+}

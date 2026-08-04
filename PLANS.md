@@ -18,7 +18,9 @@ invariants live in `docs/design/`.
 
 ## Active plans
 
-None.
+| Plan | Outcome | Updated |
+| --- | --- | --- |
+| [[plans/agent-research-console]] | Implement the approved OpenSpec Agent Research Console through one Core-owned Operator Port, versioned research definitions, bounded Campaigns, a truthful ResearchLedger Studio, exact-version approval, and reproduction. | 2026-08-03 |
 
 ## Proposed plans
 
@@ -28,12 +30,14 @@ None.
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/next-studio-workbench]] | Internalized the approved Next.js factor-research workbench over the verified Studio snapshot while keeping private plugin integrations outside the open-source repository. | 2026-08-02 |
 | [[plans/order-native-portfolio-decisions]] | Return evidence-backed target weights together with bounded Order/TPSL realization plans shared by mechanical and RL research. Paused until the workbench product model is canonical. | 2026-07-27 |
 
 ## Completed plans
 
 | Plan | Outcome | Updated |
 | --- | --- | --- |
+| [[plans/autoresearch-factor-strategy-studio]] | Exposed the existing Core research program as connected Factor Research and Strategy Research workbenches with truthful evidence, status, model/holdout artifacts, and bounded next actions. | 2026-08-03 |
 | [[plans/factor-evidence-report-handoff]] | Made temporal Factor protocol applicability, material train/validation tension, and safe evidence-bound Report drafting explicit to fresh Agents. | 2026-08-02 |
 | [[plans/caller-owned-factor-population]] | Separated caller-owned Factor evaluation population from Portfolio position authority across standalone Factor, Portfolio, and governed-RL research. | 2026-08-02 |
 | [[plans/concise-documentation-front-door]] | Make README a bounded product entrance and route Agents to one operator guide plus the existing authoritative release documents. | 2026-08-02 |

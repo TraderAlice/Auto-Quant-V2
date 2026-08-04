@@ -1,0 +1,427 @@
+{
+  "evidence": {
+    "components": [
+      {
+        "composite_association": {
+          "test": {
+            "mean_absolute_rank_correlation": 1.0,
+            "mean_rank_correlation": 1.0,
+            "observations": 83
+          },
+          "train": {
+            "mean_absolute_rank_correlation": 1.0,
+            "mean_rank_correlation": 1.0,
+            "observations": 241
+          },
+          "validation": {
+            "mean_absolute_rank_correlation": 1.0,
+            "mean_rank_correlation": 1.0,
+            "observations": 83
+          }
+        },
+        "coverage_by_asset": {
+          "ALPHA": 0.9761904761904762,
+          "BRAVO": 0.9761904761904762,
+          "CHARLIE": 0.9761904761904762,
+          "DELTA": 0.9761904761904762,
+          "ECHO": 0.9761904761904762,
+          "FOXTROT": 0.9761904761904762
+        },
+        "fixed_blend_ablation": {
+          "available": false,
+          "horizon_quality": null,
+          "reason": "single-component",
+          "removal_delta_mean_ic": null
+        },
+        "hypothesis": "Recent relative strength persists over the next base bar.",
+        "id": "base_momentum_10",
+        "intervals": [
+          "base"
+        ],
+        "label": "10-base-bar momentum",
+        "mean_coverage": 0.9761904761904762,
+        "nearest_peer": {
+          "id": null,
+          "train_mean_absolute_rank_association": null
+        },
+        "nearest_peer_residual": {
+          "horizon_quality": null,
+          "peer": null,
+          "selection": "unavailable-single-component"
+        },
+        "raw_horizon_quality": {
+          "1": {
+            "test": {
+              "hac": {
+                "maximum_lag": 5,
+                "method": "newey-west-bartlett",
+                "normal_approximation_p_value": 0.6312233660694355,
+                "standard_error": 0.05235164853554063,
+                "t_statistic": 0.4800056632912044
+              },
+              "hit_rate": 0.5180722891566265,
+              "icir": 0.05941631673320547,
+              "mean_ic": 0.025129087779690192,
+              "minimum_observations": 20,
+              "observations": 83,
+              "standard_deviation": 0.42293243945979103,
+              "sufficient": true
+            },
+            "train": {
+              "hac": {
+                "maximum_lag": 5,
+                "method": "newey-west-bartlett",
+                "normal_approximation_p_value": 0.01187518207043089,
+                "standard_error": 0.02756697844272621,
+                "t_statistic": 2.515831859337873
+              },
+              "hit_rate": 0.5477178423236515,
+              "icir": 0.15986256116174857,
+              "mean_ic": 0.06935388263189093,
+              "minimum_observations": 20,
+              "observations": 241,
+              "standard_deviation": 0.4338344270721325,
+              "sufficient": true
+            },
+            "validation": {
+              "hac": {
+                "maximum_lag": 5,
+                "method": "newey-west-bartlett",
+                "normal_approximation_p_value": 0.5227341885332202,
+                "standard_error": 0.04901191699739085,
+                "t_statistic": -0.6391364207706237
+              },
+              "hit_rate": 0.5301204819277109,
+              "icir": -0.0747682040776236,
+              "mean_ic": -0.031325301204819286,
+              "minimum_observations": 20,
+              "observations": 83,
+              "standard_deviation": 0.4189655427900565,
+              "sufficient": true
+            }
+          },
+          "10": {
+            "test": {
+              "hac": {
+                "maximum_lag": 5,
+                "method": "newey-west-bartlett",
+                "normal_approximation_p_value": 0.11768751667410025,
+                "standard_error": 0.08193090577516032,
+                "t_statistic": 1.564554022350272
+              },
+              "hit_rate": 0.6486486486486487,
+              "icir": 0.32028134258258184,
+              "mean_ic": 0.1281853281853282,
+              "minimum_observations": 20,
+              "observations": 74,
+              "standard_deviation": 0.4002272725339182,
+              "sufficient": true
+            },
+            "train": {
+              "hac": {
+                "maximum_lag": 5,
+                "method": "newey-west-bartlett",
+                "normal_approximation_p_value": 0.021769230412966876,
+                "standard_error": 0.06312301822606319,
+                "t_statistic": 2.2943704258282436
+              },
+              "hit_rate": 0.5948275862068966,
+              "icir": 0.29270965286166845,
+              "mean_ic": 0.14482758620689656,
+              "minimum_observations": 20,
+              "observations": 232,
+              "standard_deviation": 0.4947824056739959,
+              "sufficient": true
+            },
+            "validation": {
+              "hac": {
+                "maximum_lag": 5,
+                "method": "newey-west-bartlett",
+                "normal_approximation_p_value": 0.76861447206917,
+                "standard_error": 0.0813705780426248,
+                "t_statistic": 0.2941877090474181
+              },
+              "hit_rate": 0.5,
+              "icir": 0.05093561038469279,
+              "mean_ic": 0.023938223938223934,
+              "minimum_observations": 20,
+              "observations": 74,
+              "standard_deviation": 0.4699702969578601,
+              "sufficient": true
+            }
+          },
+          "5": {
+            "test": {
+              "hac": {
+                "maximum_lag": 5,
+                "method": "newey-west-bartlett",
+                "normal_approximation_p_value": 0.3480855391962907,
+                "standard_error": 0.07516116561426668,
+                "t_statistic": 0.9383091882648723
+              },
+              "hit_rate": 0.569620253164557,
+              "icir": 0.17358760036909857,
+              "mean_ic": 0.0705244122965642,
+              "minimum_observations": 20,
+              "observations": 79,
+              "standard_deviation": 0.40627563343584705,
+              "sufficient": true
+            },
+            "train": {
+              "hac": {
+                "maximum_lag": 5,
+                "method": "newey-west-bartlett",
+                "normal_approximation_p_value": 0.03723432728683843,
+                "standard_error": 0.055150389867160865,
+                "t_statistic": 2.08318540117512
+              },
+              "hit_rate": 0.5864978902953587,
+              "icir": 0.2410251109714503,
+              "mean_ic": 0.11488848704038578,
+              "minimum_observations": 20,
+              "observations": 237,
+              "standard_deviation": 0.4766660476882612,
+              "sufficient": true
+            },
+            "validation": {
+              "hac": {
+                "maximum_lag": 5,
+                "method": "newey-west-bartlett",
+                "normal_approximation_p_value": 0.7132653262556008,
+                "standard_error": 0.07578246463305423,
+                "t_statistic": -0.36747420924703245
+              },
+              "hit_rate": 0.4810126582278481,
+              "icir": -0.06102047024883595,
+              "mean_ic": -0.027848101265822805,
+              "minimum_observations": 20,
+              "observations": 79,
+              "standard_deviation": 0.4563731015552776,
+              "sufficient": true
+            }
+          }
+        },
+        "role": "cross-sectional-score",
+        "timestamp_context": null,
+        "validation_priority_inputs": {
+          "nearest_peer_residual_mean_ic": null,
+          "raw_mean_ic": -0.031325301204819286,
+          "removal_delta_mean_ic": null
+        }
+      }
+    ],
+    "declaration": {
+      "components": [
+        {
+          "hypothesis": "Recent relative strength persists over the next base bar.",
+          "id": "base_momentum_10",
+          "intervals": [
+            "base"
+          ],
+          "label": "10-base-bar momentum",
+          "role": "cross-sectional-score"
+        }
+      ],
+      "exhaustive_composition_claim": false,
+      "source_inference": false
+    },
+    "fixed_blend": {
+      "available": true,
+      "horizon_quality": {
+        "1": {
+          "test": {
+            "hac": {
+              "maximum_lag": 5,
+              "method": "newey-west-bartlett",
+              "normal_approximation_p_value": 0.6312233660694355,
+              "standard_error": 0.05235164853554063,
+              "t_statistic": 0.4800056632912044
+            },
+            "hit_rate": 0.5180722891566265,
+            "icir": 0.05941631673320547,
+            "mean_ic": 0.025129087779690192,
+            "minimum_observations": 20,
+            "observations": 83,
+            "standard_deviation": 0.42293243945979103,
+            "sufficient": true
+          },
+          "train": {
+            "hac": {
+              "maximum_lag": 5,
+              "method": "newey-west-bartlett",
+              "normal_approximation_p_value": 0.01187518207043089,
+              "standard_error": 0.02756697844272621,
+              "t_statistic": 2.515831859337873
+            },
+            "hit_rate": 0.5477178423236515,
+            "icir": 0.15986256116174857,
+            "mean_ic": 0.06935388263189093,
+            "minimum_observations": 20,
+            "observations": 241,
+            "standard_deviation": 0.4338344270721325,
+            "sufficient": true
+          },
+          "validation": {
+            "hac": {
+              "maximum_lag": 5,
+              "method": "newey-west-bartlett",
+              "normal_approximation_p_value": 0.5227341885332202,
+              "standard_error": 0.04901191699739085,
+              "t_statistic": -0.6391364207706237
+            },
+            "hit_rate": 0.5301204819277109,
+            "icir": -0.0747682040776236,
+            "mean_ic": -0.031325301204819286,
+            "minimum_observations": 20,
+            "observations": 83,
+            "standard_deviation": 0.4189655427900565,
+            "sufficient": true
+          }
+        },
+        "10": {
+          "test": {
+            "hac": {
+              "maximum_lag": 5,
+              "method": "newey-west-bartlett",
+              "normal_approximation_p_value": 0.11768751667410025,
+              "standard_error": 0.08193090577516032,
+              "t_statistic": 1.564554022350272
+            },
+            "hit_rate": 0.6486486486486487,
+            "icir": 0.32028134258258184,
+            "mean_ic": 0.1281853281853282,
+            "minimum_observations": 20,
+            "observations": 74,
+            "standard_deviation": 0.4002272725339182,
+            "sufficient": true
+          },
+          "train": {
+            "hac": {
+              "maximum_lag": 5,
+              "method": "newey-west-bartlett",
+              "normal_approximation_p_value": 0.021769230412966876,
+              "standard_error": 0.06312301822606319,
+              "t_statistic": 2.2943704258282436
+            },
+            "hit_rate": 0.5948275862068966,
+            "icir": 0.29270965286166845,
+            "mean_ic": 0.14482758620689656,
+            "minimum_observations": 20,
+            "observations": 232,
+            "standard_deviation": 0.4947824056739959,
+            "sufficient": true
+          },
+          "validation": {
+            "hac": {
+              "maximum_lag": 5,
+              "method": "newey-west-bartlett",
+              "normal_approximation_p_value": 0.76861447206917,
+              "standard_error": 0.0813705780426248,
+              "t_statistic": 0.2941877090474181
+            },
+            "hit_rate": 0.5,
+            "icir": 0.05093561038469279,
+            "mean_ic": 0.023938223938223934,
+            "minimum_observations": 20,
+            "observations": 74,
+            "standard_deviation": 0.4699702969578601,
+            "sufficient": true
+          }
+        },
+        "5": {
+          "test": {
+            "hac": {
+              "maximum_lag": 5,
+              "method": "newey-west-bartlett",
+              "normal_approximation_p_value": 0.3480855391962907,
+              "standard_error": 0.07516116561426668,
+              "t_statistic": 0.9383091882648723
+            },
+            "hit_rate": 0.569620253164557,
+            "icir": 0.17358760036909857,
+            "mean_ic": 0.0705244122965642,
+            "minimum_observations": 20,
+            "observations": 79,
+            "standard_deviation": 0.40627563343584705,
+            "sufficient": true
+          },
+          "train": {
+            "hac": {
+              "maximum_lag": 5,
+              "method": "newey-west-bartlett",
+              "normal_approximation_p_value": 0.03723432728683843,
+              "standard_error": 0.055150389867160865,
+              "t_statistic": 2.08318540117512
+            },
+            "hit_rate": 0.5864978902953587,
+            "icir": 0.2410251109714503,
+            "mean_ic": 0.11488848704038578,
+            "minimum_observations": 20,
+            "observations": 237,
+            "standard_deviation": 0.4766660476882612,
+            "sufficient": true
+          },
+          "validation": {
+            "hac": {
+              "maximum_lag": 5,
+              "method": "newey-west-bartlett",
+              "normal_approximation_p_value": 0.7132653262556008,
+              "standard_error": 0.07578246463305423,
+              "t_statistic": -0.36747420924703245
+            },
+            "hit_rate": 0.4810126582278481,
+            "icir": -0.06102047024883595,
+            "mean_ic": -0.027848101265822805,
+            "minimum_observations": 20,
+            "observations": 79,
+            "standard_deviation": 0.4563731015552776,
+            "sufficient": true
+          }
+        }
+      },
+      "reason": null
+    },
+    "method": "candidate-declared-components-v3",
+    "pairwise": [],
+    "semantics": {
+      "ablation_target": "fixed-diagnostic-blend-not-candidate-factor",
+      "component_roles": [
+        "cross-sectional-score",
+        "timestamp-context"
+      ],
+      "diagnostic_blend": "equal-weight-cross-sectional-percentile-ranks-with-common-component-availability",
+      "evaluation_mode": "cross-sectional",
+      "nearest_peer_selection": "train-only-target-free",
+      "portfolio_authority": "none",
+      "prediction_target": "close-t-to-close-t-plus-h-simple-return",
+      "promotion_authority": "none",
+      "residualization": "same-timestamp-cross-sectional-centered-rank-ols",
+      "rl_action_authority": "none",
+      "score_measure": "per-date-cross-sectional-rank-ic",
+      "selection_authority": "research-prioritization-only",
+      "test_role": "visible-audit",
+      "timestamp_context": "train-tertile-occupancy-transition-and-conditional-factor-ic",
+      "trading_authority": "none"
+    },
+    "trial_disclosure": {
+      "component_diagnostics_enter_promotion_score": false,
+      "cross_sectional_score_components": 1,
+      "materialized_components": 1,
+      "pairwise_comparisons": 0,
+      "timestamp_context_components": 0
+    },
+    "validation_diagnosis": {
+      "authority": "research-prioritization-only",
+      "best_removal_delta_mean_ic": null,
+      "most_redundant_pair": null,
+      "removal_most_improves_fixed_blend": null,
+      "strongest_raw_component": "base_momentum_10",
+      "strongest_raw_mean_ic": -0.031325301204819286,
+      "strongest_residual_component": null,
+      "strongest_residual_mean_ic": null,
+      "test_enters_diagnosis": false
+    }
+  },
+  "inputHash": "b060cb61a0168729197bfa5caa63bf94fbae498edea258bf766e4b5cfa7f1aef",
+  "schemaVersion": 1
+}

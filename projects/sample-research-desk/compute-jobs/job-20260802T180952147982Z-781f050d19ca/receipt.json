@@ -1,0 +1,84 @@
+{
+  "completedAt": "2026-08-02T18:09:58.009278+00:00",
+  "createdAt": "2026-08-02T18:09:52.148812+00:00",
+  "error": null,
+  "executor": {
+    "kind": "cpu",
+    "provider": "builtin"
+  },
+  "id": "job-20260802T180952147982Z-781f050d19ca",
+  "inputHash": "0ac049ad4a62e6e30c0d9bf085b8b139cefe8b2559634d660c13976ff642463c",
+  "outputRefs": [
+    {
+      "immutable": true,
+      "kind": "factor-report",
+      "path": "runs/run-20260802T180952308716Z-01a1b0a4a0b1/artifacts/factor-report.json"
+    },
+    {
+      "immutable": true,
+      "kind": "factor-daily",
+      "path": "runs/run-20260802T180952308716Z-01a1b0a4a0b1/artifacts/daily-factor-evidence.csv"
+    },
+    {
+      "immutable": true,
+      "kind": "factor-quantiles",
+      "path": "runs/run-20260802T180952308716Z-01a1b0a4a0b1/artifacts/factor-quantiles.csv"
+    },
+    {
+      "immutable": true,
+      "kind": "factor-availability",
+      "path": "runs/run-20260802T180952308716Z-01a1b0a4a0b1/artifacts/factor-availability.csv"
+    },
+    {
+      "immutable": true,
+      "kind": "factor-qualification",
+      "path": "runs/run-20260802T180952308716Z-01a1b0a4a0b1/artifacts/factor-qualification.csv"
+    },
+    {
+      "immutable": true,
+      "kind": "factor-components",
+      "path": "runs/run-20260802T180952308716Z-01a1b0a4a0b1/artifacts/factor-components.json"
+    }
+  ],
+  "project": {
+    "id": "sample-research-desk"
+  },
+  "resourcePolicy": {
+    "cpuCores": 1,
+    "gpuCount": 0,
+    "memoryMb": null,
+    "wallTimeSeconds": null
+  },
+  "retry": {
+    "attempt": 1,
+    "parentJobId": null,
+    "rootJobId": null
+  },
+  "runRef": {
+    "id": "run-20260802T180952308716Z-01a1b0a4a0b1",
+    "path": "runs/run-20260802T180952308716Z-01a1b0a4a0b1",
+    "resultHash": "40ab82a60e847eed5ddbd248f6a1700b7bec3d230596541e30df3cffcefc7f81"
+  },
+  "schemaVersion": 1,
+  "startedAt": "2026-08-02T18:09:52.148812+00:00",
+  "stateHistory": [
+    {
+      "at": "2026-08-02T18:09:52.148812+00:00",
+      "state": "queued"
+    },
+    {
+      "at": "2026-08-02T18:09:52.148812+00:00",
+      "state": "running"
+    },
+    {
+      "at": "2026-08-02T18:09:58.009278+00:00",
+      "state": "succeeded"
+    }
+  ],
+  "status": "succeeded",
+  "study": {
+    "hash": "97019f1d7c32cf514975e782b29556f9414892651fc9bc41c5509746a2f3cb2e",
+    "id": "ohlcv-factor-quality"
+  },
+  "tradingAuthority": "none"
+}

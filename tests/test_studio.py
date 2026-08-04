@@ -110,6 +110,11 @@ class StudioObservationTests(unittest.TestCase):
             self.assertEqual(observed["counts"]["studies"], 1)
             self.assertEqual(observed["counts"]["runs"], 2)
             self.assertEqual(
+                observed["modelRuntime"]["entrypoint"],
+                "aq model run",
+            )
+            self.assertEqual(observed["modelRuntime"]["tradingAuthority"], "none")
+            self.assertEqual(
                 observed["agentWorkBrief"]["kind"],
                 "autoquant-agent-work-brief",
             )

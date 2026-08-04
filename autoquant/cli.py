@@ -71,6 +71,13 @@ from .factor_explorer import (
     load_factor_diagnostics,
 )
 from .factor_claims import FACTOR_CLAIM_JSON_SCHEMA
+from .event_intake import (
+    EVENT_PACKAGE_JSON_SCHEMA,
+    list_event_snapshots,
+    load_event_snapshot,
+    materialize_event_package,
+    prepare_event_package,
+)
 from .event_studies import EVENT_STUDY_POLICY_JSON_SCHEMA
 from .event_explorer import (
     EVENT_STUDY_DIAGNOSTICS_JSON_SCHEMA,
@@ -85,6 +92,28 @@ from .cli_contract import (
     project_context,
     success_envelope,
     workspace_context,
+)
+from .compute_jobs import (
+    ComputeResourcePolicy,
+    compute_executor_declarations,
+    execute_compute_job,
+    list_compute_jobs,
+    load_compute_job,
+)
+from .model_runtime import (
+    execute_supervised_model_run,
+    list_model_runs,
+    load_model_run,
+)
+from .operator_port import (
+    OPERATOR_RECEIPT_JSON_SCHEMA,
+    OPERATOR_REQUEST_JSON_SCHEMA,
+    RESEARCH_LEDGER_JSON_SCHEMA,
+    execute_operator_request,
+)
+from .research_artifacts import (
+    ARTIFACT_REVIEW_JSON_SCHEMA,
+    REPRODUCTION_REQUEST_JSON_SCHEMA,
 )
 from .runs import (
     JUDGE_OUTPUT_JSON_SCHEMA,
@@ -219,6 +248,7 @@ from .studies import (
     StudyResearchRequest,
     bind_upstream_evidence,
     create_study,
+    hash_json,
     list_studies,
     load_study,
 )
@@ -241,6 +271,17 @@ from .workspace import (
     set_default_project,
 )
 from .version import current_version
+from .verification import (
+    build_research_claim,
+    list_verification_assessments,
+    load_verification_assessment,
+    publish_verification_assessment,
+)
+from .research_definitions import (
+    EXPERIMENT_DEFINITION_JSON_SCHEMA,
+    FACTOR_DEFINITION_JSON_SCHEMA,
+    STRATEGY_DEFINITION_JSON_SCHEMA,
+)
 
 
 class CliUsageError(ValueError):
@@ -356,6 +397,7 @@ def build_parser() -> RaisingArgumentParser:
             "factor-candidate-contract",
             "factor-diagnostics",
             "factor-claim",
+            "event-package",
             "event-study-policy",
             "event-study-diagnostics",
             "book-path-stress-policy",
@@ -376,6 +418,14 @@ def build_parser() -> RaisingArgumentParser:
             "factor-population",
             "research-horizon",
             "experiment",
+            "factor-definition",
+            "experiment-definition",
+            "strategy-definition",
+            "operator-request",
+            "operator-receipt",
+            "research-ledger",
+            "artifact-review",
+            "reproduction-request",
             "researcher-response",
             "campaign-result",
             "campaign-progress",
@@ -851,6 +901,180 @@ def build_parser() -> RaisingArgumentParser:
     run_rl.set_defaults(command_id="run.rl")
     _json_argument(run_rl)
 
+    job = subcommands.add_parser(
+        "job",
+        help="execute and inspect provider-neutral ComputeJobs",
+    )
+    job_actions = job.add_subparsers(dest="job_action", required=True)
+    job_execute = job_actions.add_parser(
+        "execute",
+        help="execute one Study and publish a terminal ComputeJob receipt",
+    )
+    job_execute.add_argument("path")
+    job_execute.add_argument("--project")
+    job_execute.add_argument("--study", required=True)
+    job_execute.add_argument(
+        "--executor",
+        choices=("cpu", "gpu", "moss"),
+        default="cpu",
+    )
+    job_execute.add_argument("--cpu-cores", type=int, default=1)
+    job_execute.add_argument("--memory-mb", type=int)
+    job_execute.add_argument("--gpu-count", type=int, default=0)
+    job_execute.add_argument("--wall-time-seconds", type=int)
+    job_execute.add_argument("--retry-of")
+    job_execute.set_defaults(command_id="job.execute")
+    _json_argument(job_execute)
+
+    job_list = job_actions.add_parser(
+        "list",
+        help="verify and list immutable ComputeJob receipts",
+    )
+    job_list.add_argument("path")
+    job_list.add_argument("--project")
+    job_list.set_defaults(command_id="job.list")
+    _json_argument(job_list)
+
+    job_show = job_actions.add_parser(
+        "show",
+        help="verify and inspect one immutable ComputeJob receipt",
+    )
+    job_show.add_argument("path")
+    job_show.add_argument("--project")
+    job_show.add_argument("--job", required=True)
+    job_show.set_defaults(command_id="job.show")
+    _json_argument(job_show)
+
+    job_providers = job_actions.add_parser(
+        "providers",
+        help="declare public and private-plugin executor availability",
+    )
+    job_providers.set_defaults(command_id="job.providers")
+    _json_argument(job_providers)
+
+    model = subcommands.add_parser(
+        "model",
+        help="execute and inspect immutable supervised-model research Runs",
+    )
+    model_actions = model.add_subparsers(dest="model_action", required=True)
+    model_run = model_actions.add_parser(
+        "run",
+        help="execute one point-in-time supervised model Study",
+    )
+    model_run.add_argument("path")
+    model_run.add_argument("--project")
+    model_run.add_argument("--study", required=True)
+    model_run.add_argument("--frame", required=True)
+    model_run.add_argument("--label", required=True)
+    model_run.add_argument("--feature", action="append", required=True)
+    model_run.add_argument("--split-column", required=True)
+    model_run.add_argument("--timestamp-column", default="timestamp")
+    model_run.add_argument("--available-at-column", default="available_at")
+    model_run.add_argument("--label-at-column", default="label_at")
+    model_run.add_argument("--purge-gap", type=int, default=0)
+    model_run.add_argument("--ridge-alpha", type=float, default=1.0)
+    model_run.add_argument("--seed", type=int, default=0)
+    model_run.set_defaults(command_id="model.run")
+    _json_argument(model_run)
+
+    model_list = model_actions.add_parser("list", help="verify and list model Runs")
+    model_list.add_argument("path")
+    model_list.add_argument("--project")
+    model_list.set_defaults(command_id="model.list")
+    _json_argument(model_list)
+
+    model_show = model_actions.add_parser("show", help="verify one model Run")
+    model_show.add_argument("path")
+    model_show.add_argument("--project")
+    model_show.add_argument("--model-run", required=True)
+    model_show.set_defaults(command_id="model.show")
+    _json_argument(model_show)
+
+    event = subcommands.add_parser(
+        "event",
+        help="intake and inspect point-in-time event packages",
+    )
+    event_actions = event.add_subparsers(dest="event_action", required=True)
+    event_intake = event_actions.add_parser(
+        "intake",
+        help="validate and materialize one provider-neutral event package",
+    )
+    event_intake.add_argument("path")
+    event_intake.add_argument("--project")
+    event_intake.add_argument("--package", required=True)
+    event_intake.set_defaults(command_id="event.intake")
+    _json_argument(event_intake)
+
+    event_list = event_actions.add_parser(
+        "list",
+        help="verify and list materialized event snapshots",
+    )
+    event_list.add_argument("path")
+    event_list.add_argument("--project")
+    event_list.set_defaults(command_id="event.list")
+    _json_argument(event_list)
+
+    event_show = event_actions.add_parser(
+        "show",
+        help="verify and inspect one event snapshot",
+    )
+    event_show.add_argument("path")
+    event_show.add_argument("--project")
+    event_show.add_argument("--event-package", required=True)
+    event_show.add_argument("--version", required=True)
+    event_show.set_defaults(command_id="event.show")
+    _json_argument(event_show)
+
+    verify = subcommands.add_parser(
+        "verify",
+        help="assess external research claims against immutable evidence",
+    )
+    verify_actions = verify.add_subparsers(dest="verify_action", required=True)
+    verify_assess = verify_actions.add_parser(
+        "assess",
+        help="publish a deterministic assessment from strict claim and evidence JSON",
+    )
+    verify_assess.add_argument("path")
+    verify_assess.add_argument("--project")
+    verify_assess.add_argument("--claim", required=True)
+    verify_assess.add_argument("--evidence", required=True)
+    verify_assess.set_defaults(command_id="verify.assess")
+    _json_argument(verify_assess)
+
+    verify_factor = verify_actions.add_parser(
+        "factor",
+        help="assess one Factor Run against an explicit external claim",
+    )
+    verify_factor.add_argument("path")
+    verify_factor.add_argument("--project")
+    verify_factor.add_argument("--run", required=True)
+    verify_factor.add_argument("--statement", required=True)
+    verify_factor.add_argument("--minimum-effect", type=float, default=0.0)
+    verify_factor.add_argument("--minimum-sample-size", type=int, default=30)
+    verify_factor.add_argument("--require-holdout", action="store_true")
+    verify_factor.add_argument("--require-selection", action="store_true")
+    verify_factor.set_defaults(command_id="verify.factor")
+    _json_argument(verify_factor)
+
+    verify_list = verify_actions.add_parser(
+        "list",
+        help="verify and list published VerificationAssessments",
+    )
+    verify_list.add_argument("path")
+    verify_list.add_argument("--project")
+    verify_list.set_defaults(command_id="verify.list")
+    _json_argument(verify_list)
+
+    verify_show = verify_actions.add_parser(
+        "show",
+        help="verify and inspect one published VerificationAssessment",
+    )
+    verify_show.add_argument("path")
+    verify_show.add_argument("--project")
+    verify_show.add_argument("--assessment", required=True)
+    verify_show.set_defaults(command_id="verify.show")
+    _json_argument(verify_show)
+
     session = subcommands.add_parser(
         "session",
         help="manage governed research Sessions",
@@ -1006,7 +1230,10 @@ def build_parser() -> RaisingArgumentParser:
     research_run.add_argument("--session", required=True)
     research_run.add_argument("--agent-command", required=True)
     research_run.add_argument("--max-turns", type=int, default=5)
+    research_run.add_argument("--max-candidates", type=int)
     research_run.add_argument("--max-wall-seconds", type=int, default=900)
+    research_run.add_argument("--max-cpu-seconds", type=int)
+    research_run.add_argument("--max-gpu-seconds", type=int, default=0)
     research_run.add_argument("--turn-timeout-seconds", type=int, default=300)
     research_run.set_defaults(command_id="research.run")
     _json_argument(research_run)
@@ -1348,6 +1575,21 @@ def build_parser() -> RaisingArgumentParser:
     holdout_show.add_argument("--project")
     holdout_show.set_defaults(command_id="holdout.show")
     _json_argument(holdout_show)
+
+    operator = subcommands.add_parser(
+        "operator",
+        help="invoke the closed provider-neutral research Operator Port",
+    )
+    operator_actions = operator.add_subparsers(dest="operator_action", required=True)
+    operator_invoke = operator_actions.add_parser(
+        "invoke",
+        help="validate a strict request and publish or replay its terminal receipt",
+    )
+    operator_invoke.add_argument("path")
+    operator_invoke.add_argument("--project")
+    operator_invoke.add_argument("--request", required=True)
+    operator_invoke.set_defaults(command_id="operator.invoke")
+    _json_argument(operator_invoke)
 
     studio = subcommands.add_parser(
         "studio",
@@ -3554,6 +3796,380 @@ def _run_rl(args: argparse.Namespace) -> CommandResult:
     )
 
 
+def _compute_job_artifacts(job) -> list[dict[str, Any]]:
+    return [
+        artifact("compute-job", job.receipt["id"], job.root_dir, immutable=True),
+        artifact(
+            "compute-job-receipt",
+            job.receipt["id"],
+            job.root_dir / "receipt.json",
+            immutable=True,
+        ),
+    ]
+
+
+def _job_execute(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    job = execute_compute_job(
+        project,
+        args.study,
+        executor_kind=args.executor,
+        resource_policy=ComputeResourcePolicy(
+            cpu_cores=args.cpu_cores,
+            memory_mb=args.memory_mb,
+            gpu_count=args.gpu_count,
+            wall_time_seconds=args.wall_time_seconds,
+        ),
+        retry_of=args.retry_of,
+    )
+    receipt = job.receipt
+    return CommandResult(
+        "job.execute",
+        receipt,
+        (
+            f"ComputeJob {receipt['id']}: {receipt['status']}\n"
+            f"Executor: {receipt['executor']['kind']} / {receipt['executor']['provider']}\n"
+            f"Study: {receipt['study']['id']}\n"
+            f"Run: {receipt['runRef']['id'] if receipt['runRef'] else 'unavailable'}\n"
+            "Trading authority: none\n"
+        ),
+        _project_result_context(args, project),
+        _compute_job_artifacts(job),
+        [
+            next_action(
+                "job.show",
+                "Verify the immutable ComputeJob receipt and Run reference.",
+                [
+                    "aq",
+                    "job",
+                    "show",
+                    str(project.root_dir),
+                    "--job",
+                    receipt["id"],
+                    "--json",
+                ],
+                "read-only",
+            )
+        ],
+    )
+
+
+def _job_list(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    jobs = list_compute_jobs(project)
+    receipts = [job.receipt for job in jobs]
+    lines = [f"AutoQuant ComputeJobs in {project.manifest.name}:"]
+    lines.extend(
+        f"  {item['id']}  {item['status']}  {item['executor']['kind']}  {item['study']['id']}"
+        for item in receipts
+    )
+    if not receipts:
+        lines.append("  No ComputeJobs")
+    return CommandResult(
+        "job.list",
+        {
+            "executors": compute_executor_declarations(),
+            "jobs": receipts,
+        },
+        "\n".join(lines) + "\n",
+        _project_result_context(args, project),
+    )
+
+
+def _job_show(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    job = load_compute_job(project, args.job)
+    return CommandResult(
+        "job.show",
+        {"manifest": job.manifest, "receipt": job.receipt},
+        (
+            f"Immutable ComputeJob: {job.receipt['id']}\n"
+            f"Status: {job.receipt['status']}\n"
+            f"Study: {job.receipt['study']['id']}\n"
+            f"Trading authority: {job.receipt['tradingAuthority']}\n"
+        ),
+        _project_result_context(args, project),
+        _compute_job_artifacts(job),
+    )
+
+
+def _job_providers(args: argparse.Namespace) -> CommandResult:
+    declarations = compute_executor_declarations()
+    return CommandResult(
+        "job.providers",
+        {"executors": declarations},
+        "\n".join(
+            f"{item['kind']}: {'available' if item['available'] else item['reason']}"
+            for item in declarations
+        )
+        + "\n",
+    )
+
+
+def _model_run_artifacts(run) -> list[dict[str, Any]]:
+    return [
+        artifact("model-run", run.receipt["id"], run.root_dir, immutable=True),
+        artifact(
+            "model-run-receipt",
+            run.receipt["id"],
+            run.root_dir / "receipt.json",
+            immutable=True,
+        ),
+    ]
+
+
+def _model_run(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    run = execute_supervised_model_run(
+        project,
+        args.study,
+        frame_path=args.frame,
+        label_column=args.label,
+        feature_columns=args.feature,
+        split_column=args.split_column,
+        timestamp_column=args.timestamp_column,
+        available_at_column=args.available_at_column,
+        label_at_column=args.label_at_column,
+        purge_gap=args.purge_gap,
+        ridge_alpha=args.ridge_alpha,
+        seed=args.seed,
+    )
+    receipt = run.receipt
+    return CommandResult(
+        "model.run",
+        receipt,
+        (
+            f"Model Run {receipt['id']}\n"
+            f"Study: {receipt['study']['id']}\n"
+            f"Selected model: {receipt['result']['selectedModel']}\n"
+            "Trading authority: none\n"
+        ),
+        _project_result_context(args, project),
+        _model_run_artifacts(run),
+    )
+
+
+def _model_list(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    receipts = [item.receipt for item in list_model_runs(project)]
+    return CommandResult(
+        "model.list",
+        {"modelRuns": receipts},
+        "\n".join(
+            [f"AutoQuant model Runs in {project.manifest.name}:"]
+            + [f"  {item['id']}  {item['study']['id']}  {item['result']['selectedModel']}" for item in receipts]
+            + ([] if receipts else ["  No model Runs"])
+        ) + "\n",
+        _project_result_context(args, project),
+    )
+
+
+def _model_show(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    run = load_model_run(project, args.model_run)
+    return CommandResult(
+        "model.show",
+        {"manifest": run.manifest, "receipt": run.receipt},
+        f"Immutable model Run: {run.receipt['id']}\nTrading authority: none\n",
+        _project_result_context(args, project),
+        _model_run_artifacts(run),
+    )
+
+
+def _event_snapshot_artifact(project, snapshot) -> dict[str, Any]:
+    root = (
+        project.root_dir
+        / project.manifest.directories["data"]
+        / "events"
+        / snapshot["id"]
+        / snapshot["version"]
+    )
+    return artifact(
+        "event-snapshot",
+        f"{snapshot['id']}@{snapshot['version']}",
+        root,
+        immutable=True,
+    )
+
+
+def _event_intake(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    prepared = prepare_event_package(args.package)
+    snapshot, _ = materialize_event_package(project, prepared)
+    return CommandResult(
+        "event.intake",
+        snapshot,
+        (
+            f"Event snapshot: {snapshot['id']}@{snapshot['version']}\n"
+            f"Adapter: {snapshot['adapterKind']}\n"
+            f"Events: {snapshot['eventCount']}\n"
+            f"Available: {snapshot['availableStart']} → {snapshot['availableEnd']}\n"
+        ),
+        _project_result_context(args, project),
+        [_event_snapshot_artifact(project, snapshot)],
+    )
+
+
+def _event_list(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    snapshots = list_event_snapshots(project)
+    lines = [f"AutoQuant event snapshots in {project.manifest.name}:"]
+    lines.extend(
+        f"  {item['id']}@{item['version']}  {item['adapterKind']}  {item['eventCount']} events"
+        for item in snapshots
+    )
+    if not snapshots:
+        lines.append("  No event snapshots")
+    return CommandResult(
+        "event.list",
+        {"eventSnapshots": snapshots},
+        "\n".join(lines) + "\n",
+        _project_result_context(args, project),
+    )
+
+
+def _event_show(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    snapshot = load_event_snapshot(project, args.event_package, args.version)
+    return CommandResult(
+        "event.show",
+        snapshot,
+        json.dumps(snapshot, indent=2, sort_keys=True) + "\n",
+        _project_result_context(args, project),
+        [_event_snapshot_artifact(project, snapshot)],
+    )
+
+
+def _verification_artifact(project, bundle) -> dict[str, Any]:
+    assessment = bundle["assessment"]
+    return artifact(
+        "verification-assessment",
+        assessment["id"],
+        project.root_dir / "verifications" / assessment["id"],
+        immutable=True,
+    )
+
+
+def _verification_result(args, project, bundle) -> CommandResult:
+    assessment = bundle["assessment"]
+    return CommandResult(
+        args.command_id,
+        bundle,
+        (
+            f"VerificationAssessment: {assessment['id']}\n"
+            f"Claim: {assessment['claimId']}\n"
+            f"Verdict: {assessment['verdict']}\n"
+            f"Limitations: {', '.join(assessment['limitations']) or 'none'}\n"
+            "Trading authority: none\n"
+        ),
+        _project_result_context(args, project),
+        [_verification_artifact(project, bundle)],
+    )
+
+
+def _verify_assess(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    claim = json.loads(Path(args.claim).read_text(encoding="utf-8"))
+    evidence = json.loads(Path(args.evidence).read_text(encoding="utf-8"))
+    required = {"run", "explorer", "holdout", "selection"}
+    if not isinstance(evidence, dict) or set(evidence) != required:
+        raise AutoQuantValidationError(
+            [ValidationIssue(args.evidence, "verification.evidence", "Evidence JSON must contain exactly run, explorer, holdout, and selection")]
+        )
+    bundle = publish_verification_assessment(
+        project,
+        claim,
+        run_evidence=evidence["run"],
+        explorer_evidence=evidence["explorer"],
+        holdout_evidence=evidence["holdout"],
+        selection_evidence=evidence["selection"],
+    )
+    return _verification_result(args, project, bundle)
+
+
+def _verify_factor(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    run = load_run(project, args.run)
+    diagnostics = load_factor_diagnostics(
+        project,
+        args.run,
+        point_limit=MIN_FACTOR_POINTS,
+    )
+    qualification = diagnostics.get("factorQualification") or {}
+    selection_evidence = None
+    for summary in reversed(list_sessions(project)):
+        snapshot = session_snapshot(project, load_session(project, summary.id))
+        leader = snapshot["session"].get("leader")
+        if not isinstance(leader, dict) or leader.get("runId") != args.run:
+            continue
+        adjustment = snapshot["selectionIntegrity"].get("selectionAdjustment")
+        if isinstance(adjustment, dict) and isinstance(adjustment.get("passes"), bool):
+            selection_evidence = {
+                "id": f"selection:{summary.id}",
+                "hash": hash_json(adjustment),
+                "passed": adjustment["passes"],
+            }
+        break
+    claim = build_research_claim(
+        statement=args.statement,
+        metric="validation_mean_ic",
+        direction="maximize",
+        minimum_effect=args.minimum_effect,
+        minimum_sample_size=args.minimum_sample_size,
+        holdout_required=args.require_holdout,
+        selection_required=args.require_selection,
+    )
+    run_evidence = {
+        "id": run.result["id"],
+        "hash": run.manifest["resultHash"],
+        "integrity": {
+            "tampered": False,
+            "lookaheadDetected": False,
+            "schemaValid": True,
+            "authorityValid": qualification.get("tradingAuthority") == "none",
+        },
+    }
+    explorer_evidence = {
+        "id": f"factor-diagnostics:{args.run}",
+        "hash": hash_json(diagnostics),
+        "metric": "validation_mean_ic",
+        "primaryValue": diagnostics["summary"]["validation"]["meanRankIc"],
+        "baselineValue": 0.0,
+        "sampleSize": diagnostics["summary"]["validation"]["observations"],
+    }
+    bundle = publish_verification_assessment(
+        project,
+        claim,
+        run_evidence=run_evidence,
+        explorer_evidence=explorer_evidence,
+        holdout_evidence=None,
+        selection_evidence=selection_evidence,
+    )
+    return _verification_result(args, project, bundle)
+
+
+def _verify_list(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    bundles = list_verification_assessments(project)
+    return CommandResult(
+        "verify.list",
+        {"assessments": bundles},
+        "\n".join(
+            [f"AutoQuant VerificationAssessments in {project.manifest.name}:"]
+            + [f"  {item['assessment']['id']}  {item['assessment']['verdict']}  {item['claim']['statement']}" for item in bundles]
+            + ([] if bundles else ["  No VerificationAssessments"])
+        )
+        + "\n",
+        _project_result_context(args, project),
+    )
+
+
+def _verify_show(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    bundle = load_verification_assessment(project, args.assessment)
+    return _verification_result(args, project, bundle)
+
+
 def _session_next_actions(project, session) -> list[dict[str, Any]]:
     actions = [
         next_action(
@@ -4212,7 +4828,10 @@ def _research_run(args: argparse.Namespace) -> CommandResult:
         args.session,
         args.agent_command,
         max_turns=args.max_turns,
+        max_candidates=args.max_candidates,
         max_wall_seconds=args.max_wall_seconds,
+        max_cpu_seconds=args.max_cpu_seconds,
+        max_gpu_seconds=args.max_gpu_seconds,
         turn_timeout_seconds=args.turn_timeout_seconds,
     )
     session = load_session(project, args.session)
@@ -5471,6 +6090,32 @@ def _studio_snapshot(args: argparse.Namespace) -> CommandResult:
     )
 
 
+def _operator_invoke(args: argparse.Namespace) -> CommandResult:
+    project = _selected_project(args)
+    request_path = Path(args.request).expanduser().resolve()
+    try:
+        request = json.loads(request_path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        raise CliCommandError(
+            f"Operator request file does not exist: {request_path}"
+        ) from None
+    except json.JSONDecodeError as error:
+        raise CliCommandError(f"Invalid Operator request JSON: {error.msg}") from None
+    if not isinstance(request, dict):
+        raise CliCommandError("Operator request must be a JSON object")
+    receipt = execute_operator_request(project, request)
+    return CommandResult(
+        "operator.invoke",
+        {"receipt": receipt},
+        (
+            f"Operator receipt: {receipt['requestId']}\n"
+            f"Intent: {receipt['intent']}\n"
+            f"Status: {receipt['status']}\n"
+        ),
+        project_context(project),
+    )
+
+
 def _studio_serve(args: argparse.Namespace) -> CommandResult:
     serve_studio(
         args.path,
@@ -5850,9 +6495,18 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "dossier-result",
             "dossier-status",
             "experiment",
+            "factor-definition",
+            "experiment-definition",
+            "strategy-definition",
+            "operator-request",
+            "operator-receipt",
+            "research-ledger",
+            "artifact-review",
+            "reproduction-request",
             "factor-candidate-contract",
             "factor-diagnostics",
             "factor-claim",
+            "event-package",
             "event-study-policy",
             "event-study-diagnostics",
             "book-path-stress-policy",
@@ -5905,6 +6559,7 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "factor-diagnostics": FACTOR_DIAGNOSTICS_JSON_SCHEMA,
             "factor-candidate-contract": FACTOR_CANDIDATE_CONTRACT_JSON_SCHEMA,
             "factor-claim": FACTOR_CLAIM_JSON_SCHEMA,
+            "event-package": EVENT_PACKAGE_JSON_SCHEMA,
             "event-study-policy": EVENT_STUDY_POLICY_JSON_SCHEMA,
             "event-study-diagnostics": EVENT_STUDY_DIAGNOSTICS_JSON_SCHEMA,
             "book-path-stress-policy": BOOK_PATH_STRESS_POLICY_JSON_SCHEMA,
@@ -5925,6 +6580,14 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
             "factor-population": FACTOR_POPULATION_JSON_SCHEMA,
             "research-horizon": RESEARCH_HORIZON_JSON_SCHEMA,
             "experiment": EXPERIMENT_JSON_SCHEMA,
+            "factor-definition": FACTOR_DEFINITION_JSON_SCHEMA,
+            "experiment-definition": EXPERIMENT_DEFINITION_JSON_SCHEMA,
+            "strategy-definition": STRATEGY_DEFINITION_JSON_SCHEMA,
+            "operator-request": OPERATOR_REQUEST_JSON_SCHEMA,
+            "operator-receipt": OPERATOR_RECEIPT_JSON_SCHEMA,
+            "research-ledger": RESEARCH_LEDGER_JSON_SCHEMA,
+            "artifact-review": ARTIFACT_REVIEW_JSON_SCHEMA,
+            "reproduction-request": REPRODUCTION_REQUEST_JSON_SCHEMA,
             "researcher-response": RESEARCHER_RESPONSE_JSON_SCHEMA,
             "campaign-result": CAMPAIGN_RESULT_JSON_SCHEMA,
             "campaign-progress": CAMPAIGN_PROGRESS_JSON_SCHEMA,
@@ -5991,6 +6654,34 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
         return _run_allocation(args)
     if args.command_id == "run.rl":
         return _run_rl(args)
+    if args.command_id == "job.execute":
+        return _job_execute(args)
+    if args.command_id == "job.list":
+        return _job_list(args)
+    if args.command_id == "job.show":
+        return _job_show(args)
+    if args.command_id == "job.providers":
+        return _job_providers(args)
+    if args.command_id == "model.run":
+        return _model_run(args)
+    if args.command_id == "model.list":
+        return _model_list(args)
+    if args.command_id == "model.show":
+        return _model_show(args)
+    if args.command_id == "event.intake":
+        return _event_intake(args)
+    if args.command_id == "event.list":
+        return _event_list(args)
+    if args.command_id == "event.show":
+        return _event_show(args)
+    if args.command_id == "verify.assess":
+        return _verify_assess(args)
+    if args.command_id == "verify.factor":
+        return _verify_factor(args)
+    if args.command_id == "verify.list":
+        return _verify_list(args)
+    if args.command_id == "verify.show":
+        return _verify_show(args)
     if args.command_id == "session.start":
         return _session_start(args)
     if args.command_id == "session.list":
@@ -6051,6 +6742,8 @@ def dispatch(args: argparse.Namespace) -> CommandResult:
         return _holdout_assess(args)
     if args.command_id == "holdout.show":
         return _holdout_show(args)
+    if args.command_id == "operator.invoke":
+        return _operator_invoke(args)
     if args.command_id == "studio.snapshot":
         return _studio_snapshot(args)
     if args.command_id == "studio.serve":
@@ -6072,6 +6765,7 @@ def _command_id(argv: Sequence[str]) -> str:
         "report",
         "review",
         "dossier",
+        "operator",
         "studio",
     } and len(argv) > 1:
         return f"{argv[0]}.{argv[1]}"
