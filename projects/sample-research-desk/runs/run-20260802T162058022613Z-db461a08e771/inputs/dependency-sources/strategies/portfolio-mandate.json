@@ -1,0 +1,92 @@
+{
+  "authority": "quantitative-decision-support",
+  "construction": {
+    "assetMaxAbsWeights": {
+      "ALPHA": 0.3,
+      "BRAVO": 0.3,
+      "CHARLIE": 0.3,
+      "DELTA": 0.3,
+      "ECHO": 0.3,
+      "FOXTROT": 0.3
+    },
+    "assetPositionRoles": {
+      "ALPHA": "two-sided",
+      "BRAVO": "two-sided",
+      "CHARLIE": "two-sided",
+      "DELTA": "two-sided",
+      "ECHO": "two-sided",
+      "FOXTROT": "two-sided"
+    },
+    "benchmark": {
+      "asset": null,
+      "kind": "equal-weight-long-research-universe",
+      "source": "direction-default",
+      "weights": {
+        "ALPHA": 0.16666666666666666,
+        "BRAVO": 0.16666666666666666,
+        "CHARLIE": 0.16666666666666666,
+        "DELTA": 0.16666666666666666,
+        "ECHO": 0.16666666666666666,
+        "FOXTROT": 0.16666666666666666
+      }
+    },
+    "cashAllowed": true,
+    "family": "dollar-neutral",
+    "grossLimit": 1.0,
+    "longGrossLimit": 0.5,
+    "maxAbsWeight": 0.3,
+    "netRule": "zero",
+    "riskPolicy": {
+      "annualizationPeriods": 252,
+      "annualizedVolatilityCeiling": 0.15,
+      "covarianceWindow": 60,
+      "method": "trailing-covariance-volatility-ceiling-v1",
+      "minimumObservations": 20,
+      "scaleUp": false
+    },
+    "shortAllowed": true,
+    "shortGrossLimit": 0.5
+  },
+  "contextAssets": [],
+  "id": "mandate-678fa6043016024d",
+  "implementationPolicy": {
+    "baseCostBps": 10.0,
+    "capacityModel": "trailing-dollar-volume-participation-v1",
+    "costModel": "linear-traded-notional-v1",
+    "decisionPolicy": {
+      "anchor": "dataset-start",
+      "bars": 1,
+      "kind": "every-bars",
+      "source": "reference-default"
+    },
+    "noTradeOneWay": 0.05,
+    "referenceNav": 1000000.0
+  },
+  "kind": "autoquant-portfolio-mandate",
+  "researchUniverse": [
+    "ALPHA",
+    "BRAVO",
+    "CHARLIE",
+    "DELTA",
+    "ECHO",
+    "FOXTROT"
+  ],
+  "schemaVersion": 1,
+  "source": {
+    "assetPositionRoles": "direction-derived",
+    "benchmarkPolicy": "direction-default",
+    "direction": "research-only",
+    "kind": "template-default",
+    "portfolioPolicy": "reference-default",
+    "requestHash": null
+  },
+  "tradableAssets": [
+    "ALPHA",
+    "BRAVO",
+    "CHARLIE",
+    "DELTA",
+    "ECHO",
+    "FOXTROT"
+  ],
+  "tradingAuthority": "none"
+}

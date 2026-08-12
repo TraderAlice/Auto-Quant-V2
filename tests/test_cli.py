@@ -1192,6 +1192,20 @@ class AgentCliTests(unittest.TestCase):
                 "run.book-path-stress",
                 "run.allocation",
                 "run.rl",
+                "job.execute",
+                "job.list",
+                "job.show",
+                "job.providers",
+                "model.run",
+                "model.list",
+                "model.show",
+                "event.intake",
+                "event.list",
+                "event.show",
+                "verify.assess",
+                "verify.factor",
+                "verify.list",
+                "verify.show",
                 "session.start",
                 "session.list",
                 "session.show",
@@ -1222,6 +1236,7 @@ class AgentCliTests(unittest.TestCase):
                 "holdout.run",
                 "holdout.assess",
                 "holdout.show",
+                "operator.invoke",
                 "studio.snapshot",
                 "studio.serve",
             ],
@@ -1467,6 +1482,7 @@ class AgentCliTests(unittest.TestCase):
                 "factor-candidate-contract",
                 "factor-diagnostics",
                 "factor-claim",
+                "event-package",
                 "event-study-policy",
                 "event-study-diagnostics",
                 "book-path-stress-policy",
@@ -1487,6 +1503,14 @@ class AgentCliTests(unittest.TestCase):
                 "factor-population",
                 "research-horizon",
                 "experiment",
+                "factor-definition",
+                "experiment-definition",
+                "strategy-definition",
+                "operator-request",
+                "operator-receipt",
+                "research-ledger",
+                "artifact-review",
+                "reproduction-request",
                 "researcher-response",
                 "campaign-result",
                 "campaign-progress",
@@ -1891,6 +1915,17 @@ class AgentCliTests(unittest.TestCase):
             context = json_output(inspected)["data"]["datasetContext"]
             self.assertEqual(context["assetClass"], "equity")
             self.assertEqual(context["assetClassSource"], "package-summary")
+            self.assertEqual(
+                context["market"],
+                {
+                    "clock": "session",
+                    "calendar": "XNYS",
+                    "timezone": "America/New_York",
+                },
+            )
+            self.assertEqual(context["baseInterval"], "1d")
+            self.assertEqual(context["venues"], ["US-COMPOSITE"])
+            self.assertEqual(context["currencies"], ["USD"])
             self.assertEqual(
                 context["assetClasses"],
                 {

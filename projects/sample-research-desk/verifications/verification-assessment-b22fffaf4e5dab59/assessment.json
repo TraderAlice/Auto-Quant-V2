@@ -1,0 +1,32 @@
+{
+  "authority": "research-validation-only",
+  "claimHash": "7ce1e8333db1e27c065ff71d58608a8783cd95091c664a89e2c5a412b58bc003",
+  "claimId": "research-claim-152fbe9c75ff3514",
+  "evidenceRefs": [
+    {
+      "id": "run-20260802T180952308716Z-01a1b0a4a0b1",
+      "kind": "run",
+      "sha256": "40ab82a60e847eed5ddbd248f6a1700b7bec3d230596541e30df3cffcefc7f81"
+    },
+    {
+      "id": "factor-diagnostics:run-20260802T180952308716Z-01a1b0a4a0b1",
+      "kind": "explorer",
+      "sha256": "3d6ed6d8e8af137f853f7f17174685fd3a2d94c1630594e8fca2e479df1e156f"
+    }
+  ],
+  "gates": {
+    "holdout": "missing",
+    "primary": "contradict",
+    "selectionPassed": null
+  },
+  "id": "verification-assessment-b22fffaf4e5dab59",
+  "kind": "autoquant-verification-assessment",
+  "limitations": [
+    "holdout-missing",
+    "required-selection-evidence-missing"
+  ],
+  "primaryImprovement": -0.031325301204819286,
+  "schemaVersion": 1,
+  "tradingAuthority": "none",
+  "verdict": "inconclusive"
+}

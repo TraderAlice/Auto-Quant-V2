@@ -1,0 +1,3 @@
+# AutoQuant Project evidence is hashed by exact bytes. Never let Git rewrite
+# line endings inside datasets, source snapshots, or immutable research objects.
+projects/** -text

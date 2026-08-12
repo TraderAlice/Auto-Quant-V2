@@ -11,6 +11,12 @@ __pycache__/
 /dist/
 *.egg-info/
 
+# Next.js Studio workbench
+/studio-web/node_modules/
+/studio-web/.next/
+/studio-web/out/
+/studio-web/.env*.local
+
 # Editor / OS
 .DS_Store
 .vscode/

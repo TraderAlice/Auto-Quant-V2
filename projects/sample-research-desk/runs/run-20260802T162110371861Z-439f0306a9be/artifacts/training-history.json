@@ -1,0 +1,958 @@
+{
+  "histories": {
+    "fold-1": {
+      "11": [
+        {
+          "actionCounts": {
+            "activity": 37,
+            "balanced": 7,
+            "candidate": 12,
+            "intraday": 132,
+            "reversal": 11
+          },
+          "episode": 1,
+          "epsilon": 0.15,
+          "meanReward": 0.0035822284788004813,
+          "totalReward": 0.7128634672812958
+        },
+        {
+          "actionCounts": {
+            "activity": 8,
+            "balanced": 11,
+            "candidate": 4,
+            "intraday": 172,
+            "reversal": 4
+          },
+          "episode": 2,
+          "epsilon": 0.13727272727272727,
+          "meanReward": 0.004210529035850718,
+          "totalReward": 0.837895278134293
+        },
+        {
+          "actionCounts": {
+            "activity": 28,
+            "balanced": 13,
+            "candidate": 6,
+            "intraday": 147,
+            "reversal": 5
+          },
+          "episode": 3,
+          "epsilon": 0.12454545454545454,
+          "meanReward": 0.004288584950532188,
+          "totalReward": 0.8534284051559055
+        },
+        {
+          "actionCounts": {
+            "activity": 49,
+            "balanced": 19,
+            "candidate": 6,
+            "intraday": 119,
+            "reversal": 6
+          },
+          "episode": 4,
+          "epsilon": 0.11181818181818182,
+          "meanReward": 0.004180443060801651,
+          "totalReward": 0.8319081690995285
+        },
+        {
+          "actionCounts": {
+            "activity": 4,
+            "balanced": 72,
+            "candidate": 4,
+            "intraday": 113,
+            "reversal": 6
+          },
+          "episode": 5,
+          "epsilon": 0.09909090909090909,
+          "meanReward": 0.00486834565143203,
+          "totalReward": 0.968800784634974
+        },
+        {
+          "actionCounts": {
+            "activity": 3,
+            "balanced": 75,
+            "candidate": 3,
+            "intraday": 116,
+            "reversal": 2
+          },
+          "episode": 6,
+          "epsilon": 0.08636363636363636,
+          "meanReward": 0.0045478851855908515,
+          "totalReward": 0.9050291519325795
+        },
+        {
+          "actionCounts": {
+            "activity": 10,
+            "balanced": 105,
+            "candidate": 4,
+            "intraday": 78,
+            "reversal": 2
+          },
+          "episode": 7,
+          "epsilon": 0.07363636363636364,
+          "meanReward": 0.004534827709766407,
+          "totalReward": 0.902430714243515
+        },
+        {
+          "actionCounts": {
+            "activity": 5,
+            "balanced": 134,
+            "candidate": 0,
+            "intraday": 59,
+            "reversal": 1
+          },
+          "episode": 8,
+          "epsilon": 0.06090909090909091,
+          "meanReward": 0.004452698101885462,
+          "totalReward": 0.8860869222752068
+        },
+        {
+          "actionCounts": {
+            "activity": 0,
+            "balanced": 130,
+            "candidate": 3,
+            "intraday": 62,
+            "reversal": 4
+          },
+          "episode": 9,
+          "epsilon": 0.04818181818181819,
+          "meanReward": 0.0041887048353996615,
+          "totalReward": 0.8335522622445327
+        },
+        {
+          "actionCounts": {
+            "activity": 24,
+            "balanced": 39,
+            "candidate": 0,
+            "intraday": 130,
+            "reversal": 6
+          },
+          "episode": 10,
+          "epsilon": 0.03545454545454545,
+          "meanReward": 0.00411609100800196,
+          "totalReward": 0.81910211059239
+        },
+        {
+          "actionCounts": {
+            "activity": 1,
+            "balanced": 73,
+            "candidate": 0,
+            "intraday": 124,
+            "reversal": 1
+          },
+          "episode": 11,
+          "epsilon": 0.022727272727272735,
+          "meanReward": 0.004218271405590695,
+          "totalReward": 0.8394360097125483
+        },
+        {
+          "actionCounts": {
+            "activity": 0,
+            "balanced": 92,
+            "candidate": 0,
+            "intraday": 106,
+            "reversal": 1
+          },
+          "episode": 12,
+          "epsilon": 0.010000000000000009,
+          "meanReward": 0.0042116622727227295,
+          "totalReward": 0.8381207922718232
+        }
+      ],
+      "29": [
+        {
+          "actionCounts": {
+            "activity": 4,
+            "balanced": 180,
+            "candidate": 4,
+            "intraday": 8,
+            "reversal": 3
+          },
+          "episode": 1,
+          "epsilon": 0.15,
+          "meanReward": 0.004517755916166865,
+          "totalReward": 0.8990334273172061
+        },
+        {
+          "actionCounts": {
+            "activity": 2,
+            "balanced": 188,
+            "candidate": 2,
+            "intraday": 3,
+            "reversal": 4
+          },
+          "episode": 2,
+          "epsilon": 0.13727272727272727,
+          "meanReward": 0.004640222881895684,
+          "totalReward": 0.9234043534972411
+        },
+        {
+          "actionCounts": {
+            "activity": 5,
+            "balanced": 180,
+            "candidate": 4,
+            "intraday": 4,
+            "reversal": 6
+          },
+          "episode": 3,
+          "epsilon": 0.12454545454545454,
+          "meanReward": 0.004231886344327279,
+          "totalReward": 0.8421453825211286
+        },
+        {
+          "actionCounts": {
+            "activity": 3,
+            "balanced": 181,
+            "candidate": 5,
+            "intraday": 5,
+            "reversal": 5
+          },
+          "episode": 4,
+          "epsilon": 0.11181818181818182,
+          "meanReward": 0.004092197180072745,
+          "totalReward": 0.8143472388344762
+        },
+        {
+          "actionCounts": {
+            "activity": 4,
+            "balanced": 187,
+            "candidate": 2,
+            "intraday": 2,
+            "reversal": 4
+          },
+          "episode": 5,
+          "epsilon": 0.09909090909090909,
+          "meanReward": 0.004794229017632113,
+          "totalReward": 0.9540515745087905
+        },
+        {
+          "actionCounts": {
+            "activity": 5,
+            "balanced": 179,
+            "candidate": 3,
+            "intraday": 7,
+            "reversal": 5
+          },
+          "episode": 6,
+          "epsilon": 0.08636363636363636,
+          "meanReward": 0.005126237806585448,
+          "totalReward": 1.0201213235105042
+        },
+        {
+          "actionCounts": {
+            "activity": 7,
+            "balanced": 166,
+            "candidate": 1,
+            "intraday": 22,
+            "reversal": 3
+          },
+          "episode": 7,
+          "epsilon": 0.07363636363636364,
+          "meanReward": 0.004497293125290527,
+          "totalReward": 0.8949613319328149
+        },
+        {
+          "actionCounts": {
+            "activity": 4,
+            "balanced": 148,
+            "candidate": 2,
+            "intraday": 40,
+            "reversal": 5
+          },
+          "episode": 8,
+          "epsilon": 0.06090909090909091,
+          "meanReward": 0.0045564177651214455,
+          "totalReward": 0.9067271352591676
+        },
+        {
+          "actionCounts": {
+            "activity": 4,
+            "balanced": 146,
+            "candidate": 2,
+            "intraday": 44,
+            "reversal": 3
+          },
+          "episode": 9,
+          "epsilon": 0.04818181818181819,
+          "meanReward": 0.005159444627941525,
+          "totalReward": 1.0267294809603635
+        },
+        {
+          "actionCounts": {
+            "activity": 0,
+            "balanced": 136,
+            "candidate": 0,
+            "intraday": 59,
+            "reversal": 4
+          },
+          "episode": 10,
+          "epsilon": 0.03545454545454545,
+          "meanReward": 0.004824668608725437,
+          "totalReward": 0.960109053136362
+        },
+        {
+          "actionCounts": {
+            "activity": 0,
+            "balanced": 114,
+            "candidate": 0,
+            "intraday": 83,
+            "reversal": 2
+          },
+          "episode": 11,
+          "epsilon": 0.022727272727272735,
+          "meanReward": 0.004807644356305333,
+          "totalReward": 0.9567212269047612
+        },
+        {
+          "actionCounts": {
+            "activity": 1,
+            "balanced": 113,
+            "candidate": 0,
+            "intraday": 85,
+            "reversal": 0
+          },
+          "episode": 12,
+          "epsilon": 0.010000000000000009,
+          "meanReward": 0.004447621790424616,
+          "totalReward": 0.8850767362944987
+        }
+      ],
+      "47": [
+        {
+          "actionCounts": {
+            "activity": 68,
+            "balanced": 110,
+            "candidate": 9,
+            "intraday": 8,
+            "reversal": 4
+          },
+          "episode": 1,
+          "epsilon": 0.15,
+          "meanReward": 0.004132882052274554,
+          "totalReward": 0.8224435284026362
+        },
+        {
+          "actionCounts": {
+            "activity": 85,
+            "balanced": 94,
+            "candidate": 11,
+            "intraday": 6,
+            "reversal": 3
+          },
+          "episode": 2,
+          "epsilon": 0.13727272727272727,
+          "meanReward": 0.004314430765099562,
+          "totalReward": 0.8585717222548128
+        },
+        {
+          "actionCounts": {
+            "activity": 35,
+            "balanced": 152,
+            "candidate": 6,
+            "intraday": 1,
+            "reversal": 5
+          },
+          "episode": 3,
+          "epsilon": 0.12454545454545454,
+          "meanReward": 0.00458069169988257,
+          "totalReward": 0.9115576482766313
+        },
+        {
+          "actionCounts": {
+            "activity": 72,
+            "balanced": 119,
+            "candidate": 2,
+            "intraday": 2,
+            "reversal": 4
+          },
+          "episode": 4,
+          "epsilon": 0.11181818181818182,
+          "meanReward": 0.004422984614278944,
+          "totalReward": 0.8801739382415098
+        },
+        {
+          "actionCounts": {
+            "activity": 92,
+            "balanced": 101,
+            "candidate": 2,
+            "intraday": 3,
+            "reversal": 1
+          },
+          "episode": 5,
+          "epsilon": 0.09909090909090909,
+          "meanReward": 0.00464600392241922,
+          "totalReward": 0.9245547805614248
+        },
+        {
+          "actionCounts": {
+            "activity": 90,
+            "balanced": 94,
+            "candidate": 8,
+            "intraday": 5,
+            "reversal": 2
+          },
+          "episode": 6,
+          "epsilon": 0.08636363636363636,
+          "meanReward": 0.004428820840587197,
+          "totalReward": 0.8813353472768521
+        },
+        {
+          "actionCounts": {
+            "activity": 91,
+            "balanced": 99,
+            "candidate": 3,
+            "intraday": 3,
+            "reversal": 3
+          },
+          "episode": 7,
+          "epsilon": 0.07363636363636364,
+          "meanReward": 0.0045029523843121404,
+          "totalReward": 0.8960875244781159
+        },
+        {
+          "actionCounts": {
+            "activity": 92,
+            "balanced": 98,
+            "candidate": 3,
+            "intraday": 2,
+            "reversal": 4
+          },
+          "episode": 8,
+          "epsilon": 0.06090909090909091,
+          "meanReward": 0.004555330308537394,
+          "totalReward": 0.9065107313989414
+        },
+        {
+          "actionCounts": {
+            "activity": 96,
+            "balanced": 100,
+            "candidate": 0,
+            "intraday": 2,
+            "reversal": 1
+          },
+          "episode": 9,
+          "epsilon": 0.04818181818181819,
+          "meanReward": 0.004638033669668537,
+          "totalReward": 0.9229687002640389
+        },
+        {
+          "actionCounts": {
+            "activity": 95,
+            "balanced": 99,
+            "candidate": 1,
+            "intraday": 3,
+            "reversal": 1
+          },
+          "episode": 10,
+          "epsilon": 0.03545454545454545,
+          "meanReward": 0.004596176110989915,
+          "totalReward": 0.9146390460869931
+        },
+        {
+          "actionCounts": {
+            "activity": 101,
+            "balanced": 97,
+            "candidate": 0,
+            "intraday": 0,
+            "reversal": 1
+          },
+          "episode": 11,
+          "epsilon": 0.022727272727272735,
+          "meanReward": 0.004689770025225791,
+          "totalReward": 0.9332642350199324
+        },
+        {
+          "actionCounts": {
+            "activity": 98,
+            "balanced": 100,
+            "candidate": 0,
+            "intraday": 1,
+            "reversal": 0
+          },
+          "episode": 12,
+          "epsilon": 0.010000000000000009,
+          "meanReward": 0.004731298313080732,
+          "totalReward": 0.9415283643030656
+        }
+      ]
+    },
+    "fold-2": {
+      "11": [
+        {
+          "actionCounts": {
+            "activity": 39,
+            "balanced": 8,
+            "candidate": 13,
+            "intraday": 186,
+            "reversal": 13
+          },
+          "episode": 1,
+          "epsilon": 0.15,
+          "meanReward": 0.003854167441678645,
+          "totalReward": 0.9982293673947691
+        },
+        {
+          "actionCounts": {
+            "activity": 32,
+            "balanced": 20,
+            "candidate": 5,
+            "intraday": 198,
+            "reversal": 4
+          },
+          "episode": 2,
+          "epsilon": 0.13727272727272727,
+          "meanReward": 0.0040386238589053755,
+          "totalReward": 1.0460035794564924
+        },
+        {
+          "actionCounts": {
+            "activity": 34,
+            "balanced": 13,
+            "candidate": 10,
+            "intraday": 194,
+            "reversal": 8
+          },
+          "episode": 3,
+          "epsilon": 0.12454545454545454,
+          "meanReward": 0.004418938709149157,
+          "totalReward": 1.1445051256696317
+        },
+        {
+          "actionCounts": {
+            "activity": 59,
+            "balanced": 13,
+            "candidate": 8,
+            "intraday": 168,
+            "reversal": 11
+          },
+          "episode": 4,
+          "epsilon": 0.11181818181818182,
+          "meanReward": 0.0038903938680540013,
+          "totalReward": 1.0076120118259864
+        },
+        {
+          "actionCounts": {
+            "activity": 82,
+            "balanced": 10,
+            "candidate": 3,
+            "intraday": 163,
+            "reversal": 1
+          },
+          "episode": 5,
+          "epsilon": 0.09909090909090909,
+          "meanReward": 0.004061042956585103,
+          "totalReward": 1.0518101257555417
+        },
+        {
+          "actionCounts": {
+            "activity": 30,
+            "balanced": 81,
+            "candidate": 5,
+            "intraday": 142,
+            "reversal": 1
+          },
+          "episode": 6,
+          "epsilon": 0.08636363636363636,
+          "meanReward": 0.0042567155910667315,
+          "totalReward": 1.1024893380862835
+        },
+        {
+          "actionCounts": {
+            "activity": 23,
+            "balanced": 131,
+            "candidate": 0,
+            "intraday": 102,
+            "reversal": 3
+          },
+          "episode": 7,
+          "epsilon": 0.07363636363636364,
+          "meanReward": 0.004385856766015992,
+          "totalReward": 1.135936902398142
+        },
+        {
+          "actionCounts": {
+            "activity": 15,
+            "balanced": 122,
+            "candidate": 2,
+            "intraday": 113,
+            "reversal": 7
+          },
+          "episode": 8,
+          "epsilon": 0.06090909090909091,
+          "meanReward": 0.00477583414956754,
+          "totalReward": 1.236941044737993
+        },
+        {
+          "actionCounts": {
+            "activity": 21,
+            "balanced": 90,
+            "candidate": 2,
+            "intraday": 145,
+            "reversal": 1
+          },
+          "episode": 9,
+          "epsilon": 0.04818181818181819,
+          "meanReward": 0.004231090828956138,
+          "totalReward": 1.0958525246996398
+        },
+        {
+          "actionCounts": {
+            "activity": 35,
+            "balanced": 45,
+            "candidate": 2,
+            "intraday": 176,
+            "reversal": 1
+          },
+          "episode": 10,
+          "epsilon": 0.03545454545454545,
+          "meanReward": 0.003926922662401725,
+          "totalReward": 1.0170729695620466
+        },
+        {
+          "actionCounts": {
+            "activity": 163,
+            "balanced": 1,
+            "candidate": 2,
+            "intraday": 92,
+            "reversal": 1
+          },
+          "episode": 11,
+          "epsilon": 0.022727272727272735,
+          "meanReward": 0.0045428228973797965,
+          "totalReward": 1.1765911304213672
+        },
+        {
+          "actionCounts": {
+            "activity": 165,
+            "balanced": 0,
+            "candidate": 0,
+            "intraday": 94,
+            "reversal": 0
+          },
+          "episode": 12,
+          "epsilon": 0.010000000000000009,
+          "meanReward": 0.004267142680089729,
+          "totalReward": 1.10518995414324
+        }
+      ],
+      "29": [
+        {
+          "actionCounts": {
+            "activity": 4,
+            "balanced": 235,
+            "candidate": 5,
+            "intraday": 10,
+            "reversal": 5
+          },
+          "episode": 1,
+          "epsilon": 0.15,
+          "meanReward": 0.0044766581428743,
+          "totalReward": 1.1594544590044435
+        },
+        {
+          "actionCounts": {
+            "activity": 3,
+            "balanced": 239,
+            "candidate": 3,
+            "intraday": 6,
+            "reversal": 8
+          },
+          "episode": 2,
+          "epsilon": 0.13727272727272727,
+          "meanReward": 0.004678600676714826,
+          "totalReward": 1.21175757526914
+        },
+        {
+          "actionCounts": {
+            "activity": 4,
+            "balanced": 222,
+            "candidate": 6,
+            "intraday": 20,
+            "reversal": 7
+          },
+          "episode": 3,
+          "epsilon": 0.12454545454545454,
+          "meanReward": 0.004675385704718888,
+          "totalReward": 1.210924897522192
+        },
+        {
+          "actionCounts": {
+            "activity": 7,
+            "balanced": 187,
+            "candidate": 5,
+            "intraday": 55,
+            "reversal": 5
+          },
+          "episode": 4,
+          "epsilon": 0.11181818181818182,
+          "meanReward": 0.004276735204304945,
+          "totalReward": 1.1076744179149807
+        },
+        {
+          "actionCounts": {
+            "activity": 9,
+            "balanced": 161,
+            "candidate": 1,
+            "intraday": 81,
+            "reversal": 7
+          },
+          "episode": 5,
+          "epsilon": 0.09909090909090909,
+          "meanReward": 0.004529678306609218,
+          "totalReward": 1.1731866814117873
+        },
+        {
+          "actionCounts": {
+            "activity": 12,
+            "balanced": 150,
+            "candidate": 5,
+            "intraday": 84,
+            "reversal": 8
+          },
+          "episode": 6,
+          "epsilon": 0.08636363636363636,
+          "meanReward": 0.004395264951369474,
+          "totalReward": 1.1383736224046936
+        },
+        {
+          "actionCounts": {
+            "activity": 14,
+            "balanced": 152,
+            "candidate": 2,
+            "intraday": 86,
+            "reversal": 5
+          },
+          "episode": 7,
+          "epsilon": 0.07363636363636364,
+          "meanReward": 0.004570008580125609,
+          "totalReward": 1.1836322222525328
+        },
+        {
+          "actionCounts": {
+            "activity": 21,
+            "balanced": 132,
+            "candidate": 3,
+            "intraday": 99,
+            "reversal": 4
+          },
+          "episode": 8,
+          "epsilon": 0.06090909090909091,
+          "meanReward": 0.004400659558157272,
+          "totalReward": 1.1397708255627335
+        },
+        {
+          "actionCounts": {
+            "activity": 6,
+            "balanced": 160,
+            "candidate": 2,
+            "intraday": 89,
+            "reversal": 2
+          },
+          "episode": 9,
+          "epsilon": 0.04818181818181819,
+          "meanReward": 0.004018678643526901,
+          "totalReward": 1.0408377686734676
+        },
+        {
+          "actionCounts": {
+            "activity": 32,
+            "balanced": 137,
+            "candidate": 2,
+            "intraday": 86,
+            "reversal": 2
+          },
+          "episode": 10,
+          "epsilon": 0.03545454545454545,
+          "meanReward": 0.0043587743983762054,
+          "totalReward": 1.1289225691794371
+        },
+        {
+          "actionCounts": {
+            "activity": 6,
+            "balanced": 126,
+            "candidate": 0,
+            "intraday": 125,
+            "reversal": 2
+          },
+          "episode": 11,
+          "epsilon": 0.022727272727272735,
+          "meanReward": 0.004565180372016961,
+          "totalReward": 1.1823817163523929
+        },
+        {
+          "actionCounts": {
+            "activity": 1,
+            "balanced": 115,
+            "candidate": 1,
+            "intraday": 142,
+            "reversal": 0
+          },
+          "episode": 12,
+          "epsilon": 0.010000000000000009,
+          "meanReward": 0.004459355695252438,
+          "totalReward": 1.1549731250703814
+        }
+      ],
+      "47": [
+        {
+          "actionCounts": {
+            "activity": 90,
+            "balanced": 139,
+            "candidate": 12,
+            "intraday": 12,
+            "reversal": 6
+          },
+          "episode": 1,
+          "epsilon": 0.15,
+          "meanReward": 0.004425573063001668,
+          "totalReward": 1.146223423317432
+        },
+        {
+          "actionCounts": {
+            "activity": 116,
+            "balanced": 123,
+            "candidate": 11,
+            "intraday": 4,
+            "reversal": 5
+          },
+          "episode": 2,
+          "epsilon": 0.13727272727272727,
+          "meanReward": 0.004657940519363783,
+          "totalReward": 1.2064065945152198
+        },
+        {
+          "actionCounts": {
+            "activity": 123,
+            "balanced": 126,
+            "candidate": 3,
+            "intraday": 1,
+            "reversal": 6
+          },
+          "episode": 3,
+          "epsilon": 0.12454545454545454,
+          "meanReward": 0.004639808571651952,
+          "totalReward": 1.2017104200578554
+        },
+        {
+          "actionCounts": {
+            "activity": 87,
+            "balanced": 157,
+            "candidate": 7,
+            "intraday": 4,
+            "reversal": 4
+          },
+          "episode": 4,
+          "epsilon": 0.11181818181818182,
+          "meanReward": 0.004372606173627123,
+          "totalReward": 1.132504998969425
+        },
+        {
+          "actionCounts": {
+            "activity": 112,
+            "balanced": 127,
+            "candidate": 5,
+            "intraday": 7,
+            "reversal": 8
+          },
+          "episode": 5,
+          "epsilon": 0.09909090909090909,
+          "meanReward": 0.004235473288216745,
+          "totalReward": 1.096987581648137
+        },
+        {
+          "actionCounts": {
+            "activity": 117,
+            "balanced": 123,
+            "candidate": 4,
+            "intraday": 10,
+            "reversal": 5
+          },
+          "episode": 6,
+          "epsilon": 0.08636363636363636,
+          "meanReward": 0.004232182871491199,
+          "totalReward": 1.0961353637162206
+        },
+        {
+          "actionCounts": {
+            "activity": 27,
+            "balanced": 193,
+            "candidate": 1,
+            "intraday": 35,
+            "reversal": 3
+          },
+          "episode": 7,
+          "epsilon": 0.07363636363636364,
+          "meanReward": 0.004311121116059154,
+          "totalReward": 1.1165803690593208
+        },
+        {
+          "actionCounts": {
+            "activity": 4,
+            "balanced": 187,
+            "candidate": 0,
+            "intraday": 65,
+            "reversal": 3
+          },
+          "episode": 8,
+          "epsilon": 0.06090909090909091,
+          "meanReward": 0.004684060257144251,
+          "totalReward": 1.2131716066003608
+        },
+        {
+          "actionCounts": {
+            "activity": 3,
+            "balanced": 142,
+            "candidate": 2,
+            "intraday": 112,
+            "reversal": 0
+          },
+          "episode": 9,
+          "epsilon": 0.04818181818181819,
+          "meanReward": 0.004706757314621065,
+          "totalReward": 1.2190501444868558
+        },
+        {
+          "actionCounts": {
+            "activity": 12,
+            "balanced": 149,
+            "candidate": 0,
+            "intraday": 97,
+            "reversal": 1
+          },
+          "episode": 10,
+          "epsilon": 0.03545454545454545,
+          "meanReward": 0.0039920682094452395,
+          "totalReward": 1.0339456662463171
+        },
+        {
+          "actionCounts": {
+            "activity": 0,
+            "balanced": 126,
+            "candidate": 0,
+            "intraday": 132,
+            "reversal": 1
+          },
+          "episode": 11,
+          "epsilon": 0.022727272727272735,
+          "meanReward": 0.0047703074306266365,
+          "totalReward": 1.2355096245322987
+        },
+        {
+          "actionCounts": {
+            "activity": 0,
+            "balanced": 130,
+            "candidate": 0,
+            "intraday": 129,
+            "reversal": 0
+          },
+          "episode": 12,
+          "epsilon": 0.010000000000000009,
+          "meanReward": 0.004564731180115045,
+          "totalReward": 1.1822653756497967
+        }
+      ]
+    }
+  },
+  "inputHash": "4a541324edf3855f3f91a75412b6ba108b71fd80637d8d401bd441f82c1ddc25",
+  "schemaVersion": 1
+}

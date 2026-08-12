@@ -1,0 +1,17 @@
+{
+  "authority": "research-validation-only",
+  "direction": "maximize",
+  "id": "research-claim-152fbe9c75ff3514",
+  "kind": "autoquant-research-claim",
+  "metric": "validation_mean_ic",
+  "minimumEffect": 0.01,
+  "requirements": {
+    "baselineRequired": true,
+    "holdoutRequired": true,
+    "minimumSampleSize": 30,
+    "selectionRequired": true
+  },
+  "schemaVersion": 1,
+  "statement": "该外部指标在样本外具有稳定的正向 Rank IC。",
+  "tradingAuthority": "none"
+}

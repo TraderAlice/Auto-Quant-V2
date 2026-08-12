@@ -1309,6 +1309,50 @@ completeness but supplies no universal pass threshold. Successful publication
 advances state to `assessed`, after which `holdout show` verifies both result
 and Assessment.
 
+## Operator commands
+
+```text
+aq operator invoke <path> --request FILE [--project ID] [--json]
+```
+
+`operator invoke` validates one provider-neutral V1 request and publishes or
+replays its immutable terminal AgentOperationReceipt. The request must use a
+closed research intent and carry exact object/version references, actor,
+authority, budget, confirmation reference, and expected prior state. It cannot
+carry a shell command, raw provider invocation, credential, or unconstrained
+path. An identical `requestId` retry returns the existing receipt; different
+request bytes using that identity fail closed. Read-only intents inspect the
+ResearchLedger, explain blockers, compare exact definition versions, and
+inspect reproduction readiness. Definition version creation, artifact review,
+and reproduction start use `confirmation-bound` authority. The first request
+publishes a proposal receipt; a separate user `confirmation.accept` operation
+binds that proposal to the exact execution actor and prior state; only then may
+the mutation reference the decision receipt. `campaign.stop` is the immediate
+V1 mutation: it requires `approved-envelope` authority, one exact active
+Campaign reference, and the expected Session state. It writes a validated stop
+request; the Campaign preserves completed Experiments and publishes terminal
+`stopped_by_user` evidence before the receipt becomes successful.
+
+Artifact return-for-revision and retain-as-draft receipts are available.
+Approval remains fail-closed until Core can derive a verified
+`EvidenceAssessment` from immutable evidence. Reproduction requests contain
+only the approval reference; they cannot submit their own environment, hashes,
+metrics, or outcome. The public Core currently records reproduction as
+`unavailable` when its controlled executor is absent and never substitutes
+caller-reported evidence.
+
+Schemas are machine-discoverable through `aq schema operator-request --json`,
+`aq schema operator-receipt --json`, and `aq schema research-ledger --json`.
+Versioned definition and terminal review schemas are available as
+`factor-definition`, `strategy-definition`, `experiment-definition`,
+`artifact-review`, and `reproduction-request`.
+
+`aq research run` accepts `--max-candidates`, `--max-cpu-seconds`, and
+`--max-gpu-seconds` in addition to its existing turn and wall-clock limits.
+Published Campaign budgets remain CPU-first and include fixed stops, sealed
+holdout state, and used/remaining telemetry. Private executor availability and
+monetary cost are never inferred by the CLI.
+
 ## Studio commands
 
 ```bash

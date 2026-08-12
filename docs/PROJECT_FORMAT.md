@@ -900,6 +900,7 @@ sessions/
     ├── campaigns/
     │   └── campaign-<UTC timestamp>-<identity>/
     │       ├── progress.json
+    │       ├── stop-request.json   # only when an authorized stop was requested
     │       ├── turns/turn-0001/
     │       ├── result.json
     │       └── manifest.json
@@ -1126,6 +1127,12 @@ manifest pins every Campaign file; opening a Campaign also verifies every
 referenced Experiment. The full connector and recovery contract is
 [[docs/design/external-researcher-driver]].
 
+New Campaigns publish the legacy turn/wall/timeout limits together with
+candidate, CPU, GPU, executor, cost-telemetry, fixed-stop, sealed-holdout, and
+used/remaining fields. CPU is the default executor. Private GPU/MOSS execution
+is optional; absent executor or unknown spend under a monetary ceiling is a
+truthful terminal blocker, never an invented success or zero-cost result.
+
 While a Campaign is executing, its hidden staging directory contains a strict
 mutable `progress.json` with phase, turn, budget, command hash, completed
 Experiment ids, and verdict counts. It is operational telemetry, never a
@@ -1135,6 +1142,99 @@ Research module validator.
 
 The complete operating and authority contract is
 [[docs/design/research-session-loop]].
+
+## Versioned research definitions and Operator receipts
+
+Factor, experiment-plan, and strategy authority remain distinct. A
+`FactorDefinition` owns a factor hypothesis, calculation/source identity,
+parameters, output direction/unit, exact data and point-in-time dependencies,
+cohort, tests, and failure gates. An `ExperimentDefinition` freezes one exact
+factor or strategy version plus data, subject, outcome/horizon, benchmark,
+cost, split/purge, robustness, holdout, executor, budget, and stop policy. A
+`StrategyDefinition` is not embedded in either object: it owns factor-version
+composition and Portfolio/ML/RL validation, cost, risk, holdout, and artifact
+closure. References always carry the exact object id and version.
+
+Core publishes FactorDefinition versions below the manifest-declared factor
+directory and ExperimentDefinition versions inside their owning Session:
+
+```text
+<project>/<factors>/definitions/<factor-id>/versions/<version>/
+├── definition.json
+└── manifest.json
+
+<project>/<sessions>/<session-id>/experiment-definitions/<plan-id>/versions/<version>/
+├── definition.json
+└── manifest.json
+
+<project>/<strategies>/definitions/<strategy-id>/versions/<version>/
+├── definition.json
+└── manifest.json
+```
+
+The version directory is created in a hidden sibling staging directory,
+`definition.json` is written first, and `manifest.json` is written last before
+atomic publication. The manifest pins the definition SHA-256. Loaders reject
+unknown fields, unsupported schema versions, invalid lineage, escaped or
+symlinked paths, identity mismatch, and changed bytes. Published versions are
+never edited. A change to an approved/frozen version creates a new draft with
+an earlier `parentVersion`; historical Runs keep their original version
+references. Factor validation readiness additionally requires declared
+point-in-time availability and an exact market-clock identity.
+
+Every Agent client and Studio uses one closed Operator request schema. The
+public registry contains read-only inspection/explanation/comparison/readiness,
+versioned definition creation, artifact decision, reproduction start,
+`confirmation.accept`, and immediate Campaign stop; none accepts a shell
+command, provider invocation, credential, or unconstrained path. A request
+carries actor, Workspace/Project/Session identity, exact object versions,
+bounded authority and budget, optional confirmation, and expected prior state.
+Semantic mutations use an independent user confirmation-decision receipt, not
+their own proposal receipt, as authority. Core publishes accepted terminal
+operations here:
+
+```text
+<project>/<sessions>/<session-id>/operator-receipts/<request-id>/
+├── request.json
+├── receipt.json
+└── manifest.json
+```
+
+`manifest.json` pins both request and receipt files. Reusing a request id with
+identical canonical request bytes returns the existing receipt; different
+bytes fail closed. Unknown intents, stale state, unavailable evidence, and
+accepted operation failures still receive terminal receipts. The first
+read-only ledger projection orders Data → Question → Factor → Experiment →
+Campaign → Evidence → Approval → Reproduction. Missing ReplayBundle, market
+clock, or entity mapping is isolated to the owning evidence widget and is
+reported as unavailable; Core and Studio never fill it with demo evidence.
+
+Existing Study, Session, Experiment, Run, and Campaign artifacts are loaded
+through their current strict loaders and projected into the ledger. They are
+not rewritten or migrated into the new directories.
+
+Artifact decisions and reproduction attempts are immutable Session children:
+
+```text
+<project>/<sessions>/<session-id>/artifact-decisions/<decision-id>/
+├── review.json
+├── decision.json
+└── manifest.json
+
+<project>/<sessions>/<session-id>/reproductions/<reproduction-id>/
+├── request.json
+├── receipt.json
+└── manifest.json
+```
+
+The manifest is written last and pins every sibling file. Approval binds the
+exact definition content hash and is disabled until Core can verify a complete
+EvidenceAssessment; return-for-revision and retain-as-draft do not delete or
+rewrite evidence. A reproduction request carries only its own id and one
+approved decision id. Environment, artifact hashes, metrics, and outcome are
+Core-produced receipt fields, never caller assertions. Without a controlled
+executor the truthful outcome is `unavailable`; CPU substitution is not
+inferred.
 
 ## Immutable Research Report
 
@@ -1326,6 +1426,14 @@ aq schema holdout-assessment-analysis --json
 aq schema holdout-assessment --json
 aq schema holdout-status --json
 aq schema experiment --json
+aq schema factor-definition --json
+aq schema experiment-definition --json
+aq schema strategy-definition --json
+aq schema operator-request --json
+aq schema operator-receipt --json
+aq schema research-ledger --json
+aq schema artifact-review --json
+aq schema reproduction-request --json
 aq schema researcher-response --json
 aq schema campaign-result --json
 aq schema campaign-progress --json
@@ -1340,7 +1448,8 @@ aq schema studio-snapshot --json
 The Python validators are authoritative executable behavior in
 `autoquant/workspace.py`, `autoquant/studies.py`, `autoquant/runs.py`,
 `autoquant/sessions.py`, `autoquant/checks.py`, `autoquant/research.py`,
-`autoquant/dossiers.py`, and `autoquant/studio.py`.
+`autoquant/dossiers.py`, `autoquant/research_definitions.py`,
+`autoquant/operator_port.py`, and `autoquant/studio.py`.
 Delegated request/Brief parsing is in `autoquant/briefs.py`; immutable Report
 publication and verification are in `autoquant/reports.py`; Project Dossier
 composition and verification are in `autoquant/dossiers.py`.

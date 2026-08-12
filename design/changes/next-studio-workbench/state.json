@@ -1,0 +1,38 @@
+{
+  "blockers": [],
+  "changeId": "next-studio-workbench",
+  "evidence": [
+    "DESIGN.md",
+    "MOTION.md",
+    "design/changes/next-studio-workbench/qa-connected-desktop.png",
+    "design/changes/next-studio-workbench/qa-demo-replay-desktop.png",
+    "design/changes/next-studio-workbench/qa-demo-replay-mobile.png",
+    "design/changes/next-studio-workbench/qa-demo-replay-tablet.png",
+    "design/changes/next-studio-workbench/qa.md"
+  ],
+  "extensions": {},
+  "foundations": {
+    "design": {
+      "path": "DESIGN.md",
+      "sha256": "966e41398c9b6e0736d2b0318adad0bdb0efcb9a5c3893b47cc9385e7c61d71a",
+      "status": "ready",
+      "validator": "designer-pipeline foundation check --kind design"
+    },
+    "motion": {
+      "path": "MOTION.md",
+      "sha256": "aa65393e00df714613a2e9d39db47dbf990f299bc7b4cefae47ba2b8f5b443db",
+      "status": "ready",
+      "validator": "designer-pipeline foundation check --kind motion"
+    }
+  },
+  "lastEventSeq": 10,
+  "migration": null,
+  "nextActions": [],
+  "phase": "archive",
+  "registryVersion": "design-pipeline.phases.v2",
+  "revision": 10,
+  "sceneRuntime": null,
+  "schema": "design-pipeline.state.v2",
+  "status": "complete",
+  "updatedAt": "2026-08-02T13:45:24.318Z"
+}

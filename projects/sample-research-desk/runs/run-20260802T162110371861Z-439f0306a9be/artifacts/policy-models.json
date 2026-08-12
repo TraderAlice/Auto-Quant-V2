@@ -1,0 +1,940 @@
+{
+  "configuration": {
+    "actions": [
+      "candidate",
+      "activity",
+      "intraday",
+      "reversal",
+      "balanced"
+    ],
+    "contextualRidgeAnchorAction": "balanced",
+    "contextualRidgeIterations": 4,
+    "contextualRidgeLabelScope": "train-only",
+    "contextualRidgeMethod": "iterative-same-pretrade-contextual-ridge-v1",
+    "costBps": 10.0,
+    "decisionSchedule": {
+      "anchor": "dataset-start",
+      "bars": 1,
+      "kind": "every-bars",
+      "source": "reference-default"
+    },
+    "discount": 0.3,
+    "episodes": 12,
+    "epsilonEnd": 0.01,
+    "epsilonStart": 0.15,
+    "executionRiskMethod": "post-drift-executed-book-volatility-compliance-v1",
+    "executionRiskPriority": "risk-compliance-first",
+    "factorExperts": [
+      "candidate",
+      "activity",
+      "intraday",
+      "reversal"
+    ],
+    "factorOpportunityMethod": "actual-pretrade-one-step-governed-action-audit-v1",
+    "featureNames": [
+      "bias",
+      "previous_activity",
+      "previous_intraday",
+      "previous_reversal",
+      "previous_balanced"
+    ],
+    "folds": [
+      "fold-1",
+      "fold-2"
+    ],
+    "incrementalAttributionMethod": "selected-baseline-full-path-active-attribution-v1",
+    "learningContract": {
+      "candidate_configurations": 5,
+      "development_selection_scope": "reference-fixture-outer-train-only-70/30-blocked",
+      "method": "fixed-after-train-only-blocked-stability-audit-v1",
+      "runtime_policy": "harness-fixed-before-study-validation",
+      "selection_order": [
+        "maximize-minimum-seed-advantage-vs-contextual-ridge",
+        "maximize-mean-seed-advantage-vs-contextual-ridge",
+        "minimize-within-fold-seed-dispersion",
+        "minimize-pairwise-action-mismatch"
+      ],
+      "test_role": "visible-diagnostic",
+      "trading_authority": "none",
+      "validation_role": "post-freeze-selection-evidence"
+    },
+    "learningRate": 0.02,
+    "noTradeOneWay": 0.05,
+    "portfolioMandateId": "mandate-678fa6043016024d",
+    "rawStateFields": [
+      "volume_regime",
+      "market_return_5",
+      "market_volatility_20",
+      "candidate_trailing_reward_10",
+      "activity_trailing_reward_10",
+      "intraday_trailing_reward_10",
+      "reversal_trailing_reward_10",
+      "pretrade_gross_exposure",
+      "pretrade_net_exposure",
+      "pretrade_cash_weight",
+      "pretrade_max_abs_weight",
+      "pretrade_concentration_hhi",
+      "candidate_target_distance",
+      "activity_target_distance",
+      "intraday_target_distance",
+      "reversal_target_distance",
+      "balanced_target_distance",
+      "previous_candidate",
+      "previous_activity",
+      "previous_intraday",
+      "previous_reversal",
+      "previous_balanced"
+    ],
+    "referenceNav": 1000000.0,
+    "researchHorizonId": "horizon-c3a43b664e7f6568",
+    "riskAversion": 0.1,
+    "seeds": [
+      11,
+      29,
+      47
+    ]
+  },
+  "featureNames": [
+    "bias",
+    "previous_activity",
+    "previous_intraday",
+    "previous_reversal",
+    "previous_balanced"
+  ],
+  "inputHash": "4a541324edf3855f3f91a75412b6ba108b71fd80637d8d401bd441f82c1ddc25",
+  "models": {
+    "fold-1": {
+      "contextualRidgeBaseline": {
+        "anchorAction": "balanced",
+        "coefficients": [
+          [
+            -6.731702340848715e-05,
+            8.04141487361958e-05,
+            -0.000933125193946265,
+            -0.0005393826259379136,
+            -0.0003063319554475005,
+            -0.0015760875338361167,
+            -0.0005151382921308102,
+            -0.0002664718996003115,
+            -0.00026535518450036653,
+            0.002127821340690854,
+            0.00026535518441499624,
+            4.2257359378832315e-05,
+            -0.00043356347198369966,
+            -0.00035972757501770517,
+            0.0016878341423368286,
+            -0.0008723072194811611,
+            -0.0005215949936309746,
+            -0.0016375187075125316,
+            0.00026011165829596596,
+            0.000761833019177108,
+            -0.0007991382589205723,
+            0.001081976378813644,
+            -2.648243449563962e-05
+          ],
+          [
+            0.004441158014168519,
+            0.0035981116780717023,
+            -0.00029198602412814153,
+            -0.00030796980263545214,
+            0.00025553016775881835,
+            -0.002416092590197334,
+            -0.0011441533584039389,
+            0.0002947608805232189,
+            0.0001455058967231824,
+            0.0005558359908758125,
+            -0.00014550589673349533,
+            -0.0005123109765772896,
+            0.00015876191440275124,
+            0.0006676877806413414,
+            -0.0016852856649414672,
+            -0.00017949776785312554,
+            -2.6291841585860736e-05,
+            0.000787934532013363,
+            -1.2837358186992043e-06,
+            0.0010849201236734867,
+            -0.0017777594303636638,
+            9.477651187302493e-05,
+            0.0009430072770863856
+          ],
+          [
+            0.0045728673112600815,
+            -0.004537532008029814,
+            0.00023007949619468444,
+            -0.0010119002940123874,
+            -0.00035188514905085876,
+            0.0006783856645422188,
+            0.00019209077199997224,
+            -0.00020544283416234693,
+            0.0002459110187125873,
+            0.0002935000747536752,
+            -0.00024591101872730104,
+            -0.0004433718486419371,
+            9.54786163117821e-05,
+            -0.0002719990798880405,
+            -0.0002756176246445037,
+            -0.0005978843734373421,
+            0.00017023946195294522,
+            5.280763074406194e-05,
+            0.00048449625160284463,
+            -0.0007513419763577611,
+            0.0013907220563804813,
+            0.00022384631207374162,
+            -0.000947182515055292
+          ],
+          [
+            -0.002839852836729993,
+            0.00034052840294411513,
+            -0.00011439551459529414,
+            -3.6182338807023066e-05,
+            0.0007871988081061577,
+            -0.0010385845255602062,
+            -0.0009729205149501161,
+            -0.0002356180023639706,
+            -0.00015437133444288223,
+            -0.0010187494005303049,
+            0.00015437133445170935,
+            -0.001412121296387316,
+            0.0012253981063199792,
+            -0.00012212834257807208,
+            0.0007663923320707777,
+            0.002009438218624359,
+            -3.7293399278260984e-05,
+            0.0020398463909879123,
+            -0.0002691736950814744,
+            -0.000436411819106538,
+            -7.50067620500653e-05,
+            0.0011158116958349172,
+            0.00034746100125427704
+          ],
+          [
+            0.004898709566566585,
+            0.0034486656036462732,
+            -0.00030291930361833655,
+            -0.0005030037260133473,
+            0.0001128949579560824,
+            -0.0025134329933821846,
+            -0.0011190738271967368,
+            0.00021820596167576202,
+            3.157557771871424e-05,
+            0.0008141238133953429,
+            -3.157557771697067e-05,
+            -9.123004839110878e-05,
+            3.436139172162119e-05,
+            0.0007461499273382579,
+            -0.0006040246962088598,
+            -0.00038175091835400524,
+            -0.00018867954410670875,
+            -0.0002616663643208198,
+            1.5035079151778633e-05,
+            0.0010883051573080925,
+            -0.0017246136864000605,
+            0.0003323040208877538,
+            0.0008425347654705987
+          ]
+        ],
+        "columns": [
+          "volume_regime",
+          "market_return_5",
+          "market_volatility_20",
+          "candidate_trailing_reward_10",
+          "activity_trailing_reward_10",
+          "intraday_trailing_reward_10",
+          "reversal_trailing_reward_10",
+          "pretrade_gross_exposure",
+          "pretrade_net_exposure",
+          "pretrade_cash_weight",
+          "pretrade_max_abs_weight",
+          "pretrade_concentration_hhi",
+          "candidate_target_distance",
+          "activity_target_distance",
+          "intraday_target_distance",
+          "reversal_target_distance",
+          "balanced_target_distance",
+          "previous_candidate",
+          "previous_activity",
+          "previous_intraday",
+          "previous_reversal",
+          "previous_balanced"
+        ],
+        "history": [
+          {
+            "behaviorActionFrequency": {
+              "activity": 0.0,
+              "balanced": 1.0,
+              "candidate": 0.0,
+              "intraday": 0.0,
+              "reversal": 0.0
+            },
+            "behaviorMeanRealizedRegret": 0.005586748786568378,
+            "behaviorOracleHitRate": 0.11055276381909548,
+            "improvedActionFrequency": {
+              "activity": 0.27638190954773867,
+              "balanced": 0.25125628140703515,
+              "candidate": 0.005025125628140704,
+              "intraday": 0.46733668341708545,
+              "reversal": 0.0
+            },
+            "improvedTrainingNetSharpe": 39.38052795882617,
+            "iteration": 1,
+            "sharedPretradeActionEvaluations": 995,
+            "trainingRows": 199
+          },
+          {
+            "behaviorActionFrequency": {
+              "activity": 0.27638190954773867,
+              "balanced": 0.25125628140703515,
+              "candidate": 0.005025125628140704,
+              "intraday": 0.46733668341708545,
+              "reversal": 0.0
+            },
+            "behaviorMeanRealizedRegret": 7.072074659297692e-05,
+            "behaviorOracleHitRate": 0.7688442211055276,
+            "improvedActionFrequency": {
+              "activity": 0.1658291457286432,
+              "balanced": 0.25125628140703515,
+              "candidate": 0.005025125628140704,
+              "intraday": 0.5728643216080402,
+              "reversal": 0.005025125628140704
+            },
+            "improvedTrainingNetSharpe": 27.390301280099447,
+            "iteration": 2,
+            "sharedPretradeActionEvaluations": 995,
+            "trainingRows": 199
+          },
+          {
+            "behaviorActionFrequency": {
+              "activity": 0.1658291457286432,
+              "balanced": 0.25125628140703515,
+              "candidate": 0.005025125628140704,
+              "intraday": 0.5728643216080402,
+              "reversal": 0.005025125628140704
+            },
+            "behaviorMeanRealizedRegret": 0.0009603043516698161,
+            "behaviorOracleHitRate": 0.6884422110552764,
+            "improvedActionFrequency": {
+              "activity": 0.22110552763819097,
+              "balanced": 0.2914572864321608,
+              "candidate": 0.005025125628140704,
+              "intraday": 0.47738693467336685,
+              "reversal": 0.005025125628140704
+            },
+            "improvedTrainingNetSharpe": 38.863055255955366,
+            "iteration": 3,
+            "sharedPretradeActionEvaluations": 995,
+            "trainingRows": 199
+          },
+          {
+            "behaviorActionFrequency": {
+              "activity": 0.22110552763819097,
+              "balanced": 0.2914572864321608,
+              "candidate": 0.005025125628140704,
+              "intraday": 0.47738693467336685,
+              "reversal": 0.005025125628140704
+            },
+            "behaviorMeanRealizedRegret": 8.958904331344688e-05,
+            "behaviorOracleHitRate": 0.7386934673366834,
+            "improvedActionFrequency": {
+              "activity": 0.20603015075376885,
+              "balanced": 0.31155778894472363,
+              "candidate": 0.005025125628140704,
+              "intraday": 0.4723618090452261,
+              "reversal": 0.005025125628140704
+            },
+            "improvedTrainingNetSharpe": 39.29559469406893,
+            "iteration": 4,
+            "sharedPretradeActionEvaluations": 995,
+            "trainingRows": 199
+          }
+        ],
+        "iterations": 4,
+        "labelScope": "train-only",
+        "mean": {
+          "activity_target_distance": 0.6805560367650032,
+          "activity_trailing_reward_10": 0.005918306206011462,
+          "balanced_target_distance": 0.6714541848573982,
+          "candidate_target_distance": 0.5977465581150975,
+          "candidate_trailing_reward_10": 0.0011201616516749613,
+          "intraday_target_distance": 0.6612438117376277,
+          "intraday_trailing_reward_10": 0.005639462201134673,
+          "market_return_5": 0.00012450926355586588,
+          "market_volatility_20": 0.0010244490463844817,
+          "pretrade_cash_weight": 0.016545989080044,
+          "pretrade_concentration_hhi": 0.2357041879417696,
+          "pretrade_gross_exposure": 0.983454010919956,
+          "pretrade_max_abs_weight": 0.2922267106325772,
+          "pretrade_net_exposure": 0.011540111945169301,
+          "previous_activity": 0.22110552763819097,
+          "previous_balanced": 0.2964824120603015,
+          "previous_candidate": 0.005025125628140704,
+          "previous_intraday": 0.4723618090452261,
+          "previous_reversal": 0.005025125628140704,
+          "reversal_target_distance": 0.9795101810913658,
+          "reversal_trailing_reward_10": -0.0008849563490624241,
+          "volume_regime": -0.12481616165204022
+        },
+        "method": "iterative-same-pretrade-contextual-ridge-v1",
+        "scale": {
+          "activity_target_distance": 0.200933417067506,
+          "activity_trailing_reward_10": 0.005170397724094521,
+          "balanced_target_distance": 0.20110739463054003,
+          "candidate_target_distance": 0.21182644886871946,
+          "candidate_trailing_reward_10": 0.001922565616645973,
+          "intraday_target_distance": 0.20323370922211384,
+          "intraday_trailing_reward_10": 0.0059904343192236755,
+          "market_return_5": 0.001115123124189138,
+          "market_volatility_20": 0.00015300907125163747,
+          "pretrade_cash_weight": 0.0700645422195159,
+          "pretrade_concentration_hhi": 0.023439441829697753,
+          "pretrade_gross_exposure": 0.0700645422195159,
+          "pretrade_max_abs_weight": 0.023682300700141528,
+          "pretrade_net_exposure": 0.00422078702614781,
+          "previous_activity": 0.4149914135087955,
+          "previous_balanced": 0.4567062419096186,
+          "previous_candidate": 0.0707097853239713,
+          "previous_intraday": 0.49923554601084597,
+          "previous_reversal": 0.07070978532397132,
+          "reversal_target_distance": 0.05391946815782026,
+          "reversal_trailing_reward_10": 0.001982328427590801,
+          "volume_regime": 0.5532947158378494
+        }
+      },
+      "seeds": {
+        "11": {
+          "weights": [
+            [
+              0.0003203188354111257,
+              -2.0917446815338895e-06,
+              0.0006475992911508721,
+              -5.394175031441248e-06,
+              -8.470769246650056e-05
+            ],
+            [
+              0.00228036072174156,
+              -4.3492966647336594e-05,
+              0.0019819703812306304,
+              1.6775503554093755e-06,
+              0.00025453056445975887
+            ],
+            [
+              0.004231803538956965,
+              0.0029006034808844645,
+              -0.0018770194494476808,
+              -6.490774460016054e-05,
+              0.0009474827841708027
+            ],
+            [
+              -0.00026963045937529755,
+              2.3159345259829068e-05,
+              -0.00030240320304769863,
+              -0.0002278067856995872,
+              0.00022696994085566835
+            ],
+            [
+              0.0029270057947933486,
+              0.00024243525368431552,
+              0.003045122946928129,
+              9.31765360026451e-06,
+              -0.0007526003534090298
+            ]
+          ]
+        },
+        "29": {
+          "weights": [
+            [
+              0.0006279253101250458,
+              4.992040152334535e-07,
+              0.0003101868459020307,
+              -1.6796939015046089e-06,
+              0.0003288232416786299
+            ],
+            [
+              0.0015082687799529016,
+              0.00012994939148032282,
+              -0.00017571415698387272,
+              6.571087196401963e-06,
+              0.0015513102435344994
+            ],
+            [
+              0.0021036107690208037,
+              -8.560830468147575e-06,
+              -0.0002438941875305414,
+              5.921993019337213e-06,
+              0.002306766153129625
+            ],
+            [
+              -0.00010770300885023787,
+              -7.5513702413249966e-06,
+              0.00019606322149132404,
+              4.177236162187916e-06,
+              -0.00029559019657212065
+            ],
+            [
+              0.004927967819488193,
+              0.00011204425249638793,
+              0.0033943885786446356,
+              0.0011196222015107777,
+              -0.0009071112016633017
+            ]
+          ]
+        },
+        "47": {
+          "weights": [
+            [
+              0.00048638064217332755,
+              -0.0004506348574077072,
+              -1.8996468287885817e-05,
+              0.00021161322069480242,
+              0.000805485569779938
+            ],
+            [
+              0.0039452863423094404,
+              0.00032088997829539606,
+              -4.568211347522284e-06,
+              -1.9085001869622985e-06,
+              0.0033570418169681796
+            ],
+            [
+              0.0017110116344930906,
+              0.0008146582710326767,
+              3.805561039227608e-05,
+              -1.4265645422591044e-06,
+              0.0006018753137936707
+            ],
+            [
+              -0.0005020770593899116,
+              -0.00011053859298857546,
+              -1.0598102529428838e-05,
+              -6.221362487831412e-07,
+              -0.00023265844957264496
+            ],
+            [
+              0.0048091424103341345,
+              0.0025586114180821354,
+              0.0020033856196243907,
+              0.0007678381059458847,
+              -0.0012510939980663943
+            ]
+          ]
+        }
+      }
+    },
+    "fold-2": {
+      "contextualRidgeBaseline": {
+        "anchorAction": "balanced",
+        "coefficients": [
+          [
+            -0.0001854224735023531,
+            -0.0006504073687686858,
+            -0.00097309893055189,
+            -0.00032764073796728014,
+            -0.0005072987805256533,
+            -0.0005413627290755152,
+            0.00011204526436423974,
+            -0.0005776252691771655,
+            0.00010422006317003875,
+            0.0017209584919263188,
+            -0.00010422006305702328,
+            -0.0005856717684584711,
+            4.2683568766056447e-05,
+            -0.00048746113291911686,
+            0.0008589846556215476,
+            -0.000822388252162842,
+            -0.0012427461288135042,
+            -0.0013304090919326983,
+            0.0002880696529019534,
+            0.0008885682822879586,
+            -0.0009057713607615152,
+            0.0007281748558863506,
+            9.120722765894838e-05
+          ],
+          [
+            0.0043999425910387704,
+            0.004097335840346533,
+            -0.00027745183612109994,
+            5.7011152427183316e-05,
+            0.00017440661516320772,
+            -0.0018459823523708531,
+            -0.001067582843064037,
+            0.00026192585314115493,
+            3.871327580972912e-05,
+            0.0004429621586013325,
+            -3.8713275829837934e-05,
+            -0.00023422687537910894,
+            -0.00022065737553197932,
+            0.00046996497920647054,
+            -0.0021331325403883927,
+            -0.00027568864953845976,
+            0.0003368426594352463,
+            0.001446145491816374,
+            -4.154772182989972e-06,
+            0.0010607458949062748,
+            -0.0014716703759421058,
+            8.92757581399329e-05,
+            0.0006868500684035773
+          ],
+          [
+            0.004652810931510098,
+            -0.004520186586506685,
+            -4.720488299030066e-06,
+            -0.0006836310160807095,
+            -0.00045836168057936994,
+            0.0006761869228524484,
+            0.0004900494140010341,
+            -5.549270309918499e-06,
+            0.0003846216681248564,
+            0.00023862500686153232,
+            -0.0003846216681562785,
+            -0.0008288389233201301,
+            0.0004019898212657116,
+            -0.0004985551817713248,
+            -0.0003521695314088664,
+            -0.00026196666920686015,
+            -2.6518218959749138e-05,
+            9.025220190480994e-05,
+            0.00034881765733881903,
+            -0.0005417016629731685,
+            0.0010481406497664242,
+            0.00021199633953662044,
+            -0.0007556960171917113
+          ],
+          [
+            -0.0027694543779641146,
+            0.0011380558715849858,
+            -0.00015547209968491715,
+            0.00022836905632733727,
+            0.0006169414890167136,
+            -0.0013026022812970784,
+            -0.00015657250443039248,
+            -0.00016989051834842084,
+            -0.00014889015796026533,
+            -0.000236068885666709,
+            0.00014889015796943215,
+            -0.0006397411050010647,
+            0.0007767494188128543,
+            8.006931635731434e-05,
+            -2.7014354043211058e-05,
+            0.0021492786285805293,
+            -0.0007855010615164046,
+            0.0026426822479407594,
+            -0.00021717002110116894,
+            -0.00014157733456661632,
+            -5.370859819608944e-05,
+            0.001011558926922502,
+            7.201690098900672e-05
+          ],
+          [
+            0.004872377705244475,
+            0.0037828280338824747,
+            -0.0003864855487920506,
+            1.5526447079744387e-05,
+            6.221347653223801e-05,
+            -0.001775818686179241,
+            -0.0006966410438049119,
+            0.00014128375067758525,
+            -1.1089916561816214e-05,
+            0.0006487623512332742,
+            1.1089916549843891e-05,
+            0.00018416769788432986,
+            -0.00027323484696868905,
+            0.000519717204092659,
+            -0.0013329562997658226,
+            -0.0004881018324684755,
+            -0.00013016092763291765,
+            0.0005353611983122332,
+            2.432937936320235e-05,
+            0.0011344444618537907,
+            -0.00158342447719155,
+            0.00026142799353155976,
+            0.0007186075199089153
+          ]
+        ],
+        "columns": [
+          "volume_regime",
+          "market_return_5",
+          "market_volatility_20",
+          "candidate_trailing_reward_10",
+          "activity_trailing_reward_10",
+          "intraday_trailing_reward_10",
+          "reversal_trailing_reward_10",
+          "pretrade_gross_exposure",
+          "pretrade_net_exposure",
+          "pretrade_cash_weight",
+          "pretrade_max_abs_weight",
+          "pretrade_concentration_hhi",
+          "candidate_target_distance",
+          "activity_target_distance",
+          "intraday_target_distance",
+          "reversal_target_distance",
+          "balanced_target_distance",
+          "previous_candidate",
+          "previous_activity",
+          "previous_intraday",
+          "previous_reversal",
+          "previous_balanced"
+        ],
+        "history": [
+          {
+            "behaviorActionFrequency": {
+              "activity": 0.0,
+              "balanced": 1.0,
+              "candidate": 0.0,
+              "intraday": 0.0,
+              "reversal": 0.0
+            },
+            "behaviorMeanRealizedRegret": 0.005651906219059047,
+            "behaviorOracleHitRate": 0.10424710424710425,
+            "improvedActionFrequency": {
+              "activity": 0.26640926640926643,
+              "balanced": 0.24324324324324326,
+              "candidate": 0.003861003861003861,
+              "intraday": 0.4864864864864865,
+              "reversal": 0.0
+            },
+            "improvedTrainingNetSharpe": 38.66381981034272,
+            "iteration": 1,
+            "sharedPretradeActionEvaluations": 1295,
+            "trainingRows": 259
+          },
+          {
+            "behaviorActionFrequency": {
+              "activity": 0.26640926640926643,
+              "balanced": 0.24324324324324326,
+              "candidate": 0.003861003861003861,
+              "intraday": 0.4864864864864865,
+              "reversal": 0.0
+            },
+            "behaviorMeanRealizedRegret": 6.383394999920988e-05,
+            "behaviorOracleHitRate": 0.7760617760617761,
+            "improvedActionFrequency": {
+              "activity": 0.2084942084942085,
+              "balanced": 0.22007722007722008,
+              "candidate": 0.003861003861003861,
+              "intraday": 0.5675675675675675,
+              "reversal": 0.0
+            },
+            "improvedTrainingNetSharpe": 29.155551597898533,
+            "iteration": 2,
+            "sharedPretradeActionEvaluations": 1295,
+            "trainingRows": 259
+          },
+          {
+            "behaviorActionFrequency": {
+              "activity": 0.2084942084942085,
+              "balanced": 0.22007722007722008,
+              "candidate": 0.003861003861003861,
+              "intraday": 0.5675675675675675,
+              "reversal": 0.0
+            },
+            "behaviorMeanRealizedRegret": 0.0007329883361181224,
+            "behaviorOracleHitRate": 0.7451737451737451,
+            "improvedActionFrequency": {
+              "activity": 0.19305019305019305,
+              "balanced": 0.2972972972972973,
+              "candidate": 0.003861003861003861,
+              "intraday": 0.5019305019305019,
+              "reversal": 0.003861003861003861
+            },
+            "improvedTrainingNetSharpe": 36.51645966606953,
+            "iteration": 3,
+            "sharedPretradeActionEvaluations": 1295,
+            "trainingRows": 259
+          },
+          {
+            "behaviorActionFrequency": {
+              "activity": 0.19305019305019305,
+              "balanced": 0.2972972972972973,
+              "candidate": 0.003861003861003861,
+              "intraday": 0.5019305019305019,
+              "reversal": 0.003861003861003861
+            },
+            "behaviorMeanRealizedRegret": 0.00017588945084698343,
+            "behaviorOracleHitRate": 0.722007722007722,
+            "improvedActionFrequency": {
+              "activity": 0.2277992277992278,
+              "balanced": 0.277992277992278,
+              "candidate": 0.003861003861003861,
+              "intraday": 0.49034749034749037,
+              "reversal": 0.0
+            },
+            "improvedTrainingNetSharpe": 38.70643481852212,
+            "iteration": 4,
+            "sharedPretradeActionEvaluations": 1295,
+            "trainingRows": 259
+          }
+        ],
+        "iterations": 4,
+        "labelScope": "train-only",
+        "mean": {
+          "activity_target_distance": 0.6701012600358357,
+          "activity_trailing_reward_10": 0.0055121541823554,
+          "balanced_target_distance": 0.6629522561389588,
+          "candidate_target_distance": 0.5941690297145064,
+          "candidate_trailing_reward_10": 0.0009806975870123547,
+          "intraday_target_distance": 0.6518225196158678,
+          "intraday_trailing_reward_10": 0.005985240906014793,
+          "market_return_5": 0.00026738870170584097,
+          "market_volatility_20": 0.0010631568723247658,
+          "pretrade_cash_weight": 0.015280399421894166,
+          "pretrade_concentration_hhi": 0.23578977910651408,
+          "pretrade_gross_exposure": 0.9847196005781058,
+          "pretrade_max_abs_weight": 0.29278425275264797,
+          "pretrade_net_exposure": 0.011521219095386151,
+          "previous_activity": 0.1891891891891892,
+          "previous_balanced": 0.30115830115830117,
+          "previous_candidate": 0.003861003861003861,
+          "previous_intraday": 0.5019305019305019,
+          "previous_reversal": 0.003861003861003861,
+          "reversal_target_distance": 0.9798825790824328,
+          "reversal_trailing_reward_10": -0.0007266334134859046,
+          "volume_regime": -0.11648673553740933
+        },
+        "method": "iterative-same-pretrade-contextual-ridge-v1",
+        "scale": {
+          "activity_target_distance": 0.20952161266774927,
+          "activity_trailing_reward_10": 0.00551498942217628,
+          "balanced_target_distance": 0.21003363726308677,
+          "candidate_target_distance": 0.20912043862126556,
+          "candidate_trailing_reward_10": 0.0019222036421585008,
+          "intraday_target_distance": 0.20680464759010447,
+          "intraday_trailing_reward_10": 0.005875000317418618,
+          "market_return_5": 0.001043895097139982,
+          "market_volatility_20": 0.00018196693806453074,
+          "pretrade_cash_weight": 0.061505628359889146,
+          "pretrade_concentration_hhi": 0.02189570171136599,
+          "pretrade_gross_exposure": 0.061505628359889146,
+          "pretrade_max_abs_weight": 0.02115224696374343,
+          "pretrade_net_exposure": 0.004474905997379061,
+          "previous_activity": 0.39165883097809284,
+          "previous_balanced": 0.45876135277696084,
+          "previous_candidate": 0.06201690503555601,
+          "previous_intraday": 0.4999962731484069,
+          "previous_reversal": 0.06201690503555602,
+          "reversal_target_distance": 0.05415436929604388,
+          "reversal_trailing_reward_10": 0.0020295194602924847,
+          "volume_regime": 0.5533115093954659
+        }
+      },
+      "seeds": {
+        "11": {
+          "weights": [
+            [
+              0.0010463074833510352,
+              0.0007794372608847012,
+              0.0005412000022384896,
+              -5.1030707678766756e-06,
+              -1.5757168939294254e-05
+            ],
+            [
+              0.004522695193075357,
+              -0.0003406549730891221,
+              0.002899120033704456,
+              -0.0002893937613779513,
+              0.001377246136960683
+            ],
+            [
+              0.0033673088963451993,
+              0.0011880533757079154,
+              -0.002165464061118532,
+              0.0007811411058926577,
+              0.0022010073738259633
+            ],
+            [
+              0.00014827767285763855,
+              0.0005951753087425995,
+              -0.0008785563045067625,
+              -9.458430650400836e-05,
+              0.00042659404584700856
+            ],
+            [
+              0.00174145993937351,
+              0.0005961220913545729,
+              0.0013443235670123823,
+              -0.0001012247259881399,
+              -3.8814100022214034e-05
+            ]
+          ]
+        },
+        "29": {
+          "weights": [
+            [
+              0.0004854320461816977,
+              -1.7860059940669868e-05,
+              0.0002560165223361404,
+              -1.6796939015046089e-06,
+              0.00027699613045853276
+            ],
+            [
+              0.002614075427832652,
+              -0.0001874981316237924,
+              0.001567947870664371,
+              0.0004375202234000211,
+              0.0007329827587434482
+            ],
+            [
+              0.003671525020284391,
+              0.0017645430345820242,
+              -0.000805128252477538,
+              4.2939632617203905e-05,
+              0.0025667131439122376
+            ],
+            [
+              0.0004241206052837021,
+              0.0001963937303739613,
+              0.00013034050072508732,
+              4.177236162187916e-06,
+              9.801103771276957e-05
+            ],
+            [
+              0.003863557511516505,
+              -0.0006832879148690742,
+              0.003274178334865904,
+              0.001904020294349772,
+              -0.0015222756496480582
+            ]
+          ]
+        },
+        "47": {
+          "weights": [
+            [
+              0.0009735760592157871,
+              0.00030300797384089036,
+              0.0002085861553149849,
+              9.478799556339416e-05,
+              0.0003123016499102382
+            ],
+            [
+              0.0024509645847292194,
+              0.00035679176081828356,
+              0.0007638404432169668,
+              -1.9085001869622985e-06,
+              0.001058409622300573
+            ],
+            [
+              0.0024406883736801106,
+              0.0006177500718601828,
+              -0.00025479750932554416,
+              -1.4265645422591044e-06,
+              0.0023067457645307835
+            ],
+            [
+              -0.0003038753521273157,
+              -1.3342612841302711e-05,
+              -1.0598102529428838e-05,
+              -6.221362487831412e-07,
+              -0.0003154039169196957
+            ],
+            [
+              0.0048346738064635126,
+              -0.0008143126157965374,
+              0.0028325261491396235,
+              0.0014603778537136377,
+              -0.0017603322104621487
+            ]
+          ]
+        }
+      }
+    }
+  },
+  "schemaVersion": 1
+}

@@ -97,6 +97,7 @@ campaigns/
     │       ├── response.json
     │       └── result.json
     ├── progress.json
+    ├── stop-request.json        # only after an authorized immediate stop
     ├── result.json
     └── manifest.json
 ```
@@ -115,7 +116,11 @@ its hash in the Campaign manifest.
 Campaign terminal statuses are:
 
 - `stopped`: the Researcher returned a valid STOP;
+- `stopped_by_user`: an authorized Operator stop was observed between bounded
+  turns; already completed Experiments remain evidence;
 - `budget_exhausted`: every allowed proposal turn completed;
+- `blocked`: required private-executor or cost telemetry evidence was unavailable;
+- `unavailable`: an optional executor was requested but could not be selected truthfully;
 - `failed`: command exit/timeout, malformed response, illegal or unchanged
   source.
 
@@ -140,10 +145,21 @@ V1 requires:
 - `max_turns`: positive integer, capped at 100;
 - `max_wall_seconds`: positive integer, capped at 86400;
 - `turn_timeout_seconds`: positive integer, capped at 3600.
+- `max_candidates`: positive integer, capped at 100 and no greater than
+  `max_turns`;
+- `max_cpu_seconds`: positive integer, capped at 86400;
+- `max_gpu_seconds`: non-negative integer, capped at 86400.
 
 Each command timeout is the smaller of the per-turn limit and remaining
 Campaign wall time. Judge time consumes the aggregate wall budget. Reaching
 `max_turns` after valid turns is `budget_exhausted`, not failure.
+
+The published budget also records CPU-first executor policy, fixed stop
+conditions, a sealed holdout policy, and used/remaining candidate, turn,
+wall-time, CPU, GPU, and cost telemetry. A monetary ceiling is not treated as
+zero spend when telemetry is unavailable: the Campaign terminates `blocked`.
+An unavailable private GPU/MOSS executor is never silently replaced unless an
+explicit equivalence policy permits it.
 
 ## Invariants
 
@@ -160,6 +176,7 @@ Campaign wall time. Judge time consumes the aggregate wall budget. Reaching
 
 - The shell command is not host-sandboxed.
 - There is no streaming progress envelope while a command is running.
-- Token/cost budgets are not standardized.
+- Token budgets are not standardized; monetary ceilings require observable
+  cost telemetry and otherwise fail closed.
 - Campaigns are linear and single-process.
 - Progress polling does not prove the Campaign process remains alive.

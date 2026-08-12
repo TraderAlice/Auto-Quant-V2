@@ -102,6 +102,11 @@ Studio reads it through a strict Research module loader. It never uses progress
 to infer a verdict or completed Campaign. On terminal publication the final
 progress file becomes manifest-pinned Campaign evidence.
 
+An authorized `campaign.stop` request is a strict, confined
+`stop-request.json`, not chat text or a shell signal. The Campaign observes it
+between bounded turns, preserves completed Experiment references, and includes
+the request in its terminal manifest before the Operator receipt succeeds.
+
 A stale hidden staging directory may represent an interrupted process. V1
 shows its last update rather than claiming liveness.
 
@@ -137,6 +142,15 @@ Workspace → Project → Study → Run context and provides section navigation
 through the long evidence surface. It supports keyboard focus, narrow screens,
 reduced motion, empty Projects, invalid evidence diagnostics, manual refresh,
 and bounded automatic refresh.
+
+The connected Next Studio also provides two program-level management views.
+Factor Research projects the fixed Factor Study, data and source identities,
+cohorts, qualification evidence, immutable Reports, and mutable
+Session/Campaign progress. Strategy Research projects the declared
+Factor-to-Portfolio dependencies, Portfolio and optional governed-RL lanes,
+supervised-model runtime, external holdout, Dossier, artifacts, progression
+gates, and exact Core-recommended action. These views organize the existing
+snapshot; they do not create a parallel evaluator or infer missing state.
 
 Before a delegated Session exists, the first viewport prioritizes mandate,
 requested assets versus research universe, dataset authority, immutable
