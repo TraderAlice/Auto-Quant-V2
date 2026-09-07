@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "template": "auto-quant-v2",
+  "repository": "https://github.com/TraderAlice/Auto-Quant-V2.git",
+  "version": "v0.9.34",
+  "commit": "52d63148d826e6c35d48c3167d95a4cc7a4eb6c4"
+}
