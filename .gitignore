@@ -16,3 +16,8 @@ __pycache__/
 .vscode/
 .idea/
 *.swp
+
+# Lokale Sitzungs- und Harness-Zustände (nicht versionieren)
+.alice/sessions/
+.alice/settings.json
+.codex/
