@@ -1,2 +1,3 @@
-# Immutable Run evidence is hashed byte-for-byte; keep LF on every checkout
-projects/*/runs/** text eol=lf
+# Immutable Run evidence is hashed byte-for-byte. Disable EOL conversion and
+# text filters for Run folders so committed and checked-out bytes stay identical.
+projects/*/runs/** -text

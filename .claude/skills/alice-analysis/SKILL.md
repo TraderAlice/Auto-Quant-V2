@@ -31,8 +31,8 @@ alice analysis quant --script $'s = bars("alpaca-paper|AAPL", "1d", count=250)\n
 
 ## Choosing a source
 
-`search-bars` federates broker bars and vendor bars (freshest-first). Pick in
-this order:
+`search-bars` federates broker bars and vendor bars (freshest-first). For a
+hosted **live-chart observation** of a position or symbol, pick in this order:
 
 1. **A broker you actually trade** (`barCapability: "realtime"`) — freshest, and
    the chart matches your fills. Always prefer this when it's in the results.
@@ -42,6 +42,11 @@ this order:
    check) or to chart a live position when a broker source is available.
 
 Vendor barIds (`yfinance|…`, `fmp|…`) need `asset=`; broker barIds infer it.
+
+For AutoQuant Project research (historical price data with a required history,
+adjustment, or alignment contract), this ordering does not apply. Select the source
+by the task's authority, freshness, history, and observed quality, and follow the
+acquisition, packaging, and intake workflow in `AGENTS.md`.
 Keyless exchange data sources such as `binance-readonly` are opt-in in
 Trading settings, so do not assume they exist before `search-bars` returns them.
 

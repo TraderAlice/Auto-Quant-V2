@@ -86,11 +86,7 @@ as `--when`:
 alice-workspace issue create --title "Pre-market brief" --priority high \
   --when '{"kind":"cron","cron":"30 8 * * 1-5","timezone":"America/New_York"}' \
   --assignee @me \
-  --what "Pull pre-market movers and overnight news for my watchlist, write a short brief to research/premarket.md, then run: alice-workspace inbox push --doc research/premarket.md --comments 'Pre-market brief'." \
-  --agent codex \
-  --credential openai-primary \
-  --model gpt-5.6 \
-  --effort high
+  --what "Pull pre-market movers and overnight news for my watchlist, write a short brief to research/premarket.md, then run: alice-workspace inbox push --doc research/premarket.md --comments 'Pre-market brief'."
 ```
 
 The verb set is `list` / `show` / `create` / `update` / `comment` (no `delete` —
